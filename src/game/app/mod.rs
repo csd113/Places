@@ -2087,20 +2087,9 @@ impl FrameLoop<'_> {
     fn handle_scripted_action(&mut self, received: actions::Received) -> bool {
         self.trace_scripted_action(&received);
         self.apply_item_script_action(&received.action);
+        self.apply_scripted_caustics(&received.action);
         match received.action {
-            actions::Action::Load { level } => {
-                if let Some(index) = self
-                    .level_manager
-                    .entries()
-                    .iter()
-                    .position(|entry| entry.id == level)
-                {
-                    self.load_level_at(index);
-                } else {
-                    self.fatal_error = Some(format!("Script requested unknown level {level}"));
-                    self.game.stop();
-                }
-            }
+            actions::Action::Load { level } => self.scripted_load_level(&level),
             actions::Action::Escape {} => {
                 self.scripted_key("Escape", true);
                 self.scripted_key("Escape", false);
@@ -2128,6 +2117,18 @@ impl FrameLoop<'_> {
                 id: _,
                 linear: _,
                 angular: _,
+            }
+            | actions::Action::CausticsSource {
+                id: _,
+                on: _,
+                intensity: _,
+                color: _,
+            }
+            | actions::Action::CausticsWater {
+                index: _,
+                tint: _,
+                speed: _,
+                strength: _,
             }
             | actions::Action::Fixture { id: _, on: _ }
             | actions::Action::AimItem { id: _ }
@@ -2175,6 +2176,52 @@ impl FrameLoop<'_> {
         }
         self.trace_world("action_result");
         self.game.is_running()
+    }
+
+    fn scripted_load_level(&mut self, level: &str) {
+        if let Some(index) = self
+            .level_manager
+            .entries()
+            .iter()
+            .position(|entry| entry.id == level)
+        {
+            self.load_level_at(index);
+        } else {
+            self.fatal_error = Some(format!("Script requested unknown level {level}"));
+            self.game.stop();
+        }
+    }
+
+    fn apply_scripted_caustics(&mut self, action: &actions::Action) {
+        let failure = if let actions::Action::CausticsSource {
+            id,
+            on,
+            intensity,
+            color,
+        } = action
+        {
+            (!self
+                .renderer
+                .set_caustics_source(id, *on, *intensity, *color))
+            .then(|| format!("Native caustics source refused for `{id}`"))
+        } else if let actions::Action::CausticsWater {
+            index,
+            tint,
+            speed,
+            strength,
+        } = action
+        {
+            (!self
+                .renderer
+                .set_caustics_water(*index, *tint, *speed, *strength))
+            .then(|| format!("Native caustics water refused for index {index}"))
+        } else {
+            None
+        };
+        if let Some(error) = failure {
+            self.fatal_error = Some(error);
+            self.game.stop();
+        }
     }
 
     fn scripted_focus(&mut self, focused: bool) -> bool {
@@ -3057,6 +3104,7 @@ impl FrameLoop<'_> {
             "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
         });
         if let Some(fields) = state.as_object_mut() {
+            drop(fields.insert("caustics".into(), self.renderer.caustics_diagnostics()));
             drop(fields.insert(
                 "window_native_focus".into(),
                 self.window.has_input_focus().into(),

@@ -26,7 +26,7 @@
   "global_illuminators": [
     {
       "id": "aero_sun",
-      "kind": "directional",
+      "kind": "sun",
       "direction": [
         -0.5,
         -0.7071067811865476,

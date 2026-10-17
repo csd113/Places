@@ -82,6 +82,7 @@ struct DynamicObjectGpu {
     emission_scale: f32,
     uv_reactive: bool,
     uv_receiver: BlacklightReceiverCache,
+    caustics_receiver: super::caustics::CausticsReceiverCache,
 }
 
 /// What one dynamic upload or frame did, as plain counters.
@@ -319,6 +320,7 @@ impl WgpuDynamic {
                     .iter()
                     .any(|submesh| submesh.response.fluorescence.strength > 0.0),
                 uv_receiver: BlacklightReceiverCache::default(),
+                caustics_receiver: super::caustics::CausticsReceiverCache::default(),
             });
         }
         value.finish_stats(scene);
@@ -450,6 +452,10 @@ impl WgpuDynamic {
         scene: &DynamicScene,
         environment: &EnvironmentUniform,
         visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        caustics: Option<(
+            &super::caustics::Caustics,
+            &crate::engine::render::common::dynamic_visibility::DynamicVisibility,
+        )>,
     ) {
         for (slot, object) in self.objects.iter_mut().enumerate() {
             let Some(live) = scene.objects().get(slot) else {
@@ -470,6 +476,15 @@ impl WgpuDynamic {
                 transform,
                 Some(live.id()),
             );
+            if let Some((sources, moving_visibility)) = caustics {
+                uniform.caustics_receiver = object.caustics_receiver.sample(
+                    sources,
+                    live.mesh().bounds,
+                    transform,
+                    Some(live.id()),
+                    moving_visibility,
+                );
+            }
             let _update_stats = object.environment.update(queue, &uniform);
             object.world_bounds = crate::engine::render::common::props::transform_bounds(
                 &live.mesh().bounds,

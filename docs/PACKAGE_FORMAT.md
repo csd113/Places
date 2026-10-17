@@ -247,7 +247,7 @@ record.
 ### 4.1 Geometry — `blobs/<sha>.mesh`
 
 ```text
-magic "PLMW" | version u16 = 2
+magic "PLMW" | version u16 = 3
 range_count u32
 batches 6 x i32    floor, ceiling, wall, light, prop-fallback, decal (indices)
 vertex_count u32   declared total
@@ -258,12 +258,12 @@ ranges range_count x {
   shine u8         0 = none; 1..=101 = whole-percent override (value - 1)
   bounds_min f32 x 3
   bounds_max f32 x 3
-  vertices u32 count, then 69-byte vertices
+  vertices u32 count, then 81-byte vertices
   indices u32 count, then u16 indices
 }
-vertex (69 bytes):
+vertex (81 bytes):
   pos f32 x 3 | color f32 x 4 | uv f32 x 2 | normal f32 x 3 | tangent f32 x 3
-  | handedness f32 | lightmap u16 x 2 | lightmap_page u8
+  | handedness f32 | lightmap u16 x 2 | lightmap_page u8 | caustics_albedo f32 x 3
 ```
 
 **Version history.** Version 1 wrote the range's `material` as a `u16`;
@@ -273,6 +273,14 @@ and a level may declare far more materials than a `u16` names
 `material` field would be misread as the first half of a 32-bit index — so
 packages built by the previous compiler must be rebuilt. A non-sentinel
 material above the level budget is refused too.
+
+Version 3 appends `caustics_albedo`, the linear material/vertex factor captured
+before baked lighting. It keeps source-coloured focused water light independent
+of the ordinary vertex-colour lighting in the Static variant. Model vertex
+pigment, per-prop tint, surface tint and face shade remain part of this neutral
+factor. Version 2 remains readable with an explicit white neutral factor;
+its pre-lit colour cannot recover the original factor. Rebuilding a water map
+records the exact factor; the fallback never guesses it from baked RGB.
 
 `lightmap_page = 0xFF` marks a vertex that takes the vertex-colour path.
 `normal = (0,0,0)` is the smooth-normal sentinel; the compiler resolves it
@@ -287,7 +295,7 @@ player attaches the decoded images from the same catalog model the manifest
 identifies by hash. One copy of model artwork stays on disk.
 
 ```text
-magic "PLMP" | version u16 = 8 | batch_count u32
+magic "PLMP" | version u16 = 9 | batch_count u32
 batch {
   model u32 length + UTF-8
   casts_static_lighting u8 (strict 0 or 1)
@@ -307,8 +315,8 @@ batch {
 }
 frame (28 bytes): normal f32 x 3 | tangent f32 x 3 | handedness f32
 vertex_storage:
-  mode 0: literal 69-byte neutral vertex from section 4.1
-  mode 1: pos/color/UV prefix (36 bytes) | lightmap/page tail (5 bytes) | frame u16
+  mode 0: literal 81-byte neutral vertex from section 4.1
+  mode 1: pos/color/UV prefix (36 bytes) | lightmap/page/caustics tail (17 bytes) | frame u16
   mode 2: the same prefix and tail | frame u32
 ```
 
@@ -318,6 +326,15 @@ prop controllers use the fixture count plus the prop ordinal. Controlled
 instances retain separate luminous material uniforms while sharing source models,
 PNGs and ordinary material allocations. Versions 3–7 remain readable with no
 controller identity.
+
+Version 9 appends the same 12-byte neutral `caustics_albedo` factor as PLMW3.
+The literal width is 81 bytes, and palette vertices retain 53 literal bytes
+plus their frame reference. Exact vertex interning includes this factor, so
+vertices with equal baked light but different pigment remain distinct.
+Versions 3–8 retain their historical 69-byte literals and 41-byte palette
+payloads and decode with an explicit white neutral factor. New records charge
+81 bytes per retained vertex to the expanded literal budget; old records keep
+their historical charge. No package-major change is required.
 
 Version 6 shares only identical complete 69-byte vertices within their own
 batch, keeping first-occurrence order and remapping every ordered triangle
@@ -367,8 +384,8 @@ The mask names an ordinary model image and is reattached after dependency
 verification; its numeric upload is independent of display-color uploads.
 Pigment tint does not include baked vertex lighting. The response is evaluated
 from current enabled ultraviolet fixtures and visibility after loading; it
-adds no incident irradiance or emission-only bloom energy. Neutral PLMW
-geometry vertices and their 69-byte record layout are unchanged. GPU-only
+adds no incident irradiance or emission-only bloom energy. At version 7,
+neutral PLMW geometry vertices retained their 69-byte record layout. GPU-only
 visibility values are derived at upload, not written into PLMW or PLMP.
 
 ### 4.3 Baked lighting — `blobs/<sha>.lighting`
@@ -377,14 +394,20 @@ The complete `LevelLighting` bake: rooms, baselines, powered zones, resolved
 lights, opening blends, room-to-light candidate lists, fixture-to-light
 mapping, the sampling-tap count and the built static visibility set (wall,
 ceiling/floor and prop occluders plus each query site's reachable-solid pool).
-The compiled lighting record is version 3; version 2 remains readable with
-zero sky radiance. Immediately after the local-light list it stores a `u8` global count (maximum eight), then each active/baked
+The compiled lighting record is version 4; versions 2 and 3 remain readable,
+with caustics eligibility defaulting to false for every legacy source. Version 2
+also defaults to zero sky radiance. Version 4 appends a `bool8` caustics flag
+immediately after each local source's enabled flag. Immediately after the local-light list it stores a `u8` global count (maximum eight), then each active/baked
 directional source: normalized incoming XYZ and RGB (`f32` triples), intensity
-(`f32`), shadow flag (`bool8`), and angular radius in radians (`f32`). Version 3
+(`f32`), shadow flag (`bool8`), angular radius in radians (`f32`), and in version 4
+the resolved caustics flag (`bool8`). Version 3
 then stores three finite, nonnegative sky-radiance floats. The reader validates finite unit directions and bounded energy/angle. Atlas layout version
 13 and transport revision 18 invalidate earlier prepared lighting identities.
 Revision 16 uses one strictly validated, deterministically chosen probe lattice
 for both prepared targets and solve positions; the source map remains format 3.
+The lighting-record version participates in both compiler dependency identities,
+so rebuilding invalidates old prepared lighting. Per-water caustics controls stay
+in `semantics.json`; the swimming/collision water record is unchanged.
 The player keeps this record resident because runtime entity lighting and
 fixture switches read it:
 

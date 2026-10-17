@@ -365,6 +365,7 @@ impl DynamicMesh {
                 pos: vertex.pos,
                 normal: vertex.normal.unwrap_or([0.0; 3]),
                 color: vertex.color,
+                caustics_albedo: [vertex.color[0], vertex.color[1], vertex.color[2]],
                 uv: vertex.uv,
                 // A dynamic vertex is never lightmapped: the atlas channel is
                 // unused and the probe uniform carries the light instead.

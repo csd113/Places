@@ -29,7 +29,7 @@ def build_level():
                  defaults=dict(wall=WHITE, floor=FLOOR, ceiling=WHITE),
                  sky=dict(texture='frutiger_aero:tex_sky_day_01', brightness=1,
                           ambient=.32, ambient_color=[.58, .75, 1]),
-                 global_illuminators=[dict(id='aero_sun', kind='directional',
+                 global_illuminators=[dict(id='aero_sun', kind='sun',
                      direction=[-.5, -math.sqrt(.5), .5], color=[1, .94, .82],
                      intensity=.9, angular_size_degrees=.8, cast_shadows=True, enabled=True, bake=True)],
                  environment=dict(presentation=dict(exposure=1, tone_knee=.8, saturation=1.04, contrast=1.02),

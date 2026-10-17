@@ -50,6 +50,20 @@ pub enum Action {
         id: String,
         on: bool,
     },
+    /// Adjusts one installed source's focused-water contribution.
+    CausticsSource {
+        id: String,
+        on: Option<bool>,
+        intensity: Option<f32>,
+        color: Option<[f32; 3]>,
+    },
+    /// Adjusts one installed water volume without rebuilding its geometry.
+    CausticsWater {
+        index: usize,
+        tint: Option<[f32; 3]>,
+        speed: Option<f32>,
+        strength: Option<f32>,
+    },
     AimItem {
         id: String,
     },
@@ -101,6 +115,7 @@ struct Step {
 }
 
 fn validate_pose_action(action: &Action) -> Result<(), String> {
+    validate_caustics_action(action)?;
     if let Action::AimEntity {
         id,
         yaw_offset_degrees,
@@ -175,6 +190,50 @@ fn validate_pose_action(action: &Action) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_caustics_action(action: &Action) -> Result<(), String> {
+    let (color, intensity, speed, maximum) = if let Action::CausticsSource {
+        id,
+        on,
+        intensity,
+        color,
+    } = action
+    {
+        if id.is_empty()
+            || id.len() > 256
+            || (on.is_none() && intensity.is_none() && color.is_none())
+        {
+            return Err("Native caustics source requires a bounded id and a change".to_string());
+        }
+        (color.as_ref(), *intensity, None, 8.0)
+    } else if let Action::CausticsWater {
+        index,
+        tint,
+        speed,
+        strength,
+    } = action
+    {
+        if *index >= 8000 || (tint.is_none() && speed.is_none() && strength.is_none()) {
+            return Err("Native caustics water requires a bounded index and a change".to_string());
+        }
+        (tint.as_ref(), *strength, *speed, 1.0)
+    } else {
+        return Ok(());
+    };
+    if color.is_some_and(|channels| {
+        channels
+            .iter()
+            .any(|value| !value.is_finite() || !(0.0..=1.0).contains(value))
+    }) || intensity.is_some_and(|value| !value.is_finite() || !(0.0..=maximum).contains(&value))
+        || speed.is_some_and(|value| !value.is_finite() || !(0.0..=8.0).contains(&value))
+    {
+        return Err(
+            "Native caustics requires colour/strength in 0..1 and intensity/speed in 0..8"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
 fn valid_anchor(anchor: &str) -> bool {
     anchor == "start"
         || ["request:", "upload:", "ready:", "failed:"]
@@ -196,94 +255,109 @@ fn parse(bytes: &[u8]) -> Result<Vec<Step>, String> {
             return Err("Invalid action anchor or delay (maximum 60000 ms)".to_string());
         }
         validate_pose_action(&step.action)?;
-        match &step.action {
-            Action::Load { level } if level.is_empty() || level.len() > 256 => {
-                return Err("Invalid requested level id".to_string());
-            }
-            Action::Resize { width, height }
-                if !(64..=8192).contains(width) || !(64..=8192).contains(height) =>
-            {
-                return Err("Native test window dimensions must be 64..8192".to_string());
-            }
-            Action::Quality { level }
-                if crate::engine::quality::QualityLevel::parse(level).is_none() =>
-            {
-                return Err("Invalid quality".to_string());
-            }
-            Action::Lightmaps { quality }
-                if crate::engine::quality::LightmapQuality::parse(quality).is_none() =>
-            {
-                return Err("Invalid lightmap quality".to_string());
-            }
-            Action::Key { key, pressed: _ }
-                if sdl3::keyboard::Keycode::from_name(key).is_none() =>
-            {
-                return Err("Unknown SDL key name".to_string());
-            }
-            Action::Text { text, submit: _ } if text.len() > 256 || !text.is_ascii() => {
-                return Err("Native text input must be at most 256 ASCII bytes".to_string());
-            }
-            Action::Mouse {
-                button,
-                pressed: _,
-                recapture: _,
-            } if button != "left" => {
-                return Err("Native item mouse action supports the left button".to_string());
-            }
-            Action::Capture { name }
-                if name.is_empty()
-                    || name.len() > 64
-                    || !name
-                        .chars()
-                        .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-')) =>
-            {
-                return Err("Capture name must be a short filename stem".to_string());
-            }
-            Action::ConsoleEnabled { enabled: _ }
-            | Action::Key { key: _, pressed: _ }
-            | Action::Text { text: _, submit: _ }
-            | Action::Player {
-                position: _,
-                yaw: _,
-                pitch: _,
-            }
-            | Action::ItemPose {
-                id: _,
-                position: _,
-                rotation: _,
-            }
-            | Action::ItemVelocity {
-                id: _,
-                linear: _,
-                angular: _,
-            }
-            | Action::Fixture { id: _, on: _ }
-            | Action::AimItem { id: _ }
-            | Action::AimEntity {
-                id: _,
-                yaw_offset_degrees: _,
-            }
-            | Action::Activate { id: _ }
-            | Action::Mouse {
-                button: _,
-                pressed: _,
-                recapture: _,
-            }
-            | Action::Capture { name: _ }
-            | Action::Load { level: _ }
-            | Action::Escape {}
-            | Action::Resize {
-                width: _,
-                height: _,
-            }
-            | Action::Quit {}
-            | Action::Quality { level: _ }
-            | Action::Lightmaps { quality: _ }
-            | Action::LowLighting { enabled: _ }
-            | Action::Focus { focused: _ } => {}
-        }
+        validate_action(&step.action)?;
     }
     Ok(steps)
+}
+
+fn validate_action(action: &Action) -> Result<(), String> {
+    match action {
+        Action::Load { level } if level.is_empty() || level.len() > 256 => {
+            return Err("Invalid requested level id".to_string());
+        }
+        Action::Resize { width, height }
+            if !(64..=8192).contains(width) || !(64..=8192).contains(height) =>
+        {
+            return Err("Native test window dimensions must be 64..8192".to_string());
+        }
+        Action::Quality { level }
+            if crate::engine::quality::QualityLevel::parse(level).is_none() =>
+        {
+            return Err("Invalid quality".to_string());
+        }
+        Action::Lightmaps { quality }
+            if crate::engine::quality::LightmapQuality::parse(quality).is_none() =>
+        {
+            return Err("Invalid lightmap quality".to_string());
+        }
+        Action::Key { key, pressed: _ } if sdl3::keyboard::Keycode::from_name(key).is_none() => {
+            return Err("Unknown SDL key name".to_string());
+        }
+        Action::Text { text, submit: _ } if text.len() > 256 || !text.is_ascii() => {
+            return Err("Native text input must be at most 256 ASCII bytes".to_string());
+        }
+        Action::Mouse {
+            button,
+            pressed: _,
+            recapture: _,
+        } if button != "left" => {
+            return Err("Native item mouse action supports the left button".to_string());
+        }
+        Action::Capture { name }
+            if name.is_empty()
+                || name.len() > 64
+                || !name
+                    .chars()
+                    .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-')) =>
+        {
+            return Err("Capture name must be a short filename stem".to_string());
+        }
+        Action::ConsoleEnabled { enabled: _ }
+        | Action::Key { key: _, pressed: _ }
+        | Action::Text { text: _, submit: _ }
+        | Action::Player {
+            position: _,
+            yaw: _,
+            pitch: _,
+        }
+        | Action::ItemPose {
+            id: _,
+            position: _,
+            rotation: _,
+        }
+        | Action::ItemVelocity {
+            id: _,
+            linear: _,
+            angular: _,
+        }
+        | Action::Fixture { id: _, on: _ }
+        | Action::CausticsSource {
+            id: _,
+            on: _,
+            intensity: _,
+            color: _,
+        }
+        | Action::CausticsWater {
+            index: _,
+            tint: _,
+            speed: _,
+            strength: _,
+        }
+        | Action::AimItem { id: _ }
+        | Action::AimEntity {
+            id: _,
+            yaw_offset_degrees: _,
+        }
+        | Action::Activate { id: _ }
+        | Action::Mouse {
+            button: _,
+            pressed: _,
+            recapture: _,
+        }
+        | Action::Capture { name: _ }
+        | Action::Load { level: _ }
+        | Action::Escape {}
+        | Action::Resize {
+            width: _,
+            height: _,
+        }
+        | Action::Quit {}
+        | Action::Quality { level: _ }
+        | Action::Lightmaps { quality: _ }
+        | Action::LowLighting { enabled: _ }
+        | Action::Focus { focused: _ } => {}
+    }
+    Ok(())
 }
 
 struct Slot {

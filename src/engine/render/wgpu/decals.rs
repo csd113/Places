@@ -57,7 +57,9 @@ pub const DECAL_SHADER_SRC: &str = concat!(
     "\n",
     include_str!("attached_lights.wgsl"),
     "\n",
-    include_str!("decals.wgsl")
+    include_str!("decals.wgsl"),
+    "\n",
+    include_str!("caustics.wgsl")
 );
 
 /// Name of the decal vertex entry point.
@@ -237,6 +239,8 @@ pub struct DecalPipeline {
     camera_buffer: wgpu::Buffer,
     bind_group: wgpu::BindGroup,
     empty_bind_group: wgpu::BindGroup,
+    caustics_layout: wgpu::BindGroupLayout,
+    caustics_bind_group: wgpu::BindGroup,
     lights_layout: wgpu::BindGroupLayout,
     lights_buffer: wgpu::Buffer,
     lights_bind_group: wgpu::BindGroup,
@@ -383,10 +387,83 @@ fn build_decal_pipeline(
     })
 }
 
+fn caustics_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    let storage = |binding, size| wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility: wgpu::ShaderStages::FRAGMENT,
+        ty: wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Storage { read_only: true },
+            has_dynamic_offset: false,
+            min_binding_size: wgpu::BufferSize::new(size),
+        },
+        count: None,
+    };
+    device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        label: Some("places-decal-caustics-layout"),
+        entries: &[
+            storage(7, 112),
+            wgpu::BindGroupLayoutEntry {
+                binding: 8,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 9,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                count: None,
+            },
+            storage(10, 16),
+        ],
+    })
+}
+
+fn caustics_binding(
+    device: &wgpu::Device,
+    layout: &wgpu::BindGroupLayout,
+    caustics: &super::caustics::Caustics,
+    cache: &TextureCache,
+) -> wgpu::BindGroup {
+    device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some("places-decal-caustics"),
+        layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 7,
+                resource: caustics.buffer.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 8,
+                resource: wgpu::BindingResource::TextureView(caustics.texture.view()),
+            },
+            wgpu::BindGroupEntry {
+                binding: 9,
+                resource: wgpu::BindingResource::Sampler(
+                    cache.sampler(super::texture::SamplerPolicy::RepeatLow),
+                ),
+            },
+            wgpu::BindGroupEntry {
+                binding: 10,
+                resource: caustics.sample_buffer.as_entire_binding(),
+            },
+        ],
+    })
+}
+
 impl DecalPipeline {
     /// Builds the decal pipeline for one colour target format.
     #[must_use]
-    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
+    pub fn new(
+        device: &wgpu::Device,
+        format: wgpu::TextureFormat,
+        caustics: &super::caustics::Caustics,
+        cache: &TextureCache,
+    ) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("places-wgpu-decal-shader"),
             source: wgpu::ShaderSource::Wgsl(DECAL_SHADER_SRC.into()),
@@ -403,6 +480,8 @@ impl DecalPipeline {
             layout: &empty_layout,
             entries: &[],
         });
+        let caustics_layout = caustics_layout(device);
+        let caustics_bind_group = caustics_binding(device, &caustics_layout, caustics, cache);
         let (lights_buffer, lights_bind_group, lights_sampler) =
             super::world::create_dynamic_lights_binding(device, &lights_layout);
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -411,7 +490,7 @@ impl DecalPipeline {
                 Some(&camera_layout),
                 Some(&sheet_layout),
                 Some(&empty_layout),
-                Some(&empty_layout),
+                Some(&caustics_layout),
                 Some(&lights_layout),
             ],
             immediate_size: 0,
@@ -439,6 +518,8 @@ impl DecalPipeline {
             camera_buffer,
             bind_group,
             empty_bind_group,
+            caustics_layout,
+            caustics_bind_group,
             lights_layout,
             lights_buffer,
             lights_bind_group,
@@ -446,6 +527,15 @@ impl DecalPipeline {
             flashlight_shadow_bound: false,
             uploaded: None,
         }
+    }
+
+    pub fn bind_caustics(
+        &mut self,
+        device: &wgpu::Device,
+        caustics: &super::caustics::Caustics,
+        cache: &TextureCache,
+    ) {
+        self.caustics_bind_group = caustics_binding(device, &self.caustics_layout, caustics, cache);
     }
 
     pub fn bind_flashlight_shadow(&mut self, device: &wgpu::Device, view: &wgpu::TextureView) {
@@ -675,7 +765,7 @@ impl WgpuDecals {
         }
         pass.set_bind_group(0, &pipeline.bind_group, &[]);
         pass.set_bind_group(2, &pipeline.empty_bind_group, &[]);
-        pass.set_bind_group(3, &pipeline.empty_bind_group, &[]);
+        pass.set_bind_group(3, &pipeline.caustics_bind_group, &[]);
         pass.set_bind_group(4, &pipeline.lights_bind_group, &[]);
         // Cut-out ranges first (they write depth), then the blended ranges back
         // to front. The sort only runs when the level actually authors a

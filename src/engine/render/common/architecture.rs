@@ -315,6 +315,7 @@ fn emit_face_inner(
     // triangle instead of storing it, and the lightmap chart stays a valid
     // frame over the triangle's own corners.
     let (points, quad_colors, uv) = fold_triangle_to_quad(face.points, colors, face.uv);
+    let (_, quad_albedo, _) = fold_triangle_to_quad(face.points, base, face.uv);
     add_quad(
         scratch,
         points[0],
@@ -330,6 +331,10 @@ fn emit_face_inner(
         quad_colors[3],
         uv[3],
     );
+    let [a, b, c, d] = quad_albedo;
+    for (vertex, albedo) in scratch.iter_mut().zip([a, b, c, a, c, d]) {
+        vertex.caustics_albedo = albedo;
+    }
     if smooth {
         // `scratch` was cleared above, so these are exactly this quad's six
         // vertices: mark the whole quad for ring-averaged normals.
@@ -553,6 +558,7 @@ fn emit_ramp_surface(
         &zs,
         &colors,
         LitSurface {
+            caustics_albedo: context.materials.tint(key),
             y_at,
             ceiling: false,
             region: None,

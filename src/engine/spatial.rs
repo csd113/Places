@@ -122,6 +122,189 @@ impl Aabb {
     }
 }
 
+/// Conservative overlap with the convex hull of a finite emitter and a receiver
+/// region. A blocker between receiver lattice rays still intersects this hull.
+///
+/// Degenerate point/plane boxes are valid. Invalid bounds fail closed, and mere
+/// boundary contact counts as overlap; callers own source-owner exclusions and
+/// the open receiver/source endpoint contract. This performs no allocation.
+#[must_use]
+pub fn finite_light_region_overlaps(source: Aabb, receivers: Aabb, blocker: Aabb) -> bool {
+    let (Some(emitter), Some(targets), Some(obstacle)) = (
+        LightRegionBox::new(source),
+        LightRegionBox::new(receivers),
+        LightRegionBox::new(blocker),
+    ) else {
+        return true;
+    };
+    let separates = |axis| {
+        let emitter_interval = emitter.project(axis);
+        let receiver_interval = targets.project(axis);
+        let hull_interval = LightProjection {
+            min: emitter_interval.min.min(receiver_interval.min),
+            max: emitter_interval.max.max(receiver_interval.max),
+            magnitude: emitter_interval.magnitude.max(receiver_interval.magnitude),
+        };
+        !hull_interval.overlaps(obstacle.project(axis))
+    };
+    if LIGHT_REGION_AXES.into_iter().any(separates) {
+        return false;
+    }
+    // A shared supporting plane of two axis-aligned boxes contains a box edge.
+    // Projected matching-sign corners supply its linking edge; crossing that
+    // edge with the remaining world axis supplies the sloping plane normal.
+    // Any tested axis is safe: only disjoint support intervals reject a box.
+    for (axis, corners) in [
+        (glam::DVec3::X, [0_u8, 2, 4, 6]),
+        (glam::DVec3::Y, [0_u8, 1, 4, 5]),
+        (glam::DVec3::Z, [0_u8, 1, 2, 3]),
+    ] {
+        for corner in corners {
+            let target = targets.corner(corner);
+            let start = emitter.corner(corner);
+            let link = glam::DVec3::new(target.x - start.x, target.y - start.y, target.z - start.z);
+            if separates(link.cross(axis)) {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+/// Conservative overlap with a receiver box swept toward a distant source.
+///
+/// `incoming` points from receivers toward that source; its magnitude
+/// does not affect the result. No arbitrary far endpoint clips the prism.
+///
+/// Invalid bounds or a non-finite/zero direction fail closed. Boundary contact
+/// counts as overlap; endpoint and source-owner exclusions remain the caller's
+/// responsibility. The six separating-axis tests allocate nothing.
+#[must_use]
+pub fn directional_light_region_overlaps(
+    incoming: [f32; 3],
+    receivers: Aabb,
+    blocker: Aabb,
+) -> bool {
+    let (Some(targets), Some(obstacle)) =
+        (LightRegionBox::new(receivers), LightRegionBox::new(blocker))
+    else {
+        return true;
+    };
+    if !incoming.iter().all(|component| component.is_finite())
+        || !incoming.iter().any(|component| *component != 0.0)
+    {
+        return true;
+    }
+    let direction = glam::DVec3::from_array(incoming.map(f64::from));
+    let separates = |axis: glam::DVec3| {
+        let mut prism = targets.project(axis);
+        let drift = axis.dot(direction);
+        if drift > 0.0_f64 {
+            prism.max = f64::INFINITY;
+        } else if drift < 0.0_f64 {
+            prism.min = f64::NEG_INFINITY;
+        }
+        !prism.overlaps(obstacle.project(axis))
+    };
+    !LIGHT_REGION_AXES
+        .into_iter()
+        .chain(LIGHT_REGION_AXES.map(|axis| direction.cross(axis)))
+        .any(separates)
+}
+
+const LIGHT_REGION_AXES: [glam::DVec3; 3] = [glam::DVec3::X, glam::DVec3::Y, glam::DVec3::Z];
+
+#[derive(Clone, Copy)]
+struct LightRegionBox {
+    min: glam::DVec3,
+    max: glam::DVec3,
+}
+
+impl LightRegionBox {
+    fn new(bounds: Aabb) -> Option<Self> {
+        (bounds
+            .min
+            .iter()
+            .chain(&bounds.max)
+            .all(|value| value.is_finite())
+            && bounds
+                .min
+                .iter()
+                .zip(bounds.max)
+                .all(|(low, high)| *low <= high))
+        .then(|| Self {
+            min: glam::DVec3::from_array(bounds.min.map(f64::from)),
+            max: glam::DVec3::from_array(bounds.max.map(f64::from)),
+        })
+    }
+
+    const fn corner(self, mask: u8) -> glam::DVec3 {
+        glam::DVec3::new(
+            if mask & 1 == 0 {
+                self.min.x
+            } else {
+                self.max.x
+            },
+            if mask & 2 == 0 {
+                self.min.y
+            } else {
+                self.max.y
+            },
+            if mask & 4 == 0 {
+                self.min.z
+            } else {
+                self.max.z
+            },
+        )
+    }
+
+    fn project(self, axis: glam::DVec3) -> LightProjection {
+        self.min
+            .to_array()
+            .into_iter()
+            .zip(self.max.to_array())
+            .zip(axis.to_array())
+            .fold(
+                LightProjection::ZERO,
+                |mut result, ((low, high), component)| {
+                    let first = low * component;
+                    let second = high * component;
+                    result.min += first.min(second);
+                    result.max += first.max(second);
+                    result.magnitude += first.abs().max(second.abs());
+                    result
+                },
+            )
+    }
+}
+
+#[derive(Clone, Copy)]
+struct LightProjection {
+    min: f64,
+    max: f64,
+    magnitude: f64,
+}
+
+impl LightProjection {
+    const ZERO: Self = Self {
+        min: 0.0,
+        max: 0.0,
+        magnitude: 0.0,
+    };
+
+    const fn overlaps(self, other: Self) -> bool {
+        // Inputs are finite f32 values widened before subtracting or projecting.
+        // Even their largest products fit f64. The absolute-product sum bounds
+        // cancellation error; retaining a small roundoff band is conservative.
+        let tolerance = 64.0_f64 * f64::EPSILON * self.magnitude.max(other.magnitude);
+        self.min <= other.max + tolerance && other.min <= self.max + tolerance
+    }
+}
+
+#[cfg(test)]
+#[path = "tests/light_regions.rs"]
+mod light_region_tests;
+
 /// Integer X/Z grid cell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CellKey {
@@ -523,7 +706,7 @@ fn index_run(run: &[crate::engine::render::Vertex]) -> Vec<IndexedRange> {
     // Keyed by the exact bit pattern of every attribute, so two vertices that
     // differ only in a baked-lighting channel, a UV or a lightmap chart stay
     // separate.
-    let mut seen: HashMap<[u32; 12], u16> = HashMap::new();
+    let mut seen: HashMap<[u32; 15], u16> = HashMap::new();
 
     for quad in run.chunks(QUAD) {
         // A quad needs at most four new vertices; start a new range instead of
@@ -594,7 +777,7 @@ fn index_run(run: &[crate::engine::render::Vertex]) -> Vec<IndexedRange> {
 /// sharing a vertex between them would make one of the two quads read the
 /// other's light. Leaving the lightmap out of the key was correct only while
 /// every vertex was vertex-lit.
-fn vertex_key(vertex: &crate::engine::render::Vertex) -> [u32; 12] {
+fn vertex_key(vertex: &crate::engine::render::Vertex) -> [u32; 15] {
     [
         vertex.pos[0].to_bits(),
         vertex.pos[1].to_bits(),
@@ -608,5 +791,8 @@ fn vertex_key(vertex: &crate::engine::render::Vertex) -> [u32; 12] {
         u32::from(vertex.lightmap[0]),
         u32::from(vertex.lightmap[1]),
         u32::from(vertex.lightmap_page),
+        vertex.caustics_albedo[0].to_bits(),
+        vertex.caustics_albedo[1].to_bits(),
+        vertex.caustics_albedo[2].to_bits(),
     ]
 }

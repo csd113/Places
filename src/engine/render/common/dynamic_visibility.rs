@@ -9,7 +9,9 @@ use glam::{Mat4, Vec3};
 
 use super::dynamic::{DynamicId, DynamicMesh, DynamicScene};
 use crate::engine::lighting::transport::TransportScene;
-use crate::engine::spatial::Aabb;
+use crate::engine::spatial::{
+    Aabb, directional_light_region_overlaps, finite_light_region_overlaps,
+};
 
 /// Exact dependencies of a movable ultraviolet receiver. Source geometry is
 /// retained by value because a source set can be replaced in place. Switches
@@ -258,6 +260,145 @@ impl DynamicVisibility {
         }
         throughput
     }
+
+    /// Transmission toward a source at infinity through the current drawn meshes.
+    /// `incoming` points from the receiver toward the source. The finite endpoint
+    /// lies beyond every caster's bounds, including the local ray endpoint's
+    /// numerical allowance, so no arbitrary world-distance cap loses shadows.
+    #[must_use]
+    // Endpoint components are checked against finite f32 bounds before conversion.
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        reason = "Finite f64 endpoint components are checked within f32 bounds before their stored-coordinate conversion."
+    )]
+    pub fn directional_transmittance(
+        &self,
+        origin: [f32; 3],
+        incoming: [f32; 3],
+        excluded: Option<DynamicId>,
+    ) -> f32 {
+        if !origin
+            .iter()
+            .chain(&incoming)
+            .all(|value| value.is_finite())
+        {
+            return 0.0;
+        }
+        let origin_wide = Vec3::from_array(origin).as_dvec3();
+        let direction_wide = Vec3::from_array(incoming).as_dvec3();
+        let length = direction_wide.length();
+        if length <= 0.0_f64 {
+            return 0.0;
+        }
+        let unit = direction_wide.normalize();
+        let mut distance = 0.0_f64;
+        let mut allowance_scale = origin_wide.abs().max_element().max(1.0);
+        for caster in self
+            .casters
+            .iter()
+            .filter(|caster| excluded != Some(caster.id))
+        {
+            // The support corner gives the exact far projection of this AABB.
+            let projection = caster
+                .bounds
+                .min
+                .into_iter()
+                .zip(caster.bounds.max)
+                .zip(origin_wide.to_array())
+                .zip(unit.to_array())
+                .map(|(((minimum, maximum), start), direction)| {
+                    let bound = if direction < 0.0_f64 {
+                        minimum
+                    } else {
+                        maximum
+                    };
+                    (f64::from(bound) - start) * direction
+                })
+                .sum::<f64>();
+            distance = distance.max(projection);
+            allowance_scale = caster
+                .bounds
+                .min
+                .iter()
+                .chain(&caster.bounds.max)
+                .fold(allowance_scale, |scale, value| {
+                    scale.max(f64::from(value.abs()))
+                });
+            // The shared segment query shortens its far endpoint in model-local
+            // units. Convert that tolerance to world-ray units before extending.
+            let inverse = caster.inverse.as_dmat4();
+            let local_origin = inverse.transform_point3(origin_wide);
+            let local_rate = inverse.transform_vector3(unit).length();
+            if !local_rate.is_finite() || local_rate <= 0.0_f64 {
+                return 0.0;
+            }
+            allowance_scale =
+                allowance_scale.max(local_origin.abs().max_element().max(1.0) / local_rate);
+        }
+        if distance <= 0.0_f64 {
+            return 1.0;
+        }
+        let allowance = 8.0_f64
+            * f64::from(crate::engine::lighting::transport::SURFACE_OFFSET_M)
+            * (allowance_scale + distance);
+        let endpoint = unit.mul_add(glam::DVec3::splat(distance + allowance), origin_wide);
+        if !endpoint.is_finite() || endpoint.abs().max_element() > f64::from(f32::MAX) {
+            return 0.0;
+        }
+        self.transmittance(
+            origin,
+            endpoint.to_array().map(|value| value as f32),
+            excluded,
+        )
+    }
+
+    /// Conservative full-cell visibility through current movable caster bounds.
+    /// The same identity exclusion as mesh transmittance removes the receiver.
+    #[must_use]
+    pub fn local_region_visible(
+        &self,
+        source: Aabb,
+        receivers: Aabb,
+        excluded: Option<DynamicId>,
+    ) -> bool {
+        finite_region_bounds(source)
+            && finite_region_bounds(receivers)
+            && self
+                .casters
+                .iter()
+                .filter(|caster| excluded != Some(caster.id))
+                .all(|caster| !finite_light_region_overlaps(source, receivers, caster.bounds))
+    }
+
+    /// Conservative full-cell visibility toward a source at infinity.
+    #[must_use]
+    pub fn directional_region_visible(
+        &self,
+        receivers: Aabb,
+        incoming: [f32; 3],
+        excluded: Option<DynamicId>,
+    ) -> bool {
+        finite_region_bounds(receivers)
+            && incoming.iter().all(|value| value.is_finite())
+            && incoming.iter().any(|value| *value != 0.0)
+            && self
+                .casters
+                .iter()
+                .filter(|caster| excluded != Some(caster.id))
+                .all(|caster| {
+                    !directional_light_region_overlaps(incoming, receivers, caster.bounds)
+                })
+    }
+}
+
+fn finite_region_bounds(bounds: Aabb) -> bool {
+    !bounds.is_empty()
+        && bounds
+            .min
+            .iter()
+            .chain(&bounds.max)
+            .all(|value| value.is_finite())
 }
 
 fn mesh_identity(mesh: &Arc<DynamicMesh>) -> usize {

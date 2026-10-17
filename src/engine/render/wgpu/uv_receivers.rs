@@ -144,6 +144,7 @@ fn interpolate(corner: Corner, source: [Vertex; 3]) -> Vertex {
                 corner.weights,
             )
         }),
+        caustics_albedo: array(|vertex| vertex.caustics_albedo),
         uv: std::array::from_fn(|component| {
             weighted_scalar(
                 source.map(|vertex| vertex.uv.get(component).copied().unwrap_or(0.0)),

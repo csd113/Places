@@ -26,10 +26,11 @@
 //!   indices     u32 count, then count x u16
 //! ```
 //!
-//! Vertex mode 0 stores literal 69-byte neutral vertices. Modes 1 and 2 store
+//! Vertex mode 0 stores literal 81-byte neutral vertices. Modes 1 and 2 store
 //! a `u32` frame count, then 28-byte normal/tangent/handedness frames. Each
 //! vertex retains its 36-byte position/colour/UV prefix and 5-byte lightmap
-//! tail, followed by a `u16` (mode 1) or `u32` (mode 2) frame index. The palette
+//! tail and 12-byte neutral caustics factor, followed by a `u16` (mode 1) or
+//! `u32` (mode 2) frame index. The palette
 //! is used only when it is strictly smaller, with exact first-occurrence keys.
 //!
 //! ```text
@@ -71,9 +72,12 @@ use super::{MAX_BINARY_BYTES, MAX_PROP_BATCH_VERTICES, MAX_PROP_BATCHES, MAX_PRO
 /// Version 7 adds optional ultraviolet pigment response, its texture slot and tint;
 /// versions 3 through 6 keep a zero-response default.
 /// Version 8 adds optional per-instance light controller identity.
+/// Version 9 appends neutral caustics albedo to literal and palette vertices.
+/// Older versions retain a white fallback because their baked colour cannot
+/// recover the original material/vertex factor.
 /// Versions 3 and 4 retain the conservative static-caster default, and version 3
 /// also retains the explicit matte material default. Older records are refused.
-pub const PROPS_RECORD_VERSION: u16 = 8;
+pub const PROPS_RECORD_VERSION: u16 = 9;
 
 /// Magic identifying a props record.
 pub const PROPS_MAGIC: [u8; 4] = *b"PLMP";
@@ -82,19 +86,37 @@ pub const PROPS_MAGIC: [u8; 4] = *b"PLMP";
 const MAX_MODEL_PATH: u64 = 1024;
 
 /// Width of the neutral vertex written by the existing mesh codec.
-const SERIALIZED_VERTEX_BYTES: usize = 69;
+const LEGACY_SERIALIZED_VERTEX_BYTES: usize = 69;
+const SERIALIZED_VERTEX_BYTES: usize = 81;
 
 const VERTEX_PREFIX_BYTES: usize = 36;
 const FRAME_BYTES: usize = 28;
 const FRAME_END: usize = 64;
-const VERTEX_LITERAL_BYTES: usize = 41;
+const LEGACY_VERTEX_LITERAL_BYTES: usize = 41;
+const VERTEX_LITERAL_BYTES: usize = 53;
 const VERTEX_MODE_LITERAL: u8 = 0;
 
 /// Retain the historical literal record's allocation ceiling even when the
 /// encoded frame palette is smaller. All charges use the actual legacy-width
-/// headers plus 69 bytes per stored vertex and two bytes per ordered index.
+/// headers plus the version's literal width per vertex and two bytes per index.
 struct LogicalPropsBudget {
     bytes: u64,
+}
+
+const fn serialized_vertex_bytes(version: u16) -> usize {
+    if version >= 9 {
+        SERIALIZED_VERTEX_BYTES
+    } else {
+        LEGACY_SERIALIZED_VERTEX_BYTES
+    }
+}
+
+const fn vertex_literal_bytes(version: u16) -> usize {
+    if version >= 9 {
+        VERTEX_LITERAL_BYTES
+    } else {
+        LEGACY_VERTEX_LITERAL_BYTES
+    }
 }
 
 impl LogicalPropsBudget {
@@ -163,7 +185,7 @@ pub fn write_props(batches: &[PropMeshBatch]) -> Result<Vec<u8>, String> {
 
 /// Encodes prop batches and reports exact vertex slot savings.
 ///
-/// Only vertices whose complete 69-byte records match are shared. First
+/// Only vertices whose complete 81-byte records match are shared. First
 /// occurrence order, all ordered indices and all batch metadata are preserved;
 /// distinct shading, material UVs and lightmap coordinates retain their seams.
 ///
@@ -191,7 +213,7 @@ pub fn write_props_with_stats(
         // charge. Account for the as-yet-unwritten vertex_count header here.
         let header_bytes = writer.len().saturating_sub(header_start);
         budget.add_slots(header_bytes, 1, 4)?;
-        budget.add_slots(interned.vertices.len(), 69, 0)?;
+        budget.add_slots(interned.vertices.len(), 81, 0)?;
         budget.add_slots(interned.indices.len(), 2, 4)?;
         write_vertex_storage(&mut writer, &interned.vertices)?;
         writer.u16s(&interned.indices)?;
@@ -262,7 +284,7 @@ fn intern_vertices(batch: &PropMeshBatch) -> Result<InternedVertices<'_>, String
     }
     let (keys, remainder) = encoded.as_slice().as_chunks::<SERIALIZED_VERTEX_BYTES>();
     if !remainder.is_empty() || keys.len() != batch.vertices.len() {
-        return Err("prop vertex codec no longer writes 69-byte records".to_string());
+        return Err("prop vertex codec no longer writes 81-byte records".to_string());
     }
     let mut by_bytes = HashMap::<[u8; SERIALIZED_VERTEX_BYTES], usize>::new();
     let mut vertices = Vec::with_capacity(batch.vertices.len());
@@ -405,7 +427,7 @@ fn write_vertex_storage(writer: &mut Writer, vertices: &[&Vertex]) -> Result<(),
     }
     let (keys, remainder) = encoded.as_slice().as_chunks::<SERIALIZED_VERTEX_BYTES>();
     if !remainder.is_empty() || keys.len() != vertices.len() {
-        return Err("prop vertex codec no longer writes 69-byte records".to_string());
+        return Err("prop vertex codec no longer writes 81-byte records".to_string());
     }
     writer.u32(count);
     if let Some(palette) = choose_frame_palette(keys)? {
@@ -490,7 +512,11 @@ fn read_batch(
     let header = read_batch_header(reader, version)?;
     let vertex_count = read_vertex_count(reader)?;
     budget.add_slots(header_start.saturating_sub(reader.remaining()), 1, 0)?;
-    budget.add_slots(vertex_count, 69, 0)?;
+    budget.add_slots(
+        vertex_count,
+        u64::try_from(serialized_vertex_bytes(version)).unwrap_or(u64::MAX),
+        0,
+    )?;
     let vertices = read_vertex_storage(reader, version, vertex_count)?;
     let indices = read_prop_indices(reader, budget)?;
     validate_draw_indices(vertex_count, &indices, &header.submeshes)?;
@@ -617,7 +643,11 @@ pub(crate) fn vertex_regions(bytes: &[u8]) -> Result<Vec<VertexRegion>, String> 
         let header = read_batch_header(&mut reader, version)?;
         let vertices = read_vertex_count(&mut reader)?;
         budget.add_slots(header_start.saturating_sub(reader.remaining()), 1, 0)?;
-        budget.add_slots(vertices, 69, 0)?;
+        budget.add_slots(
+            vertices,
+            u64::try_from(serialized_vertex_bytes(version)).unwrap_or(u64::MAX),
+            0,
+        )?;
         let stride = validate_vertex_run(&mut reader, version, vertices)?;
         let end = bytes.len().saturating_sub(reader.remaining());
         let run_bytes = checked_storage_size(vertices, stride, 0)?;
@@ -641,12 +671,12 @@ fn validate_vertex_run(
 ) -> Result<usize, String> {
     let mode = if version >= 6 { reader.u8()? } else { 0 };
     if mode == 0 {
-        let length = checked_storage_size(vertices, SERIALIZED_VERTEX_BYTES, 0)?;
-        let (keys, _) = reader.bytes(length)?.as_chunks::<SERIALIZED_VERTEX_BYTES>();
-        for key in keys {
-            let _vertex = read_vertex(&mut Reader::new(key))?;
+        let stride = serialized_vertex_bytes(version);
+        let length = checked_storage_size(vertices, stride, 0)?;
+        for key in reader.bytes(length)?.chunks_exact(stride) {
+            let _vertex = read_vertex(&mut Reader::new(key), version >= 9)?;
         }
-        return Ok(SERIALIZED_VERTEX_BYTES);
+        return Ok(stride);
     }
     let width = match mode {
         1 => FrameIndexWidth::U16,
@@ -661,7 +691,8 @@ fn validate_vertex_run(
         return Err("prop batch has an invalid frame palette count".to_string());
     }
     let frame_bytes = checked_storage_size(frames, FRAME_BYTES, 0)?;
-    let stride = VERTEX_LITERAL_BYTES.saturating_add(width.bytes());
+    let literal_bytes = vertex_literal_bytes(version);
+    let stride = literal_bytes.saturating_add(width.bytes());
     let required = checked_storage_size(vertices, stride, frame_bytes)?;
     if required > reader.remaining() {
         return Err("prop frame palette or vertex storage is truncated".to_string());
@@ -671,11 +702,11 @@ fn validate_vertex_run(
         validate_frame(frame)?;
     }
     for _ in 0..vertices {
-        let literal = reader.bytes(VERTEX_LITERAL_BYTES)?;
+        let literal = reader.bytes(literal_bytes)?;
         let frame = palette
             .get(width.read(reader)?)
             .ok_or_else(|| "prop vertex has a frame index outside its palette".to_string())?;
-        let _vertex = read_palette_vertex(literal, frame)?;
+        let _vertex = read_palette_vertex(literal, frame, version)?;
     }
     Ok(stride)
 }
@@ -756,12 +787,12 @@ fn read_vertex_storage(
     vertex_count: usize,
 ) -> Result<Vec<Vertex>, String> {
     if version < 6 {
-        return read_literal_vertices(reader, vertex_count);
+        return read_literal_vertices(reader, vertex_count, version);
     }
     match reader.u8()? {
-        VERTEX_MODE_LITERAL => read_literal_vertices(reader, vertex_count),
-        1 => read_palette_vertices(reader, vertex_count, FrameIndexWidth::U16),
-        2 => read_palette_vertices(reader, vertex_count, FrameIndexWidth::U32),
+        VERTEX_MODE_LITERAL => read_literal_vertices(reader, vertex_count, version),
+        1 => read_palette_vertices(reader, vertex_count, FrameIndexWidth::U16, version),
+        2 => read_palette_vertices(reader, vertex_count, FrameIndexWidth::U32, version),
         other => Err(format!("prop batch has unknown vertex mode {other}")),
     }
 }
@@ -769,13 +800,14 @@ fn read_vertex_storage(
 fn read_literal_vertices(
     reader: &mut Reader<'_>,
     vertex_count: usize,
+    version: u16,
 ) -> Result<Vec<Vertex>, String> {
-    let byte_count = checked_storage_size(vertex_count, SERIALIZED_VERTEX_BYTES, 0)?;
+    let stride = serialized_vertex_bytes(version);
+    let byte_count = checked_storage_size(vertex_count, stride, 0)?;
     let bytes = reader.bytes(byte_count)?;
-    let (keys, _) = bytes.as_chunks::<SERIALIZED_VERTEX_BYTES>();
     let mut vertices = Vec::with_capacity(vertex_count.min(4096));
-    for key in keys {
-        vertices.push(read_vertex(&mut Reader::new(key))?);
+    for key in bytes.chunks_exact(stride) {
+        vertices.push(read_vertex(&mut Reader::new(key), version >= 9)?);
     }
     Ok(vertices)
 }
@@ -784,6 +816,7 @@ fn read_palette_vertices(
     reader: &mut Reader<'_>,
     vertex_count: usize,
     width: FrameIndexWidth,
+    version: u16,
 ) -> Result<Vec<Vertex>, String> {
     let frame_count = reader.count(MAX_PROP_BATCH_VERTICES, "prop frame count")?;
     if frame_count == 0 || frame_count > vertex_count {
@@ -799,7 +832,7 @@ fn read_palette_vertices(
     let frame_bytes = checked_storage_size(frame_count, FRAME_BYTES, 0)?;
     let required_bytes = checked_storage_size(
         vertex_count,
-        VERTEX_LITERAL_BYTES.saturating_add(width.bytes()),
+        vertex_literal_bytes(version).saturating_add(width.bytes()),
         frame_bytes,
     )?;
     if required_bytes > reader.remaining() {
@@ -813,12 +846,12 @@ fn read_palette_vertices(
     }
     let mut vertices = Vec::with_capacity(vertex_count.min(4096));
     for _ in 0..vertex_count {
-        let literal = reader.bytes(VERTEX_LITERAL_BYTES)?;
+        let literal = reader.bytes(vertex_literal_bytes(version))?;
         let frame_index = width.read(reader)?;
         let frame = frames
             .get(frame_index)
             .ok_or_else(|| "prop vertex has a frame index outside its palette".to_string())?;
-        vertices.push(read_palette_vertex(literal, frame)?);
+        vertices.push(read_palette_vertex(literal, frame, version)?);
     }
     Ok(vertices)
 }
@@ -834,7 +867,11 @@ fn validate_frame(frame: &[u8; FRAME_BYTES]) -> Result<(), String> {
     Ok(())
 }
 
-fn read_palette_vertex(literal: &[u8], frame: &[u8; FRAME_BYTES]) -> Result<Vertex, String> {
+fn read_palette_vertex(
+    literal: &[u8],
+    frame: &[u8; FRAME_BYTES],
+    version: u16,
+) -> Result<Vertex, String> {
     // Reconstruct the neutral record on the stack and retain the mesh codec's
     // complete finite-field validation without a per-vertex allocation.
     let mut neutral = [0_u8; SERIALIZED_VERTEX_BYTES];
@@ -851,14 +888,14 @@ fn read_palette_vertex(literal: &[u8], frame: &[u8; FRAME_BYTES]) -> Result<Vert
         .ok_or_else(|| "prop neutral vertex omitted its frame".to_string())?
         .copy_from_slice(frame);
     neutral
-        .get_mut(FRAME_END..)
+        .get_mut(FRAME_END..serialized_vertex_bytes(version))
         .ok_or_else(|| "prop neutral vertex omitted its lightmap tail".to_string())?
         .copy_from_slice(
             literal
                 .get(VERTEX_PREFIX_BYTES..)
                 .ok_or_else(|| "prop vertex literal omitted its lightmap tail".to_string())?,
         );
-    read_vertex(&mut Reader::new(&neutral))
+    read_vertex(&mut Reader::new(&neutral), version >= 9)
 }
 
 fn read_static_caster(reader: &mut Reader<'_>, version: u16) -> Result<bool, String> {

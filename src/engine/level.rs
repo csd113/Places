@@ -567,6 +567,9 @@ pub struct WaterVolumeDef {
     /// surface opacity; positive values reduce basin transmission with depth.
     #[serde(default)]
     pub attenuation_per_metre: f32,
+    /// Presentation controls for source-lit caustics beneath this volume.
+    #[serde(default)]
+    pub caustics: CausticsDef,
     /// Whether the player swims in this volume. `false` keeps it decorative:
     /// the surface draws and the player walks or falls through it normally.
     #[serde(default = "default_true")]
@@ -647,6 +650,56 @@ pub const DEFAULT_WATER_MATERIAL: &str = "core:water_pool_01";
 /// Opaque enough to read as a distinct surface, translucent enough that the
 /// basin floor and walls stay visible through it.
 pub const DEFAULT_WATER_OPACITY: f32 = 0.62;
+
+/// Per-water modulation of eligible incident light; this creates no emission.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct CausticsDef {
+    /// Linear RGB multiplier, each channel in `0..=1`.
+    #[serde(default = "default_caustics_tint")]
+    pub tint: [f32; 3],
+    /// Animation speed multiplier in `0..=8`; zero holds the pattern still.
+    #[serde(default = "default_caustics_speed")]
+    pub speed: f32,
+    /// Focus strength in `0..=1`; zero disables caustics for this water.
+    #[serde(default = "default_caustics_strength")]
+    pub strength: f32,
+}
+
+const fn default_caustics_tint() -> [f32; 3] {
+    [1.0; 3]
+}
+
+const fn default_caustics_speed() -> f32 {
+    1.35
+}
+
+const fn default_caustics_strength() -> f32 {
+    0.24
+}
+
+impl Default for CausticsDef {
+    fn default() -> Self {
+        Self {
+            tint: default_caustics_tint(),
+            speed: default_caustics_speed(),
+            strength: default_caustics_strength(),
+        }
+    }
+}
+
+impl CausticsDef {
+    /// All authored controls are finite and inside the supported bounds.
+    #[must_use]
+    pub fn is_valid(self) -> bool {
+        self.tint
+            .iter()
+            .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
+            && self.speed.is_finite()
+            && (0.0..=8.0).contains(&self.speed)
+            && self.strength.is_finite()
+            && (0.0..=1.0).contains(&self.strength)
+    }
+}
 
 /// A climbable ladder volume.
 ///
@@ -5711,6 +5764,10 @@ pub struct LightFixtureDef {
     /// decorative tube that reads bright while lighting nothing.
     #[serde(default = "default_enabled")]
     pub enabled: bool,
+    /// Pool round/wall fixtures focus light by default; `false` opts out.
+    /// Other fixture families cannot opt in, including fluorescent panels.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub caustics: Option<bool>,
     /// Independent emissive strength for the fixture's visible face.
     ///
     /// Omitted means the face glows with the fixture's own `brightness`, the
@@ -5759,6 +5816,22 @@ pub enum StaticSwitchMode {
 }
 
 impl LightFixtureDef {
+    /// Whether the fixture family supports water caustics.
+    #[must_use]
+    pub fn supports_caustics(&self) -> bool {
+        matches!(
+            crate::engine::lighting::fixture_profile(&self.fixture).kind,
+            crate::engine::lighting::FixtureKind::RoundRecessed
+                | crate::engine::lighting::FixtureKind::WallSconce
+        )
+    }
+
+    /// Resolved source eligibility, independent of current enabled state.
+    #[must_use]
+    pub fn caustics(&self) -> bool {
+        self.supports_caustics() && self.caustics.unwrap_or(true)
+    }
+
     /// Actual retained source count, including disabled fixture apertures.
     #[must_use]
     pub fn baked_source_count(&self) -> usize {
@@ -5901,6 +5974,9 @@ pub struct LightDef {
     /// Whether the light illuminates at all; defaults to `true`.
     #[serde(default = "default_enabled")]
     pub enabled: bool,
+    /// Generic sources opt in explicitly; omitted means no water caustics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub caustics: Option<bool>,
 }
 
 impl LightDef {
@@ -5972,6 +6048,7 @@ impl LightDef {
             range: self.range(),
             falloff: self.falloff(),
             enabled: self.enabled,
+            caustics: self.caustics.unwrap_or(false),
         }
     }
 }
@@ -6355,6 +6432,9 @@ pub struct GlobalIlluminatorDef {
     /// Full angular diameter of the source, degrees (0 = hard shadow).
     #[serde(default = "default_global_angular_size")]
     pub angular_size_degrees: f32,
+    /// Sun defaults on; generic directional sources opt in; moon never focuses.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub caustics: Option<bool>,
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -6362,6 +6442,8 @@ pub struct GlobalIlluminatorDef {
 pub enum GlobalIlluminatorKind {
     #[default]
     Directional,
+    Sun,
+    Moon,
 }
 
 const fn default_global_color() -> [f32; 3] {
@@ -6372,10 +6454,25 @@ const fn default_global_angular_size() -> f32 {
 }
 
 impl GlobalIlluminatorDef {
+    /// Resolved source eligibility, independent of current enabled state.
+    #[must_use]
+    pub fn caustics(&self) -> bool {
+        self.kind != GlobalIlluminatorKind::Moon
+            && self
+                .caustics
+                .unwrap_or(self.kind == GlobalIlluminatorKind::Sun)
+    }
+
     /// Validate untrusted authoring data before normalization or baking.
     /// # Errors
     /// Returns a named error for malformed ids, vectors, colour or energy.
     pub fn validate(&self) -> Result<(), String> {
+        if self.kind == GlobalIlluminatorKind::Moon && self.caustics == Some(true) {
+            return Err(format!(
+                "global illuminator `{}` is a moon and cannot enable caustics",
+                self.id
+            ));
+        }
         let valid_direction = self.direction.iter().all(|v| v.is_finite())
             && self
                 .direction

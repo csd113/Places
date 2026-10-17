@@ -19,6 +19,9 @@ use super::LevelDef;
 pub struct Vertex {
     pub pos: [f32; 3],
     pub color: [f32; 4],
+    /// Neutral material/vertex RGB before any baked illumination. Focused
+    /// source light uses this factor independently of the ordinary lit colour.
+    pub caustics_albedo: [f32; 3],
     pub uv: [f32; 2],
     /// Geometric normal of the surface this vertex belongs to, unit length.
     ///
@@ -77,6 +80,7 @@ impl Vertex {
     pub const UNLIT: Self = Self {
         pos: [0.0; 3],
         color: [1.0; 4],
+        caustics_albedo: [1.0; 3],
         uv: [0.0; 2],
         normal: [0.0, 0.0, 1.0],
         tangent: [1.0, 0.0, 0.0],
@@ -91,6 +95,7 @@ impl Vertex {
         Self {
             pos,
             color,
+            caustics_albedo: [color[0], color[1], color[2]],
             uv,
             ..Self::UNLIT
         }
@@ -109,6 +114,7 @@ impl Vertex {
         Self {
             pos,
             color,
+            caustics_albedo: [color[0], color[1], color[2]],
             uv,
             lightmap,
             lightmap_page: page,

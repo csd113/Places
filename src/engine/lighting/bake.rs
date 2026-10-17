@@ -1048,6 +1048,7 @@ fn baked_lights(
                 .unwrap_or(crate::engine::lighting::DEFAULT_LIGHT_RANGE_M),
             falloff: light.falloff.unwrap_or_default(),
             enabled: light.enabled,
+            caustics: light.caustics(),
         }
         .sanitized();
         if let Some(info) = room.and_then(|index| rooms.get_mut(index)) {
@@ -2079,6 +2080,42 @@ impl LevelLighting {
             })
     }
 
+    /// Resolves source eligibility from the package's validated authored metadata.
+    /// Legacy lighting records have no caustics flags; their stable fixture and
+    /// prop source identities restore the same defaults without rebaking light.
+    /// Current source enabled states, energy and visibility remain unchanged.
+    pub fn resolve_caustics_eligibility(&mut self, level: &LevelDef) {
+        let mut eligibility = vec![false; self.lights.len()];
+        for (fixture_index, fixture) in level.ceiling_lights.iter().enumerate() {
+            for source in self.fixture_light_indices(fixture_index) {
+                if let Some(value) = eligibility.get_mut(source) {
+                    *value = fixture.caustics();
+                }
+            }
+        }
+        let mut ordinals = vec![0_usize; level.props.len()];
+        for (source, light) in self.lights.iter().enumerate() {
+            let Some(owner) = light.owner_prop else {
+                continue;
+            };
+            let Some(ordinal) = ordinals.get_mut(owner) else {
+                continue;
+            };
+            let enabled = level
+                .props
+                .get(owner)
+                .and_then(|prop| prop.lights.get(*ordinal))
+                .is_some_and(|definition| definition.caustics.unwrap_or(false));
+            *ordinal = ordinal.saturating_add(1);
+            if let Some(value) = eligibility.get_mut(source) {
+                *value = enabled;
+            }
+        }
+        for (light, value) in self.lights.iter_mut().zip(eligibility) {
+            light.source.caustics = value;
+        }
+    }
+
     /// Enables or disables one baked light at runtime.
     ///
     /// Returns whether the state changed. A disabled light contributes nothing
@@ -2186,6 +2223,87 @@ impl LevelLighting {
             && from.iter().chain(&to).all(|value| value.is_finite())
             && u32::try_from(light_index)
                 .is_ok_and(|site| !self.visibility.occludes(site, from, to))
+    }
+
+    /// Resolved active/baked global sources, in authored order.
+    #[must_use]
+    pub fn global_lights(&self) -> &[super::directional::DirectionalLight] {
+        &self.global_lights
+    }
+
+    /// Tests a ray toward infinity against the same compiled solids as the bake.
+    #[must_use]
+    pub fn runtime_direction_visible(&self, position: [f32; 3], incoming: [f32; 3]) -> bool {
+        incoming.iter().any(|value| *value != 0.0)
+            && !self.visibility.occludes_direction(position, incoming)
+    }
+
+    /// One eligible local source's direct factor, excluding enabled/RGB/intensity.
+    /// Uses the ordinary direct-pool shape, height correction and visibility;
+    /// ambient, room baseline and bounce fill never become caustic energy.
+    #[must_use]
+    pub fn runtime_caustic_local_factor(&self, light_index: usize, position: [f32; 3]) -> f32 {
+        if !position.iter().all(|value| value.is_finite())
+            || !self
+                .lights
+                .get(light_index)
+                .is_some_and(|light| light.source.caustics)
+        {
+            return 0.0;
+        }
+        let Ok(index) = u32::try_from(light_index) else {
+            return 0.0;
+        };
+        let room = self.room_index_at_height(position[0], position[1], position[2]);
+        self.pool_term_for_source(index, room, position, true)
+            .map_or(0.0, |term| {
+                LOCAL_LIGHT_STRENGTH * term.height_factor * term.direct_shape * term.visibility
+            })
+    }
+
+    /// Conservative certificate for every emitter-to-receiver path in a cell.
+    /// The full emission footprint includes every existing 3x3 source tap.
+    #[must_use]
+    pub fn runtime_caustic_local_region_visible(
+        &self,
+        light_index: usize,
+        receivers: crate::engine::spatial::Aabb,
+    ) -> bool {
+        let Some(light) = self.lights.get(light_index) else {
+            return false;
+        };
+        let Ok(site) = u32::try_from(light_index) else {
+            return false;
+        };
+        let (half_w, half_d) = light.source.half_extents();
+        let [x, y, z] = light.source.position;
+        let source = crate::engine::spatial::Aabb {
+            min: [x - half_w, y, z - half_d],
+            max: [x + half_w, y, z + half_d],
+        };
+        light.source.caustics
+            && self
+                .visibility
+                .local_region_visible(site, source, receivers)
+    }
+
+    /// Conservative certificate for all incoming directional rays in a cell.
+    #[must_use]
+    pub fn runtime_direction_region_visible(
+        &self,
+        receivers: crate::engine::spatial::Aabb,
+        incoming: [f32; 3],
+    ) -> bool {
+        self.visibility
+            .direction_region_visible(receivers, incoming)
+    }
+
+    /// Raises a caustic receiver to the actual top of submerged static bodies.
+    /// Movable physics props are absent from these compiled immutable solids.
+    #[must_use]
+    pub fn caustics_receiver_floor(&self, x: f32, z: f32, base_floor: f32, surface_y: f32) -> f32 {
+        self.visibility
+            .caustics_receiver_floor(x, z, base_floor, surface_y)
     }
 
     /// Tests an entity/probe segment against the prepared world without a site.
@@ -2899,8 +3017,20 @@ impl LevelLighting {
         y: f32,
         z: f32,
     ) -> Option<PoolTerm> {
+        self.pool_term_for_source(index, room, [x, y, z], false)
+    }
+
+    /// Shared direct/fill geometry. Basis queries retain initially dark sources;
+    /// ordinary illumination still applies the source's active-state filter.
+    fn pool_term_for_source(
+        &self,
+        index: u32,
+        room: Option<usize>,
+        [x, y, z]: [f32; 3],
+        include_inactive: bool,
+    ) -> Option<PoolTerm> {
         let light = self.lights.get(usize::try_from(index).ok()?)?;
-        if !light.is_active() {
+        if !include_inactive && !light.is_active() {
             return None;
         }
         let (half_w, half_d) = light.source.half_extents();
@@ -3159,19 +3289,19 @@ impl LevelLighting {
             return Err("lighting record has the wrong magic".to_string());
         }
         let version = reader.u16()?;
-        if version != 2 && version != COMPILED_VERSION {
+        if !matches!(version, 2 | 3 | COMPILED_VERSION) {
             return Err(format!(
                 "lighting record version {version} is not supported (this build reads {COMPILED_VERSION})"
             ));
         }
         let rooms = read_rooms(reader)?;
-        let lights = read_lights(reader, rooms.len())?;
+        let lights = read_lights(reader, rooms.len(), version)?;
         let count = usize::from(reader.u8()?);
         if count > crate::engine::level::MAX_GLOBAL_ILLUMINATORS {
             return Err("too many compiled directional illuminators".to_string());
         }
         let global_lights = (0..count)
-            .map(|_| super::directional::DirectionalLight::read_compiled(reader))
+            .map(|_| super::directional::DirectionalLight::read_compiled(reader, version))
             .collect::<Result<Vec<_>, _>>()?;
         let sky_radiance = if version >= 3 {
             let sky = read_color(reader, "sky radiance")?;
@@ -3223,7 +3353,7 @@ impl LevelLighting {
 const COMPILED_MAGIC: [u8; 4] = *b"PLLT";
 
 /// Version of the compiled lighting record layout.
-pub(super) const COMPILED_VERSION: u16 = 3;
+pub(super) const COMPILED_VERSION: u16 = 4;
 
 /// Largest room count a compiled record may declare.
 const MAX_COMPILED_ROOMS: u64 = 100_000;
@@ -3389,6 +3519,7 @@ fn write_lights(writer: &mut Writer, lights: &[BakedLight]) -> Result<(), String
             LightFalloff::Constant => 2,
         });
         writer.bool(light.source.enabled);
+        writer.bool(light.source.caustics);
         writer.f32(light.height_factor);
         write_optional_u32(
             writer,
@@ -3407,7 +3538,11 @@ fn write_lights(writer: &mut Writer, lights: &[BakedLight]) -> Result<(), String
     Ok(())
 }
 
-fn read_lights(reader: &mut Reader<'_>, room_count: usize) -> Result<Vec<BakedLight>, String> {
+fn read_lights(
+    reader: &mut Reader<'_>,
+    room_count: usize,
+    version: u16,
+) -> Result<Vec<BakedLight>, String> {
     let count = reader.count(MAX_COMPILED_LIGHTS, "light count")?;
     let mut lights = Vec::with_capacity(count.min(16384));
     for _ in 0..count {
@@ -3437,6 +3572,7 @@ fn read_lights(reader: &mut Reader<'_>, room_count: usize) -> Result<Vec<BakedLi
             other => return Err(format!("unknown light falloff {other}")),
         };
         let enabled = reader.bool()?;
+        let caustics = version >= 4 && reader.bool()?;
         let height_factor = read_finite(reader, "light height factor")?;
         let room = read_optional_u32(reader)?;
         if let Some(room_id) = room
@@ -3456,6 +3592,7 @@ fn read_lights(reader: &mut Reader<'_>, room_count: usize) -> Result<Vec<BakedLi
                 range,
                 falloff,
                 enabled,
+                caustics,
             },
             height_factor,
             room: room.map(|room_id| usize::try_from(room_id).unwrap_or(usize::MAX)),

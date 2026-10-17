@@ -190,7 +190,7 @@ class ShippedLevelTests(unittest.TestCase):
             self.assertGreaterEqual(len(rooms), 1, f"{path.name} has no rooms")
             if level["id"] == "beach_demo":
                 self.assertTrue(all(room.get("ceiling", {}).get("kind") == "open" for room in rooms))
-                self.assertTrue(any(light["kind"] == "directional" and light["intensity"] > 0
+                self.assertTrue(any(light["kind"] == "sun" and light["intensity"] > 0
                                     and light.get("enabled", True) and light.get("bake", True)
                                     for light in level.get("global_illuminators", [])),
                                 "Beach has no daylight source")
@@ -199,7 +199,7 @@ class ShippedLevelTests(unittest.TestCase):
             elif level["id"] == "frutiger_aero_demo":
                 self.assertEqual(level["sky"]["texture"], "frutiger_aero:tex_sky_day_01")
                 self.assertTrue(any(room.get("ceiling", {}).get("kind") == "open" for room in rooms))
-                self.assertTrue(any(light["kind"] == "directional" and light["intensity"] > 0
+                self.assertTrue(any(light["kind"] == "sun" and light["intensity"] > 0
                                     for light in level.get("global_illuminators", [])))
                 self.assertTrue(any(prop.get("lights") for prop in level["props"]))
             else:

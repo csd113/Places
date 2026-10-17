@@ -57,7 +57,7 @@ def build_level() -> dict:
              "defaults": {"wall": "home:wall_paint_offwhite_01", "floor": "outdoor:grass_ground_01",
                           "ceiling": "home:ceiling_white_01"},
              "sky": {"texture": "outdoor:tex_sky_stars_01", "brightness": 1.0, "ambient": 0.22},
-             "global_illuminators": [{"id": "lantern_hollow_moon", "kind": "directional",
+             "global_illuminators": [{"id": "lantern_hollow_moon", "kind": "moon",
                  "direction": [-0.36, -0.8, -0.48], "color": [0.85, 0.9, 1.0],
                  "intensity": 0.12, "enabled": True, "cast_shadows": True,
                  "bake": True, "angular_size_degrees": 0.5}]}

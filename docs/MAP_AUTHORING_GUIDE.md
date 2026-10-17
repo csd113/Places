@@ -1473,6 +1473,7 @@ own air.
 | `material` | string | no | `core:water_pool_01` | Surface material. The default is `alpha_mode: "blend"`, so any replacement must be translucent or the water reads as a solid lid. |
 | `opacity` | number | no | `0.62` | `0.0..=1.0`; base surface coverage. The material opacity remains 1 so one material serves every volume. |
 | `attenuation_per_metre` | number | no | `0.0` | Finite 0–16. Transmission is `(1-opacity) * exp(-attenuation_per_metre * vertical_depth)`. Zero retains exact existing coverage. This stylized vertical-depth approximation changes visual coverage only, not swimming/collision; it is not screen-space thickness or refraction. |
+| `caustics` | object | no | `{ "tint": [1, 1, 1], "speed": 1.35, "strength": 0.24 }` | Optional independent per-water focus controls. Each nested field can be omitted. Linear RGB `tint` channels must be finite in `0..1`; `speed` is finite in `0..8` (`0` freezes animation); `strength` is finite in `0..1` (`0` disables this water's caustics). These affect eligible source light only and create no emission. |
 | `swimming` | boolean | no | `true` | `false` keeps the surface decorative: the player walks or falls through it, and no swim state can trigger. |
 
 Medium/Full water surfaces receive ordinary incident-HDR floor charts and their
@@ -1489,14 +1490,20 @@ submerged floors, steps and movable surfaces in Static and Full lighting.
 The runtime uses the resolved rectangle/circle, bottom and free surface; dry
 decks, walls, undersides and the water sheet itself are excluded. A shared
 PNG mask animates in world XZ without a new draw or render pass. Texture quality
-fits the mask independently of lighting. Local, above-water practical lights
-must reach the water; ambient, sky and sun alone do not enable this indoor
-pool effect. Volumes crossing rooms, opaque partitions or intervening room
-floors conservatively disable static caustics. An above-water flashlight can
+fits the mask independently of lighting. Eligibility is explicit source metadata:
+Pool round/wall fixture families enable it by default and accept
+`"caustics": false` to opt out. Other fixture families stay ineligible;
+`"caustics": true` on them is rejected, including fluorescent panels. Generic
+prop-attached `lights[]` default to ineligible and may author `"caustics": true`.
+Global `kind: "sun"` defaults to eligible, `kind: "directional"` defaults to
+ineligible and may opt in, and `kind: "moon"` stays ineligible (`true` is rejected).
+An eligible source must reach the submerged receiver through the water's
+footprint; RGB, intensity, room ambient and sky fill never infer eligibility.
+An above-water flashlight can
 focus its existing shadowed beam only where its ray enters the water footprint;
 a submerged flashlight retains its ordinary beam. This is a bounded visual
 approximation, not refractive light transport. See the
-[caustics report](reports/pool-caustics.md) for native evidence and costs.
+[caustics report](reports/caustics-0.11.0.md) for native evidence and costs.
 
 How it behaves:
 
@@ -3416,7 +3423,7 @@ Source format 3 accepts a bounded `global_illuminators` list (maximum eight):
 ```json
 "global_illuminators": [{
   "id": "moon",
-  "kind": "directional",
+  "kind": "moon",
   "direction": [-0.36, -0.8, -0.48],
   "color": [0.85, 0.9, 1.0],
   "intensity": 0.12,
@@ -3431,9 +3438,14 @@ Source format 3 accepts a bounded `global_illuminators` list (maximum eight):
 Y places the source overhead. It must be finite and nonzero, and is normalized
 once. IDs must be valid and unique within this list. `color` is linear RGB in
 `0..1`; intensity is `0..8`. The full angular diameter is `0..10` degrees (zero
-is a hard source). Defaults are directional, white, intensity 1, enabled, shadow
+is a hard source). `kind` accepts `directional` (default), `sun` or `moon`;
+all three share the same direct-light and shadow model. The distinction records
+caustics eligibility: Sun defaults to `caustics: true`, Directional defaults to
+`false`, and either accepts an explicit boolean. Moon always resolves `false`
+and rejects `caustics: true`. Defaults are white, intensity 1, enabled, shadow
 casting, participating in the bake, and diameter 0.5 degrees. An inactive or
-unbaked entry contributes no light; there is no realtime directional-light path.
+unbaked entry contributes no light. Caustics reuse the prepared source's energy
+and visibility; they add no realtime directional shadow pass.
 
 Directional sources have no radius or distance attenuation. Their visibility
 rays travel toward infinity against the same two-sided opaque geometry used by

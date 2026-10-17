@@ -19,6 +19,10 @@ use std::sync::Arc;
 use super::{LevelDef, LevelLighting, LevelSurfaces, PropDef, Vertex, spatial_cell_grid};
 use crate::engine::materials::{MaterialAlpha, MaterialEmission};
 
+#[cfg(test)]
+#[path = "../../tests/caustics_albedo.rs"]
+mod caustics_albedo_tests;
+
 /// One primitive's slice of a [`PropMeshBatch`]: its texture, its emission and
 /// the range of the batch's index buffer it draws.
 #[derive(Clone, Debug, PartialEq)]
@@ -290,6 +294,7 @@ impl BatchBuilder {
                         .transform_point3(glam::Vec3::from_array(vertex.pos))
                         .to_array(),
                     color: vertex.color,
+                    caustics_albedo: [vertex.color[0], vertex.color[1], vertex.color[2]],
                     uv: vertex.uv,
                     normal: vertex.normal.map_or([0.0; 3], |normal| {
                         normal_matrix
@@ -389,6 +394,9 @@ impl BatchBuilder {
         if let Some(tint) = preset {
             for vertex in self.vertices.get_mut(first_vertex..).into_iter().flatten() {
                 for (channel, factor) in vertex.color.iter_mut().take(3).zip(tint) {
+                    *channel *= factor;
+                }
+                for (channel, factor) in vertex.caustics_albedo.iter_mut().zip(tint) {
                     *channel *= factor;
                 }
             }
@@ -1180,6 +1188,7 @@ fn model_triangle_vertices(
                 .transform_point3(glam::Vec3::from_array(vertex.pos))
                 .to_array(),
             color: vertex.color,
+            caustics_albedo: [vertex.color[0], vertex.color[1], vertex.color[2]],
             uv: vertex.uv,
             normal: normal.to_array(),
             tangent: frame_u.to_array(),
@@ -1239,6 +1248,7 @@ fn append_instance_vertices(
             light.plus(lighting.global_surface_light(position.to_array(), normal.to_array()));
         batch.push(Vertex {
             pos: [position.x, position.y, position.z],
+            caustics_albedo: [vertex.color[0], vertex.color[1], vertex.color[2]],
             color: [
                 vertex.color[0] * surface_light.r,
                 vertex.color[1] * surface_light.g,

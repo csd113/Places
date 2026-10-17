@@ -3368,6 +3368,7 @@ pub const fn character_vertex(albedo: [f32; 4], uv: [f32; 2], position: [f32; 3]
     Vertex {
         pos: position,
         color: albedo,
+        caustics_albedo: [albedo[0], albedo[1], albedo[2]],
         uv,
         lightmap: [0; 2],
         lightmap_page: LIGHTMAP_NONE,

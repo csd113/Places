@@ -64,6 +64,8 @@ def main() -> None:
     parser.add_argument("--fullscreen", action="store_true")
     parser.add_argument("--console-open", action="store_true", help="enable/open the console through the SDL acceptance action path")
     parser.add_argument("--vsync", action="store_true", help="otherwise request Immediate presentation")
+    parser.add_argument("--texture-quality", choices=("low", "medium", "high"), default="high", help="independent texture residency for matched timing")
+    parser.add_argument("--texture-filtering", choices=("low", "medium", "high"), default="high", help="independent sampler setting for matched timing")
     parser.add_argument("--frames", type=int, default=600)
     parser.add_argument("--warmup", type=int, default=120)
     parser.add_argument("--motion", action="store_true", help="matched bathroom lateral trajectory")
@@ -112,7 +114,7 @@ def main() -> None:
     settings.update(
         window_width=width, window_height=height,
         window_mode="fullscreen" if args.fullscreen else "windowed", vsync=args.vsync,
-        quality="high", texture_filtering="high", lightmaps=args.lightmaps, reflections="full",
+        quality=args.texture_quality, texture_filtering=args.texture_filtering, lightmaps=args.lightmaps, reflections="full",
         bloom=True, use_low_quality_lighting=args.low_lighting, fov_degrees=60, developer_console=args.console_open,
     )
     # A direct native child uses the same isolated state on every platform.

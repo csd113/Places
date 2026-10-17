@@ -257,6 +257,7 @@ fn emit_floors(
                 &grid.zs,
                 &colors,
                 LitSurface {
+                    caustics_albedo: tint,
                     y_at: |_, _| y,
                     ceiling: false,
                     region: Some((u32::try_from(label).unwrap_or(u32::MAX), &labels)),
@@ -510,6 +511,7 @@ fn emit_ceilings(
             &zs,
             &colors,
             LitSurface {
+                caustics_albedo: context.materials.tint(ceiling_key),
                 y_at: ceiling_at,
                 ceiling: true,
                 region: Some((1, &labels)),
@@ -1335,6 +1337,9 @@ fn emit_wall_slice_cap(
             points,
             room,
         );
+        for vertex in scratch.get_mut(first..).into_iter().flatten() {
+            vertex.caustics_albedo = base_color;
+        }
         flush_wall_run(buckets, scratch, cursor, key);
     }
 }
@@ -1877,6 +1882,7 @@ fn emit_bare_fixture_housing(
         let [ca, cb, cc, cd] = colors;
         for (vertex, color) in quad.iter_mut().zip([ca, cb, cc, ca, cc, cd]) {
             vertex.color = [color[0], color[1], color[2], 1.0];
+            vertex.caustics_albedo = albedo;
         }
         let room = context.lighting.room_index_at_height(
             f32::midpoint(corner_a.pos[0], corner_c.pos[0]),
@@ -1914,6 +1920,7 @@ fn emit_panel_housing(
         let [ca, cb, cc, cd] = colors;
         for (vertex, color) in quad.iter_mut().zip([ca, cb, cc, ca, cc, cd]) {
             vertex.color = [color[0], color[1], color[2], 1.0];
+            vertex.caustics_albedo = tint;
             let [x, y, z] = vertex.pos;
             vertex.uv = if normal[1].abs() > 0.5 {
                 context.materials.uv(key, x, z)

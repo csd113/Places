@@ -245,9 +245,13 @@ fn add_quad_flat(
     uv2: [f32; 2],
     uv3: [f32; 2],
 ) {
+    let first = vertices.len();
     add_quad(
         vertices, p0, color, uv0, p1, color, uv1, p2, color, uv2, p3, color, uv3,
     );
+    for vertex in vertices.get_mut(first..).into_iter().flatten() {
+        vertex.caustics_albedo = color;
+    }
 }
 
 /// Distance a wall face is probed away from the wall when sampling baked
@@ -1872,10 +1876,14 @@ fn add_prop_box(
         ];
         let normal = quad_normal(points);
         let colors = points.map(|point| shaded(shade_mult, point, normal));
+        let first = vertices.len();
         add_quad(
             vertices, points[0], colors[0], uvs[0], points[1], colors[1], uvs[1], points[2],
             colors[2], uvs[2], points[3], colors[3], uvs[3],
         );
+        for vertex in vertices.get_mut(first..).into_iter().flatten() {
+            vertex.caustics_albedo = color.map(|channel| channel * shade_mult);
+        }
     }
 }
 
@@ -2096,10 +2104,14 @@ fn add_decal_quad(
                 .plus(lighting.global_surface_light(sample.to_array(), normal.to_array())),
         )
     });
+    let first = vertices.len();
     add_quad(
         vertices, points[0], colors[0], uv[0], points[1], colors[1], uv[1], points[2], colors[2],
         uv[2], points[3], colors[3], uv[3],
     );
+    for vertex in vertices.get_mut(first..).into_iter().flatten() {
+        vertex.caustics_albedo = tint;
+    }
 }
 
 /// True when a cell is still uncovered, so a growing rectangle can never
@@ -2235,6 +2247,8 @@ fn grid_rect_is_planar(
 /// One lit surface to emit: where it sits, which way it faces, and which
 /// material region of its grid this call covers.
 struct LitSurface<'a, Y: Fn(f32, f32) -> f32> {
+    /// Material factor before vertex lighting is folded into the colours.
+    caustics_albedo: [f32; 3],
     /// World Y of the surface at a grid corner. A flat floor returns a
     /// constant; a ceiling built on a gable profile returns the profile height,
     /// so the mesh conforms to the same function lighting and collision use.
@@ -2422,6 +2436,7 @@ fn emit_lit_surface_grid(
     lightmap: Option<LightmapEmit<'_>>,
 ) {
     let LitSurface {
+        caustics_albedo,
         y_at,
         ceiling,
         region,
@@ -2431,6 +2446,7 @@ fn emit_lit_surface_grid(
     if cells_x == 0 || cells_z == 0 {
         return;
     }
+    let first = vertices.len();
     let max_span_m = lightmap.map_or(f32::INFINITY, |wall_lightmap| wall_lightmap.max_span_m);
     let mut merger = GridMerger::new(xs, zs, colors, region, &y_at, max_span_m);
     let row_len = xs.len();
@@ -2486,6 +2502,9 @@ fn emit_lit_surface_grid(
                 lightmap,
             );
         }
+    }
+    for vertex in vertices.get_mut(first..).into_iter().flatten() {
+        vertex.caustics_albedo = caustics_albedo;
     }
 }
 

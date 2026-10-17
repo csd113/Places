@@ -43,6 +43,7 @@ struct WorldVertex {
     @location(7) lightmap_page: f32,
     @location(4) tangent: vec3<f32>,
     @location(5) handedness: f32,
+    @location(9) caustics_albedo: vec3<f32>,
 };
 
 struct VsOut {
@@ -51,6 +52,7 @@ struct VsOut {
     @location(1) color: vec4<f32>,
     @location(2) world_position: vec3<f32>,
     @location(3) world_normal: vec3<f32>,
+    @location(4) caustics_albedo: vec3<f32>,
 };
 
 @vertex
@@ -64,6 +66,7 @@ fn vs_main(vertex: WorldVertex) -> VsOut {
     out.color = vertex.color;
     out.world_position = vertex.position;
     out.world_normal = vertex.normal;
+    out.caustics_albedo = vertex.caustics_albedo;
     return out;
 }
 
@@ -76,7 +79,10 @@ fn decal_light(in: VsOut) -> vec3<f32> {
     }
     normal = normal / max(length(normal), 1.0e-6);
     if (dot(normal, camera.position - in.world_position) < 0.0) { normal = -normal; }
-    return in.color.rgb + dynamic_light_term(normal, in.world_position) + flashlight_term(normal, in.world_position);
+    let beam = flashlight_term(normal, in.world_position);
+    let selected = caustic_volume(in.world_position, normal);
+    let modulation = caustic_modulation(in.world_position, selected, dpdx(in.world_position.xz * 0.45), dpdy(in.world_position.xz * 0.45), beam, vec4<f32>(0.0));
+    return max(in.color.rgb + modulation * in.caustics_albedo, vec3<f32>(0.0)) + dynamic_light_term(normal, in.world_position) + beam;
 }
 
 // The IEC 61966-2-1 transfer functions, the same two `world.wgsl` carries.

@@ -319,6 +319,8 @@ pub struct LightSource {
     /// `enabled: false` and its emission still draws while its light is
     /// skipped. That is the authored half of "emission is not illumination".
     pub enabled: bool,
+    /// Whether this source may focus its existing light through water.
+    pub caustics: bool,
 }
 
 impl LightSource {
@@ -334,6 +336,7 @@ impl LightSource {
             range: DEFAULT_LIGHT_RANGE_M,
             falloff: LightFalloff::Smooth,
             enabled: true,
+            caustics: false,
         }
     }
 
@@ -365,6 +368,7 @@ impl LightSource {
             range,
             falloff: self.falloff,
             enabled: self.enabled,
+            caustics: self.caustics,
         }
     }
 

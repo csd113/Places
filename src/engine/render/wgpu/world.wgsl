@@ -140,6 +140,13 @@ struct Environment {
     contact_shadow_count: vec4<u32>,
     blacklights: array<EntityDirectLight, 4>,
     uv_receiver: BlacklightReceiver,
+    caustics_receiver: CausticsReceiver,
+};
+
+struct CausticsReceiver {
+    bounds_min: vec4<f32>,
+    bounds_extent: vec4<f32>,
+    radiance: array<vec4<f32>, 8>,
 };
 
 struct BlacklightReceiver {
@@ -242,6 +249,7 @@ struct WorldVertex {
     // Bitangent sign: cross(normal, tangent) * handedness is UV-v.
     @location(5) handedness: f32,
     @location(8) uv_visibility: vec4<f32>,
+    @location(9) caustics_albedo: vec3<f32>,
 };
 
 struct VsOut {
@@ -257,6 +265,7 @@ struct VsOut {
     @location(7) lightmap_page: f32,
     @location(8) local_position: vec3<f32>,
     @location(9) uv_visibility: vec4<f32>,
+    @location(10) caustics_albedo: vec3<f32>,
 };
 
 @vertex
@@ -267,6 +276,7 @@ fn vs_main(vertex: WorldVertex) -> VsOut {
     out.uv = vertex.uv;
     out.color = vertex.color;
     out.uv_visibility = vertex.uv_visibility;
+    out.caustics_albedo = vertex.caustics_albedo;
     // Normals use the inverse transpose; tangents use the model transform.
     // The material stage normalizes and re-orthogonalizes the frame.
     let normal_matrix = mat3x3<f32>(environment.normal_model[0].xyz, environment.normal_model[1].xyz, environment.normal_model[2].xyz);
@@ -789,6 +799,25 @@ fn ultraviolet_response(in: VsOut, normal: vec3<f32>, base: vec3<f32>) -> vec3<f
 
 // The complete un-shadowed world fragment: lit + sheen + reflection + emission,
 // then fog, all in linear light.
+fn caustic_receiver_light(in: VsOut, selected: u32) -> vec4<f32> {
+    let minimum = environment.caustics_receiver.bounds_min;
+    let extent = environment.caustics_receiver.bounds_extent;
+    if (selected == 0u || minimum.w <= 0.0) { return vec4<f32>(0.0); }
+    if (extent.w != f32(caustics.nodes[selected - 1u].links.z)) { return vec4<f32>(0.0); }
+    let coordinate = clamp((in.local_position - minimum.xyz) / max(extent.xyz, vec3<f32>(1.0e-6)), vec3<f32>(0.0), vec3<f32>(1.0));
+    var radiance = vec4<f32>(0.0);
+    for (var corner = 0u; corner < 8u; corner += 1u) {
+        let offset = vec3<u32>(corner & 1u, (corner >> 1u) & 1u, (corner >> 2u) & 1u);
+        let weight = select(vec3<f32>(1.0) - coordinate, coordinate, offset != vec3<u32>(0u));
+        radiance += environment.caustics_receiver.radiance[corner] * weight.x * weight.y * weight.z;
+    }
+    // Anchors may sit above submerged static supports. A buried fragment must
+    // keep an active zero override, rather than borrow either raised light or
+    // the global field that includes this object's own dynamic shadow.
+    if (in.world_position.y < radiance.w - 0.02) { return vec4<f32>(0.0, 0.0, 0.0, 1.0); }
+    return vec4<f32>(radiance.rgb, 1.0);
+}
+
 fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let base = textureSample(base_texture, base_sampler, in.uv);
     let base_linear = base.rgb;
@@ -808,19 +837,20 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let beam = flashlight_term(normal, in.world_position);
     let receiver_normal = select(vec3<f32>(0.0), normals.geometric, front_facing);
     let selected = caustic_volume(in.world_position, receiver_normal);
-    let modulation = caustic_modulation(in, selected, dpdx(in.world_position.xz * 0.45), dpdy(in.world_position.xz * 0.45), any(beam > vec3<f32>(0.0)));
+    let modulation = caustic_modulation(in.world_position, selected, dpdx(in.world_position.xz * 0.45), dpdy(in.world_position.xz * 0.45), beam, caustic_receiver_light(in, selected));
     let baked = surface_light(in, normal) * movable_contact_visibility(in, normal);
     let attached = dynamic_light_term(normal, in.world_position);
-    let light = baked * (1.0 + modulation.x) + attached + beam * (1.0 + modulation.y);
+    let light = baked + attached + beam;
     let view = normalize(camera.position - in.world_position);
     let incident = baked + attached + beam;
     let sheen = surface_sheen(in, normal, view, incident);
     let reflection = surface_reflection(in, normal, view);
     let emission = surface_emission(in, base_linear);
     let lit = lit_linear(base_linear * material.albedo_tint.rgb, in.color.rgb, light, material.emission_vertex);
+    let focused = lit_linear(base_linear * material.albedo_tint.rgb, in.caustics_albedo, modulation * movable_contact_visibility(in, normal), material.emission_vertex);
     let pigment = base_linear * material.uv_tint.rgb;
     let fluorescence = ultraviolet_response(in, normal, pigment);
-    let color = fogged(lit + sheen + reflection + emission + fluorescence, in.world_position);
+    let color = fogged(max(lit + focused, vec3<f32>(0.0)) + sheen + reflection + emission + fluorescence, in.world_position);
     var out: Shaded;
     out.color = storm_fog(camera.position, in.world_position, color);
     out.alpha = alpha;

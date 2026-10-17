@@ -1251,7 +1251,6 @@ impl WgpuRenderer {
         }
         // Floats ride an absolute clock before the spin/probe pass, so a
         // moved float's probe is sampled at this frame's surface pose.
-        self.caustics.update(&self.queue, self.animation_seconds);
         let _update_stats = self.dynamic.update_floats(self.animation_seconds);
         // Ambient effects ride the same absolute clock: a particle's pose is a
         // pure function of it, so this only records the time and reports which
@@ -1260,6 +1259,21 @@ impl WgpuRenderer {
         let _update_stats_2 = self.effects.update(self.animation_seconds);
         let lighting_started = cpu_trace_start(self.animation_seconds);
         let update = self.refresh_dynamic_lighting(delta_seconds);
+        if self.dynamic_transport.is_none() && self.caustics.has_active_sources() {
+            match self.dynamic_visibility.sync(&self.dynamic) {
+                Ok(_) => self.dynamic_visibility_error = None,
+                Err(error) => self.dynamic_visibility_error = Some(error),
+            }
+        }
+        if self.dynamic_visibility_error.is_none() {
+            self.caustics
+                .refresh_dynamic_visibility(&self.queue, &self.dynamic_visibility);
+        }
+        self.caustics.update(
+            &self.queue,
+            self.animation_seconds,
+            self.flashlight.is_some(),
+        );
         cpu_trace_finish("dynamic_lighting", lighting_started);
         let upload_started = cpu_trace_start(self.animation_seconds);
         let environment = self.level_environment();
@@ -1278,6 +1292,9 @@ impl WgpuRenderer {
                             .then_some(&self.dynamic_visibility),
                     }
                 }),
+                self.dynamic_visibility_error
+                    .is_none()
+                    .then_some((&self.caustics, &self.dynamic_visibility)),
             );
         }
         #[cfg(feature = "visual-diagnostics")]
@@ -1331,6 +1348,60 @@ impl WgpuRenderer {
         }
         self.flashlight = light;
         true
+    }
+
+    /// Updates focused-water radiance without rebuilding static lighting.
+    pub fn set_caustics_source(
+        &mut self,
+        id: &str,
+        on: Option<bool>,
+        intensity: Option<f32>,
+        color: Option<[f32; 3]>,
+    ) -> bool {
+        self.caustics
+            .set_source(id, on, intensity, color, &self.queue)
+    }
+
+    /// Updates the installed water's independent colour and motion controls.
+    pub fn set_caustics_water(
+        &mut self,
+        index: usize,
+        tint: Option<[f32; 3]>,
+        speed: Option<f32>,
+        strength: Option<f32>,
+    ) -> bool {
+        self.caustics
+            .set_water(index, tint, speed, strength, &self.queue)
+    }
+
+    /// Current source and receiver state for explicit developer captures.
+    #[must_use]
+    pub fn caustics_diagnostics(&self) -> serde_json::Value {
+        let mut result = self.caustics.diagnostics();
+        let receivers: Vec<_> = self
+            .dynamic
+            .objects()
+            .iter()
+            .enumerate()
+            .filter_map(|(slot, object)| {
+                let receiver = &self
+                    .world_dynamic
+                    .as_ref()?
+                    .diagnostic_uniform(slot)?
+                    .caustics_receiver;
+                Some(serde_json::json!({
+                    "id": format!("{:?}", object.id()),
+                    "model": object.mesh().model_path,
+                    "bounds_min": receiver.bounds_min,
+                    "bounds_extent": receiver.bounds_extent,
+                    "radiance": receiver.radiance,
+                }))
+            })
+            .collect();
+        if let Some(object) = result.as_object_mut() {
+            drop(object.insert("dynamic_receivers".into(), serde_json::json!(receivers)));
+        }
+        result
     }
 
     /// Static lighting and texture settings do not gate collision visibility.
@@ -3401,7 +3472,7 @@ impl WgpuRenderer {
                 .first()
                 .map(|probe| probe.face_size),
         );
-        self.caustics = super::caustics::Caustics::upload(
+        let mut caustics = super::caustics::Caustics::upload(
             &self.device,
             &self.queue,
             &mut self.textures,
@@ -3409,7 +3480,15 @@ impl WgpuRenderer {
             &build.lighting,
             self.quality,
         );
-        self.caustics.update(&self.queue, self.animation_seconds);
+        if !level_changed {
+            caustics.inherit_runtime_state(&self.caustics, &self.queue);
+        }
+        self.caustics = caustics;
+        self.caustics.update(
+            &self.queue,
+            self.animation_seconds,
+            self.flashlight.is_some(),
+        );
         self.environment = Some(self.create_environment());
         self.world = Some(world);
         self.world_props = Some(world_props);
@@ -3609,6 +3688,16 @@ impl WgpuRenderer {
         mesh: &crate::engine::render::common::mesh::LevelMesh,
         level: &crate::engine::level::LevelDef,
     ) {
+        for pipeline in [
+            &mut self.decal_pipeline,
+            &mut self.decal_reflection_pipeline,
+            &mut self.decal_scene_pipeline,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            pipeline.bind_caustics(&self.device, &self.caustics, &self.textures);
+        }
         let Some(pipeline) = self.decal_pipeline.as_ref() else {
             return;
         };
@@ -4918,12 +5007,24 @@ impl WgpuRenderer {
         ));
         // The decal pass runs in the same colour+depth passes as the world, so
         // it needs one pipeline per target format.
-        self.decal_pipeline = Some(DecalPipeline::new(&self.device, self.config.format));
+        self.decal_pipeline = Some(DecalPipeline::new(
+            &self.device,
+            self.config.format,
+            &self.caustics,
+            &self.textures,
+        ));
         self.decal_reflection_pipeline = Some(DecalPipeline::new(
             &self.device,
             super::reflections::REFLECTION_FORMAT,
+            &self.caustics,
+            &self.textures,
         ));
-        self.decal_scene_pipeline = Some(DecalPipeline::new(&self.device, SCENE_FORMAT));
+        self.decal_scene_pipeline = Some(DecalPipeline::new(
+            &self.device,
+            SCENE_FORMAT,
+            &self.caustics,
+            &self.textures,
+        ));
         // The sky pass draws in the same colour+depth passes as the world (the
         // main surface and the offscreen scene target, in raw display space),
         // sampling the shared texture-cache group 1.

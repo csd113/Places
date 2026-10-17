@@ -642,7 +642,7 @@ fn read_part(reader: &mut Reader<'_>, chunks: &[ChunkLocation]) -> Result<Part, 
         1 => {
             let stride = usize::from(reader.u8()?);
             let count = usize_from_u32(reader.u32()?)?;
-            if !matches!(stride, 43 | 45 | 69)
+            if !matches!(stride, 43 | 45 | 69 | 55 | 57 | 81)
                 || count == 0
                 || u64_from_usize(count)? > super::MAX_PROP_BATCH_VERTICES
             {

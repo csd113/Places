@@ -21,7 +21,7 @@
   "global_illuminators": [
     {
       "id": "lantern_hollow_moon",
-      "kind": "directional",
+      "kind": "moon",
       "direction": [
         -0.36,
         -0.8,

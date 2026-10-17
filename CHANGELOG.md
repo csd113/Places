@@ -2,6 +2,14 @@
 
 Development staging; this version has not been published.
 
+### Source-aware water caustics
+
+- Tie focused-water light to explicit pool, sunlight and authored source eligibility;
+  exclude fluorescent fixtures and moonlight independently of their RGB values.
+- Preserve individual source colours and visibility, expose bounded tint and motion
+  controls, and carry the shared pattern across submerged floor decals.
+- [Native validation, performance and limits](docs/reports/caustics-0.11.0.md).
+
 ### Fixture housing and emission audit
 
 - Verify Office's two wall sconces have sealed metal backs, correct normals and

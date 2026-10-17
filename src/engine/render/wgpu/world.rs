@@ -151,7 +151,7 @@ pub const WORLD_ATTRIB_UV_VISIBILITY: u32 = 8;
 /// `LIGHTMAP_NONE`) exactly as the un-normalized `GL_UNSIGNED_BYTE` attribute
 /// reached the reference shader.
 ///
-/// `#[repr(C)]` + `Pod` make the 88-byte GPU stride explicit. Visibility is
+/// `#[repr(C)]` + `Pod` make the 100-byte GPU stride explicit. Visibility is
 /// appended here, leaving the prepared neutral vertex format unchanged;
 /// the unit tests pin every offset and the vertex-buffer layout.
 #[repr(C)]
@@ -176,6 +176,8 @@ pub struct WorldVertex {
     pub handedness: f32,
     /// Four immutable static UV visibility fractions; moving objects use anchors.
     pub uv_visibility: [f32; 4],
+    /// Neutral material factor, independent of vertex-baked illumination.
+    pub caustics_albedo: [f32; 3],
 }
 
 impl From<&Vertex> for WorldVertex {
@@ -190,6 +192,7 @@ impl From<&Vertex> for WorldVertex {
             tangent: vertex.tangent,
             handedness: vertex.handedness,
             uv_visibility: [0.0; 4],
+            caustics_albedo: vertex.caustics_albedo,
         }
     }
 }
@@ -200,7 +203,7 @@ impl From<Vertex> for WorldVertex {
     }
 }
 
-const WORLD_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 9] = wgpu::vertex_attr_array![
+const WORLD_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 10] = wgpu::vertex_attr_array![
     WORLD_ATTRIB_POSITION => Float32x3,
     WORLD_ATTRIB_NORMAL => Float32x3,
     WORLD_ATTRIB_UV => Float32x2,
@@ -210,6 +213,7 @@ const WORLD_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 9] = wgpu::vertex_attr_ar
     WORLD_ATTRIB_TANGENT => Float32x3,
     WORLD_ATTRIB_HANDEDNESS => Float32,
     WORLD_ATTRIB_UV_VISIBILITY => Float32x4,
+    9 => Float32x3,
 ];
 
 /// Bytes between consecutive world vertices.
@@ -461,7 +465,8 @@ impl FogRegionUniform {
 /// offset 5616 contact_shadow_count vec4<u32>      16 bytes
 /// offset 5632 blacklights          [Source; 4]    448 bytes
 /// offset 6080 uv_receiver          Receiver       160 bytes
-/// ------------------------------------------------------ 6240 bytes, align 16
+/// offset 6240 caustics_receiver    Receiver       160 bytes
+/// ------------------------------------------------------ 6400 bytes, align 16
 /// ```
 ///
 /// Every field is the reference's own frame uniform: `u_light_scale`,
@@ -473,7 +478,7 @@ impl FogRegionUniform {
 /// `opacity` is the per-instance fade multiplier the character path installs
 /// (`1.0` for the static world and every prop, so static output is unchanged);
 /// the regional fog block is the level's authored volumes, bounded by the
-/// live count word. The struct is 6240 bytes on the wire and in Rust
+/// live count word. The struct is 6400 bytes on the wire and in Rust
 /// (`ENVIRONMENT_UNIFORM_SIZE`). `#[repr(C, align(16))]` makes the Rust layout
 /// the WGSL uniform layout explicitly; the unit tests pin it.
 #[repr(C, align(16))]
@@ -544,6 +549,8 @@ pub struct EnvironmentUniform {
     pub contact_shadow_count: [u32; 4],
     pub blacklights: [crate::engine::render::common::light_transport::EntityDirectLight; 4],
     pub uv_receiver: crate::engine::render::common::blacklight::BlacklightReceiver,
+    /// Self-excluded focused light for a moving receiver.
+    pub caustics_receiver: super::caustics::CausticsReceiver,
 }
 
 impl EnvironmentUniform {
@@ -605,6 +612,7 @@ impl EnvironmentUniform {
             blacklights: [crate::engine::render::common::light_transport::EntityDirectLight::ZERO;
                 4],
             uv_receiver: crate::engine::render::common::blacklight::BlacklightReceiver::ZERO,
+            caustics_receiver: super::caustics::CausticsReceiver::ZERO,
             storm: crate::engine::render::common::storm::StormUniform {
                 color_density: [0.0; 4],
                 count: [0; 4],
@@ -983,11 +991,21 @@ pub fn environment_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLa
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(64),
+                    min_binding_size: wgpu::BufferSize::new(112),
                 },
                 count: None,
             },
             texture(8, wgpu::TextureViewDimension::D2),
+            wgpu::BindGroupLayoutEntry {
+                binding: 10,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: wgpu::BufferSize::new(16),
+                },
+                count: None,
+            },
             wgpu::BindGroupLayoutEntry {
                 binding: 9,
                 visibility: wgpu::ShaderStages::FRAGMENT,
@@ -1066,6 +1084,10 @@ pub fn environment_bind_group(
             wgpu::BindGroupEntry {
                 binding: 9,
                 resource: wgpu::BindingResource::Sampler(caustics_sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 10,
+                resource: caustics.sample_buffer.as_entire_binding(),
             },
         ],
     })

@@ -551,6 +551,8 @@ def validate_light_source(light: object, where: str) -> Tuple[List[str], List[st
     for flag in ("enabled", "hold_in_static"):
         if flag in light and not isinstance(light.get(flag), bool):
             errors.append(f"{where}: {flag} must be a boolean")
+    if light.get("caustics") is not None and not isinstance(light["caustics"], bool):
+        errors.append(f"{where}: caustics must be a boolean when specified")
     group = light.get("switch_group")
     if group is not None and (not isinstance(group, str) or not group.strip()
                               or len(group.encode("utf-8")) > 64 or not light.get("switchable")):
@@ -558,6 +560,32 @@ def validate_light_source(light: object, where: str) -> Tuple[List[str], List[st
     if light.get("static_switch", "disabled") not in ("disabled", "prepared"):
         errors.append(f"{where}: static_switch must be 'disabled' or 'prepared'")
     return errors, warnings
+
+
+def validate_caustics_sources(level: dict, where: str, errors: List[str]) -> None:
+    """Eligibility is explicit source metadata, never a guess from RGB/energy."""
+    for index, fixture in enumerate(level.get("ceiling_lights") or []):
+        value = fixture.get("caustics")
+        context = f"{where}: ceiling light {index}"
+        if value is not None and not isinstance(value, bool):
+            errors.append(f"{context} caustics must be a boolean when specified")
+        elif value is True and fixture.get("fixture") not in (
+            "core:pool_light_round", "core:pool_light_wall"
+        ):
+            errors.append(f"{context} caustics is supported only by pool round/wall fixture families")
+    for index, light in enumerate(level.get("global_illuminators") or []):
+        context = f"{where}: global illuminator {index}"
+        if not isinstance(light, dict):
+            errors.append(f"{context} must be an object")
+            continue
+        kind = light.get("kind", "directional")
+        if kind not in ("directional", "sun", "moon"):
+            errors.append(f"{context} kind must be directional, sun or moon")
+        value = light.get("caustics")
+        if value is not None and not isinstance(value, bool):
+            errors.append(f"{context} caustics must be a boolean when specified")
+        elif value is True and kind == "moon":
+            errors.append(f"{context} is a moon and cannot enable caustics")
 
 
 def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[str], List[str]]:
@@ -3037,6 +3065,16 @@ def validate_water_shapes(level: dict, where: str, errors: List[str]) -> None:
         attenuation = volume.get("attenuation_per_metre", 0.0)
         if not is_finite_number(attenuation) or not 0.0 <= attenuation <= 16.0:
             errors.append(f"{context} attenuation_per_metre must be finite in 0..16")
+        caustics = volume.get("caustics", {})
+        if not isinstance(caustics, dict):
+            errors.append(f"{context} caustics must be an object")
+        else:
+            if not is_color_triplet(caustics.get("tint", [1.0, 1.0, 1.0])):
+                errors.append(f"{context} caustics tint must be three finite numbers in 0..1")
+            for field, default, maximum in (("speed", 1.35, 8.0), ("strength", 0.24, 1.0)):
+                value = caustics.get(field, default)
+                if not is_finite_number(value) or not 0.0 <= value <= maximum:
+                    errors.append(f"{context} caustics {field} must be finite in 0..{maximum:g}")
         bottom = volume.get("bottom_y")
         surface = volume.get("surface_y")
         if bottom is not None and (
@@ -3426,6 +3464,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             validate_effects(level, relative, errors)
             validate_environment(level, relative, errors)
             validate_sky(level, relative, errors)
+            validate_caustics_sources(level, relative, errors)
             validate_weather(level, relative, errors)
             validate_water_shapes(level, relative, errors)
             validate_floats(level, relative, errors)

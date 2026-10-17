@@ -240,42 +240,8 @@ impl FrameLoop<'_> {
     }
     pub(super) fn apply_item_script_action(&mut self, action: &crate::game::app::actions::Action) {
         match action {
-            crate::game::app::actions::Action::Activate { id } => {
-                let index = self
-                    .game
-                    .interactables()
-                    .items()
-                    .iter()
-                    .position(|item| item.id == *id && item.enabled);
-                if let Some(actor_index) = index {
-                    if let Some(report) = self.game.dispatch_interaction_at(Some(actor_index)) {
-                        self.interaction_audio_feedback(actor_index, &report);
-                    }
-                } else {
-                    self.fatal_error = Some(format!("Native actor activation refused for `{id}`"));
-                    self.game.stop();
-                }
-            }
-            crate::game::app::actions::Action::AimItem { id } => {
-                if let Some(target) = self
-                    .scripted_item_key(id)
-                    .and_then(|key| self.items.world.body_center(key))
-                {
-                    let direction = Vec3::new(
-                        target.x - self.game.player_position.x,
-                        target.y - self.game.player_position.y,
-                        target.z - self.game.player_position.z,
-                    );
-                    self.game.player_yaw = direction.x.atan2(-direction.z);
-                    self.game.player_pitch = direction
-                        .y
-                        .atan2(direction.x.hypot(direction.z))
-                        .clamp(-85_f32.to_radians(), 85_f32.to_radians());
-                } else {
-                    self.fatal_error = Some(format!("Native item aim refused for `{id}`"));
-                    self.game.stop();
-                }
-            }
+            crate::game::app::actions::Action::Activate { id } => self.scripted_activate_actor(id),
+            crate::game::app::actions::Action::AimItem { id } => self.scripted_aim_item(id),
             crate::game::app::actions::Action::Player {
                 position,
                 yaw,
@@ -334,8 +300,58 @@ impl FrameLoop<'_> {
             | crate::game::app::actions::Action::Quality { level: _ }
             | crate::game::app::actions::Action::Lightmaps { quality: _ }
             | crate::game::app::actions::Action::LowLighting { enabled: _ }
+            | crate::game::app::actions::Action::CausticsSource {
+                id: _,
+                on: _,
+                intensity: _,
+                color: _,
+            }
+            | crate::game::app::actions::Action::CausticsWater {
+                index: _,
+                tint: _,
+                speed: _,
+                strength: _,
+            }
             | crate::game::app::actions::Action::Focus { focused: _ }
             | crate::game::app::actions::Action::Quit {} => {}
+        }
+    }
+
+    fn scripted_activate_actor(&mut self, id: &str) {
+        let index = self
+            .game
+            .interactables()
+            .items()
+            .iter()
+            .position(|item| item.id == id && item.enabled);
+        if let Some(actor_index) = index {
+            if let Some(report) = self.game.dispatch_interaction_at(Some(actor_index)) {
+                self.interaction_audio_feedback(actor_index, &report);
+            }
+        } else {
+            self.fatal_error = Some(format!("Native actor activation refused for `{id}`"));
+            self.game.stop();
+        }
+    }
+
+    fn scripted_aim_item(&mut self, id: &str) {
+        if let Some(target) = self
+            .scripted_item_key(id)
+            .and_then(|key| self.items.world.body_center(key))
+        {
+            let direction = Vec3::new(
+                target.x - self.game.player_position.x,
+                target.y - self.game.player_position.y,
+                target.z - self.game.player_position.z,
+            );
+            self.game.player_yaw = direction.x.atan2(-direction.z);
+            self.game.player_pitch = direction
+                .y
+                .atan2(direction.x.hypot(direction.z))
+                .clamp(-85_f32.to_radians(), 85_f32.to_radians());
+        } else {
+            self.fatal_error = Some(format!("Native item aim refused for `{id}`"));
+            self.game.stop();
         }
     }
 

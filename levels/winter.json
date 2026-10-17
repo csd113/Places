@@ -50,7 +50,7 @@
   "global_illuminators": [
     {
       "id": "winter_moon",
-      "kind": "directional",
+      "kind": "moon",
       "direction": [
         -0.36,
         -0.8,

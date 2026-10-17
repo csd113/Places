@@ -1076,6 +1076,11 @@ fn validate_water_contract(
             "Water volume {i} attenuation_per_metre must be finite in 0..=16"
         ));
     }
+    if !volume.caustics.is_valid() {
+        return Err(format!(
+            "Water volume {i} caustics requires finite tint channels in 0..=1, speed in 0..=8 and strength in 0..=1"
+        ));
+    }
     if let Some(bottom) = volume.bottom_y
         && (!bottom.is_finite() || bottom >= volume.surface_y)
     {
@@ -2273,6 +2278,11 @@ fn validate_ceiling_lights(level: &LevelDef) -> Result<(), String> {
         if !light.ultraviolet.is_finite() || !(0.0..=8.0).contains(&light.ultraviolet) {
             return Err(format!(
                 "Ceiling light {i} ultraviolet must be finite and between 0 and 8"
+            ));
+        }
+        if light.caustics == Some(true) && !light.supports_caustics() {
+            return Err(format!(
+                "Ceiling light {i} caustics is supported only by pool round/wall fixture families"
             ));
         }
         if !light.x.is_finite() || !light.z.is_finite() || !light.rotation_degrees.is_finite() {

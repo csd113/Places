@@ -10,6 +10,8 @@ pub struct DirectionalLight {
     pub color: [f32; 3],
     pub intensity: f32,
     pub cast_shadows: bool,
+    /// Explicit source eligibility for water-focused direct lighting.
+    pub caustics: bool,
     /// Half angular diameter, radians.
     pub angular_radius: f32,
 }
@@ -37,6 +39,7 @@ impl DirectionalLight {
             color: def.color,
             intensity: def.intensity,
             cast_shadows: def.cast_shadows,
+            caustics: def.caustics(),
             angular_radius: 0.5 * def.angular_size_degrees.to_radians(),
         })
     }
@@ -85,15 +88,17 @@ impl DirectionalLight {
         writer.f32(self.intensity);
         writer.bool(self.cast_shadows);
         writer.f32(self.angular_radius);
+        writer.bool(self.caustics);
     }
 
-    pub(crate) fn read_compiled(reader: &mut Reader<'_>) -> Result<Self, String> {
+    pub(crate) fn read_compiled(reader: &mut Reader<'_>, version: u16) -> Result<Self, String> {
         let light = Self {
             incoming: reader.f32_3()?,
             color: reader.f32_3()?,
             intensity: reader.f32()?,
             cast_shadows: reader.bool()?,
             angular_radius: reader.f32()?,
+            caustics: version >= 4 && reader.bool()?,
         };
         if !light.is_valid() {
             return Err("invalid compiled directional illuminator".to_string());

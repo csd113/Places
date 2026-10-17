@@ -12123,7 +12123,7 @@
   "global_illuminators": [
     {
       "id": "beach_sun",
-      "kind": "directional",
+      "kind": "sun",
       "direction": [
         -0.5,
         -0.7071067811865476,

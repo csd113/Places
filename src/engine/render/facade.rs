@@ -475,6 +475,35 @@ impl Renderer {
         self.renderer.apply_light_toggles(toggles);
     }
 
+    /// Changes a source's focused-water radiance; baked base lighting is retained.
+    pub fn set_caustics_source(
+        &mut self,
+        id: &str,
+        on: Option<bool>,
+        intensity: Option<f32>,
+        color: Option<[f32; 3]>,
+    ) -> bool {
+        self.renderer.set_caustics_source(id, on, intensity, color)
+    }
+
+    /// Changes the focused-water tint and animation for one installed volume.
+    pub fn set_caustics_water(
+        &mut self,
+        index: usize,
+        tint: Option<[f32; 3]>,
+        speed: Option<f32>,
+        strength: Option<f32>,
+    ) -> bool {
+        self.renderer
+            .set_caustics_water(index, tint, speed, strength)
+    }
+
+    /// Bounded installed source/volume state for explicit native diagnostics.
+    #[must_use]
+    pub fn caustics_diagnostics(&self) -> serde_json::Value {
+        self.renderer.caustics_diagnostics()
+    }
+
     /// The installed level's door count and the number that spawned to draw.
     #[must_use]
     pub const fn door_render_counts(&self) -> (usize, usize) {

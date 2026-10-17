@@ -44,7 +44,7 @@ def build_level() -> dict:
         'weather_alternate': json.loads(SEVERE_WEATHER.read_text()),
         'weather_cycle': {'enabled': False, 'min_strength': 0, 'max_strength': .45,
                           'period_seconds': 120, 'transition_seconds': 15},
-        'global_illuminators': [{'id': 'winter_moon', 'kind': 'directional',
+        'global_illuminators': [{'id': 'winter_moon', 'kind': 'moon',
             'direction': [-.36, -.8, -.48], 'color': [.58, .72, 1], 'intensity': .18,
             'cast_shadows': True, 'bake': True, 'angular_size_degrees': .5}],
     }

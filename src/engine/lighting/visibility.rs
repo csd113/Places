@@ -84,6 +84,9 @@ use crate::engine::level::{
     LevelDef, LevelSurfaces, RoomDef, WallAxis, wall_solid_slices_profiled,
 };
 use crate::engine::package::binary::{Reader, Writer, finite3, finite4};
+use crate::engine::spatial::{
+    Aabb, directional_light_region_overlaps, finite_light_region_overlaps,
+};
 
 /// Smallest clipped overlap, as a fraction of a segment's own length, that
 /// still counts as the segment entering an opaque box.
@@ -210,6 +213,13 @@ struct Blocker {
 }
 
 impl Blocker {
+    const fn world_bounds(self) -> Aabb {
+        Aabb {
+            min: self.min,
+            max: self.max,
+        }
+    }
+
     /// Builds a box from its two corners, or `None` when it has no volume or a
     /// non-finite bound.
     fn from_corners(min: [f32; 3], max: [f32; 3]) -> Option<Self> {
@@ -278,6 +288,15 @@ pub(super) struct OrientedBox {
 }
 
 impl OrientedBox {
+    /// Conservative world bounds retain every rotated corner for region queries.
+    fn world_bounds(self) -> Aabb {
+        let (x0, x1, z0, z1) = self.footprint();
+        Aabb {
+            min: [x0, self.center[1] - self.half[1], z0],
+            max: [x1, self.center[1] + self.half[1], z1],
+        }
+    }
+
     /// Builds a rotated box, or `None` when it has no volume or a non-finite
     /// value (a model box is always positive; the guard keeps hand-edited or
     /// degenerate input out of the visibility set).
@@ -458,6 +477,16 @@ enum Horizontal {
 }
 
 impl Horizontal {
+    const fn world_bounds(self) -> Aabb {
+        match self {
+            Self::Slab(blocker) => blocker.world_bounds(),
+            Self::Floor(plane) => Aabb {
+                min: [plane.x0, plane.y, plane.z0],
+                max: [plane.x1, plane.y, plane.z1],
+            },
+        }
+    }
+
     fn overlaps_footprint(&self, x0: f32, x1: f32, z0: f32, z1: f32) -> bool {
         match self {
             Self::Slab(blocker) => blocker.overlaps_footprint(x0, x1, z0, z1),
@@ -1954,6 +1983,62 @@ impl Visibility {
         lowest
     }
 
+    /// Highest submerged static support at this point, never below the caller's
+    /// walkable floor. Above-water solids remain shadow casters, not receivers.
+    pub(super) fn caustics_receiver_floor(
+        &self,
+        x: f32,
+        z: f32,
+        base_floor: f32,
+        surface_y: f32,
+    ) -> f32 {
+        if ![x, z, base_floor, surface_y]
+            .into_iter()
+            .all(f32::is_finite)
+        {
+            return base_floor;
+        }
+        let mut floor = base_floor;
+        let mut raise = |top: f32| {
+            if top.is_finite() && top < surface_y - 0.005 && top > floor {
+                floor = top;
+            }
+        };
+        self.occluders
+            .wall_grid
+            .for_each_in_rect(&self.occluders.walls, x, x, z, z, |wall| {
+                if wall.contains_xz(x, z) {
+                    raise(wall.max[1]);
+                }
+            });
+        self.occluders.horizontal_grid.for_each_in_rect(
+            &self.occluders.horizontals,
+            x,
+            x,
+            z,
+            z,
+            |horizontal| {
+                let bounds = horizontal.world_bounds();
+                if x >= bounds.min[0]
+                    && x <= bounds.max[0]
+                    && z >= bounds.min[2]
+                    && z <= bounds.max[2]
+                {
+                    raise(bounds.max[1]);
+                }
+            },
+        );
+        self.occluders
+            .prop_grid
+            .for_each_in_rect(&self.occluders.props, x, x, z, z, |prop| {
+                let local = prop.local_point([x, prop.center[1], z]);
+                if local[0].abs() <= prop.half[0] && local[2].abs() <= prop.half[2] {
+                    raise(prop.center[1] + prop.half[1]);
+                }
+            });
+        floor
+    }
+
     /// Number of static prop occlusion boxes the set tests against.
     #[must_use]
     pub const fn prop_blocker_count(&self) -> usize {
@@ -2367,6 +2452,83 @@ impl Visibility {
         self.occluders.blocks(from, to)
     }
 
+    /// Proves a complete receiver region clear of this site's existing solids.
+    /// The compiled site range already excludes the source's owning prop.
+    /// Conservative world boxes may reject a lit cell, but cannot skip a thin
+    /// blocker between sampled anchors. Floor interfaces retain zero thickness.
+    #[must_use]
+    pub(super) fn local_region_visible(&self, site: u32, source: Aabb, receivers: Aabb) -> bool {
+        if !finite_region_bounds(source) || !finite_region_bounds(receivers) {
+            return false;
+        }
+        let Some(&(start, end)) = self.ranges.get(usize::try_from(site).unwrap_or(usize::MAX))
+        else {
+            return false;
+        };
+        let Some(entries) = self.pool.get(
+            usize::try_from(start).unwrap_or(usize::MAX)
+                ..usize::try_from(end).unwrap_or(usize::MAX),
+        ) else {
+            return false;
+        };
+        entries.iter().all(|entry| {
+            self.solid_bounds(entry.solid)
+                .is_some_and(|blocker| !finite_light_region_overlaps(source, receivers, blocker))
+        })
+    }
+
+    /// Proves every ray from a receiver region toward infinity clear.
+    #[must_use]
+    pub(super) fn direction_region_visible(&self, receivers: Aabb, incoming: [f32; 3]) -> bool {
+        finite_region_bounds(receivers)
+            && incoming.iter().all(|value| value.is_finite())
+            && incoming.iter().any(|value| *value != 0.0)
+            && self
+                .occluders
+                .walls
+                .iter()
+                .copied()
+                .map(Blocker::world_bounds)
+                .chain(
+                    self.occluders
+                        .horizontals
+                        .iter()
+                        .copied()
+                        .map(Horizontal::world_bounds),
+                )
+                .chain(
+                    self.occluders
+                        .props
+                        .iter()
+                        .copied()
+                        .map(OrientedBox::world_bounds),
+                )
+                .all(|blocker| !directional_light_region_overlaps(incoming, receivers, blocker))
+    }
+
+    fn solid_bounds(&self, solid: SolidIndex) -> Option<Aabb> {
+        match solid {
+            SolidIndex::Wall(index) => self
+                .occluders
+                .walls
+                .get(usize::try_from(index).ok()?)
+                .copied()
+                .map(Blocker::world_bounds),
+            SolidIndex::Horizontal(index) => self
+                .occluders
+                .horizontals
+                .get(usize::try_from(index).ok()?)
+                .copied()
+                .map(Horizontal::world_bounds),
+            SolidIndex::Prop(index) => self
+                .occluders
+                .props
+                .get(usize::try_from(index).ok()?)
+                .copied()
+                .map(OrientedBox::world_bounds),
+        }
+    }
+
     /// Infinite directional visibility for the vertex bake. Unlike a segment,
     /// its precision tolerance cannot grow with an artificial source distance.
     #[must_use]
@@ -2620,6 +2782,15 @@ impl Visibility {
     }
 }
 
+fn finite_region_bounds(bounds: Aabb) -> bool {
+    !bounds.is_empty()
+        && bounds
+            .min
+            .iter()
+            .chain(&bounds.max)
+            .all(|value| value.is_finite())
+}
+
 fn write_blocker(writer: &mut Writer, blocker: &Blocker) {
     writer.f32_3(blocker.min);
     writer.f32_3(blocker.max);
@@ -2749,3 +2920,7 @@ fn solid_order(a: SolidIndex, b: SolidIndex) -> std::cmp::Ordering {
 const fn allocation_bytes<T>(values: &Vec<T>) -> usize {
     values.capacity().saturating_mul(std::mem::size_of::<T>())
 }
+
+#[cfg(test)]
+#[path = "../tests/caustics_receiver_floor.rs"]
+mod caustics_receiver_floor_tests;
