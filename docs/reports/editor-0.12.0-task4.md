@@ -180,6 +180,26 @@ intersection from actual coplanarity and collision/void defects. The present
 pitch/roll and the full sideways-desk acceptance are therefore explicit stage 5
 work, not a claimed stage 4 capability. Do not introduce physics work for this.
 
+Persistent placement-specific warning dismissal is **not implemented in stage 4**.
+The user's late addition is explicitly deferred to stage 5, where placement
+identity/transforms and contextual placement controls are being extended. Existing
+coordinate-scoped `geometry_intent` annotations are not a substitute. Stage 5
+must provide `Ignore for this placement`, persisted by stable instance identity
+and issue-specific affected-geometry/transform context. Significant changes must
+invalidate or re-evaluate it; other desks and unrelated warnings on the same
+item remain visible. Include clear-ignore/review-ignored state, undo and raw-source
+preservation. Loader/source validation for malformed or unsafe data stays active.
+
+Every individual or future bulk/fix-all correction must honor that persisted
+intent. Never change a protected placement to repair its ignored issue; unrelated
+corrections that alter it require explicit review. Test unchanged ignored desk
+placement under individual and bulk corrections, then verify clear-ignore restores
+eligibility. Also test save/reopen persistence, distinct desk instances, unrelated
+same-item findings, duplicate identities and meaningful geometry/placement edits.
+Use contextual review UI, not additional permanent controls. Stage 4's sole
+correction removes an identical simple wall; it has no prop-moving or bulk repair
+path. The full dismissal/protection acceptance remains incomplete until stage 5.
+
 Asset integration waits until all authorized editor stages 4–7 are complete.
 Cloud Blender work may continue independently; this stage does not touch any
 remakes. The newer Spoonerman candidate was rejected and must not be integrated.
