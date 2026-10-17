@@ -183,7 +183,7 @@ pub struct InputState {
 
 impl InputState {
     /// The control the binding called `name` holds, or `None` when `name` is
-    /// not one of the movement, look or jump bindings.
+    /// not one of the gameplay bindings (Console belongs to the shell).
     fn binding_control(bindings: &KeyBindings, name: &str) -> Option<Control> {
         if name == bindings.forward {
             Some(Control::MoveForward)
@@ -429,18 +429,8 @@ impl InputHandler {
             self.state.quit_requested = true;
             return;
         }
-        if let Event::KeyDown {
-            keycode: Some(key),
-            repeat: false,
-            timestamp: _,
-            window_id: _,
-            scancode: _,
-            keymod: _,
-            which: _,
-            raw: _,
-        } = event
-        {
-            let name = keycode_to_str(*key);
+        if let Some(key) = pressed_key(event) {
+            let name = keycode_to_str(key);
             if let Some(button) = InputState::binding_control(bindings, &name) {
                 self.state.set_held(button, true);
             }
@@ -470,22 +460,31 @@ impl InputHandler {
     /// auto-repeat never do.
     #[must_use]
     pub fn poll_menu_nav_event(event: &Event) -> Option<MenuNavEvent> {
-        if let Event::KeyDown {
-            keycode: Some(key),
-            repeat: false,
-            timestamp: _,
-            window_id: _,
-            scancode: _,
-            keymod: _,
-            which: _,
-            raw: _,
-        } = event
-        {
-            return MENU_NAV_KEYS
-                .iter()
-                .find(|(candidate, _)| candidate == key)
-                .map(|(_, nav)| *nav);
-        }
+        let key = pressed_key(event)?;
+        MENU_NAV_KEYS
+            .iter()
+            .find(|(candidate, _)| *candidate == key)
+            .map(|(_, nav)| *nav)
+    }
+}
+
+/// A fresh key press, shared by gameplay, menu navigation, console and rebinding.
+/// OS repeats must never become a new action or the key captured by Controls.
+#[must_use]
+pub const fn pressed_key(event: &Event) -> Option<Keycode> {
+    if let Event::KeyDown {
+        keycode: Some(key),
+        repeat: false,
+        timestamp: _,
+        window_id: _,
+        scancode: _,
+        keymod: _,
+        which: _,
+        raw: _,
+    } = event
+    {
+        Some(*key)
+    } else {
         None
     }
 }

@@ -990,6 +990,9 @@ impl FrameLoop<'_> {
         {
             self.game.set_benchmark_simulation_delta(delta);
         }
+        if !self.gameplay_active() {
+            self.game.reset_timing();
+        }
         self.update_audio_mix();
         let _clock_updated = self
             .game
@@ -1084,12 +1087,17 @@ impl FrameLoop<'_> {
         }
     }
 
-    /// Advances weather controls only while the loaded world is playing.
-    fn advance_weather(&mut self) {
-        let delta = if !self.console.is_open()
+    /// The common clock/input gate; world scaling is applied only after this gate.
+    fn gameplay_active(&self) -> bool {
+        self.window_focused
+            && !self.console.is_open()
             && self.load_intent.is_none()
             && self.game.app_state() == AppState::Playing
-        {
+    }
+
+    /// Advances weather controls only while the loaded world is playing.
+    fn advance_weather(&mut self) {
+        let delta = if self.gameplay_active() {
             self.game.world_delta_seconds()
         } else {
             0.0
@@ -1102,22 +1110,12 @@ impl FrameLoop<'_> {
 
     /// Advances controlled visual time only while the diagnostic world is playing.
     fn visual_delta_seconds(&self) -> f32 {
-        if self.console.is_open() {
+        if !self.gameplay_active() {
             return 0.0;
         }
-        self.bench.fixed_delta_seconds().map_or_else(
-            || self.game.delta_seconds(),
-            |delta| {
-                if self.load_intent.is_none()
-                    && self.current_level.is_some()
-                    && self.game.app_state() == AppState::Playing
-                {
-                    delta
-                } else {
-                    0.0
-                }
-            },
-        )
+        self.bench
+            .fixed_delta_seconds()
+            .unwrap_or_else(|| self.game.delta_seconds())
     }
 
     /// Applies this ready-world frame's `PLACES_MOVE_SCRIPT` holds, if any.
@@ -1128,7 +1126,7 @@ impl FrameLoop<'_> {
     /// ordinary play. Scheduling is by accumulated simulation seconds, so the
     /// same script produces the same in-world sequence at any frame rate.
     fn apply_move_script(&mut self) {
-        if self.startup != StartupPhase::Ready || self.game.app_state() != AppState::Playing {
+        if self.startup != StartupPhase::Ready || !self.gameplay_active() {
             return;
         }
         self.ready_seconds = (self.ready_seconds + self.game.sim_delta_seconds()).min(1.0e6);
@@ -2105,7 +2103,11 @@ impl FrameLoop<'_> {
                 self.scripted_key("Escape", false);
             }
             actions::Action::ConsoleEnabled { enabled } => self.set_scripted_console(enabled),
-            actions::Action::Key { key, pressed } => self.scripted_key(&key, pressed),
+            actions::Action::Key {
+                key,
+                pressed,
+                repeat,
+            } => self.scripted_key_event(&key, pressed, repeat),
             actions::Action::AimEntity {
                 id,
                 yaw_offset_degrees,
@@ -2286,6 +2288,7 @@ impl FrameLoop<'_> {
             }
             if matches!(win_event, WindowEvent::FocusLost) {
                 self.window_focused = false;
+                self.game.reset_timing();
                 self.close_console();
                 // A key released while another window had focus may never
                 // deliver its KeyUp. Releasing everything keeps a held Jump,
@@ -2293,6 +2296,7 @@ impl FrameLoop<'_> {
                 self.input_handler.clear_gameplay_inputs();
             } else if matches!(win_event, WindowEvent::FocusGained) {
                 self.window_focused = true;
+                self.game.reset_timing();
                 self.ui_state
                     .pointer
                     .focus(self.event_pump.mouse_state().left());
@@ -2463,21 +2467,11 @@ impl FrameLoop<'_> {
 
     /// Handles a key while the Controls screen is waiting for a binding.
     fn handle_rebinding_event(&mut self, event: &Event, action: &str) {
-        if let Event::KeyDown {
-            keycode: Some(key),
-            timestamp: _,
-            window_id: _,
-            scancode: _,
-            keymod: _,
-            repeat: _,
-            which: _,
-            raw: _,
-        } = event
-        {
-            if *key == Keycode::Escape {
+        if let Some(key) = input::pressed_key(event) {
+            if key == Keycode::Escape {
                 self.ui_state.cancel_rebinding();
             } else {
-                let key_str = keycode_to_str(*key);
+                let key_str = keycode_to_str(key);
                 match self.settings.bindings.set_key(action, &key_str) {
                     Ok(()) => {
                         let label = crate::game::settings::action_label(action);
@@ -3118,6 +3112,11 @@ impl FrameLoop<'_> {
             "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
         });
         if let Some(fields) = state.as_object_mut() {
+            drop(fields.insert("controls".into(), serde_json::json!({
+                "flashlight_on": self.flashlight.is_on(),
+                "settings_page": format!("{:?}", self.ui_state.settings_page), "settings_index": self.ui_state.settings_idx,
+                "rebinding_action": self.ui_state.rebinding_action, "bindings": self.settings.bindings,
+            })));
             drop(fields.insert("caustics".into(), self.renderer.caustics_diagnostics()));
             drop(fields.insert(
                 "window_native_focus".into(),

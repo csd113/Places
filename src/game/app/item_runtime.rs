@@ -286,7 +286,11 @@ impl FrameLoop<'_> {
             crate::game::app::actions::Action::Load { level: _ }
             | crate::game::app::actions::Action::Escape {}
             | crate::game::app::actions::Action::ConsoleEnabled { enabled: _ }
-            | crate::game::app::actions::Action::Key { key: _, pressed: _ }
+            | crate::game::app::actions::Action::Key {
+                key: _,
+                pressed: _,
+                repeat: _,
+            }
             | crate::game::app::actions::Action::Text { text: _, submit: _ }
             | crate::game::app::actions::Action::AimEntity {
                 id: _,
@@ -645,10 +649,7 @@ impl FrameLoop<'_> {
     }
 
     pub(crate) fn update_physical_items(&mut self) {
-        let delta = if self.game.app_state() == AppState::Playing
-            && self.load_intent.is_none()
-            && !self.console.is_open()
-        {
+        let delta = if self.gameplay_active() {
             self.items
                 .simulation_delta
                 .unwrap_or_else(|| self.visual_delta_seconds())

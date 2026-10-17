@@ -17,6 +17,10 @@ impl FrameLoop<'_> {
         }
     }
     pub(crate) fn scripted_key(&mut self, key: &str, pressed: bool) {
+        self.scripted_key_event(key, pressed, false);
+    }
+
+    pub(crate) fn scripted_key_event(&mut self, key: &str, pressed: bool, repeat: bool) {
         if let Some(keycode) = Keycode::from_name(key) {
             let event = if pressed {
                 Event::KeyDown {
@@ -25,7 +29,7 @@ impl FrameLoop<'_> {
                     keycode: Some(keycode),
                     scancode: None,
                     keymod: sdl3::keyboard::Mod::NOMOD,
-                    repeat: false,
+                    repeat,
                     which: 0,
                     raw: 0,
                 }
@@ -36,7 +40,7 @@ impl FrameLoop<'_> {
                     keycode: Some(keycode),
                     scancode: None,
                     keymod: sdl3::keyboard::Mod::NOMOD,
-                    repeat: false,
+                    repeat,
                     which: 0,
                     raw: 0,
                 }
@@ -88,7 +92,7 @@ impl FrameLoop<'_> {
 
     pub(crate) fn handle_console_event(&mut self, event: &Event) -> bool {
         self.reconcile_console();
-        if console::toggle_key(event) {
+        if console::toggle_key(event, &self.settings.bindings.console) {
             if self.settings.developer_console
                 && self.game.app_state() == AppState::Playing
                 && self.load_intent.is_none()

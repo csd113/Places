@@ -322,10 +322,16 @@ lives in `src/engine/entities/`:
 settings model. Texture Quality (Low / Medium / High) sets image/scene budgets
 and the matching filtering preference. Lighting independently selects Static or
 Full; reflections, Bloom and VSync retain independent preferences. Static
-suppresses reflection resources while preserving the preference for Full. the game application reads the
+suppresses reflection resources while preserving the preference for Full. The game application reads the
 effective values (session-only `PLACES_*` startup overrides folded in) and
 hands them to the renderer; see [RENDERER.md](RENDERER.md) §12 for the mapping
 and §13 for the startup switches.
+
+Partial settings and binding objects retain specified values and default missing
+fields. Binding repair reserves valid owners before selecting unused defaults;
+unbound entries remain unbound. Saves sync an exclusively created sibling and
+rename it into place. Successive malformed files retain numbered `.json.invalid`
+backups rather than replacing the previous backup.
 
 ### What the wgpu backend owns (GPU realization)
 
@@ -537,12 +543,17 @@ per-frame poll adopts the state when it lands.
 
 ### Events and input
 
-The event surface is `Event::Quit`, `Event::KeyDown` and `Event::KeyUp` only.
+The event surface includes quit, keyboard, text, mouse and window focus events.
 Input is **keycode-based** (logical, layout-dependent), never scancode-based,
 so `settings.json` bindings stay stable across keyboards. Key repeat semantics:
 the first `KeyDown` (`repeat: false`) presses or triggers, repeats do nothing,
 and `KeyUp` releases. `Keycode::name()` supplies fallback names, and the
-special spellings (`ESC`, `-`, `KP_MINUS`, `ENTER`, …) are unchanged.
+special spellings (`ESC`, `-`, `ENTER`, …) are shared by validation and events.
+Legacy `KP_MINUS` reads as SDL’s `KEYPAD -`; unknown key names cannot bind.
+Console uses the same configurable logical-key ownership as gameplay controls.
+Rebinding also ignores repeat events. Focus loss clears held controls, pending
+presses and relative motion; menus, console, loading and lost focus stop player
+and world clocks. World time scaling remains independent of player/carry control.
 
 ### macOS Metal layer
 

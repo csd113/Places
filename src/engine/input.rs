@@ -40,3 +40,21 @@ pub fn keycode_to_str(key: Keycode) -> String {
             |(_, name)| (*name).to_string(),
         )
 }
+
+/// Resolves persisted/native key names to the identity emitted by input events.
+/// Unknown names cannot create a binding that native input will never trigger.
+#[must_use]
+pub fn canonical_key_name(name: &str) -> Option<String> {
+    let trimmed = name.trim();
+    // Retain the historical keypad-minus spelling from settings files.
+    let key = if trimmed.eq_ignore_ascii_case("KP_MINUS") {
+        Some(Keycode::KpMinus)
+    } else {
+        KEY_NAME_OVERRIDES
+            .iter()
+            .find(|(_, candidate)| candidate.eq_ignore_ascii_case(trimmed))
+            .map(|(key, _)| *key)
+            .or_else(|| Keycode::from_name(trimmed))
+    }?;
+    Some(keycode_to_str(key))
+}

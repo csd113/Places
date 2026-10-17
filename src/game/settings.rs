@@ -27,8 +27,10 @@
 
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use crate::engine::input::canonical_key_name;
 use crate::engine::quality::{GraphicsSpec, LightmapQuality, QualityLevel, ReflectionQuality};
 
 pub const DEFAULT_SETTINGS_PATH: &str = "settings.json";
@@ -56,20 +58,19 @@ pub const NO_REFLECTIONS_OVERRIDE_ENV: &str = "PLACES_NO_REFLECTIONS";
 /// Environment override disabling lightmap baking for one process.
 pub const NO_LIGHTMAPS_OVERRIDE_ENV: &str = "PLACES_NO_LIGHTMAPS";
 
-/// Keys the shell owns and a gameplay action may never bind.
+/// Keys the shell owns and an action may never bind.
 ///
 /// `ESC` opens the pause menu and cancels a rebind; `-` / keypad `-` toggles
-/// the performance overlay; backtick toggles the developer console. Accepting
-/// one of these as a gameplay binding would create a control that can never
-/// fire, so the rebind is rejected with a message instead.
-pub const RESERVED_KEYS: [&str; 4] = ["ESC", "-", "KP_MINUS", "`"];
+/// the performance overlay; F8 selects diagnostic views in diagnostic builds.
+/// Accepting one of these as a binding would create conflicting owners, so the
+/// rebind is rejected with a message instead.
+pub const RESERVED_KEYS: [&str; 4] = ["ESC", "-", "KEYPAD -", "F8"];
 
 /// True when `name` (as produced by [`crate::game::input::keycode_to_str`]) is
 /// reserved by the shell.
 #[must_use]
 pub fn is_reserved_key(name: &str) -> bool {
-    let normalized = name.trim().to_uppercase();
-    RESERVED_KEYS.contains(&normalized.as_str())
+    canonical_key_name(name).is_some_and(|normalized| RESERVED_KEYS.contains(&normalized.as_str()))
 }
 
 /// Player-facing label of a bindable action (`strafe_right` → `Strafe Right`).
@@ -139,6 +140,7 @@ impl WindowMode {
 /// crouch, `E` to interact and `F` to toggle the flashlight.
 /// Each action can be rebound in Settings.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
 pub struct KeyBindings {
     pub forward: String,
     pub backward: String,
@@ -175,6 +177,8 @@ pub struct KeyBindings {
     /// to choose a free key in Controls.
     #[serde(default = "default_flashlight_binding")]
     pub flashlight: String,
+    /// Open or close the opt-in developer console. Defaults to backtick.
+    pub console: String,
 }
 
 impl Default for KeyBindings {
@@ -192,6 +196,7 @@ impl Default for KeyBindings {
             crouch: default_crouch_binding(),
             interact: default_interact_binding(),
             flashlight: default_flashlight_binding(),
+            console: "`".to_string(),
         }
     }
 }
@@ -241,6 +246,7 @@ impl KeyBindings {
             "crouch" => Some(&self.crouch),
             "interact" => Some(&self.interact),
             "flashlight" => Some(&self.flashlight),
+            "console" => Some(&self.console),
             _ => None,
         }
     }
@@ -249,32 +255,18 @@ impl KeyBindings {
     /// Returns `Some(conflicting_action_name)` if a conflict is detected.
     #[must_use]
     pub fn check_conflict(&self, target_action: &str, new_key: &str) -> Option<&'static str> {
-        let normalized = new_key.trim().to_uppercase();
-        let actions = [
-            ("forward", &self.forward),
-            ("backward", &self.backward),
-            ("strafe_left", &self.strafe_left),
-            ("strafe_right", &self.strafe_right),
-            ("look_up", &self.look_up),
-            ("look_down", &self.look_down),
-            ("look_left", &self.look_left),
-            ("look_right", &self.look_right),
-            ("jump", &self.jump),
-            ("crouch", &self.crouch),
-            ("interact", &self.interact),
-            ("flashlight", &self.flashlight),
-        ];
-
-        for (action, bound_key) in actions {
-            if action != target_action && bound_key.trim().to_uppercase() == normalized {
-                return Some(action);
-            }
-        }
-        None
+        let normalized = canonical_key_name(new_key)?;
+        Self::ACTIONS.into_iter().find(|action| {
+            *action != target_action
+                && self
+                    .get_key(action)
+                    .and_then(canonical_key_name)
+                    .is_some_and(|key| key == normalized)
+        })
     }
 
     /// Every bindable action, in settings-screen order.
-    pub const ACTIONS: [&'static str; 12] = [
+    pub const ACTIONS: [&'static str; 13] = [
         "forward",
         "strafe_left",
         "strafe_right",
@@ -287,6 +279,7 @@ impl KeyBindings {
         "crouch",
         "interact",
         "flashlight",
+        "console",
     ];
 
     /// Rebinds an action to a new key if there is no conflict.
@@ -296,20 +289,25 @@ impl KeyBindings {
     /// is reserved by the shell, or `new_key` is already bound to another
     /// action.
     pub fn set_key(&mut self, action: &str, new_key: &str) -> Result<(), String> {
-        if is_reserved_key(new_key) {
+        if self.get_key(action).is_none() {
+            return Err(format!("Unknown action: {action}"));
+        }
+        let Some(key) = canonical_key_name(new_key) else {
+            return Err(format!("Unknown key: {}", new_key.trim()));
+        };
+        if is_reserved_key(&key) {
             return Err(format!(
-                "Key '{}' is reserved for pause/overlay/console",
-                new_key.trim().to_uppercase()
+                "Key '{key}' is reserved for pause/overlay/diagnostics"
             ));
         }
-        if let Some(conflicting) = self.check_conflict(action, new_key) {
+        if let Some(conflicting) = self.check_conflict(action, &key) {
             return Err(format!(
                 "Key '{}' is already bound to '{}'",
                 new_key.trim(),
                 action_label(conflicting)
             ));
         }
-        self.assign(action, new_key)
+        self.assign(action, &key)
     }
 
     /// Assigns a binding without conflict or reservation checks.
@@ -331,6 +329,7 @@ impl KeyBindings {
             "crouch" => self.crouch = key,
             "interact" => self.interact = key,
             "flashlight" => self.flashlight = key,
+            "console" => self.console = key,
             _ => return Err(format!("Unknown action: {action}")),
         }
         Ok(())
@@ -338,10 +337,10 @@ impl KeyBindings {
 
     /// Repairs a binding set that could not come from the settings screen.
     ///
-    /// A hand-edited or corrupted `settings.json` can contain an empty name, a
-    /// reserved key or two actions sharing one key. Each bad entry falls back
-    /// to its default independently, in a fixed order, so loading is
-    /// deterministic and a valid file is never altered. When an action's
+    /// A hand-edited or corrupted `settings.json` can contain an unknown name,
+    /// a reserved key or two actions sharing one key. Valid keys are reserved
+    /// first, then each bad entry falls back to its default in a fixed order.
+    /// Empty names remain unbound across reloads. When an action's
     /// default is itself already taken — an old file that customized `jump` to
     /// `E` before Interact existed, for example — the action is left unbound
     /// rather than overwriting the existing binding or leaving a duplicate the
@@ -350,27 +349,38 @@ impl KeyBindings {
     pub fn sanitize(&mut self) {
         let defaults = Self::default();
         let mut used: Vec<String> = Vec::new();
+        let mut repair = Vec::new();
+        // Reserve valid authored keys before filling defaults. An invalid
+        // early action must not steal a later action's valid custom binding.
         for action in Self::ACTIONS {
             let current = self.get_key(action).map_or("", str::trim);
-            let fallback = defaults.get_key(action).unwrap_or("");
-            let taken = |key: &str| used.iter().any(|seen| seen == &key.to_uppercase());
-            let key = if current.is_empty() || is_reserved_key(current) || taken(current) {
-                if taken(fallback) {
-                    String::new()
-                } else {
-                    fallback.to_string()
-                }
+            let key = if current.is_empty() {
+                // Empty is the persisted representation of an unbound action.
+                String::new()
+            } else if let Some(key) = canonical_key_name(current)
+                && !is_reserved_key(&key)
+                && !used.contains(&key)
+            {
+                used.push(key.clone());
+                key
             } else {
-                current.to_uppercase()
+                repair.push(action);
+                String::new()
             };
-            // ACTIONS is the same closed binding list used by assign; retain a
-            // diagnostic if a future binding is added to only one of them.
-            if let Err(error) = self.assign(action, &key) {
-                crate::engine::logging::warn(format!(
-                    "[settings] could not sanitize binding: {error}"
-                ));
+            self.assign_sanitized(action, &key);
+        }
+        for action in repair {
+            let fallback = defaults.get_key(action).unwrap_or("");
+            if !used.iter().any(|key| key == fallback) {
+                self.assign_sanitized(action, fallback);
+                used.push(fallback.to_string());
             }
-            used.push(key.trim().to_uppercase());
+        }
+    }
+
+    fn assign_sanitized(&mut self, action: &str, key: &str) {
+        if let Err(error) = self.assign(action, key) {
+            crate::engine::logging::warn(format!("[settings] could not sanitize binding: {error}"));
         }
     }
 }
@@ -435,6 +445,7 @@ impl SettingsApply {
 /// getters, and [`Self::save`] writes exactly this structure back to
 /// `settings.json` (minus the session-only [`Self::overrides`]).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
 // These are independent player preferences, not mutually exclusive states.
 #[expect(
     clippy::struct_excessive_bools,
@@ -453,7 +464,7 @@ pub struct Settings {
     /// Flip the vertical look direction. Off is the historical behaviour.
     #[serde(default = "default_invert_look")]
     pub invert_look: bool,
-    /// Opt-in developer console. Backtick is reserved even when disabled.
+    /// Opt-in developer console, opened by its configured control binding.
     #[serde(default)]
     pub developer_console: bool,
     /// Mouse look sensitivity: degrees of camera rotation per pixel of relative
@@ -568,6 +579,15 @@ pub const DEFAULT_MOUSE_SENSITIVITY: f32 = 0.12;
 const fn default_mouse_sensitivity() -> f32 {
     DEFAULT_MOUSE_SENSITIVITY
 }
+
+/// Keeps in-memory values as safe as decoded preferences; NaN survives clamp.
+const fn sanitized_scalar(value: f32, minimum: f32, maximum: f32, fallback: f32) -> f32 {
+    if value.is_finite() {
+        value.clamp(minimum, maximum)
+    } else {
+        fallback
+    }
+}
 const fn default_audio_volume() -> f32 {
     1.0
 }
@@ -658,7 +678,9 @@ fn truthy(value: &str) -> bool {
 
 /// Reads a `PLACES_*` switch that *disables* a feature when truthy.
 fn env_disable_override(name: &str) -> Option<bool> {
-    std::env::var(name).ok().map(|value| !truthy(&value))
+    std::env::var(name)
+        .ok()
+        .and_then(|value| truthy(&value).then_some(false))
 }
 
 /// Reads a `PLACES_NO_*` switch that pins an advanced quality for one process.
@@ -817,10 +839,12 @@ impl Settings {
     /// Validates and clamps settings values to safe operational ranges.
     pub fn sanitize(&mut self) {
         self.bindings.sanitize();
-        self.look_speed_h = self.look_speed_h.clamp(30.0, 360.0);
-        self.look_speed_v = self.look_speed_v.clamp(20.0, 240.0);
-        self.walk_speed = self.walk_speed.clamp(1.0, 10.0);
-        self.fov_degrees = self.fov_degrees.clamp(45.0, 110.0);
+        self.look_speed_h =
+            sanitized_scalar(self.look_speed_h, 30.0, 360.0, default_look_speed_h());
+        self.look_speed_v =
+            sanitized_scalar(self.look_speed_v, 20.0, 240.0, default_look_speed_v());
+        self.walk_speed = sanitized_scalar(self.walk_speed, 1.0, 10.0, default_walk_speed());
+        self.fov_degrees = sanitized_scalar(self.fov_degrees, 45.0, 110.0, default_fov());
         // A non-finite sensitivity (hand-edited memory or a future decoder)
         // falls back to the default rather than poisoning the camera with NaN.
         self.mouse_sensitivity = if self.mouse_sensitivity.is_finite() {
@@ -1322,7 +1346,17 @@ impl Settings {
         {
             fs::create_dir_all(parent)?;
         }
-        fs::write(path, json)
+        let settings_path = path.as_ref();
+        let (temporary, mut file) = create_settings_temporary(settings_path)?;
+        let write_result = file
+            .write_all(json.as_bytes())
+            .and_then(|()| file.sync_all());
+        drop(file);
+        let result = write_result.and_then(|()| fs::rename(&temporary, settings_path));
+        if result.is_err() {
+            let _cleanup = fs::remove_file(&temporary);
+        }
+        result
     }
 
     /// Loads settings from a JSON file, falling back safely to defaults on missing/corrupt data.
@@ -1360,8 +1394,9 @@ impl Settings {
     /// Loads the persistent settings, reporting a malformed file once.
     ///
     /// An unreadable or unparseable `settings.json` cannot be used, so the
-    /// defaults are returned. A file that exists but does not parse is renamed
-    /// to `settings.json.invalid` first: the player's data is preserved for
+    /// defaults are returned. A file that exists but does not parse is preserved
+    /// as `settings.json.invalid` (or the next free numbered sibling) first:
+    /// the player's data is retained for
     /// inspection, the next save writes a clean file, and the game never
     /// silently overwrites a file it could not understand.
     #[must_use]
@@ -1395,18 +1430,15 @@ impl Settings {
                 settings
             }
             Err(error) => {
-                let backup = settings_path.with_extension("json.invalid");
-                let preserved = fs::rename(settings_path, &backup).is_ok();
+                let backup = preserve_invalid_settings(settings_path);
                 crate::engine::logging::warn_once(
                     format!("settings-invalid:{}", settings_path.display()),
                     format!(
                         "[settings] {} is not a valid settings file ({error}); using defaults{}",
                         settings_path.display(),
-                        if preserved {
-                            format!(" and keeping the old file as {}", backup.display())
-                        } else {
-                            String::new()
-                        }
+                        backup.map_or_else(String::new, |preserved_path| {
+                            format!(" and keeping the old file as {}", preserved_path.display())
+                        })
                     ),
                 );
                 Self::default()
@@ -1449,4 +1481,50 @@ impl Settings {
     pub fn save(&self) -> Result<(), std::io::Error> {
         self.save_to_path(Self::default_path())
     }
+}
+
+/// Stages settings beside their destination so publication never truncates the
+/// previous file. Existing interrupted artifacts are never reused or removed.
+fn create_settings_temporary(path: &Path) -> std::io::Result<(PathBuf, fs::File)> {
+    for attempt in 0_u8..16 {
+        let mut name = path.file_name().unwrap_or_default().to_os_string();
+        name.push(format!(".partial-{attempt}"));
+        let temporary = path.with_file_name(name);
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)
+        {
+            Ok(file) => return Ok((temporary, file)),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::AlreadyExists,
+        "all 16 settings staging paths already exist",
+    ))
+}
+
+/// Preserve successive malformed files without replacing earlier evidence.
+fn preserve_invalid_settings(path: &Path) -> Option<PathBuf> {
+    for attempt in 0_u8..16 {
+        let extension = if attempt == 0 {
+            "json.invalid".to_string()
+        } else {
+            format!("json.invalid-{attempt}")
+        };
+        let backup = path.with_extension(extension);
+        // A hard link publishes without replacement, unlike rename. Only
+        // remove the source once its complete contents have been preserved.
+        match fs::hard_link(path, &backup) {
+            Ok(()) => {
+                let _removed = fs::remove_file(path);
+                return Some(backup);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(_) => return None,
+        }
+    }
+    None
 }

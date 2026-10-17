@@ -25,6 +25,8 @@ pub enum Action {
     Key {
         key: String,
         pressed: bool,
+        #[serde(default)]
+        repeat: bool,
     },
     Text {
         text: String,
@@ -260,7 +262,21 @@ fn parse(bytes: &[u8]) -> Result<Vec<Step>, String> {
     Ok(steps)
 }
 
+fn validate_key_action(action: &Action) -> Result<(), String> {
+    if let Action::Key {
+        key,
+        pressed: _,
+        repeat: _,
+    } = action
+        && sdl3::keyboard::Keycode::from_name(key).is_none()
+    {
+        return Err("Unknown SDL key name".to_string());
+    }
+    Ok(())
+}
+
 fn validate_action(action: &Action) -> Result<(), String> {
+    validate_key_action(action)?;
     match action {
         Action::Load { level } if level.is_empty() || level.len() > 256 => {
             return Err("Invalid requested level id".to_string());
@@ -279,9 +295,6 @@ fn validate_action(action: &Action) -> Result<(), String> {
             if crate::engine::quality::LightmapQuality::parse(quality).is_none() =>
         {
             return Err("Invalid lightmap quality".to_string());
-        }
-        Action::Key { key, pressed: _ } if sdl3::keyboard::Keycode::from_name(key).is_none() => {
-            return Err("Unknown SDL key name".to_string());
         }
         Action::Text { text, submit: _ } if text.len() > 256 || !text.is_ascii() => {
             return Err("Native text input must be at most 256 ASCII bytes".to_string());
@@ -303,7 +316,11 @@ fn validate_action(action: &Action) -> Result<(), String> {
             return Err("Capture name must be a short filename stem".to_string());
         }
         Action::ConsoleEnabled { enabled: _ }
-        | Action::Key { key: _, pressed: _ }
+        | Action::Key {
+            key: _,
+            pressed: _,
+            repeat: _,
+        }
         | Action::Text { text: _, submit: _ }
         | Action::Player {
             position: _,

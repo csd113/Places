@@ -212,8 +212,9 @@ a previous campaign does not establish present currency. The
 
 ## Developer console
 
-Enable **Settings → Controls → Developer Console**, then press backtick during
-play. See [console use and implementation](reports/developer-console-0.10.0.md)
+Enable **Settings → Controls → Developer Console**, then press the **Console**
+binding (backtick by default) during play. Console, Interact and Flashlight can
+all be rebound on that page; Escape remains the pause/back key. See [console use and implementation](reports/developer-console-0.10.0.md)
 for historical context. The [0.11.0 console stage](reports/developer-console-0.11.0.md)
 defines current commands, curated pickup eligibility, world clocks and `/become`.
 The opt-in `tools/bench/developer_console.py` acceptance tool reuses installed
@@ -222,3 +223,10 @@ packages and exercises the normal SDL event path; it does not bake maps.
 clocks, representative models and all 58 pickups in four catalog chunks. Supply
 an explicitly compiled `tests/fixtures/native/developer-console.level.json`
 package with `--map`; `--plan-only` inspects actions without launching the game.
+
+`tools/bench/settings_input.py --binary /absolute/places --map /absolute/fixture.placesmap
+--out /absolute/new-results` checks settings/rebind/reload, repeat and capture
+transitions, focus loss and zero-world-time carry control through a direct native
+executable. Supply the existing developer-console fixture package; the tool never
+builds or bakes. Captures, action scripts, traces, saved settings, hashes and
+assertion receipts stay outside automatic Rust/CI execution.

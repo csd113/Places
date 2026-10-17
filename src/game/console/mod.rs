@@ -6,7 +6,7 @@ mod ui;
 use crate::engine::render::Vertex;
 use command::Command;
 use sdl3::event::Event;
-use sdl3::keyboard::{Keycode, Scancode};
+use sdl3::keyboard::Keycode;
 use std::collections::VecDeque;
 
 const MAX_INPUT: usize = 256;
@@ -236,32 +236,9 @@ impl Console {
 }
 
 #[must_use]
-pub const fn toggle_key(event: &Event) -> bool {
-    matches!(
-        event,
-        Event::KeyDown {
-            scancode: Some(Scancode::Grave),
-            repeat: false,
-            timestamp: _,
-            window_id: _,
-            keycode: _,
-            keymod: _,
-            which: _,
-            raw: _
-        }
-    ) || matches!(
-        event,
-        Event::KeyDown {
-            keycode: Some(Keycode::Grave),
-            repeat: false,
-            timestamp: _,
-            window_id: _,
-            scancode: _,
-            keymod: _,
-            which: _,
-            raw: _
-        }
-    )
+pub fn toggle_key(event: &Event, binding: &str) -> bool {
+    crate::game::input::pressed_key(event)
+        .is_some_and(|key| crate::game::input::keycode_to_str(key) == binding)
 }
 
 #[must_use]

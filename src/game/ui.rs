@@ -65,7 +65,7 @@ impl SettingsPage {
             }
             Self::Display => 3,
             Self::Audio => 5,
-            Self::Controls => 20,
+            Self::Controls => KeyBindings::ACTIONS.len().saturating_add(8),
         }
     }
 }

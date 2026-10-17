@@ -1,5 +1,18 @@
 ## 0.11.0 — 2026-10-16
 
+### Settings and input correctness
+
+- Preserve valid partial settings and custom/unbound bindings; canonicalize native
+  key names, reject unreachable/reserved keys and retain valid key ownership during repair.
+- Add Console to the existing rebind controls alongside Flashlight and Interact;
+  share fresh-press handling so held menu-key repeats cannot capture themselves.
+- Stop player, world and visual clocks on focus loss/menu/console/loading, with
+  clean timing/capture transitions and independent player/carry time scaling.
+- Publish settings through synced owned temporaries, preserve successive invalid
+  backups, and retain saved bloom-Off when a disabling launch switch is false.
+- Add three small CPU regressions and an explicit direct-binary acceptance tool.
+  [Findings, evidence and limits](docs/reports/settings-input-0.11.0.md).
+
 ### Asset/map loading and resource ownership
 
 - Bind loaded semantics, prepared variants and retained graphics transitions to
