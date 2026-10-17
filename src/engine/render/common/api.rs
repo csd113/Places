@@ -415,6 +415,61 @@ pub fn build_level_geometry_timed(
     )
 }
 
+/// Prepares an inspection view through the ordinary geometry and asset path.
+///
+/// Authoring needs readable surfaces before lights have been placed. This
+/// applies a neutral studio fill to the shared vertex albedo after the cheap
+/// vertex preparation; it never solves lightmaps or captures reflection probes.
+/// The returned world uses the ordinary staged renderer upload unchanged.
+pub fn build_authoring_preview(
+    level: &LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    materials: &MaterialTable,
+) -> LevelBuild {
+    let (mut mesh, mut batches, lighting, timings) =
+        build_level_geometry_timed(level, catalog, assets, materials);
+    // A cutaway inspection view retains roof ownership for walls and fixtures,
+    // while omitting only the ceiling draw ranges from the editor's GPU copy.
+    mesh.ranges
+        .retain(|range| range.key.kind != super::SurfaceKind::Ceiling);
+    mesh.vertex_count = mesh.ranges.iter().map(|range| range.vertices.len()).sum();
+    mesh.index_count = mesh.ranges.iter().map(|range| range.indices.len()).sum();
+    mesh.batches.ceiling_batch = super::BatchRange::default();
+    for range in &mut mesh.ranges {
+        illuminate_preview_vertices(&mut range.vertices);
+    }
+    for batch in &mut batches {
+        illuminate_preview_vertices(&mut batch.vertices);
+    }
+    LevelBuild {
+        mesh,
+        batches,
+        static_light_off: None,
+        lighting,
+        timings,
+        lightmaps: None,
+        probes: None,
+        lightmap_failure: None,
+        lightmap_millis: 0.0,
+    }
+}
+
+fn illuminate_preview_vertices(vertices: &mut [super::Vertex]) {
+    let direction = glam::Vec3::new(-0.35, 0.8, 0.45).normalize();
+    for vertex in vertices {
+        let shade = 0.4_f32.mul_add(
+            glam::Vec3::from_array(vertex.normal)
+                .dot(direction)
+                .max(0.0),
+            0.55,
+        );
+        for (channel, albedo) in vertex.color.iter_mut().zip(vertex.caustics_albedo) {
+            *channel = albedo * shade;
+        }
+    }
+}
+
 /// A finished CPU level build that may still owe its lightmap fill.
 ///
 /// The loader prepares lighting, props, and the plan-stamped mesh on its

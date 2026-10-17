@@ -157,7 +157,7 @@ player data. Reuse `engine::assets` resource APIs and the package loader for the
 installation policy; do not infer state storage from `ProjectFolder.root()`.
 `ProjectFolder::open`, `root`, `manifest`, `resolve` and `read_level` are the
 authoring boundaries. No new global environment override was introduced.
-The shared `engine::paths` API now owns installation/user storage. Both compiler
+The shared `engine::paths` API owns installation/user storage. Both compiler
 `--asset-root` and `PLACES_ASSET_ROOT` accept the directory containing
 `catalog.json` (canonical) or the historical parent containing `assets/`.
 Installed resources and platform user folders are separate; launch cwd is
@@ -177,6 +177,12 @@ Use `paths::initialize_user()` and `UserPaths::projects()` for the default new
 project location, then retain the user's explicit chosen project root. The
 installed compiler discovers its own resources. `places --import <package>` and
 `places --list-levels` provide the same import/discovery path without a window.
+
+The implemented basic editor retains raw scene values alongside validated
+`LevelDef` views, with per-level history, conflict-checked atomic saves and
+explicit refusal of unsupported/lossy input. Compiler `build --events` exposes
+structured progress/results and stdin cancellation. See [EDITOR.md](EDITOR.md)
+for the save/build/play loop and remaining scope. No schema revision changed.
 
 ## Task-1 validation (2026-10-17)
 

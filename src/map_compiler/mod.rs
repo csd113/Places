@@ -35,6 +35,7 @@
 
 mod application;
 pub mod diagnostics;
+pub mod events;
 pub mod geometry_check;
 pub mod gui;
 pub mod navigation;

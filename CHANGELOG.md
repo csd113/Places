@@ -1,5 +1,13 @@
 ## 0.12.0 — in progress
 
+- Add the separate native `places-editor` application: shared-renderer 3D
+  viewport, picking/selection, transforms, snapping, built-in prop/material
+  selection, per-level undo/redo, project create/open and protected atomic saves.
+  Preserve unsupported fields and refuse source conflicts or lossy numeric data.
+- Complete save/build/play through structured compiler subprocess events, safe
+  cancellation, bounded child lifetimes and isolated direct-player play profiles.
+  Document [basic editor controls](docs/EDITOR.md) and
+  [native verification and deferred scope](docs/reports/editor-0.12.0-task3.md).
 - Share explicit installation/user-path resolution across player and compiler:
   executable-relative immutable assets, platform data/settings/cache locations,
   authoritative overrides and isolated first-run projects/import folders. The
@@ -23,7 +31,7 @@
   source headers and authoring tools were migrated together.
 - Add three compact project-contract regressions and one tiny binary-contract
   regression without a shipped-map bake.
-  Custom importers, Luau execution, editor UI and polished multi-level export
+  Custom importers, Luau execution, advanced editor tools and polished multi-level export
   remain later work. See [the source contract and stage handoff](docs/PROJECT_FORMAT.md).
 
 ## 0.11.0 — 2026-10-17

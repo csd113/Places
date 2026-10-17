@@ -1,7 +1,7 @@
 # Architecture
 
-Places uses one Rust crate with three source owners: reusable `engine`, the
-`game` application, and the `map_compiler` tool. SDL3 supplies the native window
+Places uses one Rust crate with four source owners: reusable `engine`, the
+`game` application, the `editor` application, and the `map_compiler` tool. SDL3 supplies the native window
 and input layer; the shared renderer owns the GPU backend. This document records
 dependency direction, scene ownership, frame flow and the rules the source layout
 protects.
@@ -13,9 +13,10 @@ src/main.rs -> game::run(args) ----------> engine
        |                                    ^
        +-> legacy geometry CLI              |
 src/bin/places-compile.rs -> map_compiler ---+
+src/bin/places-editor.rs -> editor ---------+
 ```
 
-`src/lib.rs` exports these three modules. It contains no player loop. The
+`src/lib.rs` exports these four modules. It contains no player loop. The
 existing `places`, `places-compile` and `places-physics-bench` executable names
 and command contracts remain available. Rust callers now use explicit
 `places::engine::*`, `places::game::*` and `places::map_compiler::*` paths;
@@ -26,6 +27,7 @@ there is no parallel flat compatibility namespace.
 | `engine/` | Authored scene schema and validation, asset/material resolution, compiled map records and decoding, rendering, physics, map-driven entity/AI/door runtime, targeting, spatial queries, quality values, native key names, telemetry and worker progress |
 | `game/` | Player movement and lifecycle, control bindings/settings, menus, developer console, world labels and performance HUD; `app/` owns the native frame loop and its loading, item, flashlight, console-input and acceptance-tool adapters |
 | `map_compiler/` | Public build/collection/verify/validate/inspect/export APIs, source preparation, geometry diagnostics, navigation bake, lighting/geometry/probe orchestration, package publication and CLI/GUI front ends |
+| `editor/` | Raw source documents, confined atomic saves, history, selection, native panels/input, background preview preparation and managed compiler/player processes |
 
 Production engine code imports neither game policy/UI nor Map Compiler
 orchestration. Shared CPU geometry and illumination kernels remain in the engine
@@ -45,12 +47,13 @@ presentation without making the renderer import the player. The engine owns
 shared counters, worker budgets and logging state; game drawing adapters consume
 them without creating duplicate globals.
 
-No editor exists in this stage. Under #18, an editor can own selection, panels,
-undo/redo and its document, use the engine schema/assets/renderer/physics, and
-call the same Map Compiler build/export APIs with progress and cancellation.
-It should not import the game frame loop or introduce a second renderer or bake
-implementation. Renderer resource ownership, synchronization and depth changes
-remain stage 2 (#16).
+The basic editor owns documents/history and application controls under #18. Its
+background preview uses engine geometry/material/model preparation and the same
+wgpu renderer with a cutaway, neutrally lit authoring copy. It never imports the
+game frame loop or duplicates bake logic. Compilation runs the direct compiler
+subprocess with versioned progress/results and safe cancellation; Play imports
+through the direct game subprocess into an isolated cached profile. See
+[controls, persistence and limitations](EDITOR.md). Rich editor tools remain later work.
 
 - The renderer itself — lifecycle, passes, colour space, materials, lighting,
   reflections, quality levels and diagnostics — is documented in

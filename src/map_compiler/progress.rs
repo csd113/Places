@@ -184,6 +184,10 @@ impl Session {
         self.state.cancelled.store(true, Ordering::Relaxed);
     }
 
+    pub(crate) fn cancellation_token(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.state.cancelled)
+    }
+
     /// Clears a prior cancellation. Call only after joining the previous build.
     pub fn reset_cancellation(&self) {
         self.state.cancelled.store(false, Ordering::Relaxed);

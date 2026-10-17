@@ -31,7 +31,7 @@ USAGE:
                        [--workers N]
   places-compile build <source.json|project> [--level <id>] [--out <package>] [--variants static,full]
                        [--asset-root <dir>] [--workers N] [--force] [--json]
-                       [--progress auto|plain|off]
+                       [--progress auto|plain|off] [--events]
   places-compile build-collection <dir> [--variants static,full]
                        [--asset-root <dir>] [--workers N] [--force] [--json]
                        [--progress auto|plain|off]
@@ -62,6 +62,8 @@ OPTIONS:
                       Build default: the source's sibling .placesmap.
   --force             Rebuild even when the existing package is current.
   --json              Machine-readable result on stdout.
+  --events            build only: versioned NDJSON progress/result on stdout.
+                      Stdin accepts {\"command\":\"cancel\"}; EOF cancels safely.
   --progress <mode>   Build feedback on stderr (default: auto). Auto redraws on
                       a capable terminal; redirected/CI output is plain text.
                       Plain always logs stages; off suppresses progress.
@@ -85,22 +87,42 @@ pub fn run() -> ExitCode {
             })
         })
         .collect();
+    let machine = parsed_arguments
+        .as_ref()
+        .is_ok_and(|arguments| arguments.iter().any(|argument| argument == "--events"));
     match parsed_arguments.and_then(|arguments| dispatch(&arguments)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(CliError::Usage(message)) => {
+            emit_failure(machine, compiler::events::Outcome::Failed, &message);
             eprintln!("places-compile: {message}");
             eprintln!();
             eprint!("{USAGE}");
             ExitCode::from(2)
         }
         Err(CliError::Failure(message)) => {
+            emit_failure(machine, compiler::events::Outcome::Failed, &message);
             eprintln!("places-compile: {message}");
             ExitCode::FAILURE
         }
         Err(CliError::Interrupted) => {
+            emit_failure(
+                machine,
+                compiler::events::Outcome::Cancelled,
+                "build cancelled",
+            );
             eprintln!("places-compile: build interrupted");
             ExitCode::from(130)
         }
+    }
+}
+
+fn emit_failure(machine: bool, outcome: compiler::events::Outcome, message: &str) {
+    if machine {
+        let _emitted = compiler::events::emit(&compiler::events::Event::Finished {
+            outcome,
+            report: None,
+            message: Some(message.into()),
+        });
     }
 }
 
@@ -122,6 +144,7 @@ struct Options {
     workers: usize,
     variants: Vec<LightmapQuality>,
     json: bool,
+    events: bool,
     require_current: bool,
     progress: Mode,
 }
@@ -133,6 +156,7 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
         workers: 0,
         variants: LightmapQuality::ALL.to_vec(),
         json: false,
+        events: false,
         require_current: false,
         progress: Mode::Auto,
     };
@@ -148,16 +172,7 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
                 index = index.saturating_add(2);
             }
             Some("--progress") => {
-                options.progress = match args.get(index.saturating_add(1)).map(String::as_str) {
-                    Some("auto") => Mode::Auto,
-                    Some("plain") => Mode::Plain,
-                    Some("off") => Mode::Off,
-                    _ => {
-                        return Err(CliError::Usage(
-                            "--progress needs auto, plain or off".into(),
-                        ));
-                    }
-                };
+                options.progress = progress_mode(args.get(index.saturating_add(1)))?;
                 index = index.saturating_add(2);
             }
             Some("--asset-root") => {
@@ -195,6 +210,10 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
                 options.json = true;
                 index = index.saturating_add(1);
             }
+            Some("--events") => {
+                options.events = true;
+                index = index.saturating_add(1);
+            }
             Some("--require-current") => {
                 options.require_current = true;
                 index = index.saturating_add(1);
@@ -226,6 +245,17 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
     }
     options.workers = options.workers.min(compiler::MAX_WORKERS);
     Ok(options)
+}
+
+fn progress_mode(value: Option<&String>) -> Result<Mode, CliError> {
+    match value.map(String::as_str) {
+        Some("auto") => Ok(Mode::Auto),
+        Some("plain") => Ok(Mode::Plain),
+        Some("off") => Ok(Mode::Off),
+        _ => Err(CliError::Usage(
+            "--progress needs auto, plain or off".into(),
+        )),
+    }
 }
 
 fn parse_variants(value: &str) -> Result<Vec<LightmapQuality>, CliError> {
@@ -282,7 +312,10 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
     ];
     let mut it = rest.iter();
     while let Some(arg) = it.next() {
-        if arg == "--json" || arg == "--force" || arg == "--require-current" {
+        if matches!(
+            arg.as_str(),
+            "--json" | "--force" | "--require-current" | "--events"
+        ) {
             option_args.push(arg.clone());
         } else if known_with_value.contains(&arg.as_str()) {
             option_args.push(arg.clone());
@@ -297,6 +330,11 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
         }
     }
     let options = parse_options(&option_args)?;
+    if options.events && (command != "build" || options.json) {
+        return Err(CliError::Usage(
+            "--events is supported only by build and cannot be combined with --json".into(),
+        ));
+    }
     if options.level.is_some() && !matches!(command, "build" | "verify") {
         return Err(CliError::Usage(
             "--level is only supported by build and verify".into(),
@@ -357,6 +395,19 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                 force: option_args.iter().any(|arg| arg == "--force"),
                 capture_probes: true,
             };
+            if options.events {
+                let report =
+                    compiler::events::build(&request).map_err(|failure| match failure {
+                        compiler::events::Failure::Failed(error) => CliError::Failure(error),
+                        compiler::events::Failure::Cancelled => CliError::Interrupted,
+                    })?;
+                compiler::events::emit(&compiler::events::Event::Finished {
+                    outcome: compiler::events::Outcome::Success,
+                    report: Some(Box::new(report)),
+                    message: None,
+                })?;
+                return Ok(());
+            }
             let session = Session::start(options.progress)?;
             let result = compiler::build(&request);
             if session.interrupted() {

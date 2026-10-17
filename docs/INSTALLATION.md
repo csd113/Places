@@ -11,6 +11,7 @@ empty map list. The player never compiles a map at startup.
 Places/
   places                     places.exe on Windows
   places-compile             optional authoring tool
+  places-editor              optional basic authoring application
   assets/
     catalog.json, gameplay.json
     shared/, environments/, entities/, diagnostic/, audio/
@@ -139,8 +140,11 @@ and checks read-only storage/dependency failures. `cases/` must not already exis
 This replaces obsolete smoke tests that required a full Arcade bake and wrote
 state beside the executable. Ordinary unit tests never launch this tool.
 
-The editor, custom asset importer, Luau execution, project bundle export and menu
-level remain later stages. Old real-map packages need explicit revision-one
+The [basic editor](EDITOR.md) now provides source editing and save/build/play.
+Its compiler/player paths can be overridden independently; editor play uses an
+isolated profile below the shared user cache. Custom asset importing, advanced
+editor tools, Luau execution, project bundle export and menu levels remain later
+stages. Old real-map packages need explicit revision-one
 rebakes; this path stage does not bake the demo lineup.
 
 ## Stage 2 validation (2026-10-17)

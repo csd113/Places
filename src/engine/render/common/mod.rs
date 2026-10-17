@@ -43,8 +43,9 @@ pub use animation::{
 };
 pub use api::{
     BuildTimings, GraphicsTransition, LevelBuild, LightmapBuildOptions, StaticLightState,
-    build_level_geometry, build_level_geometry_timed, build_level_geometry_timed_with_lightmaps,
-    build_level_geometry_with_assets, build_level_geometry_with_assets_and_lighting,
+    build_authoring_preview, build_level_geometry, build_level_geometry_timed,
+    build_level_geometry_timed_with_lightmaps, build_level_geometry_with_assets,
+    build_level_geometry_with_assets_and_lighting,
     build_level_geometry_with_assets_and_lighting_and_materials, build_level_geometry_with_catalog,
     build_level_geometry_with_catalog_and_materials, build_level_geometry_with_materials,
     logical_materials,

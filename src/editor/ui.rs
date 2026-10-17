@@ -1,0 +1,441 @@
+//! Compact retained hit regions and shared-renderer font geometry.
+
+use crate::engine::font::{get_char_uv, get_white_uv};
+use crate::engine::render::Vertex;
+
+use super::App;
+use super::document::{ObjectId, ObjectKind};
+
+pub(super) const INK: [f32; 4] = [0.88, 0.92, 0.95, 1.0];
+const MUTED: [f32; 4] = [0.53, 0.62, 0.69, 1.0];
+const ACCENT: [f32; 4] = [0.37, 0.86, 0.71, 1.0];
+const PANEL: [f32; 4] = [0.065, 0.09, 0.12, 1.0];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Action {
+    Capture,
+    New,
+    Open,
+    Save,
+    Undo,
+    Redo,
+    Build,
+    Play,
+    Cancel,
+    Stop,
+    Add(ObjectKind),
+    Select(ObjectId),
+    Duplicate,
+    Delete,
+    Focus,
+    Grid,
+    Snap,
+    Step,
+    Field(usize),
+    Nudge(usize, bool),
+    Assets,
+    Materials,
+    ChooseAsset(usize),
+    Page(bool),
+    ClosePopup,
+    ConfirmSave,
+    ConfirmDiscard,
+    ConfirmCancel,
+    Level,
+}
+
+pub(super) struct Hit {
+    rect: [f32; 4],
+    pub action: Action,
+}
+
+impl Hit {
+    pub fn contains(&self, [x, y]: [f32; 2]) -> bool {
+        let [left, top, width, height] = self.rect;
+        x >= left && x < left + width && y >= top && y < top + height
+    }
+}
+
+fn quad(
+    vertices: &mut Vec<Vertex>,
+    [left, top, width, height]: [f32; 4],
+    color: [f32; 4],
+    uv: [f32; 4],
+) {
+    let [u0, v0, u1, v1] = uv;
+    for (pos, tex) in [
+        ([left, top, 0.0], [u0, v0]),
+        ([left + width, top, 0.0], [u1, v0]),
+        ([left + width, top + height, 0.0], [u1, v1]),
+        ([left, top, 0.0], [u0, v0]),
+        ([left + width, top + height, 0.0], [u1, v1]),
+        ([left, top + height, 0.0], [u0, v1]),
+    ] {
+        vertices.push(Vertex {
+            pos,
+            color,
+            uv: tex,
+            ..Vertex::UNLIT
+        });
+    }
+}
+
+pub(super) fn rect(vertices: &mut Vec<Vertex>, bounds: [f32; 4], color: [f32; 4]) {
+    quad(vertices, bounds, color, get_white_uv());
+}
+
+pub(super) fn text(
+    vertices: &mut Vec<Vertex>,
+    value: &str,
+    x: f32,
+    y: f32,
+    color: [f32; 4],
+    limit: usize,
+) {
+    let mut cursor = x;
+    for character in value.chars().take(limit) {
+        if character != ' '
+            && let Some(uv) = get_char_uv(character).or_else(|| get_char_uv('?'))
+        {
+            quad(vertices, [cursor, y, 3.5, 4.5], color, uv);
+        }
+        cursor += 3.5;
+    }
+}
+
+fn button(
+    vertices: &mut Vec<Vertex>,
+    hits: &mut Vec<Hit>,
+    bounds: [f32; 4],
+    label: &str,
+    action: Action,
+    active: bool,
+) {
+    rect(
+        vertices,
+        bounds,
+        if active {
+            [0.15, 0.24, 0.28, 1.0]
+        } else {
+            [0.09, 0.12, 0.15, 1.0]
+        },
+    );
+    let [x, y, width, _h] = bounds;
+    let mut available = width - 4.0;
+    let fitted: String = label
+        .chars()
+        .take_while(|_| {
+            available -= 3.5;
+            available >= 0.0
+        })
+        .collect();
+    text(
+        vertices,
+        &fitted,
+        x + 2.5,
+        y + 3.0,
+        if active { INK } else { MUTED },
+        68,
+    );
+    if active {
+        hits.push(Hit {
+            rect: bounds,
+            action,
+        });
+    }
+}
+
+pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
+    let mut v = Vec::new();
+    let mut hits = Vec::new();
+    rect(&mut v, [0.0, 0.0, 480.0, 38.0], PANEL);
+    rect(&mut v, [0.0, 38.0, 112.0, 204.0], PANEL);
+    rect(&mut v, [0.0, 242.0, 480.0, 30.0], PANEL);
+    toolbar(app, &mut v, &mut hits);
+    navigation(app, &mut v, &mut hits);
+    scene(app, &mut v, &mut hits);
+    inspector(app, &mut v, &mut hits);
+    footer(app, &mut v, &mut hits);
+    if let Some(popup) = &app.popup {
+        popup.draw(app, &mut v, &mut hits);
+    }
+    (v, hits)
+}
+
+pub(super) fn popup_button(
+    v: &mut Vec<Vertex>,
+    hits: &mut Vec<Hit>,
+    bounds: [f32; 4],
+    label: &str,
+    action: Action,
+) {
+    button(v, hits, bounds, label, action, true);
+}
+
+fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    text(vertices, "PLACES / EDITOR", 5.0, 4.0, ACCENT, 30);
+    let title = app.document.as_ref().map_or_else(
+        || "Choose New or Open to begin".into(),
+        |d| {
+            format!(
+                "{} / {}{}",
+                d.project().manifest().name,
+                d.level_id(),
+                if d.is_dirty() {
+                    " * UNSAVED"
+                } else if app.viewport.is_preparing() {
+                    " / preparing view"
+                } else {
+                    ""
+                }
+            )
+        },
+    );
+    text(vertices, &title, 114.0, 4.0, INK, 101);
+    let idle = app.compile.is_none() && app.play.is_none() && !app.dialog_open;
+    for (x, w, label, action, enabled) in [
+        (5.0, 26.0, "New", Action::New, idle),
+        (33.0, 26.0, "Open", Action::Open, idle),
+        (
+            61.0,
+            26.0,
+            "Save",
+            Action::Save,
+            app.document.is_some() && app.compile.is_none(),
+        ),
+        (
+            91.0,
+            26.0,
+            "Undo",
+            Action::Undo,
+            app.document
+                .as_ref()
+                .is_some_and(super::document::Document::can_undo),
+        ),
+        (
+            119.0,
+            26.0,
+            "Redo",
+            Action::Redo,
+            app.document
+                .as_ref()
+                .is_some_and(super::document::Document::can_redo),
+        ),
+        (
+            151.0,
+            51.0,
+            "Save+Build",
+            Action::Build,
+            idle && app.document.is_some(),
+        ),
+        (
+            205.0,
+            46.0,
+            "Build+Play",
+            Action::Play,
+            idle && app.document.is_some(),
+        ),
+        (254.0, 37.0, "Cancel", Action::Cancel, app.compile.is_some()),
+        (294.0, 47.0, "Stop Play", Action::Stop, app.play.is_some()),
+    ] {
+        button(vertices, hits, [x, 14.0, w, 11.0], label, action, enabled);
+    }
+}
+
+fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    button(
+        vertices,
+        hits,
+        [347.0, 14.0, 30.0, 11.0],
+        if app.view.grid { "Grid On" } else { "Grid Off" },
+        Action::Grid,
+        true,
+    );
+    button(
+        vertices,
+        hits,
+        [380.0, 14.0, 30.0, 11.0],
+        if app.view.snap { "Snap On" } else { "Snap Off" },
+        Action::Snap,
+        true,
+    );
+    button(
+        vertices,
+        hits,
+        [413.0, 14.0, 61.0, 11.0],
+        &format!("Step {:.2}m", app.step),
+        Action::Step,
+        true,
+    );
+    text(
+        vertices,
+        "RMB orbit / WASDQE fly   MMB pan   Wheel zoom   F frame",
+        114.0,
+        29.0,
+        MUTED,
+        102,
+    );
+}
+
+fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    text(vertices, "SCENE", 5.0, 42.0, ACCENT, 20);
+    button(
+        vertices,
+        hits,
+        [65.0, 39.0, 42.0, 10.0],
+        "Level >",
+        Action::Level,
+        app.document.is_some(),
+    );
+    for (x, w, label, kind) in [
+        (5.0, 32.0, "+ Floor", ObjectKind::Room),
+        (40.0, 30.0, "+ Wall", ObjectKind::Wall),
+        (73.0, 34.0, "+ Prop", ObjectKind::Prop),
+    ] {
+        button(
+            vertices,
+            hits,
+            [x, 52.0, w, 11.0],
+            label,
+            Action::Add(kind),
+            app.document.is_some(),
+        );
+    }
+    let objects = app
+        .document
+        .as_ref()
+        .map_or_else(Vec::new, super::document::Document::objects);
+    for (index, object) in objects.iter().skip(app.object_scroll).take(5).enumerate() {
+        let y = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(10.0, 67.0);
+        let label = format!(
+            "{}{}",
+            if app.selected == Some(object.id) {
+                "> "
+            } else {
+                "  "
+            },
+            object.label
+        );
+        button(
+            vertices,
+            hits,
+            [5.0, y, 102.0, 9.0],
+            &label,
+            Action::Select(object.id),
+            true,
+        );
+    }
+    text(
+        vertices,
+        &format!("{} objects / scroll list", objects.len()),
+        5.0,
+        120.0,
+        MUTED,
+        29,
+    );
+}
+
+fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    text(vertices, "TRANSFORM", 5.0, 131.0, ACCENT, 25);
+    if let Some(transform) = app
+        .selected
+        .and_then(|id| app.document.as_ref()?.transform(id).ok())
+    {
+        let [pos_x, pos_y, pos_z] = transform.position;
+        let [width, height, depth] = transform.size;
+        let prop = matches!(app.selected, Some(ObjectId::Prop(_)));
+        for (index, (label, value)) in [
+            ("X", pos_x),
+            ("Y", pos_y),
+            ("Z", pos_z),
+            (if prop { "Scale" } else { "Width" }, width),
+            (if prop { "Scale" } else { "Height" }, height),
+            (if prop { "Scale" } else { "Depth" }, depth),
+            ("Yaw", transform.yaw_degrees),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let top = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(10.0, 141.0);
+            text(vertices, label, 5.0, top + 3.0, MUTED, 8);
+            button(
+                vertices,
+                hits,
+                [33.0, top, 52.0, 9.0],
+                &format!("{value:.3}"),
+                Action::Field(index),
+                true,
+            );
+            button(
+                vertices,
+                hits,
+                [87.0, top, 9.0, 9.0],
+                "-",
+                Action::Nudge(index, false),
+                true,
+            );
+            button(
+                vertices,
+                hits,
+                [98.0, top, 9.0, 9.0],
+                "+",
+                Action::Nudge(index, true),
+                true,
+            );
+        }
+    } else {
+        text(vertices, "Select an object", 5.0, 145.0, MUTED, 27);
+    }
+}
+
+fn footer(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    button(
+        vertices,
+        hits,
+        [5.0, 214.0, 32.0, 10.0],
+        "Copy",
+        Action::Duplicate,
+        app.selected.is_some(),
+    );
+    button(
+        vertices,
+        hits,
+        [40.0, 214.0, 32.0, 10.0],
+        "Delete",
+        Action::Delete,
+        app.selected.is_some(),
+    );
+    button(
+        vertices,
+        hits,
+        [75.0, 214.0, 32.0, 10.0],
+        "Frame",
+        Action::Focus,
+        true,
+    );
+    button(
+        vertices,
+        hits,
+        [5.0, 228.0, 49.0, 10.0],
+        "Prop library",
+        Action::Assets,
+        true,
+    );
+    button(
+        vertices,
+        hits,
+        [58.0, 228.0, 49.0, 10.0],
+        "Material",
+        Action::Materials,
+        app.selected.is_some(),
+    );
+    text(vertices, &app.status, 5.0, 247.0, INK, 133);
+    text(
+        vertices,
+        "Cmd/Ctrl S save | Z undo | Shift Z redo | D duplicate | Delete | arrows move | R rotate | +/- scale",
+        5.0,
+        258.0,
+        MUTED,
+        135,
+    );
+}

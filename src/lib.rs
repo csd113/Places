@@ -3,6 +3,7 @@
 //! Applications depend on the engine; the engine has no dependency on game UI
 //! or map-compilation orchestration. See `docs/ARCHITECTURE.md`.
 
+pub mod editor;
 pub mod engine;
 pub mod game;
 pub mod map_compiler;

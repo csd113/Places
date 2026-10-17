@@ -1,0 +1,412 @@
+use serde_json::{Map, Value};
+
+use crate::engine::level::{LevelDef, LevelSurfaces};
+
+/// Supported editor collections. Other source collections remain untouched.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ObjectKind {
+    Room,
+    Wall,
+    Prop,
+}
+
+/// A selection addresses an array entry in the current document revision.
+/// The UI clears/remaps selections after structural edits and history changes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ObjectId {
+    Room(usize),
+    Wall(usize),
+    Prop(usize),
+}
+
+impl ObjectId {
+    pub(super) const fn collection(self) -> (&'static str, usize) {
+        match self {
+            Self::Room(index) => ("rooms", index),
+            Self::Wall(index) => ("walls", index),
+            Self::Prop(index) => ("props", index),
+        }
+    }
+}
+
+/// Scalar authoring transform. Room/wall positions are minimum corners; a
+/// prop's position is its floor-relative base and size is uniform scale.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Transform {
+    pub position: [f32; 3],
+    pub size: [f32; 3],
+    pub yaw_degrees: f32,
+}
+
+/// A concise object-list entry with the same IDs used by viewport picking.
+#[derive(Clone, Debug)]
+pub struct ObjectInfo {
+    pub id: ObjectId,
+    pub label: String,
+    pub transform: Transform,
+}
+
+pub(super) fn enumerate(level: &LevelDef) -> Vec<ObjectInfo> {
+    let rooms = level.rooms.iter().enumerate().map(|(index, _)| {
+        (
+            ObjectId::Room(index),
+            format!("Floor {}", index.saturating_add(1)),
+        )
+    });
+    let walls = level.walls.iter().enumerate().map(|(index, _)| {
+        (
+            ObjectId::Wall(index),
+            format!("Wall {}", index.saturating_add(1)),
+        )
+    });
+    let props = level.props.iter().enumerate().map(|(index, prop)| {
+        (
+            ObjectId::Prop(index),
+            prop.id.as_ref().unwrap_or(&prop.model).clone(),
+        )
+    });
+    rooms
+        .chain(walls)
+        .chain(props)
+        .filter_map(|(id, label)| {
+            transform(level, id).ok().map(|transform| ObjectInfo {
+                id,
+                label,
+                transform,
+            })
+        })
+        .collect()
+}
+
+pub(super) fn transform(level: &LevelDef, id: ObjectId) -> Result<Transform, String> {
+    match id {
+        ObjectId::Room(index) => level.rooms.get(index).map(|room| Transform {
+            position: [room.x, room.floor_y, room.z],
+            size: [room.width, room.height, room.depth],
+            yaw_degrees: 0.0_f32,
+        }),
+        ObjectId::Wall(index) => level.walls.get(index).map(|wall| Transform {
+            position: [wall.x, wall.y, wall.z],
+            size: [
+                wall.width,
+                wall.height.unwrap_or_else(|| {
+                    LevelSurfaces::new(level)
+                        .clear_ceiling_height_along(wall, wall.length() * 0.5_f32)
+                }),
+                wall.depth,
+            ],
+            yaw_degrees: 0.0_f32,
+        }),
+        ObjectId::Prop(index) => level.props.get(index).map(|prop| Transform {
+            position: [prop.x, prop.y, prop.z],
+            size: [prop.scale; 3],
+            yaw_degrees: prop.rotation_degrees,
+        }),
+    }
+    .ok_or_else(|| "The selected object no longer exists".into())
+}
+
+pub(super) fn set_transform(
+    raw: &mut Value,
+    level: &LevelDef,
+    id: ObjectId,
+    proposed: Transform,
+) -> Result<(), String> {
+    if !proposed
+        .position
+        .iter()
+        .chain(&proposed.size)
+        .all(|value| value.is_finite())
+        || !proposed.yaw_degrees.is_finite()
+        || proposed.size.iter().any(|value| *value <= 0.0_f32)
+    {
+        return Err("Transform requires finite positions and positive finite sizes".into());
+    }
+    let current = transform(level, id)?;
+    let object = object_mut(raw, id)?;
+    match id {
+        ObjectId::Prop(_) => {
+            let [scale, scale_y, scale_z] = proposed.size;
+            if (scale - scale_y).abs() > 0.0001_f32 || (scale - scale_z).abs() > 0.0001_f32 {
+                return Err("Props support uniform scale; set all scale axes equally".into());
+            }
+            set_position(object, proposed.position, "y");
+            set_number(object, "scale", scale);
+            set_number(object, "rotation_degrees", proposed.yaw_degrees);
+        }
+        ObjectId::Room(_) | ObjectId::Wall(_) => {
+            let mut actual = proposed;
+            let quarters = proposed.yaw_degrees / 90.0_f32;
+            if (quarters - quarters.round()).abs() > 0.0001_f32 {
+                return Err("Floors and walls use 90 degree footprint rotations".into());
+            }
+            if proposed.yaw_degrees.abs() > 0.0001_f32 {
+                require_simple_rotation(object, id)?;
+                if quarters.rem_euclid(2.0_f32).abs() > 0.0001_f32 {
+                    let [width, height, depth] = proposed.size;
+                    let [x, y, z] = proposed.position;
+                    actual.position = [
+                        (width - depth).mul_add(0.5_f32, x),
+                        y,
+                        (depth - width).mul_add(0.5_f32, z),
+                    ];
+                    actual.size = [depth, height, width];
+                }
+            }
+            let vertical_key = if matches!(id, ObjectId::Room(_)) {
+                "floor_y"
+            } else {
+                "y"
+            };
+            set_position(object, actual.position, vertical_key);
+            let [width, height, depth] = actual.size;
+            set_number(object, "width", width);
+            set_number(object, "depth", depth);
+            // Omitted wall height follows the engine's local ceiling. A move
+            // must not turn that profile into an arbitrary fixed-height wall.
+            if matches!(id, ObjectId::Room(_))
+                || object.get("height").is_some_and(|value| !value.is_null())
+                || (height - current.size.get(1).copied().unwrap_or(height)).abs() > 0.0001_f32
+            {
+                set_number(object, "height", height);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn require_simple_rotation(object: &Map<String, Value>, id: ObjectId) -> Result<(), String> {
+    let complex = match id {
+        ObjectId::Room(_) => {
+            object
+                .get("ceiling")
+                .and_then(|ceiling| ceiling.get("kind"))
+                .and_then(Value::as_str)
+                .is_some_and(|kind| kind != "flat" && kind != "open")
+                || object.contains_key("ceiling_tile_origin")
+                || object.contains_key("ceiling_tile_rotation_degrees")
+        }
+        ObjectId::Wall(_) => ["openings", "faces", "face_shine"].iter().any(|key| {
+            object.get(*key).is_some_and(|value| match value {
+                Value::Array(entries) => !entries.is_empty(),
+                Value::Object(entries) => !entries.is_empty(),
+                Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
+            })
+        }),
+        ObjectId::Prop(_) => false,
+    };
+    if complex {
+        return Err(
+            "Rotation of profiled geometry or per-face/opening data requires later editor tools"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+pub(super) fn add(
+    raw: &mut Value,
+    level: &LevelDef,
+    kind: ObjectKind,
+    position: [f32; 3],
+    asset: Option<&str>,
+) -> Result<ObjectId, String> {
+    if position.iter().any(|value| !value.is_finite()) {
+        return Err("Object coordinates must be finite".into());
+    }
+    let [x, y, z] = position;
+    let (collection, mut object) = match kind {
+        ObjectKind::Room => (
+            "rooms",
+            serde_json::json!({"x":x, "floor_y":y, "z":z, "width":4.0_f32, "depth":4.0_f32, "height":2.7_f32}),
+        ),
+        ObjectKind::Wall => (
+            "walls",
+            serde_json::json!({"x":x, "y":y, "z":z, "width":4.0_f32, "depth":0.2_f32, "height":2.7_f32}),
+        ),
+        ObjectKind::Prop => {
+            pin_prop_ids(raw, level)?;
+            (
+                "props",
+                serde_json::json!({"id":unique_prop_id(raw)?, "model":asset.unwrap_or("core:chair"), "x":x, "y":y, "z":z, "solid":true}),
+            )
+        }
+    };
+    if kind != ObjectKind::Prop
+        && let Some(material) = asset
+    {
+        drop(
+            object
+                .as_object_mut()
+                .ok_or("Invalid object")?
+                .insert("material".into(), material.into()),
+        );
+    }
+    let entries = array_mut(raw, collection)?;
+    let index = entries.len();
+    entries.push(object);
+    Ok(match kind {
+        ObjectKind::Room => ObjectId::Room(index),
+        ObjectKind::Wall => ObjectId::Wall(index),
+        ObjectKind::Prop => ObjectId::Prop(index),
+    })
+}
+
+pub(super) fn delete(raw: &mut Value, level: &LevelDef, id: ObjectId) -> Result<(), String> {
+    if matches!(id, ObjectId::Prop(_)) {
+        pin_prop_ids(raw, level)?;
+    }
+    let (collection, index) = id.collection();
+    let entries = array_mut(raw, collection)?;
+    if index >= entries.len() {
+        return Err("The selected object no longer exists".into());
+    }
+    drop(entries.remove(index));
+    Ok(())
+}
+
+pub(super) fn duplicate(
+    raw: &mut Value,
+    level: &LevelDef,
+    id: ObjectId,
+) -> Result<ObjectId, String> {
+    if let ObjectId::Prop(index) = id {
+        require_passive_prop(level, index)?;
+        pin_prop_ids(raw, level)?;
+    }
+    let mut object = object_mut(raw, id)?.clone();
+    let current = transform(level, id)?;
+    let [x, y, z] = current.position;
+    set_position(
+        &mut object,
+        [x + 0.5_f32, y, z + 0.5_f32],
+        if matches!(id, ObjectId::Room(_)) {
+            "floor_y"
+        } else {
+            "y"
+        },
+    );
+    if matches!(id, ObjectId::Prop(_)) {
+        drop(object.insert("id".into(), unique_prop_id(raw)?.into()));
+    }
+    let (collection, _) = id.collection();
+    let entries = array_mut(raw, collection)?;
+    let index = entries.len();
+    entries.push(Value::Object(object));
+    Ok(match id {
+        ObjectId::Room(_) => ObjectId::Room(index),
+        ObjectId::Wall(_) => ObjectId::Wall(index),
+        ObjectId::Prop(_) => ObjectId::Prop(index),
+    })
+}
+
+pub(super) fn require_passive_prop(level: &LevelDef, index: usize) -> Result<(), String> {
+    let prop = level
+        .props
+        .get(index)
+        .ok_or("The selected prop no longer exists")?;
+    if !prop.components.is_empty()
+        || !prop.bindings.is_empty()
+        || prop.physics.is_some()
+        || prop.float.is_some()
+        || !prop.lights.is_empty()
+        || prop.span.is_some()
+    {
+        return Err(
+            "Duplicating or replacing active/fitted props requires later editor tools".into(),
+        );
+    }
+    Ok(())
+}
+
+pub(super) fn pin_prop_ids(raw: &mut Value, level: &LevelDef) -> Result<(), String> {
+    for (index, id) in level.prop_instance_ids().into_iter().enumerate() {
+        let object = object_mut(raw, ObjectId::Prop(index))?;
+        if object
+            .get("id")
+            .and_then(Value::as_str)
+            .is_none_or(|value| value.trim().is_empty())
+        {
+            drop(object.insert("id".into(), id.into()));
+        }
+    }
+    Ok(())
+}
+
+fn unique_prop_id(raw: &Value) -> Result<String, String> {
+    // The shared validator checks the complete namespace. Searching the raw
+    // tree also avoids collisions with unsupported future instance records.
+    for index in 1_u32..=1_000_000 {
+        let candidate = format!("editor_prop_{index}");
+        if !has_id(raw, &candidate) {
+            return Ok(candidate);
+        }
+    }
+    Err("No free editor prop identity remains".into())
+}
+
+fn has_id(value: &Value, candidate: &str) -> bool {
+    match value {
+        Value::Array(entries) => entries.iter().any(|entry| has_id(entry, candidate)),
+        Value::Object(entries) => {
+            entries.get("id").and_then(Value::as_str) == Some(candidate)
+                || entries.values().any(|entry| has_id(entry, candidate))
+        }
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
+    }
+}
+
+pub(super) fn set_string(
+    raw: &mut Value,
+    id: ObjectId,
+    key: &str,
+    value: &str,
+) -> Result<(), String> {
+    if value.trim().is_empty() || value.starts_with("pack:") {
+        return Err("Choose a built-in asset identity".into());
+    }
+    drop(object_mut(raw, id)?.insert(key.into(), value.into()));
+    Ok(())
+}
+
+pub(super) fn set_prop_collision(
+    raw: &mut Value,
+    id: ObjectId,
+    size: [f32; 3],
+    solid: bool,
+) -> Result<(), String> {
+    if !matches!(id, ObjectId::Prop(_)) {
+        return Err("Collision dimensions belong to a prop".into());
+    }
+    let object = object_mut(raw, id)?;
+    drop(object.insert("size".into(), serde_json::json!(size)));
+    drop(object.insert("solid".into(), solid.into()));
+    Ok(())
+}
+
+fn set_position(object: &mut Map<String, Value>, position: [f32; 3], vertical_key: &str) {
+    let [x, y, z] = position;
+    set_number(object, "x", x);
+    set_number(object, vertical_key, y);
+    set_number(object, "z", z);
+}
+
+fn set_number(object: &mut Map<String, Value>, key: &str, value: f32) {
+    drop(object.insert(key.into(), Value::from(value)));
+}
+
+fn object_mut(raw: &mut Value, id: ObjectId) -> Result<&mut Map<String, Value>, String> {
+    let (collection, index) = id.collection();
+    array_mut(raw, collection)?
+        .get_mut(index)
+        .and_then(Value::as_object_mut)
+        .ok_or_else(|| "The selected object no longer exists".into())
+}
+
+fn array_mut<'a>(raw: &'a mut Value, collection: &str) -> Result<&'a mut Vec<Value>, String> {
+    let root = raw.as_object_mut().ok_or("Scene must be a JSON object")?;
+    root.entry(collection)
+        .or_insert_with(|| Value::Array(Vec::new()))
+        .as_array_mut()
+        .ok_or_else(|| format!("Unsupported scene collection: {collection}"))
+}

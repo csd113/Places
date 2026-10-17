@@ -3801,7 +3801,12 @@ fn select_initial_level(
         |value| {
             let entry = entries
                 .iter()
-                .find(|entry| entry.id == value || entry.name.eq_ignore_ascii_case(value))
+                .find(|entry| entry.id == value)
+                .or_else(|| {
+                    entries
+                        .iter()
+                        .find(|entry| entry.name.eq_ignore_ascii_case(value))
+                })
                 .cloned();
             let direct = entry.is_some();
             (entry, direct)
