@@ -20,7 +20,7 @@ use preview::PreviewWorker;
 use super::document::ObjectId;
 use crate::engine::level::LevelDef;
 use crate::engine::quality::{LightmapQuality, QualityLevel, ReflectionQuality};
-use crate::engine::render::{CharacterScene, DrawableSize, Renderer, Vertex};
+use crate::engine::render::{DrawableSize, Renderer, Vertex};
 use crate::engine::spatial::Aabb;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -30,11 +30,17 @@ enum Drag {
     Pan,
 }
 
+enum PreviewMode {
+    Inspect,
+    Authored,
+}
+
 pub(super) struct Viewport {
     renderer: Renderer,
     worker: PreviewWorker,
     camera: Camera,
     objects: Vec<PickObject>,
+    volume_guides: Vec<overlay::VolumeGuide>,
     selected: Option<ObjectId>,
     highlight_bounds: Option<Aabb>,
     highlight_surfaces: Vec<[[f32; 3]; 3]>,
@@ -43,6 +49,7 @@ pub(super) struct Viewport {
     drag: Drag,
     movement: Vec<Keycode>,
     show_grid: bool,
+    preview_mode: PreviewMode,
     uploading: bool,
     frame_next: bool,
     last_frame: Instant,
@@ -63,6 +70,7 @@ impl Viewport {
             worker: PreviewWorker::new()?,
             camera: Camera::default(),
             objects: Vec::new(),
+            volume_guides: Vec::new(),
             selected: None,
             highlight_bounds: None,
             highlight_surfaces: Vec::new(),
@@ -71,6 +79,7 @@ impl Viewport {
             drag: Drag::Idle,
             movement: Vec::new(),
             show_grid: true,
+            preview_mode: PreviewMode::Inspect,
             uploading: false,
             frame_next: true,
             last_frame: Instant::now(),
@@ -78,7 +87,20 @@ impl Viewport {
     }
 
     pub fn rebuild(&mut self, level: &LevelDef) {
-        self.worker.request(level);
+        self.volume_guides = overlay::volumes(level);
+        self.worker.request(level, self.environment_preview());
+    }
+
+    pub const fn environment_preview(&self) -> bool {
+        matches!(self.preview_mode, PreviewMode::Authored)
+    }
+
+    pub const fn set_environment_preview(&mut self, enabled: bool) {
+        self.preview_mode = if enabled {
+            PreviewMode::Authored
+        } else {
+            PreviewMode::Inspect
+        };
     }
 
     pub fn highlight(&mut self, bounds: Option<Aabb>, surfaces: &[[[f32; 3]; 3]]) {
@@ -192,7 +214,7 @@ impl Viewport {
                 &preview.loaded,
                 preview.build,
                 preview.assets,
-                CharacterScene::new(),
+                preview.characters,
                 false,
                 crate::engine::package::world::ProbeCaptures::default(),
             );
@@ -209,6 +231,9 @@ impl Viewport {
         let mut guides = overlay::Guides::new(self.camera.matrix(self.size), self.size);
         if self.show_grid {
             guides.grid(self.camera.target);
+        }
+        for guide in &self.volume_guides {
+            guides.volume(guide);
         }
         if let Some(bounds) = self.selected_bounds() {
             guides.selection(bounds);

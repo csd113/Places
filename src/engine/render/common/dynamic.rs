@@ -1762,6 +1762,8 @@ impl DynamicScene {
                 || !prop.y.is_finite()
                 || !prop.z.is_finite()
                 || !prop.rotation_degrees.is_finite()
+                || !prop.pitch_degrees.is_finite()
+                || !prop.roll_degrees.is_finite()
                 || !prop.scale.is_finite()
                 || prop.scale <= 0.0
             {
@@ -1769,32 +1771,26 @@ impl DynamicScene {
             }
             let machine_scale = prop.scale;
             let drum_scale = unit_drum_scale * machine_scale;
-            let yaw = prop.rotation_degrees.to_radians();
-            let (sin, cos) = yaw.sin_cos();
-            // The machine's front panel sits `bezel` behind its front-most
-            // point (catalogue depth/2); the drum's mouth is recessed again
-            // behind the panel, and the model origin used as the spawn
-            // translation is the drum's back plane, one basket length further
-            // in. A prop at rotation 0 faces +Z, so forward is (sin, 0, cos).
             let panel_from_centre = machine_depth.mul_add(0.5, -WASHER_PORTHOLE_BEZEL_DEPTH);
-            let mouth_recess =
-                WASHER_DRUM_MOUTH_RECESS.mul_add(machine_scale, drum_length * drum_scale);
-            let along = panel_from_centre.mul_add(machine_scale, -mouth_recess);
-            let x = sin.mul_add(along, prop.x);
-            let z = cos.mul_add(along, prop.z);
+            let local_z = drum_length.mul_add(
+                -unit_drum_scale,
+                panel_from_centre - WASHER_DRUM_MOUTH_RECESS,
+            );
             let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
-            let y = WASHER_PORTHOLE_CENTRE_Y.mul_add(machine_scale, base_y + prop.y);
-            // R_y(rotation) * R_x(90 degrees): the mouth-up basket pitches
-            // onto the machine's horizontal front axis, then the machine's yaw
-            // aims that axis.
+            let position = prop.placement_matrix(base_y).transform_point3(Vec3::new(
+                0.0,
+                WASHER_PORTHOLE_CENTRE_Y,
+                local_z,
+            ));
             let orientation = SpawnOrientation {
-                base_rotation: Quat::from_rotation_y(yaw)
+                base_rotation: prop
+                    .orientation()
                     .mul_quat(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2)),
                 spin_axis: MODEL_Y_AXIS,
             };
             let id = self.spawn_oriented(
                 &drum_asset,
-                [x, y, z],
+                position.to_array(),
                 orientation,
                 0.0,
                 drum_scale,

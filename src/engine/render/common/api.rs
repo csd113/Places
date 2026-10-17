@@ -427,6 +427,27 @@ pub fn build_authoring_preview(
     assets: &mut crate::engine::props::PropAssets,
     materials: &MaterialTable,
 ) -> LevelBuild {
+    authoring_preview(level, catalog, assets, materials, true)
+}
+
+/// Prepares the editor's cutaway with authored vertex lighting and atmosphere.
+/// This is the bounded interactive preview; Play uses the compiled transport.
+pub fn build_authoring_environment_preview(
+    level: &LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    materials: &MaterialTable,
+) -> LevelBuild {
+    authoring_preview(level, catalog, assets, materials, false)
+}
+
+fn authoring_preview(
+    level: &LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    materials: &MaterialTable,
+    neutral: bool,
+) -> LevelBuild {
     let (mut mesh, mut batches, lighting, timings) =
         build_level_geometry_timed(level, catalog, assets, materials);
     // A cutaway inspection view retains roof ownership for walls and fixtures,
@@ -436,11 +457,13 @@ pub fn build_authoring_preview(
     mesh.vertex_count = mesh.ranges.iter().map(|range| range.vertices.len()).sum();
     mesh.index_count = mesh.ranges.iter().map(|range| range.indices.len()).sum();
     mesh.batches.ceiling_batch = super::BatchRange::default();
-    for range in &mut mesh.ranges {
-        illuminate_preview_vertices(&mut range.vertices);
-    }
-    for batch in &mut batches {
-        illuminate_preview_vertices(&mut batch.vertices);
+    if neutral {
+        for range in &mut mesh.ranges {
+            illuminate_preview_vertices(&mut range.vertices);
+        }
+        for batch in &mut batches {
+            illuminate_preview_vertices(&mut batch.vertices);
+        }
     }
     LevelBuild {
         mesh,

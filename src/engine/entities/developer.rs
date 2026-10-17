@@ -192,6 +192,7 @@ impl EntityWorld {
         }
         DispatchReport {
             actions_run: tick.actions_run,
+            doors_acted: tick.doors_acted,
             lights_toggled: tick.lights_toggled,
             player_reset: tick.player_reset,
             spawned: tick.spawned,

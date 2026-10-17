@@ -31,11 +31,18 @@ impl App {
                     .safety_report
                     .as_ref()
                     .map_or(0, |report| report.findings.len());
-                let next = if forward {
-                    index.saturating_add(1).min(count.saturating_sub(1))
-                } else {
-                    index.saturating_sub(1)
+                let active = |candidate: &usize| {
+                    self.safety_report
+                        .as_ref()
+                        .and_then(|report| report.findings.get(*candidate))
+                        .is_some_and(|finding| finding.placement_ignore.is_none())
                 };
+                let next = if forward {
+                    (index.saturating_add(1)..count).find(active)
+                } else {
+                    (0..index).rev().find(active)
+                }
+                .unwrap_or(index);
                 self.safety_index = next;
                 self.popup = Some(Popup::Safety {
                     index: next,
@@ -43,6 +50,10 @@ impl App {
                 });
                 self.highlight_finding(next);
             }
+            Action::IgnoreFinding | Action::ClearFindingIgnore => {
+                self.change_placement_ignore(action == Action::IgnoreFinding)?;
+            }
+            Action::IgnoredFindings => self.review_placement_ignores()?,
             Action::PreviewFix => {
                 let Some(Popup::Safety { index, preview: _ }) = self.popup else {
                     return Err("Open Safety first".into());
@@ -100,6 +111,68 @@ impl App {
         Ok(true)
     }
 
+    fn change_placement_ignore(&mut self, ignore: bool) -> Result<(), String> {
+        let Some(Popup::Safety { index, preview: _ }) = self.popup else {
+            return Err("Open Safety first".into());
+        };
+        self.restore_preview();
+        let finding = self
+            .safety_report
+            .as_ref()
+            .and_then(|report| report.findings.get(index))
+            .cloned()
+            .ok_or("Run Safety again to review the current placement")?;
+        let document = self.document.as_mut().ok_or("Open a project first")?;
+        if ignore {
+            document.ignore_safety_finding(&finding)?;
+        } else {
+            let key = finding
+                .placement_ignore
+                .as_ref()
+                .ok_or("No saved ignore for this finding")?;
+            document.clear_safety_ignore(&key.key)?;
+        }
+        self.safety_report = None;
+        self.safety_index = 0;
+        self.start_safety()?;
+        self.popup = Some(Popup::Safety {
+            index: 0,
+            preview: false,
+        });
+        self.status = if ignore {
+                    "Ignored only this warning and placement context. Save persists it; Undo restores it."
+                } else {
+                    "Cleared this placement ignore. Current warning and correction eligibility will be reviewed again."
+                }.into();
+        Ok(())
+    }
+
+    fn review_placement_ignores(&mut self) -> Result<(), String> {
+        let report = self.safety_report.as_ref().ok_or("Run Safety first")?;
+        let index = report
+            .findings
+            .iter()
+            .enumerate()
+            .skip(self.safety_index.saturating_add(1))
+            .chain(
+                report
+                    .findings
+                    .iter()
+                    .enumerate()
+                    .take(self.safety_index.saturating_add(1)),
+            )
+            .find_map(|(index, finding)| finding.placement_ignore.as_ref().map(|_| index))
+            .ok_or("No saved placement ignores in this review")?;
+        self.restore_preview();
+        self.safety_index = index;
+        self.popup = Some(Popup::Safety {
+            index,
+            preview: false,
+        });
+        self.highlight_finding(index);
+        Ok(())
+    }
+
     pub(super) fn start_safety(&mut self) -> Result<(), String> {
         if self.safety_job.is_none() && self.safety_report.is_none() {
             let document = self.document.as_ref().ok_or("Open a project first")?;
@@ -120,12 +193,15 @@ impl App {
 
     fn fix_candidate(&self, index: usize) -> Result<serde_json::Value, String> {
         let document = self.document.as_ref().ok_or("Open a project first")?;
-        self.safety_report
+        let finding = self
+            .safety_report
             .as_ref()
             .and_then(|report| report.findings.get(index))
-            .and_then(|finding| finding.fix.as_ref())
+            .ok_or("Run Safety first")?;
+        safety::preview_corrections(document.raw(), std::slice::from_ref(finding))
+            .into_iter()
+            .next()
             .ok_or("No conservative correction for this finding")?
-            .preview(document.raw())
     }
 
     pub(super) fn poll_safety(&mut self) {
@@ -140,9 +216,14 @@ impl App {
                     .as_ref()
                     .is_some_and(|document| document.raw() == &raw)
                 {
+                    let ignored = report
+                        .findings
+                        .iter()
+                        .filter(|finding| finding.placement_ignore.is_some())
+                        .count();
                     self.status = format!(
-                        "Safety review: {} findings. Review risks individually; checks are not exhaustive.",
-                        report.findings.len()
+                        "Safety review: {} active entries, {ignored} saved placement ignores. Checks are bounded; review in context.",
+                        report.findings.len().saturating_sub(ignored)
                     );
                     self.safety_report = Some(report);
                     if matches!(

@@ -2,6 +2,7 @@
 
 mod actions;
 mod audio_runtime;
+mod authoring_trace;
 mod console_input;
 mod flashlight;
 mod item_input;
@@ -3089,6 +3090,7 @@ impl FrameLoop<'_> {
                 loaded.level.props.iter().zip(ids).filter(|(prop,_)| !prop.is_physics_movable()).map(|(prop,id)| serde_json::json!({"id":id,"model":prop.model,"entity_live":self.game.entities().handle_of(&id).is_some()})).collect::<Vec<_>>()
             }).unwrap_or_default();
             drop(fields.insert("fixed_instances".into(), fixed_instances.into()));
+            self.append_authoring_trace(fields);
             drop(fields.insert(
                 "physics_clock".into(),
                 serde_json::json!(self.items.world.simulation_state()),

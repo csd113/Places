@@ -22,11 +22,13 @@
 //! pass: it is a gradient on a scalar, not a light shaft.
 //!
 //! On top of the global atmosphere a level may author regional fog volumes
-//! ([`FogRegion`]): boxes that thicken the air *inside* them, per fragment.
-//! The region evaluation is the shader's `fogged` loop mirrored here so tests
-//! can pin the exact numbers a level produces.
+//! ([`FogRegion`]): extinction along the clipped eye-to-surface sightline.
+//! Four fixed quadrature points integrate the horizontal/height profile without
+//! a marching pass; a wall beyond the volume receives the fog along its ray.
 
-use crate::engine::level::{DEFAULT_FOG_FALLOFF_M, FogRegionDef, LevelDef, MAX_FOG_REGIONS};
+use crate::engine::level::{
+    DEFAULT_FOG_FALLOFF_M, FogRegionDef, GroundFogDef, LevelDef, MAX_FOG_REGIONS,
+};
 use crate::engine::quality::QualityLevel;
 
 /// How the air is tinted and how thick it is.
@@ -117,6 +119,97 @@ impl FogRegion {
             top_y: finite(def.top_y).unwrap_or(max[1]),
         }
     }
+
+    /// Resolves a separately authored ground layer into the same bounded
+    /// shader representation used for regional boxes.
+    #[must_use]
+    pub fn from_ground(def: &GroundFogDef, global_color: [f32; 3]) -> Self {
+        Self::resolve(&def.as_region(), global_color)
+    }
+
+    /// Effective local extinction at a world point, for authoring diagnostics.
+    /// This mirrors the fixed-cost shader evaluation, including all six box
+    /// faces. Local extinction stays within its authored storey bounds.
+    #[must_use]
+    pub fn density_at(self, point: [f32; 3]) -> f32 {
+        if point
+            .iter()
+            .zip(self.min.iter().zip(&self.max))
+            .any(|(value, (min, max))| !value.is_finite() || value < min || value > max)
+        {
+            return 0.0;
+        }
+        let [x, y, z] = point;
+        let horizontal = (x - self.min[0])
+            .min(self.max[0] - x)
+            .min(z - self.min[2])
+            .min(self.max[2] - z);
+        let edge = if horizontal > 0.0 {
+            (horizontal / self.falloff_m.max(1.0e-6)).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let vertical = if y <= self.ground_y {
+            1.0
+        } else if self.top_y > self.ground_y && y < self.top_y {
+            ((self.top_y - y) / (self.top_y - self.ground_y)).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        self.density * edge * vertical
+    }
+
+    /// Integrated extinction along an eye-to-surface segment. Clipping first
+    /// prevents a layer on another floor from affecting the ray, while bounded
+    /// quadrature retains height fade and edge softness on intersecting rays.
+    #[must_use]
+    pub fn optical_depth(self, eye: [f32; 3], point: [f32; 3]) -> f32 {
+        if self.density <= 0.0 || eye.iter().chain(&point).any(|value| !value.is_finite()) {
+            return 0.0;
+        }
+        let origin = glam::Vec3::from_array(eye);
+        let delta = glam::Vec3::new(point[0] - eye[0], point[1] - eye[1], point[2] - eye[2]);
+        let distance = delta.length();
+        if !distance.is_finite() || distance <= 1.0e-6 {
+            return 0.0;
+        }
+        let mut near = 0.0_f32;
+        let mut far = 1.0_f32;
+        for (((start, direction), min), max) in eye
+            .into_iter()
+            .zip(delta.to_array())
+            .zip(self.min)
+            .zip(self.max)
+        {
+            if direction.abs() <= 1.0e-6 {
+                if start < min || start > max {
+                    return 0.0;
+                }
+            } else {
+                let first = (min - start) / direction;
+                let last = (max - start) / direction;
+                near = near.max(first.min(last));
+                far = far.min(first.max(last));
+                if far <= near {
+                    return 0.0;
+                }
+            }
+        }
+        let interval = far - near;
+        let average = [
+            (0.069_431_84_f32, 0.173_927_43_f32),
+            (0.330_009_5_f32, 0.326_072_57_f32),
+            (0.669_990_54_f32, 0.326_072_57_f32),
+            (0.930_568_16_f32, 0.173_927_43_f32),
+        ]
+        .into_iter()
+        .map(|(node, weight)| {
+            let sample = delta.mul_add(glam::Vec3::splat(interval.mul_add(node, near)), origin);
+            self.density_at(sample.to_array()) * weight
+        })
+        .sum::<f32>();
+        average * distance * interval
+    }
 }
 
 /// The resolved fog of one level: the global atmosphere plus its regions.
@@ -158,6 +251,13 @@ impl LevelFog {
                 .fog_regions
                 .iter()
                 .map(|def| FogRegion::resolve(def, global.color))
+                .chain(
+                    level
+                        .ground_fog
+                        .iter()
+                        .map(|def| FogRegion::from_ground(def, global.color)),
+                )
+                .take(MAX_FOG_REGIONS)
                 .collect(),
         }
     }

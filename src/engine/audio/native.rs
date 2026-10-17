@@ -422,7 +422,7 @@ impl NativeAudio {
         let (amplitude, pan) = spatial_mix(
             self.mix,
             request.position,
-            cue.spatial,
+            request.spatial.unwrap_or(cue.spatial),
             cue.min_distance,
             cue.max_distance,
             request.gain * cue.gain,
@@ -445,7 +445,7 @@ impl NativeAudio {
                     gain: request.gain * cue.gain,
                     time_domain: request.time_domain,
                     bus: request.bus,
-                    spatial: cue.spatial,
+                    spatial: request.spatial.unwrap_or(cue.spatial),
                     min_distance: cue.min_distance,
                     max_distance: cue.max_distance,
                     paused,
@@ -654,6 +654,7 @@ impl NativeAudio {
                     cue: cue.id.clone(),
                     source: voice.source.map(|source| source.0),
                     position: voice.position.as_ref().map(Vec3::to_array),
+                    spatial: voice.spatial,
                     gain: if world_paused(self.mix, voice.time_domain) {
                         0.0
                     } else {
@@ -674,7 +675,7 @@ impl NativeAudio {
                 let (gain, pan) = spatial_mix(
                     self.mix,
                     request.position,
-                    cue.spatial,
+                    request.spatial.unwrap_or(cue.spatial),
                     cue.min_distance,
                     cue.max_distance,
                     request.gain * cue.gain,
@@ -684,6 +685,7 @@ impl NativeAudio {
                     cue: cue.id.clone(),
                     source: request.source.map(|source| source.0),
                     position: request.position.as_ref().map(Vec3::to_array),
+                    spatial: request.spatial.unwrap_or(cue.spatial),
                     gain: if world_paused(self.mix, request.time_domain) {
                         0.0
                     } else {

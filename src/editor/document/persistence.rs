@@ -29,6 +29,7 @@ impl LevelDocument {
         super::source::check_editable_source(&disk_bytes)?;
         let raw: Value = serde_json::from_slice(&disk_bytes)
             .map_err(|error| format!("{}: {error}", path.display()))?;
+        super::intent::validate_raw(&raw)?;
         // The typed view is read through ProjectFolder, but never serialized.
         let byte_count = disk_bytes.len();
         Ok(Self {
@@ -92,6 +93,7 @@ pub(super) fn read_manifest(project: &ProjectFolder) -> Result<Vec<u8>, String> 
 }
 
 pub(super) fn validate_raw(raw: &Value, expected_id: &str) -> Result<(LevelDef, usize), String> {
+    super::intent::validate_raw(raw)?;
     let bytes = serde_json::to_vec(raw).map_err(|error| format!("Level JSON: {error}"))?;
     if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_LEVEL_JSON_BYTES {
         return Err("Level source exceeds the engine source limit".into());
@@ -99,6 +101,7 @@ pub(super) fn validate_raw(raw: &Value, expected_id: &str) -> Result<(LevelDef, 
     let level: LevelDef = serde_json::from_slice(&bytes)
         .map_err(|error| format!("Unsupported or invalid scene: {error}"))?;
     crate::engine::loader::validate_level(&level)?;
+    super::gameplay::validate_drafts(raw)?;
     if level.id != expected_id {
         return Err("The scene ID must match its project level ID".into());
     }

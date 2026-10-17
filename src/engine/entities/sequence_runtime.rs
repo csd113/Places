@@ -154,7 +154,12 @@ impl EntityWorld {
                     }
                     run.step_ran = true;
                     let mut report = DispatchReport::default();
-                    self.run_action(&action, Some(run.owner), &mut report, 1);
+                    let origin = self
+                        .components
+                        .transforms
+                        .get(run.owner)
+                        .map(|pose| pose.position);
+                    self.run_action(&action, Some(run.owner), origin, &mut report, 1);
                     merge_action_report(tick, &report);
                     true
                 }
@@ -379,6 +384,7 @@ impl EntityWorld {
 
 const fn merge_action_report(tick: &mut WorldTick, report: &DispatchReport) {
     tick.actions_run = tick.actions_run.saturating_add(report.actions_run);
+    tick.doors_acted = tick.doors_acted.saturating_add(report.doors_acted);
     tick.lights_toggled = tick.lights_toggled.saturating_add(report.lights_toggled);
     tick.spawned = tick.spawned.saturating_add(report.spawned);
     tick.despawned = tick.despawned.saturating_add(report.despawned);

@@ -1110,8 +1110,9 @@ fn baked_lights(
 ///
 /// The offset is in the object's local frame, so the placement transform is the
 /// same one the prop geometry uses: translate to the walkable floor plus the
-/// authored offset, rotate about Y by the object's yaw, scale by the object's
-/// scale. A source that lands in no room still exists — it lights whatever its
+/// authored offset, apply its full authored rotation and uniform scale. The
+/// finite-area source shape retains its horizontal/yaw contract. A source that
+/// lands in no room still exists — it lights whatever its
 /// pool reaches, exactly like a fixture outside every room.
 fn baked_attached_lights(
     level: &LevelDef,
@@ -1126,30 +1127,23 @@ fn baked_attached_lights(
             || !prop.y.is_finite()
             || !prop.z.is_finite()
             || !prop.rotation_degrees.is_finite()
+            || !prop.pitch_degrees.is_finite()
+            || !prop.roll_degrees.is_finite()
             || !prop.scale.is_finite()
             || prop.scale <= 0.0
         {
             continue;
         }
         let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
-        let origin = [prop.x, base_y + prop.y, prop.z];
-        let yaw = prop.rotation_degrees.to_radians();
-        let (sin, cos) = yaw.sin_cos();
+        let placement = prop.placement_matrix(base_y);
         for light in prop.lights.iter().take(MAX_PROP_LIGHTS) {
             let offset = light.offset;
             if !offset.iter().all(|value| value.is_finite()) {
                 continue;
             }
-            let scaled = [
-                offset[0] * prop.scale,
-                offset[1] * prop.scale,
-                offset[2] * prop.scale,
-            ];
-            let position = [
-                origin[0] + scaled[0].mul_add(cos, scaled[2] * sin),
-                origin[1] + scaled[1],
-                origin[2] + scaled[2].mul_add(cos, -scaled[0] * sin),
-            ];
+            let position = placement
+                .transform_point3(glam::Vec3::from_array(offset))
+                .to_array();
             let rotation = prop.rotation_degrees + light.rotation_degrees;
             let mut source = light.to_source(position, rotation, prop.scale).sanitized();
             if let Some(control) = prop.light_control() {

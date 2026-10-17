@@ -8,18 +8,22 @@ use crate::engine::level::LevelDef;
 use crate::engine::loader::{LevelEntry, LevelSourceType, LoadedLevel, PropCatalog};
 use crate::engine::materials::{TextureCache, resolve_materials};
 use crate::engine::props::PropAssets;
-use crate::engine::render::{LevelBuild, build_authoring_preview};
+use crate::engine::render::{
+    CharacterScene, LevelBuild, build_authoring_environment_preview, build_authoring_preview,
+};
 
 pub(super) struct PreparedPreview {
     pub loaded: LoadedLevel,
     pub build: Arc<LevelBuild>,
     pub assets: PropAssets,
     pub objects: Vec<PickObject>,
+    pub characters: CharacterScene,
 }
 
 struct Request {
     generation: u64,
     level: LevelDef,
+    environment: bool,
 }
 
 struct Response {
@@ -32,7 +36,7 @@ pub(super) struct PreviewWorker {
     response: mpsc::Receiver<Response>,
     thread: Option<JoinHandle<()>>,
     generation: u64,
-    pending: Option<LevelDef>,
+    pending: Option<(LevelDef, bool)>,
     busy: bool,
     error: Option<String>,
 }
@@ -48,7 +52,13 @@ impl PreviewWorker {
                 let mut assets = PropAssets::load_default();
                 let mut textures = TextureCache::default();
                 while let Ok(Some(request)) = request_rx.recv() {
-                    let result = prepare(request.level, &catalog, &mut assets, &mut textures);
+                    let result = prepare(
+                        request.level,
+                        request.environment,
+                        &catalog,
+                        &mut assets,
+                        &mut textures,
+                    );
                     if response_tx
                         .send(Response {
                             generation: request.generation,
@@ -72,9 +82,9 @@ impl PreviewWorker {
         })
     }
 
-    pub fn request(&mut self, level: &LevelDef) {
+    pub fn request(&mut self, level: &LevelDef, environment: bool) {
         self.generation = self.generation.wrapping_add(1);
-        self.pending = Some(level.clone());
+        self.pending = Some((level.clone(), environment));
         self.error = None;
     }
 
@@ -98,13 +108,14 @@ impl PreviewWorker {
             Err(mpsc::TryRecvError::Empty) => {}
         }
         if !self.busy
-            && let Some(level) = self.pending.take()
+            && let Some((level, environment)) = self.pending.take()
         {
             if self
                 .request
                 .send(Some(Request {
                     generation: self.generation,
                     level,
+                    environment,
                 }))
                 .is_ok()
             {
@@ -145,6 +156,7 @@ impl Drop for PreviewWorker {
 
 fn prepare(
     mut level: LevelDef,
+    environment: bool,
     catalog: &PropCatalog,
     assets: &mut PropAssets,
     textures: &mut TextureCache,
@@ -156,12 +168,15 @@ fn prepare(
     crate::map_compiler::prepare_level(&mut level, catalog.assets(), None);
     // Atmosphere is presentation policy rather than editable geometry. Keep the
     // inspection view clear without writing any of these changes to the file.
-    level.environment = None;
-    level.sky = None;
-    level.weather = None;
-    level.weather_alternate = None;
-    level.weather_cycle = None;
-    level.fog_regions.clear();
+    if !environment {
+        level.environment = None;
+        level.sky = None;
+        level.weather = None;
+        level.weather_alternate = None;
+        level.weather_cycle = None;
+        level.fog_regions.clear();
+        level.ground_fog.clear();
+    }
     let materials = resolve_materials(&level, catalog.assets(), None, Some(&root), textures)?;
     let light_sheets = crate::engine::loader::resolve_fixture_sheets(
         &level,
@@ -170,8 +185,13 @@ fn prepare(
         textures,
         &materials,
     )?;
-    let build = Arc::new(build_authoring_preview(&level, catalog, assets, &materials));
-    let object_bounds = objects(&level, catalog, assets);
+    let build = Arc::new(if environment {
+        build_authoring_environment_preview(&level, catalog, assets, &materials)
+    } else {
+        build_authoring_preview(&level, catalog, assets, &materials)
+    });
+    let object_bounds = objects(&level, catalog, assets, &build.lighting);
+    let characters = CharacterScene::spawn_characters(&level, catalog, assets, &build.lighting);
     let entry = LevelEntry {
         id: level.id.clone(),
         name: level.name.clone(),
@@ -192,5 +212,6 @@ fn prepare(
         build,
         assets: assets.clone(),
         objects: object_bounds,
+        characters,
     })
 }

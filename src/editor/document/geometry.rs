@@ -115,6 +115,7 @@ impl Document {
         }
         let mut edited = self.raw().clone();
         let mut copy = object_mut(&mut edited, id)?.clone();
+        drop(copy.remove("editor_instance_id"));
         set_number(&mut copy, "floor_y", floor_y);
         let rooms = array_mut(&mut edited, "rooms")?;
         let new_id = ObjectId::Room(rooms.len());
@@ -196,6 +197,7 @@ impl Document {
                 continue;
             }
             let mut strip = original.clone();
+            drop(strip.remove("editor_instance_id"));
             set_number(&mut strip, "x", strip_x);
             set_number(&mut strip, "z", strip_z);
             set_number(&mut strip, "width", strip_width);
@@ -230,6 +232,7 @@ impl Document {
                 "The scene changed after this correction was previewed; analyze it again".into(),
             );
         }
+        super::intent::ensure_automatic_edit_allowed(expected, &edited)?;
         self.accept_edit(edited)
     }
 }

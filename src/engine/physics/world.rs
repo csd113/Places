@@ -567,10 +567,42 @@ impl ItemWorld {
         yaw: f32,
         scale: f32,
     ) -> Result<(), String> {
+        self.spawn_oriented(
+            key,
+            def,
+            bounds,
+            position,
+            Quat::from_rotation_y(yaw),
+            scale,
+        )
+    }
+
+    /// Adds a body at a full authored orientation. Validation precedes mutation.
+    ///
+    /// # Errors
+    /// Rejects nonfinite/zero rotations and the ordinary bounded spawn errors.
+    pub fn spawn_oriented(
+        &mut self,
+        key: u64,
+        def: &PhysicsDef,
+        bounds: (Vec3, Vec3),
+        position: Vec3,
+        input_rotation: Quat,
+        scale: f32,
+    ) -> Result<(), String> {
         def.validate()?;
-        if !position.is_finite() || !yaw.is_finite() || position.abs().max_element() > 100_000.0 {
-            return Err("physics position and yaw must be finite and within world bounds".into());
+        let length = input_rotation.length_squared();
+        if !position.is_finite()
+            || !input_rotation.is_finite()
+            || !length.is_finite()
+            || length < 0.000_001
+            || position.abs().max_element() > 100_000.0
+        {
+            return Err(
+                "physics position and orientation must be finite and within world bounds".into(),
+            );
         }
+        let rotation = input_rotation.normalize();
         if self
             .runtime
             .as_ref()
@@ -590,7 +622,6 @@ impl ItemWorld {
         let water = (def.motion == BodyMotion::Dynamic && !self.water.is_empty())
             .then(|| WaterBody::new(&shape, def.water.unwrap_or_default(), scale, def.mass_kg))
             .transpose()?;
-        let rotation = Quat::from_rotation_y(yaw);
         let initial = ItemPose { position, rotation };
         let builder = match def.motion {
             BodyMotion::Fixed => RigidBodyBuilder::fixed(),
@@ -667,6 +698,21 @@ impl ItemWorld {
         yaw: f32,
         scale: f32,
     ) -> Result<(), String> {
+        self.install_fixed_shape_oriented(def, bounds, position, Quat::from_rotation_y(yaw), scale)
+    }
+
+    /// Installs fixed scenery at its full original-model-origin orientation.
+    ///
+    /// # Errors
+    /// Rejects invalid rotation or the ordinary fixed-shape limits.
+    pub fn install_fixed_shape_oriented(
+        &mut self,
+        def: &PhysicsDef,
+        bounds: (Vec3, Vec3),
+        position: Vec3,
+        input_rotation: Quat,
+        scale: f32,
+    ) -> Result<(), String> {
         def.validate()?;
         if def.motion != BodyMotion::Fixed || def.shape.is_none() {
             return Err("fixed scenery requires an explicit fixed shape".into());
@@ -674,11 +720,17 @@ impl ItemWorld {
         if self.fixed_props.len() >= MAX_FIXED_PROP_SHAPES {
             return Err("explicit fixed physics shape limit reached (1024)".into());
         }
-        if !position.is_finite() || position.abs().max_element() > 100_000.0 || !yaw.is_finite() {
+        let length = input_rotation.length_squared();
+        if !position.is_finite()
+            || position.abs().max_element() > 100_000.0
+            || !input_rotation.is_finite()
+            || !length.is_finite()
+            || length < 0.000_001
+        {
             return Err("fixed physics pose must be finite and within world bounds".into());
         }
         let (shape, center, _) = model_shape(def, bounds, scale)?;
-        let rotation = Quat::from_rotation_y(yaw);
+        let rotation = input_rotation.normalize();
         let fixed = FixedPropShape {
             shape,
             position: pose(add(position, rotation.mul_vec3(center)), rotation),
@@ -708,7 +760,30 @@ impl ItemWorld {
         yaw: f32,
         scale: f32,
     ) -> Result<(), String> {
-        self.spawn(key, def, bounds, position, yaw, scale)?;
+        self.spawn_authored_oriented(
+            key,
+            def,
+            bounds,
+            position,
+            Quat::from_rotation_y(yaw),
+            scale,
+        )
+    }
+
+    /// Preserves a saved full pose, dormant until the existing activation paths.
+    ///
+    /// # Errors
+    /// Returns bounded pose, duplicate and capacity validation errors.
+    pub fn spawn_authored_oriented(
+        &mut self,
+        key: u64,
+        def: &PhysicsDef,
+        bounds: (Vec3, Vec3),
+        position: Vec3,
+        rotation: Quat,
+        scale: f32,
+    ) -> Result<(), String> {
+        self.spawn_oriented(key, def, bounds, position, rotation, scale)?;
         if let Some(runtime) = self.runtime.as_mut() {
             if let Some(entry) = runtime.entries.get_mut(&key) {
                 entry.authored = true;

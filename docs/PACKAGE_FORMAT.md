@@ -716,7 +716,7 @@ for current entity direct/visibility/resource behavior.
 | aggregate (decompressed) | 1 GiB |
 | variants | 4 (one per lightmap quality) |
 | dependencies | 4096 |
-| fog regions (`semantics.json` `fog_regions`) | 16 |
+| regional and ground fog (`semantics.json` `fog_regions` + `ground_fog`) | 16 combined |
 | void walls (`semantics.json` `void_walls`) | 256 |
 | static mesh | the level format's own vertex budget (`MAX_LEVEL_VERTICES`, 24 000 000) |
 | mesh ranges | 1 048 576 |

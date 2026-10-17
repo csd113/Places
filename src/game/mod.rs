@@ -1899,7 +1899,9 @@ impl Game {
     /// Dispatches the native loop's already selected, occlusion-checked target.
     /// This keeps the action and hand affordance on the same world instance.
     pub fn dispatch_interaction_at(&mut self, target: Option<usize>) -> Option<DispatchReport> {
-        let report = self.world.dispatch_interaction(target)?;
+        let report = self
+            .world
+            .dispatch_interaction_from(target, Some(self.player_position))?;
         if report.player_reset {
             self.reset_to_spawn();
         }

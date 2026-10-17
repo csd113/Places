@@ -1,11 +1,15 @@
-//! Swept, bounded trigger occupancy shared by every authored action kind.
+//! Swept, spatially indexed trigger occupancy shared by every authored action kind.
+
+mod index;
+pub(super) use index::TriggerIndex;
+pub use index::TriggerQueryStats;
 
 use glam::Vec3;
 
 use super::EntityWorld;
 use super::components::TriggerVolume;
-use super::events::{EventKind, EventRecord};
-use super::id::EntityHandle;
+use super::events::{EventKind, EventQueue, EventRecord};
+use super::id::{EntityHandle, EntityNames};
 use crate::engine::level::{TriggerFilterDef, TriggerOccupancyDef};
 
 /// Maximum physical snapshots consumed per update, matching the item world cap.
@@ -35,13 +39,15 @@ pub struct TriggerItem<'a> {
 enum OccupantId {
     Player,
     Item(u64),
+    Entity(EntityHandle),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct VolumeOccupant {
     id: OccupantId,
     key: String,
     actor: Option<EntityHandle>,
+    position: Vec3,
 }
 
 #[derive(Debug)]
@@ -111,6 +117,7 @@ impl TriggerFilterDef {
                     && instance.as_deref().is_none_or(|id| id == item.instance)
                     && held.is_none_or(|required| required == item.held)
             }
+            Self::Entity { instance } => instance == item.instance,
         }
     }
 }
@@ -137,15 +144,29 @@ impl EntityWorld {
 
     /// Baselines the player after a stance/teleport change without fabricating a sweep.
     pub fn reseed_volumes(&mut self, feet: Vec3) {
-        for (_, volume) in self.components.volumes.iter_mut() {
+        let broadphase = &mut self.trigger_index;
+        broadphase.begin();
+        broadphase.player(feet, feet);
+        for candidate_index in 0..broadphase.candidates.len() {
+            let Some(slot) = broadphase.candidates.get(candidate_index).copied() else {
+                continue;
+            };
+            let Some(handle) = broadphase.handles.get(slot).copied() else {
+                continue;
+            };
+            let Some(volume) = self.components.volumes.get_mut(handle) else {
+                continue;
+            };
             volume
                 .occupants
                 .retain(|occupant| occupant.id != OccupantId::Player);
             if volume.filter.accepts_player() && volume.contains(feet.x, feet.z, feet.y) {
-                volume.occupants.push(player_occupant());
+                volume.occupants.push(player_occupant(feet));
             }
             volume.inside = !volume.occupants.is_empty();
+            broadphase.finish_volume(slot, volume.inside);
         }
+        broadphase.finish();
     }
 
     /// Updates all volumes once after player movement and physical items have advanced.
@@ -178,21 +199,54 @@ impl EntityWorld {
         items: &(impl Iterator<Item = TriggerItem<'a>> + Clone),
         seed: bool,
     ) {
+        let snapshots = materialize_snapshots((*items).clone());
+        let broadphase = &mut self.trigger_index;
+        broadphase.begin();
+        broadphase.player(from, to);
+        for (index, item) in snapshots
+            .iter()
+            .enumerate()
+            .filter_map(|(index, item)| item.as_ref().map(|snapshot| (index, snapshot)))
+        {
+            broadphase.item(item, index);
+        }
+        broadphase.entities(&self.names, &self.components.transforms, seed);
         let sweeps = &mut self.trigger_sweeps;
         let edges = &mut self.trigger_edges;
-        for (handle, volume) in self.components.volumes.iter_mut() {
+        for candidate_index in 0..broadphase.candidates.len() {
+            let Some(slot) = broadphase.candidates.get(candidate_index).copied() else {
+                continue;
+            };
+            let Some(handle) = broadphase.handles.get(slot).copied() else {
+                continue;
+            };
+            let Some(candidate) = broadphase.actor_candidates.get(slot).copied() else {
+                continue;
+            };
+            let Some(volume) = self.components.volumes.get_mut(handle) else {
+                continue;
+            };
             sweeps.clear();
             edges.clear();
             let initial_count = volume.occupants.len();
-            if let Some(sweep) = player_sweep(volume, from, to) {
+            if candidate.player
+                && let Some(sweep) = player_sweep(volume, from, to)
+            {
                 sweeps.push(sweep);
             }
-            for item in (*items).clone().take(MAX_TRIGGER_ITEMS).filter(|item| {
-                item.from.is_finite()
-                    && item.to.is_finite()
-                    && item.half_extents.is_finite()
-                    && item.half_extents.cmpge(Vec3::ZERO).all()
-            }) {
+            if let Some(sample) = candidate
+                .entity
+                .and_then(|watch| broadphase.entity_sample(watch))
+                && let Some(sweep) = entity_sweep(volume, sample)
+            {
+                broadphase.stats.entity_sweeps = broadphase.stats.entity_sweeps.saturating_add(1);
+                sweeps.push(sweep);
+            }
+            for item_index in candidate.item_indices() {
+                let Some(item) = snapshots.get(item_index).copied().flatten() else {
+                    continue;
+                };
+                broadphase.stats.item_sweeps = broadphase.stats.item_sweeps.saturating_add(1);
                 if !volume.filter.accepts_item(&item)
                     || sweeps
                         .iter()
@@ -200,71 +254,169 @@ impl EntityWorld {
                 {
                     continue;
                 }
-                if let Some(intervals) = item_intervals(volume, &item) {
-                    let existing = volume
-                        .occupants
-                        .iter()
-                        .position(|occupant| occupant.id == OccupantId::Item(item.key));
-                    let occupant = existing.map_or_else(
-                        || VolumeOccupant {
-                            id: OccupantId::Item(item.key),
-                            key: item.instance.to_string(),
-                            actor: self
-                                .names
-                                .get(item.instance)
-                                .filter(|actor| self.store.contains(*actor)),
-                        },
-                        |index| volume.occupants.swap_remove(index),
-                    );
-                    sweeps.push(Sweep {
-                        occupant,
-                        intervals,
-                        at_end: endpoint_inside(volume, item.to, item.half_extents),
-                        was_inside: existing.is_some(),
-                    });
+                if let Some(sweep) = physical_sweep(volume, &item, &self.names) {
+                    sweeps.push(sweep);
                 }
             }
-            if !seed {
-                occupancy_edges(volume, sweeps, edges, initial_count);
-            }
-            if !seed && edges.len() > self.events.remaining_capacity() {
-                self.events.refuse_batch(edges.len());
-                // Restore the prior authoritative membership so a refused final
-                // exit is retried next frame. Complete outside/outside pairs may
-                // be refused together, but can never leave an orphaned loop.
-                volume.occupants.extend(
-                    sweeps
-                        .drain(..)
-                        .filter(|sweep| sweep.was_inside)
-                        .map(|sweep| sweep.occupant),
-                );
-                edges.clear();
-                continue;
-            }
-            volume.occupants.clear();
-            volume.occupants.extend(
-                sweeps
-                    .drain(..)
-                    .filter(|sweep| sweep.at_end)
-                    .map(|sweep| sweep.occupant),
-            );
-            volume.inside = !volume.occupants.is_empty();
-            for edge in edges.drain(..) {
-                let _queued = self.events.push(EventRecord {
-                    generation: self.generation,
-                    kind: if edge.entered {
-                        EventKind::EnterVolume
-                    } else {
-                        EventKind::ExitVolume
-                    },
-                    subject: handle,
-                    key: edge.occupant.key,
-                    actor: edge.occupant.actor,
-                    depth: 0,
-                });
-            }
+            let update = VolumeUpdate {
+                generation: self.generation,
+                handle,
+                seed,
+                initial_count,
+            };
+            let inside = publish_edges(volume, sweeps, edges, &mut self.events, update);
+            broadphase.finish_volume(slot, inside);
+        }
+        broadphase.finish();
+    }
+
+    /// Last update's exact-work counts for explicit developer diagnostics.
+    #[must_use]
+    pub const fn trigger_query_stats(&self) -> TriggerQueryStats {
+        self.trigger_index.stats
+    }
+}
+
+fn materialize_snapshots<'a>(
+    items: impl Iterator<Item = TriggerItem<'a>>,
+) -> [Option<TriggerItem<'a>>; MAX_TRIGGER_ITEMS] {
+    // One bounded borrowed snapshot array, instead of repeatedly cloning and
+    // searching the native snapshot iterator for every authored volume.
+    let mut snapshots = [None; MAX_TRIGGER_ITEMS];
+    for (index, item) in items.take(MAX_TRIGGER_ITEMS).enumerate() {
+        if item.from.is_finite()
+            && item.to.is_finite()
+            && item.half_extents.is_finite()
+            && item.half_extents.cmpge(Vec3::ZERO).all()
+            && let Some(snapshot) = snapshots.get_mut(index)
+        {
+            *snapshot = Some(item);
         }
     }
+    snapshots
+}
+
+fn physical_sweep(
+    volume: &mut TriggerVolume,
+    item: &TriggerItem<'_>,
+    names: &EntityNames,
+) -> Option<Sweep> {
+    let intervals = item_intervals(volume, item)?;
+    let existing = volume
+        .occupants
+        .iter()
+        .position(|occupant| occupant.id == OccupantId::Item(item.key));
+    let occupant = existing.map_or_else(
+        || VolumeOccupant {
+            id: OccupantId::Item(item.key),
+            key: item.instance.to_string(),
+            actor: names.get(item.instance),
+            position: item.to,
+        },
+        |index| volume.occupants.swap_remove(index),
+    );
+    Some(Sweep {
+        occupant: VolumeOccupant {
+            position: item.to,
+            ..occupant
+        },
+        intervals,
+        at_end: endpoint_inside(volume, item.to, item.half_extents),
+        was_inside: existing.is_some(),
+    })
+}
+
+#[derive(Clone, Copy)]
+struct VolumeUpdate {
+    generation: u64,
+    handle: EntityHandle,
+    seed: bool,
+    initial_count: usize,
+}
+
+fn publish_edges(
+    volume: &mut TriggerVolume,
+    sweeps: &mut Vec<Sweep>,
+    edges: &mut Vec<Edge>,
+    events: &mut EventQueue,
+    update: VolumeUpdate,
+) -> bool {
+    if !update.seed {
+        occupancy_edges(volume, sweeps, edges, update.initial_count);
+    }
+    if !update.seed && edges.len() > events.remaining_capacity() {
+        events.refuse_batch(edges.len());
+        // Keep previous membership authoritative so a refused final exit is
+        // retained by the broadphase's occupied set and retried next frame.
+        volume.occupants.extend(
+            sweeps
+                .drain(..)
+                .filter(|sweep| sweep.was_inside)
+                .map(|sweep| sweep.occupant),
+        );
+        edges.clear();
+        return volume.inside;
+    }
+    volume.occupants.clear();
+    volume.occupants.extend(
+        sweeps
+            .drain(..)
+            .filter(|sweep| sweep.at_end)
+            .map(|sweep| sweep.occupant),
+    );
+    volume.inside = !volume.occupants.is_empty();
+    for edge in edges.drain(..) {
+        let _ = events.push(EventRecord {
+            generation: update.generation,
+            kind: if edge.entered {
+                EventKind::EnterVolume
+            } else {
+                EventKind::ExitVolume
+            },
+            subject: update.handle,
+            key: edge.occupant.key,
+            actor: edge.occupant.actor,
+            origin: Some(edge.occupant.position),
+            depth: 0,
+        });
+    }
+    volume.inside
+}
+
+fn entity_sweep(
+    volume: &mut TriggerVolume,
+    (actor, start, position): (EntityHandle, Vec3, Vec3),
+) -> Option<Sweep> {
+    let TriggerFilterDef::Entity { instance } = &volume.filter else {
+        return None;
+    };
+
+    let (enter, exit) = interval(volume, start, position, Vec3::ZERO)?;
+    let existing = volume
+        .occupants
+        .iter()
+        .position(|occupant| occupant.id == OccupantId::Entity(actor));
+    let occupant = if let Some(index) = existing {
+        volume.occupants.swap_remove(index)
+    } else {
+        VolumeOccupant {
+            id: OccupantId::Entity(actor),
+            key: instance.clone(),
+            actor: Some(actor),
+            position,
+        }
+    };
+    let mut intervals = SweepIntervals::new();
+    intervals.push(enter, exit);
+    Some(Sweep {
+        occupant: VolumeOccupant {
+            position,
+            ..occupant
+        },
+        intervals,
+        at_end: endpoint_inside(volume, position, Vec3::ZERO),
+        was_inside: existing.is_some(),
+    })
 }
 
 fn player_sweep(volume: &mut TriggerVolume, from: Vec3, to: Vec3) -> Option<Sweep> {
@@ -279,19 +431,28 @@ fn player_sweep(volume: &mut TriggerVolume, from: Vec3, to: Vec3) -> Option<Swee
     let mut intervals = SweepIntervals::new();
     intervals.push(enter, exit);
     Some(Sweep {
-        occupant: existing
-            .map_or_else(player_occupant, |index| volume.occupants.swap_remove(index)),
+        occupant: existing.map_or_else(
+            || player_occupant(to),
+            |index| {
+                let occupant = volume.occupants.swap_remove(index);
+                VolumeOccupant {
+                    position: to,
+                    ..occupant
+                }
+            },
+        ),
         intervals,
         at_end: volume.contains(to.x, to.z, to.y),
         was_inside: existing.is_some(),
     })
 }
 
-fn player_occupant() -> VolumeOccupant {
+fn player_occupant(position: Vec3) -> VolumeOccupant {
     VolumeOccupant {
         id: OccupantId::Player,
         key: "player".to_string(),
         actor: Some(crate::engine::ai::PLAYER_TARGET_HANDLE),
+        position,
     }
 }
 

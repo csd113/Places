@@ -3994,16 +3994,18 @@ const fn segment_end(start: (f32, f32), direction: (f32, f32), length: f32) -> (
 fn element_footprints(level: &LevelDef) -> Vec<ElementFootprint> {
     let mut out = Vec::new();
     for (index, prop) in level.props.iter().enumerate() {
-        let size = prop.resolved_size(crate::engine::level::PROP_FALLBACK_SIZE);
-        footprint_centred(
-            &mut out,
-            format!("prop {index} ({})", prop.model),
-            format!("/props/{index}"),
-            [prop.x, prop.z],
-            [size[0] * 0.5, size[2] * 0.5],
-            prop.rotation_degrees,
-            None,
+        let bounds = prop.placement_bounds(
+            0.0,
+            prop.size
+                .unwrap_or(crate::engine::level::PROP_FALLBACK_SIZE),
         );
+        out.push(ElementFootprint {
+            label: format!("prop {index} ({})", prop.model),
+            pointer: format!("/props/{index}"),
+            x: (bounds.min[0], bounds.max[0]),
+            z: (bounds.min[2], bounds.max[2]),
+            y: None,
+        });
     }
     for (index, door) in level.doors.iter().enumerate() {
         footprint_centred(

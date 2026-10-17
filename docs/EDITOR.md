@@ -1,4 +1,4 @@
-# Editor geometry and safety (0.12.0 task4)
+# Editor authoring and safety (0.12.0 task5)
 
 Run `places-editor` beside `places-compile` and `places`, with the external
 `assets/` payload described in [INSTALLATION.md](INSTALLATION.md). No map bake is
@@ -24,7 +24,7 @@ The starter contains a six-metre floor/ceiling and a built-in light.
 | Right drag / middle drag / wheel | Orbit / pan / zoom |
 | Hold right mouse + W/A/S/D/Q/E | Fly forward/left/back/right/down/up |
 | F or Frame | Frame selection, or the scene if nothing is selected |
-| Numeric fields / adjacent minus and plus | Set position, dimensions, yaw, uniform prop scale |
+| Numeric fields / adjacent minus and plus | Set position, dimensions, yaw, prop pitch/roll and uniform scale |
 | Arrows / Page Up, Page Down | Move selection on X/Z / Y |
 | R / plus, minus | Rotate / scale selection |
 | Grid / Snap / Step | Show metre grid, enable snapping, cycle transform step |
@@ -125,9 +125,97 @@ z-fighting proof. Edge sampling can miss narrow routes; motion, alpha pixels,
 water, ladders and every camera/depth situation are not simulated. Oversized
 scenes, missing models and exhausted budgets produce explicit incomplete-review
 findings. Play-test jumps, shafts and pools. Source and manifest formats remain
-unchanged; geometry revision 2 requires recompiling prior prepared output after
-the descending-ramp surface correction. See [stage 4 evidence and limits](reports/editor-0.12.0-task4.md).
+unchanged; geometry revision 3 requires recompiling prior prepared output for
+full prop orientation and the preceding ramp correction. See [stage 4 evidence and limits](reports/editor-0.12.0-task4.md).
 
-Custom importers, rich light/gameplay/trigger/fog/door tools, Luau, project bundles,
-menu scenes and final distribution signoff remain later work. Other source
-collections are preserved. Native Windows/Linux acceptance remains outstanding.
+`Ignore for this placement` dismisses only the selected warning and its measured
+instance/geometry context. Save persists it; normal finding navigation skips
+saved decisions. `Review saved` shows active and stale decisions, with
+`Clear ignore` restoring normal review and correction eligibility. These edits
+support Undo. Other warnings on the same item and other placements remain
+independent. A meaningful placement or affected-geometry edit reactivates the
+warning. Unknown-size legacy props and unsupported geometry deliberately use
+conservative contexts, which may reactivate a decision more broadly.
+
+Every correction gateway, including the shared batch helper, skips ignored
+issues and protects their placements/support context. An unrelated correction
+that would affect protected context is refused for explicit review. Clearing a
+decision is a separate authoring action; source validity checks always remain
+active. Metadata details are in [PROJECT_FORMAT.md](PROJECT_FORMAT.md).
+
+`+ Environment / gameplay >` opens one focused creation sheet for built-in light
+fixtures, ambient/positional sounds, entities, closed doors, triggers, regional
+fog, ground fog and entity spawn points. Objects share the scene list, viewport
+selection, numeric transforms and undo history. `Configure >` opens the selected
+object's capability sheet; the viewport remains the central workspace when the
+sheet closes. The model row of a prop opens the built-in model library and sets
+the model for the selected placement and the next `+ Prop`.
+
+Lights expose fixture family, illumination power/range/colour, separate visible
+face emission, enabled state and runtime switching. `Ceiling / wall` selects a
+compatible built-in housing. With Snap enabled, newly placed fixtures and props
+mount against their real carrier using the fixture back or transformed model
+bounds. `Mount surface` repeats this explicitly; manual position and rotation
+remain available. Prop Y stays floor-relative and permits negative offsets;
+yaw, pitch and roll preserve deliberate embedded or sideways scenery through
+save/build/play. Snapping never continuously pulls an edited placement back out
+of an intentional intersection.
+
+Sound emitters have no runtime model. Choose an installed cue, gain, looping,
+play-on-load and enabled state. `Positional` uses the emitter's world position;
+turn it off for level-wide ambience. A cue's ambient/positional policy can be
+overridden per emitter. Triggers can start a configured emitter, including its
+loop policy. Sounds use the existing preloaded shared audio backend in Play.
+
+A prop's `Physics` toggle opts only that placement into the shared rigid-body
+system. Pickup, mass and solidity remain contextual controls. Movable items load
+frozen and wake when interacted with or activated by a trigger; enabling physics
+assigns a reusable activation group when needed. Entity `Behavior >` configures
+the existing shared idle/wander/follow/flee components and navigation agent.
+Movement uses the compiler's navigation bake; choose Play to check paths and
+collisions. No behavior is embedded in the editor or tied to a specific model.
+
+Doors use hinge coordinates, width/height/thickness and closed-leaf yaw. Place a
+leaf in an existing wall opening; creation defaults closed with an E interaction
+binding. The capability sheet exposes two-way opening, locked state, swing angle
+and speed. Two-way opening chooses the side away from the interacting actor;
+targeted trigger actions use the same shared door dispatcher.
+
+Triggers are resizable axis-aligned boxes. Their translucent guides are visible
+only in the editor. `Properties` selects player, any physical item, held/unheld
+items, an exact item instance or an exact entity identity, per-actor or aggregate
+occupancy, enter/exit event, one-shot policy and cooldown. `Actions >` lists the
+ordered typed actions and permits individual removal and addition: play an
+emitter, open a door, spawn at a point or activate a physics group. The shared
+runtime validates references and enforces action/occupancy budgets.
+Configure policy before adding actions if preferred; an empty trigger keeps a
+validated editor draft and produces no runtime action until an action is added.
+
+Entity spawn points are visible movable markers, separate from live placements.
+Choose a built-in model/behavior and bounded lifetime in their reusable template,
+or select an existing template. Duplicated points share the template and receive
+independent one-active-spawn groups. Editing a shared template affects its points.
+A trigger's spawn action names the point; the ordinary shared entity runtime
+creates and expires the instance. This wiring is reusable by the upcoming Luau
+and game-mode work.
+
+Regional fog fills a bounding box; ground fog independently fades upward from
+its authored base. Transform sets their footprint and height. Configure sets
+extinction density, colour and horizontal edge softness. `Preview: Lighting`
+uses authored vertex illumination and atmosphere in the editor cutaway;
+`Preview: Inspect` uses neutral inspection lighting. Play shows the compiled
+lighting and full ceiling. Fog and trigger guides never enter runtime geometry.
+
+Explicit mounting supports flat ceilings, axis-aligned solid wall faces and
+continuous floors/ramps. A gabled/open ceiling, incompatible fixture family or
+footprint crossing a step is refused without moving the object. Fixtures retain
+their existing yaw-only mounting contract. Fitted spans/floating props retain
+their own upright poses; tilted finite-area attached lights retain horizontal
+emitter footprints. Manual transforms and intentional solid intersections remain
+available. Full transport uses actual prop triangles; Static collision/occlusion
+retains conservative transformed envelopes.
+
+Custom importers, Luau, project bundles, menu scenes and final distribution
+signoff remain later work. Model integration is deferred until stages 4–7 are
+complete. Other unsupported source data remains preserved. Native Windows/Linux
+acceptance remains outstanding.

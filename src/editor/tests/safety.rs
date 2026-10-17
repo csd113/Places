@@ -101,33 +101,34 @@ fn duplicate_fix_preserves_source_and_refuses_stale_or_unknown_records() -> Resu
 fn model_depth_check_requires_real_parallel_positive_area_overlap() {
     let flat = [
         Vec3::ZERO,
-        Vec3::new(2.0, 0.0, 0.0),
-        Vec3::new(0.0, 0.0, 2.0),
+        Vec3::new(2.0_f32, 0.0_f32, 0.0_f32),
+        Vec3::new(0.0_f32, 0.0_f32, 2.0_f32),
     ];
-    let same = flat.map(|point| Vec3::new(point.x + 0.2, point.y + 0.001, point.z + 0.2));
-    let area = models::coplanar_overlap(flat, same).unwrap_or(0.0);
+    let same =
+        flat.map(|point| Vec3::new(point.x + 0.2_f32, point.y + 0.001_f32, point.z + 0.2_f32));
+    let area = models::coplanar_overlap(flat, same).unwrap_or(0.0_f32);
     assert!(
-        area > 1.0,
+        area > 1.0_f32,
         "near-coplanar positive area sheets must be detected"
     );
     let crossing = [
-        Vec3::new(0.5, -1.0, 0.5),
-        Vec3::new(0.5, 1.0, 0.5),
-        Vec3::new(1.5, 0.0, 1.5),
+        Vec3::new(0.5_f32, -1.0_f32, 0.5_f32),
+        Vec3::new(0.5_f32, 1.0_f32, 0.5_f32),
+        Vec3::new(1.5_f32, 0.0_f32, 1.5_f32),
     ];
     assert!(
         models::coplanar_overlap(flat, crossing).is_none(),
         "an artistic transverse intersection is not a coplanar depth conflict"
     );
-    let distant = flat.map(|point| Vec3::new(point.x, point.y + 0.01, point.z));
+    let distant = flat.map(|point| Vec3::new(point.x, point.y + 0.01_f32, point.z));
     assert!(
         models::coplanar_overlap(flat, distant).is_none(),
         "parallel planes separated by a centimetre must not be called coplanar"
     );
-    let disjoint = flat.map(|point| Vec3::new(point.x + 3.0, point.y, point.z));
+    let disjoint = flat.map(|point| Vec3::new(point.x + 3.0_f32, point.y, point.z));
     assert!(
         models::coplanar_overlap(flat, disjoint)
-            .is_none_or(|disjoint_area| disjoint_area <= 0.0001),
+            .is_none_or(|disjoint_area| disjoint_area <= 0.0001_f32),
         "plane coincidence alone is not triangle overlap"
     );
 }
@@ -202,6 +203,70 @@ fn oversized_review_returns_explicit_incomplete_result_without_assets() -> Resul
             .iter()
             .all(|finding| finding.risk.contains("incomplete")),
         "the visible result must explain that review is incomplete"
+    );
+    Ok(())
+}
+
+// Essential regression: actual auto-fix candidates must share the same intent
+// guard in individual and batch paths. Two independent wall pairs are
+// sufficient; no renderer, imported assets, or full-map preparation is involved.
+#[test]
+fn correction_candidates_skip_ignored_walls_and_restore_eligibility() -> Result<(), String> {
+    let mut raw = raw_scene();
+    let walls = raw
+        .get_mut("walls")
+        .and_then(Value::as_array_mut)
+        .ok_or("walls")?;
+    walls.extend([
+        serde_json::json!({"x":14.0_f32,"z":4.0_f32,"width":1.0_f32,"depth":0.2_f32,"height":2.0_f32}),
+        serde_json::json!({"x":14.0_f32,"z":4.0_f32,"width":1.0_f32,"depth":0.2_f32,"height":2.0_f32}),
+    ]);
+    let level = serde_json::from_value(raw.clone()).map_err(|error| error.to_string())?;
+    let mut initial = report();
+    duplicate_wall_fixes(&level, &raw, &mut initial);
+    let first = initial.findings.first().ok_or("near duplicate")?;
+    let ignored = crate::editor::document::intent::ignore_in_raw(&raw, first)?;
+    let ignored_level =
+        serde_json::from_value(ignored.clone()).map_err(|error| error.to_string())?;
+    let mut findings = report();
+    duplicate_wall_fixes(&ignored_level, &ignored, &mut findings);
+    crate::editor::document::intent::annotate_report(&ignored, &mut findings);
+    let candidates = super::preview_corrections(&ignored, &findings.findings);
+    assert_eq!(
+        candidates.len(),
+        1,
+        "batch candidate gate skips the ignored issue and retains the independent far correction"
+    );
+    assert!(
+        candidates.iter().all(Result::is_ok),
+        "an independent unprotected correction remains eligible"
+    );
+    assert!(
+        findings
+            .findings
+            .first()
+            .and_then(|entry| entry.fix.as_ref())
+            .is_some_and(|fix| fix.preview(&ignored).is_err()),
+        "direct individual preview independently protects an ignored placement"
+    );
+    let mut cleared = ignored;
+    drop(
+        cleared
+            .as_object_mut()
+            .ok_or("source object")?
+            .remove("editor_placement_intent"),
+    );
+    let cleared_level =
+        serde_json::from_value(cleared.clone()).map_err(|error| error.to_string())?;
+    let mut eligible = report();
+    duplicate_wall_fixes(&cleared_level, &cleared, &mut eligible);
+    assert_eq!(
+        super::preview_corrections(&cleared, &eligible.findings)
+            .iter()
+            .filter(|entry| entry.is_ok())
+            .count(),
+        2,
+        "clearing intent restores both corrections despite stable editor IDs"
     );
     Ok(())
 }

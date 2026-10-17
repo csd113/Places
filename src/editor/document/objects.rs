@@ -12,6 +12,14 @@ pub enum ObjectKind {
     Prop,
     Ramp,
     FloorRegion,
+    Light,
+    Audio,
+    Entity,
+    Door,
+    Trigger,
+    FogRegion,
+    GroundFog,
+    SpawnPoint,
 }
 
 /// A selection addresses an array entry in the current document revision.
@@ -23,16 +31,30 @@ pub enum ObjectId {
     Prop(usize),
     Ramp(usize),
     FloorRegion(usize),
+    Light(usize),
+    Audio(usize),
+    Door(usize),
+    Trigger(usize),
+    FogRegion(usize),
+    GroundFog(usize),
+    SpawnPoint(usize),
 }
 
 impl ObjectId {
-    pub(super) const fn collection(self) -> (&'static str, usize) {
+    pub(crate) const fn collection(self) -> (&'static str, usize) {
         match self {
             Self::Room(index) => ("rooms", index),
             Self::Wall(index) => ("walls", index),
             Self::Prop(index) => ("props", index),
             Self::Ramp(index) => ("ramps", index),
             Self::FloorRegion(index) => ("floor_regions", index),
+            Self::Light(index) => ("ceiling_lights", index),
+            Self::Audio(index) => ("sound_emitters", index),
+            Self::Door(index) => ("doors", index),
+            Self::Trigger(index) => ("volumes", index),
+            Self::FogRegion(index) => ("fog_regions", index),
+            Self::GroundFog(index) => ("ground_fog", index),
+            Self::SpawnPoint(index) => ("spawn_points", index),
         }
     }
 }
@@ -47,6 +69,8 @@ pub struct Transform {
     pub position: [f32; 3],
     pub size: [f32; 3],
     pub yaw_degrees: f32,
+    pub pitch_degrees: f32,
+    pub roll_degrees: f32,
 }
 
 /// A concise object-list entry with the same IDs used by viewport picking.
@@ -100,15 +124,30 @@ pub(super) fn enumerate(level: &LevelDef) -> Vec<ObjectInfo> {
                 transform,
             })
         })
+        .chain(super::gameplay::enumerate(level))
         .collect()
 }
 
 pub(super) fn transform(level: &LevelDef, id: ObjectId) -> Result<Transform, String> {
+    if matches!(
+        id,
+        ObjectId::Light(_)
+            | ObjectId::Audio(_)
+            | ObjectId::Door(_)
+            | ObjectId::Trigger(_)
+            | ObjectId::FogRegion(_)
+            | ObjectId::GroundFog(_)
+            | ObjectId::SpawnPoint(_)
+    ) {
+        return super::gameplay::transform(level, id);
+    }
     match id {
         ObjectId::Room(index) => level.rooms.get(index).map(|room| Transform {
             position: [room.x, room.floor_y, room.z],
             size: [room.width, room.height, room.depth],
             yaw_degrees: 0.0_f32,
+            pitch_degrees: 0.0,
+            roll_degrees: 0.0,
         }),
         ObjectId::Wall(index) => level.walls.get(index).map(|wall| Transform {
             position: [wall.x, wall.y, wall.z],
@@ -121,22 +160,37 @@ pub(super) fn transform(level: &LevelDef, id: ObjectId) -> Result<Transform, Str
                 wall.depth,
             ],
             yaw_degrees: 0.0_f32,
+            pitch_degrees: 0.0,
+            roll_degrees: 0.0,
         }),
         ObjectId::Prop(index) => level.props.get(index).map(|prop| Transform {
             position: [prop.x, prop.y, prop.z],
             size: [prop.scale; 3],
             yaw_degrees: prop.rotation_degrees,
+            pitch_degrees: prop.pitch_degrees,
+            roll_degrees: prop.roll_degrees,
         }),
         ObjectId::Ramp(index) => level.ramps.get(index).map(|ramp| Transform {
             position: [ramp.x, ramp.offset_y, ramp.z],
             size: [ramp.width, ramp.rise, ramp.depth],
             yaw_degrees: 0.0_f32,
+            pitch_degrees: 0.0,
+            roll_degrees: 0.0,
         }),
         ObjectId::FloorRegion(index) => level.floor_regions.get(index).map(|region| Transform {
             position: [region.x, region.offset_y, region.z],
             size: [region.width, 1.0_f32, region.depth],
             yaw_degrees: 0.0_f32,
+            pitch_degrees: 0.0,
+            roll_degrees: 0.0,
         }),
+        ObjectId::Light(_)
+        | ObjectId::Audio(_)
+        | ObjectId::Door(_)
+        | ObjectId::Trigger(_)
+        | ObjectId::FogRegion(_)
+        | ObjectId::GroundFog(_)
+        | ObjectId::SpawnPoint(_) => None,
     }
     .ok_or_else(|| "The selected object no longer exists".into())
 }
@@ -153,11 +207,30 @@ pub(super) fn set_transform(
         .chain(&proposed.size)
         .all(|value| value.is_finite())
         || !proposed.yaw_degrees.is_finite()
+        || !proposed.pitch_degrees.is_finite()
+        || !proposed.roll_degrees.is_finite()
         || proposed.size.iter().enumerate().any(|(axis, value)| {
             *value <= 0.0_f32 && !(matches!(id, ObjectId::Ramp(_)) && axis == 1)
         })
     {
         return Err("Transform requires finite coordinates and positive sizes; only ramp rise may be negative".into());
+    }
+    if !matches!(id, ObjectId::Prop(_))
+        && (proposed.pitch_degrees != 0.0 || proposed.roll_degrees != 0.0)
+    {
+        return Err("Pitch and roll belong to prop placements".into());
+    }
+    if matches!(
+        id,
+        ObjectId::Light(_)
+            | ObjectId::Audio(_)
+            | ObjectId::Door(_)
+            | ObjectId::Trigger(_)
+            | ObjectId::FogRegion(_)
+            | ObjectId::GroundFog(_)
+            | ObjectId::SpawnPoint(_)
+    ) {
+        return super::gameplay::set_transform(raw, level, id, proposed);
     }
     let current = transform(level, id)?;
     let object = object_mut(raw, id)?;
@@ -170,6 +243,8 @@ pub(super) fn set_transform(
             set_position(object, proposed.position, "y");
             set_number(object, "scale", scale);
             set_number(object, "rotation_degrees", proposed.yaw_degrees);
+            set_number(object, "pitch_degrees", proposed.pitch_degrees);
+            set_number(object, "roll_degrees", proposed.roll_degrees);
         }
         ObjectId::Room(_) | ObjectId::Wall(_) => {
             let mut actual = proposed;
@@ -211,6 +286,13 @@ pub(super) fn set_transform(
         ObjectId::Ramp(_) | ObjectId::FloorRegion(_) => {
             geometry::set_transform(object, id, proposed)?;
         }
+        ObjectId::Light(_)
+        | ObjectId::Audio(_)
+        | ObjectId::Door(_)
+        | ObjectId::Trigger(_)
+        | ObjectId::FogRegion(_)
+        | ObjectId::GroundFog(_)
+        | ObjectId::SpawnPoint(_) => return Err("Unsupported geometry transform".into()),
     }
     Ok(())
 }
@@ -233,7 +315,16 @@ fn require_simple_rotation(object: &Map<String, Value>, id: ObjectId) -> Result<
                 Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
             })
         }),
-        ObjectId::Prop(_) | ObjectId::Ramp(_) | ObjectId::FloorRegion(_) => false,
+        ObjectId::Prop(_)
+        | ObjectId::Ramp(_)
+        | ObjectId::FloorRegion(_)
+        | ObjectId::Light(_)
+        | ObjectId::Audio(_)
+        | ObjectId::Door(_)
+        | ObjectId::Trigger(_)
+        | ObjectId::FogRegion(_)
+        | ObjectId::GroundFog(_)
+        | ObjectId::SpawnPoint(_) => false,
     };
     if complex {
         return Err(
@@ -253,6 +344,19 @@ pub(super) fn add(
 ) -> Result<ObjectId, String> {
     if position.iter().any(|value| !value.is_finite()) {
         return Err("Object coordinates must be finite".into());
+    }
+    if matches!(
+        kind,
+        ObjectKind::Light
+            | ObjectKind::Audio
+            | ObjectKind::Entity
+            | ObjectKind::Door
+            | ObjectKind::Trigger
+            | ObjectKind::FogRegion
+            | ObjectKind::GroundFog
+            | ObjectKind::SpawnPoint
+    ) {
+        return super::gameplay::add(raw, level, kind, position, asset);
     }
     let [x, y, z] = position;
     let (collection, mut object) = match kind {
@@ -279,6 +383,14 @@ pub(super) fn add(
             "floor_regions",
             serde_json::json!({"x":x, "offset_y":y, "z":z, "width":2.0_f32, "depth":2.0_f32}),
         ),
+        ObjectKind::Light
+        | ObjectKind::Audio
+        | ObjectKind::Entity
+        | ObjectKind::Door
+        | ObjectKind::Trigger
+        | ObjectKind::FogRegion
+        | ObjectKind::GroundFog
+        | ObjectKind::SpawnPoint => return Err("Unsupported geometry kind".into()),
     };
     if kind != ObjectKind::Prop
         && let Some(material) = asset
@@ -299,10 +411,19 @@ pub(super) fn add(
         ObjectKind::Prop => ObjectId::Prop(index),
         ObjectKind::Ramp => ObjectId::Ramp(index),
         ObjectKind::FloorRegion => ObjectId::FloorRegion(index),
+        ObjectKind::Light
+        | ObjectKind::Audio
+        | ObjectKind::Entity
+        | ObjectKind::Door
+        | ObjectKind::Trigger
+        | ObjectKind::FogRegion
+        | ObjectKind::GroundFog
+        | ObjectKind::SpawnPoint => return Err("Unsupported geometry kind".into()),
     })
 }
 
 pub(super) fn delete(raw: &mut Value, level: &LevelDef, id: ObjectId) -> Result<(), String> {
+    super::gameplay::pin_gameplay_ids(raw, level)?;
     if matches!(id, ObjectId::Prop(_)) {
         pin_prop_ids(raw, level)?;
     }
@@ -320,11 +441,16 @@ pub(super) fn duplicate(
     level: &LevelDef,
     id: ObjectId,
 ) -> Result<ObjectId, String> {
+    super::gameplay::pin_gameplay_ids(raw, level)?;
+    if matches!(id, ObjectId::FogRegion(_) | ObjectId::GroundFog(_)) {
+        return super::fog::duplicate(raw, level, id);
+    }
     if let ObjectId::Prop(index) = id {
-        require_passive_prop(level, index)?;
+        let _prop = level.props.get(index).ok_or("Prop no longer exists")?;
         pin_prop_ids(raw, level)?;
     }
     let mut object = object_mut(raw, id)?.clone();
+    drop(object.remove("editor_instance_id"));
     let current = transform(level, id)?;
     let [x, y, z] = current.position;
     set_position(
@@ -333,11 +459,49 @@ pub(super) fn duplicate(
         match id {
             ObjectId::Room(_) => "floor_y",
             ObjectId::Ramp(_) | ObjectId::FloorRegion(_) => "offset_y",
-            ObjectId::Wall(_) | ObjectId::Prop(_) => "y",
+            ObjectId::Wall(_)
+            | ObjectId::Prop(_)
+            | ObjectId::Light(_)
+            | ObjectId::Audio(_)
+            | ObjectId::Door(_)
+            | ObjectId::Trigger(_)
+            | ObjectId::FogRegion(_)
+            | ObjectId::GroundFog(_)
+            | ObjectId::SpawnPoint(_) => "y",
         },
     );
     if matches!(id, ObjectId::Prop(_)) {
         drop(object.insert("id".into(), unique_prop_id(raw)?.into()));
+    } else if matches!(
+        id,
+        ObjectId::Light(_)
+            | ObjectId::Audio(_)
+            | ObjectId::Door(_)
+            | ObjectId::Trigger(_)
+            | ObjectId::SpawnPoint(_)
+    ) {
+        drop(object.insert(
+            "id".into(),
+            super::gameplay::unique_id(raw, "editor_copy")?.into(),
+        ));
+    }
+    if matches!(id, ObjectId::Trigger(_)) {
+        drop(object.remove("y"));
+        set_number(&mut object, "bottom_y", y);
+        set_number(&mut object, "top_y", y + current.size[1]);
+    }
+    if let ObjectId::SpawnPoint(point_index) = id
+        && let Some(group_id) = level
+            .spawn_points
+            .get(point_index)
+            .and_then(|point| point.group.as_deref())
+        && let Some(group) = level.spawn_groups.iter().find(|group| group.id == group_id)
+    {
+        let copy_group = super::gameplay::unique_id(raw, "editor_spawn_group")?;
+        array_mut(raw, "spawn_groups")?.push(
+            serde_json::json!({"id":copy_group,"at_most_one_active":group.at_most_one_active}),
+        );
+        drop(object.insert("group".into(), copy_group.into()));
     }
     let (collection, _) = id.collection();
     let entries = array_mut(raw, collection)?;
@@ -349,6 +513,13 @@ pub(super) fn duplicate(
         ObjectId::Prop(_) => ObjectId::Prop(index),
         ObjectId::Ramp(_) => ObjectId::Ramp(index),
         ObjectId::FloorRegion(_) => ObjectId::FloorRegion(index),
+        ObjectId::Light(_) => ObjectId::Light(index),
+        ObjectId::Audio(_) => ObjectId::Audio(index),
+        ObjectId::Door(_) => ObjectId::Door(index),
+        ObjectId::Trigger(_) => ObjectId::Trigger(index),
+        ObjectId::FogRegion(_) => ObjectId::FogRegion(index),
+        ObjectId::GroundFog(_) => ObjectId::GroundFog(index),
+        ObjectId::SpawnPoint(_) => ObjectId::SpawnPoint(index),
     })
 }
 

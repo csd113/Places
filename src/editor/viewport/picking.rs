@@ -51,6 +51,7 @@ pub(super) fn objects(
     level: &LevelDef,
     catalog: &PropCatalog,
     assets: &mut PropAssets,
+    lighting: &crate::engine::lighting::LevelLighting,
 ) -> Vec<PickObject> {
     let mut result = terrain_objects(level);
     let surfaces = LevelSurfaces::new(level);
@@ -119,19 +120,7 @@ pub(super) fn objects(
                 triangles,
             });
         } else {
-            let [width, height, depth] = prop.resolved_size(definition.size);
-            let bounds = Aabb {
-                min: [
-                    width.mul_add(-0.5, prop.x),
-                    base + prop.y,
-                    depth.mul_add(-0.5, prop.z),
-                ],
-                max: [
-                    width.mul_add(0.5, prop.x),
-                    base + prop.y + height,
-                    depth.mul_add(0.5, prop.z),
-                ],
-            };
+            let bounds = prop.placement_bounds(base, prop.size.unwrap_or(definition.size));
             result.push(PickObject::boxed(
                 ObjectId::Prop(index),
                 bounds,
@@ -139,7 +128,178 @@ pub(super) fn objects(
             ));
         }
     }
+    gameplay_objects(level, catalog, assets, lighting, &mut result);
     result
+}
+
+fn gameplay_objects(
+    level: &LevelDef,
+    catalog: &PropCatalog,
+    assets: &mut PropAssets,
+    lighting: &crate::engine::lighting::LevelLighting,
+    result: &mut Vec<PickObject>,
+) {
+    fixture_objects(level, catalog, assets, lighting, result);
+    for (index, sound) in level.sound_emitters.iter().enumerate() {
+        let bounds = Aabb {
+            min: [sound.x - 0.16, sound.y - 0.16, sound.z - 0.16],
+            max: [sound.x + 0.16, sound.y + 0.16, sound.z + 0.16],
+        };
+        result.push(PickObject::boxed(
+            ObjectId::Audio(index),
+            bounds,
+            vec![bounds],
+        ));
+    }
+    for (index, door) in level.doors.iter().enumerate() {
+        let bounds = transformed_bounds(
+            Aabb {
+                min: [0.0, 0.0, -door.thickness * 0.5],
+                max: [door.width, door.height, door.thickness * 0.5],
+            },
+            glam::Mat4::from_rotation_translation(
+                glam::Quat::from_rotation_y(door.rotation_degrees.to_radians()),
+                Vec3::new(door.x, door.base_y(level), door.z),
+            ),
+        );
+        result.push(PickObject::boxed(
+            ObjectId::Door(index),
+            bounds,
+            vec![bounds],
+        ));
+    }
+    for (index, volume) in level.volumes.iter().enumerate() {
+        let (bottom, top) = volume.resolved_y_bounds(level);
+        let bounds = Aabb {
+            min: [volume.x, bottom, volume.z],
+            max: [volume.x + volume.width, top, volume.z + volume.depth],
+        };
+        result.push(PickObject::boxed(
+            ObjectId::Trigger(index),
+            bounds,
+            vec![bounds],
+        ));
+    }
+    for (index, point) in level.spawn_points.iter().enumerate() {
+        let y = point.y.unwrap_or_else(|| {
+            LevelSurfaces::new(level)
+                .floor_y_at(point.x, point.z)
+                .unwrap_or(0.0)
+        });
+        let bounds = Aabb {
+            min: [point.x - 0.25, y, point.z - 0.25],
+            max: [point.x + 0.25, y + 0.5, point.z + 0.25],
+        };
+        result.push(PickObject::boxed(
+            ObjectId::SpawnPoint(index),
+            bounds,
+            vec![bounds],
+        ));
+    }
+    for (index, fog) in level.fog_regions.iter().enumerate() {
+        let bounds = Aabb {
+            min: fog.min,
+            max: fog.max,
+        };
+        result.push(PickObject::boxed(
+            ObjectId::FogRegion(index),
+            bounds,
+            vec![bounds],
+        ));
+    }
+    for (index, fog) in level.ground_fog.iter().enumerate() {
+        let bounds = Aabb {
+            min: [fog.min[0], fog.ground_y, fog.min[1]],
+            max: [fog.max[0], fog.ground_y + fog.height, fog.max[1]],
+        };
+        result.push(PickObject::boxed(
+            ObjectId::GroundFog(index),
+            bounds,
+            vec![bounds],
+        ));
+    }
+}
+
+fn fixture_objects(
+    level: &LevelDef,
+    catalog: &PropCatalog,
+    assets: &mut PropAssets,
+    lighting: &crate::engine::lighting::LevelLighting,
+    result: &mut Vec<PickObject>,
+) {
+    for (index, fixture) in level.ceiling_lights.iter().enumerate() {
+        let yaw = if fixture.mount == crate::engine::level::LightMount::Wall {
+            fixture.rotation_degrees
+        } else if crate::engine::lighting::fixture_is_turned(fixture.rotation_degrees) {
+            -90.0
+        } else {
+            0.0
+        };
+        let matrix = glam::Mat4::from_rotation_translation(
+            glam::Quat::from_rotation_y(yaw.to_radians()),
+            Vec3::new(fixture.x, lighting.fixture_y_for(fixture), fixture.z),
+        );
+        let model = crate::engine::lighting::fixture_model_id(&fixture.fixture)
+            .and_then(|id| catalog.get(id).model)
+            .and_then(|path| assets.resolve(&path).ok());
+        if let Some(asset) = model {
+            let mut bounds = Aabb::EMPTY;
+            let triangles = asset
+                .model
+                .indices
+                .as_chunks::<3>()
+                .0
+                .iter()
+                .filter_map(|indices| {
+                    let mut triangle = [Vec3::ZERO; 3];
+                    for (output, vertex_index) in triangle.iter_mut().zip(indices) {
+                        *output = matrix.transform_point3(Vec3::from_array(
+                            asset.model.vertices.get(usize::from(*vertex_index))?.pos,
+                        ));
+                        bounds.expand(output.to_array());
+                    }
+                    Some(triangle)
+                })
+                .collect();
+            result.push(PickObject {
+                id: ObjectId::Light(index),
+                bounds,
+                boxes: Vec::new(),
+                triangles,
+            });
+        } else {
+            let profile = crate::engine::lighting::fixture_profile(&fixture.fixture);
+            let local = if fixture.mount == crate::engine::level::LightMount::Wall {
+                Aabb {
+                    min: [-profile.half_width, -0.1, 0.0],
+                    max: [profile.half_width, 0.1, 0.11],
+                }
+            } else {
+                Aabb {
+                    min: [-profile.half_width, -0.1, -profile.half_depth],
+                    max: [profile.half_width, 0.0, profile.half_depth],
+                }
+            };
+            let bounds = transformed_bounds(local, matrix);
+            result.push(PickObject::boxed(
+                ObjectId::Light(index),
+                bounds,
+                vec![bounds],
+            ));
+        }
+    }
+}
+
+fn transformed_bounds(local: Aabb, matrix: glam::Mat4) -> Aabb {
+    let mut bounds = Aabb::EMPTY;
+    for x in [local.min[0], local.max[0]] {
+        for y in [local.min[1], local.max[1]] {
+            for z in [local.min[2], local.max[2]] {
+                bounds.expand(matrix.transform_point3(Vec3::new(x, y, z)).to_array());
+            }
+        }
+    }
+    bounds
 }
 
 fn ray_box(origin: Vec3, direction: Vec3, bounds: Aabb) -> Option<f32> {

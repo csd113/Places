@@ -102,8 +102,12 @@ impl EventKind {
 }
 
 /// One queued event occurrence.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct EventRecord {
+    /// World position of the occupant that caused this occurrence, when
+    /// known. Reusable actions can choose an away-facing door swing without
+    /// depending on a player or editor singleton.
+    pub origin: Option<glam::Vec3>,
     /// World generation the record was produced in. A record whose generation
     /// differs from the current world's is dropped by
     /// [`EventQueue::drain_stale`], never applied.

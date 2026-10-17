@@ -24,6 +24,7 @@
 //! entries inert (their owner handle goes stale) until the end-of-tick
 //! compaction, so a binding index can never be invalidated mid-wave.
 
+mod audio;
 pub mod balloon;
 pub mod components;
 pub mod developer;
@@ -298,6 +299,8 @@ pub struct WorldTick {
     pub events_dropped: usize,
     /// Actions executed this tick.
     pub actions_run: usize,
+    /// Door state requests changed by bindings this tick.
+    pub doors_acted: usize,
     /// Light controllers changed by bindings this tick, for action feedback.
     pub lights_toggled: usize,
     /// Sequences that completed this tick.
@@ -350,6 +353,9 @@ pub struct EntityWorld {
     templates: Vec<SpawnTemplateDef>,
     spawn_points: Vec<SpawnPointDef>,
     bindings: Vec<ResolvedBinding>,
+    bindings_by_owner: std::collections::HashMap<EntityHandle, Vec<usize>>,
+    cooling_bindings: Vec<usize>,
+    binding_index_state: BindingIndexState,
     events: EventQueue,
     commands: Vec<WorldCommand>,
     /// Weather selection belongs to this loaded session, never saved settings.
@@ -389,6 +395,7 @@ pub struct EntityWorld {
     /// Reused bounded trigger work buffers; stationary occupancy allocates no strings.
     trigger_sweeps: Vec<volumes::Sweep>,
     trigger_edges: Vec<volumes::Edge>,
+    trigger_index: volumes::TriggerIndex,
     water: WaterVolumes,
     ladders: Ladders,
     floor: WalkableFloor,
@@ -400,6 +407,12 @@ pub struct EntityWorld {
     stimuli: std::collections::VecDeque<AiStimulus>,
     /// Simulation seconds since the world was resolved.
     sim_time: f32,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum BindingIndexState {
+    Current,
+    NeedsCompaction,
 }
 
 impl std::fmt::Debug for EntityWorld {
@@ -448,6 +461,9 @@ impl EntityWorld {
             templates: Vec::new(),
             spawn_points: Vec::new(),
             bindings: Vec::new(),
+            bindings_by_owner: std::collections::HashMap::new(),
+            cooling_bindings: Vec::new(),
+            binding_index_state: BindingIndexState::Current,
             events: EventQueue::new(),
             commands: Vec::new(),
             weather_strength: 0.0,
@@ -472,6 +488,7 @@ impl EntityWorld {
             authored_audio: Vec::new(),
             trigger_sweeps: Vec::new(),
             trigger_edges: Vec::new(),
+            trigger_index: volumes::TriggerIndex::default(),
             water: WaterVolumes::new(),
             ladders: Ladders::new(),
             floor: WalkableFloor::default(),
@@ -549,7 +566,7 @@ impl EntityWorld {
         self.spawn_groups = SpawnGroups::from_level(level);
         self.templates.clone_from(&level.spawn_templates);
         self.spawn_points.clone_from(&level.spawn_points);
-        self.bindings.clear();
+        self.clear_bindings();
 
         let surfaces = LevelSurfaces::new(level);
         self.resolve_props(level, &surfaces);
@@ -560,8 +577,10 @@ impl EntityWorld {
         self.resolve_water(level);
         self.resolve_timers(level);
         self.resolve_spawn_points(level, &surfaces);
+        self.resolve_sound_emitters(level);
         self.resolve_ai();
         self.resolve_routes(level);
+        self.trigger_index = volumes::TriggerIndex::build(&self.components.volumes);
         self.authored_states = self
             .components
             .states
@@ -709,10 +728,18 @@ impl EntityWorld {
         ) = state;
     }
 
+    fn clear_bindings(&mut self) {
+        self.bindings.clear();
+        self.bindings_by_owner.clear();
+        self.cooling_bindings.clear();
+        self.binding_index_state = BindingIndexState::Current;
+    }
+
     /// Re-arms every binding: `once` bindings may fire again and cooldowns are
     /// cleared. A reset is a fresh run for map wiring, exactly as it is for
     /// doors, timers and spawn groups.
     fn reset_bindings(&mut self) {
+        self.cooling_bindings.clear();
         for binding in &mut self.bindings {
             binding.fired = false;
             binding.cooldown_remaining = 0.0;
@@ -1196,6 +1223,7 @@ impl EntityWorld {
                             enabled: *enabled,
                             playing: *playing,
                             time_domain: *time_domain,
+                            spatial: None,
                         },
                     ));
                 }
@@ -1398,6 +1426,10 @@ impl EntityWorld {
             if def.actions.is_empty() {
                 continue;
             }
+            self.bindings_by_owner
+                .entry(handle)
+                .or_default()
+                .push(self.bindings.len());
             self.bindings.push(ResolvedBinding {
                 owner: handle,
                 id: def.id.clone(),
@@ -1441,12 +1473,13 @@ impl EntityWorld {
                 continue;
             }
             let size = prop.resolved_size(PROP_FALLBACK_SIZE);
-            let [size_x, size_y, size_z] = size;
             if !size.iter().all(|value| value.is_finite() && *value > 0.0)
                 || !prop.x.is_finite()
                 || !prop.y.is_finite()
                 || !prop.z.is_finite()
                 || !prop.rotation_degrees.is_finite()
+                || !prop.pitch_degrees.is_finite()
+                || !prop.roll_degrees.is_finite()
             {
                 continue;
             }
@@ -1457,31 +1490,19 @@ impl EntityWorld {
                 .filter(|name| !name.is_empty())
                 .unwrap_or(prop.model.as_str())
                 .to_string();
-            let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y;
-            let (extent_x, extent_z) =
-                rotated_half_extents(size_x * 0.5, size_z * 0.5, prop.rotation_degrees);
-
-            // bounded world coordinates
-            let (bounds, own_box, anchor) = {
-                let own_box = prop.solid.then(|| {
-                    WallAabb::with_y(
-                        extent_x.mul_add(-1.0, prop.x),
-                        base_y,
-                        extent_z.mul_add(-1.0, prop.z),
-                        extent_x * 2.0,
-                        size_y,
-                        extent_z * 2.0,
-                    )
-                });
-                (
-                    crate::engine::spatial::Aabb {
-                        min: [prop.x - extent_x, base_y, prop.z - extent_z],
-                        max: [prop.x + extent_x, base_y + size_y, prop.z + extent_z],
-                    },
-                    own_box,
-                    Vec3::new(prop.x, base_y + size_y + 0.28, prop.z),
+            let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
+            let bounds = prop.placement_bounds(base_y, prop.size.unwrap_or(PROP_FALLBACK_SIZE));
+            let own_box = prop.solid.then(|| {
+                WallAabb::with_y(
+                    bounds.min[0],
+                    bounds.min[1],
+                    bounds.min[2],
+                    bounds.max[0] - bounds.min[0],
+                    bounds.max[1] - bounds.min[1],
+                    bounds.max[2] - bounds.min[2],
                 )
-            };
+            });
+            let anchor = Vec3::new(bounds.centre()[0], bounds.max[1] + 0.28, bounds.centre()[2]);
             let (prompt, reach, enabled) = component.map_or_else(
                 || (String::new(), DEFAULT_INTERACTION_REACH_M, false),
                 |item| (item.prompt.clone(), item.reach, item.enabled),
@@ -1913,6 +1934,9 @@ impl EntityWorld {
         depth: u8,
     ) -> bool {
         self.events.push(EventRecord {
+            origin: actor
+                .and_then(|handle| self.components.transforms.get(handle))
+                .map(|pose| pose.position),
             generation: self.generation,
             kind,
             subject,
@@ -1924,6 +1948,16 @@ impl EntityWorld {
 
     /// Runs the interaction on the aimed-at instance, if any.
     pub fn dispatch_interaction(&mut self, target: Option<usize>) -> Option<DispatchReport> {
+        self.dispatch_interaction_from(target, None)
+    }
+
+    /// Shared interaction dispatch with the interacting occupant's world
+    /// position. The action owner remains the aimed entity.
+    pub fn dispatch_interaction_from(
+        &mut self,
+        target: Option<usize>,
+        origin: Option<Vec3>,
+    ) -> Option<DispatchReport> {
         let index = target?;
         let id = self.interactables.get(index)?.id.clone();
         let handle = self.handle_of(&id)?;
@@ -1933,7 +1967,15 @@ impl EntityWorld {
             .get(handle)
             .map_or(Vec3::ZERO, |transform| transform.position);
         self.note_stimulus(position, 8.0, "interact", Some(handle));
-        let _event_queued = self.emit(EventKind::Interact, handle, "", Some(handle));
+        let _event_queued = self.events.push(EventRecord {
+            generation: self.generation,
+            kind: EventKind::Interact,
+            subject: handle,
+            key: String::new(),
+            actor: Some(crate::engine::ai::PLAYER_TARGET_HANDLE),
+            origin: origin.filter(|point| point.is_finite()),
+            depth: 0,
+        });
         Some(self.dispatch_queued_events())
     }
 
@@ -1942,6 +1984,21 @@ impl EntityWorld {
         &mut self,
         actions: &[ActionDef],
         actor: Option<EntityHandle>,
+    ) -> DispatchReport {
+        let origin = actor
+            .and_then(|handle| self.components.transforms.get(handle))
+            .map(|pose| pose.position);
+        self.dispatch_actions_from(actions, actor, origin)
+    }
+
+    /// Programmatic action surface for game modes and future script bindings.
+    /// `actor` owns omitted targets; `origin` is the occupant that caused the
+    /// action and lets bidirectional doors swing away from that occupant.
+    pub fn dispatch_actions_from(
+        &mut self,
+        actions: &[ActionDef],
+        actor: Option<EntityHandle>,
+        origin: Option<Vec3>,
     ) -> DispatchReport {
         let mut report = DispatchReport::default();
         if actions.len() > crate::engine::level::MAX_ACTIONS_PER_SOURCE {
@@ -1963,7 +2020,7 @@ impl EntityWorld {
             .iter()
             .take(crate::engine::level::MAX_ACTIONS_PER_SOURCE)
         {
-            self.run_action(action, actor, &mut report, 0);
+            self.run_action(action, actor, origin, &mut report, 0);
             if report.player_reset {
                 break;
             }
@@ -2004,6 +2061,7 @@ impl EntityWorld {
         &mut self,
         action: &ActionDef,
         actor: Option<EntityHandle>,
+        origin: Option<Vec3>,
         report: &mut DispatchReport,
         depth: u8,
     ) {
@@ -2115,7 +2173,7 @@ impl EntityWorld {
                     return;
                 }
                 let changed = if request_open {
-                    self.doors.request_open(&id)
+                    self.doors.request_open_from(&id, origin)
                 } else {
                     self.doors.request_close(&id)
                 };
@@ -2130,7 +2188,7 @@ impl EntityWorld {
                     return;
                 };
                 if self.doors.index_of(&id).is_some() {
-                    if self.doors.toggle(&id) {
+                    if self.doors.toggle_from(&id, origin) {
                         report.actions_run = report.actions_run.saturating_add(1);
                         report.doors_acted = report.doors_acted.saturating_add(1);
                     }
@@ -2906,9 +2964,13 @@ impl EntityWorld {
         if delta <= 0.0 {
             return;
         }
-        for binding in &mut self.bindings {
+        self.cooling_bindings.retain(|index| {
+            let Some(binding) = self.bindings.get_mut(*index) else {
+                return false;
+            };
             binding.cooldown_remaining = (binding.cooldown_remaining - delta).max(0.0);
-        }
+            binding.cooldown_remaining > 0.0
+        });
     }
 
     #[expect(
@@ -3003,33 +3065,35 @@ impl EntityWorld {
     }
 
     fn run_bindings(&mut self, event: &EventRecord, tick: &mut WorldTick, depth: u8) {
-        let mut matched: Vec<usize> = Vec::new();
-        for (index, binding) in self.bindings.iter().enumerate() {
-            if binding.owner != event.subject || binding.on != event.kind {
+        // Resolve only this owner's bounded authored binding list. Conditions
+        // are captured before actions mutate state, preserving one-toggle rules.
+        let mut matched = [None; crate::engine::level::MAX_BINDINGS_PER_ENTITY];
+        let mut next = 0usize;
+        for index in self
+            .bindings_by_owner
+            .get(&event.subject)
+            .into_iter()
+            .flat_map(|indices| indices.iter())
+            .copied()
+        {
+            let Some(binding) = self.bindings.get(index) else {
                 continue;
-            }
-            if let Some(key) = &binding.key
-                && key != &event.key
-            {
-                continue;
-            }
-            matched.push(index);
-        }
-        // Every condition of one event is evaluated against the state at
-        // dispatch, before any of the event's actions run. Two mutually
-        // exclusive bindings (`when: enabled` -> disable, `when: disabled` ->
-        // enable) therefore never both run on one press: the second would
-        // otherwise see the first's write and undo it, leaving one press
-        // toggling nothing.
-        matched.retain(|index| {
-            self.bindings.get(*index).is_some_and(|binding| {
-                binding
+            };
+            if binding.on != event.kind
+                || binding.key.as_ref().is_some_and(|key| key != &event.key)
+                || !binding
                     .when
                     .iter()
                     .all(|condition| self.condition_holds(condition))
-            })
-        });
-        for index in matched {
+            {
+                continue;
+            }
+            if let Some(slot) = matched.get_mut(next) {
+                *slot = Some(index);
+                next = next.saturating_add(1);
+            }
+        }
+        for index in matched.into_iter().flatten() {
             let Some(binding) = self.bindings.get(index).cloned() else {
                 continue;
             };
@@ -3041,13 +3105,20 @@ impl EntityWorld {
             }
             let mut report = DispatchReport::default();
             for action in &binding.actions {
-                self.run_action(action, Some(event.subject), &mut report, depth);
+                self.run_action(
+                    action,
+                    Some(event.subject),
+                    event.origin,
+                    &mut report,
+                    depth,
+                );
                 if report.player_reset {
                     tick.player_reset = true;
                     break;
                 }
             }
             tick.actions_run = tick.actions_run.saturating_add(report.actions_run);
+            tick.doors_acted = tick.doors_acted.saturating_add(report.doors_acted);
             tick.lights_toggled = tick.lights_toggled.saturating_add(report.lights_toggled);
             tick.spawned = tick.spawned.saturating_add(report.spawned);
             tick.despawned = tick.despawned.saturating_add(report.despawned);
@@ -3061,6 +3132,9 @@ impl EntityWorld {
             if let Some(entry) = self.bindings.get_mut(index) {
                 entry.fired = true;
                 entry.cooldown_remaining = binding.cooldown_seconds;
+                if binding.cooldown_seconds > 0.0 {
+                    self.cooling_bindings.push(index);
+                }
             }
             if tick.player_reset {
                 return;
@@ -3075,16 +3149,23 @@ impl EntityWorld {
     }
 
     fn compact_bindings(&mut self) {
-        let store = &self.store;
-        if self
-            .bindings
-            .iter()
-            .all(|binding| store.contains(binding.owner))
-        {
+        if self.binding_index_state == BindingIndexState::Current {
             return;
         }
+        self.binding_index_state = BindingIndexState::Current;
         self.bindings
-            .retain(|binding| store.contains(binding.owner));
+            .retain(|binding| self.store.contains(binding.owner));
+        self.bindings_by_owner.clear();
+        self.cooling_bindings.clear();
+        for (index, binding) in self.bindings.iter().enumerate() {
+            self.bindings_by_owner
+                .entry(binding.owner)
+                .or_default()
+                .push(index);
+            if binding.cooldown_remaining > 0.0 {
+                self.cooling_bindings.push(index);
+            }
+        }
     }
 
     // ---- spawns --------------------------------------------------------
@@ -3343,6 +3424,9 @@ impl EntityWorld {
                 .retain(|(candidate, _)| candidate != &removed_id);
             let _removed_value_2 = self.names.remove(&removed_id);
         }
+        if self.bindings_by_owner.contains_key(&handle) {
+            self.binding_index_state = BindingIndexState::NeedsCompaction;
+        }
         self.components.remove_all(handle);
         self.rebuild_interactables_from_tables();
         self.store.remove(handle)
@@ -3372,69 +3456,6 @@ impl EntityWorld {
     #[must_use]
     pub fn instance_id_of(&self, handle: EntityHandle) -> Option<&str> {
         self.id_of(handle)
-    }
-
-    /// A stable non-zero key for a non-dynamic entity (audio emitters).
-    fn stable_key(&self, handle: EntityHandle) -> Option<u64> {
-        self.store.contains(handle).then(|| {
-            (u64::from(handle.index()) << 32_i32)
-                | u64::from(handle.generation())
-                | (1_u64 << 63_i32)
-        })
-    }
-
-    /// Current world anchor for an audio source key, including routed emitters.
-    #[must_use]
-    pub fn audio_source_position(&self, key: u64) -> Option<Vec3> {
-        let handle = self.components.audio.iter().find_map(|(handle, _)| {
-            (self.dynamic_key(handle).or_else(|| self.stable_key(handle)) == Some(key))
-                .then_some(handle)
-        })?;
-        self.components
-            .transforms
-            .get(handle)
-            .map(|transform| transform.position)
-    }
-
-    /// Exact instance identity plus authored/routed anchor for a live audio source.
-    /// The native loop substitutes a live physical body center when one exists.
-    #[must_use]
-    pub fn audio_source_anchor(&self, key: u64) -> Option<(&str, Vec3)> {
-        let handle = self.components.audio.iter().find_map(|(handle, _)| {
-            (self.dynamic_key(handle).or_else(|| self.stable_key(handle)) == Some(key))
-                .then_some(handle)
-        })?;
-        Some((
-            self.id_of(handle)?,
-            self.components.transforms.get(handle)?.position,
-        ))
-    }
-
-    fn queue_audio_start(&mut self, handle: EntityHandle) {
-        let Some(emitter) = self
-            .components
-            .audio
-            .get(handle)
-            .filter(|emitter| emitter.enabled && emitter.playing)
-        else {
-            return;
-        };
-        let Some(key) = self.dynamic_key(handle).or_else(|| self.stable_key(handle)) else {
-            return;
-        };
-        self.commands.push(WorldCommand::PlaySound {
-            entity: key,
-            sound: emitter.sound.clone(),
-            gain: emitter.gain,
-            looped: emitter.looped,
-            time_domain: emitter.time_domain,
-        });
-    }
-
-    fn queue_audio_stop(&mut self, handle: EntityHandle) {
-        if let Some(key) = self.dynamic_key(handle).or_else(|| self.stable_key(handle)) {
-            self.commands.push(WorldCommand::StopSound { entity: key });
-        }
     }
 
     // ---- tick ----------------------------------------------------------
@@ -3626,7 +3647,7 @@ impl EntityWorld {
         for (kind, subject, key, actor) in outcome.events {
             let _event_queued = self.emit_depth(kind, subject, &key, actor, 0);
         }
-        for (door_id, _agent) in outcome.door_requests {
+        for (door_id, agent) in outcome.door_requests {
             if let Some(index) = self.doors.index_of(&door_id)
                 && let Some(door) = self.doors.get(index)
             {
@@ -3637,7 +3658,12 @@ impl EntityWorld {
                     self.handle_of(&door_id),
                 );
             }
-            let _ = self.doors.request_open(&door_id);
+            let origin = self
+                .components
+                .transforms
+                .get(agent)
+                .map(|pose| pose.position);
+            let _ = self.doors.request_open_from(&door_id, origin);
         }
         for stimulus in outcome.stimuli {
             self.push_stimulus(stimulus);
@@ -4225,6 +4251,12 @@ impl EntityWorld {
             let Some(state) = self.route_states.get(route_index) else {
                 continue;
             };
+            if let Some(handle) = self.names.get(&route.instance_id)
+                && let Some(transform) = self.components.transforms.get_mut(handle)
+            {
+                transform.position = state.position;
+                transform.yaw_degrees = state.yaw.to_degrees();
+            }
             let Some(item_index) = self.interactables.index_of(&route.instance_id) else {
                 continue;
             };

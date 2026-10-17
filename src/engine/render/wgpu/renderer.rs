@@ -1740,7 +1740,7 @@ impl WgpuRenderer {
     ///
     /// `position` is the prop's world-space model origin, including its resolved
     /// floor height and authored vertical offset. The level's catalog resolves
-    /// `prop.model`; authored yaw and uniform scale are retained. Runtime keys
+    /// `prop.model`; authored yaw/pitch/roll and uniform scale are retained. Runtime keys
     /// and poses survive a graphics rebuild of the same installed level.
     pub fn spawn_runtime_prop(
         &mut self,
@@ -1748,13 +1748,16 @@ impl WgpuRenderer {
         prop: &crate::engine::level::PropDef,
         position: [f32; 3],
     ) -> bool {
-        self.spawn_runtime_model(
+        if !self.spawn_runtime_model(
             key,
             &prop.model,
             position,
             prop.rotation_degrees,
             prop.scale,
-        )
+        ) {
+            return false;
+        }
+        self.set_runtime_model_pose(key, position, prop.orientation().to_array())
     }
 
     /// Despawns the runtime object a key spawned, if it is still live.

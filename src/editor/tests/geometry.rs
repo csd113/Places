@@ -277,3 +277,37 @@ fn failed_geometry_and_stale_corrections_do_not_consume_history() -> Result<(), 
     );
     Ok(())
 }
+
+// This small raw-document regression specifically protects the stage-5 artistic
+// placement contract; no engine-only serialization test observes editor history
+// or save/reopen preservation. It writes one tiny JSON project and never bakes.
+#[test]
+fn sideways_desk_round_trip_and_undo_preserve_intentional_intersection() -> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut document = Document::open(&fixture.0)?;
+    let desk = document.add(ObjectKind::Prop, [3.0, -0.4, 3.0], Some("core:desk"))?;
+    let original = document.transform(desk)?;
+    let mut tilted = original;
+    tilted.pitch_degrees = 90.0;
+    tilted.roll_degrees = 17.0;
+    tilted.yaw_degrees = 31.0;
+    document.set_transform(desk, tilted)?;
+    document.save()?;
+    let exact_raw = document.raw().clone();
+    let reopened = Document::open(&fixture.0)?;
+    assert_eq!(
+        reopened.raw(),
+        &exact_raw,
+        "save/reopen cannot ground or remove an intentional embedded placement"
+    );
+    assert_eq!(reopened.transform(desk)?, tilted);
+    assert!(document.undo());
+    assert_eq!(
+        document.transform(desk)?,
+        original,
+        "pitch, roll and yaw undo together"
+    );
+    assert!(document.redo());
+    assert_eq!(document.transform(desk)?, tilted);
+    Ok(())
+}

@@ -54,6 +54,8 @@ pub struct PlayRequest {
     pub source: Option<SourceId>,
     /// World metres; absent means listener-centred playback.
     pub position: Option<Vec3>,
+    /// Override the cue's positional/ambient mode for a standalone emitter.
+    pub spatial: Option<bool>,
     /// Explicit loop override; absent uses the catalog's authored default.
     pub looping: Option<bool>,
     /// Finite linear amplitude in `0..=1`.
@@ -69,6 +71,7 @@ impl Default for PlayRequest {
         Self {
             source: None,
             position: None,
+            spatial: None,
             looping: None,
             gain: 1.0,
             time_domain: TimeDomain::World,
@@ -152,6 +155,10 @@ pub struct AudioStats {
 /// Explicit developer snapshot of one active or queued voice. Constructing
 /// snapshots allocates only when the caller requests this diagnostic.
 #[derive(Clone, Debug, Serialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "diagnostics record independent spatial, loop, pause and queue facts rather than one state machine"
+)]
 pub struct AudioVoiceSnapshot {
     /// Logical cue ID.
     pub cue: String,
@@ -159,6 +166,8 @@ pub struct AudioVoiceSnapshot {
     pub source: Option<u64>,
     /// Current world position, or listener-centred playback.
     pub position: Option<[f32; 3]>,
+    /// Actual positional/ambient mixer mode, including authored overrides.
+    pub spatial: bool,
     /// Linear target amplitude after distance, categories, mute and pause.
     pub gain: f32,
     /// Stereo balance in `-1..=1`.

@@ -33,10 +33,10 @@
 //! ---------
 //! A model box is transformed exactly like the drawn instance: uniform scale,
 //! yaw about the model origin, then translate to the prop's position with the
-//! authored `y` measured above the local walkable floor. Because the instance
-//! transform is a Y rotation, the result is again a box — an oriented one —
-//! so a rotated couch casts its rotated shadow rather than the bounding box
-//! of its rotation.
+//! authored `y` measured above the local walkable floor. Upright placements
+//! retain exact yaw-oriented boxes. Pitch/roll placements use conservative
+//! world boxes because the compact Static visibility format stores yaw only;
+//! Full transport still sees the exact transformed model triangles.
 //!
 //! Only static props participate. Every entry of a level's `props` array is
 //! static; dynamic objects are a separate renderer-side scene and never level
@@ -833,6 +833,8 @@ fn instance_point(local: [f32; 3], prop: &PropDef, base_y: f32) -> Option<[f32; 
         || !prop.y.is_finite()
         || !prop.z.is_finite()
         || !prop.rotation_degrees.is_finite()
+        || !prop.pitch_degrees.is_finite()
+        || !prop.roll_degrees.is_finite()
         || !prop.scale.is_finite()
         || prop.scale <= 0.0
         || !base_y.is_finite()
@@ -848,7 +850,8 @@ fn instance_point(local: [f32; 3], prop: &PropDef, base_y: f32) -> Option<[f32; 
 }
 
 /// Transforms one model's local boxes by a prop's placement, in the same
-/// transform the renderer uses: scale, then yaw about Y, then translate.
+/// transform the renderer uses. The compact output encloses pitch/roll in
+/// world boxes; upright placements keep their tighter yaw-oriented boxes.
 fn push_instance_occluders(
     local: &[LocalBox],
     prop: &PropDef,
@@ -881,7 +884,34 @@ fn push_instance_occluders(
                 * prop.scale,
             (local_box.max[2] - local_box.min[2]) * 0.5 * prop.scale,
         ];
-        if let Some(occluder) = OrientedBox::new(centre, half, yaw) {
+        // The compact visibility format stores yaw-oriented boxes. Preserve
+        // every tilted corner with a conservative world box; Full transport
+        // continues to use the exact transformed model triangles.
+        let (output_centre, output_half, output_yaw) = if prop.pitch_degrees == 0.0
+            && prop.roll_degrees == 0.0
+        {
+            (centre, half, yaw)
+        } else {
+            let matrix = prop.placement_matrix(base_y);
+            let mut bounds = crate::engine::spatial::Aabb::EMPTY;
+            for x in [local_box.min[0], local_box.max[0]] {
+                for y in [local_box.min[1], local_box.max[1]] {
+                    for z in [local_box.min[2], local_box.max[2]] {
+                        bounds.expand(matrix.transform_point3(glam::Vec3::new(x, y, z)).to_array());
+                    }
+                }
+            }
+            (
+                bounds.centre(),
+                [
+                    (bounds.max[0] - bounds.min[0]) * 0.5,
+                    (bounds.max[1] - bounds.min[1]) * 0.5,
+                    (bounds.max[2] - bounds.min[2]) * 0.5,
+                ],
+                0.0,
+            )
+        };
+        if let Some(occluder) = OrientedBox::new(output_centre, output_half, output_yaw) {
             out.push(occluder);
         }
     }

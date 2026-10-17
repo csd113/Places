@@ -60,7 +60,9 @@ impl App {
                     which: _,
                     raw: _,
                 } => {
-                    self.popup = if *field >= 7 {
+                    self.popup = if *field >= 100 {
+                        Some(Popup::Gameplay { page: 0 })
+                    } else if (7..=10).contains(field) {
                         Some(Popup::Shape)
                     } else {
                         None
@@ -83,7 +85,9 @@ impl App {
                     Ok(number) => {
                         let applied = self.apply_field(edited_field, number);
                         if applied.is_ok() {
-                            self.popup = if edited_field >= 7 {
+                            self.popup = if edited_field >= 100 {
+                                Some(Popup::Gameplay { page: 0 })
+                            } else if (7..=10).contains(&edited_field) {
                                 Some(Popup::Shape)
                             } else {
                                 None
@@ -175,7 +179,7 @@ impl App {
                 } else {
                     self.object_scroll
                         .saturating_add(1)
-                        .min(count.saturating_sub(5))
+                        .min(count.saturating_sub(4))
                 };
             }
             Event::KeyDown {

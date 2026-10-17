@@ -86,6 +86,7 @@ pub struct SafetyFinding {
     /// Actual measured triangles when available, rather than invented patches.
     pub surfaces: Vec<[[f32; 3]; 3]>,
     pub fix: Option<SafetyFix>,
+    pub placement_ignore: Option<crate::editor::document::intent::PlacementIgnoreState>,
 }
 
 #[derive(Clone, Debug)]
@@ -118,8 +119,26 @@ impl SafetyFix {
             return Err("The duplicate wall no longer exists".into());
         }
         drop(walls.remove(self.remove_wall));
+        crate::editor::document::intent::ensure_automatic_edit_allowed(current_raw, &candidate)?;
         Ok(candidate)
     }
+}
+
+/// Shared candidate gate for individual or future batch correction workflows.
+/// Ignored issues are skipped; every remaining candidate independently checks
+/// that no actively protected placement or affected support context changes.
+#[must_use]
+pub fn preview_corrections(raw: &Value, findings: &[SafetyFinding]) -> Vec<Result<Value, String>> {
+    findings
+        .iter()
+        .filter(|finding| {
+            !finding
+                .placement_ignore
+                .as_ref()
+                .is_some_and(|state| state.active)
+        })
+        .filter_map(|finding| finding.fix.as_ref().map(|fix| fix.preview(raw)))
+        .collect()
 }
 
 /// Runs production architecture checks and bounded editor-specific checks.
@@ -166,6 +185,7 @@ pub fn analyze(level: &LevelDef, raw: &Value) -> SafetyReport {
                     objects,
                     surfaces: finding.surfaces,
                     fix: None,
+                    placement_ignore: None,
                 }
             })
             .collect(),
@@ -192,15 +212,16 @@ pub fn analyze(level: &LevelDef, raw: &Value) -> SafetyReport {
         report.findings.push(SafetyFinding {
             check: "finding-display-limit", category: SafetyCategory::Review, severity: SafetySeverity::Warning,
             title: "Additional findings omitted".into(),risk: format!("The interactive display retained {MAX_FINDINGS} findings and omitted {omitted} more. This review is incomplete. Fix individually, then run Safety again."),
-            position: [0.0;3],bounds: marker_bounds([0.0;3]),objects: Vec::new(),surfaces: Vec::new(),fix: None,
+            position: [0.0;3],bounds: marker_bounds([0.0;3]),objects: Vec::new(),surfaces: Vec::new(),fix: None, placement_ignore: None,
         });
     }
     report.findings.insert(0, SafetyFinding {
         check: "audit-scope", category: SafetyCategory::Review, severity: SafetySeverity::Info,
         title: "Review scope and limits".into(),
         risk: "Bounded checks, not a safety proof. Edges are sampled; Play-test jumps, openings and pools. Model checks use authored static triangles; motion and alpha pixels are not simulated. Decals use a separate depth-biased pass. Artistic intersections are never auto-fixed. Missing models or budget limits produce separate findings.".into(),
-        position: [0.0;3], bounds: marker_bounds([0.0;3]), objects: Vec::new(), surfaces: Vec::new(), fix: None,
+        position: [0.0;3], bounds: marker_bounds([0.0;3]), objects: Vec::new(), surfaces: Vec::new(), fix: None, placement_ignore: None,
     });
+    crate::editor::document::intent::annotate_report(raw, &mut report);
     report
 }
 
@@ -219,6 +240,7 @@ fn budget_report(reason: &str) -> SafetyReport {
             objects: Vec::new(),
             surfaces: Vec::new(),
             fix: None,
+            placement_ignore: None,
         }],
         limitations: LIMITATIONS.into(),
     }
@@ -331,7 +353,11 @@ fn duplicate_wall_fixes(level: &LevelDef, raw: &Value, report: &mut SafetyReport
     let expected = Arc::new(raw.clone());
     let mut first_records = BTreeMap::new();
     for (remove, wall) in walls.iter().enumerate() {
-        let Ok(signature) = serde_json::to_string(wall) else {
+        let mut comparable = wall.clone();
+        if let Some(record) = comparable.as_object_mut() {
+            drop(record.remove("editor_instance_id"));
+        }
+        let Ok(signature) = serde_json::to_string(&comparable) else {
             continue;
         };
         let keep = match first_records.entry(signature) {
@@ -349,7 +375,14 @@ fn duplicate_wall_fixes(level: &LevelDef, raw: &Value, report: &mut SafetyReport
             record.keys().all(|key| {
                 matches!(
                     key.as_str(),
-                    "x" | "y" | "z" | "width" | "depth" | "height" | "material" | "shine"
+                    "x" | "y"
+                        | "z"
+                        | "width"
+                        | "depth"
+                        | "height"
+                        | "material"
+                        | "shine"
+                        | "editor_instance_id"
                 )
             })
         });
@@ -363,6 +396,7 @@ fn duplicate_wall_fixes(level: &LevelDef, raw: &Value, report: &mut SafetyReport
             bounds,
             objects,
             surfaces: Vec::new(),
+            placement_ignore: None,
             fix: safe.then(|| SafetyFix {
                 title: format!("Remove duplicate wall {}", remove.saturating_add(1)),
                 explanation: format!("Removes only wall {}; keeps identical wall {}. Apply creates one undo step. Any source edit invalidates this preview.", remove.saturating_add(1), keep.saturating_add(1)),
@@ -458,19 +492,19 @@ pub(super) fn reference_bounds(level: &LevelDef, objects: &[ObjectId]) -> Option
                     max: [x1, floor + region.offset().max(0.0), z1],
                 }
             }),
+            ObjectId::Light(_)
+            | ObjectId::Audio(_)
+            | ObjectId::Door(_)
+            | ObjectId::Trigger(_)
+            | ObjectId::FogRegion(_)
+            | ObjectId::GroundFog(_)
+            | ObjectId::SpawnPoint(_) => None,
             ObjectId::Prop(index) => level.props.get(index).map(|prop| {
-                let [width, height, depth] = prop.size.unwrap_or([0.6, 1.0, 0.6]);
-                let floor = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y;
-                let half_width = width * prop.scale * 0.5;
-                let half_depth = depth * prop.scale * 0.5;
-                Aabb {
-                    min: [prop.x - half_width, floor, prop.z - half_depth],
-                    max: [
-                        prop.x + half_width,
-                        height.mul_add(prop.scale, floor),
-                        prop.z + half_depth,
-                    ],
-                }
+                prop.placement_bounds(
+                    surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0),
+                    prop.size
+                        .unwrap_or(crate::engine::level::PROP_FALLBACK_SIZE),
+                )
             }),
         })
         .reduce(|first, second| first.union(&second))

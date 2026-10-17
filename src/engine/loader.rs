@@ -345,7 +345,8 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_effects(level)?;
     let mut index = validate_instance_ids(level)?;
     index.sequence_owners = collect_sequence_owners(level);
-    validate_volumes(level)?;
+    validate_volumes(level, &index)?;
+    validate_sound_emitters(level)?;
     validate_timers(level)?;
     validate_spawns(level, &index)?;
     validate_bindings(level, &index)?;
@@ -370,7 +371,10 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
 /// (or none of it) has to be visible at build time. The check is a pure
 /// schema check; resolution against the global atmosphere happens at install.
 fn validate_fog_regions(level: &LevelDef) -> Result<(), String> {
-    let count = level.fog_regions.len();
+    let count = level
+        .fog_regions
+        .len()
+        .saturating_add(level.ground_fog.len());
     if u64::try_from(count).unwrap_or(u64::MAX)
         > u64::try_from(crate::engine::level::MAX_FOG_REGIONS).unwrap_or(u64::MAX)
     {
@@ -380,8 +384,13 @@ fn validate_fog_regions(level: &LevelDef) -> Result<(), String> {
         ));
     }
     let mut ids: Vec<&str> = Vec::with_capacity(count);
-    for (i, region) in level.fog_regions.iter().enumerate() {
-        let id = region.id.trim();
+    for (i, id) in level
+        .fog_regions
+        .iter()
+        .map(|region| region.id.trim())
+        .chain(level.ground_fog.iter().map(|region| region.id.trim()))
+        .enumerate()
+    {
         if id.is_empty() {
             return Err(format!("fog region {i} names no id"));
         }
@@ -395,57 +404,86 @@ fn validate_fog_regions(level: &LevelDef) -> Result<(), String> {
             return Err(format!("fog region {i} ('{id}') repeats an id"));
         }
         ids.push(id);
-        if !region
-            .min
+    }
+    for region in &level.fog_regions {
+        validate_fog_volume(region)?;
+    }
+    for layer in &level.ground_fog {
+        if !layer.height.is_finite() || layer.height <= 0.0 {
+            return Err(format!(
+                "ground fog '{}' height must be finite and positive",
+                layer.id
+            ));
+        }
+        validate_fog_volume(&layer.as_region())?;
+    }
+    Ok(())
+}
+
+fn validate_fog_volume(region: &crate::engine::level::FogRegionDef) -> Result<(), String> {
+    let id = &region.id;
+
+    if !region
+        .min
+        .iter()
+        .chain(region.max.iter())
+        .all(|value| value.is_finite())
+    {
+        return Err(format!("fog region '{id}' bounds must be finite numbers"));
+    }
+    if !(region.min[0] < region.max[0]
+        && region.min[1] < region.max[1]
+        && region.min[2] < region.max[2])
+    {
+        return Err(format!(
+            "fog region '{id}' must have min below max on every axis"
+        ));
+    }
+    if region
+        .min
+        .iter()
+        .zip(&region.max)
+        .any(|(min, max)| !(max - min).is_finite())
+    {
+        return Err(format!("fog region '{id}' dimensions must remain finite"));
+    }
+    if !region.density.is_finite()
+        || !(0.0..=crate::engine::level::MAX_FOG_REGION_DENSITY).contains(&region.density)
+    {
+        return Err(format!(
+            "fog region '{id}' has density {} (limit {})",
+            region.density,
+            crate::engine::level::MAX_FOG_REGION_DENSITY
+        ));
+    }
+    if let Some(color) = region.color
+        && !color
             .iter()
-            .chain(region.max.iter())
-            .all(|value| value.is_finite())
-        {
-            return Err(format!(
-                "fog region {i} ('{id}') bounds must be finite numbers"
-            ));
-        }
-        if !(region.min[0] < region.max[0]
-            && region.min[1] < region.max[1]
-            && region.min[2] < region.max[2])
-        {
-            return Err(format!(
-                "fog region {i} ('{id}') must have min below max on every axis"
-            ));
-        }
-        if !region.density.is_finite()
-            || !(0.0..=crate::engine::level::MAX_FOG_REGION_DENSITY).contains(&region.density)
-        {
-            return Err(format!(
-                "fog region {i} ('{id}') has density {} (limit {})",
-                region.density,
-                crate::engine::level::MAX_FOG_REGION_DENSITY
-            ));
-        }
-        if let Some(color) = region.color
-            && !color
-                .iter()
-                .all(|channel| channel.is_finite() && (0.0..=1.0).contains(channel))
-        {
-            return Err(format!(
-                "fog region {i} ('{id}') colour components must be between 0.0 and 1.0"
-            ));
-        }
-        if let Some(falloff) = region.falloff_m
-            && (!falloff.is_finite() || falloff < 0.0)
-        {
-            return Err(format!(
-                "fog region {i} ('{id}') has a falloff_m of {falloff} \
+            .all(|channel| channel.is_finite() && (0.0..=1.0).contains(channel))
+    {
+        return Err(format!(
+            "fog region '{id}' colour components must be between 0.0 and 1.0"
+        ));
+    }
+    if let Some(falloff) = region.falloff_m
+        && (!falloff.is_finite() || falloff < 0.0)
+    {
+        return Err(format!(
+            "fog region '{id}' has a falloff_m of {falloff} \
                  (must be a finite value at or above 0.0)"
-            ));
-        }
-        if region.ground_y.is_some_and(|value| !value.is_finite())
-            || region.top_y.is_some_and(|value| !value.is_finite())
-        {
-            return Err(format!(
-                "fog region {i} ('{id}') ground_y and top_y must be finite when authored"
-            ));
-        }
+        ));
+    }
+    if region.ground_y.is_some_and(|value| !value.is_finite())
+        || region.top_y.is_some_and(|value| !value.is_finite())
+    {
+        return Err(format!(
+            "fog region '{id}' ground_y and top_y must be finite when authored"
+        ));
+    }
+    let ground_y = region.ground_y.unwrap_or(region.min[1]);
+    let top_y = region.top_y.unwrap_or(region.max[1]);
+    if top_y > ground_y && !(top_y - ground_y).is_finite() {
+        return Err(format!("fog region '{id}' height fade must remain finite"));
     }
     Ok(())
 }
@@ -2449,6 +2487,8 @@ fn validate_props(level: &LevelDef) -> Result<(), String> {
             || !prop.y.is_finite()
             || !prop.z.is_finite()
             || !prop.rotation_degrees.is_finite()
+            || !prop.pitch_degrees.is_finite()
+            || !prop.roll_degrees.is_finite()
             || !prop.scale.is_finite()
         {
             return Err(format!(
@@ -2479,6 +2519,13 @@ fn validate_static_prop_options(
     prop: &crate::engine::level::PropDef,
 ) -> Result<f32, String> {
     let mut slices = 0.0_f32;
+    if (prop.pitch_degrees != 0.0 || prop.roll_degrees != 0.0)
+        && (prop.span.is_some() || prop.float.is_some())
+    {
+        return Err(format!(
+            "Prop {i} pitch/roll requires an ordinary or rigid prop; span and float profiles own their upright pose"
+        ));
+    }
     if let Some(span) = prop.span {
         let dimensions = [span.source_length, span.length];
         if dimensions
@@ -2686,6 +2733,9 @@ struct LevelIndex<'a> {
     spawn_groups: HashSet<String>,
     /// Authored spawn point ids.
     spawn_points: HashSet<String>,
+    /// Explicit runtime names reserved by authored spawn actions. They can be
+    /// watched by an exact entity filter before that entity exists.
+    named_spawns: HashSet<&'a str>,
     /// Groups declared by authored movable rigid bodies, separate from spawns.
     physics_reset_groups: HashSet<&'a str>,
     /// Sequence id -> every entity the sequence can run on, discovered from
@@ -2787,6 +2837,7 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
     let mut seen: HashSet<&str> = HashSet::new();
     let mut first: HashMap<&str, String> = HashMap::new();
     let mut index = LevelIndex {
+        named_spawns: named_spawn_ids(level),
         physics_reset_groups: level.physics_reset_groups().collect(),
         weather_toggleable: level.weather.is_some() && level.weather_alternate.is_some(),
         weather_blendable: level
@@ -2834,6 +2885,15 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
             &mut first,
             timer.id.as_str(),
             &format!("Timer {i}"),
+            "instance",
+        )?;
+    }
+    for (i, emitter) in level.sound_emitters.iter().enumerate() {
+        validate_instance_id(
+            &mut seen,
+            &mut first,
+            &emitter.id,
+            &format!("Sound emitter {i}"),
             "instance",
         )?;
     }
@@ -3037,6 +3097,11 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
     }
     for id in &effect_ids {
         drop(index.entities.insert(id.clone(), EntityFacts::of("effect")));
+    }
+    for emitter in &level.sound_emitters {
+        let mut facts = EntityFacts::of("sound emitter");
+        facts.has_audio = true;
+        drop(index.entities.insert(emitter.id.trim().to_string(), facts));
     }
     for timer in &level.timers {
         let id = timer.id.trim();
@@ -3698,6 +3763,15 @@ fn authored_bindings(level: &LevelDef) -> Vec<AuthoredBindings<'_>> {
             label: format!("Spawn template {i}"),
             bindings: &template.bindings,
         });
+    }
+    for (i, emitter) in level.sound_emitters.iter().enumerate() {
+        if !emitter.bindings.is_empty() {
+            records.push(AuthoredBindings {
+                id: emitter.id.trim().to_string(),
+                label: format!("Sound emitter {i}"),
+                bindings: &emitter.bindings,
+            });
+        }
     }
     records
 }
@@ -5523,6 +5597,12 @@ fn validate_audio_references(level: &LevelDef) -> Result<(), String> {
             }
         })
         .collect();
+    sounds.extend(
+        level
+            .sound_emitters
+            .iter()
+            .map(|emitter| emitter.sound.as_str()),
+    );
     let binding_groups = level.all_bindings();
     let binding_actions = binding_groups
         .iter()
@@ -5572,11 +5652,80 @@ fn validate_audio_references(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_sound_emitters(level: &LevelDef) -> Result<(), String> {
+    const MAX_SOUND_EMITTERS: usize = 256;
+    if level.sound_emitters.len() > MAX_SOUND_EMITTERS {
+        return Err(format!(
+            "Level contains too many sound emitters (limit: {MAX_SOUND_EMITTERS})"
+        ));
+    }
+    for (index, emitter) in level.sound_emitters.iter().enumerate() {
+        if [emitter.x, emitter.y, emitter.z]
+            .iter()
+            .any(|value| !value.is_finite())
+            || !emitter.gain.is_finite()
+            || !(0.0..=1.0).contains(&emitter.gain)
+            || emitter.sound.trim().is_empty()
+        {
+            return Err(format!(
+                "Sound emitter {index} needs finite world coordinates, gain in 0..=1, and a sound cue"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn named_spawn_ids(level: &LevelDef) -> HashSet<&str> {
+    let mut names = HashSet::new();
+    for bindings in level.all_bindings() {
+        for action in bindings.iter().flat_map(|binding| &binding.actions) {
+            if let ActionDef::SpawnEntity {
+                name: Some(name),
+                template: _,
+                point: _,
+                group: _,
+            } = action
+            {
+                let _ = names.insert(name.trim());
+            }
+        }
+    }
+    for step in level.sequences.iter().flat_map(|sequence| &sequence.steps) {
+        if let SequenceStepDef::Action {
+            action:
+                ActionDef::SpawnEntity {
+                    name: Some(name),
+                    template: _,
+                    point: _,
+                    group: _,
+                },
+        } = step
+        {
+            let _ = names.insert(name.trim());
+        }
+    }
+    names
+}
+
 fn validate_volume_filter(
     context: &str,
     level: &LevelDef,
     filter: &crate::engine::level::TriggerFilterDef,
+    level_index: &LevelIndex<'_>,
 ) -> Result<(), String> {
+    if let crate::engine::level::TriggerFilterDef::Entity { instance } = filter {
+        if !level_index.named_spawns.contains(instance.as_str())
+            && !level_index
+                .entities
+                .get(instance)
+                .is_some_and(|facts| !facts.is_timer && !facts.is_volume)
+        {
+            return Err(format!(
+                "{context} filter entity `{instance}` must name a placed entity with a world position or an authored named spawn"
+            ));
+        }
+        return Ok(());
+    }
     let crate::engine::level::TriggerFilterDef::Item {
         asset,
         instance,
@@ -5625,7 +5774,7 @@ fn validate_volume_filter(
 /// resolved top strictly above the resolved bottom, and the volume must
 /// overlap a room section. What each volume's `enter_volume`/`exit_volume`
 /// bindings do is validated with every other binding.
-fn validate_volumes(level: &LevelDef) -> Result<(), String> {
+fn validate_volumes(level: &LevelDef, index: &LevelIndex<'_>) -> Result<(), String> {
     if level.timers.len() > crate::engine::level::MAX_LEVEL_TIMERS {
         return Err(format!(
             "Level contains too many timers: {} (limit: {})",
@@ -5644,7 +5793,7 @@ fn validate_volumes(level: &LevelDef) -> Result<(), String> {
     }
     for (i, volume) in level.volumes.iter().enumerate() {
         let context = format!("Trigger volume {i} (`{}`)", volume_id(i, volume));
-        validate_volume_filter(&context, level, &volume.filter)?;
+        validate_volume_filter(&context, level, &volume.filter, index)?;
         if !volume.x.is_finite()
             || !volume.z.is_finite()
             || !volume.width.is_finite()

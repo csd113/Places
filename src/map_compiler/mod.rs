@@ -1862,21 +1862,25 @@ pub(crate) fn bake_navigation(
             if !*affects_nav {
                 continue;
             }
-            let body_size = size
-                .unwrap_or_else(|| prop.resolved_size(crate::engine::level::PROP_FALLBACK_SIZE));
-            let (half_x, half_z) = crate::engine::spatial::rotated_half_extents(
-                body_size[0] * 0.5,
-                body_size[2] * 0.5,
-                prop.rotation_degrees,
+            // Explicit obstacle dimensions have historically been world metres;
+            // the default follows the prop's scale. Undo that scale only for
+            // the explicit box before applying the shared placement matrix.
+            let body_size = size.map_or_else(
+                || {
+                    prop.size
+                        .unwrap_or(crate::engine::level::PROP_FALLBACK_SIZE)
+                },
+                |dimensions| dimensions.map(|value| value / prop.scale),
             );
-            let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y;
+            let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
+            let bounds = prop.placement_bounds(base_y, body_size);
             obstacles.push(crate::engine::collision::WallAabb::with_y(
-                prop.x - half_x,
-                base_y,
-                prop.z - half_z,
-                half_x * 2.0,
-                body_size[1],
-                half_z * 2.0,
+                bounds.min[0],
+                bounds.min[1],
+                bounds.min[2],
+                bounds.max[0] - bounds.min[0],
+                bounds.max[1] - bounds.min[1],
+                bounds.max[2] - bounds.min[2],
             ));
         }
     }

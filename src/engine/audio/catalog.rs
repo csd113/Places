@@ -45,6 +45,10 @@ const fn max_distance_default() -> f32 {
 }
 
 impl AudioCatalog {
+    /// Installed cue identities for authoring pickers; no audio device needed.
+    pub fn cue_ids(&self) -> impl Iterator<Item = &str> {
+        self.cues.iter().map(|cue| cue.id.as_str())
+    }
     /// Reads and validates `asset_root/audio/catalog.json` within fixed limits.
     ///
     /// # Errors

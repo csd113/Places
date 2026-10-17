@@ -89,7 +89,7 @@ fn unsupported_ramp(level: &LevelDef, index: usize, report: &mut SafetyReport) {
         check: "ramp-carrier-gap", category: SafetyCategory::Void, severity: SafetySeverity::Warning,
         title: "Ramp extends outside a carrier floor".into(),
         risk: "At least one ramp corner lies outside every room footprint. The rendered slope can extend there, but the player has no room-based walking support outside the carriers and can fall. Extend or reshape the carrier deliberately; no floor is added automatically. Corner sampling does not prove complete footprint coverage.".into(),
-        position: bounds_center(bounds), bounds, objects: vec![object], surfaces: Vec::new(), fix: None,
+        position: bounds_center(bounds), bounds, objects: vec![object], surfaces: Vec::new(), fix: None, placement_ignore: None,
     });
 }
 
@@ -179,7 +179,7 @@ fn edge(
         bounds: evidence,
         objects: vec![edge.object],
         surfaces: Vec::new(),
-        fix: None,
+        fix: None, placement_ignore: None,
     });
 }
 
@@ -257,5 +257,6 @@ fn push_region(
         objects: vec![object],
         surfaces: Vec::new(),
         fix: None,
+        placement_ignore: None,
     });
 }

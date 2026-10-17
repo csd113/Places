@@ -33,6 +33,14 @@ struct Step {
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Action {
+    /// Clicks the centre of an actually visible hit region, identified by its
+    /// diagnostic action name. Hidden controls cannot be invoked this way.
+    Control {
+        action: String,
+    },
+    ScrollScene {
+        lines: i16,
+    },
     Click {
         x: f32,
         y: f32,
@@ -161,6 +169,15 @@ impl Verification {
             .get(self.next)
             .ok_or("Missing verification action")?;
         match &step.action {
+            Action::ScrollScene { lines } => scroll_scene(app, window, *lines)?,
+            Action::Control { action } => {
+                let (_, controls) = ui::build(app);
+                let control = controls
+                    .iter()
+                    .find(|hit| format!("{:?}", hit.action) == *action)
+                    .ok_or_else(|| format!("Visible control {action:?} not found"))?;
+                mouse(app, window, MouseButton::Left, false, control.center())?;
+            }
             Action::Click { x, y } => mouse(app, window, MouseButton::Left, false, [*x, *y])?,
             Action::Mouse {
                 button,
@@ -236,6 +253,7 @@ impl Verification {
     }
 
     fn checkpoint(&self, app: &App, window: &Window, name: &str) -> Result<(), String> {
+        let (_, controls) = ui::build(app);
         let value = serde_json::json!({
             "step": self.next, "document": app.document.as_ref().map(super::Document::raw),
             "dirty": app.document.as_ref().is_some_and(super::Document::is_dirty),
@@ -243,11 +261,14 @@ impl Verification {
             "status": app.status, "compile": app.compile.is_some(), "play": app.play.is_some(),
             "preparing": app.viewport.is_preparing(), "window": window.size(),
             "viewport_objects": app.viewport.object_count(),
+            "environment_preview": app.viewport.environment_preview(),
+            "visible_controls": controls.iter().map(|hit| serde_json::json!({"action":format!("{:?}",hit.action),"center":hit.center()})).collect::<Vec<_>>(),
             "drawable": window.size_in_pixels(), "camera_target": app.viewport.target(),
             "safety": app.safety_report.as_ref().map(|report| report.findings.iter().map(|finding| serde_json::json!({
                 "check":finding.check,"title":finding.title,"category":finding.category.label(),
                 "severity":finding.severity.label(),"risk":finding.risk,"position":finding.position,"bounds":{"min":finding.bounds.min,"max":finding.bounds.max},
                 "objects":finding.objects.iter().map(|object|format!("{object:?}")).collect::<Vec<_>>(),
+                "placement_ignore":finding.placement_ignore.as_ref().map(|state|serde_json::json!({"key":state.key,"active":state.active})),
                 "surface_count":finding.surfaces.len(),"fix":finding.fix.as_ref().map(|fix|&fix.title)
             })).collect::<Vec<_>>()),
         });
@@ -273,6 +294,10 @@ const fn busy(app: &App) -> bool {
 
 fn validate(action: &Action) -> Result<(), String> {
     let valid = match action {
+        Action::Control { action: name } => {
+            !name.is_empty() && name.len() <= 128 && !name.chars().any(char::is_control)
+        }
+        Action::ScrollScene { lines } => (1..=64).contains(&lines.unsigned_abs()),
         Action::Click { x, y } => valid_point(*x, *y),
         Action::Key {
             key,
@@ -309,6 +334,30 @@ fn validate(action: &Action) -> Result<(), String> {
 
 fn valid_point(x: f32, y: f32) -> bool {
     (0.0..480.0).contains(&x) && (0.0..272.0).contains(&y)
+}
+
+fn scroll_scene(app: &mut App, window: &Window, lines: i16) -> Result<(), String> {
+    let [x, y] = window_point(window, [50.0, 90.0])?;
+    let direction = f32::from(lines.signum());
+    for _ in 0..lines.unsigned_abs() {
+        dispatch(
+            app,
+            window,
+            &Event::MouseWheel {
+                timestamp: 0,
+                window_id: window.id(),
+                which: 0,
+                x: 0.0,
+                y: direction,
+                direction: sdl3::mouse::MouseWheelDirection::Normal,
+                mouse_x: x,
+                mouse_y: y,
+                integer_x: 0_i32,
+                integer_y: i32::from(lines.signum()),
+            },
+        );
+    }
+    Ok(())
 }
 
 fn dispatch(app: &mut App, window: &Window, event: &Event) {

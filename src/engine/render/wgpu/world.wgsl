@@ -678,65 +678,93 @@ fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>) -> vec3<f32
     return material.reflection_strength * combine * sample_color;
 }
 
-// The reference's fog term, in linear light, applied to the finished surface
-// colour: emission is a surface property, not a hole punched through the air.
-//
-// The global atmosphere is the reference's height-graded distance term. On top
-// of it the level may author regional volumes: per *fragment* (never from
-// camera membership), each live region contributes
-// `density * horizontal_edge * vertical_layer`, where the horizontal edge ramps
-// from 0 at the box side to 1 a `falloff_m` inside it and the vertical layer is
-// 1 at and below `ground_y`, fading linearly to 0 at `top_y`. Densities never
-// sum: the greatest effective contribution wins, ties keep the lowest authoring
-// index, the global density is added to the winner, and the mixed-to colour is
-// the winner's colour (else the global one). The one place fog is evaluated.
+// Eye-to-surface extinction through authored fog boxes. Slab clipping keeps
+// work local to intersecting rays; four fixed Gauss quadrature samples retain
+// horizontal softness and ground-height fade without a volume marching pass.
+fn fog_interval(eye: vec3<f32>, delta: vec3<f32>, lower: vec3<f32>, upper: vec3<f32>) -> vec2<f32> {
+    var near = 0.0;
+    var far = 1.0;
+    for (var axis = 0u; axis < 3u; axis = axis + 1u) {
+        if (abs(delta[axis]) <= 1.0e-6) {
+            if (eye[axis] < lower[axis] || eye[axis] > upper[axis]) {
+                return vec2<f32>(1.0, 0.0);
+            }
+        } else {
+            let first = (lower[axis] - eye[axis]) / delta[axis];
+            let last = (upper[axis] - eye[axis]) / delta[axis];
+            near = max(near, min(first, last));
+            far = min(far, max(first, last));
+            if (far <= near) {
+                return vec2<f32>(1.0, 0.0);
+            }
+        }
+    }
+    return vec2<f32>(near, far);
+}
+
+fn region_density(region: FogRegion, point: vec3<f32>) -> f32 {
+    let lower = region.min_falloff.xyz;
+    let upper = region.max_top.xyz;
+    if (point.y < lower.y || point.y > upper.y) {
+        return 0.0;
+    }
+    let horizontal = min(min(point.x - lower.x, upper.x - point.x), min(point.z - lower.z, upper.z - point.z));
+    var edge = 0.0;
+    if (horizontal > 0.0) {
+        edge = clamp(horizontal / max(region.min_falloff.w, 1.0e-6), 0.0, 1.0);
+    }
+    let ground_y = region.ground_pad.x;
+    let top_y = region.max_top.w;
+    var vertical = 0.0;
+    if (point.y <= ground_y) {
+        vertical = 1.0;
+    } else if (top_y > ground_y && point.y < top_y) {
+        vertical = clamp((top_y - point.y) / (top_y - ground_y), 0.0, 1.0);
+    }
+    return region.color_density.a * edge * vertical;
+}
+
 fn atmosphere(world_position: vec3<f32>) -> vec4<f32> {
-    // With no global or regional fog, neither the surface mix nor emission
-    // transmission uses a fog colour. Skip distance, extinction and decoding.
     if (environment.fog_density == 0.0 && environment.fog_region_count == 0u) {
         return vec4<f32>(0.0);
     }
-    let distance = length(camera.position - world_position);
+    let delta = world_position - camera.position;
+    let distance = length(delta);
     let below = max(0.0, environment.fog_reference_y - world_position.y);
     let global_density = environment.fog_density * (1.0 + environment.fog_height_gain * min(below, 12.0));
-    var layer_density = 0.0;
+    let global_depth = global_density * distance;
+    var layer_depth = 0.0;
     var layer_color = environment.fog_color;
+    let quadrature = array<vec2<f32>, 4u>(
+        vec2<f32>(0.06943184, 0.17392743), vec2<f32>(0.3300095, 0.32607257),
+        vec2<f32>(0.66999054, 0.32607257), vec2<f32>(0.93056816, 0.17392743)
+    );
     let region_count = min(environment.fog_region_count, 16u);
     for (var index = 0u; index < region_count; index = index + 1u) {
         let region = environment.fog_regions[index];
-        let min_edge = region.min_falloff.xyz;
-        let max_edge = region.max_top.xyz;
-        let horizontal = min(
-            min(world_position.x - min_edge.x, max_edge.x - world_position.x),
-            min(world_position.z - min_edge.z, max_edge.z - world_position.z),
-        );
-        // A hard edge (falloff 0) is the same ramp with no distance to run: a
-        // floor guard keeps the division finite for every authored value.
-        var edge = 0.0;
-        if (horizontal > 0.0) {
-            edge = clamp(horizontal / max(region.min_falloff.w, 1.0e-6), 0.0, 1.0);
+        if (region.color_density.a <= 0.0) {
+            continue;
         }
-        let ground_y = region.ground_pad.x;
-        let top_y = region.max_top.w;
-        var vertical = 0.0;
-        if (top_y <= ground_y) {
-            // A degenerate layer is a half-space: full below its base.
-            vertical = select(0.0, 1.0, world_position.y <= ground_y);
-        } else if (world_position.y <= ground_y) {
-            vertical = 1.0;
-        } else if (world_position.y < top_y) {
-            vertical = clamp((top_y - world_position.y) / (top_y - ground_y), 0.0, 1.0);
+        let interval = fog_interval(camera.position, delta, region.min_falloff.xyz, region.max_top.xyz);
+        if (interval.y <= interval.x) {
+            continue;
         }
-        let contribution = region.color_density.a * edge * vertical;
-        if (contribution > layer_density) {
-            layer_density = contribution;
+        var average = 0.0;
+        for (var sample = 0u; sample < 4u; sample = sample + 1u) {
+            let point = camera.position + delta * mix(interval.x, interval.y, quadrature[sample].x);
+            average = average + region_density(region, point) * quadrature[sample].y;
+        }
+        let depth = average * distance * (interval.y - interval.x);
+        // Preserve the strongest-volume overlap policy and stable tie order.
+        if (depth > layer_depth) {
+            layer_depth = depth;
             layer_color = region.color_density.rgb;
         }
     }
-    let density = global_density + layer_density;
-    var fog_amount = density * distance;
-    fog_amount = 1.0 - exp(-fog_amount * fog_amount);
-    return vec4<f32>(srgb_to_linear(layer_color), clamp(fog_amount, 0.0, 1.0));
+    let depth = global_depth + layer_depth;
+    let color = mix(srgb_to_linear(environment.fog_color), srgb_to_linear(layer_color), layer_depth / max(depth, 1.0e-6));
+    let amount = 1.0 - exp(-depth * depth);
+    return vec4<f32>(color, clamp(amount, 0.0, 1.0));
 }
 
 fn fogged(color: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {

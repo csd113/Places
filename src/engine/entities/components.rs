@@ -336,6 +336,9 @@ pub struct AudioEmitter {
     pub playing: bool,
     /// Whether playback follows simulation time or real time.
     pub time_domain: crate::engine::audio::TimeDomain,
+    /// Standalone emitters override cue spatial mode; attached components
+    /// preserve the installed cue's policy.
+    pub spatial: Option<bool>,
 }
 
 /// One switchable light.

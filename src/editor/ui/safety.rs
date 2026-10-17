@@ -68,7 +68,30 @@ pub(in crate::editor) fn safety_popup(
         wrapped(v, &report.limitations, [128.0, 100.0], MUTED, 94, 12);
         return;
     };
-    finding_details(v, hits, finding, index, report.findings.len());
+    finding_details(
+        v,
+        hits,
+        finding,
+        index,
+        report.findings.len(),
+        report
+            .findings
+            .iter()
+            .filter(|entry| entry.placement_ignore.is_some())
+            .count(),
+        [
+            report
+                .findings
+                .iter()
+                .take(index)
+                .any(|entry| entry.placement_ignore.is_none()),
+            report
+                .findings
+                .iter()
+                .skip(index.saturating_add(1))
+                .any(|entry| entry.placement_ignore.is_none()),
+        ],
+    );
 }
 
 fn fix_preview(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, fix: &SafetyFix) {
@@ -114,6 +137,8 @@ fn finding_details(
     finding: &SafetyFinding,
     index: usize,
     total: usize,
+    ignored: usize,
+    [previous_active, next_active]: [bool; 2],
 ) {
     text(
         v,
@@ -121,7 +146,16 @@ fn finding_details(
             "{} of {} / {} / {}",
             index.saturating_add(1),
             total,
-            finding.severity.label(),
+            finding.placement_ignore.as_ref().map_or_else(
+                || finding.severity.label(),
+                |state| {
+                    if state.active {
+                        "Ignored"
+                    } else {
+                        "Inactive ignore"
+                    }
+                }
+            ),
             finding.category.label()
         ),
         128.0,
@@ -130,12 +164,12 @@ fn finding_details(
         94,
     );
     text(v, &finding.title, 128.0, 81.0, INK, 94);
-    wrapped(v, &finding.risk, [128.0, 94.0], INK, 94, 5);
+    wrapped(v, &finding.risk, [128.0, 94.0], INK, 94, 4);
     correction(v, hits, finding);
     button(
         v,
         hits,
-        [128.0, 194.0, 116.0, 13.0],
+        [128.0, 182.0, 116.0, 13.0],
         if finding.category == SafetyCategory::Review {
             "Return to viewport"
         } else {
@@ -144,13 +178,40 @@ fn finding_details(
         Action::InspectFinding,
         true,
     );
+    if finding.placement_ignore.is_some() {
+        button(
+            v,
+            hits,
+            [252.0, 182.0, 150.0, 13.0],
+            "Clear this placement ignore",
+            Action::ClearFindingIgnore,
+            true,
+        );
+    } else if crate::editor::document::intent::can_ignore(finding) {
+        button(
+            v,
+            hits,
+            [252.0, 182.0, 150.0, 13.0],
+            "Ignore for this placement",
+            Action::IgnoreFinding,
+            true,
+        );
+    }
+    button(
+        v,
+        hits,
+        [252.0, 200.0, 150.0, 13.0],
+        &format!("Review saved ignores ({ignored})"),
+        Action::IgnoredFindings,
+        ignored > 0,
+    );
     text(
         v,
-        "Checks are not exhaustive. Intersections may be intentional.",
+        "Cmd/Ctrl Z undoes intent and corrections.",
         128.0,
-        215.0,
+        216.0,
         MUTED,
-        94,
+        64,
     );
     button(
         v,
@@ -158,7 +219,7 @@ fn finding_details(
         [376.0, 222.0, 42.0, 11.0],
         "< Prev",
         Action::Finding(false),
-        index > 0,
+        previous_active,
     );
     button(
         v,
@@ -166,19 +227,33 @@ fn finding_details(
         [422.0, 222.0, 42.0, 11.0],
         "Next >",
         Action::Finding(true),
-        index.saturating_add(1) < total,
+        next_active,
     );
 }
 
 fn correction(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, finding: &SafetyFinding) {
-    if let Some(fix) = &finding.fix {
-        text(v, "AVAILABLE CORRECTION", 128.0, 141.0, ACCENT, 94);
-        text(v, &fix.title, 128.0, 151.0, INK, 94);
-        wrapped(v, &fix.explanation, [128.0, 161.0], MUTED, 94, 3);
+    if let Some(state) = &finding.placement_ignore {
+        text(v, "SAVED PLACEMENT INTENT", 128.0, 136.0, ACCENT, 94);
+        wrapped(
+            v,
+            if state.active {
+                "This specific warning is ignored. Automatic corrections protect its placement and support context. Clear to review correction eligibility."
+            } else {
+                "This saved decision is inactive or its warning is absent. New warnings remain visible. Clear the obsolete record here."
+            },
+            [128.0, 147.0],
+            MUTED,
+            94,
+            3,
+        );
+    } else if let Some(fix) = &finding.fix {
+        text(v, "AVAILABLE CORRECTION", 128.0, 134.0, ACCENT, 94);
+        text(v, &fix.title, 128.0, 145.0, INK, 94);
+        wrapped(v, &fix.explanation, [128.0, 155.0], MUTED, 94, 2);
         button(
             v,
             hits,
-            [252.0, 194.0, 100.0, 13.0],
+            [128.0, 200.0, 116.0, 13.0],
             "Preview fix",
             Action::PreviewFix,
             true,

@@ -141,12 +141,14 @@ pub(super) fn check(level: &LevelDef, report: &mut SafetyReport) {
                 continue;
             }
             let object = ObjectId::Prop(index);
-            let bounds = super::reference_bounds(level, &[object])
-                .unwrap_or_else(|| Aabb::from_point([x, y, z]));
+            let bounds = prop.placement_bounds(
+                surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0),
+                prop.size.unwrap_or(definition.size),
+            );
             report.findings.push(SafetyFinding {
                 check: "prop-no-collision", category: SafetyCategory::Collision, severity: SafetySeverity::Warning,
                 title: format!("{}: collision disabled",prop.model), risk: "This catalog model normally blocks the player, but this placement has solid=false and no physics body. The player can pass through its visible mesh. This may be intentional scenery; no collision is enabled automatically.".into(),
-                position: [x,y,z], bounds, objects: vec![object],surfaces: Vec::new(),fix: None,
+                position: [x,y,z], bounds, objects: vec![object],surfaces: Vec::new(),fix: None, placement_ignore: None,
             });
         }
     }
@@ -263,7 +265,7 @@ fn compare(triangles: &mut [Triangle], report: &mut SafetyReport) {
                 title: if depth { "Model material / depth contact".into() } else { "Model has overlapping coplanar faces".into() },
                 risk: format!("Transformed triangles overlap {area:.5} m² on parallel planes within {PLANE_EPS:.4} m: {} / {} ({} / {}). {} Geometric risk, not image proof; camera and intended contact matter. No surface is moved automatically.", owner(first.prop),owner(second.prop),first.alpha.name(),second.alpha.name(),if depth { "Alpha pixels are not sampled; cutout coverage or blended sorting may affect the result." } else { "Visible opaque sheets sharing depth can flicker." }),
                 position: bounds_center(bounds), bounds, objects,
-                surfaces: vec![first.points.map(|point| point.to_array()),second.points.map(|point| point.to_array())], fix: None,
+                surfaces: vec![first.points.map(|point| point.to_array()),second.points.map(|point| point.to_array())], fix: None, placement_ignore: None,
             });
         }
     }
@@ -288,6 +290,7 @@ fn incomplete(report: &mut SafetyReport, reason: &str) {
         objects: Vec::new(),
         surfaces: Vec::new(),
         fix: None,
+        placement_ignore: None,
     });
 }
 

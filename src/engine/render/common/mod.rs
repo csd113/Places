@@ -43,9 +43,9 @@ pub use animation::{
 };
 pub use api::{
     BuildTimings, GraphicsTransition, LevelBuild, LightmapBuildOptions, StaticLightState,
-    build_authoring_preview, build_level_geometry, build_level_geometry_timed,
-    build_level_geometry_timed_with_lightmaps, build_level_geometry_with_assets,
-    build_level_geometry_with_assets_and_lighting,
+    build_authoring_environment_preview, build_authoring_preview, build_level_geometry,
+    build_level_geometry_timed, build_level_geometry_timed_with_lightmaps,
+    build_level_geometry_with_assets, build_level_geometry_with_assets_and_lighting,
     build_level_geometry_with_assets_and_lighting_and_materials, build_level_geometry_with_catalog,
     build_level_geometry_with_catalog_and_materials, build_level_geometry_with_materials,
     logical_materials,
@@ -729,7 +729,7 @@ fn merge_light_runs(
 const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 
 /// Current pre-release geometry revision; superseded layouts require recompilation.
-pub const GEOMETRY_REVISION: u32 = 2;
+pub const GEOMETRY_REVISION: u32 = 3;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.
@@ -1763,7 +1763,7 @@ fn add_wall_cross_quad(
 /// as solid boxes.
 const PROP_FACE_SHADES: [f32; 6] = [1.00, 0.62, 0.90, 0.80, 0.74, 0.86];
 
-/// Emits one Y-rotated box for a prop: six quads tinted with the catalog
+/// Emits one fully rotated box for a prop: six quads tinted with the catalog
 /// colour and the baked lighting sampled at each corner, ready to be drawn with
 /// the unshaded white texture.
 fn add_prop_box(
@@ -1780,21 +1780,18 @@ fn add_prop_box(
         .map_or(0.0, |span| span.rise * size[0] / span.length);
     let half_h = (size[1] - span_rise.abs()) * 0.5;
     let half_d = size[2] * 0.5;
-    let center_y = base_y + prop.y + half_h;
-
-    let (sin_yaw, cos_yaw) = prop.rotation_degrees.to_radians().sin_cos();
-    let rotate = |lx: f32, lz: f32| -> (f32, f32) {
-        (
-            lz.mul_add(sin_yaw, lx.mul_add(cos_yaw, prop.x)),
-            lz.mul_add(cos_yaw, lx.mul_add(-sin_yaw, prop.z)),
-        )
-    };
+    let rotation = prop.orientation();
+    let origin = glam::Vec3::new(prop.x, base_y + prop.y, prop.z);
     let corner = |sx: f32, sy: f32, sz: f32| -> [f32; 3] {
-        let (world_x, world_z) = rotate(sx * half_w, sz * half_d);
+        let relative = rotation.mul_vec3(glam::Vec3::new(
+            sx * half_w,
+            sx.mul_add(span_rise * 0.5, sy.mul_add(half_h, half_h)),
+            sz * half_d,
+        ));
         [
-            world_x,
-            sx.mul_add(span_rise * 0.5, sy.mul_add(half_h, center_y)),
-            world_z,
+            origin.x + relative.x,
+            origin.y + relative.y,
+            origin.z + relative.z,
         ]
     };
     let shaded = |mult: f32, point: [f32; 3], normal: [f32; 3]| -> [f32; 3] {

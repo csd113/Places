@@ -2,8 +2,12 @@
 //! validated view, never the serialization source: future/unsupported fields
 //! therefore survive ordinary edits and saves.
 
+mod fog;
+mod gameplay;
 mod geometry;
 mod history;
+pub(crate) mod intent;
+mod mounting;
 mod objects;
 mod persistence;
 mod source;
@@ -19,6 +23,7 @@ use crate::engine::project::{
     BuiltinAssetKind, BuiltinAssetRef, ProjectFolder, ProjectManifest, validate_level_assets,
 };
 
+pub use gameplay::GameplaySetting;
 pub use objects::{ObjectId, ObjectInfo, ObjectKind, Transform};
 
 use history::History;
@@ -173,10 +178,23 @@ impl Document {
         asset: Option<&str>,
         catalog: &AssetCatalog,
     ) -> Result<ObjectId, String> {
-        let model = asset.unwrap_or("core:chair");
-        if kind == ObjectKind::Prop || asset.is_some() {
+        let model = asset.unwrap_or(if kind == ObjectKind::Entity {
+            "mannequin"
+        } else {
+            "core:chair"
+        });
+        if matches!(kind, ObjectKind::Prop | ObjectKind::Entity)
+            || (asset.is_some()
+                && matches!(
+                    kind,
+                    ObjectKind::Room
+                        | ObjectKind::Wall
+                        | ObjectKind::Ramp
+                        | ObjectKind::FloorRegion
+                ))
+        {
             BuiltinAssetRef {
-                kind: if kind == ObjectKind::Prop {
+                kind: if matches!(kind, ObjectKind::Prop | ObjectKind::Entity) {
                     BuiltinAssetKind::Model
                 } else {
                     BuiltinAssetKind::Material
@@ -187,7 +205,7 @@ impl Document {
         }
         let mut edited = self.selected.raw.clone();
         let id = objects::add(&mut edited, self.level(), kind, position, asset)?;
-        if kind == ObjectKind::Prop {
+        if matches!(kind, ObjectKind::Prop | ObjectKind::Entity) {
             let entry = catalog.placeable(model).ok_or("Choose a built-in prop")?;
             let size = entry
                 .size
@@ -225,7 +243,10 @@ impl Document {
     /// # Errors
     /// Rejects props, stale selections or invalid material identities.
     pub fn set_material(&mut self, id: ObjectId, material: &str) -> Result<(), String> {
-        if matches!(id, ObjectId::Prop(_)) {
+        if !matches!(
+            id,
+            ObjectId::Room(_) | ObjectId::Wall(_) | ObjectId::Ramp(_) | ObjectId::FloorRegion(_)
+        ) {
             return Err("Select a floor or wall to change its material".into());
         }
         self.set_object_string(id, "material", material)

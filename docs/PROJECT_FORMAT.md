@@ -127,7 +127,7 @@ old files must be recompiled, never guessed or migrated at runtime.
 | Compiled lighting / irradiance field | 4 / 4 | 1 each | Runtime light-source and probe-field records |
 | Lightmap metadata / reflection positions | 4 / 3 | 1 each | Atlas chart and HDR cube metadata |
 | Navigation / shared-prop recipe / compact atlas | 1 each | 1, fresh signatures | Bounded prepared binary layouts |
-| Lightmap cache / solver / geometry | 15 / 21 / 16 | 1 / 1 / 2 | Offline rebuild identity, not extra source schemas |
+| Lightmap cache / solver / geometry | 15 / 21 / 16 | 1 / 1 / 3 | Offline rebuild identity, not extra source schemas |
 | Compiler build inputs / checker / repair plan | 1 each | 1 | Provenance and developer diagnostic protocols |
 | Compiler asset-input / lighting-stage key | 2 / 3 | 1 each | Compiler cache protocols, with structural changes owned by solver/geometry revisions |
 
@@ -211,3 +211,29 @@ carrier floors and skirts around descending ramps and invalidates prepared
 geometry, without changing source or package record layouts. The editor's safety
 candidates are memory-only raw snapshots until explicitly applied and saved.
 See [geometry authoring, safety and limitations](EDITOR.md).
+
+## Stage 5 gameplay and editor metadata
+
+Gameplay retains the shared typed level collections. Prop `pitch_degrees` and
+`roll_degrees` supplement `rotation_degrees`; geometry revision 3 requires
+recompiling prepared output for the full orientation. `sound_emitters[]`,
+`ground_fog[]`, door `bidirectional` and exact `entity` trigger filters are
+additive source fields. Built-in logical asset IDs remain authoritative; no
+custom importer or script execution is introduced.
+
+The editor preserves optional `editor_instance_id` fields on individual raw
+records and a level-level `editor_placement_intent` object with `version: 1`
+and at most 256 `ignores`. Each decision records stable instance IDs, a specific
+check/issue signature, contextual source hash, bounds and review label. These
+are authoring review decisions, never exemptions from engine validation. The
+editor rejects duplicate identities, malformed metadata and unsupported versions.
+Material changes to the placement or affected geometry make a decision stale;
+the saved record remains reviewable and undo can restore its original context.
+Compiler/player behavior never interprets an ignore as permission to move scenery.
+
+An empty trigger may retain `editor_trigger_policy` with its pending enter/exit
+event, one-shot and cooldown settings. The editor validates this draft and
+materializes a normal binding when its first action is added. Removing the final
+action restores a draft; an empty runtime action binding remains invalid. Drafts
+produce no runtime action. Both metadata forms survive raw save/reopen and
+history while the compiled semantic level omits them.

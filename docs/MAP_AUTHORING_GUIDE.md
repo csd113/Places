@@ -138,7 +138,7 @@ Authoritative paths:
 | Offscreen scene rendering presented by a fullscreen quad, UI at drawable resolution | Implemented |
 | Selective reflections: per-material `reflection_mode` (`none` / `probe` / `planar`); independent Reflections Full/Medium use 64/48-texel probes and a half-resolution planar pass, Off releases both | Implemented |
 | Restrained post-processing: emission-driven bloom, a tone shoulder, the global distance fog and a subtle grade, with the UI drawn outside it | Implemented (optional `environment` authors fixed presentation and global atmosphere; regional fog volumes add to it — see [§11](#fog-authored-global-atmosphere-plus-level-authored-regions)) |
-| Level-authored regional fog volumes (`fog_regions[]`, ≤ 16) | Implemented (see [§11](#fog-authored-global-atmosphere-plus-level-authored-regions)) |
+| Regional bounding-box fog (`fog_regions[]`) and separate ground mist (`ground_fog[]`), ≤ 16 combined | Implemented (see [§11](#fog-authored-global-atmosphere-plus-level-authored-regions)) |
 | Opaque void wall / floor boxes (`void_walls[]`, ≤ 256) for hiding the void | Implemented (see [§11](#void-wall-and-floor-boxes)) |
 | Animated emissions: `animated_emissions[]` makes a material or fixture face pulse or flicker, deterministically | Implemented |
 | Low / Medium / High runtime quality levels over the same level content | Implemented |
@@ -314,7 +314,7 @@ skeleton and the per-field tables.
     "ambient": 0.0                         // optional, default 0.0; 0.0..1.0
   },                                       // omitted = no background object (clear colour)
 
-  "fog_regions": [                         // optional; regional fog boxes, ≤ 16, see §11
+  "fog_regions": [                         // optional; fog boxes, ≤ 16 with ground_fog, see §11
     { "id": "yard_mist",                   // REQUIRED, unique, ≤ 64 chars
       "min": [-2.0, -2.0, -6.0],           // REQUIRED, finite, < max on every axis
       "max": [8.0, 1.0, 2.0],
@@ -323,6 +323,12 @@ skeleton and the per-field tables.
       "falloff_m": 3.0,                    // optional; ≥ 0, default 2.0; soft edge inside
       "ground_y": -2.0,                    // optional; default min.y
       "top_y": 1.0 }                       // optional; default max.y (density fades to 0)
+  ],
+
+  "ground_fog": [                          // optional; separate low mist, same combined cap
+    { "id": "floor_mist", "min": [0.0, 0.0], "max": [8.0, 8.0], // world X/Z
+      "ground_y": 0.0, "height": 0.8, "density": 0.12,
+      "color": [0.6, 0.63, 0.68], "falloff_m": 0.5 }
   ],
 
   "spawn": { "x": 2.0, "z": 5.0, "yaw_degrees": 0.0 },  // x, z REQUIRED; yaw default 0.0
@@ -773,7 +779,7 @@ constant in `src/engine/level.rs`, not an inline literal.
 | Baseboards | ≤ 8000 | Loader rejection |
 | Floor patches | ≤ 8000 | Loader rejection |
 | Distinct materials (`material` ids the level references) | ≤ 131 072 (`MAX_LEVEL_MATERIALS`) | Loader rejection: `Level declares too many distinct materials: …` |
-| Fog regions (`fog_regions`) | ≤ 16 (`MAX_FOG_REGIONS`) | Loader rejection; the shader's uniform array is fixed at 16 and the quality preset uploads a prefix |
+| Regional and ground fog (`fog_regions` + `ground_fog`) | ≤ 16 combined (`MAX_FOG_REGIONS`) | Loader rejection; the shader's uniform array is fixed at 16 and the quality preset uploads a prefix |
 | Void walls (`void_walls`) | ≤ 256 (`MAX_VOID_WALLS`) | Loader rejection |
 | Openings per wall | ≤ 64 | Loader rejection on that wall |
 | Room width/depth | ≤ 8192 m (`MAX_ROOM_EXTENT_M`) | Loader rejection per room |
@@ -2476,7 +2482,7 @@ severe snow keeps its own shelter-aware sightline transmission and fog colour.
 The infinite sky retains its background treatment and existing storm blend.
 
 On top of it a level may author `fog_regions`: world-space boxes that thicken the
-air **inside** them, per fragment. They are the supported way to build mist over a
+air **inside** them along each eye-to-surface sightline. They build mist over a
 yard, a pool of cold air in a sunken room, or a low morning layer without a
 particle pass.
 
@@ -2491,12 +2497,13 @@ particle pass.
 | `ground_y` | number | no | `min.y` | World Y where the full-density ground layer starts. |
 | `top_y` | number | no | `max.y` | World Y the density has faded to zero at. |
 
-Per fragment, with `p` the fragment's own world position:
+At each integration sample, with `p` the sample's world position:
 
 * `horizontal_edge_factor = clamp(min(p.x - min.x, max.x - p.x, p.z - min.z, max.z - p.z) / falloff_m, 0, 1)` — zero outside the box, a linear ramp to full over the last `falloff_m` metres before each side face.
-* `vertical_factor = 1` at and below `ground_y`, `clamp((top_y - y) / (top_y - ground_y), 0, 1)` between them, `0` above `top_y`. A layer with `top_y <= ground_y` is a half-space: full below its base, nothing above.
+* All six bounds apply: `y < min.y` or `y > max.y` contributes zero, keeping floors below a volume clear. Within those bounds, `vertical_factor = 1` at and below `ground_y`, `clamp((top_y - y) / (top_y - ground_y), 0, 1)` between them, `0` above `top_y`. A layer with `top_y <= ground_y` is full below its base inside the box. Set both to `max.y` for uniform vertical density throughout the box.
 * The region's effective contribution is `density * horizontal_edge_factor * vertical_factor`.
-* **Regions never sum.** The region with the greatest effective contribution wins; a tie keeps the lowest authoring index. The global atmosphere's own density term is **added** to the winner's, and the colour mixed towards is the winner's colour (the global colour when no region contributes).
+* Clip the eye-to-surface segment against all six box faces, then integrate local extinction over that interval with four fixed Gauss quadrature points. Surfaces beyond the box still receive the mist along the sightline; a camera inside integrates only the distance before exit. Soft-edge integration is a bounded approximation, not a volumetric light-scattering simulation.
+* **Regions never sum.** The region with the greatest integrated optical depth wins; a tie keeps the lowest authoring index. Global optical depth is **added** to the winner's. The global and regional linear colours mix in proportion to those depths, avoiding a colour jump as a regional contribution fades to zero. The squared-exponential amount remains `1-exp(-total_depth²)`.
 
 Two concrete examples:
 
@@ -2515,17 +2522,28 @@ Two concrete examples:
 ]
 ```
 
-An **indoor room adjacent to a fogged exterior stays clear**: the hall inside the
-building lies outside both boxes, so a fragment on its walls evaluates only the
-global atmosphere — even while the camera stands in the yard fog looking in through
-an open door. The test is the *fragment's* world position, never the camera's; a
-fragment inside a region is fogged regionally even when the camera is far away.
+An **indoor sightline that misses the fogged exterior stays clear**. Looking
+through an exterior mist box toward a distant wall integrates only the outdoor
+segment inside the box, even when that wall is outside it. Fog on an upper
+storey cannot affect a ray wholly on a lower floor. Solid walls stop the visible
+sightline normally; the volume neither changes collision nor leaks around walls.
 
 Cost, presets and recovery:
 
-* `fog_regions` is capped at **16** (`MAX_FOG_REGIONS`); the loader rejects a 17th by name.
-* The fragment shader loops over a fixed 16-entry uniform array bounded by the live count, so there is no per-frame CPU work and no per-frame rebuild. Adding a region costs one uniform write at level install.
-* **Quality presets upload a prefix of the authored list**: `Low` the first `min(count, 2)` regions, `Medium` the first `min(count, 8)`, `High` all 16. The count is a uniform value, so switching presets recovers the dropped regions instantly with no level rebuild and no geometry change. Author the layers you care about most first.
+* `fog_regions` and `ground_fog` share a cap of **16** (`MAX_FOG_REGIONS`) and one unique ID namespace; the loader rejects a 17th combined volume.
+* The fragment shader clips against at most 16 fixed uniform entries and evaluates four profile samples only for intersected volumes. There is no per-frame CPU map scan or rebuild; the worst-case sample count is 64 per visible world fragment. Adding a region updates the resident uniform data at level install.
+* **Quality presets upload a prefix of the resolved list**: regional boxes first in their authored order, then ground layers in theirs. `Low` uploads the first `min(count, 2)` regions, `Medium` the first `min(count, 8)`, `High` all 16. The count is a uniform value, so switching presets recovers the dropped regions instantly with no level rebuild and no geometry change. Author the layers you care about most first.
+
+`ground_fog[]` provides independently editable ground mist without encoding a
+profile inside a regional box. Each entry requires `id`, finite `min: [x,z]`
+and `max: [x,z]` with positive area, finite `ground_y`, positive finite `height`
+and `density: 0..=0.5`. The computed `ground_y + height` must remain finite and
+strictly above the base. Optional `color` and `falloff_m` use the same contracts
+as regional fog. Density is full at the base, fades linearly to zero at the
+top and contributes nothing below the base or outside the footprint. Ground
+and regional fog overlap using the same strongest-optical-depth rule; they do
+not add together. Both resolve once at level install into the existing fixed
+uniform array, with no new render pass or per-frame CPU map scan.
 
 Interaction notes:
 
@@ -3058,6 +3076,36 @@ an unknown id) and the level keeps working.
 * The model bounding box must match the catalog `size` within
   `max(2 cm, 6 % of the axis)`; review this contract explicitly, along with
   base-at-origin (`|min_y| ≤ 0.012`) and centring (≤ 0.02 m).
+
+### Arbitrary prop orientation and explicit surface mounting
+
+Ordinary fixed and rigid props accept finite `pitch_degrees` and `roll_degrees`
+in addition to `rotation_degrees` (yaw). The shared transform is translation ×
+yaw about Y × pitch about X × roll about Z × uniform scale. The local origin is
+preserved; turning a desk on its side does not move that origin to a new floor
+contact. Negative floor-relative Y and intentional solid intersections remain
+valid, including after save, compile and play. The player collision envelope
+contains all eight transformed local box corners. Full light transport uses the
+actual transformed model triangles; Static's compact yaw-only visibility boxes
+conservatively enclose tilted boxes. Attached source offsets follow the full
+rotation; finite-area source footprints retain their existing horizontal light
+shape contract. Fitted `span` and water `float` profiles own upright pose and
+reject nonzero pitch/roll.
+
+The editor's explicit **Mount surface** command measures the installed model
+rather than assuming a floor-centred origin. Props align local up to their
+floor/ramp normal and place their actual base on the carrier. Ceiling fixtures
+use the housing's highest mounting back, including Pool's 3 mm protruding top;
+wall fixtures use local back Z and face local +Z along the wall's outward normal.
+The one-millimetre separation avoids coplanar contact without a visible gap.
+Optional grid snapping acts in the carrier tangent plane; later numeric edits
+remain manual. Ceiling fixtures retain their authored world `y` and `align:none`
+so compiler grid preparation does not move the checked mount. Yaw-only fixtures
+cannot represent a gabled ceiling normal: automatic mounting refuses gabled or
+open roofs explicitly; manual placement remains available. Mounting refuses
+missing carriers, mismatched wall/ceiling fixture families, or a footprint that
+does not fit one continuous support plane without changing source. Prop mounts
+retain the nearest authored storey when floors are stacked.
 
 ### Linked static railing and fence modules
 
@@ -3963,7 +4011,9 @@ Exact level syntax (all fields verified against `src/engine/level.rs::PropDef`):
   "display_name": "Front Desk",  // optional. toggle_label text; default the model id.
   "model": "core:desk",          // REQUIRED. Logical catalog id. Unknown ids render a placeholder box.
   "x": 4.6, "y": 0.0, "z": 5.8,  // optional, default 0. y is an offset ABOVE the local walkable floor.
-  "rotation_degrees": 180.0,     // optional Y rotation; model +Z faces this way at 0.
+  "rotation_degrees": 180.0,     // optional Y yaw; model +Z faces this way at 0.
+  "pitch_degrees": 0.0,          // optional local X pitch, default 0.
+  "roll_degrees": 0.0,           // optional local Z roll, default 0.
   "scale": 1.0,                  // optional, default 1.0, must be > 0. Scales model and explicit size.
   "size": [1.6, 0.75, 0.7],      // optional [w,h,d] metres for collision/placeholder.
   "solid": true,                 // optional, default false. Fixed placements use the legacy collision box.
@@ -4033,8 +4083,8 @@ Semantics:
   same floor footprint. Clearance for a *crouched* 0.9 m body is still clearance:
   a beam whose underside is at 1.0 m over a walkable floor is solid and a
   standing player bumps it.
-* Author collision `size` in the model's **local frame**. `rotation_degrees`
-  rotates its horizontal half-extents, then the collider uses the enclosing
+* Author collision `size` in the model's **local frame**. Yaw, pitch and roll
+  rotate all eight corners about the unchanged model origin, then the collider uses the enclosing
   world-axis-aligned box (`PropDef::solid_collider`). At 90°/270° the world x/z
   extents swap automatically; do not swap the authored local size. Oblique
   rotations conservatively enclose the rotated footprint.
@@ -5660,6 +5710,14 @@ runtime tests eligible occupants and emits `enter_volume` / `exit_volume` on
 the edges; the volume's own bindings decide what those events do. There is no
 separate sound-trigger dispatcher.
 
+Stage 5 uses a balanced AABB tree built at load. Swept player/item bounds query
+candidates; occupied volumes stay eligible for exits, disappearance and queue
+retries. Exact entity watchers resolve each watched identity once per update.
+Item candidate masks avoid scanning every physical item for every volume.
+Bindings dispatch through an owner index (at most 16 per owner), and only active
+cooldowns tick. Source caps remain 4000 volumes and 128 physical items; deliberately
+overlapping active sets can still require their full relevant pair count.
+
 ```jsonc
 {
   "id": "pit_hole_1",              // optional; default trigger_<n>
@@ -5695,6 +5753,11 @@ Semantics:
   selectors are errors and never broaden eligibility. Dormant items count;
   fixed and temporarily suspended bodies do not. At most 128 physical items
   are sampled, matching the engine body cap.
+* `{ "kind": "entity", "instance": "walker" }` watches one exact placed
+  instance or explicit authored `spawn_entity.name`. Fixed/routed/AI actors use
+  their live base-point sweep; physical actors use the solver path and AABB.
+  Invalid identities are errors. A despawn releases occupancy; a replacement
+  with the same authored name has a distinct generation and can enter again.
 * `occupancy: "per_actor"` (default) emits each eligible actor's edges.
   `"aggregate"` emits only the first entry and final exit. Swept intervals
   overlap correctly during occupancy handoffs, so one departure cannot stop
@@ -5729,6 +5792,24 @@ crosses the band:
   "bindings": [ { "on": "enter_volume", "cooldown_seconds": 0.5,
                    "actions": [{ "action": "reset_to_start" }] } ] }
 ```
+
+### Standalone sound emitters
+
+`sound_emitters[]` places a sound-only entity without visible runtime geometry.
+The shared instance namespace admits at most 256. For example:
+
+```json
+{ "id": "room_hum", "x": 3.0, "y": 1.0, "z": 2.0,
+  "sound": "ambience_hvac", "gain": 0.3, "spatial": false,
+  "looped": true, "enabled": true, "playing": true, "time_domain": "world" }
+```
+
+Coordinates are absolute world space. `sound` is an installed AudioCatalog cue;
+`gain` is finite 0–1. Defaults are gain 1, positional true, looping false,
+enabled true, playing false and world time. `spatial: false` makes a cue ambient
+regardless of its catalog default. `bindings` uses the ordinary event/action
+contract. `play_sound`/`stop_sound`, disable/enable and reset share component audio
+lifecycle; a play action's `loop` explicitly selects its playback policy.
 
 ### Timers
 
@@ -6108,6 +6189,7 @@ slab first; the accepted engine range stays `5`–`179`.
 | `height` | number | **yes** | — | Leaf height, `> 0`, `≤ 12` m. |
 | `thickness` | number | no | `0.045` | Leaf thickness, `> 0`, `≤ 12` m. |
 | `open_direction` | `"left"` \| `"right"` | no | `"left"` | Which way the leaf swings about the hinge (seen from above with the closed leaf running hinge→latch). `left` is a positive rotation, `right` negative. |
+| `bidirectional` | boolean | no | `false` | Opening from fully closed chooses the swing away from the interacting occupant; mid-swing reversal retains the selected side. Actions without an occupant use `open_direction`. |
 | `swing_degrees` | number | no | `90.0` | Opening angle, `5`–`179`; a negative value means the opposite swing. An edge-hinged leaf is limited to `abs(value) ≤ 90` (see above). |
 | `open_speed_degrees` | number | no | `120.0` | Angular speed while opening, in degrees/second, `> 0`, `≤ 720`. |
 | `close_speed_degrees` | number | no | `open_speed_degrees` | Angular speed while closing. |

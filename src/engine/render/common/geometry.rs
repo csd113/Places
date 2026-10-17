@@ -2106,6 +2106,8 @@ fn emit_prop_fallbacks(
             || !prop.y.is_finite()
             || !prop.z.is_finite()
             || !prop.rotation_degrees.is_finite()
+            || !prop.pitch_degrees.is_finite()
+            || !prop.roll_degrees.is_finite()
             || !prop.scale.is_finite()
             || !size.iter().all(|v| v.is_finite() && *v > 0.0)
             || !entry.color.iter().all(|c| c.is_finite())

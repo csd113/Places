@@ -6,11 +6,13 @@ use crate::engine::render::Vertex;
 use super::App;
 use super::document::{ObjectId, ObjectKind};
 
+mod gameplay;
 mod geometry;
 mod inspector;
 mod library;
 mod safety;
 
+pub(super) use gameplay::{action_popup, choices_popup, create_popup, gameplay_popup};
 pub(super) use geometry::{geometry_popup, shape_popup};
 use inspector::inspector;
 pub(super) use library::draw_library as library_popup;
@@ -24,6 +26,20 @@ const PANEL: [f32; 4] = [0.065, 0.09, 0.12, 1.0];
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Action {
     Capture,
+    Create,
+    Gameplay,
+    GameplayPage(usize),
+    GameplayActions,
+    GamePick(super::gameplay_actions::GameplayChoice),
+    GameChoose(super::gameplay_actions::GameplayChoice, usize),
+    GameSetting(super::document::GameplaySetting),
+    RemoveTriggerStep(usize),
+    EnvironmentPreview,
+    MountSurface,
+    ToggleLightMount,
+    IgnoreFinding,
+    ClearFindingIgnore,
+    IgnoredFindings,
     New,
     Open,
     Save,
@@ -70,6 +86,13 @@ pub(super) struct Hit {
 }
 
 impl Hit {
+    pub const fn center(&self) -> [f32; 2] {
+        [
+            self.rect[0] + self.rect[2] * 0.5,
+            self.rect[1] + self.rect[3] * 0.5,
+        ]
+    }
+
     pub fn contains(&self, [x, y]: [f32; 2]) -> bool {
         let [left, top, width, height] = self.rect;
         x >= left && x < left + width && y >= top && y < top + height
@@ -344,12 +367,20 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             app.document.is_some(),
         );
     }
+    button(
+        vertices,
+        hits,
+        [5.0, 65.0, 102.0, 10.0],
+        "+ Environment / gameplay >",
+        Action::Create,
+        app.document.is_some(),
+    );
     let objects = app
         .document
         .as_ref()
         .map_or_else(Vec::new, super::document::Document::objects);
-    for (index, object) in objects.iter().skip(app.object_scroll).take(5).enumerate() {
-        let y = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(10.0, 67.0);
+    for (index, object) in objects.iter().skip(app.object_scroll).take(4).enumerate() {
+        let y = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(10.0, 79.0);
         let label = format!(
             "{}{}",
             if app.selected == Some(object.id) {
@@ -372,7 +403,7 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         vertices,
         &format!("{} objects / scroll list", objects.len()),
         5.0,
-        120.0,
+        121.0,
         MUTED,
         29,
     );
@@ -407,9 +438,9 @@ fn footer(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         vertices,
         hits,
         [5.0, 228.0, 49.0, 10.0],
-        "Prop library",
-        Action::Assets,
-        true,
+        "Configure >",
+        Action::Gameplay,
+        app.selected.is_some(),
     );
     button(
         vertices,
@@ -417,8 +448,27 @@ fn footer(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         [58.0, 228.0, 49.0, 10.0],
         "Material",
         Action::Materials,
-        app.selected
-            .is_some_and(|id| !matches!(id, ObjectId::Prop(_))),
+        app.selected.is_some_and(|id| {
+            matches!(
+                id,
+                ObjectId::Room(_)
+                    | ObjectId::Wall(_)
+                    | ObjectId::Ramp(_)
+                    | ObjectId::FloorRegion(_)
+            )
+        }),
+    );
+    button(
+        vertices,
+        hits,
+        [114.0, 228.0, 100.0, 10.0],
+        if app.viewport.environment_preview() {
+            "Preview: Lighting"
+        } else {
+            "Preview: Inspect"
+        },
+        Action::EnvironmentPreview,
+        true,
     );
     text(vertices, &app.status, 5.0, 247.0, INK, 133);
     text(

@@ -1287,7 +1287,7 @@ pub fn transform_bounds(
     bounds
 }
 
-/// Instance transform for a placed prop: translate, rotate about Y and scale.
+/// Instance transform for a placed prop: translate, yaw/pitch/roll and scale.
 ///
 /// `base_y` is the world Y of the walkable floor at the prop's `(x, z)`; the
 /// authored `prop.y` is an offset above it. This is exactly the transform the

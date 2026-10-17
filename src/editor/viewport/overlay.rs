@@ -7,6 +7,65 @@ use crate::engine::font::get_white_uv;
 use crate::engine::render::{DrawableSize, Vertex};
 use crate::engine::spatial::Aabb;
 
+/// Cached authoring-only boxes. They never enter the level mesh or package.
+pub(super) struct VolumeGuide {
+    pub bounds: Aabb,
+    pub color: [f32; 4],
+}
+
+pub(super) fn volumes(level: &crate::engine::level::LevelDef) -> Vec<VolumeGuide> {
+    let mut result: Vec<_> = level
+        .volumes
+        .iter()
+        .map(|volume| {
+            let (x0, x1, z0, z1) = volume.bounds();
+            let (bottom, top) = volume.resolved_y_bounds(level);
+            VolumeGuide {
+                bounds: Aabb {
+                    min: [x0, bottom, z0],
+                    max: [x1, top, z1],
+                },
+                color: [0.3, 0.9, 0.72, 0.06],
+            }
+        })
+        .collect();
+    result.extend(level.fog_regions.iter().map(|fog| VolumeGuide {
+        bounds: Aabb {
+            min: fog.min,
+            max: fog.max,
+        },
+        color: [0.67, 0.56, 1.0, 0.025],
+    }));
+    result.extend(level.ground_fog.iter().map(|fog| VolumeGuide {
+        bounds: Aabb {
+            min: [fog.min[0], fog.ground_y, fog.min[1]],
+            max: [fog.max[0], fog.ground_y + fog.height, fog.max[1]],
+        },
+        color: [0.5, 0.72, 1.0, 0.025],
+    }));
+    result.extend(level.sound_emitters.iter().map(|sound| VolumeGuide {
+        bounds: Aabb {
+            min: [sound.x - 0.12, sound.y - 0.12, sound.z - 0.12],
+            max: [sound.x + 0.12, sound.y + 0.12, sound.z + 0.12],
+        },
+        color: [0.35, 0.75, 1.0, 0.1],
+    }));
+    let surfaces = crate::engine::level::LevelSurfaces::new(level);
+    result.extend(level.spawn_points.iter().map(|point| {
+        let y = point
+            .y
+            .unwrap_or_else(|| surfaces.floor_y_at(point.x, point.z).unwrap_or(0.0));
+        VolumeGuide {
+            bounds: Aabb {
+                min: [point.x - 0.2, y, point.z - 0.2],
+                max: [point.x + 0.2, y + 0.4, point.z + 0.2],
+            },
+            color: [1.0, 0.45, 0.8, 0.06],
+        }
+    }));
+    result
+}
+
 pub(super) struct Guides {
     vertices: Vec<Vertex>,
     matrix: Mat4,
@@ -63,6 +122,93 @@ impl Guides {
             (Vec3::Z, [0.3, 0.55, 1.0, 1.0]),
         ] {
             self.axis(centre, axis, color);
+        }
+    }
+
+    /// Translucent x-ray guides keep non-rendering gameplay volumes visible
+    /// while authoring. Clip every face to the viewport and near plane.
+    pub fn volume(&mut self, guide: &VolumeGuide) {
+        let [x0, y0, z0] = guide.bounds.min;
+        let [x1, y1, z1] = guide.bounds.max;
+        for face in [
+            [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]],
+            [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]],
+            [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]],
+            [[x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0]],
+            [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]],
+            [[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]],
+        ] {
+            self.face(face, guide.color);
+        }
+        let [r, g, b, _] = guide.color;
+        self.box_lines(guide.bounds, [r, g, b, 0.65]);
+    }
+
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Finite clipped projected guide vertices use floating point interpolation."
+    )]
+    fn face(&mut self, face: [[f32; 3]; 4], color: [f32; 4]) {
+        let projected: Vec<_> = face
+            .into_iter()
+            .map(|point| self.matrix * Vec3::from_array(point).extend(1.0))
+            .collect();
+        let mut near_clipped = Vec::new();
+        for (first, second) in projected
+            .iter()
+            .zip(projected.iter().cycle().skip(1))
+            .take(projected.len())
+        {
+            let first_distance = first.z + first.w;
+            let second_distance = second.z + second.w;
+            if first_distance > 0.0 {
+                near_clipped.push(*first);
+            }
+            if (first_distance > 0.0) != (second_distance > 0.0) {
+                near_clipped
+                    .push(first.lerp(*second, first_distance / (first_distance - second_distance)));
+            }
+        }
+        let mut polygon: Vec<_> = near_clipped
+            .into_iter()
+            .filter(|point| point.w > 0.000_01)
+            .map(|point| self.point(point))
+            .collect();
+        for (axis, edge, greater) in [
+            (0_usize, 112.0, true),
+            (0, 480.0, false),
+            (1, 38.0, true),
+            (1, 242.0, false),
+        ] {
+            let mut clipped = Vec::new();
+            let coordinate = |point: Vec2| if axis == 0 { point.x } else { point.y };
+            for (first, second) in polygon
+                .iter()
+                .zip(polygon.iter().cycle().skip(1))
+                .take(polygon.len())
+            {
+                let start = coordinate(*first) - edge;
+                let end = coordinate(*second) - edge;
+                let inside = if greater { start >= 0.0 } else { start <= 0.0 };
+                let next_inside = if greater { end >= 0.0 } else { end <= 0.0 };
+                if inside {
+                    clipped.push(*first);
+                }
+                if inside != next_inside {
+                    clipped.push(first.lerp(*second, start / (start - end)));
+                }
+            }
+            polygon = clipped;
+        }
+        let Some(first) = polygon.first() else {
+            return;
+        };
+        let uv = get_white_uv();
+        for (second, third) in polygon.iter().skip(1).zip(polygon.iter().skip(2)) {
+            for point in [first, second, third] {
+                self.vertices
+                    .push(Vertex::new([point.x, point.y, 0.0], color, [uv[0], uv[1]]));
+            }
         }
     }
 

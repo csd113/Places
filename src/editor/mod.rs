@@ -3,6 +3,7 @@
 
 mod actions;
 pub mod document;
+mod gameplay_actions;
 mod geometry_actions;
 mod input;
 pub mod process;
@@ -68,6 +69,7 @@ struct App {
     step: f32,
     object_scroll: usize,
     prop: String,
+    sound_cues: Vec<String>,
     popup: Option<Popup>,
     safety_report: Option<safety::SafetyReport>,
     safety_job: Option<Receiver<(serde_json::Value, safety::SafetyReport)>>,
@@ -323,6 +325,10 @@ fn application(options: Options) -> Result<(), String> {
         step: 0.25,
         object_scroll: 0,
         prop: "core:chair".into(),
+        sound_cues: crate::engine::audio::AudioCatalog::load(paths::assets()?)?
+            .cue_ids()
+            .map(str::to_string)
+            .collect(),
         popup: None,
         safety_report: None,
         safety_job: None,

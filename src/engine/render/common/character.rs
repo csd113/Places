@@ -1040,6 +1040,8 @@ pub struct Character {
     /// Uniform placement scale, retained so a live pose change composes the
     /// same transform the static prop path did.
     scale: f32,
+    /// Authored pitch/roll follows an actor as its runtime yaw changes.
+    pose_tilt: Quat,
     /// Per-instance opacity multiplier applied by the environment uniform,
     /// clamped to `0..=1`; `1.0` for a character with no fade component.
     opacity: f32,
@@ -1138,7 +1140,10 @@ impl Character {
     /// recomputes the conservative world bounds, so culling follows the
     /// character. The mesh vertices are model-space and are unaffected.
     pub fn set_pose(&mut self, position: Vec3, yaw: f32) {
-        self.set_oriented_pose(position, Quat::from_rotation_y(yaw));
+        self.set_oriented_pose(
+            position,
+            Quat::from_rotation_y(yaw).mul_quat(self.pose_tilt),
+        );
     }
 
     /// Composes the world pose independently of the local animated skeleton.
@@ -1444,6 +1449,12 @@ impl CharacterScene {
                 world_bounds,
                 instance_id,
                 scale: prop.scale,
+                pose_tilt: Quat::from_euler(
+                    glam::EulerRot::YXZ,
+                    0.0,
+                    prop.pitch_degrees.to_radians(),
+                    prop.roll_degrees.to_radians(),
+                ),
                 opacity: 1.0,
                 runtime_locomotion: None,
                 runtime_frame_delta: None,
@@ -1565,6 +1576,7 @@ impl CharacterScene {
             world_bounds,
             instance_id: Some(trimmed_id.to_string()),
             scale,
+            pose_tilt: Quat::IDENTITY,
             opacity: 1.0,
             runtime_locomotion: None,
             runtime_frame_delta: None,
@@ -1988,7 +2000,13 @@ impl CharacterScene {
                 // opacity is independent of whether the pose changed.
                 character.set_opacity(entity_frame.opacity);
                 if let Some((position, yaw)) = entity_frame.transform
-                    && !transforms_agree(character.transform, position, character.scale, yaw)
+                    && !transforms_agree(
+                        character.transform,
+                        position,
+                        character.scale,
+                        yaw,
+                        character.pose_tilt,
+                    )
                 {
                     character.set_pose(position, yaw);
                 }
@@ -2075,10 +2093,10 @@ fn runtime_glow_is_valid(cue: &GlowCue) -> bool {
 
 /// True when a placement matrix already matches a live pose within a
 /// sub-millimetre, so a still route does not rebuild bounds every frame.
-fn transforms_agree(transform: Mat4, position: Vec3, scale: f32, yaw: f32) -> bool {
+fn transforms_agree(transform: Mat4, position: Vec3, scale: f32, yaw: f32, tilt: Quat) -> bool {
     let expected = Mat4::from_scale_rotation_translation(
         Vec3::splat(scale),
-        Quat::from_rotation_y(yaw),
+        Quat::from_rotation_y(yaw).mul_quat(tilt),
         position,
     );
     let current: [f32; 16] = transform.to_cols_array();
@@ -2095,6 +2113,8 @@ fn placement_is_finite(prop: &crate::engine::level::PropDef) -> bool {
         && prop.y.is_finite()
         && prop.z.is_finite()
         && prop.rotation_degrees.is_finite()
+        && prop.pitch_degrees.is_finite()
+        && prop.roll_degrees.is_finite()
         && prop.scale.is_finite()
         && prop.scale > 0.0
 }

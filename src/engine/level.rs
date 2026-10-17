@@ -1806,6 +1806,38 @@ const fn default_audio_gain() -> f32 {
     1.0
 }
 
+/// A sound-only entity, independent of visible props and model geometry.
+/// Coordinates are world space; `spatial: false` produces ambient playback.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "serialized loop, enable, initial playback and spatial policies are independent authoring choices"
+)]
+pub struct SoundEmitterDef {
+    pub id: String,
+    #[serde(default)]
+    pub x: f32,
+    #[serde(default)]
+    pub y: f32,
+    #[serde(default)]
+    pub z: f32,
+    pub sound: String,
+    #[serde(default = "default_audio_gain")]
+    pub gain: f32,
+    #[serde(default)]
+    pub looped: bool,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub playing: bool,
+    #[serde(default = "default_true")]
+    pub spatial: bool,
+    #[serde(default)]
+    pub time_domain: crate::engine::audio::TimeDomain,
+    #[serde(default)]
+    pub bindings: Vec<EventBindingDef>,
+}
+
 /// Which occupants can activate an authored trigger.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -1825,6 +1857,9 @@ pub enum TriggerFilterDef {
         #[serde(default)]
         held: Option<bool>,
     },
+    /// One exact shared entity identity, including a fixed prop, routed actor,
+    /// fixture or named runtime spawn. Its live base position is sampled.
+    Entity { instance: String },
     /// The player and all physical items, including held items.
     Any,
 }
@@ -2143,6 +2178,10 @@ pub struct DoorDef {
     /// Which way the leaf swings.
     #[serde(default)]
     pub open_direction: DoorSwing,
+    /// Choose the swing away from the interacting occupant when opening from
+    /// closed. Scripted opens without an occupant use `open_direction`.
+    #[serde(default)]
+    pub bidirectional: bool,
     /// Opening angle, in degrees. Negative means the opposite swing.
     #[serde(default = "default_door_swing_degrees")]
     pub swing_degrees: f32,
@@ -2378,6 +2417,7 @@ impl Default for DoorDef {
             height: 2.1,
             thickness: default_door_thickness_m(),
             open_direction: DoorSwing::default(),
+            bidirectional: false,
             swing_degrees: default_door_swing_degrees(),
             open_speed_degrees: default_door_speed_degrees(),
             close_speed_degrees: None,
@@ -6110,6 +6150,12 @@ pub struct PropDef {
     pub z: f32,
     #[serde(default)]
     pub rotation_degrees: f32,
+    /// Pitch about the model's local X axis, before yaw (degrees).
+    #[serde(default)]
+    pub pitch_degrees: f32,
+    /// Roll about the model's local Z axis, before pitch and yaw (degrees).
+    #[serde(default)]
+    pub roll_degrees: f32,
     #[serde(default = "default_prop_scale")]
     pub scale: f32,
     /// Static local-X module fit. The model stays upright while its rails
@@ -6307,9 +6353,41 @@ impl PropDef {
             )
         });
         glam::Mat4::from_translation(glam::Vec3::new(self.x, base_y + self.y, self.z))
-            * glam::Mat4::from_rotation_y(self.rotation_degrees.to_radians())
+            * glam::Mat4::from_quat(self.orientation())
             * glam::Mat4::from_scale(glam::Vec3::splat(self.scale))
             * fit
+    }
+
+    /// Authored rotation, applied as roll, then pitch, then world yaw.
+    #[must_use]
+    pub fn orientation(&self) -> glam::Quat {
+        glam::Quat::from_euler(
+            glam::EulerRot::YXZ,
+            self.rotation_degrees.to_radians(),
+            self.pitch_degrees.to_radians(),
+            self.roll_degrees.to_radians(),
+        )
+    }
+
+    /// Shared conservative transformed envelope for collision, selection and
+    /// gameplay targeting. `size` describes unscaled model-origin dimensions;
+    /// the local base is Y=0, with X/Z centred, exactly as catalog prop boxes.
+    #[must_use]
+    pub fn placement_bounds(&self, base_y: f32, size: [f32; 3]) -> crate::engine::spatial::Aabb {
+        let transform = self.placement_matrix(base_y);
+        let mut bounds = crate::engine::spatial::Aabb::EMPTY;
+        for x in [-size[0] * 0.5, size[0] * 0.5] {
+            for y in [0.0, size[1]] {
+                for z in [-size[2] * 0.5, size[2] * 0.5] {
+                    bounds.expand(
+                        transform
+                            .transform_point3(glam::Vec3::new(x, y, z))
+                            .to_array(),
+                    );
+                }
+            }
+        }
+        bounds
     }
 
     /// Explicit immutable rigid collision; the player's legacy standable box
@@ -6554,7 +6632,7 @@ const fn default_sky_brightness() -> f32 {
 // Regional fog
 // ---------------------------------------------------------------------------
 
-/// Hard ceiling on the number of fog regions a level may declare.
+/// Hard ceiling on the combined regional and ground fog volume count.
 ///
 /// The renderer uploads a fixed-size uniform array of this many regions, so the
 /// cap is a shader-budget bound rather than a parse bound: a level above it is
@@ -6581,13 +6659,15 @@ pub const DEFAULT_FOG_FALLOFF_M: f32 = 2.0;
 
 /// One authored regional fog volume.
 ///
-/// A region is a world-space box that thickens the air *inside* it: the
-/// contribution is `density * horizontal_edge_factor * vertical_factor` per
-/// fragment. The horizontal factor ramps from zero at the box side to one
+/// A region is a world-space box that thickens the air *inside* it. Local
+/// extinction is `density * horizontal_edge_factor * vertical_factor`;
+/// the renderer integrates it along the eye-to-surface segment clipped to
+/// the box, so surfaces beyond it receive the intervening mist as well.
+/// The horizontal factor ramps from zero at the box side to one
 /// `falloff_m` inside it; the vertical factor is one at and below `ground_y`
 /// and fades linearly to zero at `top_y`. Regions never sum: the greatest
-/// effective contribution wins (ties keep the lowest authoring index) and the
-/// global atmosphere's own density is added to the winner.
+/// integrated optical depth wins (ties keep the lowest authoring index) and
+/// global optical depth is added to the winner.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FogRegionDef {
     /// Stable authoring id, required, non-empty, at most
@@ -6614,6 +6694,55 @@ pub struct FogRegionDef {
     /// World Y the density has faded to zero at. Omitted is `max.y`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top_y: Option<f32>,
+}
+
+/// A separate ground-hugging mist layer.
+///
+/// The footprint uses world X/Z;
+/// density fades linearly from `ground_y` to `ground_y + height`, with zero
+/// local extinction below its base. Ground layers share the bounded regional
+/// fog GPU budget rather than adding an unbounded atmospheric pass.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GroundFogDef {
+    /// Stable authoring identity, unique across both fog collections.
+    pub id: String,
+    /// Minimum world X/Z corner of the footprint.
+    pub min: [f32; 2],
+    /// Maximum world X/Z corner, strictly above `min` on both axes.
+    pub max: [f32; 2],
+    /// World height of the full-density layer base.
+    pub ground_y: f32,
+    /// Positive thickness of the mist, in metres.
+    pub height: f32,
+    /// Extinction per metre, in `0..=MAX_FOG_REGION_DENSITY`.
+    pub density: f32,
+    /// Optional display sRGB tint; omission follows the global fog colour.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<[f32; 3]>,
+    /// Horizontal soft edge, in metres; omission uses the regional default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub falloff_m: Option<f32>,
+}
+
+impl GroundFogDef {
+    /// Resolves the footprint/height authoring shape to the shared volume
+    /// contract. Called only during validation and level installation.
+    #[must_use]
+    pub fn as_region(&self) -> FogRegionDef {
+        let [min_x, min_z] = self.min;
+        let [max_x, max_z] = self.max;
+        let top_y = self.ground_y + self.height;
+        FogRegionDef {
+            id: self.id.clone(),
+            min: [min_x, self.ground_y, min_z],
+            max: [max_x, top_y, max_z],
+            density: self.density,
+            color: self.color,
+            falloff_m: self.falloff_m,
+            ground_y: Some(self.ground_y),
+            top_y: Some(top_y),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -6861,6 +6990,10 @@ pub struct LevelDef {
     /// level entirely, so a fog-less level round-trips byte-identically.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fog_regions: Vec<FogRegionDef>,
+    /// Independently authored ground mist. Regional and ground fog together
+    /// admit at most `MAX_FOG_REGIONS` volumes; both use one renderer pass.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ground_fog: Vec<GroundFogDef>,
     /// Every room section, in ownership order.
     #[serde(default)]
     pub rooms: Vec<RoomDef>,
@@ -6939,6 +7072,9 @@ pub struct LevelDef {
     /// Localized ambient effects (sauna steam and future emitters).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub effects: Vec<EffectDef>,
+    /// Sound-only ambient or positional entities, using installed built-in cues.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sound_emitters: Vec<SoundEmitterDef>,
     /// Authored trigger volumes: entering or leaving emits an event.
     #[serde(default)]
     pub volumes: Vec<TriggerVolumeDef>,
@@ -7188,11 +7324,10 @@ pub const MAX_LEVEL_LADDERS: u64 = 1_024;
 pub const MAX_LEVEL_TIMERS: usize = 256;
 /// Hard ceiling on the number of area triggers a level may define.
 ///
-/// Triggers are sampled linearly by the controller (a swept box test per
-/// frame), do not draw geometry and are not in the collision world, so this is
-/// an authoring bound, not a rendering budget. Raised to 4000 from 1000 in the
-/// 2026 capacity pass; 4000 swept tests per frame stay well inside one frame's
-/// budget, and [`crate::engine::entities::events::EventQueue::MAX_QUEUED_EVENTS`] is
+/// A balanced AABB tree selects swept-actor candidates and previously occupied
+/// boxes for exact tests. Triggers do not draw runtime geometry or join player
+/// collision. This bounds source metadata and deliberately overlapping active
+/// sets. [`crate::engine::entities::events::EventQueue::MAX_QUEUED_EVENTS`] is
 /// sized to hold one occurrence per trigger so a busy tick cannot drop work.
 pub const MAX_LEVEL_AREA_TRIGGERS: u64 = 4_000;
 /// Hard ceiling on the number of openings a single wall may declare.
@@ -7600,6 +7735,9 @@ impl LevelDef {
         }
         for template in &self.spawn_templates {
             all.push(&template.bindings);
+        }
+        for emitter in &self.sound_emitters {
+            all.push(&emitter.bindings);
         }
         all
     }
@@ -8282,10 +8420,9 @@ impl PropDef {
 
     /// The prop's collision box when it is solid, placed on its local floor.
     ///
-    /// A yaw-rotated prop's box is conservatively covered by the axis-aligned
-    /// box of the rotated rectangle: the collider then contains every visible
-    /// corner at any angle, instead of colliding where the model is not and
-    /// passing through where it is.
+    /// The axis-aligned envelope contains all eight local box corners after
+    /// authored yaw, pitch, roll and scale. Negative Y remains intentional;
+    /// the collider never grounds or otherwise changes the saved pose.
     #[must_use]
     fn solid_collider(&self, surfaces: &LevelSurfaces<'_>) -> Option<WallAabb> {
         if !self.solid || self.is_physics_movable() {
@@ -8300,15 +8437,14 @@ impl PropDef {
             return None;
         }
         let base_y = surfaces.floor_y_at(self.x, self.z).unwrap_or(0.0);
-        let (extent_x, extent_z) =
-            rotated_half_extents(size[0] * 0.5, size[2] * 0.5, self.rotation_degrees);
+        let bounds = self.placement_bounds(base_y, self.size.unwrap_or(PROP_FALLBACK_SIZE));
         Some(WallAabb::with_y(
-            self.x - extent_x,
-            base_y + self.y,
-            self.z - extent_z,
-            extent_x * 2.0,
-            size[1],
-            extent_z * 2.0,
+            bounds.min[0],
+            bounds.min[1],
+            bounds.min[2],
+            bounds.max[0] - bounds.min[0],
+            bounds.max[1] - bounds.min[1],
+            bounds.max[2] - bounds.min[2],
         ))
     }
 }

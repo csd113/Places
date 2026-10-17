@@ -564,11 +564,11 @@ impl FrameLoop<'_> {
                 .renderer
                 .rigid_runtime_model_bounds(&prop.model)
                 .and_then(|(min, max)| {
-                    self.items.world.install_fixed_shape(
+                    self.items.world.install_fixed_shape_oriented(
                         def,
                         (Vec3::from_array(min), Vec3::from_array(max)),
                         position,
-                        prop.rotation_degrees.to_radians(),
+                        prop.orientation(),
                         prop.scale,
                     )
                 });
@@ -597,12 +597,12 @@ impl FrameLoop<'_> {
                 .renderer
                 .rigid_runtime_model_bounds(&prop.model)
                 .and_then(|(min, max)| {
-                    self.items.world.spawn_authored(
+                    self.items.world.spawn_authored_oriented(
                         key,
                         def,
                         (Vec3::from_array(min), Vec3::from_array(max)),
                         position,
-                        prop.rotation_degrees.to_radians(),
+                        prop.orientation(),
                         prop.scale,
                     )
                 });

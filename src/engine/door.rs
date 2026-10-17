@@ -87,6 +87,9 @@ pub struct DoorRuntime {
     base_y: f32,
     /// Current angle from the closed pose, in degrees; signed like the swing.
     angle: f32,
+    /// Chosen open endpoint. Kept through an interrupted close/reopen so the
+    /// leaf never changes swing halfway through the occupant's body.
+    open_angle: f32,
     phase: DoorPhase,
     /// True while the last advance was blocked.
     pub obstructed: bool,
@@ -113,6 +116,7 @@ impl DoorRuntime {
             def: def.clone(),
             base_y,
             angle,
+            open_angle: def.signed_swing(),
             phase,
             obstructed: false,
             locked: def.locked,
@@ -190,6 +194,32 @@ impl DoorRuntime {
         true
     }
 
+    /// Opens away from a world-space occupant for a bidirectional leaf. Only
+    /// a fully closed leaf chooses a new side; an interrupted swing retains it.
+    pub fn request_open_from(&mut self, origin: Option<glam::Vec3>) -> bool {
+        if self.locked || matches!(self.phase, DoorPhase::Opening | DoorPhase::Open) {
+            return false;
+        }
+        if self.phase == DoorPhase::Closed {
+            self.choose_open_side(origin);
+        }
+        self.request_open()
+    }
+
+    fn choose_open_side(&mut self, origin: Option<glam::Vec3>) {
+        self.open_angle = self.def.signed_swing();
+        let Some(occupant) = origin.filter(|point| point.is_finite() && self.def.bidirectional)
+        else {
+            return;
+        };
+        let (dx, dz) = self.def.closed_direction();
+        let side = (occupant.x - self.def.x).mul_add(-dz, (occupant.z - self.def.z) * dx);
+        if side.abs() > 1.0e-4 {
+            // Positive yaw moves the latch toward the negative closed normal.
+            self.open_angle = self.def.swing_degrees.abs().copysign(side);
+        }
+    }
+
     /// Requests the closed end.
     pub const fn request_close(&mut self) -> bool {
         if matches!(self.phase, DoorPhase::Closing | DoorPhase::Closed) {
@@ -211,6 +241,15 @@ impl DoorRuntime {
         true
     }
 
+    /// Toggle using the occupant's side when starting a new opening.
+    pub fn toggle_from(&mut self, origin: Option<glam::Vec3>) -> bool {
+        if matches!(self.phase, DoorPhase::Closed | DoorPhase::Closing) {
+            self.request_open_from(origin)
+        } else {
+            self.request_close()
+        }
+    }
+
     /// Forces the phase to an end state immediately (a reset).
     pub fn reset(&mut self) {
         let (angle, phase) = match self.def.initial_state {
@@ -218,6 +257,7 @@ impl DoorRuntime {
             DoorStartState::Open => (self.def.signed_swing(), DoorPhase::Open),
         };
         self.angle = angle;
+        self.open_angle = self.def.signed_swing();
         self.phase = phase;
         self.obstructed = false;
         self.locked = self.def.locked;
@@ -243,7 +283,7 @@ impl DoorRuntime {
         }
         self.reverse_guard = (self.reverse_guard - delta).max(0.0);
         let target = match self.phase {
-            DoorPhase::Opening => self.def.signed_swing(),
+            DoorPhase::Opening => self.open_angle,
             DoorPhase::Closing | DoorPhase::Closed | DoorPhase::Open => 0.0,
         };
         let speed = match self.phase {
@@ -381,10 +421,15 @@ impl Doors {
     /// `false` exactly like an already-open door, so callers that need the
     /// distinction use [`Self::index_of`].
     pub fn request_open(&mut self, id: &str) -> bool {
+        self.request_open_from(id, None)
+    }
+
+    /// Opens a named leaf away from an eligible occupant, when configured.
+    pub fn request_open_from(&mut self, id: &str, origin: Option<glam::Vec3>) -> bool {
         let changed = self
             .index_of(id)
             .and_then(|index| self.runtimes.get_mut(index))
-            .is_some_and(DoorRuntime::request_open);
+            .is_some_and(|door| door.request_open_from(origin));
         if changed {
             self.bump();
         }
@@ -427,10 +472,15 @@ impl Doors {
     /// Flips the door called `id` between its ends. Returns whether a phase
     /// change was requested.
     pub fn toggle(&mut self, id: &str) -> bool {
+        self.toggle_from(id, None)
+    }
+
+    /// Toggle a named leaf, selecting the occupant's side from closed.
+    pub fn toggle_from(&mut self, id: &str, origin: Option<glam::Vec3>) -> bool {
         let changed = self
             .index_of(id)
             .and_then(|index| self.runtimes.get_mut(index))
-            .is_some_and(DoorRuntime::toggle);
+            .is_some_and(|door| door.toggle_from(origin));
         if changed {
             self.bump();
         }

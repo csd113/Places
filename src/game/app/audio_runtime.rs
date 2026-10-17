@@ -257,15 +257,17 @@ impl FrameLoop<'_> {
         time_domain: TimeDomain,
     ) {
         let position = source_position(entity, self.game.entities(), &self.items);
+        let spatial = self.game.entities().audio_source_spatial(entity);
         let played = self.audio.system.play(
             sound,
             PlayRequest {
                 source: Some(SourceId(entity)),
                 position,
+                spatial,
                 gain,
                 looping: Some(looping),
                 time_domain,
-                bus: if looping {
+                bus: if looping || spatial == Some(false) {
                     AudioBus::Ambient
                 } else {
                     AudioBus::Effects

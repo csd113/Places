@@ -21,6 +21,12 @@ use std::fmt;
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct EntityId(String);
 
+impl std::borrow::Borrow<str> for EntityId {
+    fn borrow(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl EntityId {
     /// Wraps a validated authored id.
     #[must_use]
@@ -279,7 +285,7 @@ impl EntityNames {
     /// The handle currently bound to `id`, if the binding is still live.
     #[must_use]
     pub fn get(&self, id: &str) -> Option<EntityHandle> {
-        self.by_id.get(&EntityId::new(id)).copied()
+        self.by_id.get(id).copied()
     }
 
     /// The authored id bound to `handle`, if any.
@@ -290,7 +296,7 @@ impl EntityNames {
 
     /// Removes one binding.
     pub fn remove(&mut self, id: &str) -> Option<EntityHandle> {
-        let handle = self.by_id.remove(&EntityId::new(id))?;
+        let handle = self.by_id.remove(id)?;
         drop(self.by_handle.remove(&handle));
         Some(handle)
     }
@@ -310,7 +316,7 @@ impl EntityNames {
     /// True when `id` already has a binding.
     #[must_use]
     pub fn contains(&self, id: &str) -> bool {
-        self.by_id.contains_key(&EntityId::new(id))
+        self.by_id.contains_key(id)
     }
 
     /// Drops every binding.

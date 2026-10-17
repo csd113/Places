@@ -16,7 +16,7 @@ pub(in crate::editor) fn draw_library(
         if materials {
             "BUILT-IN MATERIALS / apply to selection"
         } else {
-            "BUILT-IN PROPS / select then + Prop"
+            "BUILT-IN MODELS / apply or select next prop"
         },
         140.0,
         73.0,
