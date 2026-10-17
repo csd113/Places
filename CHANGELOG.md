@@ -1,5 +1,11 @@
 ## 0.11.0 — 2026-10-17
 
+Source prerelease of the completed renderer, shader, flashlight, console, sound,
+fixture, caustics, loading, settings and entity/navigation queue. See the
+[release summary](docs/reports/release-0.11.0.md) for consolidated validation,
+issue completion and compatibility limits. No platform binaries or compiled maps
+are attached; native acceptance covers macOS/Metal.
+
 ### Entity updates and navigation correctness
 
 - Keep sequence starts, replacement, cancellation, completion keys and reset
@@ -43,8 +49,6 @@
   retained lighting after package replacement. See
   [the loading/resource report](docs/reports/loading-0.11.0.md) for evidence and limits.
 
-Development staging; this version has not been published.
-
 ### Source-aware water caustics
 
 - Tie focused-water light to explicit pool, sunlight and authored source eligibility;
@@ -73,6 +77,8 @@ Development staging; this version has not been published.
   Office, Pool, Home and Aero examples; add persisted Audio volume/mute controls.
 - [Architecture, acceptance and limits](docs/reports/sound-0.11.0.md);
   [sound provenance and authoring](docs/assets/AUDIO.md).
+- The user listened to the native sound clip and accepted it. Physical output
+  device unplug/replug remains untested.
 
 ### Developer console and reusable gameplay actions
 
@@ -98,6 +104,11 @@ Development staging; this version has not been published.
   [Native evidence and investigation](docs/reports/flashlight-0.11.0.md).
 
 ### Rust automated-test retirement
+
+This records the retirement stage. Later audio, console, loading, settings and
+entity/navigation work added essential CPU regressions under the owning test
+folders; the final release has 67 passing CPU tests. Full-map baking remains
+outside ordinary Rust tests and CI.
 
 - Remove all 2,377 project-owned Rust test functions, including ignored/native
   controls, the renderer/shader additions, three integration targets, test-only

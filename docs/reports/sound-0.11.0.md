@@ -103,8 +103,11 @@ Eight direct-executable native campaigns pass on Apple M2 Pro / Metal:
 Native captures contain finite, nonzero **48 kHz stereo output PCM**, with zero
 capture drops in accepted runs. These observations establish actual callback
 output and accepted playback; they do not establish perceived sound quality.
-Human listening remains a separate acceptance step because this execution
-environment cannot listen to its audio input. The [fixture clip](../videos/sound-0.11.0-fixture-native.mp4)
+Human listening was a separate acceptance step because this execution
+environment cannot listen to its audio input. During final release acceptance,
+the user listened to the native clip and answered **“Listened — acceptable”**.
+That confirms listening acceptance without claiming physical unplug/replug or
+cross-platform device validation. The [fixture clip](../videos/sound-0.11.0-fixture-native.mp4)
 contains 360 real native frames and the playback callback's PCM, with no
 microphone or substituted soundtrack. Per-frame presentation timestamps follow
 the recorded output-audio clock (maximum mux quantization error 0.21 ms).

@@ -60,8 +60,8 @@ changed in Settings; Escape always pauses.
 
 ## About this version
 
-**Places 0.10.0** is a prerelease. Current native validation is on
-macOS with Metal. The [release summary](docs/reports/release-0.10.0.md) records
+**Places 0.11.0** is a prerelease. Current native validation is on
+macOS with Metal. The [release summary](docs/reports/release-0.11.0.md) records
 what was checked and the remaining limitations.
 
 The images and walking footage above were captured from the native 0.9.0 game.
