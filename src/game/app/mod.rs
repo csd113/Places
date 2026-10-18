@@ -2082,6 +2082,8 @@ impl FrameLoop<'_> {
                 id,
                 yaw_offset_degrees,
             } => self.scripted_aim_entity(&id, yaw_offset_degrees),
+            actions::Action::View { yaw, pitch } => self.scripted_view(yaw, pitch),
+            actions::Action::ViewAt { position } => self.scripted_view_at(position),
             actions::Action::Text { text, submit } => {
                 self.scripted_text(text, submit);
             }

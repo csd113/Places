@@ -11,9 +11,9 @@ use crate::engine::loader::PropCatalog;
 use crate::engine::props::PropAssets;
 use crate::engine::spatial::Aabb;
 
-/// One millimetre separates mounting backs from their carrier to avoid depth
-/// flicker without the previous centimetre of visible ceiling-fixture floating.
-const CLEARANCE: f32 = 0.001;
+/// Two millimetres separate mounting backs from their carrier, beyond the
+/// geometry checker's 1.5 mm coplanarity tolerance without visible floating.
+const CLEARANCE: f32 = 0.002;
 
 impl Document {
     /// Mounts a prop to its floor or a fixture to its declared ceiling/wall.

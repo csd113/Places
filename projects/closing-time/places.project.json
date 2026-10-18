@@ -1,0 +1,15 @@
+{
+  "entry_level": "closing_time",
+  "id": "closing_time",
+  "levels": [
+    {
+      "id": "closing_time",
+      "source": "levels/closing_time.json"
+    }
+  ],
+  "name": "Closing Time",
+  "project_format": 1,
+  "schema": "places-project",
+  "author": "Places / Connor",
+  "description": "The last shift at a deserted arcade and bowling alley."
+}

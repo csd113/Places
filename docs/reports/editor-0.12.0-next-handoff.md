@@ -2,7 +2,10 @@
 
 Stay on `0.12.0-staging`. No main merge, release, branch deletion, `.app`
 packaging/launch or roadmap stage 8/9 work is authorized by this handoff.
-The navigation pass stops here; the next task is Closing Time.
+Closing Time is the authored mode covered by `editor-0.12.0-closing-time.md`.
+Its final local receipt is
+`local/verification/0.12.0-closing-time/closing-time-handoff.json`.
+Hand control back after this mode; do not automatically start the following queue.
 
 ## Current handoff and runnable tools
 
@@ -51,12 +54,14 @@ binaries outside `target`, and check for other active work before cleaning it.
    complete mechanics/objectives/win/death/reset; atmosphere/readability/pacing/fair
    creature behavior; then final gameplay/visual/performance polish. Each pass must
    actually verify win, death and reset and record findings/changes.
-3. Both demos need practical future-improvements reports: concrete editor gaps
+3. Both demos need practical discovered-gap and future-improvements reports: concrete editor gaps
    requiring manual level/Luau edits, missing/unimplemented helpful sounds, and
    useful lighting/AI/physics/engine capabilities. Each item names its encounter or
    workflow, workaround and proposed improvement. Deduplicate shared items and
    distinguish intentional ordinary Luau authoring from a real editor limitation.
-   Reporting is not permission to implement every suggestion.
+   The later combined implementation/safety task is authorized to implement the
+   requested discovered fixes/limitations, then safety-check and replay both modes;
+   optional unrelated expansion still needs separate scope.
 4. After both game maps are made, integrate accepted finished 37 Home/shared
    models and rebuilt rubber duck,
    plus the new supply/janitor closet environment set when its separate cloud
@@ -75,7 +80,14 @@ binaries outside `target`, and check for other active work before cleaning it.
    carry idle/walk, sit/stand and seated idle animations. Wait for that worker's
    verified finished delivery; do not edit the mannequin in the navigation task.
    Initial game-mode authoring still uses the currently installed assets.
-5. Run the dedicated Luau/map-import safety review using **both finished modes**
+5. After updated asset integration, perform the separately requested **editor
+   readability pass**: sharpen text rendering and button legibility, improve
+   sizing/contrast and physical/logical window/display scaling while preserving
+   the uncluttered layout. Do not interrupt either map to implement this pass.
+6. Implement the concrete fixes and limitations discovered during **both map
+   creations**, using their reports as reproduction/impact/workaround/correction
+   inputs. Distinguish required corrections from optional unrelated ideas. Then
+   run the dedicated Luau/map-import safety review using **both finished modes**
    and malicious small fixtures. Reassess VM execution/memory/action budgets,
    scoped callback/reset lifetimes, in-process/cooperative limitations, archive
    paths/sizes/decompression, sources/images and publication failures in release

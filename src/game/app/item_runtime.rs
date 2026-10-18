@@ -320,6 +320,8 @@ impl FrameLoop<'_> {
                 speed: _,
                 strength: _,
             }
+            | crate::game::app::actions::Action::View { yaw: _, pitch: _ }
+            | crate::game::app::actions::Action::ViewAt { position: _ }
             | crate::game::app::actions::Action::Focus { focused: _ }
             | crate::game::app::actions::Action::Quit {} => {}
         }

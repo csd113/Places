@@ -1,5 +1,14 @@
 ## 0.12.0 — in progress
 
+- Add **Closing Time**, an editable single-map arcade/bowling closing shift: three
+  reversible physical returns, three power circuits, gradual ambience shutdown,
+  a concise completion state and reliable restart through project-local Luau.
+  Record genuine native editor authoring, complete native acceptance and source
+  recovery. See [the authoring report](docs/reports/editor-0.12.0-closing-time.md).
+- Fit mounted surfaces outside the geometry checker’s coplanarity tolerance,
+  protected by one tiny editor regression. Add bounded camera-only native
+  acceptance controls for ordinary movement/pickup playthroughs.
+
 - Bake layered navigation for stacked floors, with per-body clearance and
   explicit collision-probed ramp/step links. Load navigation record 2 deliberately;
   older compiled navigation requires recompilation from source.

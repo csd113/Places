@@ -38,6 +38,16 @@ pub enum Action {
         yaw: f32,
         pitch: f32,
     },
+    /// Camera orientation only, for native playthroughs using ordinary movement
+    /// and interaction input without prescribing the player's position.
+    View {
+        yaw: f32,
+        pitch: f32,
+    },
+    /// Aim from the actual eye at a world point without moving any actor.
+    ViewAt {
+        position: [f32; 3],
+    },
     /// Gives an installed actor a diagnostic goal through its normal planner
     /// and collision-respecting mover; never changes its position.
     NavigationGoal {
@@ -124,6 +134,18 @@ struct Step {
 
 fn validate_pose_action(action: &Action) -> Result<(), String> {
     validate_caustics_action(action)?;
+    if let Action::View { yaw, pitch } = action
+        && (!yaw.is_finite() || !pitch.is_finite() || pitch.abs() > 85.0)
+    {
+        return Err("Native view requires finite angles and pitch within 85 degrees".into());
+    }
+    if let Action::ViewAt { position } = action
+        && position
+            .iter()
+            .any(|value| !value.is_finite() || value.abs() > 100_000.0)
+    {
+        return Err("Native view target requires finite bounded coordinates".into());
+    }
     if let Action::NavigationGoal { id, position } = action
         && (id.is_empty()
             || id.len() > 256
@@ -290,6 +312,14 @@ fn validate_key_action(action: &Action) -> Result<(), String> {
     Ok(())
 }
 
+fn valid_capture_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && name
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
+}
+
 fn validate_action(action: &Action) -> Result<(), String> {
     validate_key_action(action)?;
     match action {
@@ -321,13 +351,7 @@ fn validate_action(action: &Action) -> Result<(), String> {
         } if button != "left" => {
             return Err("Native item mouse action supports the left button".to_string());
         }
-        Action::Capture { name }
-            if name.is_empty()
-                || name.len() > 64
-                || !name
-                    .chars()
-                    .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-')) =>
-        {
+        Action::Capture { name } if !valid_capture_name(name) => {
             return Err("Capture name must be a short filename stem".to_string());
         }
         Action::ConsoleEnabled { enabled: _ }
@@ -342,6 +366,8 @@ fn validate_action(action: &Action) -> Result<(), String> {
             yaw: _,
             pitch: _,
         }
+        | Action::View { yaw: _, pitch: _ }
+        | Action::ViewAt { position: _ }
         | Action::NavigationGoal { id: _, position: _ }
         | Action::ItemPose {
             id: _,

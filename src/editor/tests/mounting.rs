@@ -129,3 +129,52 @@ fn mounting_uses_actual_base_top_and_back_with_carrier_normal() -> Result<(), St
     );
     Ok(())
 }
+
+#[test]
+fn mounted_panel_is_not_reported_as_a_duplicate_surface() -> Result<(), String> {
+    // Closing Time exposed an actual mount/checker conflict: the old 1 mm
+    // clearance was reported as a confirmed duplicate. Two tiny mesh checks
+    // protect the shared operation without assets, lighting or a map bake.
+    let mut mounted_scene = scene()?;
+    mounted_scene.ramps.clear();
+    let panel = ceiling_mount(
+        &mounted_scene,
+        pose([4.0, 3.0, 4.0]),
+        Aabb {
+            min: [-0.6, -0.1, -0.3],
+            max: [0.6, 0.0, 0.3],
+        },
+        None,
+    )?;
+    mounted_scene.ceiling_lights.push(
+        serde_json::from_value(serde_json::json!({
+            "fixture":"core:fluorescent_panel_01","x":4.0_f32,"z":4.0_f32,
+            "y":panel.position[1],"align":"none"
+        }))
+        .map_err(|error| error.to_string())?,
+    );
+    let mounted_report =
+        crate::map_compiler::geometry_check::check_level(&mounted_scene, "mounted panel", true);
+    assert!(
+        !mounted_report
+            .findings
+            .iter()
+            .any(|finding| finding.check == "duplicate-surface"),
+        "an ordinary mounted fixture must pass the production coplanarity checker"
+    );
+    mounted_scene
+        .ceiling_lights
+        .first_mut()
+        .ok_or("Missing panel")?
+        .y = Some(4.0);
+    let touching_report =
+        crate::map_compiler::geometry_check::check_level(&mounted_scene, "touching panel", true);
+    assert!(
+        touching_report
+            .findings
+            .iter()
+            .any(|finding| finding.check == "duplicate-surface"),
+        "the regression must still detect a genuinely coincident fixture face"
+    );
+    Ok(())
+}

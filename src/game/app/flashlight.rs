@@ -124,6 +124,26 @@ impl crate::game::app::FrameLoop<'_> {
         crate::engine::render::RenderCamera::new(eye, yaw, pitch, self.settings.fov_degrees)
     }
 
+    pub const fn scripted_view(&mut self, yaw: f32, pitch: f32) {
+        self.game.player_yaw = yaw.to_radians();
+        self.game.player_pitch = pitch.to_radians();
+    }
+
+    pub fn scripted_view_at(&mut self, position: [f32; 3]) {
+        let eye = self.game.player_position;
+        let direction = Vec3::new(
+            position[0] - eye.x,
+            position[1] - eye.y,
+            position[2] - eye.z,
+        )
+        .normalize_or_zero();
+        self.game.player_yaw = direction.x.atan2(-direction.z);
+        self.game.player_pitch = direction
+            .y
+            .asin()
+            .clamp(-crate::game::MAX_PITCH, crate::game::MAX_PITCH);
+    }
+
     pub fn scripted_aim_entity(&mut self, id: &str, yaw_offset_degrees: f32) {
         let position = self
             .game
