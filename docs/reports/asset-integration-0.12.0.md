@@ -133,8 +133,10 @@ bakes are not throughput evidence.
 
 The installed GLB is byte-for-byte approved SHA-256
 `6627807d4cddf7331cc7f96b03adb43f3686af71366bc8dc257f881b6ddf1156`:
-2,412 triangles, 4,340 vertices, 37 joints and 19 clips. All 19 previous named
-nodes, including 17 body joints, retain exact rest transforms. All six original
+2,412 triangles, 4,340 vertices, 37 joints and 19 clips. All 17 original body joints retain exact names and rest transforms. The rig
+wrapper remains unchanged. The identity render-mesh node is renamed from
+`mannequin` to `mannequin_skin`; existing maps do not target that old mesh node
+as a socket. Its rest placement remains identical. All six original
 clip names remain; 20 finger descendants and 13 clips are added. The exact
 1024² opaque fitted PNG is committed and matches the embedded image. Previous
 accepted GLB/ledger values are preserved once in `Integration/previous-mannequin/`.
@@ -163,7 +165,14 @@ holds, continuing loops, clamped one-shot ends, ordinary standing/walk/run,
 finite roots, single baked door displacement and actual hand/finger light
 attachment. Six fresh mode replays pass: Beam win, beam/occlusion, double death
 with immediate reset, upper-floor/door patrol; Closing Time win and item/reset
-edges. Full native views preserve material/normal presentation and black tint.
+edges. High and Low native flashlight/ambient views preserve material/normal
+presentation and black tint. The native editor selected R2 through its visible
+asset picker, placed it at metre scale, saved and reopened the placement with
+all routes retained; six editor persistence checks pass. All six delivered
+packages validate, and the R2 project sources recover byte-for-byte. The exact
+final direct binaries are preserved outside `target`; after confirming no active
+target users, `cargo clean` removed 5.5 GiB. A post-clean direct import/render
+smoke passes all 27 review actors without recreating target.
 
 The first gallery and Beam win attempts lost macOS window focus. Retries use
 the existing SDL window-raise control; Beam's accepted win trace records nine
@@ -205,5 +214,11 @@ task was started here. Asset rebuild issue #24 stays open for remaining work.
 
 Phase 1 was committed/pushed as `17bd17854f3e59d9933a1ab76d3a8ce88540b17c`;
 [CI 39104545890](https://github.com/csd113/Places/actions/runs/39104545890)
-passed on that exact head, including the two completed games. Follow-on R2
-publication and final native/cleanup receipts are recorded with the handoff.
+passed on that exact head, including the two completed games. Approved R2 was
+committed/pushed as `13bc4a0d959ce25afe6322f2fa2dfb2c066ec941`;
+[CI 39107602119](https://github.com/csd113/Places/actions/runs/39107602119)
+also passed on that exact head, including production build, declared-clip checks,
+asset generators and Python contracts. Final native/editor/material, source-path,
+post-clean and preserved-payload receipts are indexed in the delivery handoff.
+The final documentation receipt adds no code or assets and skips a redundant CI
+run. No main merge or release was performed.
