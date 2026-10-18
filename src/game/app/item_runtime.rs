@@ -830,3 +830,117 @@ fn trigger_items<'a>(
         })
     })
 }
+
+impl Items {
+    pub(super) fn append_authoring_debug(
+        &self,
+        vertices: &mut Vec<crate::engine::render::Vertex>,
+        game: &crate::game::Game,
+        camera: &crate::engine::render::RenderCamera,
+        drawable: crate::engine::render::DrawableSize,
+    ) {
+        let mut nearest = None;
+        self.world.for_each_trigger_body(|body| {
+            let centre = body.centre_path().last().copied().unwrap_or(body.current);
+            let offset = Vec3::new(
+                centre.x - game.player_position.x,
+                centre.y - game.player_position.y,
+                centre.z - game.player_position.z,
+            );
+            if offset.length_squared() > 144.0 || offset.dot(game.view_direction()) < 0.0 {
+                return;
+            }
+            let rank = if body.held {
+                0.0
+            } else {
+                offset.length_squared()
+            };
+            if nearest
+                .as_ref()
+                .is_none_or(|(previous, _, _)| rank < *previous)
+            {
+                nearest = Some((rank, body, centre));
+            }
+        });
+        let Some((_, body, centre)) = nearest else {
+            return;
+        };
+        let Some((_, instance, asset)) = self.authored.iter().find(|(key, _, _)| *key == body.key)
+        else {
+            return;
+        };
+        let state = if body.held {
+            "held"
+        } else if self.world.body_is_dormant(body.key) {
+            "dormant"
+        } else if body.sleeping {
+            "sleeping"
+        } else {
+            "awake"
+        };
+        super::world_labels::append_authoring_marker(
+            vertices,
+            &format!(
+                "{instance}: {state} centre {:.3} {:.3} {:.3}",
+                centre.x, centre.y, centre.z
+            ),
+            centre,
+            camera,
+            drawable,
+        );
+        let item = crate::engine::entities::volumes::TriggerItem {
+            key: body.key,
+            instance,
+            asset,
+            from: body.previous,
+            to: body.current,
+            half_extents: body.half_extents,
+            held: body.held,
+            sleeping: body.sleeping,
+            path: Some(body.path()),
+            centre_path: Some(body.centre_path()),
+        };
+        for (id, min, max, accepted) in game
+            .entities()
+            .developer_item_receipts(&item)
+            .into_iter()
+            .take(4)
+        {
+            super::world_labels::append_authoring_box(
+                vertices, min, max, accepted, camera, drawable,
+            );
+            super::world_labels::append_authoring_marker(
+                vertices,
+                &format!(
+                    "{id}: {}",
+                    if accepted {
+                        "eligible now"
+                    } else {
+                        "outside / filter / awake"
+                    }
+                ),
+                Vec3::from_array(max),
+                camera,
+                drawable,
+            );
+        }
+    }
+    pub(super) fn append_release_hint(&self, vertices: &mut Vec<crate::engine::render::Vertex>) {
+        if (self.release_blocked || self.world.held_movement_blocked())
+            && self.world.held().is_some()
+        {
+            crate::game::ui::draw_text(
+                vertices,
+                if self.release_blocked {
+                    "RELEASE BLOCKED - move item clear of contact"
+                } else {
+                    "HELD MOVEMENT BLOCKED - move clear of contact"
+                },
+                24.0,
+                238.0,
+                0.75,
+                [0.9, 0.75, 0.5],
+            );
+        }
+    }
+}

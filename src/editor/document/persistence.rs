@@ -18,6 +18,8 @@ pub(super) struct LevelDocument {
     pub(super) level: LevelDef,
     pub(super) byte_count: usize,
     pub(super) history: History,
+    pub(super) objects: Vec<super::ObjectInfo>,
+    pub(super) dirty: bool,
     path: PathBuf,
     saved: Value,
     disk_bytes: Vec<u8>,
@@ -33,6 +35,8 @@ impl LevelDocument {
         // The typed view is read through ProjectFolder, but never serialized.
         let byte_count = disk_bytes.len();
         Ok(Self {
+            objects: super::objects::enumerate(&level),
+            dirty: false,
             saved: raw.clone(),
             raw,
             level,
@@ -43,8 +47,13 @@ impl LevelDocument {
         })
     }
 
-    pub(super) fn is_dirty(&self) -> bool {
-        self.raw != self.saved
+    pub(super) fn update_view(&mut self) {
+        self.dirty = self.raw != self.saved;
+        self.objects = super::objects::enumerate(&self.level);
+    }
+
+    pub(super) const fn is_dirty(&self) -> bool {
+        self.dirty
     }
 
     pub(super) fn preflight(&self, project: &ProjectFolder) -> Result<(), String> {
@@ -79,6 +88,7 @@ impl LevelDocument {
         atomic_replace(&self.path, &bytes)?;
         self.disk_bytes = bytes;
         self.saved = self.raw.clone();
+        self.dirty = false;
         Ok(())
     }
 }

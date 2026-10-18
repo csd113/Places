@@ -630,7 +630,7 @@ pub(super) fn object_mut(raw: &mut Value, id: ObjectId) -> Result<&mut Map<Strin
         .ok_or_else(|| "The selected object no longer exists".into())
 }
 
-pub(super) fn array_mut<'a>(
+pub(in crate::editor) fn array_mut<'a>(
     raw: &'a mut Value,
     collection: &str,
 ) -> Result<&'a mut Vec<Value>, String> {

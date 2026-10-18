@@ -1808,7 +1808,7 @@ impl Checker<'_> {
                 // solid semantics the checker cannot tell them apart,
                 // so this stays a heuristic warning.
                 self.push_surfaces(
-                    "reversed-face",
+                    opposite_plane_check(a, b),
                     Severity::Warning,
                     format!("{:?} m{}", a.key.kind, a.key.material),
                     format!(
@@ -4853,4 +4853,15 @@ pub fn dispatch_cli(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         Err(error) => exit_usage(&error),
     }
     Ok(())
+}
+
+const fn opposite_plane_check(a: &Tri, b: &Tri) -> &'static str {
+    if matches!(
+        (a.key.kind, b.key.kind),
+        (SurfaceKind::Floor, SurfaceKind::Ceiling) | (SurfaceKind::Ceiling, SurfaceKind::Floor)
+    ) {
+        "shared-storey-plane"
+    } else {
+        "reversed-face"
+    }
 }

@@ -390,7 +390,12 @@ impl EntityRoute {
                     self.block(state, "a wall blocks the path");
                     return;
                 }
-                let Some(floor_y) = world.floor.walk_height_at(resolved.x, resolved.y) else {
+                let Some(floor_y) = world.floor.walk_height_near(
+                    resolved.x,
+                    resolved.y,
+                    state.position.y,
+                    self.step_height,
+                ) else {
                     self.block(state, "the path leaves every walkable floor");
                     return;
                 };

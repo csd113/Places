@@ -7,6 +7,8 @@ mod fog;
 mod gameplay;
 mod geometry;
 mod history;
+mod local_floor;
+pub(super) use objects::array_mut as record_array_mut;
 pub(crate) mod intent;
 mod mounting;
 mod objects;
@@ -130,8 +132,8 @@ impl Document {
     }
 
     #[must_use]
-    pub fn objects(&self) -> Vec<ObjectInfo> {
-        objects::enumerate(self.level())
+    pub fn objects(&self) -> &[ObjectInfo] {
+        &self.selected.objects
     }
 
     /// Changes this map's crosshair default through ordinary undo/save history.
@@ -314,6 +316,7 @@ impl Document {
         self.selected.history.edit(old, self.selected.byte_count);
         self.selected.byte_count = byte_count;
         self.selected.level = level;
+        self.selected.update_view();
         Ok(())
     }
 
@@ -355,6 +358,7 @@ impl Document {
         };
         self.selected.raw = raw;
         self.selected.level = level;
+        self.selected.update_view();
         self.selected.byte_count = byte_count;
         true
     }
@@ -367,7 +371,7 @@ impl Document {
     }
 
     #[must_use]
-    pub fn selected_is_dirty(&self) -> bool {
+    pub const fn selected_is_dirty(&self) -> bool {
         self.selected.is_dirty()
     }
 

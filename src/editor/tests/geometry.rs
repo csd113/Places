@@ -348,3 +348,32 @@ fn sideways_desk_round_trip_and_undo_preserve_intentional_intersection() -> Resu
     assert_eq!(document.transform(desk)?, tilted);
     Ok(())
 }
+
+// A global patch formerly changed every overlapping storey. This small two-room
+// fixture uniquely protects local ownership, fixed ceiling height and atomic
+// history/source recovery. It does no asset loading, physics step or map bake.
+#[test]
+fn local_floor_override_preserves_other_storeys_and_ceiling() -> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut doc = Document::open(&fixture.0)?;
+    let upper = doc.add_upper_floor(ObjectId::Room(0))?;
+    let ObjectId::Room(index) = upper else {
+        return Err("Expected upper room".into());
+    };
+    let before = doc.raw().clone();
+    let patch = serde_json::json!({"x":2_f32,"z":2_f32,"width":2_f32,"depth":2_f32,"offset_y":0.2_f32,"material":"core:tile"});
+    let candidate = doc.local_floor_candidate(index, &patch)?;
+    doc.apply_authoring_edit(&before, candidate)?;
+    assert_eq!(doc.raw().pointer("/rooms/0"), before.pointer("/rooms/0"));
+    let local = doc.level().rooms.last().ok_or("Missing local section")?;
+    assert!((local.floor_y - 4.2).abs() < 1.0e-5);
+    assert!((local.eave_y() - 8.0).abs() < 1.0e-5);
+    assert!(doc.undo());
+    assert_eq!(doc.raw(), &before);
+    assert!(doc.redo());
+    doc.save_all()?;
+    let recovered = Document::open(&fixture.0)?;
+    assert_eq!(doc.raw(), recovered.raw());
+    assert_eq!(doc.raw().get("future_scene"), before.get("future_scene"));
+    Ok(())
+}

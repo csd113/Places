@@ -132,7 +132,7 @@ pub const REGISTRY: &[CommandSpec] = &[
         description: "Activate an authored trigger or show nearby IDs.",
         help: &[
             "IDs must name actionable trigger volumes; ordinary item/entity IDs are not triggers. Existing bindings, cooldowns and one-shot rules apply.",
-            "Show toggles a bounded, occlusion-checked nearby view-cone overlay. /trigger show off hides it; flashlight power is irrelevant.",
+            "Show toggles nearby trigger IDs plus the nearest authored item centre, sleep/held state and exact receipt bands. Green bands mean eligible occupancy now, not completed script conditions. /trigger show off hides them.",
         ],
     },
     CommandSpec {

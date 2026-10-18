@@ -30,6 +30,9 @@ pub const MAX_SCRIPT_REFERENCES: usize = 256;
 pub struct ProjectLevel {
     pub id: String,
     pub source: ProjectPath,
+    /// Optional menu title, read without loading inactive world semantics.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub display_name: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub description: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -112,6 +115,7 @@ impl ProjectManifest {
                     level.id
                 ));
             }
+            validate_text(&level.display_name, 256, true)?;
             validate_text(&level.description, 4096, true)?;
             validate_thumbnail(level.thumbnail.as_ref())?;
             validate_scripts(&level.scripts, &mut script_count)?;

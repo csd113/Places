@@ -5,6 +5,7 @@
 //! ordinary validated history.
 
 mod boundaries;
+mod items;
 mod models;
 
 #[cfg(test)]
@@ -176,7 +177,13 @@ pub fn analyze(level: &LevelDef, raw: &Value) -> SafetyReport {
                     category: category(finding.check),
                     severity: match finding.severity {
                         Severity::Error => SafetySeverity::Error,
-                        Severity::Warning => SafetySeverity::Warning,
+                        Severity::Warning => {
+                            if finding.check == "shared-storey-plane" {
+                                SafetySeverity::Info
+                            } else {
+                                SafetySeverity::Warning
+                            }
+                        }
                     },
                     title: format!("{}: {}", finding.check, finding.id),
                     risk: corrected_risk(finding.check, finding.message),
@@ -199,6 +206,7 @@ pub fn analyze(level: &LevelDef, raw: &Value) -> SafetyReport {
         );
     }
     duplicate_wall_fixes(level, raw, &mut report);
+    items::check(&prepared, &mut report);
     boundaries::check(&prepared, &mut report);
     models::check(&prepared, &mut report);
     prioritize(&mut report.findings);

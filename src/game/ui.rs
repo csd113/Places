@@ -1154,3 +1154,65 @@ pub fn append_guidance(vertices: &mut Vec<Vertex>, title: &str, lines: &[String]
         [0.5, 0.58, 0.62],
     );
 }
+
+/// Word wraps authored guidance to the actual fixed-width panel. Long words
+/// split safely at character boundaries; authored paragraph boundaries survive.
+#[must_use]
+pub fn wrap_guidance(lines: &[String]) -> Vec<String> {
+    const WIDTH: usize = 54;
+    let mut wrapped = Vec::new();
+    for paragraph in lines.iter().flat_map(|line| line.split('\n')) {
+        let mut row = String::new();
+        for word in paragraph.split_whitespace() {
+            if !row.is_empty()
+                && row
+                    .chars()
+                    .count()
+                    .saturating_add(1)
+                    .saturating_add(word.chars().count())
+                    > WIDTH
+            {
+                wrapped.push(std::mem::take(&mut row));
+            }
+            if !row.is_empty() {
+                row.push(' ');
+            }
+            for character in word.chars() {
+                if row.chars().count() >= WIDTH {
+                    wrapped.push(std::mem::take(&mut row));
+                }
+                row.push(character);
+            }
+        }
+        wrapped.push(row.trim_end().to_owned());
+    }
+    wrapped
+}
+
+/// Guidance keeps the established dismissal keys when wrapping creates pages.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum GuidanceNavigation {
+    Dismiss,
+    Page(usize),
+    Ignored,
+}
+#[must_use]
+pub(crate) fn guidance_navigation(
+    key: sdl3::keyboard::Keycode,
+    page: usize,
+    rows: usize,
+) -> GuidanceNavigation {
+    use sdl3::keyboard::Keycode;
+    if key == Keycode::Return || key == Keycode::Escape {
+        GuidanceNavigation::Dismiss
+    } else if key == Keycode::PageDown {
+        GuidanceNavigation::Page(
+            page.saturating_add(1)
+                .min(rows.div_ceil(6).saturating_sub(1)),
+        )
+    } else if key == Keycode::PageUp {
+        GuidanceNavigation::Page(page.saturating_sub(1))
+    } else {
+        GuidanceNavigation::Ignored
+    }
+}

@@ -47,6 +47,12 @@ fn shared_storey_plane_keeps_upper_items_carryable_and_unshared_ceiling_solid() 
         0.0,
         1.0,
     )?;
+    assert!(
+        world
+            .body_penetration_depth(1)
+            .is_some_and(|depth| depth <= 0.002),
+        "exact shared-plane contact is clear for dormant items"
+    );
     world.step(FIXED_STEP, player, &[]);
     assert!(world.pickup(1, player.eye, player.view, player.yaw));
     let carrying = PlayerContext {
@@ -64,6 +70,10 @@ fn shared_storey_plane_keeps_upper_items_carryable_and_unshared_ceiling_solid() 
     assert!(
         sphere.pose.position.y > 3.6,
         "the held sphere must lift out of the shared floor/ceiling plane"
+    );
+    assert!(
+        !world.held_movement_blocked(),
+        "ordinary upper-floor carrying must not report a sustained blockage"
     );
     assert!(world.throw(Vec3::NEG_Z), "a clear held sphere must release");
     assert!(world.held().is_none());

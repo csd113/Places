@@ -8820,3 +8820,23 @@ No source or binary record version changes. The separate editable
 `projects/shadow-only-review/` gallery and its opt-in native tool demonstrate
 several animated casters, an ordinary visible control, receivers, occlusion and
 range without modifying the accepted Beam game.
+
+
+### Relay Annex editor authoring follow-up (0.12.0)
+
+The editor's grouped complete-record forms expose existing stairs, guardrails,
+water, sky, snow/weather, global directional illuminators and room ceilings.
+Selected-floor overrides use explicit room sections and boundary walls, preserving
+other storeys and the original ceiling plane; legacy global patches/regions keep
+their existing all-carrier behavior. Ambiguous global modifiers are diagnosed
+before a local edit. See `EDITOR.md` for controls and preview limitations.
+
+Legacy `move_to` routes now resolve continuous support nearest the actor's current
+feet, within its permitted step. Loader path admission uses the same query as
+runtime movement, so an upper-storey route can walk without selecting the first
+lower room, and a missing upper surface cannot silently become the lower floor.
+No new route waypoint Y field, navigation contract or persistent campaign state
+is introduced. Guidance wraps prose in six-row pages; Page Up/Page Down browse; Enter/Escape
+return to Play. Shared opposite floor/ceiling faces are explicitly classified
+`shared-storey-plane`; other reversed or unbounded shaft candidates remain review
+findings, with no blanket ignore or automatic topology repair.

@@ -4,3 +4,4 @@ mod input;
 mod settings;
 
 mod crosshair;
+mod guidance;

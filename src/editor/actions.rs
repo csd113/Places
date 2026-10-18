@@ -20,6 +20,8 @@ pub(super) enum Pending {
 }
 
 pub(super) enum Popup {
+    Authoring,
+    AuthoringForm(Box<super::authoring::Draft>),
     SceneSearch(String),
     Transform(Box<super::transform::Draft>),
     Project,
@@ -78,6 +80,10 @@ pub(super) enum Popup {
 impl Popup {
     pub fn draw(&self, app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mut Vec<Hit>) {
         hits.clear();
+        if matches!(self, Self::Authoring | Self::AuthoringForm(_)) {
+            super::authoring::draw(app, v, hits);
+            return;
+        }
         if let Self::Transform(draft) = self {
             ui::transform_popup(draft, v, hits);
             return;
@@ -125,7 +131,9 @@ impl Popup {
     ) {
         match self {
             Self::SceneSearch(value) => super::selection::draw_search(v, hits, value),
-            Self::Transform(_)
+            Self::Authoring
+            | Self::AuthoringForm(_)
+            | Self::Transform(_)
             | Self::Project
             | Self::Thumbnail
             | Self::ProjectText { field: _, value: _ }
@@ -311,7 +319,8 @@ impl App {
     }
 
     fn contextual_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
-        Ok(self.project_action(action, window)?
+        Ok(self.authoring_action(action)?
+            || self.project_action(action, window)?
             || self.script_action(action)?
             || self.navigation_action(action)?
             || self.build_action(action)?
@@ -327,86 +336,18 @@ impl App {
         if self.contextual_action(action, window)? {
             return Ok(());
         }
+        if !self.global_action(action, window)? {
+            return Err("Unhandled editor command".into());
+        }
+        Ok(())
+    }
+
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "Global commands return unrelated contextual commands to the application dispatcher."
+    )]
+    fn global_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
         match action {
-            Action::SceneSearch
-            | Action::PreviewSound(_)
-            | Action::Select(_)
-            | Action::Field(_)
-            | Action::Assets
-            | Action::Materials
-            | Action::Project
-            | Action::Transform
-            | Action::TransformField(_)
-            | Action::TransformPreview
-            | Action::TransformApply
-            | Action::Navigation
-            | Action::NavBake
-            | Action::NavAgent(_)
-            | Action::NavPick(_)
-            | Action::NavUseAgent
-            | Action::NavCoverage
-            | Action::NavSlice(_)
-            | Action::NavAllFloors
-            | Action::NavClear
-            | Action::Build
-            | Action::Play
-            | Action::Cancel
-            | Action::Stop
-            | Action::ProjectField(_)
-            | Action::ProjectApply
-            | Action::ProjectEntry
-            | Action::MapCrosshair
-            | Action::Thumbnail
-            | Action::ThumbnailChoose
-            | Action::ThumbnailRemove
-            | Action::ProjectSelect(_)
-            | Action::ProjectCheck
-            | Action::ProjectMigrate
-            | Action::Scripts
-            | Action::ScriptNew
-            | Action::ScriptOpen(_)
-            | Action::ScriptDiagnostics
-            | Action::ScriptCheck
-            | Action::ScriptLink
-            | Action::ScriptHandler(_)
-            | Action::Create
-            | Action::Gameplay
-            | Action::GameplayActions
-            | Action::Components(_)
-            | Action::ComponentField(_)
-            | Action::ComponentApply
-            | Action::ComponentAdd(_)
-            | Action::ComponentRemove(_)
-            | Action::StateAdd
-            | Action::StateRemove(_)
-            | Action::BindingSelect(_)
-            | Action::BindingNew
-            | Action::BindingRemove
-            | Action::ConditionChoose(_)
-            | Action::ConditionRemove(_)
-            | Action::CatalogFixedShape
-            | Action::AttachedLightAdd
-            | Action::AttachedLightRemove(_)
-            | Action::GamePick(_)
-            | Action::GameChoose(_, _)
-            | Action::GameSetting(_)
-            | Action::RemoveTriggerStep(_)
-            | Action::EnvironmentPreview
-            | Action::MountSurface
-            | Action::ToggleLightMount
-            | Action::IgnoreFinding
-            | Action::ClearFindingIgnore
-            | Action::IgnoredFindings
-            | Action::Geometry
-            | Action::Shape
-            | Action::CutOpening
-            | Action::UpperFloor
-            | Action::Safety
-            | Action::Finding(_)
-            | Action::PreviewFix
-            | Action::ApplyFix
-            | Action::InspectFinding
-            | Action::CancelFix => {}
             Action::New => self.request(Pending::New, window),
             Action::Open => self.request(Pending::Open, window),
             Action::Save => self.save()?,
@@ -422,11 +363,19 @@ impl App {
             Action::Page(forward) => self.page_library(forward),
             Action::ClosePopup | Action::ConfirmCancel => self.close_popup(),
             Action::ConfirmSave | Action::ConfirmDiscard => self.confirm_action(action, window)?,
+            _ => return Ok(false),
         }
-        Ok(())
+        Ok(true)
     }
 
     fn add_safely(&mut self, kind: ObjectKind) -> Result<(), String> {
+        if kind == ObjectKind::Ramp {
+            let _opened = self.authoring_action(Action::Author(
+                super::authoring::Command::Open(super::authoring::Tool::Ramp),
+            ))?;
+            let _created = self.authoring_action(Action::Author(super::authoring::Command::New))?;
+            return Ok(());
+        }
         if let Err(error) = self.add_object(kind) {
             self.selected = None;
             self.viewport.select(None);

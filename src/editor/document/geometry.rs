@@ -248,7 +248,7 @@ fn selected_room(document: &Document, id: ObjectId) -> Result<&RoomDef, String> 
         .ok_or_else(|| "The selected floor no longer exists".into())
 }
 
-fn require_clear_cut(
+pub(super) fn require_clear_cut(
     document: &Document,
     id: ObjectId,
     cut: (f32, f32, f32, f32),
@@ -281,7 +281,7 @@ fn require_clear_cut(
     Ok(())
 }
 
-fn overlaps(a: (f32, f32, f32, f32), b: (f32, f32, f32, f32)) -> bool {
+pub(super) fn overlaps(a: (f32, f32, f32, f32), b: (f32, f32, f32, f32)) -> bool {
     let (ax0, ax1, az0, az1) = a;
     let (bx0, bx1, bz0, bz1) = b;
     ax0 < bx1 && ax1 > bx0 && az0 < bz1 && az1 > bz0

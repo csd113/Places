@@ -3,6 +3,7 @@
 
 mod actions;
 mod audio_preview;
+mod authoring;
 mod component_actions;
 pub mod document;
 mod gameplay_actions;
@@ -204,6 +205,7 @@ impl App {
                         all: _
                     }
                     | Popup::Transform(_)
+                    | Popup::AuthoringForm(_)
                     | Popup::SceneSearch(_)
             )
         );

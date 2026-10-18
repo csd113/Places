@@ -13,6 +13,7 @@ use super::{
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Field {
+    LevelTitle,
     Name,
     Author,
     Description,
@@ -33,6 +34,7 @@ impl Field {
     const fn label(self) -> &'static str {
         match self {
             Self::Name => "Project name",
+            Self::LevelTitle => "Selected map menu title (blank uses stable ID)",
             Self::Author => "Author",
             Self::Description => "Description",
             Self::Thumbnail => "Selected level thumbnail: existing PNG file path",
@@ -203,6 +205,7 @@ fn draw_project(app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mu
             ("Description", Field::Description),
             ("Level menu image >", Field::Thumbnail),
             ("Add level", Field::AddLevel),
+            ("Selected map title", Field::LevelTitle),
         ]
         .into_iter()
         .enumerate()
@@ -379,6 +382,11 @@ impl App {
                     .as_ref()
                     .map_or_else(String::new, |doc| match field {
                         Field::Name => doc.manifest().name.clone(),
+                        Field::LevelTitle => doc
+                            .manifest()
+                            .level(Some(doc.level_id()))
+                            .map(|record| record.display_name.clone())
+                            .unwrap_or_default(),
                         Field::Author => doc.manifest().author.clone(),
                         Field::Description => doc.manifest().description.clone(),
                         Field::Export => doc
@@ -409,6 +417,7 @@ impl App {
                     .ok_or("Unknown level")?
                     .to_string();
                 doc.select_level(&id)?;
+                self.object_query.clear();
                 self.selected = None;
                 self.object_scroll = 0;
                 self.changed();
@@ -481,20 +490,22 @@ impl App {
         self.save()?;
         let doc = self.document.as_mut().ok_or("Open a project first")?;
         match field {
-            Field::Name | Field::Author | Field::Description => doc.update_manifest(
-                match field {
-                    Field::Name => "name",
-                    Field::Author => "author",
-                    Field::Description
-                    | Field::Thumbnail
-                    | Field::AddLevel
-                    | Field::Export
-                    | Field::Import
-                    | Field::Destination
-                    | Field::Transitions => "description",
-                },
-                &value,
-            )?,
+            Field::Name | Field::Author | Field::Description | Field::LevelTitle => doc
+                .update_manifest(
+                    match field {
+                        Field::Name => "name",
+                        Field::LevelTitle => "display_name",
+                        Field::Author => "author",
+                        Field::Description
+                        | Field::Thumbnail
+                        | Field::AddLevel
+                        | Field::Export
+                        | Field::Import
+                        | Field::Destination
+                        | Field::Transitions => "description",
+                    },
+                    &value,
+                )?,
             Field::Transitions => {
                 doc.set_transitions(&value)?;
                 doc.save_all()?;

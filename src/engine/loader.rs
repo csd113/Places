@@ -5495,13 +5495,7 @@ fn validate_route_steps(
                         crate::engine::level::MAX_ROUTE_SPEED_MPS
                     ));
                 }
-                let Some(waypoint_y) = floor.walk_height_at(*x, *z) else {
-                    return Err(format!(
-                        "{context} (`move_to`) waypoint ({x:.2}, {z:.2}) is not on \
-                         any walkable floor"
-                    ));
-                };
-                route_path_is_clear(
+                let waypoint_y = route_path_is_clear(
                     &context,
                     walls,
                     collision_index,
@@ -5577,7 +5571,7 @@ fn route_path_is_clear(
     radius: f32,
     body_height: f32,
     step_height: f32,
-) -> Result<(), String> {
+) -> Result<f32, String> {
     const SAMPLE_M: f32 = 0.02;
     let start = glam::Vec2::new(from.x, from.z);
     let end = glam::Vec2::new(to.0, to.1);
@@ -5596,7 +5590,8 @@ fn route_path_is_clear(
         )]
         let t = index as f32 / samples as f32;
         let point = start + delta * t;
-        let Some(floor_y) = floor.walk_height_at(point.x, point.y) else {
+        let Some(floor_y) = floor.walk_height_near(point.x, point.y, previous_y, step_height)
+        else {
             return Err(format!(
                 "{context} (`move_to`) crosses off the walkable floor at \
                  ({:.2}, {:.2})",
@@ -5626,7 +5621,7 @@ fn route_path_is_clear(
         }
         previous_y = floor_y;
     }
-    Ok(())
+    Ok(previous_y)
 }
 
 /// Resolves every authored sound request before compilation or package admission.

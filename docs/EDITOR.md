@@ -347,3 +347,55 @@ the runtime policy. Spawn-point Configure applies the flag to its shared templat
 Undo/save/reopen retain it. Use a supported animated model; unsupported or
 character-budget-exceeded placements fail closed with a diagnostic. See the
 [map contract](MAP_AUTHORING_GUIDE.md#shadow-only-entities-0120).
+
+
+## Relay Annex authoring tools
+
+`Geometry > Space and environment` groups complete-record forms for ramps,
+stairs, guardrails, water, sky, snow/weather, directional sources, the selected
+room ceiling, selected-floor overrides, explicit GLOBAL patches/regions and legacy actor routes. Select a room
+before changing its ceiling or making an owned floor section. The form's record
+number addresses its collection; previous/next and New choose records. Blank
+optional scalar fields keep engine defaults. Vector components require numbers.
+Preview validates the complete candidate; Apply enters one undo step. Escape or
+Cancel restores the scene. Unchanged and unknown source fields remain intact.
+
+Add Ramp opens a creation draft before validating the default pose. Enter its
+complete destination and dimensions, then Preview/Apply. A bad default target
+therefore cannot strand the author without transform controls. Staircases use the
+longer footprint axis as the run; landings remain ordinary room sections. Rails
+have explicit world base Y and optional rise, or follow the floor when omitted.
+
+A selected-floor override splits only that room into owned rectangular sections,
+keeps its ceiling plane and adds short boundary faces for an elevation change.
+Other storeys retain their materials/elevations. Existing overlapping global
+regions/patches, slopes and ambiguous same-plane carriers are refused explicitly;
+use the GLOBAL forms to remove/rework those records first. Their warning explicitly
+identifies the effect on every overlapping storey. This uses ordinary level geometry
+and does not
+change legacy global patch/region semantics. Water preview includes X/Z elevation
+slices with real room/ramp/stair samples and the selected water depth band.
+
+Legacy route forms preserve ordered existing steps and offer Move, Wait and Pose
+steps. Field labels identify step numbers; pages keep the sheet compact. The
+validated path preview is sampled for display; admission retains the finer
+collision/support check. Walking support follows the actor's current storey and
+cannot silently fall to another floor. Navigation AI remains its separate system.
+
+Safety includes exact dormant-item shape penetration candidates. Resting contact
+within 2 mm is excluded; artistic placements receive no automatic movement.
+Play's developer `/trigger show` also displays the nearest authored item's
+actual shape centre and held/dormant/awake/sleeping state, plus nearby receiver
+bands. Green means eligible occupancy under the real receipt/filter policy;
+script conditions and completion remain separate. Ordinary gameplay warns after
+a blocked release or sustained held-motion refusal. The overlay is opt-in.
+
+Project > Selected map title stores bounded `display_name` metadata. Inactive
+menu rows read that metadata without loading inactive world semantics. Empty
+titles retain stable-ID fallback. Guidance wraps authored paragraphs and splits
+long words; Page Up/Page Down browse six-line pages; Enter/Escape retain dismissal.
+
+For explicit CPU latency checks, run `editor-profile PATH_TO_ISOLATED_PROJECT`.
+It reports document operations and performs reversible in-memory transform/history
+work. Native `--verify-script` recipes retain per-action handler and idle-wait
+milliseconds in `timings.jsonl`. Neither is an FPS benchmark or a CI map bake.

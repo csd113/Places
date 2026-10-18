@@ -157,10 +157,18 @@ impl Verification {
             }
             return Ok(());
         }
+        let started = Instant::now();
         if let Err(error) = self.apply(app, window) {
             self.failure = Some(format!("Verification action {}: {error}", self.next));
             return Ok(());
         }
+        let timing = serde_json::json!({"step":self.next,"handler_ms":started.elapsed().as_secs_f64()*1_000.0_f64,"wait_ms":self.waiting.map(|start|start.elapsed().as_secs_f64()*1_000.0_f64)});
+        let mut timings = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.script.output.join("timings.jsonl"))
+            .map_err(|error| error.to_string())?;
+        writeln!(timings, "{timing}").map_err(|error| error.to_string())?;
         self.next = self.next.saturating_add(1);
         self.completed = Instant::now();
         self.waiting = None;

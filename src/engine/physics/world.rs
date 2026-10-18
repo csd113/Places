@@ -1313,6 +1313,43 @@ impl ItemWorld {
         self.surface_materials.at(position)
     }
 
+    /// Exact shape penetration for authoring diagnostics. Resting contact at
+    /// zero distance is not penetration. Does not wake or modify the body.
+    #[must_use]
+    pub fn body_penetration_depth(&self, key: u64) -> Option<f32> {
+        let runtime = self.runtime.as_ref()?;
+        let entry = runtime.entries.get(&key)?;
+        let body = runtime.world.bodies.get(entry.body)?;
+        let filter = query_filter()
+            .exclude_collider(entry.collider)
+            .exclude_rigid_body(runtime.player);
+        Some(
+            runtime
+                .world
+                .intersect_shape(*body.position(), entry.shape.as_ref(), filter)
+                .filter_map(|(_, other)| {
+                    shape_contact(
+                        body.position(),
+                        entry.shape.as_ref(),
+                        other.position(),
+                        other.shape(),
+                        0.0,
+                    )
+                    .ok()
+                    .flatten()
+                    .map(|contact| (-contact.dist).max(0.0))
+                })
+                .fold(0.0, f32::max),
+        )
+    }
+    #[must_use]
+    pub fn body_is_dormant(&self, key: u64) -> bool {
+        self.runtime
+            .as_ref()
+            .and_then(|runtime| runtime.entries.get(&key))
+            .is_some_and(|entry| entry.dormant)
+    }
+
     /// Current physical shape center for targeting and developer inspection.
     #[must_use]
     pub fn body_center(&self, key: u64) -> Option<Vec3> {

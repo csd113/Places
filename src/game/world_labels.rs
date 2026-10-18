@@ -238,3 +238,80 @@ fn draw_world_label(vertices: &mut Vec<Vertex>, text: &str, x: f32, y: f32) {
         [0.96, 0.94, 0.78],
     );
 }
+
+/// Explicit authoring overlay, sharing the normal projection and font assets.
+pub(crate) fn append_authoring_marker(
+    vertices: &mut Vec<Vertex>,
+    text: &str,
+    position: glam::Vec3,
+    camera: &RenderCamera,
+    drawable: DrawableSize,
+) {
+    let (projection, _) = camera.view_projection(drawable);
+    if let Some((x, y)) = project_to_reference(projection, drawable, position) {
+        draw_world_label(vertices, text, x, y);
+    }
+}
+
+/// Wireframe of the exact receiver band, with no world or texture mutation.
+pub(crate) fn append_authoring_box(
+    vertices: &mut Vec<Vertex>,
+    min: [f32; 3],
+    max: [f32; 3],
+    accepted: bool,
+    camera: &RenderCamera,
+    drawable: DrawableSize,
+) {
+    let (projection, _) = camera.view_projection(drawable);
+    let corners = std::array::from_fn::<_, 8, _>(|index| {
+        glam::Vec3::new(
+            if index & 1 == 0 { min[0] } else { max[0] },
+            if index & 2 == 0 { min[1] } else { max[1] },
+            if index & 4 == 0 { min[2] } else { max[2] },
+        )
+    });
+    let uv = crate::engine::font::get_white_uv();
+    let color = if accepted {
+        [0.25, 1.0, 0.55, 0.8]
+    } else {
+        [0.5, 0.8, 1.0, 0.6]
+    };
+    for (index, corner) in corners.iter().enumerate() {
+        for axis in [1, 2, 4] {
+            let other = index ^ axis;
+            if other <= index {
+                continue;
+            }
+            let (Some((x0, y0)), Some((x1, y1))) = (
+                project_to_reference(projection, drawable, *corner),
+                corners
+                    .get(other)
+                    .and_then(|point| project_to_reference(projection, drawable, *point)),
+            ) else {
+                continue;
+            };
+            let from = glam::Vec2::new(x0, y0);
+            let to = glam::Vec2::new(x1, y1);
+            let Some(direction) = glam::Vec2::new(to.x - from.x, to.y - from.y).try_normalize()
+            else {
+                continue;
+            };
+            let normal = glam::Vec2::new(-direction.y * 0.35, direction.x * 0.35);
+            for point in [
+                glam::Vec2::new(from.x - normal.x, from.y - normal.y),
+                glam::Vec2::new(to.x - normal.x, to.y - normal.y),
+                glam::Vec2::new(to.x + normal.x, to.y + normal.y),
+                glam::Vec2::new(from.x - normal.x, from.y - normal.y),
+                glam::Vec2::new(to.x + normal.x, to.y + normal.y),
+                glam::Vec2::new(from.x + normal.x, from.y + normal.y),
+            ] {
+                vertices.push(Vertex {
+                    pos: [point.x, point.y, 0.0],
+                    color,
+                    uv: [uv[0], uv[1]],
+                    ..Vertex::UNLIT
+                });
+            }
+        }
+    }
+}

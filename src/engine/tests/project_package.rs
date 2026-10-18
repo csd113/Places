@@ -41,7 +41,7 @@ fn fixture() -> Result<Fixture, String> {
         SEQUENCE.fetch_add(1, Ordering::Relaxed)
     ));
     fs::create_dir(&root).map_err(|e| e.to_string())?;
-    let manifest = serde_json::json!({"schema":"places-project","project_format":1_u32,"id":"roundtrip","name":"Round trip","entry_level":"second","levels":[{"id":"entry","source":"levels/entry.json"},{"id":"second","source":"levels/second.json"}]});
+    let manifest = serde_json::json!({"schema":"places-project","project_format":1_u32,"id":"roundtrip","name":"Round trip","entry_level":"second","levels":[{"id":"entry","source":"levels/entry.json","display_name":"Friendly inactive map"},{"id":"second","source":"levels/second.json"}]});
     let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?;
     let authored = ProjectManifest::from_json(&manifest_bytes)?;
     let mut blobs = BTreeMap::new();
@@ -171,6 +171,15 @@ fn selected_level_does_not_read_other_level_payloads_but_import_checks_them() ->
         .ok_or("Missing corrupt fixture record")?
         .fill(b'X');
     let package = fixture.write()?;
+    assert_eq!(
+        project::inspect(&package)?
+            .ok_or("Missing project index")?
+            .project
+            .level(Some("entry"))?
+            .display_name,
+        "Friendly inactive map",
+        "menu metadata must survive corrupt inactive semantics"
+    );
     assert_eq!(
         world::open_level(&package, "second")?.level.id,
         "second",

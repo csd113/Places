@@ -277,6 +277,18 @@ impl PropAssets {
         self.model_identities = identities;
     }
 
+    /// Editor previews retain only the current scene's model dependencies.
+    /// The previous GPU scene owns its own Arcs until replacement completes.
+    pub(crate) fn retain_preview_models(&mut self, paths: &std::collections::BTreeSet<String>) {
+        self.models.retain(|path, _| paths.contains(path));
+        self.inputs.retain(|path, _| paths.contains(path));
+        self.model_identities.retain(|path, _| paths.contains(path));
+        self.reported_failures.retain(|path| paths.contains(path));
+        self.reported_budget_warnings
+            .retain(|path| paths.contains(path));
+        self.textures.retain(|_, image| image.strong_count() > 0);
+    }
+
     /// Loads (or returns the cached) model for a catalogue `model` path.
     ///
     /// A model above the Places art budget still loads; it is logged once as a

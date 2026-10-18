@@ -245,3 +245,44 @@ fn arriving_route_finishes_in_the_same_update_and_holds_while_paused() -> Result
     );
     Ok(())
 }
+
+// Protects Relay Annex's 9.6m legacy actor: first-room sampling rejected its
+// first 2D step. Two overlapping rooms and sixty CPU substeps verify matching
+// admission/runtime support, plus refusal to fall onto the lower storey. No bake.
+#[test]
+fn legacy_route_retains_upper_storey_and_refuses_missing_support() -> Result<(), String> {
+    let level=LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"upper_route","name":"Upper route","spawn":{"x":1,"z":1},"rooms":[{"width":8,"depth":8,"height":4},{"x":0,"z":0,"width":4,"depth":4,"height":4,"floor_y":4}],"props":[{"id":"actor","model":"mannequin","x":1,"y":4,"z":1,"size":[0.2,1,0.2],"solid":false}],"routes":[{"id":"actor","steps":[{"step":"move_to","x":2,"z":1,"speed":2}]}]}"#).map_err(|e|e.to_string())?;
+    crate::engine::loader::validate_level(&level)?;
+    let floor = WalkableFloor::from_level(&level);
+    let walls = level.collision_aabbs();
+    let index = CollisionIndex::build(&walls);
+    let world = RouteWorld {
+        walls: &walls,
+        floor: &floor,
+        index: &index,
+    };
+    let routes = crate::engine::entity::EntityRoutes::from_level(&level);
+    let route = routes.get("actor").ok_or("Missing route")?;
+    let mut state = route.new_state();
+    for _ in 0_u8..60 {
+        route.advance(&mut state, 1.0 / 60.0, &world);
+    }
+    assert!(state.finished && !state.blocked);
+    assert!((state.position.y - 4.0).abs() < 1.0e-6);
+    let mut invalid = level;
+    let step = invalid
+        .routes
+        .get_mut(0)
+        .and_then(|r| r.steps.get_mut(0))
+        .ok_or("Missing step")?;
+    *step = RouteStepDef::MoveTo {
+        x: 6.0,
+        z: 1.0,
+        speed: 2.0,
+    };
+    assert!(
+        crate::engine::loader::validate_level(&invalid).is_err(),
+        "lower floor cannot replace missing upper support"
+    );
+    Ok(())
+}

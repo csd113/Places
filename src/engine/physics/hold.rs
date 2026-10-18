@@ -24,6 +24,7 @@ pub(super) struct HeldItem {
     control_delta: f32,
     block_dynamic: bool,
     angular_velocity: Vec3,
+    obstructed_seconds: f32,
 }
 
 #[derive(Clone, Copy)]
@@ -326,6 +327,16 @@ impl ItemWorld {
         (entry.dormant && entry.motion.is_movable()).then_some(key)
     }
 
+    /// A sustained collision refusal while the held body is away from its hand
+    /// goal. Normal arrival and brief acquisition movement are excluded.
+    #[must_use]
+    pub fn held_movement_blocked(&self) -> bool {
+        self.runtime
+            .as_ref()
+            .and_then(|runtime| runtime.held.as_ref())
+            .is_some_and(|held| held.obstructed_seconds > 0.35)
+    }
+
     #[must_use]
     pub fn held(&self) -> Option<u64> {
         self.runtime.as_ref()?.held.as_ref().map(|held| held.key)
@@ -364,6 +375,7 @@ impl ItemWorld {
             control_delta: FIXED_STEP,
             block_dynamic: false,
             angular_velocity: Vec3::ZERO,
+            obstructed_seconds: 0.0,
         });
         true
     }
@@ -577,6 +589,14 @@ impl Runtime {
         let body_handle = entry.body;
         if let Some(current_held) = self.held.as_mut() {
             current_held.route = route;
+            current_held.obstructed_seconds =
+                if point(target.translation).distance_squared(point(start.translation)) < 1.0e-8
+                    && point(start.translation).distance_squared(ideal_center) > 0.09
+                {
+                    (current_held.obstructed_seconds + delta).min(2.0)
+                } else {
+                    0.0
+                };
             let raw_delta =
                 quaternion(target.rotation).mul_quat(quaternion(start.rotation).inverse());
             let rotation_delta = if raw_delta.w < 0.0 {

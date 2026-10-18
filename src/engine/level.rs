@@ -9741,6 +9741,25 @@ impl WalkableFloor {
         self.resolve_height_at(x, z, StairSampling::PitchLine)
     }
 
+    /// Closest continuous walking support within one permitted step of the
+    /// current feet. Retains storey ownership for legacy scripted routes.
+    #[must_use]
+    pub fn walk_height_near(&self, x: f32, z: f32, feet: f32, step: f32) -> Option<f32> {
+        if ![x, z, feet, step].iter().all(|value| value.is_finite()) || step < 0.0 {
+            return None;
+        }
+        let mut nearest: Option<f32> = None;
+        self.for_each_walk_surface(x, z, |height| {
+            let delta = (height - feet).abs();
+            if delta <= step + crate::engine::collision::STEP_EPS
+                && nearest.is_none_or(|previous| delta < (previous - feet).abs())
+            {
+                nearest = Some(height);
+            }
+        });
+        nearest
+    }
+
     /// Visits every authored walking surface at a point, including stacked rooms.
     ///
     /// The compiler uses the same stair pitch line as physical movement. Room

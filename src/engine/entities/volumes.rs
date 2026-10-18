@@ -640,3 +640,11 @@ fn occupancy_edges(
         });
     }
 }
+
+/// Read-only current-state preview, using the same filter and receipt policy
+/// as volume occupancy. It does not fabricate crossing events or run actions.
+pub(super) fn receipt_preview(volume: &TriggerVolume, item: &TriggerItem<'_>) -> bool {
+    volume.filter.accepts_item(item)
+        && receipt_item(volume, item)
+            .is_some_and(|receipt| endpoint_inside(volume, receipt.to, receipt.half_extents))
+}

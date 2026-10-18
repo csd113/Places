@@ -205,3 +205,43 @@ impl EntityWorld {
         }
     }
 }
+
+impl EntityWorld {
+    /// At most eight nearby item receiver bands for the authoring overlay.
+    #[must_use]
+    pub fn developer_item_receipts(
+        &self,
+        item: &super::volumes::TriggerItem<'_>,
+    ) -> Vec<(String, [f32; 3], [f32; 3], bool)> {
+        self.components
+            .volumes
+            .iter()
+            .filter(|(_, volume)| {
+                matches!(
+                    volume.filter,
+                    crate::engine::level::TriggerFilterDef::Item {
+                        asset: _,
+                        instance: _,
+                        held: _
+                    } | crate::engine::level::TriggerFilterDef::Any
+                )
+            })
+            .filter(|(_, volume)| {
+                let x = item.to.x.clamp(volume.bounds[0], volume.bounds[1]);
+                let z = item.to.z.clamp(volume.bounds[2], volume.bounds[3]);
+                glam::Vec2::new(item.to.x - x, item.to.z - z).length_squared() <= 144.0
+            })
+            .take(8)
+            .filter_map(|(handle, volume)| {
+                self.id_of(handle).map(|id| {
+                    (
+                        format!("{id} {:?}", volume.item_receipt),
+                        [volume.bounds[0], volume.bottom_y, volume.bounds[2]],
+                        [volume.bounds[1], volume.top_y, volume.bounds[3]],
+                        super::volumes::receipt_preview(volume, item),
+                    )
+                })
+            })
+            .collect()
+    }
+}

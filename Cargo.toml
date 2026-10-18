@@ -167,3 +167,8 @@ panic = "unwind"
 # remains the performance reference for deliberate map/compiler campaigns.
 [profile.dev]
 opt-level = 1
+
+# Explicit developer operation probe; never runs as part of tests or CI.
+[[bin]]
+name = "editor-profile"
+path = "tools/rust/editor-profile/main.rs"

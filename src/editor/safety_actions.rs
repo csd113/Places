@@ -285,11 +285,20 @@ impl App {
     pub(super) fn close_popup(&mut self) {
         self.preview_audio.clear_world();
         self.sound_preview_until = None;
+        if let Some(Popup::AuthoringForm(draft)) = &self.popup {
+            self.viewport
+                .set_environment_preview(draft.environment_before);
+        }
         self.restore_preview();
-        if matches!(self.popup, Some(Popup::Transform(_)))
-            && let Some(document) = &self.document
+        if matches!(
+            self.popup,
+            Some(Popup::Transform(_) | Popup::AuthoringForm(_))
+        ) && let Some(document) = &self.document
         {
             self.viewport.rebuild(document.level());
+        }
+        if matches!(self.popup, Some(Popup::AuthoringForm(_))) {
+            self.viewport.navigation_guides(Vec::new(), &[], None, None);
         }
         self.popup = None;
     }

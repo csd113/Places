@@ -671,6 +671,7 @@ struct FrameLoop<'a> {
     flashlight: flashlight::Power,
     outcome: Option<(bool, String, String)>,
     message: Option<(String, Vec<String>)>,
+    message_page: usize,
     items: item_runtime::Items,
     audio: audio_runtime::Audio,
     video: Option<video::Recording>,
@@ -1189,6 +1190,7 @@ impl FrameLoop<'_> {
             match command {
                 crate::engine::entities::WorldCommand::ShowMessage { title, lines } => {
                     if self.message.is_none() && self.outcome.is_none() {
+                        self.message_page = 0;
                         self.message = Some((title, lines));
                         self.input_handler.clear_gameplay_inputs();
                         self.items.input.invalidate();
@@ -2478,6 +2480,43 @@ impl FrameLoop<'_> {
         true
     }
 
+    fn handle_guidance_event(&mut self, event: &Event) -> bool {
+        if self.message.is_none() {
+            return false;
+        }
+
+        if let Event::KeyDown {
+            keycode: Some(key),
+            repeat: false,
+            timestamp: _,
+            window_id: _,
+            scancode: _,
+            keymod: _,
+            which: _,
+            raw: _,
+        } = event
+        {
+            let rows = self
+                .message
+                .as_ref()
+                .map_or(0, |(_, lines)| ui::wrap_guidance(lines).len());
+            match ui::guidance_navigation(*key, self.message_page, rows) {
+                ui::GuidanceNavigation::Page(page) => {
+                    self.message_page = page;
+                    return true;
+                }
+                ui::GuidanceNavigation::Ignored => return true,
+                ui::GuidanceNavigation::Dismiss => {}
+            }
+            self.message = None;
+            self.input_handler.clear_gameplay_inputs();
+            self.items.input.invalidate();
+            self.game.reset_timing();
+            self.trace_world("guidance_dismissed");
+        }
+        true
+    }
+
     fn handle_outcome_event(&mut self, event: &Event) -> bool {
         if let Event::KeyDown {
             keycode: Some(Keycode::F1),
@@ -2496,24 +2535,7 @@ impl FrameLoop<'_> {
             self.game.request_hint();
             return true;
         }
-        if self.message.is_some() {
-            if let Event::KeyDown {
-                keycode: Some(Keycode::Return | Keycode::Escape),
-                repeat: false,
-                timestamp: _,
-                window_id: _,
-                scancode: _,
-                keymod: _,
-                which: _,
-                raw: _,
-            } = event
-            {
-                self.message = None;
-                self.input_handler.clear_gameplay_inputs();
-                self.items.input.invalidate();
-                self.game.reset_timing();
-                self.trace_world("guidance_dismissed");
-            }
+        if self.handle_guidance_event(event) {
             return true;
         }
         if self.outcome.is_some() {
@@ -3566,6 +3588,83 @@ impl FrameLoop<'_> {
     /// Submits the UI pass: cached menu/settings geometry, the debug overlay
     /// when visible, and — while playing — the world-anchored interaction
     /// labels and the aimed-at prompt through the same text pipeline.
+    fn render_guidance(&mut self) -> bool {
+        let Some((title, lines)) = &self.message else {
+            return false;
+        };
+
+        self.ui_scratch.clear();
+        let wrapped = ui::wrap_guidance(lines);
+        let pages = wrapped.len().div_ceil(6).max(1);
+        let heading = if pages > 1 {
+            format!("{title} ({}/{pages})", self.message_page.saturating_add(1))
+        } else {
+            title.clone()
+        };
+        let start = self.message_page.saturating_mul(6).min(wrapped.len());
+        ui::append_guidance(
+            self.ui_scratch,
+            &heading,
+            wrapped
+                .get(start..start.saturating_add(6).min(wrapped.len()))
+                .unwrap_or_default(),
+        );
+        if pages > 1 {
+            ui::draw_text(
+                self.ui_scratch,
+                "PAGE UP / PAGE DOWN - READ MORE",
+                24.0,
+                205.0,
+                0.875,
+                [0.6, 0.68, 0.7],
+            );
+        }
+        self.renderer.render_ui(self.ui_scratch);
+        true
+    }
+
+    fn append_play_labels(
+        &mut self,
+        drawable: DrawableSize,
+        cam_pos: Vec3,
+        cam_yaw: f32,
+        cam_pitch: f32,
+    ) {
+        if self.crosshair_visible() {
+            ui::append_crosshair(self.ui_scratch, drawable);
+        }
+        let item_hint = self.items.hand_visible();
+        world_labels::append_world_labels_with_hint(
+            self.ui_scratch,
+            self.game,
+            &render::RenderCamera::new(cam_pos, cam_yaw, cam_pitch, self.settings.fov_degrees),
+            drawable,
+            false,
+            &self.settings.bindings.interact,
+        );
+        if item_hint {
+            ui::append_interaction_hint(self.ui_scratch, &self.settings.bindings.interact);
+        }
+        self.items.append_release_hint(self.ui_scratch);
+        if self.console_runtime.trigger_labels_visible() {
+            self.items.append_authoring_debug(
+                self.ui_scratch,
+                self.game,
+                &render::RenderCamera::new(cam_pos, cam_yaw, cam_pitch, self.settings.fov_degrees),
+                drawable,
+            );
+
+            world_labels::append_trigger_labels(
+                self.ui_scratch,
+                &self
+                    .console_runtime
+                    .visible_trigger_labels(self.game, self.renderer),
+                &render::RenderCamera::new(cam_pos, cam_yaw, cam_pitch, self.settings.fov_degrees),
+                drawable,
+            );
+        }
+    }
+
     fn submit_ui(
         &mut self,
         drawable: DrawableSize,
@@ -3587,10 +3686,7 @@ impl FrameLoop<'_> {
             self.renderer.render_ui(&vertices);
             return;
         }
-        if let Some((title, lines)) = &self.message {
-            self.ui_scratch.clear();
-            ui::append_guidance(self.ui_scratch, title, lines);
-            self.renderer.render_ui(self.ui_scratch);
+        if self.render_guidance() {
             return;
         }
         if let Some((won, title, detail)) = &self.outcome {
@@ -3613,41 +3709,7 @@ impl FrameLoop<'_> {
             self.ui_scratch.clear();
             self.ui_scratch.extend_from_slice(ui_vertices);
             if show_labels {
-                if self.crosshair_visible() {
-                    ui::append_crosshair(self.ui_scratch, drawable);
-                }
-                let item_hint = self.items.hand_visible();
-                world_labels::append_world_labels_with_hint(
-                    self.ui_scratch,
-                    self.game,
-                    &render::RenderCamera::new(
-                        cam_pos,
-                        cam_yaw,
-                        cam_pitch,
-                        self.settings.fov_degrees,
-                    ),
-                    drawable,
-                    false,
-                    &self.settings.bindings.interact,
-                );
-                if item_hint {
-                    ui::append_interaction_hint(self.ui_scratch, &self.settings.bindings.interact);
-                }
-                if self.console_runtime.trigger_labels_visible() {
-                    world_labels::append_trigger_labels(
-                        self.ui_scratch,
-                        &self
-                            .console_runtime
-                            .visible_trigger_labels(self.game, self.renderer),
-                        &render::RenderCamera::new(
-                            cam_pos,
-                            cam_yaw,
-                            cam_pitch,
-                            self.settings.fov_degrees,
-                        ),
-                        drawable,
-                    );
-                }
+                self.append_play_labels(drawable, cam_pos, cam_yaw, cam_pitch);
             }
             if self.perf_overlay.is_visible() {
                 self.ui_scratch
@@ -4204,10 +4266,15 @@ fn native_inputs(
     actions::Actions::from_env(&action_events, window.id()).map(|actions| (pump, actions))
 }
 
-fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
+fn begin_player_trace() -> perf::loading::LoadTrace {
     let mut trace = perf::loading::LoadTrace::new();
     trace.record("entry", 0, "");
     perf::startup_begin();
+    trace
+}
+
+fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let mut trace = begin_player_trace();
     let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap()?;
     diagnostics::previous_session_notice(interrupted);
 
@@ -4263,6 +4330,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         flashlight: flashlight::Power::Off,
         outcome: None,
         message: None,
+        message_page: 0,
         items: item_runtime::Items::new(),
         audio: audio_runtime::Audio::new(&sdl_context),
         video: video::Recording::from_env(),

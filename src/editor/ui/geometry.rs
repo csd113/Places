@@ -11,17 +11,17 @@ pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &m
         (140.0, 88.0, "Floor + ceiling", ObjectKind::Room),
         (264.0, 88.0, "Wall", ObjectKind::Wall),
         (140.0, 109.0, "Ramp", ObjectKind::Ramp),
-        (264.0, 109.0, "Recess / basin", ObjectKind::FloorRegion),
+        (264.0, 109.0, "Global recess", ObjectKind::FloorRegion),
     ] {
         button(v, hits, [x, y, 116.0, 16.0], label, Action::Add(kind), true);
     }
-    text(
+    button(
         v,
-        "Basins are dry surfaces. Water is a separate feature.",
-        140.0,
-        133.0,
-        MUTED,
-        68,
+        hits,
+        [140.0, 130.0, 240.0, 13.0],
+        "Space and environment >",
+        Action::Author(crate::editor::authoring::Command::Hub),
+        true,
     );
     text(
         v,

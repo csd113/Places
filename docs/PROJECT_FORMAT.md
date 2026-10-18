@@ -38,6 +38,11 @@ place required runtime assets here: this stage resolves installed built-ins.
 }
 ```
 
+Level records also accept optional `display_name` (at most 256 bytes, no control
+characters). The player reads this explicit title from the bounded project index
+for non-entry rows; blank retains the stable-ID fallback. It does not open
+inactive world semantics. The entry row retains the project title.
+
 Project and level records optionally carry `description`, `thumbnail` (for
 example `thumbnails/entry.png`) and `scripts` (for example
 `["scripts/entry.luau"]`). Stage 7 validates and distributes exact thumbnail PNGs (see [asset specification](ASSET_SPECIFICATION.md)). The editor attaches existing images; player thumbnail cards remain #6. Stage 6 resolves script references into selected-map runtime snapshots. Declared optional files must exist; see [Luau source and lifecycle](SCRIPTING.md).

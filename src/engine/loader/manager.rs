@@ -208,7 +208,15 @@ impl LevelManager {
                             item.name = if level.id == index.project.entry_level {
                                 index.project.name.clone()
                             } else {
-                                format!("{} / {}", index.project.name, level.id)
+                                format!(
+                                    "{} / {}",
+                                    index.project.name,
+                                    if level.display_name.is_empty() {
+                                        &level.id
+                                    } else {
+                                        &level.display_name
+                                    }
+                                )
                             };
                             discovered.push(item);
                         }

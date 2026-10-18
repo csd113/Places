@@ -182,6 +182,20 @@ fn prepare(
         level.fog_regions.clear();
         level.ground_fog.clear();
     }
+    textures.begin_level();
+    let paths = level
+        .props
+        .iter()
+        .map(|prop| prop.model.as_str())
+        .chain(
+            level
+                .spawn_templates
+                .iter()
+                .map(|template| template.model.as_str()),
+        )
+        .filter_map(|id| catalog.get(id).model)
+        .collect();
+    assets.retain_preview_models(&paths);
     let materials = resolve_materials(&level, catalog.assets(), None, Some(&root), textures)?;
     let light_sheets = crate::engine::loader::resolve_fixture_sheets(
         &level,

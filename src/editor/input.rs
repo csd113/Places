@@ -188,7 +188,8 @@ impl App {
             self.request(Pending::Close, window);
             return;
         }
-        if self.project_text_event(event)
+        if self.authoring_event(event)
+            || self.project_text_event(event)
             || self.script_event(event, window)
             || self.component_text_event(event)
             || self.transform_event(event)

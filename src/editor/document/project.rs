@@ -102,6 +102,14 @@ impl Document {
         let mut manifest = self.manifest().clone();
         match field {
             "name" => manifest.name = value.into(),
+            "display_name" => {
+                manifest
+                    .levels
+                    .iter_mut()
+                    .find(|level| level.id == self.selected.level.id)
+                    .ok_or("Missing selected level")?
+                    .display_name = value.into();
+            }
             "author" => manifest.author = value.into(),
             "description" => manifest.description = value.into(),
             "entry_level" => manifest.entry_level = value.into(),
@@ -141,6 +149,7 @@ impl Document {
         manifest.levels.push(ProjectLevel {
             id: id.into(),
             source: source.clone(),
+            display_name: String::new(),
             description: String::new(),
             thumbnail: None,
             scripts: Vec::new(),

@@ -31,6 +31,7 @@ const PANEL: [f32; 4] = [0.065, 0.09, 0.12, 1.0];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Action {
+    Author(super::authoring::Command),
     Project,
     ProjectField(super::projects::Field),
     ProjectApply,

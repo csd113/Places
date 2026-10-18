@@ -68,12 +68,12 @@ impl App {
         Ok(true)
     }
 
-    pub(super) fn scene_objects(&self) -> Vec<ObjectInfo> {
+    pub(super) fn scene_objects(&self) -> Vec<&ObjectInfo> {
         let query = self.object_query.to_ascii_lowercase();
         self.document.as_ref().map_or_else(Vec::new, |document| {
             document
                 .objects()
-                .into_iter()
+                .iter()
                 .filter(|object| {
                     query.is_empty() || object.label.to_ascii_lowercase().contains(&query)
                 })
