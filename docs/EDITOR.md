@@ -299,6 +299,30 @@ be verified in Play, where current physics and actor bodies are available.
 
 ### Readable native editor UI (0.12.0)
 
+The scene's **Find** control filters object names/identities. Empty text restores
+the full list. **Pose** stages a complete transform: edit several fields, Preview,
+then Apply once. Preview does not mutate the document; Cancel restores the scene.
+A refused Add clears selection so later transforms cannot edit an old object.
+Prop Y is an offset above the first local floor; it does not imply upper-storey
+ownership. Room cuts still remove both floor and ceiling.
+
+**Configure → Capabilities** groups identity/interaction, typed state, events,
+light circuits, physics details, AI/beam response and attached audio. Forms show
+six rows with pagination. Events select the exact binding before editing its
+conditions/actions or linking Luau; adding an exit event preserves the enter
+event. Trigger identity and held policy are independent, and receipt can use
+overlap, centre, or settled centre. Existing source extensions survive edits.
+Instance/state renaming updates structured references and refuses maps with
+Luau modules, whose dynamically constructed references cannot be safely guessed.
+
+Physics details expose the reset group and independent standable dimensions.
+**Use fitted catalog shape** installs an existing bounded fixed profile;
+arbitrary hull/compound construction remains source tooling. The sound chooser's
+**Listen** control plays one preloaded cue quietly for at most three seconds.
+**Project → Map settings** exposes spawn, default materials, global presentation,
+fog and the explicit Full-lighting requirement. Required Full maps refuse lesser
+lighting selections with a named message; no runtime bake occurs.
+
 The editor requests the native high-density drawable and uses an independent,
 committed antialiased Roboto Mono atlas. Text/buttons scale uniformly with the
 window; world texture quality does not affect UI text. The retained slate/mint

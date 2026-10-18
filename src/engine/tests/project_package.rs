@@ -197,6 +197,112 @@ fn selected_level_does_not_read_other_level_payloads_but_import_checks_them() ->
     Ok(())
 }
 
+// Essential recovery race regression: replacing the caller's input after the
+// bounded copy must not switch the validated source snapshot. Reuses the tiny
+// discovery fixture; no prepared-world decoding, assets or baking.
+#[test]
+fn recovery_validates_and_publishes_one_owned_archive_snapshot() -> Result<(), String> {
+    let fixture = fixture()?;
+    let package = fixture.write()?;
+    let size = fs::metadata(&package).map_err(|e| e.to_string())?.len();
+    let target = fixture.root.join("snapshot");
+    let replaced = std::cell::Cell::new(false);
+    project::recover(&package, &target, &|| {
+        if !replaced.get()
+            && fs::metadata(fixture.root.join("snapshot.partial/.recovery-package"))
+                .is_ok_and(|metadata| metadata.len() == size)
+        {
+            let replacement = fixture.root.join("replacement");
+            fs::write(&replacement, b"caller replaced this path").map_err(|e| e.to_string())?;
+            fs::rename(replacement, &package).map_err(|e| e.to_string())?;
+            replaced.set(true);
+        }
+        Ok(())
+    })?;
+    assert!(
+        replaced.get(),
+        "fixture must replace the caller's source during recovery"
+    );
+    assert!(target.join("places.project.json").is_file());
+    assert!(
+        !target.join(".recovery-package").exists(),
+        "owned transport staging is not part of the recovered project"
+    );
+    Ok(())
+}
+
+// Special-file admission must finish without opening a blocking FIFO. One tiny
+// owned filesystem entry; no child process, payload allocation or map bake.
+#[cfg(unix)]
+#[test]
+fn package_paths_refuse_fifo_before_any_archive_read() -> Result<(), String> {
+    use std::os::unix::ffi::OsStrExt as _;
+    let fixture = fixture()?;
+    let path = fixture.root.join("named-pipe.placesmap");
+    let name = std::ffi::CString::new(path.as_os_str().as_bytes()).map_err(|e| e.to_string())?;
+    // SAFETY: name is an owned NUL-terminated path; this creates an inert FIFO
+    // inside the exclusively owned test directory and retains no pointer.
+    if unsafe { libc::mkfifo(name.as_ptr(), 0o600) } != 0_i32 {
+        return Err(std::io::Error::last_os_error().to_string());
+    }
+    assert!(archive::open_file(&path).is_err());
+    assert!(project::inspect(&path).is_err());
+    assert!(
+        crate::engine::package::dependencies::identity(
+            &fixture.root,
+            "named-pipe.placesmap",
+            crate::engine::package::DependencyKind::Model
+        )
+        .is_err()
+    );
+    Ok(())
+}
+
+// Essential installed-asset boundary regression: declared hashes/sizes do not
+// authorize escaping the asset root or unbounded installed-file reads. Two
+// tiny files plus one confined symlink; no model/PNG decode or map bake.
+#[test]
+fn installed_dependency_identity_is_confined_streamed_and_size_bounded() -> Result<(), String> {
+    use crate::engine::package::{DependencyKind, PackageDependency, dependencies};
+    let fixture = fixture()?;
+    let root = fixture.root.join("assets");
+    fs::create_dir(&root).map_err(|e| e.to_string())?;
+    let bytes = b"tiny installed model bytes";
+    fs::write(root.join("model.glb"), bytes).map_err(|e| e.to_string())?;
+    let mut dependency = PackageDependency {
+        kind: DependencyKind::Model,
+        path: "model.glb".into(),
+        bytes: u64::try_from(bytes.len()).map_err(|e| e.to_string())?,
+        sha256: hash::sha256_hex(bytes),
+    };
+    dependencies::validate(&root, &dependency)?;
+    dependency.bytes = u64::try_from(crate::engine::gltf::MAX_ENCODED_GLB_BYTES)
+        .map_err(|e| e.to_string())?
+        .saturating_add(1);
+    assert!(
+        dependencies::validate(&root, &dependency).is_err(),
+        "oversized claims are refused before hashing"
+    );
+    dependency.bytes = u64::try_from(bytes.len()).map_err(|e| e.to_string())?;
+    fs::write(root.join("model.glb"), b"changed model bytes").map_err(|e| e.to_string())?;
+    assert!(
+        dependencies::validate(&root, &dependency).is_err(),
+        "installed substitutions do not satisfy the recorded identity"
+    );
+    assert!(dependencies::identity(&root, "../outside.glb", DependencyKind::Model).is_err());
+    #[cfg(unix)]
+    {
+        let outside = fixture.root.join("outside.glb");
+        fs::write(&outside, bytes).map_err(|e| e.to_string())?;
+        std::os::unix::fs::symlink(&outside, root.join("escape.glb")).map_err(|e| e.to_string())?;
+        assert!(
+            dependencies::identity(&root, "escape.glb", DependencyKind::Model).is_err(),
+            "an asset symlink cannot read outside the selected installation"
+        );
+    }
+    Ok(())
+}
+
 #[test]
 fn project_index_and_cancellation_refuse_unsafe_or_partial_publication() -> Result<(), String> {
     let mut fixture = fixture()?;

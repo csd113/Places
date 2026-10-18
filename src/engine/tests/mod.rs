@@ -1,4 +1,5 @@
 mod authored_physics_removal;
+mod automatic_reset;
 mod caustics_metadata;
 mod entity_routes;
 mod entity_sequences;

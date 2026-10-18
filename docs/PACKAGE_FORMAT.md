@@ -123,8 +123,20 @@ never triggers procedural geometry generation.
   player understands `geometry`, `props`, `lighting`, `lightmaps-hdr`,
   `lightmaps-compact-v1`, `props-shared-streams`, `irradiance-probes`,
   `probes-hdr`, `collision` and
-  `navigation`, `light-circuits-v1` and `static-light-state-v1`. A package
+  `navigation`, `light-circuits-v1`, `static-light-state-v1`, `luau-v1`,
+  `scene-actions-v1`, `project-transitions-v1`, `full-lighting-v1` and
+  `item-receipts-v1`. A package
   requiring anything else is rejected by name.
+* Semantic `requires_full_lighting: true` requires `full-lighting-v1` and a
+  prepared `full` atlas with its metadata and no recorded fill failure. Compiler
+  publication and player admission refuse a vertex fallback for this policy.
+  The player refuses a different selected lighting
+  quality with a named Full-lighting instruction. Omitted/false preserves the
+  existing quality choices. This policy changes no prepared record format and
+  is excluded from the prepared-stage fingerprint.
+* Volumes using `item_receipt: "centre"` or `"settled_centre"` require
+  `item-receipts-v1`; admission refuses an omitted capability so an older
+  host cannot silently use overlap receipts. Default overlap adds no capability.
 * An Off variant may carry `static_light_off: { "fixtures": [0, 1],
   "mesh": "blobs/...mesh", "props": "blobs/...props" }`. It requires
   `static-light-state-v1`; fixture indices are unique, ascending and bounded to
@@ -146,6 +158,11 @@ never triggers procedural geometry generation.
   images under the existing importer contract, so the model hash covers that
   runtime image closure. The player streams installed dependency hashes during
   package-open, with an 8 KiB buffer; rendering does not hash them per frame.
+  The compiler uses the same bounded streaming reader. Canonical dependency
+  paths must remain inside the selected asset root, regular files are required,
+  and the actual GLB/PNG encoded limits (64/32 MiB) apply even if a package
+  declares a larger size or an installed file grows while being read.
+  Duplicate `(kind, case-folded path)` dependencies are rejected before hashing.
 * `entries` must list every archive entry except `manifest.json` itself.
   Undeclared entries, duplicate declarations and declared-but-missing entries
   are errors.
@@ -166,7 +183,8 @@ never triggers procedural geometry generation.
   reflections. It retains source materials/images/models, physical environment
   and fog, lights, entities, tool/capture identity, formats and quality. It
   excludes display name/author, navigation/AI components and
-  `environment.presentation` (exposure, shoulder and grade after HDR capture).
+  Luau modules, the required-lighting policy and `environment.presentation`
+  (exposure, shoulder and grade after HDR capture).
   A validated match reuses solved records and refreshes semantics, navigation,
   provenance and atlas metadata; prepared texels and probes remain unchanged.
   Every declared record is hash-verified before reuse. `--force` bypasses both
@@ -713,6 +731,8 @@ for current entity direct/visibility/resource behavior.
 | reflection positions | 16 MiB |
 | compiler provenance | 2 MiB |
 | aggregate (decompressed) | 1 GiB |
+| compressed transport | 1 GiB + 64 MiB |
+| central directory | 8 MiB; ZIP64/multi-disk/encrypted entries refused |
 | variants | 4 (one per lightmap quality) |
 | dependencies | 4096 |
 | regional and ground fog (`semantics.json` `fog_regions` + `ground_fog`) | 16 combined |
@@ -730,7 +750,8 @@ for current entity direct/visibility/resource behavior.
 
 The reader also rejects, before decoding: absolute, drive-letter, UNC or
 `..`-traversing names; backslash separators; directory entries; duplicate
-normalized names; entries whose declared size exceeds its bound; declared
+normalized names; control characters; symbolic links; inconsistent directory
+counts, framing or unaccounted bytes; entries whose declared size exceeds its bound; declared
 aggregate size over the total bound; truncation; trailing bytes; non-finite
 floats; inverted bounds; out-of-range indices; wrong hashes; missing
 dependencies; and unsupported versions or capabilities.
@@ -783,7 +804,20 @@ Older players lacking this schema refuse the archive; no existing revision chang
 Full import validates every record hash plus every level’s semantic/script/source
 contract. `places-compile validate` also decodes all prepared records. Editable
 recovery validates confined source roles and images in owned staging and atomically
-publishes only a new destination. Ordinary compiled maps have no recovery data.
+publishes only a new destination. Recovery first copies a bounded regular input
+into its exclusively reserved staging directory: all validation and recovery
+passes read that one snapshot even if the caller replaces the original path.
+Cancellation/failure removes only owned staging and preserves existing targets.
+Ordinary compiled maps have no recovery data.
+
+`verify --level ID --require-current` resolves compiler provenance through the
+selected project's record view. Export can seed a staging map from that same
+view of the previous distribution; it verifies every declared seed record,
+then the ordinary compiler enforces exact source/asset/tool/variant and
+prepared-stage signatures. A semantic-only edit can therefore reuse prepared
+geometry, lighting and probes. Invalid seeds miss safely; changed sources and
+destinations still prevent atomic final publication. JSON cache decisions name
+each level and prepared/package hit or miss.
 The [project contract](PROJECT_FORMAT.md#stage-7-project-distribution-and-editable-recovery)
 documents the complete index, limits, transition capability, CLI and publication
 rules. Built-in runtime models, textures and sound remain external installed assets;

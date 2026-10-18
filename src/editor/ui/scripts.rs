@@ -18,7 +18,7 @@ pub(in crate::editor) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit
         }) => {
             ui::text(
                 v,
-                "LINK TO SELECTED TRIGGER / handler exports",
+                "LINK TO SELECTED EVENT / handler exports",
                 8.0,
                 43.0,
                 ui::INK,
@@ -237,7 +237,7 @@ fn draw_modules(doc: &crate::editor::Document, v: &mut Vec<Vertex>, hits: &mut V
     );
     ui::text(
         v,
-        "Select a trigger, open a module, then Link handler. Files stay below scripts/.",
+        "Select a prop, door or trigger event, open a module, then Link handler.",
         8.0,
         69.0,
         ui::INK,

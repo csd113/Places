@@ -10,13 +10,28 @@ impl Document {
     ///
     /// # Errors
     /// Rejects malformed selectors and missing referenced instances.
-    pub fn set_trigger_filter(&mut self, id: ObjectId, filter: Value) -> Result<(), String> {
+    pub fn set_trigger_filter(&mut self, id: ObjectId, mut filter: Value) -> Result<(), String> {
         if !matches!(id, ObjectId::Trigger(_)) {
             return Err("Select a trigger".into());
         }
         let mut raw = self.raw().clone();
         objects::pin_prop_ids(&mut raw, self.level())?;
-        drop(object_mut(&mut raw, id)?.insert("filter".into(), filter));
+        let object = object_mut(&mut raw, id)?;
+        if filter.get("kind").and_then(Value::as_str) == Some("item")
+            && filter.get("held").is_none()
+            && let Some(held) = object
+                .get("filter")
+                .and_then(|record| record.get("held"))
+                .cloned()
+        {
+            drop(
+                filter
+                    .as_object_mut()
+                    .ok_or("Invalid filter")?
+                    .insert("held".into(), held),
+            );
+        }
+        drop(object.insert("filter".into(), filter));
         self.accept_edit(raw)
     }
 

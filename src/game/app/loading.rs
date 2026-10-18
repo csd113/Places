@@ -716,6 +716,12 @@ fn prepare_world(
         }
         Source::Retained(loaded, _) => *loaded,
     };
+    if loaded.level.requires_full_lighting && request.lightmaps != LightmapQuality::Full {
+        return Err(format!(
+            "{} requires Full lighting for its authored circuits. Choose Lightmaps: Full and open the map again.",
+            loaded.level.name
+        ));
+    }
     // The injected delay runs on both sides of the read so a test script can
     // coordinate an in-place package edit *after* the worker has read the
     // original bytes; that is the in-flight content-change race the request

@@ -34,6 +34,8 @@ fn item<'a>(key: u64, from: f32, to: f32) -> TriggerItem<'a> {
         half_extents: Vec3::splat(0.05),
         held: true,
         path: None,
+        sleeping: false,
+        centre_path: None,
     }
 }
 
@@ -537,4 +539,133 @@ fn synchronous_state_children_keep_depth_across_deferred_event_pumps() -> Result
         );
     }
     Ok(())
+}
+
+// This adds one real, rotating 0.6 m box and a metadata receiver. It protects
+// against conservative sphere false receipts plus held/sleep/reset transitions;
+// four solver steps and a handful of edge updates require no bake or device.
+#[test]
+fn centre_and_settled_receipts_reject_rotated_envelopes_and_rearm_cleanly() -> Result<(), String> {
+    use crate::engine::level::ItemReceiptDef;
+    let body = rotating_receipt_body()?;
+    assert!(
+        body.half_extents.y > 0.3,
+        "rotating box retains its safe overlap envelope"
+    );
+    assert!(
+        body.centre_path().iter().all(|point| point.y > 1.0),
+        "actual box centre remains above receiver"
+    );
+    let rotated = TriggerItem {
+        from: body.previous,
+        to: body.current,
+        half_extents: body.half_extents,
+        path: Some(body.path()),
+        centre_path: Some(body.centre_path()),
+        held: false,
+        sleeping: body.sleeping,
+        ..item(1, 0.5, 0.5)
+    };
+    for (receipt, expected) in [(ItemReceiptDef::Overlap, 1), (ItemReceiptDef::Centre, 0)] {
+        let mut world = fixture(
+            r#"{"kind":"item","instance":"duck_1","held":false}"#,
+            "per_actor",
+            SOUND_BINDINGS,
+        )?;
+        let zone = world.handle_of("zone").ok_or("missing receiver")?;
+        world
+            .components_mut()
+            .volumes
+            .get_mut(zone)
+            .ok_or("missing volume")?
+            .item_receipt = receipt;
+        world.update_volume_occupants(point(), point(), &[rotated]);
+        assert_eq!(
+            world.events().len(),
+            expected,
+            "centre receipt rejects the rotation envelope only"
+        );
+    }
+    let mut world = fixture(
+        r#"{"kind":"item","instance":"duck_1","held":false}"#,
+        "per_actor",
+        SOUND_BINDINGS,
+    )?;
+    let zone = world.handle_of("zone").ok_or("missing receiver")?;
+    world
+        .components_mut()
+        .volumes
+        .get_mut(zone)
+        .ok_or("missing volume")?
+        .item_receipt = ItemReceiptDef::SettledCentre;
+    let mut resting = item(1, 0.5, 0.5);
+    for (held, sleeping, expected) in [
+        (true, false, None),
+        (false, false, None),
+        (false, true, Some(EventKind::EnterVolume)),
+        (true, true, Some(EventKind::ExitVolume)),
+        (false, true, Some(EventKind::EnterVolume)),
+        (false, false, Some(EventKind::ExitVolume)),
+    ] {
+        resting.held = held;
+        resting.sleeping = sleeping;
+        world.update_volume_occupants(point(), point(), &[resting]);
+        assert_eq!(
+            world.events().peek().map(|event| event.kind),
+            expected,
+            "held and wake transitions update receipt at rest"
+        );
+        let _ = world.dispatch_queued_events();
+    }
+    resting.sleeping = true;
+    world.reset_runtime();
+    world.seed_volume_occupants(point(), &[resting]);
+    world.update_volume_occupants(point(), point(), &[resting]);
+    assert!(
+        world.events().is_empty(),
+        "reset seed does not invent a new receipt"
+    );
+    world.update_volumes(point(), point());
+    assert_eq!(
+        world.events().peek().map(|event| event.kind),
+        Some(EventKind::ExitVolume),
+        "missing settled item releases receipt"
+    );
+    Ok(())
+}
+
+fn rotating_receipt_body() -> Result<crate::engine::physics::ItemTriggerBody, String> {
+    use crate::engine::physics::{BodyMotion, FIXED_STEP, ItemWorld, PhysicsDef, PlayerContext};
+    let mut physics = ItemWorld::default();
+    physics.spawn(
+        1,
+        &PhysicsDef {
+            motion: BodyMotion::Dynamic,
+            pickup: true,
+            ..PhysicsDef::default()
+        },
+        (Vec3::new(-0.3, -0.05, -0.05), Vec3::new(0.3, 0.05, 0.05)),
+        Vec3::new(0.5, 1.2, 0.5),
+        0.0,
+        1.0,
+    )?;
+    assert!(
+        physics.set_fixture_velocity(1, Vec3::ZERO, Vec3::new(0.0, 4.0, 0.0)),
+        "bounded angular velocity must be accepted"
+    );
+    physics.step(
+        FIXED_STEP * 4.0,
+        PlayerContext {
+            eye: point(),
+            feet: point(),
+            height: 1.8,
+            view: Vec3::NEG_Z,
+            yaw: 0.0,
+            active: false,
+        },
+        &[],
+    );
+    let mut snapshot = None;
+    physics.for_each_trigger_body(|body| snapshot = Some(body));
+    snapshot.ok_or_else(|| "missing rotated box".to_string())
 }

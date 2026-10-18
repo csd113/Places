@@ -1,7 +1,8 @@
 //! Short-lived scoped capabilities. Retaining `api` in a Luau closure does not
 //! retain a Rust world reference: mlua invalidates its functions after the call.
 
-use mlua::{Lua, Scope, Table, Value};
+use mlua::{FromLuaMulti, Function, IntoLuaMulti, Lua, Scope, Table, Value};
+use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::sync::Mutex;
 
@@ -26,7 +27,35 @@ impl mlua::FromLua for Flag {
     }
 }
 
-use super::error;
+struct Coordinate(f32);
+impl mlua::FromLua for Coordinate {
+    fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
+        // mlua's ordinary float conversion also parses numeric strings. Host
+        // calls accept actual bounded numbers, never a large string-to-number
+        // conversion whose native cost precedes the capability's work guard.
+        let number = if let Value::Number(number) = value {
+            number
+        } else if let Value::Integer(number) = value {
+            number
+                .to_string()
+                .parse()
+                .map_err(|_problem| error("Invalid coordinate"))?
+        } else {
+            return Err(error("Coordinate requires a number"));
+        };
+        if !number.is_finite() || number.abs() > 100_000.0_f64 {
+            return Err(error("Coordinate requires a finite number within ±100000"));
+        }
+        Ok(Self(
+            number
+                .to_string()
+                .parse()
+                .map_err(|_problem| error("Invalid coordinate"))?,
+        ))
+    }
+}
+
+use super::{MAX_NATIVE_CALLS, error};
 use crate::engine::entities::EntityWorld;
 use crate::engine::entities::components::StateValue;
 use crate::engine::level::ActionDef;
@@ -65,6 +94,28 @@ fn push(queue: &Queue, limit: usize, action: ActionDef) -> mlua::Result<()> {
     Ok(())
 }
 
+/// Queries also consume a hard native-work budget: they do not enqueue actions,
+/// and a tight read-only loop must not rely solely on cooperative VM interrupts.
+fn capability<'scope, A, R, F>(
+    scope: &'scope Scope<'scope, '_>,
+    calls: &'scope Cell<usize>,
+    callback: F,
+) -> mlua::Result<Function>
+where
+    A: FromLuaMulti,
+    R: IntoLuaMulti,
+    F: Fn(&Lua, A) -> mlua::Result<R> + 'scope,
+{
+    scope.create_function(move |vm, arguments| {
+        let used = calls.get();
+        if used >= MAX_NATIVE_CALLS {
+            return Err(error("Host native-call budget exhausted"));
+        }
+        calls.set(used.saturating_add(1));
+        callback(vm, arguments)
+    })
+}
+
 #[expect(
     clippy::too_many_arguments,
     clippy::too_many_lines,
@@ -78,49 +129,54 @@ pub(super) fn host<'scope>(
     notices: &'scope Mutex<Vec<String>>,
     points: &'scope BTreeSet<String>,
     groups: &'scope BTreeSet<String>,
+    calls: &'scope Cell<usize>,
     limit: usize,
 ) -> mlua::Result<Table> {
     let api = lua.create_table()?;
     api.set(
         "message",
-        scope.create_function(move |_, (value, lines): (HostString, Table)| {
-            if lines.metatable().is_some() || lines.raw_len() == 0 || lines.raw_len() > 6 {
-                return Err(error("Guidance requires 1..=6 plain text lines"));
-            }
-            let count = lines.raw_len();
-            let mut keys = 0usize;
-            for pair in lines.pairs::<Value, Value>().take(7) {
-                let (key, _) = pair?;
-                let Value::Integer(index) = key else {
-                    return Err(error("Guidance lines must be a dense array"));
-                };
-                if index < 1 || !usize::try_from(index).is_ok_and(|ordinal| ordinal <= count) {
+        capability(
+            scope,
+            calls,
+            move |_, (value, lines): (HostString, Table)| {
+                if lines.metatable().is_some() || lines.raw_len() == 0 || lines.raw_len() > 6 {
+                    return Err(error("Guidance requires 1..=6 plain text lines"));
+                }
+                let count = lines.raw_len();
+                let mut keys = 0usize;
+                for pair in lines.pairs::<Value, Value>().take(7) {
+                    let (key, _) = pair?;
+                    let Value::Integer(index) = key else {
+                        return Err(error("Guidance lines must be a dense array"));
+                    };
+                    if index < 1 || !usize::try_from(index).is_ok_and(|ordinal| ordinal <= count) {
+                        return Err(error("Guidance lines must be a dense array"));
+                    }
+                    keys = keys.saturating_add(1);
+                }
+                if keys != count {
                     return Err(error("Guidance lines must be a dense array"));
                 }
-                keys = keys.saturating_add(1);
-            }
-            if keys != count {
-                return Err(error("Guidance lines must be a dense array"));
-            }
-            let title = text(value, 80)?;
-            let mut content = Vec::new();
-            for line in lines.sequence_values::<HostString>() {
-                content.push(text(line?, 72)?);
-            }
-            crate::engine::level::validate_message(&title, &content).map_err(error)?;
-            push(
-                queue,
-                limit,
-                ActionDef::ShowMessage {
-                    title,
-                    lines: content,
-                },
-            )
-        })?,
+                let title = text(value, 80)?;
+                let mut content = Vec::new();
+                for line in lines.sequence_values::<HostString>() {
+                    content.push(text(line?, 72)?);
+                }
+                crate::engine::level::validate_message(&title, &content).map_err(error)?;
+                push(
+                    queue,
+                    limit,
+                    ActionDef::ShowMessage {
+                        title,
+                        lines: content,
+                    },
+                )
+            },
+        )?,
     )?;
     api.set(
         "player",
-        scope.create_function(move |vm, ()| {
+        capability(scope, calls, move |vm, ()| {
             let result = vm.create_table()?;
             result.set("x", world.script_player.x)?;
             result.set("y", world.script_player.y)?;
@@ -131,7 +187,7 @@ pub(super) fn host<'scope>(
     )?;
     api.set(
         "actor",
-        scope.create_function(move |vm, value: HostString| {
+        capability(scope, calls, move |vm, value: HostString| {
             let id = entity(world, value)?;
             let handle = world.handle_of(&id).ok_or_else(|| error("Unknown actor"))?;
             let pose = world
@@ -153,34 +209,37 @@ pub(super) fn host<'scope>(
     )?;
     api.set(
         "navigate",
-        scope.create_function(move |_, (value, x, y, z): (HostString, f32, f32, f32)| {
-            let id = entity(world, value)?;
-            let position = [x, y, z];
-            if position
-                .iter()
-                .any(|v| !v.is_finite() || v.abs() > 100_000.0)
-                || world
+        capability(
+            scope,
+            calls,
+            move |_, (value, x, y, z): (HostString, Coordinate, Coordinate, Coordinate)| {
+                let id = entity(world, value)?;
+                let position = [x.0, y.0, z.0];
+                if world
                     .handle_of(&id)
                     .and_then(|h| world.components().ais.get(h))
                     .is_none()
-            {
-                return Err(error(
-                    "Navigation requires an AI body and a finite bounded goal",
-                ));
-            }
-            push(
-                queue,
-                limit,
-                ActionDef::Navigate {
-                    target: id,
-                    position,
-                },
-            )
-        })?,
+                {
+                    return Err(error(
+                        "Navigation requires an AI body and a finite bounded goal",
+                    ));
+                }
+                push(
+                    queue,
+                    limit,
+                    ActionDef::Navigate {
+                        target: id,
+                        position,
+                    },
+                )
+            },
+        )?,
     )?;
     api.set(
         "finish",
-        scope.create_function(
+        capability(
+            scope,
+            calls,
             move |_, (won, raw_title, raw_detail): (Flag, HostString, HostString)| {
                 let title = text(raw_title, 80)?;
                 let detail = text(raw_detail, 160)?;
@@ -199,7 +258,7 @@ pub(super) fn host<'scope>(
     )?;
     api.set(
         "change_level",
-        scope.create_function(move |_, value: HostString| {
+        capability(scope, calls, move |_, value: HostString| {
             let level = text(value, 96)?;
             if !world.permits_transition(&level) {
                 return Err(error("Undeclared project transition"));
@@ -209,40 +268,46 @@ pub(super) fn host<'scope>(
     )?;
     api.set(
         "reset",
-        scope.create_function(move |_, ()| push(queue, limit, ActionDef::ResetToStart))?,
+        capability(scope, calls, move |_, ()| {
+            push(queue, limit, ActionDef::ResetToStart)
+        })?,
     )?;
     api.set(
         "exists",
-        scope.create_function(move |_, value: HostString| {
+        capability(scope, calls, move |_, value: HostString| {
             Ok(world.handle_of(&text(value, 96)?).is_some())
         })?,
     )?;
     api.set(
         "door",
-        scope.create_function(move |_, (value, operation): (HostString, HostString)| {
-            let id = entity(world, value)?;
-            if world.doors().index_of(&id).is_none() {
-                return Err(error("Target is not a door"));
-            }
-            let target = Some(id);
-            let action = match text(operation, 16)?.as_str() {
-                "open" => ActionDef::Open { target },
-                "close" => ActionDef::Close { target },
-                "toggle" => ActionDef::Toggle { target },
-                "lock" => ActionDef::Lock { target },
-                "unlock" => ActionDef::Unlock { target },
-                _ => {
-                    return Err(error(
-                        "Door operation requires open, close, toggle, lock or unlock",
-                    ));
+        capability(
+            scope,
+            calls,
+            move |_, (value, operation): (HostString, HostString)| {
+                let id = entity(world, value)?;
+                if world.doors().index_of(&id).is_none() {
+                    return Err(error("Target is not a door"));
                 }
-            };
-            push(queue, limit, action)
-        })?,
+                let target = Some(id);
+                let action = match text(operation, 16)?.as_str() {
+                    "open" => ActionDef::Open { target },
+                    "close" => ActionDef::Close { target },
+                    "toggle" => ActionDef::Toggle { target },
+                    "lock" => ActionDef::Lock { target },
+                    "unlock" => ActionDef::Unlock { target },
+                    _ => {
+                        return Err(error(
+                            "Door operation requires open, close, toggle, lock or unlock",
+                        ));
+                    }
+                };
+                push(queue, limit, action)
+            },
+        )?,
     )?;
     api.set(
         "light",
-        scope.create_function(move |_, (value, on): (HostString, Flag)| {
+        capability(scope, calls, move |_, (value, on): (HostString, Flag)| {
             let id = entity(world, value)?;
             if world
                 .handle_of(&id)
@@ -263,48 +328,56 @@ pub(super) fn host<'scope>(
     )?;
     api.set(
         "sound",
-        scope.create_function(move |_, (value, playing): (HostString, Flag)| {
-            let id = entity(world, value)?;
-            let emitter = world
-                .handle_of(&id)
-                .and_then(|h| world.components().audio.get(h))
-                .ok_or_else(|| error("Target is not a sound emitter"))?;
-            push(
-                queue,
-                limit,
-                if playing.0 {
-                    ActionDef::PlaySound {
-                        target: Some(id),
-                        sound: None,
-                        looped: emitter.looped,
-                    }
-                } else {
-                    ActionDef::StopSound { target: Some(id) }
-                },
-            )
-        })?,
+        capability(
+            scope,
+            calls,
+            move |_, (value, playing): (HostString, Flag)| {
+                let id = entity(world, value)?;
+                let emitter = world
+                    .handle_of(&id)
+                    .and_then(|h| world.components().audio.get(h))
+                    .ok_or_else(|| error("Target is not a sound emitter"))?;
+                push(
+                    queue,
+                    limit,
+                    if playing.0 {
+                        ActionDef::PlaySound {
+                            target: Some(id),
+                            sound: None,
+                            looped: emitter.looped,
+                        }
+                    } else {
+                        ActionDef::StopSound { target: Some(id) }
+                    },
+                )
+            },
+        )?,
     )?;
     api.set(
         "physics",
-        scope.create_function(move |_, (value, activate): (HostString, Flag)| {
-            let group = text(value, 96)?;
-            if !groups.contains(&group) {
-                return Err(error("Unknown authored physics group"));
-            }
-            push(
-                queue,
-                limit,
-                if activate.0 {
-                    ActionDef::ActivatePhysicsGroup { group }
-                } else {
-                    ActionDef::ResetPhysicsGroup { group }
-                },
-            )
-        })?,
+        capability(
+            scope,
+            calls,
+            move |_, (value, activate): (HostString, Flag)| {
+                let group = text(value, 96)?;
+                if !groups.contains(&group) {
+                    return Err(error("Unknown authored physics group"));
+                }
+                push(
+                    queue,
+                    limit,
+                    if activate.0 {
+                        ActionDef::ActivatePhysicsGroup { group }
+                    } else {
+                        ActionDef::ResetPhysicsGroup { group }
+                    },
+                )
+            },
+        )?,
     )?;
     api.set(
         "spawn",
-        scope.create_function(move |_, value: HostString| {
+        capability(scope, calls, move |_, value: HostString| {
             let point = text(value, 96)?;
             if !points.contains(&point) {
                 return Err(error("Unknown spawn point"));
@@ -323,32 +396,40 @@ pub(super) fn host<'scope>(
     )?;
     api.set(
         "state",
-        scope.create_function(move |vm, (value, key): (HostString, HostString)| {
-            let id = entity(world, value)?;
-            let name = text(key, 96)?;
-            let state = world
-                .handle_of(&id)
-                .and_then(|h| world.components().states.get(h))
-                .and_then(|s| s.get(&name))
-                .ok_or_else(|| error("Unknown declared state"))?;
-            match state {
-                StateValue::Bool(v) => Ok(Value::Boolean(*v)),
-                StateValue::Int(v) if (-2_147_483_647..=2_147_483_647).contains(v) => {
-                    Ok(Value::Number(
-                        v.to_string()
-                            .parse::<f64>()
-                            .map_err(|_problem| error("Invalid state number"))?,
-                    ))
+        capability(
+            scope,
+            calls,
+            move |vm, (value, key): (HostString, HostString)| {
+                let id = entity(world, value)?;
+                let name = text(key, 96)?;
+                let state = world
+                    .handle_of(&id)
+                    .and_then(|h| world.components().states.get(h))
+                    .and_then(|s| s.get(&name))
+                    .ok_or_else(|| error("Unknown declared state"))?;
+                match state {
+                    StateValue::Bool(v) => Ok(Value::Boolean(*v)),
+                    StateValue::Int(v) if (-2_147_483_647..=2_147_483_647).contains(v) => {
+                        Ok(Value::Number(
+                            v.to_string()
+                                .parse::<f64>()
+                                .map_err(|_problem| error("Invalid state number"))?,
+                        ))
+                    }
+                    StateValue::Int(_) => {
+                        Err(error("Declared integer is outside the scripting range"))
+                    }
+                    StateValue::Float(v) => Ok(Value::Number(f64::from(*v))),
+                    StateValue::Text(v) => Ok(Value::String(vm.create_string(v)?)),
                 }
-                StateValue::Int(_) => Err(error("Declared integer is outside the scripting range")),
-                StateValue::Float(v) => Ok(Value::Number(f64::from(*v))),
-                StateValue::Text(v) => Ok(Value::String(vm.create_string(v)?)),
-            }
-        })?,
+            },
+        )?,
     )?;
     api.set(
         "set_state",
-        scope.create_function(
+        capability(
+            scope,
+            calls,
             move |_, (value, key, next): (HostString, HostString, Value)| {
                 let id = entity(world, value)?;
                 let name = text(key, 96)?;
@@ -407,7 +488,7 @@ pub(super) fn host<'scope>(
     )?;
     api.set(
         "notice",
-        scope.create_function(move |_, value: HostString| {
+        capability(scope, calls, move |_, value: HostString| {
             let message = text(value, 256)?;
             let mut messages = notices
                 .lock()

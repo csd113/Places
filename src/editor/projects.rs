@@ -252,6 +252,13 @@ fn draw_level(
     ui::popup_button(
         v,
         hits,
+        [238.0, 159.0, 210.0, 13.0],
+        "Map settings >",
+        Action::Components(10),
+    );
+    ui::popup_button(
+        v,
+        hits,
         [30.0, 159.0, 190.0, 13.0],
         &format!("Selected: {} / Next >", doc.level_id()),
         Action::ProjectSelect(

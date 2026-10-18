@@ -77,7 +77,6 @@ impl App {
             }
             Action::Create => self.popup = Some(Popup::Create),
             Action::Gameplay => self.popup = Some(Popup::Gameplay { page: 0 }),
-            Action::GameplayPage(page) => self.popup = Some(Popup::Gameplay { page }),
             Action::GameplayActions => self.popup = Some(Popup::GameplayActions),
             Action::GamePick(choice) => {
                 self.popup = Some(Popup::GameplayChoices { choice, page: 0 });
@@ -119,10 +118,15 @@ impl App {
                 }
             }
             Action::RemoveTriggerStep(index) => {
+                let binding = self.selected_binding();
                 self.document
                     .as_mut()
                     .ok_or("Open a project first")?
-                    .remove_trigger_action(self.selected.ok_or("Select a trigger")?, index)?;
+                    .remove_binding_action(
+                        self.selected.ok_or("Select an event owner")?,
+                        binding,
+                        index,
+                    )?;
                 self.changed();
             }
             Action::EnvironmentPreview => {
@@ -197,8 +201,6 @@ impl App {
                     "Player".into(),
                     "Any player or item".into(),
                     "Any physical item".into(),
-                    "Held items".into(),
-                    "Unheld items".into(),
                 ];
                 let ids = doc.level().prop_instance_ids();
                 for (i, prop) in doc.level().props.iter().enumerate() {
@@ -227,6 +229,8 @@ impl App {
             .cloned()
             .ok_or("Choice expired")?;
         let id = self.selected.ok_or("Select an object")?;
+        let binding = self.selected_binding();
+        let event = self.selected_event();
         let doc = self.document.as_mut().ok_or("Open a project first")?;
         match choice {
             GameplayChoice::Fixture | GameplayChoice::Sound | GameplayChoice::EntityModel => {
@@ -239,8 +243,6 @@ impl App {
                     0 => json!({"kind":"player"}),
                     1 => json!({"kind":"any"}),
                     2 => json!({"kind":"item"}),
-                    3 => json!({"kind":"item","held":true}),
-                    4 => json!({"kind":"item","held":false}),
                     _ => {
                         if let Some(instance) = value.strip_prefix("Item: ") {
                             json!({"kind":"item","instance":instance})
@@ -252,7 +254,12 @@ impl App {
                 doc.set_trigger_filter(id, filter)?;
             }
             GameplayChoice::TransitionAction => {
-                doc.add_trigger_action(id, json!({"action":"change_level","level":value}))?;
+                doc.add_binding_action(
+                    id,
+                    binding,
+                    event,
+                    json!({"action":"change_level","level":value}),
+                )?;
             }
             GameplayChoice::SoundAction => {
                 let looping = doc
@@ -261,31 +268,49 @@ impl App {
                     .iter()
                     .find(|emitter| emitter.id == value)
                     .is_some_and(|emitter| emitter.looped);
-                doc.add_trigger_action(
+                doc.add_binding_action(
                     id,
+                    binding,
+                    event,
                     json!({"action":"play_sound","target":value,"loop":looping}),
                 )?;
             }
             GameplayChoice::DoorAction => {
-                doc.add_trigger_action(id, json!({"action":"open","target":value}))?;
+                doc.add_binding_action(
+                    id,
+                    binding,
+                    event,
+                    json!({"action":"open","target":value}),
+                )?;
             }
             GameplayChoice::SpawnAction => {
-                doc.add_trigger_action(id, json!({"action":"spawn_entity","point":value}))?;
+                doc.add_binding_action(
+                    id,
+                    binding,
+                    event,
+                    json!({"action":"spawn_entity","point":value}),
+                )?;
             }
-            GameplayChoice::PhysicsAction => doc
-                .add_trigger_action(id, json!({"action":"activate_physics_group","group":value}))?,
+            GameplayChoice::PhysicsAction => doc.add_binding_action(
+                id,
+                binding,
+                event,
+                json!({"action":"activate_physics_group","group":value}),
+            )?,
         }
         self.changed();
-        self.popup = Some(Popup::Gameplay {
-            page: usize::from(matches!(
-                choice,
-                GameplayChoice::SoundAction
-                    | GameplayChoice::DoorAction
-                    | GameplayChoice::SpawnAction
-                    | GameplayChoice::PhysicsAction
-                    | GameplayChoice::TransitionAction
-            )),
-        });
+        self.popup = if matches!(
+            choice,
+            GameplayChoice::SoundAction
+                | GameplayChoice::DoorAction
+                | GameplayChoice::SpawnAction
+                | GameplayChoice::PhysicsAction
+                | GameplayChoice::TransitionAction
+        ) {
+            Some(Popup::Components { page: 4 })
+        } else {
+            Some(Popup::Gameplay { page: 0 })
+        };
         self.status = "Updated gameplay configuration. Cmd/Ctrl Z to undo.".into();
         Ok(())
     }

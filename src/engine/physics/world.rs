@@ -656,6 +656,7 @@ impl ItemWorld {
         let interpolation_center = runtime.world.bodies.get(body).map_or(center, |rigid_body| {
             add(center, point(rigid_body.local_center_of_mass()))
         });
+        let trigger_path = TriggerPath::new(initial, center, &shape);
         let _previous = runtime.entries.insert(
             key,
             BodyEntry {
@@ -673,7 +674,7 @@ impl ItemWorld {
                 reset_group: def.reset_group.as_deref().map(Into::into),
                 previous: initial,
                 current: initial,
-                trigger_path: TriggerPath::new(initial, center),
+                trigger_path,
                 impact_motion: ImpactMotion::default(),
                 impact_cooldown: 0.0,
                 recovery: RecoveryTracker::new(initial),
@@ -1285,14 +1286,22 @@ impl ItemWorld {
             if !entry.motion.is_movable() || entry.recovery.suspended {
                 continue;
             }
-            visit(entry.trigger_path.snapshot(
+            let mut snapshot = entry.trigger_path.snapshot(
                 key,
                 entry.current,
                 entry.center,
                 &entry.shape,
                 entry.radius,
-                runtime.held.as_ref().is_some_and(|held| held.key == key),
-            ));
+            );
+            snapshot.held = runtime.held.as_ref().is_some_and(|held| held.key == key);
+            snapshot.sleeping = entry.motion == BodyMotion::Dynamic
+                && !entry.dormant
+                && runtime
+                    .world
+                    .bodies
+                    .get(entry.body)
+                    .is_some_and(rapier3d::prelude::RigidBody::is_sleeping);
+            visit(snapshot);
         }
     }
 
@@ -1461,7 +1470,7 @@ impl Runtime {
         self.frame_contacts.clear();
         self.frame_contact_impulses.clear();
         for entry in self.entries.values_mut() {
-            entry.trigger_path = TriggerPath::new(entry.current, entry.center);
+            entry.trigger_path = TriggerPath::new(entry.current, entry.center, &entry.shape);
         }
         stats.body_count = self.entries.len();
         stats.static_colliders = self.static_count;
@@ -1491,7 +1500,9 @@ impl Runtime {
             .saturating_add(self.recover_escaped(recovery_space, FIXED_STEP));
         self.collect_impacts(surface_materials);
         for entry in self.entries.values_mut() {
-            entry.trigger_path.record(entry.current, entry.center);
+            entry
+                .trigger_path
+                .record(entry.current, entry.center, &entry.shape);
         }
         stats.substeps = stats.substeps.saturating_add(1);
     }
@@ -1528,7 +1539,7 @@ impl Runtime {
     pub(super) fn clear_item_contacts(&mut self, key: u64) {
         if let Some(entry) = self.entries.get_mut(&key) {
             self.contact_onsets.remove_collider(entry.collider);
-            entry.trigger_path = TriggerPath::new(entry.current, entry.center);
+            entry.trigger_path = TriggerPath::new(entry.current, entry.center, &entry.shape);
             entry.impact_cooldown = 0.0;
         }
         self.frame_contacts.retain(|pair| !pair.contains(&key));
@@ -1643,7 +1654,7 @@ impl Runtime {
         }
         entry.previous = entry.authored_pose;
         entry.current = entry.authored_pose;
-        entry.trigger_path = TriggerPath::new(entry.authored_pose, entry.center);
+        entry.trigger_path = TriggerPath::new(entry.authored_pose, entry.center, &entry.shape);
         entry.impact_motion = ImpactMotion::default();
         entry.impact_cooldown = 0.0;
     }

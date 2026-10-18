@@ -53,6 +53,7 @@ pub mod archive;
 pub mod binary;
 pub mod collision;
 pub mod compact_lightmaps;
+pub(crate) mod dependencies;
 pub mod hash;
 pub mod ktx2;
 pub mod lighting;

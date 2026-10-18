@@ -236,6 +236,28 @@ impl ItemWorld {
         direction: Vec3,
         max_distance: f32,
     ) -> Option<(u64, f32)> {
+        self.first_body_hit_excluding(eye, direction, max_distance, None)
+    }
+
+    /// Door interaction while carrying ignores only the owned body. Every other
+    /// enabled physical collider still blocks the exact sight ray.
+    #[must_use]
+    pub fn first_unheld_body_hit(
+        &self,
+        eye: Vec3,
+        direction: Vec3,
+        max_distance: f32,
+    ) -> Option<(u64, f32)> {
+        self.first_body_hit_excluding(eye, direction, max_distance, self.held())
+    }
+
+    fn first_body_hit_excluding(
+        &self,
+        eye: Vec3,
+        direction: Vec3,
+        max_distance: f32,
+        excluded: Option<u64>,
+    ) -> Option<(u64, f32)> {
         if !eye.is_finite()
             || !direction.is_finite()
             || !max_distance.is_finite()
@@ -248,10 +270,11 @@ impl ItemWorld {
         let only_items = |handle, collider: &rapier3d::prelude::Collider| {
             collider.is_enabled()
                 && runtime.key_for_collider(handle).is_some_and(|key| {
-                    runtime
-                        .entries
-                        .get(&key)
-                        .is_some_and(|entry| entry.collider == handle)
+                    Some(key) != excluded
+                        && runtime
+                            .entries
+                            .get(&key)
+                            .is_some_and(|entry| entry.collider == handle)
                 })
         };
         let filter = query_filter().predicate(&only_items);

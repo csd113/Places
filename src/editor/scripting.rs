@@ -29,7 +29,7 @@ impl App {
                     scroll: 0,
                     all: false,
                 });
-                self.status = "New module linked to this level. Edit, Save, Check, then link a handler to a trigger.".into();
+                self.status = "New module linked to this level. Edit, Save, Check, then link a handler to an event.".into();
             }
             Action::ScriptOpen(index) => {
                 let doc = self.document.as_mut().ok_or("Open project first")?;
@@ -65,8 +65,15 @@ impl App {
                 self.status = "Luau check passed: bounded initialization and exports. Play verifies handler behavior.".into();
             }
             Action::ScriptLink => {
-                if !matches!(self.selected, Some(super::document::ObjectId::Trigger(_))) {
-                    return Err("Select a trigger before linking a handler".into());
+                if !matches!(
+                    self.selected,
+                    Some(
+                        super::document::ObjectId::Trigger(_)
+                            | super::document::ObjectId::Prop(_)
+                            | super::document::ObjectId::Door(_)
+                    )
+                ) {
+                    return Err("Select a trigger, prop or door before linking a handler".into());
                 }
                 if let Some(Popup::ScriptEdit {
                     path,
@@ -100,27 +107,23 @@ impl App {
             page: _,
         }) = &self.popup
         {
+            let binding = self.selected_binding();
+            let event = self.selected_event();
             let doc = self.document.as_mut().ok_or("Open project first")?;
             let handler = names.get(index).cloned().ok_or("Missing handler")?;
-            if let Some(super::document::ObjectId::Trigger(trigger_index)) = self.selected
-                && doc
-                    .level()
-                    .volumes
-                    .get(trigger_index)
-                    .and_then(|volume| volume.bindings.first())
-                    .is_some_and(|binding| binding.actions.len() >= 8)
-            {
-                return Err("The native trigger sheet supports eight actions; remove an action before linking another handler".into());
-            }
-            doc.add_trigger_action(
-                self.selected.ok_or("Select trigger first")?,
+            doc.add_binding_action(
+                self.selected.ok_or("Select an event owner first")?,
+                binding,
+                event,
                 serde_json::json!({"action":"run_script","script":path,"handler":handler}),
             )?;
             self.status = format!(
-                "Linked {path} / {handler}; trigger enter/exit, cooldown and once policy apply."
+                "Linked {path} / {handler} to {} event {}.",
+                event.name(),
+                binding.saturating_add(1)
             );
             self.changed();
-            self.popup = Some(Popup::Gameplay { page: 0 });
+            self.popup = Some(Popup::Components { page: 4 });
         }
         Ok(())
     }

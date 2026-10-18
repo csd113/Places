@@ -17,7 +17,7 @@ mod tests;
 
 /// Encoded inputs have their own budget: PNG ancillary chunks and compression
 /// can otherwise consume memory before the decoded dimension policy runs.
-const MAX_ENCODED_PNG_BYTES: usize = 32 * 1024 * 1024;
+pub const MAX_ENCODED_PNG_BYTES: usize = 32 * 1024 * 1024;
 
 /// Prefetch is optional; leave large catalogs to the serial resolver's resident
 /// byte guard. Ordinary PNGs decode to at most 4 MiB, so workers stage at most

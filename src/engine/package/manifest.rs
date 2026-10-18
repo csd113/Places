@@ -13,11 +13,13 @@ use super::{FORMAT_VERSION, MAX_DEPENDENCIES, MAX_VARIANTS};
 ///
 /// A package that requires a capability outside this list is rejected by name:
 /// the player must never guess at a payload it does not understand.
-pub const KNOWN_CAPABILITIES: [&str; 15] = [
+pub const KNOWN_CAPABILITIES: [&str; 17] = [
     "luau-v1",
     "scene-actions-v1",
     "project-transitions-v1",
     "light-circuits-v1",
+    "full-lighting-v1",
+    "item-receipts-v1",
     "static-light-state-v1",
     "geometry",
     "props",
@@ -47,7 +49,7 @@ pub struct PackageEntry {
 }
 
 /// What one dependency is.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum DependencyKind {
     /// A prop/animation model (GLB) read from the installed asset root.
@@ -402,7 +404,11 @@ impl Manifest {
                 self.validate_variant_entry("probes-meta", &probe.positions)?;
             }
         }
+        let mut dependency_ids = std::collections::BTreeSet::new();
         for dependency in &self.dependencies {
+            if !dependency_ids.insert((dependency.kind, dependency.path.to_ascii_lowercase())) {
+                return Err(format!("package repeats dependency '{}'", dependency.path));
+            }
             if super::normalize_entry_name(&dependency.path).as_deref()
                 != Some(dependency.path.as_str())
             {

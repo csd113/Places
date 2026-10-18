@@ -53,10 +53,10 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
-use crate::engine::collision::{CROUCH_HEIGHT, WallAabb};
+use crate::engine::collision::{CROUCH_HEIGHT, DoorCollider, PLAYER_STEP_HEIGHT, WallAabb};
 use crate::engine::level::{
-    ArcWallDef, ArchitectureBox, LevelDef, LevelSurfaces, PillarDef, RoomDef, WallAxis, WallDef,
-    wall_solid_slices_profiled,
+    ArcWallDef, ArchitectureBox, LevelDef, LevelSurfaces, PillarDef, RoomDef, WalkableFloor,
+    WallAxis, WallDef, wall_solid_slices_profiled,
 };
 use crate::engine::materials::MaterialTable;
 use crate::engine::render::{LevelMesh, SurfaceKey, SurfaceKind, Vertex};
@@ -3207,12 +3207,19 @@ impl Checker<'_> {
     /// Suspicious void leaks and wall runs with no wall or opening.
     fn check_rooms(&mut self, surfaces: &LevelSurfaces<'_>, colliders: &[Collider]) {
         let boxes: Vec<WallAabb> = colliders.iter().map(|collider| collider.aabb).collect();
+        let floor = WalkableFloor::from_level(self.level);
+        let doors: Vec<_> = self
+            .level
+            .doors
+            .iter()
+            .map(|door| crate::engine::door::DoorRuntime::new(door, self.level).collider())
+            .collect();
         for (index, room) in self.level.room_iter().enumerate() {
             if !room.width.is_finite() || !room.depth.is_finite() {
                 continue;
             }
-            self.check_room_leak(index, room, surfaces, &boxes);
-            self.check_room_perimeter(index, room, surfaces, &boxes);
+            self.check_room_leak(index, room, &floor, &boxes, &doors);
+            self.check_room_perimeter(index, room, surfaces, &boxes, &doors);
         }
     }
 
@@ -3220,14 +3227,11 @@ impl Checker<'_> {
         &mut self,
         index: usize,
         room: &RoomDef,
-        surfaces: &LevelSurfaces<'_>,
+        floor: &WalkableFloor,
         boxes: &[WallAabb],
+        doors: &[DoorCollider],
     ) {
         let (x0, x1, z0, z1) = room.bounds();
-        let (foot_x, foot_z) = (f32::midpoint(x0, x1), f32::midpoint(z0, z1));
-        let Some(foot) = surfaces.floor_y_at(foot_x, foot_z) else {
-            return;
-        };
         let ex0 = x0 - LEAK_MARGIN_M;
         let ex1 = x1 + LEAK_MARGIN_M;
         let ez0 = z0 - LEAK_MARGIN_M;
@@ -3247,40 +3251,40 @@ impl Checker<'_> {
         };
         // Seeds: every cell inside the room's footprint.
         let mut visited = vec![false; cells_x.saturating_mul(cells_z)];
-        let mut queue: VecDeque<(usize, usize)> = VecDeque::new();
+        let mut queue: VecDeque<(usize, usize, f32)> = VecDeque::new();
         for ix in 0..cells_x {
             for iz in 0..cells_z {
                 let (x, z) = point(ix, iz);
-                if room.contains(x, z) {
+                if let Some(seed_foot) = floor.height_in_room(index, x, z) {
                     let slot = iz.saturating_mul(cells_x).saturating_add(ix);
                     if let Some(entry) = visited.get_mut(slot)
                         && !*entry
                     {
                         *entry = true;
-                        queue.push_back((ix, iz));
+                        queue.push_back((ix, iz, seed_foot));
                     }
                 }
             }
         }
-        let mut exit: Option<(f32, f32, f32)> = None;
+        let mut exit: Option<(f32, f32, f32, f32)> = None;
         // Each cell resolves its own walkable floor: a room that contains a
         // deep basin is blocked at the basin's level by the basin's own rims,
         // and a deck-level wall must not be treated as passable just because
         // the room centre happens to be lower.
-        let blocked = |x: f32, z: f32, from_foot: f32| {
+        let blocked = |x: f32, z: f32, cell_foot: f32| {
             // Outside every room there is no floor; the step keeps the foot it
             // came from, so a wall at the room edge still blocks an escape
             // instead of becoming passable because the void resolves to no
             // walkable surface.
-            let cell_foot = surfaces.floor_y_at(x, z).unwrap_or(from_foot);
             boxes.iter().any(|boxed| {
                 boxed.overlaps_disc(x, z, LEAK_BODY_RADIUS_M)
                     && boxed.blocks_body(cell_foot, LEAK_BODY_HEIGHT_M)
+            }) || doors.iter().any(|door| {
+                door.overlaps_body_y(cell_foot, LEAK_BODY_HEIGHT_M)
+                    && door.depenetrate(x, z, LEAK_BODY_RADIUS_M).is_some()
             })
         };
-        while let Some((ix, iz)) = queue.pop_front() {
-            let (cx, cz) = point(ix, iz);
-            let current_foot = surfaces.floor_y_at(cx, cz).unwrap_or(foot);
+        while let Some((ix, iz, current_foot)) = queue.pop_front() {
             for (dx, dz) in [
                 (1i32, 0i32),
                 (-1_i32, 0_i32),
@@ -3304,29 +3308,31 @@ impl Checker<'_> {
                     continue;
                 }
                 let (px, pz) = point(nx, nz);
-                if blocked(px, pz, current_foot) {
+                let landing = floor.height_below(px, pz, current_foot + PLAYER_STEP_HEIGHT);
+                let next_foot = landing.unwrap_or(current_foot);
+                if blocked(px, pz, next_foot) {
                     continue;
                 }
                 *entry = true;
-                queue.push_back((nx, nz));
+                queue.push_back((nx, nz, next_foot));
                 // Outside the room and outside every room: the void.
-                if !room.contains(px, pz) && surfaces.room_at(px, pz).is_none() {
+                if !room.contains(px, pz) && landing.is_none() {
                     let penetration = (x0 - px).max(px - x1).max(z0 - pz).max(pz - z1);
-                    let candidate = (px, pz, penetration);
-                    if exit.is_none_or(|(_, _, depth)| penetration > depth) {
+                    let candidate = (px, next_foot, pz, penetration);
+                    if exit.is_none_or(|(_, _, _, depth)| penetration > depth) {
                         exit = Some(candidate);
                     }
                 }
             }
         }
-        if let Some((x, z, depth)) = exit {
+        if let Some((x, foot, z, depth)) = exit {
             self.push(
                 "room-leak",
                 Severity::Warning,
                 format!("room {index}"),
                 format!(
                     "the room's walkable space reaches the void {depth:.2} m outside its footprint; \
-                     no wall, opening or annotation explains it"
+                     no authored-pose barrier or supporting storey explains it. Doors use their starting pose; opening a leaf can expose a route. The bounded flood samples one reachable height per cell, not every motion or storey transition"
                 ),
                 [x, foot, z],
             );
@@ -3339,6 +3345,7 @@ impl Checker<'_> {
         room: &RoomDef,
         surfaces: &LevelSurfaces<'_>,
         boxes: &[WallAabb],
+        doors: &[DoorCollider],
     ) {
         let (x0, x1, z0, z1) = room.bounds();
         if x1 - x0 <= 0.0 || z1 - z0 <= 0.0 {
@@ -3369,6 +3376,9 @@ impl Checker<'_> {
                 let z = (ez1 - ez0).mul_add(fraction, ez0);
                 let covered = boxes.iter().any(|boxed| {
                     boxed.overlaps_disc(x, z, 0.05) && boxed.blocks_body(foot, LEAK_BODY_HEIGHT_M)
+                }) || doors.iter().any(|door| {
+                    door.overlaps_body_y(foot, LEAK_BODY_HEIGHT_M)
+                        && door.depenetrate(x, z, 0.05).is_some()
                 }) || opening_covers(self.level, surfaces, x, z, probe_y);
                 let piece = length / usize_to_f32(steps);
                 if covered {

@@ -10,7 +10,7 @@ use super::EntityWorld;
 use super::components::TriggerVolume;
 use super::events::{EventKind, EventQueue, EventRecord};
 use super::id::{EntityHandle, EntityNames};
-use crate::engine::level::{TriggerFilterDef, TriggerOccupancyDef};
+use crate::engine::level::{ItemReceiptDef, TriggerFilterDef, TriggerOccupancyDef};
 
 /// Maximum physical snapshots consumed per update, matching the item world cap.
 pub const MAX_TRIGGER_ITEMS: usize = crate::engine::physics::MAX_BODIES;
@@ -31,8 +31,12 @@ pub struct TriggerItem<'a> {
     pub to: Vec3,
     pub half_extents: Vec3,
     pub held: bool,
+    /// Actual dynamic solver sleep; false for dormant, held or kinematic bodies.
+    pub sleeping: bool,
     /// Optional solver path; omitted preserves the endpoint-segment API.
     pub path: Option<&'a [Vec3]>,
+    /// Physical shape-centre path; omitted uses the ordinary path/endpoints.
+    pub centre_path: Option<&'a [Vec3]>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -301,7 +305,8 @@ fn physical_sweep(
     item: &TriggerItem<'_>,
     names: &EntityNames,
 ) -> Option<Sweep> {
-    let intervals = item_intervals(volume, item)?;
+    let receipt = receipt_item(volume, item)?;
+    let intervals = item_intervals(volume, &receipt)?;
     let existing = volume
         .occupants
         .iter()
@@ -311,18 +316,60 @@ fn physical_sweep(
             id: OccupantId::Item(item.key),
             key: item.instance.to_string(),
             actor: names.get(item.instance),
-            position: item.to,
+            position: receipt.to,
         },
         |index| volume.occupants.swap_remove(index),
     );
     Some(Sweep {
         occupant: VolumeOccupant {
-            position: item.to,
+            position: receipt.to,
             ..occupant
         },
         intervals,
-        at_end: endpoint_inside(volume, item.to, item.half_extents),
+        at_end: endpoint_inside(volume, receipt.to, receipt.half_extents),
         was_inside: existing.is_some(),
+    })
+}
+
+fn receipt_item<'a>(volume: &TriggerVolume, item: &TriggerItem<'a>) -> Option<TriggerItem<'a>> {
+    if volume.item_receipt == ItemReceiptDef::Overlap {
+        return Some(*item);
+    }
+    let path = item.centre_path.or(item.path);
+    if path.is_some_and(|points| {
+        points.len() > MAX_TRIGGER_PATH_POINTS || points.iter().any(|point| !point.is_finite())
+    }) {
+        return None;
+    }
+    let from = path
+        .and_then(|points| points.first().copied())
+        .unwrap_or(item.from);
+    let to = path
+        .and_then(|points| points.last().copied())
+        .unwrap_or(item.to);
+    if !from.is_finite() || !to.is_finite() {
+        return None;
+    }
+    if volume.item_receipt == ItemReceiptDef::SettledCentre {
+        // A receipt is a final rest state, never a transient crossing followed
+        // by sleep outside. Waking or picking up produces the normal exit.
+        if item.held || !item.sleeping || !endpoint_inside(volume, to, Vec3::ZERO) {
+            return None;
+        }
+        return Some(TriggerItem {
+            from: to,
+            to,
+            half_extents: Vec3::ZERO,
+            path: None,
+            ..*item
+        });
+    }
+    Some(TriggerItem {
+        from,
+        to,
+        half_extents: Vec3::ZERO,
+        path,
+        ..*item
     })
 }
 

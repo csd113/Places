@@ -5,6 +5,89 @@
 use super::{Checker, Severity, SurfaceKey, SurfaceKind, Tri};
 use crate::engine::level::LevelDef;
 
+// Essential room-flood regressions: closed/open door poses and an upper floor
+// above a sealed lower storey previously had the wrong leak result. These tiny
+// in-memory rooms invoke only collision/flood logic, with no mesh or asset load.
+#[test]
+fn room_leaks_use_authored_doors_and_the_room_own_storey() -> Result<(), String> {
+    use super::authored_colliders;
+    use crate::engine::level::LevelSurfaces;
+
+    let mut raw = serde_json::json!({
+        "schema":"places-level","format_version":1_u32,"id":"door_leak","name":"Door leak",
+        "spawn":{"x":1.0_f32,"z":1.0_f32},
+        "rooms":[{"width":2.0_f32,"depth":2.0_f32,"height":4.0_f32}],
+        "walls":[
+            {"x":-0.2_f32,"z":0.0_f32,"width":0.2_f32,"depth":2.0_f32,"height":2.5_f32},
+            {"x":2.0_f32,"z":0.0_f32,"width":0.2_f32,"depth":2.0_f32,"height":2.5_f32},
+            {"x":0.0_f32,"z":2.0_f32,"width":2.0_f32,"depth":0.2_f32,"height":2.5_f32}
+        ],
+        "doors":[{"id":"edge_leaf","x":0.0_f32,"z":0.0_f32,"width":2.0_f32,"height":2.5_f32}]
+    });
+    let leaks = |source: &serde_json::Value| -> Result<Vec<super::Finding>, String> {
+        let level: LevelDef =
+            serde_json::from_value(source.clone()).map_err(|error| error.to_string())?;
+        let surfaces = LevelSurfaces::new(&level);
+        let mut checker = Checker::new(&level);
+        checker.check_rooms(&surfaces, &authored_colliders(&level, &surfaces));
+        Ok(checker
+            .findings
+            .into_iter()
+            .filter(|entry| entry.check == "room-leak")
+            .collect())
+    };
+    assert!(
+        leaks(&raw)?.is_empty(),
+        "a closed leaf must seal the lower room's flood"
+    );
+    let open_door = raw
+        .get_mut("doors")
+        .and_then(serde_json::Value::as_array_mut)
+        .and_then(|doors| doors.first_mut())
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or("door")?;
+    let _previous_closed_state = open_door.insert(
+        "initial_state".into(),
+        serde_json::Value::String("open".into()),
+    );
+    assert_eq!(
+        leaks(&raw)?.len(),
+        1,
+        "the open starting pose exposes a real void route"
+    );
+    let closed_door = raw
+        .get_mut("doors")
+        .and_then(serde_json::Value::as_array_mut)
+        .and_then(|doors| doors.first_mut())
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or("door")?;
+    let _previous_open_state = closed_door.insert(
+        "initial_state".into(),
+        serde_json::Value::String("closed".into()),
+    );
+    raw.get_mut("rooms")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or("rooms")?
+        .push(
+            serde_json::json!({"width":2.0_f32,"depth":2.0_f32,"height":4.0_f32,"floor_y":3.0_f32}),
+        );
+    let upper = leaks(&raw)?;
+    assert_eq!(
+        upper.len(),
+        1,
+        "the sealed lower room cannot hide an unguarded upper-floor leak"
+    );
+    assert!(
+        upper.iter().all(|entry| entry.id == "room 1"
+            && entry
+                .position
+                .get(1)
+                .is_some_and(|height| *height > 2.9_f32)),
+        "upper-floor evidence must use that room's own height"
+    );
+    Ok(())
+}
+
 #[test]
 fn measured_surfaces_survive_reports_without_leaking_from_suppressed_warnings() -> Result<(), String>
 {

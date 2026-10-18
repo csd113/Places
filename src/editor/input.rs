@@ -188,16 +188,14 @@ impl App {
             self.request(Pending::Close, window);
             return;
         }
-        if self.project_text_event(event) {
-            return;
-        }
-        if self.script_event(event, window) {
-            return;
-        }
-        if self.numeric_event(event) {
-            return;
-        }
-        if self.focus_event(event, window, hits) {
+        if self.project_text_event(event)
+            || self.script_event(event, window)
+            || self.component_text_event(event)
+            || self.transform_event(event)
+            || self.search_event(event)
+            || self.numeric_event(event)
+            || self.focus_event(event, window, hits)
+        {
             return;
         }
         match event {
@@ -227,7 +225,7 @@ impl App {
                 < 112.0 * f32::from(u16::try_from(window.size().0).unwrap_or(1440)) / 480.0
                 && *mouse_y < 400.0 =>
             {
-                let count = self.document.as_ref().map_or(0, |doc| doc.objects().len());
+                let count = self.scene_objects().len();
                 self.object_scroll = if *y > 0.0 {
                     self.object_scroll.saturating_sub(1)
                 } else {

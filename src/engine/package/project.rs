@@ -2,7 +2,7 @@
 //! No extraction occurs while playing. A reader selects one virtual ordinary map.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs::{self, File};
+use std::fs;
 use std::io::{Read, Seek, Write as _};
 use std::path::Path;
 
@@ -140,7 +140,7 @@ pub(crate) fn select<R: Read + Seek>(
 /// # Errors
 /// Returns archive/index validation errors.
 pub fn inspect(path: &Path) -> Result<Option<ProjectPackage>, String> {
-    let file = File::open(path).map_err(|e| e.to_string())?;
+    let file = super::archive::open_file(path)?;
     let mut reader = PackageReader::new(file).map_err(|e| e.to_string())?;
     read_index(&mut reader)
 }
@@ -155,8 +155,8 @@ pub fn menu_thumbnail(
     path: &Path,
     level_id: &str,
 ) -> Result<Option<crate::engine::materials::RawImage>, String> {
-    let mut reader = PackageReader::new(File::open(path).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
+    let mut reader =
+        PackageReader::new(super::archive::open_file(path)?).map_err(|e| e.to_string())?;
     let Some(index) = read_index(&mut reader)? else {
         return Ok(None);
     };
@@ -182,8 +182,8 @@ pub fn menu_thumbnail(
 /// # Errors
 /// Returns corrupt record, script, dependency or index errors.
 pub fn validate(path: &Path, check: &impl Fn() -> Result<(), String>) -> Result<(), String> {
-    let mut reader = PackageReader::new(File::open(path).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
+    let mut reader =
+        PackageReader::new(super::archive::open_file(path)?).map_err(|e| e.to_string())?;
     if let Some(index) = read_index(&mut reader)? {
         validate_sources(&mut reader, &index, path, check)?;
         for name in reader.names().to_vec() {
@@ -459,19 +459,20 @@ pub fn recover(
     check: &impl Fn() -> Result<(), String>,
 ) -> Result<(), String> {
     crate::engine::progress::stage("validating complete project archive");
-    validate(source, check)?;
-    let mut reader = PackageReader::new(File::open(source).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
-    let index = read_index(&mut reader)?
-        .ok_or("This is a compiled single map; editable project sources are unavailable")?;
     if target.try_exists().map_err(|e| e.to_string())? {
         return Err("Recovery destination already exists; choose a new folder".into());
     }
-    let (temporary, reservation) = super::archive::create_temporary(target)?;
-    drop(reservation);
-    fs::remove_file(&temporary).map_err(|e| e.to_string())?;
-    fs::create_dir(&temporary).map_err(|e| e.to_string())?;
+    let temporary = super::archive::create_temporary_directory(target)?;
     let result = (|| {
+        // All later passes read our own immutable snapshot. Reopening a caller's
+        // path after validation could otherwise recover a replacement archive.
+        let staged = temporary.join(".recovery-package");
+        stage_package(source, &staged, check)?;
+        validate(&staged, check)?;
+        let mut reader =
+            PackageReader::new(super::archive::open_file(&staged)?).map_err(|e| e.to_string())?;
+        let index = read_index(&mut reader)?
+            .ok_or("This is a compiled single map; editable project sources are unavailable")?;
         crate::engine::progress::stage("recovering editable source files");
         let mut total = 0_u64;
         for (path, blob) in &index.sources {
@@ -493,6 +494,8 @@ pub fn recover(
                 .and_then(|()| file.sync_all())
                 .map_err(|e| e.to_string())?;
         }
+        drop(reader);
+        fs::remove_file(&staged).map_err(|e| e.to_string())?;
         let project = ProjectFolder::open(&temporary)?;
         if project.manifest() != &index.project {
             return Err("Recovery manifest disagrees with project index".into());
@@ -518,6 +521,37 @@ pub fn recover(
         })?;
     }
     result
+}
+
+/// Copy through a hard transport cap before parsing any untrusted archive.
+fn stage_package(
+    source: &Path,
+    target: &Path,
+    check: &impl Fn() -> Result<(), String>,
+) -> Result<(), String> {
+    let mut input = super::archive::open_file(source)?;
+    let mut output = fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(target)
+        .map_err(|e| e.to_string())?;
+    let mut total = 0_u64;
+    let mut buffer = vec![0; 64 * 1024];
+    loop {
+        check()?;
+        let count = input.read(&mut buffer).map_err(|e| e.to_string())?;
+        if count == 0 {
+            break;
+        }
+        total = total.saturating_add(u64::try_from(count).unwrap_or(u64::MAX));
+        if total > super::archive::MAX_TRANSPORT_BYTES {
+            return Err("Recovery source grew beyond the transport limit".into());
+        }
+        output
+            .write_all(buffer.get(..count).ok_or("Invalid recovery copy size")?)
+            .map_err(|e| e.to_string())?;
+    }
+    output.sync_all().map_err(|e| e.to_string())
 }
 
 /// Atomic directory publication with no replacement, including a concurrently created empty folder.

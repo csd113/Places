@@ -5,6 +5,36 @@ use std::path::{Path, PathBuf};
 
 use super::{MAX_ENTRIES, MAX_TOTAL_BYTES, OpenError, hash};
 
+pub(crate) const MAX_TRANSPORT_BYTES: u64 = MAX_TOTAL_BYTES + 64 * 1024 * 1024;
+
+/// Reject special files before opening, then validate the opened handle too.
+/// Unix nonblocking mode prevents a regular-file/FIFO swap from blocking open.
+pub(crate) fn open_file(path: &Path) -> Result<std::fs::File, String> {
+    let check = |metadata: &std::fs::Metadata| {
+        if metadata.is_file() && metadata.len() <= MAX_TRANSPORT_BYTES {
+            Ok(())
+        } else {
+            Err(format!(
+                "Package {} must be a regular file within the {MAX_TRANSPORT_BYTES}-byte transport limit",
+                path.display()
+            ))
+        }
+    };
+    check(&std::fs::metadata(path).map_err(|e| format!("{}: {e}", path.display()))?)?;
+    let mut options = std::fs::OpenOptions::new();
+    let _read = options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        let _flags = options.custom_flags(libc::O_NONBLOCK);
+    }
+    let file = options
+        .open(path)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    check(&file.metadata().map_err(|e| e.to_string())?)?;
+    Ok(file)
+}
+
 /// Read-only access to one opened package: a ZIP archive plus its validated
 /// entry index.
 ///
@@ -208,7 +238,7 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
     let file_len = reader
         .seek(std::io::SeekFrom::End(0))
         .map_err(|error| OpenError::NotArchive(error.to_string()))?;
-    if file_len > MAX_TOTAL_BYTES.saturating_add(64 * 1024 * 1024) {
+    if file_len > MAX_TRANSPORT_BYTES {
         return Err(OpenError::NotArchive(
             "Package exceeds compressed transport limit".into(),
         ));
@@ -255,7 +285,7 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
         .and_then(|bytes| <[u8; 2]>::try_from(bytes).ok())
         .map_or(0, u16::from_le_bytes)
     };
-    if field16(4) != 0 || field16(6) != 0 {
+    if field16(4) != 0 || field16(6) != 0 || field16(8) != field16(10) {
         return Err(OpenError::NotArchive(
             "multi-disk archives are not supported".to_string(),
         ));
@@ -273,7 +303,14 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
     }
     let cd_size = u64::from(field(12));
     let cd_offset = u64::from(field(16));
-    if cd_size > MAX_CD_BYTES || cd_offset.saturating_add(cd_size) > file_len {
+    let eocd_offset = start.saturating_add(u64::try_from(directory_end).unwrap_or(u64::MAX));
+    if eocd_offset
+        .saturating_add(EOCD_SIZE)
+        .saturating_add(u64::from(field16(20)))
+        != file_len
+        || cd_size > MAX_CD_BYTES
+        || cd_offset.saturating_add(cd_size) != eocd_offset
+    {
         return Err(OpenError::NotArchive(
             "central directory bounds are invalid".to_string(),
         ));
@@ -308,6 +345,11 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
             ));
         }
         let flags = u16::from_le_bytes([header_bytes[8], header_bytes[9]]);
+        if flags & 0x0041 != 0 {
+            return Err(OpenError::NotArchive(
+                "Encrypted archive entries are not supported".into(),
+            ));
+        }
         let compressed = u32::from_le_bytes([
             header_bytes[20],
             header_bytes[21],
@@ -340,7 +382,6 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
         }
         // Names are UTF-8 by contract. The flag is informational (the writer
         // omits it for plain ASCII), so validity of the bytes is what counts.
-        let _ = flags;
         let entry_name = std::str::from_utf8(raw_name).map_err(|error| {
             OpenError::NotArchive(format!("entry name is not valid UTF-8: {error}"))
         })?;
@@ -369,6 +410,11 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
             .saturating_add(extra_len)
             .saturating_add(comment_len);
     }
+    if cursor != directory.len() {
+        return Err(OpenError::NotArchive(
+            "Central directory has unaccounted bytes".into(),
+        ));
+    }
     if total > MAX_TOTAL_BYTES {
         return Err(OpenError::NotArchive(format!(
             "archive declares {total} uncompressed bytes (limit {MAX_TOTAL_BYTES})"
@@ -391,7 +437,12 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
 /// starts or ends with `/`.
 #[must_use]
 pub fn normalize_entry_name(raw: &str) -> Option<String> {
-    if raw.is_empty() || raw.starts_with('/') || raw.starts_with('\\') || raw.contains('\\') {
+    if raw.is_empty()
+        || raw.starts_with('/')
+        || raw.starts_with('\\')
+        || raw.contains('\\')
+        || raw.chars().any(char::is_control)
+    {
         return None;
     }
     if raw.len() >= 2 && raw.as_bytes().get(1) == Some(&b':') {
@@ -447,6 +498,15 @@ pub(crate) fn write_archive_guarded(
 ) -> Result<(), String> {
     check()?;
     entries.sort_by(|left, right| left.name.cmp(&right.name));
+    if entries
+        .iter()
+        .any(|entry| normalize_entry_name(&entry.name).as_deref() != Some(entry.name.as_str()))
+        || entries.windows(2).any(|pair| {
+            pair.first().map(|entry| &entry.name) == pair.get(1).map(|entry| &entry.name)
+        })
+    {
+        return Err("Package entry names must be safe and unique".into());
+    }
     if entries.len() > MAX_ENTRIES {
         return Err(format!(
             "package has {} entries (limit {MAX_ENTRIES})",
@@ -557,6 +617,22 @@ pub(crate) fn create_temporary(path: &Path) -> Result<(PathBuf, std::fs::File), 
     }
     Err(format!(
         "could not create a temporary for {}: all 16 sibling names exist",
+        path.display()
+    ))
+}
+
+/// Exclusively reserve an owned staging directory without a file/remove/mkdir gap.
+pub(crate) fn create_temporary_directory(path: &Path) -> Result<PathBuf, String> {
+    for attempt in 0_u8..16 {
+        let temporary = temporary_path(path, attempt);
+        match std::fs::create_dir(&temporary) {
+            Ok(()) => return Ok(temporary),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(format!("could not create {}: {error}", temporary.display())),
+        }
+    }
+    Err(format!(
+        "could not reserve staging for {}: all 16 sibling names exist",
         path.display()
     ))
 }

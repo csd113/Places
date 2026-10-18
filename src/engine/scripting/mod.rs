@@ -12,7 +12,9 @@ compile_error!(
 );
 
 mod api;
+mod standard;
 
+use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -31,6 +33,7 @@ const VM_BYTES: usize = 2 * 1024 * 1024;
 const MAX_HANDLERS: usize = 64;
 const MAX_CALLS: usize = 64;
 const MAX_ACTIONS: usize = 128;
+const MAX_NATIVE_CALLS: usize = 256;
 const MAX_DIAGNOSTICS: usize = 32;
 
 /// Compiler-owned UTF-8 snapshot, embedded in single-level semantics. No path
@@ -151,13 +154,17 @@ impl Module {
         for name in ["find", "match", "gmatch", "gsub", "split"] {
             strings.set(name, Value::Nil)?;
         }
+        standard::bound(&lua)?;
         lua.sandbox(true)?;
-        deadline(&lua, Duration::from_millis(10));
-        let exports: Table = lua
+        // Text compilation has a separate bounded input contract. Start the
+        // cooperative execution window only when the compiled chunk can run.
+        let initialize = lua
             .load(&source.source)
             .set_name(source.path.as_str())
             .set_mode(mlua::chunk::ChunkMode::Text)
-            .eval()?;
+            .into_function()?;
+        deadline(&lua, Duration::from_millis(10));
+        let exports: Table = initialize.call(())?;
         lua.remove_interrupt();
         if exports.metatable().is_some() {
             return Err(error("Export table cannot have a metatable"));
@@ -401,11 +408,8 @@ impl ScriptRuntime {
         let started = Instant::now();
         let queue = Mutex::new(Vec::new());
         let notices = Mutex::new(Vec::new());
+        let native_calls = Cell::new(0usize);
         let remaining = MAX_ACTIONS.saturating_sub(self.actions).min(32);
-        deadline(
-            &module.lua,
-            Duration::from_millis(2).min(Duration::from_millis(8).saturating_sub(self.elapsed)),
-        );
         let result = module.lua.scope(|scope| {
             let host = api::host(
                 &module.lua,
@@ -415,6 +419,7 @@ impl ScriptRuntime {
                 &notices,
                 &self.points,
                 &self.groups,
+                &native_calls,
                 remaining,
             )?;
             let event = module.lua.create_table()?;
@@ -432,6 +437,12 @@ impl ScriptRuntime {
             }
             event.set_readonly(true);
             let function: Function = module.exports.raw_get(handler)?;
+            // Building the scoped capability/event tables is host setup, not
+            // script execution. Its cost still counts against the frame total.
+            deadline(
+                &module.lua,
+                Duration::from_millis(2).min(Duration::from_millis(8).saturating_sub(self.elapsed)),
+            );
             function.call::<()>((host, event))
         });
         module.lua.remove_interrupt();
@@ -496,3 +507,7 @@ impl ScriptRuntime {
         handlers
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/scripting_boundary.rs"]
+mod tests;

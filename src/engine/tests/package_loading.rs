@@ -80,6 +80,31 @@ fn manifest_declarations_must_match_the_archive_before_decoding() -> Result<(), 
             "inconsistent declaration must fail before its payload is decoded: {error}"
         );
     }
+    // Repeating a large installed dependency must not multiply hashing work;
+    // case aliases also collide on supported portable installations. No I/O.
+    let mut duplicate_manifest = minimal_manifest()?;
+    let dependency = crate::engine::package::PackageDependency {
+        kind: crate::engine::package::DependencyKind::Model,
+        path: "models/shared.glb".into(),
+        bytes: 0,
+        sha256: hash::sha256_hex(&[]),
+    };
+    let mut alias = dependency.clone();
+    alias.path = alias.path.to_ascii_uppercase();
+    duplicate_manifest.dependencies = vec![dependency, alias];
+    let names = vec![
+        duplicate_manifest
+            .entries
+            .first()
+            .ok_or("Missing fixture entry")?
+            .name
+            .clone(),
+        "manifest.json".into(),
+    ];
+    assert!(
+        duplicate_manifest.validate(&names).is_err(),
+        "duplicate installed reads must be rejected at manifest admission"
+    );
     Ok(())
 }
 
@@ -132,6 +157,125 @@ fn variant_error(bytes: &[u8], manifest: &Manifest) -> Result<String, String> {
     )
     .err()
     .ok_or_else(|| "malformed package was accepted".to_string())
+}
+
+// Essential archive admission regression: reject ambiguous directory framing,
+// encrypted/unsafe names and dishonest compressed sizes before publication.
+// Every case derives from a <1 KiB ZIP; the decoded fixture is only 8 KiB.
+#[test]
+fn archive_framing_and_decompression_limits_fail_closed() -> Result<(), String> {
+    use crate::engine::package::PackageReader;
+    let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    writer
+        .start_file(
+            "payload",
+            zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated),
+        )
+        .map_err(|e| e.to_string())?;
+    writer.write_all(&[0; 8192]).map_err(|e| e.to_string())?;
+    let original = writer.finish().map_err(|e| e.to_string())?.into_inner();
+    let directory = original
+        .windows(4)
+        .position(|bytes| bytes == b"PK\x01\x02")
+        .ok_or("Missing central directory")?;
+    let end = original
+        .len()
+        .checked_sub(22)
+        .ok_or("Missing archive end")?;
+    for (offset, replacement) in [
+        (end + 8, 2_u16.to_le_bytes().to_vec()),
+        (end + 20, 1_u16.to_le_bytes().to_vec()),
+        (directory + 8, 1_u16.to_le_bytes().to_vec()),
+        (directory + 46, b"../file".to_vec()),
+        (directory + 46, b"bad\0key".to_vec()),
+        (directory + 38, (0o120_777_u32 << 16).to_le_bytes().to_vec()),
+        (
+            directory + 24,
+            u32::try_from(crate::engine::package::MAX_TOTAL_BYTES.saturating_add(1))
+                .map_err(|e| e.to_string())?
+                .to_le_bytes()
+                .to_vec(),
+        ),
+    ] {
+        let mut corrupt = original.clone();
+        corrupt
+            .get_mut(offset..offset.saturating_add(replacement.len()))
+            .ok_or("Mutation outside ZIP")?
+            .copy_from_slice(&replacement);
+        assert!(
+            PackageReader::new(Cursor::new(corrupt)).is_err(),
+            "archive mutation at {offset} must be rejected before a payload read"
+        );
+    }
+    let mut dishonest = original;
+    dishonest
+        .get_mut(directory + 24..directory + 28)
+        .ok_or("Missing size")?
+        .copy_from_slice(&1_u32.to_le_bytes());
+    let mut reader = PackageReader::new(Cursor::new(dishonest)).map_err(|e| e.to_string())?;
+    assert!(
+        reader.read_entry("payload", 1024).is_err(),
+        "a lying decompressed size must not defeat the streaming hard cap"
+    );
+    Ok(())
+}
+
+// A semantic policy edit must reject missing prepared capability/variants
+// without decoding world data. This is one empty level/manifest, no bake.
+#[test]
+fn required_full_lighting_is_admitted_only_with_prepared_supported_capability() -> Result<(), String>
+{
+    let mut level: crate::engine::level::LevelDef = serde_json::from_value(serde_json::json!({"schema":"places-level","format_version":1_u32,"id":"full_policy","name":"Full policy","spawn":{"x":0_u32,"z":0_u32}})).map_err(|e|e.to_string())?;
+    let mut manifest = minimal_manifest()?;
+    world::validate_lighting_requirement(&level, &manifest)?;
+    level.requires_full_lighting = true;
+    assert!(world::validate_lighting_requirement(&level, &manifest).is_err());
+    manifest
+        .required_capabilities
+        .push("full-lighting-v1".into());
+    assert!(world::validate_lighting_requirement(&level, &manifest).is_err());
+    manifest
+        .variants
+        .first_mut()
+        .ok_or("Missing variant")?
+        .lightmap_quality = "full".into();
+    assert!(
+        world::validate_lighting_requirement(&level, &manifest).is_err(),
+        "a named Full variant without the prepared atlas is insufficient"
+    );
+    let full = manifest.variants.first_mut().ok_or("Missing variant")?;
+    full.entries.lightmaps = Some("fixture-atlas".into());
+    full.entries.lightmaps_meta = Some("fixture-metadata".into());
+    world::validate_lighting_requirement(&level, &manifest)?;
+    manifest
+        .variants
+        .first_mut()
+        .ok_or("Missing variant")?
+        .lightmap_failure = Some("fill failed".into());
+    assert!(
+        world::validate_lighting_requirement(&level, &manifest).is_err(),
+        "required Full lighting cannot silently admit a vertex fallback"
+    );
+    world::validate_item_receipts(&level, &manifest)?;
+    level.volumes.push(
+        serde_json::from_value(
+            serde_json::json!({"id":"receipt","width":1_u32,"depth":1_u32,"item_receipt":"centre"}),
+        )
+        .map_err(|e| e.to_string())?,
+    );
+    assert!(world::validate_item_receipts(&level, &manifest).is_err());
+    manifest
+        .required_capabilities
+        .push("item-receipts-v1".into());
+    world::validate_item_receipts(&level, &manifest)?;
+    level
+        .volumes
+        .first_mut()
+        .ok_or("Missing receiver")?
+        .item_receipt = crate::engine::level::ItemReceiptDef::SettledCentre;
+    world::validate_item_receipts(&level, &manifest)?;
+    Ok(())
 }
 
 // Essential reset regression: one probe exercises the new presence/group framing,

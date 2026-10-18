@@ -38,6 +38,8 @@ fn sparse_trigger_queries_preserve_crossings_and_missing_item_exits_without_scan
         half_extents: Vec3::splat(0.05),
         held: false,
         path: None,
+        sleeping: false,
+        centre_path: None,
     };
     world.update_volume_occupants(outside, outside, &[item]);
     assert_eq!(

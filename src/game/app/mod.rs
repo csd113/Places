@@ -2484,7 +2484,7 @@ impl FrameLoop<'_> {
             && self.outcome.is_none()
             && self.message.is_none()
         {
-            self.game.entities_mut().request_hint();
+            self.game.request_hint();
             return true;
         }
         if self.message.is_some() {

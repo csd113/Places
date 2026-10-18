@@ -158,6 +158,14 @@ pub(in crate::editor) fn gameplay_popup(
     button(
         vertices,
         hits,
+        [140.0, 196.0, 117.0, 11.0],
+        "Components >",
+        Action::Components(0),
+        true,
+    );
+    button(
+        vertices,
+        hits,
         [330.0, 196.0, 50.0, 11.0],
         "Close",
         Action::ClosePopup,
@@ -166,7 +174,7 @@ pub(in crate::editor) fn gameplay_popup(
 }
 
 pub(in crate::editor) fn action_popup(vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
-    text(vertices, "ADD TRIGGER ACTION", 140.0, 73.0, ACCENT, 60);
+    text(vertices, "ADD EVENT ACTION", 140.0, 73.0, ACCENT, 60);
     for (i, (label, choice)) in [
         ("Play a sound emitter", C::SoundAction),
         ("Open a door", C::DoorAction),
@@ -192,7 +200,7 @@ pub(in crate::editor) fn action_popup(vertices: &mut Vec<Vertex>, hits: &mut Vec
         hits,
         [330.0, 190.0, 50.0, 12.0],
         "Back",
-        Action::GameplayPage(1),
+        Action::Components(4),
         true,
     );
 }
@@ -245,11 +253,26 @@ pub(in crate::editor) fn choices_popup(
         button(
             vertices,
             hits,
-            [140.0, y, 240.0, 9.0],
+            [
+                140.0,
+                y,
+                if choice == C::Sound { 180.0 } else { 240.0 },
+                9.0,
+            ],
             label,
             Action::GameChoose(choice, index),
             true,
         );
+        if choice == C::Sound {
+            button(
+                vertices,
+                hits,
+                [325.0, y, 55.0, 9.0],
+                "Listen",
+                Action::PreviewSound(index),
+                true,
+            );
+        }
     }
     for (x, label, action) in [
         (140.0, "< Prev", Action::Page(false)),

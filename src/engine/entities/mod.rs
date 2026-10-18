@@ -333,6 +333,24 @@ pub struct WorldTick {
     pub frames_dirty: bool,
 }
 
+impl WorldTick {
+    /// Keep automatic callbacks and event bindings on the same action accounting.
+    const fn record_dispatch(&mut self, report: &DispatchReport) {
+        self.actions_run = self.actions_run.saturating_add(report.actions_run);
+        self.doors_acted = self.doors_acted.saturating_add(report.doors_acted);
+        self.lights_toggled = self.lights_toggled.saturating_add(report.lights_toggled);
+        self.spawned = self.spawned.saturating_add(report.spawned);
+        self.despawned = self.despawned.saturating_add(report.despawned);
+        self.missing_targets = self.missing_targets.saturating_add(report.missing_targets);
+        self.unsupported = self.unsupported.saturating_add(report.unsupported);
+        self.labels_shown = self.labels_shown.saturating_add(report.labels_shown);
+        self.labels_hidden = self.labels_hidden.saturating_add(report.labels_hidden);
+        self.frames_dirty |=
+            report.animations_started > 0 || report.spawned > 0 || report.despawned > 0;
+        self.player_reset |= report.player_reset;
+    }
+}
+
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 enum WeatherEndpoints {
     #[default]
@@ -992,6 +1010,7 @@ impl EntityWorld {
                     inside: false,
                     filter: def.filter.clone(),
                     occupancy: def.occupancy,
+                    item_receipt: def.item_receipt,
                     occupants: Vec::new(),
                 },
             );
@@ -3193,6 +3212,9 @@ impl EntityWorld {
                 }
                 self.run_bindings(&event, tick, event.depth);
                 self.script_event = None;
+                if tick.player_reset {
+                    return;
+                }
             }
         }
         self.compact_bindings();
@@ -3251,18 +3273,7 @@ impl EntityWorld {
                     break;
                 }
             }
-            tick.actions_run = tick.actions_run.saturating_add(report.actions_run);
-            tick.doors_acted = tick.doors_acted.saturating_add(report.doors_acted);
-            tick.lights_toggled = tick.lights_toggled.saturating_add(report.lights_toggled);
-            tick.spawned = tick.spawned.saturating_add(report.spawned);
-            tick.despawned = tick.despawned.saturating_add(report.despawned);
-            tick.missing_targets = tick.missing_targets.saturating_add(report.missing_targets);
-            tick.unsupported = tick.unsupported.saturating_add(report.unsupported);
-            tick.labels_shown = tick.labels_shown.saturating_add(report.labels_shown);
-            tick.labels_hidden = tick.labels_hidden.saturating_add(report.labels_hidden);
-            if report.animations_started > 0 {
-                tick.frames_dirty = true;
-            }
+            tick.record_dispatch(&report);
             if let Some(entry) = self.bindings.get_mut(index) {
                 entry.fired = true;
                 entry.cooldown_remaining = binding.cooldown_seconds;
@@ -3704,13 +3715,19 @@ impl EntityWorld {
     }
 
     /// Optional player-requested guidance uses the same scoped VM/action budgets.
-    pub fn request_hint(&mut self) {
+    /// True requests the caller's shared player/world reset lifecycle.
+    pub fn request_hint(&mut self) -> bool {
         let mut runtime = std::mem::take(&mut self.scripts);
+        let mut player_reset = false;
         for path in runtime.hints() {
             let actions = runtime.call(&path, "hint", self, None, None, 0.0);
-            let _report = self.dispatch_actions(&actions, None);
+            if self.dispatch_actions(&actions, None).player_reset {
+                player_reset = true;
+                break;
+            }
         }
         self.scripts = runtime;
+        player_reset
     }
 
     /// Advances the whole runtime by one frame.
@@ -3745,12 +3762,15 @@ impl EntityWorld {
             for (path, handler) in automatic {
                 let actions = runtime.call(&path, handler, self, None, None, ctx.delta_seconds);
                 let report = self.dispatch_actions(&actions, None);
-                tick.actions_run = tick.actions_run.saturating_add(report.actions_run);
-                tick.lights_toggled = tick.lights_toggled.saturating_add(report.lights_toggled);
-                tick.doors_acted = tick.doors_acted.saturating_add(report.doors_acted);
-                tick.frames_dirty |= report.spawned > 0 || report.despawned > 0;
+                tick.record_dispatch(&report);
+                if tick.player_reset {
+                    break;
+                }
             }
             self.scripts = runtime;
+            if tick.player_reset {
+                return tick;
+            }
         }
         if ctx.delta_seconds.is_finite() && ctx.delta_seconds > 0.0 {
             self.sim_time += ctx.delta_seconds;

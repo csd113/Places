@@ -19,13 +19,23 @@ pub(in crate::editor) fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: 
         Some(ObjectId::Trigger(_) | ObjectId::FogRegion(_) | ObjectId::GroundFog(_))
     );
     text(vertices, heading(app), 5.0, 131.0, ACCENT, 25);
+    if app.selected.is_some() && !matches!(app.selected, Some(ObjectId::Room(_))) {
+        button(
+            vertices,
+            hits,
+            [67.0, 128.0, 40.0, 10.0],
+            "Pose >",
+            Action::Transform,
+            true,
+        );
+    }
     if matches!(app.selected, Some(ObjectId::Room(_))) {
         button(
             vertices,
             hits,
             [64.0, 128.0, 43.0, 10.0],
-            "Shape >",
-            Action::Shape,
+            "Pose >",
+            Action::Transform,
             true,
         );
     }
@@ -37,7 +47,17 @@ pub(in crate::editor) fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: 
         let [width, height, depth] = transform.size;
         let fields = [
             (0, "X", pos_x),
-            (1, if ramp || region { "Offset" } else { "Y" }, pos_y),
+            (
+                1,
+                if ramp || region {
+                    "Offset"
+                } else if prop {
+                    "Y local"
+                } else {
+                    "Y"
+                },
+                pos_y,
+            ),
             (2, "Z", pos_z),
             (3, if prop { "Scale" } else { "Width" }, width),
             (4, if ramp { "Rise" } else { "Height" }, height),

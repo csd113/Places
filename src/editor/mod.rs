@@ -2,6 +2,8 @@
 //! shared; documents, history, panels and child-process lifetimes belong here.
 
 mod actions;
+mod audio_preview;
+mod component_actions;
 pub mod document;
 mod gameplay_actions;
 mod geometry_actions;
@@ -12,6 +14,8 @@ mod projects;
 mod safety;
 mod safety_actions;
 mod scripting;
+mod selection;
+mod transform;
 mod ui;
 mod verification;
 mod viewport;
@@ -80,10 +84,14 @@ struct App {
     navigation: navigation::Inspection,
     step: f32,
     object_scroll: usize,
+    object_query: String,
     prop: String,
     sound_cues: Vec<String>,
+    preview_audio: crate::engine::audio::AudioSystem,
+    sound_preview_until: Option<std::time::Instant>,
     popup: Option<Popup>,
     script_feedback: String,
+    component_selection: component_actions::Selection,
     safety_report: Option<safety::SafetyReport>,
     safety_job: Option<Receiver<(serde_json::Value, safety::SafetyReport)>>,
     safety_index: usize,
@@ -108,6 +116,7 @@ impl App {
         self.selected = None;
         self.viewport.select(None);
         self.object_scroll = 0;
+        self.object_query.clear();
         self.status = format!("Opened {}", path.display());
         Ok(())
     }
@@ -194,6 +203,8 @@ impl App {
                         scroll: _,
                         all: _
                     }
+                    | Popup::Transform(_)
+                    | Popup::SceneSearch(_)
             )
         );
         let text_input = video.text_input();
@@ -349,6 +360,18 @@ fn configured_tools(options: &Options) -> Result<ToolPaths, String> {
     Ok(tools)
 }
 
+fn editor_window(video: &sdl3::VideoSubsystem) -> Result<sdl3::video::Window, String> {
+    let mut window = video
+        .window("Places - Editor", 1440, 816)
+        .position_centered()
+        .resizable()
+        .high_pixel_density()
+        .build()
+        .map_err(|error| error.to_string())?;
+    let _minimum = window.set_minimum_size(960, 544);
+    Ok(window)
+}
+
 fn application(options: Options) -> Result<(), String> {
     let mut verification = options
         .verify_script
@@ -363,14 +386,7 @@ fn application(options: Options) -> Result<(), String> {
     let tools = configured_tools(&options)?;
     let sdl = sdl3::init().map_err(|e| e.to_string())?;
     let video = sdl.video().map_err(|e| e.to_string())?;
-    let mut window = video
-        .window("Places - Editor", 1440, 816)
-        .position_centered()
-        .resizable()
-        .high_pixel_density()
-        .build()
-        .map_err(|e| e.to_string())?;
-    let _minimum = window.set_minimum_size(960, 544);
+    let mut window = editor_window(&video)?;
     let viewport = Viewport::new(&window)?;
     let (dialog_sender, dialog_receiver) = mpsc::channel();
     let capture = options.capture_dir.map(Capture::new).transpose()?;
@@ -396,13 +412,17 @@ fn application(options: Options) -> Result<(), String> {
         navigation: navigation::Inspection::default(),
         step: 0.25,
         object_scroll: 0,
+        object_query: String::new(),
         prop: "core:chair".into(),
         sound_cues: crate::engine::audio::AudioCatalog::load(paths::assets()?)?
             .cue_ids()
             .map(str::to_string)
             .collect(),
+        preview_audio: crate::engine::audio::AudioSystem::new(paths::assets()?, &sdl),
+        sound_preview_until: None,
         popup: None,
         script_feedback: String::new(),
+        component_selection: component_actions::Selection::default(),
         safety_report: None,
         safety_job: None,
         safety_index: 0,
@@ -432,6 +452,7 @@ fn application(options: Options) -> Result<(), String> {
             app.viewport.cancel_navigation();
         }
         app.dialogs();
+        app.update_audio_preview();
         app.poll_jobs();
         app.poll_safety();
         app.poll_navigation();

@@ -141,8 +141,7 @@ pub const PROBE_POSITIONS_VERSION: u16 = 1;
 /// Returns an error when the archive, manifest, semantics or level validation
 /// fails, or a declared semantics/resource hash does not match the manifest.
 pub fn open(path: &Path) -> Result<OpenedPackage, String> {
-    let file = std::fs::File::open(path)
-        .map_err(|error| format!("could not open {}: {error}", path.display()))?;
+    let file = super::archive::open_file(path)?;
     open_reader(PackageReader::new(file).map_err(|error| error.to_string())?)
 }
 
@@ -150,7 +149,7 @@ pub fn open(path: &Path) -> Result<OpenedPackage, String> {
 /// # Errors
 /// Returns package validation errors or an undeclared identity.
 pub fn open_level(path: &Path, id: &str) -> Result<OpenedPackage, String> {
-    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let file = super::archive::open_file(path)?;
     let mut reader = PackageReader::new(file).map_err(|e| e.to_string())?;
     super::project::select(&mut reader, Some(id))?;
     let opened = open_reader(reader)?;
@@ -195,6 +194,19 @@ fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
         .map_err(|error| format!("semantics.json is not UTF-8: {error}"))?;
     let level = LevelDef::from_json(text)
         .map_err(|error| format!("package semantics are not valid: {error}"))?;
+    validate_semantics(&reader, &manifest, &level)?;
+    check_catalog_build_input(&mut reader, &manifest, root)?;
+    check_dependencies(&manifest, root)?;
+    Ok(OpenedPackage { manifest, level })
+}
+
+/// Shared compiler/player semantic admission, including package-only ownership
+/// and capability contracts that ordinary editable level validation cannot know.
+pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
+    reader: &PackageReader<R>,
+    manifest: &Manifest,
+    level: &LevelDef,
+) -> Result<(), String> {
     if manifest.id != level.id {
         return Err("Package manifest and semantic level IDs disagree".into());
     }
@@ -208,11 +220,48 @@ fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
             return Err("Level transitions require the complete project package and project-transitions-v1 capability; use Export project or Build+Play".into());
         }
     }
-    crate::engine::loader::validate_level(&level)?;
-    crate::engine::scripting::validate_package_sources(&level, &manifest.required_capabilities)?;
-    check_catalog_build_input(&mut reader, &manifest, root)?;
-    check_dependencies(&manifest, root)?;
-    Ok(OpenedPackage { manifest, level })
+    crate::engine::loader::validate_level(level)?;
+    validate_item_receipts(level, manifest)?;
+    validate_lighting_requirement(level, manifest)?;
+    crate::engine::scripting::validate_package_sources(level, &manifest.required_capabilities)
+}
+
+/// Nondefault receipt policies must never be ignored by an older host.
+pub(crate) fn validate_item_receipts(level: &LevelDef, manifest: &Manifest) -> Result<(), String> {
+    if level
+        .volumes
+        .iter()
+        .any(|volume| volume.item_receipt != crate::engine::level::ItemReceiptDef::Overlap)
+        && !manifest
+            .required_capabilities
+            .iter()
+            .any(|capability| capability == "item-receipts-v1")
+    {
+        return Err("Centre/settled item receipts require item-receipts-v1 capability".into());
+    }
+    Ok(())
+}
+
+/// Required presentation policy is semantic; never accept a package whose
+/// prepared variants cannot satisfy it, or let older hosts ignore the policy.
+pub(crate) fn validate_lighting_requirement(
+    level: &LevelDef,
+    manifest: &Manifest,
+) -> Result<(), String> {
+    if level.requires_full_lighting
+        && (!manifest.variants.iter().any(|variant| {
+            variant.lightmap_quality == "full"
+                && variant.entries.lightmaps.is_some()
+                && variant.entries.lightmaps_meta.is_some()
+                && variant.lightmap_failure.is_none()
+        }) || !manifest
+            .required_capabilities
+            .iter()
+            .any(|capability| capability == "full-lighting-v1"))
+    {
+        return Err("This map requires a prepared Full lighting atlas and full-lighting-v1 capability; rebuild its package with Full lighting (vertex fallback is unavailable for this map)".into());
+    }
+    Ok(())
 }
 
 /// Optional compiler provenance pins new packages to their prepared catalog.
@@ -298,37 +347,7 @@ fn check_dependencies(manifest: &Manifest, root: Option<&Path>) -> Result<(), St
         if dependency.kind == crate::engine::package::DependencyKind::Embedded {
             continue;
         }
-        let path = installed_root.join(&dependency.path);
-        match std::fs::metadata(&path) {
-            Ok(metadata) if metadata.len() == dependency.bytes => {}
-            Ok(metadata) => {
-                return Err(format!(
-                    "package dependency '{}' is {} bytes, recorded {}",
-                    dependency.path,
-                    metadata.len(),
-                    dependency.bytes
-                ));
-            }
-            Err(_) => {
-                return Err(format!(
-                    "package dependency '{}' is missing",
-                    dependency.path
-                ));
-            }
-        }
-        let actual = crate::engine::package::hash::sha256_file(&path).map_err(|error| {
-            format!(
-                "package dependency '{}' could not be verified: {error}",
-                dependency.path
-            )
-        })?;
-        if actual != dependency.sha256 {
-            return Err(format!(
-                "package dependency '{}' SHA-256 changed (recorded {}, installed {actual}); \
-                 rebuild this package against the installed assets with places-compile",
-                dependency.path, dependency.sha256
-            ));
-        }
+        super::dependencies::validate(installed_root, dependency)?;
     }
     Ok(())
 }
@@ -340,8 +359,7 @@ fn check_dependencies(manifest: &Manifest, root: Option<&Path>) -> Result<(), St
 /// Returns an error when the archive cannot be opened or the manifest is
 /// malformed.
 pub fn inspect(path: &Path) -> Result<Manifest, String> {
-    let file = std::fs::File::open(path)
-        .map_err(|error| format!("could not open {}: {error}", path.display()))?;
+    let file = super::archive::open_file(path)?;
     let mut reader = PackageReader::new(file).map_err(|error| error.to_string())?;
     read_manifest(&mut reader)
 }
@@ -350,7 +368,7 @@ pub fn inspect(path: &Path) -> Result<Manifest, String> {
 /// # Errors
 /// Returns invalid archive/index/manifest errors or an undeclared map identity.
 pub fn inspect_level(path: &Path, id: &str) -> Result<Manifest, String> {
-    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let file = super::archive::open_file(path)?;
     let mut reader = PackageReader::new(file).map_err(|e| e.to_string())?;
     super::project::select(&mut reader, Some(id))?;
     let manifest = read_manifest(&mut reader)?;
@@ -419,8 +437,7 @@ pub fn load_variant(
     quality: LightmapQuality,
     assets: &mut crate::engine::props::PropAssets,
 ) -> Result<LoadedVariant, String> {
-    let file = std::fs::File::open(path)
-        .map_err(|error| format!("could not open {}: {error}", path.display()))?;
+    let file = super::archive::open_file(path)?;
     let mut reader = PackageReader::new(file).map_err(|error| error.to_string())?;
     decode_named_variant(&mut reader, manifest, quality, assets)
 }

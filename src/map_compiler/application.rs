@@ -475,13 +475,15 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
             let source = positional
                 .first()
                 .ok_or_else(|| CliError::Usage("check-project needs a project".into()))?;
+            let asset_root = compiler::resolve_asset_root(options.asset_root.as_deref())?;
+            crate::engine::paths::configure_assets(&asset_root)?;
             let folder = crate::engine::project::ProjectFolder::open(std::path::Path::new(source))?;
             if options.events {
                 let request = BuildRequest {
                     source: folder.root().into(),
                     project_level: None,
                     out: folder.root().into(),
-                    asset_root: compiler::resolve_asset_root(options.asset_root.as_deref())?,
+                    asset_root,
                     variants: Vec::new(),
                     workers: 0,
                     force: false,

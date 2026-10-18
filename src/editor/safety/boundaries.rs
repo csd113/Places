@@ -2,7 +2,9 @@
 
 use super::{SafetyCategory, SafetyFinding, SafetyReport, SafetySeverity, bounds_center};
 use crate::editor::document::ObjectId;
-use crate::engine::collision::{CROUCH_HEIGHT, PLAYER_RADIUS, PLAYER_STEP_HEIGHT, WallAabb};
+use crate::engine::collision::{
+    CROUCH_HEIGHT, DoorCollider, PLAYER_RADIUS, PLAYER_STEP_HEIGHT, WallAabb,
+};
 use crate::engine::level::{LevelDef, LevelSurfaces, WalkableFloor, WallAxis};
 use crate::engine::spatial::Aabb;
 
@@ -13,6 +15,11 @@ pub(super) fn check(level: &LevelDef, report: &mut SafetyReport) {
     let floor = WalkableFloor::from_level(level);
     let surfaces = LevelSurfaces::new(level);
     let collision = level.collision_aabbs();
+    let doors: Vec<_> = level
+        .doors
+        .iter()
+        .map(|door| crate::engine::door::DoorRuntime::new(door, level).collider())
+        .collect();
     for (index, room) in level.rooms.iter().enumerate() {
         let (x0, x1, z0, z1) = room.bounds();
         for (start, end, outward) in [
@@ -25,6 +32,7 @@ pub(super) fn check(level: &LevelDef, report: &mut SafetyReport) {
                 level,
                 &floor,
                 &collision,
+                &doors,
                 report,
                 &Edge {
                     object: ObjectId::Room(index),
@@ -34,6 +42,7 @@ pub(super) fn check(level: &LevelDef, report: &mut SafetyReport) {
                     outward,
                     base: room.floor_y,
                     ramp: false,
+                    room: Some(index),
                 },
             );
         }
@@ -64,6 +73,7 @@ pub(super) fn check(level: &LevelDef, report: &mut SafetyReport) {
                 level,
                 &floor,
                 &collision,
+                &doors,
                 report,
                 &Edge {
                     object: ObjectId::Ramp(index),
@@ -73,6 +83,7 @@ pub(super) fn check(level: &LevelDef, report: &mut SafetyReport) {
                     outward,
                     base,
                     ramp: true,
+                    room: None,
                 },
             );
         }
@@ -101,12 +112,14 @@ struct Edge {
     outward: [f32; 2],
     base: f32,
     ramp: bool,
+    room: Option<usize>,
 }
 
 fn edge(
     level: &LevelDef,
     floor: &WalkableFloor,
     collision: &[WallAabb],
+    doors: &[DoorCollider],
     report: &mut SafetyReport,
     edge: &Edge,
 ) {
@@ -124,12 +137,22 @@ fn edge(
         let z = (end_z - start_z).mul_add(t, start_z);
         let inside_x = (-out_x).mul_add(EDGE_INSET, x);
         let inside_z = (-out_z).mul_add(EDGE_INSET, z);
-        let feet = edge.base + surfaces.walkable_offset_at(inside_x, inside_z);
+        let feet = if let Some(room) = edge.room {
+            let Some(height) = floor.height_in_room(room, inside_x, inside_z) else {
+                continue;
+            };
+            height
+        } else {
+            edge.base + surfaces.walkable_offset_at(inside_x, inside_z)
+        };
         let apex = feet + crate::game::JUMP_APEX_M;
         // A low rim may block walking and still allow a crouched jump. This
         // tests the actual authored collider's vertical rule, not its artwork.
         if collision.iter().any(|wall| {
             wall.blocks_body(apex, CROUCH_HEIGHT) && wall.overlaps_disc(x, z, PLAYER_RADIUS)
+        }) || doors.iter().any(|door| {
+            door.overlaps_body_y(apex, CROUCH_HEIGHT)
+                && door.depenetrate(x, z, PLAYER_RADIUS).is_some()
         }) {
             continue;
         }
@@ -174,7 +197,7 @@ fn edge(
         category: if void { SafetyCategory::Void } else { SafetyCategory::Collision },
         severity: SafetySeverity::Warning,
         title: format!("{}: jump / drop review", edge.label),
-        risk: format!("{risk} {count}/{SAMPLES} samples have no crouched-body barrier at the {:.2} m jump apex; low side walls may be cleared. Sampled risk, not a trajectory proof: check ceiling, approach, water, ladders and intended openings in Play. No wall is added automatically.", crate::game::JUMP_APEX_M),
+        risk: format!("{risk} {count}/{SAMPLES} samples have no crouched-body barrier at the {:.2} m jump apex; low side walls may be cleared. Doors use their authored starting pose and exact oriented collider; opening them may expose another route. Each floor retains its storey ownership. Sampled risk, not a trajectory proof: check ceiling, approach, water, ladders and intended openings in Play. No wall is added automatically.", crate::game::JUMP_APEX_M),
         position: bounds_center(evidence),
         bounds: evidence,
         objects: vec![edge.object],

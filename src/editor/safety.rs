@@ -22,7 +22,7 @@ use crate::engine::level::{LevelDef, LevelSurfaces};
 use crate::engine::spatial::Aabb;
 use crate::map_compiler::geometry_check::{self, Severity};
 
-pub const LIMITATIONS: &str = "Bounded review, not an exhaustive collision or watertightness proof. Edges are sampled; play-test jumps, openings and pools. Model checks inspect static triangles in their authored pose; animation, physics, alpha pixels and every camera/depth condition are not simulated. Decals use their own depth-biased pass and are excluded. Intent annotations suppress only named heuristic warnings. Automatic fixes never resolve artistic intersections.";
+pub const LIMITATIONS: &str = "Bounded review, not an exhaustive collision or watertightness proof. Edges are sampled per storey; door barriers use their authored starting pose and can change when opened. Play-test jumps, openings and pools. The room flood samples one reachable height per cell. Model checks inspect static triangles in their authored pose; animation, physics, alpha pixels and every camera/depth condition are not simulated. Lowest opaque model faces touching a floor are reported separately as support contact; thin sheets and prop/prop duplicates remain eligible. Decals use their own depth-biased pass and are excluded. Intent annotations suppress only named heuristic warnings. Automatic fixes never resolve artistic intersections.";
 const MAX_FINDINGS: usize = 256;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -253,6 +253,7 @@ fn complexity_limit(level: &LevelDef) -> Option<String> {
         level.rooms.len(),
         level.walls.len(),
         level.props.len(),
+        level.doors.len(),
         level.ramps.len(),
         level.stairs.len(),
         level.floor_regions.len(),
@@ -294,7 +295,13 @@ fn complexity_limit(level: &LevelDef) -> Option<String> {
                 * 16.0_f64
         })
         .sum::<f64>();
-    let collider_bound = u32::try_from(level.collision_aabbs().len()).unwrap_or(u32::MAX);
+    let collider_bound = u32::try_from(
+        level
+            .collision_aabbs()
+            .len()
+            .saturating_add(level.doors.len()),
+    )
+    .unwrap_or(u32::MAX);
     let collider_work = cells * f64::from(collider_bound.max(1));
     if collider_work > 32_000_000.0_f64 {
         return Some(format!(

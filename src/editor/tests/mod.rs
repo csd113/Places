@@ -5,3 +5,5 @@ mod geometry;
 mod gameplay;
 
 mod scripting;
+
+mod components;

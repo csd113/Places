@@ -10,6 +10,7 @@ use serde_json::Value;
 
 use super::{SafetyReport, analyze, boundaries, duplicate_wall_fixes, models};
 use crate::engine::level::LevelDef;
+use crate::engine::materials::AlphaMode;
 
 fn raw_scene() -> Value {
     serde_json::json!({
@@ -131,6 +132,162 @@ fn model_depth_check_requires_real_parallel_positive_area_overlap() {
             .is_none_or(|disjoint_area| disjoint_area <= 0.0001_f32),
         "plane coincidence alone is not triangle overlap"
     );
+}
+
+// Essential regressions from the finished games: catalog feet must be
+// distinguished from visible-sheet conflicts, without hiding duplicate props
+// or a thin sheet over the floor. Four tiny triangles need no installed assets.
+#[test]
+fn model_support_contacts_keep_duplicate_props_and_thin_sheets_visible() -> Result<(), String> {
+    let flat = [Vec3::ZERO, Vec3::X, Vec3::Z];
+    let volume = [Vec3::ZERO, Vec3::Y, Vec3::X];
+    let make = |points, prop, floor| {
+        models::Triangle::new(points, prop, AlphaMode::Opaque, true, floor)
+            .ok_or_else(|| "nondegenerate fixture triangle".to_owned())
+    };
+    let mut resting = vec![
+        make(flat, None, true)?,
+        make(flat, Some(0), false)?,
+        make(volume, Some(0), false)?,
+    ];
+    let mut support = report();
+    models::compare_with_budget(&mut resting, &mut support, 1_000);
+    assert!(
+        support
+            .findings
+            .iter()
+            .any(|entry| entry.check == "model-floor-contacts")
+    );
+    assert!(
+        !support
+            .findings
+            .iter()
+            .any(|entry| entry.check == "model-coplanar-surface")
+    );
+    resting.extend([make(flat, Some(1), false)?, make(volume, Some(1), false)?]);
+    let mut duplicate = report();
+    models::compare_with_budget(&mut resting, &mut duplicate, 1_000);
+    assert!(
+        duplicate
+            .findings
+            .iter()
+            .any(|entry| entry.check == "model-coplanar-surface" && entry.objects.len() == 2),
+        "a duplicated prop remains a real triangle finding even when both bases rest on the floor"
+    );
+    let mut sheets = vec![make(flat, None, true)?, make(flat, Some(0), false)?];
+    let mut thin = report();
+    models::compare_with_budget(&mut sheets, &mut thin, 1_000);
+    assert!(
+        thin.findings
+            .iter()
+            .any(|entry| entry.check == "model-coplanar-surface"),
+        "an opaque sheet without model volume above is still a floor duplicate"
+    );
+    Ok(())
+}
+
+// A same-X distant stack previously consumed the pair budget before reaching
+// a nearby real conflict. 258 synthetic triangles now prove spatial rejection
+// and explicit incomplete coverage with a tiny budget and no assets or bake.
+#[test]
+fn model_spatial_budget_reaches_nearby_pairs_and_reports_incomplete_work() -> Result<(), String> {
+    let mut triangles = (0_u16..256)
+        .map(|index| {
+            let y = f32::from(index) * 10.0;
+            models::Triangle::new(
+                [
+                    Vec3::new(0.0, y, 0.0),
+                    Vec3::new(1.0, y, 0.0),
+                    Vec3::new(0.0, y, 1.0),
+                ],
+                Some(usize::from(index)),
+                AlphaMode::Opaque,
+                false,
+                false,
+            )
+            .ok_or_else(|| "fixture triangle".to_owned())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let duplicate = [
+        Vec3::new(0.0, 3_000.0, 0.0),
+        Vec3::new(1.0, 3_000.0, 0.0),
+        Vec3::new(0.0, 3_000.0, 1.0),
+    ];
+    for prop in [256, 257] {
+        triangles.push(
+            models::Triangle::new(duplicate, Some(prop), AlphaMode::Opaque, false, false)
+                .ok_or("duplicate triangle")?,
+        );
+    }
+    let mut covered = report();
+    models::compare_with_budget(&mut triangles, &mut covered, 4_096);
+    assert!(
+        covered
+            .findings
+            .iter()
+            .any(|entry| entry.check == "model-coplanar-surface"),
+        "nearby real duplicates are not starved by distant same-X triangles"
+    );
+    assert!(
+        !covered
+            .findings
+            .iter()
+            .any(|entry| entry.check == "model-check-incomplete")
+    );
+    let mut incomplete = report();
+    models::compare_with_budget(&mut triangles, &mut incomplete, 1);
+    assert!(
+        incomplete
+            .findings
+            .iter()
+            .any(|entry| entry.check == "model-check-incomplete"
+                && entry.risk.contains("incomplete"))
+    );
+    Ok(())
+}
+
+// Exact authored leaf poses must participate in the sampled jump/drop check.
+// One two-metre room proves closed protection and a real open route; no bake.
+#[test]
+fn floor_edge_review_uses_the_actual_authored_door_pose() -> Result<(), String> {
+    let mut raw = serde_json::json!({
+        "schema":"places-level","format_version":1_u32,"id":"door_edge","name":"Door edge",
+        "spawn":{"x":1.0_f32,"z":1.0_f32},
+        "rooms":[{"width":2.0_f32,"depth":2.0_f32,"height":4.0_f32}],
+        "walls":[
+            {"x":-0.2_f32,"z":0.0_f32,"width":0.2_f32,"depth":2.0_f32,"height":4.0_f32},
+            {"x":2.0_f32,"z":0.0_f32,"width":0.2_f32,"depth":2.0_f32,"height":4.0_f32},
+            {"x":0.0_f32,"z":2.0_f32,"width":2.0_f32,"depth":0.2_f32,"height":4.0_f32}
+        ],
+        "doors":[{"id":"edge_leaf","x":0.0_f32,"z":0.0_f32,"width":2.0_f32,"height":3.0_f32}]
+    });
+    let closed_level = serde_json::from_value(raw.clone()).map_err(|error| error.to_string())?;
+    let mut closed = report();
+    boundaries::check(&closed_level, &mut closed);
+    assert!(
+        !closed
+            .findings
+            .iter()
+            .any(|entry| entry.check == "floor-edge-drop"),
+        "a closed full-height leaf blocks the sampled edge"
+    );
+    let door = raw
+        .get_mut("doors")
+        .and_then(Value::as_array_mut)
+        .and_then(|doors| doors.first_mut())
+        .and_then(Value::as_object_mut)
+        .ok_or("door")?;
+    let _state = door.insert("initial_state".into(), Value::String("open".into()));
+    let open_level = serde_json::from_value(raw).map_err(|error| error.to_string())?;
+    let mut open = report();
+    boundaries::check(&open_level, &mut open);
+    assert!(
+        open.findings
+            .iter()
+            .any(|entry| entry.check == "floor-edge-drop"),
+        "rotating the same leaf open must expose the real route"
+    );
+    Ok(())
 }
 
 #[test]

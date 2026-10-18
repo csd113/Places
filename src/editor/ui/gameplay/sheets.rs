@@ -1,6 +1,6 @@
 //! Selection-specific capability layouts.
 
-use super::{Action, App, C, Hit, INK, MUTED, ObjectId, S, Vertex, button, property, text};
+use super::{Action, App, C, Hit, MUTED, ObjectId, S, Vertex, button, property, text};
 
 pub(super) fn light_sheet(
     app: &App,
@@ -237,137 +237,82 @@ pub(super) fn trigger_sheet(
     vertices: &mut Vec<Vertex>,
     hits: &mut Vec<Hit>,
     object: Option<&serde_json::Value>,
-    page: usize,
+    _page: usize,
 ) {
+    use crate::editor::document::components::{Field, Kind, Target};
+    let filter = object.and_then(|record| record.get("filter"));
+    let kind = filter
+        .and_then(|record| record.get("kind"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("player");
+    let instance = filter
+        .and_then(|record| record.get("instance"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("");
     button(
         vertices,
         hits,
-        [140.0, 83.0, 117.0, 10.0],
-        "Properties",
-        Action::GameplayPage(0),
+        [140.0, 83.0, 240.0, 11.0],
+        &format!("Occupants: {kind} {instance}"),
+        Action::GamePick(C::Filter),
         true,
     );
-    button(
-        vertices,
-        hits,
-        [263.0, 83.0, 117.0, 10.0],
-        "Actions >",
-        Action::GameplayPage(1),
-        true,
-    );
-    if page == 0 {
-        let filter_label = object.and_then(|record| record.get("filter")).map_or_else(
-            || "Player".into(),
-            |record| {
-                let kind = record
-                    .get("kind")
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or("player");
-                let instance = record
-                    .get("instance")
-                    .and_then(serde_json::Value::as_str)
-                    .unwrap_or("");
-                format!("Filter: {kind} {instance}")
-            },
-        );
-        button(
+    if kind == "item" {
+        super::super::components::field_row(
+            app,
             vertices,
             hits,
-            [140.0, 97.0, 240.0, 11.0],
-            &filter_label,
-            Action::GamePick(C::Filter),
-            true,
+            Field::new(
+                Target::Filter,
+                "held",
+                "Held policy",
+                Kind::Choice(&["any", "unheld", "held"]),
+                "\"any\"",
+            ),
+            0,
+            97.0,
+            240.0,
         );
-        for (row, right, label, setting) in [
-            (2, false, "Once", S::Once),
-            (2, true, "Cooldown s", S::Cooldown),
-            (3, false, "Occupancy", S::Aggregate),
-            (3, true, "Event", S::ExitEvent),
-        ] {
-            property(app, vertices, hits, row, right, label, setting);
-        }
-        text(
+        super::super::components::field_row(
+            app,
             vertices,
-            "Resize the box with Width / Height / Depth.",
-            140.0,
-            155.0,
-            MUTED,
-            68,
+            hits,
+            Field::new(
+                Target::Object,
+                "item_receipt",
+                "Item receipt",
+                Kind::Choice(&["overlap", "centre", "settled_centre"]),
+                "\"overlap\"",
+            ),
+            1,
+            97.0,
+            240.0,
         );
-        text(
-            vertices,
-            "Translucent guides appear only in this editor.",
-            140.0,
-            166.0,
-            MUTED,
-            68,
-        );
-    } else {
-        trigger_actions(vertices, hits, object);
     }
-}
-
-fn trigger_actions(
-    vertices: &mut Vec<Vertex>,
-    hits: &mut Vec<Hit>,
-    object: Option<&serde_json::Value>,
-) {
-    let actions = object
-        .and_then(|record| record.get("bindings"))
-        .and_then(|record| record.get(0))
-        .and_then(|record| record.get("actions"))
-        .and_then(serde_json::Value::as_array);
-    if let Some(steps) = actions {
-        for (i, action) in steps.iter().take(8).enumerate() {
-            let kind = action
-                .get("action")
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("Action");
-            let target = action
-                .get("target")
-                .or_else(|| action.get("point"))
-                .or_else(|| action.get("group"))
-                .or_else(|| action.get("script"))
-                .and_then(serde_json::Value::as_str)
-                .unwrap_or("");
-            let label = if kind == "run_script" {
-                format!(
-                    "Luau {} / {target}",
-                    action
-                        .get("handler")
-                        .and_then(serde_json::Value::as_str)
-                        .unwrap_or("?")
-                )
-            } else {
-                format!("{kind} {target}")
-            };
-            let y = f32::from(u16::try_from(i).unwrap_or(0)).mul_add(10.0, 97.0);
-            text(vertices, &label, 140.0, y + 3.0, INK, 58);
-            button(
-                vertices,
-                hits,
-                [353.0, y, 27.0, 9.0],
-                "Remove",
-                Action::RemoveTriggerStep(i),
-                true,
-            );
-        }
-    }
+    property(app, vertices, hits, 3, false, "Occupancy", S::Aggregate);
     button(
         vertices,
         hits,
-        [140.0, 180.0, 117.0, 10.0],
-        "+ Add action >",
-        Action::GameplayActions,
-        actions.is_none_or(|record| record.len() < 8),
-    );
-    button(
-        vertices,
-        hits,
-        [263.0, 180.0, 117.0, 10.0],
-        "Script handler >",
-        Action::Scripts,
+        [263.0, 134.0, 117.0, 11.0],
+        "Events / actions >",
+        Action::Components(2),
         true,
+    );
+    text(
+        vertices,
+        "Exact item and held policy compose independently.",
+        140.0,
+        156.0,
+        MUTED,
+        68,
+    );
+    text(
+        vertices,
+        "Settled centre requires released, sleeping item.",
+        140.0,
+        168.0,
+        MUTED,
+        68,
     );
 }
 

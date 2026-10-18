@@ -283,7 +283,14 @@ impl App {
     }
 
     pub(super) fn close_popup(&mut self) {
+        self.preview_audio.clear_world();
+        self.sound_preview_until = None;
         self.restore_preview();
+        if matches!(self.popup, Some(Popup::Transform(_)))
+            && let Some(document) = &self.document
+        {
+            self.viewport.rebuild(document.level());
+        }
         self.popup = None;
     }
 }

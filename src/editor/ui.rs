@@ -6,6 +6,7 @@ use crate::engine::render::Vertex;
 use super::App;
 use super::document::{ObjectId, ObjectKind};
 
+pub(super) mod components;
 mod gameplay;
 mod geometry;
 mod inspector;
@@ -13,7 +14,9 @@ mod library;
 mod navigation;
 mod safety;
 mod scripts;
+mod transform;
 pub(super) use scripts::draw as scripts_popup;
+pub(super) use transform::draw as transform_popup;
 
 pub(super) use gameplay::{action_popup, choices_popup, create_popup, gameplay_popup};
 pub(super) use geometry::{geometry_popup, shape_popup};
@@ -58,8 +61,22 @@ pub(super) enum Action {
     NavClear,
     Create,
     Gameplay,
-    GameplayPage(usize),
     GameplayActions,
+    Components(usize),
+    ComponentField(super::document::components::Field),
+    ComponentApply,
+    ComponentAdd(&'static str),
+    ComponentRemove(&'static str),
+    StateAdd,
+    StateRemove(usize),
+    BindingSelect(bool),
+    BindingNew,
+    BindingRemove,
+    ConditionChoose(usize),
+    ConditionRemove(usize),
+    CatalogFixedShape,
+    AttachedLightAdd,
+    AttachedLightRemove(usize),
     GamePick(super::gameplay_actions::GameplayChoice),
     GameChoose(super::gameplay_actions::GameplayChoice, usize),
     GameSetting(super::document::GameplaySetting),
@@ -91,6 +108,8 @@ pub(super) enum Action {
     ApplyFix,
     InspectFinding,
     Select(ObjectId),
+    SceneSearch,
+    PreviewSound(usize),
     Duplicate,
     Delete,
     Focus,
@@ -98,6 +117,10 @@ pub(super) enum Action {
     Snap,
     Step,
     Field(usize),
+    Transform,
+    TransformField(usize),
+    TransformPreview,
+    TransformApply,
     Nudge(usize, bool),
     Assets,
     Materials,
@@ -414,7 +437,14 @@ fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
 }
 
 fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
-    text(vertices, "SCENE", 5.0, 42.0, ACCENT, 20);
+    button(
+        vertices,
+        hits,
+        [5.0, 39.0, 55.0, 10.0],
+        "Find >",
+        Action::SceneSearch,
+        app.document.is_some(),
+    );
     button(
         vertices,
         hits,
@@ -444,10 +474,7 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         Action::Create,
         app.document.is_some(),
     );
-    let objects = app
-        .document
-        .as_ref()
-        .map_or_else(Vec::new, super::document::Document::objects);
+    let objects = app.scene_objects();
     for (index, object) in objects.iter().skip(app.object_scroll).take(4).enumerate() {
         let y = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(10.0, 79.0);
         let label = format!(
@@ -470,7 +497,15 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     }
     text(
         vertices,
-        &format!("{} objects / scroll list", objects.len()),
+        &format!(
+            "{} {} / scroll",
+            objects.len(),
+            if app.object_query.is_empty() {
+                "objects"
+            } else {
+                "matches"
+            }
+        ),
         5.0,
         121.0,
         MUTED,

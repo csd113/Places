@@ -97,7 +97,8 @@ that the editor performs Luau typechecking.
 
 Identity/key/group arguments are nonempty printable UTF-8, at most 96 bytes;
 notices and text state values at most 256 bytes. Boolean arguments must be actual
-booleans. Integer writes are finite integral numbers within ±2,147,483,647;
+booleans. Navigation coordinates require actual numbers, without numeric-string
+coercion. Integer writes are finite integral numbers within ±2,147,483,647;
 float writes are finite within ±1,000,000. Queries see world state at invocation
 start. Effects are queued in order, published after success, and become visible
 to the next invocation. A host argument/reference error, script error or resource
@@ -125,17 +126,25 @@ save/build/play, never the running package; there is no live hot reload.
 | Sources | 16 modules/map; 1–64 KiB/module; 512 KiB total UTF-8 |
 | VM memory | 2 MiB/module, including its Luau heap/bytecode/host tables; at most 32 MiB admitted VM heaps |
 | Initialization | 10 ms/module and 20,000 VM interrupts |
-| Handler | 2 ms and 20,000 interrupts; 32 staged actions; 4 notices |
+| Handler | 2 ms and 20,000 interrupts; 256 native host calls including queries; 32 staged actions; 4 notices |
 | Simulation frame | 64 invocations, 128 published script actions, 8 ms cumulative invocation time |
 | Diagnostics | 32 messages/run, 512 printable characters/message |
 | Exports | 64 functions/module; no subscriptions or dynamically created event types |
 
 Time is checked cooperatively at Luau calls/loop interrupts, not a hard realtime
-scheduler. Source length also bounds compiler input; the compiler's temporary
-native allocations are outside the VM allocator. Ordinary bounded native library
+scheduler. Initialization timing begins after text compilation; handler timing
+begins after scoped capability/event setup. Setup still counts toward cumulative
+frame time. All host capabilities, including read-only queries, share the hard
+native-call count and fail the invocation atomically if it is exhausted.
+Source length also bounds compiler input; the compiler's temporary native
+allocations are outside the VM allocator. Ordinary bounded native library
 calls can briefly exceed the requested wall deadline. Native pattern/substring search
 operations (`find`, `match`, `gmatch`, `gsub`, `split`) are omitted because worst-case native
-search work can evade VM interrupts. Table/string/math/UTF-8 basics remain available.
+search work can evade VM interrupts. `table.move` retains ordinary source,
+overlap and optional-target behavior, but requires actual integral 32-bit numeric
+indices and moves at most 8192 elements per call. Sparse negative-index moves
+otherwise consume native time without growing the bounded Lua heap or checking
+VM interrupts. Table/string/math/UTF-8 basics remain available.
 
 No filesystem, network, OS, package loading, FFI, arbitrary native calls, debug
 library, bytecode loading, dynamic source loading, coroutines or protected calls

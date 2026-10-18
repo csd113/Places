@@ -17,7 +17,7 @@
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
-use crate::engine::level::{ProximityFade, TriggerFilterDef, TriggerOccupancyDef};
+use crate::engine::level::{ItemReceiptDef, ProximityFade, TriggerFilterDef, TriggerOccupancyDef};
 
 use super::id::EntityHandle;
 
@@ -437,6 +437,8 @@ pub struct TriggerVolume {
     pub filter: TriggerFilterDef,
     /// How eligible occupants combine into events.
     pub occupancy: TriggerOccupancyDef,
+    /// Physical shape overlap, centre crossing, or sleeping centre receipt.
+    pub item_receipt: ItemReceiptDef,
     /// Eligible actors inside at the last update, bounded by the item limit.
     pub(crate) occupants: Vec<super::volumes::VolumeOccupant>,
 }

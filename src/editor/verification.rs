@@ -283,6 +283,7 @@ impl Verification {
             "visible_controls": controls.iter().map(|hit| serde_json::json!({"action":format!("{:?}",hit.action),"center":hit.center()})).collect::<Vec<_>>(),
             "input_focus": window.has_input_focus(),
             "ui_focus": app.ui_focus.map(|action| format!("{action:?}")),
+            "audio_preview": app.preview_audio.stats(),
             "drawable": window.size_in_pixels(), "camera_target": app.viewport.target(),
             "safety": app.safety_report.as_ref().map(|report| report.findings.iter().map(|finding| serde_json::json!({
                 "check":finding.check,"title":finding.title,"category":finding.category.label(),
@@ -316,7 +317,9 @@ const fn busy(app: &App) -> bool {
 fn validate(action: &Action) -> Result<(), String> {
     let valid = match action {
         Action::Control { action: name } => {
-            !name.is_empty() && name.len() <= 128 && !name.chars().any(char::is_control)
+            // Named fields include bounded target/type descriptors. The complete
+            // recipe retains its 64 KiB and 256-action admission limits.
+            !name.is_empty() && name.len() <= 512 && !name.chars().any(char::is_control)
         }
         Action::ScrollScene { lines } => (1..=64).contains(&lines.unsigned_abs()),
         Action::Click { x, y } => valid_point(*x, *y),

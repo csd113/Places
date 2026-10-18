@@ -173,7 +173,19 @@ impl FrameLoop<'_> {
             return;
         }
         if let Some(key) = self.items.world.held() {
-            self.items.target = Some(InteractionTarget::Drop { key });
+            self.synchronize_physical_player();
+            let blocker = self.items.world.first_unheld_body_hit(
+                self.game.player_position,
+                self.game.view_direction(),
+                crate::engine::interact::MAX_INTERACTION_REACH_M,
+            );
+            self.items.target = Some(
+                self.game
+                    .carried_door_target(blocker.map(|(_, distance)| distance))
+                    .map_or(InteractionTarget::Drop { key }, |(index, distance)| {
+                        InteractionTarget::World { index, distance }
+                    }),
+            );
             return;
         }
         self.synchronize_physical_player();
@@ -813,6 +825,8 @@ fn trigger_items<'a>(
             path: Some(body.path()),
             half_extents: body.half_extents,
             held: body.held,
+            sleeping: body.sleeping,
+            centre_path: Some(body.centre_path()),
         })
     })
 }

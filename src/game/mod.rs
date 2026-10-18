@@ -1863,6 +1863,27 @@ impl Game {
         )
     }
 
+    /// While carrying, E uses an exactly aimed unlocked door before falling back to safe
+    /// set-down. Wall/leaf occlusion and reach match ordinary interaction; other
+    /// physical bodies still obstruct it. Looking away deliberately selects drop.
+    pub(crate) fn carried_door_target(&self, body_distance: Option<f32>) -> Option<(usize, f32)> {
+        let index = self.interaction_target()?;
+        let item = self.interactables().get(index)?;
+        let door_index = item.door_index?;
+        if self.doors().get(door_index)?.is_locked() {
+            return None;
+        }
+        let distance = crate::engine::interact::target_distance(
+            self.player_position,
+            self.view_direction(),
+            item,
+            self.door_colliders(),
+        )?;
+        body_distance
+            .is_none_or(|body| body >= distance)
+            .then_some((index, distance))
+    }
+
     /// The spatial index over the collision walls, for the label-occlusion
     /// pass and other callers that already hold a `Game`.
     #[must_use]
@@ -1894,6 +1915,14 @@ impl Game {
     pub fn dispatch_interaction(&mut self) -> Option<DispatchReport> {
         let target = self.interaction_target();
         self.dispatch_interaction_at(target)
+    }
+
+    /// Runs optional authored guidance, applying reset through the same lifecycle
+    /// as interactions and automatic callbacks.
+    pub fn request_hint(&mut self) {
+        if self.world.request_hint() {
+            self.reset_to_spawn();
+        }
     }
 
     /// Dispatches the native loop's already selected, occlusion-checked target.

@@ -1958,6 +1958,19 @@ pub enum TriggerOccupancyDef {
     Aggregate,
 }
 
+/// Physical receipt policy, independent of the exact item and held selectors.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ItemReceiptDef {
+    /// Preserve conservative swept shape overlap, including rotating bodies.
+    #[default]
+    Overlap,
+    /// The physical shape's bounding-box centre must cross the receiver.
+    Centre,
+    /// The centre must rest inside while the unheld dynamic body is asleep.
+    SettledCentre,
+}
+
 /// One authored trigger volume.
 ///
 /// The volume is an axis-aligned box: a rectangular `(x, z)` footprint and a
@@ -1997,6 +2010,9 @@ pub struct TriggerVolumeDef {
     /// Per-actor events, or first-enter/last-exit aggregate events.
     #[serde(default)]
     pub occupancy: TriggerOccupancyDef,
+    /// Optional stricter physical-item receipt; player/entity points are unchanged.
+    #[serde(default)]
+    pub item_receipt: ItemReceiptDef,
     /// What the volume's occupancy edges do.
     #[serde(default)]
     pub bindings: Vec<EventBindingDef>,
@@ -6896,6 +6912,14 @@ const fn bool_is_true(value: &bool) -> bool {
     *value
 }
 
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde skip_serializing_if requires a borrowed field callback"
+)]
+const fn bool_is_false(value: &bool) -> bool {
+    !*value
+}
+
 /// One opaque void wall / floor box: a real surface slab that hides the void
 /// the level did not build.
 ///
@@ -7037,6 +7061,11 @@ const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
+    /// The authored gameplay needs Full prepared illumination (for example,
+    /// independent mixed fixed-prop circuits). Loading refuses lesser modes;
+    /// omission preserves the established lighting selection for old packages.
+    #[serde(default, skip_serializing_if = "bool_is_false")]
+    pub requires_full_lighting: bool,
     /// Presentation only. Console override lasts until the next map load.
     #[serde(default = "default_true", skip_serializing_if = "bool_is_true")]
     pub crosshair: bool,
@@ -9669,6 +9698,16 @@ impl WalkableFloor {
     #[must_use]
     pub fn height_at(&self, x: f32, z: f32) -> Option<f32> {
         self.resolve_height_at(x, z, StairSampling::Stepped)
+    }
+
+    /// Rendered support of one room in level order, preserving its own ramp,
+    /// stair and region ownership even under an overlapping upper storey.
+    /// Diagnostics must not borrow the first room's slopes for every storey.
+    #[must_use]
+    pub(crate) fn height_in_room(&self, index: usize, x: f32, z: f32) -> Option<f32> {
+        self.rooms
+            .get(index)
+            .and_then(|room| Self::room_height_at(room, x, z, StairSampling::Stepped))
     }
 
     /// World Y of the surface the player's feet follow while walking at

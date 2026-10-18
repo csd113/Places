@@ -53,6 +53,7 @@ mod emission;
 mod fluorescence;
 mod ground;
 mod image;
+pub(crate) use image::MAX_ENCODED_PNG_BYTES;
 mod pack;
 mod reflection;
 mod resolve;

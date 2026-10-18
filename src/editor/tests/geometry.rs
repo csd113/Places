@@ -58,6 +58,43 @@ impl Drop for Fixture {
     }
 }
 
+// Protect the Beam authoring failure: an otherwise valid final ramp pose can
+// have an invalid first scalar edit. One tiny source fixture, no GPU or bake.
+#[test]
+fn complete_pose_preview_is_nonmutating_and_commits_one_undo_step() -> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut document = Document::open(&fixture.0)?;
+    let ramp = document.add(ObjectKind::Ramp, [1.0_f32, 0.0_f32, 1.0_f32], None)?;
+    let before = document.raw().clone();
+    let mut pose = document.transform(ramp)?;
+    pose.position = [1.0_f32, 3.9_f32, 1.0_f32];
+    assert!(
+        document.set_transform(ramp, pose).is_err(),
+        "the raised intermediate ramp still intersects the ceiling"
+    );
+    assert_eq!(
+        document.raw(),
+        &before,
+        "a refused scalar edit leaves source intact"
+    );
+    pose.size = [1.0_f32, 0.05_f32, 2.0_f32];
+    let preview = document.preview_transform(ramp, pose)?;
+    assert_eq!(
+        preview.ramps.len(),
+        1,
+        "the complete valid pose can be previewed"
+    );
+    assert_eq!(document.raw(), &before, "preview creates no authored edit");
+    document.set_transform(ramp, pose)?;
+    assert!(document.undo(), "the complete transform is one undo step");
+    assert_eq!(
+        document.raw(),
+        &before,
+        "one undo restores the entire original pose and extensions"
+    );
+    Ok(())
+}
+
 #[test]
 fn basin_exit_ramp_signed_rotation_and_round_trip() -> Result<(), String> {
     let fixture = Fixture::new()?;

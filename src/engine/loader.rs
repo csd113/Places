@@ -4290,8 +4290,8 @@ fn validate_action(
             target.as_deref(),
             implicit,
             index,
-            "a placed prop target (only a placed prop shows a label)",
-            |facts| facts.is_prop,
+            "a placed prop target with an `interactable` label capability",
+            |facts| facts.is_prop && facts.has_interactable,
         )?,
         ActionDef::StartSequence { sequence, target } => {
             let sequence_id = sequence.trim();

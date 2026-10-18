@@ -41,3 +41,15 @@ returns, beam/partition occlusion, authored two-floor AI patrol and shell bounds
 unique; inspect the actual pictures as well as the state receipts. These tools
 never run under Cargo tests or ordinary CI. Performance mode requires actual
 present-mode/drawable/refresh evidence; capture runs are not FPS acceptance.
+
+## Package safety (local adversarial inputs)
+
+`package_safety.py --compiler PATH --asset-root PATH --package CLOSING.placesmap
+--package BEAM.placesmap --out NEW_DIRECTORY` validates both finished packages,
+compares every recovered source byte and exercises bounded malformed archives,
+unsafe paths, ownership/hash substitutions and transactional import failures.
+The compiler runs from an unrelated working directory with no asset-root
+environment override, so the explicit root is exercised. Claimed large sizes
+are metadata mutations, never allocated payloads. Each child has a 60-second
+timeout; fixtures and the machine-readable receipt remain under the new output
+directory. No full map bake or native rendering is involved.

@@ -174,6 +174,7 @@ fn sandbox_and_resource_failures_publish_no_partial_effects() -> Result<(), Stri
     for body in [
         "while true do end",
         "local huge = string.rep('x', 4000000)",
+        "table.move({},1,10000000,-10000000)",
         "for i=1,100 do api.spawn('point') end",
         "api.light('lamp', 1)",
         "api.door('missing','open')",

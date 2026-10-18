@@ -28,6 +28,7 @@ pub(super) fn operation_report(request: &BuildRequest) -> BuildReport {
 /// # Errors
 /// Returns project/build errors, unsafe output conflicts or cancellation.
 pub fn export(request: &BuildRequest) -> Result<BuildReport, String> {
+    crate::engine::paths::configure_assets(&request.asset_root)?;
     let scope = progress::BuildScope::start(&request.source, Some("project export"));
     let result = export_inner(request);
     scope.finish(&result);
@@ -41,10 +42,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     let original_output = output_identity(&request.out)?;
     progress::stage("validating complete project sources");
     let sources = project::snapshot(&folder, &progress::check_cancelled)?;
-    let (temporary, reserved) = archive::create_temporary(&request.out)?;
-    drop(reserved);
-    fs::remove_file(&temporary).map_err(|e| e.to_string())?;
-    fs::create_dir(&temporary).map_err(|e| e.to_string())?;
+    let temporary = archive::create_temporary_directory(&request.out)?;
     let result = (|| {
         let staged_source = stage_sources(&temporary, &sources)?;
         let mut blobs = BTreeMap::new();
@@ -62,17 +60,19 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         }
         let mut last_report = None;
         let mut warnings = Vec::new();
+        let mut cache_decisions = Vec::new();
         for level in &folder.manifest().levels {
             progress::check_cancelled()?;
-            let mut selected = request.clone();
-            selected.source.clone_from(&staged_source);
-            selected.project_level = Some(level.id.clone());
-            selected.out = temporary.join(format!("{}.placesmap", level.id));
-            let built = super::build(&selected)?;
+            let selected_output = temporary.join(format!("{}.placesmap", level.id));
+            let built = build_staged(request, &staged_source, &selected_output, &level.id)?;
             warnings.extend(built.warnings.iter().cloned());
+            cache_decisions.extend(built.cache_decisions.iter().cloned().map(|mut decision| {
+                decision.stage = format!("{}/{}", level.id, decision.stage);
+                decision
+            }));
             last_report = Some(built);
             let mut reader =
-                PackageReader::new(File::open(&selected.out).map_err(|e| e.to_string())?)
+                PackageReader::new(File::open(&selected_output).map_err(|e| e.to_string())?)
                     .map_err(|e| e.to_string())?;
             let mut records = BTreeMap::new();
             for name in reader.names().to_vec() {
@@ -82,7 +82,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
                 let _old = records.insert(name, blob);
             }
             drop(reader);
-            fs::remove_file(&selected.out).map_err(|e| e.to_string())?;
+            fs::remove_file(&selected_output).map_err(|e| e.to_string())?;
             index.levels.push(project::ProjectMap {
                 id: level.id.clone(),
                 records,
@@ -90,17 +90,28 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         }
         let publication = progress::BuildScope::start(&request.source, Some("project export"));
         progress::stage("checking source snapshot and publishing project");
-        if project::snapshot(&folder, &progress::check_cancelled)? != sources {
-            return Err("Project changed during export; previous distribution retained".into());
-        }
         let mut report = last_report.ok_or("Project has no levels")?;
         report.warnings = warnings;
+        report.cache_decisions = cache_decisions;
         let outcome = publish(
             request,
             &index,
             blobs,
             report,
-            original_output.as_deref(),
+            || {
+                if project::snapshot(&folder, &progress::check_cancelled)? != sources {
+                    return Err(
+                        "Project changed during export; previous distribution retained".into(),
+                    );
+                }
+                if output_identity(&request.out)?.as_deref() != original_output.as_deref() {
+                    return Err(
+                        "Export destination changed during compilation; external work retained"
+                            .into(),
+                    );
+                }
+                Ok(())
+            },
             started,
         );
         publication.finish(&outcome);
@@ -121,6 +132,30 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         )),
         (outcome, Ok(())) => outcome,
     }
+}
+
+fn build_staged(
+    request: &BuildRequest,
+    source: &std::path::Path,
+    out: &std::path::Path,
+    level: &str,
+) -> Result<BuildReport, String> {
+    let mut selected = request.clone();
+    selected.source = source.into();
+    selected.project_level = Some(level.into());
+    selected.out = out.into();
+    let rejected = if request.force {
+        None
+    } else {
+        super::project_cache::seed(&request.out, level, out).err()
+    };
+    let mut report = super::build(&selected)?;
+    if let Some(error) = rejected {
+        report.warnings.push(format!(
+            "Previous prepared cache for '{level}' was rejected: {error}"
+        ));
+    }
+    Ok(report)
 }
 
 fn add_blob(
@@ -219,25 +254,22 @@ fn publish(
     index: &project::ProjectPackage,
     blobs: BTreeMap<String, Vec<u8>>,
     mut report: BuildReport,
-    original_output: Option<&str>,
+    publish_check: impl Fn() -> Result<(), String>,
     started: std::time::Instant,
 ) -> Result<BuildReport, String> {
     let (entries, fingerprint) = package_entries(index, blobs)?;
-    archive::write_archive_guarded(&request.out, entries, progress::check_cancelled, || {
-        if output_identity(&request.out)?.as_deref() != original_output {
-            return Err(
-                "Export destination changed during compilation; external work retained".into(),
-            );
-        }
-        Ok(())
-    })?;
+    archive::write_archive_guarded(
+        &request.out,
+        entries,
+        progress::check_cancelled,
+        publish_check,
+    )?;
     report.source = request.source.display().to_string();
     report.out = request.out.display().to_string();
     report.bytes = fs::metadata(&request.out).map_err(|e| e.to_string())?.len();
     report.fingerprint = fingerprint;
     report.variant_stats.clear();
     report.phases.clear();
-    report.cache_decisions.clear();
     report.rebuilt = true;
     report.millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
     Ok(report)
@@ -247,6 +279,7 @@ fn publish(
 /// # Errors
 /// Returns malformed input, destination conflicts or cooperative cancellation.
 pub fn recover(request: &BuildRequest) -> Result<BuildReport, String> {
+    crate::engine::paths::configure_assets(&request.asset_root)?;
     let scope = progress::BuildScope::start(&request.source, Some("source recovery"));
     let result = project::recover(&request.source, &request.out, &progress::check_cancelled)
         .map(|()| operation_report(request));
@@ -258,6 +291,7 @@ pub fn recover(request: &BuildRequest) -> Result<BuildReport, String> {
 /// # Errors
 /// Returns unsupported schema, invalid source or cancellation errors.
 pub fn check(request: &BuildRequest) -> Result<BuildReport, String> {
+    crate::engine::paths::configure_assets(&request.asset_root)?;
     let scope = progress::BuildScope::start(&request.source, Some("project check"));
     let result = (|| {
         progress::stage("validating supported editable project data");

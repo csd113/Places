@@ -4288,6 +4288,11 @@ animated GLBs, including clips-only models such as `home:wall_switch`, with an
 explicit model-support error. These models require an entity template; they
 cannot supply a frozen bind-pose item. Movable placements are excluded from
 character claims so they never leave an animated copy at their authored pose.
+While carrying, Interact uses an exactly aimed, in-reach unlocked door; looking
+away or aiming at a locked door selects ordinary safe set-down. Walls, other door leaves and every other enabled
+physical body still obstruct the target ray. Only the owned held body is omitted
+from that sight test. The existing swept door motion continues to stop on the
+player, held/loose physical items and other solids, without forcing a release.
 GLB material emission remains a visual property. Box/sphere/cylinder shapes are
 contact approximations. A `compound` shape adds 1..8 primitive parts for objects
 such as bowling pins:
@@ -5731,6 +5736,7 @@ overlapping active sets can still require their full relevant pair count.
   "top_y": -0.05,                  // optional; default bottom_y + 2.0
   "filter": { "kind": "player" }, // optional; preserves player-only maps
   "occupancy": "per_actor",       // optional; or aggregate
+  "item_receipt": "overlap",      // optional; or centre / settled_centre
   "bindings": [
     { "on": "enter_volume", "once": false,
       "cooldown_seconds": 0.5,     // carried by the binding, not the volume
@@ -5768,12 +5774,26 @@ Semantics:
   ambience while another eligible occupant remains inside. Event `key` is
   `"player"` or the item's exact stable instance id; item events retain their
   entity handle when one exists.
+* `item_receipt: "overlap"` (default) retains the conservative swept shape
+  behavior. `"centre"` instead sweeps the actual physical shape AABB centre,
+  retaining every bounded solver-path segment while avoiding a rotating box's
+  enclosing-sphere false receipt. `"settled_centre"` requires that centre to
+  finish inside while the unheld **dynamic** body is asleep in the physics
+  solver. Transient crossings, dormant and kinematic bodies cannot satisfy a
+  settled receipt. Waking, pickup, removal and disappearance emit the ordinary
+  exit. This is a sleep policy, not a named-support/contact filter: the author
+  still fits the receiver to a real rack, basket or shelf. Exact item/asset and
+  held selectors remain independent and every selector must match. Player and
+  nonphysical entity point sweeps are unaffected.
 * `cooldown_seconds` on the `enter_volume` binding bounds a re-entry; `once`
   makes that binding fire at most once per run (a `reset_to_start` re-arms it).
 * `reset_to_start` returns the player to the authored spawn and facing, clears
   velocity, stance, ladder and water state, and re-seeds every trigger from
   the new position, so a teleport never activates the volumes between the old
   and new positions and a spawn inside a volume never loops.
+  Automatic Luau `start`/`update` and optional `hint` handlers use the same
+  reset lifecycle as interactions; a reset ends the action batch and remaining
+  callbacks/events for that frame. Fresh VM state is restored on reset.
 * All detected edges enter the existing bounded event queue in authored
   volume order. Within one volume they follow crossing time, with entries
   before simultaneous exits. Existing event/chain budgets still apply.
@@ -6809,6 +6829,18 @@ leak check only flags escapes into the void. It sees the asset-less mesh (prop
 placeholders, no GLB interiors) and does not validate prop models, textures or
 shading. Marker files and `--json` are the reproducible localization path for
 every finding; a clean run does not prove that no geometry defect exists.
+
+Room leak seeds use each room's own floor, including stacked storeys, and
+follow a supporting surface no higher than the walkable step at each sample.
+Doors participate through their exact oriented collider in the authored
+starting pose. Opening a closed leaf can expose a route; the flood retains
+one reachable height per cell and does not prove every vertical transition.
+The editor's jump/drop samples use the same authored door poses. Its separate
+GLB audit uses a bounded spatial tree and reports incomplete candidate coverage
+explicitly. Lowest opaque horizontal faces of a model with volume above that
+meet an architectural floor are listed as support contacts; thin sheets,
+alpha faces, interior intersections and prop/prop duplicate checks remain
+eligible. That classification proves neither mesh closure nor the final image.
 
 The ghost-collider warning tests actual coplanar triangle/face overlap and a
 covered face centre, rather than requiring the triangle centroid inside the
@@ -8732,3 +8764,14 @@ rebuilds retain it. It is hidden in menus, loading, console, guidance/death/win
 panels and third-person representation. It does not change aim eligibility,
 interaction distances, collision or item ownership. The existing hand remains
 tied to the actual valid nearby aimed target and disappears while holding.
+
+### Required Full circuit presentation (0.12.0)
+
+Optional top-level `requires_full_lighting: true` declares that gameplay depends
+on prepared Full illumination, such as Closing Time's independent mixed fixed-prop
+circuits. Export requires a Full variant and declares `full-lighting-v1`; older
+hosts refuse the capability. Native loading and graphics changes refuse lesser
+lighting modes with a named message. The player's preference is retained and no
+runtime bake occurs. Omission defaults false and preserves existing packages.
+This is an explicit presentation constraint, not multi-circuit Static preparation.
+The editor exposes it in Project → Map settings.

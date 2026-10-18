@@ -1,7 +1,9 @@
 //! Real transformed model triangles. Bounds only reject candidates; a plane
 //! test and clipped positive overlap area provide the coplanarity evidence.
 
-use std::collections::BTreeSet;
+mod candidates;
+
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 use glam::{Vec2, Vec3};
@@ -21,13 +23,14 @@ const MAX_PAIR_VISITS: usize = 2_000_000;
 const PLANE_EPS: f32 = 0.0015;
 const AREA_EPS: f32 = 0.0001;
 
-struct Triangle {
+pub(super) struct Triangle {
     points: [Vec3; 3],
     bounds: Aabb,
     normal: Vec3,
     prop: Option<usize>,
     alpha: AlphaMode,
     double_sided: bool,
+    floor: bool,
 }
 
 impl Triangle {
@@ -35,13 +38,17 @@ impl Triangle {
         clippy::arithmetic_side_effects,
         reason = "Finite floating-point vector subtraction; zero-area normals are rejected."
     )]
-    fn new(
+    pub(super) fn new(
         points: [Vec3; 3],
         prop: Option<usize>,
         alpha: AlphaMode,
         double_sided: bool,
+        floor: bool,
     ) -> Option<Self> {
         let [a, b, c] = points;
+        if points.iter().any(|point| !point.is_finite()) {
+            return None;
+        }
         let normal = (b - a).cross(c - a).try_normalize()?;
         let bounds = points.iter().fold(Aabb::EMPTY, |bounds, point| {
             bounds.expanded(point.to_array())
@@ -53,6 +60,7 @@ impl Triangle {
             prop,
             alpha,
             double_sided,
+            floor,
         })
     }
 }
@@ -116,12 +124,12 @@ pub(super) fn check(level: &LevelDef, report: &mut SafetyReport) {
                 if triangles.len() >= MAX_TRIANGLES {
                     incomplete(
                         report,
-                        "Triangle storage limit reached; later models were not examined.",
+                        "Triangle storage limit reached while preparing models; model triangle comparisons were not run.",
                     );
                     return;
                 }
                 if let Some(triangle) =
-                    Triangle::new([a, b, c], Some(index), alpha, submesh.double_sided)
+                    Triangle::new([a, b, c], Some(index), alpha, submesh.double_sided, false)
                 {
                     triangles.push(triangle);
                 }
@@ -185,14 +193,20 @@ fn architecture(
             if triangles.len() >= MAX_TRIANGLES {
                 incomplete(
                     report,
-                    "Triangle storage limit reached; later geometry was not examined.",
+                    "Triangle storage limit reached while preparing architecture; model triangle comparisons were not run.",
                 );
                 return false;
             }
             let alpha = materials
                 .entry(range.key.material)
                 .map_or(AlphaMode::Opaque, |material| material.alpha.mode);
-            if let Some(triangle) = Triangle::new([a, b, c], None, alpha, false) {
+            if let Some(triangle) = Triangle::new(
+                [a, b, c],
+                None,
+                alpha,
+                false,
+                range.key.kind == SurfaceKind::Floor,
+            ) {
                 triangles.push(triangle);
             }
         }
@@ -201,64 +215,60 @@ fn architecture(
 }
 
 fn compare(triangles: &mut [Triangle], report: &mut SafetyReport) {
-    triangles.sort_by(|first, second| {
-        first
-            .bounds
-            .min
-            .first()
-            .copied()
-            .unwrap_or(0.0)
-            .total_cmp(&second.bounds.min.first().copied().unwrap_or(0.0))
-    });
-    let mut visits = 0_usize;
+    compare_with_budget(triangles, report, MAX_PAIR_VISITS);
+}
+
+pub(super) fn compare_with_budget(
+    triangles: &mut [Triangle],
+    report: &mut SafetyReport,
+    budget: usize,
+) {
+    let mut prop_bounds = BTreeMap::<usize, Aabb>::new();
+    for triangle in triangles.iter() {
+        if let Some(prop) = triangle.prop {
+            let bounds = prop_bounds.entry(prop).or_insert(Aabb::EMPTY);
+            *bounds = bounds.union(&triangle.bounds);
+        }
+    }
     let mut reported = BTreeSet::new();
-    for (slot, first) in triangles.iter().enumerate() {
-        for second in triangles.iter().skip(slot.saturating_add(1)) {
-            let [bx, _, _] = second.bounds.min;
-            let [ax, _, _] = first.bounds.max;
-            if bx > ax + PLANE_EPS {
-                break;
+    let mut contacts = BTreeSet::new();
+    let (work, complete) = candidates::visit(triangles, budget, |first, second| {
+        let pair = if first.prop <= second.prop {
+            (first.prop, second.prop)
+        } else {
+            (second.prop, first.prop)
+        };
+        if reported.contains(&pair) {
+            return;
+        }
+        let contact = support_contact(first, second, &prop_bounds);
+        let dot = first.normal.dot(second.normal);
+        // Ordinary back-to-back contact (chair foot/floor, cabinet/wall)
+        // has only one visible face and is not by itself depth flicker.
+        if !contact && dot < 0.0 && !(first.double_sided || second.double_sided) {
+            return;
+        }
+        let Some(area) = coplanar_overlap(first.points, second.points) else {
+            return;
+        };
+        if area <= AREA_EPS {
+            return;
+        }
+        if contact {
+            if let Some(prop) = first.prop.or(second.prop) {
+                let _contact = contacts.insert(prop);
             }
-            if visits >= MAX_PAIR_VISITS {
-                incomplete(
-                    report,
-                    "Triangle pair budget reached; remaining candidates were not examined.",
-                );
-                return;
-            }
-            visits = visits.saturating_add(1);
-            if first.prop == second.prop || !bounds_overlap(first.bounds, second.bounds) {
-                continue;
-            }
-            let pair = if first.prop <= second.prop {
-                (first.prop, second.prop)
-            } else {
-                (second.prop, first.prop)
-            };
-            if reported.contains(&pair) {
-                continue;
-            }
-            let dot = first.normal.dot(second.normal);
-            // Ordinary back-to-back contact (chair foot/floor, cabinet/wall)
-            // has only one visible face and is not by itself depth flicker.
-            if dot < 0.0 && !(first.double_sided || second.double_sided) {
-                continue;
-            }
-            let Some(area) = coplanar_overlap(first.points, second.points) else {
-                continue;
-            };
-            if area <= AREA_EPS {
-                continue;
-            }
-            let _new_pair = reported.insert(pair);
-            let bounds = first.bounds.union(&second.bounds);
-            let objects = [first.prop, second.prop]
-                .into_iter()
-                .flatten()
-                .map(ObjectId::Prop)
-                .collect();
-            let depth = first.alpha != AlphaMode::Opaque || second.alpha != AlphaMode::Opaque;
-            report.findings.push(SafetyFinding {
+            return;
+        }
+        let _new_pair = reported.insert(pair);
+        let bounds = first.bounds.union(&second.bounds);
+        let objects = [first.prop, second.prop]
+            .into_iter()
+            .flatten()
+            .map(ObjectId::Prop)
+            .collect();
+        let depth = first.alpha != AlphaMode::Opaque || second.alpha != AlphaMode::Opaque;
+        report.findings.push(SafetyFinding {
                 check: "model-coplanar-surface",
                 category: if depth { SafetyCategory::MaterialDepth } else { SafetyCategory::Coplanar },
                 severity: SafetySeverity::Warning,
@@ -267,8 +277,79 @@ fn compare(triangles: &mut [Triangle], report: &mut SafetyReport) {
                 position: bounds_center(bounds), bounds, objects,
                 surfaces: vec![first.points.map(|point| point.to_array()),second.points.map(|point| point.to_array())], fix: None, placement_ignore: None,
             });
+    });
+    support_note(report, &prop_bounds, contacts);
+    let _coverage = write!(
+        report.limitations,
+        " Model spatial audit examined {work}/{budget} bounded tree/pair steps; {}.",
+        if complete {
+            "all spatial candidates covered"
+        } else {
+            "coverage incomplete"
         }
+    );
+    if !complete {
+        incomplete(
+            report,
+            "Model spatial tree/triangle pair budget reached; remaining nearby candidates were not examined. Review is incomplete; no safe-placement conclusion follows.",
+        );
     }
+}
+
+fn support_note(
+    report: &mut SafetyReport,
+    prop_bounds: &BTreeMap<usize, Aabb>,
+    contacts: BTreeSet<usize>,
+) {
+    if !contacts.is_empty() {
+        let _contact_details = write!(
+            report.limitations,
+            " {} model base(s) have measured floor contact; these are support contacts rather than a visible-sheet duplicate finding. Mesh closure and visibility are not proven.",
+            contacts.len()
+        );
+        let bounds = contacts
+            .iter()
+            .filter_map(|prop| prop_bounds.get(prop))
+            .fold(Aabb::EMPTY, |all, bounds| all.union(bounds));
+        report.findings.push(SafetyFinding {
+            check: "model-floor-contacts", category: SafetyCategory::Review, severity: SafetySeverity::Info,
+            title: format!("{} model base(s) meet the floor", contacts.len()),
+            risk: "Measured opaque horizontal faces at the lowest point of a model with volume above touch an architectural floor. These are support contacts, including double-sided catalog bases. This does not prove mesh closure or visibility. Thin sheets, alpha faces, interior floor intersections and all prop/prop duplicate pairs remain in the depth audit. No placement or intent annotation is changed.".into(),
+            position: bounds_center(bounds), bounds, objects: contacts.into_iter().map(ObjectId::Prop).collect(),
+            surfaces: Vec::new(), fix: None, placement_ignore: None,
+        });
+    }
+}
+
+/// Only an architectural floor touching the lowest horizontal face of a
+/// volumetric opaque model is support contact. Prop/prop duplicates, thin
+/// sheets, alpha surfaces and faces through a model's interior stay eligible.
+fn support_contact(first: &Triangle, second: &Triangle, bounds: &BTreeMap<usize, Aabb>) -> bool {
+    let (floor, model) = if first.floor && first.prop.is_none() {
+        (first, second)
+    } else if second.floor && second.prop.is_none() {
+        (second, first)
+    } else {
+        return false;
+    };
+    let Some(model_bounds) = model.prop.and_then(|prop| bounds.get(&prop)) else {
+        return false;
+    };
+    let [_, bottom, _] = model_bounds.min;
+    let [_, top, _] = model_bounds.max;
+    model.alpha == AlphaMode::Opaque
+        && floor.alpha == AlphaMode::Opaque
+        && top > bottom + 0.05
+        && model.normal.y.abs() > 0.999_999
+        && floor.normal.y.abs() > 0.999_999
+        && model
+            .points
+            .iter()
+            .all(|point| (point.y - bottom).abs() <= PLANE_EPS)
+        && floor
+            .points
+            .iter()
+            .all(|point| (point.y - bottom).abs() <= PLANE_EPS)
 }
 
 fn owner(prop: Option<usize>) -> String {
@@ -279,6 +360,7 @@ fn owner(prop: Option<usize>) -> String {
 }
 
 fn incomplete(report: &mut SafetyReport, reason: &str) {
+    let _reason = write!(report.limitations, " Model audit incomplete: {reason}");
     report.findings.push(SafetyFinding {
         check: "model-check-incomplete",
         category: SafetyCategory::Review,
@@ -300,7 +382,11 @@ fn bounds_overlap(first: Aabb, second: Aabb) -> bool {
         .iter()
         .zip(&first.max)
         .zip(second.min.iter().zip(&second.max))
-        .all(|((a0, a1), (b0, b1))| a0 <= &(b1 + PLANE_EPS) && b0 <= &(a1 + PLANE_EPS))
+        .all(|((a0, a1), (b0, b1))| {
+            // Plane separation can project onto all three world axes.
+            let margin = PLANE_EPS * 1.732_050_8;
+            a0 <= &(b1 + margin) && b0 <= &(a1 + margin)
+        })
 }
 
 /// Positive coplanar overlap area in world square metres. Transverse solid

@@ -43,6 +43,7 @@ pub mod navigation;
 mod probes;
 pub mod progress;
 pub mod project;
+mod project_cache;
 pub mod source;
 mod storage;
 
@@ -301,6 +302,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     let snapshot = project::read_source(&request.source, request.project_level.as_deref())?;
     let source_bytes = snapshot.identity;
     let mut level = snapshot.level;
+    if level.requires_full_lighting && !request.variants.contains(&LightmapQuality::Full) {
+        return Err("This map requires Full lighting; include full in --variants".into());
+    }
     let catalog_path = request.asset_root.join("catalog.json");
     let (catalog, catalog_hash) = load_catalog_identity(&catalog_path)?;
     crate::map_compiler::prepare_level(&mut level, catalog.assets(), None);
@@ -646,6 +650,16 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     if !level.transitions.is_empty() {
         required.push("project-transitions-v1".into());
     }
+    if level.requires_full_lighting {
+        required.push("full-lighting-v1".into());
+    }
+    if level
+        .volumes
+        .iter()
+        .any(|volume| volume.item_receipt != crate::engine::level::ItemReceiptDef::Overlap)
+    {
+        required.push("item-receipts-v1".into());
+    }
     let manifest = Manifest {
         schema: crate::engine::package::PACKAGE_SCHEMA.to_string(),
         package_format: FORMAT_VERSION,
@@ -660,6 +674,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         entries: package_entries,
         variants,
     };
+    crate::engine::package::world::validate_lighting_requirement(&level, &manifest)?;
     let manifest_bytes = manifest.to_json()?;
     let mut all_names: Vec<String> = entries.iter().map(|entry| entry.name.clone()).collect();
     all_names.push("manifest.json".to_string());
@@ -792,7 +807,7 @@ fn validate_reader(
                 .map_err(|error| format!("semantics.json is not valid UTF-8: {error}"))?;
             let level = LevelDef::from_json(semantics)
                 .map_err(|error| format!("semantics.json is not valid: {error}"))?;
-            crate::engine::loader::validate_level(&level)?;
+            crate::engine::package::world::validate_semantics(&reader, &manifest, &level)?;
         }
     }
 
@@ -851,10 +866,11 @@ pub fn verify_selected(
     package: &Path,
     asset_root: &Path,
 ) -> Result<VerifyReport, String> {
+    crate::engine::paths::configure_assets(asset_root)?;
     let snapshot = project::read_source(source, selected)?;
     let source_bytes = snapshot.identity;
     let mut level = snapshot.level;
-    let manifest = inspect(package)?;
+    let manifest = crate::engine::package::world::inspect_level(package, &level.id)?;
     let catalog_path = asset_root.join("catalog.json");
     let mut warnings = Vec::new();
     let (catalog, catalog_hash) = load_catalog_identity(&catalog_path)?;
@@ -1116,8 +1132,7 @@ fn probe_payload(
 fn open_package(
     path: &Path,
 ) -> Result<crate::engine::package::PackageReader<std::fs::File>, String> {
-    let file = std::fs::File::open(path)
-        .map_err(|error| format!("could not open {}: {error}", path.display()))?;
+    let file = crate::engine::package::archive::open_file(path)?;
     crate::engine::package::PackageReader::new(file).map_err(|error| error.to_string())
 }
 
@@ -1279,24 +1294,8 @@ fn check_dependencies(manifest: &Manifest, warnings: &mut Vec<String>) {
                 continue;
             }
         };
-        let path = root.join(&dependency.path);
-        match std::fs::read(&path) {
-            Ok(bytes) => {
-                if u64::try_from(bytes.len()).unwrap_or(u64::MAX) != dependency.bytes {
-                    warnings.push(format!(
-                        "dependency {} is {} bytes, recorded {}",
-                        dependency.path,
-                        bytes.len(),
-                        dependency.bytes
-                    ));
-                } else if sha256_hex(&bytes) != dependency.sha256 {
-                    warnings.push(format!(
-                        "dependency {} has different content than recorded",
-                        dependency.path
-                    ));
-                }
-            }
-            Err(_) => warnings.push(format!("dependency {} is missing", dependency.path)),
+        if let Err(error) = crate::engine::package::dependencies::validate(root, dependency) {
+            warnings.push(error);
         }
     }
 }
@@ -1717,26 +1716,27 @@ fn collect_dependencies(
         if identities.contains_key(&key) {
             return Ok(());
         }
-        let bytes = match std::fs::read(asset_root.join(path)) {
-            Ok(bytes) => bytes,
-            Err(error) => {
-                // A resource absent at compile time contributes nothing to the
-                // prepared world (its material degrades to the diagnostic
-                // sheet, its prop to the fallback box), so it is not a
-                // dependency the player must find.
-                warnings.push(format!(
-                    "dependency '{path}' could not be read ({error}); not recorded"
-                ));
-                return Ok(());
-            }
-        };
+        let (bytes, sha256) =
+            match crate::engine::package::dependencies::identity(asset_root, path, kind) {
+                Ok(identity) => identity,
+                Err(error) => {
+                    // A resource absent at compile time contributes nothing to the
+                    // prepared world (its material degrades to the diagnostic
+                    // sheet, its prop to the fallback box), so it is not a
+                    // dependency the player must find.
+                    warnings.push(format!(
+                        "dependency '{path}' could not be read ({error}); not recorded"
+                    ));
+                    return Ok(());
+                }
+            };
         drop(identities.insert(
             key,
             PackageDependency {
                 kind,
                 path: path.to_string(),
-                sha256: sha256_hex(&bytes),
-                bytes: u64::try_from(bytes.len()).unwrap_or(u64::MAX),
+                sha256,
+                bytes,
             },
         ));
         Ok(())
@@ -2118,6 +2118,7 @@ pub(crate) fn lighting_fingerprint_with_revision(
     // never read by static geometry, collision, illumination or probe baking.
     stripped.name.clear();
     stripped.author.clear();
+    stripped.requires_full_lighting = false;
     // Luau runs only after load; these bytes cannot change prepared geometry,
     // lighting, collision or probes. They remain in the full package identity.
     stripped.scripts.clear();
@@ -2500,6 +2501,7 @@ fn read_build_inputs(out: &Path, manifest: &Manifest) -> Result<BuildInputs, Str
         return Err("compiler input provenance exceeds the manifest byte limit".to_string());
     }
     let mut reader = open_package(out)?;
+    crate::engine::package::project::select(&mut reader, Some(&manifest.id))?;
     let bytes = read_declared_entry(&mut reader, entry)?;
     let inputs: BuildInputs = serde_json::from_slice(&bytes)
         .map_err(|error| format!("compiler input provenance is invalid: {error}"))?;
@@ -2608,6 +2610,7 @@ fn dependency_differences(
 /// blob-name hashes.
 fn verify_declared_entries(path: &Path, manifest: &Manifest) -> Result<(), String> {
     let mut reader = open_package(path)?;
+    crate::engine::package::project::select(&mut reader, Some(&manifest.id))?;
     for entry in &manifest.entries {
         drop(read_declared_entry(&mut reader, entry)?);
     }

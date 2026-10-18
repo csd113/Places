@@ -1,3 +1,4 @@
+mod carried_door;
 mod developer;
 mod input;
 mod settings;

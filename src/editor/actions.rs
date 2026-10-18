@@ -20,6 +20,8 @@ pub(super) enum Pending {
 }
 
 pub(super) enum Popup {
+    SceneSearch(String),
+    Transform(Box<super::transform::Draft>),
     Project,
     Thumbnail,
     ProjectText {
@@ -54,6 +56,14 @@ pub(super) enum Popup {
         page: usize,
     },
     GameplayActions,
+    Components {
+        page: usize,
+    },
+    ComponentText {
+        field: super::document::components::Field,
+        value: String,
+        page: usize,
+    },
     GameplayChoices {
         choice: super::gameplay_actions::GameplayChoice,
         page: usize,
@@ -68,6 +78,10 @@ pub(super) enum Popup {
 impl Popup {
     pub fn draw(&self, app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mut Vec<Hit>) {
         hits.clear();
+        if let Self::Transform(draft) = self {
+            ui::transform_popup(draft, v, hits);
+            return;
+        }
         if matches!(
             self,
             Self::Project | Self::Thumbnail | Self::ProjectText { field: _, value: _ }
@@ -100,8 +114,19 @@ impl Popup {
         }
         ui::rect(v, [0.0, 0.0, 480.0, 272.0], [0.0, 0.0, 0.0, 0.6]);
         ui::rect(v, [130.0, 65.0, 260.0, 146.0], [0.075, 0.11, 0.14, 1.0]);
+        self.draw_content(app, v, hits);
+    }
+
+    fn draw_content(
+        &self,
+        app: &App,
+        v: &mut Vec<crate::engine::render::Vertex>,
+        hits: &mut Vec<Hit>,
+    ) {
         match self {
-            Self::Project
+            Self::SceneSearch(value) => super::selection::draw_search(v, hits, value),
+            Self::Transform(_)
+            | Self::Project
             | Self::Thumbnail
             | Self::ProjectText { field: _, value: _ }
             | Self::Scripts
@@ -124,6 +149,14 @@ impl Popup {
             Self::Create => ui::create_popup(v, hits),
             Self::Gameplay { page } => ui::gameplay_popup(app, v, hits, *page),
             Self::GameplayActions => ui::action_popup(v, hits),
+            Self::Components { page } => ui::components::draw(app, v, hits, *page),
+            Self::ComponentText {
+                field,
+                value,
+                page: _,
+            } => {
+                ui::components::draw_text(v, hits, *field, value);
+            }
             Self::GameplayChoices { choice, page } => {
                 ui::choices_popup(app, v, hits, *choice, *page);
             }
@@ -284,6 +317,9 @@ impl App {
             || self.build_action(action)?
             || self.geometry_action(action)?
             || self.safety_action(action)?
+            || self.component_action(action)?
+            || self.transform_action(action)?
+            || self.selection_ui_action(action)?
             || self.gameplay_action(action)?)
     }
 
@@ -292,7 +328,17 @@ impl App {
             return Ok(());
         }
         match action {
-            Action::Project
+            Action::SceneSearch
+            | Action::PreviewSound(_)
+            | Action::Select(_)
+            | Action::Field(_)
+            | Action::Assets
+            | Action::Materials
+            | Action::Project
+            | Action::Transform
+            | Action::TransformField(_)
+            | Action::TransformPreview
+            | Action::TransformApply
             | Action::Navigation
             | Action::NavBake
             | Action::NavAgent(_)
@@ -325,8 +371,22 @@ impl App {
             | Action::ScriptHandler(_)
             | Action::Create
             | Action::Gameplay
-            | Action::GameplayPage(_)
             | Action::GameplayActions
+            | Action::Components(_)
+            | Action::ComponentField(_)
+            | Action::ComponentApply
+            | Action::ComponentAdd(_)
+            | Action::ComponentRemove(_)
+            | Action::StateAdd
+            | Action::StateRemove(_)
+            | Action::BindingSelect(_)
+            | Action::BindingNew
+            | Action::BindingRemove
+            | Action::ConditionChoose(_)
+            | Action::ConditionRemove(_)
+            | Action::CatalogFixedShape
+            | Action::AttachedLightAdd
+            | Action::AttachedLightRemove(_)
             | Action::GamePick(_)
             | Action::GameChoose(_, _)
             | Action::GameSetting(_)
@@ -352,35 +412,38 @@ impl App {
             Action::Save => self.save()?,
             Action::Capture => self.request_capture(),
             Action::Undo | Action::Redo => self.history_action(action == Action::Redo),
-            Action::Add(kind) => self.add_object(kind)?,
-            Action::Select(id) => {
-                self.selected = Some(id);
-                self.viewport.select(Some(id));
-                self.viewport.highlight(None, &[]);
-            }
+            Action::Add(kind) => self.add_safely(kind)?,
             Action::Delete | Action::Duplicate => {
                 self.selection_action(action == Action::Duplicate)?;
             }
             Action::Focus | Action::Grid | Action::Snap | Action::Step => self.view_action(action),
-            Action::Field(field) => {
-                let value = self.field(field)?;
-                self.popup = Some(Popup::Number {
-                    field,
-                    value: format!("{value:.3}"),
-                });
-            }
             Action::Nudge(field, positive) => self.nudge(field, positive)?,
-            Action::Assets | Action::Materials => {
-                self.popup = Some(Popup::Library {
-                    materials: action == Action::Materials,
-                    page: 0,
-                });
-            }
             Action::ChooseAsset(index) => self.choose_asset(index)?,
             Action::Page(forward) => self.page_library(forward),
             Action::ClosePopup | Action::ConfirmCancel => self.close_popup(),
             Action::ConfirmSave | Action::ConfirmDiscard => self.confirm_action(action, window)?,
         }
+        Ok(())
+    }
+
+    fn add_safely(&mut self, kind: ObjectKind) -> Result<(), String> {
+        if let Err(error) = self.add_object(kind) {
+            self.selected = None;
+            self.viewport.select(None);
+            self.popup = None;
+            return Err(format!(
+                "Add refused: {error}. Selection cleared; existing objects are unchanged."
+            ));
+        }
+        Ok(())
+    }
+
+    pub(super) fn open_number(&mut self, field: usize) -> Result<(), String> {
+        let value = self.field(field)?;
+        self.popup = Some(Popup::Number {
+            field,
+            value: format!("{value:.3}"),
+        });
         Ok(())
     }
 

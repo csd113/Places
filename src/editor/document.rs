@@ -2,6 +2,7 @@
 //! validated view, never the serialization source: future/unsupported fields
 //! therefore survive ordinary edits and saves.
 
+pub(crate) mod components;
 mod fog;
 mod gameplay;
 mod geometry;
@@ -163,6 +164,21 @@ impl Document {
         let mut edited = self.selected.raw.clone();
         objects::set_transform(&mut edited, self.level(), id, transform)?;
         self.accept_edit(edited)
+    }
+
+    /// Validates a complete proposed transform without changing source or history.
+    /// The preview uses the same scene admission as an ordinary edit.
+    ///
+    /// # Errors
+    /// Rejects unsupported transforms and invalid resulting scene geometry.
+    pub fn preview_transform(
+        &self,
+        id: ObjectId,
+        transform: Transform,
+    ) -> Result<LevelDef, String> {
+        let mut edited = self.selected.raw.clone();
+        objects::set_transform(&mut edited, self.level(), id, transform)?;
+        persistence::validate_raw(&edited, self.level_id()).map(|(level, _bytes)| level)
     }
 
     /// Adds one room, wall or built-in prop at authored coordinates.
