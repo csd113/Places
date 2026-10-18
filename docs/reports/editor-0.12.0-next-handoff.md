@@ -68,6 +68,13 @@ binaries outside `target`, and check for other active work before cleaning it.
    contracts are `docs/ASSET_SPECIFICATION.md`, `docs/MAP_AUTHORING_GUIDE.md`,
    `assets/completed-models.json`, and the existing ignored `import/model-rework/`
    review/delivery/unpacked folders. Preserve all mandatory fitted UV/PNG contracts.
+   Also pending for this post-mode integration: the separate authorized cloud
+   Blender worker's three-pass polish of the current mannequin as the reusable
+   human NPC foundation, with interchangeable skins, properly attached hands and
+   fingers, refined existing animations, and door open/close, pickup/setdown,
+   carry idle/walk, sit/stand and seated idle animations. Wait for that worker's
+   verified finished delivery; do not edit the mannequin in the navigation task.
+   Initial game-mode authoring still uses the currently installed assets.
 5. Run the dedicated Luau/map-import safety review using **both finished modes**
    and malicious small fixtures. Reassess VM execution/memory/action budgets,
    scoped callback/reset lifetimes, in-process/cooperative limitations, archive
