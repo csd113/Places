@@ -5954,6 +5954,18 @@ Entity sizes, forward axis and stride speeds come from the asset's own README
 `tests/fixtures/levels/` demonstrate walk, run, pose selection and two
 independent instances.
 
+The approved mannequin R2 keeps the original three poses and three gait names,
+plus 13 door/handling/carry/chair clips. `projects/mannequin-r2-review/` is an
+opt-in editable playback fixture with all 19 explicit loop policies, paired
+sequences and reference-speed route comparisons. Zero-duration poses hold at
+time zero; one-shots retain their final pose. Ordinary idle selects literal
+`idle`, then `pose_stand`; an explicit neutral pose library's ordinary automatic
+walk prefers literal `walk`, so alphabetically earlier carry clips stay opt-in.
+Keep baked door root displacement relative to a fixed actor placement. The
+delivered contact/event tracks do not supply prop attachment, door/lever or IK
+controllers. Existing glow sockets support posed-node lights only; their offset
+remains a fallback when a socket does not resolve.
+
 ### Places Demo maintenance notes
 
 The Home loop uses four contiguous narrow room footprints, with 1.4 m clear

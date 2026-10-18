@@ -1,0 +1,960 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "mannequin_r2_review",
+  "name": "Approved Mannequin R2 \u2014 Native Playback Review",
+  "author": "Places",
+  "comment": "Opt-in authoring/native fixture. All 19 clips use explicit declared loop flags. Door root displacement remains baked relative to fixed actor placement. Glow sockets are the existing supported attachment; no prop grasp, door controller, metadata event dispatcher or IK is implied.",
+  "defaults": {
+    "floor": "home:tile_home_01",
+    "wall": "home:wall_paint_offwhite_01",
+    "ceiling": "home:ceiling_plaster_01"
+  },
+  "rooms": [
+    {
+      "x": 0,
+      "z": 0,
+      "width": 18,
+      "depth": 20,
+      "height": 3
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.2,
+      "z": -0.2,
+      "width": 18.4,
+      "depth": 0.2,
+      "height": 3
+    },
+    {
+      "x": -0.2,
+      "z": 20,
+      "width": 18.4,
+      "depth": 0.2,
+      "height": 3
+    },
+    {
+      "x": -0.2,
+      "z": 0,
+      "width": 0.2,
+      "depth": 20,
+      "height": 3
+    },
+    {
+      "x": 18,
+      "z": 0,
+      "width": 0.2,
+      "depth": 20,
+      "height": 3
+    }
+  ],
+  "spawn": {
+    "x": 8,
+    "yaw_degrees": 0,
+    "z": 19
+  },
+  "props": [
+    {
+      "id": "clip_pose_stand",
+      "model": "mannequin",
+      "x": 2,
+      "y": 0,
+      "z": 2,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_pose_arms_up",
+      "model": "mannequin",
+      "x": 5,
+      "y": 0,
+      "z": 2,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_pose_arms_forward",
+      "model": "mannequin",
+      "x": 8,
+      "y": 0,
+      "z": 2,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_walk",
+      "model": "mannequin",
+      "x": 11,
+      "y": 0,
+      "z": 2,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_run",
+      "model": "mannequin",
+      "x": 14,
+      "y": 0,
+      "z": 2,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_run_arms_forward",
+      "model": "mannequin",
+      "x": 2,
+      "y": 0,
+      "z": 5,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_door_open_push",
+      "model": "mannequin",
+      "x": 5,
+      "y": 0,
+      "z": 5,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_door_open_pull",
+      "model": "mannequin",
+      "x": 8,
+      "y": 0,
+      "z": 5,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_door_close_push",
+      "model": "mannequin",
+      "x": 11,
+      "y": 0,
+      "z": 5,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_door_close_pull",
+      "model": "mannequin",
+      "x": 14,
+      "y": 0,
+      "z": 5,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_pick_up_tabletop",
+      "model": "mannequin",
+      "x": 2,
+      "y": 0,
+      "z": 8,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_set_down_tabletop",
+      "model": "mannequin",
+      "x": 5,
+      "y": 0,
+      "z": 8,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_pick_up_floor",
+      "model": "mannequin",
+      "x": 8,
+      "y": 0,
+      "z": 8,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0,
+      "components": [
+        {
+          "component": "glow",
+          "socket": "index.02.L",
+          "offset": [
+            0.07,
+            0.02,
+            0
+          ],
+          "color": [
+            0.1,
+            0.8,
+            1
+          ],
+          "intensity": 0.025,
+          "range": 1,
+          "fade": false
+        }
+      ]
+    },
+    {
+      "id": "clip_set_down_floor",
+      "model": "mannequin",
+      "x": 11,
+      "y": 0,
+      "z": 8,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_carry_idle",
+      "model": "mannequin",
+      "x": 14,
+      "y": 0,
+      "z": 8,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_carry_walk",
+      "model": "mannequin",
+      "x": 2,
+      "y": 0,
+      "z": 11,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0,
+      "components": [
+        {
+          "component": "glow",
+          "socket": "hand.L",
+          "offset": [
+            0.07,
+            0.02,
+            0
+          ],
+          "color": [
+            0.1,
+            0.8,
+            1
+          ],
+          "intensity": 0.025,
+          "range": 1,
+          "fade": false
+        }
+      ]
+    },
+    {
+      "id": "clip_sit_down",
+      "model": "mannequin",
+      "x": 5,
+      "y": 0,
+      "z": 11,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_stand_up",
+      "model": "mannequin",
+      "x": 8,
+      "y": 0,
+      "z": 11,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "clip_seated_idle",
+      "model": "mannequin",
+      "x": 11,
+      "y": 0,
+      "z": 11,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "default_neutral",
+      "model": "mannequin",
+      "x": 14,
+      "y": 0,
+      "z": 11,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0,
+      "components": [
+        {
+          "component": "glow",
+          "socket": "head",
+          "offset": [
+            0.07,
+            0.02,
+            0
+          ],
+          "color": [
+            0.1,
+            0.8,
+            1
+          ],
+          "intensity": 0.025,
+          "range": 1,
+          "fade": false
+        }
+      ]
+    },
+    {
+      "id": "black_pose",
+      "model": "core:mannequin_black",
+      "x": 2,
+      "y": 0,
+      "z": 14,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "door_pair",
+      "model": "mannequin",
+      "x": 5,
+      "y": 0,
+      "z": 14,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "chair_chain",
+      "model": "mannequin",
+      "x": 8,
+      "y": 0,
+      "z": 14,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "handling_chain",
+      "model": "mannequin",
+      "x": 11,
+      "y": 0,
+      "z": 14,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "slow_walk",
+      "model": "mannequin",
+      "x": 2,
+      "y": 0,
+      "z": 17,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "fast_walk",
+      "model": "mannequin",
+      "x": 7,
+      "y": 0,
+      "z": 17,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "run_speed",
+      "model": "mannequin",
+      "x": 12,
+      "y": 0,
+      "z": 17,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "rotation_degrees": 0
+    }
+  ],
+  "routes": [
+    {
+      "id": "clip_pose_stand",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_stand",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "clip_pose_arms_up",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_arms_up",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "clip_pose_arms_forward",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_arms_forward",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "clip_walk",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "walk",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "clip_run",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "run",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "clip_run_arms_forward",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "run_arms_forward",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "clip_door_open_push",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "door_open_push",
+          "seconds": 30,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "clip_door_open_pull",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "door_open_pull",
+          "seconds": 30,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "clip_door_close_push",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "door_close_push",
+          "seconds": 30,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "clip_door_close_pull",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "door_close_pull",
+          "seconds": 30,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "clip_pick_up_tabletop",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pick_up_tabletop",
+          "seconds": 30,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "clip_set_down_tabletop",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "set_down_tabletop",
+          "seconds": 30,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "clip_pick_up_floor",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pick_up_floor",
+          "seconds": 30,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "clip_set_down_floor",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "set_down_floor",
+          "seconds": 30,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "clip_carry_idle",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "carry_idle",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "clip_carry_walk",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "carry_walk",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "clip_sit_down",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "sit_down",
+          "seconds": 30,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "clip_stand_up",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "stand_up",
+          "seconds": 30,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "id": "clip_seated_idle",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "seated_idle",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "black_pose",
+      "loop": false,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_stand",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "door_pair",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "door_open_push",
+          "seconds": 3.8,
+          "loop": false
+        },
+        {
+          "step": "play",
+          "clip": "door_close_pull",
+          "seconds": 4,
+          "loop": false
+        },
+        {
+          "step": "wait",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "chair_chain",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "sit_down",
+          "seconds": 2.6,
+          "loop": false
+        },
+        {
+          "step": "play",
+          "clip": "seated_idle",
+          "seconds": 1.2,
+          "loop": true
+        },
+        {
+          "step": "play",
+          "clip": "stand_up",
+          "seconds": 2.4,
+          "loop": false
+        },
+        {
+          "step": "wait",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "handling_chain",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pick_up_tabletop",
+          "seconds": 2.4,
+          "loop": false
+        },
+        {
+          "step": "play",
+          "clip": "carry_idle",
+          "seconds": 1.2,
+          "loop": true
+        },
+        {
+          "step": "play",
+          "clip": "set_down_tabletop",
+          "seconds": 2.4,
+          "loop": false
+        },
+        {
+          "step": "wait",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "slow_walk",
+      "loop": true,
+      "steps": [
+        {
+          "step": "move_to",
+          "x": 5,
+          "z": 17,
+          "speed": 0.5
+        },
+        {
+          "step": "wait",
+          "seconds": 1
+        },
+        {
+          "step": "move_to",
+          "x": 2,
+          "z": 17,
+          "speed": 0.5
+        },
+        {
+          "step": "wait",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "fast_walk",
+      "loop": true,
+      "steps": [
+        {
+          "step": "move_to",
+          "x": 10,
+          "z": 17,
+          "speed": 1.25
+        },
+        {
+          "step": "wait",
+          "seconds": 1
+        },
+        {
+          "step": "move_to",
+          "x": 7,
+          "z": 17,
+          "speed": 1.25
+        },
+        {
+          "step": "wait",
+          "seconds": 1
+        }
+      ]
+    },
+    {
+      "id": "run_speed",
+      "loop": true,
+      "steps": [
+        {
+          "step": "move_to",
+          "x": 15,
+          "z": 17,
+          "speed": 2.244582
+        },
+        {
+          "step": "wait",
+          "seconds": 1
+        },
+        {
+          "step": "move_to",
+          "x": 12,
+          "z": 17,
+          "speed": 2.244582
+        },
+        {
+          "step": "wait",
+          "seconds": 1
+        }
+      ]
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "id": "light_0",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 4,
+      "y": 2.998,
+      "z": 3,
+      "align": "none",
+      "brightness": 0.4,
+      "range": 6,
+      "emission": 0.4
+    },
+    {
+      "id": "light_1",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 13,
+      "y": 2.998,
+      "z": 3,
+      "align": "none",
+      "brightness": 0.4,
+      "range": 6,
+      "emission": 0.4
+    },
+    {
+      "id": "light_2",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 4,
+      "y": 2.998,
+      "z": 9,
+      "align": "none",
+      "brightness": 0.4,
+      "range": 6,
+      "emission": 0.4
+    },
+    {
+      "id": "light_3",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 13,
+      "y": 2.998,
+      "z": 9,
+      "align": "none",
+      "brightness": 0.4,
+      "range": 6,
+      "emission": 0.4
+    },
+    {
+      "id": "light_4",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 4,
+      "y": 2.998,
+      "z": 15,
+      "align": "none",
+      "brightness": 0.4,
+      "range": 6,
+      "emission": 0.4
+    },
+    {
+      "id": "light_5",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 13,
+      "y": 2.998,
+      "z": 15,
+      "align": "none",
+      "brightness": 0.4,
+      "range": 6,
+      "emission": 0.4
+    }
+  ]
+}

@@ -18,21 +18,22 @@
     ]
   },
   "entities/mannequin/model/mannequin.glb": {
-    "sha256": "462d42f3ec492b5db1c0b3b1740a82ed33e1b05b1ed8a82ac022d4ad954470a3",
-    "triangles": 1124,
-    "texture_edge": 512,
+    "sha256": "6627807d4cddf7331cc7f96b03adb43f3686af71366bc8dc257f881b6ddf1156",
+    "triangles": 2412,
+    "texture_edge": 1024,
     "identities": [
-      "mannequin"
+      "mannequin",
+      "core:mannequin_black"
     ],
     "bounds_min": [
-      -0.2892695367336273,
+      -0.28588390350341797,
       0.0,
       -0.10175465047359467
     ],
     "bounds_max": [
-      0.2892695367336273,
+      0.28588390350341797,
       1.7230345010757446,
-      0.1584823876619339
+      0.15848200023174286
     ]
   },
   "entities/pumpkin-skeleton/model/pumpkin-skeleton.glb": {

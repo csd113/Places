@@ -679,6 +679,12 @@ impl Renderer {
         self.renderer.character_count()
     }
 
+    /// Read-only character clocks/socket evidence for explicit native tracing.
+    #[must_use]
+    pub fn character_animation_diagnostics(&self, frames: &[EntityFrame]) -> serde_json::Value {
+        self.renderer.character_animation_diagnostics(frames)
+    }
+
     /// The current dynamic scene, for the developer log.
     #[must_use]
     pub const fn dynamic_scene(&self) -> &DynamicScene {

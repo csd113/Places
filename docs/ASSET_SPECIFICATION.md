@@ -981,9 +981,9 @@ beside their GLBs. Preserve their existing region frames: stop sign uses the
 256² sheet. Its 2:1 face is recessed 6 mm into a closed bevelled housing;
 only that face uses the emissive material. Globe and switch retain their three-cell 128² layouts; CRT retains
 screen/bezel/body/panel on a 128² 2×2 sheet. The mannequin uses one opaque
-256² light-grey concrete sheet at `entities/mannequin/textures/concrete_grey_01.png`.
-Its `run_arms_forward` maintenance clip reuses the existing run legs and
-forward-pose upper-body channels; mesh, skin, UVs and embedded PNG bytes stay exact.
+1024² opaque fitted sheet at `entities/mannequin/textures/mannequin-skin.png`.
+Its `run_arms_forward` interface is retained by the approved R2. The historical
+maintenance builder checks the accepted export hash before attempting generation.
 
 The Office cockroach uses an opaque 32² native derivative of the committed
 shared white sheet at `entities/cockroach/textures/white_01.png`, embedded
@@ -2444,7 +2444,8 @@ alpha, geometry, rig, normals and clips byte-for-byte; it creates no replacement
 artwork and adds no emission. Catalog prop tints also multiply placed/runtime
 character vertex albedo, so an animatable prop preset matches its static fallback.
 The fitted texture still supplies grain and joint detail under actual light.
-The pending corrected mannequin delivery is not adopted by this preset.
+The approved corrected R2 shares this model path; the preset tint and all
+existing placement/physics values remain unchanged.
 
 ### October 18 Home/shared, duck and Janitor integration
 
@@ -2478,5 +2479,23 @@ Four reviewed assembled assets exceed 1,500 art triangles: cart 1,616, rack
 perforations and wringer parts provide visible depth and retained source
 editability; all remain below the 6,000 engine limit. Do not increase a global
 import budget for them. Source previews and native validation are separate
-evidence, described in the integration report. Installed mannequin/Spoonerman
-exports remain unchanged; corrected mannequin R2 remains gated on motion approval.
+evidence, described in the integration report. The current Spoonerman export
+remains unchanged; its rejected replacement is excluded.
+
+### Approved mannequin R2 (October 18)
+
+The exact approved export is pinned in `completed-models.json`: 2,412 triangles,
+37 joints and 19 clips. Its 1024-square opaque fitted PNG is stored beside the
+entity's historical source sheets and embedded unchanged. Preserve all six
+original clip names, the 17 original body rest transforms and 20 finger
+descendants. Keep existing catalogue/placed envelopes and black-preset tint;
+the asset is not resized to fit interaction props.
+
+Zero-duration poses hold, declared loops repeat, and door/handling/chair
+one-shots clamp at their distinct endpoints. The boundary checker respects
+explicit clip loop metadata. Baked root displacement remains relative to the
+actor placement; do not also transfer it into actor movement. Delivered event,
+root and contact tracks remain reference data for future controllers. Existing
+glow sockets follow posed nodes; no prop grasp, door synchronization or runtime
+IK is introduced. See the integration report and editable
+`projects/mannequin-r2-review/` for the opt-in native review.

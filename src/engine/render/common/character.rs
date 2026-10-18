@@ -644,6 +644,20 @@ struct ClipPlayer {
     elapsed: f32,
 }
 
+/// A neutral standing interface takes precedence over task-specific idles.
+fn neutral_idle_clip<'a>(names: impl Iterator<Item = (usize, &'a str)>) -> Option<usize> {
+    let mut standing = None;
+    for (index, name) in names {
+        if name.eq_ignore_ascii_case("idle") {
+            return Some(index);
+        }
+        if standing.is_none() && name.eq_ignore_ascii_case("pose_stand") {
+            standing = Some(index);
+        }
+    }
+    standing
+}
+
 impl ClipPlayer {
     /// Builds playback from the model's clips and the case-insensitive name
     /// heuristics.
@@ -656,6 +670,32 @@ impl ClipPlayer {
             .map(|animation| Clip::new(animation, node_count))
             .collect();
         let mut state_clip: [Option<usize>; STATE_COUNT] = [None; STATE_COUNT];
+        // A pose library may list carry_idle/carry_walk before its ordinary
+        // standing and walking interfaces. Keep those tasks explicit while
+        // preserving the existing heuristics for other partial clip sets.
+        if animations
+            .iter()
+            .any(|animation| animation.name.eq_ignore_ascii_case("pose_stand"))
+        {
+            if let Some(entry) = state_clip.get_mut(IDLE) {
+                *entry = neutral_idle_clip(
+                    animations
+                        .iter()
+                        .enumerate()
+                        .map(|(index, animation)| (index, animation.name.as_str())),
+                );
+            }
+            if let Some(entry) = state_clip.get_mut(WALKING) {
+                *entry = animations
+                    .iter()
+                    .position(|animation| animation.name.eq_ignore_ascii_case("walk"))
+                    .or_else(|| {
+                        animations
+                            .iter()
+                            .position(|animation| animation.name.eq_ignore_ascii_case("run"))
+                    });
+            }
+        }
         for (index, animation) in animations.iter().enumerate() {
             let name = animation.name.to_ascii_lowercase();
             let slot = if name.contains("idle") {
@@ -1988,6 +2028,64 @@ impl CharacterScene {
         &self.dynamic_lights
     }
 
+    /// Bounded read-only pose evidence for explicit native trace events.
+    /// Normal rendering never calls this allocating diagnostic path.
+    #[must_use]
+    pub fn animation_diagnostics(&self, frames: &[EntityFrame]) -> serde_json::Value {
+        let characters: Vec<_> = self
+            .characters
+            .iter()
+            .chain(self.runtime.iter())
+            .map(|character| {
+                let animator = &character.animator;
+                let name_of = |index| {
+                    animator
+                        .named
+                        .iter()
+                        .find(|(_, candidate)| *candidate == index)
+                        .map(|(name, _)| name.as_str())
+                };
+                let cue = animator.cue.as_ref().map(|cue| {
+                    let duration = animator
+                        .clips
+                        .as_ref()
+                        .and_then(|player| player.clips.get(cue.clip))
+                        .map(|clip| clip.duration);
+                    serde_json::json!({"clip":name_of(cue.clip), "time":cue.time,
+                        "duration":duration, "once":cue.once, "paused":cue.paused,
+                        "finished":cue.finished})
+                });
+                let instance_id = character.instance_id();
+                let glow_cue = instance_id
+                    .and_then(|target_id| frames.iter().find(|frame| frame.instance_id == target_id))
+                    .and_then(|frame| frame.glow.as_ref())
+                    .or(character.runtime_glow.as_ref());
+                let socket = glow_cue.and_then(|socket_glow| socket_glow.socket.as_deref());
+                let socket_global = socket.and_then(|name| animator.node_global(name));
+                let socket_world = socket_global.map(|global| {
+                    character
+                        .transform
+                        .transform_point3(global.transform_point3(Vec3::ZERO))
+                        .to_array()
+                });
+                let installed_light = instance_id.and_then(|light_id| {
+                    self.dynamic_lights
+                        .get(&format!("{GLOW_KEY_PREFIX}{light_id}"))
+                });
+                serde_json::json!({"id":instance_id, "cue":cue, "revision":animator.revision,
+                    "automatic_clip":animator.clips.as_ref().and_then(|player| name_of(player.active)),
+                    "origin":character.transform.transform_point3(Vec3::ZERO).to_array(),
+                    "root_world_position":animator.node_global("root").map(|root| {
+                        character.transform.transform_point3(root.transform_point3(Vec3::ZERO)).to_array()
+                    }),
+                    "socket":socket, "socket_resolved":socket_global.is_some(),
+                    "socket_world_position":socket_world,
+                    "light_position":installed_light.map(|attachment| attachment.position.to_array())})
+            })
+            .collect();
+        characters.into()
+    }
+
     /// Advances one character against this frame's handoff.
     ///
     /// `follow_locomotion` is true for a placed character: with no frame it
@@ -2007,7 +2105,7 @@ impl CharacterScene {
         let frame = character
             .instance_id
             .as_deref()
-            .and_then(|id| frames.iter().find(|frame| frame.instance_id == id));
+            .and_then(|target_id| frames.iter().find(|frame| frame.instance_id == target_id));
         match frame {
             Some(entity_frame) => {
                 // The frame's fade is applied every pass, before the pose: the
@@ -2375,7 +2473,11 @@ impl CueState {
             return newly_finished;
         }
         if !self.paused && step > 0.0 {
-            self.time = f32::mul_add(step, rate, self.time);
+            self.time = if duration > 0.0 {
+                f32::mul_add(step, rate, self.time)
+            } else {
+                0.0
+            };
             if self.once && self.time >= duration {
                 self.time = duration;
                 if !self.finished {
@@ -3006,7 +3108,17 @@ impl CharacterAnimator {
     /// * `Clip { name, .. }` looks the name up case-insensitively.
     fn resolve_cue(&self, cue: &PoseCue) -> (usize, bool, bool, f32) {
         match cue {
-            PoseCue::Idle => (self.clip_index("idle").unwrap_or(0), false, false, 1.0),
+            PoseCue::Idle => (
+                neutral_idle_clip(
+                    self.named
+                        .iter()
+                        .map(|(name, index)| (*index, name.as_str())),
+                )
+                .unwrap_or(0),
+                false,
+                false,
+                1.0,
+            ),
             PoseCue::Walk { speed_mps } => {
                 let speed = if speed_mps.is_finite() {
                     speed_mps.max(0.0)
@@ -3403,3 +3515,7 @@ pub const fn character_vertex(albedo: [f32; 4], uv: [f32; 2], position: [f32; 3]
         ..Vertex::UNLIT
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/character_clip_selection.rs"]
+mod clip_selection_tests;

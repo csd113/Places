@@ -2633,6 +2633,12 @@ impl WgpuRenderer {
         self.characters.len()
     }
 
+    /// Actual character clocks and attached socket lights for native tracing.
+    #[must_use]
+    pub fn character_animation_diagnostics(&self, frames: &[EntityFrame]) -> serde_json::Value {
+        self.characters.animation_diagnostics(frames)
+    }
+
     /// Uploads the current neutral character scene's GPU resources.
     ///
     /// Called from `install_level` after the probe bake (and after the neutral

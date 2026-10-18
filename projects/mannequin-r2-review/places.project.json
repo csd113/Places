@@ -1,0 +1,14 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "mannequin-r2-review",
+  "name": "Mannequin R2 Review",
+  "description": "Explicit native playback review of the approved 19-clip asset; developer tooling only.",
+  "entry_level": "mannequin_r2_review",
+  "levels": [
+    {
+      "id": "mannequin_r2_review",
+      "source": "levels/mannequin_r2_review.json"
+    }
+  ]
+}

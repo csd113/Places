@@ -5,6 +5,21 @@ import math
 from validate_entities import Model, REPO_ROOT
 
 
+LEGACY_ONE_SHOTS = {'sit_down', 'stand_up', 'pounce', 'dead', 'collapse_reassemble'}
+
+
+def clip_is_looped(document, name):
+    """Use declared boolean semantics; retain legacy unmarked one-shots."""
+    marker = document.get('asset', {}).get('extras', {}).get('places_entity_clips', {})
+    entries = marker.get('clips', []) if isinstance(marker, dict) else []
+    for entry in entries if isinstance(entries, list) else []:
+        if (isinstance(entry, dict) and isinstance(entry.get('name'), str)
+                and entry['name'].lower() == name.lower()
+                and isinstance(entry.get('loop'), bool)):
+            return entry['loop']
+    return name not in LEGACY_ONE_SHOTS
+
+
 def endpoints(model, animation, last):
     result = {}
     for channel in animation['channels']:
@@ -46,10 +61,9 @@ def main():
         model = Model(REPO_ROOT / f'assets/entities/{name}/model/{name}.glb')
         animations = {a['name']: a for a in model.animations}
         for clip, animation in animations.items():
-            # One-shot clips legitimately start and end in different poses: the
-            # sit/stand transitions, Spoonerman's pounce, the rat's death fall
-            # and the pumpkin skeleton's collapse/reassemble gesture.
-            if clip not in ('sit_down', 'stand_up', 'pounce', 'dead', 'collapse_reassemble'):
+            # Door/handling/chair one-shots hold distinct endpoints. A declared
+            # loop still needs genuine closure, including legacy-named clips.
+            if clip_is_looped(model.document, clip):
                 compare(model, endpoints(model, animation, False), endpoints(model, animation, True),
                         f'{name}/{clip} loop')
         for weights in model.vertex_weights:

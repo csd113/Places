@@ -2,8 +2,10 @@
 
 Connor resumed the queue after playtesting Beam. This stage uses
 `0.12.0-staging`; the prior pause is superseded for asset integration and its
-combined staging push/CI only. No main merge, release, mannequin adoption or
-subsequent readability/crosshair/safety implementation is authorized here.
+combined staging push/CI only. Connor subsequently approved the full corrected mannequin R2 animation set
+(`yea nimation is approved`, Sentinel_9db6b95427708191bc91a85414bcbc68).
+This follow-on adopts that exact asset. No main merge, release or subsequent
+readability/crosshair/safety implementation is included.
 
 ## Installed inventory and custody
 
@@ -14,10 +16,10 @@ subsequent readability/crosshair/safety implementation is authorized here.
 | Replaced, material metadata adapted | 1 duck | `assets/environments/pool/props/rubber_duck.{glb,png}` |
 | New | 15 Janitor / Supplies | `assets/janitor_closet/{models,textures}/`, `janitor:` catalogue IDs |
 | Already adopted, exact hashes reverified | 4 | Drinks R2, snack machine, winter straight/corner railing **assemblies** |
-| Deferred | 1 candidate | Corrected mannequin R2; full motion approval remains pending |
+| Replaced after motion approval | 1 mannequin | `assets/entities/mannequin/{model,textures}/`; both existing presets |
 | Excluded | 1 candidate | Rejected newer Spoonerman; current in-game export retained |
 
-The [per-model checklist](asset-integration-0.12.0-checklist.csv) records all 53
+The [per-model checklist](asset-integration-0.12.0-checklist.csv) records all 54
 changed/new runtime paths, installed/source hashes, bounds, triangles, texture
 edges and editable-source locations. `assets/completed-models.json` now pins
 230 accepted exports; all pins match actual files. Catalogue ownership prevents
@@ -32,7 +34,7 @@ Library custody:
 - Duck `libfile_5d61aadb123c8191ad3950cec8b22074`.
 - Janitor runtime `libfile_87decad8b3f0819189b06c6edb374bd5`; complete sources
   `libfile_4d8ff85c56648191b3cdc96b6715a167`.
-- Gated R2 runtime `libfile_093514de64988191b9b45f7bdd9ffbbe`; complete sources
+- Approved R2 runtime `libfile_093514de64988191b9b45f7bdd9ffbbe`; complete sources
   `libfile_480213b105c08191afc68cef05459d66`; checksum record
   `libfile_4b21a61721708191b698cd110022687c`.
 
@@ -80,8 +82,8 @@ the physics level demonstrates profiles, pickup and reset. The native editor
 selected/placed the blue towel preset, saved and reopened the layout. No new
 rendering, physics or interaction system was added.
 
-Installed mannequin SHA `462d42f3…`, Spoonerman SHA `e0aa64e6…`, both game-mode
-projects and Beam's black preset remain unchanged. Rebuilt shared assets are
+Installed mannequin is now exact approved R2 SHA `6627807d…`. Spoonerman SHA
+`e0aa64e6…`, both game-mode projects and Beam's black preset values remain unchanged. Rebuilt shared assets are
 used through their existing IDs; neither mode's props or gameplay were edited.
 
 ## Validation and native evidence
@@ -92,11 +94,13 @@ Camera/item-pose diagnostic setup is labelled. E/F, pickup/drop/throw and mode
 routes pass through ordinary SDL input. Native acceptance is Mac/Metal only.
 
 - Strict all-target/all-feature Clippy and locked all-feature release build pass.
-- All 137 existing Rust regressions pass (0.27 s execution); 368 Python tests
-  pass with 16 supported skips. No new tests or CI map-bake dependency added.
+- All 139 Rust regressions pass (0.27 s execution); 369 Python tests pass with
+  16 supported skips. Two tiny synthetic CPU regressions protect neutral gait
+  selection and bounded pose/one-shot clocks; one tiny Python fixture protects
+  declared loop semantics. No asset/GPU/map-bake dependency was added to CI.
 - Catalogue validation: 610 entries, zero errors/warnings. Prop build check and
   texture check pass; 96 existing detailed texture warnings remain.
-- Independent full asset audit: 381 models, 417 embedded PNGs, 579 standalone
+- Independent full asset audit: 381 models, 417 embedded PNGs, 580 standalone
   PNGs, zero errors. All installed entity clip-boundary checks pass.
 - Native closet: materials/UV presentation, grounding, slate-blue shared-mesh
   tint, open sink/rack/cart construction, dark/light/flashlight response,
@@ -125,24 +129,56 @@ resolved it. These are tooling/setup findings, not concealed successful runs.
 No FPS comparison is made. Captures, physics traces and concurrent explicit
 bakes are not throughput evidence.
 
-## Mannequin R2 adoption gate and plan
+## Approved mannequin R2 adoption
 
-R2 raw GLB SHA `6627807d…` is preserved but **not installed**. Offline inspection
-finds 2,412 triangles, 4,340 vertices, 37 joints, 19 clips and no geometry/UV/
-normal/skin/animation errors. All 19 currently named nodes (including the 17
-original body joints) retain exact rest transforms; the six original clip names
-are present, with 13 additions. This does not establish motion approval.
+The installed GLB is byte-for-byte approved SHA-256
+`6627807d4cddf7331cc7f96b03adb43f3686af71366bc8dc257f881b6ddf1156`:
+2,412 triangles, 4,340 vertices, 37 joints and 19 clips. All 19 previous named
+nodes, including 17 body joints, retain exact rest transforms. All six original
+clip names remain; 20 finger descendants and 13 clips are added. The exact
+1024² opaque fitted PNG is committed and matches the embedded image. Previous
+accepted GLB/ledger values are preserved once in `Integration/previous-mannequin/`.
+Existing catalogue envelopes, every physics profile and the black preset's
+`[0.04,0.045,0.055]` tint are unchanged.
 
-After approval, read the delivered `docs/FUTURE_INTEGRATION.md`, preserve the
-complete rig/clip set, and first fix the legacy clip-boundary checker to honor
-declared `loop:false` instead of its hardcoded one-shot exclusions. Retain loop
-closure and quaternion-sign-invariant checks. Pose holds and looped locomotion
-must remain distinct from door/handling/sit/stand one-shots. Current loader reads
-loop/kind/reference speed; delivered event/root-motion/contact tracks are not a
-runtime prop/door controller or IK implementation. Do not invent either for
-ordinary NPC adoption. Validate original gait/AI and Beam black/reveal/reset
-contracts before any future switch, then separately scope optional authored
-interaction/root/prop synchronization. Rejected V1 files are never candidates.
+Read `FUTURE_INTEGRATION.md` before adoption. The loop-boundary checker now
+honors explicit metadata `loop` booleans while preserving legacy fallbacks,
+quaternion-sign-invariant closure and weight checks. Alphabetical carry clips
+cannot displace ordinary neutral standing or walking. Zero-duration poses keep
+a bounded zero clock; one-shots clamp once and loops wrap. Read-only animation
+clock/root/socket evidence is allocated only for explicit native trace events.
+
+`projects/mannequin-r2-review/` is an opt-in editable 27-actor preview: all 19
+clips with explicit loop policies, paired door/chair/tabletop sequences,
+ordinary neutral and .5/1.25 m/s walking plus reference-speed running. Door root
+displacement stays baked against a fixed actor anchor. Existing hand and added
+finger glow sockets exercise supported attachment, including socket precedence
+over a nonzero fallback offset. No runtime IK, object grasp, door/lever
+controller, metadata event dispatcher or navigation root-handoff system was
+invented. Those contact/event tracks remain complete editable reference data;
+this adoption does not claim native synchronized props or arbitrary crossfades.
+
+Native R2 playback passes 89 checks: all named clips and policies, bounded pose
+holds, continuing loops, clamped one-shot ends, ordinary standing/walk/run,
+finite roots, single baked door displacement and actual hand/finger light
+attachment. Six fresh mode replays pass: Beam win, beam/occlusion, double death
+with immediate reset, upper-floor/door patrol; Closing Time win and item/reset
+edges. Full native views preserve material/normal presentation and black tint.
+
+The first gallery and Beam win attempts lost macOS window focus. Retries use
+the existing SDL window-raise control; Beam's accepted win trace records nine
+successful raises with actual input focus, real movement and all three gifts
+returned. The accepted gallery ran through all endpoints. No .app wrapper or
+security restriction was changed. The UI connector could not bind a raw binary;
+its Terminal fallback was denied, so that UI route was abandoned. Existing
+SDL controls completed validation. Closing's brief switch cue was present in
+seven action-result snapshots but missed the first audit's capture window;
+one additional early capture made the unchanged replay pass. Failed attempts
+remain separately labelled.
+
+Native R2 acceptance receipts are recorded under `r2/` and `r2-checks/` in the
+evidence root. Approval of the motion set is the user's review, separate from
+encoding checks and native compatibility. Rejected V1 files are excluded.
 
 ## Deliverables and remaining work
 
@@ -151,7 +187,9 @@ Canonical editable/source delivery:
 `Accepted/Home-Shared/` and `Accepted/Janitor-Supplies/` retain repository-shaped
 asset folders, packed Blender/GIMP sources, previews and original checklists.
 Duck includes the mirrored accepted runtime and immutable original source
-delivery. `Deferred/Mannequin-R2/NOT-ADOPTED.txt` makes the approval gate explicit.
+delivery. `Accepted/Mannequin-R2/` retains complete motion sources and an
+approval/adoption note; historical pending-review language in immutable original
+source documents is superseded by that note.
 No rejected Spoonerman or V1 mannequin is included. Canonical source trees were
 moved here instead of creating extra extracted backups.
 
@@ -162,8 +200,10 @@ Repository assets and host SDL3 remain required; this is not an installer.
 The inspect viewport's missing dynamic-body preview and the old Pool harness's
 symlink-root incompatibility remain actionable tooling gaps for the parent.
 Existing unrelated editor/readability/safety gaps remain in the two mode reports.
-Full mannequin motion approval is the sole adoption gate; no subsequent queue
+Mannequin motion approval was received and acted on; no subsequent queue
 task was started here. Asset rebuild issue #24 stays open for remaining work.
 
-Final native acceptance passes. Staging publication/CI and cleanup receipt will
-be appended after the preserved delivery is checked.
+Phase 1 was committed/pushed as `17bd17854f3e59d9933a1ab76d3a8ce88540b17c`;
+[CI 39104545890](https://github.com/csd113/Places/actions/runs/39104545890)
+passed on that exact head, including the two completed games. Follow-on R2
+publication and final native/cleanup receipts are recorded with the handoff.

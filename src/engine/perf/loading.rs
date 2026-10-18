@@ -8,6 +8,12 @@ pub struct LoadTrace {
 }
 
 impl LoadTrace {
+    /// True only while an explicit native trace file is active.
+    #[must_use]
+    pub const fn is_recording(&self) -> bool {
+        self.output.is_some()
+    }
+
     pub fn new() -> Self {
         let output = std::env::var_os("PLACES_LOAD_TRACE").and_then(|path| {
             match std::fs::File::create(path) {

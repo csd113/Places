@@ -3184,21 +3184,6 @@ impl FrameLoop<'_> {
             self.renderer.installed_identity();
         let position = self.game.player_position.to_array();
         let doors = self.script_door_snapshot();
-        let light_responses: Vec<_> = self.game.entities().light_response_observations().map(|observation| {
-            serde_json::json!({
-                "instance_id": observation.instance_id,
-                "position": observation.position.to_array(),
-                // api.actor reads this same component transform; retain the
-                // renderer-bound frame separately to audit idle reset agreement.
-                "script_position": observation.position.to_array(),
-                "render_position": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).and_then(|frame| frame.transform).map(|(rendered_position, _)| rendered_position.to_array()),
-                "yaw": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).and_then(|frame| frame.transform).map(|(_, yaw)| yaw),
-                "intensity": observation.intensity,
-                "active": observation.active,
-                "opacity": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).map(|frame| frame.opacity),
-                "pose": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).map(|frame| format!("{:?}", frame.cue)),
-            })
-        }).collect();
         let mut state = serde_json::json!({
             "physics": {"held": self.items.world.held(), "stats": self.items.world.stats(), "bodies": self.items.world.snapshots(), "contacts": self.items.world.contact_pairs(), "contact_impulses": self.items.world.contact_impulses(), "authored": self.items.authored, "lighting": self.item_lighting_snapshots()},
             "current_level_id": self.current_level.as_ref().map(|loaded| loaded.level.id.as_str()),
@@ -3277,10 +3262,38 @@ impl FrameLoop<'_> {
                     ),
             ));
             drop(fields.insert("flashlight_on".to_string(), self.flashlight.is_on().into()));
-            drop(fields.insert("light_responses".to_string(), light_responses.into()));
+            self.append_character_trace(fields);
         }
         self.trace
             .record(event, self.load_generation, &state.to_string());
+    }
+
+    fn append_character_trace(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        let light_responses: Vec<_> = self.game.entities().light_response_observations().map(|observation| {
+            serde_json::json!({
+                "instance_id": observation.instance_id,
+                "position": observation.position.to_array(),
+                // api.actor reads this same component transform; retain the
+                // renderer-bound frame separately to audit idle reset agreement.
+                "script_position": observation.position.to_array(),
+                "render_position": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).and_then(|frame| frame.transform).map(|(rendered_position, _)| rendered_position.to_array()),
+                "yaw": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).and_then(|frame| frame.transform).map(|(_, yaw)| yaw),
+                "intensity": observation.intensity,
+                "active": observation.active,
+                "opacity": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).map(|frame| frame.opacity),
+                "pose": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).map(|frame| format!("{:?}", frame.cue)),
+            })
+        }).collect();
+        drop(fields.insert("light_responses".to_string(), light_responses.into()));
+        if self.trace.is_recording() {
+            drop(
+                fields.insert(
+                    "character_animations".into(),
+                    self.renderer
+                        .character_animation_diagnostics(self.game.entity_frames()),
+                ),
+            );
+        }
     }
 
     /// Snapshot existing entity state only for explicit developer trace events.
