@@ -556,6 +556,8 @@ pub struct EntityFrame {
     /// Opacity of the entity this frame, `1.0` when it has no `fade`
     /// component.
     pub opacity: f32,
+    /// Suppress colour geometry while keeping flashlight shadow coverage.
+    pub shadow_only: bool,
     /// The attached light this frame, `None` when the entity has no `glow`
     /// component.
     pub glow: Option<GlowCue>,

@@ -6281,6 +6281,11 @@ pub struct PropDef {
     /// When true the prop blocks the player (axis-aligned box from position/size). Defaults to false.
     #[serde(default)]
     pub solid: bool,
+    /// Hide the model from every colour/reflection/emission pass while retaining
+    /// its posed mesh in the flashlight shadow pass. Collision and interaction
+    /// remain independent. Unsupported or over-budget models fail closed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shadow_only: bool,
     /// Opt-in rigid-body settings. Omitted keeps the legacy static placement,
     /// even if the catalog declares a developer-spawned item profile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6397,6 +6402,18 @@ pub struct PropLightControl {
     pub enabled: bool,
     pub switchable: bool,
     pub emission_scale: f32,
+}
+
+impl LevelDef {
+    /// True when source semantics require hidden models with real flashlight shadows.
+    #[must_use]
+    pub fn has_shadow_only_entities(&self) -> bool {
+        self.props.iter().any(|prop| prop.shadow_only)
+            || self
+                .spawn_templates
+                .iter()
+                .any(|template| template.shadow_only)
+    }
 }
 
 impl PropDef {

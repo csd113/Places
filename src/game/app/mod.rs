@@ -1279,14 +1279,23 @@ impl FrameLoop<'_> {
                             }
                         }
                     }
+                    let shadow_only = self
+                        .game
+                        .entities()
+                        .handle_for_dynamic_key(entity)
+                        .and_then(|handle| {
+                            self.game.entities().components().renderables.get(handle)
+                        })
+                        .is_some_and(|renderable| renderable.shadow_only);
                     if !spawned_character
-                        && !self.renderer.spawn_runtime_model(
-                            entity,
-                            &model,
-                            position.to_array(),
-                            yaw_degrees,
-                            scale,
-                        )
+                        && (shadow_only
+                            || !self.renderer.spawn_runtime_model(
+                                entity,
+                                &model,
+                                position.to_array(),
+                                yaw_degrees,
+                                scale,
+                            ))
                     {
                         self.game.entities_mut().note_spawn_failure();
                         crate::engine::logging::warn_once(

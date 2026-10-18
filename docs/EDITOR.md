@@ -339,3 +339,11 @@ Per-map images appear before names in Explore maps. Only the entry map inherits
 a package thumbnail; other maps use their own image or the neutral P fallback.
 Removing an entry image also clears that package fallback, while leaving shared
 PNG files intact. Browsing decodes only bounded visible images, not level worlds.
+
+Entity Configure includes **Shadow only**, independent of **Solid** and AI.
+It retains the posed model solely for real handheld-flashlight shadow casting;
+Play hides the colour/reflection/emission mesh. Inspect preview keeps the authoring mesh selectable; Environment preview applies
+the runtime policy. Spawn-point Configure applies the flag to its shared template.
+Undo/save/reopen retain it. Use a supported animated model; unsupported or
+character-budget-exceeded placements fail closed with a diagnostic. See the
+[map contract](MAP_AUTHORING_GUIDE.md#shadow-only-entities-0120).

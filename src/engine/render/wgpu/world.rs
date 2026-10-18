@@ -2908,7 +2908,7 @@ impl WorldPipeline {
                 bound_texture = Some(material_slot);
             }
             let Some((vertex_buffer, index_buffer, first_index, index_count)) =
-                characters.geometry(character, submesh)
+                characters.geometry(character, submesh, self.format == DEPTH_FORMAT)
             else {
                 continue;
             };

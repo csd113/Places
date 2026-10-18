@@ -42,6 +42,9 @@ pub struct SpawnTemplateDef {
     /// Uniform scale; defaults to `1.0`.
     #[serde(default = "default_spawn_scale")]
     pub scale: f32,
+    /// Spawn with a hidden colour mesh and a real posed flashlight shadow.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub shadow_only: bool,
     /// Seconds the instance lives before despawning itself; omitted lives
     /// until an action or a reset removes it.
     #[serde(default)]

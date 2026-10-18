@@ -2100,6 +2100,9 @@ fn emit_prop_fallbacks(
     scratch: &mut Vec<Vertex>,
 ) {
     for prop in fallback_props {
+        if prop.shadow_only {
+            continue;
+        }
         let entry = catalog.get(&prop.model);
         let size = prop.resolved_size(entry.size);
         if !prop.x.is_finite()

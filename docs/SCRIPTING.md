@@ -176,3 +176,10 @@ Navigation goals never teleport an actor. Repeated goals within 25 cm retain
 the current route/retry state. `light_response.reveal_only` hides a body when
 raw direct illumination falls below its exit threshold, while the independent
 release hold may continue to pause movement. Default behavior is unchanged.
+
+`api.actor(id).shadow_only` reports an entity's authored mesh policy independently
+of `illuminated` and `player_visible`. `api.spawn(point)` preserves the selected
+`spawn_templates[].shadow_only` from its first rendered frame. Scripts still
+control animation, navigation, sound and interaction through the existing APIs;
+mesh invisibility changes none of those capabilities or `solid` collision.
+There is no second runtime visibility setter. See the [shadow-only map contract](MAP_AUTHORING_GUIDE.md#shadow-only-entities-0120).

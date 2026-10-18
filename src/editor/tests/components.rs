@@ -204,3 +204,46 @@ fn identity_filter_and_catalog_fixed_shape_edits_preserve_their_contracts() -> R
     );
     Ok(())
 }
+
+// A single tiny project protects the user-facing toggle's undo and raw-source
+// custody. No assets, compiler, native window or full map preparation is needed.
+#[test]
+fn shadow_only_is_independent_of_collision_and_roundtrips() -> Result<(), String> {
+    use crate::editor::document::GameplaySetting;
+    let (fixture, mut doc) = Fixture::new()?;
+    let catalog = AssetCatalog::default();
+    let prop = doc.add(ObjectKind::Entity, [1.0, 0.0, 1.0], Some("mannequin"))?;
+    let original = doc.level().props.first().ok_or("missing actor")?.solid;
+    doc.set_gameplay_value(prop, GameplaySetting::ShadowOnly, json!(true), &catalog)?;
+    assert!(
+        doc.level()
+            .props
+            .first()
+            .ok_or("missing actor")?
+            .shadow_only
+    );
+    assert_eq!(
+        doc.level().props.first().ok_or("missing actor")?.solid,
+        original
+    );
+    assert!(doc.undo());
+    assert!(
+        !doc.level()
+            .props
+            .first()
+            .ok_or("missing actor")?
+            .shadow_only
+    );
+    assert!(doc.redo());
+    doc.save()?;
+    let reopened = Document::open(&fixture.0)?;
+    assert!(
+        reopened
+            .level()
+            .props
+            .first()
+            .ok_or("missing reopened actor")?
+            .shadow_only
+    );
+    Ok(())
+}

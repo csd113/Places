@@ -115,7 +115,7 @@ pub(super) struct ModelOcclusion {
 /// character claim plan; model/vertex budgets retain their original charge.
 #[must_use]
 pub(super) const fn prop_is_static(prop: &PropDef) -> bool {
-    prop.float.is_none() && !prop.is_physics_movable()
+    !prop.shadow_only && prop.float.is_none() && !prop.is_physics_movable()
 }
 
 /// Occlusion boxes for one model, derived from its real triangles, at an

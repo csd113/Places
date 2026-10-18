@@ -650,6 +650,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     if !level.transitions.is_empty() {
         required.push("project-transitions-v1".into());
     }
+    if level.has_shadow_only_entities() {
+        required.push("shadow-only-v1".into());
+    }
     if level.requires_full_lighting {
         required.push("full-lighting-v1".into());
     }

@@ -258,6 +258,8 @@ pub struct Renderable {
     pub material: Option<String>,
     /// False hides the entity without removing it.
     pub visible: bool,
+    /// Colour visibility is separate from the flashlight's geometry submission.
+    pub shadow_only: bool,
     /// True when the entity is drawn through the dynamic-object path, so a
     /// transform change or a despawn is expressible at runtime. A baked static
     /// entity is `false`.

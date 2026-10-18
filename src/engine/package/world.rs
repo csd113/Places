@@ -221,9 +221,23 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
         }
     }
     crate::engine::loader::validate_level(level)?;
+    validate_shadow_only(level, manifest)?;
     validate_item_receipts(level, manifest)?;
     validate_lighting_requirement(level, manifest)?;
     crate::engine::scripting::validate_package_sources(level, &manifest.required_capabilities)
+}
+
+/// Hidden entities must never silently become visible on an older player.
+pub(crate) fn validate_shadow_only(level: &LevelDef, manifest: &Manifest) -> Result<(), String> {
+    if level.has_shadow_only_entities()
+        && !manifest
+            .required_capabilities
+            .iter()
+            .any(|capability| capability == "shadow-only-v1")
+    {
+        return Err("Shadow-only entities require shadow-only-v1 capability".into());
+    }
+    Ok(())
 }
 
 /// Nondefault receipt policies must never be ignored by an older host.

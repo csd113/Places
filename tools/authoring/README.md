@@ -63,3 +63,19 @@ explicit item-pose diagnostics; the ordinary routes use actual gameplay keys
 and camera aiming. Every capture requires actual SDL window focus. Door motion
 still stops at held items; the traversal route leaves clearance before opening.
 Use a fresh output directory; retained attempts are evidence, never overwritten.
+
+## Shadow-only entity gallery (explicit native review)
+
+`shadow_only_editor.py` emits bounded native editor input recipes for the gallery's
+room, receivers, mannequin placements and independent Shadow only property.
+Advanced routes, scripts, mirror pane and interaction remain editable source;
+exact custody and subsequent reopen/undo receipts are retained in the stage.
+`shadow_only_native.py --binary PATH --package PATH --level ID --out NEW_DIRECTORY
+--case acceptance|compare|video|performance` imports the supplied package into
+isolated state against the actual installed asset root and uses the direct
+native executable. It retains real window focus, screenshots and state traces.
+Video writes 540 consecutive native frames at 30 fps (18 seconds), with a paced
+fixed simulation; it is never a performance result. Performance uses 120 warmup
+and 1200 measured frames without capture pacing, V-sync or a frame cap. Record
+actual presentation, drawable and display pacing before interpreting timings.
+The gallery README gives runnable commands; these tools never run in ordinary CI.

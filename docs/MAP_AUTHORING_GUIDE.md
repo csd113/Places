@@ -8775,3 +8775,42 @@ lighting modes with a named message. The player's preference is retained and no
 runtime bake occurs. Omission defaults false and preserves existing packages.
 This is an explicit presentation constraint, not multi-circuit Static preparation.
 The editor exposes it in Project → Map settings.
+
+### Shadow-only entities (0.12.0)
+
+`props[].shadow_only: true` suppresses a placed entity's mesh in every colour,
+reflection, depth/colour and bloom-emission pass while retaining its actual posed
+triangles in the handheld flashlight's shadow map. Omitted/false preserves the
+ordinary entity. `spawn_templates[].shadow_only` applies the same policy from the
+first rendered frame to instances created by `spawn_entity` or Luau `api.spawn`.
+`api.actor(id).shadow_only` reports the policy. It is authored per placement or
+template, with no separate runtime visibility controller.
+
+Use a skinned or rigid animated model (including the approved `mannequin`).
+The normal 128 combined placed/runtime character budget still applies. An
+unsupported, missing or over-budget hidden model stays hidden without a shadow,
+with a bounded diagnostic; it never becomes a visible fallback box. Float,
+physics, span, material overrides and fixed light-control combinations are
+refused because those paths own another pose or prepared surface contract.
+
+These are real flashlight depth shadows on ordinary wall/floor/object receivers,
+clipped by the existing beam cone and 24 m range and blocked by opaque world,
+props and live doors. Animation and per-material opaque/cutout/blend coverage
+remain unchanged. Fade and runtime suspension still deliberately affect shadow
+coverage. There is no floor blob, baked fixture/global shadow, or other-light
+shadow for these entities. Attached glow/light, sound, prompts, labels, AI and
+collision remain independently authored capabilities: omit them when only the
+flashlight shadow should reveal the actor. `solid` remains independent; author
+it deliberately, including an appropriate `size`, or leave the actor walk-through.
+
+The editor's entity Configure sheet exposes **Shadow only** separately from
+**Solid** and **Behavior**. Spawn-point Configure edits the linked template's
+property (shared by all points using that template). Undo/save/reopen preserve
+it and raw extensions. Inspect preview still shows a selectable entity
+representation; Environment preview and Play use the runtime policy.
+
+Packages with this property require `shadow-only-v1`; older hosts refuse them.
+No source or binary record version changes. The separate editable
+`projects/shadow-only-review/` gallery and its opt-in native tool demonstrate
+several animated casters, an ordinary visible control, receivers, occlusion and
+range without modifying the accepted Beam game.

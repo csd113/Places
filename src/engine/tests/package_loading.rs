@@ -338,3 +338,26 @@ fn reset_probe_field_roundtrips_optional_planes_and_rejects_superseded_headers()
     }
     Ok(())
 }
+
+// Older hosts otherwise ignore the new Boolean and expose the mesh. This
+// tiny admission check covers placed and template-only sources without a bake.
+#[test]
+fn shadow_only_sources_require_an_explicit_host_capability() -> Result<(), String> {
+    let mut manifest = minimal_manifest()?;
+    let mut level = crate::engine::level::LevelDef::from_json(
+        r#"{"schema":"places-level","format_version":1,"id":"shadow","name":"Shadow","spawn":{"x":0,"z":0},"props":[{"model":"mannequin","shadow_only":true}]}"#,
+    ).map_err(|e|e.to_string())?;
+    assert!(world::validate_shadow_only(&level, &manifest).is_err());
+    manifest.required_capabilities.push("shadow-only-v1".into());
+    world::validate_shadow_only(&level, &manifest)?;
+    level.props.clear();
+    level.spawn_templates.push(
+        serde_json::from_value(serde_json::json!({
+            "id":"hidden","model":"mannequin","shadow_only":true
+        }))
+        .map_err(|e| e.to_string())?,
+    );
+    manifest.required_capabilities.clear();
+    assert!(world::validate_shadow_only(&level, &manifest).is_err());
+    Ok(())
+}

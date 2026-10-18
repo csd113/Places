@@ -163,6 +163,7 @@ struct CharacterGpu {
     uv_reactive: bool,
     uv_receiver: BlacklightReceiverCache,
     visible: bool,
+    casts_flashlight_shadow: bool,
 }
 
 /// What one character upload or frame did, as plain counters.
@@ -413,6 +414,7 @@ impl WgpuCharacters {
                     .any(|submesh| submesh.response.fluorescence.strength > 0.0),
                 uv_receiver: BlacklightReceiverCache::default(),
                 visible: character.is_visible(),
+                casts_flashlight_shadow: character.casts_flashlight_shadow(),
             });
         }
         value.finish_stats();
@@ -693,6 +695,7 @@ impl WgpuCharacters {
                 return;
             };
             gpu.visible = character.is_visible();
+            gpu.casts_flashlight_shadow = character.casts_flashlight_shadow();
             let pose_changed = character.animator().revision() != gpu.uploaded_revision;
             if pose_changed {
                 gpu.pose_bounds = Self::fill_vertices(character, &mut gpu.posed_vertices);
@@ -755,6 +758,7 @@ impl WgpuCharacters {
                 continue;
             };
             gpu.visible = character.is_visible();
+            gpu.casts_flashlight_shadow = character.casts_flashlight_shadow();
             let transform_changed = character.transform() != gpu.uploaded_transform;
             let pose_changed = character.animator().revision() != gpu.uploaded_revision;
             if pose_changed {
@@ -818,9 +822,14 @@ impl WgpuCharacters {
         &self,
         character: usize,
         submesh: usize,
+        flashlight_shadow: bool,
     ) -> Option<(&wgpu::Buffer, &wgpu::Buffer, u32, u32)> {
         let entry = self.characters.get(character)?;
-        if !entry.visible {
+        if !(if flashlight_shadow {
+            entry.casts_flashlight_shadow
+        } else {
+            entry.visible
+        }) {
             return None;
         }
         let mesh = self.meshes.get(entry.mesh)?;

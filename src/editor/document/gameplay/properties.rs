@@ -56,21 +56,19 @@ impl Document {
         let Some(object) = self.raw().get(collection).and_then(|v| v.get(index)) else {
             return Value::Null;
         };
-        if setting == GameplaySetting::Lifetime
-            && let ObjectId::SpawnPoint(i) = id
-        {
-            return self
-                .level()
-                .spawn_points
-                .get(i)
-                .and_then(|p| {
-                    self.level()
-                        .spawn_templates
-                        .iter()
-                        .find(|t| t.id == p.template)
-                })
-                .and_then(|t| t.lifetime_seconds)
-                .map_or_else(|| json!(0.0_f32), |v| json!(v));
+        if let ObjectId::SpawnPoint(i) = id {
+            let template = self.level().spawn_points.get(i).and_then(|point| {
+                self.level()
+                    .spawn_templates
+                    .iter()
+                    .find(|t| t.id == point.template)
+            });
+            if setting == GameplaySetting::ShadowOnly {
+                return json!(template.is_some_and(|t| t.shadow_only));
+            }
+            if setting == GameplaySetting::Lifetime {
+                return json!(template.and_then(|t| t.lifetime_seconds).unwrap_or(0.0));
+            }
         }
         let source = if matches!(
             setting,
@@ -136,6 +134,7 @@ impl Document {
                 | GameplaySetting::Physics
                 | GameplaySetting::Pickup
                 | GameplaySetting::Solid
+                | GameplaySetting::ShadowOnly
                 | GameplaySetting::Bidirectional
                 | GameplaySetting::Locked
                 | GameplaySetting::Once
@@ -155,6 +154,9 @@ impl Document {
         catalog: &AssetCatalog,
     ) -> Result<(), String> {
         let mut raw = self.raw().clone();
+        if setting == GameplaySetting::ShadowOnly {
+            return self.set_shadow_only(id, value);
+        }
         if setting == GameplaySetting::Lifetime {
             let ObjectId::SpawnPoint(i) = id else {
                 return Err("Lifetime belongs to a spawn point template".into());
@@ -388,6 +390,7 @@ fn resolved_light_value(
             | GameplaySetting::Pickup
             | GameplaySetting::Mass
             | GameplaySetting::Solid
+            | GameplaySetting::ShadowOnly
             | GameplaySetting::Bidirectional
             | GameplaySetting::Locked
             | GameplaySetting::Swing

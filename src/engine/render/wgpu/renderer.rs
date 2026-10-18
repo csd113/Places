@@ -3848,6 +3848,7 @@ impl WgpuRenderer {
                 .characters()
                 .iter()
                 .chain(self.characters.runtime_characters())
+                .filter(|character| character.is_visible())
                 .filter(|character| {
                     character.asset().model.submeshes.iter().any(|submesh| {
                         submesh.alpha.mode != crate::engine::materials::AlphaMode::Blend

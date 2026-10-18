@@ -169,6 +169,11 @@ fn prepare(
     // Atmosphere is presentation policy rather than editable geometry. Keep the
     // inspection view clear without writing any of these changes to the file.
     if !environment {
+        // Inspection keeps hidden actors authorable. Only this private preview
+        // copy changes; Environment preview and Play retain runtime visibility.
+        for prop in &mut level.props {
+            prop.shadow_only = false;
+        }
         level.environment = None;
         level.sky = None;
         level.weather = None;

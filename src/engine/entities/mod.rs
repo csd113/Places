@@ -855,6 +855,7 @@ impl EntityWorld {
                     model: prop.model.clone(),
                     material: None,
                     visible: true,
+                    shadow_only: prop.shadow_only,
                     // A floating prop is drawn through the dynamic path; every
                     // other prop is baked into the static world.
                     dynamic: prop.float.is_some(),
@@ -912,6 +913,7 @@ impl EntityWorld {
                     model: String::new(),
                     material: def.material.clone(),
                     visible: true,
+                    shadow_only: false,
                     dynamic: true,
                 },
             ));
@@ -3436,6 +3438,7 @@ impl EntityWorld {
                 model: spawn_template.model.clone(),
                 material: None,
                 visible: true,
+                shadow_only: spawn_template.shadow_only,
                 dynamic: true,
             },
         ));
@@ -4303,6 +4306,12 @@ impl EntityWorld {
             })
     }
 
+    fn frame_shadow_only(&self, instance_id: &str) -> bool {
+        self.handle_of(instance_id)
+            .and_then(|handle| self.components.renderables.get(handle))
+            .is_some_and(|renderable| renderable.shadow_only)
+    }
+
     fn frame_balloon(&self, handle: EntityHandle) -> Option<balloon::BalloonPose> {
         self.components
             .balloons
@@ -4379,6 +4388,7 @@ impl EntityWorld {
                 cue,
                 opacity: opacity * agent.opacity(),
                 glow,
+                shadow_only: self.frame_shadow_only(&agent.instance_id),
                 balloon: None,
             });
         }
@@ -4406,6 +4416,7 @@ impl EntityWorld {
                 cue,
                 opacity,
                 glow,
+                shadow_only: self.frame_shadow_only(&route.instance_id),
                 balloon: None,
             });
         }
@@ -4431,6 +4442,7 @@ impl EntityWorld {
                 cue: cue.clone(),
                 opacity,
                 glow,
+                shadow_only: self.frame_shadow_only(instance_id),
                 balloon: self
                     .handle_of(instance_id)
                     .and_then(|handle| self.frame_balloon(handle)),
@@ -4460,6 +4472,11 @@ impl EntityWorld {
                 visual_handles.push(handle);
             }
         }
+        for (handle, renderable) in self.components.renderables.iter() {
+            if renderable.shadow_only && !visual_handles.contains(&handle) {
+                visual_handles.push(handle);
+            }
+        }
         for handle in visual_handles {
             let Some(instance_id) = self.id_of(handle).map(str::to_string) else {
                 continue;
@@ -4474,6 +4491,7 @@ impl EntityWorld {
             let opacity = self.frame_opacity(handle);
             let glow = self.frame_glow(handle);
             self.entity_frames.push(EntityFrame {
+                shadow_only: self.frame_shadow_only(&instance_id),
                 instance_id,
                 transform: None,
                 cue: PoseCue::Idle,

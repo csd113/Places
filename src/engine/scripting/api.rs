@@ -203,6 +203,14 @@ pub(super) fn host<'scope>(
             result.set("illuminated", response.is_some_and(|r| r.active))?;
             result.set("intensity", response.map_or(0.0, |r| r.intensity))?;
             result.set("player_visible", world.script_visible.contains(&handle))?;
+            result.set(
+                "shadow_only",
+                world
+                    .components()
+                    .renderables
+                    .get(handle)
+                    .is_some_and(|renderable| renderable.shadow_only),
+            )?;
             result.set_readonly(true);
             Ok(result)
         })?,

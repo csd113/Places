@@ -136,6 +136,7 @@ pub(super) fn spawn_sheet(
         true,
     );
     property(app, vertices, hits, 0, false, "Lifetime s", S::Lifetime);
+    property(app, vertices, hits, 6, false, "Shadow only", S::ShadowOnly);
     button(
         vertices,
         hits,
@@ -352,12 +353,13 @@ pub(super) fn prop_sheet(
         (0, true, "Solid", S::Solid),
         (1, false, "Pickup", S::Pickup),
         (1, true, "Mass kg", S::Mass),
+        (2, false, "Shadow only", S::ShadowOnly),
     ] {
         property(app, vertices, hits, row, right, label, setting);
     }
     text(
         vertices,
-        "Physics starts frozen until touched or triggered.",
+        "Shadow only: real flashlight shadow; mesh hidden.",
         140.0,
         129.0,
         MUTED,

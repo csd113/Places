@@ -822,3 +822,9 @@ The [project contract](PROJECT_FORMAT.md#stage-7-project-distribution-and-editab
 documents the complete index, limits, transition capability, CLI and publication
 rules. Built-in runtime models, textures and sound remain external installed assets;
 reserved custom asset folders do not implement importing.
+
+`shadow-only-v1` is required when a source has a shadow-only placed entity or
+spawn template. Admission checks the source semantics as well as the manifest,
+so older hosts refuse the feature rather than silently exposing its meshes.
+This additive policy uses existing posed geometry and shadow resources; source,
+mesh, prepared-record and package format versions are unchanged.

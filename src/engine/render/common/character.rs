@@ -193,6 +193,25 @@ fn character_claim_plan(
             updated.1 = updated.1.saturating_add(1);
         }
     }
+    let hidden_count = level.props.iter().filter(|prop| prop.shadow_only).count();
+    let posed_hidden = placements
+        .iter()
+        .filter(|placement| {
+            level
+                .props
+                .get(placement.prop_index)
+                .is_some_and(|prop| prop.shadow_only)
+        })
+        .count();
+    if hidden_count > posed_hidden {
+        crate::engine::logging::warn_once(
+            "shadow-only-unclaimed",
+            format!(
+                "[characters] {} shadow-only entities have no posed resource (unsupported/missing model or character budget); they remain hidden without a shadow",
+                hidden_count.saturating_sub(posed_hidden)
+            ),
+        );
+    }
     let models = order
         .into_iter()
         .filter(|path| {
@@ -1107,6 +1126,7 @@ pub struct Character {
     runtime_glow: Option<GlowCue>,
     /// Suspended runtime props retain resources without drawing or lighting.
     runtime_visible: bool,
+    shadow_only: bool,
 }
 
 impl Character {
@@ -1133,7 +1153,19 @@ impl Character {
     /// Explicit visibility, independent of a model's material alpha behavior.
     #[must_use]
     pub const fn is_visible(&self) -> bool {
+        self.runtime_visible && !self.shadow_only
+    }
+
+    /// Live presence for the real flashlight depth/visibility pass.
+    #[must_use]
+    pub const fn casts_flashlight_shadow(&self) -> bool {
         self.runtime_visible
+    }
+
+    /// Authored colour suppression, independent of suspension and fade.
+    #[must_use]
+    pub const fn shadow_only(&self) -> bool {
+        self.shadow_only
     }
 
     /// Sets the character's opacity, clamped to `0..=1`.
@@ -1159,7 +1191,7 @@ impl Character {
     /// Culling padding is excluded; animation silhouette remains approximate.
     #[must_use]
     pub fn contact_bounds(&self) -> Aabb {
-        if !self.runtime_visible {
+        if !self.is_visible() {
             return Aabb::EMPTY;
         }
         if self.balloon_color.is_some() {
@@ -1514,6 +1546,7 @@ impl CharacterScene {
                 runtime_frame_delta: None,
                 runtime_glow: None,
                 runtime_visible: true,
+                shadow_only: prop.shadow_only,
             });
         }
         let claimed_models = plan.models;
@@ -1636,6 +1669,7 @@ impl CharacterScene {
             runtime_frame_delta: None,
             runtime_glow: None,
             runtime_visible: true,
+            shadow_only: false,
         };
         match replaced {
             Some(index) => {
@@ -2073,6 +2107,8 @@ impl CharacterScene {
                         .get(&format!("{GLOW_KEY_PREFIX}{light_id}"))
                 });
                 serde_json::json!({"id":instance_id, "cue":cue, "revision":animator.revision,
+                    "mesh_visible":character.is_visible(), "shadow_only":character.shadow_only(),
+                    "flashlight_caster":character.casts_flashlight_shadow(), "opacity":character.opacity(),
                     "automatic_clip":animator.clips.as_ref().and_then(|player| name_of(player.active)),
                     "origin":character.transform.transform_point3(Vec3::ZERO).to_array(),
                     "root_world_position":animator.node_global("root").map(|root| {
@@ -2111,6 +2147,7 @@ impl CharacterScene {
                 // The frame's fade is applied every pass, before the pose: the
                 // opacity is independent of whether the pose changed.
                 character.set_opacity(entity_frame.opacity);
+                character.shadow_only = entity_frame.shadow_only;
                 if let Some((position, yaw)) = entity_frame.transform
                     && !transforms_agree(
                         character.transform,

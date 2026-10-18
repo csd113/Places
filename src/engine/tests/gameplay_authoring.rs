@@ -305,3 +305,91 @@ fn exact_named_spawn_filter_drops_despawned_generation_and_accepts_its_replaceme
     );
     Ok(())
 }
+
+// A two-record source protects the distinct mesh/shadow handoff and reset:
+// an invisible actor must retain normal opacity, collider and interaction.
+// Metadata only; no model loading, bake, GPU or timers.
+#[test]
+fn shadow_only_presence_preserves_opacity_capabilities_and_reset() -> Result<(), String> {
+    let mut source = level()?;
+    let actor = source.props.first_mut().ok_or("missing actor")?;
+    actor.shadow_only = true;
+    actor.solid = true;
+    actor.components.push(
+        serde_json::from_value(serde_json::json!({
+        "component":"interactable","prompt":"Touch shadow"}))
+        .map_err(|e| e.to_string())?,
+    );
+    let encoded = serde_json::to_string(&source).map_err(|e| e.to_string())?;
+    let decoded = LevelDef::from_json(&encoded).map_err(|e| e.to_string())?;
+    assert!(decoded.has_shadow_only_entities());
+    assert!(!decoded.props.get(1).ok_or("missing control")?.shadow_only);
+    let mut world = EntityWorld::from_level(&decoded);
+    for _ in 0_u8..2 {
+        world.rebuild_entity_frames();
+        let frame = world
+            .entity_frames()
+            .iter()
+            .find(|f| f.instance_id == "actor")
+            .ok_or("hidden actor needs a frame without a route or fade")?;
+        assert!(frame.shadow_only);
+        assert!((frame.opacity - 1.0).abs() < f32::EPSILON);
+        let handle = world.handle_of("actor").ok_or("missing actor handle")?;
+        assert!(
+            world
+                .components()
+                .colliders
+                .get(handle)
+                .is_some_and(|c| c.solid)
+        );
+        assert!(world.interactables().index_of("actor").is_some());
+        world.reset_runtime();
+    }
+    source
+        .spawn_templates
+        .first_mut()
+        .ok_or("missing template")?
+        .shadow_only = true;
+    let mut spawned = EntityWorld::from_level(&source);
+    let report = spawned.dispatch_on(
+        "actor",
+        &[serde_json::from_value(
+            serde_json::json!({"action":"spawn_entity", "point":"point", "name":"hidden_spawn"}),
+        )
+        .map_err(|e| e.to_string())?],
+    );
+    assert_eq!(report.spawned, 1, "ordinary spawn dispatch must succeed");
+    assert!(
+        spawned
+            .entity_frames()
+            .iter()
+            .any(|frame| frame.instance_id == "hidden_spawn" && frame.shadow_only),
+        "the first published spawned frame must already suppress colour geometry"
+    );
+    source.props.first_mut().ok_or("missing actor")?.physics =
+        Some(serde_json::from_value(serde_json::json!({})).map_err(|e| e.to_string())?);
+    assert!(
+        crate::engine::loader::validate_level(&source).is_err(),
+        "unsupported pose owners must be refused instead of visibly falling back"
+    );
+    Ok(())
+}
+
+// An unresolved hidden model must never turn into a visible placeholder box.
+// The asset-less emitter on an empty level is a deterministic 36-index fixture.
+#[test]
+fn shadow_only_missing_assets_never_emit_a_placeholder() -> Result<(), String> {
+    use crate::engine::render::build_level_geometry_with_catalog;
+    let mut fixture = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"fallback","name":"Fallback","spawn":{"x":0,"z":0},"props":[{"model":"missing","shadow_only":true}]}"#)
+        .map_err(|e|e.to_string())?;
+    let catalog = crate::engine::loader::PropCatalog::builtin();
+    let hidden = build_level_geometry_with_catalog(&fixture, &catalog);
+    assert_eq!(hidden.index_count, 0);
+    fixture.props.first_mut().ok_or("missing prop")?.shadow_only = false;
+    let ordinary = build_level_geometry_with_catalog(&fixture, &catalog);
+    assert!(
+        ordinary.index_count > 0,
+        "ordinary missing assets keep their diagnostic box"
+    );
+    Ok(())
+}

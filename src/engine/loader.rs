@@ -2530,6 +2530,17 @@ fn validate_static_prop_options(
     prop: &crate::engine::level::PropDef,
 ) -> Result<f32, String> {
     let mut slices = 0.0_f32;
+    if prop.shadow_only
+        && (prop.float.is_some()
+            || prop.physics.is_some()
+            || prop.span.is_some()
+            || !prop.material_overrides.is_empty()
+            || prop.light_control().is_some())
+    {
+        return Err(format!(
+            "Prop {i} shadow_only requires an ordinary entity without physics, float, span, material overrides or fixed light control"
+        ));
+    }
     if (prop.pitch_degrees != 0.0 || prop.roll_degrees != 0.0)
         && (prop.span.is_some() || prop.float.is_some())
     {

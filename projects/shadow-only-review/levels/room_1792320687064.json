@@ -1,0 +1,369 @@
+{
+  "ceiling_lights": [
+    {
+      "brightness": 0.07000000029802322,
+      "emission": 0.11999999731779099,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "editor_light",
+      "range": 12.0,
+      "rotation_degrees": 0.0,
+      "x": 6.0,
+      "y": 3.5899999141693115,
+      "z": 26.0
+    }
+  ],
+  "format_version": 1,
+  "id": "room_1792320687064",
+  "name": "Shadow Gallery",
+  "props": [
+    {
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Touch shadow",
+          "reach": 2
+        },
+        {
+          "component": "state",
+          "name": "touched",
+          "value": false
+        },
+        {
+          "component": "animation",
+          "clip": "walk",
+          "looped": true,
+          "playing": true
+        }
+      ],
+      "id": "shadow_near",
+      "model": "mannequin",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "shadow_only": true,
+      "size": [
+        0.5785390138626099,
+        1.7230349779129028,
+        0.3169650137424469
+      ],
+      "solid": true,
+      "x": 5.0,
+      "y": 0.0,
+      "z": 23.0,
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "set_state",
+              "name": "touched",
+              "value": true
+            },
+            {
+              "action": "run_script",
+              "script": "scripts/shadows.luau",
+              "handler": "touched"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "components": [],
+      "id": "shadow_walker",
+      "model": "mannequin",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "shadow_only": true,
+      "size": [
+        0.5785390138626099,
+        1.7230349779129028,
+        0.3169650137424469
+      ],
+      "solid": false,
+      "x": 6.699999809265137,
+      "y": 0.0,
+      "z": 22.0
+    },
+    {
+      "components": [],
+      "id": "shadow_blocked",
+      "model": "mannequin",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "shadow_only": true,
+      "size": [
+        0.5785390138626099,
+        1.7230349779129028,
+        0.3169650137424469
+      ],
+      "solid": false,
+      "x": 9.0,
+      "y": 0.0,
+      "z": 21.0
+    },
+    {
+      "components": [],
+      "id": "shadow_far",
+      "model": "mannequin",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "shadow_only": true,
+      "size": [
+        0.5785390138626099,
+        1.7230349779129028,
+        0.3169650137424469
+      ],
+      "solid": false,
+      "x": 0.65,
+      "y": 0.0,
+      "z": 2.0
+    },
+    {
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Reset gallery"
+        }
+      ],
+      "id": "reset_marker",
+      "model": "mannequin",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5785390138626099,
+        1.7230349779129028,
+        0.3169650137424469
+      ],
+      "solid": false,
+      "x": 2.5,
+      "y": 0.0,
+      "z": 22.0,
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "reset_to_start"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "rooms": [
+    {
+      "depth": 32.0,
+      "floor_y": 0.0,
+      "height": 3.5999999046325684,
+      "material": "home:tile_home_01",
+      "width": 12.0,
+      "x": 0.0,
+      "z": 0.0
+    }
+  ],
+  "schema": "places-level",
+  "spawn": {
+    "x": 5.8,
+    "z": 28,
+    "yaw_degrees": 0
+  },
+  "walls": [
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.5999999046325684,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 12.399999618530273,
+      "x": -0.20000000298023224,
+      "y": 0.0,
+      "z": -0.20000000298023224
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.5999999046325684,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 12.399999618530273,
+      "x": -0.20000000298023224,
+      "y": 0.0,
+      "z": 32.0
+    },
+    {
+      "depth": 32.0,
+      "height": 3.5999999046325684,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 0.20000000298023224,
+      "x": -0.20000000298023224,
+      "y": 0.0,
+      "z": 0.0,
+      "openings": [
+        {
+          "kind": "window",
+          "offset": 22,
+          "width": 7,
+          "height": 2.3,
+          "sill": 0.35,
+          "glass": "arcade:restroom_mirror_01",
+          "solid": true
+        }
+      ]
+    },
+    {
+      "depth": 32.0,
+      "height": 3.5999999046325684,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 0.20000000298023224,
+      "x": 12.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.5999999046325684,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 7.0,
+      "x": 1.0,
+      "y": 0.0,
+      "z": 19.0
+    },
+    {
+      "depth": 0.25,
+      "height": 3.5999999046325684,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 3.0,
+      "x": 8.0,
+      "y": 0.0,
+      "z": 23.0
+    }
+  ],
+  "routes": [
+    {
+      "id": "shadow_walker",
+      "steps": [
+        {
+          "step": "play",
+          "clip": "run_arms_forward",
+          "seconds": 30,
+          "loop": true
+        }
+      ],
+      "loop": true
+    },
+    {
+      "id": "shadow_blocked",
+      "steps": [
+        {
+          "step": "play",
+          "clip": "walk",
+          "seconds": 30,
+          "loop": true
+        }
+      ],
+      "loop": true
+    },
+    {
+      "id": "shadow_far",
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_arms_up",
+          "seconds": 2,
+          "loop": true
+        },
+        {
+          "step": "play",
+          "clip": "walk",
+          "seconds": 2,
+          "loop": true
+        }
+      ],
+      "loop": true
+    },
+    {
+      "id": "reset_marker",
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_stand",
+          "seconds": 30,
+          "loop": true
+        }
+      ],
+      "loop": true
+    }
+  ],
+  "spawn_templates": [
+    {
+      "id": "specter",
+      "model": "mannequin",
+      "shadow_only": true,
+      "components": [
+        {
+          "component": "animation",
+          "clip": "carry_walk",
+          "looped": true,
+          "playing": true
+        }
+      ],
+      "bindings": [
+        {
+          "on": "spawn",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "carry_walk",
+              "loop": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "spawn_points": [
+    {
+      "id": "specter_spawn",
+      "x": 3.4,
+      "z": 23,
+      "template": "specter",
+      "group": "specters"
+    }
+  ],
+  "spawn_groups": [
+    {
+      "id": "specters",
+      "at_most_one_active": true
+    }
+  ],
+  "crosshair": false,
+  "scripts": [
+    "scripts/shadows.luau"
+  ],
+  "timers": [
+    {
+      "id": "start_near_animation",
+      "seconds": 0.01,
+      "autostart": true,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "play_animation",
+              "target": "shadow_near",
+              "clip": "walk",
+              "loop": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

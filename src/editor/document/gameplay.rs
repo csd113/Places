@@ -8,6 +8,7 @@ use super::objects::{array_mut, object_mut, set_number, set_position};
 use super::{ObjectId, ObjectInfo, ObjectKind, Transform};
 mod behavior;
 mod properties;
+mod shadow_only;
 mod triggers;
 pub(super) fn validate_drafts(raw: &Value) -> Result<(), String> {
     triggers::validate_drafts(raw)
@@ -32,6 +33,7 @@ pub enum GameplaySetting {
     Pickup,
     Mass,
     Solid,
+    ShadowOnly,
     Bidirectional,
     Locked,
     Swing,
@@ -62,6 +64,7 @@ impl GameplaySetting {
             Self::Pickup => "pickup",
             Self::Mass => "mass_kg",
             Self::Solid => "solid",
+            Self::ShadowOnly => "shadow_only",
             Self::Bidirectional => "bidirectional",
             Self::Locked => "locked",
             Self::Swing => "swing_degrees",

@@ -1,0 +1,14 @@
+{
+  "entry_level": "room_1792320687064",
+  "id": "room_1792320687064",
+  "levels": [
+    {
+      "id": "room_1792320687064",
+      "source": "levels/room_1792320687064.json"
+    }
+  ],
+  "name": "Shadow Gallery",
+  "project_format": 1,
+  "schema": "places-project",
+  "description": "Opt-in native flashlight-shadow review; separate from the accepted Beam game."
+}

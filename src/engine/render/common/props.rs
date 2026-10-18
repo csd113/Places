@@ -772,7 +772,7 @@ fn resolve_prop_instances_inner<'a>(
         // Movable props use the dynamic path at their live pose. Neither a
         // static mesh nor a placeholder may remain at the authored position:
         // both would draw twice and leave immutable lighting casters behind.
-        if prop.float.is_some() || prop.is_physics_movable() {
+        if prop.shadow_only || prop.float.is_some() || prop.is_physics_movable() {
             continue;
         }
         let Some(model_path) = catalog.get(&prop.model).model else {
