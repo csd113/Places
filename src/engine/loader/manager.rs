@@ -28,12 +28,15 @@ const fn source_rank(source_type: LevelSourceType) -> u8 {
     }
 }
 
+type MenuImageCache = std::collections::BTreeMap<(PathBuf, String), Option<Arc<super::RawImage>>>;
+
 /// Unified level loader and package manager.
 pub struct LevelManager {
     assets_dir: PathBuf,
     levels_dir: PathBuf,
     import_dir: PathBuf,
     entries: Vec<LevelEntry>,
+    menu_images: RefCell<MenuImageCache>,
     prop_catalog: PropCatalog,
     /// Decoded texture images shared across level loads (one decode per
     /// logical texture per session).
@@ -59,6 +62,7 @@ impl LevelManager {
             levels_dir,
             import_dir,
             entries: Vec::new(),
+            menu_images: RefCell::new(std::collections::BTreeMap::new()),
             prop_catalog: PropCatalog::load_default(),
             texture_cache: RefCell::new(TextureCache::new()),
         };
@@ -69,6 +73,32 @@ impl LevelManager {
     #[must_use]
     pub fn entries(&self) -> &[LevelEntry] {
         &self.entries
+    }
+
+    /// Bounded visible-row image cache, independent of prepared level loading.
+    #[must_use]
+    pub fn menu_thumbnail(&self, index: usize) -> Option<Arc<super::RawImage>> {
+        let entry = self.get_entry(index)?;
+        let key = (entry.path.clone(), entry.id.clone());
+        let mut cache = self.menu_images.borrow_mut();
+        if let Some(cached) = cache.get(&key) {
+            return cached.clone();
+        }
+        let image = match crate::engine::package::project::menu_thumbnail(&entry.path, &entry.id) {
+            Ok(image) => image.map(Arc::new),
+            Err(error) => {
+                crate::engine::logging::warn_once(
+                    format!("thumbnail:{}:{}", entry.path.display(), entry.id),
+                    format!("[menu] {} thumbnail: {error}; using fallback", entry.id),
+                );
+                None
+            }
+        };
+        if cache.len() >= 8 {
+            cache.clear();
+        }
+        drop(cache.insert(key, image.clone()));
+        image
     }
 
     /// Refreshes authoring metadata before a new explicit disk load.
@@ -103,6 +133,7 @@ impl LevelManager {
     /// deterministic `(name, id)` order decides. A duplicate id is reported,
     /// never silently replacing a row.
     pub fn refresh(&mut self) {
+        self.menu_images.get_mut().clear();
         let mut discovered = Vec::new();
         Self::scan_package_dir(&self.assets_dir, LevelSourceType::Bundled, &mut discovered);
         Self::scan_package_dir(

@@ -1,5 +1,17 @@
 ## 0.12.0 — in progress
 
+- Make editor text readable with a dedicated antialiased Roboto Mono font,
+  native Retina resolution, larger glyphs, clearer spacing/contrast and visible
+  keyboard focus. Preserve the slate/mint workspace and usable viewport.
+- Add a small translucent white five-dot crosshair with a restrained dark rim, per-map editor default and
+  `/crosshair on|off` with help. Overrides clear on map load/reload; menus,
+  console, outcome panels and third-person forms hide it. Interaction aim and
+  holding rules remain unchanged.
+
+- Select, preview and remove embedded per-map PNG menu images in the editor,
+  reusing project thumbnails and safe source recovery. Show bounded cached
+  images beside map names with a fallback, without loading level worlds.
+
 - Add **Closing Time**, an editable single-map arcade/bowling closing shift: three
   reversible physical returns, three power circuits, gradual ambience shutdown,
   a concise completion state and reliable restart through project-local Luau.

@@ -107,12 +107,54 @@ impl App {
         false
     }
 
+    fn focus_event(&mut self, event: &Event, window: &Window, hits: &[Hit]) -> bool {
+        if let Event::KeyDown {
+            keycode: Some(key),
+            keymod,
+            repeat: false,
+            timestamp: _,
+            window_id: _,
+            scancode: _,
+            which: _,
+            raw: _,
+        } = event
+        {
+            if *key == Keycode::Tab {
+                let current = hits
+                    .iter()
+                    .position(|hit| Some(hit.action) == self.ui_focus);
+                let index = if keymod.intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD) {
+                    current
+                        .unwrap_or(0)
+                        .checked_sub(1)
+                        .unwrap_or_else(|| hits.len().saturating_sub(1))
+                } else {
+                    current
+                        .map_or(0, |i| i.saturating_add(1))
+                        .checked_rem(hits.len().max(1))
+                        .unwrap_or(0)
+                };
+                self.ui_focus = hits.get(index).map(|hit| hit.action);
+                return true;
+            }
+            if *key == Keycode::Return
+                && let Some(hit) = hits.iter().find(|hit| Some(hit.action) == self.ui_focus)
+            {
+                let result = self.activate(hit.action, window);
+                self.report(result);
+                return true;
+            }
+        }
+        false
+    }
+
     fn click(&mut self, window: &Window, hits: &[Hit], window_point: [f32; 2]) {
         let physical = window.size_in_pixels();
         if let Some(point) =
             DrawableSize::new(physical.0, physical.1).window_to_ui(window.size(), window_point)
         {
             if let Some(hit) = hits.iter().find(|hit| hit.contains(point)) {
+                self.ui_focus = Some(hit.action);
                 let result = self.activate(hit.action, window);
                 self.report(result);
             } else if self.popup.is_none()
@@ -153,6 +195,9 @@ impl App {
             return;
         }
         if self.numeric_event(event) {
+            return;
+        }
+        if self.focus_event(event, window, hits) {
             return;
         }
         match event {

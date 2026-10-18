@@ -75,6 +75,25 @@ impl Document {
         }
         self.update_manifest("thumbnail", &name)
     }
+    /// Removes the selected map image and its entry-only package fallback.
+    /// Existing PNG files remain available to other map references and recovery.
+    /// # Errors
+    /// Refuses conflicts or invalid project metadata before publication.
+    pub fn remove_thumbnail(&mut self) -> Result<(), String> {
+        self.save_all()?;
+        let mut manifest = self.manifest().clone();
+        manifest
+            .levels
+            .iter_mut()
+            .find(|level| level.id == self.selected.level.id)
+            .ok_or("Missing selected level")?
+            .thumbnail = None;
+        if self.selected.level.id == manifest.entry_level {
+            manifest.thumbnail = None;
+        }
+        self.publish_manifest(&manifest)
+    }
+
     /// Saves edits and atomically changes supported project metadata.
     /// # Errors
     /// Refuses conflicts or invalid metadata without changing the manifest.

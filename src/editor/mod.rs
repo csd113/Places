@@ -31,7 +31,11 @@ use viewport::Viewport;
 
 use actions::Popup;
 
-type DialogResult = (bool, Result<Vec<PathBuf>, DialogError>);
+enum DialogPurpose {
+    Project(bool),
+    Thumbnail,
+}
+type DialogResult = (DialogPurpose, Result<Vec<PathBuf>, DialogError>);
 
 struct ViewOptions {
     grid: bool,
@@ -70,6 +74,8 @@ struct App {
     project_import: Option<PathBuf>,
     selected: Option<ObjectId>,
     status: String,
+    ui_focus: Option<ui::Action>,
+    thumbnail_image: Option<std::sync::Arc<crate::engine::materials::RawImage>>,
     view: ViewOptions,
     navigation: navigation::Inspection,
     step: f32,
@@ -211,9 +217,43 @@ impl App {
         let _title = window.set_title(&title);
     }
 
+    fn draw(&mut self, window: &sdl3::video::Window) {
+        let (vertices, _hits) = ui::build(self);
+        let images = if matches!(self.popup, Some(Popup::Thumbnail)) {
+            self.thumbnail_image
+                .iter()
+                .map(|image| crate::engine::render::UiImage {
+                    bounds: [112.0, 86.0, 256.0, 144.0],
+                    image: std::sync::Arc::clone(image),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        self.viewport.set_ui_images(images);
+        let _presented = self.viewport.draw(window, &vertices);
+    }
+
     fn dialogs(&mut self) {
-        while let Ok((new, selection)) = self.dialog_receiver.try_recv() {
+        while let Ok((purpose, selection)) = self.dialog_receiver.try_recv() {
             self.dialog_open = false;
+            if matches!(purpose, DialogPurpose::Thumbnail) {
+                let result = selection
+                    .map_err(|error| error.to_string())
+                    .and_then(|paths| {
+                        if let Some(path) = paths.first() {
+                            self.document
+                                .as_mut()
+                                .ok_or("Open a project first")?
+                                .attach_thumbnail(path)?;
+                            self.refresh_thumbnail_preview();
+                        }
+                        Ok(())
+                    });
+                self.report(result);
+                continue;
+            }
+            let new = matches!(purpose, DialogPurpose::Project(true));
             match selection {
                 Ok(paths) => {
                     if let Some(path) = paths.first() {
@@ -327,6 +367,7 @@ fn application(options: Options) -> Result<(), String> {
         .window("Places - Editor", 1440, 816)
         .position_centered()
         .resizable()
+        .high_pixel_density()
         .build()
         .map_err(|e| e.to_string())?;
     let _minimum = window.set_minimum_size(960, 544);
@@ -345,6 +386,8 @@ fn application(options: Options) -> Result<(), String> {
         project_operation: None,
         project_import: None,
         selected: None,
+        ui_focus: None,
+        thumbnail_image: None,
         status: "New: choose a parent folder. Open: choose an existing project folder.".into(),
         view: ViewOptions {
             grid: true,
@@ -396,8 +439,7 @@ fn application(options: Options) -> Result<(), String> {
             app.status = format!("Viewport: {error}");
         }
         app.update_window(&mut window, &video);
-        let (vertices, _hits) = ui::build(&app);
-        let _presented = app.viewport.draw(&window, &vertices);
+        app.draw(&window);
         app.capture_frame();
         if let Some(driver) = &mut verification {
             driver.advance(&mut app, &mut window)?;

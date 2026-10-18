@@ -32,6 +32,7 @@ The starter contains a six-metre floor/ceiling and a built-in light.
 | Delete / Backspace | Delete, provided semantic references remain valid |
 | Cmd/Ctrl N, O, B, P | New, open, save+build, build+play |
 | Esc | Cancel numeric entry or close a popup |
+| Tab / Shift Tab, Enter | Focus next/previous visible control, activate focused control |
 
 Click a value, use Cmd/Ctrl A to clear it, Enter to apply, Esc to cancel.
 Rooms/walls use minimum-corner coordinates and axis-aligned footprints. Their
@@ -295,3 +296,22 @@ Feedback distinguishes invalid endpoints, disconnected/unreachable routes,
 complete routes and budget-limited partial routes; it also reports expansions.
 The inspection uses authored door state. Moving props and actor avoidance must
 be verified in Play, where current physics and actor bodies are available.
+
+### Readable native editor UI (0.12.0)
+
+The editor requests the native high-density drawable and uses an independent,
+committed antialiased Roboto Mono atlas. Text/buttons scale uniformly with the
+window; world texture quality does not affect UI text. The retained slate/mint
+workspace groups project/distribution controls in Project, scene creation and
+transforms in the left column, and build/view controls across the toolbar.
+A mint outline identifies keyboard focus; numeric and script entry retain their
+normal editing keys. Project → Map crosshair toggles the selected map's default
+through normal undo/save history. Game `/crosshair help` documents overrides.
+
+Project → Level menu image offers Choose PNG, Paste path, preview and Remove.
+Use a 16:9 RGB/RGBA8 PNG up to 1280×720 and 4 MiB. The validated file is copied
+under a content hash into `thumbnails/` and embedded unchanged in project export.
+Per-map images appear before names in Explore maps. Only the entry map inherits
+a package thumbnail; other maps use their own image or the neutral P fallback.
+Removing an entry image also clears that package fallback, while leaving shared
+PNG files intact. Browsing decodes only bounded visible images, not level worlds.

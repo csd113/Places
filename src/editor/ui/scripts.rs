@@ -118,16 +118,16 @@ fn draw_source(
         .unwrap_or_default()
         .chars()
         .count();
-    let horizontal = column.saturating_sub(120);
-    for (index, value) in source.split('\n').skip(scroll).take(23).enumerate() {
-        let y = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(6.5, 80.0);
+    let horizontal = column.saturating_sub(110);
+    for (index, value) in source.split('\n').skip(scroll).take(20).enumerate() {
+        let y = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(7.5, 80.0);
         ui::text(
             v,
             &format!("{:>3}", scroll.saturating_add(index).saturating_add(1)),
             5.0,
             y,
             [0.4, 0.6, 0.6, 1.0],
-            3,
+            4,
         );
         let display: String = value.chars().skip(horizontal).take(128).collect();
         ui::text(
@@ -147,7 +147,7 @@ fn draw_source(
                 v,
                 [
                     f32::from(u16::try_from(column.saturating_sub(horizontal)).unwrap_or(0))
-                        .mul_add(3.5, 20.0),
+                        .mul_add(4.0, 20.0),
                     y,
                     0.5,
                     5.5,
@@ -194,18 +194,18 @@ fn draw_diagnostics(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         .flat_map(|line| {
             line.chars()
                 .collect::<Vec<_>>()
-                .chunks(128)
+                .chunks(110)
                 .map(|chunk| chunk.iter().collect::<String>())
                 .collect::<Vec<_>>()
         })
-        .take(23)
+        .take(20)
         .collect();
     for (index, line) in lines.iter().enumerate() {
         ui::text(
             v,
             line,
             8.0,
-            f32::from(u16::try_from(index).unwrap_or(0)).mul_add(6.5, 80.0),
+            f32::from(u16::try_from(index).unwrap_or(0)).mul_add(7.5, 80.0),
             ui::INK,
             128,
         );

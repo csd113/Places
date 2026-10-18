@@ -8,6 +8,7 @@ use crate::game::gameplay_actions::{
 pub enum CommandKind {
     Help,
     Clear,
+    Crosshair,
     Noclip,
     Give,
     Respawn,
@@ -28,6 +29,16 @@ pub struct CommandSpec {
 }
 
 pub const REGISTRY: &[CommandSpec] = &[
+    CommandSpec {
+        kind: CommandKind::Crosshair,
+        name: "crosshair",
+        usage: "/crosshair on|off",
+        description: "Show or hide the five-dot crosshair.",
+        help: &[
+            "Overrides the map default until another map loads or this map reloads. Respawn and graphics changes retain it.",
+            "Hidden in menus, death/outcome panels, console and third person. Does not change interaction aim.",
+        ],
+    },
     CommandSpec {
         kind: CommandKind::Help,
         name: "help",
@@ -142,6 +153,7 @@ pub const REGISTRY: &[CommandSpec] = &[
 pub enum Command {
     Help(Option<CommandKind>),
     Clear,
+    Crosshair(bool),
     GiveList,
     BecomeList,
     Action(GameplayAction),
@@ -188,6 +200,9 @@ pub fn parse(line: &str) -> Result<Command, String> {
             return spec_for(requested_name)
                 .map(|requested| Command::Help(Some(requested.kind)))
                 .ok_or_else(|| format!("Unknown command `{requested_name}`. Try /help."));
+        }
+        (CommandKind::Crosshair, [value]) if on_off(value).is_some() => {
+            return Ok(Command::Crosshair(*value == "on"));
         }
         (CommandKind::Clear, []) => return Ok(Command::Clear),
         (CommandKind::Give, ["list"]) => return Ok(Command::GiveList),
@@ -238,6 +253,7 @@ pub fn parse(line: &str) -> Result<Command, String> {
         )),
         (
             CommandKind::Help
+            | CommandKind::Crosshair
             | CommandKind::Clear
             | CommandKind::Noclip
             | CommandKind::Give

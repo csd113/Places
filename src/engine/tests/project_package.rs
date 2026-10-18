@@ -232,3 +232,107 @@ fn project_index_and_cancellation_refuse_unsafe_or_partial_publication() -> Resu
     );
     Ok(())
 }
+
+// Essential menu regression: icons must follow selected-map/entry fallback and
+// must be readable without any prepared/semantic world. Tiny ZIP placeholders
+// plus two PNGs; the maximum supported 1280x720 PNG checks the separate UI bound
+// that world-texture decoding would wrongly reject (about 4 MiB, no bake/GPU).
+fn thumbnail_png(width: u32, height: u32, shade: u8) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::new();
+    let mut encoder = png::Encoder::new(&mut bytes, width, height);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header().map_err(|error| error.to_string())?;
+    let count = usize::try_from(width.saturating_mul(height)).map_err(|error| error.to_string())?;
+    let pixels = [shade, 20, 40, 160].repeat(count);
+    writer
+        .write_image_data(&pixels)
+        .map_err(|error| error.to_string())?;
+    writer.finish().map_err(|error| error.to_string())?;
+    Ok(bytes)
+}
+
+#[test]
+fn menu_icons_are_bounded_associated_and_independent_of_world_payloads() -> Result<(), String> {
+    let mut fixture = fixture()?;
+    let package_image = ProjectPath::new("thumbnails/package.png".into())?;
+    let level_image = ProjectPath::new("thumbnails/entry.png".into())?;
+    fixture.index.project.thumbnail = Some(package_image.clone());
+    fixture
+        .index
+        .project
+        .levels
+        .first_mut()
+        .ok_or("Missing level")?
+        .thumbnail = Some(level_image.clone());
+    drop(fixture.index.sources.insert(
+        package_image,
+        blob(&mut fixture.blobs, thumbnail_png(16, 9, 200)?),
+    ));
+    let image_blob = blob(&mut fixture.blobs, thumbnail_png(1280, 720, 80)?);
+    drop(
+        fixture
+            .index
+            .sources
+            .insert(level_image, image_blob.clone()),
+    );
+    // Every semantic blob is corrupt: thumbnail browsing must not touch it.
+    for level in &fixture.index.levels {
+        let name = level
+            .records
+            .get("semantics.json")
+            .ok_or("Missing semantics")?;
+        fixture
+            .blobs
+            .get_mut(name)
+            .ok_or("Missing semantic blob")?
+            .fill(b'X');
+    }
+    let path = fixture.write()?;
+    let image = project::menu_thumbnail(&path, "entry")?.ok_or("Missing per-level image")?;
+    assert_eq!(
+        (image.width, image.height),
+        (1280, 720),
+        "UI image maximum is accepted independently of world texture edges"
+    );
+    assert_eq!(image.rgba.first(), Some(&80), "selected level image wins");
+    let fallback =
+        project::menu_thumbnail(&path, "second")?.ok_or("Missing entry/package fallback")?;
+    assert_eq!(
+        fallback.rgba.first(),
+        Some(&200),
+        "package fallback belongs only to the entry map"
+    );
+    fixture
+        .index
+        .project
+        .levels
+        .first_mut()
+        .ok_or("Missing level")?
+        .thumbnail = None;
+    assert!(
+        project::menu_thumbnail(&fixture.write()?, "entry")?.is_none(),
+        "non-entry map never inherits another map's package image"
+    );
+    fixture
+        .index
+        .project
+        .levels
+        .first_mut()
+        .ok_or("Missing level")?
+        .thumbnail = Some(ProjectPath::new("thumbnails/entry.png".into())?);
+    fixture
+        .blobs
+        .get_mut(&image_blob)
+        .ok_or("Missing PNG")?
+        .fill(0);
+    assert!(
+        project::menu_thumbnail(&fixture.write()?, "entry").is_err(),
+        "tampered image refuses decoding so caller can use fallback"
+    );
+    assert!(
+        project::decode_thumbnail(&thumbnail_png(16, 16, 0)?).is_err(),
+        "wrong aspect is rejected"
+    );
+    Ok(())
+}

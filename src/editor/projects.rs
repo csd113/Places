@@ -48,6 +48,10 @@ impl Field {
 pub(super) fn draw(app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mut Vec<Hit>) {
     ui::rect(v, [0.0, 0.0, 480.0, 272.0], [0.0, 0.0, 0.0, 0.7]);
     ui::rect(v, [20.0, 26.0, 440.0, 210.0], [0.075, 0.11, 0.14, 1.0]);
+    if matches!(app.popup, Some(Popup::Thumbnail)) {
+        draw_thumbnail(app, v, hits);
+        return;
+    }
     ui::text(
         v,
         "PROJECT / SOURCES AND DISTRIBUTION",
@@ -70,6 +74,57 @@ pub(super) fn draw(app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: 
     );
 }
 
+fn draw_thumbnail(
+    app: &App,
+    vertices: &mut Vec<crate::engine::render::Vertex>,
+    hits: &mut Vec<Hit>,
+) {
+    ui::text(
+        vertices,
+        "SELECTED LEVEL / MENU IMAGE",
+        30.0,
+        36.0,
+        ui::INK,
+        100,
+    );
+    for (left, width, label, action) in [
+        (30.0, 100.0, "Choose PNG", Action::ThumbnailChoose),
+        (
+            136.0,
+            100.0,
+            "Paste path",
+            Action::ProjectField(Field::Thumbnail),
+        ),
+        (242.0, 100.0, "Remove", Action::ThumbnailRemove),
+        (348.0, 100.0, "Back", Action::Project),
+    ] {
+        ui::popup_button(vertices, hits, [left, 52.0, width, 14.0], label, action);
+    }
+    ui::text(
+        vertices,
+        "16:9 PNG, up to 1280x720 / embedded on export",
+        30.0,
+        73.0,
+        ui::INK,
+        116,
+    );
+    ui::rect(
+        vertices,
+        [112.0, 86.0, 256.0, 144.0],
+        [0.04, 0.065, 0.08, 1.0],
+    );
+    if app.thumbnail_image.is_none() {
+        ui::text(
+            vertices,
+            "No valid image / menu fallback",
+            132.0,
+            148.0,
+            ui::INK,
+            60,
+        );
+    }
+}
+
 fn draw_text(
     v: &mut Vec<crate::engine::render::Vertex>,
     hits: &mut Vec<Hit>,
@@ -81,7 +136,7 @@ fn draw_text(
     for (row, line) in value
         .chars()
         .collect::<Vec<_>>()
-        .chunks(116)
+        .chunks(101)
         .rev()
         .take(5)
         .rev()
@@ -91,7 +146,7 @@ fn draw_text(
             v,
             &line.iter().collect::<String>(),
             34.0,
-            f32::from(u16::try_from(row).unwrap_or(0)).mul_add(6.0, 82.0),
+            f32::from(u16::try_from(row).unwrap_or(0)).mul_add(7.0, 80.0),
             ui::INK,
             116,
         );
@@ -146,7 +201,7 @@ fn draw_project(app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mu
             ("Name", Field::Name),
             ("Author", Field::Author),
             ("Description", Field::Description),
-            ("Attach selected thumbnail", Field::Thumbnail),
+            ("Level menu image >", Field::Thumbnail),
             ("Add level", Field::AddLevel),
         ]
         .into_iter()
@@ -162,7 +217,11 @@ fn draw_project(app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mu
                     13.0,
                 ],
                 label,
-                Action::ProjectField(field),
+                if field == Field::Thumbnail {
+                    Action::Thumbnail
+                } else {
+                    Action::ProjectField(field)
+                },
             );
         }
         draw_level(doc, v, hits);
@@ -210,6 +269,17 @@ fn draw_level(
         [30.0, 177.0, 190.0, 13.0],
         "Use selected as entry",
         Action::ProjectEntry,
+    );
+    ui::popup_button(
+        v,
+        hits,
+        [238.0, 177.0, 210.0, 13.0],
+        if doc.level().crosshair {
+            "Map crosshair: On"
+        } else {
+            "Map crosshair: Off"
+        },
+        Action::MapCrosshair,
     );
     for (row, (label, action)) in [
         (
@@ -267,8 +337,29 @@ impl App {
         clippy::wildcard_enum_match_arm,
         reason = "Only project actions are handled here before the central dispatcher."
     )]
-    pub(super) fn project_action(&mut self, action: Action) -> Result<bool, String> {
+    pub(super) fn project_action(
+        &mut self,
+        action: Action,
+        window: &sdl3::video::Window,
+    ) -> Result<bool, String> {
         match action {
+            Action::Thumbnail => {
+                self.refresh_thumbnail_preview();
+                self.popup = Some(Popup::Thumbnail);
+            }
+            Action::ThumbnailChoose => self.choose_thumbnail(window)?,
+            Action::ThumbnailRemove => {
+                self.document
+                    .as_mut()
+                    .ok_or("Open a project first")?
+                    .remove_thumbnail()?;
+                self.refresh_thumbnail_preview();
+                self.status = "Level image removed; the menu uses its fallback.".into();
+            }
+            Action::MapCrosshair => {
+                let doc = self.document.as_mut().ok_or("Open a project first")?;
+                doc.set_crosshair(!doc.level().crosshair)?;
+            }
             Action::Project => {
                 if self.compile.is_some() || self.play.is_some() {
                     return Err("Finish the build or play session before project operations".into());
@@ -425,7 +516,12 @@ impl App {
             }
         }
         self.status = "Project changes saved.".into();
-        self.popup = Some(Popup::Project);
+        if field == Field::Thumbnail {
+            self.refresh_thumbnail_preview();
+            self.popup = Some(Popup::Thumbnail);
+        } else {
+            self.popup = Some(Popup::Project);
+        }
         Ok(())
     }
 
@@ -544,4 +640,59 @@ const fn is_text_event(event: &Event) -> bool {
             raw: _
         }
     )
+}
+
+impl App {
+    pub(super) fn refresh_thumbnail_preview(&mut self) {
+        let result = self
+            .document
+            .as_ref()
+            .ok_or_else(|| "Open a project first".to_string())
+            .and_then(|doc| {
+                let record = doc.manifest().level(Some(doc.level_id()))?;
+                let path = record.thumbnail.as_ref().or_else(|| {
+                    (doc.level_id() == doc.manifest().entry_level)
+                        .then_some(doc.manifest().thumbnail.as_ref())
+                        .flatten()
+                });
+                path.map(|source| {
+                    let bytes = crate::engine::project::read_bounded_file(
+                        &doc.project().resolve(source)?,
+                        crate::engine::package::project::MAX_THUMBNAIL_BYTES,
+                    )?;
+                    crate::engine::package::project::decode_thumbnail(&bytes)
+                        .map(std::sync::Arc::new)
+                })
+                .transpose()
+            });
+        match result {
+            Ok(image) => self.thumbnail_image = image,
+            Err(error) => {
+                self.thumbnail_image = None;
+                self.status = format!("Image preview: {error}");
+            }
+        }
+    }
+
+    fn choose_thumbnail(&mut self, window: &sdl3::video::Window) -> Result<(), String> {
+        if self.dialog_open {
+            return Ok(());
+        }
+        let sender = self.dialog_sender.clone();
+        sdl3::dialog::show_open_file_dialog(
+            &[sdl3::dialog::DialogFileFilter {
+                name: "Level PNG image (16:9)",
+                pattern: "png",
+            }],
+            None::<&Path>,
+            false,
+            window,
+            Box::new(move |result, _filter| {
+                let _sent = sender.send((super::DialogPurpose::Thumbnail, result));
+            }),
+        )
+        .map_err(|error| error.to_string())?;
+        self.dialog_open = true;
+        Ok(())
+    }
 }

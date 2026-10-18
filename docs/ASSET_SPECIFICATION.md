@@ -1660,7 +1660,10 @@ this sheet (§6). The white sheet itself is not an authoring target.
 
 ### 12.3 Internal image resources
 
-The fixed internal sheets are ordinary catalogued PNGs. They are embedded
+The fixed game sheets are ordinary catalogued PNGs. The editor-only font is
+embedded by the editor renderer and deliberately excluded from the world catalog,
+so changing editor typography does not invalidate compiled map dependencies. All
+are embedded
 from their repository files so a broken external asset or an installation
 without an asset directory can still display the UI and diagnostic fallback.
 Their decoded RGBA pixels are pinned by tests against the reviewed sheets;
@@ -1669,6 +1672,7 @@ changing compression is safe, but changing layout or orientation is not.
 | Image | Catalog id and repository path | Contract |
 |---|---|---|
 | 256×128 HUD font/hand atlas | `core:tex_ui_font_01` → `assets/shared/ui/font_01.png` | **2:1** RGBA8 sheet, top-down. Original 128×64 ASCII block retains every 8×8 glyph and white-cell pixel at the upper left. Glyph/white-cell UVs use the new sheet dimensions. ASCII 32–126 retains sixteen cells per glyph row; cell zero stays opaque white. An upright 64×64 hand cell occupies pixels `(0,64)..(64,128)` in the formerly unused lower-left area. Thumb points left; hand interior/exterior are alpha zero with antialiased off-white ink and a thin dark edge. No baked key or badge, no tiling. Other unused cells stay transparent. The catalog's historical 128×64 description names the logical grid; its bytes stay unchanged for package compatibility. |
+| Editor font atlas | `assets/shared/ui/editor_font.png` | **8:7**, 512×448 RGBA8, top-down, 16 columns × 8 rows of 32×56 cells. ASCII 32–126, cell zero solid white; unused cells transparent. Roboto Mono medium, genuine antialiased outlines, OFL source and explicit offline builder under `tools/fonts/`. Editor-only clamped linear sampler, no mipmaps, independent of game texture quality. Rectangles/viewport guides sample inside the white first cell. No runtime rasterization. |
 | 256×256 validation decal atlas | `core:decal_test_01` → `assets/shared/decals/validation_atlas_01.png` | Fixed square RGBA8 sheet; four 128×128 cells, eight-pixel UV gutters, only slot zero contains the existing frame and text. The PNG retains the atlas's bottom-up row convention, so its text appears vertically inverted in an ordinary image viewer. Preserve that orientation and alpha-zero background; the existing atlas UVs make it upright in game. No tiling. |
 | 64×64 missing-texture checker | `core:tex_missing` → `assets/shared/textures/missing_01.png` | Fixed square opaque RGBA8 sheet; eight-pixel cells alternate `[255, 0, 255, 255]` and `[24, 24, 24, 255]`, starting magenta at the top-left. Preserve its symmetric orientation and checker period. |
 | 2×2 emergency white sheet | `core:tex_white_fallback_01` → `assets/shared/textures/white_fallback_01.png` | Fixed square opaque RGBA8 sheet, every channel 255. Used only if the embedded primary white sheet cannot decode. No tiling or authored UV detail. |
@@ -2499,3 +2503,14 @@ root and contact tracks remain reference data for future controllers. Existing
 glow sockets follow posed nodes; no prop grasp, door synchronization or runtime
 IK is introduced. See the integration report and editable
 `projects/mannequin-r2-review/` for the opt-in native review.
+
+### 0.12.0 menu use of project thumbnails
+
+The existing 16:9 `thumbnails/<hash>.png` contract also supplies menu icons and
+editor previews. Preserve the whole RGB/RGBA8 image and alpha; no square crop,
+resize, new metadata or world-catalog entry is introduced. UI sampling is clamped
+linear, independent of world texture quality. A selected level's image wins;
+only the entry map inherits the project thumbnail, otherwise a code-native
+framed P is the fallback. Decode uses the existing 4 MiB encoded/8 MiB bounded
+thumbnail path (up to 1280×720), not the world texture edge limit. The renderer
+caches at most eight visible images and performs no per-frame PNG decoding.

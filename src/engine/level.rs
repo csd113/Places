@@ -7037,6 +7037,9 @@ const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
+    /// Presentation only. Console override lasts until the next map load.
+    #[serde(default = "default_true", skip_serializing_if = "bool_is_true")]
+    pub crosshair: bool,
     /// Explicit permitted transition destinations, validated against project membership.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub transitions: Vec<String>,

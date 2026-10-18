@@ -21,6 +21,7 @@ pub(super) enum Pending {
 
 pub(super) enum Popup {
     Project,
+    Thumbnail,
     ProjectText {
         field: super::projects::Field,
         value: String,
@@ -69,7 +70,7 @@ impl Popup {
         hits.clear();
         if matches!(
             self,
-            Self::Project | Self::ProjectText { field: _, value: _ }
+            Self::Project | Self::Thumbnail | Self::ProjectText { field: _, value: _ }
         ) {
             super::projects::draw(app, v, hits);
             return;
@@ -101,6 +102,7 @@ impl Popup {
         ui::rect(v, [130.0, 65.0, 260.0, 146.0], [0.075, 0.11, 0.14, 1.0]);
         match self {
             Self::Project
+            | Self::Thumbnail
             | Self::ProjectText { field: _, value: _ }
             | Self::Scripts
             | Self::ScriptEdit {
@@ -152,21 +154,28 @@ impl Popup {
                     ui::popup_button(v, hits, [x, 130.0, 70.0, 15.0], label, action);
                 }
             }
-            Self::Number { value, field } => {
-                ui::text(
-                    v,
-                    &format!("{} / Enter apply / Esc cancel", app.field_label(*field)),
-                    140.0,
-                    80.0,
-                    ui::INK,
-                    65,
-                );
-                ui::text(v, value, 140.0, 104.0, [0.4, 0.9, 0.72, 1.0], 60);
-                draw_numeric_hint(v);
-            }
+            Self::Number { value, field } => draw_number(app, v, value, *field),
             Self::Library { materials, page } => ui::library_popup(app, v, hits, *materials, *page),
         }
     }
+}
+
+fn draw_number(
+    app: &App,
+    vertices: &mut Vec<crate::engine::render::Vertex>,
+    value: &str,
+    field: usize,
+) {
+    ui::text(
+        vertices,
+        &format!("{} / Enter apply / Esc cancel", app.field_label(field)),
+        140.0,
+        80.0,
+        ui::INK,
+        65,
+    );
+    ui::text(vertices, value, 140.0, 104.0, [0.4, 0.9, 0.72, 1.0], 60);
+    draw_numeric_hint(vertices);
 }
 
 pub(super) fn new_project_path(parent: &Path) -> PathBuf {
@@ -231,7 +240,7 @@ impl App {
                     false,
                     window,
                     Box::new(move |result, _filter| {
-                        let _sent = sender.send((new, result));
+                        let _sent = sender.send((super::DialogPurpose::Project(new), result));
                     }),
                 );
                 self.dialog_open = true;
@@ -257,8 +266,19 @@ impl App {
             .collect()
     }
 
-    fn contextual_action(&mut self, action: Action) -> Result<bool, String> {
-        Ok(self.project_action(action)?
+    fn confirm_action(&mut self, action: Action, window: &Window) -> Result<(), String> {
+        if let Some(Popup::Unsaved(pending)) = self.popup {
+            if action == Action::ConfirmSave {
+                self.save()?;
+            }
+            self.popup = None;
+            self.perform(pending, window);
+        }
+        Ok(())
+    }
+
+    fn contextual_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
+        Ok(self.project_action(action, window)?
             || self.script_action(action)?
             || self.navigation_action(action)?
             || self.build_action(action)?
@@ -268,7 +288,7 @@ impl App {
     }
 
     pub(super) fn activate(&mut self, action: Action, window: &Window) -> Result<(), String> {
-        if self.contextual_action(action)? {
+        if self.contextual_action(action, window)? {
             return Ok(());
         }
         match action {
@@ -289,6 +309,10 @@ impl App {
             | Action::ProjectField(_)
             | Action::ProjectApply
             | Action::ProjectEntry
+            | Action::MapCrosshair
+            | Action::Thumbnail
+            | Action::ThumbnailChoose
+            | Action::ThumbnailRemove
             | Action::ProjectSelect(_)
             | Action::ProjectCheck
             | Action::ProjectMigrate
@@ -355,15 +379,7 @@ impl App {
             Action::ChooseAsset(index) => self.choose_asset(index)?,
             Action::Page(forward) => self.page_library(forward),
             Action::ClosePopup | Action::ConfirmCancel => self.close_popup(),
-            Action::ConfirmSave | Action::ConfirmDiscard => {
-                if let Some(Popup::Unsaved(pending)) = self.popup {
-                    if action == Action::ConfirmSave {
-                        self.save()?;
-                    }
-                    self.popup = None;
-                    self.perform(pending, window);
-                }
-            }
+            Action::ConfirmSave | Action::ConfirmDiscard => self.confirm_action(action, window)?,
         }
         Ok(())
     }

@@ -988,6 +988,19 @@ impl FrameLoop<'_> {
         self.render_and_present(frame_begin, frame_update_done);
     }
 
+    fn crosshair_visible(&self) -> bool {
+        self.game.app_state() == AppState::Playing
+            && self.load_intent.is_none()
+            && self.outcome.is_none()
+            && self.message.is_none()
+            && !self.console.is_open()
+            && !self.console_runtime.representation.is_active()
+            && self.current_level.as_ref().is_some_and(|loaded| {
+                self.console_runtime
+                    .crosshair_enabled(loaded.level.crosshair)
+            })
+    }
+
     fn reconcile_gameplay_reset(&mut self) {
         let held = self.items.world.held();
         self.console_runtime.reconcile_player_reset(
@@ -3217,6 +3230,15 @@ impl FrameLoop<'_> {
             "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
         });
         if let Some(fields) = state.as_object_mut() {
+            drop(fields.insert("crosshair_visible".into(), self.crosshair_visible().into()));
+            drop(fields.insert(
+                "crosshair_override".into(),
+                serde_json::json!(self.console_runtime.crosshair_override),
+            ));
+            drop(fields.insert(
+                "crosshair_map_default".into(),
+                serde_json::json!(self.current_level.as_ref().map(|loaded| loaded.level.crosshair)),
+            ));
             drop(fields.insert(
                 "script_diagnostics".into(),
                 serde_json::json!(self.game.entities().script_diagnostics()),
@@ -3332,6 +3354,7 @@ impl FrameLoop<'_> {
             return;
         };
         if !matches!(intent, LoadIntent::Graphics) {
+            self.console_runtime.reset_map_presentation();
             self.audio.clear_world();
             self.flashlight = flashlight::Power::Off;
             self.outcome = None;
@@ -3505,6 +3528,31 @@ impl FrameLoop<'_> {
         }
     }
 
+    fn sync_menu_images(&mut self) {
+        let images = if self.game.app_state() == AppState::LevelSelect
+            && self.startup == StartupPhase::Ready
+        {
+            ui::menu_layout(
+                self.game.app_state(),
+                self.ui_state,
+                self.settings,
+                self.display_status,
+            )
+            .rows
+            .iter()
+            .filter_map(|row| {
+                Some(render::UiImage {
+                    bounds: ui::level_icon_bounds(row),
+                    image: self.level_manager.menu_thumbnail(row.index)?,
+                })
+            })
+            .collect()
+        } else {
+            Vec::new()
+        };
+        self.renderer.set_ui_images(images);
+    }
+
     /// Submits the UI pass: cached menu/settings geometry, the debug overlay
     /// when visible, and — while playing — the world-anchored interaction
     /// labels and the aimed-at prompt through the same text pipeline.
@@ -3516,6 +3564,7 @@ impl FrameLoop<'_> {
         cam_pitch: f32,
         skip_render: bool,
     ) {
+        self.sync_menu_images();
         if skip_render {
             // `PLACES_BENCH_NORENDER=1`: measure the presentation path alone.
             return;
@@ -3554,6 +3603,9 @@ impl FrameLoop<'_> {
             self.ui_scratch.clear();
             self.ui_scratch.extend_from_slice(ui_vertices);
             if show_labels {
+                if self.crosshair_visible() {
+                    ui::append_crosshair(self.ui_scratch, drawable);
+                }
                 let item_hint = self.items.hand_visible();
                 world_labels::append_world_labels_with_hint(
                     self.ui_scratch,

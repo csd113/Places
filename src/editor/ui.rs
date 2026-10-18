@@ -1,6 +1,6 @@
 //! Compact retained hit regions and shared-renderer font geometry.
 
-use crate::engine::font::{get_char_uv, get_white_uv};
+use crate::engine::font::get_white_uv;
 use crate::engine::render::Vertex;
 
 use super::App;
@@ -22,7 +22,7 @@ pub(super) use library::draw_library as library_popup;
 pub(super) use safety::safety_popup;
 
 pub(super) const INK: [f32; 4] = [0.88, 0.92, 0.95, 1.0];
-const MUTED: [f32; 4] = [0.53, 0.62, 0.69, 1.0];
+const MUTED: [f32; 4] = [0.68, 0.75, 0.80, 1.0];
 const ACCENT: [f32; 4] = [0.37, 0.86, 0.71, 1.0];
 const PANEL: [f32; 4] = [0.065, 0.09, 0.12, 1.0];
 
@@ -32,6 +32,10 @@ pub(super) enum Action {
     ProjectField(super::projects::Field),
     ProjectApply,
     ProjectEntry,
+    MapCrosshair,
+    Thumbnail,
+    ThumbnailChoose,
+    ThumbnailRemove,
     ProjectSelect(usize),
     ProjectCheck,
     ProjectMigrate,
@@ -160,14 +164,22 @@ pub(super) fn text(
     color: [f32; 4],
     limit: usize,
 ) {
+    let max_width = (f32::from(u16::try_from(limit).unwrap_or(u16::MAX)) * 3.5).min(475.0 - x);
+    let fitted = crate::game::ui::fit_text(value, max_width, 0.5);
     let mut cursor = x;
-    for character in value.chars().take(limit) {
-        if character != ' '
-            && let Some(uv) = get_char_uv(character).or_else(|| get_char_uv('?'))
-        {
-            quad(vertices, [cursor, y, 3.5, 4.5], color, uv);
+    for character in fitted.chars() {
+        let ascii = u8::try_from(character)
+            .ok()
+            .filter(|c| (32..=126).contains(c))
+            .unwrap_or(b'?');
+        if ascii != b' ' {
+            let index = ascii.saturating_sub(32);
+            let col = f32::from(index % 16);
+            let row = f32::from(index / 16);
+            let uv = [col / 16.0, row / 8.0, (col + 1.0) / 16.0, (row + 1.0) / 8.0];
+            quad(vertices, [cursor, y, 4.0, 7.0], color, uv);
         }
-        cursor += 3.5;
+        cursor += 4.0;
     }
 }
 
@@ -188,20 +200,13 @@ fn button(
             [0.09, 0.12, 0.15, 1.0]
         },
     );
-    let [x, y, width, _h] = bounds;
-    let mut available = width - 4.0;
-    let fitted: String = label
-        .chars()
-        .take_while(|_| {
-            available -= 3.5;
-            available >= 0.0
-        })
-        .collect();
+    let [x, y, width, height] = bounds;
+    let fitted = crate::game::ui::fit_text(label, width - 5.0, 0.5);
     text(
         vertices,
         &fitted,
         x + 2.5,
-        y + 3.0,
+        (height - 7.0).mul_add(0.5, y),
         if active { INK } else { MUTED },
         68,
     );
@@ -230,6 +235,17 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
     footer(app, &mut v, &mut hits);
     if let Some(popup) = &app.popup {
         popup.draw(app, &mut v, &mut hits);
+    }
+    if let Some(hit) = hits.iter().find(|hit| Some(hit.action) == app.ui_focus) {
+        let [left, top, width, height] = hit.rect;
+        for bounds in [
+            [left, top, width, 0.4],
+            [left, top + height - 0.4, width, 0.4],
+            [left, top, 0.4, height],
+            [left + width - 0.4, top, 0.4, height],
+        ] {
+            rect(&mut v, bounds, ACCENT);
+        }
     }
     (v, hits)
 }
@@ -345,7 +361,7 @@ fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             vertices,
             hits,
             [254.0, 14.0, 37.0, 11.0],
-            "Scripts >",
+            "Scripts",
             Action::Scripts,
             app.document.is_some(),
         );
@@ -354,7 +370,7 @@ fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     button(
         vertices,
         hits,
-        [347.0, 14.0, 30.0, 11.0],
+        [347.0, 14.0, 34.0, 11.0],
         if app.view.grid { "Grid On" } else { "Grid Off" },
         Action::Grid,
         true,
@@ -362,7 +378,7 @@ fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     button(
         vertices,
         hits,
-        [380.0, 14.0, 30.0, 11.0],
+        [384.0, 14.0, 34.0, 11.0],
         if app.view.snap { "Snap On" } else { "Snap Off" },
         Action::Snap,
         true,
@@ -370,7 +386,7 @@ fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     button(
         vertices,
         hits,
-        [413.0, 14.0, 61.0, 11.0],
+        [421.0, 14.0, 53.0, 11.0],
         &format!("Step {:.2}m", app.step),
         Action::Step,
         true,
@@ -389,7 +405,7 @@ fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     );
     text(
         vertices,
-        "RMB orbit / WASDQE fly   MMB pan   Wheel zoom   F frame",
+        "RMB orbit / WASDQE fly | MMB pan | Wheel zoom | F frame",
         174.0,
         29.0,
         MUTED,
@@ -424,7 +440,7 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         vertices,
         hits,
         [5.0, 65.0, 102.0, 10.0],
-        "+ Environment / gameplay >",
+        "+ Scene objects >",
         Action::Create,
         app.document.is_some(),
     );

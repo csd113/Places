@@ -133,6 +133,18 @@ impl Document {
         objects::enumerate(self.level())
     }
 
+    /// Changes this map's crosshair default through ordinary undo/save history.
+    /// # Errors
+    /// Rejects invalid resulting level data.
+    pub fn set_crosshair(&mut self, enabled: bool) -> Result<(), String> {
+        let mut edited = self.selected.raw.clone();
+        let object = edited
+            .as_object_mut()
+            .ok_or("Level source must be an object")?;
+        drop(object.insert("crosshair".into(), Value::Bool(enabled)));
+        self.accept_edit(edited)
+    }
+
     /// Returns authored coordinates. Prop Y remains relative to its floor;
     /// prop size is its uniform scale repeated on all three axes.
     ///

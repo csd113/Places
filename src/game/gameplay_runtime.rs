@@ -37,6 +37,7 @@ pub struct Runtime {
     given: Vec<SessionProp>,
     next_key: u64,
     trigger_labels: bool,
+    pub(crate) crosshair_override: Option<bool>,
     placement_physics: bool,
     last_reset_count: u64,
     last_world_reset_count: u64,
@@ -60,6 +61,17 @@ fn player_context(game: &Game) -> PlayerContext {
 }
 
 impl Runtime {
+    pub(crate) const fn crosshair_enabled(&self, map_default: bool) -> bool {
+        match self.crosshair_override {
+            Some(enabled) => enabled,
+            None => map_default,
+        }
+    }
+
+    pub(crate) const fn reset_map_presentation(&mut self) {
+        self.crosshair_override = None;
+    }
+
     pub const fn console_disabled_transition(&mut self, enabled: bool) -> bool {
         let disabled = self.console_enabled && !enabled;
         self.console_enabled = enabled;

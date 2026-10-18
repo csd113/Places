@@ -163,7 +163,13 @@ pub struct UiStats {
 /// is written once at construction; the font atlas is uploaded once and bound
 /// through a dedicated group, so no frame touches a pipeline, a bind group or
 /// a texture.
+struct Picture {
+    source: crate::engine::render::UiImage,
+    binding: wgpu::BindGroup,
+}
+
 pub struct UiRenderer {
+    pictures: Vec<Picture>,
     pipeline: wgpu::RenderPipeline,
     /// The construction-time UI ortho binding; the buffer it binds is owned by
     /// the bind group.
@@ -193,14 +199,20 @@ impl UiRenderer {
     /// texture and sampler, and the two bind groups. Nothing here runs per
     /// frame.
     #[must_use]
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, format: wgpu::TextureFormat) -> Self {
-        let font_view = upload_font_atlas(device, queue);
+    pub fn new(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        format: wgpu::TextureFormat,
+        editor: bool,
+    ) -> Self {
+        let font_view = upload_font_atlas(device, queue, editor);
 
         let (camera_bind_group, camera_layout) = create_camera_binding(device, queue);
-        let (font_bind_group, font_layout) = create_font_binding(device, &font_view);
+        let (font_bind_group, font_layout) = create_font_binding(device, &font_view, editor);
         let pipeline = create_pipeline(device, format, &camera_layout, &font_layout);
 
         Self {
+            pictures: Vec::new(),
             pipeline,
             camera_bind_group,
             font_bind_group,
@@ -209,6 +221,37 @@ impl UiRenderer {
             vertex_capacity: 0,
             scratch: Vec::new(),
         }
+    }
+
+    pub fn set_images(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        images: &[crate::engine::render::UiImage],
+    ) {
+        if images.len() == self.pictures.len()
+            && images
+                .iter()
+                .zip(&self.pictures)
+                .all(|(a, b)| std::sync::Arc::ptr_eq(&a.image, &b.source.image))
+        {
+            for (picture, image) in self.pictures.iter_mut().zip(images) {
+                picture.source.bounds = image.bounds;
+            }
+            return;
+        }
+        self.pictures = images
+            .iter()
+            .take(8)
+            .map(|source| {
+                let view = upload_ui_image(device, queue, &source.image);
+                let (binding, _layout) = create_font_binding(device, &view, true);
+                Picture {
+                    source: source.clone(),
+                    binding,
+                }
+            })
+            .collect();
     }
 
     /// Encodes and submits the UI pass into `target`.
@@ -240,12 +283,19 @@ impl UiRenderer {
 
         self.scratch.clear();
         self.scratch.extend(vertices.iter().map(WorldVertex::from));
+        for picture in &self.pictures {
+            self.scratch.extend(
+                picture_vertices(picture.source.bounds)
+                    .iter()
+                    .map(WorldVertex::from),
+            );
+        }
         self.ensure_vertex_buffer(device);
         if let Some(buffer) = self.vertex_buffer.as_ref() {
             queue.write_buffer(buffer, 0, bytemuck::cast_slice(&self.scratch));
         }
 
-        let count = u32::try_from(self.scratch.len()).unwrap_or(u32::MAX);
+        let count = u32::try_from(vertices.len()).unwrap_or(u32::MAX);
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("places-wgpu-ui"),
         });
@@ -285,6 +335,12 @@ impl UiRenderer {
                 pass.set_vertex_buffer(0, buffer.slice(..));
             }
             pass.draw(0..count, 0..1);
+            for (index, picture) in self.pictures.iter().enumerate() {
+                let first =
+                    count.saturating_add(u32::try_from(index).unwrap_or(0).saturating_mul(6));
+                pass.set_bind_group(1, &picture.binding, &[]);
+                pass.draw(first..first.saturating_add(6), 0..1);
+            }
         }
         let _submission = queue.submit([encoder.finish()]);
         if let Some(UiTiming::Finish(timer)) = timing {
@@ -292,7 +348,7 @@ impl UiRenderer {
         }
 
         UiStats {
-            draw_calls: 1,
+            draw_calls: 1_usize.saturating_add(self.pictures.len()),
             visible_vertices: self.scratch.len(),
         }
     }
@@ -331,11 +387,49 @@ impl UiRenderer {
 /// Creates the font atlas texture, fills it from the committed PNG pixels and
 /// returns its view. The bind group built from the view owns the texture.
 ///
-/// `generate_font_atlas` is the one font source the project has: a 256x128 RGBA8
-/// sheet with the reserved white cell, unchanged 8x8 glyphs and hand icon.
-/// It is decoded and uploaded once, at construction.
-fn upload_font_atlas(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::TextureView {
-    let font_dimensions = font_atlas_dimensions();
+/// The game loads its unchanged 256x128 HUD/hand sheet; the editor selects
+/// the independent antialiased sheet. Both decode once at construction.
+fn upload_font_atlas(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    editor: bool,
+) -> wgpu::TextureView {
+    let (font_dimensions, pixels) = if editor {
+        let image = crate::engine::materials::BuiltinImage::EditorFont.decode();
+        ((image.width, image.height), image.rgba)
+    } else {
+        (font_atlas_dimensions(), generate_font_atlas())
+    };
+    upload_ui_image(
+        device,
+        queue,
+        &crate::engine::materials::RawImage::new(font_dimensions.0, font_dimensions.1, pixels),
+    )
+}
+
+fn picture_vertices([left, top, width, height]: [f32; 4]) -> [Vertex; 6] {
+    [
+        ([left, top, 0.0], [0.0, 0.0]),
+        ([left + width, top, 0.0], [1.0, 0.0]),
+        ([left + width, top + height, 0.0], [1.0, 1.0]),
+        ([left, top, 0.0], [0.0, 0.0]),
+        ([left + width, top + height, 0.0], [1.0, 1.0]),
+        ([left, top + height, 0.0], [0.0, 1.0]),
+    ]
+    .map(|(pos, uv)| Vertex {
+        pos,
+        uv,
+        color: [1.0; 4],
+        ..Vertex::UNLIT
+    })
+}
+
+fn upload_ui_image(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    image: &crate::engine::materials::RawImage,
+) -> wgpu::TextureView {
+    let font_dimensions = (image.width, image.height);
     let font_texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("places-wgpu-ui-font"),
         size: wgpu::Extent3d {
@@ -358,7 +452,7 @@ fn upload_font_atlas(device: &wgpu::Device, queue: &wgpu::Queue) -> wgpu::Textur
             origin: wgpu::Origin3d::ZERO,
             aspect: wgpu::TextureAspect::All,
         },
-        &generate_font_atlas(),
+        &image.rgba,
         wgpu::TexelCopyBufferLayout {
             offset: 0,
             bytes_per_row: Some(font_dimensions.0.saturating_mul(4)),
@@ -415,11 +509,12 @@ fn create_camera_binding(
 
 /// Creates the font layout (texture + sampler) and binds the uploaded atlas.
 ///
-/// The reference uploads the font atlas clamped and nearest, with no mip
-/// chain; [`SamplerPolicy::ClampNearest`] is exactly that shared policy.
+/// The HUD keeps nearest sampling. Editor outline glyphs use clamped linear
+/// coverage; neither sheet has mipmaps or any world-quality dependency.
 fn create_font_binding(
     device: &wgpu::Device,
     view: &wgpu::TextureView,
+    editor: bool,
 ) -> (wgpu::BindGroup, wgpu::BindGroupLayout) {
     let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("places-wgpu-ui-font-layout"),
@@ -442,7 +537,12 @@ fn create_font_binding(
             },
         ],
     });
-    let sampler = device.create_sampler(&SamplerPolicy::ClampNearest.descriptor());
+    let policy = if editor {
+        SamplerPolicy::ClampLinear
+    } else {
+        SamplerPolicy::ClampNearest
+    };
+    let sampler = device.create_sampler(&policy.descriptor());
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("places-wgpu-ui-font"),
         layout: &layout,

@@ -62,6 +62,7 @@ pub(super) struct Viewport {
 impl Viewport {
     pub fn new(window: &Window) -> Result<Self, String> {
         let mut renderer = Renderer::new(window)?;
+        renderer.set_editor_ui();
         renderer.set_quality(QualityLevel::High);
         renderer.set_lighting_quality(QualityLevel::Low);
         renderer.set_lightmap_quality(LightmapQuality::Off);
@@ -92,6 +93,10 @@ impl Viewport {
             frame_next: true,
             last_frame: Instant::now(),
         })
+    }
+
+    pub fn set_ui_images(&mut self, images: Vec<crate::engine::render::UiImage>) {
+        self.renderer.set_ui_images(images);
     }
 
     pub fn rebuild(&mut self, level: &LevelDef) {

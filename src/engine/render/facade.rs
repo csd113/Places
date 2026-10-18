@@ -701,6 +701,16 @@ impl Renderer {
         self.renderer.render_scene(camera);
     }
 
+    /// Updates the small visible PNG list; the backend reuses unchanged uploads.
+    pub fn set_ui_images(&mut self, images: Vec<super::UiImage>) {
+        self.renderer.set_ui_images(images);
+    }
+
+    /// Selects the committed antialiased editor font independently of world quality.
+    pub fn set_editor_ui(&mut self) {
+        self.renderer.set_editor_ui();
+    }
+
     /// Renders the 2D UI vertex list.
     ///
     /// The HUD draws into the frame `render_scene` acquired, with depth testing

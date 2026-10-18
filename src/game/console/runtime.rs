@@ -35,6 +35,14 @@ impl Runtime {
                 }
                 Ok(())
             }
+            Ok(Command::Crosshair(enabled)) => {
+                self.crosshair_override = Some(enabled);
+                console.write(format!(
+                    "Crosshair {} (until next map load).",
+                    if enabled { "ON" } else { "OFF" }
+                ));
+                Ok(())
+            }
             Ok(Command::Clear) => {
                 console.clear();
                 Ok(())

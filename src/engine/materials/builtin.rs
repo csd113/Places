@@ -7,6 +7,7 @@ use super::{RawImage, decode_png};
 #[derive(Clone, Copy)]
 pub enum BuiltinImage {
     FontAtlas,
+    EditorFont,
     DecalAtlas,
     MissingTexture,
     EmergencyWhite,
@@ -22,6 +23,7 @@ impl BuiltinImage {
     )]
     pub(crate) fn decode(self) -> RawImage {
         let bytes: &[u8] = match self {
+            Self::EditorFont => include_bytes!("../../../assets/shared/ui/editor_font.png"),
             Self::FontAtlas => include_bytes!("../../../assets/shared/ui/font_01.png"),
             Self::DecalAtlas => {
                 include_bytes!("../../../assets/shared/decals/validation_atlas_01.png")

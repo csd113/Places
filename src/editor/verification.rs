@@ -80,6 +80,7 @@ enum Action {
         name: String,
     },
     WaitIdle,
+    Focus,
     Resize {
         width: u16,
         height: u16,
@@ -253,6 +254,11 @@ impl Verification {
             Action::Resize { width, height } => window
                 .set_size(u32::from(*width), u32::from(*height))
                 .map_err(|error| error.to_string())?,
+            Action::Focus => {
+                if !window.raise() {
+                    return Err("SDL window raise failed".into());
+                }
+            }
             Action::WaitIdle => {
                 if let Some(error) = app.viewport.status() {
                     return Err(error.into());
@@ -275,6 +281,8 @@ impl Verification {
             "environment_preview": app.viewport.environment_preview(),
             "navigation": app.navigation.checkpoint(),
             "visible_controls": controls.iter().map(|hit| serde_json::json!({"action":format!("{:?}",hit.action),"center":hit.center()})).collect::<Vec<_>>(),
+            "input_focus": window.has_input_focus(),
+            "ui_focus": app.ui_focus.map(|action| format!("{action:?}")),
             "drawable": window.size_in_pixels(), "camera_target": app.viewport.target(),
             "safety": app.safety_report.as_ref().map(|report| report.findings.iter().map(|finding| serde_json::json!({
                 "check":finding.check,"title":finding.title,"category":finding.category.label(),
@@ -338,7 +346,7 @@ fn validate(action: &Action) -> Result<(), String> {
                     .bytes()
                     .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
         }
-        Action::WaitIdle | Action::Close => true,
+        Action::WaitIdle | Action::Focus | Action::Close => true,
         Action::Resize { width, height } => {
             (960..=2560).contains(width) && (544..=1600).contains(height)
         }

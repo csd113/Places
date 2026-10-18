@@ -81,6 +81,20 @@ impl DrawableSize {
         }
     }
 
+    /// Exact drawable centre in UI coordinates, including an odd letterbox
+    /// remainder. A reference-space centre alone can be half a pixel off.
+    #[must_use]
+    pub fn view_center_in_ui(self) -> [f32; 2] {
+        self.window_to_ui(
+            (self.width, self.height),
+            [
+                dimension_f32(self.width) * 0.5,
+                dimension_f32(self.height) * 0.5,
+            ],
+        )
+        .unwrap_or([240.0, 136.0])
+    }
+
     /// SDL pointer coordinates are logical window pixels. Convert through the
     /// actual drawable and the rounded viewport used by the UI render pass;
     /// letterbox margins and zero-size windows have no menu hit region.

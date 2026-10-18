@@ -73,3 +73,10 @@ pub use wgpu::reflections::{PROBE_FACE_SIZE_FULL, PROBE_FACE_SIZE_MEDIUM, ProbeF
 // the raw-window-handle implementation reports the window's content view and
 // wgpu attaches its own Metal layer, so no backend-specific window flag has to
 // be applied before the window is built.
+
+/// A validated PNG shown in a reserved UI rectangle. No world material/filtering.
+#[derive(Clone)]
+pub struct UiImage {
+    pub bounds: [f32; 4],
+    pub image: std::sync::Arc<crate::engine::materials::RawImage>,
+}

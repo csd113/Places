@@ -289,6 +289,7 @@ fn wrapped(
     width: usize,
     rows: u16,
 ) {
+    let columns = width.saturating_mul(7) / 8;
     let mut line = String::new();
     let mut row = 0_u16;
     for word in value.split_whitespace() {
@@ -298,7 +299,7 @@ fn wrapped(
                 .count()
                 .saturating_add(word.chars().count())
                 .saturating_add(1)
-                > width
+                > columns
         {
             text(v, &line, x, f32::from(row).mul_add(9.0, y), color, width);
             line.clear();

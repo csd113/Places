@@ -145,6 +145,39 @@ pub fn inspect(path: &Path) -> Result<Option<ProjectPackage>, String> {
     read_index(&mut reader)
 }
 
+/// Reads only the project index and selected thumbnail blob; never prepares a world.
+///
+/// Entry-level image takes precedence over the package image. Other maps never
+/// inherit the entry/package icon, keeping bundle menu associations explicit.
+/// # Errors
+/// Rejects unsafe/missing/corrupt blobs and invalid PNGs; callers may show fallback.
+pub fn menu_thumbnail(
+    path: &Path,
+    level_id: &str,
+) -> Result<Option<crate::engine::materials::RawImage>, String> {
+    let mut reader = PackageReader::new(File::open(path).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let Some(index) = read_index(&mut reader)? else {
+        return Ok(None);
+    };
+    let level = index.project.level(Some(level_id))?;
+    let selected = level.thumbnail.as_ref().or_else(|| {
+        (level_id == index.project.entry_level)
+            .then_some(index.project.thumbnail.as_ref())
+            .flatten()
+    });
+    let Some(source) = selected else {
+        return Ok(None);
+    };
+    source.require_role("thumbnails", "png")?;
+    let blob = index
+        .sources
+        .get(source)
+        .ok_or("Missing menu thumbnail source")?;
+    let bytes = reader.read_blob(blob, MAX_THUMBNAIL_BYTES)?;
+    decode_thumbnail(&bytes).map(Some)
+}
+
 /// Checks every record hash and each level's semantics without loading prepared worlds.
 /// # Errors
 /// Returns corrupt record, script, dependency or index errors.
@@ -298,6 +331,13 @@ fn source_limit(path: &ProjectPath) -> Result<u64, String> {
 /// # Errors
 /// Rejects malformed image data before any project is published.
 pub fn validate_thumbnail(bytes: &[u8]) -> Result<(), String> {
+    decode_thumbnail(bytes).map(|_image| ())
+}
+
+/// Decodes the thumbnail-specific PNG contract, independently of world texture limits.
+/// # Errors
+/// Rejects malformed/oversized pixels, unsafe formats and animation before use.
+pub fn decode_thumbnail(bytes: &[u8]) -> Result<crate::engine::materials::RawImage, String> {
     if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_THUMBNAIL_BYTES {
         return Err("Thumbnail exceeds 4 MiB".into());
     }
@@ -305,6 +345,7 @@ pub fn validate_thumbnail(bytes: &[u8]) -> Result<(), String> {
     decoder.set_limits(png::Limits {
         bytes: 8 * 1024 * 1024,
     });
+    decoder.set_transformations(png::Transformations::EXPAND);
     let mut reader = decoder
         .read_info()
         .map_err(|e| format!("Invalid thumbnail PNG: {e}"))?;
@@ -320,18 +361,31 @@ pub fn validate_thumbnail(bytes: &[u8]) -> Result<(), String> {
     {
         return Err("Thumbnail must be a 16:9 RGB/RGBA8 PNG, maximum 1280x720".into());
     }
+    let (width, height) = (info.width, info.height);
     let mut pixels = vec![
         0;
         reader
             .output_buffer_size()
             .ok_or("Thumbnail decode size overflow")?
     ];
-    let _frame = reader
+    let frame = reader
         .next_frame(&mut pixels)
         .map_err(|e| format!("Invalid thumbnail pixels: {e}"))?;
+    pixels.truncate(frame.buffer_size());
+    let rgba = if frame.color_type == png::ColorType::Rgba {
+        pixels
+    } else {
+        pixels
+            .as_chunks::<3>()
+            .0
+            .iter()
+            .flat_map(|pixel| pixel.iter().copied().chain(std::iter::once(255)))
+            .collect()
+    };
     reader
         .finish()
-        .map_err(|e| format!("Invalid thumbnail end: {e}"))
+        .map_err(|e| format!("Invalid thumbnail end: {e}"))?;
+    Ok(crate::engine::materials::RawImage::new(width, height, rgba))
 }
 
 /// Validates and snapshots the complete declared editable file set without compiling.

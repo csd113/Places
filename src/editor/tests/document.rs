@@ -347,3 +347,29 @@ fn invalid_edits_and_external_changes_leave_sources_and_history_safe() -> Result
     );
     Ok(())
 }
+
+// Essential persistence regression: the map-level Boolean must use raw document
+// history and survive per-level selection/save/reopen. Two existing tiny files,
+// no assets/GPU/bake; only a few local writes, distinct from transform coverage.
+#[test]
+fn crosshair_default_survives_history_and_reopen() -> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut document = Document::open(&fixture.0)?;
+    assert!(document.level().crosshair, "omitted setting defaults on");
+    document.set_crosshair(false)?;
+    assert!(!document.level().crosshair, "editor disables this map");
+    assert!(document.undo(), "map setting participates in undo");
+    assert!(document.level().crosshair, "undo restores omission");
+    assert!(document.redo(), "map setting participates in redo");
+    document.select_level("second")?;
+    assert!(
+        document.level().crosshair,
+        "other map keeps its own default"
+    );
+    document.save_all()?;
+    let mut reopened = Document::open(&fixture.0)?;
+    assert!(!reopened.level().crosshair, "saved entry remains disabled");
+    reopened.select_level("second")?;
+    assert!(reopened.level().crosshair, "other map remains enabled");
+    Ok(())
+}

@@ -8,6 +8,7 @@ use crate::game::display::{DisplayStatus, resolution_label, step_resolution};
 use crate::game::settings::{KeyBindings, Settings, WindowMode};
 
 mod menu;
+pub(crate) use menu::level_icon_bounds;
 mod pointer;
 pub use menu::{MenuHit, MenuIntent, MenuLayout, menu_layout};
 pub use pointer::MenuPointer;
@@ -450,6 +451,45 @@ pub fn fit_text(text: &str, max_width: f32, scale: f32) -> String {
     }
     let kept: String = text.chars().take(max_chars.saturating_sub(3)).collect();
     format!("{kept}...")
+}
+
+/// Appends five small translucent white dots about the exact view centre.
+/// Geometry only: target eligibility and all gameplay remain unchanged.
+pub fn append_crosshair(vertices: &mut Vec<Vertex>, drawable: crate::engine::render::DrawableSize) {
+    let [center_x, center_y] = drawable.view_center_in_ui();
+    let uv = crate::engine::font::get_white_uv();
+    for [dx, dy] in [[0.0, 0.0], [0.0, -2.5], [0.0, 2.5], [-2.5, 0.0], [2.5, 0.0]] {
+        let center = [center_x + dx, center_y + dy, 0.0];
+        for (radius, color) in [
+            (0.62, [0.01, 0.015, 0.02, 0.28]),
+            (0.45, [1.0, 1.0, 1.0, 0.4]),
+        ] {
+            for segment in 0..12_u16 {
+                let first = f32::from(segment) * std::f32::consts::TAU / 12.0;
+                let second = f32::from(segment.saturating_add(1)) * std::f32::consts::TAU / 12.0;
+                for pos in [
+                    center,
+                    [
+                        first.cos().mul_add(radius, center[0]),
+                        first.sin().mul_add(radius, center[1]),
+                        0.0,
+                    ],
+                    [
+                        second.cos().mul_add(radius, center[0]),
+                        second.sin().mul_add(radius, center[1]),
+                        0.0,
+                    ],
+                ] {
+                    vertices.push(Vertex {
+                        pos,
+                        color,
+                        uv: [uv[0], uv[1]],
+                        ..Vertex::UNLIT
+                    });
+                }
+            }
+        }
+    }
 }
 
 /// Appends the committed hollow hand with the current binding inside the palm.

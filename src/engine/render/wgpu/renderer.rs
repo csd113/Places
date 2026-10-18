@@ -531,6 +531,8 @@ pub struct WgpuRenderer {
     decal_reflection_pipeline: Option<DecalPipeline>,
     /// The renderer-owned UI pass (the 480x272 HUD).
     ui: Option<UiRenderer>,
+    editor_ui: bool,
+    ui_images: Vec<crate::engine::render::UiImage>,
     /// The UI vertex list of the last `render_ui`, replayed by the one-shot
     /// capture so it includes the HUD the window showed. Capacity is reused
     /// across frames.
@@ -977,6 +979,8 @@ impl WgpuRenderer {
             sky: None,
             sky_pipeline: None,
             ui: None,
+            editor_ui: false,
+            ui_images: Vec::new(),
             last_ui: Vec::new(),
             post: None,
             scene_pipeline: None,
@@ -5094,16 +5098,31 @@ impl WgpuRenderer {
         ));
     }
 
-    /// Builds the UI pipeline for the configured surface format.
-    ///
-    /// Called before drawing the UI; rebuilds only when the format changed (a
-    /// recreated surface). The HUD atlas is re-uploaded with it; it is 256x128
-    /// and created once per format.
-    fn ensure_ui_pipeline(&mut self, format: wgpu::TextureFormat) {
-        if self.ui.as_ref().map(UiRenderer::format) == Some(format) {
-            return;
+    pub fn set_ui_images(&mut self, images: Vec<crate::engine::render::UiImage>) {
+        self.ui_images = images.into_iter().take(8).collect();
+    }
+
+    /// Selects editor artwork; the format-specific pipeline is rebuilt lazily.
+    pub fn set_editor_ui(&mut self) {
+        if !self.editor_ui {
+            self.editor_ui = true;
+            self.ui = None;
         }
-        self.ui = Some(UiRenderer::new(&self.device, &self.queue, format));
+    }
+
+    /// Builds the UI pipeline and uploads its committed atlas once per format.
+    fn ensure_ui_pipeline(&mut self, format: wgpu::TextureFormat) {
+        if self.ui.as_ref().map(UiRenderer::format) != Some(format) {
+            self.ui = Some(UiRenderer::new(
+                &self.device,
+                &self.queue,
+                format,
+                self.editor_ui,
+            ));
+        }
+        if let Some(ui) = self.ui.as_mut() {
+            ui.set_images(&self.device, &self.queue, &self.ui_images);
+        }
     }
 
     /// Draws the 2D UI vertex list into the frame acquired by `render_scene`.

@@ -308,6 +308,7 @@ skeleton and the per-field tables.
   "id": "my_level",                        // REQUIRED. Non-empty; menu key.
   "name": "My Level",                      // REQUIRED. Non-empty; display name.
   "author": "",                            // optional, default "".
+  "crosshair": true,                       // optional Boolean, default true; presentation only.
 
   "sky": {                                 // optional; a data-driven night-sky background
     "texture": "outdoor:tex_sky_stars_01", // a catalog `texture` asset, equirectangular 2:1
@@ -8719,3 +8720,15 @@ composition. Build/export explicitly; it is never a mandatory CI/full-map bake.
 All existing map placements remain authoritative, including both game modes.
 The Home switch's named hierarchy and exact toggle samples survive its rebuilt
 geometry; raw node indices are not a stable external interface.
+
+### Map crosshair default (0.12.0)
+
+Top-level `crosshair` is an optional Boolean, default `true`. Project controls
+expose **Map crosshair: On/Off** for the selected level. Ordinary history, save,
+source recovery and project export preserve this setting independently per map.
+`/crosshair on` or `/crosshair off` overrides it for the current visit; another
+map load or reload clears that override. Respawn/world reset and graphics-only
+rebuilds retain it. It is hidden in menus, loading, console, guidance/death/win
+panels and third-person representation. It does not change aim eligibility,
+interaction distances, collision or item ownership. The existing hand remains
+tied to the actual valid nearby aimed target and disappears while holding.

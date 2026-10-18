@@ -352,6 +352,25 @@ fn small_line(vertices: &mut Vec<Vertex>, text: &str, y: f32, color: [f32; 3]) {
     );
 }
 
+/// Menu icon placement shares visible-row scrolling and hit layout.
+#[must_use]
+pub fn level_icon_bounds(row: &MenuRow) -> [f32; 4] {
+    [48.0, row.bounds.top + 1.0, 28.444_445, 16.0]
+}
+
+fn draw_icon_fallback(vertices: &mut Vec<Vertex>, row: &MenuRow) {
+    let [left, top, width, height] = level_icon_bounds(row);
+    add_rect(
+        vertices,
+        left,
+        top,
+        left + width,
+        top + height,
+        [0.12, 0.14, 0.16],
+    );
+    draw_text(vertices, "P", left + 10.0, top + 4.0, 1.0, MUTED);
+}
+
 fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, ui: &UiState) {
     let selected = selected_index(state, ui);
     for entry in &layout.rows {
@@ -382,11 +401,21 @@ fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, u
         } else {
             TEXT
         };
-        let label_width = if entry.value.is_empty() { 360.0 } else { 236.0 };
+        let has_icon = state == AppState::LevelSelect && entry.index < ui.level_entries.len();
+        if has_icon {
+            draw_icon_fallback(vertices, entry);
+        }
+        let label_width = if has_icon {
+            326.0
+        } else if entry.value.is_empty() {
+            360.0
+        } else {
+            236.0
+        };
         draw_text(
             vertices,
             &fit_text(&entry.label, label_width, 1.0),
-            48.0,
+            if has_icon { 82.0 } else { 48.0 },
             bounds.top + 5.0,
             1.0,
             color,

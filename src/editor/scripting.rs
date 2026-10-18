@@ -335,8 +335,8 @@ impl App {
             ) {
                 if line < *scroll {
                     *scroll = line;
-                } else if line >= scroll.saturating_add(23) {
-                    *scroll = line.saturating_sub(22);
+                } else if line >= scroll.saturating_add(20) {
+                    *scroll = line.saturating_sub(19);
                 }
             }
             let result = doc.set_script_text(path, source);
