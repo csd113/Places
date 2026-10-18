@@ -60,6 +60,8 @@ sha2 = "0.11.1"
 # language the world, decal, post and UI pipelines use.
 wgpu = { version = "30.0.1", default-features = false, features = ["std", "wgsl"] }
 zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+# Shared sandboxed Luau, statically built; no JIT, FFI or module loader.
+mlua = { version = "0.12.2", default-features = false, features = ["luau", "vendored", "send"] }
 
 # One bounded persistent CPU executor for independent runtime preparation.
 # Browser builds retain the identical serial work without native threads.
@@ -150,7 +152,9 @@ opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
-panic = "abort"
+# Luau reports ordinary VM errors with C++ exceptions through mlua's
+# C-unwind callbacks. Abort mode terminates at that foreign-unwind boundary.
+panic = "unwind"
 
 # Keep offline preparation and numerical developer tools usable in debug builds.
 # The player loads solved packages; it never fills a lightmap atlas at startup.

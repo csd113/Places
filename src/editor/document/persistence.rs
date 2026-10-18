@@ -174,7 +174,7 @@ fn write_contents(file: &mut File, path: &Path, bytes: &[u8]) -> Result<(), Stri
         .map_err(|error| format!("{}: {error}", path.display()))
 }
 
-fn atomic_replace(path: &Path, bytes: &[u8]) -> Result<(), String> {
+pub(super) fn atomic_replace(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let parent = path.parent().ok_or("Source has no parent folder")?;
     let (temporary, mut file) = reserve_temporary(parent)?;
     let result = (|| {

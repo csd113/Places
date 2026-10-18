@@ -7,4 +7,6 @@
 # Rapier 0.36's glamx requires glam 0.33; the existing renderer's glam 0.29
 # API stays intact. Rapier's nalgebra compatibility also records optional
 # glam 0.30/0.31/0.32 versions in Cargo.lock, which Clippy includes here.
-allowed-duplicate-crates = ["glam", "hashbrown", "miniz_oxide", "syn"]
+# mlua 0.12 needs rustc-hash 2; naga/wgpu still requires rustc-hash 1.
+# This upstream major split cannot be unified by this crate.
+allowed-duplicate-crates = ["glam", "hashbrown", "miniz_oxide", "rustc-hash", "syn"]

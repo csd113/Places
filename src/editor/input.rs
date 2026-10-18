@@ -143,6 +143,9 @@ impl App {
             self.request(Pending::Close, window);
             return;
         }
+        if self.script_event(event, window) {
+            return;
+        }
         if self.numeric_event(event) {
             return;
         }
@@ -225,7 +228,7 @@ impl App {
     }
 }
 
-fn command(modifiers: Mod) -> bool {
+pub(super) fn command(modifiers: Mod) -> bool {
     modifiers.intersects(Mod::LCTRLMOD | Mod::RCTRLMOD | Mod::LGUIMOD | Mod::RGUIMOD)
 }
 

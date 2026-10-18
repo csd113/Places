@@ -768,6 +768,11 @@ impl LadderDef {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum ActionDef {
+    /// Invoke an exported project-local Luau handler through the bounded host.
+    RunScript {
+        script: crate::engine::project::ProjectPath,
+        handler: String,
+    },
     /// Drive a door or movable entity to its open end.
     Open {
         /// Entity id; omitted means the acting entity.
@@ -1007,6 +1012,10 @@ impl ActionDef {
     #[must_use]
     pub const fn kind(&self) -> &'static str {
         match self {
+            Self::RunScript {
+                script: _,
+                handler: _,
+            } => "run_script",
             Self::Open { target: _ } => "open",
             Self::Close { target: _ } => "close",
             Self::Toggle { target: _ } => "toggle",
@@ -1131,7 +1140,11 @@ impl ActionDef {
                 target,
                 sequence: _,
             } => target.as_deref(),
-            Self::SpawnEntity {
+            Self::RunScript {
+                script: _,
+                handler: _,
+            }
+            | Self::SpawnEntity {
                 template: _,
                 point: _,
                 group: _,
@@ -6954,6 +6967,12 @@ const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
+    /// Authoring references resolved only through the owning project.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scripts: Vec<crate::engine::project::ProjectPath>,
+    /// Compiler snapshot for this single map; never read from the filesystem by Play.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub script_sources: Vec<crate::engine::scripting::ScriptSource>,
     #[serde(deserialize_with = "deserialize_level_schema")]
     pub schema: String,
     pub format_version: u32,

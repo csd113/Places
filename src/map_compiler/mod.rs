@@ -592,6 +592,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         "collision".to_string(),
         "navigation".to_string(),
     ];
+    if !level.script_sources.is_empty() {
+        required.push("luau-v1".to_string());
+    }
     if blobs_have_shared_props(&entries) {
         required.push("props-shared-streams".to_string());
     }
@@ -2072,6 +2075,10 @@ pub(crate) fn lighting_fingerprint_with_revision(
     // never read by static geometry, collision, illumination or probe baking.
     stripped.name.clear();
     stripped.author.clear();
+    // Luau runs only after load; these bytes cannot change prepared geometry,
+    // lighting, collision or probes. They remain in the full package identity.
+    stripped.scripts.clear();
+    stripped.script_sources.clear();
     strip_navigation_components(&mut stripped);
     // Exposure, shoulder and display grade are applied after linear-HDR probe
     // capture. Fog remains in the stage key: it is present in captured cubes.
@@ -2096,7 +2103,7 @@ pub(crate) fn lighting_fingerprint_with_revision(
     // Explicit stage-key version: older packages miss once, then reuse safely.
     let _formatted_stage_lighting = writeln!(
         canonical,
-        "stage lighting v1 navigation_display_metadata_presentation_excluded"
+        "stage lighting v1 navigation_display_metadata_presentation_scripts_excluded"
     );
     // This reusable stage also stores collision boxes, including region rims.
     let _formatted_rim_backing = writeln!(
@@ -2563,3 +2570,6 @@ fn verify_declared_entries(path: &Path, manifest: &Manifest) -> Result<(), Strin
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

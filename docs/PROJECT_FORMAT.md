@@ -2,7 +2,7 @@
 
 `engine::project` owns the shared source contract for the future editor and Map
 Compiler. The game continues to load compiled `.placesmap` files through
-`engine::package`; it does not open authoring projects or execute source scripts.
+`engine::package`; it does not open authoring projects. Stage 6 executes only the Luau source snapshots carried by the selected compiled map.
 Single-map JSON input remains supported.
 
 ## Folder and manifest
@@ -12,7 +12,7 @@ my-project/
   places.project.json
   levels/entry.json
   levels/second.json
-  scripts/                 optional .luau source references, no execution
+  scripts/                 optional project-local .luau modules
   thumbnails/              optional .png metadata references, no UI yet
   assets/textures/          reserved for later custom importing
   assets/models/            reserved for later custom importing
@@ -42,9 +42,7 @@ place required runtime assets here: this stage resolves installed built-ins.
 Project and level records optionally carry `description`, `thumbnail` (for
 example `thumbnails/entry.png`) and `scripts` (for example
 `["scripts/entry.luau"]`). Thumbnail references are authoring metadata only;
-pixel layout, generated previews and player thumbnail UI are later work. Script
-references reserve locations only: no VM, entry-function convention, lifecycle,
-execution or package embedding is implied. Declared optional files must exist.
+pixel layout, generated previews and player thumbnail UI are later work. Stage 6 resolves script references into selected-map runtime snapshots. Declared optional files must exist; see [Luau source and lifecycle](SCRIPTING.md).
 
 The manifest rejects unknown fields and unsupported schema/version pairs. It
 admits 1–256 levels, at most 256 script references in total, 256 KiB of metadata,
@@ -61,7 +59,7 @@ or spaces. Sources belong below `levels/` with `.json`, thumbnails below
 `thumbnails/` with `.png`, and scripts below `scripts/` with `.luau`. Opening a
 project canonicalizes its root and checks regular-file confinement after
 resolving symlinks. Map reads are capped at the shared level-source limit;
-scripts at 1 MiB and thumbnails at 4 MiB each. Bounded reads also reject growth
+scripts at 64 KiB and thumbnails at 4 MiB each. Bounded reads also reject growth
 beyond the limit after opening. These are local authoring APIs, not a sandbox
 for untrusted concurrent filesystem mutation.
 
@@ -107,8 +105,7 @@ a later failure. Project metadata and selected source bytes participate in the
 compiler fingerprint. Metadata changes cannot silently reuse a stale package.
 
 This is the foundation for multi-level export, not a player-loadable project
-bundle. Compiled packages do not yet embed project membership, scripts or
-thumbnail metadata. Group packaging, transitions and clean installed-player
+bundle. Compiled packages embed selected-map script snapshots, but do not yet embed complete project membership or thumbnail metadata. Group packaging, transitions and clean installed-player
 round trips remain the later export stage.
 
 ## Deliberate pre-release reset
@@ -219,7 +216,7 @@ Gameplay retains the shared typed level collections. Prop `pitch_degrees` and
 recompiling prepared output for the full orientation. `sound_emitters[]`,
 `ground_fog[]`, door `bidirectional` and exact `entity` trigger filters are
 additive source fields. Built-in logical asset IDs remain authoritative; no
-custom importer or script execution is introduced.
+custom importer is introduced; stage 6 adds the separate bounded Luau contract.
 
 The editor preserves optional `editor_instance_id` fields on individual raw
 records and a level-level `editor_placement_intent` object with `version: 1`
@@ -237,3 +234,15 @@ materializes a normal binding when its first action is added. Removing the final
 action restores a draft; an empty runtime action binding remains invalid. Drafts
 produce no runtime action. Both metadata forms survive raw save/reopen and
 history while the compiled semantic level omits them.
+
+## Stage 6 selected-map scripts
+
+A level JSON may add `scripts: ["scripts/entry.luau"]`. Project-wide and selected
+manifest-level references remain supported. Compiler input resolves their union
+through `ProjectFolder`, validates bounded UTF-8 and exported handler links, and
+embeds compiler-owned `script_sources: [{path, source}]` in that map’s semantics.
+Authored inline snapshots are refused. Exact source bytes join the build identity.
+The player never reads these paths from disk. `run_script` is an ordinary shared
+action with `script` and `handler`; event policies and action order remain intact.
+No format version changed. Old un-scripted maps remain valid; older binaries do
+not implement these new actions. Complete multi-level distribution remains stage 7.

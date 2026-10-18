@@ -18,7 +18,7 @@ repository pin; a moving `stable` label alone is insufficient evidence.
 Historical reports retain the toolchain versions actually used in their dated
 campaigns.
 
-Native builds need SDL3 3.2+ and `pkg-config`; macOS uses
+Native builds need SDL3 3.2+, `pkg-config` and a C++17 toolchain for vendored Luau; macOS uses
 `brew install sdl3 pkg-config`. Linux needs SDL3
 headers, the Vulkan loader and a driver. Windows needs SDL3 and its C/C++ toolchain.
 Python tools require 3.10+; Pillow and NumPy are optional authoring/analysis

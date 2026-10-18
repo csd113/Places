@@ -5357,7 +5357,8 @@ The runtime gives every placed record a stable identity, optional typed
 **components** that say what it can do, and **event bindings** that say what
 its events do. One closed action set is dispatched by that single mechanism:
 props, doors, fixtures, volumes, timers, spawn points and spawn templates all
-wire behaviour the same way, and none of it is a scripting engine. This
+wire behaviour the same way. Stage 6 adds a bounded Luau host through the same
+action pipeline; see [SCRIPTING.md](SCRIPTING.md). This
 section is the field-by-field contract; every name below is verified against
 `src/engine/level.rs` (`ComponentDef`, `EventBindingDef`, `ConditionDef`, `ActionDef`,
 `EventKindName`, `TriggerVolumeDef`) and `src/engine/entities/`
@@ -8638,3 +8639,14 @@ export, corrected hash and reproducible recipe are identified in
 ASSET_SPECIFICATION.md. Full solver 21 also retains the owning plane at shallow
 model folds: do not compensate for bowl-edge lighting seams with emitter power,
 emissive porcelain or changed authored normals.
+
+### 0.12.0 stage 6: project-local Luau
+
+The shared action vocabulary now includes `run_script` with `script` (a confined
+`scripts/*.luau` reference) and `handler` (a named module export). Level JSON can
+list `scripts`; project and selected manifest-level declarations also load. Use
+[Luau authoring, typed host API, budgets and lifecycle](SCRIPTING.md) for the
+implemented contract and native editor linking workflow. Scripts use existing
+door/light/sound/entity/physics actions. Compiled single-map semantics carry the
+source snapshot; multi-level project packaging remains stage 7. No shipped map
+or asset was changed for this foundation.

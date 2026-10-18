@@ -30,7 +30,7 @@ impl ProjectPath {
         &self.0
     }
 
-    pub(super) fn require_role(&self, directory: &str, extension: &str) -> Result<(), String> {
+    pub(crate) fn require_role(&self, directory: &str, extension: &str) -> Result<(), String> {
         let (parent, _) = self
             .0
             .split_once('/')

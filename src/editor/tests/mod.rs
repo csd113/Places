@@ -3,3 +3,5 @@ mod fog;
 mod geometry;
 
 mod gameplay;
+
+mod scripting;

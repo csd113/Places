@@ -13,3 +13,5 @@ mod project_contract;
 mod prop_rotation;
 mod trigger_index;
 mod trigger_occupants;
+
+mod scripting;

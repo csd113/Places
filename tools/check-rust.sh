@@ -17,7 +17,10 @@ run_selected() {
     clippy) run_stage clippy cargo clippy --locked --workspace --all-targets --all-features -- -D warnings ;;
     clippy-release) run_stage clippy-release cargo clippy --locked --release --workspace --all-targets --all-features -- -D warnings ;;
     test) run_stage test cargo test --locked --workspace ;;
-    build) run_stage build cargo build --locked --release --workspace --all-features ;;
+    build)
+      run_stage build cargo build --locked --release --workspace --all-features
+      run_stage luau-release python3 tools/verify-luau-release.py
+      ;;
     *) printf '%s\n' "Unknown Rust gate stage: $1" >&2; exit 2 ;;
   esac
 }

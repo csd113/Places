@@ -9,6 +9,7 @@ mod input;
 pub mod process;
 mod safety;
 mod safety_actions;
+mod scripting;
 mod ui;
 mod verification;
 mod viewport;
@@ -71,6 +72,7 @@ struct App {
     prop: String,
     sound_cues: Vec<String>,
     popup: Option<Popup>,
+    script_feedback: String,
     safety_report: Option<safety::SafetyReport>,
     safety_job: Option<Receiver<(serde_json::Value, safety::SafetyReport)>>,
     safety_index: usize,
@@ -168,7 +170,18 @@ impl App {
     }
 
     fn update_window(&self, window: &mut sdl3::video::Window, video: &sdl3::VideoSubsystem) {
-        let wants_text = matches!(self.popup, Some(Popup::Number { field: _, value: _ }));
+        let wants_text = matches!(
+            self.popup,
+            Some(
+                Popup::Number { field: _, value: _ }
+                    | Popup::ScriptEdit {
+                        path: _,
+                        cursor: _,
+                        scroll: _,
+                        all: _
+                    }
+            )
+        );
         let text_input = video.text_input();
         if text_input.is_active(window) != wants_text {
             if wants_text {
@@ -330,6 +343,7 @@ fn application(options: Options) -> Result<(), String> {
             .map(str::to_string)
             .collect(),
         popup: None,
+        script_feedback: String::new(),
         safety_report: None,
         safety_job: None,
         safety_index: 0,

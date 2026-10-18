@@ -40,3 +40,5 @@ pub mod weather;
 
 #[cfg(test)]
 mod tests;
+
+pub mod scripting;

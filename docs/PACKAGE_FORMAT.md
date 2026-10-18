@@ -764,3 +764,8 @@ places-compile verify <source.json> --package <package> [--asset-root <dir>]
 the fallback; the flag wins). `--workers 1` selects the serial reference path.
 Builds are atomic: an interrupted run leaves the last valid package in place and
 a `.partial` file that the next run overwrites.
+
+Stage 6 adds the required capability `luau-v1` for selected-map Luau snapshots.
+`semantics.json` carries bounded `script_sources` records and their safe logical
+paths; the player reads no project files. Older players reject this capability.
+Complete project/multi-level packaging remains stage 7; see [SCRIPTING.md](SCRIPTING.md).

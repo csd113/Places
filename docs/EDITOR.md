@@ -1,4 +1,4 @@
-# Editor authoring and safety (0.12.0 task5)
+# Editor authoring and safety (0.12.0 stage 6)
 
 Run `places-editor` beside `places-compile` and `places`, with the external
 `assets/` payload described in [INSTALLATION.md](INSTALLATION.md). No map bake is
@@ -196,8 +196,7 @@ Choose a built-in model/behavior and bounded lifetime in their reusable template
 or select an existing template. Duplicated points share the template and receive
 independent one-active-spawn groups. Editing a shared template affects its points.
 A trigger's spawn action names the point; the ordinary shared entity runtime
-creates and expires the instance. This wiring is reusable by the upcoming Luau
-and game-mode work.
+creates and expires the instance. This wiring is reused by Luau and future game-mode work.
 
 Regional fog fills a bounding box; ground fog independently fades upward from
 its authored base. Transform sets their footprint and height. Configure sets
@@ -215,7 +214,17 @@ emitter footprints. Manual transforms and intentional solid intersections remain
 available. Full transport uses actual prop triangles; Static collision/occlusion
 retains conservative transformed envelopes.
 
-Custom importers, Luau, project bundles, menu scenes and final distribution
+Custom importers, project bundles, menu scenes and final distribution
 signoff remain later work. Model integration is deferred until stages 4–7 are
 complete. Other unsupported source data remains preserved. Native Windows/Linux
 acceptance remains outstanding.
+
+## Luau source workflow
+
+`Scripts >` opens the selected map’s modules. Create/open/edit source, Save,
+Check and inspect bounded Diagnostics in one focused sheet. Select a trigger,
+choose Actions / Script handler, open a module and Link handler. Enter/exit,
+once, cooldown, actor filters and ordinary action removal remain the trigger
+controls. Build+Play snapshots the selected map’s scripts; replay/reset recreates
+VM state. No external editor is required. See [the API, limits and lifecycle](SCRIPTING.md)
+and [the native stage 6 evidence](reports/editor-0.12.0-task6.md).

@@ -3010,12 +3010,8 @@ impl FrameLoop<'_> {
         }
     }
 
-    fn trace_world(&mut self, event: &str) {
-        let (renderer_level, renderer_quality, renderer_lightmaps) =
-            self.renderer.installed_identity();
-        let position = self.game.player_position.to_array();
-        let doors: Vec<_> = self
-            .game
+    fn script_door_snapshot(&self) -> Vec<serde_json::Value> {
+        self.game
             .doors()
             .iter()
             .map(|door| {
@@ -3024,7 +3020,14 @@ impl FrameLoop<'_> {
                     "phase": format!("{:?}", door.phase()), "obstructed": door.obstructed,
                 })
             })
-            .collect();
+            .collect()
+    }
+
+    fn trace_world(&mut self, event: &str) {
+        let (renderer_level, renderer_quality, renderer_lightmaps) =
+            self.renderer.installed_identity();
+        let position = self.game.player_position.to_array();
+        let doors = self.script_door_snapshot();
         let light_responses: Vec<_> = self.game.entities().light_response_observations().map(|observation| {
             serde_json::json!({
                 "instance_id": observation.instance_id,
@@ -3068,6 +3071,10 @@ impl FrameLoop<'_> {
             "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
         });
         if let Some(fields) = state.as_object_mut() {
+            drop(fields.insert(
+                "script_diagnostics".into(),
+                serde_json::json!(self.game.entities().script_diagnostics()),
+            ));
             drop(fields.insert("controls".into(), serde_json::json!({
                 "flashlight_on": self.flashlight.is_on(),
                 "settings_page": format!("{:?}", self.ui_state.settings_page), "settings_index": self.ui_state.settings_idx,

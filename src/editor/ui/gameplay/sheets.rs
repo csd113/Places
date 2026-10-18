@@ -327,17 +327,22 @@ fn trigger_actions(
                 .get("target")
                 .or_else(|| action.get("point"))
                 .or_else(|| action.get("group"))
+                .or_else(|| action.get("script"))
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or("");
+            let label = if kind == "run_script" {
+                format!(
+                    "Luau {} / {target}",
+                    action
+                        .get("handler")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("?")
+                )
+            } else {
+                format!("{kind} {target}")
+            };
             let y = f32::from(u16::try_from(i).unwrap_or(0)).mul_add(10.0, 97.0);
-            text(
-                vertices,
-                &format!("{kind} {target}"),
-                140.0,
-                y + 3.0,
-                INK,
-                58,
-            );
+            text(vertices, &label, 140.0, y + 3.0, INK, 58);
             button(
                 vertices,
                 hits,
@@ -355,6 +360,14 @@ fn trigger_actions(
         "+ Add action >",
         Action::GameplayActions,
         actions.is_none_or(|record| record.len() < 8),
+    );
+    button(
+        vertices,
+        hits,
+        [263.0, 180.0, 117.0, 10.0],
+        "Script handler >",
+        Action::Scripts,
+        true,
     );
 }
 

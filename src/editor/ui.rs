@@ -11,6 +11,8 @@ mod geometry;
 mod inspector;
 mod library;
 mod safety;
+mod scripts;
+pub(super) use scripts::draw as scripts_popup;
 
 pub(super) use gameplay::{action_popup, choices_popup, create_popup, gameplay_popup};
 pub(super) use geometry::{geometry_popup, shape_popup};
@@ -25,6 +27,13 @@ const PANEL: [f32; 4] = [0.065, 0.09, 0.12, 1.0];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Action {
+    Scripts,
+    ScriptNew,
+    ScriptOpen(usize),
+    ScriptCheck,
+    ScriptDiagnostics,
+    ScriptLink,
+    ScriptHandler(usize),
     Capture,
     Create,
     Gameplay,
@@ -292,6 +301,7 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     ] {
         button(vertices, hits, [x, 14.0, w, 11.0], label, action, enabled);
     }
+
     if app.compile.is_some() || app.play.is_some() {
         let playing = app.play.is_some();
         button(
@@ -310,6 +320,17 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
 }
 
 fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    if app.compile.is_none() && app.play.is_none() {
+        button(
+            vertices,
+            hits,
+            [254.0, 14.0, 37.0, 11.0],
+            "Scripts >",
+            Action::Scripts,
+            app.document.is_some(),
+        );
+    }
+
     button(
         vertices,
         hits,

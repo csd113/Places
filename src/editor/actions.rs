@@ -20,6 +20,19 @@ pub(super) enum Pending {
 }
 
 pub(super) enum Popup {
+    Scripts,
+    ScriptEdit {
+        path: String,
+        cursor: usize,
+        scroll: usize,
+        all: bool,
+    },
+    ScriptHandlers {
+        path: String,
+        names: Vec<String>,
+        page: usize,
+    },
+    ScriptDiagnostics,
     Unsaved(Pending),
     Number {
         field: usize,
@@ -49,6 +62,25 @@ pub(super) enum Popup {
 impl Popup {
     pub fn draw(&self, app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mut Vec<Hit>) {
         hits.clear();
+        if matches!(
+            self,
+            Self::Scripts
+                | Self::ScriptEdit {
+                    path: _,
+                    cursor: _,
+                    scroll: _,
+                    all: _
+                }
+                | Self::ScriptHandlers {
+                    path: _,
+                    names: _,
+                    page: _
+                }
+                | Self::ScriptDiagnostics
+        ) {
+            ui::scripts_popup(app, v, hits);
+            return;
+        }
         if let Self::Safety { index, preview } = self {
             ui::safety_popup(app, v, hits, *index, *preview);
             return;
@@ -56,6 +88,23 @@ impl Popup {
         ui::rect(v, [0.0, 0.0, 480.0, 272.0], [0.0, 0.0, 0.0, 0.6]);
         ui::rect(v, [130.0, 65.0, 260.0, 146.0], [0.075, 0.11, 0.14, 1.0]);
         match self {
+            Self::Scripts
+            | Self::ScriptEdit {
+                path: _,
+                cursor: _,
+                scroll: _,
+                all: _,
+            }
+            | Self::ScriptHandlers {
+                path: _,
+                names: _,
+                page: _,
+            }
+            | Self::ScriptDiagnostics
+            | Self::Safety {
+                index: _,
+                preview: _,
+            } => {}
             Self::Create => ui::create_popup(v, hits),
             Self::Gameplay { page } => ui::gameplay_popup(app, v, hits, *page),
             Self::GameplayActions => ui::action_popup(v, hits),
@@ -64,10 +113,6 @@ impl Popup {
             }
             Self::Geometry => ui::geometry_popup(app, v, hits),
             Self::Shape => ui::shape_popup(app, v, hits),
-            Self::Safety {
-                index: _,
-                preview: _,
-            } => {}
             Self::Unsaved(_) => {
                 ui::text(
                     v,
@@ -199,14 +244,22 @@ impl App {
     }
 
     pub(super) fn activate(&mut self, action: Action, window: &Window) -> Result<(), String> {
-        if self.geometry_action(action)?
+        if self.script_action(action)?
+            || self.geometry_action(action)?
             || self.safety_action(action)?
             || self.gameplay_action(action)?
         {
             return Ok(());
         }
         match action {
-            Action::Create
+            Action::Scripts
+            | Action::ScriptNew
+            | Action::ScriptOpen(_)
+            | Action::ScriptDiagnostics
+            | Action::ScriptCheck
+            | Action::ScriptLink
+            | Action::ScriptHandler(_)
+            | Action::Create
             | Action::Gameplay
             | Action::GameplayPage(_)
             | Action::GameplayActions
@@ -493,6 +546,20 @@ impl App {
     }
 
     fn page_library(&mut self, forward: bool) {
+        if let Some(Popup::ScriptHandlers {
+            path: _,
+            names,
+            page,
+        }) = &mut self.popup
+        {
+            *page = if forward {
+                page.saturating_add(1)
+                    .min(names.len().saturating_sub(1) / 20)
+            } else {
+                page.saturating_sub(1)
+            };
+            return;
+        }
         if let Some(Popup::GameplayChoices { choice, page }) = self.popup {
             let count = self.gameplay_choices(choice).len();
             self.popup = Some(Popup::GameplayChoices {
@@ -725,15 +792,26 @@ impl App {
                 self.play_after_build = false;
             }
         }
-        if let Some(job) = &mut self.play
-            && let Some(outcome) = job.poll()
-        {
-            self.status = match outcome {
-                PlayOutcome::Returned => "Returned to editing.".into(),
-                PlayOutcome::Stopped => "Play stopped. Editor work retained.".into(),
-                PlayOutcome::Failed(error) => format!("Play failed: {error}"),
-            };
-            self.play = None;
+        if let Some(job) = &mut self.play {
+            let polled_play = job.poll();
+            let messages: String = job
+                .diagnostics()
+                .lines()
+                .skip_while(|line| !line.contains("[luau]"))
+                .take(32)
+                .collect::<Vec<_>>()
+                .join("\n");
+            if !messages.is_empty() {
+                self.script_feedback = messages.chars().take(4096).collect();
+            }
+            if let Some(outcome) = polled_play {
+                self.status = match outcome {
+                    PlayOutcome::Returned => "Returned to editing.".into(),
+                    PlayOutcome::Stopped => "Play stopped. Editor work retained.".into(),
+                    PlayOutcome::Failed(error) => format!("Play failed: {error}"),
+                };
+                self.play = None;
+            }
         }
     }
 }

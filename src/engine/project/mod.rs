@@ -31,7 +31,7 @@ pub struct ProjectLevel {
     pub description: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thumbnail: Option<ProjectPath>,
-    /// Reserved Luau source references; validated but never executed or bundled.
+    /// Shared or selected-level Luau references snapshotted by project builds.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub scripts: Vec<ProjectPath>,
 }

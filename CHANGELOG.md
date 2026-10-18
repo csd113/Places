@@ -1,5 +1,13 @@
 ## 0.12.0 — in progress
 
+- Add sandboxed project-local Luau to the shared engine, with typed host calls
+  into existing actions, bounded execution/memory/effect queues and fresh state
+  on reset/reload. Validate exported handler links and fingerprint script bytes.
+- Add native script editing, save/conflict protection, Check/Diagnostics and
+  trigger handler linking in focused sheets. Selected-map Build/Play embeds
+  source; complete multi-level project packaging remains stage 7. See
+  [scripting contracts](docs/SCRIPTING.md) and [stage 6 evidence](docs/reports/editor-0.12.0-task6.md).
+
 - Add contextual geometry tools for signed ramps, recessed/raised regions,
   upper floors and snapped rectangular floor/ceiling openings, retaining raw
   data and one-step undo. Fix below-floor ramps being covered by their carrier
@@ -40,8 +48,7 @@
   source headers and authoring tools were migrated together.
 - Add three compact project-contract regressions and one tiny binary-contract
   regression without a shipped-map bake.
-  Custom importers, Luau execution, rich gameplay tools and polished multi-level export
-  remain later work. See [the source contract and stage handoff](docs/PROJECT_FORMAT.md).
+  Custom importers and complete multi-level export remain later work. See [the source contract and stage handoff](docs/PROJECT_FORMAT.md).
 
 ## 0.11.0 — 2026-10-17
 

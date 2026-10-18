@@ -182,6 +182,7 @@ fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
     let level = LevelDef::from_json(text)
         .map_err(|error| format!("package semantics are not valid: {error}"))?;
     crate::engine::loader::validate_level(&level)?;
+    crate::engine::scripting::validate_package_sources(&level, &manifest.required_capabilities)?;
     check_catalog_build_input(&mut reader, &manifest, root)?;
     check_dependencies(&manifest, root)?;
     Ok(OpenedPackage { manifest, level })

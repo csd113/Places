@@ -17,12 +17,17 @@ pub(super) struct SourceSnapshot {
 pub(super) fn read_source(input: &Path, selected: Option<&str>) -> Result<SourceSnapshot, String> {
     if is_project(input) {
         let project = ProjectFolder::open(input)?;
-        let (_, bytes, level) = project.read_level(selected)?;
+        let (_, bytes, mut level) = project.read_level(selected)?;
+        project.attach_scripts(&mut level)?;
+        crate::engine::scripting::check_level(&level)?;
         let mut identity =
             serde_json::to_vec(project.manifest()).map_err(|error| error.to_string())?;
         // JSON cannot contain a literal NUL, making the boundary unambiguous.
         identity.push(0);
         identity.extend(bytes);
+        identity.push(0);
+        identity
+            .extend(serde_json::to_vec(&level.script_sources).map_err(|error| error.to_string())?);
         Ok(SourceSnapshot { level, identity })
     } else {
         if selected.is_some() {
@@ -33,6 +38,9 @@ pub(super) fn read_source(input: &Path, selected: Option<&str>) -> Result<Source
             .map_err(|error| format!("level source is not valid UTF-8: {error}"))?;
         let level =
             LevelDef::from_json(text).map_err(|error| format!("invalid level source: {error}"))?;
+        if !level.scripts.is_empty() || !level.script_sources.is_empty() {
+            return Err("Scripted maps must be built through their owning project".into());
+        }
         crate::engine::loader::validate_level(&level)?;
         Ok(SourceSnapshot {
             level,

@@ -333,6 +333,8 @@ enum WeatherEndpoints {
 
 /// The whole runtime for one loaded world.
 pub struct EntityWorld {
+    scripts: crate::engine::scripting::ScriptRuntime,
+    script_event: Option<EventRecord>,
     generation: u64,
     store: EntityStore,
     names: EntityNames,
@@ -442,6 +444,8 @@ impl EntityWorld {
     #[must_use]
     pub fn new() -> Self {
         Self {
+            scripts: crate::engine::scripting::ScriptRuntime::default(),
+            script_event: None,
             generation: 0,
             store: EntityStore::new(),
             names: EntityNames::new(),
@@ -510,6 +514,8 @@ impl EntityWorld {
 
     /// Rebuilds this world from a level, invalidating every previous handle.
     pub fn resolve(&mut self, level: &LevelDef) {
+        self.scripts = crate::engine::scripting::ScriptRuntime::new(level);
+        self.script_event = None;
         self.store.clear();
         self.names.clear();
         self.components.clear();
@@ -602,6 +608,10 @@ impl EntityWorld {
             .iter()
             .map(|(handle, emitter)| (handle, emitter.clone()))
             .collect();
+        self.queue_initial_audio();
+    }
+
+    fn queue_initial_audio(&mut self) {
         let starts: Vec<EntityHandle> = self
             .components
             .audio
@@ -616,6 +626,8 @@ impl EntityWorld {
     /// Re-seeds every runtime to its authored start state without replacing the
     /// world: the `reset_to_start` contract.
     pub fn reset_runtime(&mut self) {
+        self.scripts.reload();
+        self.script_event = None;
         if self.weather_strength > 0.0
             || self.weather_target > 0.0
             || self.weather_cycle_enabled
@@ -672,28 +684,7 @@ impl EntityWorld {
                 *slot = state;
             }
         }
-        let audio: Vec<EntityHandle> = self
-            .components
-            .audio
-            .iter()
-            .map(|(handle, _)| handle)
-            .collect();
-        for handle in audio {
-            self.queue_audio_stop(handle);
-        }
-        for (handle, authored) in &self.authored_audio {
-            if let Some(emitter) = self.components.audio.get_mut(*handle) {
-                emitter.clone_from(authored);
-            }
-        }
-        let starts: Vec<EntityHandle> = self
-            .authored_audio
-            .iter()
-            .map(|(handle, _)| *handle)
-            .collect();
-        for handle in starts {
-            self.queue_audio_start(handle);
-        }
+        self.reset_audio();
         self.doors.reset();
         self.timers.reset();
         self.spawn_groups.reset();
@@ -716,6 +707,31 @@ impl EntityWorld {
         self.rebuild_door_colliders();
         self.sync_routed_interactables();
         self.rebuild_entity_frames();
+    }
+
+    fn reset_audio(&mut self) {
+        let audio: Vec<EntityHandle> = self
+            .components
+            .audio
+            .iter()
+            .map(|(handle, _)| handle)
+            .collect();
+        for handle in audio {
+            self.queue_audio_stop(handle);
+        }
+        for (handle, authored) in &self.authored_audio {
+            if let Some(emitter) = self.components.audio.get_mut(*handle) {
+                emitter.clone_from(authored);
+            }
+        }
+        let starts: Vec<EntityHandle> = self
+            .authored_audio
+            .iter()
+            .map(|(handle, _)| *handle)
+            .collect();
+        for handle in starts {
+            self.queue_audio_start(handle);
+        }
     }
 
     /// Scalar renderer feedback keeps legacy toggles consistent with the
@@ -2066,6 +2082,27 @@ impl EntityWorld {
         depth: u8,
     ) {
         match action {
+            ActionDef::RunScript { script, handler } => {
+                if u32::from(depth) >= MAX_CHAIN_DEPTH {
+                    return;
+                }
+                let mut runtime = std::mem::take(&mut self.scripts);
+                let actions = runtime.call(
+                    script,
+                    handler,
+                    self,
+                    actor.and_then(|h| self.id_of(h)),
+                    origin,
+                    0.0,
+                );
+                self.scripts = runtime;
+                for next in actions {
+                    self.run_action(&next, actor, origin, report, depth.saturating_add(1));
+                    if report.player_reset {
+                        break;
+                    }
+                }
+            }
             ActionDef::ResetToStart => {
                 report.actions_run = report.actions_run.saturating_add(1);
                 report.player_reset = true;
@@ -3058,7 +3095,11 @@ impl EntityWorld {
                     );
                     continue;
                 }
+                if !self.scripts.is_empty() {
+                    self.script_event = Some(event.clone());
+                }
                 self.run_bindings(&event, tick, event.depth);
+                self.script_event = None;
             }
         }
         self.compact_bindings();
@@ -3545,10 +3586,40 @@ impl EntityWorld {
             })
     }
 
+    pub(crate) fn script_event_context(&self) -> Option<(&str, &str, Option<&str>)> {
+        self.script_event.as_ref().map(|event| {
+            (
+                event.kind.name(),
+                event.key.as_str(),
+                event.actor.and_then(|handle| self.id_of(handle)),
+            )
+        })
+    }
+
+    /// Bounded diagnostics for the current script run.
+    #[must_use]
+    pub fn script_diagnostics(&self) -> &[String] {
+        self.scripts.diagnostics()
+    }
+
     /// Advances the whole runtime by one frame.
     pub fn tick(&mut self, ctx: &WorldContext<'_>) -> WorldTick {
         let mut tick = WorldTick::default();
         self.spawns_this_tick = 0;
+        self.scripts.begin_tick();
+        if ctx.delta_seconds.is_finite() && ctx.delta_seconds > 0.0 {
+            let mut runtime = std::mem::take(&mut self.scripts);
+            let automatic = runtime.automatic();
+            for (path, handler) in automatic {
+                let actions = runtime.call(&path, handler, self, None, None, ctx.delta_seconds);
+                let report = self.dispatch_actions(&actions, None);
+                tick.actions_run = tick.actions_run.saturating_add(report.actions_run);
+                tick.lights_toggled = tick.lights_toggled.saturating_add(report.lights_toggled);
+                tick.doors_acted = tick.doors_acted.saturating_add(report.doors_acted);
+                tick.frames_dirty |= report.spawned > 0 || report.despawned > 0;
+            }
+            self.scripts = runtime;
+        }
         if ctx.delta_seconds.is_finite() && ctx.delta_seconds > 0.0 {
             self.sim_time += ctx.delta_seconds;
             self.tick_bindings(ctx.delta_seconds);

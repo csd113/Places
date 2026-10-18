@@ -10,6 +10,7 @@ pub(crate) mod intent;
 mod mounting;
 mod objects;
 mod persistence;
+mod scripts;
 mod source;
 
 use std::collections::BTreeMap;
@@ -33,6 +34,7 @@ use persistence::LevelDocument;
 /// level. Merely switching levels never writes or discards edits.
 pub struct Document {
     project: ProjectFolder,
+    scripts: BTreeMap<String, scripts::ScriptDocument>,
     manifest_bytes: Vec<u8>,
     selected: LevelDocument,
     other_levels: BTreeMap<String, LevelDocument>,
@@ -49,6 +51,7 @@ impl Document {
         let selected = LevelDocument::open(&project, None)?;
         Ok(Self {
             project,
+            scripts: BTreeMap::new(),
             manifest_bytes,
             selected,
             other_levels: BTreeMap::new(),
@@ -329,7 +332,9 @@ impl Document {
 
     #[must_use]
     pub fn is_dirty(&self) -> bool {
-        self.selected.is_dirty() || self.other_levels.values().any(LevelDocument::is_dirty)
+        self.selected.is_dirty()
+            || self.other_levels.values().any(LevelDocument::is_dirty)
+            || self.scripts.values().any(scripts::ScriptDocument::is_dirty)
     }
 
     #[must_use]
@@ -356,7 +361,8 @@ impl Document {
     /// Rejects validation failures, external changes, unsafe paths and I/O errors.
     pub fn save(&mut self) -> Result<(), String> {
         self.preflight()?;
-        self.selected.save(&self.project)
+        self.selected.save(&self.project)?;
+        self.save_scripts()
     }
 
     /// Saves every dirty visited level. All sources are preflighted before any
@@ -371,10 +377,11 @@ impl Document {
         for document in self.other_levels.values_mut() {
             document.save(&self.project)?;
         }
-        Ok(())
+        self.save_scripts()
     }
 
     fn preflight(&self) -> Result<(), String> {
+        self.preflight_scripts()?;
         self.project.manifest().validate()?;
         if persistence::read_manifest(&self.project)? != self.manifest_bytes {
             return Err("Project manifest changed outside the editor; reopen before saving".into());

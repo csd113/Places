@@ -286,6 +286,7 @@ fn placeable_entry(entry: &crate::engine::assets::AssetEntry) -> PropCatalogEntr
 /// budgets, or malformed openings and patches.
 pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_header(level)?;
+    crate::engine::scripting::validate_sources(level)?;
     validate_element_limits(level)?;
     validate_materials(level)?;
     validate_sky(level)?;
@@ -4013,6 +4014,10 @@ fn validate_action(
     index: &LevelIndex<'_>,
 ) -> Result<(), String> {
     match action {
+        ActionDef::RunScript { script, handler } => {
+            script.require_role("scripts", "luau")?;
+            crate::engine::scripting::validate_handler(handler)?;
+        }
         ActionDef::ResetToStart => {}
         ActionDef::ResetPhysicsGroup { group } | ActionDef::ActivatePhysicsGroup { group } => {
             crate::engine::physics::config::validate_reset_group(group)?;
@@ -6312,4 +6317,38 @@ fn resolve_fixture_sheet(
         origin: crate::engine::materials::TextureOrigin::Catalog,
         image,
     }))
+}
+
+/// Existing authored action sites, shared with Luau export/reference validation.
+pub(crate) fn script_calls(level: &LevelDef) -> Vec<(&crate::engine::project::ProjectPath, &str)> {
+    let mut calls = Vec::new();
+    for record in authored_bindings(level) {
+        for binding in record.bindings {
+            for action in &binding.actions {
+                if let ActionDef::RunScript { script, handler } = action {
+                    calls.push((script, handler.as_str()));
+                }
+            }
+        }
+    }
+    for effect in &level.effects {
+        for binding in &effect.bindings {
+            for action in &binding.actions {
+                if let ActionDef::RunScript { script, handler } = action {
+                    calls.push((script, handler.as_str()));
+                }
+            }
+        }
+    }
+    for sequence in &level.sequences {
+        for step in &sequence.steps {
+            if let crate::engine::entities::sequences::SequenceStepDef::Action {
+                action: ActionDef::RunScript { script, handler },
+            } = step
+            {
+                calls.push((script, handler.as_str()));
+            }
+        }
+    }
+    calls
 }

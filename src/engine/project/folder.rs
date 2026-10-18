@@ -87,6 +87,9 @@ impl ProjectFolder {
             std::str::from_utf8(&bytes).map_err(|error| format!("{}: {error}", path.display()))?;
         let level =
             LevelDef::from_json(text).map_err(|error| format!("{}: {error}", path.display()))?;
+        if !level.script_sources.is_empty() {
+            return Err("script_sources is compiler-owned".into());
+        }
         crate::engine::loader::validate_level(&level)
             .map_err(|error| format!("{}: {error}", path.display()))?;
         if level.id != selected.id {
@@ -96,6 +99,47 @@ impl ProjectFolder {
             ));
         }
         Ok((path, bytes, level))
+    }
+
+    /// Snapshots only selected-level and shared declared scripts into semantics.
+    /// # Errors
+    /// Rejects unsafe references, oversized/invalid UTF-8 sources and inline code.
+    pub fn attach_scripts(&self, level: &mut LevelDef) -> Result<(), String> {
+        if !level.script_sources.is_empty() {
+            return Err(
+                "script_sources is compiler-owned; use project-local script references".into(),
+            );
+        }
+        let selected = self.manifest.level(Some(&level.id))?;
+        let mut paths = std::collections::BTreeSet::new();
+        for path in self
+            .manifest
+            .scripts
+            .iter()
+            .chain(&selected.scripts)
+            .chain(&level.scripts)
+        {
+            path.require_role("scripts", "luau")?;
+            if !paths.insert(path.as_str()) {
+                continue;
+            }
+            if level.script_sources.len() >= 16 {
+                return Err("A map supports at most 16 Luau modules".into());
+            }
+            let bytes = read_bounded_file(
+                &self.resolve(path)?,
+                crate::engine::scripting::MAX_SOURCE_BYTES,
+            )?;
+            let source =
+                String::from_utf8(bytes).map_err(|error| format!("{}: {error}", path.as_str()))?;
+            level
+                .script_sources
+                .push(crate::engine::scripting::ScriptSource {
+                    path: path.clone(),
+                    source,
+                });
+        }
+        crate::engine::scripting::validate_sources(level)
     }
 
     fn validate_files(&self) -> Result<(), String> {
