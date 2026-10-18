@@ -145,3 +145,12 @@ repeat all 19 crosshair captures, icon/corruption/contrast checks, the ordinary
 editor windows/focus, Beam's 44 death/reset assertions and Closing Time's ten
 win-route assertions. Native OS file-picker automation remains the narrow
 unexecuted UI path described above; validated visible path selection passes.
+
+Final review adds a focused loading guard: visible map PNGs are suppressed by the
+same `loading_map` flag that draws the loading modal, so they cannot overdraw it.
+Native menu/transition replays pass; the existing game capture queue defers its
+loading-named still until the new world, so no modal still is claimed. The
+initial CI run on `bd2fd97f` passed every new test but hit an existing Luau
+reset/scoped-state timing failure (zero instead of two after a closure call).
+Local full/focused checks pass; runtime budgets and later Luau safety scope are
+unchanged. A follow-up CI receipt covers the loading guard.

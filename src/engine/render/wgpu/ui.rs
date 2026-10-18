@@ -8,7 +8,7 @@
 //! of the scene passes. Its fragment stage is exactly
 //! `tex_color * v_color` in raw display space (the presented target is raw; the
 //! surface-facing fallback entry point converts once with `srgb_to_linear`),
-//! one font texture uploaded once, and one draw call per submission. The UI vertex list is the
+//! one font texture uploaded once, and bounded image draws per submission. The UI vertex list is the
 //! renderer-neutral [`Vertex`] the application builds in UI pixels; it is
 //! converted to the shared [`WorldVertex`] here, so the HUD is quantised and
 //! laid out exactly like a scene vertex.
@@ -149,7 +149,7 @@ fn viewport_f32(value: i32) -> f32 {
 /// report.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct UiStats {
-    /// `draw` calls issued (zero or one).
+    /// Draw calls issued (font geometry plus visible PNGs).
     pub draw_calls: usize,
     /// Vertices the one draw covers.
     pub visible_vertices: usize,

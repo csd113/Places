@@ -3530,6 +3530,7 @@ impl FrameLoop<'_> {
 
     fn sync_menu_images(&mut self) {
         let images = if self.game.app_state() == AppState::LevelSelect
+            && !self.ui_state.loading_map
             && self.startup == StartupPhase::Ready
         {
             ui::menu_layout(
