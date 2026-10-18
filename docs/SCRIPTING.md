@@ -177,6 +177,12 @@ the current route/retry state. `light_response.reveal_only` hides a body when
 raw direct illumination falls below its exit threshold, while the independent
 release hold may continue to pause movement. Default behavior is unchanged.
 
+`illuminated` and `intensity` describe an authored `light_response` component;
+without that component they return false and zero. The component requires the
+existing AI/navigation body. A shadow-only mesh can cast its flashlight shadow
+without this response component, but a script that checks whether the beam has
+reached it must author that capability separately.
+
 `api.actor(id).shadow_only` reports an entity's authored mesh policy independently
 of `illuminated` and `player_visible`. `api.spawn(point)` preserves the selected
 `spawn_templates[].shadow_only` from its first rendered frame. Scripts still

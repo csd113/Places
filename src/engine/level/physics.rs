@@ -339,9 +339,36 @@ impl WalkableFloor {
     }
 }
 
+/// A coplanar floor already owns the shared structural plane. Keeping the
+/// ceiling's upward backing there fills the first 12 cm of the upper storey.
+/// Clip only actual flat floor coverage; uncovered roofs retain their slab.
+fn unshared_ceiling(bounds: Rect, height: f32, floors: &[PhysicalPatch]) -> Vec<Rect> {
+    let mut remaining = vec![bounds];
+    for floor in floors {
+        if floor
+            .corners
+            .iter()
+            .any(|corner| (corner.y - height).abs() > 1.0e-4)
+        {
+            continue;
+        }
+        let [a, _, c, _] = floor.corners;
+        let cut = Rect::new((a.x, c.x, a.z, c.z));
+        let mut next = Vec::new();
+        for fragment in remaining {
+            fragment.subtract(cut, &mut next);
+        }
+        remaining = next;
+        if remaining.is_empty() {
+            break;
+        }
+    }
+    remaining
+}
+
 impl WalkableCeiling {
     /// Flat or pitched roof slabs, split once at a gable's ridge.
-    pub(crate) fn physical_patches(&self) -> Vec<PhysicalPatch> {
+    pub(crate) fn physical_patches(&self, floors: &[PhysicalPatch]) -> Vec<PhysicalPatch> {
         let mut output = Vec::new();
         for room in &self.rooms {
             let bounds = Rect::new(room.bounds);
@@ -380,7 +407,9 @@ impl WalkableCeiling {
                     ]
                     .to_vec()
                 }
-                CeilingProfileDef::Flat => vec![bounds],
+                CeilingProfileDef::Flat => {
+                    unshared_ceiling(bounds, room.ceiling_y_at(bounds.x0, bounds.z0), floors)
+                }
                 CeilingProfileDef::Open => Vec::new(),
             };
             for patch in patches {

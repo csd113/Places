@@ -27,6 +27,8 @@ are separate developer controls. Places Demo and Model Zoo remain frozen JSON in
 Historical reports describe the version they measured. They do not establish
 current package currency, test counts or platform performance.
 
+- [Relay Annex feature campaign](reports/editor-0.12.0-relay-annex.md): native
+  multi-map/four-storey gameplay, authoring provenance, coverage and editor gaps.
 - [0.11.0 prerelease summary](reports/release-0.11.0.md): completed release queue,
   exact-head verification, issue completion, source delivery and remaining limits.
 - [0.11.0 developer console](reports/developer-console-0.11.0.md): reusable typed

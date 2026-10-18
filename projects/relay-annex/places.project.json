@@ -1,0 +1,26 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "relay_annex",
+  "name": "Relay Annex",
+  "author": "Places",
+  "description": "A snowbound commissioning shift: intake, four service floors, and the flooded discharge hall.",
+  "entry_level": "relay_intake",
+  "levels": [
+    {
+      "id": "relay_intake",
+      "source": "levels/relay_intake.json",
+      "thumbnail": "thumbnails/bcc96792b664b415e02cc3422572465d7de6cddfc7559815045afea2711dc934.png"
+    },
+    {
+      "id": "relay_tower",
+      "source": "levels/relay_tower.json",
+      "thumbnail": "thumbnails/fd82703b1e3658a6ede15a50bcd67db4804e1f7dbc8eabaafa179aff20b6143e.png"
+    },
+    {
+      "id": "relay_discharge",
+      "source": "levels/relay_discharge.json",
+      "thumbnail": "thumbnails/c75a1f3d54d9db31be3fc54aeaa27e9558eb6aa35699356a1655a670e181ea22.png"
+    }
+  ]
+}

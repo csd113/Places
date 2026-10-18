@@ -1,5 +1,15 @@
 ## 0.12.0 — in progress
 
+- Add **Relay Annex**, a separate three-map commissioning campaign with a Winter
+  intake, four connected service floors and a flooded discharge hall. Record
+  native editor provenance, NPC conversations, physics/beam challenges, real
+  door transitions, recovery, package roundtrip and concrete editor gaps in
+  [the feature-test report](docs/reports/editor-0.12.0-relay-annex.md).
+- Keep upper-storey items carryable by removing redundant flat-ceiling backing
+  where a coplanar floor owns the structural plane. Use the selected map's
+  manifest on project graphics-cache hits so quality changes work beyond the
+  entry map. Preserve map formats and the accepted Closing Time and Beam sources.
+
 - Make editor text readable with a dedicated antialiased Roboto Mono font,
   native Retina resolution, larger glyphs, clearer spacing/contrast and visible
   keyboard focus. Preserve the slate/mint workspace and usable viewport.

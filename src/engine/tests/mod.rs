@@ -19,3 +19,5 @@ mod scripting;
 
 mod navigation_layers;
 mod project_package;
+
+mod stacked_item_clearance;

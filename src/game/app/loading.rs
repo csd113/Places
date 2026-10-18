@@ -758,7 +758,8 @@ fn prepare_world(
     // Variant decoding synchronizes model ownership on cache misses. Hits also
     // release unrelated models and retain only this request's dependency hashes.
     if reusable.is_some() {
-        let requested_manifest = crate::engine::package::world::inspect(&loaded.entry.path)?;
+        let requested_manifest =
+            crate::engine::package::world::inspect_level(&loaded.entry.path, &loaded.entry.id)?;
         key.check_manifest(&requested_manifest)?;
         assets.synchronize_dependencies(&requested_manifest.dependencies);
     }

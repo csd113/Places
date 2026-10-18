@@ -261,7 +261,8 @@ pub(super) fn install_static(
         refresh_collider(world, handle);
     }
     let (floors, barriers) = floor.physical_geometry();
-    for patch in floors.into_iter().chain(ceiling.physical_patches()) {
+    let ceilings = ceiling.physical_patches(&floors);
+    for patch in floors.into_iter().chain(ceilings) {
         let (friction, combine, material_tag) = if patch.ceiling {
             (0.6, CoefficientCombineRule::Average, None)
         } else {

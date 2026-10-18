@@ -1,0 +1,697 @@
+{
+  "author": "Places",
+  "ceiling_lights": [
+    {
+      "brightness": 0.7,
+      "color": [
+        1,
+        0.72,
+        0.38
+      ],
+      "emission": 0.6,
+      "fixture": "core:pool_light_wall",
+      "id": "gate_light",
+      "mount": "wall",
+      "range": 8,
+      "rotation_degrees": 0,
+      "x": 7,
+      "y": 2.6,
+      "z": 0.04
+    }
+  ],
+  "crosshair": true,
+  "defaults": {
+    "ceiling": "home:ceiling_white_01",
+    "floor": "home:tile_home_01",
+    "wall": "home:wall_paint_offwhite_01"
+  },
+  "doors": [
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Tower airlock",
+          "reach": 3
+        }
+      ],
+      "height": 2.299999952316284,
+      "id": "airlock",
+      "initial_state": "closed",
+      "locked": true,
+      "rotation_degrees": 0.0,
+      "thickness": 0.05999999865889549,
+      "width": 1.399999976158142,
+      "x": 6.300000190734863,
+      "y": 0.0,
+      "z": -0.1
+    }
+  ],
+  "environment": {
+    "fog": {
+      "color": [
+        0.36,
+        0.43,
+        0.5
+      ],
+      "density": 0.006,
+      "height_gain": 0.03,
+      "reference_y": 1
+    },
+    "presentation": {
+      "contrast": 1.02,
+      "exposure": 1.1,
+      "saturation": 0.92,
+      "tone_knee": 0.78
+    }
+  },
+  "floor_patches": [
+    {
+      "depth": 2.4,
+      "material": "home:tile_home_01",
+      "width": 2.4,
+      "x": 2.8,
+      "z": 5.8
+    },
+    {
+      "depth": 5,
+      "material": "winter:ice_01",
+      "width": 4,
+      "x": 8,
+      "z": 7
+    }
+  ],
+  "floor_regions": [
+    {
+      "depth": 2,
+      "material": "winter:stone_masonry_01",
+      "offset_y": -2.5,
+      "width": 2,
+      "x": 11,
+      "z": 14
+    }
+  ],
+  "format_version": 1,
+  "global_illuminators": [
+    {
+      "angular_size_degrees": 0.5,
+      "bake": true,
+      "cast_shadows": true,
+      "color": [
+        0.58,
+        0.72,
+        1
+      ],
+      "direction": [
+        -0.36,
+        -0.8,
+        -0.48
+      ],
+      "id": "winter_moon",
+      "intensity": 0.18,
+      "kind": "moon"
+    }
+  ],
+  "ground_fog": [
+    {
+      "color": [
+        0.48,
+        0.6,
+        0.72
+      ],
+      "density": 0.07,
+      "falloff_m": 2,
+      "ground_y": 0,
+      "height": 0.8,
+      "id": "snow_mist",
+      "max": [
+        14,
+        18
+      ],
+      "min": [
+        0,
+        0
+      ]
+    }
+  ],
+  "id": "relay_intake",
+  "name": "Relay Annex / 1 \u2014 Snow Intake",
+  "props": [
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "talk",
+              "script": "scripts/relay_intake.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Talk to Ives",
+          "reach": 3
+        },
+        {
+          "clip": "pose_stand",
+          "component": "animation"
+        }
+      ],
+      "id": "intake_worker",
+      "model": "mannequin",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0,
+      "scale": 1.0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "x": 3.0,
+      "y": 0.0,
+      "z": 4.0
+    },
+    {
+      "id": "supply",
+      "model": "janitor:cardboard_supply_box",
+      "physics": {
+        "friction": 0.7,
+        "mass_kg": 0.65,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "supplies",
+        "restitution": 0.08
+      },
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.340001,
+        0.282501,
+        0.274001
+      ],
+      "solid": false,
+      "x": 10.0,
+      "y": 0.0,
+      "z": 10.0
+    },
+    {
+      "id": "editor_prop_3",
+      "model": "janitor:perforated_supply_crate",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.340001,
+        0.281,
+        0.285
+      ],
+      "solid": false,
+      "x": 2,
+      "y": 0.0,
+      "z": 7
+    },
+    {
+      "id": "editor_prop_4",
+      "model": "winter:tree_snow_01",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        3.2,
+        6.8,
+        3.2
+      ],
+      "solid": false,
+      "x": 1.399999976158142,
+      "y": 0.0,
+      "z": 13.0
+    },
+    {
+      "id": "editor_prop_5",
+      "model": "winter:tree_snow_02",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        3.2,
+        6.8,
+        3.2
+      ],
+      "solid": false,
+      "x": 12.5,
+      "y": 0.0,
+      "z": 3.0
+    },
+    {
+      "id": "editor_prop_6",
+      "model": "winter:timber_lantern",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.65,
+        3.2,
+        0.6
+      ],
+      "solid": false,
+      "x": 11.0,
+      "y": 0.0,
+      "z": 12.5,
+      "lights": [
+        {
+          "offset": [
+            0,
+            2.56,
+            0.167062
+          ],
+          "intensity": 1.5,
+          "range": 14,
+          "color": [
+            1,
+            0.6,
+            0.2
+          ]
+        }
+      ]
+    },
+    {
+      "id": "editor_prop_7",
+      "model": "winter:drift_wall",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        3,
+        0.65,
+        1.1
+      ],
+      "solid": false,
+      "x": 0.5,
+      "y": 0.0,
+      "z": 8.0
+    },
+    {
+      "components": [
+        {
+          "component": "state",
+          "name": "stamp",
+          "value": false
+        },
+        {
+          "component": "interactable",
+          "prompt": "Shift log",
+          "reach": 3
+        }
+      ],
+      "id": "commission",
+      "model": "core:office_noticeboard",
+      "occludes": false,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "solid": false,
+      "x": 5,
+      "y": 1,
+      "z": 0.03,
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/relay_intake.luau",
+              "handler": "hint"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "reset_to_start"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Restart this visit",
+          "reach": 3
+        }
+      ],
+      "id": "reset_station",
+      "model": "core:office_noticeboard",
+      "rotation_degrees": 90,
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "solid": true,
+      "x": 0.03,
+      "y": 1,
+      "z": 16
+    },
+    {
+      "id": "carry_probe",
+      "model": "janitor:spray_cleaner_bottle",
+      "physics": {
+        "mass_kg": 0.4,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "supplies"
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.126001,
+        0.253,
+        0.079001
+      ],
+      "solid": true,
+      "x": 7.8,
+      "y": 0,
+      "z": 2
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "well",
+              "script": "scripts/relay_intake.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Recovery well",
+          "reach": 3
+        }
+      ],
+      "id": "well_sign",
+      "model": "janitor:wet_floor_sign",
+      "rotation_degrees": 0,
+      "size": [
+        0.305001,
+        0.61041,
+        0.34629
+      ],
+      "solid": true,
+      "x": 10.5,
+      "y": 0,
+      "z": 14
+    },
+    {
+      "id": "editor_prop_1",
+      "model": "winter:drift_small",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.2,
+        0.28,
+        0.8
+      ],
+      "solid": false,
+      "x": 12.5,
+      "y": 0.0,
+      "z": 17.200000762939453
+    }
+  ],
+  "rooms": [
+    {
+      "ceiling": {
+        "kind": "open"
+      },
+      "ceiling_material": "home:ceiling_white_01",
+      "depth": 18.0,
+      "floor_y": 0.0,
+      "height": 10.0,
+      "material": "winter:snow_01",
+      "width": 14.0,
+      "x": 0.0,
+      "z": 0.0
+    },
+    {
+      "ceiling": {
+        "kind": "flat"
+      },
+      "ceiling_material": "home:ceiling_white_01",
+      "depth": 2,
+      "floor_y": 0,
+      "height": 3.2,
+      "material": "home:tile_home_01",
+      "width": 2.4,
+      "x": 5.8,
+      "z": -2
+    }
+  ],
+  "schema": "places-level",
+  "scripts": [
+    "scripts/relay_intake.luau"
+  ],
+  "sky": {
+    "ambient": 0.28,
+    "brightness": 0.8,
+    "texture": "winter:tex_sky_aurora_01"
+  },
+  "sound_emitters": [
+    {
+      "gain": 0.32,
+      "id": "air",
+      "looped": true,
+      "playing": true,
+      "sound": "ambience_outdoors",
+      "spatial": false
+    },
+    {
+      "gain": 0.45,
+      "id": "ack",
+      "sound": "prop_bell",
+      "spatial": false
+    },
+    {
+      "gain": 0.5,
+      "id": "relay_click",
+      "sound": "switch_click",
+      "spatial": false
+    }
+  ],
+  "spawn": {
+    "x": 7,
+    "yaw_degrees": 0,
+    "z": 16
+  },
+  "transitions": [
+    "relay_tower"
+  ],
+  "volumes": [
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "recover",
+              "script": "scripts/relay_intake.luau"
+            }
+          ],
+          "cooldown_seconds": 0.5,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": -30,
+      "depth": 100,
+      "id": "void_recovery",
+      "top_y": -4,
+      "width": 100,
+      "x": -50,
+      "z": -50
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "returned",
+              "script": "scripts/relay_intake.luau"
+            }
+          ],
+          "cooldown_seconds": 0.5,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": -0.1,
+      "depth": 2.4,
+      "filter": {
+        "held": false,
+        "instance": "supply",
+        "kind": "item"
+      },
+      "id": "supply_return",
+      "item_receipt": "settled_centre",
+      "top_y": 1,
+      "width": 2.4,
+      "x": 2.8,
+      "z": 5.8
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "depart",
+              "script": "scripts/relay_intake.luau"
+            }
+          ],
+          "cooldown_seconds": 0.5,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": 0,
+      "depth": 1,
+      "id": "airlock_exit",
+      "top_y": 2.5,
+      "width": 2.2,
+      "x": 5.9,
+      "z": -1.6
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "recover",
+              "script": "scripts/relay_intake.luau"
+            }
+          ],
+          "cooldown_seconds": 0.5,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": -2.6,
+      "depth": 2.2,
+      "id": "well_catch",
+      "top_y": -2,
+      "width": 2.2,
+      "x": 10.9,
+      "z": 13.9
+    }
+  ],
+  "walls": [
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.200000047683716,
+      "material": "winter:stone_masonry_01",
+      "openings": [
+        {
+          "height": 2.3,
+          "kind": "door",
+          "offset": 6.5,
+          "width": 1.4
+        }
+      ],
+      "width": 14.399999618530273,
+      "x": -0.20000000298023224,
+      "y": 0.0,
+      "z": -0.20000000298023224
+    },
+    {
+      "depth": 18.0,
+      "height": 3.200000047683716,
+      "material": "winter:stone_masonry_01",
+      "width": 0.20000000298023224,
+      "x": -0.20000000298023224,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 18.0,
+      "height": 3.200000047683716,
+      "material": "winter:stone_masonry_01",
+      "width": 0.20000000298023224,
+      "x": 14.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.200000047683716,
+      "material": "winter:stone_masonry_01",
+      "width": 14.399999618530273,
+      "x": -0.20000000298023224,
+      "y": 0.0,
+      "z": 18.0
+    },
+    {
+      "depth": 2,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 0.2,
+      "x": 5.6,
+      "y": 0,
+      "z": -2
+    },
+    {
+      "depth": 2,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 0.2,
+      "x": 8.2,
+      "y": 0,
+      "z": -2
+    },
+    {
+      "depth": 0.2,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 2.8,
+      "x": 5.6,
+      "y": 0,
+      "z": -2.2
+    }
+  ],
+  "weather": {
+    "kind": "snow"
+  },
+  "requires_full_lighting": true
+}

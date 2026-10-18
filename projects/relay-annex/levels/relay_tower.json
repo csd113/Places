@@ -1,0 +1,1168 @@
+{
+  "author": "Places",
+  "ceiling_lights": [
+    {
+      "align": "none",
+      "brightness": 0.45,
+      "color": [
+        1,
+        0.83,
+        0.62
+      ],
+      "emission": 0.4,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "floor_one",
+      "range": 8,
+      "switchable": false,
+      "x": 4,
+      "y": 3.18,
+      "z": 5
+    },
+    {
+      "align": "none",
+      "brightness": 0.45,
+      "color": [
+        0.64,
+        0.8,
+        1
+      ],
+      "emission": 0.4,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "floor_two",
+      "range": 8,
+      "switchable": false,
+      "x": 4,
+      "y": 6.38,
+      "z": 5
+    },
+    {
+      "align": "none",
+      "brightness": 0.4,
+      "color": [
+        0.72,
+        0.86,
+        1
+      ],
+      "emission": 0.4,
+      "enabled": false,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "observation_circuit",
+      "range": 8,
+      "switchable": true,
+      "x": 4,
+      "y": 9.58,
+      "z": 5
+    },
+    {
+      "align": "none",
+      "brightness": 0.08,
+      "color": [
+        0.72,
+        0.86,
+        1
+      ],
+      "emission": 0.4,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "floor_four",
+      "range": 8,
+      "switchable": false,
+      "x": 2,
+      "y": 12.78,
+      "z": 6
+    },
+    {
+      "align": "none",
+      "brightness": 0.7,
+      "color": [
+        0.72,
+        0.86,
+        1
+      ],
+      "emission": 0.4,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "shaft_light",
+      "range": 8,
+      "switchable": false,
+      "x": 13.5,
+      "y": 12.98,
+      "z": 5
+    }
+  ],
+  "crosshair": true,
+  "defaults": {
+    "ceiling": "home:ceiling_white_01",
+    "floor": "home:tile_home_01",
+    "wall": "home:wall_paint_offwhite_01"
+  },
+  "doors": [
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "gate",
+              "script": "scripts/relay_tower.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Discharge airlock",
+          "reach": 3
+        }
+      ],
+      "height": 2.3,
+      "id": "airlock",
+      "locked": true,
+      "width": 1.4,
+      "x": 3.3,
+      "y": 0,
+      "z": -0.1
+    }
+  ],
+  "environment": {
+    "fog": {
+      "color": [
+        0.36,
+        0.43,
+        0.5
+      ],
+      "density": 0.006,
+      "height_gain": 0.03,
+      "reference_y": 1
+    },
+    "presentation": {
+      "contrast": 1.02,
+      "exposure": 1.1,
+      "saturation": 0.92,
+      "tone_knee": 0.78
+    }
+  },
+  "floor_patches": [
+    {
+      "depth": 2.5,
+      "material": "core:pool_tile_deck_01",
+      "width": 2.5,
+      "x": 5,
+      "z": 0.4
+    }
+  ],
+  "format_version": 1,
+  "guardrails": [
+    {
+      "height": 1.05,
+      "length": 6,
+      "material": "pool:metal_01",
+      "rise": 3.2,
+      "rotation_degrees": 270,
+      "x": 8.55,
+      "z": 2
+    },
+    {
+      "height": 1.05,
+      "length": 6,
+      "material": "pool:metal_01",
+      "rise": 3.2,
+      "rotation_degrees": 270,
+      "x": 10.95,
+      "z": 2
+    },
+    {
+      "height": 1.05,
+      "length": 6,
+      "material": "pool:metal_01",
+      "rise": -3.2,
+      "rotation_degrees": 270,
+      "x": 12.05,
+      "z": 2
+    },
+    {
+      "height": 1.05,
+      "length": 6,
+      "material": "pool:metal_01",
+      "rise": -3.2,
+      "rotation_degrees": 270,
+      "x": 14.45,
+      "z": 2
+    },
+    {
+      "height": 1.05,
+      "length": 6,
+      "material": "pool:metal_01",
+      "rise": 3.2,
+      "rotation_degrees": 270,
+      "x": 15.55,
+      "z": 2
+    },
+    {
+      "height": 1.05,
+      "length": 6,
+      "material": "pool:metal_01",
+      "rise": 3.2,
+      "rotation_degrees": 270,
+      "x": 17.95,
+      "z": 2
+    },
+    {
+      "x": 8,
+      "z": 1.94,
+      "length": 3.35,
+      "y": 6.4,
+      "height": 1.05,
+      "rise": 0,
+      "material": "pool:metal_01"
+    },
+    {
+      "x": 8,
+      "z": 8.06,
+      "length": 7.05,
+      "y": 9.6,
+      "height": 1.05,
+      "rise": 0,
+      "material": "pool:metal_01"
+    }
+  ],
+  "id": "relay_tower",
+  "name": "Relay Annex / 2 \u2014 The Four Floors",
+  "props": [
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "talk",
+              "script": "scripts/relay_tower.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Talk to Mira",
+          "reach": 3
+        },
+        {
+          "clip": "pose_stand",
+          "component": "animation"
+        }
+      ],
+      "id": "tower_tech",
+      "model": "mannequin",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0,
+      "scale": 1.0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "x": 3.0,
+      "y": 0.0,
+      "z": 4.0
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "run_script",
+              "handler": "circuit",
+              "script": "scripts/relay_tower.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Restore observation circuit",
+          "reach": 3
+        },
+        {
+          "clip": "toggle",
+          "component": "animation"
+        }
+      ],
+      "id": "circuit_switch",
+      "model": "home:wall_switch",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "x": 2.0,
+      "y": 7.6,
+      "z": 0.05
+    },
+    {
+      "id": "test_ball",
+      "model": "arcade:bowling_ball_cobalt",
+      "physics": {
+        "friction": 0.2,
+        "mass_kg": 2,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "ball",
+        "restitution": 0.75,
+        "shape": {
+          "kind": "sphere",
+          "radius": 0.108
+        }
+      },
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.216,
+        0.216,
+        0.216
+      ],
+      "solid": false,
+      "x": 5.0,
+      "y": 3.2,
+      "z": 5.0
+    },
+    {
+      "components": [
+        {
+          "clip": "walk",
+          "component": "animation"
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.7,
+          "speed_mps": 0.2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "idle_clip": "walk"
+        },
+        {
+          "component": "light_response",
+          "enter_intensity": 0.02,
+          "exit_intensity": 0.005,
+          "release_seconds": 0.1
+        }
+      ],
+      "id": "witness",
+      "model": "core:mannequin_black",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "shadow_only": true,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "x": 5.0,
+      "y": 9.6,
+      "z": 2.0
+    },
+    {
+      "components": [
+        {
+          "component": "state",
+          "name": "stamp",
+          "value": false
+        },
+        {
+          "component": "interactable",
+          "prompt": "Shift log",
+          "reach": 3
+        }
+      ],
+      "id": "commission",
+      "model": "core:office_noticeboard",
+      "occludes": false,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "solid": false,
+      "x": 0.03,
+      "y": 1,
+      "z": 6,
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/relay_tower.luau",
+              "handler": "hint"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "reset_to_start"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Restart this visit",
+          "reach": 3
+        }
+      ],
+      "id": "reset_station",
+      "model": "core:office_noticeboard",
+      "rotation_degrees": 90,
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "solid": true,
+      "x": 0.03,
+      "y": 1,
+      "z": 8
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "upper",
+              "script": "scripts/relay_tower.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Talk to Mira at observation",
+          "reach": 3
+        },
+        {
+          "clip": "pose_arms_forward",
+          "component": "animation"
+        }
+      ],
+      "id": "upper_tech",
+      "model": "mannequin",
+      "rotation_degrees": 0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": true,
+      "x": 2,
+      "y": 9.6,
+      "z": 6
+    },
+    {
+      "id": "tower_exit_sign",
+      "model": "core:exit_sign",
+      "rotation_degrees": 180,
+      "size": [
+        0.45,
+        0.57,
+        0.08
+      ],
+      "solid": true,
+      "x": 4,
+      "y": 12,
+      "z": -0.05
+    },
+    {
+      "id": "editor_prop_1",
+      "model": "core:office_reception_desk",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        2.4,
+        0.98,
+        0.95
+      ],
+      "solid": true,
+      "x": 5.0,
+      "y": 0.0,
+      "z": 2.0
+    },
+    {
+      "id": "editor_prop_2",
+      "model": "core:office_filing_cabinet_tall",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ],
+      "solid": true,
+      "x": 0.699999988079071,
+      "y": 0.0,
+      "z": 1.0
+    },
+    {
+      "id": "editor_prop_3",
+      "model": "core:chair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true,
+      "x": 5.0,
+      "y": 0.0,
+      "z": 3.200000047683716
+    },
+    {
+      "id": "editor_prop_4",
+      "model": "arcade:ball_rack",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.1,
+        0.73,
+        0.64
+      ],
+      "solid": true,
+      "x": 3.0,
+      "y": 3.200000047683716,
+      "z": 6.0
+    },
+    {
+      "id": "editor_prop_5",
+      "model": "arcade:bench_three_seat_blue_red_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        1.98,
+        0.990722,
+        0.6055
+      ],
+      "solid": true,
+      "x": 1.2999999523162842,
+      "y": 3.200000047683716,
+      "z": 7.5
+    },
+    {
+      "id": "editor_prop_6",
+      "model": "janitor:metal_storage_rack",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.230001,
+        1.9,
+        0.545001
+      ],
+      "solid": true,
+      "x": 5.0,
+      "y": 6.400000095367432,
+      "z": 2.0
+    },
+    {
+      "id": "editor_prop_7",
+      "model": "janitor:utility_sink",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.670001,
+        1.114001,
+        0.53
+      ],
+      "solid": true,
+      "x": 5.0,
+      "y": 6.400000095367432,
+      "z": 0.5
+    },
+    {
+      "id": "editor_prop_8",
+      "model": "janitor:wet_floor_sign",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.305001,
+        0.61041,
+        0.34629
+      ],
+      "solid": false,
+      "x": 3.0,
+      "y": 6.400000095367432,
+      "z": 5.0
+    },
+    {
+      "id": "editor_prop_9",
+      "model": "arcade:bench_three_seat_blue_red_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        1.98,
+        0.990722,
+        0.6055
+      ],
+      "solid": true,
+      "x": 1.2999999523162842,
+      "y": 9.600000381469727,
+      "z": 2.0
+    }
+  ],
+  "ramps": [
+    {
+      "depth": 6,
+      "edge_material": "home:wall_paint_offwhite_01",
+      "material": "home:tile_home_01",
+      "offset_y": 6.4,
+      "rise": -3.2,
+      "width": 2.5,
+      "x": 12,
+      "z": 2
+    },
+    {
+      "depth": 6,
+      "edge_material": "home:wall_paint_offwhite_01",
+      "material": "home:tile_home_01",
+      "offset_y": 6.4,
+      "rise": 3.2,
+      "width": 2.5,
+      "x": 15.5,
+      "z": 2
+    }
+  ],
+  "requires_full_lighting": true,
+  "rooms": [
+    {
+      "ceiling_material": "home:ceiling_white_01",
+      "depth": 10.0,
+      "floor_y": 0.0,
+      "height": 3.2,
+      "material": "home:tile_home_01",
+      "width": 8.0,
+      "x": 0.0,
+      "z": 0.0
+    },
+    {
+      "ceiling_material": "home:ceiling_white_01",
+      "depth": 10.0,
+      "floor_y": 3.2,
+      "height": 3.2,
+      "material": "outdoor:concrete_pavement_01",
+      "width": 8.0,
+      "x": 0.0,
+      "z": 0.0
+    },
+    {
+      "ceiling_material": "home:ceiling_white_01",
+      "depth": 10.0,
+      "floor_y": 6.4,
+      "height": 3.2,
+      "material": "home:tile_home_01",
+      "width": 8.0,
+      "x": 0.0,
+      "z": 0.0
+    },
+    {
+      "ceiling_material": "home:ceiling_white_01",
+      "depth": 10.0,
+      "floor_y": 9.6,
+      "height": 3.2,
+      "material": "core:carpet_damp_01",
+      "width": 8.0,
+      "x": 0.0,
+      "z": 0.0
+    },
+    {
+      "ceiling_material": "home:ceiling_white_01",
+      "depth": 10.0,
+      "floor_y": 0.0,
+      "height": 13.0,
+      "material": "home:tile_home_01",
+      "width": 11.0,
+      "x": 8.0,
+      "z": 0.0
+    },
+    {
+      "ceiling": {
+        "kind": "flat"
+      },
+      "ceiling_material": "home:ceiling_white_01",
+      "depth": 2,
+      "floor_y": 3.2,
+      "height": 3.2,
+      "material": "home:tile_home_01",
+      "width": 11,
+      "x": 8,
+      "z": 8
+    },
+    {
+      "ceiling": {
+        "kind": "flat"
+      },
+      "ceiling_material": "home:ceiling_white_01",
+      "depth": 2,
+      "floor_y": 6.4,
+      "height": 3.2,
+      "material": "home:tile_home_01",
+      "width": 11,
+      "x": 8,
+      "z": 0
+    },
+    {
+      "ceiling": {
+        "kind": "flat"
+      },
+      "ceiling_material": "home:ceiling_white_01",
+      "depth": 2,
+      "floor_y": 9.6,
+      "height": 3.2,
+      "material": "home:tile_home_01",
+      "width": 11,
+      "x": 8,
+      "z": 8
+    },
+    {
+      "ceiling": {
+        "kind": "flat"
+      },
+      "ceiling_material": "home:ceiling_white_01",
+      "depth": 2,
+      "floor_y": 9.6,
+      "height": 3.2,
+      "material": "home:tile_home_01",
+      "width": 2,
+      "x": 3.0,
+      "z": -2
+    }
+  ],
+  "routes": [],
+  "schema": "places-level",
+  "scripts": [
+    "scripts/relay_tower.luau"
+  ],
+  "sound_emitters": [
+    {
+      "gain": 0.2,
+      "id": "air",
+      "looped": true,
+      "playing": true,
+      "sound": "ambience_hvac",
+      "spatial": false
+    },
+    {
+      "gain": 0.45,
+      "id": "ack",
+      "sound": "prop_bell",
+      "spatial": false
+    },
+    {
+      "gain": 0.5,
+      "id": "relay_click",
+      "sound": "switch_click",
+      "spatial": false
+    }
+  ],
+  "spawn": {
+    "x": 3,
+    "yaw_degrees": 0,
+    "z": 8.5
+  },
+  "stairs": [
+    {
+      "depth": 6,
+      "material": "home:tile_home_01",
+      "offset_y": 0,
+      "rise": 3.2,
+      "riser_material": "home:wall_paint_offwhite_01",
+      "steps": 16,
+      "width": 2.5,
+      "x": 8.5,
+      "z": 2
+    }
+  ],
+  "timers": [
+    {
+      "autostart": true,
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "walk",
+              "loop": true,
+              "target": "witness"
+            },
+            {
+              "action": "play_animation",
+              "clip": "pose_arms_forward",
+              "target": "upper_tech"
+            }
+          ],
+          "on": "timer"
+        }
+      ],
+      "id": "pose_start",
+      "seconds": 0.05
+    }
+  ],
+  "transitions": [
+    "relay_discharge"
+  ],
+  "volumes": [
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "recover",
+              "script": "scripts/relay_tower.luau"
+            }
+          ],
+          "cooldown_seconds": 0.5,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": -30,
+      "depth": 100,
+      "id": "void_recovery",
+      "top_y": -4,
+      "width": 100,
+      "x": -50,
+      "z": -50
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "ball",
+              "script": "scripts/relay_tower.luau"
+            }
+          ],
+          "cooldown_seconds": 0.5,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": 3.15,
+      "depth": 2.5,
+      "filter": {
+        "held": false,
+        "instance": "test_ball",
+        "kind": "item"
+      },
+      "id": "ball_target",
+      "top_y": 5.7,
+      "width": 2.5,
+      "x": 5,
+      "z": 0.2
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "depart",
+              "script": "scripts/relay_tower.luau"
+            }
+          ],
+          "cooldown_seconds": 0.5,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": 9.5,
+      "depth": 1,
+      "id": "airlock_exit",
+      "top_y": 12,
+      "width": 1.9,
+      "x": 3.05,
+      "z": -1.65
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "floor0",
+              "script": "scripts/relay_tower.luau"
+            }
+          ],
+          "cooldown_seconds": 0.5,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": -0.1,
+      "depth": 10,
+      "id": "floor_0",
+      "top_y": 0.5,
+      "width": 7.7,
+      "x": 0,
+      "z": 0
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "floor1",
+              "script": "scripts/relay_tower.luau"
+            }
+          ],
+          "cooldown_seconds": 0.5,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": 3.1,
+      "depth": 10,
+      "id": "floor_1",
+      "top_y": 3.7,
+      "width": 7.7,
+      "x": 0,
+      "z": 0
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "floor2",
+              "script": "scripts/relay_tower.luau"
+            }
+          ],
+          "cooldown_seconds": 0.5,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": 6.300000000000001,
+      "depth": 10,
+      "id": "floor_2",
+      "top_y": 6.9,
+      "width": 7.7,
+      "x": 0,
+      "z": 0
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "floor3",
+              "script": "scripts/relay_tower.luau"
+            }
+          ],
+          "cooldown_seconds": 0.5,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": 9.5,
+      "depth": 10,
+      "id": "floor_3",
+      "top_y": 10.1,
+      "width": 7.7,
+      "x": 0,
+      "z": 0
+    }
+  ],
+  "walls": [
+    {
+      "depth": 0.20000000298023224,
+      "height": 9.6,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 19.399999618530273,
+      "x": -0.20000000298023224,
+      "y": 0.0,
+      "z": -0.20000000298023224
+    },
+    {
+      "depth": 8.0,
+      "height": 13.0,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 0.20000000298023224,
+      "x": -0.20000000298023224,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 10.0,
+      "height": 13.0,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 0.20000000298023224,
+      "x": 19.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 13.0,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 19.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 10.0
+    },
+    {
+      "depth": 2,
+      "height": 13,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 0.2,
+      "x": -0.2,
+      "y": 0,
+      "z": 8
+    },
+    {
+      "depth": 8,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 0.15,
+      "x": 7.85,
+      "y": 0,
+      "z": 2
+    },
+    {
+      "depth": 8,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 0.15,
+      "x": 7.85,
+      "y": 3.2,
+      "z": 0
+    },
+    {
+      "depth": 8,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 0.15,
+      "x": 7.85,
+      "y": 6.4,
+      "z": 2
+    },
+    {
+      "depth": 8,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 0.15,
+      "x": 7.85,
+      "y": 9.6,
+      "z": 0
+    },
+    {
+      "depth": 6,
+      "height": 13,
+      "material": "core:wallpaper_stained_01",
+      "width": 0.15,
+      "x": 11.35,
+      "y": 0,
+      "z": 2
+    },
+    {
+      "depth": 6,
+      "height": 13,
+      "material": "core:wallpaper_stained_01",
+      "width": 0.15,
+      "x": 15.05,
+      "y": 0,
+      "z": 2
+    },
+    {
+      "x": -0.2,
+      "z": -0.2,
+      "width": 19.4,
+      "depth": 0.2,
+      "y": 9.6,
+      "height": 3.4,
+      "material": "home:wall_paint_offwhite_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 3.5,
+          "width": 1.4,
+          "height": 2.3
+        }
+      ]
+    },
+    {
+      "x": 2.8,
+      "z": -2,
+      "width": 0.2,
+      "depth": 2,
+      "y": 9.6,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 5,
+      "z": -2,
+      "width": 0.2,
+      "depth": 2,
+      "y": 9.6,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 2.8,
+      "z": -2.2,
+      "width": 2.4,
+      "depth": 0.2,
+      "y": 9.6,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01"
+    }
+  ]
+}

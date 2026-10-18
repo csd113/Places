@@ -1,0 +1,657 @@
+{
+  "ceiling_lights": [
+    {
+      "id": "hall_a",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3,
+      "z": 5,
+      "y": 3.98,
+      "brightness": 0.4,
+      "range": 8,
+      "color": [
+        0.72,
+        0.86,
+        1
+      ],
+      "emission": 0.4,
+      "switchable": false,
+      "align": "none"
+    },
+    {
+      "id": "hall_b",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 10,
+      "z": 10,
+      "y": 3.98,
+      "brightness": 0.55,
+      "range": 8,
+      "color": [
+        0.72,
+        0.86,
+        1
+      ],
+      "emission": 0.4,
+      "switchable": false,
+      "align": "none"
+    },
+    {
+      "id": "hall_c",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3,
+      "z": 11,
+      "y": 3.98,
+      "brightness": 0.4,
+      "range": 8,
+      "color": [
+        0.72,
+        0.86,
+        1
+      ],
+      "emission": 0.4,
+      "switchable": false,
+      "align": "none"
+    }
+  ],
+  "floor_regions": [
+    {
+      "depth": 7.0,
+      "material": "core:pool_tile_basin_01",
+      "offset_y": -1.7999999523162842,
+      "width": 6.0,
+      "x": 3.0,
+      "z": 3.0
+    }
+  ],
+  "format_version": 1,
+  "id": "relay_discharge",
+  "name": "Relay Annex / 3 \u2014 Discharge",
+  "props": [
+    {
+      "id": "discharge_worker",
+      "model": "mannequin",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0,
+      "scale": 1.0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "x": 2.0,
+      "y": 0.0,
+      "z": 11.0,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Talk to Sol",
+          "reach": 3
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/relay_discharge.luau",
+              "handler": "talk"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "duck",
+      "model": "core:rubber_duck",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 2.0,
+      "size": [
+        0.1,
+        0.12,
+        0.14
+      ],
+      "solid": false,
+      "x": 6.0,
+      "y": 1.6,
+      "z": 6.0,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.08,
+        "friction": 0.5,
+        "restitution": 0.15,
+        "water": {
+          "displaced_volume_m3": 0.0001,
+          "linear_drag": 3,
+          "angular_drag": 2
+        },
+        "reset_group": "float"
+      }
+    },
+    {
+      "id": "editor_prop_3",
+      "model": "janitor:wet_floor_sign",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.305001,
+        0.61041,
+        0.34629
+      ],
+      "solid": false,
+      "x": 11.0,
+      "y": 0.0,
+      "z": 10.0
+    },
+    {
+      "id": "exit_sign",
+      "model": "core:exit_sign",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.45,
+        0.57,
+        0.08
+      ],
+      "solid": false,
+      "x": 7.0,
+      "y": 2.5,
+      "z": 13.699999809265137
+    },
+    {
+      "model": "core:office_noticeboard",
+      "id": "commission",
+      "x": 13.97,
+      "y": 1,
+      "z": 10,
+      "rotation_degrees": 270,
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "state",
+          "name": "stamp",
+          "value": false
+        },
+        {
+          "component": "interactable",
+          "prompt": "Shift log",
+          "reach": 3
+        }
+      ],
+      "occludes": false,
+      "scale": 1,
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/relay_discharge.luau",
+              "handler": "hint"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "model": "core:office_noticeboard",
+      "id": "reset_station",
+      "x": 13.97,
+      "y": 1,
+      "z": 12,
+      "rotation_degrees": 270,
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "solid": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Restart this visit",
+          "reach": 3
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "reset_to_start"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "model": "janitor:perforated_supply_crate",
+      "id": "duck_crate",
+      "x": 1,
+      "y": 0,
+      "z": 8,
+      "rotation_degrees": 0,
+      "size": [
+        0.340001,
+        0.281,
+        0.285
+      ],
+      "solid": false
+    },
+    {
+      "model": "core:office_noticeboard",
+      "id": "whole_restart",
+      "x": 0.2,
+      "y": 1,
+      "z": 12,
+      "rotation_degrees": 90,
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "solid": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Return to intake",
+          "reach": 3
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/relay_discharge.luau",
+              "handler": "restart"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ramps": [
+    {
+      "depth": 7.0,
+      "material": "core:pool_tile_basin_01",
+      "offset_y": -1.7999999523162842,
+      "rise": 1.7999999523162842,
+      "width": 2.0,
+      "x": 9.0,
+      "z": 3.0
+    }
+  ],
+  "rooms": [
+    {
+      "depth": 14.0,
+      "floor_y": 0.0,
+      "height": 4.0,
+      "material": "core:pool_tile_basin_01",
+      "width": 14.0,
+      "x": 0.0,
+      "z": 0.0
+    },
+    {
+      "x": 5.8,
+      "z": 14,
+      "width": 2.4,
+      "depth": 2,
+      "floor_y": 0,
+      "height": 3.2,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "home:ceiling_white_01",
+      "ceiling": {
+        "kind": "flat"
+      }
+    }
+  ],
+  "schema": "places-level",
+  "spawn": {
+    "x": 12,
+    "z": 12,
+    "yaw_degrees": 270
+  },
+  "walls": [
+    {
+      "depth": 0.20000000298023224,
+      "height": 4.0,
+      "material": "core:pool_tile_wall_01",
+      "width": 14.399999618530273,
+      "x": -0.20000000298023224,
+      "y": 0.0,
+      "z": -0.20000000298023224
+    },
+    {
+      "depth": 14.0,
+      "height": 4.0,
+      "material": "core:pool_tile_wall_01",
+      "width": 0.20000000298023224,
+      "x": -0.20000000298023224,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 14.0,
+      "height": 4.0,
+      "material": "core:pool_tile_wall_01",
+      "width": 0.20000000298023224,
+      "x": 14.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 4.0,
+      "material": "core:pool_tile_wall_01",
+      "width": 14.399999618530273,
+      "x": -0.20000000298023224,
+      "y": 0.0,
+      "z": 14.0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 6.5,
+          "width": 1.4,
+          "height": 2.3
+        }
+      ]
+    },
+    {
+      "x": 5.6,
+      "z": 14,
+      "width": 0.2,
+      "depth": 2,
+      "y": 0,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 8.2,
+      "z": 14,
+      "width": 0.2,
+      "depth": 2,
+      "y": 0,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 5.6,
+      "z": 16,
+      "width": 2.8,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3.2,
+      "material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "author": "Places",
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "home:tile_home_01",
+    "ceiling": "home:ceiling_white_01"
+  },
+  "crosshair": true,
+  "scripts": [
+    "scripts/relay_discharge.luau"
+  ],
+  "transitions": [
+    "relay_intake"
+  ],
+  "volumes": [
+    {
+      "id": "void_recovery",
+      "x": -50,
+      "z": -50,
+      "width": 100,
+      "depth": 100,
+      "bottom_y": -30,
+      "top_y": -4,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/relay_discharge.luau",
+              "handler": "recover"
+            }
+          ],
+          "cooldown_seconds": 0.5
+        }
+      ]
+    },
+    {
+      "id": "duck_return",
+      "x": 1,
+      "z": 6.7,
+      "width": 2,
+      "depth": 2.6,
+      "bottom_y": -0.1,
+      "top_y": 1,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/relay_discharge.luau",
+              "handler": "returned"
+            }
+          ],
+          "cooldown_seconds": 0.5
+        }
+      ],
+      "filter": {
+        "kind": "item",
+        "instance": "duck",
+        "held": false
+      },
+      "item_receipt": "settled_centre"
+    },
+    {
+      "id": "departure",
+      "x": 5.9,
+      "z": 14.5,
+      "width": 2.2,
+      "depth": 1.2,
+      "bottom_y": 0,
+      "top_y": 2.5,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/relay_discharge.luau",
+              "handler": "depart"
+            }
+          ],
+          "cooldown_seconds": 0.5
+        }
+      ]
+    }
+  ],
+  "environment": {
+    "presentation": {
+      "exposure": 1.1,
+      "tone_knee": 0.78,
+      "saturation": 0.92,
+      "contrast": 1.02
+    },
+    "fog": {
+      "color": [
+        0.36,
+        0.43,
+        0.5
+      ],
+      "density": 0.006,
+      "reference_y": 1,
+      "height_gain": 0.03
+    }
+  },
+  "sound_emitters": [
+    {
+      "id": "air",
+      "sound": "ambience_water",
+      "gain": 0.3,
+      "looped": true,
+      "playing": true,
+      "spatial": false
+    },
+    {
+      "id": "ack",
+      "sound": "prop_bell",
+      "gain": 0.45,
+      "spatial": false
+    },
+    {
+      "id": "relay_click",
+      "sound": "switch_click",
+      "gain": 0.5,
+      "spatial": false
+    }
+  ],
+  "water": [
+    {
+      "x": 3,
+      "z": 3,
+      "width": 6,
+      "depth": 7,
+      "surface_y": -0.25,
+      "bottom_y": -1.8,
+      "material": "core:water_pool_01",
+      "opacity": 0.6,
+      "swimming": true
+    },
+    {
+      "x": 9,
+      "z": 3,
+      "width": 2,
+      "depth": 5.8,
+      "surface_y": -0.25,
+      "bottom_y": -1.8,
+      "material": "core:water_pool_01",
+      "opacity": 0.6,
+      "swimming": true
+    }
+  ],
+  "floor_patches": [
+    {
+      "x": 1,
+      "z": 6.7,
+      "width": 2,
+      "depth": 2.6,
+      "material": "home:tile_home_01"
+    }
+  ],
+  "fog_regions": [
+    {
+      "id": "cold_pool",
+      "min": [
+        2,
+        -2,
+        2
+      ],
+      "max": [
+        11,
+        0.7,
+        11
+      ],
+      "ground_y": -0.25,
+      "top_y": 0.7,
+      "density": 0.09,
+      "color": [
+        0.48,
+        0.66,
+        0.72
+      ],
+      "falloff_m": 1
+    }
+  ],
+  "doors": [
+    {
+      "id": "airlock",
+      "x": 6.3,
+      "z": 14.1,
+      "width": 1.4,
+      "height": 2.3,
+      "locked": true,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Leave Relay Annex",
+          "reach": 3
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "spawn_templates": [
+    {
+      "id": "signoff",
+      "model": "mannequin",
+      "components": [
+        {
+          "component": "animation",
+          "clip": "pose_arms_up"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "spawn",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "pose_arms_up"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "spawn_groups": [
+    {
+      "id": "signoff_group",
+      "at_most_one_active": true
+    }
+  ],
+  "spawn_points": [
+    {
+      "id": "signoff_point",
+      "x": 4,
+      "z": 12,
+      "y": 0,
+      "template": "signoff",
+      "group": "signoff_group"
+    }
+  ],
+  "requires_full_lighting": true
+}

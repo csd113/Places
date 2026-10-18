@@ -1801,6 +1801,12 @@ How the two behave:
   different `floor_y` values is rejected: its geometry is generated once, from
   the room under its centre, while the walkable surface would resolve each room's
   own floor. Rooms that share a floor plane are fine.
+* **Flat shared storeys keep one physical backing.** Where an actual flat floor
+  is coplanar with a lower room's ceiling, the rigid-item world omits that
+  ceiling's redundant upward slab only over the floor's real footprint. This
+  keeps dormant items on the upper floor carryable. Uncovered ceiling fragments,
+  pitched roofs and the upper floor's own collision remain. It is a runtime
+  collision correction; prepared descriptor and map formats are unchanged.
 * **Their ends are closed against what they meet.** The low end of a ramp (and
   the foot of a flight) is level with the room floor, so no face is drawn there;
   an end that stands above the floor beyond it gets a real end face. The top
