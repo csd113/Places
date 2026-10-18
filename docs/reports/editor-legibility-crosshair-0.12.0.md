@@ -151,6 +151,39 @@ same `loading_map` flag that draws the loading modal, so they cannot overdraw it
 Native menu/transition replays pass; the existing game capture queue defers its
 loading-named still until the new world, so no modal still is claimed. The
 initial CI run on `bd2fd97f` passed every new test but hit an existing Luau
-reset/scoped-state timing failure (zero instead of two after a closure call).
-Local full/focused checks pass; runtime budgets and later Luau safety scope are
+reset/scoped-state failure (zero instead of two after a closure call).
+Local full/focused checks pass; hosted scheduling against existing deadlines is
+a possible cause, not an established diagnosis. Runtime budgets and later Luau safety scope are
 unchanged. A follow-up CI receipt covers the loading guard.
+
+## Final delivery receipt
+
+Implementation commits `bd2fd97f275141735f86ec010ce245b1aa8ea42e` and
+`26f5c9dcc0f00981a51f8accaa3f858de59848e1` are pushed to `0.12.0-staging`.
+[CI 39112950839](https://github.com/csd113/Places/actions/runs/39112950839)
+passed on the latter exact source commit: formatting, target/feature checks,
+debug/release Clippy, all Rust regressions, production executables, authored
+assets/generators, Python contracts and patch whitespace. The existing Luau
+regression that failed in the initial run also passed; no Luau change was made.
+
+Direct binaries, packages, source recovery, scripts, screenshots, bounded-check
+logs and the asset inventory are preserved under
+`local/editor-crosshair-0.12.0/`, outside `target`. No process was using
+`target` at final cleanup; `cargo clean` removed 5,814 files / 5.0 GiB.
+The exact preserved payload then validated the package, recovered all five
+source/image files byte-for-byte, opened both recovered editor image previews,
+and passed native player default-off, console-on, menu-icon, real-focus and
+clean-shutdown smoke checks. `target` remains absent.
+
+Final SHA-256: player `06837908ad862fb27cfaa979ff2b1597761fd52987dced313027090eadc024de`,
+editor `923967f453eac3e8658e5588c0db0e51b477f1e04327585348cb79c32d96d1e1`,
+compiler `379c33d20a49bf844cbc254a2e7b3096aae80fca10c0c870a507bc12650b3ac8`.
+Launch the editor from the repository with
+`./local/editor-crosshair-0.12.0/run-editor.sh`; it uses these direct binaries
+and isolated state, with the repository assets and installed SDL3.
+
+No outstanding execution blocker remains. Native acceptance is macOS/Metal
+only; Windows/Linux readability remains unverified. Contrast uses the stable
+rim described above, and the OS file-picker path remains unautomated.
+Broad issues remain open, no main merge/release occurred, and later queue
+stages were not started.
