@@ -1054,3 +1054,63 @@ fn adjust_mute(ui_state: &mut UiState, settings: &mut Settings) {
         false,
     );
 }
+
+/// A small modal run result using the ordinary game font and input conventions.
+pub fn append_run_feedback(vertices: &mut Vec<Vertex>, won: bool, title: &str, detail: &str) {
+    add_rect(
+        vertices,
+        -480.0,
+        -272.0,
+        960.0,
+        544.0,
+        [0.012, 0.016, 0.023],
+    );
+    let accent = if won {
+        [0.65, 0.86, 0.73]
+    } else {
+        [0.9, 0.59, 0.5]
+    };
+    for (text, y, color) in [
+        (title, 98.0, accent),
+        (detail, 127.0, [0.72, 0.75, 0.78]),
+        ("ENTER - START AGAIN", 181.0, [0.8, 0.8, 0.8]),
+        ("ESC - MENU", 204.0, [0.45, 0.48, 0.52]),
+    ] {
+        let fitted = fit_text(text, 432.0, 1.0);
+        draw_text(
+            vertices,
+            &fitted,
+            (480.0 - text_width(&fitted, 1.0)) * 0.5,
+            y,
+            1.0,
+            color,
+        );
+    }
+}
+
+/// Dismissible opening instructions and optional contextual guidance.
+pub fn append_guidance(vertices: &mut Vec<Vertex>, title: &str, lines: &[String]) {
+    add_rect(
+        vertices,
+        -480.0,
+        -272.0,
+        960.0,
+        544.0,
+        [0.012, 0.016, 0.023],
+    );
+    let heading = fit_text(title, 432.0, 1.0);
+    draw_text(vertices, &heading, 24.0, 53.0, 1.0, [0.75, 0.85, 0.8]);
+    for (index, line) in lines.iter().take(6).enumerate() {
+        let y = f32::from(u8::try_from(index).unwrap_or(6)).mul_add(18.0, 86.0);
+        let fitted = fit_text(line, 432.0, 1.0);
+        draw_text(vertices, &fitted, 24.0, y, 1.0, [0.76, 0.78, 0.8]);
+    }
+    draw_text(
+        vertices,
+        "ENTER / ESC - CONTINUE",
+        24.0,
+        223.0,
+        1.0,
+        [0.5, 0.58, 0.62],
+    );
+}

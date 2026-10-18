@@ -8,7 +8,6 @@ use crate::engine::audio::{
 };
 use crate::engine::door::DoorPhase;
 use crate::engine::physics::SurfaceMaterial;
-use crate::game::AppState;
 
 pub(super) struct Audio {
     pub system: AudioSystem,
@@ -71,10 +70,7 @@ impl FrameLoop<'_> {
                 forward: self.game.view_direction(),
                 up: Vec3::Y,
             },
-            self.game.app_state() != AppState::Playing
-                || self.console.is_open()
-                || self.load_intent.is_some()
-                || !self.window_focused,
+            !self.gameplay_active(),
             self.items.world.simulation_state().time_scale,
             AudioSettings {
                 master_volume: self.settings.master_volume,
@@ -96,10 +92,7 @@ impl FrameLoop<'_> {
 
     pub(super) fn update_game_audio(&mut self) {
         self.update_audio_mix();
-        let active = self.game.app_state() == AppState::Playing
-            && !self.console.is_open()
-            && self.load_intent.is_none()
-            && self.window_focused;
+        let active = self.gameplay_active();
         if active {
             self.update_footsteps();
             self.update_door_sounds();

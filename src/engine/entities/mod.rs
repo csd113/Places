@@ -122,6 +122,14 @@ pub struct LightResponseObservation<'a> {
 /// One renderer/audio command produced by the world.
 #[derive(Clone, Debug, PartialEq)]
 pub enum WorldCommand {
+    /// Bounded explanation which the player can dismiss without resetting.
+    ShowMessage { title: String, lines: Vec<String> },
+    /// Concise authored win/death feedback, consumed by the native player.
+    EndRun {
+        won: bool,
+        title: String,
+        detail: String,
+    },
     /// Request a same-package destination; the player owns asynchronous loading.
     ChangeLevel { level: String },
     /// Restore one authored physics group's starting poses and clear momentum.
@@ -338,6 +346,8 @@ pub struct EntityWorld {
     transition_targets: std::collections::BTreeSet<String>,
     scripts: crate::engine::scripting::ScriptRuntime,
     script_event: Option<EventRecord>,
+    pub(crate) script_player: Vec3,
+    pub(crate) script_visible: std::collections::BTreeSet<EntityHandle>,
     generation: u64,
     store: EntityStore,
     names: EntityNames,
@@ -452,6 +462,8 @@ impl EntityWorld {
             transition_targets: std::collections::BTreeSet::new(),
             scripts: crate::engine::scripting::ScriptRuntime::default(),
             script_event: None,
+            script_player: Vec3::ZERO,
+            script_visible: std::collections::BTreeSet::new(),
             generation: 0,
             store: EntityStore::new(),
             names: EntityNames::new(),
@@ -635,8 +647,18 @@ impl EntityWorld {
     /// Re-seeds every runtime to its authored start state without replacing the
     /// world: the `reset_to_start` contract.
     pub fn reset_runtime(&mut self) {
-        self.commands
-            .retain(|command| !matches!(command, WorldCommand::ChangeLevel { level: _ }));
+        self.commands.retain(|command| {
+            !matches!(
+                command,
+                WorldCommand::ShowMessage { title: _, lines: _ }
+                    | WorldCommand::ChangeLevel { level: _ }
+                    | WorldCommand::EndRun {
+                        won: _,
+                        title: _,
+                        detail: _
+                    }
+            )
+        });
         self.scripts.reload();
         self.script_event = None;
         if self.weather_strength > 0.0
@@ -705,6 +727,15 @@ impl EntityWorld {
         self.stimuli.clear();
         self.sim_time = 0.0;
         self.ai.reset();
+        // AI and scripts/light anchors share transforms. Reset both views even
+        // when the freshly idle actor will not produce a movement handoff.
+        for agent in self.ai.agents() {
+            if let Some(transform) = self.components.transforms.get_mut(agent.handle) {
+                transform.position = agent.position;
+                transform.yaw_degrees = agent.yaw_degrees;
+            }
+        }
+        self.script_visible.clear();
         self.ai.release_caught();
         for (_, response) in self.components.light_responses.iter_mut() {
             response.active = false;
@@ -2098,6 +2129,39 @@ impl EntityWorld {
         depth: u8,
     ) {
         match action {
+            ActionDef::ShowMessage { title, lines } => {
+                if crate::engine::level::validate_message(title, lines).is_ok() {
+                    self.commands.push(WorldCommand::ShowMessage {
+                        title: title.clone(),
+                        lines: lines.clone(),
+                    });
+                    report.actions_run = report.actions_run.saturating_add(1);
+                } else {
+                    report.unsupported = report.unsupported.saturating_add(1);
+                }
+            }
+            ActionDef::Navigate { target, position } => {
+                if self
+                    .ai
+                    .set_navigation_goal(target, Vec3::from_array(*position))
+                {
+                    report.actions_run = report.actions_run.saturating_add(1);
+                } else {
+                    report.unsupported = report.unsupported.saturating_add(1);
+                }
+            }
+            ActionDef::EndRun { won, title, detail } => {
+                if crate::engine::level::validate_run_feedback(title, detail).is_ok() {
+                    self.commands.push(WorldCommand::EndRun {
+                        won: *won,
+                        title: title.clone(),
+                        detail: detail.clone(),
+                    });
+                    report.actions_run = report.actions_run.saturating_add(1);
+                } else {
+                    report.unsupported = report.unsupported.saturating_add(1);
+                }
+            }
             ActionDef::RunScript { script, handler } => {
                 if u32::from(depth) >= MAX_CHAIN_DEPTH {
                     return;
@@ -3594,6 +3658,14 @@ impl EntityWorld {
             let target = (response.active && player_eye.is_finite()).then_some(player_eye);
             let _response_changed = self.ai.set_light_response(handle, target);
         }
+        if self
+            .components
+            .light_responses
+            .iter()
+            .any(|(_, response)| response.def.reveal_only)
+        {
+            self.rebuild_entity_frames();
+        }
     }
 
     /// Current direct-light observations for trace and acceptance tooling.
@@ -3631,9 +3703,40 @@ impl EntityWorld {
         self.scripts.diagnostics()
     }
 
+    /// Optional player-requested guidance uses the same scoped VM/action budgets.
+    pub fn request_hint(&mut self) {
+        let mut runtime = std::mem::take(&mut self.scripts);
+        for path in runtime.hints() {
+            let actions = runtime.call(&path, "hint", self, None, None, 0.0);
+            let _report = self.dispatch_actions(&actions, None);
+        }
+        self.scripts = runtime;
+    }
+
     /// Advances the whole runtime by one frame.
     pub fn tick(&mut self, ctx: &WorldContext<'_>) -> WorldTick {
         let mut tick = WorldTick::default();
+        self.script_player = ctx.feet;
+        self.script_visible.clear();
+        for agent in self.ai.agents() {
+            let torso = Vec3::new(
+                agent.position.x,
+                agent.profile.height.mul_add(0.6, agent.position.y),
+                agent.position.z,
+            );
+            if crate::engine::ai::sight_clear(ctx.index, ctx.walls, &self.doors, ctx.eye, torso)
+                && !self.navigation_obstacles.iter().any(|wall| {
+                    crate::engine::collision::segment_overlaps_aabb(
+                        ctx.eye,
+                        torso,
+                        [wall.min_x, wall.min_y, wall.min_z],
+                        [wall.max_x, wall.max_y, wall.max_z],
+                    )
+                })
+            {
+                let _added = self.script_visible.insert(agent.handle);
+            }
+        }
         self.spawns_this_tick = 0;
         self.scripts.begin_tick();
         if ctx.delta_seconds.is_finite() && ctx.delta_seconds > 0.0 {
@@ -4148,6 +4251,16 @@ impl EntityWorld {
     /// The fade opacity of one entity at the current simulation time; `1.0`
     /// when it has no `fade` component.
     fn frame_opacity(&self, handle: EntityHandle) -> f32 {
+        if self
+            .components
+            .light_responses
+            .get(handle)
+            .is_some_and(|response| {
+                response.def.reveal_only && response.intensity < response.def.exit_intensity
+            })
+        {
+            return 0.0;
+        }
         self.components
             .fades
             .get(handle)

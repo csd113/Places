@@ -64,7 +64,7 @@ pub const NO_LIGHTMAPS_OVERRIDE_ENV: &str = "PLACES_NO_LIGHTMAPS";
 /// the performance overlay; F8 selects diagnostic views in diagnostic builds.
 /// Accepting one of these as a binding would create conflicting owners, so the
 /// rebind is rejected with a message instead.
-pub const RESERVED_KEYS: [&str; 4] = ["ESC", "-", "KEYPAD -", "F8"];
+pub const RESERVED_KEYS: [&str; 5] = ["ESC", "-", "KEYPAD -", "F8", "F1"];
 
 /// True when `name` (as produced by [`crate::game::input::keycode_to_str`]) is
 /// reserved by the shell.
@@ -297,7 +297,7 @@ impl KeyBindings {
         };
         if is_reserved_key(&key) {
             return Err(format!(
-                "Key '{key}' is reserved for pause/overlay/diagnostics"
+                "Key '{key}' is reserved for pause/help/overlay/diagnostics"
             ));
         }
         if let Some(conflicting) = self.check_conflict(action, &key) {

@@ -669,6 +669,8 @@ struct FrameLoop<'a> {
     console: console::Console,
     console_runtime: console::runtime::Runtime,
     flashlight: flashlight::Power,
+    outcome: Option<(bool, String, String)>,
+    message: Option<(String, Vec<String>)>,
     items: item_runtime::Items,
     audio: audio_runtime::Audio,
     video: Option<video::Recording>,
@@ -998,6 +1000,9 @@ impl FrameLoop<'_> {
             self.items.target = None;
         }
         if self.reconcile_audio_reset() {
+            self.flashlight = flashlight::Power::Off;
+            self.outcome = None;
+            self.message = None;
             self.update_item_triggers(true);
         }
     }
@@ -1040,7 +1045,9 @@ impl FrameLoop<'_> {
 
     /// The common clock/input gate; world scaling is applied only after this gate.
     fn gameplay_active(&self) -> bool {
-        self.window_focused
+        self.outcome.is_none()
+            && self.message.is_none()
+            && self.window_focused
             && !self.console.is_open()
             && self.load_intent.is_none()
             && self.game.app_state() == AppState::Playing
@@ -1167,6 +1174,26 @@ impl FrameLoop<'_> {
         let commands = self.game.entities_mut().take_commands();
         for command in commands {
             match command {
+                crate::engine::entities::WorldCommand::ShowMessage { title, lines } => {
+                    if self.message.is_none() && self.outcome.is_none() {
+                        self.message = Some((title, lines));
+                        self.input_handler.clear_gameplay_inputs();
+                        self.items.input.invalidate();
+                        self.items.target = None;
+                        self.game.reset_timing();
+                        self.trace_world("guidance_shown");
+                    }
+                }
+                crate::engine::entities::WorldCommand::EndRun { won, title, detail } => {
+                    if self.outcome.is_none() {
+                        self.outcome = Some((won, title, detail));
+                        self.input_handler.clear_gameplay_inputs();
+                        self.items.input.invalidate();
+                        self.items.target = None;
+                        self.game.reset_timing();
+                        self.trace_world("run_finished");
+                    }
+                }
                 crate::engine::entities::WorldCommand::ChangeLevel { level } => {
                     if let Some(path) = self
                         .current_level
@@ -2358,7 +2385,7 @@ impl FrameLoop<'_> {
 
         // A map load has one Cancel action; keyboard and pointer cannot
         // start another operation behind the loading panel.
-        if self.ui_state.loading_map {
+        if self.ui_state.loading_map || self.handle_outcome_event(event) {
             return true;
         }
 
@@ -2427,6 +2454,100 @@ impl FrameLoop<'_> {
         self.sync_menu_pointer();
         self.sync_mouse_capture();
         true
+    }
+
+    fn handle_outcome_event(&mut self, event: &Event) -> bool {
+        if let Event::KeyDown {
+            keycode: Some(Keycode::F1),
+            repeat: false,
+            timestamp: _,
+            window_id: _,
+            scancode: _,
+            keymod: _,
+            which: _,
+            raw: _,
+        } = event
+            && self.game.app_state() == AppState::Playing
+            && self.outcome.is_none()
+            && self.message.is_none()
+        {
+            self.game.entities_mut().request_hint();
+            return true;
+        }
+        if self.message.is_some() {
+            if let Event::KeyDown {
+                keycode: Some(Keycode::Return | Keycode::Escape),
+                repeat: false,
+                timestamp: _,
+                window_id: _,
+                scancode: _,
+                keymod: _,
+                which: _,
+                raw: _,
+            } = event
+            {
+                self.message = None;
+                self.input_handler.clear_gameplay_inputs();
+                self.items.input.invalidate();
+                self.game.reset_timing();
+                self.trace_world("guidance_dismissed");
+            }
+            return true;
+        }
+        if self.outcome.is_some() {
+            if let Event::KeyDown {
+                keycode: Some(Keycode::Return),
+                repeat: false,
+                timestamp: _,
+                window_id: _,
+                scancode: _,
+                keymod: _,
+                which: _,
+                raw: _,
+            } = event
+            {
+                self.outcome = None;
+                self.game.reset_to_spawn();
+                self.synchronize_physical_player();
+                let groups = self
+                    .current_level
+                    .as_ref()
+                    .map(|loaded| {
+                        loaded
+                            .level
+                            .props
+                            .iter()
+                            .filter_map(|prop| {
+                                prop.physics.as_ref().and_then(|p| p.reset_group.clone())
+                            })
+                            .collect::<std::collections::BTreeSet<_>>()
+                    })
+                    .unwrap_or_default();
+                for group in groups {
+                    self.reset_item_group(&group);
+                }
+                self.flashlight = flashlight::Power::Off;
+                self.input_handler.clear_gameplay_inputs();
+                self.reconcile_gameplay_reset();
+                self.trace_world("run_restarted");
+            } else if let Event::KeyDown {
+                keycode: Some(Keycode::Escape),
+                repeat: false,
+                timestamp: _,
+                window_id: _,
+                scancode: _,
+                keymod: _,
+                which: _,
+                raw: _,
+            } = event
+            {
+                self.outcome = None;
+                self.goto(AppState::MainMenu);
+            }
+            return true;
+        }
+
+        false
     }
 
     /// Consumes the reserved development selector key after rebinding.
@@ -3067,9 +3188,14 @@ impl FrameLoop<'_> {
             serde_json::json!({
                 "instance_id": observation.instance_id,
                 "position": observation.position.to_array(),
+                // api.actor reads this same component transform; retain the
+                // renderer-bound frame separately to audit idle reset agreement.
+                "script_position": observation.position.to_array(),
+                "render_position": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).and_then(|frame| frame.transform).map(|(rendered_position, _)| rendered_position.to_array()),
                 "yaw": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).and_then(|frame| frame.transform).map(|(_, yaw)| yaw),
                 "intensity": observation.intensity,
                 "active": observation.active,
+                "opacity": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).map(|frame| frame.opacity),
                 "pose": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).map(|frame| format!("{:?}", frame.cue)),
             })
         }).collect();
@@ -3110,6 +3236,8 @@ impl FrameLoop<'_> {
                 "script_diagnostics".into(),
                 serde_json::json!(self.game.entities().script_diagnostics()),
             ));
+            drop(fields.insert("outcome".into(), serde_json::json!(self.outcome)));
+            drop(fields.insert("guidance".into(), serde_json::json!(self.message)));
             drop(fields.insert("controls".into(), serde_json::json!({
                 "flashlight_on": self.flashlight.is_on(),
                 "settings_page": format!("{:?}", self.ui_state.settings_page), "settings_index": self.ui_state.settings_idx,
@@ -3193,6 +3321,8 @@ impl FrameLoop<'_> {
         if !matches!(intent, LoadIntent::Graphics) {
             self.audio.clear_world();
             self.flashlight = flashlight::Power::Off;
+            self.outcome = None;
+            self.message = None;
             self.console_runtime
                 .clear_given_props(self.renderer, &mut self.items.world);
         }
@@ -3383,6 +3513,18 @@ impl FrameLoop<'_> {
             // carries the live status and the window stays responsive.
             let vertices = ui::loading_geometry(self.ui_state, APP_VERSION);
             self.renderer.render_ui(&vertices);
+            return;
+        }
+        if let Some((title, lines)) = &self.message {
+            self.ui_scratch.clear();
+            ui::append_guidance(self.ui_scratch, title, lines);
+            self.renderer.render_ui(self.ui_scratch);
+            return;
+        }
+        if let Some((won, title, detail)) = &self.outcome {
+            self.ui_scratch.clear();
+            ui::append_run_feedback(self.ui_scratch, *won, title, detail);
+            self.renderer.render_ui(self.ui_scratch);
             return;
         }
         let ui_vertices = self.ui_cache.get(
@@ -4044,6 +4186,8 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         console: console::Console::default(),
         console_runtime: console::runtime::Runtime::default(),
         flashlight: flashlight::Power::Off,
+        outcome: None,
+        message: None,
         items: item_runtime::Items::new(),
         audio: audio_runtime::Audio::new(&sdl_context),
         video: video::Recording::from_env(),

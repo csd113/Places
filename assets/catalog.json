@@ -10160,6 +10160,28 @@
         "tool": "completed",
         "source": "completed-models.json"
       }
+    },
+    {
+      "id": "core:mannequin_black",
+      "display_name": "Black Mannequin",
+      "asset_class": "core",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "entities/mannequin/model/mannequin.glb",
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "color": "#111216",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Charcoal-black albedo preset of the installed mannequin rig. Original fitted PNG, UVs and animations; non-emissive.",
+      "tint": [
+        0.04,
+        0.045,
+        0.055
+      ]
     }
   ]
 }

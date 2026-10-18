@@ -451,6 +451,23 @@ impl ScriptRuntime {
         actions
     }
 
+    /// Modules may export one optional on-demand guidance handler.
+    #[must_use]
+    pub fn hints(&self) -> Vec<ProjectPath> {
+        self.modules
+            .iter()
+            .filter(|module| {
+                !module.disabled
+                    && module.started
+                    && module
+                        .exports
+                        .raw_get::<Value>("hint")
+                        .is_ok_and(|value| matches!(value, Value::Function(_)))
+            })
+            .map(|module| module.path.clone())
+            .collect()
+    }
+
     /// Automatic handlers run in declared source order on playing ticks only.
     pub fn automatic(&mut self) -> Vec<(ProjectPath, &'static str)> {
         let mut handlers = Vec::new();

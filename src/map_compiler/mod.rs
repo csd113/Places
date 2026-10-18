@@ -596,6 +596,18 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     if !level.script_sources.is_empty() {
         required.push("luau-v1".to_string());
     }
+    // New host calls and reveal-only semantics must not silently disappear
+    // in an older player which understands the original Luau snapshot format.
+    if !level.script_sources.is_empty()
+        || level.props.iter().any(|prop| prop.components.iter().any(|component| {
+            matches!(component, crate::engine::level::ComponentDef::LightResponse(response) if response.reveal_only)
+        }))
+        || level.spawn_templates.iter().any(|template| template.components.iter().any(|component| {
+            matches!(component, crate::engine::level::ComponentDef::LightResponse(response) if response.reveal_only)
+        }))
+    {
+        required.push("scene-actions-v1".to_string());
+    }
     if blobs_have_shared_props(&entries) {
         required.push("props-shared-streams".to_string());
     }

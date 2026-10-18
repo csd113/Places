@@ -82,6 +82,122 @@ pub(super) fn host<'scope>(
 ) -> mlua::Result<Table> {
     let api = lua.create_table()?;
     api.set(
+        "message",
+        scope.create_function(move |_, (value, lines): (HostString, Table)| {
+            if lines.metatable().is_some() || lines.raw_len() == 0 || lines.raw_len() > 6 {
+                return Err(error("Guidance requires 1..=6 plain text lines"));
+            }
+            let count = lines.raw_len();
+            let mut keys = 0usize;
+            for pair in lines.pairs::<Value, Value>().take(7) {
+                let (key, _) = pair?;
+                let Value::Integer(index) = key else {
+                    return Err(error("Guidance lines must be a dense array"));
+                };
+                if index < 1 || !usize::try_from(index).is_ok_and(|ordinal| ordinal <= count) {
+                    return Err(error("Guidance lines must be a dense array"));
+                }
+                keys = keys.saturating_add(1);
+            }
+            if keys != count {
+                return Err(error("Guidance lines must be a dense array"));
+            }
+            let title = text(value, 80)?;
+            let mut content = Vec::new();
+            for line in lines.sequence_values::<HostString>() {
+                content.push(text(line?, 72)?);
+            }
+            crate::engine::level::validate_message(&title, &content).map_err(error)?;
+            push(
+                queue,
+                limit,
+                ActionDef::ShowMessage {
+                    title,
+                    lines: content,
+                },
+            )
+        })?,
+    )?;
+    api.set(
+        "player",
+        scope.create_function(move |vm, ()| {
+            let result = vm.create_table()?;
+            result.set("x", world.script_player.x)?;
+            result.set("y", world.script_player.y)?;
+            result.set("z", world.script_player.z)?;
+            result.set_readonly(true);
+            Ok(result)
+        })?,
+    )?;
+    api.set(
+        "actor",
+        scope.create_function(move |vm, value: HostString| {
+            let id = entity(world, value)?;
+            let handle = world.handle_of(&id).ok_or_else(|| error("Unknown actor"))?;
+            let pose = world
+                .components()
+                .transforms
+                .get(handle)
+                .ok_or_else(|| error("Actor has no transform"))?;
+            let response = world.components().light_responses.get(handle);
+            let result = vm.create_table()?;
+            result.set("x", pose.position.x)?;
+            result.set("y", pose.position.y)?;
+            result.set("z", pose.position.z)?;
+            result.set("illuminated", response.is_some_and(|r| r.active))?;
+            result.set("intensity", response.map_or(0.0, |r| r.intensity))?;
+            result.set("player_visible", world.script_visible.contains(&handle))?;
+            result.set_readonly(true);
+            Ok(result)
+        })?,
+    )?;
+    api.set(
+        "navigate",
+        scope.create_function(move |_, (value, x, y, z): (HostString, f32, f32, f32)| {
+            let id = entity(world, value)?;
+            let position = [x, y, z];
+            if position
+                .iter()
+                .any(|v| !v.is_finite() || v.abs() > 100_000.0)
+                || world
+                    .handle_of(&id)
+                    .and_then(|h| world.components().ais.get(h))
+                    .is_none()
+            {
+                return Err(error(
+                    "Navigation requires an AI body and a finite bounded goal",
+                ));
+            }
+            push(
+                queue,
+                limit,
+                ActionDef::Navigate {
+                    target: id,
+                    position,
+                },
+            )
+        })?,
+    )?;
+    api.set(
+        "finish",
+        scope.create_function(
+            move |_, (won, raw_title, raw_detail): (Flag, HostString, HostString)| {
+                let title = text(raw_title, 80)?;
+                let detail = text(raw_detail, 160)?;
+                crate::engine::level::validate_run_feedback(&title, &detail).map_err(error)?;
+                push(
+                    queue,
+                    limit,
+                    ActionDef::EndRun {
+                        won: won.0,
+                        title,
+                        detail,
+                    },
+                )
+            },
+        )?,
+    )?;
+    api.set(
         "change_level",
         scope.create_function(move |_, value: HostString| {
             let level = text(value, 96)?;

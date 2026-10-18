@@ -5417,7 +5417,7 @@ Components never carry actions — the bindings do that.
 | `nav_agent` | `radius`, `speed_mps`, `height` (`1.8`), `step_height` (`0.4`), `max_slope` (`2.6667`) | The entity's navigable body. Each distinct body becomes one baked agent class; navigation queries select the class that matches it. See §33. |
 | `nav_obstacle` | `size?` (`[w,h,d]`, default the resolved size), `affects_nav` (`true`) | An explicit box the offline navigation bake treats as an obstacle, so a proxy the collision build does not carry can still block navigation. |
 | `ai` | `behavior` (`idler`), `role?`, `reacts_to` (`[]`), speeds, ranges, home bounds, shelters and clip overrides | The entity runs the shared AI behavior (`idler`/`wanderer`/`skittish`/`prey`/`predator`/`follower`). Requires a `nav_agent` body; an entity with a route must not also author `ai`. See §33. |
-| `light_response` | `enter_intensity` (`0.035`), `exit_intensity` (`0.005`), `release_seconds` (`0.20`) | An opt-in AI stops and faces the player when the handheld beam actually reaches its body. Requires `ai`; thresholds must be finite `0 < exit ≤ enter ≤ 8`, release finite `0..=1` seconds. Uses the shared renderer's direct-light cone, falloff and geometry visibility. |
+| `light_response` | `enter_intensity` (`0.035`), `exit_intensity` (`0.005`), `release_seconds` (`0.20`), `reveal_only` (`false`) | An opt-in AI stops and faces the player when the handheld beam actually reaches its body. Requires `ai`; thresholds must be finite `0 < exit ≤ enter ≤ 8`, release finite `0..=1` seconds. Uses the shared renderer's direct-light cone, falloff and geometry visibility. |
 | `fade` | `period_seconds` (finite, `0 < p ≤ 3600`; default `6.0`, ignored in proximity mode), `phase?` (`0..=1`; omitted = deterministic per-instance), `min_opacity` (`0.0`), `max_opacity` (`1.0`, `≥ min_opacity`), `enabled` (`true`), `near_radius?`/`far_radius?` (finite, `0 < near < far`; both together), `fade_out_seconds?`/`fade_in_seconds?` (finite, `0 < s ≤ 600`; defaults `1.5`/`3.0`, only with the radii) | The entity's opacity cycles on a loop, or — when both radii are authored — fades out as the player approaches and back in as the player retreats. `enabled: false` holds `max_opacity`. A fade-only entity still fades without a route, AI or binding. |
 | `glow` | `enabled?` (`true`), `color?` (`[1.0, 0.86, 0.6]`, each channel `0..=1`), `intensity?` (`0.5`, `0..=8`), `range?` (`3.0` m, `0.05..=64`), `socket?` (animated joint/node name, non-blank), `offset?` (`[0, 0, 0]` entity-local metres, each `|v| ≤ 4`; used only when no socket resolves), `fade?` (`true`: intensity multiplies the fade opacity) | One attached dynamic light; `enable`/`disable` removes/restores its light independently of material emission. With a `socket` it follows the animated joint; without one it sits at the entity-local `offset`. |
 | `balloon` | `color` (`red`; also `royal_blue`, `golden_yellow`, `grass_green`, `deep_purple`, `orange`, `pink`), `scale` (`1`, `0.25..=2`), `string_length` (`1.1`, `0.15..=4` m), `anchor` (`[0,0,0]`, each axis ±8 m), `offset` (`[0,0,0]`, each axis ±2 m), `enabled` (`true`), `sway_amplitude` (`0.025`, `0..=0.15` m), `bob_amplitude` (`0.012`, `0..=0.15` m), `rotation_degrees` (`3`, `0..=12`), `speed_hz` (`0.19`, `0.01..=1`), `phase?`/`shared_phase?` (`0..=1` cycles), `shared_sway` (`0.007`, `0..=0.15` m) | Analytic simulation-time latex motion and twelve curved string segments tied to a fixed placement-local anchor. `enabled: false` holds the resting pose; `enable`/`disable` gates motion. Only the body receives the colour and uniform scale. |
@@ -7068,6 +7068,14 @@ catching or caught, a `play_animation` override owns the pose. Once ordinary
 locomotion resumes, the state-driven gait wins again so a finished one-shot
 cannot pin an agent in a held pose.
 
+`light_response.reveal_only: true` additionally hides the character whenever
+its measured direct handheld intensity is below `exit_intensity`. Visibility
+does not persist through release grace; locomotion does. The default remains
+false for existing maps. Luau can inspect the observation and issue bounded
+`navigate`, `show_message` and `end_run` actions through the shared APIs; see
+[SCRIPTING.md](SCRIPTING.md). These are reusable capabilities, without model or
+map identity checks.
+
 An optional `light_response` component temporarily holds the existing AI state,
 path and local timers when renderer-backed handheld illumination reaches one
 of five torso/head anchors. The character selects its ordinary stopped clip
@@ -8671,3 +8679,16 @@ ignores, settings, scripts and thumbnail bytes. Recovery publishes only a new
 folder; single-map compiled packages have no editable-source recovery contract.
 See [project format](PROJECT_FORMAT.md) and [editor workflow](EDITOR.md). Built-in
 runtime assets remain the supported source; no custom asset importer is exposed.
+
+### Beam authoring additions (October 2026)
+
+Reusable `navigate {target, position:[x,y,z]}` requires an AI body and bounded
+finite coordinates (±100000 metres); it uses the same planner/mover as normal
+AI. `show_message {title, lines}` accepts a printable title within 80 bytes
+and 1–6 printable lines within 72 bytes. `end_run {won,title,detail}` accepts a
+boolean outcome and printable title/detail within 80/160 bytes. Native message
+panels are dismissible with Enter/Escape; outcomes restart on Enter and return
+to menu on Escape. Grouped authored physical props are restored at the safe
+spawn before replay. Optional Luau `hint` handlers are requested with F1.
+Ordinary map bindings and Luau remain the authoring path; see the Beam report
+for UI operations and source-only gaps.

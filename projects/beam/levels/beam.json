@@ -1,0 +1,1216 @@
+{
+  "ceiling_lights": [
+    {
+      "align": "none",
+      "brightness": 0.18000000715255737,
+      "color": [
+        0.800000011920929,
+        0.6499999761581421,
+        0.44999998807907104
+      ],
+      "emission": 0.30000001192092896,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "editor_2",
+      "mount": "ceiling",
+      "range": 5.0,
+      "rotation_degrees": 0.0,
+      "x": 7.0,
+      "y": 2.7980000972747803,
+      "z": 14.399999618530273
+    },
+    {
+      "align": "none",
+      "brightness": 0.014999999664723873,
+      "color": [
+        0.3799999952316284,
+        0.5199999809265137,
+        0.699999988079071
+      ],
+      "emission": 0.15000000596046448,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "editor_3",
+      "mount": "ceiling",
+      "range": 5.0,
+      "rotation_degrees": 0.0,
+      "x": 2.0,
+      "y": 2.7980000972747803,
+      "z": 6.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.014999999664723873,
+      "color": [
+        0.3799999952316284,
+        0.5199999809265137,
+        0.699999988079071
+      ],
+      "emission": 0.15000000596046448,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "editor_4",
+      "mount": "ceiling",
+      "range": 5.0,
+      "rotation_degrees": 0.0,
+      "x": 10.800000190734863,
+      "y": 2.7980000972747803,
+      "z": 7.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.02500000037252903,
+      "color": [
+        0.3799999952316284,
+        0.5199999809265137,
+        0.699999988079071
+      ],
+      "emission": 0.11999999731779099,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "editor_12",
+      "range": 4.5,
+      "rotation_degrees": 0.0,
+      "x": 10.0,
+      "y": 5.797999858856201,
+      "z": 2.0
+    }
+  ],
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "core:carpet_damp_01",
+    "wall": "core:wallpaper_stained_01"
+  },
+  "doors": [
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "exit",
+              "script": "scripts/beam_1.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Leave",
+          "reach": 2.5
+        },
+        {
+          "component": "state",
+          "name": "ready",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "won",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "dead",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "count",
+          "value": 0
+        },
+        {
+          "component": "state",
+          "name": "red_returned",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "green_returned",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "stars_returned",
+          "value": false
+        }
+      ],
+      "height": 2.200000047683716,
+      "id": "exit",
+      "initial_state": "closed",
+      "locked": true,
+      "rotation_degrees": 0.0,
+      "thickness": 0.04500000178813934,
+      "width": 1.2999999523162842,
+      "x": 6.349999904632568,
+      "y": 0.0,
+      "z": 15.899999618530273
+    },
+    {
+      "bidirectional": true,
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Open / close"
+        }
+      ],
+      "height": 2.0999999046325684,
+      "id": "upper_door",
+      "initial_state": "closed",
+      "rotation_degrees": 0.0,
+      "thickness": 0.04500000178813934,
+      "width": 1.7999999523162842,
+      "x": 11.899999618530273,
+      "y": 3.0,
+      "z": 4.900000095367432
+    }
+  ],
+  "environment": {
+    "fog": {
+      "color": [
+        0.025,
+        0.032,
+        0.045
+      ],
+      "density": 0.016,
+      "height_gain": 0.04,
+      "reference_y": 1.5
+    },
+    "presentation": {
+      "contrast": 1.08,
+      "exposure": 0.28,
+      "saturation": 0.9,
+      "tone_knee": 0.75
+    }
+  },
+  "format_version": 1,
+  "id": "beam",
+  "name": "It Only Exists in the Beam",
+  "props": [
+    {
+      "id": "editor_prop_1",
+      "model": "core:office_reception_desk",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        2.4000000953674316,
+        0.9800000190734863,
+        0.949999988079071
+      ],
+      "solid": true,
+      "x": 3.0,
+      "y": 0.0,
+      "z": 14.800000190734863
+    },
+    {
+      "id": "editor_prop_2",
+      "model": "core:office_reception_desk",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        2.4000000953674316,
+        0.9800000190734863,
+        0.949999988079071
+      ],
+      "solid": true,
+      "x": 7.0,
+      "y": 0.0,
+      "z": 14.399999618530273
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "restart",
+              "script": "scripts/beam_1.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Start again",
+          "reach": 2.5
+        }
+      ],
+      "id": "restart_sign",
+      "model": "core:exit_sign",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.44999998807907104,
+        0.5699999928474426,
+        0.07999999821186066
+      ],
+      "solid": false,
+      "x": 7.0,
+      "y": 2.119999885559082,
+      "z": 15.680000305175781
+    },
+    {
+      "id": "editor_prop_4",
+      "model": "core:desk",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.600000023841858,
+        0.75,
+        0.699999988079071
+      ],
+      "solid": true,
+      "x": 2.799999952316284,
+      "y": 0.0,
+      "z": 3.0
+    },
+    {
+      "id": "editor_prop_5",
+      "model": "core:chair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.8999999761581421,
+        0.5
+      ],
+      "solid": true,
+      "x": 2.799999952316284,
+      "y": 0.0,
+      "z": 4.099999904632568
+    },
+    {
+      "id": "editor_prop_6",
+      "model": "core:office_filing_cabinet_tall",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        1.3200000524520874,
+        0.5
+      ],
+      "solid": true,
+      "x": 1.0,
+      "y": 0.0,
+      "z": 2.0
+    },
+    {
+      "id": "editor_prop_7",
+      "model": "core:bookshelf",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        1.0,
+        1.7999999523162842,
+        0.3499999940395355
+      ],
+      "solid": true,
+      "x": 5.800000190734863,
+      "y": 0.0,
+      "z": 2.0999999046325684
+    },
+    {
+      "id": "editor_prop_8",
+      "model": "core:plant",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.4000000059604645,
+        1.0,
+        0.4000000059604645
+      ],
+      "solid": false,
+      "x": 1.0,
+      "y": 0.0,
+      "z": 5.0
+    },
+    {
+      "id": "editor_prop_9",
+      "model": "core:table",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.399999976158142,
+        0.75,
+        0.800000011920929
+      ],
+      "solid": true,
+      "x": 3.200000047683716,
+      "y": 0.0,
+      "z": 7.800000190734863
+    },
+    {
+      "id": "editor_prop_10",
+      "model": "core:chair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.8999999761581421,
+        0.5
+      ],
+      "solid": true,
+      "x": 3.200000047683716,
+      "y": 0.0,
+      "z": 6.699999809265137
+    },
+    {
+      "id": "editor_prop_11",
+      "model": "core:chair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.8999999761581421,
+        0.5
+      ],
+      "solid": true,
+      "x": 4.300000190734863,
+      "y": 0.0,
+      "z": 8.100000381469727
+    },
+    {
+      "id": "editor_prop_12",
+      "model": "core:armchair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.8999999761581421,
+        0.8999999761581421,
+        0.8999999761581421
+      ],
+      "solid": true,
+      "x": 1.2999999523162842,
+      "y": 0.0,
+      "z": 10.399999618530273
+    },
+    {
+      "id": "editor_prop_13",
+      "model": "core:couch",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        2.0,
+        0.8999999761581421,
+        0.8999999761581421
+      ],
+      "solid": true,
+      "x": 3.5,
+      "y": 0.0,
+      "z": 11.300000190734863
+    },
+    {
+      "id": "editor_prop_14",
+      "model": "core:lamp",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3499999940395355,
+        1.5,
+        0.3499999940395355
+      ],
+      "solid": false,
+      "x": 1.0,
+      "y": 0.0,
+      "z": 12.0
+    },
+    {
+      "id": "editor_prop_15",
+      "model": "core:cardboard_box",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": false,
+      "x": 5.800000190734863,
+      "y": 0.0,
+      "z": 10.699999809265137
+    },
+    {
+      "id": "editor_prop_16",
+      "model": "core:bookshelf",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        1.0,
+        1.7999999523162842,
+        0.3499999940395355
+      ],
+      "solid": true,
+      "x": 8.0,
+      "y": 3.0,
+      "z": 1.100000023841858
+    },
+    {
+      "id": "editor_prop_17",
+      "model": "core:desk",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.600000023841858,
+        0.75,
+        0.699999988079071
+      ],
+      "solid": true,
+      "x": 10.800000190734863,
+      "y": 3.0,
+      "z": 3.5
+    },
+    {
+      "id": "editor_prop_18",
+      "model": "core:chair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.8999999761581421,
+        0.5
+      ],
+      "solid": true,
+      "x": 10.800000190734863,
+      "y": 3.0,
+      "z": 4.349999904632568
+    },
+    {
+      "id": "editor_prop_19",
+      "model": "core:couch",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        2.0,
+        0.8999999761581421,
+        0.8999999761581421
+      ],
+      "solid": true,
+      "x": 9.5,
+      "y": 0.0,
+      "z": 9.399999618530273
+    },
+    {
+      "id": "editor_prop_20",
+      "model": "home:coffee_table",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.399999976158142,
+        0.46000000834465027,
+        0.800000011920929
+      ],
+      "solid": true,
+      "x": 10.5,
+      "y": 0.0,
+      "z": 10.899999618530273
+    },
+    {
+      "id": "editor_prop_21",
+      "model": "core:armchair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.8999999761581421,
+        0.8999999761581421,
+        0.8999999761581421
+      ],
+      "solid": true,
+      "x": 9.100000381469727,
+      "y": 0.0,
+      "z": 11.0
+    },
+    {
+      "id": "editor_prop_22",
+      "model": "core:tv",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        1.100000023841858,
+        0.699999988079071,
+        0.10000000149011612
+      ],
+      "solid": false,
+      "x": 10.399999618530273,
+      "y": 0.8999999761581421,
+      "z": 7.800000190734863
+    },
+    {
+      "id": "editor_prop_23",
+      "model": "core:cabinet",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.8999999761581421,
+        0.8500000238418579,
+        0.44999998807907104
+      ],
+      "solid": true,
+      "x": 10.399999618530273,
+      "y": 0.0,
+      "z": 7.800000190734863
+    },
+    {
+      "id": "gift_red",
+      "model": "arcade:party_gift_red",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.699999988079071,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "beam_gifts",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0.0,
+                0.15000000596046448,
+                0.0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.15000000596046448,
+                  0.15000000596046448,
+                  0.15000000596046448
+                ],
+                "kind": "cuboid"
+              }
+            }
+          ]
+        }
+      },
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.30399999022483826,
+        0.3747999966144562,
+        0.30399999022483826
+      ],
+      "solid": false,
+      "x": 2.799999952316284,
+      "y": 0.75,
+      "z": 3.0
+    },
+    {
+      "id": "gift_green",
+      "model": "arcade:party_gift_green",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.699999988079071,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "beam_gifts",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0.0,
+                0.15000000596046448,
+                0.0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.15000000596046448,
+                  0.15000000596046448,
+                  0.15000000596046448
+                ],
+                "kind": "cuboid"
+              }
+            }
+          ]
+        }
+      },
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 15.0,
+      "scale": 1.0,
+      "size": [
+        0.30399999022483826,
+        0.3747999966144562,
+        0.30399999022483826
+      ],
+      "solid": false,
+      "x": 10.800000190734863,
+      "y": 3.75,
+      "z": 3.5
+    },
+    {
+      "id": "gift_stars",
+      "model": "arcade:party_gift_stars",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.699999988079071,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "beam_gifts",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0.0,
+                0.15000000596046448,
+                0.0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.15000000596046448,
+                  0.15000000596046448,
+                  0.15000000596046448
+                ],
+                "kind": "cuboid"
+              }
+            }
+          ]
+        }
+      },
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": -15.0,
+      "scale": 1.0,
+      "size": [
+        0.30399999022483826,
+        0.3747999966144562,
+        0.30399999022483826
+      ],
+      "solid": false,
+      "x": 10.5,
+      "y": 0.46000000834465027,
+      "z": 10.899999618530273
+    },
+    {
+      "id": "editor_prop_27",
+      "model": "core:plant",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.4000000059604645,
+        1.0,
+        0.4000000059604645
+      ],
+      "solid": false,
+      "x": 8.5,
+      "y": 0.0,
+      "z": 13.0
+    },
+    {
+      "components": [
+        {
+          "component": "nav_agent",
+          "height": 1.75,
+          "max_slope": 2.6667,
+          "radius": 0.3,
+          "speed_mps": 0.9,
+          "step_height": 0.4
+        },
+        {
+          "behavior": "idler",
+          "can_open_doors": true,
+          "component": "ai",
+          "hearing_range": 0,
+          "run_speed": 0.9,
+          "sight_range": 0,
+          "walk_speed": 0.9
+        },
+        {
+          "component": "light_response",
+          "enter_intensity": 0.035,
+          "exit_intensity": 0.005,
+          "release_seconds": 0.85,
+          "reveal_only": true
+        },
+        {
+          "component": "audio",
+          "gain": 0.22,
+          "looped": false,
+          "playing": false,
+          "sound": "impact_soft"
+        }
+      ],
+      "id": "visitor",
+      "model": "core:mannequin_black",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5785390138626099,
+        1.7230349779129028,
+        0.3169650137424469
+      ],
+      "solid": false,
+      "x": 3.0,
+      "y": 0.0,
+      "z": 5.599999904632568
+    }
+  ],
+  "ramps": [
+    {
+      "depth": 7.0,
+      "offset_y": 3.0,
+      "rise": -3.0,
+      "width": 1.7999999523162842,
+      "x": 11.899999618530273,
+      "z": 5.0
+    }
+  ],
+  "rooms": [
+    {
+      "depth": 16.0,
+      "floor_y": 0.0,
+      "height": 2.799999952316284,
+      "material": "core:carpet_damp_01",
+      "width": 11.800000190734863,
+      "x": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 16.0,
+      "floor_y": 0.0,
+      "height": 2.799999952316284,
+      "material": "core:carpet_damp_01",
+      "width": 0.19999980926513672,
+      "x": 13.800000190734863,
+      "z": 0.0
+    },
+    {
+      "depth": 5.0,
+      "floor_y": 0.0,
+      "height": 2.799999952316284,
+      "material": "core:carpet_damp_01",
+      "width": 2.0,
+      "x": 11.800000190734863,
+      "z": 0.0
+    },
+    {
+      "depth": 3.5,
+      "floor_y": 0.0,
+      "height": 2.799999952316284,
+      "material": "core:carpet_damp_01",
+      "width": 2.0,
+      "x": 11.800000190734863,
+      "z": 12.5
+    },
+    {
+      "depth": 5.0,
+      "floor_y": 3.0,
+      "height": 2.799999952316284,
+      "material": "home:hardwood_oak_01",
+      "width": 6.800000190734863,
+      "x": 7.0,
+      "z": 0.0
+    },
+    {
+      "depth": 7.5,
+      "floor_y": 0.0,
+      "height": 5.800000190734863,
+      "width": 2.0,
+      "x": 11.800000190734863,
+      "z": 5.0
+    }
+  ],
+  "schema": "places-level",
+  "scripts": [
+    "scripts/beam_1.luau"
+  ],
+  "sound_emitters": [
+    {
+      "gain": 0.14000000059604645,
+      "id": "store_hum",
+      "looped": true,
+      "playing": true,
+      "sound": "ambience_hvac",
+      "spatial": false,
+      "x": 7.0,
+      "y": 1.5,
+      "z": 14.0
+    },
+    {
+      "gain": 0.5,
+      "id": "returned_cue",
+      "looped": false,
+      "playing": false,
+      "sound": "switch_click",
+      "spatial": false,
+      "time_domain": "real",
+      "x": 7.0,
+      "y": 0.6000000238418579,
+      "z": 14.399999618530273
+    },
+    {
+      "gain": 0.550000011920929,
+      "id": "exit_cue",
+      "looped": false,
+      "playing": false,
+      "sound": "door_close",
+      "spatial": false,
+      "time_domain": "real",
+      "x": 7.0,
+      "y": 1.100000023841858,
+      "z": 15.800000190734863
+    }
+  ],
+  "spawn": {
+    "x": 7,
+    "yaw_degrees": 0,
+    "z": 13.1
+  },
+  "volumes": [
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "returned",
+              "script": "scripts/beam_1.luau"
+            }
+          ],
+          "on": "enter_volume"
+        },
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "removed",
+              "script": "scripts/beam_1.luau"
+            }
+          ],
+          "on": "exit_volume"
+        }
+      ],
+      "bottom_y": 0.6000000238418579,
+      "depth": 1.600000023841858,
+      "filter": {
+        "held": false,
+        "instance": "gift_red",
+        "kind": "item"
+      },
+      "id": "return_red",
+      "occupancy": "per_actor",
+      "top_y": 1.4000000953674316,
+      "width": 2.200000047683716,
+      "x": 5.900000095367432,
+      "z": 13.600000381469727
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "returned",
+              "script": "scripts/beam_1.luau"
+            }
+          ],
+          "on": "enter_volume"
+        },
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "removed",
+              "script": "scripts/beam_1.luau"
+            }
+          ],
+          "on": "exit_volume"
+        }
+      ],
+      "bottom_y": 0.6000000238418579,
+      "depth": 1.600000023841858,
+      "filter": {
+        "held": false,
+        "instance": "gift_green",
+        "kind": "item"
+      },
+      "id": "return_green",
+      "occupancy": "per_actor",
+      "top_y": 1.4000000953674316,
+      "width": 2.200000047683716,
+      "x": 5.900000095367432,
+      "z": 13.600000381469727
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "returned",
+              "script": "scripts/beam_1.luau"
+            }
+          ],
+          "on": "enter_volume"
+        },
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "removed",
+              "script": "scripts/beam_1.luau"
+            }
+          ],
+          "on": "exit_volume"
+        }
+      ],
+      "bottom_y": 0.6000000238418579,
+      "depth": 1.600000023841858,
+      "filter": {
+        "held": false,
+        "instance": "gift_stars",
+        "kind": "item"
+      },
+      "id": "return_stars",
+      "occupancy": "per_actor",
+      "top_y": 1.4000000953674316,
+      "width": 2.200000047683716,
+      "x": 5.900000095367432,
+      "z": 13.600000381469727
+    }
+  ],
+  "walls": [
+    {
+      "depth": 0.20000000298023224,
+      "height": 2.799999952316284,
+      "width": 14.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 15.600000381469727,
+      "height": 2.799999952316284,
+      "width": 0.20000000298023224,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.20000000298023224
+    },
+    {
+      "depth": 15.600000381469727,
+      "height": 2.799999952316284,
+      "width": 0.20000000298023224,
+      "x": 13.800000190734863,
+      "y": 0.0,
+      "z": 0.20000000298023224
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 2.799999952316284,
+      "width": 6.300000190734863,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 15.800000190734863
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 2.799999952316284,
+      "width": 6.300000190734863,
+      "x": 7.699999809265137,
+      "y": 0.0,
+      "z": 15.800000190734863
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 0.6000000238418579,
+      "width": 1.399999976158142,
+      "x": 6.300000190734863,
+      "y": 2.200000047683716,
+      "z": 15.800000190734863
+    },
+    {
+      "depth": 4.599999904632568,
+      "height": 2.799999952316284,
+      "width": 0.20000000298023224,
+      "x": 6.800000190734863,
+      "y": 0.0,
+      "z": 0.20000000298023224
+    },
+    {
+      "depth": 5.0,
+      "height": 2.799999952316284,
+      "width": 0.20000000298023224,
+      "x": 6.800000190734863,
+      "y": 0.0,
+      "z": 7.0
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 2.9000000953674316,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 7.0,
+      "x": 7.0,
+      "y": 2.9000000953674316,
+      "z": 0.0
+    },
+    {
+      "depth": 4.599999904632568,
+      "height": 2.9000000953674316,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 0.20000000298023224,
+      "x": 6.800000190734863,
+      "y": 2.9000000953674316,
+      "z": 0.20000000298023224
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 2.799999952316284,
+      "material": "home:wall_paint_offwhite_01",
+      "width": 4.800000190734863,
+      "x": 7.0,
+      "y": 3.0,
+      "z": 4.800000190734863
+    },
+    {
+      "depth": 7.5,
+      "height": 5.800000190734863,
+      "width": 0.20000000298023224,
+      "x": 11.600000381469727,
+      "y": 0.0,
+      "z": 5.0
+    },
+    {
+      "depth": 12.300000190734863,
+      "height": 2.9000000953674316,
+      "width": 0.20000000298023224,
+      "x": 13.800000190734863,
+      "y": 2.9000000953674316,
+      "z": 0.20000000298023224
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 0.6499999761581421,
+      "width": 2.0,
+      "x": 11.800000190734863,
+      "y": 5.150000095367432,
+      "z": 4.800000190734863
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 2.9000000953674316,
+      "width": 0.20000000298023224,
+      "x": 11.600000381469727,
+      "y": 2.9000000953674316,
+      "z": 4.800000190734863
+    }
+  ],
+  "geometry_intent": [
+    {
+      "check": "missing-wall",
+      "x": 11.6,
+      "z": 0.2,
+      "width": 0.4,
+      "depth": 4.9,
+      "note": "Adjacent lower floor strips meet without an internal wall; enclosing shell remains at x13.8."
+    },
+    {
+      "check": "missing-wall",
+      "x": 11.6,
+      "z": 12.3,
+      "width": 0.4,
+      "depth": 3.5,
+      "note": "Lower floor strips share the entry approach; enclosing shell remains at x13.8."
+    },
+    {
+      "check": "missing-wall",
+      "x": 11.8,
+      "z": 4.8,
+      "width": 2.0,
+      "depth": 0.4,
+      "note": "Ramp and lower floor join inside the tall enclosed shaft; no wall across the walking connection."
+    },
+    {
+      "check": "missing-wall",
+      "x": 11.8,
+      "z": 12.3,
+      "width": 2,
+      "depth": 0.4,
+      "note": "Bottom of the enclosed ramp opens to the lower entrance floor."
+    },
+    {
+      "check": "missing-wall",
+      "x": 11.5,
+      "z": 4.7,
+      "width": 2.3,
+      "depth": 0.6,
+      "note": "Real upper-office door plus header and jamb define the connected top landing."
+    },
+    {
+      "check": "missing-wall",
+      "x": 6.2,
+      "z": 15.7,
+      "width": 1.6,
+      "depth": 0.4,
+      "note": "Locked exit leaf spans this aperture; successful use ends the run."
+    }
+  ]
+}

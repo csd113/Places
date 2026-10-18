@@ -1015,8 +1015,21 @@ fn tail_index(name: &str) -> u8 {
         .unwrap_or(1)
 }
 
-/// One character: a placement, a shared model, its animator and its baked
-/// per-vertex albedo.
+/// Preserve texture/alpha/response while applying an installed albedo preset.
+fn tinted_albedo(asset: &LoadedPropAsset, tint: [f32; 3]) -> Vec<[f32; 4]> {
+    asset
+        .model
+        .vertices
+        .iter()
+        .map(|vertex| {
+            let [red, green, blue, alpha] = vertex.color;
+            let [tr, tg, tb] = tint;
+            [red * tr, green * tg, blue * tb, alpha]
+        })
+        .collect()
+}
+
+/// One character: a placement, shared model, animator and per-vertex albedo.
 pub struct Character {
     asset: Arc<LoadedPropAsset>,
     transform: Mat4,
@@ -1423,7 +1436,8 @@ impl CharacterScene {
             };
             let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
             let transform = prop_instance_matrix(prop, base_y);
-            let albedo = asset.model.vertices.iter().map(|v| v.color).collect();
+            let tint = catalog.tint(&prop.model).unwrap_or([1.0; 3]);
+            let albedo = tinted_albedo(&asset, tint);
             let entity_lighting = sample_character_light(&asset, &transform, lighting, irradiance);
             let lighting_local_centre = model_lighting_centre(&asset);
             let world_bounds = character_bounds(&asset, &transform);
@@ -1555,7 +1569,7 @@ impl CharacterScene {
             .floor_y_at(position.x, position.z)
             .unwrap_or(0.0);
         let transform = runtime_instance_matrix(position, base_y, yaw_degrees, scale);
-        let albedo = asset.model.vertices.iter().map(|v| v.color).collect();
+        let albedo = tinted_albedo(&asset, catalog.tint(model).unwrap_or([1.0; 3]));
         let entity_lighting = sample_character_light(&asset, &transform, lighting, irradiance);
         let lighting_local_centre = model_lighting_centre(&asset);
         let world_bounds = character_bounds(&asset, &transform);

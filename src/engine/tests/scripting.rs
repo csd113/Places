@@ -383,3 +383,232 @@ fn repeated_script_calls_share_a_frame_action_budget() -> Result<(), String> {
     );
     Ok(())
 }
+
+// Protect actual panel bounds, atomic rollback and pending-panel cancellation.
+// One metadata-only world, four scoped Luau calls; no assets or bake.
+#[test]
+fn guidance_and_outcomes_are_bounded_atomic_and_cancelled_on_reset() -> Result<(), String> {
+    let level = fixture(
+        "return {entered=function(api) api.message('Goal', {'Bring gifts home'}); api.finish(true, 'Home', 'You made it.') end}",
+    )?;
+    let mut world = EntityWorld::from_level(&level);
+    let _initial = world.take_commands();
+    let _report = invoke(&mut world)?;
+    let commands = world.take_commands();
+    assert!(
+        matches!(commands.first(), Some(WorldCommand::ShowMessage { title, lines }) if title == "Goal" && lines.len() == 1),
+        "ordinary scoped calls publish bounded guidance"
+    );
+    assert!(
+        matches!(
+            commands.get(1),
+            Some(WorldCommand::EndRun {
+                won: true,
+                title: _,
+                detail: _
+            })
+        ),
+        "outcome follows authored command order"
+    );
+    let _pending = invoke(&mut world)?;
+    world.reset_runtime();
+    assert!(
+        !world.take_commands().iter().any(|command| matches!(
+            command,
+            WorldCommand::ShowMessage { title: _, lines: _ }
+                | WorldCommand::EndRun {
+                    won: _,
+                    title: _,
+                    detail: _
+                }
+        )),
+        "a reset cannot reopen stale guidance/results"
+    );
+    let invalid = fixture(
+        "return {entered=function(api) api.finish(true, 'Home', 'Done'); api.message('Goal', {[1]='valid',[1000]='hidden'}) end}",
+    )?;
+    let mut refused = EntityWorld::from_level(&invalid);
+    let _initial_refused = refused.take_commands();
+    let _rejected = invoke(&mut refused)?;
+    assert!(
+        !refused.take_commands().iter().any(|command| matches!(
+            command,
+            WorldCommand::EndRun {
+                won: _,
+                title: _,
+                detail: _
+            }
+        )),
+        "invalid sparse guidance rolls back prior staged outcome"
+    );
+    assert!(
+        !refused.script_diagnostics().is_empty(),
+        "rejection is visible in diagnostics"
+    );
+    Ok(())
+}
+
+// Protect the visible-only contract independently from the AI release grace.
+// A single metadata actor and ten direct light samples cost no GPU/bake work.
+#[test]
+fn beam_reveal_clears_before_release_grace_and_restores_on_reset() -> Result<(), String> {
+    let mut level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"beam_fixture","name":"Beam fixture","spawn":{"x":3,"z":3},"rooms":[{"width":4,"depth":4}],"props":[{"id":"actor","model":"sheet-ghost","x":1,"z":1,"components":[{"component":"nav_agent","radius":0.3,"height":1.6,"speed_mps":1},{"component":"ai","behavior":"idler"},{"component":"light_response","reveal_only":true,"release_seconds":0.5}]}]}"#).map_err(|e|e.to_string())?;
+    level.script_sources.push(ScriptSource {
+        path: path()?,
+        source: "return {start=function(api) local a=api.actor('actor'); assert(a.x==1 and a.y==0 and a.z==1, 'stale reset host pose') end}".into(),
+    });
+    let mut world = EntityWorld::from_level(&level);
+    assert!(
+        world
+            .entity_frames()
+            .first()
+            .is_some_and(|frame| frame.opacity.abs() <= f32::EPSILON),
+        "unilluminated actor starts hidden"
+    );
+    world.update_light_observations(0.016, Vec3::splat(3.0), |_, _| 1.0);
+    assert!(
+        world
+            .entity_frames()
+            .first()
+            .is_some_and(|frame| frame.opacity > 0.99),
+        "direct beam reveals the actor"
+    );
+    world.update_light_observations(0.1, Vec3::splat(3.0), |_, _| 0.0);
+    assert!(
+        world
+            .light_response_observations()
+            .any(|response| response.active),
+        "locomotion release grace still protects the player"
+    );
+    assert!(
+        world
+            .entity_frames()
+            .first()
+            .is_some_and(|frame| frame.opacity.abs() <= f32::EPSILON),
+        "release grace never leaves a visible ghost outside the beam"
+    );
+    let actor = world.handle_of("actor").ok_or("Missing actor")?;
+    world
+        .components_mut()
+        .transforms
+        .get_mut(actor)
+        .ok_or("Missing transform")?
+        .position = Vec3::new(2.0, 0.0, 2.0);
+    world.reset_runtime();
+    let authored = Vec3::new(1.0, 0.0, 1.0);
+    assert!(
+        world
+            .ai()
+            .agents()
+            .first()
+            .is_some_and(|agent| agent.position == authored)
+            && world
+                .entity_frames()
+                .first()
+                .and_then(|frame| frame.transform)
+                .is_some_and(|(position, _)| position == authored),
+        "AI and renderer-bound frame agree immediately before movement"
+    );
+    assert!(
+        world.light_response_observations().all(|response| response
+            .position
+            .distance_squared(Vec3::new(1.0, 0.0, 1.0))
+            <= f32::EPSILON),
+        "idle reset restores script and beam anchors before another AI movement handoff"
+    );
+
+    assert!(
+        world
+            .light_response_observations()
+            .all(|response| !response.active && response.intensity.abs() <= f32::EPSILON),
+        "restart clears renderer observations and hold state"
+    );
+    let mut reset_samples = Vec::new();
+    world.update_light_observations(0.016, Vec3::splat(3.0), |_, sample| {
+        reset_samples.push(sample);
+        1.0
+    });
+    assert!(
+        reset_samples
+            .first()
+            .is_some_and(|sample| (sample.x, sample.z) == (authored.x, authored.z))
+            && reset_samples
+                .iter()
+                .all(|sample| (sample.x - authored.x).abs() <= 0.3
+                    && (sample.z - authored.z).abs() <= 0.3
+                    && sample.y > 0.0
+                    && sample.y < 1.6),
+        "first new beam samples the torso and partial-body anchors around the reset body"
+    );
+    tick(&mut world, &level);
+    assert!(
+        world.script_diagnostics().is_empty(),
+        "actual scoped Luau reads the reset position before movement"
+    );
+    Ok(())
+}
+
+// Protect the exact host observation boundary used by scripted contact rules:
+// one thin wall blocks sight while a goal still uses the normal AI dispatcher.
+// Two metadata ticks, one actor, no navigation bake or external resources.
+#[test]
+fn script_actor_sight_uses_collision_and_navigation_keeps_its_goal() -> Result<(), String> {
+    let mut level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"sight_fixture","name":"Sight fixture","spawn":{"x":3,"z":1},"rooms":[{"width":4,"depth":4}],"props":[{"id":"actor","model":"sheet-ghost","x":1,"z":1,"components":[{"component":"nav_agent","radius":0.3,"height":1.6,"speed_mps":1},{"component":"ai","behavior":"idler"},{"component":"state","name":"clear","value":true}]}]}"#).map_err(|e|e.to_string())?;
+    level.script_sources.push(ScriptSource { path: path()?, source: "return {update=function(api) local a=api.actor('actor'); local p=api.player(); api.set_state('actor','clear',a.player_visible); api.navigate('actor',p.x,p.y,p.z) end}".into() });
+    let mut world = EntityWorld::from_level(&level);
+    let walls = [crate::engine::collision::WallAabb::with_y(
+        1.99, 0.0, 0.0, 0.02, 2.5, 4.0,
+    )];
+    let index = CollisionIndex::build(&walls);
+    let floor = WalkableFloor::from_level(&level);
+    let mut context = WorldContext {
+        delta_seconds: 0.016,
+        feet_from: Vec3::new(3.0, 0.0, 1.0),
+        feet: Vec3::new(3.0, 0.0, 1.0),
+        eye: Vec3::new(3.0, 1.6, 1.0),
+        body_height: 1.8,
+        walls: &walls,
+        index: &index,
+        floor: &floor,
+        nav: None,
+    };
+    let _blocked = world.tick(&context);
+    let handle = world.handle_of("actor").ok_or("Missing actor")?;
+    assert!(
+        world
+            .components()
+            .states
+            .get(handle)
+            .and_then(|state| state.get("clear"))
+            .is_some_and(|value| matches!(
+                value,
+                crate::engine::entities::components::StateValue::Bool(false)
+            )),
+        "a thin physical wall blocks script contact visibility"
+    );
+    assert!(
+        world
+            .ai()
+            .agents()
+            .first()
+            .is_some_and(|actor| actor.navigation_goal == Some(context.feet)),
+        "script queues a goal rather than teleporting the actor"
+    );
+    let clear_index = CollisionIndex::build(&[]);
+    context.walls = &[];
+    context.index = &clear_index;
+    let _clear = world.tick(&context);
+    assert!(
+        world
+            .components()
+            .states
+            .get(handle)
+            .and_then(|state| state.get("clear"))
+            .is_some_and(|value| matches!(
+                value,
+                crate::engine::entities::components::StateValue::Bool(true)
+            )),
+        "removing the wall updates the next invocation's observation"
+    );
+    Ok(())
+}

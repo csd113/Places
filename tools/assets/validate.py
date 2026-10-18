@@ -93,6 +93,9 @@ MAX_LEVEL_LIGHT_SOURCES = 1_000_000
 # implements. Unknown tags are rejected by name; audio uses the same bounded
 # entity dispatcher as every other action. There is no `play_audio` tag.
 ACTION_TAGS = (
+    "navigate",
+    "end_run",
+    "show_message",
     "open",
     "close",
     "toggle",
@@ -615,7 +618,10 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
 
     seen_ids: Dict[str, int] = {}
     seen_models: Dict[str, str] = {}
-    preset_models = set()
+    # Tinted animatable prop presets may share an installed entity rig too.
+    # Untinted duplicate entries still fail; PNG/model bytes are never copied.
+    preset_models = {str(entry.get("model")) for entry in catalog_entries(catalog)
+                     if entry.get("asset_type") == "prop" and entry.get("tint") is not None}
     material_textures: List[Tuple[str, str]] = []
     material_emissive_masks: List[Tuple[str, str]] = []
     material_uv_masks: List[Tuple[str, str]] = []
@@ -1852,6 +1858,8 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
                     errors.append(f"{entry} hide anchors must remain inside home_bounds")
         elif tag == "light_response":
             facts["has_light_response"] = True
+            if not isinstance(component.get("reveal_only", False), bool):
+                errors.append(f"{entry} reveal_only must be a boolean")
             enter = component.get("enter_intensity", 0.035)
             leave = component.get("exit_intensity", 0.005)
             release = component.get("release_seconds", 0.20)
@@ -2396,6 +2404,23 @@ def _validate_actions(
                             f"{entry} ('change_material') targets a `material` component "
                             f"that declares no variant '{variant.strip()}'"
                         )
+        elif tag == "navigate":
+            position = action.get("position")
+            if not isinstance(position, list) or len(position) != 3 or not all(is_finite_number(v) and abs(v) <= 100000 for v in position):
+                errors.append(f"{entry} needs three finite bounded navigation coordinates")
+            require("an AI body", lambda facts: facts.get("has_ai", False))
+        elif tag in ("end_run", "show_message"):
+            title = action.get("title")
+            if not isinstance(title, str) or not title.strip() or len(title.encode()) > 80 or any(ord(c) < 32 for c in title):
+                errors.append(f"{entry} needs a printable title within 80 bytes")
+            if tag == "end_run":
+                detail = action.get("detail")
+                if not isinstance(action.get("won"), bool) or not isinstance(detail, str) or not detail.strip() or len(detail.encode()) > 160 or any(ord(c) < 32 for c in detail):
+                    errors.append(f"{entry} needs a boolean outcome and printable detail within 160 bytes")
+            else:
+                lines = action.get("lines")
+                if not isinstance(lines, list) or not 1 <= len(lines) <= 6 or any(not isinstance(v, str) or not v.strip() or len(v.encode()) > 72 or any(ord(c) < 32 for c in v) for v in lines):
+                    errors.append(f"{entry} needs 1..6 printable lines within 72 bytes each")
         elif tag == "move_object":
             for key in ("x", "z"):
                 if not is_finite_number(action.get(key)):

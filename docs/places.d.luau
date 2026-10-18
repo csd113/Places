@@ -6,7 +6,16 @@ export type Event = {
     x: number?, y: number?, z: number?, dt: number,
 }
 export type DoorOperation = "open" | "close" | "toggle" | "lock" | "unlock"
+export type Position = { x: number, y: number, z: number }
+export type Actor = { x: number, y: number, z: number, illuminated: boolean, intensity: number, player_visible: boolean }
 export type Api = {
+    player: () -> Position,
+    actor: (id: string) -> Actor,
+    navigate: (id: string, x: number, y: number, z: number) -> (),
+    message: (title: string, lines: {string}) -> (),
+    finish: (won: boolean, title: string, detail: string) -> (),
+    reset: () -> (),
+    change_level: (id: string) -> (),
     exists: (id: string) -> boolean,
     door: (id: string, operation: DoorOperation) -> (),
     light: (id: string, on: boolean) -> (),

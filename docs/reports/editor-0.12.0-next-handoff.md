@@ -5,7 +5,9 @@ packaging/launch or roadmap stage 8/9 work is authorized by this handoff.
 Closing Time is the authored mode covered by `editor-0.12.0-closing-time.md`.
 Its final local receipt is
 `local/verification/0.12.0-closing-time/closing-time-handoff.json`.
-Hand control back after this mode; do not automatically start the following queue.
+Beam is now also implemented; see `editor-0.12.0-beam.md` and
+`local/verification/0.12.0-beam/beam-handoff.json`. Hand control back after
+Beam; do not automatically start the following queue.
 
 Latest explicit instruction: Closing Time and Beam require local native
 validation and local commits, with **no further push or GitHub CI wait**. Closing
@@ -62,14 +64,13 @@ binaries outside `target`, and check for other active work before cleaning it.
 
 ## Following queue
 
-1. Author the fleshed-out single-map horror mode **It Only Exists in the Beam**.
-   Use the currently integrated assets for this initial mode. A creature is visible
-   only when illuminated by the player’s flashlight; objects
-   recovered among furniture unlock an achievable exit. Include explicit win and
-   death feedback and usable respawn/reset. Perform three substantive passes:
-   complete mechanics/objectives/win/death/reset; atmosphere/readability/pacing/fair
-   creature behavior; then final gameplay/visual/performance polish. Each pass must
-   actually verify win, death and reset and record findings/changes.
+1. Beam's three substantive played passes are complete. Editable source is
+   `projects/beam/`; the exported complete-project package and immutable direct
+   tools are in `local/verification/0.12.0-beam/`. The report and local receipt
+   identify real-controls win/death/reset, beam/occlusion, physical returns,
+   two-storey creature routes, source recovery, performance and Library evidence.
+   Preserve both demos and their original recordings. Do not re-author them as
+   part of delivery or integrate pending assets before their stage.
 2. Both demos need practical discovered-gap and future-improvements reports: concrete editor gaps
    requiring manual level/Luau edits, missing/unimplemented helpful sounds, and
    useful lighting/AI/physics/engine capabilities. Each item names its encounter or
@@ -99,7 +100,10 @@ binaries outside `target`, and check for other active work before cleaning it.
 4. After updated asset integration, perform the separately requested **editor
    readability pass**: sharpen text rendering and button legibility, improve
    sizing/contrast and physical/logical window/display scaling while preserving
-   the uncluttered layout. Do not interrupt either map to implement this pass.
+   the uncluttered layout. Include the approved small semi-transparent five-dot
+   crosshair, `/crosshair on|off`, an editor per-map default, and documented
+   session override precedence/reset behavior. Do not interrupt either map to
+   implement this pass.
 5. Implement the concrete fixes and limitations discovered during **both map
    creations**, using their reports as reproduction/impact/workaround/correction
    inputs. Distinguish required corrections from optional unrelated ideas. Then
@@ -110,6 +114,13 @@ binaries outside `target`, and check for other active work before cleaning it.
    binaries. Preserve the release foreign-unwind checks. Stage 7’s retained
    `malformed/` fixtures and refusal logs are a starting point, not a finished-mode
    safety certification.
+6. Build the separately authorized coherent feature-test map/game after that
+   work. Inventory real supported features, connect them into playable
+   challenges, and deliver an honest feature coverage/pass-fail/manual-gap
+   report. It exercises supported features and exposes editor gaps; it does not
+   authorize arbitrary missing engine features. It is neither exhaustive nor an
+   automatic Cargo/CI bake. Then wait
+   for Connor.
 
 Stop before stages 8/9 (future bundled menu level and broad distribution).
 Backlog #25 and #26 remain outside this queue. Broader #18/#21 acceptance remains

@@ -78,6 +78,11 @@ that the editor performs Luau typechecking.
 
 | API | Behavior |
 | --- | --- |
+| `api.player()` | Read-only current-tick player feet `{x,y,z}`; no native handle |
+| `api.actor(id)` | Read-only entity transform plus `illuminated` (including release grace), raw `intensity`, and current collision-checked `player_visible` for AI bodies |
+| `api.navigate(id,x,y,z)` | Queues ordinary AI navigation; finite coordinates within ±100000 m, AI body required; shared body classes, routing budgets, live doors and physical obstacles still apply |
+| `api.message(title,lines)` | Dismissible guidance: printable title ≤80 bytes, dense plain array of 1–6 lines ≤72 bytes each; Enter/Esc continues without a world reset |
+| `api.finish(won,title,detail)` | Ends the run with printable title/detail ≤80/160 bytes; Enter restarts world/VM/player and authored grouped items, Escape returns to menu |
 | `api.exists(id: string): boolean` | Tests a currently live entity identity |
 | `api.door(id, "open" / "close" / "toggle" / "lock" / "unlock")` | Uses shared door actions; trigger origin retains away-facing two-way opening |
 | `api.light(id, on: boolean)` | Requires a switchable light; ordinary prepared lighting limits apply |
@@ -106,7 +111,7 @@ available. `event.x/y/z` are the triggering occupant origin when known; `dt` is
 zero for linked action calls. Missing context is nil. Optional `start` runs once
 on the first playing simulation tick; optional `update` runs each playing tick
 with `event.dt` in seconds. Automatic calls have no subject/event kind/origin.
-They stop while simulation is paused. Do not store the API: its scoped Rust
+They stop while simulation is paused. An optional `hint` export runs only on a fresh F1 press during active play, through the same scoped invocation and action budgets. F1 is reserved by the native shell. Introductory guidance can be emitted from `start`; guidance panels pause movement, AI, physics and world audio until dismissed. Do not store the API: its scoped Rust
 callbacks expire after each invocation. Store ordinary Luau values instead.
 
 A fresh map load owns fresh VMs. Reset/replay drops VMs, closures, globals,
@@ -139,7 +144,7 @@ execution-budget errors. Luau sandboxing freezes standard libraries/metatables.
 Only Rust creates scoped capabilities; no raw pointers or runtime handles cross
 the boundary. Future APIs must preserve these limits and reuse shared actions.
 
-Scripted packages require the `luau-v1` capability, so older players refuse them
+New scripted packages require `luau-v1` and `scene-actions-v1`, so older players refuse the expanded host explicitly. Original `luau-v1` packages remain supported. This rejects unsupported guidance/scene calls before play, rather than allowing a missing host function to disable the module. Players without `luau-v1` refuse original scripts
 explicitly. Project builds snapshot source into this selected map's `script_sources` and
 include the exact bytes in compiler identity. Edits to Luau source files reuse the
 existing prepared geometry/lighting while refreshing semantics and package identity. Inline `script_sources` in an
@@ -153,3 +158,12 @@ The sandbox follows the upstream [mlua API](https://docs.rs/mlua/0.12.2/mlua/str
 and [Luau embedding guidance](https://luau.org/sandbox/). Focused CPU regressions
 live under the owning engine/editor/compiler tests directories; native evidence
 and measured limitations belong in the [stage 6 report](reports/editor-0.12.0-task6.md).
+
+Actor queries use the previous rendered frame's beam observations and current
+simulation-tick collision visibility. `player_visible` checks static walls,
+live door leaves and physical-item bounds; it is not a renderer visibility
+oracle. Map attack rules must also check distance and vertical separation.
+Navigation goals never teleport an actor. Repeated goals within 25 cm retain
+the current route/retry state. `light_response.reveal_only` hides a body when
+raw direct illumination falls below its exit threshold, while the independent
+release hold may continue to pause movement. Default behavior is unchanged.

@@ -27,3 +27,17 @@ Do not copy over a running executable. Preserve runnable tools outside `target`
 before any clean, and check other active work first. The full map bake is an
 explicit developer activity. See the Closing Time authoring report for exact
 source-only work, validation, limitations and the later authorized queue.
+
+## Beam (explicit native work, outside CI)
+
+`beam_editor.py` generates initial visible-control input recipes;
+`beam_record.py PHASE...` records genuine native-editor work using those recipes.
+Later exact input recipes and failed attempts remain in the Beam evidence folder.
+`beam_acceptance.py NAME --binary PATH --package PATH --case CASE` imports the
+actual supplied package and drives ordinary keys plus camera-only aiming.
+Cases include natural win, repeated death/respawn, held-item death, out-of-order
+returns, beam/partition occlusion, authored two-floor AI patrol and shell bounds.
+`beam_audit.py FOLDER CASE` checks retained live snapshots. Evidence names are
+unique; inspect the actual pictures as well as the state receipts. These tools
+never run under Cargo tests or ordinary CI. Performance mode requires actual
+present-mode/drawable/refresh evidence; capture runs are not FPS acceptance.

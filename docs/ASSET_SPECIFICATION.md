@@ -2434,3 +2434,14 @@ GLB and fitted PNGs. A shared `light` component controls only luminous slots and
 their actual attached sources. Full selects prepared contributions for steady,
 flickering and dark states; Static holds the authored initial state. This adds
 no dynamic rebake. See the map guide §21 for the field and controller contract.
+
+### Beam black mannequin preset (October 2026)
+
+`core:mannequin_black` is an animatable prop preset of the currently installed
+`entities/mannequin/model/mannequin.glb`, with linear albedo tint
+`[0.04, 0.045, 0.055]`. It shares the original embedded/standalone PNG, UVs,
+alpha, geometry, rig, normals and clips byte-for-byte; it creates no replacement
+artwork and adds no emission. Catalog prop tints also multiply placed/runtime
+character vertex albedo, so an animatable prop preset matches its static fallback.
+The fitted texture still supplies grain and joint detail under actual light.
+The pending corrected mannequin delivery is not adopted by this preset.

@@ -768,6 +768,16 @@ impl LadderDef {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum ActionDef {
+    /// Show a dismissible, optional authored explanation without advancing play.
+    ShowMessage { title: String, lines: Vec<String> },
+    /// Give an AI body a goal through the shared bounded planner and mover.
+    Navigate { target: String, position: [f32; 3] },
+    /// End a run with concise feedback; the native player offers a fresh restart.
+    EndRun {
+        won: bool,
+        title: String,
+        detail: String,
+    },
     /// Load a declared project level at its authored spawn with fresh runtime state.
     ChangeLevel { level: String },
     /// Invoke an exported project-local Luau handler through the bounded host.
@@ -1009,11 +1019,52 @@ pub enum ActionDef {
     },
 }
 
+/// # Errors
+/// Guidance contains at most six bounded printable lines; no markup is executed.
+pub fn validate_message(title: &str, lines: &[String]) -> Result<(), String> {
+    if title.trim().is_empty()
+        || title.len() > 80
+        || title.chars().any(char::is_control)
+        || lines.is_empty()
+        || lines.len() > 6
+        || lines.iter().any(|line| {
+            line.trim().is_empty() || line.len() > 72 || line.chars().any(char::is_control)
+        })
+    {
+        return Err(
+            "Guidance requires a printable title and 1..=6 printable lines within 80/72 bytes"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+/// # Errors
+/// Feedback is a bounded pair of printable lines, with no executable content.
+pub fn validate_run_feedback(title: &str, detail: &str) -> Result<(), String> {
+    for (text, maximum) in [(title, 80usize), (detail, 160usize)] {
+        if text.trim().is_empty() || text.len() > maximum || text.chars().any(char::is_control) {
+            return Err("Run feedback requires printable title/detail within 80/160 bytes".into());
+        }
+    }
+    Ok(())
+}
+
 impl ActionDef {
     /// The serialized tag of this action, for diagnostics.
     #[must_use]
     pub const fn kind(&self) -> &'static str {
         match self {
+            Self::ShowMessage { title: _, lines: _ } => "show_message",
+            Self::Navigate {
+                target: _,
+                position: _,
+            } => "navigate",
+            Self::EndRun {
+                won: _,
+                title: _,
+                detail: _,
+            } => "end_run",
             Self::ChangeLevel { level: _ } => "change_level",
             Self::RunScript {
                 script: _,
@@ -1143,7 +1194,17 @@ impl ActionDef {
                 target,
                 sequence: _,
             } => target.as_deref(),
-            Self::ChangeLevel { level: _ }
+            Self::Navigate {
+                target,
+                position: _,
+            } => Some(target),
+            Self::ShowMessage { title: _, lines: _ }
+            | Self::EndRun {
+                won: _,
+                title: _,
+                detail: _,
+            }
+            | Self::ChangeLevel { level: _ }
             | Self::RunScript {
                 script: _,
                 handler: _,
@@ -1530,6 +1591,10 @@ pub enum ComponentDef {
 /// beam edge from alternating locomotion every frame.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct LightResponseDef {
+    /// Hide the body whenever direct handheld illumination is absent.
+    /// This does not extend visibility through the locomotion release grace.
+    #[serde(default)]
+    pub reveal_only: bool,
     /// Incident intensity needed to start the response; finite `0 < v <= 8`.
     #[serde(default = "default_light_response_enter")]
     pub enter_intensity: f32,
@@ -1556,6 +1621,7 @@ const fn default_light_response_release() -> f32 {
 impl Default for LightResponseDef {
     fn default() -> Self {
         Self {
+            reveal_only: false,
             enter_intensity: default_light_response_enter(),
             exit_intensity: default_light_response_exit(),
             release_seconds: default_light_response_release(),

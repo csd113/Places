@@ -1,0 +1,14 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "beam",
+  "name": "It Only Exists in the Beam",
+  "description": "A short two-storey flashlight horror demo. Recover three gifts from a deserted furniture store, return them to the exit counter, then go home.",
+  "entry_level": "beam",
+  "levels": [
+    {
+      "id": "beam",
+      "source": "levels/beam.json"
+    }
+  ]
+}

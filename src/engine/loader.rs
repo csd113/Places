@@ -2811,6 +2811,8 @@ struct EntityFacts<'a> {
     has_material: bool,
     /// The entity carries an `audio` component.
     has_audio: bool,
+    /// Shared planner/mover is present.
+    has_ai: bool,
     /// State names the entity authors.
     state_names: HashSet<&'a str>,
     /// Variant names of the entity's `material` component, in authored order.
@@ -3496,6 +3498,7 @@ fn validate_component_value<'a>(
             }
         }
         ComponentDef::Ai(def) => {
+            facts.has_ai = true;
             if !def.is_valid() {
                 return Err(format!(
                     "{context} `ai` component {i} has an invalid behavior, speed, range, tag, home_bounds, shelter or clip"
@@ -4034,6 +4037,32 @@ fn validate_action(
             if !index.transitions.contains(level.as_str()) {
                 return Err(format!("Undeclared level transition '{level}'"));
             }
+        }
+        ActionDef::ShowMessage { title, lines } => {
+            crate::engine::level::validate_message(title, lines)?;
+        }
+        ActionDef::Navigate { target, position } => {
+            if position
+                .iter()
+                .any(|value| !value.is_finite() || value.abs() > 100_000.0)
+            {
+                return Err("Navigation goal must be finite within 100000 metres".into());
+            }
+            check_action_target(
+                action_context,
+                Some(target),
+                implicit,
+                index,
+                "an AI navigation body",
+                |facts| facts.has_ai,
+            )?;
+        }
+        ActionDef::EndRun {
+            won: _,
+            title,
+            detail,
+        } => {
+            crate::engine::level::validate_run_feedback(title, detail)?;
         }
         ActionDef::ResetToStart => {}
         ActionDef::ResetPhysicsGroup { group } | ActionDef::ActivatePhysicsGroup { group } => {

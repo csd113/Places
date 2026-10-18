@@ -467,6 +467,9 @@ impl FrameLoop<'_> {
     }
 
     pub(super) fn dispatch_player_interactions(&mut self) {
+        if self.outcome.is_some() || self.message.is_some() {
+            return;
+        }
         self.refresh_interaction_target();
         if self.game.take_interact_press() && self.window_focused {
             self.dispatch_interaction();
@@ -489,6 +492,9 @@ impl FrameLoop<'_> {
         }
     }
     pub(super) fn update_player_input(&mut self) {
+        if self.outcome.is_some() || self.message.is_some() {
+            return;
+        }
         self.apply_move_script();
         self.game
             .entities_mut()

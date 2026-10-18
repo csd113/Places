@@ -994,6 +994,12 @@ impl AiWorld {
         if agent.bounds().is_some_and(|bounds| !bounds.contains(goal)) {
             return false;
         }
+        if agent
+            .navigation_goal
+            .is_some_and(|previous| previous.distance_squared(goal) < 0.0625)
+        {
+            return true;
+        }
         agent.navigation_goal = Some(goal);
         agent.state = AiState::Investigate { point: goal };
         agent.path.clear();
