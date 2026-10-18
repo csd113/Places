@@ -15,6 +15,7 @@ The current workflow uses the following tools:
 | --- | --- |
 | `native_app.py` | historical macOS bundle launcher; prohibited for current staging validation |
 | `entity_navigation.py` | direct-binary Office mannequin/roach, stopped-clock, pause and Office/Home reload acceptance; uses existing packages and retains screenshots/snapshots |
+| `navigation_acceptance.py` | opt-in compact layered-floor native actor acceptance: ramp travel, body clearance, AI-operated live doors, movable blockers/recovery, local avoidance, unreachable goals and uncapped timing; uses an explicitly compiled fixture |
 | `compiler_bench.py` | measures complete clean offline builds, phase timings, CPU, peak RAM and deterministic package hashes |
 | `compiler_compare.py` | alternates baseline and optimized clean builds within each repeated map pair, comparing all physical output records |
 | `compiler_incremental.py` | measures preserved source edits and verifies incremental packages equal independent clean builds |
@@ -62,6 +63,29 @@ RSS query records unavailable sampling without abandoning the live child.
 No launcher changes permissions, TCC settings or identities. `native_app.py`
 and earlier bundle artifacts remain historical tooling/evidence and must not be
 used for this staging campaign.
+
+The navigation acceptance fixture stays outside routine tests and CI. Compile
+its Static variant explicitly, then supply the package and a direct player.
+Diagnostic goals drive the ordinary planner and mover; actor poses are never
+set by the harness. The door control only unlocks: the actor must request the
+opening itself. Supply the verified display refresh when classifying timing;
+an Immediate run plateauing at that refresh remains inconclusive.
+
+```sh
+mkdir -p local/verification/navigation
+target/release/places-compile build tests/fixtures/levels/navigation_layers.json \
+    --variants static --out local/verification/navigation/navigation_layers.placesmap
+python3 tools/bench/navigation_acceptance.py --binary target/release/places \
+    --package local/verification/navigation/navigation_layers.placesmap \
+    --out local/verification/navigation/native-1 --mode all --display-refresh-hz 120
+```
+
+Each case retains the exact actions, isolated settings, package/binary hashes,
+native images and live route snapshots. The separate performance case disables
+navigation dumps and capture/video recording, requests V-sync off, and records
+actual presentation mode, physical drawable, average FPS and observed workload.
+Use `--mode` for a focused rerun or `--prepare-only` to inspect plans without
+launching a player.
 
 An explicit `visual-diagnostics` player build can validate the four raw/sRGB
 presentation formats on its existing native device. Directly launch that player

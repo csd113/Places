@@ -168,7 +168,8 @@ Authoritative paths:
 | Decal grid snapping (`decals[].align: "ceiling_grid"`) onto the ceiling's own panel module | Implemented |
 | Narrow intent annotations for the checker (`geometry_intent[]`) | Implemented (see [§32](#31-the-map-geometry-checker)) |
 | Ceiling/floor openings | Not implemented; height-aware player support and ramps through a separate side shaft connect stacked storeys (Office) |
-| Runtime navmesh editing, off-mesh links, jumping/climbing agents, swimming agents, dynamic obstacle avoidance beyond door leaves | Not implemented |
+| Layered baked walking navigation, live physics obstacle checks and local actor passing | Implemented; see §33 for bounds and limitations |
+| Runtime topology editing, off-mesh links, jumping/climbing agents, swimming agents | Not implemented |
 | Room-wide brightness/tint modifiers; non-fixture decor meshes beyond props | Not implemented |
 | WebP or formats other than PNG; arbitrary structural meshes | Not implemented |
 | `wall_lights` level array; per-room wall material | Not implemented (wall fixtures live in `ceiling_lights` with `"mount": "wall"`; prop-owned lights live in `props[].lights`) |
@@ -6941,10 +6942,11 @@ runtime bake, repair or fallback.
 
 ### 33.1 What the bake derives
 
-* **Walkable surface.** The same `WalkableFloor` the movement controller
-  follows, so ramps and stair pitch are sampled exactly as a player walks them.
-  Off-room cells and deep water (a `swimming` volume whose surface is more than
-  one step above the floor) are not walkable.
+* **Walkable surfaces.** The default 0.20 m X/Z grid stores vertically ordered
+  surface spans, retaining each stacked storey. The bake uses `WalkableFloor`
+  and the same continuous stair pitch as movement. Off-room surfaces and deep
+  swimming water are excluded. This is a layered grid, not a polygon mesh;
+  passages smaller than its sampling resolution can be conservatively absent.
 * **Bodies and classes.** The bake writes one **agent class** per distinct
   `nav_agent` body in the map, plus the reference humanoid
   (`radius 0.30`, `height 1.8`, `step_height 0.4`). A cell marked walkable for a
@@ -6957,27 +6959,16 @@ runtime bake, repair or fallback.
   player. A `nav_obstacle` component with `affects_nav: true` adds an explicit
   box (rotated footprints are covered conservatively), and the compiler's
   `NavWalkProxy` input can add walkable surfaces for future collision proxies.
-* **Stairs and slopes.** A neighbour connects when the surface rises at most
-  `step_height`, or when both cells lie on one **continuous slope** — a cell
-  whose surface gradient is consistent across it, as a ramp or a staircase's
-  pitch line is — and the rise per metre is at most `max_slope` (default
-  `2.6667`, the worst authored stair pitch
-  `MAX_STAIR_RISER_M / MIN_STAIR_TREAD_M`; ramps are bounded lower). A
-  discrete riser (a floor-region step, a stair's first nosing, a ledge) is
-  never a continuous slope, so the class's own `step_height` alone decides it:
-  the Demo's 0.3 m landing steps connect the 0.3 m and 0.4 m walkers and
-  refuse the 0.2 m rat, and the 0.2625 m home staircase connects every body
-  whose step reaches its riser. A cliff between two flat cells never connects.
-  The shared mover in `src/engine/ai/movement.rs` advances in
-  `NAV_MOVE_SUBSTEP_M` (0.10 m) substeps and allows a rise of
-  `step_height + max_slope * substep` in one substep. That per-substep budget
-  is at least the bake's step rule, so a link the bake writes is walkable
-  along its own axis; one documented corner case remains: a *diagonal* link
-  whose straight substep crosses a concave dip the bake sampled as two
-  separate risers can still be refused by the mover (the Demo's pool-landing
-  corner has two such undirected pairs out of 117730 directed links, on cells
-  no class can plan onto). Routing is the bake's decision, and a refused
-  substep is a `Blocked` move, never a fall or a teleport.
+* **Stairs, slopes and drops.** Each class stores explicit directional links.
+  The bake probes the full movement segment, body clearance and support between
+  neighbouring surface centres. Discrete rises and drops are bounded by
+  `step_height`; continuous slopes must also respect `max_slope`. Runtime
+  movement uses short substeps, support near the actor's current feet, exact
+  solid/door probes and the same layered traversal checks. A route cannot
+  change storey merely because another floor shares its X/Z coordinates.
+  Diagonal links require both orthogonal corridors on the correct layers.
+  Drop limits are deliberately conservative: there is no separate jump, fall,
+  ladder, swimming or off-mesh traversal capability.
 * **Doors are portals, not walls.** The cells a leaf sweeps are recorded as
   that door's portal. A closed or locked door blocks them for a route; an open
   door passes; an agent whose `ai` sets `can_open_doors: true` plans through an
@@ -7132,17 +7123,24 @@ template, the group, the tags and the sequence are all ordinary data.
 
 ### 33.7 Navigation and AI interfaces
 
-* Navigation stores one walkable Y per X/Z cell. Overlapping floors resolve
-  against the first room and are not a multi-layer AI mesh. The Office places
-  its basement first and bounds its actors to that floor; the player explores
-  all three floors through the separate shaft. Do not place AI on a collapsed
-  upper storey and assume it can navigate there.
-* Stair/ramp walkability is one rule: `nav::neighbour_rule` (step or
-  continuous slope) plus the movement invariant
-  `NAV_MOVE_SUBSTEP_M * NAV_MAX_SLOPE <= step_height`, pinned by a test. A
-  staircase that validates in the loader bakes and walks; if a future
-  collision proxy is added, feed it through `NavBakeInput::walk_proxies` or
-  `NavBakeInput::obstacles` rather than a second format.
+* Compiled navigation is PNV2, record version 2. Source, project and package
+  container versions are unchanged. Playback of existing PNV1 packages is explicitly
+  refused with a recompile instruction; rebuild from editable source. Complete
+  project archives can still recover their exact editable sources. Every
+  reader, writer, query and navigation fingerprint uses the new record.
+* Links, nearest-point projection and shortcut smoothing retain surface identity.
+  Continuous support and collision probes reject false cross-floor shortcuts.
+  Feed future collision proxies through `NavBakeInput::walk_proxies` or
+  `NavBakeInput::obstacles`, preserving the same physical traversal contract.
+* Live physics collision bounds are copied into a small runtime overlay; neither
+  moving furniture nor door state causes a global navigation rebuild. Bounds
+  are conservative AABBs, so rotated or hollow items may exclude extra space.
+  Actors use local passing probes and refuse body overlap. Crowds in passages
+  without passing space can wait; this is not a general crowd traffic planner.
+* Path attempts have a per-agent cadence and a shared rotating per-tick budget.
+  Blocked and unreachable goals are retried after cooldown, allowing recovery
+  when a door opens or an obstacle moves. Successful query data alone is not
+  native movement acceptance; inspect actual actor positions in Play.
 * `nav_agent`, `ai` and the optional shared `light_response` are the actor
   components; do not add per-model navigation or animation special cases.
 * The compiler reports a build warning naming any `nav_agent` entity or spawn
@@ -8225,7 +8223,7 @@ in a directory, reporting per-source failures without blocking the others.
 
 Current packages require `schema: "places-map"`, package format 1 and authored
 `places-level` schema revision 1. Mesh `PMW1`, props `PMP1`, collision `PCL1`,
-navigation `PNV1`, lighting `PLT1`, irradiance `PPF1`, compact atlases `PLC1` and
+navigation `PNV2`, lighting `PLT1`, irradiance `PPF1`, compact atlases `PLC1` and
 shared prop recipes `PPS1` each accept binary revision 1 only. Reflection-position
 and lightmap metadata revisions, geometry revision, atlas key revision and solver
 revision are also 1. Earlier development packages require recompilation even when

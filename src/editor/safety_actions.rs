@@ -15,6 +15,9 @@ impl App {
     pub(super) fn safety_action(&mut self, action: Action) -> Result<bool, String> {
         match action {
             Action::Safety => {
+                self.navigation.visible = false;
+                self.navigation.pick_goal = None;
+                self.viewport.navigation_guides(Vec::new(), &[], None, None);
                 self.start_safety()?;
                 self.popup = Some(Popup::Safety {
                     index: self.safety_index,

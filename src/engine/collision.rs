@@ -3,7 +3,9 @@ use glam::{Vec2, Vec3};
 use crate::engine::package::binary::{Reader, Writer};
 
 mod movement;
-pub(crate) use movement::{HorizontalWorld, body_support_top, sweep_horizontal};
+pub(crate) use movement::{
+    HorizontalWorld, body_support_top, disc_segment_blocked, door_segment_blocked, sweep_horizontal,
+};
 
 pub const PLAYER_RADIUS: f32 = 0.30;
 pub const PLAYER_HEIGHT: f32 = 1.8;

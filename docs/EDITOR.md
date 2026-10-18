@@ -273,3 +273,24 @@ existing reset-to-start action. First navigation request per frame wins. Reset
 cancels pending navigation. A transition loads only its destination, at its authored
 spawn, with fresh VMs, world actions and player state; campaign progress persistence
 is not implemented. See [project/package contracts](PROJECT_FORMAT.md).
+
+## Navigation inspection
+
+Open `Navigation >` for the optional inspection panel. `Bake current source`
+uses the production navigation compiler on the current document snapshot, without
+building lighting or writing a package. Any source change, undo or level change
+hides stale coverage and routes until another explicit bake.
+
+Cycle through baked bodies or authored actors; the panel shows radius, height,
+step limit and door capability. Coverage colors connected regions and marks
+clearance/door refusals red. Use the height slice to inspect overlapping floors,
+or show all floors. The displayed cell count makes the 12,000-cell overlay cap
+visible. The underlying query still uses the complete baked graph.
+
+`Start at agent` uses the selected actor or spawn point's authored position.
+For a class-only entry, `Pick start` and `Pick goal` select floor cells
+in the viewport. Green/pink endpoint markers and the route remain in the scene.
+Feedback distinguishes invalid endpoints, disconnected/unreachable routes,
+complete routes and budget-limited partial routes; it also reports expansions.
+The inspection uses authored door state. Moving props and actor avoidance must
+be verified in Play, where current physics and actor bodies are available.

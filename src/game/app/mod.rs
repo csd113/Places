@@ -2065,6 +2065,7 @@ impl FrameLoop<'_> {
         self.trace_scripted_action(&received);
         self.apply_item_script_action(&received.action);
         self.apply_scripted_caustics(&received.action);
+        self.apply_scripted_navigation(&received.action);
         match received.action {
             actions::Action::Load { level } => self.scripted_load_level(&level),
             actions::Action::Escape {} => {
@@ -2084,7 +2085,8 @@ impl FrameLoop<'_> {
             actions::Action::Text { text, submit } => {
                 self.scripted_text(text, submit);
             }
-            actions::Action::Player {
+            actions::Action::NavigationGoal { id: _, position: _ }
+            | actions::Action::Player {
                 position: _,
                 yaw: _,
                 pitch: _,
@@ -2157,6 +2159,18 @@ impl FrameLoop<'_> {
         }
         self.trace_world("action_result");
         self.game.is_running()
+    }
+
+    fn apply_scripted_navigation(&mut self, action: &actions::Action) {
+        if let actions::Action::NavigationGoal { id, position } = action {
+            let accepted = self
+                .game
+                .entities_mut()
+                .set_ai_navigation_goal(id, Vec3::from_array(*position));
+            if !accepted {
+                logging::warn(format!("[navigation] diagnostic goal refused for {id}"));
+            }
+        }
     }
 
     fn scripted_load_level(&mut self, level: &str) {
@@ -3036,6 +3050,7 @@ impl FrameLoop<'_> {
                 serde_json::json!({
                     "id": door.def.id, "angle_degrees": door.angle(),
                     "phase": format!("{:?}", door.phase()), "obstructed": door.obstructed,
+                    "locked": self.game.doors().is_locked(&door.def.id),
                 })
             })
             .collect()
@@ -3149,6 +3164,11 @@ impl FrameLoop<'_> {
                     "position": agent.position.to_array(), "yaw_degrees": agent.yaw_degrees,
                     "speed_mps": agent.speed_mps, "clock": agent.clock,
                     "path_age": agent.path_age, "waypoint": agent.current_waypoint,
+                    "path_goal": agent.path_goal.map(|point| point.to_array()),
+                    "path_waypoints": agent.path.waypoints.iter().map(Vec3::to_array).collect::<Vec<_>>(),
+                    "path_complete": agent.path.complete, "stuck_seconds": agent.stuck_seconds,
+                    "navigation_goal": agent.navigation_goal.map(|point| point.to_array()),
+                    "path_queries": agent.path_queries,
                     "hidden_remaining": agent.hidden_remaining,
                     "opacity": agent.opacity(), "pose": format!("{:?}", agent.cue()),
                     "light_held": agent.light_look_target.is_some(),

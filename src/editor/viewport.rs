@@ -41,6 +41,10 @@ pub(super) struct Viewport {
     camera: Camera,
     objects: Vec<PickObject>,
     volume_guides: Vec<overlay::VolumeGuide>,
+    navigation_coverage: Vec<super::navigation::Coverage>,
+    navigation_route: Vec<Vec3>,
+    navigation_start: Option<Vec3>,
+    navigation_goal: Option<Vec3>,
     selected: Option<ObjectId>,
     highlight_bounds: Option<Aabb>,
     highlight_surfaces: Vec<[[f32; 3]; 3]>,
@@ -71,6 +75,10 @@ impl Viewport {
             camera: Camera::default(),
             objects: Vec::new(),
             volume_guides: Vec::new(),
+            navigation_coverage: Vec::new(),
+            navigation_route: Vec::new(),
+            navigation_start: None,
+            navigation_goal: None,
             selected: None,
             highlight_bounds: None,
             highlight_surfaces: Vec::new(),
@@ -106,6 +114,30 @@ impl Viewport {
     pub fn highlight(&mut self, bounds: Option<Aabb>, surfaces: &[[[f32; 3]; 3]]) {
         self.highlight_bounds = bounds;
         self.highlight_surfaces = surfaces.to_vec();
+    }
+
+    pub fn navigation_guides(
+        &mut self,
+        coverage: Vec<super::navigation::Coverage>,
+        route: &[Vec3],
+        start: Option<Vec3>,
+        goal: Option<Vec3>,
+    ) {
+        self.navigation_coverage = coverage;
+        self.navigation_route.clear();
+        self.navigation_route.extend_from_slice(route);
+        self.navigation_start = start;
+        self.navigation_goal = goal;
+    }
+
+    pub fn ray(&self, point: [f32; 2]) -> Option<(Vec3, Vec3)> {
+        self.camera.ray(point, self.size)
+    }
+
+    /// Native verification still dispatches an ordinary screen click.
+    pub fn project(&self, position: Vec3) -> Option<[f32; 2]> {
+        let guide = overlay::Guides::new(self.camera.matrix(self.size), self.size);
+        guide.project(position)
     }
 
     pub fn frame_bounds(&mut self, bounds: Aabb) {
@@ -232,6 +264,12 @@ impl Viewport {
         if self.show_grid {
             guides.grid(self.camera.target);
         }
+        guides.navigation(
+            &self.navigation_coverage,
+            &self.navigation_route,
+            self.navigation_start,
+            self.navigation_goal,
+        );
         for guide in &self.volume_guides {
             guides.volume(guide);
         }

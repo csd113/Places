@@ -47,7 +47,7 @@ use crate::engine::door::Doors;
 use crate::engine::entities::events::EventKind;
 use crate::engine::entities::id::EntityHandle;
 use crate::engine::entity::PoseCue;
-use crate::engine::level::WalkableFloor;
+use crate::engine::level::{WalkableCeiling, WalkableFloor};
 use crate::engine::nav::{
     NavAgentProfile, NavBounds, NavDoorState, NavMesh, NavScratch, Path, PathQuery,
 };
@@ -466,6 +466,12 @@ pub struct AiAgent {
     pub path_age: f32,
     /// When the last path attempt failed, on the agent clock.
     pub path_failed_at: Option<f32>,
+    /// Agent clock of the last actual search, independent of route invalidation.
+    pub last_path_attempt_at: f32,
+    /// Number of bounded searches performed for diagnostics.
+    pub path_queries: u64,
+    /// Explicit developer inspection destination, using the ordinary planner.
+    pub navigation_goal: Option<Vec3>,
     /// The goal whose route was already walked to its end. An empty path for
     /// this goal is arrival, not a reason to plan again.
     pub path_done_goal: Option<Vec3>,
@@ -601,12 +607,16 @@ pub struct AiTickContext<'a> {
     pub index: &'a CollisionIndex,
     /// The walkable floor model the mover follows.
     pub floor: &'a WalkableFloor,
+    /// Cached authored ceilings for exact off-centre body clearance.
+    pub ceiling: &'a WalkableCeiling,
     /// Every live agent, including this world's, as targets.
     pub targets: &'a [AiTarget],
     /// Live stimuli.
     pub stimuli: &'a [Stimulus],
     /// Entities whose motion a running sequence owns this tick.
     pub scripted: &'a [EntityHandle],
+    /// Current bounded physics item boxes, collected once before this tick.
+    pub obstacles: &'a [WallAabb],
 }
 
 impl AiTickContext<'_> {
@@ -614,6 +624,44 @@ impl AiTickContext<'_> {
     #[must_use]
     pub fn target(&self, handle: EntityHandle) -> Option<&AiTarget> {
         self.targets.iter().find(|target| target.handle == handle)
+    }
+}
+
+impl NavDoorState for AiTickContext<'_> {
+    fn obstacle_segment_blocked(&self, from: Vec3, to: Vec3, radius: f32, height: f32) -> bool {
+        crate::engine::collision::disc_segment_blocked(
+            glam::Vec2::new(from.x, from.z),
+            glam::Vec2::new(to.x, to.z),
+            radius,
+            from.y.min(to.y),
+            height + (to.y - from.y).abs(),
+            0.0,
+            &CollisionIndex::empty(),
+            self.obstacles,
+        )
+    }
+
+    fn door_obstructed(&self, id: &str) -> bool {
+        self.doors.door_obstructed(id)
+    }
+
+    fn door_open(&self, id: &str) -> bool {
+        self.doors.door_open(id)
+    }
+
+    fn door_locked(&self, id: &str) -> Option<bool> {
+        self.doors.door_locked(id)
+    }
+
+    fn door_leaf(&self, id: &str) -> Option<crate::engine::collision::DoorCollider> {
+        self.doors.door_leaf(id)
+    }
+
+    fn obstacle_blocked(&self, position: Vec3, radius: f32, height: f32) -> bool {
+        self.obstacles.iter().any(|solid| {
+            solid.blocks_body(position.y, height)
+                && solid.overlaps_disc(position.x, position.z, radius)
+        })
     }
 }
 
@@ -650,6 +698,12 @@ pub const REPLAN_TARGET_M: f32 = 0.60;
 
 /// Hard bound on how often a moving agent repaths, in seconds.
 pub const REPLAN_INTERVAL_S: f32 = 0.50;
+
+/// Whole-world search budget per tick; agent processing rotates for fairness.
+pub const MAX_PATH_QUERIES_PER_TICK: usize = 8;
+
+/// Expansion budget of one runtime search; partial routes retain bounded retry.
+pub const RUNTIME_PATH_EXPANSIONS: usize = 8192;
 
 /// How long an agent waits before retrying a goal whose route was
 /// unreachable, in seconds. It bounds retries without letting a state's
@@ -689,6 +743,7 @@ pub struct AiWorld {
     next_phase: u32,
     stimuli_released: u64,
     catches_total: u64,
+    next_tick_agent: usize,
 }
 
 impl AiWorld {
@@ -730,6 +785,7 @@ impl AiWorld {
         self.next_phase = 0;
         self.stimuli_released = 0;
         self.catches_total = 0;
+        self.next_tick_agent = 0;
     }
 
     /// Registers one agent, replacing any previous registration of `handle`.
@@ -767,6 +823,9 @@ impl AiWorld {
             path_goal: None,
             path_age: 0.0,
             path_failed_at: None,
+            last_path_attempt_at: -PATH_RETRY_S,
+            path_queries: 0,
+            navigation_goal: None,
             path_done_goal: None,
             current_waypoint: 0,
             spawned,
@@ -825,6 +884,9 @@ impl AiWorld {
             agent.path_goal = None;
             agent.path_age = 0.0;
             agent.path_failed_at = None;
+            agent.last_path_attempt_at = -PATH_RETRY_S;
+            agent.path_queries = 0;
+            agent.navigation_goal = None;
             agent.path_done_goal = None;
             agent.current_waypoint = 0;
             agent.speed_mps = 0.0;
@@ -910,8 +972,35 @@ impl AiWorld {
             return false;
         };
         agent.state = state;
+        agent.navigation_goal = None;
         agent.path.clear();
         agent.path_goal = None;
+        true
+    }
+
+    /// Installs a finite inspection goal without bypassing collision or routing.
+    /// Reset, scripted ownership and caught state continue to take precedence.
+    pub fn set_navigation_goal(&mut self, instance_id: &str, goal: Vec3) -> bool {
+        if !goal.is_finite() {
+            return false;
+        }
+        let Some(agent) = self
+            .agents
+            .iter_mut()
+            .find(|agent| agent.instance_id == instance_id)
+        else {
+            return false;
+        };
+        if agent.bounds().is_some_and(|bounds| !bounds.contains(goal)) {
+            return false;
+        }
+        agent.navigation_goal = Some(goal);
+        agent.state = AiState::Investigate { point: goal };
+        agent.path.clear();
+        agent.path_goal = None;
+        agent.path_done_goal = None;
+        agent.path_failed_at = None;
+        agent.stuck_seconds = 0.0;
         true
     }
 
@@ -975,7 +1064,11 @@ impl AiWorld {
             return;
         }
         let mut noise = 0u64;
-        for agent in &mut self.agents {
+        let count = self.agents.len();
+        let first = self.next_tick_agent.checked_rem(count).unwrap_or(0);
+        self.next_tick_agent = first.saturating_add(1).checked_rem(count).unwrap_or(0);
+        let (before, after) = self.agents.split_at_mut(first);
+        for agent in after.iter_mut().chain(before.iter_mut()) {
             let previous_speed = agent.speed_mps;
             if let Some(target) = agent.light_look_target
                 && !agent.caught
@@ -1034,7 +1127,11 @@ impl AiWorld {
             if !matches!(agent.state, AiState::Hidden) {
                 perceive(agent, ctx);
             }
-            decide(agent, ctx, out);
+            if let Some(goal) = agent.navigation_goal {
+                set_state(agent, AiState::Investigate { point: goal }, out);
+            } else {
+                decide(agent, ctx, out);
+            }
             advance(agent, ctx, out);
             out.cues_changed |= agent.speed_mps != previous_speed;
             noise = noise.saturating_add(release_noise(agent, out));
@@ -1058,6 +1155,20 @@ impl AiWorld {
             .saturating_add(u64::try_from(out.catches.len()).unwrap_or(u64::MAX));
         out.catches_total = self.catches_total;
     }
+}
+
+fn path_attempt_due(agent: &AiAgent) -> bool {
+    agent.clock - agent.last_path_attempt_at >= REPLAN_INTERVAL_S
+}
+
+fn reserve_path_query(agent: &mut AiAgent, out: &mut AiOutcome) -> bool {
+    if out.path_queries >= MAX_PATH_QUERIES_PER_TICK {
+        return false;
+    }
+    out.path_queries = out.path_queries.saturating_add(1);
+    agent.last_path_attempt_at = agent.clock;
+    agent.path_queries = agent.path_queries.saturating_add(1);
+    true
 }
 
 /// Keeps the first perception checks spread over eight stable time slots.
@@ -1378,19 +1489,25 @@ fn choose_shelter(
     ctx: &AiTickContext<'_>,
     out: &mut AiOutcome,
 ) -> Option<Vec3> {
+    if !path_attempt_due(agent) {
+        return None;
+    }
     let nav = ctx.nav?;
     let class = agent.class?;
     let bounds = agent.bounds();
     let mut trial = Path::new();
     let mut best: Option<(f32, Vec3, Path)> = None;
-    for anchor in &agent.def.hide_anchors {
-        let authored = Vec3::from_array(*anchor);
+    for anchor_index in 0..agent.def.hide_anchors.len() {
+        let Some(anchor) = agent.def.hide_anchors.get(anchor_index).copied() else {
+            continue;
+        };
+        let authored = Vec3::from_array(anchor);
         let Some(point) = nav.nearest(
             class,
             authored,
             nav.grid().cell_m.max(0.25),
             0.05,
-            ctx.doors,
+            ctx,
             agent.profile.can_open_doors,
         ) else {
             continue;
@@ -1403,11 +1520,13 @@ fn choose_shelter(
             start: agent.position,
             goal: point.position,
             can_open_doors: agent.profile.can_open_doors,
-            max_expansions: 32768,
-            doors: ctx.doors,
+            max_expansions: RUNTIME_PATH_EXPANSIONS,
+            doors: ctx,
         };
+        if !reserve_path_query(agent, out) {
+            break;
+        }
         let result = nav.path_into_bounded(&query, &mut agent.scratch, &mut trial, bounds);
-        out.path_queries = out.path_queries.saturating_add(1);
         if result.is_err() || !trial.complete {
             continue;
         }
@@ -1631,7 +1750,8 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
     } else {
         PATH_RETRY_S
     };
-    let needs_path = !cooling_down
+    let needs_path = path_attempt_due(agent)
+        && !cooling_down
         && if agent.path.waypoints.is_empty() {
             !already_done || goal_changed || door_changed
         } else if agent.path.complete {
@@ -1641,20 +1761,20 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
             // then re-ask on the cadence in case the world changed.
             goal_changed || door_changed || agent.path_age >= planner_interval
         };
-    if needs_path {
+    if needs_path && reserve_path_query(agent, out) {
+        request_obstructed_closing_door(agent, ctx, out);
         let query = PathQuery {
             class,
             start: agent.position,
             goal: goal_position,
             can_open_doors: agent.profile.can_open_doors,
-            max_expansions: 65536,
-            doors: ctx.doors,
+            max_expansions: RUNTIME_PATH_EXPANSIONS,
+            doors: ctx,
         };
         let mut path = std::mem::take(&mut agent.path);
         let bounds = agent.bounds();
         let result = nav.path_into_bounded(&query, &mut agent.scratch, &mut path, bounds);
         agent.path = path;
-        out.path_queries = out.path_queries.saturating_add(1);
         agent.path_door_version = ctx.door_version;
         if result.is_ok() {
             if agent.path.complete {
@@ -1688,6 +1808,22 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
     request_route_doors(agent, ctx, out);
     if route_waits_for_door(agent, ctx) {
         agent.speed_mps = 0.0;
+        if agent
+            .path
+            .door_requests
+            .iter()
+            .any(|door| ctx.door_obstructed(door))
+        {
+            agent.stuck_seconds += ctx.delta;
+            if agent.stuck_seconds >= STUCK_SECONDS {
+                agent.path.clear();
+                agent.path_failed_at = Some(agent.clock - PATH_RETRY_S);
+                agent.current_waypoint = 0;
+                agent.stuck_seconds = 0.0;
+            }
+        } else {
+            agent.stuck_seconds = 0.0;
+        }
         return;
     }
     let waypoint = agent
@@ -1700,23 +1836,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         agent.speed_mps = 0.0;
         return;
     };
-    let mut mover = AgentMove {
-        position: agent.position,
-        yaw_degrees: agent.yaw_degrees,
-        radius: agent.profile.radius,
-        height: agent.profile.height,
-        step_height: agent.profile.step_height,
-        max_slope: agent.profile.max_slope,
-        speed_mps: speed,
-    };
-    match mover.step_with_leaves(
-        next_waypoint,
-        ctx.delta,
-        ctx.walls,
-        ctx.index,
-        ctx.floor,
-        ctx.leaves,
-    ) {
+    match local_move_step(agent, ctx, out, nav, class, next_waypoint, speed) {
         MoveStep::Moved {
             position,
             yaw_degrees,
@@ -1731,8 +1851,9 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
                 agent.path_goal = None;
                 return;
             }
-            let moved = position.distance(agent.position);
-            if moved <= 0.0005 {
+            let progress =
+                next_waypoint.distance(agent.position) - next_waypoint.distance(position);
+            if progress <= 0.0005 {
                 agent.stuck_seconds += ctx.delta;
             } else {
                 agent.stuck_seconds = 0.0;
@@ -1743,7 +1864,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
             if agent.stuck_seconds >= STUCK_SECONDS {
                 agent.stuck_seconds = 0.0;
                 agent.path.clear();
-                agent.path_goal = None;
+                agent.path_failed_at = Some(agent.clock - PATH_RETRY_S);
                 agent.current_waypoint = 0;
             }
             if next_waypoint.distance(agent.position)
@@ -1772,7 +1893,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
             if agent.stuck_seconds >= STUCK_SECONDS {
                 agent.stuck_seconds = 0.0;
                 agent.path.clear();
-                agent.path_goal = None;
+                agent.path_failed_at = Some(agent.clock - PATH_RETRY_S);
                 agent.current_waypoint = 0;
             }
         }
@@ -1790,6 +1911,140 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         }
     }
     try_catch(agent, ctx, out);
+}
+
+/// Short, collision-checked probes give opposing actors a consistent right
+/// shoulder. Actors stay out of the global topology; a narrow passage waits
+/// instead of inventing a route through another body.
+fn local_move_step(
+    agent: &AiAgent,
+    ctx: &AiTickContext<'_>,
+    out: &AiOutcome,
+    nav: &NavMesh,
+    class: usize,
+    waypoint: Vec3,
+    speed: f32,
+) -> MoveStep {
+    let base = AgentMove {
+        position: agent.position,
+        yaw_degrees: agent.yaw_degrees,
+        radius: agent.profile.radius,
+        height: agent.profile.height,
+        step_height: agent.profile.step_height,
+        max_slope: agent.profile.max_slope,
+        speed_mps: speed,
+    };
+    if waypoint.distance(agent.position) <= movement::arrival_radius(agent.profile.radius) {
+        return MoveStep::Arrived;
+    }
+    let flat = glam::Vec2::new(waypoint.x - agent.position.x, waypoint.z - agent.position.z);
+    let Some(direction) = flat.try_normalize() else {
+        return MoveStep::Blocked;
+    };
+    let lookahead = (agent.profile.radius * 2.0 + speed * 0.35)
+        .clamp(0.35, 1.2)
+        .min(flat.length());
+    // A long avoidance probe may leave a tight doorway's valid corridor even
+    // though a short shoulder adjustment is safe. Try the ordinary horizon
+    // first, then bounded within-cell corrections before abandoning the route.
+    for horizon in [lookahead, lookahead.min(0.25), lookahead.min(0.10)] {
+        for degrees in [0.0_f32, 35.0, -35.0, 65.0, -65.0, 90.0, -90.0] {
+            let (sin, cos) = degrees.to_radians().sin_cos();
+            let steering = glam::Vec2::new(
+                direction.x.mul_add(cos, direction.y * sin),
+                direction.y.mul_add(cos, -direction.x * sin),
+            );
+            let x = steering.x.mul_add(horizon, agent.position.x);
+            let z = steering.y.mul_add(horizon, agent.position.z);
+            let Some(y) = movement::surface_along(
+                &base,
+                glam::Vec2::new(x, z),
+                ctx.floor,
+                ctx.ceiling,
+                ctx.index,
+                ctx.walls,
+            ) else {
+                continue;
+            };
+            let probe = Vec3::new(x, y, z);
+            if agent.bounds().is_some_and(|bounds| !bounds.contains(probe))
+                || !nav.segment_clear(class, agent.position, probe, ctx, false)
+                || !actor_segment_clear(agent, agent.position, probe, ctx, out)
+            {
+                continue;
+            }
+            let mut mover = base;
+            let result = mover.step_with_solids(
+                probe,
+                ctx.delta,
+                ctx.walls,
+                ctx.index,
+                ctx.floor,
+                ctx.ceiling,
+                ctx.leaves,
+                ctx.obstacles,
+            );
+            if let MoveStep::Moved {
+                position,
+                yaw_degrees: _,
+                speed_mps: _,
+            } = result
+                && nav.segment_clear(class, agent.position, position, ctx, false)
+                && actor_segment_clear(agent, agent.position, position, ctx, out)
+                && agent
+                    .bounds()
+                    .is_none_or(|bounds| bounds.contains(position))
+            {
+                return result;
+            }
+        }
+    }
+    MoveStep::Blocked
+}
+
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Finite body positions use vector subtraction and scaling; projection is clamped to the bounded walked segment."
+)]
+fn actor_segment_clear(
+    agent: &AiAgent,
+    from: Vec3,
+    to: Vec3,
+    ctx: &AiTickContext<'_>,
+    out: &AiOutcome,
+) -> bool {
+    let origin = glam::Vec2::new(from.x, from.z);
+    let motion = glam::Vec2::new(to.x - from.x, to.z - from.z);
+    ctx.targets.iter().all(|target| {
+        if target.handle == agent.handle || target.caught {
+            return true;
+        }
+        // Earlier movers in this tick have already published their pose. Use
+        // that pose so processing order cannot let two bodies enter one gap.
+        let target_position = out
+            .moved
+            .iter()
+            .rev()
+            .find(|(handle, _, _, _)| *handle == target.handle)
+            .map_or(target.position, |(_, position, _, _)| *position);
+        if target_position.y + target.height <= from.y.min(to.y) + 0.01
+            || target_position.y >= from.y.max(to.y) + agent.profile.height - 0.01
+        {
+            return true;
+        }
+        let center = glam::Vec2::new(target_position.x, target_position.z);
+        let t =
+            ((center - origin).dot(motion) / motion.length_squared().max(1.0e-8)).clamp(0.0, 1.0);
+        let closest = origin + motion * t;
+        let radius = agent.profile.radius + target.radius + 0.015;
+        let distance = closest.distance_squared(center);
+        // An externally placed overlapping body may escape, but cannot deepen
+        // the overlap. Normal movement always requires a clear swept disc.
+        distance >= radius * radius
+            || ((origin - center).length_squared() < radius * radius
+                && motion.dot(origin - center) > 0.0
+                && (origin + motion - center).length_squared() > (origin - center).length_squared())
+    })
 }
 
 /// Fires a catch when the predator is genuinely on top of a visible target.
@@ -1863,6 +2118,9 @@ fn choose_flee_destination(
     ctx: &AiTickContext<'_>,
     out: &mut AiOutcome,
 ) -> Option<Vec3> {
+    if !path_attempt_due(agent) {
+        return None;
+    }
     let nav = ctx.nav?;
     let class = agent.class?;
     let away = {
@@ -1902,7 +2160,7 @@ fn choose_flee_destination(
                 candidate,
                 nav.grid().cell_m.max(1.2),
                 1.5,
-                ctx.doors,
+                ctx,
                 agent.profile.can_open_doors,
             ) else {
                 continue;
@@ -1961,14 +2219,16 @@ fn choose_flee_destination(
             start: agent.position,
             goal: destination,
             can_open_doors: agent.profile.can_open_doors,
-            max_expansions: 32768,
-            doors: ctx.doors,
+            max_expansions: RUNTIME_PATH_EXPANSIONS,
+            doors: ctx,
         };
+        if !reserve_path_query(agent, out) {
+            break;
+        }
         let mut path = std::mem::take(&mut agent.path);
         let bounds = agent.bounds();
         let result = nav.path_into_bounded(&query, &mut agent.scratch, &mut path, bounds);
         agent.path = path;
-        out.path_queries = out.path_queries.saturating_add(1);
         if result.is_ok() {
             agent.path_age = 0.0;
             agent.path_failed_at = None;
@@ -1996,6 +2256,9 @@ fn choose_wander_destination(
     ctx: &AiTickContext<'_>,
     out: &mut AiOutcome,
 ) -> Option<Vec3> {
+    if !path_attempt_due(agent) {
+        return None;
+    }
     let nav = ctx.nav?;
     let class = agent.class?;
     let base = agent.clock.mul_add(0.7, agent.perception_phase as f32);
@@ -2033,7 +2296,7 @@ fn choose_wander_destination(
             candidate,
             2.5,
             1.5,
-            ctx.doors,
+            ctx,
             agent.profile.can_open_doors,
         ) else {
             continue;
@@ -2048,11 +2311,13 @@ fn choose_wander_destination(
                 start: agent.position,
                 goal: point.position,
                 can_open_doors: agent.profile.can_open_doors,
-                max_expansions: 32768,
-                doors: ctx.doors,
+                max_expansions: RUNTIME_PATH_EXPANSIONS,
+                doors: ctx,
             };
+            if !reserve_path_query(agent, out) {
+                break;
+            }
             let result = nav.path_into_bounded(&query, &mut agent.scratch, &mut agent.path, bounds);
-            out.path_queries = out.path_queries.saturating_add(1);
             if result.is_ok() && agent.path.complete {
                 agent.path_goal = Some(point.position);
                 agent.path_door_version = ctx.door_version;
@@ -2067,9 +2332,37 @@ fn choose_wander_destination(
     None
 }
 
+/// A stopped closing leaf can cover the actor's starting portal. Planning
+/// correctly refuses it, but a capable nearby actor must still be able to
+/// request the open end after unlock. This runs only with a budgeted search,
+/// and asks for at most one physically nearby, obstructed closing leaf.
+fn request_obstructed_closing_door(agent: &AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
+    if !agent.profile.can_open_doors {
+        return;
+    }
+    let Some(door) = ctx.doors.iter().find(|door| {
+        door.phase() == crate::engine::door::DoorPhase::Closing
+            && door.obstructed
+            && !door.is_locked()
+            && door
+                .collider()
+                .overlaps_body_y(agent.position.y, agent.profile.height)
+            && door.collider().overlaps_disc(
+                agent.position.x,
+                agent.position.z,
+                agent.profile.radius + 0.5,
+            )
+    }) else {
+        return;
+    };
+    if !out.door_requests.iter().any(|(id, _)| id == &door.def.id) {
+        out.door_requests.push((door.def.id.clone(), agent.handle));
+    }
+}
+
 /// Asks for a closed door on the route.
 fn request_route_doors(agent: &AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
-    if agent.path.door_requests.is_empty() {
+    if !agent.profile.can_open_doors || agent.path.door_requests.is_empty() {
         return;
     }
     for door in &agent.path.door_requests {
@@ -2088,11 +2381,12 @@ fn request_route_doors(agent: &AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
 
 /// True when a requested door is still closed under the agent's feet.
 fn route_waits_for_door(agent: &AiAgent, ctx: &AiTickContext<'_>) -> bool {
-    agent
-        .path
-        .door_requests
-        .iter()
-        .any(|door| !ctx.doors.door_open(door) && !ctx.doors.is_locked(door).unwrap_or(false))
+    agent.profile.can_open_doors
+        && agent
+            .path
+            .door_requests
+            .iter()
+            .any(|door| !ctx.doors.door_open(door) && !ctx.doors.is_locked(door).unwrap_or(false))
 }
 
 /// Releases movement noise for one agent; returns the stimuli count.

@@ -403,48 +403,47 @@ runtime and instantiates only the dynamic state each object needs; the prebuilt
 ### 4.5 Baked navigation — `blobs/<sha>.navigation`
 
 ```text
-magic "PNV1" | version u16 = 1
-cell_m          f32
-origin_x, origin_z   f32 x 2
-cells_x, cells_z     u32 x 2
-class_count     u32, then per class:
-  radius, height, step_height, max_slope   f32 x 4
-portal_count    u32, then per portal:
-  door id (u32 length + UTF-8, <= 256)
-cells_x * cells_z cells, row-major:
-  y             f32   (walking-surface height)
-  flags         u8    (bit 0: a surface exists; bit 1: continuous slope)
-  headroom_cm   u16   (u16::MAX = no overhead found)
-  portal        u16   (u16::MAX = not a door-portal cell)
-per class:
-  walkable      u32 byte length + ceil(cells/8) bits (bit i = cell i)
-  region        u32 count + u16 x cells (u16::MAX = no region)
+magic "PNV2" | version u16 = 2
+cell_m, origin_x, origin_z      f32 x 3
+cells_x, cells_z, node_count    u32 x 3
+column_offsets                 u32 x (cells_x * cells_z + 1)
+class_count u32; per class: radius, height, step_height, max_slope f32 x 4
+portal_count u32; per portal: door id (u32 length + UTF-8, <= 256 bytes)
+node_count surface nodes, column order then strictly ascending Y:
+  y f32; flags u8 (bit 0 surface, bit 1 continuous slope)
+  headroom_cm u16 (65535 = unbounded); portal u16 (65535 = none)
+per class: walkable u32 byte length + ceil(node_count / 8) bytes
+per class: region u32 count + u16 x node_count (65535 = none)
+per class, per node: outgoing u32 x 8 (4294967295 = no traversal)
 ```
 
-The mesh is a uniform cell grid over the level's floor footprint with a
-**per-class clearance mask**, baked offline from the same walkable surfaces the
-movement controller follows and the same collision boxes players collide with.
-A class is one physical body (`radius`, `height`, `step_height`, `max_slope`):
-the reference humanoid plus every distinct `nav_agent` body the level authors.
-A cell marked walkable for a class is physically traversable by exactly that
-body: clearance, headroom and step/slope are all evaluated at bake time, and a
-neighbour connects within one step or along a continuous slope within the
-class bound. Bit 1 of a cell's flags marks a **continuous** slope: the surface
-gradient is consistent across the cell, as a ramp or a staircase's pitch line
-is. A discrete riser — a floor-region step, a stair's first nosing, a ledge —
-puts a half-cell sample across a jump, so it is never a slope and the class's
-own `step_height` alone decides whether it connects. A stair's pitch line is
-continuous, so a class climbs a flight whose risers fit its step; a floor rim
-never connects.
+Each XZ column has zero or more floor spans; `column_offsets[c]..column_offsets[c+1]`
+addresses its nodes. Stacked rooms retain separate heights, body clearance and
+links. The outgoing directions are `(-1,0), (1,0), (0,-1), (0,1), (-1,-1),
+(1,-1), (-1,1), (1,1)`. Each class is a distinct authored `nav_agent` body plus
+the reference humanoid. Runtime class matching remains exact within 0.0001 m.
 
-Door leaves are dynamic and are never baked as static obstacles. The cells a
-leaf sweeps between its closed and open poses are recorded as that door's
-portal; the runtime blocks them while the door is closed or locked and
-re-evaluates them when it opens. Opening a door never rebuilds the mesh, and a
-locked door is never crossed. The record is portable and explicit: bounds,
-grid dimensions, class bodies, per-cell surface/headroom/portal data, class
-masks and region labels are all validated before use. A malformed record fails
-the load by name; there is no runtime bake and no repair path.
+The compiler checks each body's disc, headroom, solid collision and swimming
+exclusion against the same floor/ceiling and collision model as movement.
+Headroom uses the ceiling above that floor and upper-room undersides. Stored
+links prove traversal with movement-sized surface substeps and continuous disc
+sweeps; a thin wall between cell centres cannot disappear from the route.
+Diagonals require both orthogonal paths to the identical floor span. Links are
+reciprocal; conservative drops use the body's step limit unless continuous
+slope traversal is proven. Connected-region labels are derived from these links.
+
+Door portals include height, so a door on one storey does not block another
+storey at the same XZ. Live doors and moving-obstacle overlays affect queries
+without rebuilding the graph. Record readers check offsets, ascending finite
+heights, class masks/regions, bounded nodes and columns, per-body link envelopes,
+reciprocal adjacent-column links and matching region labels. The 128 MiB record
+budget includes `4*(columns+1) + 9*nodes + classes*(34*nodes + ceil(nodes/8))`
+plus bounded framing/portal metadata; it is checked before class-run allocation.
+
+The package container stays at version 1. Navigation alone deliberately changes
+to PNV2/version 2; PNV1 is refused with a named recompilation requirement. The
+compiler fingerprint includes this record version, so source rebuilds invalidate
+old navigation. There is no runtime migration, geometry bake or repair path.
 
 ### 4.2.1 Exact shared prepared prop data
 
@@ -725,7 +724,7 @@ for current entity direct/visibility/resource behavior.
 | prop submeshes per batch | 4096 |
 | lighting record | 256 MiB |
 | collision record | 128 MiB / 4 194 304 boxes |
-| navigation record | 128 MiB / 2 097 152 cells / 8 classes / 256 portals |
+| navigation record | 128 MiB including links / 2 097 152 XZ columns and surface nodes each / 8 classes / 256 portals |
 | lightmap page edge | 4096 texels, 64 pages |
 | probe face edge | 256 texels, 32 probes |
 

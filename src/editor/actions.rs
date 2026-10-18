@@ -260,6 +260,8 @@ impl App {
     fn contextual_action(&mut self, action: Action) -> Result<bool, String> {
         Ok(self.project_action(action)?
             || self.script_action(action)?
+            || self.navigation_action(action)?
+            || self.build_action(action)?
             || self.geometry_action(action)?
             || self.safety_action(action)?
             || self.gameplay_action(action)?)
@@ -271,6 +273,19 @@ impl App {
         }
         match action {
             Action::Project
+            | Action::Navigation
+            | Action::NavBake
+            | Action::NavAgent(_)
+            | Action::NavPick(_)
+            | Action::NavUseAgent
+            | Action::NavCoverage
+            | Action::NavSlice(_)
+            | Action::NavAllFloors
+            | Action::NavClear
+            | Action::Build
+            | Action::Play
+            | Action::Cancel
+            | Action::Stop
             | Action::ProjectField(_)
             | Action::ProjectApply
             | Action::ProjectEntry
@@ -349,6 +364,16 @@ impl App {
                     self.perform(pending, window);
                 }
             }
+        }
+        Ok(())
+    }
+
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "Only build and play commands belong to this handler."
+    )]
+    fn build_action(&mut self, action: Action) -> Result<bool, String> {
+        match action {
             Action::Build | Action::Play => self.start_build(action == Action::Play)?,
             Action::Cancel => {
                 self.play_after_build = false;
@@ -362,8 +387,9 @@ impl App {
                     job.stop();
                 }
             }
+            _ => return Ok(false),
         }
-        Ok(())
+        Ok(true)
     }
 
     #[expect(

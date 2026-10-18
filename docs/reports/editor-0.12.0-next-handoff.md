@@ -1,89 +1,42 @@
-# After stage 7: navigation pass, assets and authored modes
+# After navigation: authored modes, assets and safety review
 
-Stage 7 ends with complete project distribution/recovery. Its report and exact
-local receipt are `docs/reports/editor-0.12.0-task7.md` and
-`local/verification/0.12.0-task7/stage7-handoff.json`. Stay on `0.12.0-staging`.
-No main merge, release, branch deletion, `.app` launch or roadmap stage 8/9 work
-is authorized by this handoff.
+Stay on `0.12.0-staging`. No main merge, release, branch deletion, `.app`
+packaging/launch or roadmap stage 8/9 work is authorized by this handoff.
+The navigation pass stops here; the next task is Closing Time.
 
-## Runnable paths
+## Current handoff and runnable tools
 
 Repository: `/Users/connordawkins/Documents/GitHub/Places`.
-Preserved direct editor/compiler/player: `local/verification/0.12.0-task7/payload/`.
-Open `local/verification/0.12.0-task7/try-editor.sh`; it selects the actual
-`project/` authoring folder, explicit repository built-ins and isolated manual
-state. `try-player.sh` imports/plays the retained complete package directly.
-The host supplies SDL3. Do not use an `.app` wrapper. Build+Play calls the same
-compiler/player subprocess boundaries and preserves the launch cwd.
+Navigation implementation, compatibility, tests and native results are recorded
+in `docs/reports/editor-0.12.0-navigation.md`; the exact local receipt is
+`local/verification/0.12.0-navigation/navigation-handoff.json`.
 
-`project/places.project.json` declares `stage7_entry` in
-`levels/stage6_entry.json` and `stage7_second` in `levels/stage7_second.json`.
-`project/scripts/entry.luau` drives the entry effects and the forward transition.
-The editor-authored return trigger is in the second source. Thumbnails are exact
-PNG copies under `project/thumbnails/`. `project/stage7_campaign.placesmap` is the
-latest native Build+Play project; `campaign.placesmap` and `recovered-ui/` retain
-the earlier explicit export/recovery comparison. Do not confuse the diagnostic
-selected-level sibling package with complete project distribution.
+Preserved direct editor/compiler/player are under
+`local/verification/0.12.0-navigation/payload/`. `try-editor.sh` opens the compact
+navigation authoring project with repository assets and isolated manual state.
+`try-player.sh` imports and opens its compiled fixture. `replay-native.sh layers`
+assigns deterministic diagnostic goals through the actual planner/mover and
+records another native demonstration in a new directory. Other explicit cases
+are clearance, door, obstacle, meeting, unreachable and performance. For timing,
+verify the current display refresh and pass `--display-refresh-hz HZ` rather than
+assuming the previous display's setting. SDL3 is supplied by the host.
 
-The clean copied runtime is `/tmp/places-stage7-clean-install/`, with a real
-copied `assets/` tree and no bundled levels or developer override. Native receipts
-record each separate `/tmp/places-stage7-<label>-state` folder. `/tmp` is ephemeral;
-the preserved local payload/fixtures and receipts remain the durable developer
-handoff. There are no user deliverables exclusively in `target`.
+The fixture is acceptance tooling, not either requested game mode. It uses only
+currently integrated assets. Baked navigation now retains stacked storeys and
+per-body collision-probed links; physics/door state and local actor passing are
+runtime checks, without global rebaking. Editor `Navigation >` exposes an
+explicit current-source bake, body/instance selection, floor slices, coverage
+and reachable/invalid/unreachable route feedback. Verify live props/crowds in
+Play. Exact behavior and remaining limits are in the navigation report.
 
-## Next: separately authorized navigation implementation
-
-Do not fold this into packaging. The user authorized reliable stacked-floor/ramp
-connectivity and per-agent physical traversability; moving physics obstacles and
-doors; reasonable local avoidance and actor-jam handling; stuck/unreachable
-recovery and bounded replanning; and clean contextual editor coverage/route-debug
-tools. Exercise furnished multi-floor traversal, blocked/open doors, moved objects
-and unreachable goals in actual play, not only generated path data.
-
-Current source facts (read-only audit, no navigation implementation in stage 7):
-
-- `src/map_compiler/navigation.rs::bake` automatically rasterizes the authored
-  `WalkableFloor` against compiled collision boxes and explicit obstacle/proxy
-  inputs. Authors do not draw a whole movement mesh for each level. The default
-  cell is 0.20 m. Floor regions, ramps and stairs use the shared sampled movement
-  surface and step/slope neighbor rule.
-- `src/engine/package/navigation.rs::NavGrid` / `NavClass` store PNV1 navigation
-  in each compiled variant: one height/headroom/door-portal value per X/Z cell,
-  per-class walkability bits and connected-region labels. This is a 2.5D grid,
-  not a general layered polygon navmesh. Overlapping storeys cannot both be
-  represented by that one cell height. Sampling can miss small/narrow passages.
-- `src/map_compiler/mod.rs::build_navigation_record` always registers the reference
-  humanoid plus distinct authored body profiles from placements/templates. Radius,
-  height, step height and maximum slope control clearance; exact matching selects
-  a runtime class. Current hard limits are eight classes, 2^21 cells and 256 door
-  portals. Missing/invalid navigation is not rebuilt by the player.
-- `src/engine/nav/query.rs::NavMesh::{nearest,path_into_bounded,segment_clear}`
-  provides region-aware projection, bounded A* with a reusable binary heap/scratch,
-  diagonal corner checks and topology-checked shortcut smoothing. Reachability is
-  restricted to connected traversable cells and optional bounds; it is not
-  permission to move anywhere. Path expansion has a hard 2^20 cap.
-- Doors are baked as portals rather than fixed leaves. `engine::nav::NavDoorState`
-  consults live closed/locked/open state and `can_open_doors`; AI requests doors
-  and invalidates routes when their generation changes. This does not rebake a map.
-- `src/engine/ai/movement.rs::AgentMove::step_with_leaves` substeps the shared disc
-  collision rules against **static boxes and live door leaves**, follows the
-  walking surface and refuses impossible steps. There is no general moving-body
-  obstacle update, crowd avoidance or actor-jam solution in this input path.
-  Replanning alone cannot solve a dynamic obstacle the graph does not represent.
-- `src/engine/ai/mod.rs` owns idle/wander/follow/flee/investigate/pursue/catch state.
-  `PERCEPTION_INTERVAL_S=0.20`, `REPLAN_TARGET_M=0.60`, `REPLAN_INTERVAL_S=0.50`,
-  `PATH_RETRY_S=0.75`, `STUCK_SECONDS=0.55` bound existing behavior. These are
-  heuristics, not a guarantee that every blocked actor recovers.
-- `src/engine/ai/perception.rs` checks sight range/FOV and rays against static
-  collision/live leaves, plus bounded typed hearing stimuli. It is decoupled from
-  rendered pixels/audio. Predator targeting/last contact is not a full Source NPC
-  tactical planner. The `ai` component uses a `nav_agent`; missing one warns and
-  falls back to the reference body (`engine::entities::EntityWorld` registration).
-  Pure fixed scenery and all arbitrary physics items do not acquire AI just because
-  a package contains navigation; authored route motion remains its separate path.
-
-The parent’s separate Valve research supplies the official Source comparison.
-Do not infer Source-equivalent coverage or capabilities from the word “mesh”.
+Navigation alone is PNV2/record 2. Older PNV1 playback is refused by name and
+requires rebuilding editable source with the new compiler. Complete Stage 7
+archives can still recover their exact editable files. Source/project/package
+container and lighting versions remain unchanged. Stage 7's original handoff,
+payloads, campaign and evidence remain under
+`local/verification/0.12.0-task7/`; do not delete or overwrite them. Its report
+is `docs/reports/editor-0.12.0-task7.md`. Keep all useful evidence and runnable
+binaries outside `target`, and check for other active work before cleaning it.
 
 ## Following queue
 

@@ -287,6 +287,7 @@ impl FrameLoop<'_> {
                 );
             }
             crate::game::app::actions::Action::Load { level: _ }
+            | crate::game::app::actions::Action::NavigationGoal { id: _, position: _ }
             | crate::game::app::actions::Action::Escape {}
             | crate::game::app::actions::Action::ConsoleEnabled { enabled: _ }
             | crate::game::app::actions::Action::Key {
@@ -487,6 +488,9 @@ impl FrameLoop<'_> {
     }
     pub(super) fn update_player_input(&mut self) {
         self.apply_move_script();
+        self.game
+            .entities_mut()
+            .set_navigation_obstacles(self.items.world.navigation_obstacles());
         if self.window_focused
             && self.load_intent.is_none()
             && self.game.app_state() == crate::game::AppState::Playing

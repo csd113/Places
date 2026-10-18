@@ -1,15 +1,13 @@
 //! Collision-respecting locomotion for AI agents.
 //!
-//! An agent moves through the **same** shared rules the player and authored
-//! routes use: resolve the body disc against the static boxes and the live
-//! door leaves, snap to the walkable floor, and refuse a step the body cannot
-//! take. There is no teleporting between path nodes: the path only supplies a
-//! waypoint, and this mover decides whether the next substep is physically
-//! possible.
+//! Movement uses exact horizontal disc sweeps against static solids, live
+//! door leaves and current physical item bounds. Each short substep retains
+//! the nearest supported storey and checks the body's actual headroom and
+//! shared step/slope rule. A path supplies direction; it never teleports a body.
 //!
-//! The substep is [`crate::engine::nav::NAV_MOVE_SUBSTEP_M`], short enough that
-//! `substep * NAV_MAX_SLOPE <= step_height`, so a continuous stair or ramp
-//! that the bake accepts is climbable here too; a test pins that relationship.
+//! The bake and mover use [`crate::engine::nav::NAV_MOVE_SUBSTEP_M`] and the same
+//! surface identity and collision rules. Reported speed measures distance
+//! actually travelled, including partial progress before a blocked substep.
 
 // Preserve exact sentinel comparisons, floating-point operation order and
 // cohesive geometry/query stages. Numeric conversions and integer arithmetic
@@ -26,22 +24,24 @@
     reason = "Preserve exact sentinel comparisons and established floating-point operation order; named geometry stages and cohesive query parameters keep these numeric kernels readable. Numeric conversions and integer arithmetic exceptions are documented locally."
 )]
 
-use glam::Vec3;
+use glam::{Vec2, Vec3};
 
-use crate::engine::collision::{DoorCollider, WallAabb, resolve_player_collision_with_doors};
+use crate::engine::collision::{
+    DoorCollider, WallAabb, disc_segment_blocked, door_segment_blocked,
+};
 use crate::engine::collision_index::CollisionIndex;
 use crate::engine::door::Doors;
 use crate::engine::entity::{ENTITY_TURN_RATE_DEGREES_PER_SECOND, turn_toward};
-use crate::engine::level::WalkableFloor;
-use crate::engine::nav::NAV_MOVE_SUBSTEP_M;
+use crate::engine::level::{WalkableCeiling, WalkableFloor};
+use crate::engine::nav::{CELL_SLOPED, NAV_MOVE_SUBSTEP_M, neighbour_rule};
 
 use super::AiState;
 
 /// How close an agent must come to a waypoint for it to count as reached.
-pub const ARRIVE_RADIUS_M: f32 = 0.22;
+pub const ARRIVE_RADIUS_M: f32 = 0.05;
 
-/// Small bodies must enter a shelter rather than stopping a humanoid stride
-/// short of it; the historical tolerance remains for larger bodies.
+/// Keep arrivals well inside a default 20 cm navigation cell so an actor
+/// reaches a corridor corner before turning toward its next segment.
 #[must_use]
 pub fn arrival_radius(radius: f32) -> f32 {
     radius.clamp(0.025, ARRIVE_RADIUS_M)
@@ -127,6 +127,30 @@ impl AgentMove {
         floor: &WalkableFloor,
         leaves: &[DoorCollider],
     ) -> MoveStep {
+        self.step_with_solids(
+            waypoint,
+            delta,
+            walls,
+            index,
+            floor,
+            &WalkableCeiling::default(),
+            leaves,
+            &[],
+        )
+    }
+
+    /// Movement against the same live physical boxes the route overlay reads.
+    pub fn step_with_solids(
+        &mut self,
+        waypoint: Vec3,
+        delta: f32,
+        walls: &[WallAabb],
+        index: &CollisionIndex,
+        floor: &WalkableFloor,
+        ceiling: &WalkableCeiling,
+        leaves: &[DoorCollider],
+        solids: &[WallAabb],
+    ) -> MoveStep {
         if !waypoint.is_finite() || !self.position.is_finite() {
             return MoveStep::Blocked;
         }
@@ -137,6 +161,18 @@ impl AgentMove {
                 speed_mps: 0.0,
             };
         }
+        if !headroom_clear(
+            self,
+            self.position.x,
+            self.position.z,
+            self.position.y,
+            floor,
+            ceiling,
+            index,
+            walls,
+        ) {
+            return MoveStep::Blocked;
+        }
         let step_delta = delta.clamp(0.0, MAX_MOVE_STEP_S);
         let flat = Vec3::new(
             waypoint.x - self.position.x,
@@ -144,11 +180,11 @@ impl AgentMove {
             waypoint.z - self.position.z,
         );
         let distance = flat.length();
-        if distance <= arrival_radius(self.radius) {
+        if waypoint.distance(self.position) <= arrival_radius(self.radius) {
             return MoveStep::Arrived;
         }
         let Some(direction) = flat.try_normalize() else {
-            return MoveStep::Arrived;
+            return MoveStep::Blocked;
         };
         let target_yaw = direction.x.atan2(direction.z).to_degrees();
         self.yaw_degrees = turn_toward(
@@ -177,43 +213,168 @@ impl AgentMove {
                 reason = "glam vector addition, subtraction and scaling intentionally use ordinary f32 arithmetic; no integer sizing or indexing is performed here."
             )]
             let candidate = self.position + direction * substep;
-            let resolved = resolve_player_collision_with_doors(
-                index,
-                glam::Vec2::new(candidate.x, candidate.z),
-                self.radius,
-                self.position.y,
-                self.height,
-                walls,
-                leaves,
-            );
-            let depenetration =
-                glam::Vec2::new(resolved.x - candidate.x, resolved.y - candidate.z).length();
-            if depenetration > self.radius + 0.01 {
-                return if moved > 0.0 {
-                    MoveStep::Moved {
-                        position: self.position,
-                        yaw_degrees: self.yaw_degrees,
-                        speed_mps: moved / step_delta.max(1.0e-4),
-                    }
-                } else {
-                    MoveStep::Blocked
-                };
-            }
-            let Some(floor_y) = floor.walk_height_at(resolved.x, resolved.y) else {
-                return MoveStep::Blocked;
+            let Some(floor_y) =
+                support_step(self, self.position, candidate, floor, ceiling, index, walls)
+            else {
+                return self.progress(moved, step_delta);
             };
-            let allowance =
-                self.step_height + self.max_slope * substep + crate::engine::collision::STEP_EPS;
-            if (floor_y - self.position.y).abs() > allowance {
-                return MoveStep::Blocked;
+            let from = Vec2::new(self.position.x, self.position.z);
+            let to = Vec2::new(candidate.x, candidate.z);
+            let feet = self.position.y.min(floor_y);
+            let sweep_height = self.height + (floor_y - self.position.y).abs();
+            if [from, to].into_iter().any(|point| {
+                ceiling
+                    .ceiling_above_disc(point.x, point.y, self.radius, feet)
+                    .is_some_and(|underside| {
+                        feet + sweep_height > underside + crate::engine::collision::CONTACT_EPS
+                    })
+            }) {
+                return self.progress(moved, step_delta);
             }
-            self.position = Vec3::new(resolved.x, floor_y, resolved.y);
-            moved += substep;
+            if disc_segment_blocked(
+                from,
+                to,
+                self.radius,
+                feet,
+                sweep_height,
+                self.step_height,
+                index,
+                walls,
+            ) || disc_segment_blocked(
+                from,
+                to,
+                self.radius,
+                feet,
+                sweep_height,
+                0.0,
+                &CollisionIndex::empty(),
+                solids,
+            ) || door_segment_blocked(from, to, self.radius, feet, sweep_height, leaves)
+            {
+                return self.progress(moved, step_delta);
+            }
+            let next = Vec3::new(candidate.x, floor_y, candidate.z);
+            moved += self.position.distance(next);
+            self.position = next;
         }
-        MoveStep::Moved {
-            position: self.position,
-            yaw_degrees: self.yaw_degrees,
-            speed_mps: moved / step_delta.max(1.0e-4),
+        self.progress(moved, step_delta)
+    }
+
+    fn progress(&self, moved: f32, delta: f32) -> MoveStep {
+        if moved <= 1.0e-6 {
+            MoveStep::Blocked
+        } else {
+            MoveStep::Moved {
+                position: self.position,
+                yaw_degrees: self.yaw_degrees,
+                speed_mps: moved / delta.max(1.0e-4),
+            }
         }
     }
+}
+
+/// Support reached by walking short samples from the current storey.
+/// Choosing the closest emitted surface prevents a higher room from winning a
+/// long steering probe merely because it lies within the slope search bound.
+pub(super) fn surface_along(
+    body: &AgentMove,
+    target: Vec2,
+    floor: &WalkableFloor,
+    ceiling: &WalkableCeiling,
+    index: &CollisionIndex,
+    walls: &[WallAabb],
+) -> Option<f32> {
+    let distance = Vec2::new(body.position.x, body.position.z).distance(target);
+    let mut point = body.position;
+    let mut travelled = 0.0_f32;
+    for _ in 0_u8..32 {
+        if travelled >= distance {
+            return Some(point.y);
+        }
+        travelled = (travelled + NAV_MOVE_SUBSTEP_M).min(distance);
+        let t = travelled / distance.max(1.0e-6);
+        let next = Vec3::new(
+            (target.x - body.position.x).mul_add(t, body.position.x),
+            point.y,
+            (target.y - body.position.z).mul_add(t, body.position.z),
+        );
+        let y = support_step(body, point, next, floor, ceiling, index, walls)?;
+        point = Vec3::new(next.x, y, next.z);
+    }
+    None
+}
+
+fn support_step(
+    body: &AgentMove,
+    from: Vec3,
+    to: Vec3,
+    floor: &WalkableFloor,
+    ceiling: &WalkableCeiling,
+    index: &CollisionIndex,
+    walls: &[WallAabb],
+) -> Option<f32> {
+    let distance = (to.x - from.x).hypot(to.z - from.z);
+    let reach = body.step_height + body.max_slope * distance + crate::engine::collision::STEP_EPS;
+    let flags = |x, z, height| {
+        if floor.walk_surface_sloped(x, z, height) {
+            CELL_SLOPED
+        } else {
+            0
+        }
+    };
+    let profile = crate::engine::package::navigation::NavClass {
+        radius: body.radius,
+        height: body.height,
+        step_height: body.step_height,
+        max_slope: body.max_slope,
+    };
+    let from_flags = flags(from.x, from.z, from.y);
+    let mut selected: Option<f32> = None;
+    floor.for_each_walk_surface(to.x, to.z, |y| {
+        if (y - from.y).abs() <= reach
+            && selected.is_none_or(|previous| (y - from.y).abs() < (previous - from.y).abs())
+            && neighbour_rule(
+                from.y,
+                y,
+                distance,
+                from_flags,
+                flags(to.x, to.z, y),
+                &profile,
+            )
+            && headroom_clear(body, to.x, to.z, y, floor, ceiling, index, walls)
+        {
+            selected = Some(y);
+        }
+    });
+    selected
+}
+
+fn headroom_clear(
+    body: &AgentMove,
+    x: f32,
+    z: f32,
+    y: f32,
+    floor: &WalkableFloor,
+    ceiling: &WalkableCeiling,
+    index: &CollisionIndex,
+    walls: &[WallAabb],
+) -> bool {
+    let point = Vec2::new(x, z);
+    let underside = ceiling
+        .ceiling_above_disc(x, z, body.radius, y)
+        .into_iter()
+        // A leading disc may step onto an adjacent landing, while a slab
+        // directly above the centre remains real overhead clearance.
+        .chain(floor.lowest_room_underside(point, body.radius, y + body.step_height))
+        .chain(floor.lowest_room_underside(point, 1.0e-4, y))
+        .chain(crate::engine::collision::lowest_underside_indexed(
+            index,
+            x,
+            z,
+            body.radius,
+            y,
+            walls,
+        ))
+        .min_by(f32::total_cmp);
+    underside.is_none_or(|height| y + body.height <= height + crate::engine::collision::CONTACT_EPS)
 }

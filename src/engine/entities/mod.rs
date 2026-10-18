@@ -374,6 +374,8 @@ pub struct EntityWorld {
     physics_reset_groups: Vec<String>,
     /// Movable authored props whose render/body lifetime the native loop owns.
     authored_physics: Vec<EntityHandle>,
+    /// Current bounded physical-item bounds, shared by AI queries and motion.
+    navigation_obstacles: Vec<WallAabb>,
     moves: Vec<MoveGoal>,
     /// Entities spawned at runtime and still alive, in spawn order.
     live_spawns: Vec<EntityHandle>,
@@ -482,6 +484,7 @@ impl EntityWorld {
             weather_endpoints: WeatherEndpoints::Absent,
             physics_reset_groups: Vec::new(),
             authored_physics: Vec::new(),
+            navigation_obstacles: Vec::new(),
             moves: Vec::new(),
             live_spawns: Vec::new(),
             dynamic_keys: Vec::new(),
@@ -552,6 +555,7 @@ impl EntityWorld {
         self.moves.clear();
         self.physics_reset_groups = level.physics_reset_groups().map(str::to_string).collect();
         self.authored_physics.clear();
+        self.navigation_obstacles.clear();
         self.live_spawns.clear();
         self.dynamic_keys.clear();
         self.next_dynamic_key = 1;
@@ -3675,6 +3679,18 @@ impl EntityWorld {
         tick
     }
 
+    /// Publishes current physical solids before the next AI simulation tick.
+    pub fn set_navigation_obstacles(&mut self, obstacles: impl Iterator<Item = WallAabb>) {
+        self.navigation_obstacles.clear();
+        self.navigation_obstacles
+            .extend(obstacles.take(crate::engine::physics::MAX_BODIES));
+    }
+
+    /// Assigns a developer inspection goal to a live agent using normal motion.
+    pub fn set_ai_navigation_goal(&mut self, id: &str, goal: Vec3) -> bool {
+        self.ai.set_navigation_goal(id, goal)
+    }
+
     /// Advances the shared AI runtime: perception, decisions, locomotion,
     /// catch detection and the stimuli and commands the tick produced.
     fn tick_ai(&mut self, ctx: &WorldContext<'_>, tick: &mut WorldTick) {
@@ -3718,10 +3734,12 @@ impl EntityWorld {
             walls: ctx.walls,
             index: ctx.index,
             floor: ctx.floor,
+            ceiling: &self.ceiling,
             leaves: &self.door_colliders,
             targets: &targets,
             stimuli: &stimuli,
             scripted: &scripted,
+            obstacles: &self.navigation_obstacles,
         };
         let mut outcome = AiOutcome::default();
         self.ai.tick(&ai_ctx, &mut outcome);
@@ -3878,9 +3896,23 @@ impl EntityWorld {
         let body = ctx.body_height;
         let index = ctx.index;
         let walls = ctx.walls;
+        let agents = self.ai.agents();
+        let obstacles = &self.navigation_obstacles;
         let moved = self.doors.advance(ctx.delta_seconds, |_, candidate| {
             door_pose_hits_player(candidate, player, body)
                 || door_pose_hits_static(index, walls, candidate)
+                || agents.iter().any(|agent| {
+                    !matches!(agent.state, crate::engine::ai::AiState::Hidden)
+                        && candidate.overlaps_body_y(agent.position.y, agent.profile.height)
+                        && candidate.overlaps_disc(
+                            agent.position.x,
+                            agent.position.z,
+                            agent.profile.radius,
+                        )
+                })
+                || obstacles
+                    .iter()
+                    .any(|solid| door_pose_hits_box(candidate, solid))
         });
         if moved > 0 {
             self.rebuild_door_colliders();
@@ -4498,6 +4530,30 @@ fn door_pose_hits_player(candidate: &DoorCollider, player_feet: Vec3, body_heigh
             player_feet.z,
             crate::engine::collision::PLAYER_RADIUS,
         )
+}
+
+/// Separating-axis overlap of a live rectangular leaf and a physics item bound.
+/// The four footprint axes retain leaf thickness, including small item contacts.
+fn door_pose_hits_box(leaf: &DoorCollider, solid: &WallAabb) -> bool {
+    if !leaf.overlaps_body_y(solid.min_y, solid.max_y - solid.min_y) {
+        return false;
+    }
+    let half_run = leaf.width * 0.5;
+    let half_side = leaf.thickness * 0.5;
+    let leaf_x = leaf.dir_x.mul_add(half_run, leaf.hinge_x);
+    let leaf_z = leaf.dir_z.mul_add(half_run, leaf.hinge_z);
+    let dx = f32::midpoint(solid.min_x, solid.max_x) - leaf_x;
+    let dz = f32::midpoint(solid.min_z, solid.max_z) - leaf_z;
+    let box_x = (solid.max_x - solid.min_x) * 0.5;
+    let box_z = (solid.max_z - solid.min_z) * 0.5;
+    let ux = leaf.dir_x.abs();
+    let uz = leaf.dir_z.abs();
+    dx.abs() < half_side.mul_add(uz, half_run.mul_add(ux, box_x))
+        && dz.abs() < half_side.mul_add(ux, half_run.mul_add(uz, box_z))
+        && dx.mul_add(leaf.dir_x, dz * leaf.dir_z).abs()
+            < box_z.mul_add(uz, box_x.mul_add(ux, half_run))
+        && dx.mul_add(-leaf.dir_z, dz * leaf.dir_x).abs()
+            < box_z.mul_add(ux, box_x.mul_add(uz, half_side))
 }
 
 /// True when a candidate door pose enters static collision.

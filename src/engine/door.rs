@@ -296,21 +296,35 @@ impl DoorRuntime {
         }
         let remaining = target - self.angle;
         let direction = if remaining >= 0.0 { 1.0 } else { -1.0 };
-        let candidate = f32::mul_add(direction, sprint.min(remaining.abs()), self.angle);
-        if blocked(&self.collider_at(candidate)) {
-            self.obstructed = true;
-            step.obstructed = true;
-            if self.def.obstruction == DoorObstruction::Reverse && self.reverse_guard <= 0.0 {
-                self.phase = self.phase.toggled();
-                self.reverse_guard = REVERSE_GUARD_SECONDS;
+        let intended = f32::mul_add(direction, sprint.min(remaining.abs()), self.angle);
+        // A fast leaf must not jump over an actor or a small physical item.
+        // Limit latch travel to 2.5 cm per probe, with a fixed work bound. A
+        // pathological speed consumes less motion instead of skipping probes.
+        let angle_step = (0.025 / (self.def.width + self.def.thickness).max(0.025))
+            .to_degrees()
+            .min(2.0);
+        for _ in 0_u16..256 {
+            let increment = (intended - self.angle).abs().min(angle_step);
+            let candidate = direction.mul_add(increment, self.angle);
+            if blocked(&self.collider_at(candidate)) {
+                self.obstructed = true;
+                step.obstructed = true;
+                if self.def.obstruction == DoorObstruction::Reverse && self.reverse_guard <= 0.0 {
+                    self.phase = self.phase.toggled();
+                    self.reverse_guard = REVERSE_GUARD_SECONDS;
+                }
+                return step;
             }
-            return step;
+            self.angle = candidate;
+            step.moved = true;
+            self.obstructed = false;
+            if (intended - candidate).abs() <= STEP_EPS_DEGREES {
+                break;
+            }
         }
-        self.obstructed = false;
-        step.moved = true;
-        let reached = (target - candidate).abs() <= STEP_EPS_DEGREES;
-        self.angle = if reached { target } else { candidate };
+        let reached = (target - self.angle).abs() <= STEP_EPS_DEGREES;
         if reached {
+            self.angle = target;
             self.phase = match self.phase {
                 DoorPhase::Opening => DoorPhase::Open,
                 DoorPhase::Closing | DoorPhase::Closed | DoorPhase::Open => DoorPhase::Closed,

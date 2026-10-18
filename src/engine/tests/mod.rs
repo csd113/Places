@@ -16,4 +16,5 @@ mod trigger_occupants;
 
 mod scripting;
 
+mod navigation_layers;
 mod project_package;

@@ -10,6 +10,7 @@ mod gameplay;
 mod geometry;
 mod inspector;
 mod library;
+mod navigation;
 mod safety;
 mod scripts;
 pub(super) use scripts::draw as scripts_popup;
@@ -42,6 +43,15 @@ pub(super) enum Action {
     ScriptLink,
     ScriptHandler(usize),
     Capture,
+    Navigation,
+    NavBake,
+    NavAgent(bool),
+    NavPick(bool),
+    NavUseAgent,
+    NavCoverage,
+    NavSlice(bool),
+    NavAllFloors,
+    NavClear,
     Create,
     Gameplay,
     GameplayPage(usize),
@@ -211,8 +221,12 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
     rect(&mut v, [0.0, 242.0, 480.0, 30.0], PANEL);
     toolbar(app, &mut v, &mut hits);
     navigation(app, &mut v, &mut hits);
-    scene(app, &mut v, &mut hits);
-    inspector(app, &mut v, &mut hits);
+    if app.navigation.visible {
+        navigation::draw(app, &mut v, &mut hits);
+    } else {
+        scene(app, &mut v, &mut hits);
+        inspector(app, &mut v, &mut hits);
+    }
     footer(app, &mut v, &mut hits);
     if let Some(popup) = &app.popup {
         popup.draw(app, &mut v, &mut hits);
@@ -361,13 +375,25 @@ fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         Action::Step,
         true,
     );
+    button(
+        vertices,
+        hits,
+        [114.0, 27.0, 55.0, 10.0],
+        if app.navigation.visible {
+            "Navigation <"
+        } else {
+            "Navigation >"
+        },
+        Action::Navigation,
+        app.document.is_some(),
+    );
     text(
         vertices,
         "RMB orbit / WASDQE fly   MMB pan   Wheel zoom   F frame",
-        114.0,
+        174.0,
         29.0,
         MUTED,
-        102,
+        86,
     );
 }
 
@@ -437,6 +463,21 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
 }
 
 fn footer(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    if !app.navigation.visible {
+        footer_actions(app, vertices, hits);
+    }
+    text(vertices, &app.status, 5.0, 247.0, INK, 133);
+    text(
+        vertices,
+        "Cmd/Ctrl S save | Z undo | Shift Z redo | D duplicate | Delete | arrows move | R rotate | +/- scale",
+        5.0,
+        258.0,
+        MUTED,
+        135,
+    );
+}
+
+fn footer_actions(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     button(
         vertices,
         hits,
@@ -496,14 +537,5 @@ fn footer(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         },
         Action::EnvironmentPreview,
         true,
-    );
-    text(vertices, &app.status, 5.0, 247.0, INK, 133);
-    text(
-        vertices,
-        "Cmd/Ctrl S save | Z undo | Shift Z redo | D duplicate | Delete | arrows move | R rotate | +/- scale",
-        5.0,
-        258.0,
-        MUTED,
-        135,
     );
 }

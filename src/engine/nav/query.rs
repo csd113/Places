@@ -1,4 +1,4 @@
-//! Runtime queries over a baked navigation grid.
+//! Runtime queries over a layered, baked navigation graph.
 //!
 //! [`NavMesh`] validates a compiled record once at load and answers three
 //! questions for a caller-selected agent class:
@@ -32,9 +32,9 @@
 use std::collections::BinaryHeap;
 use std::fmt::Write as _;
 
-use glam::Vec3;
+use glam::{Vec2, Vec3};
 
-use super::{NavDoorState, neighbour_rule};
+use super::NavDoorState;
 use crate::engine::collision::STEP_EPS;
 use crate::engine::package::navigation::{CELL_SURFACE, NO_PORTAL, NO_REGION, NavClass, NavGrid};
 
@@ -51,7 +51,7 @@ pub const MAX_PATH_EXPANSIONS: usize = 1 << 20;
 /// One navigable point on the mesh.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct NavPoint {
-    /// Row-major cell index.
+    /// Walking-surface node index (one of possibly several floors per XZ cell).
     pub cell: usize,
     /// World position (cell surface height).
     pub position: Vec3,
@@ -273,6 +273,21 @@ impl NavMesh {
         self.grid.surface(index)
     }
 
+    /// True when this exact floor span is traversable in the current world.
+    #[must_use]
+    pub fn cell_passable(
+        &self,
+        class: usize,
+        node: usize,
+        doors: &dyn NavDoorState,
+        can_open_doors: bool,
+    ) -> bool {
+        self.grid.classes.get(class).is_some_and(|profile| {
+            self.cell_region(class, node, profile, doors, can_open_doors)
+                .is_some()
+        })
+    }
+
     /// How many of a cell's eight neighbours are walkable for `class`.
     ///
     /// A cheap openness measure: an open cell has eight, a corridor four, a
@@ -285,15 +300,15 @@ impl NavMesh {
             return 0;
         };
         let mut open = 0u8;
-        for (dx, dz) in NEIGHBOUR_STEPS {
+        for (direction, (dx, dz)) in NEIGHBOUR_STEPS.into_iter().enumerate() {
             let (Some(nx), Some(nz)) = (cx.checked_add_signed(dx), cz.checked_add_signed(dz))
             else {
                 continue;
             };
             if self
                 .grid
-                .index_of(nx, nz)
-                .is_some_and(|next| self.grid.is_walkable(class, next))
+                .link(class, index, direction)
+                .is_some_and(|next| self.grid.coordinates(next) == Some((nx, nz)))
             {
                 open = open.saturating_add(1);
             }
@@ -331,7 +346,7 @@ impl NavMesh {
         // The query is a *feet* position: a candidate may differ by the
         // caller's tolerance plus one walkable step, never by a whole body
         // height, so a goal can not snap one floor down.
-        let max_vertical = vertical_tolerance + profile.step_height + STEP_EPS;
+        let mut max_vertical = vertical_tolerance + profile.step_height + STEP_EPS;
         #[expect(
             clippy::cast_possible_truncation,
             clippy::as_conversions,
@@ -342,13 +357,37 @@ impl NavMesh {
             .max(0_i32);
         let origin_cx = i32::try_from(cx).unwrap_or(i32::MAX);
         let origin_cz = i32::try_from(cz).unwrap_or(i32::MAX);
-        let start_cell = self.grid.index_of(cx, cz)?;
-        let own_region = self
-            .cell_region(class, start_cell, &profile, doors, can_open_doors)
-            .filter(|_| {
-                self.grid.surface(start_cell).is_some_and(|y| {
-                    (y - position.y).abs() <= vertical_tolerance + profile.step_height + STEP_EPS
+        let start_cell = self.grid.column_range(cx, cz).min_by(|a, b| {
+            (self.grid.surface(*a).unwrap_or(f32::INFINITY) - position.y)
+                .abs()
+                .total_cmp(&(self.grid.surface(*b).unwrap_or(f32::INFINITY) - position.y).abs())
+        });
+        if let Some(anchor_y) = start_cell.and_then(|node| self.grid.surface(node)) {
+            // Even an unusually tall step allowance must not project a
+            // blocked goal onto another storey in the same XZ column.
+            if let Some(gap) = self
+                .grid
+                .column_range(cx, cz)
+                .filter(|node| Some(*node) != start_cell)
+                .filter_map(|node| {
+                    self.grid
+                        .surface(node)
+                        .map(|height| (height - anchor_y).abs())
                 })
+                .min_by(f32::total_cmp)
+            {
+                max_vertical = max_vertical.min(gap * 0.5);
+            }
+        }
+        let own_region = start_cell
+            .and_then(|cell| self.cell_region(class, cell, &profile, doors, can_open_doors))
+            .filter(|_| {
+                start_cell
+                    .and_then(|cell| self.grid.surface(cell))
+                    .is_some_and(|y| {
+                        (y - position.y).abs()
+                            <= vertical_tolerance + profile.step_height + STEP_EPS
+                    })
             });
         // Pass 1: when the query is not on the mesh, learn which region the
         // nearest navigable point belongs to before committing to one.
@@ -441,45 +480,51 @@ impl NavMesh {
                 let (Ok(column), Ok(row)) = (u32::try_from(nx), u32::try_from(nz)) else {
                     continue;
                 };
-                let Some(index) = self.grid.index_of(column, row) else {
-                    continue;
-                };
-                let Some(cell_region) =
-                    self.cell_region(class, index, profile, doors, can_open_doors)
-                else {
-                    continue;
-                };
-                if region.is_some_and(|wanted| wanted != cell_region) {
-                    continue;
-                }
-                let Some(surface) = self.grid.surface(index) else {
-                    continue;
-                };
-                if (surface - position.y).abs() > max_vertical {
-                    continue;
-                }
-                let (cell_x, cell_z) = self.grid.cell_center(column, row);
-                let distance = (cell_x - position.x).hypot(cell_z - position.z);
-                if distance > max_distance {
-                    continue;
-                }
-                let candidate = Vec3::new(cell_x, surface, cell_z);
-                if from_off_mesh
-                    && !self.corridor_from_mesh(class, position, candidate, doors, can_open_doors)
-                {
-                    continue;
-                }
-                if best.is_none_or(|(best_distance, best_point)| {
-                    distance < best_distance
-                        || (distance == best_distance && index < best_point.cell)
-                }) {
-                    best = Some((
-                        distance,
-                        NavPoint {
-                            cell: index,
-                            position: candidate,
-                        },
-                    ));
+                for index in self.grid.column_range(column, row) {
+                    let Some(cell_region) =
+                        self.cell_region(class, index, profile, doors, can_open_doors)
+                    else {
+                        continue;
+                    };
+                    if region.is_some_and(|wanted| wanted != cell_region) {
+                        continue;
+                    }
+                    let Some(surface) = self.grid.surface(index) else {
+                        continue;
+                    };
+                    if (surface - position.y).abs() > max_vertical {
+                        continue;
+                    }
+                    let (cell_x, cell_z) = self.grid.cell_center(column, row);
+                    let horizontal_distance = (cell_x - position.x).hypot(cell_z - position.z);
+                    let distance = horizontal_distance.hypot(surface - position.y);
+                    if horizontal_distance > max_distance {
+                        continue;
+                    }
+                    let candidate = Vec3::new(cell_x, surface, cell_z);
+                    if from_off_mesh
+                        && !self.corridor_from_mesh(
+                            class,
+                            position,
+                            candidate,
+                            doors,
+                            can_open_doors,
+                        )
+                    {
+                        continue;
+                    }
+                    if best.is_none_or(|(best_distance, best_point)| {
+                        distance < best_distance
+                            || (distance == best_distance && index < best_point.cell)
+                    }) {
+                        best = Some((
+                            distance,
+                            NavPoint {
+                                cell: index,
+                                position: candidate,
+                            },
+                        ));
+                    }
                 }
             }
             // Every cell outside this ring is at least `ring * cell_m`
@@ -536,7 +581,20 @@ impl NavMesh {
             let Some((cx, cz)) = self.grid.cell_at(x, z) else {
                 return false;
             };
-            let Some(index) = self.grid.index_of(cx, cz) else {
+            let expected_y = (to.y - from.y).mul_add(t, from.y);
+            let Some(index) = self.layer_at(
+                class,
+                cx,
+                cz,
+                expected_y,
+                previous,
+                &profile,
+                doors,
+                can_open_doors,
+            ) else {
+                if !entered {
+                    continue;
+                }
                 return false;
             };
             let walkable = self
@@ -625,7 +683,7 @@ impl NavMesh {
             return Err(PathResult::Unreachable);
         }
         let cell_m = self.grid.cell_m;
-        let endpoint_tolerance = profile.height.max(1.0);
+        let endpoint_tolerance = STEP_EPS;
         let Some(start) = self.nearest(
             query.class,
             query.start,
@@ -704,30 +762,35 @@ impl NavMesh {
                 best_h = height;
                 best_cell = cell;
             }
-            let Some(cx) = cell_column(&self.grid, cell) else {
-                continue;
-            };
-            let Some(cz) = cell_row(&self.grid, cell) else {
-                continue;
-            };
-            for (dx, dz) in NEIGHBOUR_STEPS {
-                let Some(nx) = cx.checked_add_signed(dx) else {
+            for (direction, (dx, dz)) in NEIGHBOUR_STEPS.into_iter().enumerate() {
+                let Some(next) = self.grid.link(query.class, cell, direction) else {
                     continue;
                 };
-                let Some(nz) = cz.checked_add_signed(dz) else {
-                    continue;
-                };
-                let Some(next) = self.grid.index_of(nx, nz) else {
-                    continue;
-                };
-                if !self.grid.is_walkable(query.class, next) {
-                    continue;
-                }
                 if !self.cell_in_bounds(next, bounds) {
                     continue;
                 }
+                if self
+                    .cell_region(
+                        query.class,
+                        next,
+                        &profile,
+                        query.doors,
+                        query.can_open_doors,
+                    )
+                    .is_none()
+                {
+                    continue;
+                }
                 let diagonal = dx != 0_i32 && dz != 0_i32;
-                if diagonal && !self.corner_open(query, cx, cz, dx, dz, bounds) {
+                if !self.segment_transition_clear(
+                    query.class,
+                    cell,
+                    next,
+                    &profile,
+                    query.doors,
+                    query.can_open_doors,
+                    bounds,
+                ) {
                     continue;
                 }
                 let (Some(from_y), Some(to_y)) = (self.grid.surface(cell), self.grid.surface(next))
@@ -739,15 +802,6 @@ impl NavMesh {
                 } else {
                     cell_m
                 };
-                let (Some(flags_a), Some(flags_b)) = (
-                    self.grid.cell_flags.get(cell).copied(),
-                    self.grid.cell_flags.get(next).copied(),
-                ) else {
-                    continue;
-                };
-                if !neighbour_rule(from_y, to_y, distance, flags_a, flags_b, &profile) {
-                    continue;
-                }
                 let Some((passable, door_cost)) = self.portal_cost(query, next, &profile) else {
                     continue;
                 };
@@ -819,9 +873,16 @@ impl NavMesh {
             .push(clamp_to_surface(&self.grid, start.cell, query.start));
         let mut anchor = out.waypoints.first().copied().unwrap_or(query.start);
         let mut index = 1usize;
+        // A query's search budget also bounds simplification work. After this
+        // cap the certified cell chain is retained without further shortcuts.
+        let mut shortcut_attempts = 0usize;
         while index < chain.len() {
             let mut next = index;
             for candidate in (index..chain.len()).rev() {
+                if shortcut_attempts >= 128 {
+                    break;
+                }
+                shortcut_attempts = shortcut_attempts.saturating_add(1);
                 let Some(cell) = chain.get(candidate).copied() else {
                     continue;
                 };
@@ -905,10 +966,18 @@ impl NavMesh {
             let t = step as f32 / steps as f32;
             let x = (to.x - from.x).mul_add(t, from.x);
             let z = (to.z - from.z).mul_add(t, from.z);
-            self.grid
-                .cell_at(x, z)
-                .and_then(|(cx, cz)| self.grid.index_of(cx, cz))
-                .is_some_and(|cell| self.cell_in_bounds(cell, bounds))
+            let y = (to.y - from.y).mul_add(t, from.y);
+            self.grid.cell_at(x, z).is_some_and(|(cx, cz)| {
+                self.grid
+                    .column_range(cx, cz)
+                    .filter_map(|node| {
+                        self.grid
+                            .surface(node)
+                            .map(|height| (node, (height - y).abs()))
+                    })
+                    .min_by(|a, b| a.1.total_cmp(&b.1))
+                    .is_some_and(|(node, _)| self.cell_in_bounds(node, bounds))
+            })
         })
     }
 
@@ -949,9 +1018,40 @@ impl NavMesh {
             return false;
         }
         let cell_m = self.grid.cell_m;
+        let Some((end_x, end_z)) = self.grid.cell_at(to.x, to.z) else {
+            return false;
+        };
+        // Endpoint identity is selected before live passability. A blocked
+        // upper floor cannot fall through to a free lower span.
+        let nearest_span = |cx, cz, height: f32| {
+            self.grid.column_range(cx, cz).min_by(|a, b| {
+                (self.grid.surface(*a).unwrap_or(f32::INFINITY) - height)
+                    .abs()
+                    .total_cmp(&(self.grid.surface(*b).unwrap_or(f32::INFINITY) - height).abs())
+            })
+        };
+        let Some(end_node) = nearest_span(end_x, end_z, to.y) else {
+            return false;
+        };
+        let Some((start_x, start_z)) = self.grid.cell_at(from.x, from.z) else {
+            return false;
+        };
+        let Some(start_node) = nearest_span(start_x, start_z, from.y) else {
+            return false;
+        };
+        if self
+            .cell_region(class, start_node, &profile, doors, can_open_doors)
+            .is_none()
+            || self
+                .cell_region(class, end_node, &profile, doors, can_open_doors)
+                .is_none()
+        {
+            return false;
+        }
         let distance = (to.x - from.x).hypot(to.z - from.z);
         let step_count = (distance / (cell_m * 0.5)).ceil().clamp(1.0, 4096.0) as u32;
         let mut previous: Option<usize> = None;
+        let mut previous_position = from;
         for step in 0..=step_count {
             let t = step as f32 / step_count as f32;
             let x = (to.x - from.x).mul_add(t, from.x);
@@ -959,9 +1059,43 @@ impl NavMesh {
             let Some((cx, cz)) = self.grid.cell_at(x, z) else {
                 return false;
             };
-            let Some(index) = self.grid.index_of(cx, cz) else {
+            let expected_y = (to.y - from.y).mul_add(t, from.y);
+            let Some(index) = self.layer_at(
+                class,
+                cx,
+                cz,
+                expected_y,
+                previous,
+                &profile,
+                doors,
+                can_open_doors,
+            ) else {
                 return false;
             };
+            if (step == 0 && index != start_node) || (step == step_count && index != end_node) {
+                return false;
+            }
+            let Some(surface) = self.grid.surface(index) else {
+                return false;
+            };
+            let position = Vec3::new(x, surface, z);
+            if doors.obstacle_segment_blocked(
+                previous_position,
+                position,
+                profile.radius,
+                profile.height,
+            ) {
+                return false;
+            }
+            previous_position = position;
+            if (step == 0 || step == step_count)
+                && self.grid.surface(index).is_none_or(|height| {
+                    (height - expected_y).abs()
+                        > profile.step_height + self.grid.cell_m * profile.max_slope + STEP_EPS
+                })
+            {
+                return false;
+            }
             if self
                 .cell_region(class, index, &profile, doors, can_open_doors)
                 .is_none()
@@ -983,7 +1117,46 @@ impl NavMesh {
             }
             previous = Some(index);
         }
-        true
+        !doors.obstacle_segment_blocked(previous_position, to, profile.radius, profile.height)
+    }
+
+    /// Selects the correct floor in a column, retaining actual baked links.
+    fn layer_at(
+        &self,
+        class: usize,
+        cx: u32,
+        cz: u32,
+        y: f32,
+        previous: Option<usize>,
+        profile: &NavClass,
+        doors: &dyn NavDoorState,
+        can_open_doors: bool,
+    ) -> Option<usize> {
+        self.grid
+            .column_range(cx, cz)
+            .filter(|node| {
+                self.cell_region(class, *node, profile, doors, can_open_doors)
+                    .is_some()
+            })
+            .filter(|node| {
+                previous.is_none_or(|from| {
+                    from == *node
+                        || self.segment_transition_clear(
+                            class,
+                            from,
+                            *node,
+                            profile,
+                            doors,
+                            can_open_doors,
+                            None,
+                        )
+                })
+            })
+            .min_by(|a, b| {
+                (self.grid.surface(*a).unwrap_or(f32::INFINITY) - y)
+                    .abs()
+                    .total_cmp(&(self.grid.surface(*b).unwrap_or(f32::INFINITY) - y).abs())
+            })
     }
 
     /// The class region label of an in-grid cell, when it is traversable.
@@ -1003,6 +1176,10 @@ impl NavMesh {
             return None;
         };
         let (x, z) = self.grid.cell_center(cx, cz);
+        let surface = self.grid.surface(index)?;
+        if doors.obstacle_blocked(Vec3::new(x, surface, z), profile.radius, profile.height) {
+            return None;
+        }
         let (passable, _) = self.portal_state(index, x, z, profile, doors, can_open_doors);
         if !passable {
             return None;
@@ -1034,14 +1211,26 @@ impl NavMesh {
         let Some(entry) = self.grid.portals.get(usize::from(portal)) else {
             return (true, 0.0);
         };
-        if doors.door_locked(&entry.door).unwrap_or(false) {
+        if let Some(leaf) = doors.door_leaf(&entry.door)
+            && self.grid.surface(index).is_some_and(|feet| {
+                leaf.hinge_y + leaf.height <= feet + STEP_EPS
+                    || leaf.hinge_y >= feet + profile.height
+            })
+        {
+            return (true, 0.0);
+        }
+        if doors.door_locked(&entry.door).unwrap_or(false) || doors.door_obstructed(&entry.door) {
             return (false, 0.0);
         }
         if doors.door_open(&entry.door) {
             // An open leaf may still lie across a cell; the mover resolves it,
             // and the planner refuses to route through it.
             if let Some(leaf) = doors.door_leaf(&entry.door)
-                && leaf.overlaps_disc(cell_x, cell_z, profile.radius + self.grid.cell_m * 0.5)
+                && self.grid.surface(index).is_some_and(|feet| {
+                    leaf.hinge_y + leaf.height > feet + STEP_EPS
+                        && leaf.hinge_y < feet + profile.height
+                })
+                && leaf.overlaps_disc(cell_x, cell_z, profile.radius)
             {
                 return (false, 0.0);
             }
@@ -1066,34 +1255,6 @@ impl NavMesh {
         Some(self.portal_state(next, x, z, profile, query.doors, query.can_open_doors))
     }
 
-    /// True when a diagonal step's orthogonal neighbours are currently passable.
-    fn corner_open(
-        &self,
-        query: &PathQuery<'_>,
-        cx: u32,
-        cz: u32,
-        dx: i32,
-        dz: i32,
-        bounds: Option<NavBounds>,
-    ) -> bool {
-        let (Some(ax), Some(bz)) = (cx.checked_add_signed(dx), cz.checked_add_signed(dz)) else {
-            return false;
-        };
-        let (Some(a), Some(b)) = (self.grid.index_of(ax, cz), self.grid.index_of(cx, bz)) else {
-            return false;
-        };
-        let Some(profile) = self.grid.classes.get(query.class) else {
-            return false;
-        };
-        self.cell_region(query.class, a, profile, query.doors, query.can_open_doors)
-            .is_some()
-            && self
-                .cell_region(query.class, b, profile, query.doors, query.can_open_doors)
-                .is_some()
-            && self.cell_in_bounds(a, bounds)
-            && self.cell_in_bounds(b, bounds)
-    }
-
     /// Checks the same step and diagonal topology used by A* for a shortcut.
     fn segment_transition_clear(
         &self,
@@ -1106,52 +1267,89 @@ impl NavMesh {
         bounds: Option<NavBounds>,
     ) -> bool {
         if from == to {
+            return self.cell_in_bounds(to, bounds);
+        }
+        let (Some((from_x, from_z)), Some((to_x, to_z))) =
+            (self.grid.coordinates(from), self.grid.coordinates(to))
+        else {
+            return false;
+        };
+        let Some(direction) = NEIGHBOUR_STEPS.iter().position(|(dx, dz)| {
+            from_x.checked_add_signed(*dx) == Some(to_x)
+                && from_z.checked_add_signed(*dz) == Some(to_z)
+        }) else {
+            return false;
+        };
+        if self.grid.link(class, from, direction) != Some(to) || !self.cell_in_bounds(to, bounds) {
+            return false;
+        }
+        let from_position = clamp_to_surface(&self.grid, from, Vec3::ZERO);
+        let to_position = clamp_to_surface(&self.grid, to, Vec3::ZERO);
+        if doors.obstacle_segment_blocked(
+            from_position,
+            to_position,
+            profile.radius,
+            profile.height,
+        ) {
+            return false;
+        }
+        for node in [from, to] {
+            let portal = self
+                .grid
+                .cell_portal
+                .get(node)
+                .copied()
+                .unwrap_or(NO_PORTAL);
+            let Some(entry) = self.grid.portals.get(usize::from(portal)) else {
+                continue;
+            };
+            let crosses =
+                door_crosses_segment(&entry.door, from_position, to_position, profile, doors);
+            if crosses == Some(false) {
+                continue;
+            }
+            if doors.door_open(&entry.door) {
+                if crosses == Some(true) {
+                    return false;
+                }
+            } else if !can_open_doors
+                || doors.door_locked(&entry.door).unwrap_or(false)
+                || doors.door_obstructed(&entry.door)
+            {
+                return false;
+            }
+        }
+        if from_x == to_x || from_z == to_z {
             return true;
         }
-        let (Some(from_x), Some(from_z), Some(to_x), Some(to_z)) = (
-            cell_column(&self.grid, from),
-            cell_row(&self.grid, from),
-            cell_column(&self.grid, to),
-            cell_row(&self.grid, to),
-        ) else {
-            return false;
-        };
-        if from_x.abs_diff(to_x) > 1 || from_z.abs_diff(to_z) > 1 {
-            return false;
-        }
-        let (Some(from_y), Some(to_y), Some(from_flags), Some(to_flags)) = (
-            self.grid.surface(from),
-            self.grid.surface(to),
-            self.grid.cell_flags.get(from).copied(),
-            self.grid.cell_flags.get(to).copied(),
-        ) else {
-            return false;
-        };
-        let diagonal = from_x != to_x && from_z != to_z;
-        let distance = if diagonal {
-            self.grid.cell_m * std::f32::consts::SQRT_2
-        } else {
-            self.grid.cell_m
-        };
-        if !neighbour_rule(from_y, to_y, distance, from_flags, to_flags, profile) {
-            return false;
-        }
-        if !diagonal {
-            return true;
-        }
-        let (Some(a), Some(b)) = (
-            self.grid.index_of(to_x, from_z),
-            self.grid.index_of(from_x, to_z),
-        ) else {
-            return false;
-        };
-        self.cell_region(class, a, profile, doors, can_open_doors)
-            .is_some()
-            && self
-                .cell_region(class, b, profile, doors, can_open_doors)
-                .is_some()
-            && self.cell_in_bounds(a, bounds)
-            && self.cell_in_bounds(b, bounds)
+        // Both orthogonal routes must reach this very span, never a different
+        // floor in the same XZ column.
+        [(to_x, from_z), (from_x, to_z)]
+            .into_iter()
+            .all(|(cx, cz)| {
+                self.grid.column_range(cx, cz).any(|middle| {
+                    self.cell_in_bounds(middle, bounds)
+                        && self
+                            .cell_region(class, middle, profile, doors, can_open_doors)
+                            .is_some()
+                        && self
+                            .grid
+                            .links
+                            .get(class)
+                            .and_then(|links| links.get(from))
+                            .is_some_and(|links| {
+                                links.contains(&u32::try_from(middle).unwrap_or(u32::MAX))
+                            })
+                        && self
+                            .grid
+                            .links
+                            .get(class)
+                            .and_then(|links| links.get(middle))
+                            .is_some_and(|links| {
+                                links.contains(&u32::try_from(to).unwrap_or(u32::MAX))
+                            })
+                })
+            })
     }
 
     /// An ASCII rendering of one class's walkable space for developer
@@ -1173,12 +1371,20 @@ impl NavMesh {
             self.grid.origin_x,
             self.grid.origin_z
         );
+        let _layer_legend = writeln!(
+            out,
+            "M = multiple floors; {} total surface nodes",
+            self.grid.cell_count()
+        );
         for cz in 0..self.grid.cells_z {
             for cx in 0..self.grid.cells_x {
                 let Some(index) = self.grid.index_of(cx, cz) else {
+                    out.push('#');
                     continue;
                 };
-                let ch = if !self.grid.has_surface(index) {
+                let ch = if self.grid.column_range(cx, cz).len() > 1 {
+                    'M'
+                } else if !self.grid.has_surface(index) {
                     '#'
                 } else if !self.grid.is_walkable(class, index) {
                     'x'
@@ -1217,14 +1423,14 @@ fn heuristic(grid: &NavGrid, cell: usize, goal: Vec3) -> f32 {
     ((x - goal.x).powi(2) + (y - goal.y).powi(2) + (z - goal.z).powi(2)).sqrt()
 }
 
-/// The column of a row-major cell index.
+/// The horizontal column of a walking-surface node.
 fn cell_column(grid: &NavGrid, index: usize) -> Option<u32> {
-    u32::try_from(index.checked_rem(usize::try_from(grid.cells_x).ok()?)?).ok()
+    grid.coordinates(index).map(|(cx, _)| cx)
 }
 
-/// The row of a row-major cell index.
+/// The horizontal row of a surface node.
 fn cell_row(grid: &NavGrid, index: usize) -> Option<u32> {
-    u32::try_from(index.checked_div(usize::try_from(grid.cells_x).ok()?)?).ok()
+    grid.coordinates(index).map(|(_, cz)| cz)
 }
 
 /// Writes the open set and cost arrays for one cell.
@@ -1247,28 +1453,62 @@ fn clamp_to_surface(grid: &NavGrid, cell: usize, hint: Vec3) -> Vec3 {
     Vec3::new(x, y, z)
 }
 
-/// Records every door the chain must open, in traversal order.
+/// Exact horizontal leaf sweep over the union of the old/new body bands.
+/// A missing collider preserves the policy-only providers used by diagnostics.
+fn door_crosses_segment(
+    door_id: &str,
+    from: Vec3,
+    to: Vec3,
+    profile: &NavClass,
+    doors: &dyn NavDoorState,
+) -> Option<bool> {
+    let leaf = doors.door_leaf(door_id)?;
+    Some(crate::engine::collision::door_segment_blocked(
+        Vec2::new(from.x, from.z),
+        Vec2::new(to.x, to.z),
+        profile.radius,
+        from.y.min(to.y),
+        profile.height + (to.y - from.y).abs(),
+        std::slice::from_ref(&leaf),
+    ))
+}
+
+/// Records every closed leaf actually crossed by a certified chain edge.
 fn collect_door_requests(mesh: &NavMesh, query: &PathQuery<'_>, chain: &[usize], out: &mut Path) {
-    for cell in chain {
-        let portal = mesh
-            .grid
-            .cell_portal
-            .get(*cell)
-            .copied()
-            .unwrap_or(NO_PORTAL);
-        if portal == NO_PORTAL {
-            continue;
+    if !query.can_open_doors {
+        return;
+    }
+    let Some(profile) = mesh.grid.classes.get(query.class) else {
+        return;
+    };
+    for (offset, &cell) in chain.iter().enumerate() {
+        let previous = chain.get(offset.saturating_sub(1)).copied().unwrap_or(cell);
+        let from_position = clamp_to_surface(&mesh.grid, previous, query.start);
+        let to_position = clamp_to_surface(&mesh.grid, cell, query.goal);
+        for node in [previous, cell] {
+            let portal = mesh
+                .grid
+                .cell_portal
+                .get(node)
+                .copied()
+                .unwrap_or(NO_PORTAL);
+            let Some(entry) = mesh.grid.portals.get(usize::from(portal)) else {
+                continue;
+            };
+            if query.doors.door_open(&entry.door)
+                || door_crosses_segment(
+                    &entry.door,
+                    from_position,
+                    to_position,
+                    profile,
+                    query.doors,
+                ) == Some(false)
+                || out.door_requests.iter().any(|id| id == &entry.door)
+            {
+                continue;
+            }
+            out.door_requests.push(entry.door.clone());
         }
-        let Some(entry) = mesh.grid.portals.get(usize::from(portal)) else {
-            continue;
-        };
-        if query.doors.door_open(&entry.door) {
-            continue;
-        }
-        if out.door_requests.iter().any(|id| id == &entry.door) {
-            continue;
-        }
-        out.door_requests.push(entry.door.clone());
     }
 }
 

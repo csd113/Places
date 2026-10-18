@@ -140,6 +140,40 @@ fn cast_disc(from: Vec2, motion: Vec2, radius: f32, wall: &WallAabb) -> Option<S
     best
 }
 
+/// Exact straight body-disc sweep used by baked links and AI movement.
+/// Step rims use the querying body's step height, rather than the player's.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "one physical body and indexed segment probe"
+)]
+pub fn disc_segment_blocked(
+    from: Vec2,
+    to: Vec2,
+    radius: f32,
+    feet: f32,
+    height: f32,
+    step_height: f32,
+    index: &CollisionIndex,
+    walls: &[WallAabb],
+) -> bool {
+    let motion = Vec2::new(to.x - from.x, to.y - from.y);
+    let mut blocked = false;
+    index.for_each_swept_disc(from, to, radius, walls, |wall| {
+        if wall.max_y <= feet + wall.step_up.min(step_height) + super::STEP_EPS
+            || wall.min_y + CONTACT_EPS >= feet + height
+        {
+            return;
+        }
+        if wall.overlaps_disc(from.x, from.y, radius)
+            || wall.overlaps_disc(to.x, to.y, radius)
+            || cast_disc(from, motion, radius, wall).is_some()
+        {
+            blocked = true;
+        }
+    });
+    blocked
+}
+
 fn cast_door(from: Vec2, motion: Vec2, radius: f32, door: &DoorCollider) -> Option<SweepHit> {
     let (x, z) = door.local(from.x, from.y);
     let local_motion = Vec2::new(
@@ -161,6 +195,24 @@ fn cast_door(from: Vec2, motion: Vec2, radius: f32, door: &DoorCollider) -> Opti
             door.dir_x.mul_add(hit.normal.x, -door.dir_z * hit.normal.y),
             door.dir_z.mul_add(hit.normal.x, door.dir_x * hit.normal.y),
         ),
+    })
+}
+
+/// Exact straight sweep against the current live door leaf poses.
+pub fn door_segment_blocked(
+    from: Vec2,
+    to: Vec2,
+    radius: f32,
+    feet: f32,
+    height: f32,
+    doors: &[DoorCollider],
+) -> bool {
+    doors.iter().any(|door| {
+        door.hinge_y + door.height > feet + super::STEP_EPS
+            && door.hinge_y + CONTACT_EPS < feet + height
+            && (door.overlaps_disc(from.x, from.y, radius)
+                || door.overlaps_disc(to.x, to.y, radius)
+                || cast_door(from, Vec2::new(to.x - from.x, to.y - from.y), radius, door).is_some())
     })
 }
 

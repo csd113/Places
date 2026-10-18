@@ -45,6 +45,10 @@ enum Action {
         x: f32,
         y: f32,
     },
+    /// Projects a world point, then sends the same click as a user.
+    WorldClick {
+        position: [f32; 3],
+    },
     Key {
         key: String,
         #[serde(default)]
@@ -169,6 +173,13 @@ impl Verification {
             .get(self.next)
             .ok_or("Missing verification action")?;
         match &step.action {
+            Action::WorldClick { position } => {
+                let point = app
+                    .viewport
+                    .project(glam::Vec3::from_array(*position))
+                    .ok_or("World click is outside the visible scene viewport")?;
+                mouse(app, window, MouseButton::Left, false, point)?;
+            }
             Action::ScrollScene { lines } => scroll_scene(app, window, *lines)?,
             Action::Control { action } => {
                 let (_, controls) = ui::build(app);
@@ -262,6 +273,7 @@ impl Verification {
             "preparing": app.viewport.is_preparing(), "window": window.size(),
             "viewport_objects": app.viewport.object_count(),
             "environment_preview": app.viewport.environment_preview(),
+            "navigation": app.navigation.checkpoint(),
             "visible_controls": controls.iter().map(|hit| serde_json::json!({"action":format!("{:?}",hit.action),"center":hit.center()})).collect::<Vec<_>>(),
             "drawable": window.size_in_pixels(), "camera_target": app.viewport.target(),
             "safety": app.safety_report.as_ref().map(|report| report.findings.iter().map(|finding| serde_json::json!({
@@ -290,6 +302,7 @@ const fn busy(app: &App) -> bool {
         || app.play.is_some()
         || app.viewport.is_preparing()
         || app.safety_job.is_some()
+        || app.navigation.is_baking()
 }
 
 fn validate(action: &Action) -> Result<(), String> {
@@ -299,6 +312,9 @@ fn validate(action: &Action) -> Result<(), String> {
         }
         Action::ScrollScene { lines } => (1..=64).contains(&lines.unsigned_abs()),
         Action::Click { x, y } => valid_point(*x, *y),
+        Action::WorldClick { position } => position
+            .iter()
+            .all(|value| value.is_finite() && value.abs() <= 100_000.0),
         Action::Key {
             key,
             command: _,

@@ -9616,6 +9616,30 @@ impl WalkableFloor {
         self.resolve_height_at(x, z, StairSampling::PitchLine)
     }
 
+    /// Visits every authored walking surface at a point, including stacked rooms.
+    ///
+    /// The compiler uses the same stair pitch line as physical movement. Room
+    /// ownership is retained within each storey; duplicate adjoining surfaces
+    /// are harmless and may be deduplicated by the caller.
+    pub(crate) fn for_each_walk_surface(&self, x: f32, z: f32, mut visit: impl FnMut(f32)) {
+        for room in &self.rooms {
+            if let Some(height) = Self::room_height_at(room, x, z, StairSampling::PitchLine) {
+                visit(height);
+            }
+        }
+    }
+
+    /// True when this exact storey's walking surface is a ramp or stair pitch.
+    #[must_use]
+    pub(crate) fn walk_surface_sloped(&self, x: f32, z: f32, y: f32) -> bool {
+        self.rooms.iter().any(|room| {
+            Self::room_height_at(room, x, z, StairSampling::PitchLine)
+                .is_some_and(|height| (height - y).abs() <= crate::engine::collision::STEP_EPS)
+                && (room.ramps.iter().any(|ramp| ramp.surface.contains(x, z))
+                    || room.stairs.iter().any(|stair| stair.surface.contains(x, z)))
+        })
+    }
+
     /// Highest rendered floor no higher than `max_y`, across all storeys.
     ///
     /// Rendering retains authored room ownership. Physical contacts must also

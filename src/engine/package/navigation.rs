@@ -1,44 +1,27 @@
-//! Binary codec for the compiled navigation record.
+//! Bounded binary codec for layered, baked navigation (`PNV2`, version 2).
 //!
-//! The offline compiler rasterises a level's authored walkable surfaces (rooms,
-//! floor regions, ramps and stairs) against its real collision geometry and
-//! stores the result here; the player only validates, uploads and queries it.
-//! Nothing at runtime derives walkable space from geometry, and a package
-//! without a navigation record is refused by the manifest.
+//! Each horizontal XZ column holds zero or more strictly ascending walking
+//! surfaces. Per-class masks describe physical body clearance; eight explicit
+//! directional links per node carry continuously probed traversal. Stacked
+//! floors share XZ without sharing topology. Runtime never infers connectivity
+//! from nearby heights or repairs a missing record.
 //!
-//! The mesh is a **uniform cell grid with per-class clearance**: one row-major
-//! cell per `cell_m` metres over the level's floor footprint. A cell stores the
-//! walking-surface height under it, the headroom above that surface, and which
-//! door portal (if any) sweeps it. Each baked agent class has a bitmask of
-//! cells whose body disc fits at that surface, plus a connected-region label
-//! for nearest-point and escape reasoning. One grid therefore serves a small
-//! rat and a tall player without rebaking; a class is baked only for an agent
-//! profile the level actually authors (plus the reference humanoid).
-//!
-//! Layout (little-endian, byte-aligned, no implicit padding):
-//!
+//! Little-endian layout, without implicit padding:
 //! ```text
-//! magic           4 bytes  "PNV1"
-//! version         u16      [`NAVIGATION_RECORD_VERSION`]
-//! cell_m          f32
-//! origin_x, origin_z   f32 x 2
-//! cells_x, cells_z     u32 x 2
-//! class_count     u32, then per class:
-//!   radius, height, step_height, max_slope   f32 x 4
-//! portal_count    u32, then per portal:
-//!   door id (u32 length + UTF-8 bytes, <= 256)
-//! cells_x * cells_z cells:
-//!   y             f32
-//!   flags         u8   (bit 0: a walking surface exists)
-//!   headroom_cm   u16  (0 when no surface, else clipped at u16::MAX)
-//!   portal        u16  (u16::MAX = not a portal cell)
-//! per class:
-//!   walkable      u32 byte length + ceil(cells/8) bytes (bit i = cell i)
-//!   region        u32 count + u16 x cells (u16::MAX = no region)
+//! magic "PNV2", version u16
+//! cell_m, origin_x, origin_z f32; cells_x, cells_z, node_count u32
+//! column_offsets u32[ cells_x * cells_z + 1 ]
+//! class_count u32; classes { radius, height, step_height, max_slope f32 }
+//! portal_count u32; portals { door_id length u32 + UTF-8 bytes }
+//! nodes { y f32, flags u8, headroom_cm u16, portal u16 }
+//! per class: walkable byte length u32 + ceil(node_count / 8) bytes
+//! per class: region count u32 + u16[node_count]
+//! per class: outgoing u32[node_count][8], u32::MAX for no link
 //! ```
 //!
-//! Every count and the whole record are bounded before any allocation; a
-//! malformed record is rejected with a named error, never truncated.
+//! Counts and the encoded-byte budget are checked before allocating class
+//! runs. Offsets, strict height ordering, regions, reciprocal adjacency and
+//! body traversal envelopes are validated. PNV1 records require recompilation.
 
 // Keep the binary codec and its validation in cohesive, readable routines.
 // Numeric conversions and arithmetic exceptions are justified locally.
@@ -52,10 +35,10 @@ use super::binary::{Reader, Writer};
 use super::{MAX_NAV_CELLS, MAX_NAV_CLASSES, MAX_NAV_PORTALS, MAX_NAVIGATION_BYTES};
 
 /// Version of the compiled navigation record layout.
-pub const NAVIGATION_RECORD_VERSION: u16 = 1;
+pub const NAVIGATION_RECORD_VERSION: u16 = 2;
 
 /// Magic identifying a compiled navigation record.
-pub const NAVIGATION_MAGIC: [u8; 4] = *b"PNV1";
+pub const NAVIGATION_MAGIC: [u8; 4] = *b"PNV2";
 
 /// Largest accepted door id length in one portal, in bytes.
 pub(crate) const MAX_NAV_DOOR_ID_BYTES: u64 = 256;
@@ -68,6 +51,21 @@ pub const NO_PORTAL: u16 = u16::MAX;
 
 /// Sentinel for "this cell has no region in this class".
 pub const NO_REGION: u16 = u16::MAX;
+
+/// Sentinel for an absent directional traversal link.
+pub const NO_NAV_LINK: u32 = u32::MAX;
+
+/// Canonical order of the eight horizontal traversal directions.
+pub const NAV_DIRECTIONS: [(i32, i32); 8] = [
+    (-1, 0),
+    (1, 0),
+    (0, -1),
+    (0, 1),
+    (-1, -1),
+    (1, -1),
+    (-1, 1),
+    (1, 1),
+];
 
 /// One baked agent class: the body a cell's walkability was baked for.
 ///
@@ -143,24 +141,30 @@ pub struct NavGrid {
     pub cells_x: u32,
     /// Cells along Z.
     pub cells_z: u32,
+    /// Prefix offsets for the vertically ordered spans in each XZ column.
+    /// Length is `cells_x * cells_z + 1`; the final offset is the node count.
+    pub column_offsets: Vec<u32>,
+    /// Baked outgoing links, indexed by class, node and [`NAV_DIRECTIONS`].
+    /// Each link was continuously checked against the physical geometry.
+    pub links: Vec<Vec<[u32; 8]>>,
     /// Baked agent classes, in canonical order.
     pub classes: Vec<NavClass>,
-    /// Cell walking-surface height, row-major (`cells_z` rows of `cells_x`).
+    /// Walking-surface heights, ordered by column and then ascending Y.
     ///
     /// Meaningful only where [`CELL_SURFACE`] is set in `cell_flags`.
     pub cell_y: Vec<f32>,
-    /// Per-cell flags, row-major. See [`CELL_SURFACE`].
+    /// Per-node flags. See [`CELL_SURFACE`].
     pub cell_flags: Vec<u8>,
-    /// Headroom above the surface, in centimetres, row-major.
+    /// Centre headroom above each surface, in centimetres.
     pub cell_headroom_cm: Vec<u16>,
-    /// Door portal index per cell, row-major, or [`NO_PORTAL`].
+    /// Door portal index per node, or [`NO_PORTAL`].
     pub cell_portal: Vec<u16>,
     /// Door portals referenced by `cell_portal`.
     pub portals: Vec<NavPortal>,
-    /// Per-class walkable bitmask, row-major bit order (bit `i % 8` of byte
+    /// Per-class walkable bitmask, node order (bit `i % 8` of byte
     /// `i / 8` is cell `i`).
     pub walkable: Vec<Vec<u8>>,
-    /// Per-class region label, row-major, or [`NO_REGION`].
+    /// Per-class region label, node order, or [`NO_REGION`].
     pub region: Vec<Vec<u16>>,
 }
 
@@ -169,39 +173,52 @@ impl NavGrid {
     #[must_use]
     pub(crate) fn retained_heap_bytes(&self) -> usize {
         let mut bytes = self
-            .classes
+            .column_offsets
             .capacity()
-            .saturating_mul(std::mem::size_of::<NavClass>())
+            .saturating_mul(4)
             .saturating_add(
-                self.cell_y
+                self.links
                     .capacity()
-                    .saturating_mul(std::mem::size_of::<f32>()),
+                    .saturating_mul(std::mem::size_of::<Vec<[u32; 8]>>()),
             )
-            .saturating_add(self.cell_flags.capacity())
+            .saturating_add(self.links.iter().fold(0usize, |total, links| {
+                total.saturating_add(links.capacity().saturating_mul(32))
+            }))
             .saturating_add(
-                self.cell_headroom_cm
+                self.classes
                     .capacity()
-                    .saturating_mul(std::mem::size_of::<u16>()),
-            )
-            .saturating_add(
-                self.cell_portal
-                    .capacity()
-                    .saturating_mul(std::mem::size_of::<u16>()),
-            )
-            .saturating_add(
-                self.portals
-                    .capacity()
-                    .saturating_mul(std::mem::size_of::<NavPortal>()),
-            )
-            .saturating_add(
-                self.walkable
-                    .capacity()
-                    .saturating_mul(std::mem::size_of::<Vec<u8>>()),
-            )
-            .saturating_add(
-                self.region
-                    .capacity()
-                    .saturating_mul(std::mem::size_of::<Vec<u16>>()),
+                    .saturating_mul(std::mem::size_of::<NavClass>())
+                    .saturating_add(
+                        self.cell_y
+                            .capacity()
+                            .saturating_mul(std::mem::size_of::<f32>()),
+                    )
+                    .saturating_add(self.cell_flags.capacity())
+                    .saturating_add(
+                        self.cell_headroom_cm
+                            .capacity()
+                            .saturating_mul(std::mem::size_of::<u16>()),
+                    )
+                    .saturating_add(
+                        self.cell_portal
+                            .capacity()
+                            .saturating_mul(std::mem::size_of::<u16>()),
+                    )
+                    .saturating_add(
+                        self.portals
+                            .capacity()
+                            .saturating_mul(std::mem::size_of::<NavPortal>()),
+                    )
+                    .saturating_add(
+                        self.walkable
+                            .capacity()
+                            .saturating_mul(std::mem::size_of::<Vec<u8>>()),
+                    )
+                    .saturating_add(
+                        self.region
+                            .capacity()
+                            .saturating_mul(std::mem::size_of::<Vec<u16>>()),
+                    ),
             );
         for portal in &self.portals {
             bytes = bytes.saturating_add(portal.door.capacity());
@@ -216,33 +233,77 @@ impl NavGrid {
         bytes
     }
 
-    /// Number of cells in the grid.
+    /// Number of walking-surface nodes, including every floor in a column.
     #[must_use]
-    #[expect(
-        clippy::arithmetic_side_effects,
-        reason = "The product of two u32 values fits in u64; conversion to the platform's collection size remains checked."
-    )]
     pub fn cell_count(&self) -> usize {
-        usize::try_from(u64::from(self.cells_x) * u64::from(self.cells_z)).unwrap_or(usize::MAX)
+        self.cell_y.len()
     }
 
-    /// The row-major index of a cell, when it is inside the grid.
+    /// Number of horizontal XZ columns, independently of their floor count.
+    #[must_use]
+    pub fn column_count(&self) -> usize {
+        usize::try_from(u64::from(self.cells_x).saturating_mul(u64::from(self.cells_z)))
+            .unwrap_or(usize::MAX)
+    }
+
+    /// All vertically ordered nodes in a horizontal XZ cell.
+    #[must_use]
+    pub fn column_range(&self, cx: u32, cz: u32) -> std::ops::Range<usize> {
+        if cx >= self.cells_x || cz >= self.cells_z {
+            return 0..0;
+        }
+        let column = usize::try_from(
+            u64::from(cz)
+                .saturating_mul(u64::from(self.cells_x))
+                .saturating_add(u64::from(cx)),
+        )
+        .unwrap_or(usize::MAX);
+        let start = self
+            .column_offsets
+            .get(column)
+            .copied()
+            .and_then(|value| usize::try_from(value).ok())
+            .unwrap_or(0);
+        let end = self
+            .column_offsets
+            .get(column.saturating_add(1))
+            .copied()
+            .and_then(|value| usize::try_from(value).ok())
+            .unwrap_or(start);
+        start..end
+    }
+
+    /// Lowest node in a column. Use [`Self::column_range`] when height matters.
     #[must_use]
     pub fn index_of(&self, cx: u32, cz: u32) -> Option<usize> {
-        if cx >= self.cells_x || cz >= self.cells_z {
-            return None;
-        }
-        Some(self.index_unchecked(cx, cz))
+        self.column_range(cx, cz).next()
     }
 
-    /// The row-major index of an in-grid cell, without bounds checks.
-    #[expect(
-        clippy::arithmetic_side_effects,
-        reason = "Even (u32::MAX * u32::MAX) + u32::MAX fits in u64; the subsequent usize conversion handles smaller platforms."
-    )]
-    fn index_unchecked(&self, cx: u32, cz: u32) -> usize {
-        usize::try_from(u64::from(cz) * u64::from(self.cells_x) + u64::from(cx))
-            .unwrap_or(usize::MAX)
+    /// Horizontal grid coordinates of a walking-surface node.
+    #[must_use]
+    pub fn coordinates(&self, index: usize) -> Option<(u32, u32)> {
+        if index >= self.cell_count() || self.cells_x == 0 {
+            return None;
+        }
+        let node = u32::try_from(index).ok()?;
+        let column = self
+            .column_offsets
+            .partition_point(|offset| *offset <= node)
+            .checked_sub(1)?;
+        let width = usize::try_from(self.cells_x).ok()?;
+        Some((
+            u32::try_from(column.checked_rem(width)?).ok()?,
+            u32::try_from(column.checked_div(width)?).ok()?,
+        ))
+    }
+
+    /// The baked neighbour in one canonical horizontal direction.
+    #[must_use]
+    pub fn link(&self, class: usize, node: usize, direction: usize) -> Option<usize> {
+        let target = *self.links.get(class)?.get(node)?.get(direction)?;
+        (target != NO_NAV_LINK)
+            .then(|| usize::try_from(target).ok())
+            .flatten()
     }
 
     /// The cell containing `(x, z)`, when the point is inside the grid.
@@ -265,7 +326,9 @@ impl NavGrid {
         let cz = local_z.floor();
         let cell_x = u32::try_from(cx as i64).ok()?;
         let cell_z = u32::try_from(cz as i64).ok()?;
-        let _index_of_status = self.index_of(cell_x, cell_z)?;
+        if cell_x >= self.cells_x || cell_z >= self.cells_z {
+            return None;
+        }
         Some((cell_x, cell_z))
     }
 
@@ -350,6 +413,13 @@ pub fn write_navigation(grid: &NavGrid) -> Result<Vec<u8>, String> {
     writer.u32(grid.cells_x);
     writer.u32(grid.cells_z);
     writer.u32(
+        u32::try_from(cell_count)
+            .map_err(|error| format!("navigation node count is too large: {error}"))?,
+    );
+    for offset in &grid.column_offsets {
+        writer.u32(*offset);
+    }
+    writer.u32(
         u32::try_from(grid.classes.len())
             .map_err(|error| format!("navigation record has too many classes: {error}"))?,
     );
@@ -384,6 +454,13 @@ pub fn write_navigation(grid: &NavGrid) -> Result<Vec<u8>, String> {
     for labels in &grid.region {
         writer.u16s(labels)?;
     }
+    for class_links in &grid.links {
+        for links in class_links {
+            for target in links {
+                writer.u32(*target);
+            }
+        }
+    }
     let bytes = writer.into_bytes();
     if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_NAVIGATION_BYTES {
         return Err(format!(
@@ -410,7 +487,7 @@ pub fn read_navigation(bytes: &[u8]) -> Result<NavGrid, String> {
     }
     let mut reader = Reader::new(bytes);
     if reader.bytes(4)? != NAVIGATION_MAGIC {
-        return Err("navigation record has the wrong magic".to_string());
+        return Err("navigation record magic is unsupported; recompile this map with the current compiler (layered PNV2 navigation required)".to_string());
     }
     let version = reader.u16()?;
     if version != NAVIGATION_RECORD_VERSION {
@@ -424,6 +501,19 @@ pub fn read_navigation(bytes: &[u8]) -> Result<NavGrid, String> {
     let origin_z = reader.f32()?;
     let cells_x = reader.u32()?;
     let cells_z = reader.u32()?;
+    let node_count = reader.count(
+        u64::try_from(MAX_NAV_CELLS).unwrap_or(u64::MAX),
+        "navigation node count",
+    )?;
+    let columns = usize::try_from(u64::from(cells_x).saturating_mul(u64::from(cells_z)))
+        .map_err(|error| format!("navigation columns are too large: {error}"))?;
+    if columns > MAX_NAV_CELLS {
+        return Err("navigation column count exceeds the limit".to_string());
+    }
+    let mut column_offsets = Vec::with_capacity(columns.saturating_add(1).min(4096));
+    for _ in 0..=columns {
+        column_offsets.push(reader.u32()?);
+    }
     let class_count = reader.count(
         u64::try_from(MAX_NAV_CLASSES).unwrap_or(u64::MAX),
         "navigation class count",
@@ -465,8 +555,18 @@ pub fn read_navigation(bytes: &[u8]) -> Result<NavGrid, String> {
     if !origin_x.is_finite() || !origin_z.is_finite() {
         return Err("navigation grid origin is not finite".to_string());
     }
-    let cell_count =
-        usize::try_from(cells).map_err(|error| format!("navigation grid is too large: {error}"))?;
+    let cell_count = node_count;
+    validate_record_budget(columns, cell_count, class_count)?;
+    let minimum_payload = cell_count.saturating_mul(9).saturating_add(
+        class_count.saturating_mul(
+            cell_count
+                .saturating_mul(34)
+                .saturating_add(cell_count.div_ceil(8)),
+        ),
+    );
+    if minimum_payload > reader.remaining() {
+        return Err("navigation node/link payload is truncated".to_string());
+    }
     let mut cell_y = Vec::with_capacity(cell_count.min(4096));
     let mut cell_flags = Vec::with_capacity(cell_count.min(4096));
     let mut cell_headroom_cm = Vec::with_capacity(cell_count.min(4096));
@@ -501,7 +601,7 @@ pub fn read_navigation(bytes: &[u8]) -> Result<NavGrid, String> {
     }
     let mut region = Vec::with_capacity(class_count);
     for _ in 0..class_count {
-        let labels = reader.u16s(cells)?;
+        let labels = reader.u16s(u64::try_from(cell_count).unwrap_or(u64::MAX))?;
         if labels.len() != cell_count {
             return Err(format!(
                 "navigation class region run is {} entries (expected {cell_count})",
@@ -509,6 +609,18 @@ pub fn read_navigation(bytes: &[u8]) -> Result<NavGrid, String> {
             ));
         }
         region.push(labels);
+    }
+    let mut links = Vec::with_capacity(class_count);
+    for _ in 0..class_count {
+        let mut class_links = Vec::with_capacity(cell_count.min(4096));
+        for _ in 0..cell_count {
+            let mut neighbours = [NO_NAV_LINK; 8];
+            for target in &mut neighbours {
+                *target = reader.u32()?;
+            }
+            class_links.push(neighbours);
+        }
+        links.push(class_links);
     }
     if !reader.is_empty() {
         return Err(format!(
@@ -522,6 +634,8 @@ pub fn read_navigation(bytes: &[u8]) -> Result<NavGrid, String> {
         origin_z,
         cells_x,
         cells_z,
+        column_offsets,
+        links,
         classes,
         cell_y,
         cell_flags,
@@ -572,6 +686,37 @@ pub fn validate_navigation(grid: &NavGrid) -> Result<(), String> {
         }
     }
     let cell_count = grid.cell_count();
+    let columns = grid.column_count();
+    validate_record_budget(columns, cell_count, grid.classes.len())?;
+    if grid.column_offsets.len() != columns.saturating_add(1)
+        || grid.column_offsets.first().copied() != Some(0)
+        || grid
+            .column_offsets
+            .last()
+            .copied()
+            .and_then(|value| usize::try_from(value).ok())
+            != Some(cell_count)
+        || grid
+            .column_offsets
+            .windows(2)
+            .any(|pair| pair.first() > pair.get(1))
+    {
+        return Err("navigation column offsets are inconsistent".to_string());
+    }
+    for column in grid.column_offsets.windows(2) {
+        let start = usize::try_from(column.first().copied().unwrap_or(0)).unwrap_or(usize::MAX);
+        let end = usize::try_from(column.get(1).copied().unwrap_or(0)).unwrap_or(usize::MAX);
+        let Some(heights) = grid.cell_y.get(start..end) else {
+            return Err("navigation column addresses invalid nodes".to_string());
+        };
+        if heights.iter().any(|height| !height.is_finite())
+            || heights.windows(2).any(|pair| pair.first() >= pair.get(1))
+        {
+            return Err(
+                "navigation column heights are not finite and strictly ascending".to_string(),
+            );
+        }
+    }
     if cell_count > MAX_NAV_CELLS {
         return Err(format!(
             "navigation grid declares {cell_count} cells (limit {MAX_NAV_CELLS})"
@@ -597,7 +742,10 @@ pub fn validate_navigation(grid: &NavGrid) -> Result<(), String> {
             return Err("navigation portal cell has no surface".to_string());
         }
     }
-    if grid.walkable.len() != grid.classes.len() || grid.region.len() != grid.classes.len() {
+    if grid.walkable.len() != grid.classes.len()
+        || grid.region.len() != grid.classes.len()
+        || grid.links.len() != grid.classes.len()
+    {
         return Err("navigation class runs disagree with the class list".to_string());
     }
     let mask_bytes = cell_count.div_ceil(8);
@@ -609,12 +757,99 @@ pub fn validate_navigation(grid: &NavGrid) -> Result<(), String> {
             if grid.is_walkable(class, index) && !grid.has_surface(index) {
                 return Err("navigation walkable cell has no surface".to_string());
             }
+            if grid.is_walkable(class, index) != grid.region_of(class, index).is_some() {
+                return Err("navigation walkable mask and region labels disagree".to_string());
+            }
         }
     }
     for labels in &grid.region {
         if labels.len() != cell_count {
             return Err("navigation class region run has the wrong length".to_string());
         }
+    }
+    for (class, class_links) in grid.links.iter().enumerate() {
+        if class_links.len() != cell_count {
+            return Err("navigation class link run has the wrong length".to_string());
+        }
+        for (node, neighbours) in class_links.iter().enumerate() {
+            let Some((cx, cz)) = grid.coordinates(node) else {
+                return Err("navigation node has no column".to_string());
+            };
+            for (direction, target) in neighbours.iter().enumerate() {
+                if *target == NO_NAV_LINK {
+                    continue;
+                }
+                let next = usize::try_from(*target)
+                    .map_err(|error| format!("navigation link exceeds address space: {error}"))?;
+                if !grid.is_walkable(class, node) || !grid.is_walkable(class, next) {
+                    return Err("navigation link references a non-walkable node".to_string());
+                }
+                let Some(&(dx, dz)) = NAV_DIRECTIONS.get(direction) else {
+                    return Err("navigation link direction is invalid".to_string());
+                };
+                let expected = cx.checked_add_signed(dx).zip(cz.checked_add_signed(dz));
+                if expected != grid.coordinates(next) {
+                    return Err("navigation link crosses nonadjacent columns".to_string());
+                }
+                let distance = if dx != 0_i32 && dz != 0_i32 {
+                    grid.cell_m * std::f32::consts::SQRT_2
+                } else {
+                    grid.cell_m
+                };
+                let Some(profile) = grid.classes.get(class) else {
+                    return Err("navigation link has no class".to_string());
+                };
+                let rise = (grid.surface(node).unwrap_or(f32::INFINITY)
+                    - grid.surface(next).unwrap_or(f32::NEG_INFINITY))
+                .abs();
+                if rise
+                    > profile.max_slope.mul_add(distance, profile.step_height)
+                        + crate::engine::collision::STEP_EPS
+                {
+                    return Err(
+                        "navigation link exceeds its body's step/slope envelope".to_string()
+                    );
+                }
+                if !class_links.get(next).is_some_and(|links| {
+                    links.contains(&u32::try_from(node).unwrap_or(NO_NAV_LINK))
+                }) {
+                    return Err("navigation link has no reciprocal traversal".to_string());
+                }
+                if grid.region_of(class, node) != grid.region_of(class, next) {
+                    return Err("navigation link crosses region labels".to_string());
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Checks the node, column and encoded-link budgets before allocating class runs.
+///
+/// # Errors
+/// Returns a named error when any structural or encoded-byte cap is exceeded.
+pub(crate) fn validate_record_budget(
+    columns: usize,
+    nodes: usize,
+    classes: usize,
+) -> Result<(), String> {
+    if columns > MAX_NAV_CELLS || nodes > MAX_NAV_CELLS || classes > MAX_NAV_CLASSES {
+        return Err("navigation column, node or class count exceeds the limit".to_string());
+    }
+    let estimate = columns
+        .saturating_add(1)
+        .saturating_mul(4)
+        .saturating_add(nodes.saturating_mul(9))
+        .saturating_add(
+            classes.saturating_mul(nodes.saturating_mul(34).saturating_add(nodes.div_ceil(8))),
+        )
+        .saturating_add(MAX_NAV_PORTALS.saturating_mul(260))
+        .saturating_add(classes.saturating_mul(24))
+        .saturating_add(128);
+    if u64::try_from(estimate).unwrap_or(u64::MAX) > MAX_NAVIGATION_BYTES {
+        return Err(format!(
+            "layered navigation needs at least {estimate} bytes (limit {MAX_NAVIGATION_BYTES}); raise the cell size or split the level"
+        ));
     }
     Ok(())
 }

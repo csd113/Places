@@ -1,0 +1,993 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "navigation_layers",
+  "name": "Navigation layers acceptance",
+  "author": "Places",
+  "comment": "Opt-in native acceptance only. Layered furnished rooms share XZ; the sole vertical connection is the side ramp and raised return bridge. Separate lanes isolate clearance, live doors, movable blockers and meeting actors. No assets are introduced.",
+  "spawn": {
+    "x": 10.6,
+    "z": 5.9,
+    "yaw_degrees": 45
+  },
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "home:ceiling_white_01"
+  },
+  "rooms": [
+    {
+      "x": 0,
+      "z": 0,
+      "width": 10,
+      "depth": 8,
+      "height": 2.8,
+      "floor_y": 0
+    },
+    {
+      "x": 10,
+      "z": 0,
+      "width": 10,
+      "depth": 8,
+      "height": 6,
+      "floor_y": 0,
+      "material": "home:hardwood_oak_01"
+    },
+    {
+      "x": 0,
+      "z": 0,
+      "width": 10,
+      "depth": 8,
+      "height": 3,
+      "floor_y": 3,
+      "material": "home:hardwood_oak_01"
+    },
+    {
+      "x": 0,
+      "z": 10,
+      "width": 10,
+      "depth": 3,
+      "height": 3
+    },
+    {
+      "x": 12,
+      "z": 10,
+      "width": 10,
+      "depth": 3,
+      "height": 3
+    },
+    {
+      "x": 12,
+      "z": 15,
+      "width": 10,
+      "depth": 3,
+      "height": 3.4
+    },
+    {
+      "x": 0,
+      "z": 20,
+      "width": 10,
+      "depth": 3,
+      "height": 3
+    },
+    {
+      "x": 24,
+      "z": 0,
+      "width": 5,
+      "depth": 5,
+      "height": 3
+    },
+    {
+      "x": 15.5,
+      "z": 19,
+      "width": 3,
+      "depth": 3,
+      "height": 3.4,
+      "floor_y": 0,
+      "comment": "Real isolated parking support for the 2.4 metre movable blocker; scripted relocation retains a floor and sufficient body clearance."
+    }
+  ],
+  "ramps": [
+    {
+      "x": 11,
+      "z": 2.5,
+      "width": 7.5,
+      "depth": 2,
+      "offset_y": 0,
+      "rise": 3,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 10,
+      "z": 0,
+      "width": 8.5,
+      "depth": 2.5,
+      "offset_y": 3,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 18.5,
+      "z": 0,
+      "width": 1.5,
+      "depth": 4.5,
+      "offset_y": 3,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.2,
+      "z": -0.2,
+      "width": 20.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 6
+    },
+    {
+      "x": -0.2,
+      "z": 8,
+      "width": 20.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 6
+    },
+    {
+      "x": -0.2,
+      "z": 0,
+      "width": 0.2,
+      "depth": 8,
+      "y": 0,
+      "height": 6
+    },
+    {
+      "x": 20,
+      "z": 0,
+      "width": 0.2,
+      "depth": 8,
+      "y": 0,
+      "height": 6
+    },
+    {
+      "x": 9.9,
+      "z": 0,
+      "width": 0.2,
+      "depth": 8,
+      "y": 0,
+      "height": 2.8,
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 4.8,
+          "width": 1.6,
+          "height": 2.4
+        }
+      ]
+    },
+    {
+      "x": 9.9,
+      "z": 0,
+      "width": 0.2,
+      "depth": 8,
+      "y": 3,
+      "height": 3,
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 0.5,
+          "width": 1.6,
+          "height": 2.4
+        }
+      ]
+    },
+    {
+      "x": -0.2,
+      "z": 9.8,
+      "width": 10.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": -0.2,
+      "z": 13,
+      "width": 10.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": -0.2,
+      "z": 10,
+      "width": 0.2,
+      "depth": 3,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": 10,
+      "z": 10,
+      "width": 0.2,
+      "depth": 3,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": 11.8,
+      "z": 9.8,
+      "width": 10.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": 11.8,
+      "z": 13,
+      "width": 10.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": 11.8,
+      "z": 10,
+      "width": 0.2,
+      "depth": 3,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": 22,
+      "z": 10,
+      "width": 0.2,
+      "depth": 3,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": 11.8,
+      "z": 14.8,
+      "width": 10.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3.4
+    },
+    {
+      "x": 11.8,
+      "z": 18,
+      "width": 10.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3.4
+    },
+    {
+      "x": 11.8,
+      "z": 15,
+      "width": 0.2,
+      "depth": 3,
+      "y": 0,
+      "height": 3.4
+    },
+    {
+      "x": 22,
+      "z": 15,
+      "width": 0.2,
+      "depth": 3,
+      "y": 0,
+      "height": 3.4
+    },
+    {
+      "x": -0.2,
+      "z": 19.8,
+      "width": 10.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": -0.2,
+      "z": 23,
+      "width": 10.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": -0.2,
+      "z": 20,
+      "width": 0.2,
+      "depth": 3,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": 10,
+      "z": 20,
+      "width": 0.2,
+      "depth": 3,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": 23.8,
+      "z": -0.2,
+      "width": 5.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": 23.8,
+      "z": 5,
+      "width": 5.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": 23.8,
+      "z": 0,
+      "width": 0.2,
+      "depth": 5,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": 29,
+      "z": 0,
+      "width": 0.2,
+      "depth": 5,
+      "y": 0,
+      "height": 3
+    },
+    {
+      "x": 4.9,
+      "z": 10,
+      "width": 0.2,
+      "depth": 3,
+      "y": 0,
+      "height": 3,
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 1.1,
+          "width": 0.8,
+          "height": 2.2
+        }
+      ]
+    },
+    {
+      "x": 16.9,
+      "z": 10,
+      "width": 0.2,
+      "depth": 3,
+      "y": 0,
+      "height": 3,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 0.8,
+          "width": 1.4,
+          "height": 2.2
+        }
+      ]
+    },
+    {
+      "x": 15.3,
+      "z": 18.8,
+      "width": 3.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3.4
+    },
+    {
+      "x": 15.3,
+      "z": 22,
+      "width": 3.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3.4
+    },
+    {
+      "x": 15.3,
+      "z": 19,
+      "width": 0.2,
+      "depth": 3,
+      "y": 0,
+      "height": 3.4
+    },
+    {
+      "x": 18.5,
+      "z": 19,
+      "width": 0.2,
+      "depth": 3,
+      "y": 0,
+      "height": 3.4
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "id": "acceptance_light_0",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3,
+      "z": 3,
+      "y": 2.79,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_1",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 7,
+      "z": 5,
+      "y": 2.79,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_2",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3,
+      "z": 3,
+      "y": 5.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_3",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 7,
+      "z": 5,
+      "y": 5.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_4",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 14,
+      "z": 2,
+      "y": 5.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_5",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 17,
+      "z": 6,
+      "y": 5.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_6",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 2.5,
+      "z": 11.5,
+      "y": 2.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_7",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 7.5,
+      "z": 11.5,
+      "y": 2.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_8",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 14.5,
+      "z": 11.5,
+      "y": 2.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_9",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 19.5,
+      "z": 11.5,
+      "y": 2.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_10",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 14.5,
+      "z": 16.5,
+      "y": 3.39,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_11",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 19.5,
+      "z": 16.5,
+      "y": 3.39,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_12",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 2.5,
+      "z": 21.5,
+      "y": 2.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_13",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 7.5,
+      "z": 21.5,
+      "y": 2.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_14",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 26.5,
+      "z": 2.5,
+      "y": 2.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "blocker_parking_light",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 17,
+      "z": 20.5,
+      "y": 3.39,
+      "brightness": 0.85,
+      "align": "none"
+    }
+  ],
+  "doors": [
+    {
+      "id": "lane_door",
+      "x": 17,
+      "z": 12.2,
+      "width": 1.4,
+      "height": 2.2,
+      "rotation_degrees": 90,
+      "open_direction": "left",
+      "swing_degrees": 90,
+      "open_speed_degrees": 240,
+      "close_speed_degrees": 240,
+      "initial_state": "closed",
+      "locked": true,
+      "material": "home:door_white_01"
+    }
+  ],
+  "props": [
+    {
+      "id": "lower_desk",
+      "model": "core:desk",
+      "x": 6,
+      "y": 0,
+      "z": 2,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "rotation_degrees": 0,
+      "solid": true
+    },
+    {
+      "id": "lower_chair",
+      "model": "core:chair",
+      "x": 6,
+      "y": 0,
+      "z": 3,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "rotation_degrees": 180,
+      "solid": true
+    },
+    {
+      "id": "upper_desk",
+      "model": "core:desk",
+      "x": 5,
+      "y": 3,
+      "z": 6,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "rotation_degrees": 180,
+      "solid": true
+    },
+    {
+      "id": "upper_chair",
+      "model": "core:chair",
+      "x": 5,
+      "y": 3,
+      "z": 5,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "rotation_degrees": 0,
+      "solid": true
+    },
+    {
+      "id": "atrium_crate",
+      "model": "core:crate",
+      "x": 15,
+      "y": 0,
+      "z": 6.8,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "rotation_degrees": 0,
+      "solid": true
+    },
+    {
+      "id": "climber",
+      "display_name": "climber",
+      "model": "mannequin",
+      "x": 3,
+      "y": 0,
+      "z": 4,
+      "scale": 1,
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.3,
+          "height": 1.8,
+          "speed_mps": 2.4,
+          "step_height": 0.4,
+          "max_slope": 0.6
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 2.4,
+          "run_speed": 2.4,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": false
+        }
+      ]
+    },
+    {
+      "id": "upper_walker",
+      "display_name": "upper walker",
+      "model": "mannequin",
+      "x": 3,
+      "y": 3,
+      "z": 4.8,
+      "scale": 1,
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.3,
+          "height": 1.8,
+          "speed_mps": 2.4,
+          "step_height": 0.4,
+          "max_slope": 0.6
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 2.4,
+          "run_speed": 2.4,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": false
+        }
+      ]
+    },
+    {
+      "id": "small_walker",
+      "display_name": "small walker",
+      "model": "mannequin",
+      "x": 2,
+      "y": 0,
+      "z": 11.4,
+      "scale": 0.4,
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.16,
+          "height": 0.72,
+          "speed_mps": 2.4,
+          "step_height": 0.4,
+          "max_slope": 0.6
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 2.4,
+          "run_speed": 2.4,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": false
+        }
+      ]
+    },
+    {
+      "id": "large_walker",
+      "display_name": "large walker",
+      "model": "mannequin",
+      "x": 1,
+      "y": 0,
+      "z": 12,
+      "scale": 1,
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.48,
+          "height": 1.8,
+          "speed_mps": 2.4,
+          "step_height": 0.4,
+          "max_slope": 0.6
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 2.4,
+          "run_speed": 2.4,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": false
+        }
+      ]
+    },
+    {
+      "id": "door_walker",
+      "display_name": "door walker",
+      "model": "mannequin",
+      "x": 13.5,
+      "y": 0,
+      "z": 11.5,
+      "scale": 1,
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.3,
+          "height": 1.8,
+          "speed_mps": 2.4,
+          "step_height": 0.4,
+          "max_slope": 0.6
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 2.4,
+          "run_speed": 2.4,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": true
+        }
+      ]
+    },
+    {
+      "id": "obstacle_walker",
+      "display_name": "obstacle walker",
+      "model": "mannequin",
+      "x": 13.5,
+      "y": 0,
+      "z": 16.5,
+      "scale": 1,
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.3,
+          "height": 1.8,
+          "speed_mps": 2.4,
+          "step_height": 0.4,
+          "max_slope": 0.6
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 2.4,
+          "run_speed": 2.4,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": false
+        }
+      ]
+    },
+    {
+      "id": "meeting_east",
+      "display_name": "meeting east",
+      "model": "mannequin",
+      "x": 2,
+      "y": 0,
+      "z": 21.5,
+      "scale": 1,
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.3,
+          "height": 1.8,
+          "speed_mps": 2.4,
+          "step_height": 0.4,
+          "max_slope": 0.6
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 2.4,
+          "run_speed": 2.4,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": false
+        }
+      ]
+    },
+    {
+      "id": "meeting_west",
+      "display_name": "meeting west",
+      "model": "mannequin",
+      "x": 8,
+      "y": 0,
+      "z": 21.5,
+      "scale": 1,
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.3,
+          "height": 1.8,
+          "speed_mps": 2.4,
+          "step_height": 0.4,
+          "max_slope": 0.6
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 2.4,
+          "run_speed": 2.4,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": false
+        }
+      ]
+    },
+    {
+      "id": "unreachable_walker",
+      "display_name": "unreachable walker",
+      "model": "mannequin",
+      "x": 25.5,
+      "y": 0,
+      "z": 2.5,
+      "scale": 1,
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.3,
+          "height": 1.8,
+          "speed_mps": 2.4,
+          "step_height": 0.4,
+          "max_slope": 0.6
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 2.4,
+          "run_speed": 2.4,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": false
+        }
+      ]
+    },
+    {
+      "id": "movable_blocker",
+      "display_name": "Movable navigation obstruction",
+      "model": "core:crate",
+      "x": 17,
+      "z": 16.5,
+      "scale": 4,
+      "solid": false,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.3,
+            0.3,
+            0.3
+          ]
+        },
+        "reset_group": "navigation_blocker",
+        "mass_kg": 500,
+        "friction": 1.2,
+        "restitution": 0,
+        "linear_damping": 1,
+        "angular_damping": 2
+      }
+    },
+    {
+      "id": "door_unlock",
+      "model": "home:wall_switch",
+      "x": 13,
+      "z": 10.1,
+      "y": 1.1,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Unlock test door for AI"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "unlock",
+              "target": "lane_door"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "door_close_lock",
+      "model": "home:wall_switch",
+      "x": 13.3,
+      "z": 10.1,
+      "y": 1.1,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "door close lock"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "close",
+              "target": "lane_door"
+            },
+            {
+              "action": "lock",
+              "target": "lane_door"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

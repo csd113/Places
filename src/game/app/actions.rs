@@ -38,6 +38,12 @@ pub enum Action {
         yaw: f32,
         pitch: f32,
     },
+    /// Gives an installed actor a diagnostic goal through its normal planner
+    /// and collision-respecting mover; never changes its position.
+    NavigationGoal {
+        id: String,
+        position: [f32; 3],
+    },
     ItemPose {
         id: String,
         position: [f32; 3],
@@ -118,6 +124,15 @@ struct Step {
 
 fn validate_pose_action(action: &Action) -> Result<(), String> {
     validate_caustics_action(action)?;
+    if let Action::NavigationGoal { id, position } = action
+        && (id.is_empty()
+            || id.len() > 256
+            || position
+                .iter()
+                .any(|value| !value.is_finite() || value.abs() > 100_000.0))
+    {
+        return Err("Native navigation goal requires a bounded id and finite coordinates".into());
+    }
     if let Action::AimEntity {
         id,
         yaw_offset_degrees,
@@ -327,6 +342,7 @@ fn validate_action(action: &Action) -> Result<(), String> {
             yaw: _,
             pitch: _,
         }
+        | Action::NavigationGoal { id: _, position: _ }
         | Action::ItemPose {
             id: _,
             position: _,

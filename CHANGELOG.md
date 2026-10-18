@@ -1,5 +1,12 @@
 ## 0.12.0 — in progress
 
+- Bake layered navigation for stacked floors, with per-body clearance and
+  explicit collision-probed ramp/step links. Load navigation record 2 deliberately;
+  older compiled navigation requires recompilation from source.
+- Respect live physics obstacles and actor bodies during AI movement, bound
+  repathing, and retry blocked or unreachable goals after the obstruction clears.
+  Add contextual editor coverage, body selection, height slices and route inspection.
+
 - Export complete multi-level projects as one `.placesmap`, sharing identical
   prepared records and carrying exact editable JSON, metadata, Luau and thumbnails.
   Recover into a new project folder with bounded validation, cancellation and

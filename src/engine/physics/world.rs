@@ -1377,6 +1377,31 @@ impl ItemWorld {
             .collect()
     }
 
+    /// Conservative current solver bounds used by AI movement and planning.
+    ///
+    /// Includes sleeping, dormant and held solids. Disabled recovery bodies do
+    /// not obstruct. At most [`super::MAX_BODIES`] live item bounds are visited;
+    /// this neither allocates nor rebuilds navigation or the physics broad phase.
+    pub fn navigation_obstacles(&self) -> impl Iterator<Item = WallAabb> + '_ {
+        self.runtime.iter().flat_map(|runtime| {
+            runtime.entries.values().filter_map(|entry| {
+                let collider = runtime.world.colliders.get(entry.collider)?;
+                if !collider.is_enabled() || collider.is_sensor() {
+                    return None;
+                }
+                let bounds = collider.compute_aabb();
+                Some(WallAabb::with_y(
+                    bounds.mins.x,
+                    bounds.mins.y,
+                    bounds.mins.z,
+                    bounds.maxs.x - bounds.mins.x,
+                    bounds.maxs.y - bounds.mins.y,
+                    bounds.maxs.z - bounds.mins.z,
+                ))
+            })
+        })
+    }
+
     #[must_use]
     pub const fn stats(&self) -> PhysicsStats {
         self.stats

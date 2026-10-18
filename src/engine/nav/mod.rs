@@ -37,10 +37,10 @@ pub const NAV_MAX_SLOPE: f32 = {
 
 /// The movement substep the shared agent mover advances in metres.
 ///
-/// Must satisfy `NAV_MOVE_SUBSTEP_M * NAV_MAX_SLOPE <= step_height` for the
-/// default class so a continuous slope is always climbable in one substep; a
-/// test asserts the relationship.
-pub const NAV_MOVE_SUBSTEP_M: f32 = 0.10;
+/// The bake certifies links at this spacing and runtime motion uses no larger
+/// step. Surface identity and [`neighbour_rule`] independently enforce each
+/// body's discrete step/drop and continuous slope limits.
+pub const NAV_MOVE_SUBSTEP_M: f32 = 0.05;
 
 /// Cell flag bit: the surface under this cell is part of a continuous slope.
 pub const CELL_SLOPED: u8 = 1 << 1;
@@ -61,10 +61,9 @@ pub const fn reference_class() -> NavClass {
 
 /// The one step/slope neighbour rule, shared by the bake and the runtime.
 ///
-/// A rise within `profile.step_height` always connects. A larger rise connects
-/// only when both cells are part of a continuous slope and the slope is within
-/// the profile's bound; a cliff between two flat cells therefore never
-/// connects.
+/// Continuous slopes must respect `max_slope` even when fine samples rise less
+/// than a full step. Other rises and drops are bounded symmetrically by
+/// `step_height`, so a cliff never becomes a fine-sampled ramp.
 #[must_use]
 pub fn neighbour_rule(
     ya: f32,
@@ -75,14 +74,11 @@ pub fn neighbour_rule(
     profile: &NavClass,
 ) -> bool {
     let rise = (yb - ya).abs();
-    if rise <= profile.step_height + crate::engine::collision::STEP_EPS {
-        return true;
-    }
-    if distance <= f32::EPSILON {
-        return false;
-    }
     let sloped = flags_a & CELL_SLOPED != 0 && flags_b & CELL_SLOPED != 0;
-    sloped && rise / distance <= profile.max_slope + 1.0e-4
+    if sloped && rise > crate::engine::collision::STEP_EPS {
+        return distance > f32::EPSILON && rise / distance <= profile.max_slope + 1.0e-4;
+    }
+    rise <= profile.step_height + crate::engine::collision::STEP_EPS
 }
 /// The physical body an agent navigates with.
 ///
@@ -141,8 +137,43 @@ impl NavAgentProfile {
 /// runtime, by a test double, or by a future overlay without the nav module
 /// owning door policy.
 pub trait NavDoorState {
+    /// True when a live, non-baked solid overlaps the body at this surface.
+    ///
+    /// The default keeps static/editor queries allocation-free. Runtime callers
+    /// provide a bounded snapshot of physical item bounds without rebuilding
+    /// the baked topology.
+    fn obstacle_blocked(&self, _position: glam::Vec3, _radius: f32, _height: f32) -> bool {
+        false
+    }
+
+    /// True when a live solid intersects a walked segment's full body envelope.
+    /// Runtime overlays override this with an exact horizontal sweep. The
+    /// default preserves point-only providers with union-band endpoint/midpoint
+    /// checks, including a short body lifting between disjoint body bands.
+    fn obstacle_segment_blocked(
+        &self,
+        from: glam::Vec3,
+        to: glam::Vec3,
+        radius: f32,
+        height: f32,
+    ) -> bool {
+        let feet = from.y.min(to.y);
+        let sweep_height = height + (to.y - from.y).abs();
+        [from, from.lerp(to, 0.5), to].into_iter().any(|point| {
+            self.obstacle_blocked(
+                glam::Vec3::new(point.x, feet, point.z),
+                radius,
+                sweep_height,
+            )
+        })
+    }
+
     /// True when the door is fully open and passable.
     fn door_open(&self, door_id: &str) -> bool;
+    /// True while a leaf is physically prevented from reaching its open end.
+    fn door_obstructed(&self, _door_id: &str) -> bool {
+        false
+    }
     /// `Some(true)` when the door refuses to open.
     fn door_locked(&self, door_id: &str) -> Option<bool>;
     /// The live leaf collider, for re-checking cells a swinging leaf covers.
@@ -150,6 +181,12 @@ pub trait NavDoorState {
 }
 
 impl NavDoorState for Doors {
+    fn door_obstructed(&self, door_id: &str) -> bool {
+        self.index_of(door_id)
+            .and_then(|index| self.get(index))
+            .is_some_and(|door| door.obstructed && door.phase() != DoorPhase::Open)
+    }
+
     fn door_open(&self, door_id: &str) -> bool {
         self.index_of(door_id)
             .and_then(|index| self.get(index))

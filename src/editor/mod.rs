@@ -6,6 +6,7 @@ pub mod document;
 mod gameplay_actions;
 mod geometry_actions;
 mod input;
+mod navigation;
 pub mod process;
 mod projects;
 mod safety;
@@ -70,6 +71,7 @@ struct App {
     selected: Option<ObjectId>,
     status: String,
     view: ViewOptions,
+    navigation: navigation::Inspection,
     step: f32,
     object_scroll: usize,
     prop: String,
@@ -89,6 +91,7 @@ struct App {
 impl App {
     fn load(&mut self, path: &Path) -> Result<(), String> {
         let document = Document::open(path)?;
+        self.invalidate_navigation();
         self.viewport.rebuild(document.level());
         self.viewport.frame_next_preview();
         self.document = Some(document);
@@ -104,6 +107,7 @@ impl App {
     }
 
     fn changed(&mut self) {
+        self.invalidate_navigation();
         self.safety_report = None;
         self.safety_index = 0;
         self.opening_rect = None;
@@ -294,24 +298,29 @@ fn options() -> Result<Option<Options>, String> {
     Ok(Some(options))
 }
 
+fn configured_tools(options: &Options) -> Result<ToolPaths, String> {
+    let mut tools = ToolPaths::discover()?;
+    if let Some(path) = &options.compiler {
+        tools.set_compiler(path)?;
+    }
+    if let Some(path) = &options.game {
+        tools.set_game(path)?;
+    }
+    Ok(tools)
+}
+
 fn application(options: Options) -> Result<(), String> {
     let mut verification = options
         .verify_script
         .as_deref()
         .map(verification::Verification::from_path)
         .transpose()?;
-    if let Some(root) = options.asset_root {
-        paths::configure_assets(&root)?;
+    if let Some(root) = &options.asset_root {
+        paths::configure_assets(root)?;
     }
     assets::validate_installation()?;
     let _user = paths::initialize_user()?;
-    let mut tools = ToolPaths::discover()?;
-    if let Some(path) = options.compiler {
-        tools.set_compiler(&path)?;
-    }
-    if let Some(path) = options.game {
-        tools.set_game(&path)?;
-    }
+    let tools = configured_tools(&options)?;
     let sdl = sdl3::init().map_err(|e| e.to_string())?;
     let video = sdl.video().map_err(|e| e.to_string())?;
     let mut window = video
@@ -341,6 +350,7 @@ fn application(options: Options) -> Result<(), String> {
             grid: true,
             snap: true,
         },
+        navigation: navigation::Inspection::default(),
         step: 0.25,
         object_scroll: 0,
         prop: "core:chair".into(),
@@ -381,6 +391,7 @@ fn application(options: Options) -> Result<(), String> {
         app.dialogs();
         app.poll_jobs();
         app.poll_safety();
+        app.poll_navigation();
         if let Some(error) = app.viewport.status() {
             app.status = format!("Viewport: {error}");
         }

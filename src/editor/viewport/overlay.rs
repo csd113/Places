@@ -125,6 +125,69 @@ impl Guides {
         }
     }
 
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Finite world-space navigation guides use float offsets for x-ray visibility."
+    )]
+    pub fn navigation(
+        &mut self,
+        coverage: &[crate::editor::navigation::Coverage],
+        route: &[Vec3],
+        start: Option<Vec3>,
+        goal: Option<Vec3>,
+    ) {
+        for cell in coverage {
+            let Vec3 { x, y, z } = cell.position;
+            let h = cell.half;
+            self.face(
+                [
+                    [x - h, y, z - h],
+                    [x + h, y, z - h],
+                    [x + h, y, z + h],
+                    [x - h, y, z + h],
+                ],
+                cell.color,
+            );
+        }
+        for pair in route.windows(2) {
+            if let [first, second] = pair {
+                self.line(
+                    *first + Vec3::Y * 0.08,
+                    *second + Vec3::Y * 0.08,
+                    [1.0, 0.92, 0.3, 1.0],
+                    1.3,
+                );
+            }
+        }
+        for (endpoint, color) in [(start, [0.3, 1.0, 0.5, 1.0]), (goal, [1.0, 0.35, 0.7, 1.0])] {
+            if let Some(position) = endpoint {
+                self.line(position, position + Vec3::Y * 0.65, color, 1.5);
+                self.line(
+                    position - Vec3::X * 0.18 + Vec3::Y * 0.08,
+                    position + Vec3::X * 0.18 + Vec3::Y * 0.08,
+                    color,
+                    1.1,
+                );
+                self.line(
+                    position - Vec3::Z * 0.18 + Vec3::Y * 0.08,
+                    position + Vec3::Z * 0.18 + Vec3::Y * 0.08,
+                    color,
+                    1.1,
+                );
+            }
+        }
+    }
+
+    pub fn project(&self, position: Vec3) -> Option<[f32; 2]> {
+        let projected = self.matrix.mul_vec4(position.extend(1.0));
+        if projected.w <= 0.000_01 || projected.z + projected.w <= 0.0 {
+            return None;
+        }
+        let point = self.point(projected);
+        (point.x >= 112.0 && point.x < 480.0 && point.y >= 38.0 && point.y < 242.0)
+            .then_some(point.to_array())
+    }
+
     /// Translucent x-ray guides keep non-rendering gameplay volumes visible
     /// while authoring. Clip every face to the viewport and near plane.
     pub fn volume(&mut self, guide: &VolumeGuide) {

@@ -120,6 +120,9 @@ impl App {
                 && point[1] >= 38.0
                 && point[1] < 242.0
             {
+                if self.navigation_click(point) {
+                    return;
+                }
                 self.selected = self.viewport.pick(point);
                 self.viewport.select(self.selected);
             }

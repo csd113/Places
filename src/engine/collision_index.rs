@@ -262,7 +262,13 @@ impl CollisionIndex {
         boxes: &[WallAabb],
         mut visit: impl FnMut(&WallAabb),
     ) {
-        if self.is_empty() || !from.is_finite() || !to.is_finite() || !radius.is_finite() {
+        if self.is_empty() {
+            for wall in boxes {
+                visit(wall);
+            }
+            return;
+        }
+        if !from.is_finite() || !to.is_finite() || !radius.is_finite() {
             self.visit_all(boxes, &mut visit);
             return;
         }
