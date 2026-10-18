@@ -15,6 +15,25 @@ Time implementation `36790aef` was already pushed before this override arrived;
 its final evidence/handoff commit stays local. Keep Beam local too. The following
 asset-integration task pushes the combined work and runs applicable CI.
 
+## Queue paused for Connor's playtest
+
+Connor's latest instruction pauses **all remaining queued work** after Beam.
+Wait for his **explicit resume command** before asset integration or any later
+stage. The ordered queue below is retained as future scope, not authorization
+to start now. No push or GitHub CI is authorized while paused.
+
+Beam is complete. From the repository root, launch the preserved direct player:
+
+```sh
+./local/verification/0.12.0-beam/try-player.sh
+```
+
+This imports the final package into isolated manual state and uses
+`local/verification/0.12.0-beam/payload-reset-verified/`, preserved outside
+`target`. The host's SDL3 and repository assets are required. Full lighting is
+selected. Native acceptance is Mac only. Known editor/sound/interaction gaps and
+mixed display pacing are documented in the Beam report and final local receipt.
+
 ## Current handoff and runnable tools
 
 Repository: `/Users/connordawkins/Documents/GitHub/Places`.

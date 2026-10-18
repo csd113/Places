@@ -5,6 +5,22 @@ Implemented on `0.12.0-staging`, preserving Closing Time's local handoff
 no push, GitHub CI, main merge or release. Closing Time deliverables are unchanged.
 Native acceptance is **Mac only**, on the Apple M2 Pro/Metal backend.
 
+## Paused after delivery
+
+Connor is playtesting. **All remaining queue stages are paused pending his
+explicit resume command**, including asset integration. Keep the no-push rule.
+The future queue described below preserves ordering only; do not start it.
+
+From the repository root:
+
+```sh
+./local/verification/0.12.0-beam/try-player.sh
+```
+
+The launcher uses the preserved `payload-reset-verified` direct executable,
+repository assets, Full lighting and isolated manual state. The payload still
+imports/plays the final package after `cargo clean`; no rebuild is needed.
+
 ## Playable delivery
 
 Editable project: `projects/beam/`. Final complete-project distribution:
@@ -194,8 +210,8 @@ combined local work there), editor readability/crosshair, implement concrete
 discovered gaps from both demos followed by Luau/import safety and replay of both,
 then the separately authorized connected feature-test map/game with honest
 feature coverage/manual gaps. That map exercises supported features and exposes
-editor gaps; it does not authorize arbitrary missing engine features. Stop and wait for Connor after that queue. No work
-on those later stages was started here.
+editor gaps; it does not authorize arbitrary missing engine features. The entire remaining queue is now paused for Connor's playtest and explicit
+resume. No work on those later stages was started here.
 
 ## Evidence delivery
 
