@@ -8650,3 +8650,25 @@ implemented contract and native editor linking workflow. Scripts use existing
 door/light/sound/entity/physics actions. Compiled single-map semantics carry the
 source snapshot; multi-level project packaging remains stage 7. No shipped map
 or asset was changed for this foundation.
+
+## Project transitions and editable recovery (0.12.0 stage 7)
+
+A level may declare `"transitions": ["second"]`, listing permitted destination
+IDs from its owning `places.project.json`. An ordinary binding/sequence action
+`{"action":"change_level","level":"second"}` or bounded Luau
+`api.change_level("second")` requests that destination inside the same complete
+project package. The compiler validates membership and writes the explicit
+`project-transitions-v1` capability. Build+Play and Export project compile all
+levels into one `.placesmap`; an ordinary selected-level package cannot serve
+cross-level transitions. The player loads one destination on demand at its
+spawn, with fresh runtime/VM state. Reset cancels pending navigation; persistent
+campaign variables are not implemented.
+
+`Project >` in the editor declares allowed destinations and selects the entry.
+Trigger Actions / Change project level also declares its chosen target. Exact
+editable source recovery is distinct from playing prepared semantics: project
+packages preserve original authored JSON, instance IDs, intentional clipping
+ignores, settings, scripts and thumbnail bytes. Recovery publishes only a new
+folder; single-map compiled packages have no editable-source recovery contract.
+See [project format](PROJECT_FORMAT.md) and [editor workflow](EDITOR.md). Built-in
+runtime assets remain the supported source; no custom asset importer is exposed.

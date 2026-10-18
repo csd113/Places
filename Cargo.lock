@@ -1040,6 +1040,7 @@ dependencies = [
  "ctrlc",
  "glam 0.34.1",
  "kira",
+ "libc",
  "mlua",
  "png",
  "pollster",

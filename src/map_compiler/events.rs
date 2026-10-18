@@ -35,6 +35,8 @@ pub enum Event {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Progress {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub source: String,
     pub variant: String,
     pub stage: String,
     pub elapsed_millis: u64,
@@ -52,6 +54,7 @@ pub struct Work {
 impl From<Snapshot> for Progress {
     fn from(snapshot: Snapshot) -> Self {
         Self {
+            source: snapshot.source,
             variant: snapshot.variant,
             stage: snapshot.stage,
             elapsed_millis: u64::try_from(snapshot.elapsed.as_millis()).unwrap_or(u64::MAX),
@@ -93,7 +96,7 @@ pub(super) fn emit(event: &Event) -> Result<(), String> {
         .map_err(|error| format!("could not flush compiler event: {error}"))
 }
 
-pub(super) fn build(request: &BuildRequest) -> Result<BuildReport, Failure> {
+pub(super) fn build(request: &BuildRequest, operation: &str) -> Result<BuildReport, Failure> {
     emit(&Event::Started {
         protocol: PROTOCOL,
         source: request.source.display().to_string(),
@@ -128,7 +131,12 @@ pub(super) fn build(request: &BuildRequest) -> Result<BuildReport, Failure> {
         })
         .map_err(|error| Failure::Failed(format!("could not start compiler control: {error}")))?;
     let result = std::thread::scope(|scope| {
-        let build = scope.spawn(|| super::build(request));
+        let build = scope.spawn(|| match operation {
+            "export-project" => super::distribution::export(request),
+            "check-project" => super::distribution::check(request),
+            "import-project" => super::distribution::recover(request),
+            _ => super::build(request),
+        });
         let mut stream_error = None;
         while !build.is_finished() {
             if let Some(snapshot) = session.snapshot()

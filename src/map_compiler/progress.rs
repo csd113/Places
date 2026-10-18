@@ -51,6 +51,8 @@ struct State {
 
 /// A point-in-time view of the current compiler pass, without terminal formatting.
 pub struct Snapshot {
+    /// Current source and explicit selected level label.
+    pub source: String,
     /// Current lighting quality, or empty during shared preparation/publication.
     pub variant: String,
     /// The operation currently running.
@@ -74,6 +76,7 @@ pub struct WorkCount {
 impl Current {
     fn snapshot(&self) -> Snapshot {
         Snapshot {
+            source: self.source.clone(),
             variant: self.variant.clone(),
             stage: self.stage.clone(),
             elapsed: self.started.elapsed(),
@@ -223,7 +226,7 @@ fn use_terminal(mode: Mode, tty: bool, term: Option<&str>, ci: bool) -> bool {
 pub(crate) struct BuildScope(Option<Arc<State>>);
 
 impl BuildScope {
-    pub(crate) fn start(source: &Path) -> Self {
+    pub(crate) fn start(source: &Path, selected: Option<&str>) -> Self {
         let state = active();
         if let Some(shared) = &state {
             if let Ok(mut current) = shared.current.lock() {
@@ -244,6 +247,12 @@ impl BuildScope {
                     last_count: 0,
                     last_interrupted: false,
                 });
+            }
+            if let Some(level) = selected
+                && let Ok(mut current) = shared.current.lock()
+                && let Some(build) = current.as_mut()
+            {
+                build.source = format!("{} / {level}", build.source);
             }
             shared.refresh(true);
         }

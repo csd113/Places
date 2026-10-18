@@ -146,6 +146,20 @@ pub fn open(path: &Path) -> Result<OpenedPackage, String> {
     open_reader(PackageReader::new(file).map_err(|error| error.to_string())?)
 }
 
+/// Opens only the explicitly selected level in a project package.
+/// # Errors
+/// Returns package validation errors or an undeclared identity.
+pub fn open_level(path: &Path, id: &str) -> Result<OpenedPackage, String> {
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let mut reader = PackageReader::new(file).map_err(|e| e.to_string())?;
+    super::project::select(&mut reader, Some(id))?;
+    let opened = open_reader(reader)?;
+    if opened.level.id != id {
+        return Err(format!("Package does not contain requested level '{id}'"));
+    }
+    Ok(opened)
+}
+
 /// Opens an in-memory package for import and compiler controls.
 ///
 /// # Errors
@@ -181,6 +195,19 @@ fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
         .map_err(|error| format!("semantics.json is not UTF-8: {error}"))?;
     let level = LevelDef::from_json(text)
         .map_err(|error| format!("package semantics are not valid: {error}"))?;
+    if manifest.id != level.id {
+        return Err("Package manifest and semantic level IDs disagree".into());
+    }
+    for destination in &level.transitions {
+        if !reader.permits_project_level(destination)
+            || !manifest
+                .required_capabilities
+                .iter()
+                .any(|capability| capability == "project-transitions-v1")
+        {
+            return Err("Level transitions require the complete project package and project-transitions-v1 capability; use Export project or Build+Play".into());
+        }
+    }
     crate::engine::loader::validate_level(&level)?;
     crate::engine::scripting::validate_package_sources(&level, &manifest.required_capabilities)?;
     check_catalog_build_input(&mut reader, &manifest, root)?;
@@ -319,9 +346,26 @@ pub fn inspect(path: &Path) -> Result<Manifest, String> {
     read_manifest(&mut reader)
 }
 
+/// Reads only the explicitly selected map manifest for lightweight cache identity.
+/// # Errors
+/// Returns invalid archive/index/manifest errors or an undeclared map identity.
+pub fn inspect_level(path: &Path, id: &str) -> Result<Manifest, String> {
+    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
+    let mut reader = PackageReader::new(file).map_err(|e| e.to_string())?;
+    super::project::select(&mut reader, Some(id))?;
+    let manifest = read_manifest(&mut reader)?;
+    if manifest.id != id {
+        return Err(format!(
+            "Package manifest does not describe requested level '{id}'"
+        ));
+    }
+    Ok(manifest)
+}
+
 fn read_manifest<R: std::io::Read + std::io::Seek>(
     reader: &mut PackageReader<R>,
 ) -> Result<Manifest, String> {
+    super::project::select(reader, None)?;
     let bytes = reader.read_entry("manifest.json", crate::engine::package::MAX_MANIFEST_BYTES)?;
     let manifest = Manifest::from_json(&bytes, reader.names())?;
     for entry in &manifest.entries {
@@ -356,7 +400,7 @@ pub fn package_identity(entry: &crate::engine::loader::LevelEntry) -> Result<Str
     match entry.source_type {
         crate::engine::loader::LevelSourceType::Bundled
         | crate::engine::loader::LevelSourceType::Installed => {
-            let manifest = inspect(&entry.path)?;
+            let manifest = inspect_level(&entry.path, &entry.id)?;
             manifest_identity(&manifest)
         }
     }
@@ -405,6 +449,7 @@ fn decode_named_variant<R: std::io::Read + std::io::Seek>(
     // Semantics and variants can be read in separate operations. The archive
     // opened for this operation must still be the one those semantics name;
     // check before dependency synchronization can mutate the asset cache.
+    super::project::select(reader, Some(&manifest.id))?;
     let current_manifest = read_manifest(reader)?;
     if manifest_identity(&current_manifest)? != manifest_identity(manifest)? {
         return Err(format!(

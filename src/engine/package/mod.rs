@@ -1,6 +1,7 @@
 //! The compiled Places map package (`.placesmap`).
 //!
-//! A package is a ZIP archive carrying one validated semantic level record,
+//! A package is a ZIP archive carrying an ordinary map or a project index of
+//! shared ordinary-map views (see [`project`]). Each view has one semantic level record,
 //! one or more quality variants of the prepared static world, prepared
 //! lighting and lightmap payloads, reference data for dynamic objects, and the
 //! dependency identities the player verifies before use.
@@ -28,8 +29,9 @@
 //!
 //! # Contract rules
 //!
-//! * **Data only.** Nothing in a package is executed. There are no scripts,
-//!   no tool invocations and no auto-compilation of authoring sources.
+//! * **Prepared content.** Geometry is never compiled during play. Explicit
+//!   luau-v1 snapshots run only through the bounded shared scripting host; no
+//!   arbitrary native tools or filesystem script loading are available.
 //! * **Bounded before use.** Every archive entry, count, dimension, hash and
 //!   aggregate is bounded from the manifest and from hard per-subsystem caps
 //!   before an allocation or a decode happens. A package that exceeds a bound
@@ -58,6 +60,7 @@ pub mod lightmaps;
 pub mod manifest;
 pub mod mesh;
 pub mod navigation;
+pub mod project;
 pub mod props;
 pub mod shared_props;
 pub mod world;
@@ -110,7 +113,7 @@ pub const MAX_LIGHTMAP_ATLAS_BYTES: u64 = 384 * 1024 * 1024 + 64 * 1024;
 pub const MAX_TOTAL_BYTES: u64 = 1024 * 1024 * 1024;
 
 /// Largest accepted number of archive entries.
-pub const MAX_ENTRIES: usize = 512;
+pub const MAX_ENTRIES: usize = 8192;
 
 /// Largest accepted number of quality variants in one package.
 pub const MAX_VARIANTS: usize = 4;

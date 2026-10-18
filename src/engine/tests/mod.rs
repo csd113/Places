@@ -15,3 +15,5 @@ mod trigger_index;
 mod trigger_occupants;
 
 mod scripting;
+
+mod project_package;

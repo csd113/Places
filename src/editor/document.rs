@@ -10,6 +10,7 @@ pub(crate) mod intent;
 mod mounting;
 mod objects;
 mod persistence;
+mod project;
 mod scripts;
 mod source;
 

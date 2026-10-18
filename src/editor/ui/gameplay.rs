@@ -172,6 +172,7 @@ pub(in crate::editor) fn action_popup(vertices: &mut Vec<Vertex>, hits: &mut Vec
         ("Open a door", C::DoorAction),
         ("Spawn an entity at point", C::SpawnAction),
         ("Activate a physics group", C::PhysicsAction),
+        ("Change project level", C::TransitionAction),
     ]
     .into_iter()
     .enumerate()
@@ -216,6 +217,7 @@ pub(in crate::editor) fn choices_popup(
             C::DoorAction => "OPEN DOOR / choose a leaf",
             C::SpawnAction => "SPAWN ENTITY / choose a point",
             C::PhysicsAction => "ACTIVATE PHYSICS / choose a group",
+            C::TransitionAction => "TRANSITION / choose a project level",
         },
         140.0,
         73.0,

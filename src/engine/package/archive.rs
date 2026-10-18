@@ -15,6 +15,8 @@ use super::{MAX_ENTRIES, MAX_TOTAL_BYTES, OpenError, hash};
 pub struct PackageReader<R: Read + Seek> {
     archive: zip::ZipArchive<R>,
     names: Vec<String>,
+    view: Option<std::collections::BTreeMap<String, String>>,
+    project_ids: Option<std::collections::BTreeSet<String>>,
 }
 
 impl<R: Read + Seek> PackageReader<R> {
@@ -44,7 +46,12 @@ impl<R: Read + Seek> PackageReader<R> {
                 archive.len()
             )));
         }
-        Ok(Self { archive, names })
+        Ok(Self {
+            archive,
+            names,
+            view: None,
+            project_ids: None,
+        })
     }
 
     /// Number of entries.
@@ -65,6 +72,26 @@ impl<R: Read + Seek> PackageReader<R> {
         &self.names
     }
 
+    pub(crate) fn select_view(
+        &mut self,
+        aliases: std::collections::BTreeMap<String, String>,
+        ids: std::collections::BTreeSet<String>,
+    ) {
+        self.names = aliases.keys().cloned().collect();
+        self.view = Some(aliases);
+        self.project_ids = Some(ids);
+    }
+
+    pub(crate) fn permits_project_level(&self, id: &str) -> bool {
+        self.project_ids
+            .as_ref()
+            .is_some_and(|ids| ids.contains(id))
+    }
+
+    pub(crate) const fn has_view(&self) -> bool {
+        self.view.is_some()
+    }
+
     /// True when `name` exists exactly as spelled.
     #[must_use]
     pub fn contains(&self, name: &str) -> bool {
@@ -78,8 +105,13 @@ impl<R: Read + Seek> PackageReader<R> {
     /// # Errors
     /// Returns an error when the entry cannot be opened.
     pub(crate) fn entry_size(&mut self, name: &str) -> Result<u64, String> {
+        let actual = self
+            .view
+            .as_ref()
+            .and_then(|view| view.get(name))
+            .map_or(name, String::as_str);
         self.archive
-            .by_name(name)
+            .by_name(actual)
             .map(|entry| entry.size())
             .map_err(|error| format!("package entry '{name}' is missing: {error}"))
     }
@@ -93,9 +125,14 @@ impl<R: Read + Seek> PackageReader<R> {
     /// # Errors
     /// Returns an error when the input is malformed, out of bounds or unsupported.
     pub fn read_entry(&mut self, name: &str, limit: u64) -> Result<Vec<u8>, String> {
+        let actual = self
+            .view
+            .as_ref()
+            .and_then(|view| view.get(name))
+            .map_or(name, String::as_str);
         let entry = self
             .archive
-            .by_name(name)
+            .by_name(actual)
             .map_err(|error| format!("package entry '{name}' is missing: {error}"))?;
         let declared = entry.size();
         if declared > limit {
@@ -118,6 +155,9 @@ impl<R: Read + Seek> PackageReader<R> {
             return Err(format!(
                 "package entry '{name}' declares {declared} bytes but decompressed {read}"
             ));
+        }
+        if actual != name && hash::sha256_from_blob_name(actual) != Some(hash::sha256_hex(&bytes)) {
+            return Err(format!("project record hash mismatch: {actual}"));
         }
         Ok(bytes)
     }
@@ -168,6 +208,11 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
     let file_len = reader
         .seek(std::io::SeekFrom::End(0))
         .map_err(|error| OpenError::NotArchive(error.to_string()))?;
+    if file_len > MAX_TOTAL_BYTES.saturating_add(64 * 1024 * 1024) {
+        return Err(OpenError::NotArchive(
+            "Package exceeds compressed transport limit".into(),
+        ));
+    }
     if file_len < EOCD_SIZE {
         return Err(OpenError::NotArchive(
             "file is too short to be an archive".to_string(),
@@ -388,8 +433,17 @@ pub fn write_archive(path: &Path, entries: Vec<PendingEntry>) -> Result<(), Stri
 /// same as `write_archive`. Never publish after the final check fails.
 pub(crate) fn write_archive_checked(
     path: &Path,
+    entries: Vec<PendingEntry>,
+    check: impl Fn() -> Result<(), String>,
+) -> Result<(), String> {
+    write_archive_guarded(path, entries, check, || Ok(()))
+}
+
+pub(crate) fn write_archive_guarded(
+    path: &Path,
     mut entries: Vec<PendingEntry>,
     check: impl Fn() -> Result<(), String>,
+    publish_check: impl Fn() -> Result<(), String>,
 ) -> Result<(), String> {
     check()?;
     entries.sort_by(|left, right| left.name.cmp(&right.name));
@@ -410,7 +464,9 @@ pub(crate) fn write_archive_checked(
     // Own the temporary before writing or cleaning it up. Exclusive creation
     // never truncates a pre-existing file or follows a pre-existing symlink.
     let (temporary, file) = create_temporary(path)?;
-    let result = write_archive_to(file, &entries, &check).and_then(|()| check());
+    let result = write_archive_to(file, &entries, &check)
+        .and_then(|()| check())
+        .and_then(|()| publish_check());
     if let Err(error) = result {
         return Err(cleanup_failed_write(&temporary, error));
     }

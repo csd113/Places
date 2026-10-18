@@ -35,6 +35,7 @@
 
 mod application;
 pub mod diagnostics;
+pub mod distribution;
 pub mod events;
 pub mod geometry_check;
 pub mod gui;
@@ -276,7 +277,7 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     // Direct editor/API builds must use the same resource tree as fixture and
     // renderer consumers, just as compiler CLI builds do.
     crate::engine::paths::configure_assets(&request.asset_root)?;
-    let scope = progress::BuildScope::start(&request.source);
+    let scope = progress::BuildScope::start(&request.source, request.project_level.as_deref());
     let result = build_inner(request);
     scope.finish(&result);
     result
@@ -630,6 +631,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     {
         required.push("light-circuits-v1".to_string());
     }
+    if !level.transitions.is_empty() {
+        required.push("project-transitions-v1".into());
+    }
     let manifest = Manifest {
         schema: crate::engine::package::PACKAGE_SCHEMA.to_string(),
         package_format: FORMAT_VERSION,
@@ -738,7 +742,33 @@ pub fn build_collection(
 /// in [`ValidationReport::dependencies_intact`] instead, because a read-only
 /// install with a drifted asset tree can still report exactly what changed.
 pub fn validate(path: &Path) -> Result<ValidationReport, String> {
-    let mut reader = open_package(path)?;
+    if let Some(index) = crate::engine::package::project::inspect(path)? {
+        crate::engine::package::project::validate(path, &progress::check_cancelled)?;
+        let mut combined: Option<ValidationReport> = None;
+        for level in &index.levels {
+            progress::check_cancelled()?;
+            let mut selected = open_package(path)?;
+            crate::engine::package::project::select(&mut selected, Some(&level.id))?;
+            let report = validate_reader(path, selected)?;
+            if let Some(aggregate) = &mut combined {
+                aggregate.dependencies_intact &= report.dependencies_intact;
+                aggregate.warnings.extend(report.warnings);
+            } else {
+                combined = Some(report);
+            }
+        }
+        let mut report = combined.ok_or("Project has no levels")?;
+        report.id = index.project.id;
+        report.name = index.project.name;
+        return Ok(report);
+    }
+    validate_reader(path, open_package(path)?)
+}
+
+fn validate_reader(
+    path: &Path,
+    mut reader: crate::engine::package::PackageReader<std::fs::File>,
+) -> Result<ValidationReport, String> {
     let manifest = read_manifest(&mut reader)?;
     let mut warnings = Vec::new();
     let mut bytes = 0_u64;
@@ -1082,6 +1112,7 @@ fn open_package(
 fn read_manifest<R: std::io::Read + std::io::Seek>(
     reader: &mut crate::engine::package::PackageReader<R>,
 ) -> Result<Manifest, String> {
+    crate::engine::package::project::select(reader, None)?;
     let bytes = reader.read_entry("manifest.json", crate::engine::package::MAX_MANIFEST_BYTES)?;
     let names = reader.names().to_vec();
     Manifest::from_json(&bytes, &names)

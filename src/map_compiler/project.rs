@@ -1,5 +1,5 @@
 //! Project-to-map build planning. Each output remains an ordinary single-level
-//! `.placesmap`; collection export/installation belongs to a later stage.
+//! `.placesmap`; complete project orchestration lives in `distribution`.
 
 use std::path::{Path, PathBuf};
 

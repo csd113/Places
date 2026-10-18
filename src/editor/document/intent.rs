@@ -2,16 +2,18 @@
 //! Runtime validation remains independent: these records never exempt malformed
 //! scene data. Hashes bind one measured issue to stable instances and geometry.
 
-use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::{Document, ObjectId};
 use crate::editor::safety::{SafetyCategory, SafetyFinding, SafetyReport, SafetySeverity};
 use crate::engine::level::LevelDef;
+pub(super) use crate::engine::project::metadata::validate_raw;
+use crate::engine::project::metadata::{
+    Ignore, MAX_IGNORES, PlacementIntent, instance_records, read_intent,
+};
 use crate::engine::spatial::Aabb;
 
 #[cfg(test)]
@@ -20,33 +22,12 @@ mod tests;
 
 const FIELD: &str = "editor_placement_intent";
 const INSTANCE: &str = "editor_instance_id";
-const MAX_IGNORES: usize = 256;
 static ID_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, Debug)]
 pub struct PlacementIgnoreState {
     pub key: String,
     pub active: bool,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct PlacementIntent {
-    version: u32,
-    ignores: Vec<Ignore>,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Ignore {
-    key: String,
-    check: String,
-    issue: String,
-    context: String,
-    instances: Vec<String>,
-    min: [f32; 3],
-    max: [f32; 3],
-    label: String,
 }
 
 impl Document {
@@ -128,48 +109,6 @@ pub fn can_ignore(finding: &SafetyFinding) -> bool {
 /// Duplicate IDs are refused rather than allowing one placement to inherit
 /// another placement's decision. Missing instances make an ignore stale.
 ///
-/// # Errors
-/// Rejects malformed/unsupported records, duplicate identities and excess data.
-pub(super) fn validate_raw(raw: &Value) -> Result<(), String> {
-    let _instances = instance_records(raw)?;
-    let intent = read_intent(raw)?;
-    if intent.version != 1 || intent.ignores.len() > MAX_IGNORES {
-        return Err("Unsupported or oversized editor placement intent metadata".into());
-    }
-    let mut keys = BTreeSet::new();
-    for entry in intent.ignores {
-        let unique: BTreeSet<_> = entry.instances.iter().collect();
-        if !hash_valid(&entry.key)
-            || !hash_valid(&entry.issue)
-            || !hash_valid(&entry.context)
-            || !keys.insert(entry.key)
-            || entry.instances.is_empty()
-            || entry.instances.len() > 32
-            || unique.len() != entry.instances.len()
-            || entry.instances.iter().any(|id| !identity_valid(id))
-            || entry.check.is_empty()
-            || entry.check.len() > 96
-            || !entry
-                .check
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
-            || entry.label.len() > 1024
-            || entry.label.chars().any(char::is_control)
-            || !entry
-                .min
-                .iter()
-                .chain(&entry.max)
-                .all(|value| value.is_finite())
-            || entry.min.iter().zip(entry.max).any(|(min, max)| *min > max)
-        {
-            return Err(
-                "Malformed editor placement ignore; scene validation remains enforced".into(),
-            );
-        }
-    }
-    Ok(())
-}
-
 /// Final gate shared by individual and batch automatic corrections. A protected
 /// object's support/context is protected too: unrelated corrections that would
 /// change it require the author to review and clear that decision explicitly.
@@ -251,21 +190,6 @@ pub fn annotate_report(raw: &Value, report: &mut SafetyReport) {
     }
 }
 
-fn read_intent(raw: &Value) -> Result<PlacementIntent, String> {
-    raw.get(FIELD).map_or_else(
-        || {
-            Ok(PlacementIntent {
-                version: 1,
-                ignores: Vec::new(),
-            })
-        },
-        |value| {
-            serde_json::from_value(value.clone())
-                .map_err(|error| format!("Invalid placement intent metadata: {error}"))
-        },
-    )
-}
-
 fn write_intent(raw: &mut Value, intent: &PlacementIntent) -> Result<(), String> {
     let object = raw.as_object_mut().ok_or("Scene must be an object")?;
     if intent.ignores.is_empty() {
@@ -277,46 +201,6 @@ fn write_intent(raw: &mut Value, intent: &PlacementIntent) -> Result<(), String>
         ));
     }
     Ok(())
-}
-
-fn hash_valid(value: &str) -> bool {
-    value.len() == 64
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-}
-
-fn identity_valid(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 96
-        && value.bytes().all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')
-        })
-}
-
-fn instance_records(raw: &Value) -> Result<BTreeMap<String, &Value>, String> {
-    let mut instances = BTreeMap::new();
-    for values in raw
-        .as_object()
-        .ok_or("Scene must be an object")?
-        .values()
-        .filter_map(Value::as_array)
-    {
-        for record in values {
-            if let Some(value) = record.get(INSTANCE) {
-                let id = value
-                    .as_str()
-                    .filter(|id| identity_valid(id))
-                    .ok_or("Invalid editor placement identity")?;
-                if instances.insert(id.into(), record).is_some() {
-                    return Err(format!(
-                        "Duplicate editor placement identity '{id}'; no ignore was applied"
-                    ));
-                }
-            }
-        }
-    }
-    Ok(instances)
 }
 
 fn pin_identity(raw: &mut Value, id: ObjectId) -> Result<(), String> {

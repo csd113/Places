@@ -20,6 +20,11 @@ pub(super) enum Pending {
 }
 
 pub(super) enum Popup {
+    Project,
+    ProjectText {
+        field: super::projects::Field,
+        value: String,
+    },
     Scripts,
     ScriptEdit {
         path: String,
@@ -64,6 +69,13 @@ impl Popup {
         hits.clear();
         if matches!(
             self,
+            Self::Project | Self::ProjectText { field: _, value: _ }
+        ) {
+            super::projects::draw(app, v, hits);
+            return;
+        }
+        if matches!(
+            self,
             Self::Scripts
                 | Self::ScriptEdit {
                     path: _,
@@ -88,7 +100,9 @@ impl Popup {
         ui::rect(v, [0.0, 0.0, 480.0, 272.0], [0.0, 0.0, 0.0, 0.6]);
         ui::rect(v, [130.0, 65.0, 260.0, 146.0], [0.075, 0.11, 0.14, 1.0]);
         match self {
-            Self::Scripts
+            Self::Project
+            | Self::ProjectText { field: _, value: _ }
+            | Self::Scripts
             | Self::ScriptEdit {
                 path: _,
                 cursor: _,
@@ -243,16 +257,27 @@ impl App {
             .collect()
     }
 
-    pub(super) fn activate(&mut self, action: Action, window: &Window) -> Result<(), String> {
-        if self.script_action(action)?
+    fn contextual_action(&mut self, action: Action) -> Result<bool, String> {
+        Ok(self.project_action(action)?
+            || self.script_action(action)?
             || self.geometry_action(action)?
             || self.safety_action(action)?
-            || self.gameplay_action(action)?
-        {
+            || self.gameplay_action(action)?)
+    }
+
+    pub(super) fn activate(&mut self, action: Action, window: &Window) -> Result<(), String> {
+        if self.contextual_action(action)? {
             return Ok(());
         }
         match action {
-            Action::Scripts
+            Action::Project
+            | Action::ProjectField(_)
+            | Action::ProjectApply
+            | Action::ProjectEntry
+            | Action::ProjectSelect(_)
+            | Action::ProjectCheck
+            | Action::ProjectMigrate
+            | Action::Scripts
             | Action::ScriptNew
             | Action::ScriptOpen(_)
             | Action::ScriptDiagnostics
@@ -324,7 +349,6 @@ impl App {
                     self.perform(pending, window);
                 }
             }
-            Action::Level => self.next_level()?,
             Action::Build | Action::Play => self.start_build(action == Action::Play)?,
             Action::Cancel => {
                 self.play_after_build = false;
@@ -586,41 +610,18 @@ impl App {
         }
     }
 
-    fn next_level(&mut self) -> Result<(), String> {
-        if self.compile.is_some() || self.play.is_some() {
-            return Err("Finish the build or play session before switching levels".into());
-        }
-        let doc = self.document.as_mut().ok_or("Open a project first")?;
-        let ids: Vec<_> = doc.level_ids().collect();
-        let index = ids.iter().position(|id| *id == doc.level_id()).unwrap_or(0);
-        let next = ids
-            .get(
-                index
-                    .saturating_add(1)
-                    .checked_rem(ids.len().max(1))
-                    .unwrap_or(0),
-            )
-            .ok_or("No project levels")?
-            .to_string();
-        doc.select_level(&next)?;
-        self.selected = None;
-        self.changed();
-        self.viewport.frame_all();
-
-        Ok(())
-    }
-
     fn start_build(&mut self, play: bool) -> Result<(), String> {
         if self.compile.is_some() || self.play.is_some() {
             return Err("A build or player is already running".into());
         }
         self.save()?;
         let doc = self.document.as_ref().ok_or("Open a project first")?;
-        self.compile = Some(CompileJob::start(
-            &self.tools,
-            doc.project(),
-            doc.level_id(),
-        )?);
+        self.compile = Some(if play {
+            let output = doc.root().join(format!("{}.placesmap", doc.manifest().id));
+            CompileJob::operation(&self.tools, "export-project", doc.root(), &output)?
+        } else {
+            CompileJob::start(&self.tools, doc.project(), doc.level_id())?
+        });
         self.play_after_build = play;
         self.status = "Compiling saved source...".into();
 
@@ -743,7 +744,8 @@ impl App {
                 self.status = "Cancelling at a safe compiler boundary...".into();
             } else if let Some(progress) = job.progress() {
                 self.status = format!(
-                    "{} {}{}",
+                    "{} / {} {}{}",
+                    progress.source,
                     progress.variant,
                     progress.stage,
                     progress.work.as_ref().map_or_else(
@@ -757,34 +759,44 @@ impl App {
                 self.compile = None;
                 match outcome {
                     BuildOutcome::Succeeded(report) => {
-                        self.status = format!(
-                            "Build succeeded: {} bytes. {}",
-                            report.bytes,
-                            report.warnings.join("; ")
-                        );
-                        if self.play_after_build {
-                            let result = self
-                                .document
-                                .as_ref()
-                                .ok_or_else(|| "Project closed during build".into())
-                                .and_then(|doc| {
-                                    PlayJob::start(&self.tools, &output, doc.level_id())
-                                });
-                            match result {
-                                Ok(player) => {
-                                    self.play = Some(player);
-                                    self.status =
-                                        "Importing compiled level; player will open...".into();
+                        if let Some(operation) = self.project_operation.take() {
+                            match operation {
+                                super::projects::Operation::Import => { let result = self.load(&output); self.report(result); },
+                                super::projects::Operation::Check => self.status = "Project validated. Version 1 is supported; no conversion needed; no files changed.".into(),
+                                super::projects::Operation::Export => self.status = format!("Exported complete project: {}", output.display()),
+                            }
+                        } else {
+                            self.status = format!(
+                                "Build succeeded: {} bytes. {}",
+                                report.bytes,
+                                report.warnings.join("; ")
+                            );
+                            if self.play_after_build {
+                                let result = self
+                                    .document
+                                    .as_ref()
+                                    .ok_or_else(|| "Project closed during build".into())
+                                    .and_then(|doc| {
+                                        PlayJob::start(&self.tools, &output, doc.level_id())
+                                    });
+                                match result {
+                                    Ok(player) => {
+                                        self.play = Some(player);
+                                        self.status =
+                                            "Importing compiled level; player will open...".into();
+                                    }
+                                    Err(error) => self.status = error,
                                 }
-                                Err(error) => self.status = error,
                             }
                         }
                     }
                     BuildOutcome::Failed(error) => {
+                        self.project_operation = None;
                         crate::engine::logging::warn(&error);
                         self.status = format!("Build failed: {error}");
                     }
                     BuildOutcome::Cancelled => {
+                        self.project_operation = None;
                         self.status =
                             "Build cancelled. Source and last published package retained.".into();
                     }

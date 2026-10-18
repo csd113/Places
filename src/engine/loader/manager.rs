@@ -169,7 +169,22 @@ impl LevelManager {
                 continue;
             }
             match Self::probe_package_file(&path, source_type) {
-                Ok(meta) => discovered.push(meta),
+                Ok(meta) => match crate::engine::package::project::inspect(&path) {
+                    Ok(Some(index)) => {
+                        for level in &index.project.levels {
+                            let mut item = meta.clone();
+                            item.id.clone_from(&level.id);
+                            item.name = if level.id == index.project.entry_level {
+                                index.project.name.clone()
+                            } else {
+                                format!("{} / {}", index.project.name, level.id)
+                            };
+                            discovered.push(item);
+                        }
+                    }
+                    Ok(None) => discovered.push(meta),
+                    Err(error) => Self::report_skipped_level(&path, &error),
+                },
                 Err(error) => Self::report_skipped_level(&path, &error),
             }
         }
@@ -331,7 +346,7 @@ impl LevelManager {
     pub fn load_level(&self, entry: &LevelEntry) -> Result<LoadedLevel, String> {
         let result = match entry.source_type {
             LevelSourceType::Bundled | LevelSourceType::Installed => {
-                crate::engine::package::world::open(&entry.path)
+                crate::engine::package::world::open_level(&entry.path, &entry.id)
                     .and_then(|opened| self.assembled_level(entry.clone(), opened))
             }
         };
@@ -405,47 +420,8 @@ impl LevelManager {
         // independent temporary never truncates the source's underlying inode.
         // Validation describes the exact bytes published, not an earlier read
         // of a source another process may edit while import is running.
-        let opened = import_package(source_path, &target_path, |opened| {
-            if let Some(existing) = self.entries.iter().find(|entry| {
-                entry.id.eq_ignore_ascii_case(&opened.level.id) && entry.path != target_path
-            }) {
-                return Err(format!(
-                    "Map id '{}' is already installed at {}; update that file's name instead",
-                    opened.level.id,
-                    existing.path.display()
-                ));
-            }
-            match fs::symlink_metadata(&target_path) {
-                Ok(metadata) => {
-                    if !metadata.file_type().is_file() {
-                        return Err(format!(
-                            "Refusing to replace non-regular import destination {}",
-                            target_path.display()
-                        ));
-                    }
-                    let previous =
-                        crate::engine::package::world::open(&target_path).map_err(|error| {
-                            format!(
-                                "Refusing to replace unreadable map {}: {error}",
-                                target_path.display()
-                            )
-                        })?;
-                    if previous.level.id != opened.level.id {
-                        return Err(format!(
-                            "Refusing to overwrite map '{}' with '{}' at {}; rename the incoming file",
-                            previous.level.id,
-                            opened.level.id,
-                            target_path.display()
-                        ));
-                    }
-                    Ok(())
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-                Err(error) => Err(format!(
-                    "Cannot inspect import destination {}: {error}",
-                    target_path.display()
-                )),
-            }
+        let opened = import_package(source_path, &target_path, |opened, staged_path| {
+            self.accept_import(opened, staged_path, &target_path)
         })?;
         self.refresh();
         Ok(LevelEntry {
@@ -455,6 +431,98 @@ impl LevelManager {
             source_type: LevelSourceType::Installed,
             path: target_path,
         })
+    }
+
+    fn accept_import(
+        &self,
+        opened: &OpenedPackage,
+        staged_path: &Path,
+        target_path: &Path,
+    ) -> Result<(), String> {
+        let incoming_project = crate::engine::package::project::inspect(staged_path)?;
+        if let Some(index) = &incoming_project {
+            self.check_project_identity(&index.project.id, target_path)?;
+        }
+        let incoming_ids: Vec<&str> = incoming_project.as_ref().map_or_else(
+            || vec![opened.level.id.as_str()],
+            |index| {
+                index
+                    .project
+                    .levels
+                    .iter()
+                    .map(|level| level.id.as_str())
+                    .collect()
+            },
+        );
+        if let Some(existing) = self.entries.iter().find(|entry| {
+            incoming_ids
+                .iter()
+                .any(|id| entry.id.eq_ignore_ascii_case(id))
+                && entry.path != target_path
+        }) {
+            return Err(format!(
+                "Map id '{}' is already installed at {}; update that file's name instead",
+                existing.id,
+                existing.path.display()
+            ));
+        }
+        match fs::symlink_metadata(target_path) {
+            Ok(metadata) => {
+                if !metadata.file_type().is_file() {
+                    return Err(format!(
+                        "Refusing to replace non-regular import destination {}",
+                        target_path.display()
+                    ));
+                }
+                let previous =
+                    crate::engine::package::world::open(target_path).map_err(|error| {
+                        format!(
+                            "Refusing to replace unreadable map {}: {error}",
+                            target_path.display()
+                        )
+                    })?;
+                let previous_project = crate::engine::package::project::inspect(target_path)?;
+                let same_identity = match (&previous_project, &incoming_project) {
+                    (Some(old), Some(new)) => old.project.id == new.project.id,
+                    (None, None) => previous.level.id == opened.level.id,
+                    (Some(_), None) | (None, Some(_)) => false,
+                };
+                if !same_identity {
+                    return Err(format!(
+                        "Refusing to overwrite map '{}' with '{}' at {}; rename the incoming file",
+                        previous.level.id,
+                        opened.level.id,
+                        target_path.display()
+                    ));
+                }
+                Ok(())
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(format!(
+                "Cannot inspect import destination {}: {error}",
+                target_path.display()
+            )),
+        }
+    }
+
+    fn check_project_identity(&self, id: &str, target: &Path) -> Result<(), String> {
+        let paths: std::collections::BTreeSet<_> = self
+            .entries
+            .iter()
+            .map(|entry| &entry.path)
+            .filter(|path| *path != target)
+            .collect();
+        for path in paths {
+            if let Some(index) = crate::engine::package::project::inspect(path)?
+                && index.project.id == id
+            {
+                return Err(format!(
+                    "Project id '{id}' is already installed at {}; update that filename instead",
+                    path.display()
+                ));
+            }
+        }
+        Ok(())
     }
 
     /// Imports every unimported `.placesmap` from `import/` (and the nested
@@ -542,7 +610,7 @@ impl LevelManager {
 fn import_package(
     source: &Path,
     target: &Path,
-    accept: impl FnOnce(&OpenedPackage) -> Result<(), String>,
+    accept: impl FnOnce(&OpenedPackage, &Path) -> Result<(), String>,
 ) -> Result<OpenedPackage, String> {
     // Reject ordinary named pipes/devices before open, which could otherwise
     // wait for a writer indefinitely. Recheck the opened handle below too.
@@ -575,7 +643,7 @@ fn import_package(
     let (temporary, output) = create_temporary(target)?;
     let staged = stage_import(&mut input, output, &temporary)
         .map_err(|error| cleanup_failed_write(&temporary, error))?;
-    accept(&staged).map_err(|error| cleanup_failed_write(&temporary, error))?;
+    accept(&staged, &temporary).map_err(|error| cleanup_failed_write(&temporary, error))?;
     drop(input);
     fs::rename(&temporary, target).map_err(|error| {
         cleanup_failed_write(
@@ -623,6 +691,7 @@ fn stage_import(
         )
     })?;
     drop(output);
+    crate::engine::package::project::validate(temporary, &|| Ok(()))?;
     crate::engine::package::world::open(temporary)
         .map_err(|error| format!("Imported map validation failed: {error}"))
 }

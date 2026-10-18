@@ -229,6 +229,7 @@ currently nothing enforces a minimum for any class.
 | Blacklight batten face | `arcade:blacklight_tube` | **8:1** | 1024×128 master, 256×32 native | none enforced | opaque | no | full fitted sheet, horizontal u along the tube | 1.12×0.14 m lens inside a 1.2×0.15 m dark housing; face switches with the fixture |
 | Diagnostic texture | `diagnostic_alt_01.png` | deliberately varied (96×64) | n/a | n/a | deliberately varied | n/a | not used by any shipped level | test artwork only |
 | Application icon | `assets/shared/branding/places.png` | 1:1 | ≤512 | — | opaque RGB original; RGBA for new sources | no | n/a | non-interlaced; asserted by `tests/test_package.py` |
+| Project/level thumbnail | `thumbnails/<hash>.png` in an authoring project | **16:9 landscape** | 1280×720 preferred; maximum 1280×720 | positive exact 16:9 | RGB8 or RGBA8, preserved | no | whole image, top-left origin; no crop/resize | at most 4 MiB encoded, 8 MiB decoder budget; PNG only, no APNG; stored once by hash in project packages; not a runtime material or custom asset importer |
 | Documentation capture | `docs/screenshots/01-office.png` | 30:17 (960×544) | 960×544 | — | frame image | no | n/a | docs only |
 
 **Do not read this table as "all textures are 1024×1024."** It is not a size

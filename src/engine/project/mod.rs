@@ -3,6 +3,8 @@
 
 mod assets;
 mod folder;
+mod json;
+pub(crate) mod metadata;
 mod path;
 
 use std::collections::BTreeSet;
@@ -11,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 pub use assets::{BuiltinAssetKind, BuiltinAssetRef, validate_level_assets};
 pub use folder::{ProjectFolder, read_bounded_file};
+pub use json::check_editable_source;
 pub use path::ProjectPath;
 
 pub const MANIFEST_NAME: &str = "places.project.json";
@@ -67,6 +70,7 @@ impl ProjectManifest {
         if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_MANIFEST_BYTES {
             return Err("project manifest exceeds 256 KiB".into());
         }
+        check_editable_source(bytes)?;
         let manifest: Self = serde_json::from_slice(bytes)
             .map_err(|error| format!("invalid project manifest: {error}"))?;
         manifest.validate()?;
@@ -155,7 +159,7 @@ impl std::io::Write for ManifestByteBudget {
     }
 }
 
-fn validate_id(id: &str) -> Result<(), String> {
+pub(crate) fn validate_id(id: &str) -> Result<(), String> {
     if id.is_empty()
         || id.len() > 96
         || !id.bytes().all(|byte| {

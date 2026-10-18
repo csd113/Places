@@ -21,6 +21,7 @@ pub(super) enum GameplayChoice {
     DoorAction,
     SpawnAction,
     PhysicsAction,
+    TransitionAction,
 }
 
 pub(super) const NUMBER_SETTINGS: [GameplaySetting; 14] = [
@@ -169,6 +170,7 @@ impl App {
                 .iter()
                 .map(|template| template.id.clone())
                 .collect(),
+            GameplayChoice::TransitionAction => doc.level_ids().map(str::to_string).collect(),
             GameplayChoice::SoundAction => doc
                 .level()
                 .sound_emitters
@@ -249,6 +251,9 @@ impl App {
                 };
                 doc.set_trigger_filter(id, filter)?;
             }
+            GameplayChoice::TransitionAction => {
+                doc.add_trigger_action(id, json!({"action":"change_level","level":value}))?;
+            }
             GameplayChoice::SoundAction => {
                 let looping = doc
                     .level()
@@ -278,6 +283,7 @@ impl App {
                     | GameplayChoice::DoorAction
                     | GameplayChoice::SpawnAction
                     | GameplayChoice::PhysicsAction
+                    | GameplayChoice::TransitionAction
             )),
         });
         self.status = "Updated gameplay configuration. Cmd/Ctrl Z to undo.".into();

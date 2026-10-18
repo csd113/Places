@@ -107,6 +107,34 @@ pub struct CompileJob {
 }
 
 impl CompileJob {
+    /// Starts complete-project export or source recovery through the same compiler protocol.
+    /// # Errors
+    /// Returns launch/configuration errors.
+    pub fn operation(
+        tools: &ToolPaths,
+        operation: &str,
+        source: &Path,
+        output: &Path,
+    ) -> Result<Self, String> {
+        let mut command = tool_command(&tools.compiler)?;
+        let _configured = command
+            .arg(operation)
+            .arg(source)
+            .arg("--out")
+            .arg(output)
+            .arg("--asset-root")
+            .arg(paths::assets()?)
+            .arg("--events")
+            .arg("--progress")
+            .arg("off");
+        Ok(Self {
+            process: CapturedChild::spawn(&mut command, StopPolicy::Cooperative, true)?,
+            output: output.into(),
+            progress: None,
+            diagnostics: String::new(),
+            finished: false,
+        })
+    }
     /// Starts one build from already saved project documents. The caller owns
     /// the single job slot and must save/resolve dirty state before calling.
     ///

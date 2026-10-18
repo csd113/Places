@@ -27,6 +27,13 @@ const PANEL: [f32; 4] = [0.065, 0.09, 0.12, 1.0];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Action {
+    Project,
+    ProjectField(super::projects::Field),
+    ProjectApply,
+    ProjectEntry,
+    ProjectSelect(usize),
+    ProjectCheck,
+    ProjectMigrate,
     Scripts,
     ScriptNew,
     ScriptOpen(usize),
@@ -86,7 +93,6 @@ pub(super) enum Action {
     ConfirmSave,
     ConfirmDiscard,
     ConfirmCancel,
-    Level,
 }
 
 pub(super) struct Hit {
@@ -371,9 +377,9 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         vertices,
         hits,
         [65.0, 39.0, 42.0, 10.0],
-        "Level >",
-        Action::Level,
-        app.document.is_some(),
+        "Project >",
+        Action::Project,
+        app.compile.is_none() && app.play.is_none() && !app.dialog_open,
     );
     for (x, w, label, action) in [
         (5.0, 65.0, "+ Geometry", Action::Geometry),

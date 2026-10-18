@@ -35,7 +35,7 @@ const MAX_DIAGNOSTICS: usize = 32;
 
 /// Compiler-owned UTF-8 snapshot, embedded in single-level semantics. No path
 /// here is ever opened by the player; stage 7 owns complete project packaging.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScriptSource {
     pub path: ProjectPath,

@@ -82,6 +82,20 @@ pub(super) fn host<'scope>(
 ) -> mlua::Result<Table> {
     let api = lua.create_table()?;
     api.set(
+        "change_level",
+        scope.create_function(move |_, value: HostString| {
+            let level = text(value, 96)?;
+            if !world.permits_transition(&level) {
+                return Err(error("Undeclared project transition"));
+            }
+            push(queue, limit, ActionDef::ChangeLevel { level })
+        })?,
+    )?;
+    api.set(
+        "reset",
+        scope.create_function(move |_, ()| push(queue, limit, ActionDef::ResetToStart))?,
+    )?;
+    api.set(
         "exists",
         scope.create_function(move |_, value: HostString| {
             Ok(world.handle_of(&text(value, 96)?).is_some())

@@ -1,11 +1,21 @@
 ## 0.12.0 — in progress
 
+- Export complete multi-level projects as one `.placesmap`, sharing identical
+  prepared records and carrying exact editable JSON, metadata, Luau and thumbnails.
+  Recover into a new project folder with bounded validation, cancellation and
+  atomic publication. Preserve existing version-1 source/lighting/package records.
+- Group project metadata, levels, thumbnail attachment, explicit entry/destinations,
+  export/recovery and honest migration checks in the native editor. Build+Play
+  uses complete projects; selected-level loading stays lazy. Add shared same-package
+  transitions and reset through existing actions and Luau. See
+  [stage 7 report](docs/reports/editor-0.12.0-task7.md).
+
 - Add sandboxed project-local Luau to the shared engine, with typed host calls
   into existing actions, bounded execution/memory/effect queues and fresh state
   on reset/reload. Validate exported handler links and fingerprint script bytes.
 - Add native script editing, save/conflict protection, Check/Diagnostics and
   trigger handler linking in focused sheets. Selected-map Build/Play embeds
-  source; complete multi-level project packaging remains stage 7. See
+  source; stage 7 adds complete multi-level project packaging. See
   [scripting contracts](docs/SCRIPTING.md) and [stage 6 evidence](docs/reports/editor-0.12.0-task6.md).
 
 - Add contextual geometry tools for signed ramps, recessed/raised regions,
@@ -48,7 +58,7 @@
   source headers and authoring tools were migrated together.
 - Add three compact project-contract regressions and one tiny binary-contract
   regression without a shipped-map bake.
-  Custom importers and complete multi-level export remain later work. See [the source contract and stage handoff](docs/PROJECT_FORMAT.md).
+  Custom runtime asset importers remain deferred; stage 7 adds complete project export. See [the source contract and stage handoff](docs/PROJECT_FORMAT.md).
 
 ## 0.11.0 — 2026-10-17
 

@@ -122,6 +122,8 @@ pub struct LightResponseObservation<'a> {
 /// One renderer/audio command produced by the world.
 #[derive(Clone, Debug, PartialEq)]
 pub enum WorldCommand {
+    /// Request a same-package destination; the player owns asynchronous loading.
+    ChangeLevel { level: String },
     /// Restore one authored physics group's starting poses and clear momentum.
     ResetPhysicsGroup { group: String },
     /// Activate dormant members of an authored physical group.
@@ -333,6 +335,7 @@ enum WeatherEndpoints {
 
 /// The whole runtime for one loaded world.
 pub struct EntityWorld {
+    transition_targets: std::collections::BTreeSet<String>,
     scripts: crate::engine::scripting::ScriptRuntime,
     script_event: Option<EventRecord>,
     generation: u64,
@@ -444,6 +447,7 @@ impl EntityWorld {
     #[must_use]
     pub fn new() -> Self {
         Self {
+            transition_targets: std::collections::BTreeSet::new(),
             scripts: crate::engine::scripting::ScriptRuntime::default(),
             script_event: None,
             generation: 0,
@@ -514,6 +518,7 @@ impl EntityWorld {
 
     /// Rebuilds this world from a level, invalidating every previous handle.
     pub fn resolve(&mut self, level: &LevelDef) {
+        self.transition_targets = level.transitions.iter().cloned().collect();
         self.scripts = crate::engine::scripting::ScriptRuntime::new(level);
         self.script_event = None;
         self.store.clear();
@@ -626,6 +631,8 @@ impl EntityWorld {
     /// Re-seeds every runtime to its authored start state without replacing the
     /// world: the `reset_to_start` contract.
     pub fn reset_runtime(&mut self) {
+        self.commands
+            .retain(|command| !matches!(command, WorldCommand::ChangeLevel { level: _ }));
         self.scripts.reload();
         self.script_event = None;
         if self.weather_strength > 0.0
@@ -1843,6 +1850,11 @@ impl EntityWorld {
     }
 
     /// Drains the render/audio commands produced since the last call.
+    #[must_use]
+    pub fn permits_transition(&self, level: &str) -> bool {
+        self.transition_targets.contains(level)
+    }
+
     pub fn take_commands(&mut self) -> Vec<WorldCommand> {
         std::mem::take(&mut self.commands)
     }
@@ -2101,6 +2113,19 @@ impl EntityWorld {
                     if report.player_reset {
                         break;
                     }
+                }
+            }
+            ActionDef::ChangeLevel { level } => {
+                if self.permits_transition(level)
+                    && !self
+                        .commands
+                        .iter()
+                        .any(|command| matches!(command, WorldCommand::ChangeLevel { level: _ }))
+                {
+                    self.commands.push(WorldCommand::ChangeLevel {
+                        level: level.clone(),
+                    });
+                    report.actions_run = report.actions_run.saturating_add(1);
                 }
             }
             ActionDef::ResetToStart => {

@@ -1,4 +1,4 @@
-# Editor authoring and safety (0.12.0 stage 6)
+# Editor authoring and safety (0.12.0 stage 7)
 
 Run `places-editor` beside `places-compile` and `places`, with the external
 `assets/` payload described in [INSTALLATION.md](INSTALLATION.md). No map bake is
@@ -43,7 +43,7 @@ the scene list independently. The shared renderer applies compiler trim/fixture 
 and uses neutral preview light; Play shows authored ceilings, lighting and dynamic behavior.
 
 Save validates the raw authoritative scene and uses an owned sibling temporary
-plus atomic rename. Unknown fields remain intact; the manifest remains byte-for-byte.
+plus atomic rename. Unknown fields remain intact; the manifest remains byte-for-byte during scene saves. Explicit Project metadata operations save edits first and atomically publish the changed manifest.
 Unsupported versions, duplicate keys, numbers that cannot be preserved exactly,
 external source/manifest changes and unsafe paths are refused. Per-level histories
 and dirty states survive switching. Close/New/Open with unsaved changes offers
@@ -57,8 +57,8 @@ indeterminate when uncounted. Cancel requests safe cooperative shutdown with a
 bounded kill/reap fallback. Failure/cancellation retains the last usable package.
 Finish/cancel builds or stop play before switching levels/projects or closing.
 
-Build+Play saves/compiles, imports through the direct game executable and launches
-the exact level ID. Profiles under `cache/editor-play/` isolate each package/level
+Build+Play saves and exports the complete project, imports through the direct game executable and launches
+the selected level ID. Authored transitions stay within that package and create fresh runtime state at each destination. Profiles under `cache/editor-play/` isolate each package/level
 from ordinary installed maps/settings and other projects' output filenames. Quit
 the game or click Stop Play to return to editing. Bundled map ID conflicts are
 reported by the existing importer; choose a distinct project level ID.
@@ -214,7 +214,7 @@ emitter footprints. Manual transforms and intentional solid intersections remain
 available. Full transport uses actual prop triangles; Static collision/occlusion
 retains conservative transformed envelopes.
 
-Custom importers, project bundles, menu scenes and final distribution
+Custom runtime asset importers, menu scenes and final distribution
 signoff remain later work. Model integration is deferred until stages 4–7 are
 complete. Other unsupported source data remains preserved. Native Windows/Linux
 acceptance remains outstanding.
@@ -225,6 +225,51 @@ acceptance remains outstanding.
 Check and inspect bounded Diagnostics in one focused sheet. Select a trigger,
 choose Actions / Script handler, open a module and Link handler. Enter/exit,
 once, cooldown, actor filters and ordinary action removal remain the trigger
-controls. Build+Play snapshots the selected map’s scripts; replay/reset recreates
+controls. Build+Play snapshots each map’s scripts into the complete project; replay/reset recreates
 VM state. No external editor is required. See [the API, limits and lifecycle](SCRIPTING.md)
 and [the native stage 6 evidence](reports/editor-0.12.0-task6.md).
+
+## Complete projects and source recovery (stage 7)
+
+`Project >` groups name/author/description, adding a level by stable ID, switching
+the selected level, using it as the entry, attaching a selected-level thumbnail,
+and allowed transition destinations. The existing New/Open controls remain.
+Metadata changes save current edits first. Level membership/manifest metadata
+changes publish immediately; scene transitions use the ordinary level history.
+There is no delete/rename-level command that could break authored references.
+
+Attach thumbnail takes an existing PNG file path and copies validated bytes into
+`thumbnails/<sha256>.png`, then links that file. No pixels are cropped or resized.
+Use a landscape 16:9 RGB8/RGBA8 PNG, maximum 1280×720 and 4 MiB. The Project sheet
+shows its reference. Packages distribute/recover the original image and metadata;
+the player still uses its simple text level list, not thumbnail cards (#6).
+Custom texture/model/sound importing remains unsupported and has no placeholder UI.
+
+Export all levels + sources takes an explicit `.placesmap` path. It runs the same
+compiler/progress/cancellation job slot as ordinary builds, then shares identical
+records by hash and publishes one file. An existing output must belong to this
+project and remain unchanged through compilation. New output, failure and cancel
+paths preserve existing user work. Save+Build still compiles only the selected
+level; a map with transitions needs complete Export/Build+Play for playback.
+
+`Project >` is available in an empty editor, so recovery needs no dummy project.
+Recover editable project takes a project package and a **new** destination folder.
+It validates the complete archive, every authored source, script and thumbnail,
+then publishes the folder atomically without replacing any existing path. A
+successful recovery opens the source project. A normal single-map compiled package
+has no editable recovery payload and is refused with an explanation. The player’s
+Import action installs compiled data for playing; it does not recover authoring files.
+
+Check project and Migration check validate all declared version-1 source data and
+bounded script initialization. Version 1 needs no conversion. Unsupported versions
+are refused without writing; no legacy conversion is currently implemented.
+A migration check never claims that it upgraded a file.
+
+Allowed transitions is a comma-separated list of declared project level IDs for
+this selected level. Trigger Actions / Change project level adds an ordinary
+`change_level` action and declares its destination. Scripts may use
+`api.change_level(id)` only for a destination in this list; `api.reset()` uses the
+existing reset-to-start action. First navigation request per frame wins. Reset
+cancels pending navigation. A transition loads only its destination, at its authored
+spawn, with fresh VMs, world actions and player state; campaign progress persistence
+is not implemented. See [project/package contracts](PROJECT_FORMAT.md).

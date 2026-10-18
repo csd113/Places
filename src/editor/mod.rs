@@ -7,6 +7,7 @@ mod gameplay_actions;
 mod geometry_actions;
 mod input;
 pub mod process;
+mod projects;
 mod safety;
 mod safety_actions;
 mod scripting;
@@ -64,6 +65,8 @@ struct App {
     compile: Option<CompileJob>,
     play: Option<PlayJob>,
     play_after_build: bool,
+    project_operation: Option<projects::Operation>,
+    project_import: Option<PathBuf>,
     selected: Option<ObjectId>,
     status: String,
     view: ViewOptions,
@@ -174,6 +177,7 @@ impl App {
             self.popup,
             Some(
                 Popup::Number { field: _, value: _ }
+                    | Popup::ProjectText { field: _, value: _ }
                     | Popup::ScriptEdit {
                         path: _,
                         cursor: _,
@@ -329,6 +333,8 @@ fn application(options: Options) -> Result<(), String> {
         compile: None,
         play: None,
         play_after_build: false,
+        project_operation: None,
+        project_import: None,
         selected: None,
         status: "New: choose a parent folder. Open: choose an existing project folder.".into(),
         view: ViewOptions {

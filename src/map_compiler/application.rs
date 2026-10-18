@@ -38,6 +38,10 @@ USAGE:
   places-compile build-project <project> --out <existing-directory>
                        [--asset-root <dir>] [--variants static,full] [--workers N]
                        [--force] [--json] [--progress auto|plain|off]
+  places-compile export-project <project> --out <project.placesmap> [build options]
+  places-compile import-project <project.placesmap> --out <NEW-project-folder> [--events]
+  places-compile check-project <project> [--events] [--asset-root <dir>]
+  places-compile migrate-project <project> [--asset-root <dir>]
   places-compile validate <package> [--asset-root <dir>] [--json]
   places-compile inspect <package> [--json]
   places-compile export-lighting <package> --out <new-directory>
@@ -62,7 +66,7 @@ OPTIONS:
                       Build default: the source's sibling .placesmap.
   --force             Rebuild even when the existing package is current.
   --json              Machine-readable result on stdout.
-  --events            build only: versioned NDJSON progress/result on stdout.
+  --events            build/export/import/check: versioned NDJSON progress/result on stdout.
                       Stdin accepts {\"command\":\"cancel\"}; EOF cancels safely.
   --progress <mode>   Build feedback on stderr (default: auto). Auto redraws on
                       a capable terminal; redirected/CI output is plain text.
@@ -330,9 +334,14 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
         }
     }
     let options = parse_options(&option_args)?;
-    if options.events && (command != "build" || options.json) {
+    if options.events
+        && (!matches!(
+            command,
+            "build" | "export-project" | "import-project" | "check-project"
+        ) || options.json)
+    {
         return Err(CliError::Usage(
-            "--events is supported only by build and cannot be combined with --json".into(),
+            "--events supports build/export/import/check and cannot be combined with --json".into(),
         ));
     }
     if options.level.is_some() && !matches!(command, "build" | "verify") {
@@ -371,7 +380,14 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
             )?;
             Ok(())
         }
-        "build" => {
+        "build" | "export-project" | "import-project" => {
+            if positional.len() != 1
+                || (command != "build" && option_value(&option_args, "--out").is_none())
+            {
+                return Err(CliError::Usage(format!(
+                    "{command} needs one source and export/import requires explicit --out"
+                )));
+            }
             let source = positional
                 .first()
                 .ok_or_else(|| CliError::Usage("build needs a source path".to_string()))?;
@@ -397,10 +413,12 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
             };
             if options.events {
                 let report =
-                    compiler::events::build(&request).map_err(|failure| match failure {
-                        compiler::events::Failure::Failed(error) => CliError::Failure(error),
-                        compiler::events::Failure::Cancelled => CliError::Interrupted,
-                    })?;
+                    compiler::events::build(&request, command).map_err(
+                        |failure| match failure {
+                            compiler::events::Failure::Failed(error) => CliError::Failure(error),
+                            compiler::events::Failure::Cancelled => CliError::Interrupted,
+                        },
+                    )?;
                 compiler::events::emit(&compiler::events::Event::Finished {
                     outcome: compiler::events::Outcome::Success,
                     report: Some(Box::new(report)),
@@ -409,7 +427,11 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                 return Ok(());
             }
             let session = Session::start(options.progress)?;
-            let result = compiler::build(&request);
+            let result = match command {
+                "export-project" => compiler::distribution::export(&request),
+                "import-project" => compiler::distribution::recover(&request),
+                _ => compiler::build(&request),
+            };
             if session.interrupted() {
                 return Err(CliError::Interrupted);
             }
@@ -447,6 +469,49 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                     println!("  note: {warning}");
                 }
             }
+            Ok(())
+        }
+        "check-project" | "migrate-project" => {
+            let source = positional
+                .first()
+                .ok_or_else(|| CliError::Usage("check-project needs a project".into()))?;
+            let folder = crate::engine::project::ProjectFolder::open(std::path::Path::new(source))?;
+            if options.events {
+                let request = BuildRequest {
+                    source: folder.root().into(),
+                    project_level: None,
+                    out: folder.root().into(),
+                    asset_root: compiler::resolve_asset_root(options.asset_root.as_deref())?,
+                    variants: Vec::new(),
+                    workers: 0,
+                    force: false,
+                    capture_probes: false,
+                };
+                let report =
+                    compiler::events::build(&request, "check-project").map_err(|failure| {
+                        match failure {
+                            compiler::events::Failure::Failed(error) => CliError::Failure(error),
+                            compiler::events::Failure::Cancelled => CliError::Interrupted,
+                        }
+                    })?;
+                compiler::events::emit(&compiler::events::Event::Finished {
+                    outcome: compiler::events::Outcome::Success,
+                    report: Some(Box::new(report)),
+                    message: None,
+                })?;
+                return Ok(());
+            }
+            let session = Session::start(options.progress)?;
+            drop(crate::engine::package::project::snapshot(
+                &folder,
+                &compiler::progress::check_cancelled,
+            )?);
+            if session.interrupted() {
+                return Err(CliError::Interrupted);
+            }
+            println!(
+                "Supported project/level schema version 1; validated all sources. No conversion needed; no files changed."
+            );
             Ok(())
         }
         "build-project" => {

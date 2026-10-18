@@ -149,7 +149,7 @@ pub(super) fn create_project(path: &Path, id: &str, name: &str) -> Result<(), St
     result
 }
 
-fn starter_scene(id: &str, name: &str) -> Value {
+pub(super) fn starter_scene(id: &str, name: &str) -> Value {
     serde_json::json!({
         "schema": "places-level", "format_version": 1_u32,
         "id": id, "name": name,

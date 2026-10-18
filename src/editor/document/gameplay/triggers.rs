@@ -29,6 +29,25 @@ impl Document {
             return Err("Select a trigger".into());
         }
         let mut raw = self.raw().clone();
+        if let Some(target) = action.get("level").and_then(Value::as_str)
+            && action.get("action").and_then(Value::as_str) == Some("change_level")
+        {
+            let _target = self.manifest().level(Some(target))?;
+            let destination = target.to_string();
+            let transitions = raw
+                .as_object_mut()
+                .ok_or("Invalid level")?
+                .entry("transitions")
+                .or_insert_with(|| json!([]))
+                .as_array_mut()
+                .ok_or("Invalid transitions")?;
+            if !transitions
+                .iter()
+                .any(|value| value.as_str() == Some(destination.as_str()))
+            {
+                transitions.push(json!(destination));
+            }
+        }
         let binding = binding_mut(&mut raw, id)?;
         binding
             .entry("actions")
@@ -100,26 +119,4 @@ pub(super) fn set_trigger_policy(
     Ok(())
 }
 
-pub(super) fn validate_drafts(raw: &Value) -> Result<(), String> {
-    if let Some(volumes) = raw.get("volumes").and_then(Value::as_array) {
-        for volume in volumes {
-            if let Some(policy) = volume.get("editor_trigger_policy") {
-                let binding: crate::engine::level::EventBindingDef =
-                    serde_json::from_value(policy.clone())
-                        .map_err(|error| format!("Invalid pending trigger policy: {error}"))?;
-                if !binding.cooldown_seconds.is_finite()
-                    || binding.cooldown_seconds < 0.0_f32
-                    || !matches!(
-                        binding.on,
-                        crate::engine::level::EventKindName::EnterVolume
-                            | crate::engine::level::EventKindName::ExitVolume
-                    )
-                    || !binding.actions.is_empty()
-                {
-                    return Err("Pending trigger policy requires enter/exit, a nonnegative finite cooldown and no actions".into());
-                }
-            }
-        }
-    }
-    Ok(())
-}
+pub(super) use crate::engine::project::metadata::validate_drafts;

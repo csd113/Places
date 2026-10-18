@@ -286,6 +286,16 @@ fn placeable_entry(entry: &crate::engine::assets::AssetEntry) -> PropCatalogEntr
 /// budgets, or malformed openings and patches.
 pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_header(level)?;
+    if level.transitions.len() > 256 {
+        return Err("Too many level transition destinations".into());
+    }
+    let mut transition_ids = std::collections::BTreeSet::new();
+    for target in &level.transitions {
+        crate::engine::project::validate_id(target)?;
+        if !transition_ids.insert(target) {
+            return Err("Duplicate level transition destination".into());
+        }
+    }
     crate::engine::scripting::validate_sources(level)?;
     validate_element_limits(level)?;
     validate_materials(level)?;
@@ -2723,6 +2733,7 @@ pub const MAX_LIFETIME_SECONDS: f32 = 3600.0;
 /// namespaces. See [`validate_instance_ids`].
 #[derive(Default)]
 struct LevelIndex<'a> {
+    transitions: HashSet<&'a str>,
     /// Entity instance ids, in authored order, mapped to their capability
     /// facts.
     entities: HashMap<String, EntityFacts<'a>>,
@@ -2838,6 +2849,7 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
     let mut seen: HashSet<&str> = HashSet::new();
     let mut first: HashMap<&str, String> = HashMap::new();
     let mut index = LevelIndex {
+        transitions: level.transitions.iter().map(String::as_str).collect(),
         named_spawns: named_spawn_ids(level),
         physics_reset_groups: level.physics_reset_groups().collect(),
         weather_toggleable: level.weather.is_some() && level.weather_alternate.is_some(),
@@ -4017,6 +4029,11 @@ fn validate_action(
         ActionDef::RunScript { script, handler } => {
             script.require_role("scripts", "luau")?;
             crate::engine::scripting::validate_handler(handler)?;
+        }
+        ActionDef::ChangeLevel { level } => {
+            if !index.transitions.contains(level.as_str()) {
+                return Err(format!("Undeclared level transition '{level}'"));
+            }
         }
         ActionDef::ResetToStart => {}
         ActionDef::ResetPhysicsGroup { group } | ActionDef::ActivatePhysicsGroup { group } => {

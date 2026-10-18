@@ -86,6 +86,8 @@ that the editor performs Luau typechecking.
 | `api.spawn(point)` | Uses that point's template/group, existing spawn/lifetime/render budgets |
 | `api.state(id, key)` | Reads an existing declared bool/integer/float/text state |
 | `api.set_state(id, key, value)` | Stages a same-type write to a declared slot; cannot grow state bags |
+| `api.change_level(id)` | Requests a declared same-package destination from this level’s `transitions`; requires complete project export |
+| `api.reset()` | Uses the shared reset-to-start action, recreates VM state and cancels pending navigation |
 | `api.notice(text)` | Bounded diagnostic, retained/logged with `[luau]` |
 
 Identity/key/group arguments are nonempty printable UTF-8, at most 96 bytes;

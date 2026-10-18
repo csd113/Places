@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use super::{MANIFEST_NAME, MAX_MANIFEST_BYTES, ProjectManifest, ProjectPath};
 use crate::engine::level::LevelDef;
 
-const MAX_SCRIPT_BYTES: u64 = 1024 * 1024;
+const MAX_SCRIPT_BYTES: u64 = crate::engine::scripting::MAX_SOURCE_BYTES;
 const MAX_THUMBNAIL_BYTES: u64 = 4 * 1024 * 1024;
 
 /// Validated project metadata and its canonical root. No global current project
@@ -37,6 +37,13 @@ impl ProjectFolder {
                 .unwrap_or_else(|| Path::new(".")),
         )
         .map_err(|error| format!("project root {}: {error}", path.display()))?;
+        if fs::symlink_metadata(&path)
+            .map_err(|e| e.to_string())?
+            .file_type()
+            .is_symlink()
+        {
+            return Err("Project manifest must not be a symlink".into());
+        }
         let canonical =
             fs::canonicalize(&path).map_err(|error| format!("{}: {error}", path.display()))?;
         if !canonical.starts_with(&root) {
@@ -64,6 +71,20 @@ impl ProjectFolder {
     /// # Errors
     /// Returns a missing, nonregular or escaped file error with its path.
     pub fn resolve(&self, path: &ProjectPath) -> Result<PathBuf, String> {
+        let mut component_path = self.root.clone();
+        for component in path.as_str().split('/') {
+            component_path.push(component);
+            if fs::symlink_metadata(&component_path)
+                .map_err(|e| e.to_string())?
+                .file_type()
+                .is_symlink()
+            {
+                return Err(format!(
+                    "Project references must not traverse symlinks: {}",
+                    path.as_str()
+                ));
+            }
+        }
         let resolved = fs::canonicalize(self.root.join(path.as_str()))
             .map_err(|error| format!("project file '{}': {error}", path.as_str()))?;
         if !resolved.starts_with(&self.root) || !resolved.is_file() {
@@ -85,6 +106,10 @@ impl ProjectFolder {
         let bytes = read_bounded_file(&path, crate::engine::level::MAX_LEVEL_JSON_BYTES)?;
         let text =
             std::str::from_utf8(&bytes).map_err(|error| format!("{}: {error}", path.display()))?;
+        super::check_editable_source(&bytes)?;
+        let raw: serde_json::Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+        super::metadata::validate_raw(&raw)?;
+        super::metadata::validate_drafts(&raw)?;
         let level =
             LevelDef::from_json(text).map_err(|error| format!("{}: {error}", path.display()))?;
         if !level.script_sources.is_empty() {
@@ -92,6 +117,9 @@ impl ProjectFolder {
         }
         crate::engine::loader::validate_level(&level)
             .map_err(|error| format!("{}: {error}", path.display()))?;
+        for target in &level.transitions {
+            let _target = self.manifest.level(Some(target))?;
+        }
         if level.id != selected.id {
             return Err(format!(
                 "project level '{}' has source ID '{}'",

@@ -1,8 +1,7 @@
 # Authoring projects (0.12.0)
 
 `engine::project` owns the shared source contract for the future editor and Map
-Compiler. The game continues to load compiled `.placesmap` files through
-`engine::package`; it does not open authoring projects. Stage 6 executes only the Luau source snapshots carried by the selected compiled map.
+Compiler. The game loads compiled `.placesmap` files through `engine::package`; it does not open authoring folders. Stage 7 project packages carry complete membership and exact source recovery alongside the existing per-level compiled records. Playing reads only the selected level’s semantics and variant.
 Single-map JSON input remains supported.
 
 ## Folder and manifest
@@ -13,7 +12,7 @@ my-project/
   levels/entry.json
   levels/second.json
   scripts/                 optional project-local .luau modules
-  thumbnails/              optional .png metadata references, no UI yet
+  thumbnails/              optional validated PNG thumbnails
   assets/textures/          reserved for later custom importing
   assets/models/            reserved for later custom importing
   assets/sounds/            reserved for later custom importing
@@ -30,7 +29,7 @@ place required runtime assets here: this stage resolves installed built-ins.
   "id": "quiet_rooms",
   "name": "Quiet Rooms",
   "author": "An author",
-  "description": "Two connected ideas, packaged separately for now.",
+  "description": "Two connected ideas, packaged as one project.",
   "entry_level": "entry",
   "levels": [
     { "id": "entry", "source": "levels/entry.json" },
@@ -41,8 +40,7 @@ place required runtime assets here: this stage resolves installed built-ins.
 
 Project and level records optionally carry `description`, `thumbnail` (for
 example `thumbnails/entry.png`) and `scripts` (for example
-`["scripts/entry.luau"]`). Thumbnail references are authoring metadata only;
-pixel layout, generated previews and player thumbnail UI are later work. Stage 6 resolves script references into selected-map runtime snapshots. Declared optional files must exist; see [Luau source and lifecycle](SCRIPTING.md).
+`["scripts/entry.luau"]`). Stage 7 validates and distributes exact thumbnail PNGs (see [asset specification](ASSET_SPECIFICATION.md)). The editor attaches existing images; player thumbnail cards remain #6. Stage 6 resolves script references into selected-map runtime snapshots. Declared optional files must exist; see [Luau source and lifecycle](SCRIPTING.md).
 
 The manifest rejects unknown fields and unsupported schema/version pairs. It
 admits 1–256 levels, at most 256 script references in total, 256 KiB of metadata,
@@ -57,8 +55,7 @@ ASCII case folding to prevent common macOS/Windows output collisions.
 empty or dot components, Windows reserved basenames and ambiguous trailing dots
 or spaces. Sources belong below `levels/` with `.json`, thumbnails below
 `thumbnails/` with `.png`, and scripts below `scripts/` with `.luau`. Opening a
-project canonicalizes its root and checks regular-file confinement after
-resolving symlinks. Map reads are capped at the shared level-source limit;
+project canonicalizes its root and checks regular-file confinement after rejecting symlink components. Map reads are capped at the shared level-source limit;
 scripts at 64 KiB and thumbnails at 4 MiB each. Bounded reads also reject growth
 beyond the limit after opening. These are local authoring APIs, not a sandbox
 for untrusted concurrent filesystem mutation.
@@ -104,9 +101,9 @@ atomically; the group is not a transaction. Already successful outputs survive
 a later failure. Project metadata and selected source bytes participate in the
 compiler fingerprint. Metadata changes cannot silently reuse a stale package.
 
-This is the foundation for multi-level export, not a player-loadable project
-bundle. Compiled packages embed selected-map script snapshots, but do not yet embed complete project membership or thumbnail metadata. Group packaging, transitions and clean installed-player
-round trips remain the later export stage.
+The directory-mode `build-project` command produces separate ordinary maps.
+It is not one player-loadable project bundle. Use stage 7 `export-project` for
+complete membership, source/thumbnail recovery and same-package transitions.
 
 ## Deliberate pre-release reset
 
@@ -133,11 +130,7 @@ format 2, audio/gameplay format 1, settings, and game release/history versions
 are unrelated contracts and retain their current values. The Model Zoo's model
 inspection cache version 2 and alignment repair plan version 1 also retain
 their separate tooling roles. Entity/door change revisions are live cache
-generations, not serialized format versions. There is no migration
-revision counter or functional upgrader. A future editor upgrade boundary should
-read the schema/version before loading an editable document, refuse unsupported
-inputs without writing, and introduce a named, explicit conversion only when
-there is an actual supported upgrade. No placeholder claims to upgrade files.
+generations, not serialized format versions. There is no migration revision counter or supported historical converter. `check-project` and `migrate-project` read the schema/version before accepting editable data, validate supported version 1, and report no conversion needed without changing files. Unsupported input reports the required schema/version and must be corrected or converted explicitly; it is never relabeled as upgraded.
 
 Tracked maintained maps, archived source examples and deterministic generators
 were migrated explicitly by changing their schema/version headers. Geometry,
@@ -245,4 +238,65 @@ Authored inline snapshots are refused. Exact source bytes join the build identit
 The player never reads these paths from disk. `run_script` is an ordinary shared
 action with `script` and `handler`; event policies and action order remain intact.
 No format version changed. Old un-scripted maps remain valid; older binaries do
-not implement these new actions. Complete multi-level distribution remains stage 7.
+not implement these new actions. Stage 7 adds complete multi-level distribution on top of these per-map snapshots.
+
+## Stage 7 project distribution and editable recovery
+
+```sh
+places-compile export-project ./my-project --out /tmp/quiet-rooms.placesmap --asset-root ./assets
+places-compile import-project /tmp/quiet-rooms.placesmap --out /tmp/new-editable-folder --asset-root ./assets
+places-compile check-project ./my-project --asset-root ./assets
+places-compile migrate-project ./my-project --asset-root ./assets
+places-compile validate /tmp/quiet-rooms.placesmap --asset-root ./assets
+```
+
+`export-project` and `import-project` require explicit output paths and support
+`--events --progress off` using the existing compiler protocol and cancellation.
+`check-project --events` is the background editor check path. The older
+`build-project --out <existing-directory>` still creates separate ordinary maps;
+it is not project distribution. The standalone compiler GUI remains unchanged.
+
+A complete `.placesmap` has `project.json` with schema
+`places-project-package`, `package_format: 1`, the typed project metadata,
+ordered level membership, virtual ordinary-map entry tables, and a confined
+source-path-to-blob table. Each virtual table maps its unchanged `manifest.json`,
+`semantics.json` and prepared entries to shared `blobs/<sha256>.record` files.
+Identical records are stored once. Per-level dependency hashes and binary record
+formats remain authoritative; built-in resources still come from the installed
+asset payload. Existing version-1 single-map packages remain supported.
+
+The recovery table carries the exact manifest bytes, all declared level JSON,
+the union of project/manifest-level/raw-level Luau references, and declared
+thumbnails. Unreferenced files, caches, compiled outputs and reserved custom
+asset folders are excluded. Exact bytes preserve unknown source fields, instance
+IDs, clipping ignores, draft trigger policies, authored settings and script order.
+Recovery checks shared editor metadata validation as well as engine semantics.
+Compiled semantics remain prepared/typed and omit editor-only data; ordinary
+single-map packages cannot reconstruct editable source and are explicitly refused.
+
+Limits: 1–256 levels; 256 unique script files; 1024 recovery files; 64 MiB total
+editable bytes; 2 MiB index; 8192 archive entries; 1 GiB total decompressed bytes;
+1 GiB + 64 MiB transport size. Ordinary single-map views keep their 512-entry cap.
+Existing per-record/VM/module/geometry/image limits also apply. Duplicate/case
+conflicts, unsafe names, symlink entries/components, unsupported versions,
+undeclared/missing records, hash/size disagreement, invalid UTF-8/Luau/PNG and
+invalid references fail before publication. Script snapshots, links, names and
+transitions must agree between editable source and compiled semantics.
+
+Exports validate before compiling and recheck exact source snapshots and output
+identity before atomic publication. Each level uses the ordinary compiler against the frozen source snapshot; export
+currently rebuilds its temporary per-level packages, while the existing lighting
+cache may be reused. It does not promise an incremental whole-campaign cache.
+Recovery uses owned staging plus a no-replace directory rename; even a concurrently
+created empty destination is preserved. Local source operations are not a sandbox
+against concurrent malicious filesystem mutation.
+
+A level may declare `transitions: ["second"]`; those IDs must belong to the owning
+project. A binding/sequence uses `{"action":"change_level","level":"second"}`.
+The compiler requires `project-transitions-v1` for these semantics. Runtime requests
+are constrained to the same physical project package, so another installed map
+with the same name cannot become a destination. Import checks conflicts for every
+level and permits updating the same project even when its entry choice changes.
+Discovery uses project metadata for the remaining levels, and loads no inactive
+level’s source, scripts, prepared geometry or lighting. Transition/reset creates
+fresh per-level runtime state; persistent campaign variables are future work.

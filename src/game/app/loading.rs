@@ -905,7 +905,7 @@ fn load_entry_variant(
 ) -> Result<crate::engine::package::world::LoadedVariant, String> {
     match entry.source_type {
         LevelSourceType::Bundled | LevelSourceType::Installed => {
-            let opened = crate::engine::package::world::open(&entry.path)?;
+            let opened = crate::engine::package::world::open_level(&entry.path, &entry.id)?;
             key.check_manifest(&opened.manifest)?;
             ensure_variant_supported(entry, &opened.manifest, key.quality)?;
             load_variant(&entry.path, &opened.manifest, key.quality, assets)

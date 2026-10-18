@@ -1167,6 +1167,24 @@ impl FrameLoop<'_> {
         let commands = self.game.entities_mut().take_commands();
         for command in commands {
             match command {
+                crate::engine::entities::WorldCommand::ChangeLevel { level } => {
+                    if let Some(path) = self
+                        .current_level
+                        .as_ref()
+                        .map(|loaded| loaded.entry.path.clone())
+                        && let Some(index) = self
+                            .level_manager
+                            .entries()
+                            .iter()
+                            .position(|entry| entry.path == path && entry.id == level)
+                    {
+                        self.load_level_at(index);
+                        break;
+                    }
+                    crate::engine::logging::warn(format!(
+                        "Transition destination '{level}' is unavailable in this package"
+                    ));
+                }
                 crate::engine::entities::WorldCommand::ActivatePhysicsGroup { group } => {
                     self.activate_item_group(&group);
                 }

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// Portable slash-separated project-relative file path. Deserialization uses
 /// exactly the same validation as editor construction.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct ProjectPath(String);
 

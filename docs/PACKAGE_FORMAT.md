@@ -1,8 +1,8 @@
 # Compiled map packages (`.placesmap`)
 
 A `.placesmap` file is the only thing a player loads. It is a ZIP archive
-containing one validated level's gameplay semantics and the prepared static
-world the offline compiler produced from an authoring source. The player does
+containing one level or a complete authored project. Each level retains its
+validated gameplay semantics and the prepared static world the offline compiler produced from an authoring source. The player does
 not compile maps, bake light, pack charts, capture reflections or generate
 static navigation; it decodes these records and uploads them.
 
@@ -72,7 +72,7 @@ recompute the digest before decoding and refuse a mismatch. Entries are written
 in sorted order with a fixed timestamp, so two builds of the same content
 produce the same archive.
 
-`semantics.json` is the **only** JSON a level author can influence. It is a
+An ordinary map’s `semantics.json` is its prepared gameplay JSON. It is a
 `LevelDef` (current authored schema: `schema: "places-level"`, `format_version: 1`, typed components,
 event bindings, actions, conditions, sequences, timers and spawn records)
 after `prepare_level` (fixture alignment, decal snapping, generated baseboards);
@@ -703,7 +703,7 @@ for current entity direct/visibility/resource behavior.
 
 | Bound | Value |
 | --- | --- |
-| archive entries | 512 |
+| archive entries | 512 per ordinary map; 8192 in a complete project |
 | manifest | 2 MiB |
 | semantics | 64 MiB |
 | ordinary entry (decompressed) | 256 MiB; typed records may impose tighter bounds |
@@ -769,3 +769,23 @@ Stage 6 adds the required capability `luau-v1` for selected-map Luau snapshots.
 `semantics.json` carries bounded `script_sources` records and their safe logical
 paths; the player reads no project files. Older players reject this capability.
 Complete project/multi-level packaging remains stage 7; see [SCRIPTING.md](SCRIPTING.md).
+
+## Complete project packages (stage 7)
+
+A project archive uses `project.json` instead of a root single-map manifest, with
+schema `places-project-package` and `package_format: 1`. It carries ordered project
+membership and the entry-level ID, maps each ordinary per-level record name to a
+shared `blobs/<sha256>.record`, and indexes exact editable-source files separately.
+The reader validates this outer namespace before selecting one virtual ordinary
+package. It then runs the same manifest, dependency and prepared-record decoders.
+No inactive level is eagerly loaded, and no sources are extracted while playing.
+Older players lacking this schema refuse the archive; no existing revision changed.
+
+Full import validates every record hash plus every level’s semantic/script/source
+contract. `places-compile validate` also decodes all prepared records. Editable
+recovery validates confined source roles and images in owned staging and atomically
+publishes only a new destination. Ordinary compiled maps have no recovery data.
+The [project contract](PROJECT_FORMAT.md#stage-7-project-distribution-and-editable-recovery)
+documents the complete index, limits, transition capability, CLI and publication
+rules. Built-in runtime models, textures and sound remain external installed assets;
+reserved custom asset folders do not implement importing.

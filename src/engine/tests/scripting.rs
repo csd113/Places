@@ -64,6 +64,46 @@ fn count(world: &EntityWorld) -> Result<i64, String> {
         .ok_or_else(|| "Missing state".into())
 }
 
+// This adds the project navigation boundary to the existing tiny scripting world.
+// It protects declared-destination enforcement and reset cancellation; no bake or
+// assets are needed, and only three bounded handler invocations are added.
+#[test]
+fn script_transitions_are_declared_atomic_and_cleared_by_reset() -> Result<(), String> {
+    let mut level = fixture("return {entered=function(api) api.change_level('second') end}")?;
+    level.transitions.push("second".into());
+    check_level(&level)?;
+    let mut world = EntityWorld::from_level(&level);
+    let _initial = world.take_commands();
+    let _first = invoke(&mut world)?;
+    assert!(
+        world.take_commands().iter().any(
+            |command| matches!(command, WorldCommand::ChangeLevel { level: destination } if destination == "second")
+        ),
+        "script request uses the shared world-command queue"
+    );
+    let _pending = invoke(&mut world)?;
+    world.reset_runtime();
+    assert!(
+        !world
+            .take_commands()
+            .iter()
+            .any(|command| matches!(command, WorldCommand::ChangeLevel { level: _ })),
+        "reset cancels pending navigation and re-arms the map"
+    );
+    level.script_sources.first_mut().ok_or("Missing source")?.source = "return {entered=function(api) api.change_level('second'); api.change_level('outside') end}".into();
+    let mut invalid = EntityWorld::from_level(&level);
+    let _initial_invalid = invalid.take_commands();
+    let _refused = invoke(&mut invalid)?;
+    assert!(
+        !invalid
+            .take_commands()
+            .iter()
+            .any(|command| matches!(command, WorldCommand::ChangeLevel { level: _ })),
+        "an undeclared destination atomically discards earlier staged transition requests"
+    );
+    Ok(())
+}
+
 #[test]
 fn script_trigger_uses_existing_actions_and_event_context() -> Result<(), String> {
     let level = fixture(

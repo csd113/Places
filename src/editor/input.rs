@@ -143,6 +143,9 @@ impl App {
             self.request(Pending::Close, window);
             return;
         }
+        if self.project_text_event(event) {
+            return;
+        }
         if self.script_event(event, window) {
             return;
         }

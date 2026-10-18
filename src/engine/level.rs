@@ -768,6 +768,8 @@ impl LadderDef {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum ActionDef {
+    /// Load a declared project level at its authored spawn with fresh runtime state.
+    ChangeLevel { level: String },
     /// Invoke an exported project-local Luau handler through the bounded host.
     RunScript {
         script: crate::engine::project::ProjectPath,
@@ -1012,6 +1014,7 @@ impl ActionDef {
     #[must_use]
     pub const fn kind(&self) -> &'static str {
         match self {
+            Self::ChangeLevel { level: _ } => "change_level",
             Self::RunScript {
                 script: _,
                 handler: _,
@@ -1140,7 +1143,8 @@ impl ActionDef {
                 target,
                 sequence: _,
             } => target.as_deref(),
-            Self::RunScript {
+            Self::ChangeLevel { level: _ }
+            | Self::RunScript {
                 script: _,
                 handler: _,
             }
@@ -6967,6 +6971,9 @@ const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
+    /// Explicit permitted transition destinations, validated against project membership.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transitions: Vec<String>,
     /// Authoring references resolved only through the owning project.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub scripts: Vec<crate::engine::project::ProjectPath>,
