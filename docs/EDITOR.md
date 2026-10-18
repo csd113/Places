@@ -155,7 +155,8 @@ Lights expose fixture family, illumination power/range/colour, separate visible
 face emission, enabled state and runtime switching. `Ceiling / wall` selects a
 compatible built-in housing. With Snap enabled, newly placed fixtures and props
 mount against their real carrier using the fixture back or transformed model
-bounds. `Mount surface` repeats this explicitly; manual position and rotation
+bounds, with 2 mm separation outside the geometry checker's coplanarity tolerance.
+`Mount surface` repeats this explicitly; manual position and rotation
 remain available. Prop Y stays floor-relative and permits negative offsets;
 yaw, pitch and roll preserve deliberate embedded or sideways scenery through
 save/build/play. Snapping never continuously pulls an edited placement back out

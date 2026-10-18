@@ -3098,7 +3098,8 @@ rather than assuming a floor-centred origin. Props align local up to their
 floor/ramp normal and place their actual base on the carrier. Ceiling fixtures
 use the housing's highest mounting back, including Pool's 3 mm protruding top;
 wall fixtures use local back Z and face local +Z along the wall's outward normal.
-The one-millimetre separation avoids coplanar contact without a visible gap.
+The two-millimetre separation stays outside the geometry checker's 1.5 mm
+coplanarity tolerance without a visible gap.
 Optional grid snapping acts in the carrier tangent plane; later numeric edits
 remain manual. Ceiling fixtures retain their authored world `y` and `align:none`
 so compiler grid preparation does not move the checked mount. Yaw-only fixtures

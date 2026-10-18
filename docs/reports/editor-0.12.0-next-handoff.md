@@ -7,9 +7,28 @@ Its final local receipt is
 `local/verification/0.12.0-closing-time/closing-time-handoff.json`.
 Hand control back after this mode; do not automatically start the following queue.
 
+Latest explicit instruction: Closing Time and Beam require local native
+validation and local commits, with **no further push or GitHub CI wait**. Closing
+Time implementation `36790aef` was already pushed before this override arrived;
+its final evidence/handoff commit stays local. Keep Beam local too. The following
+asset-integration task pushes the combined work and runs applicable CI.
+
 ## Current handoff and runnable tools
 
 Repository: `/Users/connordawkins/Documents/GitHub/Places`.
+
+Closing Time's saved editable project is `projects/closing-time/`; the authoritative
+compiled package is
+`local/verification/0.12.0-closing-time/Closing-Time-Editor.placesmap`.
+Use that evidence folder's `payload-final/` direct tools and `try-editor.sh` /
+`try-player.sh` with isolated manual state. Full lighting is intended. The three
+confirmed Library deliverables and known project-verification/Static limitations
+are in the [Closing Time report](editor-0.12.0-closing-time.md). Original movies,
+traces, native audio, input recipes/provenance and all unique source data remain
+under its local verification folder. Do not replace executables in place: use the
+fresh immutable `payload-final` copies, not that folder's earlier `payload`.
+No clean was needed.
+
 Navigation implementation, compatibility, tests and native results are recorded
 in `docs/reports/editor-0.12.0-navigation.md`; the exact local receipt is
 `local/verification/0.12.0-navigation/navigation-handoff.json`.
@@ -43,10 +62,7 @@ binaries outside `target`, and check for other active work before cleaning it.
 
 ## Following queue
 
-1. Author Closing Time in the **actual editor** with a real authoring-process
-   video, using the currently integrated assets. Document every manual level-file
-   workaround, not just the finished map.
-2. Author the fleshed-out single-map horror mode **It Only Exists in the Beam**.
+1. Author the fleshed-out single-map horror mode **It Only Exists in the Beam**.
    Use the currently integrated assets for this initial mode. A creature is visible
    only when illuminated by the player’s flashlight; objects
    recovered among furniture unlock an achievable exit. Include explicit win and
@@ -54,7 +70,7 @@ binaries outside `target`, and check for other active work before cleaning it.
    complete mechanics/objectives/win/death/reset; atmosphere/readability/pacing/fair
    creature behavior; then final gameplay/visual/performance polish. Each pass must
    actually verify win, death and reset and record findings/changes.
-3. Both demos need practical discovered-gap and future-improvements reports: concrete editor gaps
+2. Both demos need practical discovered-gap and future-improvements reports: concrete editor gaps
    requiring manual level/Luau edits, missing/unimplemented helpful sounds, and
    useful lighting/AI/physics/engine capabilities. Each item names its encounter or
    workflow, workaround and proposed improvement. Deduplicate shared items and
@@ -62,7 +78,7 @@ binaries outside `target`, and check for other active work before cleaning it.
    The later combined implementation/safety task is authorized to implement the
    requested discovered fixes/limitations, then safety-check and replay both modes;
    optional unrelated expansion still needs separate scope.
-4. After both game maps are made, integrate accepted finished 37 Home/shared
+3. After both game maps are made, integrate accepted finished 37 Home/shared
    models and rebuilt rubber duck,
    plus the new supply/janitor closet environment set when its separate cloud
    Blender/GIMP worker supplies verified archives/metadata. Reject the newer
@@ -80,11 +96,11 @@ binaries outside `target`, and check for other active work before cleaning it.
    carry idle/walk, sit/stand and seated idle animations. Wait for that worker's
    verified finished delivery; do not edit the mannequin in the navigation task.
    Initial game-mode authoring still uses the currently installed assets.
-5. After updated asset integration, perform the separately requested **editor
+4. After updated asset integration, perform the separately requested **editor
    readability pass**: sharpen text rendering and button legibility, improve
    sizing/contrast and physical/logical window/display scaling while preserving
    the uncluttered layout. Do not interrupt either map to implement this pass.
-6. Implement the concrete fixes and limitations discovered during **both map
+5. Implement the concrete fixes and limitations discovered during **both map
    creations**, using their reports as reproduction/impact/workaround/correction
    inputs. Distinguish required corrections from optional unrelated ideas. Then
    run the dedicated Luau/map-import safety review using **both finished modes**
