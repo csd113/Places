@@ -8692,3 +8692,18 @@ to menu on Escape. Grouped authored physical props are restored at the safe
 spawn before replay. Optional Luau `hint` handlers are requested with F1.
 Ordinary map bindings and Luau remain the authoring path; see the Beam report
 for UI operations and source-only gaps.
+
+### October 18 utility-room collection
+
+The `janitor_closet` theme registers 15 models as `janitor:<name>` plus the
+`janitor:folded_towel_blue` shared-mesh tint preset. The delivered
+`assets/janitor_closet/{models,textures}/` paths use the ordinary prop class;
+there is no new runtime subsystem. See `assets/janitor_closet/README.md` for
+base pivots, shelf contacts, open-compound item collision, player collision and
+portable item profiles in the strict gameplay sidecar.
+
+Open `projects/janitor-supplies/` in the native editor for an editable closet
+composition. Build/export explicitly; it is never a mandatory CI/full-map bake.
+All existing map placements remain authoritative, including both game modes.
+The Home switch's named hierarchy and exact toggle samples survive its rebuilt
+geometry; raw node indices are not a stable external interface.

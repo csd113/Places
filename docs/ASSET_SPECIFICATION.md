@@ -2445,3 +2445,38 @@ artwork and adds no emission. Catalog prop tints also multiply placed/runtime
 character vertex albedo, so an animatable prop preset matches its static fallback.
 The fitted texture still supplies grain and joint detail under actual light.
 The pending corrected mannequin delivery is not adopted by this preset.
+
+### October 18 Home/shared, duck and Janitor integration
+
+The 32 Home and five shared replacements retain exact decoded original bounds,
+fitted PNG pixels and emission roles. Completed-export ownership now prevents
+historical builders from restoring superseded geometry. The switch preserves
+`switch → lever_pivot → lever`, translations and exact binary `toggle` samples;
+node indices may differ without changing that named hierarchy.
+
+The rebuilt duck preserves its 0.098 × 0.12 × 0.145 m occupied bounds and +Z
+bill. Its opaque 128² PNG is `environments/pool/props/rubber_duck.png`.
+`tools/props/adapt_rubber_duck.py` removes only the optional unsupported
+`KHR_materials_specular` metadata from the hash-guarded delivery. Core PBR
+roughness .58/.48/.48, metallic zero and BIN bytes remain unchanged. The reviewed
+2,416 triangles retain the approved faceted silhouette; this is an asset-specific
+art-budget review, below the ordinary 6,000 engine ceiling. Existing collision,
+mass and physical buoyancy are unchanged. The supplied 51e672fc… checksum is the
+raw GLB checksum; the original ZIP checksum is e57c3bb9….
+
+`assets/janitor_closet/models/` and `textures/` preserve the new delivery's
+structure. These are existing model/prop classes with opaque fitted, clamped
+PNGs, metre scale, +Y up, +Z front and delivered base pivots. The shared
+1024² atlas retains surface grain and small fitted labels; the caution print
+remains 256×384 (2:3). Both have exact standalone PNGs. Medium/Low use existing
+192/128 budgets. No new image class, shader, extension or runtime generator is
+introduced. Slate-blue towels use the existing per-instance tint on one GLB.
+
+Exact per-model min/max and texture edges are pinned in completed-models.json.
+Four reviewed assembled assets exceed 1,500 art triangles: cart 1,616, rack
+1,784, crate 2,508 and wringer bucket 2,578. Their open storage, thin stock,
+perforations and wringer parts provide visible depth and retained source
+editability; all remain below the 6,000 engine limit. Do not increase a global
+import budget for them. Source previews and native validation are separate
+evidence, described in the integration report. Installed mannequin/Spoonerman
+exports remain unchanged; corrected mannequin R2 remains gated on motion approval.

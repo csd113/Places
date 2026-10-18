@@ -1,0 +1,345 @@
+{
+  "author": "Places",
+  "ceiling_lights": [
+    {
+      "align": "none",
+      "brightness": 0.35,
+      "emission": 0.4,
+      "enabled": true,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "closet_light",
+      "range": 5,
+      "static_switch": "prepared",
+      "switch_group": "closet",
+      "switchable": true,
+      "x": 2.1,
+      "y": 2.798,
+      "z": 2.1
+    }
+  ],
+  "comment": "Editable static composition for the native inspect viewport; companion janitor_physics level demonstrates the explicit portable/fixed profiles. Native editor placed the blue towel preset.",
+  "defaults": {
+    "ceiling": "home:ceiling_plaster_01",
+    "floor": "home:tile_home_01",
+    "wall": "home:wall_paint_offwhite_01"
+  },
+  "format_version": 1,
+  "id": "janitor_supplies",
+  "name": "Janitor / Supplies \u2014 Editable Preview",
+  "props": [
+    {
+      "id": "metal_storage_rack",
+      "model": "janitor:metal_storage_rack",
+      "rotation_degrees": 0,
+      "size": [
+        1.230001,
+        1.9,
+        0.545001
+      ],
+      "solid": true,
+      "x": 1,
+      "y": 0,
+      "z": 0.45
+    },
+    {
+      "id": "utility_sink",
+      "model": "janitor:utility_sink",
+      "rotation_degrees": 0,
+      "size": [
+        0.67,
+        0.89,
+        0.53
+      ],
+      "solid": true,
+      "x": 3.1,
+      "y": 0,
+      "z": 0.45
+    },
+    {
+      "id": "janitor_cart",
+      "model": "janitor:janitor_cart",
+      "rotation_degrees": 0,
+      "size": [
+        0.730001,
+        0.9375,
+        0.660001
+      ],
+      "solid": true,
+      "x": 3.15,
+      "y": 0,
+      "z": 2
+    },
+    {
+      "id": "string_mop",
+      "model": "janitor:string_mop",
+      "rotation_degrees": 0,
+      "size": [
+        0.256564,
+        1.513582,
+        0.252109
+      ],
+      "solid": false,
+      "x": 0.5,
+      "y": 0,
+      "z": 2.15
+    },
+    {
+      "id": "mop_wringer_bucket",
+      "model": "janitor:mop_wringer_bucket",
+      "rotation_degrees": 0,
+      "size": [
+        0.480001,
+        0.978944,
+        0.382
+      ],
+      "solid": true,
+      "x": 1.3,
+      "y": 0,
+      "z": 2.1
+    },
+    {
+      "id": "wet_floor_sign",
+      "model": "janitor:wet_floor_sign",
+      "rotation_degrees": 0,
+      "size": [
+        0.305001,
+        0.61041,
+        0.34629
+      ],
+      "solid": false,
+      "x": 2.15,
+      "y": 0,
+      "z": 3
+    },
+    {
+      "id": "lidded_storage_bin",
+      "model": "janitor:lidded_storage_bin",
+      "rotation_degrees": 0,
+      "size": [
+        0.445,
+        0.345,
+        0.354001
+      ],
+      "solid": false,
+      "x": 1,
+      "y": 0.1625,
+      "z": 0.45
+    },
+    {
+      "id": "perforated_supply_crate",
+      "model": "janitor:perforated_supply_crate",
+      "rotation_degrees": 0,
+      "size": [
+        0.340001,
+        0.281,
+        0.285
+      ],
+      "solid": false,
+      "x": 1,
+      "y": 0.6625,
+      "z": 0.45
+    },
+    {
+      "id": "cardboard_supply_box",
+      "model": "janitor:cardboard_supply_box",
+      "rotation_degrees": 0,
+      "size": [
+        0.340001,
+        0.282501,
+        0.274001
+      ],
+      "solid": false,
+      "x": 1,
+      "y": 1.1625,
+      "z": 0.45
+    },
+    {
+      "id": "folded_towel",
+      "model": "janitor:folded_towel",
+      "rotation_degrees": 0,
+      "size": [
+        0.360001,
+        0.057001,
+        0.276
+      ],
+      "solid": false,
+      "x": 0.75,
+      "y": 1.6625,
+      "z": 0.45
+    },
+    {
+      "id": "paper_towel_roll",
+      "model": "janitor:paper_towel_roll",
+      "rotation_degrees": 0,
+      "size": [
+        0.151551,
+        0.280001,
+        0.150801
+      ],
+      "solid": false,
+      "x": 1.3,
+      "y": 1.6625,
+      "z": 0.45
+    },
+    {
+      "id": "toilet_paper_roll",
+      "model": "janitor:toilet_paper_roll",
+      "rotation_degrees": 0,
+      "size": [
+        0.125628,
+        0.105,
+        0.1248
+      ],
+      "solid": false,
+      "x": 1.3,
+      "y": 1.9425,
+      "z": 0.45
+    },
+    {
+      "id": "spray_cleaner_bottle",
+      "model": "janitor:spray_cleaner_bottle",
+      "rotation_degrees": 0,
+      "size": [
+        0.126001,
+        0.253,
+        0.079001
+      ],
+      "solid": false,
+      "x": 2.95,
+      "y": 0.8875,
+      "z": 2
+    },
+    {
+      "id": "cleaner_jug",
+      "model": "janitor:cleaner_jug",
+      "rotation_degrees": 0,
+      "size": [
+        0.166,
+        0.315501,
+        0.121
+      ],
+      "solid": false,
+      "x": 2.95,
+      "y": 0.5275,
+      "z": 2
+    },
+    {
+      "id": "detergent_bottle",
+      "model": "janitor:detergent_bottle",
+      "rotation_degrees": 0,
+      "size": [
+        0.116,
+        0.2655,
+        0.095941
+      ],
+      "solid": false,
+      "x": 2.95,
+      "y": 0.8875,
+      "z": 1.83
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "toggle",
+              "target": "closet_light"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle closet light",
+          "reach": 2
+        },
+        {
+          "clip": "toggle",
+          "component": "animation",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "id": "closet_switch",
+      "model": "home:wall_switch",
+      "rotation_degrees": 90,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "x": 0.002,
+      "y": 1.2,
+      "z": 3
+    },
+    {
+      "id": "editor_prop_1",
+      "model": "janitor:folded_towel_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.36000099778175354,
+        0.05700099840760231,
+        0.2759999930858612
+      ],
+      "solid": false,
+      "x": 0.75,
+      "y": 1.719499945640564,
+      "z": 0.44999998807907104
+    }
+  ],
+  "rooms": [
+    {
+      "depth": 4.2,
+      "height": 2.8,
+      "width": 4.2,
+      "x": 0,
+      "z": 0
+    }
+  ],
+  "schema": "places-level",
+  "spawn": {
+    "x": 2,
+    "yaw_degrees": 0,
+    "z": 3.8
+  },
+  "walls": [
+    {
+      "depth": 0.2,
+      "height": 2.8,
+      "width": 4.6,
+      "x": -0.2,
+      "z": -0.2
+    },
+    {
+      "depth": 0.2,
+      "height": 2.8,
+      "width": 4.6,
+      "x": -0.2,
+      "z": 4.2
+    },
+    {
+      "depth": 4.2,
+      "height": 2.8,
+      "width": 0.2,
+      "x": -0.2,
+      "z": 0
+    },
+    {
+      "depth": 4.2,
+      "height": 2.8,
+      "width": 0.2,
+      "x": 4.2,
+      "z": 0
+    }
+  ]
+}

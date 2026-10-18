@@ -3373,6 +3373,863 @@
         "angular_damping": 0.2,
         "pickup": true
       }
+    },
+    "janitor:cardboard_supply_box": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.25,
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.17000000178813934,
+            0.14125001430511475,
+            0.1365000084042549
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:cleaner_jug": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 2,
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.08299999684095383,
+            0.15775001049041748,
+            0.06024999916553497
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:detergent_bottle": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 1,
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:folded_towel": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.25,
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.18000000715255737,
+            0.02850000187754631,
+            0.13650000095367432
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:janitor_cart": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": false,
+        "mass_kg": 18,
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.17,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.36,
+                  0.0175,
+                  0.225
+                ]
+              }
+            },
+            {
+              "offset": [
+                -0.17,
+                0.51,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.19,
+                  0.0175,
+                  0.225
+                ]
+              }
+            },
+            {
+              "offset": [
+                -0.17,
+                0.87,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.19,
+                  0.0175,
+                  0.225
+                ]
+              }
+            },
+            {
+              "offset": [
+                0.19,
+                0.5,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.145,
+                  0.31,
+                  0.19
+                ]
+              }
+            },
+            {
+              "offset": [
+                -0.29,
+                0.065,
+                -0.17
+              ],
+              "shape": {
+                "kind": "sphere",
+                "radius": 0.065
+              }
+            },
+            {
+              "offset": [
+                -0.29,
+                0.065,
+                0.17
+              ],
+              "shape": {
+                "kind": "sphere",
+                "radius": 0.065
+              }
+            },
+            {
+              "offset": [
+                0.29,
+                0.065,
+                -0.17
+              ],
+              "shape": {
+                "kind": "sphere",
+                "radius": 0.065
+              }
+            },
+            {
+              "offset": [
+                0.29,
+                0.065,
+                0.17
+              ],
+              "shape": {
+                "kind": "sphere",
+                "radius": 0.065
+              }
+            }
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:lidded_storage_bin": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 1.2,
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.2224999964237213,
+            0.17249999940395355,
+            0.17400000244379044
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:metal_storage_rack": {
+      "physics": {
+        "motion": "fixed",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.15,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.58,
+                  0.0125,
+                  0.235
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.65,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.58,
+                  0.0125,
+                  0.235
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                1.15,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.58,
+                  0.0125,
+                  0.235
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                1.65,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.58,
+                  0.0125,
+                  0.235
+                ]
+              }
+            },
+            {
+              "offset": [
+                -0.575,
+                0.95,
+                -0.235
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.022,
+                  0.95,
+                  0.022
+                ]
+              }
+            },
+            {
+              "offset": [
+                -0.575,
+                0.95,
+                0.235
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.022,
+                  0.95,
+                  0.022
+                ]
+              }
+            },
+            {
+              "offset": [
+                0.575,
+                0.95,
+                -0.235
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.022,
+                  0.95,
+                  0.022
+                ]
+              }
+            },
+            {
+              "offset": [
+                0.575,
+                0.95,
+                0.235
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.022,
+                  0.95,
+                  0.022
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "janitor:mop_wringer_bucket": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": false,
+        "mass_kg": 5,
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.09,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.24,
+                  0.04,
+                  0.191
+                ]
+              }
+            },
+            {
+              "offset": [
+                -0.215,
+                0.3,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.025,
+                  0.18,
+                  0.191
+                ]
+              }
+            },
+            {
+              "offset": [
+                0.215,
+                0.3,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.025,
+                  0.18,
+                  0.191
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.3,
+                -0.166
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.19,
+                  0.18,
+                  0.025
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.3,
+                0.166
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.19,
+                  0.18,
+                  0.025
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.58,
+                -0.1
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.18,
+                  0.1,
+                  0.09
+                ]
+              }
+            },
+            {
+              "offset": [
+                -0.19,
+                0.04,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.04,
+                  0.04,
+                  0.15
+                ]
+              }
+            },
+            {
+              "offset": [
+                0.19,
+                0.04,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.04,
+                  0.04,
+                  0.15
+                ]
+              }
+            }
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:paper_towel_roll": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.25,
+        "shape": {
+          "kind": "cylinder",
+          "half_height": 0.14000000059604645,
+          "radius": 0.07577500492334366
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:perforated_supply_crate": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.7,
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.0125,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.17,
+                  0.0125,
+                  0.1425
+                ]
+              }
+            },
+            {
+              "offset": [
+                -0.1575,
+                0.15,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.0125,
+                  0.13,
+                  0.1425
+                ]
+              }
+            },
+            {
+              "offset": [
+                0.1575,
+                0.15,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.0125,
+                  0.13,
+                  0.1425
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.15,
+                -0.13
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.145,
+                  0.13,
+                  0.0125
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.15,
+                0.13
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.145,
+                  0.13,
+                  0.0125
+                ]
+              }
+            }
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:spray_cleaner_bottle": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.5,
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.057500001043081284,
+            0.1264999955892563,
+            0.039250001311302185
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:string_mop": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.8,
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.12,
+                0
+              ],
+              "shape": {
+                "kind": "sphere",
+                "radius": 0.12
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.95,
+                0
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "half_height": 0.56,
+                "radius": 0.016
+              }
+            }
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:toilet_paper_roll": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.1,
+        "shape": {
+          "kind": "cylinder",
+          "half_height": 0.05249999836087227,
+          "radius": 0.06281399726867676
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:utility_sink": {
+      "physics": {
+        "motion": "fixed",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.6225,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.335,
+                  0.0225,
+                  0.265
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.7675,
+                -0.2425
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.335,
+                  0.1225,
+                  0.0225
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.7675,
+                0.2425
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.335,
+                  0.1225,
+                  0.0225
+                ]
+              }
+            },
+            {
+              "offset": [
+                -0.3125,
+                0.7675,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.0225,
+                  0.1225,
+                  0.22
+                ]
+              }
+            },
+            {
+              "offset": [
+                0.3125,
+                0.7675,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.0225,
+                  0.1225,
+                  0.22
+                ]
+              }
+            },
+            {
+              "offset": [
+                -0.27,
+                0.31,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.0175,
+                  0.31,
+                  0.2175
+                ]
+              }
+            },
+            {
+              "offset": [
+                0.27,
+                0.31,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.0175,
+                  0.31,
+                  0.2175
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.13,
+                -0.2
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.28,
+                  0.011,
+                  0.011
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "janitor:wet_floor_sign": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.8,
+        "shape": {
+          "kind": "convex_hull",
+          "points": [
+            [
+              -0.1525,
+              -0.30520451068878174,
+              -0.173145
+            ],
+            [
+              -0.1525,
+              -0.30520451068878174,
+              0.173145
+            ],
+            [
+              -0.1525,
+              0.30520448931121824,
+              0
+            ],
+            [
+              0.1525,
+              -0.30520451068878174,
+              -0.173145
+            ],
+            [
+              0.1525,
+              -0.30520451068878174,
+              0.173145
+            ],
+            [
+              0.1525,
+              0.30520448931121824,
+              0
+            ]
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
+    },
+    "janitor:folded_towel_blue": {
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.25,
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.18000000715255737,
+            0.02850000187754631,
+            0.13650000095367432
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3
+      }
     }
   }
 }

@@ -2209,9 +2209,9 @@
     ]
   },
   "environments/pool/props/rubber_duck.glb": {
-    "sha256": "e177070daa5afb46dbf1e9fdf10ea2d9535371e639174610c41861baff40ef63",
-    "triangles": 464,
-    "texture_edge": 512,
+    "sha256": "a3e306329179900549b38168bf1e8299d24a3aea18a35723b0016dce7d8c6518",
+    "triangles": 2416,
+    "texture_edge": 128,
     "identities": [
       "core:rubber_duck"
     ],
@@ -3216,6 +3216,943 @@
       0.30000001192092896,
       0.8500000238418579,
       0.30000001192092896
+    ]
+  },
+  "environments/home/props/armchair.glb": {
+    "sha256": "78c4235808b6c7284921a098bad1afdd628760a9c0a57d9e26fe3072d9e6e47e",
+    "triangles": 492,
+    "texture_edge": 256,
+    "identities": [
+      "home:armchair"
+    ],
+    "bounds_min": [
+      -0.44999998807907104,
+      0.0,
+      -0.44999998807907104
+    ],
+    "bounds_max": [
+      0.44999998807907104,
+      0.8999999761581421,
+      0.4749999940395355
+    ]
+  },
+  "environments/home/props/ball_light.glb": {
+    "sha256": "c182f73af6431910decfddd5c0c704e1385be0c37655f4353e7355f2721a421a",
+    "triangles": 720,
+    "texture_edge": 256,
+    "identities": [
+      "home:ball_light"
+    ],
+    "bounds_min": [
+      -0.1899999976158142,
+      0.0005164914764463902,
+      -0.1899999976158142
+    ],
+    "bounds_max": [
+      0.1899999976158142,
+      0.800000011920929,
+      0.1899999976158142
+    ]
+  },
+  "environments/home/props/book_stack.glb": {
+    "sha256": "9c25aede1be4fd06ac76af82ee804afd379d06deedb2d563b15400b07999fdec",
+    "triangles": 436,
+    "texture_edge": 256,
+    "identities": [
+      "home:book_stack"
+    ],
+    "bounds_min": [
+      -0.125,
+      0.0020000000949949026,
+      -0.09000000357627869
+    ],
+    "bounds_max": [
+      0.125,
+      0.05700000002980232,
+      0.09000000357627869
+    ]
+  },
+  "environments/home/props/bookshelf.glb": {
+    "sha256": "a50fbd8df25ff353d40d8ff427d297a373e5dbd75ff4395f348e4caaab307bff",
+    "triangles": 676,
+    "texture_edge": 256,
+    "identities": [
+      "home:bookshelf"
+    ],
+    "bounds_min": [
+      -0.5,
+      0.0,
+      -0.17499999701976776
+    ],
+    "bounds_max": [
+      0.5,
+      1.7999999523162842,
+      0.17499999701976776
+    ]
+  },
+  "environments/home/props/bowl.glb": {
+    "sha256": "eadbfbd80797d000170b8450a0b47ea69562680a83599da1b24f4b6036877dba",
+    "triangles": 1004,
+    "texture_edge": 64,
+    "identities": [
+      "home:bowl"
+    ],
+    "bounds_min": [
+      -0.07500000298023224,
+      0.0,
+      -0.07500000298023224
+    ],
+    "bounds_max": [
+      0.07500000298023224,
+      0.06499999761581421,
+      0.07500000298023224
+    ]
+  },
+  "environments/home/props/cabinet_base.glb": {
+    "sha256": "f305c13beb81efb6f03ecb930b5967d370cf6367fbcf77c3e80ba198e36048ff",
+    "triangles": 440,
+    "texture_edge": 256,
+    "identities": [
+      "home:cabinet_base"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.8999999761581421,
+      0.30000001192092896
+    ]
+  },
+  "environments/home/props/cabinet_strip.glb": {
+    "sha256": "4fc96e8f28be2579ec753d3b807205ece154b4c26dcb4138fb06fcb35cca13e0",
+    "triangles": 136,
+    "texture_edge": 256,
+    "identities": [
+      "home:cabinet_strip"
+    ],
+    "bounds_min": [
+      -0.2750000059604645,
+      0.0,
+      -0.03500000014901161
+    ],
+    "bounds_max": [
+      0.2750000059604645,
+      0.026000000536441803,
+      0.03500000014901161
+    ]
+  },
+  "environments/home/props/cabinet_wall.glb": {
+    "sha256": "38a1ac8bb9f50914ab81932eba72ed2a6a91d394400225c0be01d7ec1030f438",
+    "triangles": 272,
+    "texture_edge": 256,
+    "identities": [
+      "home:cabinet_wall"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.16300000250339508
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.7200000286102295,
+      0.16500000655651093
+    ]
+  },
+  "environments/home/props/coffee_table.glb": {
+    "sha256": "adcf8153539c21e47ed4a7f2e903edd11a7c3737ad1da1d123a10acc373ffa4d",
+    "triangles": 624,
+    "texture_edge": 256,
+    "identities": [
+      "home:coffee_table"
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      0.0,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.699999988079071,
+      0.46000000834465027,
+      0.4000000059604645
+    ]
+  },
+  "environments/home/props/crt_tv.glb": {
+    "sha256": "09c74fde015b00f03a069b78e2e56ba29b93823fee83d7e69debe5bbf8d8f508",
+    "triangles": 1166,
+    "texture_edge": 256,
+    "identities": [
+      "home:crt_tv"
+    ],
+    "bounds_min": [
+      -0.2750000059604645,
+      0.0,
+      -0.23000000417232513
+    ],
+    "bounds_max": [
+      0.2750000059604645,
+      0.47999998927116394,
+      0.23000000417232513
+    ]
+  },
+  "environments/home/props/cushion.glb": {
+    "sha256": "004a648b737f5d3e6072ffa7922855dfb3b78ad1b42ed3a623ba0d00e4adb22e",
+    "triangles": 124,
+    "texture_edge": 256,
+    "identities": [
+      "home:cushion"
+    ],
+    "bounds_min": [
+      -0.16500000655651093,
+      0.0,
+      -0.057500001043081284
+    ],
+    "bounds_max": [
+      0.16500000655651093,
+      0.3199999928474426,
+      0.057500001043081284
+    ]
+  },
+  "environments/home/props/dining_chair.glb": {
+    "sha256": "611cb5bbf9f8ec1c6be97ea0ff39026f205605afe2d33f4ad339c0df90cb59ae",
+    "triangles": 476,
+    "texture_edge": 256,
+    "identities": [
+      "home:dining_chair"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.24500000476837158
+    ],
+    "bounds_max": [
+      0.25,
+      0.9020000100135803,
+      0.24500000476837158
+    ]
+  },
+  "environments/home/props/dining_chair_refined.glb": {
+    "sha256": "bdc61ce076c7a529a3e0fdd157ec56d7d1edd0fca118f19f765897f13654e3f7",
+    "triangles": 460,
+    "texture_edge": 256,
+    "identities": [
+      "home:dining_chair_refined"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.24500000476837158
+    ],
+    "bounds_max": [
+      0.25,
+      0.9020000100135803,
+      0.24500000476837158
+    ]
+  },
+  "environments/home/props/dining_table.glb": {
+    "sha256": "566366787aff68227228fcfc734bfce4d5d2392dac31516ad6fc1d1d2511cab7",
+    "triangles": 668,
+    "texture_edge": 256,
+    "identities": [
+      "home:dining_table"
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      0.0,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.699999988079071,
+      0.75,
+      0.4000000059604645
+    ]
+  },
+  "environments/home/props/door_casing.glb": {
+    "sha256": "8548792548a33f85c3d5acaf12f3cb47ee6c26909cf5b9c5755787a7b864c57b",
+    "triangles": 144,
+    "texture_edge": 256,
+    "identities": [
+      "home:door_casing"
+    ],
+    "bounds_min": [
+      -0.7900000214576721,
+      0.0,
+      -0.029999999329447746
+    ],
+    "bounds_max": [
+      0.7900000214576721,
+      2.180000066757202,
+      0.024000000208616257
+    ]
+  },
+  "environments/home/props/floor_lamp.glb": {
+    "sha256": "30a89683ce98acb4fe3ffd2584b508c7fdb1ab262485dfda80378d050c6267f9",
+    "triangles": 800,
+    "texture_edge": 256,
+    "identities": [
+      "home:floor_lamp"
+    ],
+    "bounds_min": [
+      -0.17499999701976776,
+      0.0,
+      -0.17499999701976776
+    ],
+    "bounds_max": [
+      0.17499999701976776,
+      1.5,
+      0.17499999701976776
+    ]
+  },
+  "environments/home/props/fork.glb": {
+    "sha256": "51acdb95687454f0d38fe1e7fc4579c50e2dca33d42c07842e9ecfdde15746db",
+    "triangles": 396,
+    "texture_edge": 64,
+    "identities": [
+      "home:fork"
+    ],
+    "bounds_min": [
+      -0.013000000268220901,
+      0.0,
+      -0.09799999743700027
+    ],
+    "bounds_max": [
+      0.013000000268220901,
+      0.012000000104308128,
+      0.09799999743700027
+    ]
+  },
+  "environments/home/props/kettle.glb": {
+    "sha256": "3b39271c64bd4c1feb7ef70c13bc37e6fcabb962cdc4e47e10e142085145acf0",
+    "triangles": 548,
+    "texture_edge": 256,
+    "identities": [
+      "home:kettle"
+    ],
+    "bounds_min": [
+      -0.1054999977350235,
+      0.0,
+      -0.08100000023841858
+    ],
+    "bounds_max": [
+      0.11699999868869781,
+      0.20100000500679016,
+      0.08100000023841858
+    ]
+  },
+  "environments/home/props/knife.glb": {
+    "sha256": "85ca17da8bceb28b6cce406ebf66305b956c61e527bc8517bfe6ba8647613013",
+    "triangles": 256,
+    "texture_edge": 64,
+    "identities": [
+      "home:knife"
+    ],
+    "bounds_min": [
+      -0.008999999612569809,
+      0.0,
+      -0.10750000178813934
+    ],
+    "bounds_max": [
+      0.012000000104308128,
+      0.01600000075995922,
+      0.10750000178813934
+    ]
+  },
+  "environments/home/props/landscape_frame.glb": {
+    "sha256": "327706a82b5118e1eb0f0eaf6b72d69c0613bd8b1662f0d77480cadc69ac5765",
+    "triangles": 426,
+    "texture_edge": 256,
+    "identities": [
+      "home:landscape_frame"
+    ],
+    "bounds_min": [
+      -0.22499999403953552,
+      0.0,
+      -0.012000000104308128
+    ],
+    "bounds_max": [
+      0.22499999403953552,
+      0.5,
+      0.017999999225139618
+    ]
+  },
+  "environments/home/props/mug.glb": {
+    "sha256": "795f05a6dad5594e64f7d0202c6f56f2da565dfdad1c4f6f6ab4fb5d6feea280",
+    "triangles": 928,
+    "texture_edge": 256,
+    "identities": [
+      "home:mug"
+    ],
+    "bounds_min": [
+      -0.04899999871850014,
+      0.0,
+      -0.039000000804662704
+    ],
+    "bounds_max": [
+      0.06800000369548798,
+      0.09000000357627869,
+      0.039000000804662704
+    ]
+  },
+  "environments/home/props/outlet.glb": {
+    "sha256": "c31f2871360e0e5ecc3fd1a00c8b79cf86500f7eb0e4afa434d248811f635078",
+    "triangles": 380,
+    "texture_edge": 256,
+    "identities": [
+      "home:outlet"
+    ],
+    "bounds_min": [
+      -0.042500000447034836,
+      0.0,
+      -0.004999999888241291
+    ],
+    "bounds_max": [
+      0.042500000447034836,
+      0.11999999731779099,
+      0.013000000268220901
+    ]
+  },
+  "environments/home/props/plant_table.glb": {
+    "sha256": "513c99a2c849ebe3369c72e53c64ba10ceb5ccd7338b532ea9fffc12b1183671",
+    "triangles": 996,
+    "texture_edge": 64,
+    "identities": [
+      "home:plant_table"
+    ],
+    "bounds_min": [
+      -0.06499999761581421,
+      0.0,
+      -0.06499999761581421
+    ],
+    "bounds_max": [
+      0.06499999761581421,
+      0.2804843485355377,
+      0.06499999761581421
+    ]
+  },
+  "environments/home/props/plate.glb": {
+    "sha256": "08ddfef59212f0e99a6274abb5214f09cf28bc98afab5e9356d355ec9f4839c0",
+    "triangles": 908,
+    "texture_edge": 64,
+    "identities": [
+      "home:plate"
+    ],
+    "bounds_min": [
+      -0.10999999940395355,
+      0.0,
+      -0.10999999940395355
+    ],
+    "bounds_max": [
+      0.10999999940395355,
+      0.02199999988079071,
+      0.10999999940395355
+    ]
+  },
+  "environments/home/props/rug.glb": {
+    "sha256": "2030ea10db69b1a36fae191d9912e2e4d80bb96ed497f2757c61d74e6d4f2a29",
+    "triangles": 296,
+    "texture_edge": 256,
+    "identities": [
+      "home:rug"
+    ],
+    "bounds_min": [
+      -1.0,
+      0.0,
+      -0.699999988079071
+    ],
+    "bounds_max": [
+      1.0,
+      0.019999999552965164,
+      0.699999988079071
+    ]
+  },
+  "environments/home/props/sink.glb": {
+    "sha256": "3a24275493e21072608c0bb4e31fdb0ae9ff5e9fc703ff8b2c57cf1830a62a25",
+    "triangles": 752,
+    "texture_edge": 256,
+    "identities": [
+      "home:sink"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      1.0889999866485596,
+      0.30000001192092896
+    ]
+  },
+  "environments/home/props/sofa.glb": {
+    "sha256": "55ea4630a3092d334942ede259470bbb98c521bab309ae04998cf9a6d78b0fae",
+    "triangles": 748,
+    "texture_edge": 256,
+    "identities": [
+      "home:sofa"
+    ],
+    "bounds_min": [
+      -1.0,
+      0.0,
+      -0.44999998807907104
+    ],
+    "bounds_max": [
+      1.0,
+      0.8999999761581421,
+      0.4749999940395355
+    ]
+  },
+  "environments/home/props/spoon.glb": {
+    "sha256": "aa901dd2ad4fcf1c3cb66d74b78e311153cece303dd487e3cb10741363c283ac",
+    "triangles": 676,
+    "texture_edge": 64,
+    "identities": [
+      "home:spoon"
+    ],
+    "bounds_min": [
+      -0.017999999225139618,
+      0.0,
+      -0.0925000011920929
+    ],
+    "bounds_max": [
+      0.017999999225139618,
+      0.019999999552965164,
+      0.0925000011920929
+    ]
+  },
+  "environments/home/props/stove.glb": {
+    "sha256": "5c619632629de82c1ff2ea5e8d43a841712df350ebe991c18a43c18f8ceba00a",
+    "triangles": 784,
+    "texture_edge": 256,
+    "identities": [
+      "home:stove"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.32100000977516174
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.9160000085830688,
+      0.3199999928474426
+    ]
+  },
+  "environments/home/props/toaster.glb": {
+    "sha256": "6a3a7b0b05e302897f59325ea8f5f29eb166dbb73fa71ab70fee20da6883f0d9",
+    "triangles": 216,
+    "texture_edge": 256,
+    "identities": [
+      "home:toaster"
+    ],
+    "bounds_min": [
+      -0.125,
+      0.0,
+      -0.07999999821186066
+    ],
+    "bounds_max": [
+      0.12700000405311584,
+      0.16099999845027924,
+      0.08799999952316284
+    ]
+  },
+  "environments/home/props/tv_console.glb": {
+    "sha256": "8ffbc1c166444df06fb381b4a827490db9d66750f2a94f103c358dc9c0376ff8",
+    "triangles": 732,
+    "texture_edge": 256,
+    "identities": [
+      "home:tv_console"
+    ],
+    "bounds_min": [
+      -0.7749999761581421,
+      0.0,
+      -0.22499999403953552
+    ],
+    "bounds_max": [
+      0.7749999761581421,
+      0.550000011920929,
+      0.23800000548362732
+    ]
+  },
+  "environments/home/props/wall_switch.glb": {
+    "sha256": "7dfa1dd0bc2ad4b1aec6684749a1c03026031e140e019e35bc70e9a75a0994b6",
+    "triangles": 304,
+    "texture_edge": 128,
+    "identities": [
+      "home:wall_switch"
+    ],
+    "bounds_min": [
+      -0.0430000014603138,
+      0.0,
+      -0.0
+    ],
+    "bounds_max": [
+      0.0430000014603138,
+      0.11999999731779099,
+      0.03252364695072174
+    ]
+  },
+  "shared/props/cardboard_box.glb": {
+    "sha256": "fa883e5675e1d47b208b0ac4bc47b77e7002b48f5013d0e8b4121a2dee159264",
+    "triangles": 104,
+    "texture_edge": 256,
+    "identities": [
+      "core:cardboard_box"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.25
+    ],
+    "bounds_max": [
+      0.25,
+      0.5,
+      0.25
+    ]
+  },
+  "shared/props/ceiling_diffuser_01.glb": {
+    "sha256": "550ab68f9ceca2651647fd49bd43cb744cd136404422aee959b7d31567fc5f63",
+    "triangles": 352,
+    "texture_edge": 256,
+    "identities": [
+      "core:ceiling_diffuser_01"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.06499999761581421,
+      0.30000001192092896
+    ]
+  },
+  "shared/props/crate.glb": {
+    "sha256": "427436fb69054f8fd58ad7352ce89c1ea45b0fd83eb75b50d3fdff6d2f4411ac",
+    "triangles": 616,
+    "texture_edge": 256,
+    "identities": [
+      "core:crate"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.6000000238418579,
+      0.30000001192092896
+    ]
+  },
+  "shared/props/exit_sign.glb": {
+    "sha256": "988abb7c8aaa1034c4c0543a91a8d9ab081f5b307a08f72c158b1ca294276f24",
+    "triangles": 310,
+    "texture_edge": 256,
+    "identities": [
+      "core:exit_sign"
+    ],
+    "bounds_min": [
+      -0.22499999403953552,
+      0.0,
+      -0.03999999910593033
+    ],
+    "bounds_max": [
+      0.22499999403953552,
+      0.5699999928474426,
+      0.03999999910593033
+    ]
+  },
+  "shared/props/stop_sign.glb": {
+    "sha256": "3c9cd7f504c7c9243c3f30f438a385f52ae4c40e2ddaaae9dfbf65124473bd0e",
+    "triangles": 184,
+    "texture_edge": 256,
+    "identities": [
+      "core:stop_sign"
+    ],
+    "bounds_min": [
+      -0.22499999403953552,
+      0.0,
+      -0.029999999329447746
+    ],
+    "bounds_max": [
+      0.22499999403953552,
+      1.7999999523162842,
+      0.029999999329447746
+    ]
+  },
+  "janitor_closet/models/cardboard_supply_box.glb": {
+    "sha256": "ffb9d36d3286003fa4c3fb624894e444ae98fb977f7bc1a88240039826ae8663",
+    "triangles": 80,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:cardboard_supply_box"
+    ],
+    "bounds_min": [
+      -0.17000000178813934,
+      0.0,
+      -0.13600000739097595
+    ],
+    "bounds_max": [
+      0.17000000178813934,
+      0.2825000286102295,
+      0.13700000941753387
+    ]
+  },
+  "janitor_closet/models/cleaner_jug.glb": {
+    "sha256": "62f7ff12b77a871c4a53b4d10a8f04b46779962e2d1916d2bddf330351b27595",
+    "triangles": 266,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:cleaner_jug"
+    ],
+    "bounds_min": [
+      -0.08299999684095383,
+      0.0,
+      -0.05999999865889549
+    ],
+    "bounds_max": [
+      0.08299999684095383,
+      0.31550002098083496,
+      0.060499999672174454
+    ]
+  },
+  "janitor_closet/models/detergent_bottle.glb": {
+    "sha256": "62fe70065cb9d91bd3cf26bf318c1a4b992cd383cfca4d054aee16d624aa95f6",
+    "triangles": 204,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:detergent_bottle"
+    ],
+    "bounds_min": [
+      -0.057999998331069946,
+      0.0,
+      -0.047970000654459
+    ],
+    "bounds_max": [
+      0.057999998331069946,
+      0.2654999792575836,
+      0.047970000654459
+    ]
+  },
+  "janitor_closet/models/folded_towel.glb": {
+    "sha256": "86bd98e9bc6192857aec39b43839088ba77c8e5a83cbcd34949b417e4b23d624",
+    "triangles": 112,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:folded_towel",
+      "janitor:folded_towel_blue"
+    ],
+    "bounds_min": [
+      -0.18000000715255737,
+      0.0,
+      -0.13500000536441803
+    ],
+    "bounds_max": [
+      0.18000000715255737,
+      0.05700000375509262,
+      0.1379999965429306
+    ]
+  },
+  "janitor_closet/models/janitor_cart.glb": {
+    "sha256": "81d5e3bdd5f20933a1f62088821e5add7f15623c92f7353c40985edacdd22d34",
+    "triangles": 1616,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:janitor_cart"
+    ],
+    "bounds_min": [
+      -0.36500000953674316,
+      0.0,
+      -0.33000001311302185
+    ],
+    "bounds_max": [
+      0.36500000953674316,
+      0.9375,
+      0.23100000619888306
+    ]
+  },
+  "janitor_closet/models/lidded_storage_bin.glb": {
+    "sha256": "f8f6253523c85510ce28d906f03b54b16e28d8b57bacb0f5ecedf070536711a3",
+    "triangles": 304,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:lidded_storage_bin"
+    ],
+    "bounds_min": [
+      -0.2224999964237213,
+      0.0,
+      -0.17100000381469727
+    ],
+    "bounds_max": [
+      0.2224999964237213,
+      0.3449999988079071,
+      0.1770000010728836
+    ]
+  },
+  "janitor_closet/models/metal_storage_rack.glb": {
+    "sha256": "2476c851c0e816f8d7b249881733d8ca4ddcc741f046bcc85b85203d59bab110",
+    "triangles": 1784,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:metal_storage_rack"
+    ],
+    "bounds_min": [
+      -0.6150000095367432,
+      0.0,
+      -0.2724999785423279
+    ],
+    "bounds_max": [
+      0.6149999499320984,
+      1.899999976158142,
+      0.27250000834465027
+    ]
+  },
+  "janitor_closet/models/mop_wringer_bucket.glb": {
+    "sha256": "c3509e06139a035aa6730f573b577b91a1cf957c974efe4beaaa573afc808a69",
+    "triangles": 2578,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:mop_wringer_bucket"
+    ],
+    "bounds_min": [
+      -0.24000000953674316,
+      9.313225746154785e-10,
+      -0.19099999964237213
+    ],
+    "bounds_max": [
+      0.24000000953674316,
+      0.9789433479309082,
+      0.19099999964237213
+    ]
+  },
+  "janitor_closet/models/paper_towel_roll.glb": {
+    "sha256": "9e4f26bb556bf3bd5dd4750e4d0cb6d018ea159d1328d1485d2b89a454d993b4",
+    "triangles": 524,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:paper_towel_roll"
+    ],
+    "bounds_min": [
+      -0.07540000230073929,
+      0.0,
+      -0.07540000230073929
+    ],
+    "bounds_max": [
+      0.07577500492334366,
+      0.2800000011920929,
+      0.07540000230073929
+    ]
+  },
+  "janitor_closet/models/perforated_supply_crate.glb": {
+    "sha256": "6dec6657ff84543c9a20ff46e9de04c0d1aa7d72a859c8083dcd9f51e9b4e297",
+    "triangles": 2508,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:perforated_supply_crate"
+    ],
+    "bounds_min": [
+      -0.17000000178813934,
+      0.0,
+      -0.14249999821186066
+    ],
+    "bounds_max": [
+      0.17000000178813934,
+      0.2809999883174896,
+      0.14249999821186066
+    ]
+  },
+  "janitor_closet/models/spray_cleaner_bottle.glb": {
+    "sha256": "d5ef9b2a29a498eb3dcc0881debd092c865cdaf4ac81354bd29e30a96efb1159",
+    "triangles": 242,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:spray_cleaner_bottle"
+    ],
+    "bounds_min": [
+      -0.052000001072883606,
+      0.0,
+      -0.039000000804662704
+    ],
+    "bounds_max": [
+      0.06300000101327896,
+      0.2529999911785126,
+      0.039500001817941666
+    ]
+  },
+  "janitor_closet/models/string_mop.glb": {
+    "sha256": "0a95047faf0f070fd9f285010ca6f38e0a383616b6fb57f257acc1ddf4d8a2c4",
+    "triangles": 1060,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:string_mop"
+    ],
+    "bounds_min": [
+      -0.12828156352043152,
+      0.0,
+      -0.1260540783405304
+    ],
+    "bounds_max": [
+      0.12828156352043152,
+      1.51358163356781,
+      0.1260540783405304
+    ]
+  },
+  "janitor_closet/models/toilet_paper_roll.glb": {
+    "sha256": "58077c83fba7ffff4fb8897f83a0bf27664153ad7d8040bfdded3866e177ef97",
+    "triangles": 524,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:toilet_paper_roll"
+    ],
+    "bounds_min": [
+      -0.06239999830722809,
+      0.0,
+      -0.06239999830722809
+    ],
+    "bounds_max": [
+      0.06281399726867676,
+      0.10499999672174454,
+      0.06239999830722809
+    ]
+  },
+  "janitor_closet/models/utility_sink.glb": {
+    "sha256": "adca3c9d023a9e120637ccb87cf756430cfbcbe869b3bf54f6c7fd21b487fc47",
+    "triangles": 964,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:utility_sink"
+    ],
+    "bounds_min": [
+      -0.33500000834465027,
+      0.0,
+      -0.26499998569488525
+    ],
+    "bounds_max": [
+      0.33500000834465027,
+      1.1140000820159912,
+      0.26499998569488525
+    ]
+  },
+  "janitor_closet/models/wet_floor_sign.glb": {
+    "sha256": "3063fcf0a7c0b27a361838d879c8a65bb4f5fb303957d752644ad297e44fbc2d",
+    "triangles": 606,
+    "texture_edge": 1024,
+    "identities": [
+      "janitor:wet_floor_sign"
+    ],
+    "bounds_min": [
+      -0.1525000035762787,
+      2.9802322387695312e-08,
+      -0.17314493656158447
+    ],
+    "bounds_max": [
+      0.1525000035762787,
+      0.6104090213775635,
+      0.17314493656158447
     ]
   }
 }

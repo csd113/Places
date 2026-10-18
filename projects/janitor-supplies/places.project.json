@@ -1,0 +1,18 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "janitor-supplies",
+  "name": "Janitor / Supplies",
+  "description": "Editable, opt-in closet composition and reusable asset placement preview.",
+  "entry_level": "janitor_supplies",
+  "levels": [
+    {
+      "id": "janitor_supplies",
+      "source": "levels/janitor_supplies.json"
+    },
+    {
+      "id": "janitor_physics",
+      "source": "levels/janitor_physics.json"
+    }
+  ]
+}

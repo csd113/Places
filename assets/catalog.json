@@ -40,6 +40,11 @@
       "id": "arcade",
       "display_name": "Retro Bowling & Arcade",
       "description": "Empty operational 1995\u20132005 cosmic bowling: navy interiors, warm maple lanes, CRT cabinets and masked blacklight-reactive carpet."
+    },
+    {
+      "id": "janitor_closet",
+      "display_name": "Janitor / Supplies",
+      "description": "Reusable utility-room storage, cleaning equipment and consumables."
     }
   ],
   "assets": [
@@ -582,7 +587,11 @@
       ],
       "color": "#7a6244",
       "category": "Utility",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:cardboard_box",
@@ -598,7 +607,11 @@
       ],
       "color": "#a8895f",
       "category": "Other",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:plant",
@@ -1156,7 +1169,11 @@
       ],
       "color": "#dededb",
       "solid": false,
-      "description": "600 mm square painted-steel four-way ceiling air diffuser, inset geometric louvers and opaque plenum; non-emissive static receiver. Base at Y=0, mount at ceiling height minus 0.065 m."
+      "description": "600 mm square painted-steel four-way ceiling air diffuser, inset geometric louvers and opaque plenum; non-emissive static receiver. Base at Y=0, mount at ceiling height minus 0.065 m.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:decal_no_diving_01",
@@ -2069,7 +2086,11 @@
       "color": "#d8d3c8",
       "category": "Furniture",
       "solid": true,
-      "description": "Real Shaker rails and recessed panels, upper drawer, standoff bar pulls, recessed kick and 40 mm laminate edge."
+      "description": "Real Shaker rails and recessed panels, upper drawer, standoff bar pulls, recessed kick and 40 mm laminate edge.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:cabinet_wall",
@@ -2087,7 +2108,11 @@
       "color": "#ddd8ce",
       "category": "Furniture",
       "solid": true,
-      "description": "Matching cream Shaker wall cabinet with real panel recesses and bar pulls."
+      "description": "Matching cream Shaker wall cabinet with real panel recesses and bar pulls.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "mannequin",
@@ -2231,7 +2256,11 @@
       ],
       "color": "#a8453a",
       "category": "Utility",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:exit_sign",
@@ -2247,7 +2276,11 @@
       ],
       "color": "#2f7a3f",
       "category": "Utility",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:ball_light",
@@ -2265,7 +2298,11 @@
       "color": "#e6e2d8",
       "category": "Decorative",
       "solid": false,
-      "description": "380 mm faceted opal globe with dark cord and ceiling rose."
+      "description": "380 mm faceted opal globe with dark cord and ceiling rose.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:wall_switch",
@@ -2282,7 +2319,11 @@
       ],
       "color": "#ddd8ce",
       "category": "Utility",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:crt_tv",
@@ -2299,7 +2340,11 @@
       ],
       "color": "#6b6558",
       "category": "Decorative",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:knife",
@@ -2317,7 +2362,11 @@
       "color": "#c9c9c6",
       "category": "Decorative",
       "solid": false,
-      "description": "Table knife with a tapered steel blade and a dark riveted handle; the blade end faces +Z in a place setting."
+      "description": "Table knife with a tapered steel blade and a dark riveted handle; the blade end faces +Z in a place setting.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:fork",
@@ -2335,7 +2384,11 @@
       "color": "#c9c9c6",
       "category": "Decorative",
       "solid": false,
-      "description": "Four-tine table fork with a steel head and a dark riveted handle; the tines face +Z in a place setting."
+      "description": "Four-tine table fork with a steel head and a dark riveted handle; the tines face +Z in a place setting.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:spoon",
@@ -2353,7 +2406,11 @@
       "color": "#c9c9c6",
       "category": "Decorative",
       "solid": false,
-      "description": "Table spoon with a shallow eight-sided steel bowl and a dark riveted handle; the bowl faces +Z in a place setting."
+      "description": "Table spoon with a shallow eight-sided steel bowl and a dark riveted handle; the bowl faces +Z in a place setting.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:plate",
@@ -2371,7 +2428,11 @@
       "color": "#e8e6df",
       "category": "Decorative",
       "solid": false,
-      "description": "Porcelain dinner plate; floats on the tabletop at any placement."
+      "description": "Porcelain dinner plate; floats on the tabletop at any placement.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:bowl",
@@ -2389,7 +2450,11 @@
       "color": "#e8e6df",
       "category": "Decorative",
       "solid": false,
-      "description": "Porcelain cereal bowl with a rolled rim; sized for the home tabletop."
+      "description": "Porcelain cereal bowl with a rolled rim; sized for the home tabletop.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:plant_table",
@@ -2407,7 +2472,11 @@
       "color": "#5a7a4a",
       "category": "Decorative",
       "solid": false,
-      "description": "Small potted table plant: a glazed ten-sided pot, soil and seven folded leaves on a short stem; roughly half the height of the floor plant."
+      "description": "Small potted table plant: a glazed ten-sided pot, soil and seven folded leaves on a short stem; roughly half the height of the floor plant.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:rubber_duck",
@@ -5082,7 +5151,11 @@
       "color": "#d7c9ae",
       "category": "Furniture",
       "solid": true,
-      "description": "Three separate cushions, square arms and timber feet."
+      "description": "Three separate cushions, square arms and timber feet.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:armchair",
@@ -5100,7 +5173,11 @@
       "color": "#d7c9ae",
       "category": "Furniture",
       "solid": true,
-      "description": "Companion domestic armchair with a separate seat and back."
+      "description": "Companion domestic armchair with a separate seat and back.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:coffee_table",
@@ -5118,7 +5195,11 @@
       "color": "#d7c9ae",
       "category": "Furniture",
       "solid": true,
-      "description": "Low timber table with real aprons and a lower magazine shelf."
+      "description": "Low timber table with real aprons and a lower magazine shelf.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:dining_table",
@@ -5136,7 +5217,11 @@
       "color": "#d7c9ae",
       "category": "Furniture",
       "solid": true,
-      "description": "Four-leg timber table with thick slab and jointed aprons."
+      "description": "Four-leg timber table with thick slab and jointed aprons.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:dining_chair",
@@ -5154,7 +5239,11 @@
       "color": "#d7c9ae",
       "category": "Furniture",
       "solid": true,
-      "description": "Domestic side chair with broad timber back slats."
+      "description": "Domestic side chair with broad timber back slats.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:dining_chair_refined",
@@ -5172,7 +5261,11 @@
       "color": "#d7c9ae",
       "category": "Furniture",
       "solid": true,
-      "description": "Timber chair with rounded seat corners, bevelled rails and softened slat tops; original footprint and atlas retained."
+      "description": "Timber chair with rounded seat corners, bevelled rails and softened slat tops; original footprint and atlas retained.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:tv_console",
@@ -5190,7 +5283,11 @@
       "color": "#d7c9ae",
       "category": "Furniture",
       "solid": true,
-      "description": "Cupboard doors and a divided receiver/book cubby."
+      "description": "Cupboard doors and a divided receiver/book cubby.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:bookshelf",
@@ -5208,7 +5305,11 @@
       "color": "#d7c9ae",
       "category": "Furniture",
       "solid": true,
-      "description": "Open timber bookcase with four populated shelves."
+      "description": "Open timber bookcase with four populated shelves.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:rug",
@@ -5226,7 +5327,11 @@
       "color": "#d7c9ae",
       "category": "Decorative",
       "solid": false,
-      "description": "Plain loop-pile rug with bound edge."
+      "description": "Plain loop-pile rug with bound edge.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:floor_lamp",
@@ -5244,7 +5349,11 @@
       "color": "#d7c9ae",
       "category": "Decorative",
       "solid": false,
-      "description": "Warm faceted linen shade on a slender metal stem."
+      "description": "Warm faceted linen shade on a slender metal stem.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:mug",
@@ -5262,7 +5371,11 @@
       "color": "#d7c9ae",
       "category": "Decorative",
       "solid": false,
-      "description": "Open ceramic mug with a genuine handle aperture and coffee surface."
+      "description": "Open ceramic mug with a genuine handle aperture and coffee surface.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:book_stack",
@@ -5280,7 +5393,11 @@
       "color": "#d7c9ae",
       "category": "Decorative",
       "solid": false,
-      "description": "Two fitted clothbound books with visible page blocks."
+      "description": "Two fitted clothbound books with visible page blocks.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:cushion",
@@ -5298,7 +5415,11 @@
       "color": "#d7c9ae",
       "category": "Decorative",
       "solid": false,
-      "description": "Checked woven cloth on a bevelled cushion."
+      "description": "Checked woven cloth on a bevelled cushion.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:outlet",
@@ -5316,7 +5437,11 @@
       "color": "#d7c9ae",
       "category": "Decorative",
       "solid": false,
-      "description": "Two sockets, ivory cover and recessed apertures."
+      "description": "Two sockets, ivory cover and recessed apertures.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:cabinet_strip",
@@ -5334,7 +5459,11 @@
       "color": "#d7c9ae",
       "category": "Decorative",
       "solid": false,
-      "description": "Slim housing and emissive warm diffuser; illumination is map-owned."
+      "description": "Slim housing and emissive warm diffuser; illumination is map-owned.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:landscape_frame",
@@ -5352,7 +5481,11 @@
       "color": "#d7c9ae",
       "category": "Decorative",
       "solid": false,
-      "description": "Timber frame, cream mount and fitted low-poly landscape."
+      "description": "Timber frame, cream mount and fitted low-poly landscape.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:sink",
@@ -5370,7 +5503,11 @@
       "color": "#d7c9ae",
       "category": "Furniture",
       "solid": true,
-      "description": "Matching cabinet and open folded-metal basin with a raised tap."
+      "description": "Matching cabinet and open folded-metal basin with a raised tap.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:stove",
@@ -5388,7 +5525,11 @@
       "color": "#d7c9ae",
       "category": "Furniture",
       "solid": true,
-      "description": "Cream enamel, metal deck, burner rings and recessed oven window."
+      "description": "Cream enamel, metal deck, burner rings and recessed oven window.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:tex_backsplash_01",
@@ -5428,7 +5569,11 @@
       ],
       "color": "#c8c4b6",
       "category": "Appliances",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:toaster",
@@ -5445,7 +5590,11 @@
       ],
       "color": "#c8c4b6",
       "category": "Appliances",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "home:tex_wall_paint_warm_01",
@@ -5562,7 +5711,11 @@
       ],
       "color": "#eee8da",
       "category": "Architectural",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:bush_round",
@@ -10181,6 +10334,363 @@
         0.04,
         0.045,
         0.055
+      ]
+    },
+    {
+      "id": "janitor:cardboard_supply_box",
+      "display_name": "Cardboard Supply Box",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/cardboard_supply_box.glb",
+      "size": [
+        0.340001,
+        0.282501,
+        0.274001
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:cleaner_jug",
+      "display_name": "Cleaner Jug",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/cleaner_jug.glb",
+      "size": [
+        0.166,
+        0.315501,
+        0.121
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:detergent_bottle",
+      "display_name": "Detergent Bottle",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/detergent_bottle.glb",
+      "size": [
+        0.116,
+        0.2655,
+        0.095941
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:folded_towel",
+      "display_name": "Folded Towel",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/folded_towel.glb",
+      "size": [
+        0.360001,
+        0.057001,
+        0.276
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:janitor_cart",
+      "display_name": "Janitor Cart",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/janitor_cart.glb",
+      "size": [
+        0.730001,
+        0.9375,
+        0.660001
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:lidded_storage_bin",
+      "display_name": "Lidded Storage Bin",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/lidded_storage_bin.glb",
+      "size": [
+        0.445,
+        0.345,
+        0.354001
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:metal_storage_rack",
+      "display_name": "Metal Storage Rack",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/metal_storage_rack.glb",
+      "size": [
+        1.230001,
+        1.9,
+        0.545001
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:mop_wringer_bucket",
+      "display_name": "Mop Wringer Bucket",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/mop_wringer_bucket.glb",
+      "size": [
+        0.480001,
+        0.978944,
+        0.382
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:paper_towel_roll",
+      "display_name": "Paper Towel Roll",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/paper_towel_roll.glb",
+      "size": [
+        0.151551,
+        0.280001,
+        0.150801
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:perforated_supply_crate",
+      "display_name": "Perforated Supply Crate",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/perforated_supply_crate.glb",
+      "size": [
+        0.340001,
+        0.281,
+        0.285
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:spray_cleaner_bottle",
+      "display_name": "Spray Cleaner Bottle",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/spray_cleaner_bottle.glb",
+      "size": [
+        0.126001,
+        0.253,
+        0.079001
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:string_mop",
+      "display_name": "String Mop",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/string_mop.glb",
+      "size": [
+        0.256564,
+        1.513582,
+        0.252109
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:toilet_paper_roll",
+      "display_name": "Toilet Paper Roll",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/toilet_paper_roll.glb",
+      "size": [
+        0.125628,
+        0.105,
+        0.1248
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:utility_sink",
+      "display_name": "Utility Sink",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/utility_sink.glb",
+      "size": [
+        0.670001,
+        1.114001,
+        0.53
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:wet_floor_sign",
+      "display_name": "Wet Floor Sign",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/wet_floor_sign.glb",
+      "size": [
+        0.305001,
+        0.61041,
+        0.34629
+      ],
+      "color": "#898b7f",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+    },
+    {
+      "id": "janitor:folded_towel_blue",
+      "display_name": "Folded Towel \u2014 Slate Blue",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "janitor_closet/models/folded_towel.glb",
+      "size": [
+        0.360001,
+        0.057001,
+        0.276
+      ],
+      "color": "#435669",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Slate-blue multiplier from the delivered material choices, applied to the canonical folded towel mesh and fitted atlas.",
+      "tint": [
+        0.11,
+        0.19,
+        0.3
       ]
     }
   ]
