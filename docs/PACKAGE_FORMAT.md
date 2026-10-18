@@ -121,7 +121,8 @@ never triggers procedural geometry generation.
 
 * `required_capabilities` names what a runtime must understand. The current
   player understands `geometry`, `props`, `lighting`, `lightmaps-hdr`,
-  `lightmaps-compact-v1`, `props-shared-streams`, `irradiance-probes`,
+  `lightmaps-compact-v1`, `props-shared-streams`, `props-shared-streams-v2`,
+  `irradiance-probes`,
   `probes-hdr`, `collision` and
   `navigation`, `light-circuits-v1`, `static-light-state-v1`, `luau-v1`,
   `scene-actions-v1`, `project-transitions-v1`, `full-lighting-v1` and
@@ -468,8 +469,12 @@ old navigation. There is no runtime migration, geometry bake or repair path.
 The compiler factors repeated current PMP1 streams losslessly when the dictionary
 saves both raw bytes and Deflate-6 archive bytes, including a conservative
 manifest allowance. Recipes exceeding the reader working-set budget remain
-literal. Each vertex keeps its exact 36-byte
-position/colour/UV prefix and its distinct lighting/frame tail. Raw headers,
+literal. The PPS1 version 2 writer separates each vertex into exact 12-byte
+world position, 16-byte baked colour, 8-byte model UV and remaining
+lighting/frame planes. Changing baked colour therefore cannot prevent identical
+position or UV bytes from sharing. The version 1 reader retains its combined
+36-byte position/colour/UV prefix and separate tail. Both versions preserve all
+currently accepted vertex strides (43, 45, 55, 57, 69 and 81 bytes). Raw headers,
 material data, frame palettes and ordered indices remain exact. First occurrence
 order interns chunks of at most 65,520 bytes into at most 16 MiB shared segments.
 Original GLBs and PNGs remain external dependencies.
@@ -479,12 +484,16 @@ original PMP1 length/hash, required segment lengths/hashes, bounded chunk
 locations, and ordered raw or interleaved vertex runs. The reader verifies
 segment identities and reconstructs one output directly through borrowed chunk
 cursors; it verifies the original record hash before the current PMP1 reader
-validates its geometry. No complete intermediate prefix/tail arrays are built.
+validates its geometry. No complete intermediate attribute arrays are built.
 The 512 MiB expanded-record limit remains. Recipe wire data is capped at 64 MiB;
 output, fetched segments and conservative recipe-table overhead together are
 capped at 1 GiB. Missing, truncated, out-of-range, unused or trailing
-recipe data is rejected. New packages require `props-shared-streams`; older
-players fail by named capability. Current literal PMP1 records remain valid when sharing would not save space.
+recipe data is rejected. Version 1 packages require `props-shared-streams`;
+version 2 additionally requires `props-shared-streams-v2`, so older players fail
+by named capability before fetching these streams. Current literal PMP1 records
+remain valid when sharing would not save space. This changes storage only: no
+float quantization, triangle reduction, texture or lighting quality change, or
+runtime geometry reconstruction from a different source model is introduced.
 
 ## 5. Lightmap pages — compact storage and KTX2
 
@@ -720,7 +729,7 @@ for current entity direct/visibility/resource behavior.
 
 | Bound | Value |
 | --- | --- |
-| archive entries | 512 per ordinary map; 8192 in a complete project |
+| archive entries | 512 per ordinary map or virtual project member; 8192 physical entries in a complete project |
 | manifest | 2 MiB |
 | semantics | 64 MiB |
 | ordinary entry (decompressed) | 256 MiB; typed records may impose tighter bounds |
@@ -730,8 +739,12 @@ for current entity direct/visibility/resource behavior.
 | lightmap metadata | 64 MiB |
 | reflection positions | 16 MiB |
 | compiler provenance | 2 MiB |
-| aggregate (decompressed) | 1 GiB |
-| compressed transport | 1 GiB + 64 MiB |
+| ordinary-map aggregate (decompressed) | 1 GiB; also retained for every virtual project member |
+| complete-project aggregate (decompressed) | 2 GiB of unique physical records plus project index |
+| ordinary-map compressed transport | 1 GiB + 64 MiB |
+| complete-project compressed transport | 2 GiB + 64 MiB |
+| project source recovery | 64 MiB total; existing per-file bounds retained |
+| project index | 2 MiB |
 | central directory | 8 MiB; ZIP64/multi-disk/encrypted entries refused |
 | variants | 4 (one per lightmap quality) |
 | dependencies | 4096 |
@@ -748,6 +761,14 @@ for current entity direct/visibility/resource behavior.
 | lightmap page edge | 4096 texels, 64 pages |
 | probe face edge | 256 texels, 32 probes |
 
+The larger complete-project allowance requires a validated bounded project
+index, exact archive namespace and per-member record sum before admission; a
+`project.json` filename alone is insufficient. It does not raise shared-prop
+working-memory, binary-record or typed decoder budgets. Complete export streams
+records through owned disk spools, while runtime decoding remains limited to the
+selected member. See [project distribution and recovery](PROJECT_FORMAT.md#stage-7-project-distribution-and-editable-recovery)
+for source, transport and spooling contracts.
+
 The reader also rejects, before decoding: absolute, drive-letter, UNC or
 `..`-traversing names; backslash separators; directory entries; duplicate
 normalized names; control characters; symbolic links; inconsistent directory
@@ -762,8 +783,11 @@ dependencies; and unsupported versions or capabilities.
 package schema. The authored semantics require `schema: "places-level"` and
 `format_version: 1`. These mandatory schema markers distinguish this deliberate
 pre-release reset from historical files that also carried numeric revision 1.
-Every binary record uses its new signature and accepts revision 1 only.
-Superseded packages must be recompiled; no compatibility readers remain.
+Binary records use their declared current signatures and revisions. Navigation
+PNV2 uses revision 2. PPS1 shared props read revisions 1 and 2, while the writer
+emits revision 2 attribute planes; this preserves existing current-schema v1
+recipes without accepting superseded package schemas or historical signatures.
+Other superseded packages require recompilation.
 
 A compiler fingerprint is a separate rebuild identity. Required capabilities
 remain explicit and unknown names are rejected. Record/schema validation runs

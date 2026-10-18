@@ -3,6 +3,23 @@
 These tools are opt-in desktop workflows, never Cargo or CI fixtures. Run from
 the checkout on `0.12.0-staging`. Native SDL windows require a real display.
 
+- `cargo run --bin environment-import-audit -- NEW_DIRECTORY old-map.json ...`
+  imports each standalone map through the same `Document::import_level` operation
+  as **Project > Import JSON map**. It preserves the input bytes, records actual
+  Safety diagnostics before/after conservative corrections, validates built-in
+  assets and save/reopen, and publishes migrated JSON baselines. Existing paths
+  are refused. A separate isolated copy of the first imported legacy map gets
+  two deliberate duplicate simple walls, proving preview/apply/undo and that
+  imported per-placement intent skips the protected correction while retaining
+  an independent correction. This explicit developer tool performs CPU geometry
+  preparation and model checks, never a lightmap bake or ordinary CI test.
+  Diagnostics remain bounded review candidates; zero fixes does not mean zero
+  concerns. Scripts require source-bearing project recovery, and IDs are never
+  renamed automatically.
+  `environment-import-audit --review PROJECT LEVEL NEW_DIRECTORY` performs a
+  read-only final review with source-hash confirmation, without importing or
+  applying corrections.
+
 - `closing_time_record.py PHASE`: record real display pixels while the native
   editor drives an existing `local/verification/0.12.0-closing-time/editor-scripts/`
   recipe through visible controls and ordinary event handlers. Uses preserved
@@ -85,3 +102,64 @@ for animation ownership. Explicitly compile it and run native `--case default-po
 the placed hidden/visible pair must both retain automatic walk locomotion; the
 spawned hidden/visible pair must both retain their default held pose. This tiny
 source is opt-in tooling, never an automatic map-bake dependency.
+
+## Environment collection (explicit native acceptance)
+
+`environment_acceptance.py plan --project projects/environments --out NEW_PLAN`
+reads the actual multi-map project and writes one ordinary hub-to-environment-
+and-return recipe per destination, plus its source inventory and expectations.
+Each physical transition door must declare an interact/change-level binding.
+Review the generated waypoints against actual geometry before native use;
+`--overrides FILE` supplies per-level `hub_waypoints`, `destination_waypoints`,
+`capture_waypoints`, `dismiss_intro` and `return_wait_ms`. Generation is not
+collision validation. The first-occurrence anchor limitation is handled with
+one independent visit per process and an audited wait after returning to hub.
+
+`environment_acceptance.py run --binary PATH --package COLLECTION.placesmap
+--out NEW_RUN --level hub --actions PLAN/hub-home.actions.json
+--expectations PLAN/hub-home.expect.json` imports into fresh isolated state,
+then starts the direct binary. The retained identity, inputs, traces, PNGs and
+snapshots disclose exact binary/package hashes and actual focus. All natural
+routes prohibit direct map loading, player/item pose, actor navigation-goal and
+activation diagnostics. Use the importable `Walk` helper for room, NPC and Office
+routes using the same ordinary keys/camera. It enforces 128 actions and a
+60-second maximum per first-occurrence ready anchor; split longer cases.
+
+For the final canonical smoke after distribution retirement, `--bundled`
+(`--no-import`) skips installation only after the supplied package bytes match
+a real, non-symlink `.placesmap` under the selected asset root's `levels/`.
+The receipt records the bundled file, hash and skipped import, and rechecks
+custody at shutdown. The default still imports into fresh isolated state.
+
+`environment_audit.py NEW_RUN` verifies concrete map/focus/physics receipts and
+the adjacent `expectations.json`. Full-lighting runs also require the captured
+renderer to have actually applied Full lightmaps and High lighting. Assertions
+support dotted snapshot paths and explicit event counts/fields; missing
+visibility evidence fails. Retirement events require a finite combined posed
+model/prop bound, complete occlusion and the actual character and prop meshes
+hidden. Native images still need visual review, including partial limbs/prop at
+corners, following, turning back and room composition.
+Optional `items` assertions resolve an item ID through its original authored
+render key, require exactly one physical body, then check body fields such as
+`dormant` or `pose.position`. This verifies reset custody without assuming a
+body-array index or accepting a duplicate replacement item.
+
+For smooth native video, repeat a reviewed route with `--record --no-capture`.
+This omits synchronous PNG captures while macOS WindowServer records only the
+launched game's PID; real-time state/input traces remain. `--window-info PATH`
+reuses an existing CoreGraphics PID helper; otherwise the runner prepares one
+before launching. It never records a different application's window.
+
+Performance is a separate unrecorded run: `--performance --level LEVEL
+--diagnostic --spawn X,Y,Z,YAW --camera YAW,PITCH` samples a disclosed fixed view
+after 1,200 warmup frames, then records 1,200 frames. No capture/video pacing,
+V-sync or frame limiter is enabled. The audit records actual presentation mode,
+physical drawable, current display refresh, arithmetic mean frame time, average
+FPS and the proportion faster than refresh. `--require-uncapped` fails unless
+the actual run exceeds refresh with Immediate presentation. A refresh plateau
+is explicitly inconclusive, even when requested settings say uncapped.
+Each performance run also reuses `tools/bench/frame_time.py`'s PID-only RSS
+sampling at roughly one-second intervals. Receipts separate startup/loading
+from the ready world, disclose sampled peaks and sampling errors, and never
+call a sampled maximum an OS true peak. Observed selected-map commits and
+process RSS are separate from GPU atlas or analytic residency budgets.

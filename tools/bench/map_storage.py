@@ -29,6 +29,12 @@ def checked_archive(path):
     archive = zipfile.ZipFile(path)
     entries = archive.infolist()
     names = [entry.filename for entry in entries]
+    if 'project.json' in names:
+        archive.close()
+        raise ValueError(
+            'This ordinary-map storage/delivery diagnostic does not analyze shared project bundles; '
+            'use places-compile validate and the collection acceptance tools for the complete project.'
+        )
     if len(names) > 512 or len(names) != len(set(names)):
         raise ValueError("entry count or duplicate names")
     if sum(entry.file_size for entry in entries) > MAX_TOTAL:

@@ -15,10 +15,10 @@ use crate::engine::materials::{MaterialTable, PackMaterials, TextureCache, resol
 use crate::engine::package::archive::{cleanup_failed_write, create_temporary};
 use crate::engine::package::world::OpenedPackage;
 
-/// Import transport budget: the decompressed package budget plus generous ZIP
+/// Import transport budget: the project package budget plus generous ZIP
 /// metadata and incompressible-deflate overhead. This bounds staging disk use
 /// even when the source grows while copying or carries unused archive padding.
-const MAX_IMPORT_BYTES: u64 = crate::engine::package::MAX_TOTAL_BYTES + 64 * 1024 * 1024;
+const MAX_IMPORT_BYTES: u64 = crate::engine::package::archive::MAX_PROJECT_TRANSPORT_BYTES;
 
 /// Menu precedence of a source: bundled packages before installed ones.
 const fn source_rank(source_type: LevelSourceType) -> u8 {
@@ -36,6 +36,7 @@ pub struct LevelManager {
     levels_dir: PathBuf,
     import_dir: PathBuf,
     entries: Vec<LevelEntry>,
+    menu_entries: Vec<LevelEntry>,
     menu_images: RefCell<MenuImageCache>,
     prop_catalog: PropCatalog,
     /// Decoded texture images shared across level loads (one decode per
@@ -62,6 +63,7 @@ impl LevelManager {
             levels_dir,
             import_dir,
             entries: Vec::new(),
+            menu_entries: Vec::new(),
             menu_images: RefCell::new(std::collections::BTreeMap::new()),
             prop_catalog: PropCatalog::load_default(),
             texture_cache: RefCell::new(TextureCache::new()),
@@ -70,15 +72,27 @@ impl LevelManager {
         manager
     }
 
+    /// Every installed member, including internal maps hidden from Explore.
     #[must_use]
     pub fn entries(&self) -> &[LevelEntry] {
         &self.entries
     }
 
+    /// Playable menu rows; internal project members remain in [`Self::entries`].
+    #[must_use]
+    pub fn menu_entries(&self) -> &[LevelEntry] {
+        &self.menu_entries
+    }
+
+    #[must_use]
+    pub fn get_menu_entry(&self, index: usize) -> Option<&LevelEntry> {
+        self.menu_entries.get(index)
+    }
+
     /// Bounded visible-row image cache, independent of prepared level loading.
     #[must_use]
     pub fn menu_thumbnail(&self, index: usize) -> Option<Arc<super::RawImage>> {
-        let entry = self.get_entry(index)?;
+        let entry = self.get_menu_entry(index)?;
         let key = (entry.path.clone(), entry.id.clone());
         let mut cache = self.menu_images.borrow_mut();
         if let Some(cached) = cache.get(&key) {
@@ -142,14 +156,15 @@ impl LevelManager {
             &mut discovered,
         );
         discovered.sort_by(|a, b| {
-            source_rank(a.source_type)
-                .cmp(&source_rank(b.source_type))
-                .then_with(|| a.name.cmp(&b.name))
-                .then_with(|| a.id.cmp(&b.id))
-                .then_with(|| a.path.cmp(&b.path))
+            source_rank(a.0.source_type)
+                .cmp(&source_rank(b.0.source_type))
+                .then_with(|| a.0.name.cmp(&b.0.name))
+                .then_with(|| a.0.id.cmp(&b.0.id))
+                .then_with(|| a.0.path.cmp(&b.0.path))
         });
         let mut unique: Vec<LevelEntry> = Vec::with_capacity(discovered.len());
-        for entry in discovered {
+        self.menu_entries.clear();
+        for (entry, visible) in discovered {
             if let Some(existing) = unique.iter().find(|existing| existing.id == entry.id) {
                 crate::engine::logging::warn_once(
                     format!("level-duplicate:{}", entry.path.display()),
@@ -163,6 +178,9 @@ impl LevelManager {
                 );
                 continue;
             }
+            if visible {
+                self.menu_entries.push(entry.clone());
+            }
             unique.push(entry);
         }
 
@@ -173,7 +191,7 @@ impl LevelManager {
     fn scan_package_dir(
         dir: &Path,
         source_type: LevelSourceType,
-        discovered: &mut Vec<LevelEntry>,
+        discovered: &mut Vec<(LevelEntry, bool)>,
     ) {
         let read_dir = match fs::read_dir(dir) {
             Ok(entries) => entries,
@@ -218,10 +236,14 @@ impl LevelManager {
                                     }
                                 )
                             };
-                            discovered.push(item);
+                            discovered.push((
+                                item,
+                                !index.project.menu_entry_only
+                                    || level.id == index.project.entry_level,
+                            ));
                         }
                     }
-                    Ok(None) => discovered.push(meta),
+                    Ok(None) => discovered.push((meta, true)),
                     Err(error) => Self::report_skipped_level(&path, &error),
                 },
                 Err(error) => Self::report_skipped_level(&path, &error),
@@ -262,13 +284,13 @@ impl LevelManager {
         })
     }
 
-    /// Loads the first installed package in deterministic discovery order.
+    /// Loads the first visible menu entry in deterministic discovery order.
     ///
     /// # Errors
     ///
     /// Returns the package's load error, or installation guidance when empty.
     pub fn load_default(&self) -> Result<LoadedLevel, String> {
-        let entry = self.entries.first().ok_or_else(|| {
+        let entry = self.menu_entries.first().ok_or_else(|| {
             format!(
                 "No maps installed. Put compiled .placesmap files in {} and choose Import levels.",
                 self.import_dir.display()
@@ -651,34 +673,9 @@ fn import_package(
     target: &Path,
     accept: impl FnOnce(&OpenedPackage, &Path) -> Result<(), String>,
 ) -> Result<OpenedPackage, String> {
-    // Reject ordinary named pipes/devices before open, which could otherwise
-    // wait for a writer indefinitely. Recheck the opened handle below too.
-    let source_metadata = fs::metadata(source)
-        .map_err(|error| format!("Failed to inspect {} for import: {error}", source.display()))?;
-    if !source_metadata.is_file() {
-        return Err(format!(
-            "Import source is not a regular file: {}",
-            source.display()
-        ));
-    }
-    let mut input = fs::File::open(source)
-        .map_err(|error| format!("Failed to open {} for import: {error}", source.display()))?;
-    let metadata = input
-        .metadata()
-        .map_err(|error| format!("Failed to inspect {} for import: {error}", source.display()))?;
-    if !metadata.is_file() {
-        return Err(format!(
-            "Import source is not a regular file: {}",
-            source.display()
-        ));
-    }
-    if metadata.len() > MAX_IMPORT_BYTES {
-        return Err(format!(
-            "Import source {} is {} bytes (limit {MAX_IMPORT_BYTES})",
-            source.display(),
-            metadata.len()
-        ));
-    }
+    // Reuse nonblocking regular-file admission so a regular-file/FIFO swap
+    // cannot block between path inspection and opened-handle validation.
+    let mut input = crate::engine::package::archive::open_file(source)?;
     let (temporary, output) = create_temporary(target)?;
     let staged = stage_import(&mut input, output, &temporary)
         .map_err(|error| cleanup_failed_write(&temporary, error))?;

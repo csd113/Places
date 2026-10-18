@@ -3,19 +3,22 @@
 use std::io::{Read, Seek, Write};
 use std::path::{Path, PathBuf};
 
-use super::{MAX_ENTRIES, MAX_TOTAL_BYTES, OpenError, hash};
+use sha2::{Digest as _, Sha256};
+
+use super::{MAX_ENTRIES, MAX_PROJECT_TOTAL_BYTES, MAX_TOTAL_BYTES, OpenError, hash, project};
 
 pub(crate) const MAX_TRANSPORT_BYTES: u64 = MAX_TOTAL_BYTES + 64 * 1024 * 1024;
+pub(crate) const MAX_PROJECT_TRANSPORT_BYTES: u64 = MAX_PROJECT_TOTAL_BYTES + 64 * 1024 * 1024;
 
 /// Reject special files before opening, then validate the opened handle too.
 /// Unix nonblocking mode prevents a regular-file/FIFO swap from blocking open.
 pub(crate) fn open_file(path: &Path) -> Result<std::fs::File, String> {
     let check = |metadata: &std::fs::Metadata| {
-        if metadata.is_file() && metadata.len() <= MAX_TRANSPORT_BYTES {
+        if metadata.is_file() && metadata.len() <= MAX_PROJECT_TRANSPORT_BYTES {
             Ok(())
         } else {
             Err(format!(
-                "Package {} must be a regular file within the {MAX_TRANSPORT_BYTES}-byte transport limit",
+                "Package {} must be a regular file within the {MAX_PROJECT_TRANSPORT_BYTES}-byte transport limit",
                 path.display()
             ))
         }
@@ -58,7 +61,8 @@ impl<R: Read + Seek> PackageReader<R> {
     /// * normalized-name collisions (the same entry reachable under two
     ///   spellings, which makes lookups ambiguous);
     /// * directory entries (this format has none);
-    /// * a declared aggregate uncompressed size beyond [`MAX_TOTAL_BYTES`].
+    /// * a declared aggregate uncompressed size beyond [`MAX_TOTAL_BYTES`],
+    ///   except a bounded, validated project may use [`MAX_PROJECT_TOTAL_BYTES`].
     ///
     /// # Errors
     /// Returns an error when the input is malformed, out of bounds or unsupported.
@@ -66,22 +70,28 @@ impl<R: Read + Seek> PackageReader<R> {
         // The raw central directory is validated before the ZIP crate builds
         // its name-keyed index: that index silently collapses exact duplicate
         // names, so a duplicate can only be seen here.
-        let names = scan_central_directory(&mut reader)?;
+        let directory = scan_central_directory(&mut reader)?;
         let archive = zip::ZipArchive::new(reader)
             .map_err(|error| OpenError::NotArchive(error.to_string()))?;
-        if archive.len() != names.len() {
+        if archive.len() != directory.names.len() {
             return Err(OpenError::NotArchive(format!(
                 "archive lists {} entries in its directory but {} are reachable",
-                names.len(),
+                directory.names.len(),
                 archive.len()
             )));
         }
-        Ok(Self {
+        let mut opened = Self {
             archive,
-            names,
+            names: directory.names,
             view: None,
             project_ids: None,
-        })
+        };
+        if directory.requires_project_validation {
+            let _validated = project::read_index(&mut opened)
+                .map_err(OpenError::NotArchive)?
+                .ok_or_else(|| OpenError::NotArchive("Missing project index".into()))?;
+        }
+        Ok(opened)
     }
 
     /// Number of entries.
@@ -192,6 +202,33 @@ impl<R: Read + Seek> PackageReader<R> {
         Ok(bytes)
     }
 
+    /// Copies one bounded entry without reserving its entire decoded payload.
+    /// The caller owns any partial destination and must discard it on error.
+    pub(crate) fn copy_entry_to(
+        &mut self,
+        name: &str,
+        limit: u64,
+        writer: &mut impl Write,
+        check: &impl Fn() -> Result<(), String>,
+    ) -> Result<(u64, String), String> {
+        let actual = self
+            .view
+            .as_ref()
+            .and_then(|view| view.get(name))
+            .map_or(name, String::as_str);
+        let entry = self
+            .archive
+            .by_name(actual)
+            .map_err(|error| format!("package entry '{name}' is missing: {error}"))?;
+        let declared = entry.size();
+        let copied = copy_bounded(entry, writer, declared, limit, check)
+            .map_err(|error| format!("package entry '{name}': {error}"))?;
+        if hash::sha256_from_blob_name(actual).is_some_and(|expected| expected != copied.1) {
+            return Err(format!("project record hash mismatch: {actual}"));
+        }
+        Ok(copied)
+    }
+
     /// Reads and integrity-checks one content-addressed blob.
     ///
     /// The entry's name embeds its SHA-256; the digest is recomputed before
@@ -225,7 +262,7 @@ impl<R: Read + Seek> PackageReader<R> {
     clippy::too_many_lines,
     reason = "one cohesive structural scan of the archive directory"
 )] // one cohesive structural scan of the archive directory
-fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>, OpenError> {
+fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<DirectoryIndex, OpenError> {
     /// End-of-central-directory record size without a comment.
     const EOCD_SIZE: u64 = 22;
     /// Largest accepted comment search window (max comment + EOCD).
@@ -238,7 +275,7 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
     let file_len = reader
         .seek(std::io::SeekFrom::End(0))
         .map_err(|error| OpenError::NotArchive(error.to_string()))?;
-    if file_len > MAX_TRANSPORT_BYTES {
+    if file_len > MAX_PROJECT_TRANSPORT_BYTES {
         return Err(OpenError::NotArchive(
             "Package exceeds compressed transport limit".into(),
         ));
@@ -415,11 +452,6 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
             "Central directory has unaccounted bytes".into(),
         ));
     }
-    if total > MAX_TOTAL_BYTES {
-        return Err(OpenError::NotArchive(format!(
-            "archive declares {total} uncompressed bytes (limit {MAX_TOTAL_BYTES})"
-        )));
-    }
     names.sort();
     if let Some(pair) = names.windows(2).find(|pair| pair.first() == pair.get(1)) {
         return Err(OpenError::NotArchive(format!(
@@ -427,7 +459,34 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<Vec<String>,
             pair.first().map_or("", String::as_str)
         )));
     }
-    Ok(names)
+    let is_project = names
+        .binary_search_by(|name| name.as_str().cmp(project::INDEX))
+        .is_ok();
+    let total_limit = if is_project {
+        MAX_PROJECT_TOTAL_BYTES
+    } else {
+        MAX_TOTAL_BYTES
+    };
+    if total > total_limit {
+        return Err(OpenError::NotArchive(format!(
+            "archive declares {total} uncompressed bytes (limit {total_limit})"
+        )));
+    }
+    if !is_project && file_len > MAX_TRANSPORT_BYTES {
+        return Err(OpenError::NotArchive(
+            "Package exceeds compressed transport limit".into(),
+        ));
+    }
+    Ok(DirectoryIndex {
+        names,
+        requires_project_validation: is_project
+            && (total > MAX_TOTAL_BYTES || file_len > MAX_TRANSPORT_BYTES),
+    })
+}
+
+struct DirectoryIndex {
+    names: Vec<String>,
+    requires_project_validation: bool,
 }
 
 /// Normalizes an archive entry name to a safe relative form.
@@ -464,6 +523,14 @@ pub struct PendingEntry {
     pub name: String,
     /// Uncompressed entry bytes.
     pub bytes: Vec<u8>,
+}
+
+/// One owned compiler spool record, pinned by its decoded length and digest.
+pub(crate) struct SpoolEntry {
+    pub name: String,
+    pub path: PathBuf,
+    pub bytes: u64,
+    pub sha256: String,
 }
 
 /// Writes a complete package archive atomically.
@@ -538,6 +605,183 @@ pub(crate) fn write_archive_guarded(
     })
 }
 
+/// Streams a complete project from owned spool files into an atomic package.
+/// Standalone writers keep their original aggregate bound. No larger candidate
+/// is published before bounded index and virtual-member admission succeeds.
+pub(crate) fn write_project_archive_files_guarded(
+    path: &Path,
+    mut entries: Vec<SpoolEntry>,
+    check: impl Fn() -> Result<(), String>,
+    publish_check: impl Fn() -> Result<(), String>,
+) -> Result<(), String> {
+    check()?;
+    entries.sort_by(|left, right| left.name.cmp(&right.name));
+    validate_spool_entries(&entries)?;
+    let (temporary, file) = create_temporary(path)?;
+    let result = write_project_archive_to(file, &entries, &check)
+        .and_then(|()| check())
+        .and_then(|()| {
+            let mut reader =
+                PackageReader::new(open_file(&temporary)?).map_err(|error| error.to_string())?;
+            let _index = project::read_index(&mut reader)?.ok_or("Missing project index")?;
+            Ok(())
+        })
+        .and_then(|()| check())
+        .and_then(|()| publish_check());
+    if let Err(error) = result {
+        return Err(cleanup_failed_write(&temporary, error));
+    }
+    std::fs::rename(&temporary, path).map_err(|error| {
+        cleanup_failed_write(
+            &temporary,
+            format!("could not publish {}: {error}", path.display()),
+        )
+    })
+}
+
+fn validate_spool_entries(entries: &[SpoolEntry]) -> Result<(), String> {
+    if entries.len() > MAX_ENTRIES {
+        return Err(format!(
+            "package has {} entries (limit {MAX_ENTRIES})",
+            entries.len()
+        ));
+    }
+    if entries
+        .iter()
+        .any(|entry| normalize_entry_name(&entry.name).as_deref() != Some(entry.name.as_str()))
+        || entries.windows(2).any(|pair| {
+            pair.first().map(|entry| &entry.name) == pair.get(1).map(|entry| &entry.name)
+        })
+    {
+        return Err("Package entry names must be safe and unique".into());
+    }
+    let mut total = 0_u64;
+    let mut has_index = false;
+    for entry in entries {
+        total = total.saturating_add(entry.bytes);
+        if entry.sha256.len() != 64 || !entry.sha256.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err(format!("Invalid spool digest for '{}'", entry.name));
+        }
+        if entry.name == project::INDEX {
+            has_index = true;
+            if entry.bytes > super::MAX_MANIFEST_BYTES {
+                return Err("Project index exceeds manifest limit".into());
+            }
+        } else if entry.bytes > super::MAX_BINARY_BYTES
+            || hash::sha256_from_blob_name(&entry.name).as_deref() != Some(entry.sha256.as_str())
+        {
+            return Err(format!("Invalid project spool record '{}'", entry.name));
+        }
+    }
+    if !has_index {
+        return Err("Project archive requires project.json".into());
+    }
+    if total > MAX_PROJECT_TOTAL_BYTES {
+        return Err(format!(
+            "package would hold {total} uncompressed bytes (limit {MAX_PROJECT_TOTAL_BYTES})"
+        ));
+    }
+    Ok(())
+}
+
+fn write_project_archive_to(
+    file: std::fs::File,
+    entries: &[SpoolEntry],
+    check: &impl Fn() -> Result<(), String>,
+) -> Result<(), String> {
+    let mut writer = zip::ZipWriter::new(file);
+    for entry in entries {
+        check()?;
+        let mut input = open_spool_file(entry)?;
+        writer
+            .start_file(entry.name.as_str(), file_options())
+            .map_err(|error| format!("could not start entry '{}': {error}", entry.name))?;
+        let (_, digest) = copy_bounded(&mut input, &mut writer, entry.bytes, entry.bytes, check)
+            .map_err(|error| format!("could not write entry '{}': {error}", entry.name))?;
+        if digest != entry.sha256
+            || input.metadata().map_err(|error| error.to_string())?.len() != entry.bytes
+        {
+            return Err(format!(
+                "Project spool record changed: {}",
+                entry.path.display()
+            ));
+        }
+    }
+    finish_archive(writer)
+}
+
+/// Reject links/special files before opening and check the opened handle too.
+/// Nonblocking/no-follow flags close the regular-file/FIFO and symlink races.
+fn open_spool_file(entry: &SpoolEntry) -> Result<std::fs::File, String> {
+    let check = |metadata: &std::fs::Metadata| {
+        if metadata.is_file() && !metadata.file_type().is_symlink() && metadata.len() == entry.bytes
+        {
+            Ok(())
+        } else {
+            Err(format!(
+                "Invalid or changed project spool file: {}",
+                entry.path.display()
+            ))
+        }
+    };
+    check(&std::fs::symlink_metadata(&entry.path).map_err(|error| error.to_string())?)?;
+    let mut options = std::fs::OpenOptions::new();
+    let _read = options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        let _flags = options.custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt as _;
+        // Open the reparse point itself so handle validation can reject links.
+        let _flags = options.custom_flags(0x0020_0000);
+    }
+    let input = options
+        .open(&entry.path)
+        .map_err(|error| error.to_string())?;
+    check(&input.metadata().map_err(|error| error.to_string())?)?;
+    Ok(input)
+}
+
+fn copy_bounded(
+    input: impl Read,
+    output: &mut impl Write,
+    declared: u64,
+    limit: u64,
+    check: &impl Fn() -> Result<(), String>,
+) -> Result<(u64, String), String> {
+    if declared > limit {
+        return Err(format!("declares {declared} bytes (limit {limit})"));
+    }
+    let mut bounded_input = input.take(declared.saturating_add(1));
+    let mut buffer = vec![0_u8; 64 * 1024];
+    let mut hasher = Sha256::new();
+    let mut total = 0_u64;
+    loop {
+        check()?;
+        let count = bounded_input
+            .read(&mut buffer)
+            .map_err(|error| error.to_string())?;
+        if count == 0 {
+            break;
+        }
+        total = total.saturating_add(u64::try_from(count).unwrap_or(u64::MAX));
+        if total > declared {
+            return Err(format!("exceeds declared {declared}-byte size"));
+        }
+        let bytes = buffer.get(..count).ok_or("Read exceeds copy buffer")?;
+        output.write_all(bytes).map_err(|error| error.to_string())?;
+        hasher.update(bytes);
+    }
+    if total != declared {
+        return Err(format!("declares {declared} bytes but read {total}"));
+    }
+    check()?;
+    Ok((total, hash::digest_hex(&hasher.finalize())))
+}
+
 /// Retains the original failure and reports an owned temporary that could not
 /// be removed. Missing temporaries require no cleanup.
 pub(crate) fn cleanup_failed_write(path: &Path, error: String) -> String {
@@ -562,18 +806,25 @@ fn write_archive_to(
     let mut writer = zip::ZipWriter::new(file);
     for entry in entries {
         check()?;
-        let options = zip::write::SimpleFileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated)
-            .compression_level(Some(6))
-            .last_modified_time(zip::DateTime::default())
-            .unix_permissions(0o644);
         writer
-            .start_file(entry.name.as_str(), options)
+            .start_file(entry.name.as_str(), file_options())
             .map_err(|error| format!("could not start entry '{}': {error}", entry.name))?;
         writer
             .write_all(&entry.bytes)
             .map_err(|error| format!("could not write entry '{}': {error}", entry.name))?;
     }
+    finish_archive(writer)
+}
+
+fn file_options() -> zip::write::SimpleFileOptions {
+    zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated)
+        .compression_level(Some(6))
+        .last_modified_time(zip::DateTime::default())
+        .unix_permissions(0o644)
+}
+
+fn finish_archive(writer: zip::ZipWriter<std::fs::File>) -> Result<(), String> {
     let mut finished_file = writer
         .finish()
         .map_err(|error| format!("could not finish package: {error}"))?;

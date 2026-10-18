@@ -2824,6 +2824,8 @@ struct EntityFacts<'a> {
     has_audio: bool,
     /// Shared planner/mover is present.
     has_ai: bool,
+    /// Authored item attachment contract.
+    has_carry: bool,
     /// State names the entity authors.
     state_names: HashSet<&'a str>,
     /// Variant names of the entity's `material` component, in authored order.
@@ -2997,6 +2999,7 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
         let mut facts = EntityFacts::of("spawn template");
         facts.is_spawn_template = true;
         validate_components(&context, &template.components, &mut facts)?;
+        validate_carry_items(&context, &template.components, level, &prop_ids)?;
         drop(
             index
                 .spawn_templates
@@ -3032,6 +3035,7 @@ fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, String> {
         let mut facts = EntityFacts::of("prop");
         facts.is_prop = true;
         validate_components(&context, &prop.components, &mut facts)?;
+        validate_carry_items(&context, &prop.components, level, &prop_ids)?;
         if prop.light_control().is_some()
             && (prop.float.is_some()
                 || prop.is_physics_movable()
@@ -3241,6 +3245,30 @@ fn validate_components<'a>(
     Ok(())
 }
 
+/// The carry reference is a placed item identity, for placed and spawned actors.
+fn validate_carry_items(
+    context: &str,
+    components: &[ComponentDef],
+    level: &LevelDef,
+    prop_ids: &[String],
+) -> Result<(), String> {
+    for component in components {
+        if let ComponentDef::Carry(carry) = component
+            && !level.props.iter().zip(prop_ids).any(|(item, identity)| {
+                identity == &carry.item
+                    && item.is_physics_movable()
+                    && item.physics.as_ref().is_some_and(|physics| physics.pickup)
+            })
+        {
+            return Err(format!(
+                "{context} carry item '{}' must name an authored movable pickup prop",
+                carry.item
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Cross-component physical requirements for anchored or navigating actors.
 fn validate_moving_components(context: &str, components: &[ComponentDef]) -> Result<(), String> {
     let has_ai = components
@@ -3258,6 +3286,15 @@ fn validate_moving_components(context: &str, components: &[ComponentDef]) -> Res
             }
         )
     });
+    if !has_ai
+        && components
+            .iter()
+            .any(|component| matches!(component, ComponentDef::Carry(_)))
+    {
+        return Err(format!(
+            "{context} authors carry without an AI locomotion owner"
+        ));
+    }
     if has_ai && !has_body {
         return Err(format!(
             "{context} authors an `ai` component without a `nav_agent` body; an agent needs \
@@ -3513,6 +3550,14 @@ fn validate_component_value<'a>(
             if !def.is_valid() {
                 return Err(format!(
                     "{context} `ai` component {i} has an invalid behavior, speed, range, tag, home_bounds, shelter or clip"
+                ));
+            }
+        }
+        ComponentDef::Carry(def) => {
+            facts.has_carry = true;
+            if !def.is_valid() {
+                return Err(format!(
+                    "{context} carry component {i} requires bounded names, offsets within 2 m and rotations within 360 degrees"
                 ));
             }
         }
@@ -4051,6 +4096,16 @@ fn validate_action(
         }
         ActionDef::ShowMessage { title, lines } => {
             crate::engine::level::validate_message(title, lines)?;
+        }
+        ActionDef::HandoffItem { target } | ActionDef::RetireHidden { target } => {
+            check_action_target(
+                action_context,
+                Some(target),
+                implicit,
+                index,
+                "an authored carry contract",
+                |facts| facts.has_carry,
+            )?;
         }
         ActionDef::Navigate { target, position } => {
             if position
@@ -5414,7 +5469,8 @@ fn validate_routes(level: &LevelDef) -> Result<(), String> {
                 | ComponentDef::Glow(_)
                 | ComponentDef::Balloon(_)
                 | ComponentDef::Ai(_)
-                | ComponentDef::LightResponse(_) => None,
+                | ComponentDef::LightResponse(_)
+                | ComponentDef::Carry(_) => None,
             })
             .unwrap_or_else(|| {
                 (

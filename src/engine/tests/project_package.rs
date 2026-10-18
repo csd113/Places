@@ -35,13 +35,25 @@ fn blob(blobs: &mut BTreeMap<String, Vec<u8>>, bytes: Vec<u8>) -> String {
 }
 
 fn fixture() -> Result<Fixture, String> {
+    fixture_with_menu_policy(false)
+}
+
+fn fixture_with_menu_policy(entry_only: bool) -> Result<Fixture, String> {
     let root = std::env::temp_dir().join(format!(
         "places-project-package-{}-{}",
         std::process::id(),
         SEQUENCE.fetch_add(1, Ordering::Relaxed)
     ));
     fs::create_dir(&root).map_err(|e| e.to_string())?;
-    let manifest = serde_json::json!({"schema":"places-project","project_format":1_u32,"id":"roundtrip","name":"Round trip","entry_level":"second","levels":[{"id":"entry","source":"levels/entry.json","display_name":"Friendly inactive map"},{"id":"second","source":"levels/second.json"}]});
+    let mut manifest = serde_json::json!({"schema":"places-project","project_format":1_u32,"id":"roundtrip","name":"Round trip","entry_level":"second","levels":[{"id":"entry","source":"levels/entry.json","display_name":"Friendly inactive map"},{"id":"second","source":"levels/second.json"}]});
+    if entry_only {
+        drop(
+            manifest
+                .as_object_mut()
+                .ok_or("Invalid manifest fixture")?
+                .insert("menu_entry_only".into(), true.into()),
+        );
+    }
     let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?;
     let authored = ProjectManifest::from_json(&manifest_bytes)?;
     let mut blobs = BTreeMap::new();
@@ -61,14 +73,30 @@ fn fixture() -> Result<Fixture, String> {
     let prepared_name = hash::blob_name(&prepared, ".fixture");
     let shared_blob = blob(&mut blobs, prepared.clone());
     for id in ["entry", "second"] {
-        let source = serde_json::json!({"schema":"places-level","format_version":1_u32,"id":id,"name":id,"spawn":{"x":1_u32,"z":1_u32},"rooms":[{"width":2_u32,"depth":2_u32,"height":2.5_f32,"editor_instance_id":"stable_room"}],"editor_placement_intent":{"version":1_u32,"ignores":[]},"future_setting":{"preserved":true}});
+        let mut source = serde_json::json!({"schema":"places-level","format_version":1_u32,"id":id,"name":id,"spawn":{"x":1_u32,"z":1_u32},"rooms":[{"width":2_u32,"depth":2_u32,"height":2.5_f32,"editor_instance_id":"stable_room"}],"editor_placement_intent":{"version":1_u32,"ignores":[]},"future_setting":{"preserved":true}});
+        if entry_only {
+            drop(
+                source
+                    .as_object_mut()
+                    .ok_or("Invalid source fixture")?
+                    .insert(
+                        "transitions".into(),
+                        serde_json::json!([if id == "entry" { "second" } else { "entry" }]),
+                    ),
+            );
+        }
         let source_bytes = serde_json::to_vec_pretty(&source).map_err(|e| e.to_string())?;
         let semantics = hash::blob_name(&source_bytes, ".record");
         let _old_source = index.sources.insert(
             ProjectPath::new(format!("levels/{id}.json"))?,
             blob(&mut blobs, source_bytes.clone()),
         );
-        let inner = serde_json::json!({"schema":"places-map","package_format":1_u32,"id":id,"name":id,"entries":[{"name":"semantics.json","role":"semantics","bytes":source_bytes.len(),"sha256":hash::sha256_hex(&source_bytes)},{"name":prepared_name,"role":"","bytes":prepared.len(),"sha256":hash::sha256_hex(&prepared)}],"variants":[{"lightmap_quality":"off","quality_profile":"low","entries":{"mesh":prepared_name,"props":prepared_name,"lighting":prepared_name,"collision":prepared_name,"navigation":prepared_name}}]});
+        let capabilities: Vec<&str> = if entry_only {
+            vec!["project-transitions-v1"]
+        } else {
+            Vec::new()
+        };
+        let inner = serde_json::json!({"schema":"places-map","package_format":1_u32,"id":id,"name":id,"required_capabilities":capabilities,"entries":[{"name":"semantics.json","role":"semantics","bytes":source_bytes.len(),"sha256":hash::sha256_hex(&source_bytes)},{"name":prepared_name,"role":"","bytes":prepared.len(),"sha256":hash::sha256_hex(&prepared)}],"variants":[{"lightmap_quality":"off","quality_profile":"low","entries":{"mesh":prepared_name,"props":prepared_name,"lighting":prepared_name,"collision":prepared_name,"navigation":prepared_name}}]});
         let inner_blob = blob(
             &mut blobs,
             serde_json::to_vec(&inner).map_err(|e| e.to_string())?,
@@ -103,6 +131,133 @@ impl Fixture {
         archive::write_archive(&path, entries)?;
         Ok(path)
     }
+}
+
+fn check_default_menu(fixture: &Fixture) -> Result<(), String> {
+    use crate::engine::loader::LevelManager;
+    let manager = LevelManager::with_paths(
+        fixture.root.clone(),
+        fixture.root.join("installed"),
+        fixture.root.join("import"),
+    );
+    assert_eq!(
+        manager.entries(),
+        manager.menu_entries(),
+        "existing projects retain every menu row by default"
+    );
+    assert_eq!(
+        manager
+            .entries()
+            .iter()
+            .map(|entry| entry.name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Round trip", "Round trip / Friendly inactive map"],
+        "entry title and inactive display-name behavior remain unchanged"
+    );
+    assert!(
+        serde_json::to_value(&fixture.index.project)
+            .map_err(|error| error.to_string())?
+            .get("menu_entry_only")
+            .is_none(),
+        "the default false policy does not rewrite existing manifests"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn entry_only_menu_retains_internal_routes_diagnostics_and_import_conflicts() -> Result<(), String>
+{
+    // Reuse two tiny discovery-only worlds to protect menu-index separation,
+    // reciprocal internal membership and conflict ownership. A few KiB of ZIP
+    // records are read; no asset, geometry decode, renderer or bake is involved.
+    use crate::engine::loader::LevelManager;
+
+    let ordinary = fixture()?;
+    let _ordinary_package = ordinary.write()?;
+    check_default_menu(&ordinary)?;
+
+    let collection = fixture_with_menu_policy(true)?;
+    let package = collection.write()?;
+    project::validate(&package, &|| Ok(()))?;
+    let mut manager = LevelManager::with_paths(
+        collection.root.clone(),
+        collection.root.join("installed"),
+        collection.root.join("import"),
+    );
+    assert_eq!(
+        manager.entries().len(),
+        2,
+        "all members remain discoverable"
+    );
+    assert_eq!(
+        manager.menu_entries().len(),
+        1,
+        "Explore has one project row"
+    );
+    assert_eq!(
+        manager.get_menu_entry(0).map(|entry| entry.id.as_str()),
+        Some("second"),
+        "visible index zero selects the declared entry, not the first source"
+    );
+    assert!(
+        manager.get_menu_entry(1).is_none(),
+        "hidden members have no menu index"
+    );
+    for (source, destination) in [("entry", "second"), ("second", "entry")] {
+        let opened = world::open_level(&package, source)?;
+        assert_eq!(
+            opened.level.id, source,
+            "direct diagnostics can open hidden members"
+        );
+        assert_eq!(opened.level.transitions, vec![destination.to_string()]);
+        assert!(
+            manager
+                .entries()
+                .iter()
+                .any(|entry| entry.path == package && entry.id == destination),
+            "both transition directions resolve within their own package"
+        );
+    }
+
+    // An ordinary incoming map conflicts only with the hidden member's ID.
+    let incoming = ordinary.root.join("hidden-member.placesmap");
+    let records = &ordinary
+        .index
+        .levels
+        .first()
+        .ok_or("Missing incoming map")?
+        .records;
+    let pending = records
+        .iter()
+        .map(|(name, record)| {
+            Ok(PendingEntry {
+                name: name.clone(),
+                bytes: ordinary
+                    .blobs
+                    .get(record)
+                    .ok_or("Missing incoming record")?
+                    .clone(),
+            })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    archive::write_archive(&incoming, pending)?;
+    let error = manager
+        .import_file(&incoming)
+        .err()
+        .ok_or("Hidden member conflict was accepted")?;
+    assert!(
+        error.contains("Map id 'entry'"),
+        "hidden membership owns its ID: {error}"
+    );
+    assert!(
+        !collection
+            .root
+            .join("installed/hidden-member.placesmap")
+            .exists(),
+        "conflict refusal publishes no incoming package"
+    );
+    Ok(())
 }
 
 #[test]

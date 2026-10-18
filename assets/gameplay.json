@@ -3390,7 +3390,12 @@
         "friction": 0.65,
         "restitution": 0.03,
         "linear_damping": 0.2,
-        "angular_damping": 0.3
+        "angular_damping": 0.3,
+        "water": {
+          "displaced_volume_m3": 0.024,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
       }
     },
     "janitor:cleaner_jug": {

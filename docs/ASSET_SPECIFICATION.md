@@ -1,5 +1,12 @@
 # Places Asset Specification
 
+Collection wayfinding plates (`collection:sign_*`) are file-backed RGBA PNG
+decals under `assets/shared/decals/collection_*.png`. Their transparent perimeter,
+upright typography and **4:1** aspect are mandatory: source 1024×256, placed at
+matching width/height (for example 3.6×0.9 m). They fit once and never tile.
+They use the existing decal cutout/depth-bias contract; no runtime text image
+generation or new asset class is introduced.
+
 Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 
 October 8, 2026 integration audit: colour/HDR, shared alpha sorting, prepared
@@ -2499,9 +2506,13 @@ Zero-duration poses hold, declared loops repeat, and door/handling/chair
 one-shots clamp at their distinct endpoints. The boundary checker respects
 explicit clip loop metadata. Baked root displacement remains relative to the
 actor placement; do not also transfer it into actor movement. Delivered event,
-root and contact tracks remain reference data for future controllers. Existing
-glow sockets follow posed nodes; no prop grasp, door synchronization or runtime
-IK is introduced. See the integration report and editable
+root and contact tracks remain reference data for future controllers. The asset
+integration stage added no prop grasp, door synchronization or runtime IK;
+existing glow sockets follow posed nodes. The later environment collection adds
+an explicit socket attachment and atomic held-item handoff using the unchanged
+approved `hand.R`, `carry_idle` and `carry_walk` data. This controller does not
+resize the model or add runtime IK. See the handoff contract in `SCRIPTING.md`,
+the integration report and editable
 `projects/mannequin-r2-review/` for the opt-in native review.
 
 ### 0.12.0 menu use of project thumbnails

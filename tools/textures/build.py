@@ -166,9 +166,14 @@ def validate_textures(
             )
         if sky and (width != 2 * height or not is_power_of_two(width) or not is_power_of_two(height)):
             errors.append(f"{texture_id}: sky must be 2:1 with power-of-two edges")
-        if width > PREFERRED_DIMENSION or height > PREFERRED_DIMENSION:
+        # Fitted hero plates have a documented source aspect/resolution; this
+        # advisory follows their owning offline manifest, not a square default.
+        preferred_width, preferred_height = MANIFEST.get(texture_id, {}).get(
+            "preferred_dimensions", (PREFERRED_DIMENSION, PREFERRED_DIMENSION)
+        )
+        if width > preferred_width or height > preferred_height:
             warnings.append(
-                f"{texture_id}: '{model}' is {width}x{height}, over the preferred {PREFERRED_DIMENSION}x{PREFERRED_DIMENSION}"
+                f"{texture_id}: '{model}' is {width}x{height}, over the preferred {preferred_width}x{preferred_height}"
             )
         if not is_power_of_two(width) or not is_power_of_two(height):
             warnings.append(f"{texture_id}: '{model}' is {width}x{height}, not a power of two")

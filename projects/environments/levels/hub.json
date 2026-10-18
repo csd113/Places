@@ -1,0 +1,905 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "hub",
+  "name": "Central Hub",
+  "author": "Places",
+  "spawn": {
+    "x": 12,
+    "z": 7,
+    "yaw_degrees": 0
+  },
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": 0,
+      "z": 3,
+      "width": 24,
+      "depth": 8,
+      "height": 3.8
+    },
+    {
+      "x": 0,
+      "z": 0,
+      "width": 6,
+      "depth": 3,
+      "height": 3.8,
+      "material": "home:hardwood_walnut_02"
+    },
+    {
+      "x": 6,
+      "z": 0,
+      "width": 6,
+      "depth": 3,
+      "height": 3.8,
+      "material": "core:pool_tile_deck_01"
+    },
+    {
+      "x": 12,
+      "z": 0,
+      "width": 6,
+      "depth": 3,
+      "height": 3.8,
+      "material": "core:carpet_damp_01"
+    },
+    {
+      "x": 18,
+      "z": 0,
+      "width": 6,
+      "depth": 3,
+      "height": 3.8,
+      "material": "arcade:carpet_retro_swirl_01"
+    },
+    {
+      "x": 0,
+      "z": 11,
+      "width": 6,
+      "depth": 3,
+      "height": 3.8,
+      "material": "outdoor:dirt_gravel_01"
+    },
+    {
+      "x": 6,
+      "z": 11,
+      "width": 6,
+      "depth": 3,
+      "height": 3.8,
+      "material": "winter:snow_packed_01"
+    },
+    {
+      "x": 12,
+      "z": 11,
+      "width": 6,
+      "depth": 3,
+      "height": 3.8,
+      "material": "beach:sand_01"
+    },
+    {
+      "x": 18,
+      "z": 11,
+      "width": 6,
+      "depth": 3,
+      "height": 3.8,
+      "material": "frutiger_aero:white_floor_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.24,
+      "z": 0,
+      "width": 0.24,
+      "depth": 14,
+      "height": 3.8
+    },
+    {
+      "x": 24,
+      "z": 0,
+      "width": 0.24,
+      "depth": 14,
+      "height": 3.8
+    },
+    {
+      "x": 0,
+      "z": 0,
+      "width": 6,
+      "depth": 0.24,
+      "height": 3.8,
+      "material": "home:wallpaper_pattern_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.4,
+          "width": 1.2,
+          "height": 2.3
+        }
+      ]
+    },
+    {
+      "x": 6,
+      "z": 0,
+      "width": 6,
+      "depth": 0.24,
+      "height": 3.8,
+      "material": "core:pool_tile_wall_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.4,
+          "width": 1.2,
+          "height": 2.3
+        }
+      ]
+    },
+    {
+      "x": 5.88,
+      "z": 0.24,
+      "width": 0.24,
+      "depth": 2.76,
+      "height": 3.8,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 12,
+      "z": 0,
+      "width": 6,
+      "depth": 0.24,
+      "height": 3.8,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.4,
+          "width": 1.2,
+          "height": 2.3
+        }
+      ]
+    },
+    {
+      "x": 11.88,
+      "z": 0.24,
+      "width": 0.24,
+      "depth": 2.76,
+      "height": 3.8,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 18,
+      "z": 0,
+      "width": 6,
+      "depth": 0.24,
+      "height": 3.8,
+      "material": "arcade:wall_navy_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.4,
+          "width": 1.2,
+          "height": 2.3
+        }
+      ]
+    },
+    {
+      "x": 17.88,
+      "z": 0.24,
+      "width": 0.24,
+      "depth": 2.76,
+      "height": 3.8,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 0,
+      "z": 13.76,
+      "width": 6,
+      "depth": 0.24,
+      "height": 3.8,
+      "material": "outdoor:house_siding_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.4,
+          "width": 1.2,
+          "height": 2.3
+        }
+      ]
+    },
+    {
+      "x": 6,
+      "z": 13.76,
+      "width": 6,
+      "depth": 0.24,
+      "height": 3.8,
+      "material": "winter:stone_masonry_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.4,
+          "width": 1.2,
+          "height": 2.3
+        }
+      ]
+    },
+    {
+      "x": 5.88,
+      "z": 11.24,
+      "width": 0.24,
+      "depth": 2.76,
+      "height": 3.8,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 12,
+      "z": 13.76,
+      "width": 6,
+      "depth": 0.24,
+      "height": 3.8,
+      "material": "beach:stucco_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.4,
+          "width": 1.2,
+          "height": 2.3
+        }
+      ]
+    },
+    {
+      "x": 11.88,
+      "z": 11.24,
+      "width": 0.24,
+      "depth": 2.76,
+      "height": 3.8,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 18,
+      "z": 13.76,
+      "width": 6,
+      "depth": 0.24,
+      "height": 3.8,
+      "material": "frutiger_aero:aqua_tile_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.4,
+          "width": 1.2,
+          "height": 2.3
+        }
+      ]
+    },
+    {
+      "x": 17.88,
+      "z": 11.24,
+      "width": 0.24,
+      "depth": 2.76,
+      "height": 3.8,
+      "material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "props": [
+    {
+      "id": "home_preview",
+      "model": "home:armchair",
+      "x": 1,
+      "z": 1.3,
+      "rotation_degrees": 0,
+      "solid": false
+    },
+    {
+      "id": "pool_preview",
+      "model": "pool:pool_bench",
+      "x": 7,
+      "z": 1.3,
+      "rotation_degrees": 0,
+      "solid": false
+    },
+    {
+      "id": "office_preview",
+      "model": "core:office_noticeboard",
+      "x": 12.05,
+      "z": 1.4,
+      "rotation_degrees": 90,
+      "solid": false,
+      "y": 1.25
+    },
+    {
+      "id": "arcade_preview",
+      "model": "arcade:bowling_pin",
+      "x": 19,
+      "z": 1.3,
+      "rotation_degrees": 0,
+      "solid": true,
+      "scale": 2,
+      "size": [
+        0.12,
+        0.38,
+        0.12
+      ]
+    },
+    {
+      "id": "lantern_hollow_preview",
+      "model": "outdoor:showcase_stump_seat",
+      "x": 1,
+      "z": 12.7,
+      "rotation_degrees": 180,
+      "solid": false
+    },
+    {
+      "id": "winter_preview",
+      "model": "winter:boulder_snow",
+      "x": 7,
+      "z": 12.7,
+      "rotation_degrees": 180,
+      "solid": false,
+      "scale": 0.7
+    },
+    {
+      "id": "beach_preview",
+      "model": "beach:crate",
+      "x": 13,
+      "z": 12.7,
+      "rotation_degrees": 180,
+      "solid": false
+    },
+    {
+      "id": "aero_preview",
+      "model": "frutiger_aero:accent_panel",
+      "x": 19.2,
+      "z": 13.55,
+      "rotation_degrees": 180,
+      "solid": false
+    },
+    {
+      "model": "pool:pool_bench",
+      "x": 8.4,
+      "z": 7,
+      "rotation_degrees": 90,
+      "size": [
+        1.6,
+        0.45,
+        0.38
+      ],
+      "solid": true
+    },
+    {
+      "model": "pool:pool_bench",
+      "x": 15.6,
+      "z": 7,
+      "rotation_degrees": 270,
+      "size": [
+        1.6,
+        0.45,
+        0.38
+      ],
+      "solid": true
+    },
+    {
+      "model": "core:plant",
+      "x": 12,
+      "z": 6,
+      "solid": true,
+      "size": [
+        0.5,
+        0.8,
+        0.5
+      ]
+    }
+  ],
+  "decals": [
+    {
+      "x": 3,
+      "y": 2.9,
+      "z": 0.241,
+      "width": 3.6,
+      "height": 0.9,
+      "material": "collection:sign_home",
+      "surface": "wall_south"
+    },
+    {
+      "x": 9,
+      "y": 2.9,
+      "z": 0.241,
+      "width": 3.6,
+      "height": 0.9,
+      "material": "collection:sign_pool",
+      "surface": "wall_south"
+    },
+    {
+      "x": 15,
+      "y": 2.9,
+      "z": 0.241,
+      "width": 3.6,
+      "height": 0.9,
+      "material": "collection:sign_office",
+      "surface": "wall_south"
+    },
+    {
+      "x": 21,
+      "y": 2.9,
+      "z": 0.241,
+      "width": 3.6,
+      "height": 0.9,
+      "material": "collection:sign_arcade",
+      "surface": "wall_south"
+    },
+    {
+      "x": 3,
+      "y": 2.9,
+      "z": 13.759,
+      "width": 3.6,
+      "height": 0.9,
+      "material": "collection:sign_lantern_hollow",
+      "surface": "wall_north"
+    },
+    {
+      "x": 9,
+      "y": 2.9,
+      "z": 13.759,
+      "width": 3.6,
+      "height": 0.9,
+      "material": "collection:sign_winter",
+      "surface": "wall_north"
+    },
+    {
+      "x": 15,
+      "y": 2.9,
+      "z": 13.759,
+      "width": 3.6,
+      "height": 0.9,
+      "material": "collection:sign_beach",
+      "surface": "wall_north"
+    },
+    {
+      "x": 21,
+      "y": 2.9,
+      "z": 13.759,
+      "width": 3.6,
+      "height": 0.9,
+      "material": "collection:sign_aero",
+      "surface": "wall_north"
+    },
+    {
+      "x": 0.001,
+      "y": 2.4,
+      "z": 7,
+      "width": 4,
+      "height": 1,
+      "material": "collection:sign_welcome",
+      "surface": "wall_east"
+    },
+    {
+      "x": 23.999,
+      "y": 2.4,
+      "z": 7,
+      "width": 4,
+      "height": 1,
+      "material": "collection:sign_hub",
+      "surface": "wall_west"
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "id": "bay_home",
+      "x": 3,
+      "z": 1.8,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.52,
+      "color": [
+        1,
+        0.9,
+        0.75
+      ]
+    },
+    {
+      "id": "bay_pool",
+      "x": 9,
+      "z": 1.8,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.52,
+      "color": [
+        1,
+        0.9,
+        0.75
+      ]
+    },
+    {
+      "id": "bay_office",
+      "x": 15,
+      "z": 1.8,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.52,
+      "color": [
+        1,
+        0.9,
+        0.75
+      ]
+    },
+    {
+      "id": "bay_arcade",
+      "x": 21,
+      "z": 1.8,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.52,
+      "color": [
+        1,
+        0.9,
+        0.75
+      ]
+    },
+    {
+      "id": "bay_lantern_hollow",
+      "x": 3,
+      "z": 12.2,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.52,
+      "color": [
+        0.8,
+        0.93,
+        1
+      ]
+    },
+    {
+      "id": "bay_winter",
+      "x": 9,
+      "z": 12.2,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.52,
+      "color": [
+        0.8,
+        0.93,
+        1
+      ]
+    },
+    {
+      "id": "bay_beach",
+      "x": 15,
+      "z": 12.2,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.52,
+      "color": [
+        0.8,
+        0.93,
+        1
+      ]
+    },
+    {
+      "id": "bay_aero",
+      "x": 21,
+      "z": 12.2,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.52,
+      "color": [
+        0.8,
+        0.93,
+        1
+      ]
+    },
+    {
+      "x": 3,
+      "z": 5,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.6,
+      "color": [
+        0.93,
+        0.97,
+        1
+      ]
+    },
+    {
+      "x": 3,
+      "z": 9,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.6,
+      "color": [
+        0.93,
+        0.97,
+        1
+      ]
+    },
+    {
+      "x": 9,
+      "z": 5,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.6,
+      "color": [
+        0.93,
+        0.97,
+        1
+      ]
+    },
+    {
+      "x": 9,
+      "z": 9,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.6,
+      "color": [
+        0.93,
+        0.97,
+        1
+      ]
+    },
+    {
+      "x": 15,
+      "z": 5,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.6,
+      "color": [
+        0.93,
+        0.97,
+        1
+      ]
+    },
+    {
+      "x": 15,
+      "z": 9,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.6,
+      "color": [
+        0.93,
+        0.97,
+        1
+      ]
+    },
+    {
+      "x": 21,
+      "z": 5,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.6,
+      "color": [
+        0.93,
+        0.97,
+        1
+      ]
+    },
+    {
+      "x": 21,
+      "z": 9,
+      "fixture": "core:fluorescent_panel_01",
+      "brightness": 0.6,
+      "color": [
+        0.93,
+        0.97,
+        1
+      ]
+    }
+  ],
+  "doors": [
+    {
+      "id": "to_home",
+      "x": 2.4,
+      "z": 0.12,
+      "width": 1.2,
+      "height": 2.3,
+      "material": "home:door_white_01",
+      "frame_material": "core:metal_brushed_01",
+      "handle_material": "core:metal_brass_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Enter Home",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "change_level",
+              "level": "home"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "to_pool",
+      "x": 8.4,
+      "z": 0.12,
+      "width": 1.2,
+      "height": 2.3,
+      "material": "home:door_white_01",
+      "frame_material": "core:metal_brushed_01",
+      "handle_material": "core:metal_brass_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Enter Pool",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "change_level",
+              "level": "pool"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "to_office",
+      "x": 14.4,
+      "z": 0.12,
+      "width": 1.2,
+      "height": 2.3,
+      "material": "home:door_white_01",
+      "frame_material": "core:metal_brushed_01",
+      "handle_material": "core:metal_brass_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Enter Office",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "change_level",
+              "level": "office"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "to_arcade",
+      "x": 20.4,
+      "z": 0.12,
+      "width": 1.2,
+      "height": 2.3,
+      "material": "home:door_white_01",
+      "frame_material": "core:metal_brushed_01",
+      "handle_material": "core:metal_brass_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Enter Cosmic Lanes",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "change_level",
+              "level": "arcade"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "to_lantern_hollow",
+      "x": 2.4,
+      "z": 13.88,
+      "width": 1.2,
+      "height": 2.3,
+      "material": "home:door_white_01",
+      "frame_material": "core:metal_brushed_01",
+      "handle_material": "core:metal_brass_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Enter Lantern Hollow",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "change_level",
+              "level": "lantern_hollow"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "to_winter",
+      "x": 8.4,
+      "z": 13.88,
+      "width": 1.2,
+      "height": 2.3,
+      "material": "home:door_white_01",
+      "frame_material": "core:metal_brushed_01",
+      "handle_material": "core:metal_brass_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Enter Winter",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "change_level",
+              "level": "winter"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "to_beach",
+      "x": 14.4,
+      "z": 13.88,
+      "width": 1.2,
+      "height": 2.3,
+      "material": "home:door_white_01",
+      "frame_material": "core:metal_brushed_01",
+      "handle_material": "core:metal_brass_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Enter Beach",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "change_level",
+              "level": "beach"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "to_aero",
+      "x": 20.4,
+      "z": 13.88,
+      "width": 1.2,
+      "height": 2.3,
+      "material": "home:door_white_01",
+      "frame_material": "core:metal_brushed_01",
+      "handle_material": "core:metal_brass_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Enter Frutiger Aero",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "change_level",
+              "level": "aero"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    "home",
+    "pool",
+    "office",
+    "arcade",
+    "lantern_hollow",
+    "winter",
+    "beach",
+    "aero"
+  ]
+}

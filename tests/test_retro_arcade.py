@@ -7,6 +7,8 @@ import unittest
 
 from tools.levels.birthday_compositions import PartyComposer
 
+from tools.levels.curated_maps import environment_source
+
 ROOT = Path(__file__).resolve().parents[1]
 CARPETS = ("cosmic_bowl", "neon_confetti", "starburst", "retro_swirl",
            "geometric", "arcade_grid")
@@ -17,7 +19,7 @@ class RetroArcadeContracts(unittest.TestCase):
     def setUpClass(cls):
         cls.assets = {entry["id"]: entry for entry in json.loads(
             (ROOT / "assets/catalog.json").read_text())["assets"]}
-        cls.level = json.loads((ROOT / "levels/retro_arcade_demo.json").read_text())
+        cls.level = json.loads((environment_source('arcade')).read_text())
 
     def document(self, name):
         path = ROOT / "assets" / self.assets["arcade:" + name]["model"]

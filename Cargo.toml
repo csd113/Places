@@ -172,3 +172,8 @@ opt-level = 1
 [[bin]]
 name = "editor-profile"
 path = "tools/rust/editor-profile/main.rs"
+
+# Explicit legacy migration and diagnostics, never a map-baking CI test.
+[[bin]]
+name = "environment-import-audit"
+path = "tools/rust/environment-import-audit/main.rs"

@@ -3,6 +3,7 @@
 mod actions;
 mod audio_runtime;
 mod authoring_trace;
+mod carry_runtime;
 mod console_input;
 mod flashlight;
 mod item_input;
@@ -413,7 +414,7 @@ fn configure_vsync(renderer: &mut Renderer, bench: &mut Bench, settings: &Settin
 /// Display names of the installed levels, in discovery order.
 fn level_entry_names(level_manager: &loader::LevelManager) -> Vec<String> {
     level_manager
-        .entries()
+        .menu_entries()
         .iter()
         .map(|entry| entry.name.clone())
         .collect()
@@ -1014,6 +1015,7 @@ impl FrameLoop<'_> {
             self.items.target = None;
         }
         if self.reconcile_audio_reset() {
+            self.reset_carry_assemblies();
             self.flashlight = flashlight::Power::Off;
             self.outcome = None;
             self.message = None;
@@ -1050,6 +1052,7 @@ impl FrameLoop<'_> {
             self.game.locomotion_snapshot(),
             self.game.entity_frames(),
         );
+        self.update_carry_attachments();
         for instance_id in &characters.finished {
             self.game
                 .entities_mut()
@@ -1139,6 +1142,7 @@ impl FrameLoop<'_> {
     /// The dispatcher itself is engine state ([`Game`]); this only narrates
     /// the outcome to the developer log, and never reaches into the renderer.
     fn dispatch_interaction(&mut self) {
+        self.observe_held_item();
         if self.dispatch_item_interaction() {
             return;
         }
@@ -1226,6 +1230,12 @@ impl FrameLoop<'_> {
                     crate::engine::logging::warn(format!(
                         "Transition destination '{level}' is unavailable in this package"
                     ));
+                }
+                crate::engine::entities::WorldCommand::HandoffItem { target } => {
+                    self.handoff_item(&target);
+                }
+                crate::engine::entities::WorldCommand::RetireHidden { target } => {
+                    self.request_carry_retirement(&target);
                 }
                 crate::engine::entities::WorldCommand::ActivatePhysicsGroup { group } => {
                     self.activate_item_group(&group);
@@ -2864,11 +2874,15 @@ impl FrameLoop<'_> {
 
     /// Level list: load the selected level, import packs, or go back.
     fn activate_level_select(&mut self) {
-        let num_levels = self.level_manager.entries().len();
+        let num_levels = self.level_manager.menu_entries().len();
         let selected = self.ui_state.level_select_idx;
         match selected.cmp(&num_levels) {
             // One of the installed levels: load it.
-            Ordering::Less => self.load_level_at(selected),
+            Ordering::Less => {
+                if let Some(entry) = self.level_manager.get_menu_entry(selected).cloned() {
+                    self.request_load(loading::Source::entry(entry), LoadIntent::Play);
+                }
+            }
             // `Import Levels`.
             Ordering::Equal => self.import_levels(),
             Ordering::Greater if selected == num_levels.saturating_add(1) => {
@@ -3273,6 +3287,10 @@ impl FrameLoop<'_> {
             drop(fields.insert(
                 "script_diagnostics".into(),
                 serde_json::json!(self.game.entities().script_diagnostics()),
+            ));
+            drop(fields.insert(
+                "carry_assemblies".into(),
+                self.items.carry.diagnostics(self.renderer),
             ));
             drop(fields.insert("outcome".into(), serde_json::json!(self.outcome)));
             drop(fields.insert("guidance".into(), serde_json::json!(self.message)));
@@ -4144,7 +4162,15 @@ fn select_initial_level(
 
 fn initial_level(level_manager: &loader::LevelManager) -> (Option<loader::LevelEntry>, bool) {
     let requested = std::env::var("PLACES_LEVEL").ok();
-    let selection = select_initial_level(level_manager.entries(), requested.as_deref());
+    let entries = if requested
+        .as_deref()
+        .is_some_and(|value| !value.trim().is_empty())
+    {
+        level_manager.entries()
+    } else {
+        level_manager.menu_entries()
+    };
+    let selection = select_initial_level(entries, requested.as_deref());
     if requested
         .as_deref()
         .is_some_and(|value| !value.trim().is_empty())
@@ -4208,9 +4234,9 @@ fn dispatch_paths_cli(args: &[String]) -> Result<bool, String> {
 ///
 /// One tab-separated row per playable entry: level id, source (`bundled`,
 /// `installed`) and package path.
-/// The rows are the same list the Level Select menu builds, so a quiet startup
-/// from any working directory or a staged packaged layout can be checked
-/// without a display or a GPU. Returns true when the flag was handled.
+/// Includes internal project members hidden by `menu_entry_only`, so diagnostic
+/// selection and complete installed membership can be checked without a display
+/// or GPU. Returns true when the flag was handled.
 // Startup CLI output has no logger to route through.
 #[expect(
     clippy::print_stdout,

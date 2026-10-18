@@ -81,6 +81,53 @@ pub(super) fn lighting(fixture: bool) -> Vec<F> {
         ),
     ]
 }
+pub(super) fn carry() -> Vec<F> {
+    vec![
+        F::new(
+            T::Component("carry"),
+            "item",
+            "Requested item identity",
+            K::Text,
+            "\"\"",
+        ),
+        F::new(
+            T::Component("carry"),
+            "socket",
+            "Animated hand node",
+            K::Text,
+            "\"hand.R\"",
+        ),
+        F::new(
+            T::Component("carry"),
+            "offset",
+            "Hand local offset metres",
+            K::Vector,
+            "[0,0,0]",
+        ),
+        F::new(
+            T::Component("carry"),
+            "rotation_degrees",
+            "Hand local XYZ degrees",
+            K::Vector,
+            "[0,0,0]",
+        ),
+        F::new(
+            T::Component("carry"),
+            "idle_clip",
+            "Carry idle clip",
+            K::Text,
+            "\"carry_idle\"",
+        ),
+        F::new(
+            T::Component("carry"),
+            "walk_clip",
+            "Carry walk clip",
+            K::Text,
+            "\"carry_walk\"",
+        ),
+    ]
+}
+
 pub(super) fn physics() -> Vec<F> {
     vec![
         F::new(T::Physics, "reset_group", "Reset group", K::Text, "\"\""),

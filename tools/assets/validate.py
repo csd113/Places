@@ -17,7 +17,8 @@ The checks here are the tooling half of the asset architecture:
   like the material's own ``texture``);
 * ``spooner-man`` is a single canonical entity resource under
   ``entities/spooner-man/``, never a duplicate prop file;
-* maintained sources in ``levels/`` and engine regression fixtures in
+* maintained collection sources in ``projects/environments/levels/``, legacy
+  standalone inputs in ``levels/`` and engine regression fixtures in
   ``tests/fixtures/levels/`` only
   reference ids the catalog declares, and their optional ``ceiling_lights[]``
   pool/emission fields, ``ceiling_lights[].enabled`` switch and
@@ -53,6 +54,7 @@ ASSET_ROOT = os.path.join(PACKAGE_ROOT, "assets")
 CATALOG_PATH = os.path.join(ASSET_ROOT, "catalog.json")
 LEVEL_DIRS = (
     os.path.join(PACKAGE_ROOT, "levels"),
+    os.path.join(PACKAGE_ROOT, "projects", "environments", "levels"),
     os.path.join(PACKAGE_ROOT, "tests", "fixtures", "levels"),
 )
 
@@ -93,6 +95,10 @@ MAX_LEVEL_LIGHT_SOURCES = 1_000_000
 # implements. Unknown tags are rejected by name; audio uses the same bounded
 # entity dispatcher as every other action. There is no `play_audio` tag.
 ACTION_TAGS = (
+    "change_level",
+    "run_script",
+    "handoff_item",
+    "retire_hidden",
     "navigate",
     "end_run",
     "show_message",
@@ -127,6 +133,10 @@ ACTION_TAGS = (
     "activate_physics_group",
 )
 IMPLEMENTED_ACTIONS = ACTION_TAGS
+PROJECT_RESERVED_BASENAMES = frozenset(
+    ("CON", "PRN", "AUX", "NUL", *(f"{prefix}{suffix}" for prefix in ("COM", "LPT")
+                                    for suffix in ("1", "2", "3", "4", "5", "6", "7", "8", "9", "¹", "²", "³")))
+)
 
 # Typed components, event kinds and condition checks the runtime defines
 # (src/engine/level.rs).
@@ -147,6 +157,7 @@ COMPONENT_TAGS = (
     "fade",
     "glow",
     "balloon",
+    "carry",
 )
 EVENT_KINDS = (
     "interact",
@@ -1629,6 +1640,7 @@ def _entity_facts(kind: str) -> Dict:
         "has_nav_agent": False,
         "has_ai": False,
         "has_balloon": False,
+        "has_carry": False,
         "state_names": set(),
         "material_variants": [],
     }
@@ -1856,6 +1868,20 @@ def _validate_components(context: str, components: object, facts: Dict, errors: 
                     for anchor in anchors
                 ):
                     errors.append(f"{entry} hide anchors must remain inside home_bounds")
+        elif tag == "carry":
+            facts["has_carry"] = True
+            facts["carry_item"] = component.get("item")
+            for key in ("item", "socket", "idle_clip", "walk_clip"):
+                value = component.get(key)
+                if (not isinstance(value, str) or not value or len(value.encode("utf-8")) > 96
+                    or any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in value)):
+                    errors.append(f"{entry} {key} requires a nonempty printable name within 96 bytes")
+            for key, limit in (("offset", 2.0), ("rotation_degrees", 360.0)):
+                value = component.get(key, [0.0, 0.0, 0.0])
+                if not isinstance(value, list) or len(value) != 3 or not all(
+                    is_finite_number(axis) and abs(axis) <= limit for axis in value
+                ):
+                    errors.append(f"{entry} {key} must be three finite axes within +/-{limit}")
         elif tag == "light_response":
             facts["has_light_response"] = True
             if not isinstance(component.get("reveal_only", False), bool):
@@ -2035,6 +2061,8 @@ def _validate_ai_body(context: str, facts: Dict, errors: List[str]) -> None:
         errors.append(
             f"{context} authors an `ai` component without a `nav_agent` body"
         )
+    if facts.get("has_carry") and not facts.get("has_ai"):
+        errors.append(f"{context} authors carry without an AI locomotion owner")
     if facts.get("has_light_response") and not facts.get("has_ai"):
         errors.append(f"{context} authors `light_response` without an `ai` component")
     if facts.get("has_balloon") and (facts.get("has_ai") or facts.get("has_nav_agent")):
@@ -2086,6 +2114,12 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
     groups: Dict[str, Dict] = {}
     points: Dict[str, Dict] = {}
     prop_ids = _resolve_prop_ids(level)
+    pickup_ids = {
+        identity for prop, identity in zip(level.get("props") or [], prop_ids)
+        if isinstance(prop, dict) and isinstance(prop.get("physics"), dict)
+        and prop["physics"].get("motion") in ("dynamic", "kinematic")
+        and prop["physics"].get("pickup", False) is True
+    }
     seen: Dict[str, str] = {}
 
     for index, prop in enumerate(level.get("props") or []):
@@ -2103,6 +2137,7 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
             errors.append(f"{context} display_name must not be blank when specified")
         _validate_components(context, prop.get("components"), facts, errors)
         _validate_ai_body(context, facts, errors)
+        _validate_carry_item(context, facts, pickup_ids, errors)
         if facts.get("has_balloon") and (
             prop.get("float") is not None
             or any(isinstance(route, dict) and str(route.get("id", "")).strip() == ident
@@ -2220,6 +2255,7 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
         facts["is_spawn_template"] = True
         _validate_components(context, template.get("components"), facts, errors)
         _validate_ai_body(context, facts, errors)
+        _validate_carry_item(context, facts, pickup_ids, errors)
         templates[ident] = facts
 
     group_seen: Dict[str, str] = {}
@@ -2243,6 +2279,13 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
         "weather_cycle": level.get("weather_cycle") is not None,
         "physics_reset_groups": _authored_physics_groups(level),
     }
+
+
+def _validate_carry_item(context: str, facts: Dict, pickup_ids: set, errors: List[str]) -> None:
+    if facts.get("has_carry"):
+        requested = facts.get("carry_item")
+        if not isinstance(requested, str) or requested not in pickup_ids:
+            errors.append(f"{context} carry item must name an authored movable pickup prop")
 
 
 def _resolve_subject(
@@ -2336,7 +2379,23 @@ def _validate_actions(
                     f"`{tag}` requires {requirement}"
                 )
 
-        if tag in ("reset_physics_group", "activate_physics_group"):
+        if tag == "change_level":
+            destination = action.get("level")
+            if not isinstance(destination, str) or destination not in index["transitions"]:
+                errors.append(f"{entry}: change_level requires a declared transition destination")
+        elif tag == "run_script":
+            script, handler = action.get("script"), action.get("handler")
+            parts = script.split("/") if isinstance(script, str) else []
+            if (not isinstance(script, str) or len(script.encode()) > 240 or len(parts) < 2
+                    or parts[0] != "scripts" or not parts[-1].endswith(".luau") or parts[-1] == ".luau"
+                    or any(part in ("", ".", "..") or part.endswith((" ", ".")) or part.startswith(" ")
+                           or part.split(".", 1)[0].upper() in PROJECT_RESERVED_BASENAMES
+                           or re.search(r'[<>:"\\|?*\x00-\x1f\x7f-\x9f]', part)
+                           for part in parts)):
+                errors.append(f"{entry}: run_script requires a confined scripts/*.luau path")
+            if not isinstance(handler, str) or re.fullmatch(r"[A-Za-z0-9_]{1,64}", handler) is None:
+                errors.append(f"{entry}: run_script handler requires 1..64 ASCII letters, digits or underscores")
+        elif tag in ("reset_physics_group", "activate_physics_group"):
             group = action.get("group")
             if not _is_reset_group(group) or group not in index["physics_reset_groups"]:
                 errors.append(f"{entry}: {tag} requires a declared movable physics group")
@@ -2404,6 +2463,10 @@ def _validate_actions(
                             f"{entry} ('change_material') targets a `material` component "
                             f"that declares no variant '{variant.strip()}'"
                         )
+        elif tag in ("handoff_item", "retire_hidden"):
+            if not isinstance(action.get("target"), str) or not action["target"].strip():
+                errors.append(f"{entry} ('{tag}') requires an explicit actor target")
+            require("an authored carry contract", lambda facts: facts.get("has_carry", False))
         elif tag == "navigate":
             position = action.get("position")
             if not isinstance(position, list) or len(position) != 3 or not all(is_finite_number(v) and abs(v) <= 100000 for v in position):
@@ -2856,6 +2919,18 @@ def validate_interactions(level: dict, where: str, errors: List[str]) -> None:
     tags are rejected.
     """
     index = _index_level_entities(level, where, errors)
+    transitions = level.get("transitions", [])
+    if (not isinstance(transitions, list) or len(transitions) > 256
+            or any(not isinstance(destination, str)
+                   or re.fullmatch(r"[a-z0-9_-]{1,96}", destination) is None
+                   or destination.upper() in PROJECT_RESERVED_BASENAMES
+                   for destination in transitions)):
+        errors.append(f"{where}: transitions require at most 256 stable project level IDs")
+        index["transitions"] = []
+    else:
+        index["transitions"] = transitions
+        if len(transitions) != len(set(transitions)):
+            errors.append(f"{where}: transitions must contain unique project level IDs")
     for position, prop in enumerate(level.get("props") or []):
         if isinstance(prop, dict) and prop.get("physics") is not None:
             errors.extend(validate_physics_profile(prop["physics"], f"{where} prop {position}", prop.get("scale", 1.0)))
@@ -3407,7 +3482,7 @@ def validate_static_prop_options(level: dict, where: str, errors: List[str]) -> 
 
 
 def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> Tuple[List[str], List[str]]:
-    """Returns ``(errors, warnings)`` for every shipped level, drop-in level and fixture.
+    """Returns ``(errors, warnings)`` for maintained sources and fixtures.
 
     ``level_dirs`` defaults to the shipped/drop-in/fixture directories; tests
     pass one temporary directory to validate a single authored level document.

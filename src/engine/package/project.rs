@@ -71,11 +71,20 @@ pub fn read_index<R: Read + Seek>(
         {
             return Err("Project package level identity/record count is invalid".into());
         }
+        let mut member_bytes = 0_u64;
         for (name, record) in &compiled.records {
             if super::normalize_entry_name(name).as_deref() != Some(name.as_str()) {
                 return Err("Unsafe virtual map entry".into());
             }
-            check_record(reader, record)?;
+            member_bytes = member_bytes
+                .checked_add(check_record(reader, record)?)
+                .ok_or("Project member byte total overflows")?;
+            if member_bytes > super::MAX_TOTAL_BYTES {
+                return Err(format!(
+                    "Project member '{}' exceeds the single-map byte limit",
+                    compiled.id
+                ));
+            }
             let _inserted = expected.insert(record.clone());
         }
     }
@@ -87,11 +96,13 @@ pub fn read_index<R: Read + Seek>(
         }
         let limit = source_limit(path)?;
         let size = reader.entry_size(record)?;
-        source_bytes = source_bytes.saturating_add(size);
+        source_bytes = source_bytes
+            .checked_add(size)
+            .ok_or("Project source byte total overflows")?;
         if size > limit || source_bytes > MAX_SOURCE_BYTES {
             return Err("Project source size limits exceeded".into());
         }
-        check_record(reader, record)?;
+        let _size = check_record(reader, record)?;
         let _inserted = expected.insert(record.clone());
     }
     if expected.iter().ne(reader.names().iter())
@@ -102,14 +113,15 @@ pub fn read_index<R: Read + Seek>(
     Ok(Some(index))
 }
 
-fn check_record<R: Read + Seek>(reader: &mut PackageReader<R>, name: &str) -> Result<(), String> {
+fn check_record<R: Read + Seek>(reader: &mut PackageReader<R>, name: &str) -> Result<u64, String> {
     if hash::sha256_from_blob_name(name).is_none() || !reader.contains(name) {
         return Err(format!("Invalid project blob: {name}"));
     }
-    if reader.entry_size(name)? > super::MAX_BINARY_BYTES {
+    let size = reader.entry_size(name)?;
+    if size > super::MAX_BINARY_BYTES {
         return Err(format!("Project blob exceeds entry limit: {name}"));
     }
-    Ok(())
+    Ok(size)
 }
 
 pub(crate) fn select<R: Read + Seek>(
@@ -189,7 +201,12 @@ pub fn validate(path: &Path, check: &impl Fn() -> Result<(), String>) -> Result<
         for name in reader.names().to_vec() {
             check()?;
             if name != INDEX {
-                drop(reader.read_blob(&name, super::MAX_BINARY_BYTES)?);
+                let _verified = reader.copy_entry_to(
+                    &name,
+                    super::MAX_BINARY_BYTES,
+                    &mut std::io::sink(),
+                    check,
+                )?;
             }
         }
     }
@@ -544,7 +561,7 @@ fn stage_package(
             break;
         }
         total = total.saturating_add(u64::try_from(count).unwrap_or(u64::MAX));
-        if total > super::archive::MAX_TRANSPORT_BYTES {
+        if total > super::archive::MAX_PROJECT_TRANSPORT_BYTES {
             return Err("Recovery source grew beyond the transport limit".into());
         }
         output

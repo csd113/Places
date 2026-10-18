@@ -5,6 +5,8 @@ from pathlib import Path
 import sys
 import unittest
 
+from tools.levels.curated_maps import environment_source
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/props'))
 sys.path.insert(0, str(ROOT / 'tools/levels'))
@@ -57,7 +59,7 @@ def world_triangles(level, prop, model):
 class WinterAssemblyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.level = author.build_level()
+        cls.level = json.loads(environment_source('winter').read_text())
         cls.props = {p['id']: p for p in cls.level['props']}
         cls.blanket = built_model('snow_roof_blanket')
 
@@ -73,7 +75,7 @@ class WinterAssemblyTests(unittest.TestCase):
             self.assertAlmostEqual(y, floor_at(self.level, x, z), places=5)
 
     def test_control_aim_boxes_are_explicit_and_do_not_overlap(self):
-        authored = json.loads((ROOT / 'levels/winter.json').read_text())
+        authored = json.loads((environment_source('winter')).read_text())
         controls = [p for p in authored['props'] if p['id'] in {
             'winter_blizzard_button', 'winter_weather_mild',
             'winter_weather_moderate', 'winter_weather_severe', 'winter_weather_timer'}]

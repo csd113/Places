@@ -11,6 +11,15 @@ reports should record the commands, binary hashes and measurement conditions.
 
 The current workflow uses the following tools:
 
+The hub collection's current route, quest, focus, screenshots, video and pacing
+acceptance lives in `tools/authoring/environment_acceptance.py` and
+`environment_audit.py`, against one complete project package. The older Office,
+Winter, Pool water, item/caustic and flashlight campaigns below retain their dated
+standalone IDs, input layouts and interaction expectations. Use their matching
+preserved sources/packages for historical reproduction; they do not establish
+acceptance of the redesigned collection. Likewise, ordinary-map archive/storage
+and hypothetical per-variant delivery tools do not analyze project bundles.
+
 | tool | what it does |
 | --- | --- |
 | `native_app.py` | historical macOS bundle launcher; prohibited for current staging validation |
@@ -108,7 +117,7 @@ python3 tools/bench/compiler_compare.py --baseline baseline/places-compile \
     --repeat 3 --label "documented desktop background load; own jobs sequential"
 python3 tools/bench/compiler_bench.py --binary target/release/places-compile \
     --out tools/bench/results/compiler-clean --repeat 3 \
-    --maps tests/fixtures/levels/test_room.json levels/office_demo.json
+    --maps tests/fixtures/levels/test_room.json tests/fixtures/levels/material_transport.json
 python3 tools/bench/compiler_bench.py --binary target/release/places-compile \
     --out tools/bench/results/compiler-scaling --repeat 3 --workers 1 2 4 8 12 \
     --maps tests/fixtures/levels/test_room.json

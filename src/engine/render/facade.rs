@@ -679,6 +679,35 @@ impl Renderer {
         self.renderer.character_count()
     }
 
+    /// Current posed node matrix, for actual physical prop attachment.
+    #[must_use]
+    pub fn character_socket_transform(&self, id: &str, socket: &str) -> Option<glam::Mat4> {
+        self.renderer.character_socket_transform(id, socket)
+    }
+
+    /// True only when the currently loaded actor has the authored clip.
+    #[must_use]
+    pub fn character_has_clip(&self, id: &str, clip: &str) -> bool {
+        self.renderer.character_has_clip(id, clip)
+    }
+
+    /// Actual current posed geometry bounds, independent of culling padding.
+    #[must_use]
+    pub fn character_posed_bounds(&self, id: &str) -> Option<crate::engine::spatial::Aabb> {
+        self.renderer.character_posed_bounds(id)
+    }
+
+    /// World bounds of the actual carried prop resource.
+    #[must_use]
+    pub fn runtime_model_world_bounds(&self, key: u64) -> Option<crate::engine::spatial::Aabb> {
+        self.renderer.runtime_model_world_bounds(key)
+    }
+
+    /// Explicit presence of either a placed or spawned character.
+    pub fn set_character_visible(&mut self, id: &str, visible: bool) -> bool {
+        self.renderer.set_character_visible(id, visible)
+    }
+
     /// Read-only character clocks/socket evidence for explicit native tracing.
     #[must_use]
     pub fn character_animation_diagnostics(&self, frames: &[EntityFrame]) -> serde_json::Value {

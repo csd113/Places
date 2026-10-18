@@ -73,9 +73,44 @@ pub const MAX_DYNAMIC_OBJECTS: usize = 256;
 
 /// Most distinct dynamic meshes one scene holds, each with a vertex buffer.
 ///
-/// Unused asset cache entries may be replaced at this bound. Live objects and
-/// explicitly registered model indices retain their own slots.
-pub const MAX_DYNAMIC_MESHES: usize = 16;
+/// One mesh per admitted object is legal, including separate door frames and
+/// leaves. Aggregate geometry retains the former sixteen-model worst case;
+/// many small movable models must not exhaust an unrelated demo-era slot cap.
+/// Unreferenced asset slots may be replaced; live and registered slots stay stable.
+pub const MAX_DYNAMIC_MESHES: usize = MAX_DYNAMIC_OBJECTS;
+
+const FORMER_DYNAMIC_MESH_LIMIT: usize = 16;
+const MAX_DYNAMIC_VERTEX_COUNT: usize =
+    FORMER_DYNAMIC_MESH_LIMIT.saturating_mul(crate::engine::level::MAX_PROP_VERTICES);
+const MAX_DYNAMIC_INDEX_COUNT: usize = FORMER_DYNAMIC_MESH_LIMIT
+    .saturating_mul(crate::engine::gltf::MAX_REVIEWED_PROP_TRIANGLES)
+    .saturating_mul(3);
+
+/// Checks lengths, not allocated fixture geometry. Checked sums also protect
+/// code-built registrations, whose callers do not pass through the GLB reader.
+fn aggregate_geometry_admitted(counts: impl Iterator<Item = (usize, usize)>) -> Result<(), String> {
+    let mut vertices = 0usize;
+    let mut indices = 0usize;
+    for (vertex_count, index_count) in counts {
+        vertices = vertices
+            .checked_add(vertex_count)
+            .ok_or_else(|| "aggregate dynamic mesh vertex count overflow".to_string())?;
+        indices = indices
+            .checked_add(index_count)
+            .ok_or_else(|| "aggregate dynamic mesh index count overflow".to_string())?;
+    }
+    if vertices > MAX_DYNAMIC_VERTEX_COUNT {
+        return Err(format!(
+            "aggregate dynamic mesh vertices {vertices} exceed {MAX_DYNAMIC_VERTEX_COUNT}"
+        ));
+    }
+    if indices > MAX_DYNAMIC_INDEX_COUNT {
+        return Err(format!(
+            "aggregate dynamic mesh indices {indices} exceed {MAX_DYNAMIC_INDEX_COUNT}"
+        ));
+    }
+    Ok(())
+}
 
 /// Historical movement threshold, retained for API compatibility. Runtime
 /// lighting follows exact sample positions; this value creates no dead zone.
@@ -1144,18 +1179,31 @@ impl DynamicScene {
         self.insert_mesh(mesh, false)
     }
 
-    /// Reuses only an unreferenced asset-cache slot when the table is full.
+    /// Reuses only an unreferenced asset-cache slot before growing the table.
     /// Object mesh indices and explicit registration handles remain stable.
     fn insert_mesh(&mut self, mesh: Arc<DynamicMesh>, registered: bool) -> Option<usize> {
-        let index = if self.meshes.len() < MAX_DYNAMIC_MESHES {
-            self.meshes.len()
-        } else {
-            self.meshes.iter().enumerate().find_map(|(slot, _)| {
-                (!self.registered_meshes.contains(&slot)
-                    && !self.objects.iter().any(|object| object.mesh_index == slot))
-                .then_some(slot)
-            })?
-        };
+        let reusable = self.meshes.iter().enumerate().find_map(|(slot, _)| {
+            (!self.registered_meshes.contains(&slot)
+                && !self.objects.iter().any(|object| object.mesh_index == slot))
+            .then_some(slot)
+        });
+        let index = reusable
+            .or_else(|| (self.meshes.len() < MAX_DYNAMIC_MESHES).then_some(self.meshes.len()))?;
+        let counts = self
+            .meshes
+            .iter()
+            .enumerate()
+            .filter_map(|(slot, current)| {
+                (slot != index).then_some((current.vertices.len(), current.indices.len()))
+            })
+            .chain(std::iter::once((mesh.vertices.len(), mesh.indices.len())));
+        if let Err(reason) = aggregate_geometry_admitted(counts) {
+            crate::engine::logging::warn_once(
+                format!("dynamic-mesh-budget:{}", mesh.model_path),
+                format!("[dynamic] cannot register `{}`: {reason}", mesh.model_path),
+            );
+            return None;
+        }
         let path = mesh.model_path.clone();
         if let Some(previous) = self.meshes.get_mut(index) {
             let _old_index = self.mesh_index_by_path.remove(&previous.model_path);
@@ -1803,3 +1851,7 @@ impl DynamicScene {
         spawned
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/dynamic_mesh_admission.rs"]
+mod tests;

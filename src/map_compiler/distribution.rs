@@ -5,6 +5,7 @@ use std::fs::{self, File};
 use crate::engine::package::{PackageReader, archive, hash, project};
 use crate::engine::project::ProjectFolder;
 
+use super::project_spool::ProjectSpool;
 use super::{BuildReport, BuildRequest, progress};
 
 pub(super) fn operation_report(request: &BuildRequest) -> BuildReport {
@@ -45,8 +46,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     let temporary = archive::create_temporary_directory(&request.out)?;
     let result = (|| {
         let staged_source = stage_sources(&temporary, &sources)?;
-        let mut blobs = BTreeMap::new();
-        let mut total = 0_u64;
+        let mut blobs = ProjectSpool::new(&temporary)?;
         let mut index = project::ProjectPackage {
             schema: "places-project-package".into(),
             package_format: 1,
@@ -55,7 +55,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
             sources: BTreeMap::new(),
         };
         for (path, bytes) in &sources {
-            let name = add_blob(&mut blobs, &mut total, bytes.clone())?;
+            let name = blobs.add_bytes(bytes)?;
             let _old = index.sources.insert(path.clone(), name);
         }
         let mut last_report = None;
@@ -71,22 +71,9 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
                 decision
             }));
             last_report = Some(built);
-            let mut reader =
-                PackageReader::new(File::open(&selected_output).map_err(|e| e.to_string())?)
-                    .map_err(|e| e.to_string())?;
-            let mut records = BTreeMap::new();
-            for name in reader.names().to_vec() {
-                progress::check_cancelled()?;
-                let bytes = reader.read_entry(&name, crate::engine::package::MAX_BINARY_BYTES)?;
-                let blob = add_blob(&mut blobs, &mut total, bytes)?;
-                let _old = records.insert(name, blob);
-            }
-            drop(reader);
-            fs::remove_file(&selected_output).map_err(|e| e.to_string())?;
-            index.levels.push(project::ProjectMap {
-                id: level.id.clone(),
-                records,
-            });
+            index
+                .levels
+                .push(spool_map(request, &selected_output, &level.id, &mut blobs)?);
         }
         let publication = progress::BuildScope::start(&request.source, Some("project export"));
         progress::stage("checking source snapshot and publishing project");
@@ -97,6 +84,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
             request,
             &index,
             blobs,
+            &temporary,
             report,
             || {
                 if project::snapshot(&folder, &progress::check_cancelled)? != sources {
@@ -134,6 +122,46 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     }
 }
 
+fn spool_map(
+    request: &BuildRequest,
+    path: &std::path::Path,
+    id: &str,
+    spool: &mut ProjectSpool,
+) -> Result<project::ProjectMap, String> {
+    let scope = progress::BuildScope::start(&request.source, Some("project spool"));
+    let result = (|| {
+        progress::stage(format!(
+            "streaming {id} prepared records to owned disk staging"
+        ));
+        let mut reader = PackageReader::new(File::open(path).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+        let mut records = BTreeMap::new();
+        for name in reader.names().to_vec() {
+            progress::check_cancelled()?;
+            let blob = spool.add_entry(&mut reader, &name, &progress::check_cancelled)?;
+            let _old = records.insert(name, blob);
+        }
+        drop(reader);
+        fs::remove_file(path).map_err(|e| e.to_string())?;
+        progress::stage(format!(
+            "spooled {id}: {} unique records, {} record bytes",
+            spool.len(),
+            spool.total()
+        ));
+        Ok(project::ProjectMap {
+            id: id.into(),
+            records,
+        })
+    })();
+    scope.finish(
+        &result
+            .as_ref()
+            .map(|_| operation_report(request))
+            .map_err(Clone::clone),
+    );
+    result
+}
+
 fn build_staged(
     request: &BuildRequest,
     source: &std::path::Path,
@@ -156,24 +184,6 @@ fn build_staged(
         ));
     }
     Ok(report)
-}
-
-fn add_blob(
-    blobs: &mut BTreeMap<String, Vec<u8>>,
-    total: &mut u64,
-    bytes: Vec<u8>,
-) -> Result<String, String> {
-    let name = hash::blob_name(&bytes, ".record");
-    if !blobs.contains_key(&name) {
-        *total = total.saturating_add(u64::try_from(bytes.len()).unwrap_or(u64::MAX));
-        if *total > crate::engine::package::MAX_TOTAL_BYTES
-            || blobs.len() >= crate::engine::package::MAX_ENTRIES.saturating_sub(1)
-        {
-            return Err("Project exceeds package size/record limits".into());
-        }
-        let _old = blobs.insert(name.clone(), bytes);
-    }
-    Ok(name)
 }
 
 fn output_identity(path: &std::path::Path) -> Result<Option<String>, String> {
@@ -207,8 +217,9 @@ fn check_destination(output: &std::path::Path, id: &str) -> Result<(), String> {
 
 fn package_entries(
     index: &project::ProjectPackage,
-    blobs: BTreeMap<String, Vec<u8>>,
-) -> Result<(Vec<archive::PendingEntry>, String), String> {
+    blobs: ProjectSpool,
+    temporary: &std::path::Path,
+) -> Result<(Vec<archive::SpoolEntry>, String), String> {
     let index_bytes = serde_json::to_vec(index).map_err(|e| e.to_string())?;
     if u64::try_from(index_bytes.len()).unwrap_or(u64::MAX)
         > crate::engine::package::MAX_MANIFEST_BYTES
@@ -216,13 +227,20 @@ fn package_entries(
         return Err("Project index exceeds 2 MiB".into());
     }
     let fingerprint = hash::sha256_hex(&index_bytes);
-    let mut entries: Vec<_> = blobs
-        .into_iter()
-        .map(|(name, bytes)| archive::PendingEntry { name, bytes })
-        .collect();
-    entries.push(archive::PendingEntry {
+    let index_path = temporary.join("project.json");
+    let mut index_file = fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&index_path)
+        .map_err(|error| error.to_string())?;
+    std::io::Write::write_all(&mut index_file, &index_bytes).map_err(|error| error.to_string())?;
+    drop(index_file);
+    let mut entries = blobs.into_entries();
+    entries.push(archive::SpoolEntry {
         name: project::INDEX.into(),
-        bytes: index_bytes,
+        path: index_path,
+        bytes: u64::try_from(index_bytes.len()).map_err(|error| error.to_string())?,
+        sha256: fingerprint.clone(),
     });
     Ok((entries, fingerprint))
 }
@@ -252,13 +270,14 @@ fn stage_sources(
 fn publish(
     request: &BuildRequest,
     index: &project::ProjectPackage,
-    blobs: BTreeMap<String, Vec<u8>>,
+    blobs: ProjectSpool,
+    temporary: &std::path::Path,
     mut report: BuildReport,
     publish_check: impl Fn() -> Result<(), String>,
     started: std::time::Instant,
 ) -> Result<BuildReport, String> {
-    let (entries, fingerprint) = package_entries(index, blobs)?;
-    archive::write_archive_guarded(
+    let (entries, fingerprint) = package_entries(index, blobs, temporary)?;
+    archive::write_project_archive_files_guarded(
         &request.out,
         entries,
         progress::check_cancelled,

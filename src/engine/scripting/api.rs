@@ -186,6 +186,35 @@ pub(super) fn host<'scope>(
         })?,
     )?;
     api.set(
+        "held_item",
+        capability(scope, calls, move |_, ()| {
+            Ok(world.script_held_item.clone())
+        })?,
+    )?;
+    for (name, retiring) in [("handoff", false), ("retire_hidden", true)] {
+        api.set(
+            name,
+            capability(scope, calls, move |_, value: HostString| {
+                let id = entity(world, value)?;
+                if !world
+                    .handle_of(&id)
+                    .is_some_and(|h| world.components().carries.contains(h))
+                {
+                    return Err(error("Target requires an authored carry component"));
+                }
+                push(
+                    queue,
+                    limit,
+                    if retiring {
+                        ActionDef::RetireHidden { target: id }
+                    } else {
+                        ActionDef::HandoffItem { target: id }
+                    },
+                )
+            })?,
+        )?;
+    }
+    api.set(
         "actor",
         capability(scope, calls, move |vm, value: HostString| {
             let id = entity(world, value)?;
@@ -203,6 +232,12 @@ pub(super) fn host<'scope>(
             result.set("illuminated", response.is_some_and(|r| r.active))?;
             result.set("intensity", response.map_or(0.0, |r| r.intensity))?;
             result.set("player_visible", world.script_visible.contains(&handle))?;
+            let carry = world.components().carries.get(handle);
+            result.set(
+                "carried_item",
+                carry.and_then(|ownership| ownership.item.as_deref()),
+            )?;
+            result.set("retired", carry.is_some_and(|ownership| ownership.retired))?;
             result.set(
                 "shadow_only",
                 world

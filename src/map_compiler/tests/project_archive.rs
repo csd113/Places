@@ -118,3 +118,46 @@ fn project_provenance_and_cache_seed_select_and_verify_exact_records() -> Result
     );
     Ok(())
 }
+
+// Revision admission must follow actual stored recipes, including a reusable
+// v1 recipe. Empty real PMP1 records yield tiny raw-only recipes: no assets,
+// geometry build or segment fetch is needed to exercise capability emission.
+#[test]
+fn shared_props_capability_tracks_the_stored_recipe_revision() -> Result<(), String> {
+    use crate::engine::package::{manifest::KNOWN_CAPABILITIES, props, shared_props};
+    let original = props::write_props(&[])?;
+    let factored = shared_props::factor_props(&[&original])?;
+    let current = factored.recipes.first().ok_or("Missing current recipe")?;
+    let mut previous = current.clone();
+    previous
+        .get_mut(4..6)
+        .ok_or("Missing recipe version")?
+        .copy_from_slice(&1_u16.to_le_bytes());
+    let stored = |bytes: Vec<u8>| archive::PendingEntry {
+        name: hash::blob_name(&bytes, ".props.recipe"),
+        bytes,
+    };
+    assert!(
+        !super::super::blobs_need_shared_props_v2(&[stored(previous)])?,
+        "a stored v1 recipe retains its supported capability when reused"
+    );
+    assert!(
+        super::super::blobs_need_shared_props_v2(&[stored(current.clone())])?,
+        "a stored v2 recipe requires early v2 admission"
+    );
+    assert!(
+        KNOWN_CAPABILITIES.contains(&"props-shared-streams")
+            && KNOWN_CAPABILITIES.contains(&"props-shared-streams-v2"),
+        "current hosts retain v1 support and explicitly admit v2"
+    );
+    let mut future = current.clone();
+    future
+        .get_mut(4..6)
+        .ok_or("Missing recipe version")?
+        .copy_from_slice(&u16::MAX.to_le_bytes());
+    assert!(
+        super::super::blobs_need_shared_props_v2(&[stored(future)]).is_err(),
+        "an unsupported recipe cannot be silently labelled as v2"
+    );
+    Ok(())
+}

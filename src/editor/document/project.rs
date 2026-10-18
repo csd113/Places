@@ -4,6 +4,74 @@ use crate::engine::project::{MANIFEST_NAME, ProjectFolder, ProjectLevel, Project
 use std::io::Write as _;
 
 impl Document {
+    /// Imports one standalone JSON map under its existing stable ID. Original
+    /// bytes, unknown fields and per-placement intent remain unchanged. The
+    /// source is declared only after complete validated, no-replace publication.
+    ///
+    /// # Errors
+    /// Refuses duplicate IDs/files, invalid source, undeclared destinations and
+    /// external script dependencies. It never guesses IDs or copies scripts.
+    pub fn import_level(&mut self, source: &std::path::Path) -> Result<String, String> {
+        let bytes = crate::engine::project::read_bounded_file(
+            source,
+            crate::engine::level::MAX_LEVEL_JSON_BYTES,
+        )?;
+        super::source::check_editable_source(&bytes)?;
+        let raw: serde_json::Value =
+            serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+        let id = raw
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .ok_or("Imported map needs an explicit stable ID")?;
+        let (level, _byte_count) = persistence::validate_raw(&raw, id)?;
+        if !level.scripts.is_empty() || !level.script_sources.is_empty() {
+            return Err("Standalone JSON import cannot resolve script dependencies; recover the owning project instead".into());
+        }
+        let mut manifest = self.manifest().clone();
+        let target = ProjectPath::new(format!("levels/{id}.json"))?;
+        manifest.levels.push(ProjectLevel {
+            id: id.into(),
+            source: target.clone(),
+            display_name: level.name.clone(),
+            description: String::new(),
+            thumbnail: None,
+            scripts: Vec::new(),
+        });
+        manifest.validate()?;
+        for destination in &level.transitions {
+            let _declared = manifest.level(Some(destination))?;
+        }
+        let levels = self.root().join("levels");
+        if std::fs::symlink_metadata(&levels)
+            .map_err(|error| error.to_string())?
+            .file_type()
+            .is_symlink()
+            || std::fs::canonicalize(&levels).map_err(|error| error.to_string())? != levels
+        {
+            return Err("Levels directory must be a real directory inside this project".into());
+        }
+        self.save_all()?;
+        let path = self.root().join(target.as_str());
+        persistence::atomic_create(&path, &bytes)?;
+        if let Err(error) = self.publish_manifest(&manifest) {
+            // Delete only the exact source this operation published. A source
+            // changed concurrently stays available for explicit recovery.
+            if crate::engine::project::read_bounded_file(
+                &path,
+                crate::engine::level::MAX_LEVEL_JSON_BYTES,
+            )
+            .is_ok_and(|current| current == bytes)
+            {
+                std::fs::remove_file(&path).map_err(|cleanup| {
+                    format!("{error}; imported source cleanup failed: {cleanup}")
+                })?;
+            }
+            return Err(error);
+        }
+        self.select_level(id)?;
+        Ok(id.into())
+    }
+
     /// Updates explicit permitted destinations in the ordinary per-level history.
     /// # Errors
     /// Refuses unknown or duplicate IDs and breaking existing action references.
@@ -136,6 +204,16 @@ impl Document {
             }
             _ => return Err("Unsupported project metadata field".into()),
         }
+        self.publish_manifest(&manifest)
+    }
+
+    /// Saves edits and changes only the project's visible menu membership.
+    /// # Errors
+    /// Refuses external manifest changes or invalid metadata before publication.
+    pub fn set_menu_entry_only(&mut self, entry_only: bool) -> Result<(), String> {
+        self.save_all()?;
+        let mut manifest = self.manifest().clone();
+        manifest.menu_entry_only = entry_only;
         self.publish_manifest(&manifest)
     }
 

@@ -807,6 +807,14 @@ impl WgpuCharacters {
             .map(|gpu_character| gpu_character.environment.bind_group())
     }
 
+    /// Immediately publishes explicit presence for all mesh and shadow passes.
+    pub fn set_presence(&mut self, character: usize, visible: bool, casts_shadow: bool) {
+        if let Some(entry) = self.characters.get_mut(character) {
+            entry.visible = visible;
+            entry.casts_flashlight_shadow = casts_shadow;
+        }
+    }
+
     /// One character's world bounds.
     #[must_use]
     pub fn world_bounds(&self, character: usize) -> Option<Aabb> {

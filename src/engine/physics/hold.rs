@@ -380,20 +380,18 @@ impl ItemWorld {
         true
     }
 
-    /// Releases from the latest checked carry pose. A newly overlapping wall,
-    /// door, player or ceiling keeps the item held and returns false.
-    /// Velocity comes only from bounded player translation, never hand teleports.
-    pub fn drop(&mut self) -> bool {
+    /// Checks whether the held item's current pose permits an ordinary drop.
+    /// Refreshes collision queries without releasing or moving the item.
+    pub fn can_drop(&mut self) -> bool {
         let Some(runtime) = self.runtime.as_mut() else {
             return false;
         };
-        let Some(held) = runtime.held.as_ref() else {
-            return false;
-        };
-        let key = held.key;
-        let angular_velocity = held.angular_velocity;
         runtime.refresh_queries();
-        let Some(entry) = runtime.entries.get_mut(&key) else {
+        let Some(entry) = runtime
+            .held
+            .as_ref()
+            .and_then(|held| runtime.entries.get(&held.key))
+        else {
             return false;
         };
         let Some(body) = runtime.world.bodies.get(entry.body) else {
@@ -415,6 +413,31 @@ impl ItemWorld {
         {
             return false;
         }
+        true
+    }
+
+    /// Releases from the latest checked carry pose. A newly overlapping wall,
+    /// door, player or ceiling keeps the item held and returns false.
+    /// Velocity comes only from bounded player translation, never hand teleports.
+    pub fn drop(&mut self) -> bool {
+        if !self.can_drop() {
+            return false;
+        }
+        let Some(runtime) = self.runtime.as_mut() else {
+            return false;
+        };
+        let Some(held) = runtime.held.as_ref() else {
+            return false;
+        };
+        let key = held.key;
+        let angular_velocity = held.angular_velocity;
+        let Some(entry) = runtime.entries.get_mut(&key) else {
+            return false;
+        };
+        let Some(body) = runtime.world.bodies.get(entry.body) else {
+            return false;
+        };
+        let candidate = *body.position();
         let Some(released_body) = runtime.world.bodies.get_mut(entry.body) else {
             return false;
         };

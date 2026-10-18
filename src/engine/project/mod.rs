@@ -58,6 +58,9 @@ pub struct ProjectManifest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thumbnail: Option<ProjectPath>,
     pub entry_level: String,
+    /// Show only the entry map in Explore while retaining every internal member.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub menu_entry_only: bool,
     pub levels: Vec<ProjectLevel>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub scripts: Vec<ProjectPath>,

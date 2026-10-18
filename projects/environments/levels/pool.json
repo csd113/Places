@@ -1,0 +1,3417 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "pool",
+  "name": "Pool \u2014 After Hours",
+  "author": "Places",
+  "spawn": {
+    "x": 2.7,
+    "z": 2.2,
+    "yaw_degrees": 140.0
+  },
+  "defaults": {
+    "wall": "core:pool_tile_wall_01",
+    "floor": "core:pool_tile_deck_01",
+    "ceiling": "core:pool_ceiling_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 16.0,
+      "depth": 11.0
+    },
+    {
+      "x": 16.0,
+      "z": 4.0,
+      "width": 3.5,
+      "depth": 2.4,
+      "height": 3.0
+    },
+    {
+      "x": 19.5,
+      "z": 2.4,
+      "width": 5.5,
+      "depth": 5.0,
+      "height": 3.2,
+      "material": "core:pool_tile_basin_01"
+    },
+    {
+      "x": 0,
+      "z": 11,
+      "width": 16,
+      "depth": 11,
+      "height": 4,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
+    },
+    {
+      "x": 16,
+      "z": 11,
+      "width": 5,
+      "depth": 5,
+      "height": 3,
+      "material": "home:tile_home_01",
+      "ceiling_material": "home:ceiling_plaster_01"
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 4.0,
+      "z": 3.0,
+      "width": 9.0,
+      "depth": 4.5,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 9.0,
+      "z": 7.5,
+      "width": 4.0,
+      "depth": 0.9,
+      "offset_y": -0.35,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.3281,
+      "z": 9.165,
+      "width": 0.0781,
+      "depth": 0.87,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.4062,
+      "z": 8.9948,
+      "width": 0.0781,
+      "depth": 1.2103,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.4844,
+      "z": 8.8713,
+      "width": 0.0781,
+      "depth": 1.4574,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.5625,
+      "z": 8.7732,
+      "width": 0.0781,
+      "depth": 1.6536,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.6406,
+      "z": 8.6923,
+      "width": 0.0781,
+      "depth": 1.8155,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.7188,
+      "z": 8.6242,
+      "width": 0.0781,
+      "depth": 1.9516,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.7969,
+      "z": 8.5665,
+      "width": 0.0781,
+      "depth": 2.067,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.875,
+      "z": 8.5175,
+      "width": 0.0781,
+      "depth": 2.1651,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.9531,
+      "z": 8.476,
+      "width": 0.0781,
+      "depth": 2.248,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.0312,
+      "z": 8.4412,
+      "width": 0.0781,
+      "depth": 2.3176,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.1094,
+      "z": 8.4126,
+      "width": 0.0781,
+      "depth": 2.3748,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.1875,
+      "z": 8.3897,
+      "width": 0.0781,
+      "depth": 2.4206,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.2656,
+      "z": 8.3722,
+      "width": 0.0781,
+      "depth": 2.4557,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.3438,
+      "z": 8.3598,
+      "width": 0.0781,
+      "depth": 2.4804,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.4219,
+      "z": 8.3524,
+      "width": 0.0781,
+      "depth": 2.4951,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.5,
+      "z": 8.3524,
+      "width": 0.0781,
+      "depth": 2.4951,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.5781,
+      "z": 8.3598,
+      "width": 0.0781,
+      "depth": 2.4804,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.6562,
+      "z": 8.3722,
+      "width": 0.0781,
+      "depth": 2.4557,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.7344,
+      "z": 8.3897,
+      "width": 0.0781,
+      "depth": 2.4206,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.8125,
+      "z": 8.4126,
+      "width": 0.0781,
+      "depth": 2.3748,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.8906,
+      "z": 8.4412,
+      "width": 0.0781,
+      "depth": 2.3176,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 7.9688,
+      "z": 8.476,
+      "width": 0.0781,
+      "depth": 2.248,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.0469,
+      "z": 8.5175,
+      "width": 0.0781,
+      "depth": 2.1651,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.125,
+      "z": 8.5665,
+      "width": 0.0781,
+      "depth": 2.067,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.2031,
+      "z": 8.6242,
+      "width": 0.0781,
+      "depth": 1.9516,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.2812,
+      "z": 8.6923,
+      "width": 0.0781,
+      "depth": 1.8155,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.3594,
+      "z": 8.7732,
+      "width": 0.0781,
+      "depth": 1.6536,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.4375,
+      "z": 8.8713,
+      "width": 0.0781,
+      "depth": 1.4574,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.5156,
+      "z": 8.9948,
+      "width": 0.0781,
+      "depth": 1.2103,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 8.5938,
+      "z": 9.165,
+      "width": 0.0781,
+      "depth": 0.87,
+      "offset_y": -1.5,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 9.105,
+      "z": 5.5,
+      "width": 1.19,
+      "depth": 0.333333,
+      "offset_y": -1.305,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-water-demo] Hidden player support under the six 20 cm ceramic treads."
+    },
+    {
+      "x": 9.105,
+      "z": 5.833333,
+      "width": 1.19,
+      "depth": 0.333333,
+      "offset_y": -1.105,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-water-demo] Hidden player support under the six 20 cm ceramic treads."
+    },
+    {
+      "x": 9.105,
+      "z": 6.166667,
+      "width": 1.19,
+      "depth": 0.333333,
+      "offset_y": -0.905,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-water-demo] Hidden player support under the six 20 cm ceramic treads."
+    },
+    {
+      "x": 9.105,
+      "z": 6.5,
+      "width": 1.19,
+      "depth": 0.333333,
+      "offset_y": -0.705,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-water-demo] Hidden player support under the six 20 cm ceramic treads."
+    },
+    {
+      "x": 9.105,
+      "z": 6.833333,
+      "width": 1.19,
+      "depth": 0.333333,
+      "offset_y": -0.505,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-water-demo] Hidden player support under the six 20 cm ceramic treads."
+    },
+    {
+      "x": 9.105,
+      "z": 7.166667,
+      "width": 1.19,
+      "depth": 0.333333,
+      "offset_y": -0.305,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_basin_01",
+      "comment": "[pool-water-demo] Hidden player support under the six 20 cm ceramic treads."
+    },
+    {
+      "x": 4,
+      "z": 14,
+      "width": 8,
+      "depth": 4.5,
+      "offset_y": -1.2,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.15,
+      "z": -0.15,
+      "width": 16.3,
+      "depth": 0.3,
+      "height": 4.0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.13,
+          "width": 1.24,
+          "height": 2.2
+        }
+      ]
+    },
+    {
+      "x": -0.15,
+      "z": 10.85,
+      "width": 16.3,
+      "depth": 0.3,
+      "height": 4.0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.33,
+          "width": 1.44,
+          "height": 2.2
+        }
+      ]
+    },
+    {
+      "x": -0.15,
+      "z": -0.15,
+      "width": 0.3,
+      "depth": 11.3,
+      "height": 4.0
+    },
+    {
+      "x": 15.85,
+      "z": -0.15,
+      "width": 0.3,
+      "depth": 11.3,
+      "height": 4.0,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 4.75,
+          "width": 1.2,
+          "height": 2.1
+        }
+      ]
+    },
+    {
+      "x": 15.85,
+      "z": 3.85,
+      "width": 3.8,
+      "depth": 0.3,
+      "height": 3.0
+    },
+    {
+      "x": 15.85,
+      "z": 6.25,
+      "width": 3.8,
+      "depth": 0.3,
+      "height": 3.0
+    },
+    {
+      "x": 19.35,
+      "z": 2.25,
+      "width": 0.3,
+      "depth": 5.3,
+      "height": 3.2,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.35,
+          "width": 1.2,
+          "height": 2.1
+        }
+      ]
+    },
+    {
+      "x": 19.35,
+      "z": 2.25,
+      "width": 5.8,
+      "depth": 0.3,
+      "height": 3.2
+    },
+    {
+      "x": 19.35,
+      "z": 7.25,
+      "width": 5.8,
+      "depth": 0.3,
+      "height": 3.2
+    },
+    {
+      "x": 24.85,
+      "z": 2.25,
+      "width": 0.3,
+      "depth": 5.3,
+      "height": 3.2
+    },
+    {
+      "x": -0.15,
+      "z": 11.15,
+      "width": 0.3,
+      "depth": 10.7,
+      "material": "core:pool_tile_wall_01",
+      "height": 4
+    },
+    {
+      "x": -0.15,
+      "z": 21.85,
+      "width": 16.3,
+      "depth": 0.3,
+      "material": "core:pool_tile_wall_01",
+      "height": 4
+    },
+    {
+      "x": 15.85,
+      "z": 11.15,
+      "width": 0.3,
+      "depth": 10.7,
+      "material": "core:pool_tile_wall_01",
+      "height": 4,
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 1.53,
+          "width": 1.44,
+          "height": 2.2,
+          "sill": 0.0
+        }
+      ]
+    },
+    {
+      "x": 16.15,
+      "z": 10.85,
+      "width": 5,
+      "depth": 0.3,
+      "material": "home:wall_paint_offwhite_01",
+      "height": 3
+    },
+    {
+      "x": 16.15,
+      "z": 15.85,
+      "width": 5,
+      "depth": 0.3,
+      "material": "home:wall_paint_offwhite_01",
+      "height": 3
+    },
+    {
+      "x": 20.85,
+      "z": 11.15,
+      "width": 0.3,
+      "depth": 4.7,
+      "material": "home:wall_paint_offwhite_01",
+      "height": 3
+    }
+  ],
+  "decals": [
+    {
+      "x": 4.5,
+      "y": 0.0,
+      "z": 8.2,
+      "width": 0.9,
+      "height": 0.9,
+      "rotation_degrees": 0.0,
+      "material": "core:decal_no_diving_01",
+      "surface": "floor"
+    },
+    {
+      "x": 8.5,
+      "z": 4.45,
+      "y": -1.5,
+      "width": 8.0,
+      "height": 0.25,
+      "material": "pool:decal_lane_01",
+      "surface": "floor",
+      "comment": "[pool-water-demo] Existing navy basin lane sheet at its exact 32:1 fitted aspect."
+    },
+    {
+      "x": 8.5,
+      "z": 6.05,
+      "y": -1.5,
+      "width": 8.0,
+      "height": 0.25,
+      "material": "pool:decal_lane_01",
+      "surface": "floor",
+      "comment": "[pool-water-demo] Existing navy basin lane sheet at its exact 32:1 fitted aspect."
+    },
+    {
+      "x": 1.6,
+      "y": 2.55,
+      "z": 0.158,
+      "width": 2.4,
+      "height": 0.6,
+      "material": "collection:sign_hub",
+      "surface": "wall_south",
+      "rotation_degrees": 0
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:pool_light_round",
+      "x": 4.0,
+      "z": 2.8,
+      "brightness": 0.9,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 8.0,
+      "z": 2.8,
+      "brightness": 0.9,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 12.0,
+      "z": 2.8,
+      "brightness": 0.9,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 4.0,
+      "z": 8.4,
+      "brightness": 0.9,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 8.0,
+      "z": 8.4,
+      "brightness": 0.9,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 12.0,
+      "z": 8.4,
+      "brightness": 0.6,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 17.75,
+      "z": 5.2,
+      "brightness": 0.7,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 20.9,
+      "z": 3.6,
+      "brightness": 0.7,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ],
+      "id": "pool_changing_light_a",
+      "switchable": true,
+      "switch_group": "pool_service",
+      "static_switch": "prepared"
+    },
+    {
+      "fixture": "core:pool_light_round",
+      "x": 23.6,
+      "z": 5.8,
+      "brightness": 0.7,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ],
+      "id": "pool_changing_light_b",
+      "switchable": true,
+      "switch_group": "pool_service",
+      "static_switch": "prepared"
+    },
+    {
+      "fixture": "core:pool_light_wall",
+      "x": 4.0,
+      "y": 2.1,
+      "z": 0.15,
+      "rotation_degrees": 0.0,
+      "mount": "wall",
+      "brightness": 0.8,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_wall",
+      "x": 9.0,
+      "y": 2.1,
+      "z": 10.85,
+      "rotation_degrees": 180.0,
+      "mount": "wall",
+      "brightness": 0.8,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_wall",
+      "x": 15.85,
+      "y": 2.1,
+      "z": 3.0,
+      "rotation_degrees": 270.0,
+      "mount": "wall",
+      "brightness": 0.7,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "fixture": "core:pool_light_wall",
+      "x": 15.85,
+      "y": 2.1,
+      "z": 8.8,
+      "rotation_degrees": 270.0,
+      "mount": "wall",
+      "brightness": 0.7,
+      "color": [
+        0.74,
+        0.84,
+        1.0
+      ]
+    },
+    {
+      "id": "pool_second_light_0",
+      "fixture": "core:pool_light_round",
+      "x": 3,
+      "z": 12.5,
+      "brightness": 0.65,
+      "color": [
+        0.74,
+        0.9,
+        1
+      ],
+      "align": "none"
+    },
+    {
+      "id": "pool_second_light_1",
+      "fixture": "core:pool_light_round",
+      "x": 8,
+      "z": 12.5,
+      "brightness": 0.65,
+      "color": [
+        0.74,
+        0.9,
+        1
+      ],
+      "align": "none"
+    },
+    {
+      "id": "pool_second_light_2",
+      "fixture": "core:pool_light_round",
+      "x": 13,
+      "z": 12.5,
+      "brightness": 0.65,
+      "color": [
+        0.74,
+        0.9,
+        1
+      ],
+      "align": "none"
+    },
+    {
+      "id": "pool_second_light_3",
+      "fixture": "core:pool_light_round",
+      "x": 3,
+      "z": 20.5,
+      "brightness": 0.65,
+      "color": [
+        0.74,
+        0.9,
+        1
+      ],
+      "align": "none"
+    },
+    {
+      "id": "pool_second_light_4",
+      "fixture": "core:pool_light_round",
+      "x": 8,
+      "z": 20.5,
+      "brightness": 0.65,
+      "color": [
+        0.74,
+        0.9,
+        1
+      ],
+      "align": "none"
+    },
+    {
+      "id": "pool_second_light_5",
+      "fixture": "core:pool_light_round",
+      "x": 13,
+      "z": 20.5,
+      "brightness": 0.65,
+      "color": [
+        0.74,
+        0.9,
+        1
+      ],
+      "align": "none"
+    },
+    {
+      "id": "pool_closet_light",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 18.5,
+      "z": 13.5,
+      "y": 2.998,
+      "brightness": 0.38,
+      "emission": 0.65,
+      "range": 5,
+      "align": "none",
+      "switchable": true,
+      "switch_group": "pool_service",
+      "static_switch": "prepared"
+    }
+  ],
+  "props": [
+    {
+      "model": "core:pool_ladder",
+      "x": 12.805,
+      "z": 5.25,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.55,
+        2.2,
+        0.45
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "fixed",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                -0.242,
+                1.0115,
+                -0.185
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "half_height": 0.9715,
+                "radius": 0.027
+              }
+            },
+            {
+              "offset": [
+                -0.242,
+                1.745,
+                0.185
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "half_height": 0.238,
+                "radius": 0.027
+              }
+            },
+            {
+              "offset": [
+                0.242,
+                1.0115,
+                -0.185
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "half_height": 0.9715,
+                "radius": 0.027
+              }
+            },
+            {
+              "offset": [
+                0.242,
+                1.745,
+                0.185
+              ],
+              "shape": {
+                "kind": "cylinder",
+                "half_height": 0.238,
+                "radius": 0.027
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.3465,
+                -0.162
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.23,
+                  0.0165,
+                  0.0575
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.6765,
+                -0.162
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.23,
+                  0.0165,
+                  0.0575
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                1.0065,
+                -0.162
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.23,
+                  0.0165,
+                  0.0575
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                1.3365,
+                -0.162
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.23,
+                  0.0165,
+                  0.0575
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "id": "pool_imported_0"
+    },
+    {
+      "model": "core:pool_table",
+      "x": 11.3,
+      "z": 9.1,
+      "size": [
+        0.8,
+        0.74,
+        0.8
+      ],
+      "solid": true,
+      "id": "pool_water_demo_control",
+      "display_name": "Water physics demo",
+      "components": [
+        {
+          "component": "interactable",
+          "reach": 2.5,
+          "prompt": "Restore pool objects"
+        },
+        {
+          "component": "audio",
+          "sound": "ambience_water",
+          "gain": 0.65,
+          "looped": true,
+          "enabled": true,
+          "playing": true,
+          "time_domain": "world"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "reset_physics_group",
+              "group": "pool_water_demo"
+            }
+          ]
+        }
+      ],
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "model": "core:pool_chair",
+      "x": 10.3,
+      "z": 9.1,
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "solid": true,
+      "rotation_degrees": 90.0,
+      "id": "pool_imported_2",
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "model": "core:pool_chair",
+      "x": 12.3,
+      "z": 9.1,
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "solid": true,
+      "rotation_degrees": 270.0,
+      "id": "pool_imported_3",
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "model": "core:pool_curtain_corner",
+      "x": 24.4875,
+      "z": 3.0125,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.6,
+        2.6,
+        0.6
+      ],
+      "id": "pool_imported_4"
+    },
+    {
+      "model": "core:pool_curtain_straight",
+      "x": 24.2,
+      "z": 3.94,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.22,
+        2.6,
+        1.2
+      ],
+      "id": "pool_imported_5"
+    },
+    {
+      "model": "core:pool_curtain_end",
+      "x": 24.2,
+      "z": 4.855,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.22,
+        2.6,
+        0.6
+      ],
+      "id": "pool_imported_6"
+    },
+    {
+      "model": "core:pool_guardrail_end",
+      "x": 5.7,
+      "z": 2.9,
+      "size": [
+        0.6,
+        1.05,
+        0.08
+      ],
+      "solid": true,
+      "id": "pool_imported_7",
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "model": "core:pool_guardrail_straight",
+      "x": 7.0,
+      "z": 2.9,
+      "size": [
+        2.0,
+        1.05,
+        0.08
+      ],
+      "solid": true,
+      "id": "pool_imported_8",
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "model": "core:pool_guardrail_straight",
+      "x": 9.0,
+      "z": 2.9,
+      "size": [
+        2.0,
+        1.05,
+        0.08
+      ],
+      "solid": true,
+      "id": "pool_imported_9",
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "model": "core:pool_guardrail_straight",
+      "x": 11.0,
+      "z": 2.9,
+      "size": [
+        2.0,
+        1.05,
+        0.08
+      ],
+      "solid": true,
+      "id": "pool_imported_10",
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "model": "core:pool_guardrail_corner",
+      "x": 12.29,
+      "z": 2.6125,
+      "rotation_degrees": 180.0,
+      "size": [
+        0.6,
+        1.05,
+        0.6
+      ],
+      "solid": true,
+      "id": "pool_imported_11",
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "model": "core:pool_guardrail_straight",
+      "x": 3.9,
+      "z": 5.5,
+      "rotation_degrees": 90.0,
+      "size": [
+        2.0,
+        1.05,
+        0.08
+      ],
+      "solid": true,
+      "id": "pool_imported_12",
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "model": "core:pool_guardrail_end",
+      "x": 3.9,
+      "z": 6.8,
+      "rotation_degrees": 90.0,
+      "size": [
+        0.6,
+        1.05,
+        0.08
+      ],
+      "solid": true,
+      "id": "pool_imported_13",
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "model": "core:crate",
+      "x": 0.8,
+      "z": 0.9,
+      "size": [
+        0.6,
+        0.6,
+        0.6
+      ],
+      "solid": false,
+      "id": "pool_imported_14",
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.3,
+            0.3,
+            0.3
+          ]
+        },
+        "mass_kg": 8.0,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "reset_group": "pool_water_demo"
+      }
+    },
+    {
+      "model": "core:cardboard_box",
+      "x": 1.5,
+      "z": 0.65,
+      "rotation_degrees": 30.0,
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": false,
+      "id": "pool_imported_15",
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.25,
+            0.25,
+            0.25
+          ]
+        },
+        "mass_kg": 1.5,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "reset_group": "pool_water_demo"
+      }
+    },
+    {
+      "model": "core:hot_tub",
+      "x": 7.5,
+      "z": 9.6,
+      "size": [
+        2.6,
+        1.56,
+        2.6
+      ],
+      "solid": false,
+      "id": "pool_imported_16"
+    },
+    {
+      "model": "pool:pool_bench",
+      "x": 2.0,
+      "z": 9.7,
+      "size": [
+        1.6,
+        0.45,
+        0.38
+      ],
+      "solid": true,
+      "comment": "[pool-concept] Native construction reference prop.",
+      "id": "pool_imported_17",
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 4.3,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-concept] Native construction reference prop.",
+      "id": "pool_imported_18"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 4.902,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_19"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 5.504,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_20"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 6.106,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_21"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 6.708,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_22"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 7.31,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_23"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 7.912,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_24"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 8.514,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_25"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 9.116,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_26"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 9.718,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_27"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 10.32,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_28"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 10.922,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_29"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 11.524,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_30"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 12.126,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_31"
+    },
+    {
+      "model": "pool:pool_drain",
+      "x": 12.728,
+      "z": 2.53,
+      "size": [
+        0.6,
+        0.014,
+        0.16
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Existing 60 cm overflow grate with 2 mm construction joint.",
+      "id": "pool_imported_32"
+    },
+    {
+      "id": "pool_safety_notice",
+      "model": "pool:pool_safety_sign",
+      "x": 7.5,
+      "z": 0.157,
+      "y": 1.4,
+      "size": [
+        0.3,
+        0.4,
+        0.0125
+      ],
+      "solid": false,
+      "comment": "[pool-water-demo] Framed safety sign replaces the flat wall notice at the same station."
+    },
+    {
+      "id": "pool_perimeter_plant",
+      "model": "pool:pool_potted_plant",
+      "x": 0.65,
+      "z": 9.6,
+      "size": [
+        0.32,
+        0.32,
+        0.32
+      ],
+      "solid": true,
+      "comment": "[pool-water-demo] One planter beside the existing perimeter bench, clear of spawn and deck lanes.",
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "id": "pool_entry_steps_0",
+      "model": "pool:pool_entry_steps",
+      "x": 9.7,
+      "z": 6.0,
+      "y": -0.395,
+      "rotation_degrees": 180,
+      "size": [
+        1.2,
+        0.6,
+        1.0035
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "fixed",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.1,
+                0.3333333333333333
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.6,
+                  0.1,
+                  0.16666666666666666
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.2,
+                0.0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.6,
+                  0.2,
+                  0.16666666666666666
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.30000000000000004,
+                -0.3333333333333333
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.6,
+                  0.30000000000000004,
+                  0.16666666666666666
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "comment": "[pool-water-demo] Submerged entry module; local +Z is the low step, yaw 180 rises toward the shelf."
+    },
+    {
+      "id": "pool_entry_steps_1",
+      "model": "pool:pool_entry_steps",
+      "x": 9.7,
+      "z": 7.0,
+      "y": -0.395,
+      "rotation_degrees": 180,
+      "size": [
+        1.2,
+        0.6,
+        1.0035
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "fixed",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.1,
+                0.3333333333333333
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.6,
+                  0.1,
+                  0.16666666666666666
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.2,
+                0.0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.6,
+                  0.2,
+                  0.16666666666666666
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.30000000000000004,
+                -0.3333333333333333
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.6,
+                  0.30000000000000004,
+                  0.16666666666666666
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "comment": "[pool-water-demo] Submerged entry module; local +Z is the low step, yaw 180 rises toward the shelf."
+    },
+    {
+      "id": "pool_physics_duck",
+      "model": "core:rubber_duck",
+      "x": 13.7,
+      "z": 17.6,
+      "y": 0.74,
+      "scale": 1.0,
+      "rotation_degrees": 180.0,
+      "size": [
+        0.1,
+        0.12,
+        0.145
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.05,
+            0.06,
+            0.0725
+          ]
+        },
+        "mass_kg": 0.065,
+        "friction": 0.6,
+        "restitution": 0.08,
+        "linear_damping": 0.05,
+        "angular_damping": 0.15,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 0.00065,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        },
+        "reset_group": "pool_water_demo"
+      },
+      "comment": "Accepted duck; physical pickup and buoyancy, dormant on a dry table at load."
+    },
+    {
+      "id": "pool_physics_sink",
+      "model": "core:washer_drum",
+      "x": 14,
+      "z": 6.7,
+      "y": 0,
+      "size": [
+        0.42,
+        0.3,
+        0.42
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "friction": 0.5,
+        "restitution": 0.02,
+        "linear_damping": 0.1,
+        "angular_damping": 0.2,
+        "reset_group": "pool_water_demo",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.21,
+            0.15,
+            0.21
+          ]
+        },
+        "mass_kg": 6.4,
+        "water": {
+          "displaced_volume_m3": 0.0008,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        }
+      },
+      "comment": "[pool-water-demo] Dense perforated basket grounded on dry deck for pickup; only its metal displaces water."
+    },
+    {
+      "id": "pool_second_duck_table",
+      "model": "core:pool_table",
+      "x": 13.7,
+      "z": 17.6,
+      "y": 0.0,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.8,
+        0.74,
+        0.8
+      ],
+      "solid": true,
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "id": "pool_second_bench",
+      "model": "pool:pool_bench",
+      "x": 1.4,
+      "z": 16.2,
+      "y": 0.0,
+      "rotation_degrees": 90,
+      "size": [
+        1.6,
+        0.45,
+        0.38
+      ],
+      "solid": true,
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "id": "pool_second_plant",
+      "model": "pool:pool_potted_plant",
+      "x": 14.6,
+      "z": 20.5,
+      "y": 0.0,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.588164,
+        0.860127,
+        0.56167
+      ],
+      "solid": true,
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "id": "pool_second_notice",
+      "model": "pool:pool_safety_sign",
+      "x": 8,
+      "z": 21.835,
+      "y": 1.35,
+      "rotation_degrees": 180,
+      "size": [
+        0.3,
+        0.4,
+        0.0125
+      ],
+      "solid": false
+    },
+    {
+      "id": "pool_changing_bench",
+      "model": "pool:pool_bench",
+      "x": 22,
+      "z": 6.8,
+      "y": 0.0,
+      "rotation_degrees": 180,
+      "size": [
+        1.6,
+        0.45,
+        0.38
+      ],
+      "solid": true,
+      "physics": {
+        "motion": "fixed"
+      }
+    },
+    {
+      "id": "pool_changing_towel",
+      "model": "janitor:folded_towel_blue",
+      "x": 22,
+      "z": 6.8,
+      "y": 0.45,
+      "rotation_degrees": 0.0,
+      "size": [
+        0.360001,
+        0.057001,
+        0.276
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.25,
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.18000000715255737,
+            0.02850000187754631,
+            0.13650000095367432
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3,
+        "reset_group": "pool_supplies"
+      }
+    },
+    {
+      "id": "pool_changing_switch",
+      "model": "home:wall_switch",
+      "x": 19.67,
+      "z": 6.7,
+      "y": 1.2,
+      "rotation_degrees": 90,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "reach": 2.0,
+          "prompt": "Service lights"
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "toggle",
+              "target": "pool_changing_light_a"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pool_closet_metal_storage_rack",
+      "model": "janitor:metal_storage_rack",
+      "physics": {
+        "motion": "fixed",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.15,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.58,
+                  0.0125,
+                  0.235
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.65,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.58,
+                  0.0125,
+                  0.235
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                1.15,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.58,
+                  0.0125,
+                  0.235
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                1.65,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.58,
+                  0.0125,
+                  0.235
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                -0.575,
+                0.95,
+                -0.235
+              ],
+              "shape": {
+                "half_extents": [
+                  0.022,
+                  0.95,
+                  0.022
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                -0.575,
+                0.95,
+                0.235
+              ],
+              "shape": {
+                "half_extents": [
+                  0.022,
+                  0.95,
+                  0.022
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0.575,
+                0.95,
+                -0.235
+              ],
+              "shape": {
+                "half_extents": [
+                  0.022,
+                  0.95,
+                  0.022
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0.575,
+                0.95,
+                0.235
+              ],
+              "shape": {
+                "half_extents": [
+                  0.022,
+                  0.95,
+                  0.022
+                ],
+                "kind": "cuboid"
+              }
+            }
+          ]
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        1.230001,
+        1.9,
+        0.545001
+      ],
+      "solid": true,
+      "x": 17.5,
+      "y": 0,
+      "z": 11.95
+    },
+    {
+      "id": "pool_closet_utility_sink",
+      "model": "janitor:utility_sink",
+      "physics": {
+        "motion": "fixed",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.6225,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.335,
+                  0.0225,
+                  0.265
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.7675,
+                -0.2425
+              ],
+              "shape": {
+                "half_extents": [
+                  0.335,
+                  0.1225,
+                  0.0225
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.7675,
+                0.2425
+              ],
+              "shape": {
+                "half_extents": [
+                  0.335,
+                  0.1225,
+                  0.0225
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                -0.3125,
+                0.7675,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.0225,
+                  0.1225,
+                  0.22
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0.3125,
+                0.7675,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.0225,
+                  0.1225,
+                  0.22
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                -0.27,
+                0.31,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.0175,
+                  0.31,
+                  0.2175
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0.27,
+                0.31,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.0175,
+                  0.31,
+                  0.2175
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.13,
+                -0.2
+              ],
+              "shape": {
+                "half_extents": [
+                  0.28,
+                  0.011,
+                  0.011
+                ],
+                "kind": "cuboid"
+              }
+            }
+          ]
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.67,
+        0.89,
+        0.53
+      ],
+      "solid": true,
+      "x": 19.6,
+      "y": 0,
+      "z": 11.95
+    },
+    {
+      "id": "pool_closet_janitor_cart",
+      "model": "janitor:janitor_cart",
+      "physics": {
+        "angular_damping": 0.3,
+        "friction": 0.65,
+        "linear_damping": 0.2,
+        "mass_kg": 18,
+        "motion": "dynamic",
+        "pickup": false,
+        "reset_group": "pool_supplies",
+        "restitution": 0.03,
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.17,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.36,
+                  0.0175,
+                  0.225
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                -0.17,
+                0.51,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.19,
+                  0.0175,
+                  0.225
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                -0.17,
+                0.87,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.19,
+                  0.0175,
+                  0.225
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0.19,
+                0.5,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.145,
+                  0.31,
+                  0.19
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                -0.29,
+                0.065,
+                -0.17
+              ],
+              "shape": {
+                "kind": "sphere",
+                "radius": 0.065
+              }
+            },
+            {
+              "offset": [
+                -0.29,
+                0.065,
+                0.17
+              ],
+              "shape": {
+                "kind": "sphere",
+                "radius": 0.065
+              }
+            },
+            {
+              "offset": [
+                0.29,
+                0.065,
+                -0.17
+              ],
+              "shape": {
+                "kind": "sphere",
+                "radius": 0.065
+              }
+            },
+            {
+              "offset": [
+                0.29,
+                0.065,
+                0.17
+              ],
+              "shape": {
+                "kind": "sphere",
+                "radius": 0.065
+              }
+            }
+          ]
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.730001,
+        0.9375,
+        0.660001
+      ],
+      "solid": true,
+      "x": 19.65,
+      "y": 0,
+      "z": 13.5
+    },
+    {
+      "id": "pool_closet_string_mop",
+      "model": "janitor:string_mop",
+      "physics": {
+        "angular_damping": 0.3,
+        "friction": 0.65,
+        "linear_damping": 0.2,
+        "mass_kg": 0.8,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "pool_supplies",
+        "restitution": 0.03,
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.12,
+                0
+              ],
+              "shape": {
+                "kind": "sphere",
+                "radius": 0.12
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.95,
+                0
+              ],
+              "shape": {
+                "half_height": 0.56,
+                "kind": "cylinder",
+                "radius": 0.016
+              }
+            }
+          ]
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.256564,
+        1.513582,
+        0.252109
+      ],
+      "solid": false,
+      "x": 17.0,
+      "y": 0,
+      "z": 13.65
+    },
+    {
+      "id": "pool_closet_mop_wringer_bucket",
+      "model": "janitor:mop_wringer_bucket",
+      "physics": {
+        "motion": "dynamic",
+        "pickup": false,
+        "mass_kg": 5,
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.09,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.24,
+                  0.04,
+                  0.191
+                ]
+              }
+            },
+            {
+              "offset": [
+                -0.215,
+                0.3,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.025,
+                  0.18,
+                  0.191
+                ]
+              }
+            },
+            {
+              "offset": [
+                0.215,
+                0.3,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.025,
+                  0.18,
+                  0.191
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.3,
+                -0.166
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.19,
+                  0.18,
+                  0.025
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.3,
+                0.166
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.19,
+                  0.18,
+                  0.025
+                ]
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.58,
+                -0.1
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.18,
+                  0.1,
+                  0.09
+                ]
+              }
+            },
+            {
+              "offset": [
+                -0.19,
+                0.04,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.04,
+                  0.04,
+                  0.15
+                ]
+              }
+            },
+            {
+              "offset": [
+                0.19,
+                0.04,
+                0
+              ],
+              "shape": {
+                "kind": "cuboid",
+                "half_extents": [
+                  0.04,
+                  0.04,
+                  0.15
+                ]
+              }
+            }
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3,
+        "reset_group": "pool_supplies"
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.480001,
+        0.978944,
+        0.382
+      ],
+      "solid": true,
+      "x": 17.8,
+      "y": 0,
+      "z": 13.6
+    },
+    {
+      "id": "pool_closet_wet_floor_sign",
+      "model": "janitor:wet_floor_sign",
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.8,
+        "shape": {
+          "kind": "convex_hull",
+          "points": [
+            [
+              -0.1525,
+              -0.30520451068878174,
+              -0.173145
+            ],
+            [
+              -0.1525,
+              -0.30520451068878174,
+              0.173145
+            ],
+            [
+              -0.1525,
+              0.30520448931121824,
+              0
+            ],
+            [
+              0.1525,
+              -0.30520451068878174,
+              -0.173145
+            ],
+            [
+              0.1525,
+              -0.30520451068878174,
+              0.173145
+            ],
+            [
+              0.1525,
+              0.30520448931121824,
+              0
+            ]
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3,
+        "reset_group": "pool_supplies"
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.305001,
+        0.61041,
+        0.34629
+      ],
+      "solid": false,
+      "x": 18.65,
+      "y": 0,
+      "z": 14.5
+    },
+    {
+      "id": "pool_closet_lidded_storage_bin",
+      "model": "janitor:lidded_storage_bin",
+      "physics": {
+        "angular_damping": 0.3,
+        "friction": 0.65,
+        "linear_damping": 0.2,
+        "mass_kg": 1.2,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "pool_supplies",
+        "restitution": 0.03,
+        "shape": {
+          "half_extents": [
+            0.2224999964237213,
+            0.17249999940395355,
+            0.17400000244379044
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.445,
+        0.345,
+        0.354001
+      ],
+      "solid": false,
+      "x": 17.5,
+      "y": 0.1625,
+      "z": 11.95
+    },
+    {
+      "id": "pool_closet_perforated_supply_crate",
+      "model": "janitor:perforated_supply_crate",
+      "physics": {
+        "angular_damping": 0.3,
+        "friction": 0.65,
+        "linear_damping": 0.2,
+        "mass_kg": 0.7,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "pool_supplies",
+        "restitution": 0.03,
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.0125,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.17,
+                  0.0125,
+                  0.1425
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                -0.1575,
+                0.15,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.0125,
+                  0.13,
+                  0.1425
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0.1575,
+                0.15,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.0125,
+                  0.13,
+                  0.1425
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.15,
+                -0.13
+              ],
+              "shape": {
+                "half_extents": [
+                  0.145,
+                  0.13,
+                  0.0125
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.15,
+                0.13
+              ],
+              "shape": {
+                "half_extents": [
+                  0.145,
+                  0.13,
+                  0.0125
+                ],
+                "kind": "cuboid"
+              }
+            }
+          ]
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.340001,
+        0.281,
+        0.285
+      ],
+      "solid": false,
+      "x": 17.5,
+      "y": 0.6625,
+      "z": 11.95
+    },
+    {
+      "id": "pool_closet_cardboard_supply_box",
+      "model": "janitor:cardboard_supply_box",
+      "physics": {
+        "angular_damping": 0.3,
+        "friction": 0.65,
+        "linear_damping": 0.2,
+        "mass_kg": 0.25,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "pool_supplies",
+        "restitution": 0.03,
+        "shape": {
+          "half_extents": [
+            0.17000000178813934,
+            0.14125001430511475,
+            0.1365000084042549
+          ],
+          "kind": "cuboid"
+        },
+        "water": {
+          "displaced_volume_m3": 0.024,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.340001,
+        0.282501,
+        0.274001
+      ],
+      "solid": false,
+      "x": 17.5,
+      "y": 1.1625,
+      "z": 11.95
+    },
+    {
+      "id": "pool_closet_folded_towel",
+      "model": "janitor:folded_towel",
+      "physics": {
+        "angular_damping": 0.3,
+        "friction": 0.65,
+        "linear_damping": 0.2,
+        "mass_kg": 0.25,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "pool_supplies",
+        "restitution": 0.03,
+        "shape": {
+          "half_extents": [
+            0.18000000715255737,
+            0.02850000187754631,
+            0.13650000095367432
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.360001,
+        0.057001,
+        0.276
+      ],
+      "solid": false,
+      "x": 17.25,
+      "y": 1.6625,
+      "z": 11.95
+    },
+    {
+      "id": "pool_closet_paper_towel_roll",
+      "model": "janitor:paper_towel_roll",
+      "physics": {
+        "angular_damping": 0.3,
+        "friction": 0.65,
+        "linear_damping": 0.2,
+        "mass_kg": 0.25,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "pool_supplies",
+        "restitution": 0.03,
+        "shape": {
+          "half_height": 0.14000000059604645,
+          "kind": "cylinder",
+          "radius": 0.07577500492334366
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.151551,
+        0.280001,
+        0.150801
+      ],
+      "solid": false,
+      "x": 17.8,
+      "y": 1.6625,
+      "z": 11.95
+    },
+    {
+      "id": "pool_closet_toilet_paper_roll",
+      "model": "janitor:toilet_paper_roll",
+      "physics": {
+        "angular_damping": 0.3,
+        "friction": 0.65,
+        "linear_damping": 0.2,
+        "mass_kg": 0.1,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "pool_supplies",
+        "restitution": 0.03,
+        "shape": {
+          "half_height": 0.05249999836087227,
+          "kind": "cylinder",
+          "radius": 0.06281399726867676
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.125628,
+        0.105,
+        0.1248
+      ],
+      "solid": false,
+      "x": 17.8,
+      "y": 1.9425,
+      "z": 11.95
+    },
+    {
+      "id": "pool_closet_spray_cleaner_bottle",
+      "model": "janitor:spray_cleaner_bottle",
+      "physics": {
+        "angular_damping": 0.3,
+        "friction": 0.65,
+        "linear_damping": 0.2,
+        "mass_kg": 0.5,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "pool_supplies",
+        "restitution": 0.03,
+        "shape": {
+          "half_extents": [
+            0.057500001043081284,
+            0.1264999955892563,
+            0.039250001311302185
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.126001,
+        0.253,
+        0.079001
+      ],
+      "solid": false,
+      "x": 19.45,
+      "y": 0.8875,
+      "z": 13.5
+    },
+    {
+      "id": "pool_closet_cleaner_jug",
+      "model": "janitor:cleaner_jug",
+      "physics": {
+        "angular_damping": 0.3,
+        "friction": 0.65,
+        "linear_damping": 0.2,
+        "mass_kg": 2,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "pool_supplies",
+        "restitution": 0.03,
+        "shape": {
+          "half_extents": [
+            0.08299999684095383,
+            0.15775001049041748,
+            0.06024999916553497
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.166,
+        0.315501,
+        0.121
+      ],
+      "solid": false,
+      "x": 19.45,
+      "y": 0.5275,
+      "z": 13.5
+    },
+    {
+      "id": "pool_closet_detergent_bottle",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.3,
+        "friction": 0.65,
+        "linear_damping": 0.2,
+        "mass_kg": 1,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "pool_supplies",
+        "restitution": 0.03,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "rotation_degrees": 0,
+      "size": [
+        0.116,
+        0.2655,
+        0.095941
+      ],
+      "solid": false,
+      "x": 19.45,
+      "y": 0.8875,
+      "z": 13.33
+    },
+    {
+      "id": "pool_closet_editor_prop_1",
+      "model": "janitor:folded_towel_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.36000099778175354,
+        0.05700099840760231,
+        0.2759999930858612
+      ],
+      "solid": false,
+      "x": 17.25,
+      "y": 1.719499945640564,
+      "z": 11.949999988079071,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.25,
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.18000000715255737,
+            0.02850000187754631,
+            0.13650000095367432
+          ]
+        },
+        "friction": 0.65,
+        "restitution": 0.03,
+        "linear_damping": 0.2,
+        "angular_damping": 0.3,
+        "reset_group": "pool_supplies"
+      }
+    },
+    {
+      "id": "pool_supply_restore",
+      "model": "home:wall_switch",
+      "x": 17,
+      "z": 15.83,
+      "y": 1.2,
+      "rotation_degrees": 180,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "reach": 2.0,
+          "prompt": "Restore supplies"
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "reset_physics_group",
+              "group": "pool_supplies"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pool_closet_light_switch",
+      "model": "home:wall_switch",
+      "x": 16.17,
+      "z": 12.0,
+      "y": 1.2,
+      "rotation_degrees": 90,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "reach": 2.0,
+          "prompt": "Service lights"
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "toggle",
+              "target": "pool_closet_light"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "water": [
+    {
+      "shape": "circle",
+      "x": 6.25,
+      "z": 8.35,
+      "radius": 1.25,
+      "surface_y": -0.15,
+      "bottom_y": -1.5,
+      "material": "core:water_pool_01",
+      "opacity": 0.62,
+      "swimming": true
+    },
+    {
+      "shape": "rect",
+      "x": 4.0,
+      "z": 3.0,
+      "width": 9.0,
+      "depth": 4.5,
+      "surface_y": -0.15,
+      "bottom_y": -1.5,
+      "material": "core:water_pool_01",
+      "opacity": 0.42,
+      "attenuation_per_metre": 0.16,
+      "swimming": true,
+      "comment": "[pool-water-demo] Main basin: 1.35 m of standing-depth water."
+    },
+    {
+      "shape": "rect",
+      "x": 9.0,
+      "z": 7.5,
+      "width": 4.0,
+      "depth": 0.9,
+      "surface_y": -0.15,
+      "bottom_y": -0.35,
+      "material": "core:water_pool_01",
+      "opacity": 0.42,
+      "attenuation_per_metre": 0.16,
+      "swimming": true,
+      "comment": "[pool-water-demo] Walk-in shelf: 20 cm of shallow water."
+    },
+    {
+      "shape": "rect",
+      "x": 4,
+      "z": 14,
+      "width": 8,
+      "depth": 4.5,
+      "surface_y": -0.15,
+      "bottom_y": -1.2,
+      "material": "core:water_pool_01",
+      "opacity": 0.42,
+      "attenuation_per_metre": 0.16,
+      "swimming": true
+    },
+    {
+      "shape": "rect",
+      "x": 4,
+      "z": 18.5,
+      "width": 1.4,
+      "depth": 2.1875,
+      "surface_y": -0.15,
+      "bottom_y": -1.2,
+      "material": "core:water_pool_01",
+      "opacity": 0.42,
+      "attenuation_per_metre": 0.16,
+      "swimming": true
+    }
+  ],
+  "thresholds": [
+    {
+      "x": 8.5,
+      "z": 2.875,
+      "length": 9.244,
+      "rotation_degrees": 0,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    },
+    {
+      "x": 3.875,
+      "z": 5.25,
+      "length": 4.5,
+      "rotation_degrees": 90,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    },
+    {
+      "x": 6.3155,
+      "z": 7.625,
+      "length": 4.875,
+      "rotation_degrees": 0,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "Reviewed manual import correction: terminate the horizontal coping at x8.753, leaving a 2mm construction joint before the vertical run's west face x8.755; removes the old double top and coincident caps."
+    },
+    {
+      "x": 8.875,
+      "z": 7.95,
+      "length": 0.896,
+      "rotation_degrees": 90,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    },
+    {
+      "x": 11.0,
+      "z": 8.525,
+      "length": 4.244,
+      "rotation_degrees": 0,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    },
+    {
+      "x": 13.125,
+      "z": 3.9575,
+      "length": 1.919,
+      "rotation_degrees": 90,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    },
+    {
+      "x": 13.125,
+      "z": 6.9925,
+      "length": 2.819,
+      "rotation_degrees": 90,
+      "y": 0.0,
+      "thickness": 0.24,
+      "height": 0.035,
+      "material": "pool:coping_01",
+      "comment": "[pool-water-demo] 35 mm coping on dry deck; ladder landing and traversal remain clear."
+    },
+    {
+      "x": 8,
+      "z": 13.875,
+      "length": 8.24,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.035,
+      "thickness": 0.24,
+      "material": "pool:coping_01"
+    },
+    {
+      "x": 3.875,
+      "z": 16.25,
+      "length": 4.5,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.035,
+      "thickness": 0.24,
+      "material": "pool:coping_01"
+    },
+    {
+      "x": 12.125,
+      "z": 16.25,
+      "length": 4.5,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.035,
+      "thickness": 0.24,
+      "material": "pool:coping_01"
+    },
+    {
+      "x": 8.75,
+      "z": 18.625,
+      "length": 6.5,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.035,
+      "thickness": 0.24,
+      "material": "pool:coping_01"
+    }
+  ],
+  "ladders": [
+    {
+      "x": 12.35,
+      "z": 4.95,
+      "width": 0.6,
+      "depth": 0.6,
+      "bottom_y": -1.5,
+      "top_y": 0.0,
+      "facing_degrees": 90.0,
+      "comment": "[pool-water-demo] Climb towards the east deck through the real ladder rails."
+    }
+  ],
+  "volumes": [
+    {
+      "id": "audio_pool_hall",
+      "x": 0,
+      "z": 0,
+      "width": 16,
+      "depth": 11,
+      "bottom_y": -1.6,
+      "top_y": 4.5,
+      "filter": {
+        "kind": "player"
+      },
+      "occupancy": "aggregate",
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "play_sound",
+              "target": "pool_water_demo_control",
+              "loop": true
+            }
+          ]
+        },
+        {
+          "on": "exit_volume",
+          "actions": [
+            {
+              "action": "stop_sound",
+              "target": "pool_water_demo_control"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    "hub"
+  ],
+  "comment": "Editor-imported Pool hall retained; second swimming room and separate janitor closet added with current terrain and physics facilities.",
+  "doors": [
+    {
+      "id": "return_hub_pool",
+      "x": 1,
+      "z": 0,
+      "width": 1.2,
+      "height": 2.2,
+      "thickness": 0.045,
+      "rotation_degrees": 0,
+      "initial_state": "closed",
+      "open_direction": "left",
+      "swing_degrees": 90,
+      "obstruction": "stop",
+      "material": "home:door_white_01",
+      "frame_material": "home:baseboard_white_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Return to the Hub",
+          "reach": 2.2
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "change_level",
+              "level": "hub"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pool_second_room_door",
+      "x": 2.2,
+      "z": 11,
+      "width": 1.4,
+      "height": 2.2,
+      "thickness": 0.045,
+      "rotation_degrees": 0,
+      "initial_state": "closed",
+      "open_direction": "right",
+      "swing_degrees": 90,
+      "obstruction": "stop",
+      "material": "home:door_white_01",
+      "frame_material": "home:baseboard_white_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Quiet pool room",
+          "reach": 2.2
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pool_closet_door",
+      "x": 16,
+      "z": 14.1,
+      "width": 1.4,
+      "height": 2.2,
+      "thickness": 0.045,
+      "rotation_degrees": 90,
+      "initial_state": "closed",
+      "open_direction": "left",
+      "swing_degrees": 90,
+      "obstruction": "stop",
+      "material": "core:pool_tile_wall_01",
+      "frame_material": "core:metal_brushed_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Janitor closet",
+          "reach": 2.2
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ramps": [
+    {
+      "x": 4,
+      "z": 18.5,
+      "width": 1.4,
+      "depth": 2.5,
+      "offset_y": -1.2,
+      "rise": 1.2,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    }
+  ]
+}

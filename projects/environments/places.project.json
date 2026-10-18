@@ -1,0 +1,59 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "environments",
+  "name": "Places / The Quiet Collection",
+  "author": "Places",
+  "description": "Eight distinct environments connected through a central hub. Each visit starts fresh; objects and local objectives stay in their own world.",
+  "entry_level": "hub",
+  "levels": [
+    {
+      "id": "hub",
+      "source": "levels/hub.json",
+      "display_name": "Central Hub",
+      "thumbnail": "thumbnails/940872d28cb65691c07f473f4efb976b26a2a070e64128ebdbdb66a15589b642.png"
+    },
+    {
+      "id": "home",
+      "source": "levels/home.json",
+      "display_name": "Home / Quiet Rooms"
+    },
+    {
+      "id": "pool",
+      "source": "levels/pool.json",
+      "display_name": "Pool / Still Water"
+    },
+    {
+      "id": "office",
+      "source": "levels/office.json",
+      "display_name": "Office / After Hours"
+    },
+    {
+      "id": "arcade",
+      "source": "levels/arcade.json",
+      "display_name": "Cosmic Lanes & Arcade"
+    },
+    {
+      "id": "lantern_hollow",
+      "source": "levels/lantern_hollow.json",
+      "display_name": "Lantern Hollow"
+    },
+    {
+      "id": "winter",
+      "source": "levels/winter.json",
+      "display_name": "Winter / Snow & Shelter"
+    },
+    {
+      "id": "beach",
+      "source": "levels/beach.json",
+      "display_name": "Beach / Beyond the Shore"
+    },
+    {
+      "id": "aero",
+      "source": "levels/aero.json",
+      "display_name": "Frutiger Aero"
+    }
+  ],
+  "thumbnail": "thumbnails/940872d28cb65691c07f473f4efb976b26a2a070e64128ebdbdb66a15589b642.png",
+  "menu_entry_only": true
+}

@@ -5,6 +5,8 @@ from pathlib import Path
 import sys
 import unittest
 
+from tools.levels.curated_maps import environment_source
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/props'))
 import glb
@@ -97,7 +99,7 @@ class StringLightTests(unittest.TestCase):
                         'the downward spill clears the opaque base')
         self.assertFalse(axis_intersections(model, (y, z), 0),
                          'lateral spill clears the corner cage')
-        level = json.loads((ROOT / 'levels/winter.json').read_text())
+        level = json.loads((environment_source('winter')).read_text())
         lanterns = [p for p in level['props'] if p['model'] == 'winter:timber_lantern']
         self.assertEqual(len(lanterns), 2)
         for prop in lanterns:
@@ -106,7 +108,7 @@ class StringLightTests(unittest.TestCase):
                                               'color': [1, .81, .55], 'falloff': 'smooth'}])
 
     def test_mounts_are_supported_clear_of_walks_and_light_budget_stays_local(self):
-        level = json.loads((ROOT / 'levels/winter.json').read_text())
+        level = json.loads((environment_source('winter')).read_text())
         spans = [p for p in level['props'] if p['model'].startswith('winter:string_lights_')]
         self.assertEqual(len(spans), 8)
         self.assertEqual(sum(len(p['lights']) for p in spans), 60)

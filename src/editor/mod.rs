@@ -12,7 +12,7 @@ mod input;
 mod navigation;
 pub mod process;
 mod projects;
-mod safety;
+pub mod safety;
 mod safety_actions;
 mod scripting;
 mod selection;

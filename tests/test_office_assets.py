@@ -4,6 +4,8 @@ from pathlib import Path
 import sys
 import unittest
 
+from tools.levels.curated_maps import environment_source
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools/props"))
 sys.path.insert(0, str(ROOT / "tools/textures"))
@@ -22,7 +24,7 @@ class OfficeAssetTests(unittest.TestCase):
     def test_fluorescent_backplates_clear_their_local_ceiling(self):
         # One JSON parse protects the real ceiling/backplate z-fighting bug;
         # no mesh build, lighting bake or native process is needed.
-        level = json.loads((ROOT / "levels/office_demo.json").read_text())
+        level = json.loads((environment_source('office')).read_text())
         for light in level["ceiling_lights"]:
             if light["fixture"] != "core:fluorescent_panel_01":
                 continue
@@ -105,7 +107,7 @@ class OfficeAssetTests(unittest.TestCase):
         self.assertEqual(mesh.material_names[6], "DRINKS_07_LCD_EMISSION")
         self.assertTrue(all(material.get("alphaMode", "OPAQUE") == "OPAQUE"
                             for material in mesh.json["materials"]))
-        level = json.loads((ROOT / "levels/office_demo.json").read_text())
+        level = json.loads((environment_source('office')).read_text())
         for machine in (p for p in level["props"] if p["id"] in
                         ("top_vending", "top_snack_vending")):
             self.assertEqual(machine["switch_group"], "break_room_vending")

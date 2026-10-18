@@ -5,6 +5,8 @@ from pathlib import Path
 import sys
 import unittest
 
+from tools.levels.curated_maps import environment_source
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/props'))
 import glb
@@ -134,7 +136,7 @@ class WinterAssetTests(unittest.TestCase):
                                      (ROOT / 'assets' / entries[identity]['model']).read_bytes())
 
     def test_exposed_snow_classes_preserve_collision_and_sheltered_deck_stays_dry(self):
-        level = json.loads((ROOT / 'levels/winter.json').read_text())
+        level = json.loads((environment_source('winter')).read_text())
         props = level['props']
         models = {p['model'] for p in props}
         for name in winter.SIZES:
@@ -179,7 +181,7 @@ class WinterAssetTests(unittest.TestCase):
         self.assertFalse(level.get('water'))
 
     def test_raised_lodge_frames_align_with_the_real_openings(self):
-        level = json.loads((ROOT / 'levels/winter.json').read_text())
+        level = json.loads((environment_source('winter')).read_text())
         props = {p['id']:p for p in level['props']}
         # These anchors lie on the 0.6 m raised deck. Floor-relative prop Y
         # must not add that rise again: the window's real sill is world 1.6 m.

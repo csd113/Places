@@ -107,11 +107,17 @@ pub const MAX_ENTRY_BYTES: u64 = 256 * 1024 * 1024;
 /// contributions: 384 MiB at 1024px, two RGBA16F planes and three groups.
 /// Reserve 64 KiB for its bounded KTX2 container. This typed record budget is
 /// independent of the ordinary 256 MiB entry cap; exact codec shape checks,
-/// the 512 MiB KTX2 payload limit and the 1 GiB aggregate archive cap remain.
+/// the 512 MiB KTX2 payload limit and the 1 GiB ordinary-map aggregate cap remain.
 pub const MAX_LIGHTMAP_ATLAS_BYTES: u64 = 384 * 1024 * 1024 + 64 * 1024;
 
-/// Largest accepted sum of decompressed archive entry bytes.
+/// Largest accepted sum of decompressed ordinary-map entry bytes.
 pub const MAX_TOTAL_BYTES: u64 = 1024 * 1024 * 1024;
+
+/// Largest accepted sum of decompressed records in a complete project.
+///
+/// Each virtual ordinary map retains [`MAX_TOTAL_BYTES`]; the larger outer
+/// allowance requires a validated project index and never changes typed limits.
+pub const MAX_PROJECT_TOTAL_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 
 /// Largest accepted number of archive entries.
 pub const MAX_ENTRIES: usize = 8192;

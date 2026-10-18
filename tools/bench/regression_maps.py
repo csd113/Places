@@ -15,15 +15,18 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import time
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools/levels"))
+from curated_maps import lineup, project_manifest, source_levels
+
 MAP_ROOTS = ("levels", "tests/fixtures/levels")
 PROGRESSIVE_SOURCES = (
-    "levels/home_showcase.json", "tests/fixtures/levels/office_asset_review.json",
-    "levels/pool_showcase.json", "tests/fixtures/levels/outdoor_kit_showcase.json",
-    "levels/winter.json", "levels/lantern_hollow.json",
+    "projects/environments/places.project.json", "tests/fixtures/levels/office_asset_review.json",
+    "tests/fixtures/levels/outdoor_kit_showcase.json", "tests/fixtures/levels/material_transport.json",
 )
 SPECIAL = {
     "tests/fixtures/levels/invalid/geometry_invalid.json": (
@@ -51,6 +54,25 @@ def digest(path: Path) -> str:
 
 def inventory(root: Path = ROOT) -> list[dict]:
     rows = []
+    if (root / "levels/lineup.txt").is_file():
+        for identity, source in lineup(root):
+            project = project_manifest(source)
+            if project is None:
+                continue
+            members = source_levels(source)
+            package = root / "assets/levels" / (identity + ".placesmap")
+            rows.append(dict(
+                key=source.relative_to(root).with_suffix("").as_posix().replace("/", "__"),
+                source=source.relative_to(root).as_posix(), source_sha256=digest(source),
+                level=identity, distribution_id=identity,
+                project_members=[level_id for level_id, _ in members],
+                member_sources=[dict(id=level_id, source=path.relative_to(root).as_posix(),
+                                     source_sha256=digest(path)) for level_id, path in members],
+                classification="playable-project",
+                scope_reason="Complete curated project; export once and verify every member.",
+                package=package.relative_to(root).as_posix() if package.is_file() else None,
+                package_sha256=digest(package) if package.is_file() else None,
+                status="planned"))
     for directory in MAP_ROOTS:
         base = root / directory
         for source in sorted(base.rglob("*.json")):
@@ -97,17 +119,20 @@ def planned_commands(row: dict, compiler: Path, out: Path, root: Path = ROOT,
     if row["source"] is None:
         return [[str(compiler), "validate", str(root / row["package"]), "--json"]]
     source = root / row["source"]
-    installed = row["source"].startswith("levels/")
-    package = root / "assets/levels" / (source.stem + ".placesmap") if installed and install_source_packages else (
+    members = row.get("project_members")
+    installed = row["source"].startswith("levels/") or bool(members)
+    package_id = row.get("distribution_id", source.stem)
+    package = root / "assets/levels" / (package_id + ".placesmap") if installed and install_source_packages else (
         prepared_root or out / "packages") / (row["key"] + ".placesmap")
-    build = [str(compiler), "build", str(source), "--out", str(package),
+    build = [str(compiler), "export-project" if members else "build", str(source), "--out", str(package),
              "--asset-root", str(root / "assets"), "--workers", "12", "--json"]
     if row["classification"] == "loader-negative":
         return [build]
-    return [build,
-            [str(compiler), "verify", str(source), "--package", str(package),
-             "--asset-root", str(root / "assets"), "--require-current", "--json"],
-            [str(compiler), "validate", str(package), "--json"]]
+    verification = [[str(compiler), "verify", str(source),
+                     *(["--level", member] if member else []), "--package", str(package),
+                     "--asset-root", str(root / "assets"), "--require-current", "--json"]
+                    for member in (members or [None])]
+    return [build, *verification, [str(compiler), "validate", str(package), "--json"]]
 
 
 def write_new(path: Path, value: object) -> None:
@@ -133,7 +158,7 @@ def run_packages(rows: list[dict], compiler: Path, out: Path,
             continue
         records = []
         for number, command in enumerate(commands):
-            if command[1] == "build":
+            if command[1] in ("build", "export-project"):
                 Path(command[command.index("--out") + 1]).parent.mkdir(parents=True, exist_ok=True)
             start_utc = datetime.now(timezone.utc).isoformat()
             start = time.monotonic()
@@ -190,6 +215,7 @@ def main() -> int:
     rows = inventory()
     prepared_root = args.prepared_root.resolve() if args.prepared_root else None
     report = dict(format_version=1, map_roots=MAP_ROOTS,
+                  curated_projects=[row["source"] for row in rows if row.get("project_members")],
                   inventory_utc=datetime.now(timezone.utc).isoformat(),
                   install_source_packages=args.install_source_packages,
                   prepared_root=str(prepared_root) if prepared_root else None,

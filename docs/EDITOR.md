@@ -395,6 +395,13 @@ menu rows read that metadata without loading inactive world semantics. Empty
 titles retain stable-ID fallback. Guidance wraps authored paragraphs and splits
 long words; Page Up/Page Down browse six-line pages; Enter/Escape retain dismissal.
 
+Project > Explore menu switches between **All maps** and **Entry only**. The
+project-level setting saves scene edits first and publishes metadata atomically.
+Entry only opens the declared entry map from Explore while retaining every
+internal destination for transitions, direct diagnostic selection and import
+conflict checks. Map settings, Allowed transitions, Map crosshair and Explore menu
+have separate controls; the selected-level image remains in its dedicated sheet.
+
 For explicit CPU latency checks, run `editor-profile PATH_TO_ISOLATED_PROJECT`.
 It reports document operations and performs reversible in-memory transform/history
 work. Native `--verify-script` recipes retain per-action handler and idle-wait

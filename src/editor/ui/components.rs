@@ -18,21 +18,7 @@ pub(in crate::editor) fn draw(
 ) {
     let section = page % 100;
     let offset = page / 100;
-    let title = match section {
-        1 => "TYPED STATE",
-        2 => "EVENTS",
-        3 => "EVENT CONDITIONS",
-        4 => "EVENT ACTIONS",
-        5 => "LIGHT CONTROLLER",
-        6 => "PHYSICS DETAILS",
-        7 => "AI AND BEAM RESPONSE",
-        8 => "IDENTITY / INTERACTION",
-        9 => "ATTACHED AUDIO",
-        10 => "MAP SETTINGS",
-        11 => "CHOOSE STATE CONDITION",
-        12 => "ATTACHED SOURCE",
-        _ => "CAPABILITIES",
-    };
+    let title = section_title(section);
     text(vertices, title, 140.0, 73.0, ACCENT, 62);
     let Some(doc) = app.document.as_ref() else {
         return;
@@ -62,6 +48,7 @@ pub(in crate::editor) fn draw(
                 8 => fields::identity(),
                 9 => fields::audio(),
                 10 => fields::map(),
+                13 => fields::carry(),
                 _ => Vec::new(),
             };
             let visible_fields: Vec<_> = list
@@ -117,6 +104,25 @@ pub(in crate::editor) fn draw(
     );
 }
 
+const fn section_title(section: usize) -> &'static str {
+    match section {
+        1 => "TYPED STATE",
+        2 => "EVENTS",
+        3 => "EVENT CONDITIONS",
+        4 => "EVENT ACTIONS",
+        5 => "LIGHT CONTROLLER",
+        6 => "PHYSICS DETAILS",
+        7 => "AI AND BEAM RESPONSE",
+        8 => "IDENTITY / INTERACTION",
+        9 => "ATTACHED AUDIO",
+        10 => "MAP SETTINGS",
+        11 => "CHOOSE STATE CONDITION",
+        12 => "ATTACHED SOURCE",
+        13 => "NPC ITEM HANDOFF",
+        _ => "CAPABILITIES",
+    }
+}
+
 fn hub(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     let supported = matches!(
         app.selected,
@@ -137,6 +143,7 @@ fn hub(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         ("AI / beam response", 7),
         ("Attached audio", 9),
         ("Map settings", 10),
+        ("NPC item handoff", 13),
     ]
     .into_iter()
     .enumerate()
@@ -160,7 +167,7 @@ fn hub(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                             matches!(app.selected, Some(ObjectId::Prop(_) | ObjectId::Door(_)))
                         }
                         5 => matches!(app.selected, Some(ObjectId::Prop(_) | ObjectId::Light(_))),
-                        6 | 7 => matches!(app.selected, Some(ObjectId::Prop(_))),
+                        6 | 7 | 13 => matches!(app.selected, Some(ObjectId::Prop(_))),
                         _ => true,
                     }),
         );
@@ -173,6 +180,7 @@ fn hub(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                 ("light", "Light"),
                 ("light_response", "Beam"),
                 ("audio", "Audio"),
+                ("carry", "Carry"),
             ]
             .into_iter()
             .enumerate()
@@ -182,9 +190,9 @@ fn hub(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                     vertices,
                     hits,
                     [
-                        f32::from(u16::try_from(index).unwrap_or(0)).mul_add(61.0, 140.0),
-                        154.0,
-                        57.0,
+                        f32::from(u16::try_from(index).unwrap_or(0)).mul_add(48.0, 140.0),
+                        160.0,
+                        45.0,
                         11.0,
                     ],
                     &format!("{} {label}", if exists { "-" } else { "+" }),

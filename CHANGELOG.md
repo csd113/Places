@@ -1,5 +1,16 @@
 ## 0.12.0 — in progress
 
+- Connect the eight environments through a central hub in one editable
+  **Quiet Collection** `.placesmap`, with themed doorways, return doors and an
+  optional entry-only Explore row. Preserve the separate campaigns and archive.
+- Redesign Home with polished domestic assets and a mannequin fetch/handoff
+  quest; add reusable animated item attachment and retirement only after the
+  complete actor and carried prop leave view. Expand Pool with a second basin
+  and janitor closet, and move Office's basement access beyond the middle level.
+- Import legacy environments through the editor, preserve reviewed placement
+  intent and improve correction/diagnostic behavior. Export and verify every
+  project member, prepared lighting variant and exact editable source together.
+
 - Add **Relay Annex**, a separate three-map commissioning campaign with a Winter
   intake, four connected service floors and a flooded discharge hall. Record
   native editor provenance, NPC conversations, physics/beam challenges, real

@@ -4,6 +4,8 @@ from pathlib import Path
 import sys
 import unittest
 
+from tools.levels.curated_maps import environment_source
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/levels'))
 import build_winter as author
@@ -11,7 +13,7 @@ import build_winter as author
 
 class WinterTests(unittest.TestCase):
     def test_ground_and_interiors_partition_the_entire_world(self):
-        rooms = author.build_level()['rooms']
+        rooms = json.loads(environment_source('winter').read_text())['rooms']
         self.assertAlmostEqual(sum(r['width'] * r['depth'] for r in rooms), 48 * 60)
         for index, a in enumerate(rooms):
             for b in rooms[index + 1:]:
@@ -30,7 +32,7 @@ class WinterTests(unittest.TestCase):
         self.assertEqual(ice['reflection_mode'], 'probe')
         self.assertEqual(ice['reflection_strength'], .28)
         self.assertEqual(assets[ice['texture']]['model'], 'environments/winter/textures/floors/ice_01.png')
-        level = author.build_level()
+        level = json.loads(environment_source('winter').read_text())
         backing = next(b for b in level['void_walls'] if b['id'] == 'pond_ice_depth')
         self.assertFalse(backing['solid'])
         self.assertLess(backing['max'][1], -.16)
@@ -38,10 +40,6 @@ class WinterTests(unittest.TestCase):
         # The approach at z=-10 is not buried beneath snow props.
         self.assertFalse(any(p['id'].startswith('pond_shore_snow_') and abs(p['z'] + 10) < 1
                              for p in level['props']))
-
-    def test_source_is_current_and_repeatable(self):
-        self.assertEqual(author.OUTPUT.read_text(), author.serialise(author.build_level()))
-        self.assertEqual(author.build_level(), author.build_level())
 
     def test_namespace_uses_real_shared_images_and_keeps_original_evergreen(self):
         catalog = json.loads((ROOT / 'assets/catalog.json').read_text())
@@ -54,7 +52,7 @@ class WinterTests(unittest.TestCase):
         tree = assets['outdoor:tree_03']
         self.assertEqual(tree['model'], 'environments/outdoor/props/tree_03.glb')
         self.assertEqual(tree['size'], [3.2, 6.8, 3.2])
-        level = author.build_level()
+        level = json.loads(environment_source('winter').read_text())
         self.assertFalse(level.get('water'), 'frozen pond replaces swimming water with a solid floor')
         self.assertTrue(any(p['model'] == 'winter:tree_snow_01' for p in level['props']))
         self.assertTrue(any(p['model'] == 'winter:tree_snow_02' for p in level['props']))

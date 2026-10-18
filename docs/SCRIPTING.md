@@ -189,3 +189,82 @@ of `illuminated` and `player_visible`. `api.spawn(point)` preserves the selected
 control animation, navigation, sound and interaction through the existing APIs;
 mesh invisibility changes none of those capabilities or `solid` collision.
 There is no second runtime visibility setter. See the [shadow-only map contract](MAP_AUTHORING_GUIDE.md#shadow-only-entities-0120).
+
+### Authored item handoff and hidden retirement
+
+A navigating actor may author one `carry` component. The editor's **Capabilities
+> NPC item handoff** form exposes its exact requested item, animated node, local
+metre offset, local XYZ Euler degrees and idle/walk clips; **+ Carry** chooses
+an existing pickup item as the initial reference. The actor needs `ai` and
+`nav_agent`. The item must be an authored movable pickup prop. Instance renaming
+updates this typed reference before scripts are linked; scripted maps retain the
+existing stable-identity guard.
+
+```json
+{"component":"carry","item":"requested_cushion","socket":"hand.R",
+ "offset":[0,0,0],"rotation_degrees":[0,0,0],
+ "idle_clip":"carry_idle","walk_clip":"carry_walk"}
+```
+
+The approved R2 mannequin provides the named hand and carry clips above. Fit the
+item's local attachment in native Play; its actual model/PNG and authored scale
+remain unchanged. This is a rigid posed-node grasp controller, without runtime
+IK or two-hand constraint solving. The approved finger animation supplies the
+hand pose; the original physical prop follows that posed node every drawn frame.
+
+`api.held_item()` returns the player's exact authored item identity or nil.
+`api.handoff(actor)` queues acceptance of that actor's authored requested item.
+It succeeds only if the exact body is currently held, the actor is the ordinary
+reachable aimed interaction target, and the live socket, clips and original
+render resource resolve. A wrong object, distant invocation or repeat changes
+nothing. The next invocation's `api.actor(actor).carried_item` confirms the
+accepted identity; show thanks and begin navigation only after that confirmation.
+Queries remain invocation-start snapshots. Plain actions
+`{"action":"handoff_item","target":"caretaker"}` use the same transaction.
+
+Acceptance removes player/physics ownership, cancels stale drop/throw input and
+retains the original rendered prop. Pickup, physics recovery and activation
+cannot reclaim it. Reset/activation of a physics group containing an NPC-owned
+item refuses the entire group with `physics_group_owned_refusal`, including after
+retirement. Use the full map reset/reentry lifecycle to restore the quest, item,
+actor interaction, navigation and fresh script state together. Same-map reset
+reinstalls only transferred bodies at their original authored dormant poses and
+reuses their existing render keys; unrelated existing/deleted items retain their
+state.
+
+At the departure destination, call `api.retire_hidden(actor)` once (or use the
+`retire_hidden` action). Retirement pauses with gameplay. The proof uses the
+actual frame camera, including a third-person camera or native camera override.
+The request waits until one real opaque uncut wall face
+provably covers the projection of the **combined current posed mesh and carried
+prop bounds**. Every vertex of both actual resources contributes to those
+bounds, with a 35 mm safety expansion. Coverage of all eight bound corners by a
+single rectangular face proves coverage of the convex bound; separately blocked
+sample rays or a hidden centre do not. Only explicit-height `walls` with no
+openings and opaque resolved materials qualify. Candidates overlapping a
+nonopaque wall are excluded: the wall renderer can give a later coincident
+member ownership of the emitted face. Collision-only containment,
+prop approximation boxes, transparent/cutout walls, doorway envelopes and merely
+looking away cannot justify retirement. Author a simple solid-wall bend, with
+enough room for the complete carried silhouette to pass it. If the player follows
+and keeps any limb/prop exposed, the actor waits at its destination and both
+meshes remain present until the proof succeeds. The conservative guard may keep
+a fully occluded actor longer where several faces jointly hide it; it does not
+relax the disappearance invariant to infer an answer.
+
+Successful retirement hides both actual resources in colour, reflection and
+shadow passes before the current draw, freezes the retained actor, disables its
+interaction and sets `api.actor(actor).retired`. It does not remove the authored
+actor, so reset restores it. A graphics-only rebuild retains its visibility.
+Newly built scripted packages and packages using this component require
+`carry-assemblies-v1`; older players refuse them explicitly instead of failing
+a missing expanded-host function during play. Existing compiled packages retain
+their original capability requirements.
+
+Opt-in native traces record `npc_item_handoff`, `npc_retired_hidden` and
+`carry_assemblies`: item/key/socket ownership, actual `item_mesh_visible`, combined
+bounds (`character_bounds`, `item_bounds`, and their `assembly_bounds` union),
+retirement request/state and `whole_assembly_hidden`. Existing character
+animation diagnostics independently report actual actor mesh/shadow presence.
+The older `player_visible` torso query retains its existing perception meaning;
+it never decides carry retirement.

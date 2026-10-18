@@ -43,6 +43,13 @@ characters). The player reads this explicit title from the bounded project index
 for non-entry rows; blank retains the stable-ID fallback. It does not open
 inactive world semantics. The entry row retains the project title.
 
+Projects may set `menu_entry_only: true` to show only their entry map in Explore.
+The omitted/default value is `false`, retaining existing per-map menu rows and
+titles. This setting changes menu visibility only: every member remains available
+to same-package transitions, import identity conflicts, `--list-levels` and direct
+`PLACES_LEVEL` diagnostics. Complete project export and source recovery retain
+all members regardless of this policy.
+
 Project and level records optionally carry `description`, `thumbnail` (for
 example `thumbnails/entry.png`) and `scripts` (for example
 `["scripts/entry.luau"]`). Stage 7 validates and distributes exact thumbnail PNGs (see [asset specification](ASSET_SPECIFICATION.md)). The editor attaches existing images; player thumbnail cards remain #6. Stage 6 resolves script references into selected-map runtime snapshots. Declared optional files must exist; see [Luau source and lifecycle](SCRIPTING.md).
@@ -280,18 +287,40 @@ Compiled semantics remain prepared/typed and omit editor-only data; ordinary
 single-map packages cannot reconstruct editable source and are explicitly refused.
 
 Limits: 1–256 levels; 256 unique script files; 1024 recovery files; 64 MiB total
-editable bytes; 2 MiB index; 8192 archive entries; 1 GiB total decompressed bytes;
-1 GiB + 64 MiB transport size. Ordinary single-map views keep their 512-entry cap.
-Existing per-record/VM/module/geometry/image limits also apply. Duplicate/case
+editable bytes; 2 MiB index; 8192 archive entries; 2 GiB total unique decompressed
+record and index bytes for a complete project; 2 GiB + 64 MiB project transport
+size. Every virtual single-map view retains its 1 GiB aggregate and 512-entry
+limits, and ordinary packages retain the 1 GiB + 64 MiB transport limit. A project
+record is at most 512 MiB; existing lower typed record, source, VM, module,
+geometry and image limits still apply. The larger project allowance does not
+increase shared-prop decode or working-memory budgets. Duplicate/case
 conflicts, unsafe names, symlink entries/components, unsupported versions,
 undeclared/missing records, hash/size disagreement, invalid UTF-8/Luau/PNG and
 invalid references fail before publication. Script snapshots, links, names and
 transitions must agree between editable source and compiled semantics.
 
+Admission first scans at most 8 MiB of central-directory data, with the existing
+entry-count, name, symlink and ZIP64 guards. An exact `project.json` marker alone
+does not grant the larger budget: the bounded index, complete record namespace,
+per-record lengths, source limits and each member's aggregate must validate before
+an over-single-map archive is accepted. No prepared world is decoded for this
+check. Runtime selection loads only the chosen map's records.
+
 Exports validate before compiling and recheck exact source snapshots and output
-identity before atomic publication. Each level uses the ordinary compiler against the frozen source snapshot; export
-currently rebuilds its temporary per-level packages, while the existing lighting
-cache may be reused. It does not promise an incremental whole-campaign cache.
+identity before atomic publication. Each level uses the ordinary compiler against
+the frozen source snapshot. Completed records stream from the temporary map ZIP
+to owned content-addressed spool files and then into the final ZIP with 64 KiB
+copy buffers; exact sizes and hashes are checked on both passes. Identical records
+share one spool file. Only small record metadata stays resident between map
+builds. The source snapshot (at most 64 MiB), bounded index and ordinary compiler's
+existing preparation/validation allocations remain separate; 64 KiB is a copy
+buffer bound, not a claim about total process memory. Spool files and partial
+archives are removed on failure/cancellation, while the previous published output
+is retained. Export needs scratch disk for the spool, current temporary map and
+final compressed archive, and reports retained record bytes after each map.
+Existing prepared caches may be reused only when their exact source, assets and
+compiler provenance match. Export does not provide a resumable partial-project
+checkpoint or bypass executable fingerprints.
 Recovery uses owned staging plus a no-replace directory rename; even a concurrently
 created empty destination is preserved. Local source operations are not a sandbox
 against concurrent malicious filesystem mutation.

@@ -2637,6 +2637,72 @@ impl WgpuRenderer {
         self.characters.len()
     }
 
+    /// Posed socket matrix for reusable physical item attachment.
+    #[must_use]
+    pub fn character_socket_transform(&self, id: &str, socket: &str) -> Option<glam::Mat4> {
+        let character = self.characters.character(id)?;
+        Some(
+            character
+                .transform()
+                .mul_mat4(&character.animator().node_global(socket)?),
+        )
+    }
+
+    /// Verifies authored attachment clips before changing physical ownership.
+    #[must_use]
+    pub fn character_has_clip(&self, id: &str, clip: &str) -> bool {
+        self.characters.character(id).is_some_and(|character| {
+            character
+                .asset()
+                .model
+                .animations
+                .iter()
+                .any(|animation| animation.name == clip)
+        })
+    }
+
+    /// Exact posed bounds for whole-model visibility guards.
+    #[must_use]
+    pub fn character_posed_bounds(&self, id: &str) -> Option<crate::engine::spatial::Aabb> {
+        self.characters
+            .character(id)
+            .map(crate::engine::render::common::character::Character::posed_bounds)
+    }
+
+    /// Current actual rigid prop bounds, including authored scale and orientation.
+    #[must_use]
+    pub fn runtime_model_world_bounds(&self, key: u64) -> Option<crate::engine::spatial::Aabb> {
+        let id = self.runtime_objects.get(&key)?;
+        self.dynamic
+            .objects()
+            .iter()
+            .find(|object| object.id() == *id)
+            .map(crate::engine::render::common::dynamic::DynamicObject::world_bounds)
+    }
+
+    /// Hides every mesh/shadow pass for an authored or spawned character.
+    pub fn set_character_visible(&mut self, id: &str, visible: bool) -> bool {
+        if !self.characters.set_character_visible(id, visible) {
+            return false;
+        }
+        if let Some((index, character)) = self
+            .characters
+            .characters()
+            .iter()
+            .chain(self.characters.runtime_characters())
+            .enumerate()
+            .find(|(_, character)| character.instance_id() == Some(id))
+            && let Some(gpu) = self.world_characters.as_mut()
+        {
+            gpu.set_presence(
+                index,
+                character.is_visible(),
+                character.casts_flashlight_shadow(),
+            );
+        }
+        true
+    }
+
     /// Actual character clocks and attached socket lights for native tracing.
     #[must_use]
     pub fn character_animation_diagnostics(&self, frames: &[EntityFrame]) -> serde_json::Value {

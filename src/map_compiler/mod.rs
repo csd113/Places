@@ -44,6 +44,7 @@ mod probes;
 pub mod progress;
 pub mod project;
 mod project_cache;
+mod project_spool;
 pub mod source;
 mod storage;
 
@@ -612,8 +613,26 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     {
         required.push("scene-actions-v1".to_string());
     }
+    if !level.script_sources.is_empty()
+        || level.props.iter().any(|prop| {
+            prop.components
+                .iter()
+                .any(|component| matches!(component, crate::engine::level::ComponentDef::Carry(_)))
+        })
+        || level.spawn_templates.iter().any(|template| {
+            template
+                .components
+                .iter()
+                .any(|component| matches!(component, crate::engine::level::ComponentDef::Carry(_)))
+        })
+    {
+        required.push("carry-assemblies-v1".to_string());
+    }
     if blobs_have_shared_props(&entries) {
         required.push("props-shared-streams".to_string());
+    }
+    if blobs_need_shared_props_v2(&entries)? {
+        required.push("props-shared-streams-v2".to_string());
     }
     if variants
         .iter()
@@ -1692,6 +1711,20 @@ fn blobs_have_shared_props(entries: &[PendingEntry]) -> bool {
     entries
         .iter()
         .any(|entry| entry.name.ends_with(".props.shared"))
+}
+
+fn blobs_need_shared_props_v2(entries: &[PendingEntry]) -> Result<bool, String> {
+    let mut needed = false;
+    for entry in entries
+        .iter()
+        .filter(|entry| entry.name.ends_with(".props.recipe"))
+    {
+        let recipe = crate::engine::package::shared_props::read_recipe(&entry.bytes)?;
+        // Inspect the stored revision: reusable v1 recipes keep their original
+        // capability, while v2 must be refused by older hosts before fetching.
+        needed |= recipe.version() >= 2;
+    }
+    Ok(needed)
 }
 
 fn insert_blob(

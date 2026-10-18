@@ -56,6 +56,19 @@ impl Document {
                 .into_iter()
                 .flatten()
             {
+                for component in record
+                    .get_mut("components")
+                    .and_then(Value::as_array_mut)
+                    .into_iter()
+                    .flatten()
+                {
+                    if component.get("component").and_then(Value::as_str) == Some("carry")
+                        && component.get("item").and_then(Value::as_str) == Some(&previous)
+                        && let Some(contract) = component.as_object_mut()
+                    {
+                        drop(contract.insert("item".into(), identity.into()));
+                    }
+                }
                 for key in ["bindings", "steps", "filter"] {
                     if let Some(value) = record.get_mut(key) {
                         replace_references(value, &previous, identity);

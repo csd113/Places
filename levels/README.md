@@ -1,44 +1,53 @@
-# Maintained maps
+# Maintained map distributions
 
-These authored sources are the supported playable lineup. `lineup.txt` is the
-compiler/export allowlist; add a source and update that list deliberately.
-The player discovers compiled packages in `assets/levels/`, while user imports
-live in the writable state root's `levels/`. JSON is authoring input, never a
-playable menu row. All `.placesmap` output is ignored by Git.
+`lineup.txt` is the explicit distribution allowlist. The environment collection
+has one editable project, `projects/environments/`, and one generated package,
+`assets/levels/environments.placesmap`. Its entry map is the Central Hub; doors
+connect all eight environments and each environment has a return door.
 
-| Source / ID | Purpose | Source owner |
-| --- | --- | --- |
-| `pool_showcase` | Standalone Pool kit, lowered basin, fixtures, collision and signage | Authored source |
-| `home_showcase` | Standalone Home rooms and generic architectural pieces | Authored source |
-| `lantern_hollow` | Outdoor night village, forest, pond and encounters | `build_lantern_hollow.py` |
-| `winter` | Snow village, lodge, aurora, ice traction and weather controls | `build_winter.py` |
-| `beach_demo` | Coastal settlement, shoreline and animals | `build_beach.py` |
-| `frutiger_aero_demo` | Day atrium, glass, water, fitted signage and interactive props | `build_frutiger_aero.py` |
-| `retro_arcade_demo` | Cosmic bowling, period arcade, birthday room and connected restroom | `build_retro_arcade.py` |
-| `office_demo` | Three connected Office storeys, a basement wanderer, rare hiding insects and failing lights | `build_office.py` |
+| Project level ID | Environment |
+| --- | --- |
+| `hub` | Central Hub |
+| `home` | Home / Quiet Rooms |
+| `pool` | Pool / Still Water |
+| `office` | Office / After Hours |
+| `lantern_hollow` | Lantern Hollow |
+| `winter` | Winter / Snow & Shelter |
+| `beach` | Beach / Beyond the Shore |
+| `aero` | Frutiger Aero |
+| `arcade` | Cosmic Lanes & Arcade |
 
-Generators live under `tools/levels/`; change a generator rather than its
-owned JSON. `--check` is read-only. Home and Pool are existing compact
-showcases. Places Demo and Model Zoo are frozen historical JSON under
-`docs/archive/levels/`, outside this eight-map lineup and all default bake campaigns.
-Their historical generators require explicit developer inputs/outputs. The Office
-surface review under tests remains a diagnostic fixture; `office_demo` is the
-playable three-floor environment.
+The project manifest, level JSON and Luau modules are maintained editor sources.
+Edit them through the builder/editor and preserve per-placement diagnostic
+intent. The old environment generators are historical reconstruction tools;
+their output does not own or regenerate the collection. They require an explicit
+scratch destination. Places Demo and Model Zoo remain frozen historical JSON
+under `docs/archive/levels/`. Relay Annex, Closing Time, Beam and unrelated
+projects retain their separate purposes.
 
 ```sh
 sh tools/build-maps.sh --workers 8
 python3 tools/levels/compile.py --check
-PLACES_LEVEL=retro_arcade_demo ./target/release/places
+PLACES_LEVEL=hub ./target/release/places
 ```
 
-Build only one changed source with an explicit runtime output path:
+`build-maps.sh` uses `export-project`, retaining every sub-map, declared script,
+thumbnail and exact editable source in one content-addressed bundle. Verification
+checks every sub-map's provenance, archive validity and Static/Full payloads;
+`--check` performs those checks without rebuilding. `--map environments` selects
+the distribution and still exports the complete project.
+
+For an explicit project export or native compiler selection:
 
 ```sh
-./target/release/places-compile build levels/winter.json \
-  --out assets/levels/winter.placesmap --asset-root assets --workers 8
+./target/release/places-compile export-project projects/environments \
+  --out assets/levels/environments.placesmap --asset-root assets --workers 8
+./target/release/places-compile verify projects/environments --level office \
+  --package assets/levels/environments.placesmap --asset-root assets --require-current
 ```
 
-[Regression fixtures](../tests/fixtures/levels/README.md) retain focused
-movement, geometry, entity, lighting and capacity controls without entering
-this lineup. Superseded local review sources and packages are recoverable in
-ignored `local/retained/`; fresh checkouts require none of them.
+The player discovers compiled packages in `assets/levels/`; user imports live
+in the writable state root's `levels/`. JSON is authoring input. All `.placesmap`
+output is ignored by Git. [Regression fixtures](../tests/fixtures/levels/README.md)
+retain focused movement, geometry, entity, lighting and capacity controls outside
+the distribution; ordinary CI never bakes a full map.

@@ -93,6 +93,18 @@ impl StateValue {
     }
 }
 
+/// Live ownership for one authored carry contract. A full reset restores this
+/// state together with the physical item, so no item survives across worlds.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Carry {
+    /// Saved attachment and required item.
+    pub def: crate::engine::level::CarryDef,
+    /// Filled only after the physical world's atomic acceptance succeeds.
+    pub item: Option<String>,
+    /// Set only after a whole-assembly hidden proof.
+    pub retired: bool,
+}
+
 /// One component slot: the generation it was written with plus its value.
 #[derive(Clone, Debug, PartialEq)]
 struct Entry<T> {
@@ -787,6 +799,8 @@ pub struct ComponentTables {
     pub glows: ComponentTable<Glow>,
     /// Fixed-anchor balloon motion, with resolved deterministic phases.
     pub balloons: ComponentTable<crate::engine::level::BalloonDef>,
+    /// Authored single-item handoff ownership.
+    pub carries: ComponentTable<Carry>,
 }
 
 impl ComponentTables {
@@ -816,6 +830,7 @@ impl ComponentTables {
             fades: ComponentTable::new(),
             glows: ComponentTable::new(),
             balloons: ComponentTable::new(),
+            carries: ComponentTable::new(),
         }
     }
 
@@ -843,6 +858,7 @@ impl ComponentTables {
         self.fades.clear();
         self.glows.clear();
         self.balloons.clear();
+        self.carries.clear();
     }
 
     /// Total entries across every table, for the diagnostics summary.
@@ -871,6 +887,7 @@ impl ComponentTables {
             self.fades.len(),
             self.glows.len(),
             self.balloons.len(),
+            self.carries.len(),
         ]
         .into_iter()
         .fold(0, usize::saturating_add)
@@ -906,5 +923,6 @@ impl ComponentTables {
         let _removed_value_10 = self.fades.remove(handle);
         drop(self.glows.remove(handle));
         let _removed_balloon = self.balloons.remove(handle);
+        drop(self.carries.remove(handle));
     }
 }

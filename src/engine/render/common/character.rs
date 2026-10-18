@@ -1208,6 +1208,36 @@ impl Character {
         self.instance_id.as_deref()
     }
 
+    /// Exact current posed vertex bounds, transformed like the uploaded mesh.
+    /// This deliberate gameplay query is independent of padded culling bounds.
+    #[must_use]
+    pub fn posed_bounds(&self) -> Aabb {
+        let mut bounds = Aabb::EMPTY;
+        for (index, vertex) in self.asset.model.vertices.iter().enumerate() {
+            let joints = self
+                .asset
+                .model
+                .joints
+                .get(index)
+                .copied()
+                .unwrap_or([0; 4]);
+            let weights = self
+                .asset
+                .model
+                .weights
+                .get(index)
+                .copied()
+                .unwrap_or([0.0; 4]);
+            let local = self.animator.skin_position(joints, weights, vertex.pos);
+            bounds.expand(
+                self.transform
+                    .transform_point3(Vec3::from_array(local))
+                    .to_array(),
+            );
+        }
+        bounds
+    }
+
     /// The pose evaluator.
     #[must_use]
     pub const fn animator(&self) -> &CharacterAnimator {
@@ -1390,6 +1420,34 @@ impl CharacterScene {
         &self.characters
     }
 
+    /// A placed or spawned character addressed by its stable identity.
+    #[must_use]
+    pub fn character(&self, instance_id: &str) -> Option<&Character> {
+        self.characters
+            .iter()
+            .chain(self.runtime.iter())
+            .find(|character| character.instance_id.as_deref() == Some(instance_id))
+    }
+
+    /// Hides/restores a placed or spawned character and all of its passes.
+    pub fn set_character_visible(&mut self, instance_id: &str, visible: bool) -> bool {
+        let Some(character) = self
+            .characters
+            .iter_mut()
+            .chain(self.runtime.iter_mut())
+            .find(|character| character.instance_id.as_deref() == Some(instance_id))
+        else {
+            return false;
+        };
+        character.runtime_visible = visible;
+        if !visible {
+            let _removed = self
+                .dynamic_lights
+                .remove(&format!("{GLOW_KEY_PREFIX}{instance_id}"));
+        }
+        true
+    }
+
     /// The number of runtime-spawned characters currently live.
     #[must_use]
     pub const fn runtime_len(&self) -> usize {
@@ -1464,6 +1522,7 @@ impl CharacterScene {
             character.transform = old.transform;
             character.world_bounds = old.world_bounds;
             character.opacity = old.opacity;
+            character.runtime_visible = old.runtime_visible;
         }
     }
 

@@ -10692,6 +10692,106 @@
         0.19,
         0.3
       ]
+    },
+    {
+      "id": "collection:sign_home",
+      "display_name": "Collection / HOME",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/collection_home.png",
+      "alpha_mode": "cutout",
+      "description": "4:1 fitted wayfinding plate, upright text, transparent perimeter. Place at width/height 4:1."
+    },
+    {
+      "id": "collection:sign_pool",
+      "display_name": "Collection / POOL",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/collection_pool.png",
+      "alpha_mode": "cutout",
+      "description": "4:1 fitted wayfinding plate, upright text, transparent perimeter. Place at width/height 4:1."
+    },
+    {
+      "id": "collection:sign_office",
+      "display_name": "Collection / OFFICE",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/collection_office.png",
+      "alpha_mode": "cutout",
+      "description": "4:1 fitted wayfinding plate, upright text, transparent perimeter. Place at width/height 4:1."
+    },
+    {
+      "id": "collection:sign_arcade",
+      "display_name": "Collection / COSMIC LANES",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/collection_arcade.png",
+      "alpha_mode": "cutout",
+      "description": "4:1 fitted wayfinding plate, upright text, transparent perimeter. Place at width/height 4:1."
+    },
+    {
+      "id": "collection:sign_lantern_hollow",
+      "display_name": "Collection / LANTERN HOLLOW",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/collection_lantern_hollow.png",
+      "alpha_mode": "cutout",
+      "description": "4:1 fitted wayfinding plate, upright text, transparent perimeter. Place at width/height 4:1."
+    },
+    {
+      "id": "collection:sign_winter",
+      "display_name": "Collection / WINTER",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/collection_winter.png",
+      "alpha_mode": "cutout",
+      "description": "4:1 fitted wayfinding plate, upright text, transparent perimeter. Place at width/height 4:1."
+    },
+    {
+      "id": "collection:sign_beach",
+      "display_name": "Collection / BEACH",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/collection_beach.png",
+      "alpha_mode": "cutout",
+      "description": "4:1 fitted wayfinding plate, upright text, transparent perimeter. Place at width/height 4:1."
+    },
+    {
+      "id": "collection:sign_aero",
+      "display_name": "Collection / FRUTIGER AERO",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/collection_aero.png",
+      "alpha_mode": "cutout",
+      "description": "4:1 fitted wayfinding plate, upright text, transparent perimeter. Place at width/height 4:1."
+    },
+    {
+      "id": "collection:sign_hub",
+      "display_name": "Collection / CENTRAL HUB",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/collection_hub.png",
+      "alpha_mode": "cutout",
+      "description": "4:1 fitted wayfinding plate, upright text, transparent perimeter. Place at width/height 4:1."
+    },
+    {
+      "id": "collection:sign_welcome",
+      "display_name": "Collection / PLACES",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/collection_welcome.png",
+      "alpha_mode": "cutout",
+      "description": "4:1 fitted wayfinding plate, upright text, transparent perimeter. Place at width/height 4:1."
     }
   ]
 }

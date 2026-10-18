@@ -20,6 +20,8 @@ import zipfile
 import zlib
 from pathlib import Path
 
+from tools.levels.curated_maps import environment_source, lineup, source_levels
+
 PACKAGE = Path(__file__).resolve().parent.parent
 
 # The asset validator is the single source of catalog truth for tooling.
@@ -100,7 +102,7 @@ def catalog_ids() -> set[str]:
 
 def level_files() -> list[Path]:
     """Authoring sources for the bundled levels."""
-    return sorted((PACKAGE / "levels").glob("*.json"))
+    return [path for _, source in lineup() for _, path in source_levels(source)]
 
 
 def package_files() -> list[Path]:
@@ -114,7 +116,8 @@ def fixture_files() -> list[Path]:
 
 
 def custom_level_files() -> list[Path]:
-    return sorted((PACKAGE / "levels").glob("*.json"))
+    maintained = set(level_files())
+    return sorted(path for path in (PACKAGE / "levels").glob("*.json") if path not in maintained)
 
 
 def load_level(path: Path) -> dict:
@@ -192,7 +195,7 @@ class ShippedLevelTests(unittest.TestCase):
             level = load_level(path)
             rooms = rooms_of(level)
             self.assertGreaterEqual(len(rooms), 1, f"{path.name} has no rooms")
-            if level["id"] == "beach_demo":
+            if level["id"] in ("beach", "beach_demo"):
                 self.assertTrue(all(room.get("ceiling", {}).get("kind") == "open" for room in rooms))
                 self.assertTrue(any(light["kind"] == "sun" and light["intensity"] > 0
                                     and light.get("enabled", True) and light.get("bake", True)
@@ -200,7 +203,7 @@ class ShippedLevelTests(unittest.TestCase):
                                 "Beach has no daylight source")
                 self.assertEqual(level["sky"]["texture"], "beach:tex_sky_day_01")
                 self.assertTrue(level.get("props"), "Beach has no structural scenery")
-            elif level["id"] == "frutiger_aero_demo":
+            elif level["id"] in ("aero", "frutiger_aero_demo"):
                 self.assertEqual(level["sky"]["texture"], "frutiger_aero:tex_sky_day_01")
                 self.assertTrue(any(room.get("ceiling", {}).get("kind") == "open" for room in rooms))
                 self.assertTrue(any(light["kind"] == "sun" and light["intensity"] > 0
@@ -1120,55 +1123,24 @@ class HomeContentTests(unittest.TestCase):
             "the two hardwoods must read as different floors, not a tint",
         )
 
-    def test_the_home_showcase_exercises_every_generic_piece(self):
-        """The Home fixture level demonstrates each new architectural piece."""
-        path = PACKAGE / "levels" / "home_showcase.json"
-        self.assertTrue(path.is_file(), "the Home showcase fixture is missing")
+    def test_home_collection_uses_domestic_assets_and_resettable_portable_objects(self):
+        # One source parse protects the redesigned room set and real portable
+        # profiles. Generic architecture samplers no longer define Home's layout.
+        path = environment_source('home')
         level = load_level(path)
-        for key in (
-            "ramps",
-            "stairs",
-            "half_walls",
-            "columns",
-            "archways",
-            "guardrails",
-            "thresholds",
-            "baseboards",
-        ):
-            self.assertTrue(level.get(key), f"the showcase places at least one {key} entry")
-        # Every piece names Home materials through ordinary ids, and the room
-        # set covers wallpaper, paint, both hardwoods, carpet, tile and both
-        # ceilings.
-        materials = set()
-        for room in rooms_of(level):
-            materials.add(room.get("material"))
-            materials.add(room.get("ceiling_material"))
-        for material_id in (
-            "home:hardwood_oak_01",
-            "home:hardwood_walnut_02",
-            "home:carpet_cream_01",
-            "home:tile_home_01",
-            "home:ceiling_white_01",
-            "home:ceiling_plaster_01",
-        ):
-            self.assertIn(material_id, materials, material_id)
-        wall_materials = {wall.get("material") for wall in level.get("walls", [])}
-        self.assertIn("home:wallpaper_offwhite_01", wall_materials)
-        self.assertIn("home:wall_paint_offwhite_01", wall_materials)
-        wall_surfaces = set()
-        for wall in level.get("walls", []):
-            wall_surfaces.add(wall.get("material"))
-            wall_surfaces.update((wall.get("faces") or {}).values())
-        self.assertIn(
-            "home:wallpaper_pattern_01",
-            wall_surfaces,
-            "the subtle patterned wallpaper is used",
-        )
-        # The archway is the only wall between the living room and the hall, so
-        # the showcase demonstrates a real arched opening rather than a decal.
-        archway = level["archways"][0]
-        self.assertGreater(archway["arch_rise"], 0.0)
-        self.assertGreaterEqual(archway["height"], archway["opening_height"])
+        self.assertGreaterEqual(len(rooms_of(level)), 5)
+        models = {prop['model'] for prop in level['props']}
+        self.assertTrue({'home:sofa', 'home:armchair', 'home:coffee_table',
+                         'home:dining_table', 'home:sink', 'home:kettle',
+                         'home:cabinet_base', 'home:cabinet_wall'} <= models)
+        requested = next(prop for prop in level['props'] if prop['id'] == 'home_requested_cushion')
+        self.assertEqual(requested['model'], 'home:cushion')
+        self.assertTrue(requested['physics']['pickup'])
+        self.assertEqual(requested['physics']['reset_group'], 'home_objects')
+        self.assertTrue(any(prop['id'] == 'home_restore' and
+                            any(component['component'] == 'interactable'
+                                for component in prop.get('components', []))
+                            for prop in level['props']))
 
 
 def _png_chunk(tag: bytes, payload: bytes) -> bytes:
@@ -1403,7 +1375,7 @@ class PoolContentTests(unittest.TestCase):
         )
 
     def test_the_pool_showcase_is_real_lowered_floor_geometry(self):
-        level = load_level(PACKAGE / "levels" / "pool_showcase.json")
+        level = load_level(environment_source('pool'))
         regions = level.get("floor_regions", [])
         self.assertTrue(regions, "the pool basin must be a floor region, not a prop")
         offsets = [float(region.get("offset_y", 0.0)) for region in regions]
@@ -1452,21 +1424,29 @@ class PoolContentTests(unittest.TestCase):
                 self.assertEqual(light.get("mount"), "wall", light)
                 self.assertIn("y", light, light)
 
-    def test_the_pool_showcase_places_every_pool_prop(self):
-        level = load_level(PACKAGE / "levels" / "pool_showcase.json")
+    def test_pool_collection_keeps_pool_and_janitor_assets_with_real_room_doors(self):
+        level = load_level(environment_source('pool'))
         placed = {prop["model"] for prop in level.get("props", [])}
-        for prop_id in self.POOL_PROPS:
-            self.assertIn(prop_id, placed, f"pool_showcase.json must place {prop_id}")
+        # The old decorative service-door prop is replaced by a usable door;
+        # retain the basin kit and the separate closet's actual supply models.
+        for prop_id in set(self.POOL_PROPS) - {"pool:pool_service_door"}:
+            self.assertIn(prop_id, placed, prop_id)
+        self.assertTrue({'janitor:utility_sink', 'janitor:metal_storage_rack',
+                         'janitor:janitor_cart', 'janitor:wet_floor_sign'} <= placed)
+        self.assertGreaterEqual(len(level['water']), 2)
+        closet = next(door for door in level['doors'] if door['id'] == 'pool_closet_door')
+        self.assertTrue(any(component['component'] == 'interactable'
+                            for component in closet['components']))
 
     def test_every_pool_solid_prop_authors_its_collision_box(self):
-        level = load_level(PACKAGE / "levels" / "pool_showcase.json")
+        level = load_level(environment_source('pool'))
         for prop in level.get("props", []):
             if prop.get("solid") is True:
                 self.assertIn("size", prop, f"{prop['model']} needs an explicit collision size")
                 self.assertTrue(all(value > 0 for value in prop["size"]), prop)
 
     def test_guardrails_block_and_the_open_ladder_has_item_collision_and_a_climb_volume(self):
-        level = load_level(PACKAGE / "levels" / "pool_showcase.json")
+        level = load_level(environment_source('pool'))
         solid = {
             prop["model"]: prop
             for prop in level.get("props", [])

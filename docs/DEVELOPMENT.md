@@ -14,7 +14,8 @@ Use these ownership boundaries, then select the source, package or native workfl
 | `assets/entities/<id>/` | Rigged GLBs and standalone texture sheets |
 | `assets/references/` | Immutable concept art and authoring prompts; excluded from exports |
 | `assets/catalog.json` | Logical asset/material registry; paths are relative to `assets/` |
-| `levels/` | Optional maintained source maps and their explicit compiler `lineup.txt` allowlist |
+| `levels/` | Explicit compiler/export `lineup.txt` distribution allowlist |
+| `projects/environments/` | Maintained editor project containing the hub and eight environments |
 | `tests/fixtures/levels/` | Focused movement, lighting, geometry, entity and capacity controls |
 | `tests/fixtures/native/` | Camera, controller and reference-image inputs |
 | `tools/{levels,textures,props,entities}/` | Offline authoring generators and checks |
@@ -76,18 +77,28 @@ Explore rescans external packages on opening. Drop a `.placesmap` into the writa
 `PLACES_LEVEL` optionally selects an installed ID or display name; an unknown
 selection returns to the menu with a warning. Otherwise the first discovered map
 in deterministic order can supply the menu background. No map is embedded.
+Projects with `menu_entry_only: true` expose just their entry in Explore and use
+visible rows for the background choice. Internal members remain available to
+`PLACES_LEVEL` and the complete `--list-levels` diagnostic inventory.
 
 To author the optional curated content, run `sh tools/build-maps.sh --workers 8`.
 That explicit command compiles exactly `levels/lineup.txt` through `places-compile`,
-then verifies provenance, archive validity and Static/Full variants.
+then verifies every sub-map’s provenance, archive validity and Static/Full variants.
+The environment collection uses `export-project` to retain its complete editable
+project and prepared maps in one bundle.
+Complete projects have a 2 GiB aggregate record budget; each member retains the
+ordinary 1 GiB bound. Export spools completed records to scratch disk and streams
+the final archive instead of retaining every map's record bytes in memory. See
+[project package limits](PROJECT_FORMAT.md#stage-7-project-distribution-and-editable-recovery)
+for the admission, per-record and memory contracts.
 Packages go to ignored `assets/levels/`. Compiler capture/bake work is offline
 and may take several minutes per large map. Use a native GPU for normal captures.
 
-After changing just one source, use an explicit output path:
+After changing collection sources, export the complete project:
 
 ```sh
-./target/release/places-compile build levels/winter.json \
-  --out assets/levels/winter.placesmap --asset-root assets --workers 8
+./target/release/places-compile export-project projects/environments \
+  --out assets/levels/environments.placesmap --asset-root assets --workers 8
 python3 tools/levels/compile.py --check
 ```
 
@@ -96,8 +107,8 @@ For a small native compiler window, run:
 ```sh
 cargo run --release --bin places-compile -- gui
 # Or preselect a source and output:
-./target/release/places-compile gui levels/winter.json \
-  --out assets/levels/winter.placesmap --asset-root assets --workers 8
+./target/release/places-compile gui tests/fixtures/levels/test_room.json \
+  --out /tmp/room-review.placesmap --asset-root assets --workers 8
 ```
 
 Choose an unbaked `.json` map, optionally choose **Save as**, then click
@@ -111,25 +122,20 @@ before exiting. Tab and Enter/Space also operate the buttons. The GUI uses the
 existing SDL3 dependency and committed font atlas; no Python or extra GUI package
 is required.
 
-Run a generator's `--check` before editing its owned output. For generated maps,
-edit the generator and regenerate the JSON; the [map index](../levels/README.md)
-lists each owner. [Offline tooling](OFFLINE_TOOLING.md) documents the asset pipeline.
+The collection’s editor project is authoritative. Historical environment builders
+require an explicit scratch output and must not regenerate migrated editor sources.
+Use fixture generators’ `--check` for their remaining owned controls; the
+[map index](../levels/README.md) describes the distribution. [Offline tooling](OFFLINE_TOOLING.md) documents the asset pipeline.
 Textures are committed PNG inputs; the player never generates texture artwork.
 
 ## Maintained maps and regression controls
 
-The playable sources are `pool_showcase`,
-`home_showcase`, `lantern_hollow`, `winter`, `beach_demo`, `frutiger_aero_demo`
-and `retro_arcade_demo`, plus `office_demo`.
-Home and Pool are compact standalone showcases; Retro Arcade connects bowling,
-arcade, birthday and restroom spaces. Places Demo and Model Zoo are preserved
-byte-for-byte as historical JSON in `docs/archive/levels/`; they are outside
-active discovery, default build lists and bake campaigns.
-
-The catalog has eight environments: Office, Pool, Home, Outdoor, Winter, Beach,
-Frutiger Aero and Arcade. The dedicated `office_demo` now connects three storeys
-and bounded basement encounters; its [implementation report](reports/office-demo.md)
-records the authored behavior and native acceptance.
+The playable environment collection lives in `projects/environments/`. Its Central
+Hub connects Home, Pool, Office, Lantern Hollow, Winter, Beach, Frutiger Aero and
+Cosmic Lanes & Arcade. One `environments.placesmap` carries all nine sub-maps,
+editable sources, scripts and menu artwork. The old standalone distribution is
+retired. Places Demo and Model Zoo remain historical JSON in `docs/archive/levels/`;
+Relay Annex, Closing Time, Beam and unrelated projects remain separate.
 
 Obsolete local dev maps, historical compiler/renderer review snapshots and their
 public discovery paths were retired. Eleven superseded Hero-stage source maps
@@ -174,8 +180,8 @@ Automatic GitHub checks run source contracts and separate, timed Rust format,
 check, debug/release Clippy and production-build stages. They do not compile shipped
 maps, capture their reflection probes or run native game campaigns. Run those
 explicitly on the desktop:
-`python3 tools/levels/compile.py --map retro_arcade_demo --workers 8` compiles and
-validates one authored map. `sh tools/verify.sh` is the full desktop gate, including
+`python3 tools/levels/compile.py --map environments --workers 8` exports and
+validates the complete collection. `sh tools/verify.sh` is the full desktop gate, including
 the compiled lineup, package tests and native smoke checks. See
 [verification](VERIFICATION.md) for the explicit diagnostic gates.
 

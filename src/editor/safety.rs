@@ -126,6 +126,7 @@ impl SafetyFix {
 }
 
 /// Shared candidate gate for individual or future batch correction workflows.
+///
 /// Ignored issues are skipped; every remaining candidate independently checks
 /// that no actively protected placement or affected support context changes.
 #[must_use]

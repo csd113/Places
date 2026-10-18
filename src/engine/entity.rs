@@ -212,7 +212,8 @@ impl EntityRoutes {
                     // The render-side components never move the body.
                     | crate::engine::level::ComponentDef::Fade(_)
                     | crate::engine::level::ComponentDef::Glow(_)
-                    | crate::engine::level::ComponentDef::Balloon(_) => None,
+                    | crate::engine::level::ComponentDef::Balloon(_)
+                    | crate::engine::level::ComponentDef::Carry(_) => None,
                 });
             let (radius, body_height, step_height) = body.unwrap_or_else(|| {
                 (

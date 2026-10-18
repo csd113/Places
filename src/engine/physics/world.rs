@@ -923,6 +923,12 @@ impl ItemWorld {
         self.body_motion(key).is_some_and(BodyMotion::is_movable) && self.remove(key)
     }
 
+    /// Transfers only the currently held body. A wrong/stale key leaves both
+    /// ownership and solver state unchanged; removal clears the player's hold.
+    pub fn transfer_held(&mut self, key: u64) -> bool {
+        self.held() == Some(key) && self.remove(key)
+    }
+
     /// Removes one body, including a held body, without leaving solver handles.
     pub fn remove(&mut self, key: u64) -> bool {
         let Some(runtime) = self.runtime.as_mut() else {

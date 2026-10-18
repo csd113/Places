@@ -7,6 +7,7 @@ pub mod ai;
 pub mod assets;
 pub mod audio;
 pub mod canonical_json;
+pub mod carry_visibility;
 pub mod collision;
 pub mod collision_index;
 pub(crate) mod diagnostics;

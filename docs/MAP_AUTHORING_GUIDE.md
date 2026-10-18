@@ -791,7 +791,7 @@ constant in `src/engine/level.rs`, not an inline literal.
 | Estimated generated vertices | ≤ 24 000 000 (`MAX_LEVEL_VERTICES`) | Loader rejection (its own upper-bound estimate) |
 | Distinct decoded texture bytes | ≤ 1 GiB (`MAX_LEVEL_TEXTURE_BYTES`) | Loader rejection per level, after resolution and before upload |
 | Standalone level JSON file size | ≤ 32 MiB (`MAX_LEVEL_JSON_BYTES`) | Rejected before parsing |
-| Package archive: entries / entry / aggregate | ≤ 512 entries / ordinary entry ≤ 256 MiB; mesh/props ≤ 512 MiB, atlas ≤ 320 MiB + 64 KiB, other typed records may be tighter / aggregate ≤ 1 GiB uncompressed | Package rejected at open (see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md)) |
+| Ordinary map archive: entries / entry / aggregate | ≤ 512 entries / ordinary entry ≤ 256 MiB; mesh/props ≤ 512 MiB, atlas ≤ 384 MiB + 64 KiB, other typed records may be tighter / aggregate ≤ 1 GiB uncompressed | Package rejected at open; complete projects have a separately validated 2 GiB aggregate while each member retains these bounds (see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md)) |
 | Package variants | one per lighting mode (`off`/`full`; current-schema developer `medium` accepted) | Package rejected at open |
 | Package blob hashes | SHA-256 must match the name and the manifest | Blob rejected before decoding |
 | Distinct prop models placed | ≤ 4096 (`MAX_LEVEL_PROP_MODELS`) | **Not a rejection:** later placements draw placeholder boxes |
@@ -2845,7 +2845,7 @@ cabinets are the `home:cabinet_base` / `home:cabinet_wall` props. Generic
 `home:sofa`, `home:armchair`, `home:coffee_table`, `home:dining_table`,
 `home:dining_chair`, `home:tv_console`, `home:bookshelf`, `home:rug`,
 `home:floor_lamp`, `home:sink` and `home:stove` variants to match its cream,
-timber and enamel palette without changing shared core artwork. Static
+timber and enamel palette without changing shared core artwork. Domestic
 `home:mug`, `home:book_stack`, `home:cushion`, `home:outlet`,
 `home:cabinet_strip`, `home:landscape_frame`, `home:kettle`, `home:toaster`
 and `home:door_casing`
@@ -2853,16 +2853,28 @@ fill depicted gaps. `home:backsplash_01` is a 15 cm ceramic wall material.
 These use the ordinary prop/surface contracts; their fitted atlas layouts
 and master/native sizes are recorded in ASSET_SPECIFICATION.md §8.9.
 
-`tools/levels/refine_home.py` is the idempotent Home-only demo dressing
-source. Prop y remains floor-relative, so a coffee mug on the new 0.46 m
-table uses y=0.46 even though the room floor is at -0.9 m. Cabinet strips
+`tools/levels/refine_home.py` is the historical Home showcase dressing
+recipe. In that archived layout, prop y remains floor-relative, so a coffee mug
+on the 0.46 m table uses y=0.46 even though the room floor is at -0.9 m.
+Cabinet strips
 mount at y=1.424 and own small warm line lights. They do not acquire switch
 behaviour. Warm paint, oak and two ceiling variants use local `_warm_01`
 materials, preserving the original shared images. The backsplash front is
 at z=3.231; outlet backs sit at z=3.230, meeting the tile face within 1 mm.
-The existing encounter entities, interactive switches and doors,
-stair support and loft structure are preserved. The current connected Home
-is a vaulted loft rather than the concept's outdoor residential balcony.
+That recipe preserves the original encounter entities, interactive switches and
+doors, stair support and vaulted loft structure.
+
+The 0.12.0 collection’s Home instead uses
+`projects/environments/levels/home.json`, a complete seven-room redesign with
+living room, kitchen, dining room, bedroom, hall and two service-passage legs.
+`tools/authoring/environment_home_pool.py` authors its placements from the actual
+editor-imported legacy source; it is explicit developer tooling, not a runtime
+generator. Movable domestic props start dormant. The approved R2 caretaker uses
+the shared item-handoff capability to receive the bedroom cushion and leave
+through the opaque passage. The cushion chair's authored standable box ends at
+its measured 0.471 m seat top; its taller rendered back does not enclose the
+portable cushion. See the collection report for manual corrections and native
+acceptance, including the separate second pool room and furnished janitor closet.
 
 **Adding a future theme (e.g. `hotel`)** — no engine change:
 
@@ -4256,6 +4268,15 @@ must be finite and within `0.001..=100` metres both before and after scale. Phys
 placement scale is bounded to `0.001..=100`; a movable prop's scaled `size`, when
 authored, uses the same metre bounds, and its coordinates must stay within
 ±100000 metres. Resolved model bounds receive runtime checks too.
+
+The shared renderer admits at most **256 dynamic objects and 256 distinct meshes**,
+including each door frame/leaf, floating prop and rigid item. Shared model paths
+reuse a mesh slot. Aggregate dynamic geometry remains bounded at **1,048,560
+vertices and 779,520 indices** (the former sixteen-model worst case, including
+the largest reviewed model). Unused asset slots are reusable; live objects and
+explicitly registered door handles retain their slots. A geometry-budget refusal
+names the measured count and limit. These limits do not change individual GLB,
+texture, physics or draw-range limits.
 
 At most **128 movable physics props** may be authored per level. Dynamic and
 kinematic props are excluded from static prop batches, compiled `solid` AABBs
@@ -8283,8 +8304,11 @@ in a directory, reporting per-source failures without blocking the others.
 
 Current packages require `schema: "places-map"`, package format 1 and authored
 `places-level` schema revision 1. Mesh `PMW1`, props `PMP1`, collision `PCL1`,
-navigation `PNV2`, lighting `PLT1`, irradiance `PPF1`, compact atlases `PLC1` and
-shared prop recipes `PPS1` each accept binary revision 1 only. Reflection-position
+lighting `PLT1`, irradiance `PPF1` and compact atlases `PLC1` accept binary
+revision 1; navigation `PNV2` uses revision 2. Shared prop recipes `PPS1` read
+revisions 1 and 2 and write revision 2, which shares exact position, colour, UV
+and tail bytes independently without changing the expanded prop record.
+Reflection-position
 and lightmap metadata revisions, geometry revision, atlas key revision and solver
 revision are also 1. Earlier development packages require recompilation even when
 their numeric package version collides. Both encoded and expanded prop records
@@ -8731,6 +8755,19 @@ folder; single-map compiled packages have no editable-source recovery contract.
 See [project format](PROJECT_FORMAT.md) and [editor workflow](EDITOR.md). Built-in
 runtime assets remain the supported source; no custom asset importer is exposed.
 
+`Project > Import JSON map` admits a standalone legacy level into the current
+project under its original stable ID. It validates bounded raw JSON, duplicate
+keys, numeric precision, runtime semantics and placement-intent metadata before
+publication. Duplicate IDs or existing destination files are refused. The
+imported `levels/<id>.json` preserves original bytes, including unknown fields
+and intentional per-placement ignores; subsequent edits use ordinary history.
+Allowed transition destinations must already belong to the project (or be the
+imported map itself). Standalone sources with scripts are refused because their
+dependencies require recovery of the owning project. Import never guesses a new
+ID or applies heuristic geometry repairs: run Safety, inspect each finding and
+preview its conservative correction separately. Protected placement ignores are
+retained and skipped by automatic correction.
+
 ### Beam authoring additions (October 2026)
 
 Reusable `navigate {target, position:[x,y,z]}` requires an AI body and bounded
@@ -8840,3 +8877,27 @@ is introduced. Guidance wraps prose in six-row pages; Page Up/Page Down browse; 
 return to Play. Shared opposite floor/ceiling faces are explicitly classified
 `shared-storey-plane`; other reversed or unbounded shaft candidates remain review
 findings, with no blanket ignore or automatic topology repair.
+
+### Environment collection NPC handoff (0.12.0)
+
+The approved mannequin's `hand.R`, `carry_idle` and `carry_walk` now support an
+actual authored prop attachment and atomic held-item handoff. Use the native
+**Capabilities > NPC item handoff** form, then ordinary interaction bindings or
+Luau. The component, ownership/reset rules, proof of complete silhouette hiding
+and native trace fields are specified in [SCRIPTING.md](SCRIPTING.md#authored-item-handoff-and-hidden-retirement).
+The outgoing corridor must use an explicit-height opaque wall with no openings
+for conservative retirement; a hidden torso or looking away is insufficient.
+
+### Static duplicate-prop diagnostic eligibility
+
+`prop-duplicate` compares immutable placement and appearance, including pitch,
+roll, module span, fallback size and material/emission overrides. A shared saved
+anchor does not prove shared rendered geometry: balloon components supply their
+own offsets, scales, string lengths and phases, while AI, animation, routes,
+physics and floats own live poses. The checker therefore excludes component,
+binding and light owners, referenced/route-driven instances, movable/floating
+props, shadow-only placements and catalogued entity rigs from this static
+identity heuristic. It keeps genuine identical static-prop findings and states
+that overlapping geometry can z-fight; it does not assert that a runtime actor
+is redundant. This is conservative diagnostic eligibility, not a saved ignore
+or permission to delete an intentional placement.

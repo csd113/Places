@@ -44,7 +44,7 @@ jobs:
               if not raw:
                   continue
               source = pathlib.Path(raw.decode())
-              if source.parts[0] == "levels" or source.parts[:2] == ("assets", "levels") or source.suffix == ".placesmap":
+              if source.parts[0] in ("levels", "projects") or source.parts[:2] == ("assets", "levels") or source.suffix == ".placesmap":
                   continue
               target = destination / source
               target.parent.mkdir(parents=True, exist_ok=True)

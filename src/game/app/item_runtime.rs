@@ -52,6 +52,7 @@ pub struct Items {
     release_blocked: bool,
     simulation_delta: Option<f32>,
     trace_bodies: bool,
+    pub(super) carry: super::carry_runtime::CarryRuntime,
 }
 
 impl Items {
@@ -73,6 +74,7 @@ impl Items {
             log: open_physics_log(),
             release_blocked: false,
             simulation_delta: diagnostic_delta(),
+            carry: super::carry_runtime::CarryRuntime::default(),
             trace_bodies: std::env::var("PLACES_BENCH").as_deref() == Ok("1")
                 && std::env::var("PLACES_PHYSICS_TRACE").as_deref() == Ok("1"),
         }
@@ -115,6 +117,9 @@ fn open_physics_log() -> Option<std::fs::File> {
 
 impl FrameLoop<'_> {
     pub(super) fn activate_item_group(&mut self, group: &str) {
+        if self.carry_group_command_blocked(group) {
+            return;
+        }
         match self.items.world.activate_group(group) {
             Ok(report) => self.trace.record(
                 "physics_group_activated",
@@ -136,6 +141,9 @@ impl FrameLoop<'_> {
     }
 
     pub(super) fn reset_item_group(&mut self, group: &str) {
+        if self.carry_group_command_blocked(group) {
+            return;
+        }
         self.synchronize_physical_player();
         let before = self.bench.enabled().then(|| self.items.world.snapshots());
         let held_before = self.items.world.held();
@@ -508,6 +516,7 @@ impl FrameLoop<'_> {
             return;
         }
         self.apply_move_script();
+        self.observe_held_item();
         self.game
             .entities_mut()
             .set_navigation_obstacles(self.items.world.navigation_obstacles());
@@ -567,6 +576,7 @@ impl FrameLoop<'_> {
             materials,
         );
         self.items.authored.clear();
+        self.items.carry = super::carry_runtime::CarryRuntime::from_level(level, materials);
         self.items.target = None;
         self.items.release_blocked = false;
         self.items.input = crate::game::app::item_input::CarryInput::default();
@@ -606,6 +616,7 @@ impl FrameLoop<'_> {
             }
         }
         let prop_instance_ids = level.prop_instance_ids();
+        self.restore_carry_visibility(level);
         for (index, prop) in level.props.iter().enumerate() {
             let Some(def) = prop.physics.as_ref().filter(|def| def.motion.is_movable()) else {
                 continue;
@@ -925,7 +936,13 @@ impl Items {
             );
         }
     }
-    pub(super) fn append_release_hint(&self, vertices: &mut Vec<crate::engine::render::Vertex>) {
+    pub(super) fn append_release_hint(
+        &mut self,
+        vertices: &mut Vec<crate::engine::render::Vertex>,
+    ) {
+        if self.release_blocked && (self.world.held().is_none() || self.world.can_drop()) {
+            self.release_blocked = false;
+        }
         if (self.release_blocked || self.world.held_movement_blocked())
             && self.world.held().is_some()
         {
@@ -941,6 +958,24 @@ impl Items {
                 0.75,
                 [0.9, 0.75, 0.5],
             );
+            if let Some((_, instance, _)) = self
+                .authored
+                .iter()
+                .find(|(key, _, _)| Some(*key) == self.world.held())
+            {
+                crate::game::ui::draw_text(
+                    vertices,
+                    &format!("Holding: {instance}"),
+                    24.0,
+                    254.0,
+                    0.75,
+                    [0.9, 0.75, 0.5],
+                );
+            }
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/release_hint.rs"]
+mod tests;

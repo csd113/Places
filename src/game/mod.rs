@@ -1863,14 +1863,21 @@ impl Game {
         )
     }
 
-    /// While carrying, E uses an exactly aimed unlocked door before falling back to safe
-    /// set-down. Wall/leaf occlusion and reach match ordinary interaction; other
-    /// physical bodies still obstruct it. Looking away deliberately selects drop.
+    /// While carrying, E uses a reachable aimed door or carry-capable NPC.
+    /// Other physical bodies and the ordinary wall/leaf checks still obstruct
+    /// interaction; looking away deliberately selects safe set-down.
     pub(crate) fn carried_door_target(&self, body_distance: Option<f32>) -> Option<(usize, f32)> {
         let index = self.interaction_target()?;
         let item = self.interactables().get(index)?;
-        let door_index = item.door_index?;
-        if self.doors().get(door_index)?.is_locked() {
+        if let Some(door_index) = item.door_index {
+            if self.doors().get(door_index)?.is_locked() {
+                return None;
+            }
+        } else if !self
+            .world
+            .handle_of(&item.id)
+            .is_some_and(|handle| self.world.components().carries.contains(handle))
+        {
             return None;
         }
         let distance = crate::engine::interact::target_distance(

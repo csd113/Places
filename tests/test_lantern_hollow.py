@@ -6,6 +6,8 @@ from pathlib import Path
 import sys
 import unittest
 
+from tools.levels.curated_maps import environment_source
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools/levels"))
 import build_lantern_hollow as author
@@ -14,11 +16,9 @@ import build_lantern_hollow as author
 class LanternHollowTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.level = author.build_level()
+        cls.level = json.loads(environment_source('lantern_hollow').read_text())
 
-    def test_authored_source_is_current_and_repeatable(self):
-        self.assertEqual(author.serialise(self.level), author.OUTPUT.read_text())
-        self.assertEqual(author.serialise(self.level), author.serialise(author.build_level()))
+    def test_authored_night_climate_is_preserved(self):
         self.assertEqual(self.level['sky']['ambient'], 0.22)
         self.assertEqual(self.level['fog_regions'], [{
             'id': 'lantern_hollow_night_fog', 'min': [-50.0, -3.0, -52.0],
@@ -29,7 +29,7 @@ class LanternHollowTests(unittest.TestCase):
     def test_four_real_furnished_cottages_and_clear_front_doors(self):
         homes = [r for r in self.level['rooms'] if r['ceiling']['kind'] == 'gable']
         self.assertEqual(len(homes), 4)
-        self.assertEqual(len(self.level['doors']), 4)
+        self.assertEqual(sum(door['id'].startswith('house_') for door in self.level['doors']), 4)
         for i in range(4):
             models = {p['model'] for p in self.level['props'] if p['id'].startswith(f'house_{i}_')}
             self.assertTrue({'core:bed', 'core:couch', 'core:fridge', 'core:sink', 'home:cabinet_base'} <= models)

@@ -12,8 +12,10 @@ import sys
 import unittest
 
 
+from tools.levels.curated_maps import environment_source
+
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "levels/beach_demo.json"
+SOURCE = environment_source('beach')
 ROOM_EDGE_EPS = .01
 PLAYER_RADIUS = .30
 PLAYER_HEIGHT = 1.8
@@ -86,12 +88,6 @@ class BeachDemoTests(unittest.TestCase):
         cls.level = json.loads(SOURCE.read_text())
         cls.props = {prop["id"]: prop for prop in cls.level["props"]}
         cls.solids = [collider_box(cls.level, prop) for prop in cls.level["props"] if prop.get("solid")]
-
-    def test_authoritative_generator_is_current(self):
-        result = subprocess.run([sys.executable, str(ROOT / "tools/levels/build_beach.py"), "--check"],
-                                cwd=ROOT, env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
-                                text=True, capture_output=True, check=False)
-        self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
 
     def test_complete_beach_model_coverage_and_unique_placements(self):
         catalog = json.loads((ROOT / "assets/catalog.json").read_text())

@@ -10,6 +10,8 @@ from pathlib import Path
 import sys
 import unittest
 
+from tools.levels.curated_maps import environment_source
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / 'tools/props'), str(ROOT / 'tools/entities')]
 
@@ -63,7 +65,7 @@ def authored_mesh(name, module):
 class BeachRefinementTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.level = json.loads((ROOT / 'levels/beach_demo.json').read_text())
+        cls.level = json.loads((environment_source('beach')).read_text())
         cls.props = {prop['id']: prop for prop in cls.level['props']}
         cls.catalog = {entry['id']: entry for entry in
                        json.loads((ROOT / 'assets/catalog.json').read_text())['assets']}

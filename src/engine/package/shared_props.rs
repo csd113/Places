@@ -1,14 +1,15 @@
 //! Exact, cross-quality sharing of prepared prop record bytes.
 //!
 //! PPS1 recipes retain every original PMP1 byte. They split each serialized
-//! vertex into its 36-byte position/colour/UV prefix and remaining lighting/frame
-//! bytes, then reference content-interned 65,520-byte chunks. Raw headers,
+//! vertex into exact position, colour, UV and remaining lighting/frame planes,
+//! then reference content-interned 65,520-byte chunks. Raw headers,
 //! palettes and ordered indices use the same chunk store. Chunks are packed into
 //! bounded segments; segment identities and the reconstructed record identity
 //! are checked before the existing PMP1 decoder sees the result.
 //!
 //! Reconstruction allocates one output record and traverses borrowed segment
-//! slices. It never concatenates whole vertex prefix or tail planes.
+//! slices. It never concatenates whole vertex attribute planes. Version 1's
+//! combined position/colour/UV prefix remains readable.
 
 use std::collections::{HashMap, HashSet};
 
@@ -25,8 +26,15 @@ pub const MAX_SHARED_PROPS_SEGMENT_BYTES: u64 = 16 * 1024 * 1024;
 pub const MAX_SHARED_PROPS_RECIPE_BYTES: u64 = 64 * 1024 * 1024;
 
 const MAGIC: [u8; 4] = *b"PPS1";
-const VERSION: u16 = 1;
+/// Current exact attribute-plane recipe version; version 1 remains readable.
+pub const SHARED_PROPS_RECIPE_VERSION: u16 = 2;
+const VERSION: u16 = SHARED_PROPS_RECIPE_VERSION;
+const PREFIX_VERSION: u16 = 1;
 const PREFIX_BYTES: usize = 36;
+const POSITION_BYTES: usize = 12;
+const COLOR_BYTES: usize = 16;
+const UV_BYTES: usize = 8;
+const COLOR_END: usize = POSITION_BYTES + COLOR_BYTES;
 const MAX_CHUNKS: usize = 1 << 20;
 const MAX_PARTS: usize = MAX_PROP_BATCHES.saturating_mul(2).saturating_add(1);
 
@@ -57,6 +65,7 @@ impl SharedPropsSegment {
 
 /// A structurally validated reconstruction recipe.
 pub struct PropsRecipe {
+    version: u16,
     expanded_bytes: u64,
     sha256: String,
     segments: Vec<SharedPropsSegment>,
@@ -65,6 +74,12 @@ pub struct PropsRecipe {
 }
 
 impl PropsRecipe {
+    /// Validated recipe revision, including version 1 records retained by reuse.
+    #[must_use]
+    pub const fn version(&self) -> u16 {
+        self.version
+    }
+
     /// Original PMP1 record length, bounded by the prepared-record limit.
     #[must_use]
     pub const fn expanded_bytes(&self) -> u64 {
@@ -99,21 +114,35 @@ enum Part {
     Vertices {
         count: usize,
         stride: usize,
-        prefix: Vec<u32>,
-        tail: Vec<u32>,
+        planes: VertexPlanes,
     },
 }
 
+struct VertexPlanes {
+    widths: [usize; 4],
+    streams: [Vec<u32>; 4],
+}
+
 impl Part {
-    fn streams(&self) -> [&[u32]; 2] {
+    fn streams(&self) -> [&[u32]; 4] {
         match self {
-            Self::Raw { chunks, bytes: _ } => [chunks, &[]],
+            Self::Raw { chunks, bytes: _ } => [chunks, &[], &[], &[]],
             Self::Vertices {
-                prefix,
-                tail,
+                planes,
                 count: _,
                 stride: _,
-            } => [prefix, tail],
+            } => planes.streams.each_ref().map(Vec::as_slice),
+        }
+    }
+
+    fn streams_mut(&mut self) -> [&mut [u32]; 4] {
+        match self {
+            Self::Raw { chunks, bytes: _ } => [chunks, &mut [], &mut [], &mut []],
+            Self::Vertices {
+                planes,
+                count: _,
+                stride: _,
+            } => planes.streams.each_mut().map(Vec::as_mut_slice),
         }
     }
 
@@ -123,8 +152,7 @@ impl Part {
             Self::Vertices {
                 count,
                 stride,
-                prefix: _,
-                tail: _,
+                planes: _,
             } => count
                 .checked_mul(*stride)
                 .ok_or_else(|| "shared prop vertex run size overflows".to_string()),
@@ -207,16 +235,18 @@ impl ChunkStore {
             .collect()
     }
 
-    fn plane(&mut self, vertices: &[u8], stride: usize, prefix: bool) -> Result<Vec<u32>, String> {
+    fn plane(
+        &mut self,
+        vertices: &[u8],
+        stride: usize,
+        range: std::ops::Range<usize>,
+    ) -> Result<Vec<u32>, String> {
         let mut refs = Vec::new();
         let mut buffer = Vec::with_capacity(SHARED_PROPS_CHUNK_BYTES);
         for vertex in vertices.chunks_exact(stride) {
-            let mut plane = if prefix {
-                vertex.get(..PREFIX_BYTES)
-            } else {
-                vertex.get(PREFIX_BYTES..)
-            }
-            .ok_or_else(|| "shared prop vertex plane is truncated".to_string())?;
+            let mut plane = vertex
+                .get(range.clone())
+                .ok_or_else(|| "shared prop vertex plane is truncated".to_string())?;
             while !plane.is_empty() {
                 let count = plane
                     .len()
@@ -278,8 +308,15 @@ pub fn factor_props(records: &[&[u8]]) -> Result<FactoredProps, String> {
                     .checked_div(region.stride)
                     .ok_or_else(|| "shared prop vertex stride is zero".to_string())?,
                 stride: region.stride,
-                prefix: store.plane(vertices, region.stride, true)?,
-                tail: store.plane(vertices, region.stride, false)?,
+                planes: VertexPlanes {
+                    widths: attribute_widths(region.stride),
+                    streams: [
+                        store.plane(vertices, region.stride, 0..POSITION_BYTES)?,
+                        store.plane(vertices, region.stride, POSITION_BYTES..COLOR_END)?,
+                        store.plane(vertices, region.stride, COLOR_END..PREFIX_BYTES)?,
+                        store.plane(vertices, region.stride, PREFIX_BYTES..region.stride)?,
+                    ],
+                },
             });
             cursor = region.end;
         }
@@ -293,6 +330,7 @@ pub fn factor_props(records: &[&[u8]]) -> Result<FactoredProps, String> {
             });
         }
         recipes.push(PropsRecipe {
+            version: VERSION,
             expanded_bytes: u64_from_usize(bytes.len())?,
             sha256: hash::sha256_hex(bytes),
             segments: Vec::new(),
@@ -341,16 +379,7 @@ fn localize_recipe(
     let mut chunk_remap = HashMap::<u32, u32>::new();
     let mut segment_remap = HashMap::<usize, usize>::new();
     for part in &mut recipe.parts {
-        let streams: [&mut [u32]; 2] = match part {
-            Part::Raw { chunks, bytes: _ } => [chunks, &mut []],
-            Part::Vertices {
-                prefix,
-                tail,
-                count: _,
-                stride: _,
-            } => [prefix, tail],
-        };
-        for stream in streams {
+        for stream in part.streams_mut() {
             for reference in stream {
                 if let Some(local) = chunk_remap.get(reference) {
                     *reference = *local;
@@ -417,15 +446,20 @@ fn write_recipe(recipe: &PropsRecipe) -> Result<Vec<u8>, String> {
             Part::Vertices {
                 count,
                 stride,
-                prefix,
-                tail,
+                planes,
             } => {
+                if planes.widths != attribute_widths(*stride) {
+                    return Err(
+                        "shared prop writer requires version 2 attribute planes".to_string()
+                    );
+                }
                 writer.u8(1);
                 writer.u8(u8::try_from(*stride)
                     .map_err(|error| format!("shared prop stride is too large: {error}"))?);
                 writer.u32(u32_from_usize(*count)?);
-                write_references(&mut writer, prefix);
-                write_references(&mut writer, tail);
+                for stream in &planes.streams {
+                    write_references(&mut writer, stream);
+                }
             }
         }
         check_recipe_size(writer.len())?;
@@ -488,8 +522,14 @@ impl RecipeReadError {
 fn read_recipe_checked(bytes: &[u8]) -> Result<PropsRecipe, RecipeReadError> {
     check_recipe_size(bytes.len())?;
     let mut reader = Reader::new(bytes);
-    if reader.bytes(4)? != MAGIC || reader.u16()? != VERSION {
+    if reader.bytes(4)? != MAGIC {
         return Err("shared props recipe has an unsupported header"
+            .to_string()
+            .into());
+    }
+    let version = reader.u16()?;
+    if !matches!(version, PREFIX_VERSION | VERSION) {
+        return Err("shared props recipe has an unsupported version"
             .to_string()
             .into());
     }
@@ -526,7 +566,7 @@ fn read_recipe_checked(bytes: &[u8]) -> Result<PropsRecipe, RecipeReadError> {
     let mut expanded = 0_u64;
     let mut used = vec![false; chunks.len()];
     for _ in 0..part_count {
-        let part = read_part(&mut reader, &chunks)?;
+        let part = read_part(&mut reader, &chunks, version)?;
         expanded = expanded
             .checked_add(u64_from_usize(part.bytes()?)?)
             .filter(|total| *total <= expanded_bytes)
@@ -549,6 +589,7 @@ fn read_recipe_checked(bytes: &[u8]) -> Result<PropsRecipe, RecipeReadError> {
         );
     }
     Ok(PropsRecipe {
+        version,
         expanded_bytes,
         sha256,
         segments,
@@ -626,7 +667,20 @@ fn read_chunks(
     Ok(chunks)
 }
 
-fn read_part(reader: &mut Reader<'_>, chunks: &[ChunkLocation]) -> Result<Part, String> {
+const fn attribute_widths(stride: usize) -> [usize; 4] {
+    [
+        POSITION_BYTES,
+        COLOR_BYTES,
+        UV_BYTES,
+        stride.saturating_sub(PREFIX_BYTES),
+    ]
+}
+
+fn read_part(
+    reader: &mut Reader<'_>,
+    chunks: &[ChunkLocation],
+    version: u16,
+) -> Result<Part, String> {
     match reader.u8()? {
         0 => {
             let bytes = reader.u64()?;
@@ -648,22 +702,28 @@ fn read_part(reader: &mut Reader<'_>, chunks: &[ChunkLocation]) -> Result<Part, 
             {
                 return Err("shared prop vertex part has an invalid stride/count".to_string());
             }
-            let prefix_bytes = count
-                .checked_mul(PREFIX_BYTES)
-                .ok_or_else(|| "shared prop vertex prefix size overflows".to_string())?;
-            let tail_bytes = count
-                .checked_mul(stride.saturating_sub(PREFIX_BYTES))
-                .ok_or_else(|| "shared prop vertex tail size overflows".to_string())?;
-            if u64_from_usize(prefix_bytes.saturating_add(tail_bytes))? > MAX_BINARY_BYTES {
+            let run_bytes = count
+                .checked_mul(stride)
+                .ok_or_else(|| "shared prop vertex run size overflows".to_string())?;
+            if u64_from_usize(run_bytes)? > MAX_BINARY_BYTES {
                 return Err("shared prop vertex part exceeds the expanded record limit".to_string());
             }
-            let prefix = read_references(reader, chunks, prefix_bytes)?;
-            let tail = read_references(reader, chunks, tail_bytes)?;
+            let widths = if version == PREFIX_VERSION {
+                [PREFIX_BYTES, 0, 0, stride.saturating_sub(PREFIX_BYTES)]
+            } else {
+                attribute_widths(stride)
+            };
+            let mut streams: [Vec<u32>; 4] = std::array::from_fn(|_| Vec::new());
+            for (width, stream) in widths.iter().zip(&mut streams) {
+                let bytes = count
+                    .checked_mul(*width)
+                    .ok_or_else(|| "shared prop vertex plane size overflows".to_string())?;
+                *stream = read_references(reader, chunks, bytes)?;
+            }
             Ok(Part::Vertices {
                 count,
                 stride,
-                prefix,
-                tail,
+                planes: VertexPlanes { widths, streams },
             })
         }
         other => Err(format!("shared prop part has unknown kind {other}")),
@@ -730,15 +790,17 @@ pub fn reconstruct_props(recipe: &PropsRecipe, segments: &[&[u8]]) -> Result<Vec
             }
             Part::Vertices {
                 count,
-                stride,
-                prefix,
-                tail,
+                stride: _,
+                planes,
             } => {
-                let mut prefix_cursor = ChunkCursor::new(recipe, segments, prefix);
-                let mut tail_cursor = ChunkCursor::new(recipe, segments, tail);
+                let mut cursors = planes
+                    .streams
+                    .each_ref()
+                    .map(|stream| ChunkCursor::new(recipe, segments, stream));
                 for _ in 0..*count {
-                    prefix_cursor.append(&mut output, PREFIX_BYTES)?;
-                    tail_cursor.append(&mut output, stride.saturating_sub(PREFIX_BYTES))?;
+                    for (cursor, width) in cursors.iter_mut().zip(planes.widths) {
+                        cursor.append(&mut output, width)?;
+                    }
                 }
             }
         }
@@ -905,3 +967,7 @@ pub fn read_record<R: std::io::Read + std::io::Seek>(
     let views: Vec<&[u8]> = segments.iter().map(Vec::as_slice).collect();
     reconstruct_props(&recipe, &views)
 }
+
+#[cfg(test)]
+#[path = "../tests/shared_props_attributes.rs"]
+mod tests;

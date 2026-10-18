@@ -8,6 +8,9 @@ import sys
 import unittest
 import zipfile
 
+from tests.built_maps import package_documents, selected_distributions, selected_sources
+from tools.levels.curated_maps import environment_source, source_levels
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/assets'))
 sys.path.insert(0, str(ROOT / 'tools/props'))
@@ -21,17 +24,14 @@ def assert_non_winter_climate(test, level, stem):
     catalog = {a['id']: a for a in json.loads((ROOT / 'assets/catalog.json').read_text())['assets']}
     test.assertIsNone(level.get('weather'), stem)
     sky = level.get('sky')
-    if stem in ('beach_demo', 'frutiger_aero_demo'):
+    if stem in ('beach', 'aero', 'beach_demo', 'frutiger_aero_demo'):
         test.assertIsNotNone(sky, stem)
-        theme = 'beach' if stem == 'beach_demo' else 'frutiger_aero'
+        theme = 'beach' if stem in ('beach', 'beach_demo') else 'frutiger_aero'
         test.assertEqual(sky['texture'], theme+':tex_sky_day_01', stem)
     elif sky:
         test.assertEqual(sky['texture'], 'outdoor:tex_sky_stars_01', stem)
-    # Model Zoo intentionally exhibits the reusable winter props;
-    # its walkable ground and climate still use ordinary materials.
-    for key, value in level.items():
-        if key != 'props':
-            test.assertNotIn('winter:', json.dumps(value), (stem, key))
+    # The hub may use Winter trim around its themed doorway; climate and
+    # walkable traction still belong to the selected environment.
     materials = {asset_id for asset_id, _ in validate.level_ids(level)}
     test.assertFalse(any(catalog.get(m, {}).get('ground_surface') == 'ice'
                          for m in materials), stem)
@@ -39,14 +39,14 @@ def assert_non_winter_climate(test, level, stem):
 
 class WeatherTests(unittest.TestCase):
     def test_non_winter_sources_keep_their_climate_and_ground(self):
-        sources = sorted((ROOT / 'levels').glob('*.json'))
+        sources = selected_sources()
         self.assertTrue(sources, 'maintained level sources must exist')
         for path in sources:
             if path.stem != 'winter':
                 assert_non_winter_climate(self, json.loads(path.read_text()), path.stem)
 
     def test_weather_is_only_opted_in_by_winter(self):
-        sources = sorted((ROOT / 'levels').glob('*.json'))
+        sources = selected_sources()
         self.assertTrue(sources, 'maintained level sources must exist')
         for path in sources:
             level = json.loads(path.read_text())
@@ -217,7 +217,7 @@ class WeatherTests(unittest.TestCase):
         self.assertTrue(any('equal count and material' in error for error in errors), errors)
 
     def test_derived_severe_control_preserves_winter_content(self):
-        original = json.loads((ROOT / 'levels/winter.json').read_text())
+        original = json.loads((environment_source('winter')).read_text())
         snapshot = copy.deepcopy(original)
         review = build_winter.build_severe_review(original)
         self.assertEqual(original, snapshot, 'deriving the control must not mutate Winter')
@@ -277,25 +277,23 @@ class PackagedWeatherTests(unittest.TestCase):
     def test_explicit_packages_preserve_authored_climate_and_ground(self):
         directory = Path(os.environ['PLACES_WEATHER_PACKAGE_DIR'])
         self.assertTrue(directory.is_dir(), directory)
-        from tests.built_maps import selected_sources
-        sources = selected_sources()
-        self.assertTrue(sources, 'maintained level sources must exist')
-        for source in sources:
-            path = directory / source.with_suffix('.placesmap').name
-            self.assertTrue(path.is_file(), f'compile {source} before package validation')
-            with zipfile.ZipFile(path) as archive:
-                manifest = json.loads(archive.read('manifest.json'))
-                level = json.loads(archive.read('semantics.json'))
-            self.assertEqual(manifest['id'], source.stem, path)
-            self.assertEqual(level['id'], source.stem, path)
-            if source.stem == 'winter':
-                self.assertEqual(level['weather']['kind'], 'snow')
-                for key, value in json.loads(build_winter.SEVERE_WEATHER.read_text()).items():
-                    self.assert_stored_weather(level['weather_alternate'][key], value, (path, key))
-                self.assert_stored_weather(level['weather_cycle'],
-                                           json.loads(source.read_text())['weather_cycle'], path)
-            else:
-                assert_non_winter_climate(self, level, source.stem)
-            errors = []
-            validate.validate_weather(level, str(path), errors)
-            self.assertEqual(errors, [], path)
+        for distribution_id, source in selected_distributions():
+            path = directory / (distribution_id + '.placesmap')
+            self.assertTrue(path.is_file(), f'export {source} before package validation')
+            sources = dict(source_levels(source))
+            documents = list(package_documents(path))
+            self.assertEqual({identity for identity, _, _ in documents}, set(sources))
+            for identity, manifest, level in documents:
+                self.assertEqual(manifest['id'], identity, path)
+                self.assertEqual(level['id'], identity, path)
+                if identity == 'winter':
+                    self.assertEqual(level['weather']['kind'], 'snow')
+                    for key, value in json.loads(build_winter.SEVERE_WEATHER.read_text()).items():
+                        self.assert_stored_weather(level['weather_alternate'][key], value, (path, key))
+                    self.assert_stored_weather(level['weather_cycle'],
+                                               json.loads(sources[identity].read_text())['weather_cycle'], path)
+                else:
+                    assert_non_winter_climate(self, level, identity)
+                errors = []
+                validate.validate_weather(level, str(path), errors)
+                self.assertEqual(errors, [], path)

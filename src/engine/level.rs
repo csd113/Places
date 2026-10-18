@@ -772,6 +772,10 @@ pub enum ActionDef {
     ShowMessage { title: String, lines: Vec<String> },
     /// Give an AI body a goal through the shared bounded planner and mover.
     Navigate { target: String, position: [f32; 3] },
+    /// Atomically accept the carry component's exact held item.
+    HandoffItem { target: String },
+    /// Request conservative whole-assembly occlusion before retirement.
+    RetireHidden { target: String },
     /// End a run with concise feedback; the native player offers a fresh restart.
     EndRun {
         won: bool,
@@ -1060,6 +1064,8 @@ impl ActionDef {
                 target: _,
                 position: _,
             } => "navigate",
+            Self::HandoffItem { target: _ } => "handoff_item",
+            Self::RetireHidden { target: _ } => "retire_hidden",
             Self::EndRun {
                 won: _,
                 title: _,
@@ -1197,7 +1203,9 @@ impl ActionDef {
             Self::Navigate {
                 target,
                 position: _,
-            } => Some(target),
+            }
+            | Self::HandoffItem { target }
+            | Self::RetireHidden { target } => Some(target),
             Self::ShowMessage { title: _, lines: _ }
             | Self::EndRun {
                 won: _,
@@ -1580,8 +1588,45 @@ pub enum ComponentDef {
     Fade(FadeDef),
     /// One attached dynamic light on the entity.
     Glow(GlowDef),
+    /// A single explicitly requested physical item attached to a posed hand.
+    Carry(CarryDef),
     /// One gently moving balloon with a fixed anchor and a curved string.
     Balloon(BalloonDef),
+}
+
+/// Authored one-item handoff contract. Offsets/rotations are in the named
+/// animated node's local frame; the item keeps its authored scale and texture.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CarryDef {
+    /// Exact authored movable item identity; accepting a model alias is forbidden.
+    pub item: String,
+    /// Named posed node, e.g. the approved R2 `hand.R`.
+    pub socket: String,
+    /// Metres in socket space.
+    #[serde(default)]
+    pub offset: [f32; 3],
+    /// XYZ local Euler degrees.
+    #[serde(default)]
+    pub rotation_degrees: [f32; 3],
+    /// Loop while stationary after accepting the item.
+    pub idle_clip: String,
+    /// Loop while the ordinary AI navigator moves.
+    pub walk_clip: String,
+}
+
+impl CarryDef {
+    /// Bounded names and finite, local attachment transforms.
+    #[must_use]
+    pub fn is_valid(&self) -> bool {
+        [&self.item, &self.socket, &self.idle_clip, &self.walk_clip]
+            .into_iter()
+            .all(|text| !text.is_empty() && text.len() <= 96 && !text.chars().any(char::is_control))
+            && self.offset.iter().all(|v| v.is_finite() && v.abs() <= 2.0)
+            && self
+                .rotation_degrees
+                .iter()
+                .all(|v| v.is_finite() && v.abs() <= 360.0)
+    }
 }
 
 /// An opt-in response to measured direct illumination from the handheld light.
@@ -2104,6 +2149,7 @@ impl ComponentDef {
             Self::Fade(_) => "fade",
             Self::Glow(_) => "glow",
             Self::Balloon(_) => "balloon",
+            Self::Carry(_) => "carry",
         }
     }
 }

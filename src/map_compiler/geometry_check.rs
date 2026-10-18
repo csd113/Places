@@ -47,7 +47,7 @@
 //! Exit statuses: `0` no confirmed defects, `1` confirmed defects, `2` usage or
 //! file/parse failure.
 
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
@@ -64,6 +64,10 @@ use crate::engine::render::{LevelMesh, SurfaceKey, SurfaceKind, Vertex};
 #[cfg(test)]
 #[path = "tests/geometry_surfaces.rs"]
 mod surface_tests;
+
+#[cfg(test)]
+#[path = "tests/geometry_props.rs"]
+mod prop_tests;
 
 /// Stable format id written into the machine-readable report.
 pub const CHECK_FORMAT: &str = "places-geometry-check";
@@ -2728,21 +2732,64 @@ fn aabb_face_centre(aabb: &WallAabb, axis: usize, sign: f32) -> [f32; 3] {
 // Prop placements
 // ---------------------------------------------------------------------------
 
+/// Eligibility for a static-placement identity heuristic.
+///
+/// Runtime-owned poses cannot be compared through their saved anchors. Balloon
+/// components supply offsets/scales/strings; AI, animation, routes, physics and
+/// floats own independent live poses. Other components, bindings, light owners
+/// and explicitly targeted instances can also have distinct runtime behavior.
+/// Without evaluating that behavior, exclude them instead of asserting that a
+/// placement is redundant. Catalogued entities have intrinsic posed resources.
+/// Ordinary component-free immutable props and fallback boxes remain checked.
+fn static_duplicate_candidate(
+    prop: &crate::engine::level::PropDef,
+    id: &str,
+    controlled: &BTreeSet<String>,
+    catalog: &crate::engine::loader::PropCatalog,
+) -> bool {
+    prop.float.is_none()
+        && !prop.is_physics_movable()
+        && !prop.shadow_only
+        && prop.components.is_empty()
+        && prop.bindings.is_empty()
+        && prop.lights.is_empty()
+        && prop.switch_group.is_none()
+        && !controlled.contains(id)
+        && !catalog
+            .assets()
+            .placeable(&prop.model)
+            .is_some_and(|entry| {
+                entry.asset_type.as_str() == crate::engine::assets::AssetType::ENTITY
+            })
+}
+
 /// Props are not part of the emitted architecture mesh, so coincident
 /// placements and large dressing layers stacked a few millimetres off a
 /// walkable surface are invisible to the mesh checks. These heuristics cover
 /// the two recurring classes: an exact duplicate placement, and a slab whose
 /// visible top lands within 2 cm of the walkable floor at its own footprint.
 impl Checker<'_> {
-    fn check_props(
-        &mut self,
-        catalog: &crate::engine::loader::PropCatalog,
-        surfaces: &LevelSurfaces<'_>,
-    ) {
+    fn check_duplicate_props(&mut self, catalog: &crate::engine::loader::PropCatalog) {
         let props = &self.level.props;
+        let identities = self.level.prop_instance_ids();
+        let mut controlled: BTreeSet<String> =
+            crate::engine::interact::referenced_targets(self.level)
+                .into_iter()
+                .collect();
+        controlled.extend(
+            self.level
+                .routes
+                .iter()
+                .map(|route| route.id.trim().to_string()),
+        );
         let mut by_model: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
         for (index, prop) in props.iter().enumerate() {
-            by_model.entry(prop.model.as_str()).or_default().push(index);
+            if identities
+                .get(index)
+                .is_some_and(|id| static_duplicate_candidate(prop, id, &controlled, catalog))
+            {
+                by_model.entry(prop.model.as_str()).or_default().push(index);
+            }
         }
         for indices in by_model.values() {
             for (slot, first) in indices.iter().enumerate() {
@@ -2759,7 +2806,13 @@ impl Checker<'_> {
                         && (a.z - b.z).abs() <= 1.0e-3
                         && (a.y - b.y).abs() <= 1.0e-3
                         && (a.rotation_degrees - b.rotation_degrees).abs() <= 0.5
-                        && (a.scale - b.scale).abs() <= 1.0e-3;
+                        && (a.pitch_degrees - b.pitch_degrees).abs() <= 0.5
+                        && (a.roll_degrees - b.roll_degrees).abs() <= 0.5
+                        && (a.scale - b.scale).abs() <= 1.0e-3
+                        && a.span == b.span
+                        && a.size == b.size
+                        && a.material_overrides == b.material_overrides
+                        && a.emission_overrides == b.emission_overrides;
                     if same {
                         let a_name = a.id.as_deref().unwrap_or(&a.model);
                         let b_name = b.id.as_deref().unwrap_or(&b.model);
@@ -2768,8 +2821,8 @@ impl Checker<'_> {
                             Severity::Warning,
                             a_name,
                             format!(
-                                "'{b_name}' repeats '{a_name}' ({}) at the same transform; \
-                                 the duplicate is redundant and z-fights",
+                                "'{b_name}' repeats static '{a_name}' ({}) with the same authored transform and appearance; \
+                                 the overlapping geometry can z-fight",
                                 a.model
                             ),
                             [a.x, a.y, a.z],
@@ -2778,6 +2831,15 @@ impl Checker<'_> {
                 }
             }
         }
+    }
+
+    fn check_props(
+        &mut self,
+        catalog: &crate::engine::loader::PropCatalog,
+        surfaces: &LevelSurfaces<'_>,
+    ) {
+        self.check_duplicate_props(catalog);
+        let props = &self.level.props;
         for prop in props {
             let entry = catalog.get(&prop.model);
             if entry.model.is_none() {

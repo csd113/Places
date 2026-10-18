@@ -22,20 +22,23 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 
+from tools.levels.curated_maps import environment_source
+
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(TEST_DIR, ".."))
 REPAIR_TOOL = os.path.join(ROOT, "tools", "levels", "repair_alignment.py")
 FIXTURES = os.path.join(ROOT, "tests", "fixtures", "levels", "repair")
-DEMO = os.path.join(ROOT, "levels", "home_showcase.json")
+DEMO = str(environment_source('home', Path(ROOT)))
 MAINTAINED = (
-    os.path.join(ROOT, "levels", "home_showcase.json"),
-    os.path.join(ROOT, "levels", "pool_showcase.json"),
+    str(environment_source('home', Path(ROOT))),
+    str(environment_source('pool', Path(ROOT))),
     os.path.join(ROOT, "tests", "fixtures", "levels", "level0_pit.json"),
 )
 SCRATCH = os.environ.get("PLACES_REPAIR_TEST_ROOT")

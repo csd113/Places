@@ -203,6 +203,25 @@ pub(super) fn atomic_replace(path: &Path, bytes: &[u8]) -> Result<(), String> {
     result
 }
 
+pub(super) fn atomic_create(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let parent = path.parent().ok_or("Source has no parent folder")?;
+    let (temporary, mut file) = reserve_temporary(parent)?;
+    let result = (|| {
+        write_contents(&mut file, &temporary, bytes)?;
+        drop(file);
+        // A same-directory hard link publishes complete bytes atomically and
+        // refuses an existing destination, including a concurrent creation.
+        fs::hard_link(&temporary, path).map_err(|error| {
+            format!(
+                "Could not create {} without replacement: {error}",
+                path.display()
+            )
+        })
+    })();
+    let _cleanup = fs::remove_file(&temporary);
+    result
+}
+
 fn reserve_temporary(parent: &Path) -> Result<(PathBuf, File), String> {
     for _attempt in 0_u8..16 {
         let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);

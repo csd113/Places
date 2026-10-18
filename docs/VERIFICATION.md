@@ -55,7 +55,8 @@ sh tools/verify.sh
 ```
 
 This opt-in gate builds fresh release tools, validates assets/generators, compiles
-and verifies the eight-source `levels/lineup.txt`, checks packaged weather, runs
+and verifies the `levels/lineup.txt` distributions, checks every collection sub-map
+and its packaged weather, runs
 the Rust production gate and enables export/native Python suites. The script is the exact command/order reference;
 this guide does not duplicate its evolving command list. It stops on failure.
 `PLACES_VERIFY_WORKERS` selects the offline worker budget (default eight).
@@ -88,7 +89,7 @@ not full native appearance.
 python3 tools/textures/build.py --check
 python3 tools/props/build.py --check
 python3 tools/entities/check_clip_boundaries.py
-python3 tools/levels/build_office.py --check
+python3 tools/levels/compile.py --list-json
 ```
 
 Do not run broad artwork exporters or `--force` as a validation shortcut. The
@@ -98,19 +99,23 @@ Runtime imagery must remain real committed PNGs, with source/UV/alpha contracts
 preserved. Model construction and code-generated test controls are separate from
 runtime texture generation.
 
-For a changed maintained source, compile only that map to an explicit destination:
+For changed collection sources, export the complete project to its explicit destination:
 
 ```sh
-./target/release/places-compile build levels/office_demo.json \
-  --out assets/levels/office_demo.placesmap --asset-root assets --workers 8
-./target/release/places-compile validate assets/levels/office_demo.placesmap
-./target/release/places-compile verify levels/office_demo.json \
-  --package assets/levels/office_demo.placesmap --require-current
+./target/release/places-compile export-project projects/environments \
+  --out assets/levels/environments.placesmap --asset-root assets --workers 8
+./target/release/places-compile validate assets/levels/environments.placesmap
+./target/release/places-compile verify projects/environments --level office \
+  --package assets/levels/environments.placesmap --asset-root assets --require-current
+python3 tools/levels/compile.py --check
 ```
 
-`validate` decodes and re-hashes archive records; `verify` checks source/dependency
-and compiler currency. `tests.built_maps` independently checks all eight installed
-archives without baking. Source `tests/test_package.py` does not require packages.
+`validate` decodes and re-hashes every bundle record; `verify --level` checks the
+selected sub-map’s source/dependency and compiler currency. The curated tool runs
+that verification for every declared sub-map and checks each Static/Full manifest.
+`tests.built_maps` independently checks every installed sub-map’s prepared payloads,
+content hashes and exact embedded editable sources without baking. Source
+`tests/test_package.py` does not require packages.
 Current packages prepare Static (`off`) and Full lighting; legacy Medium remains
 readable. Texture quality/filtering preserve selected lighting. Current encoding,
 geometry/solver revisions and safety limits live in [package format](PACKAGE_FORMAT.md)

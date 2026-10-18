@@ -22,6 +22,8 @@ machinery rather than to be edited.
 
 from __future__ import annotations
 
+from functools import partial
+
 from artkit import Canvas
 
 # ------------------------------------------------------------------- palette
@@ -303,6 +305,32 @@ ART["core:decal_ceiling_vent_01"] = {
     "build": build_ceiling_vent,
     "kind": "decal",
 }
+
+
+def build_collection_sign(name: str) -> Canvas:
+    """Load the approved 4:1 wayfinding plate; never repaint its typography."""
+    from pathlib import Path
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "props"))
+    from tex import decode_png
+    source = Path(__file__).resolve().parents[2] / f"assets/shared/decals/collection_{name}.png"
+    width, height, pixels = decode_png(source.read_bytes())
+    if (width, height) != (1024, 256):
+        raise ValueError("collection signs must retain their 1024x256 fitted 4:1 contract")
+    canvas = Canvas(width, height, fill=CLEAR)
+    canvas.pixels[:] = pixels
+    return canvas
+
+
+# The committed PNGs own the artwork. The ordinary offline builder can load and
+# round-trip them on every platform without requiring the original author font.
+for _sign in ("home", "pool", "office", "arcade", "lantern_hollow", "winter", "beach", "aero", "hub", "welcome"):
+    ART[f"collection:sign_{_sign}"] = {
+        "model": f"shared/decals/collection_{_sign}.png",
+        "build": partial(build_collection_sign, _sign),
+        "kind": "decal",
+        "preferred_dimensions": (1024, 256),
+    }
 
 
 def build_temptation_adam_eve() -> Canvas:

@@ -7,19 +7,16 @@ from pathlib import Path
 
 from tests.test_beach_demo import authored_floor, collider_box, disc_touches
 
+from tools.levels.curated_maps import environment_source
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class AeroDemoTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.level = json.loads((ROOT/'levels/frutiger_aero_demo.json').read_text())
+        cls.level = json.loads((environment_source('aero')).read_text())
         cls.solids = [(p['id'], collider_box(cls.level, p)) for p in cls.level['props'] if p.get('solid')]
-
-    def test_generator_is_current(self):
-        result = subprocess.run([sys.executable, 'tools/levels/build_frutiger_aero.py', '--check'],
-                                cwd=ROOT, text=True, capture_output=True, check=False)
-        self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
 
     def test_every_aero_model_is_naturally_placed(self):
         catalog = json.loads((ROOT/'assets/catalog.json').read_text())

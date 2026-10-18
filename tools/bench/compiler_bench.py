@@ -122,7 +122,7 @@ def main():
     parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places-compile")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--maps", nargs="+", default=["tests/fixtures/levels/test_room.json",
-                        "levels/retro_arcade_demo.json", "levels/lantern_hollow.json"])
+                        "tests/fixtures/levels/material_transport.json", "tests/fixtures/levels/architecture_after.json"])
     parser.add_argument("--workers", nargs="+", type=int, default=[12])
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--variants", default="off,full")

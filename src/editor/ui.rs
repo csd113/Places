@@ -36,6 +36,7 @@ pub(super) enum Action {
     ProjectField(super::projects::Field),
     ProjectApply,
     ProjectEntry,
+    ProjectMenuEntryOnly,
     MapCrosshair,
     Thumbnail,
     ThumbnailChoose,

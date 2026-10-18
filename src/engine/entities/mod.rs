@@ -136,6 +136,10 @@ pub enum WorldCommand {
     ResetPhysicsGroup { group: String },
     /// Activate dormant members of an authored physical group.
     ActivatePhysicsGroup { group: String },
+    /// Atomically claim the authored carry contract's exact held item.
+    HandoffItem { target: String },
+    /// Hide an accepted carry assembly only after whole-geometry occlusion.
+    RetireHidden { target: String },
     /// Select one of the two prepared, map-authored weather configurations.
     SetWeatherAlternate {
         /// True selects `weather_alternate`; false restores `weather`.
@@ -365,6 +369,7 @@ pub struct EntityWorld {
     scripts: crate::engine::scripting::ScriptRuntime,
     script_event: Option<EventRecord>,
     pub(crate) script_player: Vec3,
+    pub(crate) script_held_item: Option<String>,
     pub(crate) script_visible: std::collections::BTreeSet<EntityHandle>,
     generation: u64,
     store: EntityStore,
@@ -481,6 +486,7 @@ impl EntityWorld {
             scripts: crate::engine::scripting::ScriptRuntime::default(),
             script_event: None,
             script_player: Vec3::ZERO,
+            script_held_item: None,
             script_visible: std::collections::BTreeSet::new(),
             generation: 0,
             store: EntityStore::new(),
@@ -665,18 +671,7 @@ impl EntityWorld {
     /// Re-seeds every runtime to its authored start state without replacing the
     /// world: the `reset_to_start` contract.
     pub fn reset_runtime(&mut self) {
-        self.commands.retain(|command| {
-            !matches!(
-                command,
-                WorldCommand::ShowMessage { title: _, lines: _ }
-                    | WorldCommand::ChangeLevel { level: _ }
-                    | WorldCommand::EndRun {
-                        won: _,
-                        title: _,
-                        detail: _
-                    }
-            )
-        });
+        self.discard_scene_commands();
         self.scripts.reload();
         self.script_event = None;
         if self.weather_strength > 0.0
@@ -753,8 +748,7 @@ impl EntityWorld {
                 transform.yaw_degrees = agent.yaw_degrees;
             }
         }
-        self.script_visible.clear();
-        self.ai.release_caught();
+        self.reset_carry_ownership();
         for (_, response) in self.components.light_responses.iter_mut() {
             response.active = false;
             response.release_remaining = 0.0;
@@ -765,8 +759,37 @@ impl EntityWorld {
             let _ = self.despawn_handle(handle);
         }
         self.rebuild_door_colliders();
+        self.sync_transformed_interactables();
         self.sync_routed_interactables();
+        self.rebuild_interactables_from_tables();
         self.rebuild_entity_frames();
+    }
+
+    fn discard_scene_commands(&mut self) {
+        self.commands.retain(|command| {
+            !matches!(
+                command,
+                WorldCommand::ShowMessage { title: _, lines: _ }
+                    | WorldCommand::HandoffItem { target: _ }
+                    | WorldCommand::RetireHidden { target: _ }
+                    | WorldCommand::ChangeLevel { level: _ }
+                    | WorldCommand::EndRun {
+                        won: _,
+                        title: _,
+                        detail: _
+                    }
+            )
+        });
+    }
+
+    fn reset_carry_ownership(&mut self) {
+        self.script_visible.clear();
+        self.script_held_item = None;
+        for (_, carry) in self.components.carries.iter_mut() {
+            carry.item = None;
+            carry.retired = false;
+        }
+        self.ai.release_caught();
     }
 
     fn reset_audio(&mut self) {
@@ -1401,6 +1424,16 @@ impl EntityWorld {
                 ComponentDef::Ai(ai_def) => {
                     drop(self.components.ais.insert(handle, ai_def.as_ref().clone()));
                 }
+                ComponentDef::Carry(carry_def) => {
+                    drop(self.components.carries.insert(
+                        handle,
+                        components::Carry {
+                            def: carry_def.clone(),
+                            item: None,
+                            retired: false,
+                        },
+                    ));
+                }
                 ComponentDef::LightResponse(response_def) => {
                     let _previous_response = self.components.light_responses.insert(
                         handle,
@@ -1643,7 +1676,12 @@ impl EntityWorld {
             if let Some(handle) = self.handle_of(&item.id)
                 && let Some(component) = self.components.interactables.get(handle)
             {
-                item.enabled = component.enabled;
+                item.enabled = component.enabled
+                    && !self
+                        .components
+                        .carries
+                        .get(handle)
+                        .is_some_and(|carry| carry.retired);
                 item.prompt.clone_from(&component.prompt);
                 item.reach = component.reach;
             }
@@ -2156,6 +2194,26 @@ impl EntityWorld {
                         title: title.clone(),
                         lines: lines.clone(),
                     });
+                    report.actions_run = report.actions_run.saturating_add(1);
+                } else {
+                    report.unsupported = report.unsupported.saturating_add(1);
+                }
+            }
+            ActionDef::HandoffItem { target } | ActionDef::RetireHidden { target } => {
+                if self
+                    .handle_of(target)
+                    .is_some_and(|h| self.components.carries.contains(h))
+                {
+                    self.commands
+                        .push(if matches!(action, ActionDef::HandoffItem { target: _ }) {
+                            WorldCommand::HandoffItem {
+                                target: target.clone(),
+                            }
+                        } else {
+                            WorldCommand::RetireHidden {
+                                target: target.clone(),
+                            }
+                        });
                     report.actions_run = report.actions_run.saturating_add(1);
                 } else {
                     report.unsupported = report.unsupported.saturating_add(1);
@@ -3711,6 +3769,34 @@ impl EntityWorld {
         })
     }
 
+    /// Publishes a bounded owned identity snapshot before script invocation.
+    pub fn observe_held_item(&mut self, item: Option<String>) {
+        self.script_held_item = item;
+    }
+
+    /// Completes ownership only after the physics item was removed successfully.
+    pub fn confirm_handoff(&mut self, target: &str, item: &str) {
+        if let Some(handle) = self.handle_of(target)
+            && let Some(carry) = self.components.carries.get_mut(handle)
+        {
+            carry.item = Some(item.to_string());
+            self.script_held_item = None;
+            self.rebuild_entity_frames();
+        }
+    }
+
+    /// Retires locomotion/interaction after the presentation guard hid both meshes.
+    pub fn confirm_carry_retired(&mut self, target: &str) {
+        if let Some(handle) = self.handle_of(target) {
+            if let Some(carry) = self.components.carries.get_mut(handle) {
+                carry.retired = true;
+            }
+            let _frozen = self.ai.mark_caught(handle);
+            self.rebuild_interactables_from_tables();
+            self.rebuild_entity_frames();
+        }
+    }
+
     /// Bounded diagnostics for the current script run.
     #[must_use]
     pub fn script_diagnostics(&self) -> &[String] {
@@ -4376,6 +4462,22 @@ impl EntityWorld {
             } else {
                 agent.cue()
             };
+            let carrying_cue = self
+                .handle_of(&agent.instance_id)
+                .and_then(|h| self.components.carries.get(h))
+                .filter(|carry| carry.item.is_some())
+                .map_or_else(
+                    || cue.clone(),
+                    |carry| PoseCue::Clip {
+                        name: if matches!(cue, PoseCue::Walk { speed_mps: _ }) {
+                            carry.def.walk_clip.clone()
+                        } else {
+                            carry.def.idle_clip.clone()
+                        },
+                        once: false,
+                        paused: false,
+                    },
+                );
             let (opacity, glow) = self.frame_visuals(&agent.instance_id);
             self.entity_frames.push(EntityFrame {
                 instance_id: agent.instance_id.clone(),
@@ -4385,7 +4487,7 @@ impl EntityWorld {
                 // that converts; nothing downstream may re-interpret the
                 // value as degrees.
                 transform: Some((agent.position, agent.yaw_degrees.to_radians())),
-                cue: Some(cue),
+                cue: Some(carrying_cue),
                 opacity: opacity * agent.opacity(),
                 glow,
                 shadow_only: self.frame_shadow_only(&agent.instance_id),

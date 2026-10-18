@@ -21,6 +21,7 @@ pub(super) enum Field {
     AddLevel,
     Export,
     Import,
+    ImportJson,
     Destination,
     Transitions,
 }
@@ -31,6 +32,22 @@ pub(super) enum Operation {
 }
 
 impl Field {
+    fn metadata_key(self) -> Result<&'static str, String> {
+        match self {
+            Self::Name => Ok("name"),
+            Self::LevelTitle => Ok("display_name"),
+            Self::Author => Ok("author"),
+            Self::Description => Ok("description"),
+            Self::Thumbnail
+            | Self::AddLevel
+            | Self::Export
+            | Self::Import
+            | Self::ImportJson
+            | Self::Destination
+            | Self::Transitions => Err("This project operation is not a metadata field".into()),
+        }
+    }
+
     const fn label(self) -> &'static str {
         match self {
             Self::Name => "Project name",
@@ -41,6 +58,7 @@ impl Field {
             Self::AddLevel => "New level stable ID (lowercase letters, digits, _ or -)",
             Self::Export => "Export complete project to .placesmap",
             Self::Import => "Recover editable sources from project .placesmap",
+            Self::ImportJson => "Import standalone JSON map (keeps its stable ID and source bytes)",
             Self::Transitions => "Allowed destinations for this level (comma-separated stable IDs)",
             Self::Destination => "Recover into NEW folder (existing folders are refused)",
         }
@@ -215,7 +233,7 @@ fn draw_project(app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mu
                 hits,
                 [
                     30.0,
-                    f32::from(u16::try_from(row).unwrap_or(0)).mul_add(17.0, 67.0),
+                    f32::from(u16::try_from(row).unwrap_or(0)).mul_add(15.0, 67.0),
                     190.0,
                     13.0,
                 ],
@@ -255,7 +273,7 @@ fn draw_level(
     ui::popup_button(
         v,
         hits,
-        [238.0, 159.0, 210.0, 13.0],
+        [30.0, 195.0, 190.0, 13.0],
         "Map settings >",
         Action::Components(10),
     );
@@ -302,6 +320,7 @@ fn draw_level(
         ),
         ("Check project", Action::ProjectCheck),
         ("Migration check", Action::ProjectMigrate),
+        ("Import JSON map", Action::ProjectField(Field::ImportJson)),
     ]
     .into_iter()
     .enumerate()
@@ -311,7 +330,7 @@ fn draw_level(
             hits,
             [
                 238.0,
-                f32::from(u16::try_from(row).unwrap_or(0)).mul_add(20.0, 67.0),
+                f32::from(u16::try_from(row).unwrap_or(0)).mul_add(18.0, 67.0),
                 210.0,
                 14.0,
             ],
@@ -326,19 +345,16 @@ fn draw_level(
         "Allowed transitions >",
         Action::ProjectField(Field::Transitions),
     );
-    let thumbnail = doc
-        .manifest()
-        .level(Some(doc.level_id()))
-        .ok()
-        .and_then(|level| level.thumbnail.as_ref())
-        .map_or("none", crate::engine::project::ProjectPath::as_str);
-    ui::text(
+    ui::popup_button(
         v,
-        &format!("Thumbnail: {thumbnail}"),
-        30.0,
-        198.0,
-        ui::INK,
-        116,
+        hits,
+        [238.0, 195.0, 210.0, 13.0],
+        if doc.manifest().menu_entry_only {
+            "Explore menu: Entry only"
+        } else {
+            "Explore menu: All maps"
+        },
+        Action::ProjectMenuEntryOnly,
     );
 }
 
@@ -395,9 +411,11 @@ impl App {
                             .display()
                             .to_string(),
                         Field::Transitions => doc.level().transitions.join(", "),
-                        Field::Thumbnail | Field::AddLevel | Field::Import | Field::Destination => {
-                            String::new()
-                        }
+                        Field::Thumbnail
+                        | Field::AddLevel
+                        | Field::Import
+                        | Field::ImportJson
+                        | Field::Destination => String::new(),
                     });
                 self.popup = Some(Popup::ProjectText { field, value });
             }
@@ -408,6 +426,16 @@ impl App {
                 let entry_id = doc.level_id().to_string();
                 doc.update_manifest("entry_level", &entry_id)?;
                 self.status = "Entry level saved.".into();
+            }
+            Action::ProjectMenuEntryOnly => {
+                self.save()?;
+                let doc = self.document.as_mut().ok_or("Open a project first")?;
+                doc.set_menu_entry_only(!doc.manifest().menu_entry_only)?;
+                self.status = if doc.manifest().menu_entry_only {
+                    "Explore opens the entry map; internal destinations remain available.".into()
+                } else {
+                    "Explore lists every project map.".into()
+                };
             }
             Action::ProjectSelect(index) => {
                 let doc = self.document.as_mut().ok_or("Open a project first")?;
@@ -490,22 +518,9 @@ impl App {
         self.save()?;
         let doc = self.document.as_mut().ok_or("Open a project first")?;
         match field {
-            Field::Name | Field::Author | Field::Description | Field::LevelTitle => doc
-                .update_manifest(
-                    match field {
-                        Field::Name => "name",
-                        Field::LevelTitle => "display_name",
-                        Field::Author => "author",
-                        Field::Description
-                        | Field::Thumbnail
-                        | Field::AddLevel
-                        | Field::Export
-                        | Field::Import
-                        | Field::Destination
-                        | Field::Transitions => "description",
-                    },
-                    &value,
-                )?,
+            Field::Name | Field::Author | Field::Description | Field::LevelTitle => {
+                doc.update_manifest(field.metadata_key()?, &value)?;
+            }
             Field::Transitions => {
                 doc.set_transitions(&value)?;
                 doc.save_all()?;
@@ -516,6 +531,14 @@ impl App {
                 doc.add_level(&value)?;
                 self.selected = None;
                 self.changed();
+            }
+            Field::ImportJson => {
+                let _imported_id = doc.import_level(Path::new(&value))?;
+                self.object_query.clear();
+                self.selected = None;
+                self.object_scroll = 0;
+                self.changed();
+                self.viewport.frame_all();
             }
             Field::Export => {
                 self.compile = Some(CompileJob::operation(

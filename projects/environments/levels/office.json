@@ -1,0 +1,6663 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "office",
+  "name": "Office: After Hours",
+  "author": "Places",
+  "spawn": {
+    "x": -2,
+    "z": 9,
+    "yaw_degrees": 90
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "environment": {
+    "presentation": {
+      "exposure": 1,
+      "tone_knee": 0.8,
+      "saturation": 0.98,
+      "contrast": 1.02
+    },
+    "fog": {
+      "color": [
+        0.22,
+        0.23,
+        0.2
+      ],
+      "density": 0.003,
+      "reference_y": 0,
+      "height_gain": 0
+    }
+  },
+  "rooms": [
+    {
+      "x": 0,
+      "z": 0,
+      "width": 24,
+      "depth": 18,
+      "floor_y": 0,
+      "height": 2.8,
+      "material": "core:carpet_damp_01",
+      "ceiling_material": "core:ceiling_stained_01"
+    },
+    {
+      "x": 0,
+      "z": 0,
+      "width": 24,
+      "depth": 18,
+      "floor_y": 3.6,
+      "height": 2.8,
+      "material": "core:carpet_beige_01",
+      "ceiling_material": "core:ceiling_stained_01"
+    },
+    {
+      "x": 0,
+      "z": 0,
+      "width": 24,
+      "depth": 18,
+      "floor_y": 7.2,
+      "height": 2.8,
+      "material": "core:carpet_beige_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": -4,
+      "z": 7,
+      "width": 4,
+      "depth": 4,
+      "floor_y": 7.2,
+      "height": 2.8,
+      "material": "core:carpet_beige_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 24,
+      "z": 0,
+      "width": 12,
+      "depth": 18,
+      "floor_y": 3.6,
+      "height": 6.4,
+      "material": "core:carpet_damp_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 24,
+      "z": 0,
+      "width": 12,
+      "depth": 4,
+      "floor_y": 7.2,
+      "height": 2.8,
+      "ceiling": {
+        "kind": "open"
+      },
+      "material": "core:carpet_beige_01"
+    },
+    {
+      "x": -8,
+      "z": 0,
+      "width": 4,
+      "depth": 18,
+      "floor_y": 0,
+      "height": 6.4,
+      "material": "core:carpet_damp_01",
+      "ceiling_material": "core:ceiling_stained_01"
+    },
+    {
+      "x": -8,
+      "z": 0,
+      "width": 4,
+      "depth": 4,
+      "floor_y": 3.6,
+      "height": 2.8,
+      "material": "core:carpet_beige_01",
+      "ceiling": {
+        "kind": "open"
+      }
+    },
+    {
+      "x": -4,
+      "z": 0,
+      "width": 4,
+      "depth": 4,
+      "floor_y": 3.6,
+      "height": 2.8,
+      "material": "core:carpet_beige_01",
+      "ceiling_material": "core:ceiling_stained_01"
+    },
+    {
+      "x": -4,
+      "z": 14,
+      "width": 4,
+      "depth": 4,
+      "floor_y": 0,
+      "height": 2.8,
+      "material": "core:carpet_damp_01",
+      "ceiling_material": "core:ceiling_stained_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.12,
+      "z": -0.12,
+      "width": 24.24,
+      "depth": 0.24,
+      "y": 0,
+      "height": 10,
+      "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": -0.12,
+      "z": 17.88,
+      "width": 24.24,
+      "depth": 0.24,
+      "y": 0,
+      "height": 10,
+      "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": -0.12,
+      "z": 0.12,
+      "width": 0.24,
+      "depth": 17.76,
+      "y": 0,
+      "height": 10,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 7.88,
+          "width": 2,
+          "height": 2.35,
+          "sill": 7.2
+        },
+        {
+          "kind": "passage",
+          "offset": 0.88,
+          "width": 2.2,
+          "height": 2.35,
+          "sill": 3.6
+        },
+        {
+          "kind": "passage",
+          "offset": 14.88,
+          "width": 2.2,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 23.88,
+      "z": 0.12,
+      "width": 0.24,
+      "depth": 17.76,
+      "y": 0,
+      "height": 10,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 14.88,
+          "width": 2.2,
+          "height": 2.35,
+          "sill": 3.6
+        },
+        {
+          "kind": "passage",
+          "offset": 0.88,
+          "width": 2.2,
+          "height": 2.35,
+          "sill": 7.2
+        }
+      ]
+    },
+    {
+      "x": -4.12,
+      "z": 6.88,
+      "width": 4,
+      "depth": 0.24,
+      "y": 7.2,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": -4.12,
+      "z": 10.88,
+      "width": 4,
+      "depth": 0.24,
+      "y": 7.2,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": -4.12,
+      "z": 7.12,
+      "width": 0.24,
+      "depth": 3.76,
+      "y": 7.2,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.18,
+          "width": 1.4,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 0.12,
+      "z": 7.88,
+      "width": 23.76,
+      "depth": 0.24,
+      "y": 7.2,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 2,
+          "width": 1.4,
+          "height": 2.35,
+          "sill": 0
+        },
+        {
+          "kind": "passage",
+          "offset": 10,
+          "width": 1.6,
+          "height": 2.35,
+          "sill": 0
+        },
+        {
+          "kind": "passage",
+          "offset": 19.5,
+          "width": 1.5,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 0.12,
+      "z": 9.88,
+      "width": 23.76,
+      "depth": 0.24,
+      "y": 7.2,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 3,
+          "width": 1.5,
+          "height": 2.35,
+          "sill": 0
+        },
+        {
+          "kind": "passage",
+          "offset": 14,
+          "width": 1.8,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 7.88,
+      "z": 0.12,
+      "width": 0.24,
+      "depth": 7.76,
+      "y": 7.2,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 17.88,
+      "z": 0.12,
+      "width": 0.24,
+      "depth": 7.76,
+      "y": 7.2,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 7.88,
+      "z": 10.12,
+      "width": 0.24,
+      "depth": 7.76,
+      "y": 7.2,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 4.88,
+      "z": 0.12,
+      "width": 0.24,
+      "depth": 12.76,
+      "y": 3.6,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 3,
+          "width": 1.6,
+          "height": 2.35,
+          "sill": 0
+        },
+        {
+          "kind": "passage",
+          "offset": 9,
+          "width": 1.6,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 10.88,
+      "z": 4.12,
+      "width": 0.24,
+      "depth": 13.76,
+      "y": 3.6,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 2,
+          "width": 1.6,
+          "height": 2.35,
+          "sill": 0
+        },
+        {
+          "kind": "passage",
+          "offset": 9.5,
+          "width": 1.6,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 16.88,
+      "z": 0.12,
+      "width": 0.24,
+      "depth": 12.76,
+      "y": 3.6,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 6,
+          "width": 1.8,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 5.12,
+      "z": 3.88,
+      "width": 11.76,
+      "depth": 0.24,
+      "y": 3.6,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 2.8,
+          "width": 1.6,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 0.12,
+      "z": 12.88,
+      "width": 10.76,
+      "depth": 0.24,
+      "y": 3.6,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 1.8,
+          "width": 1.8,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 17.12,
+      "z": 9.88,
+      "width": 6.76,
+      "depth": 0.24,
+      "y": 3.6,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 3.1,
+          "width": 1.6,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 11.12,
+      "z": 15.88,
+      "width": 6.76,
+      "depth": 0.24,
+      "y": 3.6,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 1.7,
+          "width": 1.6,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 5.88,
+      "z": 0.12,
+      "width": 0.24,
+      "depth": 12.76,
+      "y": 0,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 1.9,
+          "width": 1.8,
+          "height": 2.35,
+          "sill": 0
+        },
+        {
+          "kind": "passage",
+          "offset": 8.9,
+          "width": 1.8,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 11.88,
+      "z": 3.12,
+      "width": 0.24,
+      "depth": 14.76,
+      "y": 0,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 5.1,
+          "width": 1.8,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 17.88,
+      "z": 0.12,
+      "width": 0.24,
+      "depth": 13.76,
+      "y": 0,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 5.9,
+          "width": 1.8,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 0.12,
+      "z": 5.88,
+      "width": 5.76,
+      "depth": 0.24,
+      "y": 0,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": 0.12,
+      "z": 11.88,
+      "width": 11.76,
+      "depth": 0.24,
+      "y": 0,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 1.9,
+          "width": 1.8,
+          "height": 2.35,
+          "sill": 0
+        },
+        {
+          "kind": "passage",
+          "offset": 7.9,
+          "width": 1.8,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 12.12,
+      "z": 2.88,
+      "width": 11.76,
+      "depth": 0.24,
+      "y": 0,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 7.9,
+          "width": 1.8,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 12.12,
+      "z": 13.88,
+      "width": 11.76,
+      "depth": 0.24,
+      "y": 0,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 1.9,
+          "width": 2,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 24.12,
+      "z": -0.12,
+      "width": 12,
+      "depth": 0.24,
+      "y": 0,
+      "height": 10,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 24.12,
+      "z": 17.88,
+      "width": 12,
+      "depth": 0.24,
+      "y": 0,
+      "height": 10,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 35.88,
+      "z": 0.12,
+      "width": 0.24,
+      "depth": 17.76,
+      "y": 0,
+      "height": 10,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 29.88,
+      "z": 4,
+      "width": 0.24,
+      "depth": 10.24,
+      "y": 0,
+      "height": 10,
+      "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": -8.12,
+      "z": -0.12,
+      "width": 8,
+      "depth": 0.24,
+      "y": 0,
+      "height": 6.4,
+      "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": -8.12,
+      "z": 17.88,
+      "width": 8,
+      "depth": 0.24,
+      "y": 0,
+      "height": 6.4,
+      "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": -8.12,
+      "z": 0.12,
+      "width": 0.24,
+      "depth": 17.76,
+      "y": 0,
+      "height": 6.4,
+      "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": -4.12,
+      "z": 0.12,
+      "width": 0.24,
+      "depth": 17.76,
+      "y": 0,
+      "height": 6.4,
+      "material": "core:wallpaper_stained_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 0.88,
+          "width": 2.2,
+          "height": 2.35,
+          "sill": 3.6
+        },
+        {
+          "kind": "passage",
+          "offset": 14.88,
+          "width": 2.2,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": -3.88,
+      "z": 3.88,
+      "width": 3.76,
+      "depth": 0.24,
+      "y": 3.6,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": -3.88,
+      "z": 13.88,
+      "width": 3.76,
+      "depth": 0.24,
+      "y": 0,
+      "height": 2.8,
+      "material": "core:wallpaper_stained_01"
+    }
+  ],
+  "props": [
+    {
+      "id": "top_desk_0",
+      "model": "core:desk",
+      "x": 3.2,
+      "z": 3.6,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_chair_0",
+      "model": "core:chair",
+      "x": 3.2,
+      "z": 4.6,
+      "y": 7.2,
+      "rotation_degrees": 180,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_desk_1",
+      "model": "core:desk",
+      "x": 11,
+      "z": 3,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_chair_1",
+      "model": "core:chair",
+      "x": 11,
+      "z": 4,
+      "y": 7.2,
+      "rotation_degrees": 180,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_desk_2",
+      "model": "core:desk",
+      "x": 15,
+      "z": 3,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_chair_2",
+      "model": "core:chair",
+      "x": 15,
+      "z": 4,
+      "y": 7.2,
+      "rotation_degrees": 180,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_desk_3",
+      "model": "core:desk",
+      "x": 11,
+      "z": 6.2,
+      "y": 7.2,
+      "rotation_degrees": 180,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_chair_3",
+      "model": "core:chair",
+      "x": 11,
+      "z": 5.2,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_desk_4",
+      "model": "core:desk",
+      "x": 15,
+      "z": 6.2,
+      "y": 7.2,
+      "rotation_degrees": 180,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_chair_4",
+      "model": "core:chair",
+      "x": 15,
+      "z": 5.2,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_desk_5",
+      "model": "core:desk",
+      "x": 11,
+      "z": 13.5,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_chair_5",
+      "model": "core:chair",
+      "x": 11,
+      "z": 14.5,
+      "y": 7.2,
+      "rotation_degrees": 180,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_desk_6",
+      "model": "core:desk",
+      "x": 17,
+      "z": 13.5,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_chair_6",
+      "model": "core:chair",
+      "x": 17,
+      "z": 14.5,
+      "y": 7.2,
+      "rotation_degrees": 180,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_records_0",
+      "model": "core:cabinet",
+      "x": 1.1,
+      "z": 16.6,
+      "y": 7.2,
+      "rotation_degrees": 180,
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_records_1",
+      "model": "core:cabinet",
+      "x": 3.3,
+      "z": 16.6,
+      "y": 7.2,
+      "rotation_degrees": 180,
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_records_2",
+      "model": "core:cabinet",
+      "x": 6.3,
+      "z": 16.6,
+      "y": 7.2,
+      "rotation_degrees": 180,
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_records_3",
+      "model": "core:cabinet",
+      "x": 22.8,
+      "z": 12,
+      "y": 7.2,
+      "rotation_degrees": 270,
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_tall_records",
+      "model": "core:office_filing_cabinet_tall",
+      "x": 4.8,
+      "z": 16.6,
+      "y": 7.2,
+      "rotation_degrees": 180,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ],
+      "solid": true,
+      "comment": "One tall three-drawer unit in the existing records row; through lanes remain empty."
+    },
+    {
+      "id": "top_reception",
+      "model": "core:office_reception_desk",
+      "x": 5.8,
+      "z": 6.25,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        2.4,
+        0.98,
+        0.95
+      ],
+      "solid": true,
+      "comment": "Public apron faces the corridor; the staff bay remains open to the north workroom."
+    },
+    {
+      "id": "top_reception_chair",
+      "model": "core:chair",
+      "x": 5.8,
+      "z": 5.05,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_reception_notices",
+      "model": "core:office_noticeboard",
+      "x": 7.875,
+      "z": 5.4,
+      "y": 8.75,
+      "rotation_degrees": 270,
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "solid": false,
+      "comment": "Vertically centered wall mount; rear plane is 5 mm proud of the partition."
+    },
+    {
+      "id": "top_water",
+      "model": "core:water_cooler",
+      "x": 19.3,
+      "z": 5.9,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        0.35,
+        1.1,
+        0.35
+      ],
+      "solid": true
+    },
+    {
+      "id": "top_vending",
+      "model": "core:vending_machine",
+      "x": 21.4,
+      "z": 0.6,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        1.0,
+        1.9,
+        0.8
+      ],
+      "solid": true,
+      "display_name": "Drinks vending machine",
+      "emission_overrides": {
+        "4": {
+          "color": [
+            1,
+            1,
+            1
+          ],
+          "intensity": 0.5
+        }
+      },
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            -0.1,
+            1.22,
+            0.43
+          ],
+          "color": [
+            0.66,
+            0.79,
+            1
+          ],
+          "intensity": 0.28,
+          "range": 2.7
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -0.1,
+            0.45,
+            0.43
+          ],
+          "color": [
+            0.66,
+            0.79,
+            1
+          ],
+          "intensity": 0.08,
+          "range": 1.6
+        }
+      ],
+      "comment": "R2 fascia and credit LCD share the vending power state and exterior spill lights; metal remains non-emissive.",
+      "switch_group": "break_room_vending",
+      "components": [
+        {
+          "component": "light",
+          "enabled": true,
+          "switchable": true,
+          "emission_scale": 1
+        },
+        {
+          "component": "interactable",
+          "reach": 2.5,
+          "prompt": "Cycle vending power"
+        },
+        {
+          "component": "state",
+          "name": "power_mode",
+          "value": "steady"
+        },
+        {
+          "component": "audio",
+          "sound": "ambience_hvac",
+          "gain": 0.7,
+          "looped": true,
+          "enabled": true,
+          "playing": true,
+          "time_domain": "real"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "equals": "steady"
+            }
+          ],
+          "actions": [
+            {
+              "action": "start_sequence",
+              "target": "top_vending",
+              "sequence": "top_vending_flicker"
+            },
+            {
+              "action": "set_state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "value": "flickering"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "equals": "flickering"
+            }
+          ],
+          "actions": [
+            {
+              "action": "stop_sequence",
+              "target": "top_vending"
+            },
+            {
+              "action": "set_light",
+              "target": "top_vending",
+              "on": false
+            },
+            {
+              "action": "set_state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "value": "dark"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "equals": "dark"
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_light",
+              "target": "top_vending",
+              "on": true
+            },
+            {
+              "action": "set_state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "value": "steady"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "top_snack_vending",
+      "model": "core:office_snack_machine",
+      "x": 22.65,
+      "z": 0.6,
+      "y": 7.2,
+      "rotation_degrees": 0,
+      "size": [
+        1.011,
+        1.9,
+        0.942
+      ],
+      "solid": true,
+      "display_name": "Snack vending machine",
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            -0.087,
+            1.71,
+            0.2
+          ],
+          "color": [
+            1,
+            0.7454,
+            0.3515
+          ],
+          "intensity": 0.28,
+          "range": 2.7
+        },
+        {
+          "shape": "point",
+          "offset": [
+            -0.087,
+            0.64,
+            0.29
+          ],
+          "color": [
+            1,
+            0.7454,
+            0.3515
+          ],
+          "intensity": 0.14,
+          "range": 2.1
+        }
+      ],
+      "comment": "Paired with drinks; sources use the delivered interior and lower-spill anchors, with real glass and shelf depth.",
+      "switch_group": "break_room_vending",
+      "components": [
+        {
+          "component": "light",
+          "enabled": true,
+          "switchable": true,
+          "emission_scale": 1
+        },
+        {
+          "component": "interactable",
+          "reach": 2.5,
+          "prompt": "Cycle vending power"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "equals": "steady"
+            }
+          ],
+          "actions": [
+            {
+              "action": "start_sequence",
+              "target": "top_vending",
+              "sequence": "top_vending_flicker"
+            },
+            {
+              "action": "set_state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "value": "flickering"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "equals": "flickering"
+            }
+          ],
+          "actions": [
+            {
+              "action": "stop_sequence",
+              "target": "top_vending"
+            },
+            {
+              "action": "set_light",
+              "target": "top_vending",
+              "on": false
+            },
+            {
+              "action": "set_state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "value": "dark"
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "when": [
+            {
+              "check": "state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "equals": "dark"
+            }
+          ],
+          "actions": [
+            {
+              "action": "set_light",
+              "target": "top_vending",
+              "on": true
+            },
+            {
+              "action": "set_state",
+              "target": "top_vending",
+              "name": "power_mode",
+              "value": "steady"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "top_crt_0",
+      "model": "home:crt_tv",
+      "x": 3.2,
+      "z": 3.5,
+      "y": 7.95,
+      "rotation_degrees": 0,
+      "size": [
+        0.55,
+        0.48,
+        0.46
+      ],
+      "solid": false,
+      "scale": 0.55,
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.275,
+            0.24,
+            0.23
+          ]
+        },
+        "mass_kg": 9.0,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "reset_group": "office_desk_items"
+      }
+    },
+    {
+      "id": "top_crt_1",
+      "model": "home:crt_tv",
+      "x": 15,
+      "z": 2.9,
+      "y": 7.95,
+      "rotation_degrees": 0,
+      "size": [
+        0.55,
+        0.48,
+        0.46
+      ],
+      "solid": false,
+      "scale": 0.55,
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.275,
+            0.24,
+            0.23
+          ]
+        },
+        "mass_kg": 9.0,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "reset_group": "office_desk_items"
+      }
+    },
+    {
+      "id": "top_mug",
+      "model": "home:mug",
+      "x": 10.7,
+      "z": 13.5,
+      "y": 7.95,
+      "rotation_degrees": 0,
+      "size": [
+        0.117,
+        0.09,
+        0.078
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "audio",
+          "sound": "prop_ceramic",
+          "gain": 0.75,
+          "looped": false,
+          "enabled": true,
+          "playing": false,
+          "time_domain": "world"
+        }
+      ],
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.0585,
+            0.045,
+            0.039
+          ]
+        },
+        "mass_kg": 0.32,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "reset_group": "office_desk_items"
+      }
+    },
+    {
+      "id": "top_books",
+      "model": "home:book_stack",
+      "x": 17.4,
+      "z": 13.4,
+      "y": 7.95,
+      "rotation_degrees": 0,
+      "size": [
+        0.262,
+        0.057,
+        0.197
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.125,
+            0.0275,
+            0.09
+          ]
+        },
+        "mass_kg": 1.1,
+        "friction": 0.6,
+        "restitution": 0.05,
+        "linear_damping": 0.05,
+        "angular_damping": 0.2,
+        "pickup": true,
+        "reset_group": "office_desk_items"
+      }
+    },
+    {
+      "id": "middle_rotated_desk",
+      "model": "core:desk",
+      "x": 2.1,
+      "z": 2.6,
+      "y": 3.6,
+      "rotation_degrees": 27,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "id": "middle_rotated_chair",
+      "model": "core:chair",
+      "x": 2.5,
+      "z": 3.7,
+      "y": 3.6,
+      "rotation_degrees": 133,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "middle_sunken_chair",
+      "model": "core:chair",
+      "x": 7.1,
+      "z": 5.2,
+      "y": 3.34,
+      "rotation_degrees": 72,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true,
+      "comment": "Intentional 0.26 m floor burial, away from the through route."
+    },
+    {
+      "id": "middle_wall_desk",
+      "model": "core:desk",
+      "x": 16.68,
+      "z": 3,
+      "y": 3.6,
+      "rotation_degrees": 90,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true,
+      "comment": "Intentional desktop penetration into the partition; no coplanar faces."
+    },
+    {
+      "id": "middle_sideways_table",
+      "model": "core:table_sideways",
+      "x": 8.4,
+      "z": 1.9,
+      "y": 3.42,
+      "rotation_degrees": 15,
+      "size": [
+        0.75,
+        1.4,
+        0.8
+      ],
+      "solid": true,
+      "comment": "Table lies on its side with 0.18 m of its lower edge buried in carpet; the north pocket leaves the passage clear."
+    },
+    {
+      "id": "middle_sunken_desk",
+      "model": "core:desk",
+      "x": 9.35,
+      "z": 8.5,
+      "y": 3.18,
+      "rotation_degrees": 318,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true,
+      "comment": "Intentional 0.42 m floor burial exposes the skewed desktop and drawer tops, clear of both through openings."
+    },
+    {
+      "id": "middle_wall_chair",
+      "model": "core:chair",
+      "x": 5.04,
+      "z": 7.4,
+      "y": 3.48,
+      "rotation_degrees": 36,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true,
+      "comment": "Intentional 0.12 m floor burial and partial partition intersection, between the two passage lanes."
+    },
+    {
+      "id": "middle_cabinet",
+      "model": "core:cabinet",
+      "x": 9.3,
+      "z": 14.8,
+      "y": 3.6,
+      "rotation_degrees": 31,
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true
+    },
+    {
+      "id": "middle_landmark",
+      "model": "core:water_cooler",
+      "x": 19.2,
+      "z": 16.7,
+      "y": 3.6,
+      "rotation_degrees": 180,
+      "size": [
+        0.35,
+        1.1,
+        0.35
+      ],
+      "solid": true
+    },
+    {
+      "id": "basement_abandoned_desk",
+      "model": "core:desk",
+      "x": 15.2,
+      "z": 11.8,
+      "y": 0,
+      "rotation_degrees": 180,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "id": "basement_abandoned_chair",
+      "model": "core:chair",
+      "x": 15.7,
+      "z": 10.6,
+      "y": 0,
+      "rotation_degrees": 205,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "basement_water_landmark",
+      "model": "core:water_cooler",
+      "x": 22.4,
+      "z": 4.3,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.35,
+        1.1,
+        0.35
+      ],
+      "solid": true
+    },
+    {
+      "id": "basement_hide_0",
+      "model": "core:cabinet",
+      "x": 2,
+      "z": 1.2,
+      "y": 0.09,
+      "rotation_degrees": 0,
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true
+    },
+    {
+      "id": "basement_hide_1",
+      "model": "core:cabinet",
+      "x": 14.5,
+      "z": 10.1,
+      "y": 0.09,
+      "rotation_degrees": 0,
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true
+    },
+    {
+      "id": "basement_hide_2",
+      "model": "core:cabinet",
+      "x": 21.5,
+      "z": 16.7,
+      "y": 0.09,
+      "rotation_degrees": 0,
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true
+    },
+    {
+      "id": "basement_hide_3",
+      "model": "core:cabinet",
+      "x": 9.7,
+      "z": 1.2,
+      "y": 0.09,
+      "rotation_degrees": 0,
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true
+    },
+    {
+      "id": "basement_mannequin",
+      "model": "mannequin",
+      "x": 8.5,
+      "z": 8.3,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.72,
+          "height": 1.724,
+          "speed_mps": 2.244582,
+          "step_height": 0.3,
+          "max_slope": 1
+        },
+        {
+          "component": "ai",
+          "behavior": "wanderer",
+          "walk_speed": 2.244582,
+          "run_speed": 2.244582,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "wander_radius": 30,
+          "idle_seconds": 3.2,
+          "home_bounds": {
+            "x": 0.45,
+            "z": 0.45,
+            "width": 23.1,
+            "depth": 17.1,
+            "min_y": -0.05,
+            "max_y": 0.1
+          },
+          "idle_clip": "pose_stand",
+          "move_clip": "run_arms_forward"
+        },
+        {
+          "component": "light_response",
+          "exit_intensity": 0.005,
+          "release_seconds": 0.2
+        }
+      ]
+    },
+    {
+      "id": "basement_roach_0",
+      "model": "entity:cockroach",
+      "x": 2.8,
+      "z": 2,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.0874143732,
+        0.0185625857,
+        0.1321252692
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.055,
+          "height": 0.035,
+          "speed_mps": 0.16,
+          "step_height": 0.1,
+          "max_slope": 1
+        },
+        {
+          "component": "ai",
+          "behavior": "skittish",
+          "role": "insect",
+          "reacts_to": [
+            "player"
+          ],
+          "walk_speed": 0.16,
+          "run_speed": 0.62,
+          "sight_range": 2.1,
+          "sight_fov_degrees": 360,
+          "hearing_range": 0,
+          "wander_radius": 1.7,
+          "idle_seconds": 5.8,
+          "hide_anchors": [
+            [
+              2,
+              0,
+              1.2
+            ],
+            [
+              14.5,
+              0,
+              10.1
+            ],
+            [
+              21.5,
+              0,
+              16.7
+            ],
+            [
+              9.7,
+              0,
+              1.2
+            ]
+          ],
+          "hide_seconds": 15,
+          "home_bounds": {
+            "x": 0.45,
+            "z": 0.45,
+            "width": 23.1,
+            "depth": 17.1,
+            "min_y": -0.05,
+            "max_y": 0.1
+          }
+        }
+      ]
+    },
+    {
+      "id": "basement_roach_1",
+      "model": "entity:cockroach",
+      "x": 20.8,
+      "z": 15.8,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.0874143732,
+        0.0185625857,
+        0.1321252692
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.055,
+          "height": 0.035,
+          "speed_mps": 0.16,
+          "step_height": 0.1,
+          "max_slope": 1
+        },
+        {
+          "component": "ai",
+          "behavior": "skittish",
+          "role": "insect",
+          "reacts_to": [
+            "player"
+          ],
+          "walk_speed": 0.16,
+          "run_speed": 0.62,
+          "sight_range": 2.1,
+          "sight_fov_degrees": 360,
+          "hearing_range": 0,
+          "wander_radius": 1.7,
+          "idle_seconds": 7.5,
+          "hide_anchors": [
+            [
+              2,
+              0,
+              1.2
+            ],
+            [
+              14.5,
+              0,
+              10.1
+            ],
+            [
+              21.5,
+              0,
+              16.7
+            ],
+            [
+              9.7,
+              0,
+              1.2
+            ]
+          ],
+          "hide_seconds": 19,
+          "home_bounds": {
+            "x": 0.45,
+            "z": 0.45,
+            "width": 23.1,
+            "depth": 17.1,
+            "min_y": -0.05,
+            "max_y": 0.1
+          }
+        }
+      ]
+    },
+    {
+      "id": "basement_roach_2",
+      "model": "entity:cockroach",
+      "x": 8.4,
+      "z": 1.8,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.0874143732,
+        0.0185625857,
+        0.1321252692
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.055,
+          "height": 0.035,
+          "speed_mps": 0.16,
+          "step_height": 0.1,
+          "max_slope": 1
+        },
+        {
+          "component": "ai",
+          "behavior": "skittish",
+          "role": "insect",
+          "reacts_to": [
+            "player"
+          ],
+          "walk_speed": 0.16,
+          "run_speed": 0.62,
+          "sight_range": 2.1,
+          "sight_fov_degrees": 360,
+          "hearing_range": 0,
+          "wander_radius": 1.7,
+          "idle_seconds": 9.2,
+          "hide_anchors": [
+            [
+              2,
+              0,
+              1.2
+            ],
+            [
+              14.5,
+              0,
+              10.1
+            ],
+            [
+              21.5,
+              0,
+              16.7
+            ],
+            [
+              9.7,
+              0,
+              1.2
+            ]
+          ],
+          "hide_seconds": 23,
+          "home_bounds": {
+            "x": 0.45,
+            "z": 0.45,
+            "width": 23.1,
+            "depth": 17.1,
+            "min_y": -0.05,
+            "max_y": 0.1
+          }
+        }
+      ]
+    },
+    {
+      "id": "basement_roach_3",
+      "model": "entity:cockroach",
+      "x": 14.7,
+      "z": 16.1,
+      "y": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.0874143732,
+        0.0185625857,
+        0.1321252692
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.055,
+          "height": 0.035,
+          "speed_mps": 0.16,
+          "step_height": 0.1,
+          "max_slope": 1
+        },
+        {
+          "component": "ai",
+          "behavior": "skittish",
+          "role": "insect",
+          "reacts_to": [
+            "player"
+          ],
+          "walk_speed": 0.16,
+          "run_speed": 0.62,
+          "sight_range": 2.1,
+          "sight_fov_degrees": 360,
+          "hearing_range": 0,
+          "wander_radius": 1.7,
+          "idle_seconds": 10.899999999999999,
+          "hide_anchors": [
+            [
+              2,
+              0,
+              1.2
+            ],
+            [
+              14.5,
+              0,
+              10.1
+            ],
+            [
+              21.5,
+              0,
+              16.7
+            ],
+            [
+              9.7,
+              0,
+              1.2
+            ]
+          ],
+          "hide_seconds": 27,
+          "home_bounds": {
+            "x": 0.45,
+            "z": 0.45,
+            "width": 23.1,
+            "depth": 17.1,
+            "min_y": -0.05,
+            "max_y": 0.1
+          }
+        }
+      ]
+    },
+    {
+      "id": "shaft_basement_west_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": -7.8,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": -7.432,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": -7.616,
+      "z": 3.932,
+      "y": 3.594,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.261943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_post_1_1",
+      "model": "outdoor:porch_post",
+      "x": -7.432,
+      "z": 5.36057,
+      "y": -0.02976,
+      "scale": 1.019788,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_post_1_2",
+      "model": "outdoor:porch_post",
+      "x": -7.432,
+      "z": 6.78914,
+      "y": -0.02976,
+      "scale": 1.023118,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_post_1_3",
+      "model": "outdoor:porch_post",
+      "x": -7.432,
+      "z": 8.21771,
+      "y": -0.02976,
+      "scale": 1.026449,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_post_1_4",
+      "model": "outdoor:porch_post",
+      "x": -7.432,
+      "z": 9.64629,
+      "y": -0.02976,
+      "scale": 1.02978,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_post_1_5",
+      "model": "outdoor:porch_post",
+      "x": -7.432,
+      "z": 11.07486,
+      "y": -0.02976,
+      "scale": 1.03311,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_post_1_6",
+      "model": "outdoor:porch_post",
+      "x": -7.432,
+      "z": 12.50343,
+      "y": -0.02976,
+      "scale": 1.036441,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_post_1_7",
+      "model": "outdoor:porch_post",
+      "x": -7.432,
+      "z": 13.932,
+      "y": -0.02976,
+      "scale": 1.039771,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_section_1_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": -7.432,
+      "z": 4.64621,
+      "y": -0.02873,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.322356,
+        "rise": -0.472811
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_section_1_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": -7.432,
+      "z": 6.07476,
+      "y": -0.02523,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.321997,
+        "rise": -0.472683
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_section_1_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": -7.432,
+      "z": 7.50333,
+      "y": -0.02174,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.321597,
+        "rise": -0.47254
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_section_1_3",
+      "model": "outdoor:porch_railing_straight",
+      "x": -7.432,
+      "z": 8.9319,
+      "y": -0.01824,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.321198,
+        "rise": -0.472397
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_section_1_4",
+      "model": "outdoor:porch_railing_straight",
+      "x": -7.432,
+      "z": 10.36047,
+      "y": -0.01474,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.320798,
+        "rise": -0.472254
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_section_1_5",
+      "model": "outdoor:porch_railing_straight",
+      "x": -7.432,
+      "z": 11.78904,
+      "y": -0.01125,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.320398,
+        "rise": -0.472111
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_west_section_1_6",
+      "model": "outdoor:porch_railing_straight",
+      "x": -7.432,
+      "z": 13.21761,
+      "y": -0.00775,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.319999,
+        "rise": -0.471968
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": -4.568,
+      "z": 13.932,
+      "y": -0.02976,
+      "scale": 1.039771,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": -4.568,
+      "z": 12.50343,
+      "y": -0.02976,
+      "scale": 1.036441,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": -4.568,
+      "z": 11.07486,
+      "y": -0.02976,
+      "scale": 1.03311,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_post_0_3",
+      "model": "outdoor:porch_post",
+      "x": -4.568,
+      "z": 9.64629,
+      "y": -0.02976,
+      "scale": 1.02978,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_post_0_4",
+      "model": "outdoor:porch_post",
+      "x": -4.568,
+      "z": 8.21771,
+      "y": -0.02976,
+      "scale": 1.026449,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_post_0_5",
+      "model": "outdoor:porch_post",
+      "x": -4.568,
+      "z": 6.78914,
+      "y": -0.02976,
+      "scale": 1.023118,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_post_0_6",
+      "model": "outdoor:porch_post",
+      "x": -4.568,
+      "z": 5.36057,
+      "y": -0.02976,
+      "scale": 1.019788,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_post_0_7",
+      "model": "outdoor:porch_post",
+      "x": -4.568,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": -4.568,
+      "z": 13.21761,
+      "y": -0.00775,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.319999,
+        "rise": 0.471968
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": -4.568,
+      "z": 11.78904,
+      "y": -0.01125,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.320398,
+        "rise": 0.472111
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_section_0_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": -4.568,
+      "z": 10.36047,
+      "y": -0.01474,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.320798,
+        "rise": 0.472254
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_section_0_3",
+      "model": "outdoor:porch_railing_straight",
+      "x": -4.568,
+      "z": 8.9319,
+      "y": -0.01824,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.321198,
+        "rise": 0.472397
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_section_0_4",
+      "model": "outdoor:porch_railing_straight",
+      "x": -4.568,
+      "z": 7.50333,
+      "y": -0.02174,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.321597,
+        "rise": 0.47254
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_section_0_5",
+      "model": "outdoor:porch_railing_straight",
+      "x": -4.568,
+      "z": 6.07476,
+      "y": -0.02523,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.321997,
+        "rise": 0.472683
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_section_0_6",
+      "model": "outdoor:porch_railing_straight",
+      "x": -4.568,
+      "z": 4.64621,
+      "y": -0.02873,
+      "rotation_degrees": 90.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.322356,
+        "rise": 0.472811
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_post_1_1",
+      "model": "outdoor:porch_post",
+      "x": -4.2,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_basement_east_section_1_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": -4.384,
+      "z": 3.932,
+      "y": 3.594,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.261943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": 24.32,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": 25.6696,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": 27.0192,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_0_3",
+      "model": "outdoor:porch_post",
+      "x": 28.3688,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_0_4",
+      "model": "outdoor:porch_post",
+      "x": 29.7184,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_0_5",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 24.9948,
+      "z": 3.932,
+      "y": 3.594,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.243543,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 26.3444,
+      "z": 3.932,
+      "y": 3.594,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.243543,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_0_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": 27.694,
+      "z": 3.932,
+      "y": 3.594,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.243543,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_0_3",
+      "model": "outdoor:porch_railing_straight",
+      "x": 29.0436,
+      "z": 3.932,
+      "y": 3.594,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.243543,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_0_4",
+      "model": "outdoor:porch_railing_straight",
+      "x": 30.3932,
+      "z": 3.932,
+      "y": 3.594,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.243543,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_1",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 5.38,
+      "y": -0.02976,
+      "scale": 1.023118,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_2",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 6.828,
+      "y": -0.02976,
+      "scale": 1.02978,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_3",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 8.276,
+      "y": -0.02976,
+      "scale": 1.036441,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_4",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 9.724,
+      "y": -0.02976,
+      "scale": 1.043102,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_5",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 11.172,
+      "y": -0.02976,
+      "scale": 1.049763,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_6",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 12.62,
+      "y": -0.02976,
+      "scale": 1.056424,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_1_7",
+      "model": "outdoor:porch_post",
+      "x": 31.068,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 4.65582,
+      "y": -0.02698,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.341584,
+        "rise": -0.47649
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 6.1038,
+      "y": -0.01999,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.340826,
+        "rise": -0.476221
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 7.5518,
+      "y": -0.013,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.340027,
+        "rise": -0.475937
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_3",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 8.9998,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.339227,
+        "rise": -0.475653
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_4",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 10.4478,
+      "y": 0.00099,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.338428,
+        "rise": -0.475369
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_5",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 11.8958,
+      "y": 0.00799,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.337629,
+        "rise": -0.475085
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_1_6",
+      "model": "outdoor:porch_railing_straight",
+      "x": 31.068,
+      "z": 13.34518,
+      "y": 0.01499,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.339586,
+        "rise": -0.47578
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_post_2_1",
+      "model": "outdoor:porch_post",
+      "x": 30.3,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_west_section_2_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 30.684,
+      "z": 14.068,
+      "y": -0.006,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.661943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": 35.7,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": 34.816,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 3.932,
+      "y": 3.594,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_0_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 35.258,
+      "z": 3.932,
+      "y": 3.594,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.777943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_0_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 34.374,
+      "z": 3.932,
+      "y": 3.594,
+      "rotation_degrees": 180.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.777943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_1",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 5.38,
+      "y": -0.02976,
+      "scale": 1.023118,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_2",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 6.828,
+      "y": -0.02976,
+      "scale": 1.02978,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_3",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 8.276,
+      "y": -0.02976,
+      "scale": 1.036441,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_4",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 9.724,
+      "y": -0.02976,
+      "scale": 1.043102,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_5",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 11.172,
+      "y": -0.02976,
+      "scale": 1.049763,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_6",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 12.62,
+      "y": -0.02976,
+      "scale": 1.056424,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_1_7",
+      "model": "outdoor:porch_post",
+      "x": 33.932,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 4.65582,
+      "y": -0.02698,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.341584,
+        "rise": -0.47649
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 6.1038,
+      "y": -0.01999,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.340826,
+        "rise": -0.476221
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_2",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 7.5518,
+      "y": -0.013,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.340027,
+        "rise": -0.475937
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_3",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 8.9998,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.339227,
+        "rise": -0.475653
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_4",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 10.4478,
+      "y": 0.00099,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.338428,
+        "rise": -0.475369
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_5",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 11.8958,
+      "y": 0.00799,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.337629,
+        "rise": -0.475085
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_1_6",
+      "model": "outdoor:porch_railing_straight",
+      "x": 33.932,
+      "z": 13.34518,
+      "y": 0.01499,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.339586,
+        "rise": -0.47578
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_2_1",
+      "model": "outdoor:porch_post",
+      "x": 34.816,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_post_2_2",
+      "model": "outdoor:porch_post",
+      "x": 35.7,
+      "z": 14.068,
+      "y": -0.006,
+      "scale": 1.017143,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_2_0",
+      "model": "outdoor:porch_railing_straight",
+      "x": 34.374,
+      "z": 14.068,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.777943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "shaft_upper_east_section_2_1",
+      "model": "outdoor:porch_railing_straight",
+      "x": 35.258,
+      "z": 14.068,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 0.777943,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "core:baseboard_office_01",
+        "1": "core:baseboard_office_01"
+      }
+    },
+    {
+      "id": "office_items_reset",
+      "display_name": "Desk item reset",
+      "model": "home:wall_switch",
+      "x": -1,
+      "y": 1.35,
+      "z": 7.145,
+      "rotation_degrees": 0,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Reset desk items",
+          "reach": 2
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.3,
+          "actions": [
+            {
+              "action": "toggle_animation"
+            },
+            {
+              "action": "reset_physics_group",
+              "group": "office_desk_items"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "id": "top_light_0",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 2.5,
+      "z": 2.5,
+      "y": 9.99,
+      "brightness": 0.52,
+      "emission": 0.8,
+      "range": 4.8,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "top_light_1",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 5.5,
+      "z": 5.5,
+      "y": 9.99,
+      "brightness": 0.52,
+      "emission": 0.8,
+      "range": 4.8,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "top_light_2",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 10.5,
+      "z": 2.5,
+      "y": 9.99,
+      "brightness": 0.52,
+      "emission": 0.8,
+      "range": 4.8,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "top_light_3",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 14.5,
+      "z": 5.5,
+      "y": 9.99,
+      "brightness": 0.52,
+      "emission": 0.8,
+      "range": 4.8,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "top_light_4",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 20.5,
+      "z": 3.5,
+      "y": 9.99,
+      "brightness": 0.52,
+      "emission": 0.8,
+      "range": 4.8,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "top_light_5",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3.5,
+      "z": 9.5,
+      "y": 9.99,
+      "brightness": 0.52,
+      "emission": 0.8,
+      "range": 4.8,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "top_light_6",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 9.5,
+      "z": 9.5,
+      "y": 9.99,
+      "brightness": 0.52,
+      "emission": 0.8,
+      "range": 4.8,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "top_light_7",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 16.5,
+      "z": 9.5,
+      "y": 9.99,
+      "brightness": 0.52,
+      "emission": 0.8,
+      "range": 4.8,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "top_light_8",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 21.5,
+      "z": 9.5,
+      "y": 9.99,
+      "brightness": 0.52,
+      "emission": 0.8,
+      "range": 4.8,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "top_light_9",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3.5,
+      "z": 14.5,
+      "y": 9.99,
+      "brightness": 0.52,
+      "emission": 0.8,
+      "range": 4.8,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "top_light_10",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 11.5,
+      "z": 14.5,
+      "y": 9.99,
+      "brightness": 0.52,
+      "emission": 0.8,
+      "range": 4.8,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "top_light_11",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 19.5,
+      "z": 15.5,
+      "y": 9.99,
+      "brightness": 0.52,
+      "emission": 0.8,
+      "range": 4.8,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "vestibule_light",
+      "fixture": "core:fluorescent_panel_01",
+      "x": -1.5,
+      "z": 9.5,
+      "y": 9.99,
+      "brightness": 0.48,
+      "emission": 0.8,
+      "range": 4,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "middle_light_0",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 2.5,
+      "z": 3.5,
+      "y": 6.39,
+      "brightness": 0.3,
+      "emission": 0.8,
+      "range": 3.4,
+      "color": [
+        1,
+        0.91,
+        0.72
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "middle_light_1",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 2.5,
+      "z": 10.5,
+      "y": 6.39,
+      "brightness": 0.23,
+      "emission": 0.8,
+      "range": 3.4,
+      "color": [
+        1,
+        0.91,
+        0.72
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "middle_light_2",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 7.5,
+      "z": 6.5,
+      "y": 6.39,
+      "brightness": 0.26,
+      "emission": 0.8,
+      "range": 3.4,
+      "color": [
+        1,
+        0.91,
+        0.72
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "middle_light_3",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 8.5,
+      "z": 15.5,
+      "y": 6.39,
+      "brightness": 0.25,
+      "emission": 0.8,
+      "range": 3.4,
+      "color": [
+        1,
+        0.91,
+        0.72
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "middle_light_4",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 14.5,
+      "z": 8.5,
+      "y": 6.39,
+      "brightness": 0.26,
+      "emission": 0.8,
+      "range": 3.4,
+      "color": [
+        1,
+        0.91,
+        0.72
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "middle_light_5",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 13.5,
+      "z": 2.5,
+      "y": 6.39,
+      "brightness": 0.24,
+      "emission": 0.8,
+      "range": 3.4,
+      "color": [
+        1,
+        0.91,
+        0.72
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "middle_light_6",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 20.5,
+      "z": 5.5,
+      "y": 6.39,
+      "brightness": 0.28,
+      "emission": 0.8,
+      "range": 3.4,
+      "color": [
+        1,
+        0.91,
+        0.72
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "middle_light_7",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 21.5,
+      "z": 14.5,
+      "y": 6.39,
+      "brightness": 0.34,
+      "emission": 0.8,
+      "range": 3.4,
+      "color": [
+        1,
+        0.91,
+        0.72
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "basement_light_0",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3.5,
+      "z": 3.5,
+      "y": 2.79,
+      "brightness": 0.18,
+      "emission": 0.8,
+      "range": 3.8,
+      "color": [
+        0.87,
+        0.94,
+        0.79
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "basement_light_1",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3.5,
+      "z": 14.5,
+      "y": 2.79,
+      "brightness": 0.2,
+      "emission": 0.8,
+      "range": 3.8,
+      "color": [
+        0.87,
+        0.94,
+        0.79
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "basement_light_2",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 8.5,
+      "z": 4.5,
+      "y": 2.79,
+      "brightness": 0.18,
+      "emission": 0.8,
+      "range": 3.8,
+      "color": [
+        0.87,
+        0.94,
+        0.79
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "basement_light_3",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 15.5,
+      "z": 16.5,
+      "y": 2.79,
+      "brightness": 0.2,
+      "emission": 0.8,
+      "range": 3.8,
+      "color": [
+        0.87,
+        0.94,
+        0.79
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "basement_light_4",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 21.5,
+      "z": 6.5,
+      "y": 2.79,
+      "brightness": 0.22,
+      "emission": 0.8,
+      "range": 3.8,
+      "color": [
+        0.87,
+        0.94,
+        0.79
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "basement_failing_a",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 8.5,
+      "z": 9.5,
+      "y": 2.79,
+      "brightness": 0.32,
+      "emission": 0.8,
+      "range": 4.2,
+      "color": [
+        0.86,
+        0.95,
+        0.81
+      ],
+      "rotation_degrees": 0,
+      "switchable": true,
+      "hold_in_static": true
+    },
+    {
+      "id": "basement_failing_b",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 20.5,
+      "z": 12.5,
+      "y": 2.79,
+      "brightness": 0.32,
+      "emission": 0.8,
+      "range": 4.2,
+      "color": [
+        0.86,
+        0.95,
+        0.81
+      ],
+      "rotation_degrees": 0,
+      "switchable": true,
+      "hold_in_static": true
+    },
+    {
+      "id": "shaft_roof_a",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 26.5,
+      "z": 8.5,
+      "y": 9.99,
+      "brightness": 0.32,
+      "emission": 0.8,
+      "range": 4.4,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "shaft_roof_b",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 32.5,
+      "z": 9.5,
+      "y": 9.99,
+      "brightness": 0.36,
+      "emission": 0.8,
+      "range": 4.4,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "shaft_upper",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 26.5,
+      "z": 2.5,
+      "y": 9.99,
+      "brightness": 0.44,
+      "emission": 0.8,
+      "range": 5,
+      "color": [
+        1,
+        0.95,
+        0.85
+      ],
+      "rotation_degrees": 0
+    },
+    {
+      "id": "shaft_lower",
+      "fixture": "core:pool_light_wall",
+      "x": 35.86,
+      "z": 2,
+      "y": 5.7,
+      "mount": "wall",
+      "rotation_degrees": 270,
+      "brightness": 0.38,
+      "emission": 0.6,
+      "range": 6,
+      "color": [
+        1,
+        0.92,
+        0.76
+      ]
+    },
+    {
+      "id": "shaft_middle",
+      "fixture": "core:pool_light_wall",
+      "x": 35.86,
+      "z": 16,
+      "y": 5.7,
+      "mount": "wall",
+      "rotation_degrees": 270,
+      "brightness": 0.38,
+      "emission": 0.6,
+      "range": 6,
+      "color": [
+        1,
+        0.92,
+        0.76
+      ]
+    },
+    {
+      "id": "basement_shaft_roof",
+      "fixture": "core:fluorescent_panel_01",
+      "x": -6.5,
+      "z": 8.5,
+      "y": 6.39,
+      "brightness": 0.28,
+      "emission": 0.7,
+      "range": 5.5,
+      "color": [
+        1,
+        0.92,
+        0.76
+      ]
+    },
+    {
+      "id": "middle_connector_light",
+      "fixture": "core:fluorescent_panel_01",
+      "x": -1.5,
+      "z": 2.5,
+      "y": 6.39,
+      "brightness": 0.32,
+      "emission": 0.7,
+      "range": 4.2,
+      "color": [
+        1,
+        0.92,
+        0.76
+      ]
+    },
+    {
+      "id": "basement_connector_light",
+      "fixture": "core:fluorescent_panel_01",
+      "x": -1.5,
+      "z": 15.5,
+      "y": 2.79,
+      "brightness": 0.24,
+      "emission": 0.7,
+      "range": 4.2,
+      "color": [
+        1,
+        0.92,
+        0.76
+      ]
+    },
+    {
+      "id": "basement_shaft_upper",
+      "fixture": "core:pool_light_wall",
+      "x": -7.86,
+      "z": 2,
+      "y": 5.7,
+      "mount": "wall",
+      "rotation_degrees": 90,
+      "brightness": 0.3,
+      "emission": 0.55,
+      "range": 5.5,
+      "color": [
+        1,
+        0.92,
+        0.76
+      ]
+    },
+    {
+      "id": "basement_shaft_lower",
+      "fixture": "core:pool_light_wall",
+      "x": -7.86,
+      "z": 16,
+      "y": 2.1,
+      "mount": "wall",
+      "rotation_degrees": 90,
+      "brightness": 0.3,
+      "emission": 0.55,
+      "range": 5.5,
+      "color": [
+        1,
+        0.92,
+        0.76
+      ]
+    }
+  ],
+  "ramps": [
+    {
+      "x": -7.5,
+      "z": 4,
+      "width": 3,
+      "depth": 10,
+      "offset_y": 3.6,
+      "rise": -3.6,
+      "material": "core:carpet_damp_01",
+      "edge_material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": 31,
+      "z": 4,
+      "width": 3,
+      "depth": 10,
+      "offset_y": 3.6,
+      "rise": -3.6,
+      "material": "core:carpet_beige_01",
+      "edge_material": "core:wallpaper_yellow_01"
+    }
+  ],
+  "floor_regions": [],
+  "guardrails": [],
+  "baseboards": [
+    {
+      "x": 24.12,
+      "z": -0.12,
+      "length": 24.24,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 0.12,
+      "length": 5.76,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 6.12,
+      "z": 0.12,
+      "length": 11.76,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 18.12,
+      "z": 0.12,
+      "length": 5.76,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 17.88,
+      "length": 11.76,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 11.88,
+      "z": 17.88,
+      "length": 11.76,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 18.12,
+      "length": 24.24,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 0.12,
+      "length": 14.88,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 17.2,
+      "length": 0.68,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 15,
+      "length": 2.88,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 17.88,
+      "length": 0.68,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 11.88,
+      "length": 5.76,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 5.88,
+      "length": 5.76,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 24.12,
+      "z": 1.0,
+      "length": 0.88,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 24.12,
+      "z": 17.88,
+      "length": 14.68,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 24.12,
+      "z": -0.12,
+      "length": 24.24,
+      "rotation_degrees": 180,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 0.12,
+      "length": 4.76,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 5.12,
+      "z": 0.12,
+      "length": 11.76,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.12,
+      "z": 0.12,
+      "length": 6.76,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 17.88,
+      "length": 12.76,
+      "rotation_degrees": 180,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 10.88,
+      "z": 17.88,
+      "length": 10.76,
+      "rotation_degrees": 180,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 18.12,
+      "length": 24.24,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 0.12,
+      "length": 0.88,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 3.2,
+      "length": 14.68,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 17.88,
+      "length": 4.76,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 1,
+      "length": 0.88,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 12.88,
+      "length": 9.68,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 0.12,
+      "length": 9.76,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 10.12,
+      "length": 4.88,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 24.12,
+      "z": 15.0,
+      "length": 14.88,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 17.2,
+      "length": 0.68,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 24.12,
+      "z": 17.88,
+      "length": 0.68,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 24.12,
+      "z": -0.12,
+      "length": 24.24,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 0.12,
+      "length": 7.76,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 8.12,
+      "z": 0.12,
+      "length": 9.76,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 18.12,
+      "z": 0.12,
+      "length": 5.76,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 17.88,
+      "length": 15.76,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 7.88,
+      "z": 17.88,
+      "length": 7.76,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 18.12,
+      "length": 24.24,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 0.12,
+      "length": 6.76,
+      "rotation_degrees": 270,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 7.12,
+      "length": 0.88,
+      "rotation_degrees": 270,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 7.88,
+      "length": 7.76,
+      "rotation_degrees": 90,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 10.0,
+      "length": 0.88,
+      "rotation_degrees": 270,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 11.12,
+      "length": 6.76,
+      "rotation_degrees": 270,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 17.88,
+      "length": 7.76,
+      "rotation_degrees": 90,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 0.12,
+      "length": 0.88,
+      "rotation_degrees": 270,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 24.12,
+      "z": 1.0,
+      "length": 0.88,
+      "rotation_degrees": 90,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 3.2,
+      "length": 4.68,
+      "rotation_degrees": 270,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 8.12,
+      "length": 1.76,
+      "rotation_degrees": 270,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 10.12,
+      "length": 7.76,
+      "rotation_degrees": 270,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 24.12,
+      "z": 17.88,
+      "length": 14.68,
+      "rotation_degrees": 90,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 6.88,
+      "length": 4,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -3.88,
+      "z": 7.12,
+      "length": 3.76,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -0.12,
+      "z": 10.88,
+      "length": 3.76,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -4.12,
+      "z": 11.12,
+      "length": 4,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -4.12,
+      "z": 7.12,
+      "length": 3.76,
+      "rotation_degrees": 270,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": -3.88,
+      "z": 10.88,
+      "length": 3.76,
+      "rotation_degrees": 90,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 2.12,
+      "z": 7.88,
+      "length": 2,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 8.12,
+      "length": 2,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 10.12,
+      "z": 7.88,
+      "length": 2.0,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 7.88,
+      "z": 7.88,
+      "length": 4.36,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 3.52,
+      "z": 8.12,
+      "length": 6.6,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 19.62,
+      "z": 7.88,
+      "length": 1.5,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.88,
+      "z": 7.88,
+      "length": 6.16,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 11.72,
+      "z": 8.12,
+      "length": 7.9,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 7.88,
+      "length": 2.76,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 21.12,
+      "z": 8.12,
+      "length": 2.76,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 3.12,
+      "z": 9.88,
+      "length": 3,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 10.12,
+      "length": 3,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 14.12,
+      "z": 9.88,
+      "length": 9.5,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 4.62,
+      "z": 10.12,
+      "length": 3.26,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 8.12,
+      "z": 10.12,
+      "length": 6.0,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 9.88,
+      "length": 7.96,
+      "rotation_degrees": 180,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 15.92,
+      "z": 10.12,
+      "length": 7.96,
+      "rotation_degrees": 0,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 7.88,
+      "z": 0.12,
+      "length": 7.76,
+      "rotation_degrees": 270,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 8.12,
+      "z": 7.88,
+      "length": 7.76,
+      "rotation_degrees": 90,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.88,
+      "z": 0.12,
+      "length": 7.76,
+      "rotation_degrees": 270,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 18.12,
+      "z": 7.88,
+      "length": 7.76,
+      "rotation_degrees": 90,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 7.88,
+      "z": 10.12,
+      "length": 7.76,
+      "rotation_degrees": 270,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 8.12,
+      "z": 17.88,
+      "length": 7.76,
+      "rotation_degrees": 90,
+      "y": 7.2,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 4.88,
+      "z": 0.12,
+      "length": 3,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 5.12,
+      "z": 3.12,
+      "length": 3,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 4.88,
+      "z": 4.72,
+      "length": 4.4,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 5.12,
+      "z": 9.12,
+      "length": 4.4,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 4.88,
+      "z": 10.72,
+      "length": 2.16,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 5.12,
+      "z": 12.88,
+      "length": 2.16,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 10.88,
+      "z": 4.12,
+      "length": 2,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 11.12,
+      "z": 6.12,
+      "length": 2,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 10.88,
+      "z": 7.72,
+      "length": 5.16,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 10.88,
+      "z": 13.12,
+      "length": 0.5,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 11.12,
+      "z": 13.62,
+      "length": 5.9,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 10.88,
+      "z": 15.22,
+      "length": 2.66,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 11.12,
+      "z": 17.88,
+      "length": 1.76,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 11.12,
+      "z": 15.88,
+      "length": 0.66,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 16.88,
+      "z": 0.12,
+      "length": 3.76,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 16.88,
+      "z": 4.12,
+      "length": 2.0,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.12,
+      "z": 6.12,
+      "length": 6,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 16.88,
+      "z": 7.92,
+      "length": 4.96,
+      "rotation_degrees": 270,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.12,
+      "z": 12.88,
+      "length": 2.76,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.12,
+      "z": 9.88,
+      "length": 1.96,
+      "rotation_degrees": 90,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 7.92,
+      "z": 3.88,
+      "length": 2.8,
+      "rotation_degrees": 180,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 5.12,
+      "z": 4.12,
+      "length": 2.8,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 16.88,
+      "z": 3.88,
+      "length": 7.36,
+      "rotation_degrees": 180,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 9.52,
+      "z": 4.12,
+      "length": 1.36,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 11.12,
+      "z": 4.12,
+      "length": 5.76,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 1.92,
+      "z": 12.88,
+      "length": 1.8,
+      "rotation_degrees": 180,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 13.12,
+      "length": 1.8,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 10.88,
+      "z": 12.88,
+      "length": 5.76,
+      "rotation_degrees": 180,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 4.88,
+      "z": 12.88,
+      "length": 1.16,
+      "rotation_degrees": 180,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 3.72,
+      "z": 13.12,
+      "length": 7.16,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 20.22,
+      "z": 9.88,
+      "length": 3.1,
+      "rotation_degrees": 180,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.12,
+      "z": 10.12,
+      "length": 3.1,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 9.88,
+      "length": 2.06,
+      "rotation_degrees": 180,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 21.82,
+      "z": 10.12,
+      "length": 2.06,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 12.82,
+      "z": 15.88,
+      "length": 1.7,
+      "rotation_degrees": 180,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 11.12,
+      "z": 16.12,
+      "length": 1.7,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.88,
+      "z": 15.88,
+      "length": 3.46,
+      "rotation_degrees": 180,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 14.42,
+      "z": 16.12,
+      "length": 3.46,
+      "rotation_degrees": 0,
+      "y": 3.6,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 5.88,
+      "z": 0.12,
+      "length": 1.9,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 6.12,
+      "z": 2.02,
+      "length": 1.9,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 5.88,
+      "z": 3.82,
+      "length": 2.06,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 5.88,
+      "z": 6.12,
+      "length": 2.9,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 6.12,
+      "z": 9.02,
+      "length": 5.2,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 5.88,
+      "z": 10.82,
+      "length": 1.06,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 5.88,
+      "z": 12.12,
+      "length": 0.76,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 6.12,
+      "z": 12.88,
+      "length": 0.76,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 6.12,
+      "z": 11.88,
+      "length": 1.06,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 11.88,
+      "z": 3.12,
+      "length": 5.1,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 12.12,
+      "z": 8.22,
+      "length": 5.1,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 11.88,
+      "z": 10.02,
+      "length": 1.86,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 11.88,
+      "z": 12.12,
+      "length": 5.76,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 12.12,
+      "z": 17.88,
+      "length": 3.76,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 12.12,
+      "z": 13.88,
+      "length": 3.86,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.88,
+      "z": 0.12,
+      "length": 2.76,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.88,
+      "z": 3.12,
+      "length": 2.9,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 18.12,
+      "z": 6.02,
+      "length": 2.9,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 18.12,
+      "z": 2.88,
+      "length": 2.76,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.88,
+      "z": 7.82,
+      "length": 6.06,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 18.12,
+      "z": 13.88,
+      "length": 6.06,
+      "rotation_degrees": 90,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 5.88,
+      "z": 5.88,
+      "length": 5.76,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 6.12,
+      "length": 5.76,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 2.02,
+      "z": 11.88,
+      "length": 1.9,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 0.12,
+      "z": 12.12,
+      "length": 1.9,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 8.02,
+      "z": 11.88,
+      "length": 1.9,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 5.88,
+      "z": 11.88,
+      "length": 2.06,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 3.82,
+      "z": 12.12,
+      "length": 2.06,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 6.12,
+      "z": 12.12,
+      "length": 1.9,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 11.88,
+      "z": 11.88,
+      "length": 2.06,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 9.82,
+      "z": 12.12,
+      "length": 2.06,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 20.02,
+      "z": 2.88,
+      "length": 1.9,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.88,
+      "z": 2.88,
+      "length": 5.76,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 12.12,
+      "z": 3.12,
+      "length": 5.76,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 18.12,
+      "z": 3.12,
+      "length": 1.9,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 2.88,
+      "length": 2.06,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 21.82,
+      "z": 3.12,
+      "length": 2.06,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 14.02,
+      "z": 13.88,
+      "length": 1.9,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 12.12,
+      "z": 14.12,
+      "length": 1.9,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 13.88,
+      "length": 5.76,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 17.88,
+      "z": 13.88,
+      "length": 1.86,
+      "rotation_degrees": 180,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 16.02,
+      "z": 14.12,
+      "length": 7.86,
+      "rotation_degrees": 0,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 1.56,
+      "z": 1.44,
+      "length": 0.88,
+      "y": 0.045,
+      "height": 0.035,
+      "thickness": 0.02,
+      "material": "core:baseboard_office_01",
+      "rotation_degrees": 0,
+      "comment": "Raised filing-plinth skirting; reachable dark insect refuge."
+    },
+    {
+      "x": 14.06,
+      "z": 10.34,
+      "length": 0.88,
+      "y": 0.045,
+      "height": 0.035,
+      "thickness": 0.02,
+      "material": "core:baseboard_office_01",
+      "rotation_degrees": 0,
+      "comment": "Raised filing-plinth skirting; reachable dark insect refuge."
+    },
+    {
+      "x": 21.06,
+      "z": 16.94,
+      "length": 0.88,
+      "y": 0.045,
+      "height": 0.035,
+      "thickness": 0.02,
+      "material": "core:baseboard_office_01",
+      "rotation_degrees": 0,
+      "comment": "Raised filing-plinth skirting; reachable dark insect refuge."
+    },
+    {
+      "x": 9.26,
+      "z": 1.44,
+      "length": 0.88,
+      "y": 0.045,
+      "height": 0.035,
+      "thickness": 0.02,
+      "material": "core:baseboard_office_01",
+      "rotation_degrees": 0,
+      "comment": "Raised filing-plinth skirting; reachable dark insect refuge."
+    },
+    {
+      "x": 23.88,
+      "z": 0.12,
+      "length": 2.76,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 3.12,
+      "length": 10.76,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 23.88,
+      "z": 14.12,
+      "length": 3.76,
+      "rotation_degrees": 270,
+      "y": 0,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "core:baseboard_office_01"
+    }
+  ],
+  "columns": [
+    {
+      "x": 1.605,
+      "z": 1.0150000000000001,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 1.605,
+      "z": 1.335,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 2.345,
+      "z": 1.0150000000000001,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 2.345,
+      "z": 1.335,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 14.105,
+      "z": 9.915,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 14.105,
+      "z": 10.235,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 14.844999999999999,
+      "z": 9.915,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 14.844999999999999,
+      "z": 10.235,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 21.105,
+      "z": 16.515,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 21.105,
+      "z": 16.835,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 21.845000000000002,
+      "z": 16.515,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 21.845000000000002,
+      "z": 16.835,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 9.305,
+      "z": 1.0150000000000001,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 9.305,
+      "z": 1.335,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 10.044999999999998,
+      "z": 1.0150000000000001,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    },
+    {
+      "x": 10.044999999999998,
+      "z": 1.335,
+      "width": 0.05,
+      "depth": 0.05,
+      "y": 0,
+      "height": 0.09,
+      "material": "core:baseboard_office_01"
+    }
+  ],
+  "timers": [
+    {
+      "id": "basement_failing_a_start",
+      "seconds": 1.8,
+      "autostart": true,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "start_sequence",
+              "target": "basement_failing_a",
+              "sequence": "basement_failing_a_failure"
+            },
+            {
+              "action": "start_timer",
+              "target": "basement_failing_a_repeat"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "basement_failing_a_repeat",
+      "seconds": 50.3,
+      "repeat": true,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "start_sequence",
+              "target": "basement_failing_a",
+              "sequence": "basement_failing_a_failure"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "basement_failing_b_start",
+      "seconds": 7.1,
+      "autostart": true,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "start_sequence",
+              "target": "basement_failing_b",
+              "sequence": "basement_failing_b_failure"
+            },
+            {
+              "action": "start_timer",
+              "target": "basement_failing_b_repeat"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "basement_failing_b_repeat",
+      "seconds": 62.9,
+      "repeat": true,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "start_sequence",
+              "target": "basement_failing_b",
+              "sequence": "basement_failing_b_failure"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "sequences": [
+    {
+      "id": "top_vending_flicker",
+      "looped": true,
+      "steps": [
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "top_vending",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 1.7
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "top_vending",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.16
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "top_vending",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.09
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "top_vending",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.42
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "top_vending",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 2.4
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "top_vending",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.28
+        }
+      ]
+    },
+    {
+      "id": "basement_failing_a_failure",
+      "looped": false,
+      "steps": [
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 11.8
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.32
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 7.4
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.7
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 16.6
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.42
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 9.9
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "basement_failing_b_failure",
+      "looped": false,
+      "steps": [
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 17.3
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.45
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 10.6
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 1.1
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 8.9
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.3
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 21.1
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "on": true
+          }
+        }
+      ]
+    }
+  ],
+  "geometry_intent": [
+    {
+      "check": "missing-wall",
+      "x": 24,
+      "z": 3.5,
+      "width": 12,
+      "depth": 1,
+      "note": "Upper bridge edge opens to the ramp shaft; authored guardrails protect the drops."
+    },
+    {
+      "check": "missing-wall",
+      "x": -8,
+      "z": 3.5,
+      "width": 4,
+      "depth": 1,
+      "note": "The middle landing opens onto the descending basement ramp; linked physical rails protect its two drop edges."
+    }
+  ],
+  "volumes": [
+    {
+      "id": "audio_office_upper",
+      "x": -4,
+      "z": 0,
+      "width": 40,
+      "depth": 18,
+      "bottom_y": 7.0,
+      "top_y": 10.2,
+      "filter": {
+        "kind": "player"
+      },
+      "occupancy": "aggregate",
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "play_sound",
+              "target": "top_vending",
+              "loop": true
+            }
+          ]
+        },
+        {
+          "on": "exit_volume",
+          "actions": [
+            {
+              "action": "stop_sound",
+              "target": "top_vending"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "doors": [
+    {
+      "id": "office_return_hub",
+      "x": -4,
+      "y": 0,
+      "z": 9.7,
+      "rotation_degrees": 90,
+      "width": 1.4,
+      "height": 2.35,
+      "thickness": 0.055,
+      "initial_state": "closed",
+      "swing_degrees": 90,
+      "kind": "interior",
+      "frame_material": "core:baseboard_office_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Return to hub",
+          "reach": 2.4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "change_level",
+              "level": "hub"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "transitions": [
+    "hub"
+  ],
+  "decals": [
+    {
+      "x": -3.879,
+      "y": 9.81,
+      "z": 9,
+      "width": 1.2,
+      "height": 0.3,
+      "material": "collection:sign_hub",
+      "surface": "wall_east"
+    }
+  ]
+}

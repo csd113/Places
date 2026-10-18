@@ -1,5 +1,6 @@
 """Keep source validation aligned with the authored HDR/fog/water contracts."""
 import importlib.util
+import copy
 import json
 from pathlib import Path
 import tempfile
@@ -12,6 +13,35 @@ SPEC.loader.exec_module(VALIDATE)
 
 
 class EnvironmentValidationTests(unittest.TestCase):
+    def test_project_actions_accept_real_links_and_refuse_unsafe_or_undeclared_targets(self):
+        # The collection scan exposed rejection of every real transition and
+        # Home script link. One tiny switch protects those action types and
+        # their boundaries without files, a VM, assets or a map bake.
+        source = dict(transitions=['hall'], props=[dict(id='switch', model='home:wall_switch',
+            components=[dict(component='interactable', prompt='Continue')],
+            bindings=[dict(on='interact', actions=[dict(action='change_level', level='hall'),
+                dict(action='run_script', script='scripts/main.luau', handler='continue_1')])])])
+        errors = []
+        VALIDATE.validate_interactions(source, 'fixture', errors)
+        self.assertEqual(errors, [])
+        for action in (dict(action='change_level', level='missing'),
+                       dict(action='run_script', script='../main.luau', handler='start'),
+                       dict(action='run_script', script='scripts/CON.luau', handler='start'),
+                       dict(action='run_script', script='scripts/COM¹.luau', handler='start'),
+                       dict(action='run_script', script='scripts/ main.luau', handler='start'),
+                       dict(action='run_script', script='scripts/.luau', handler='start'),
+                       dict(action='run_script', script='scripts/main.luau', handler='start()')):
+            changed = copy.deepcopy(source)
+            changed['props'][0]['bindings'][0]['actions'] = [action]
+            errors = []
+            VALIDATE.validate_interactions(changed, 'fixture', errors)
+            self.assertTrue(errors, action)
+        for transitions in ('hall', ['hall', 'hall'], ['con']):
+            changed = dict(source, transitions=transitions)
+            errors = []
+            VALIDATE.validate_interactions(changed, 'fixture', errors)
+            self.assertTrue(errors, transitions)
+
     def check_environment(self, environment):
         errors = []
         VALIDATE.validate_environment(dict(environment=environment), "fixture", errors)

@@ -7,10 +7,13 @@ export type Event = {
 }
 export type DoorOperation = "open" | "close" | "toggle" | "lock" | "unlock"
 export type Position = { x: number, y: number, z: number }
-export type Actor = { x: number, y: number, z: number, illuminated: boolean, intensity: number, player_visible: boolean, shadow_only: boolean }
+export type Actor = { x: number, y: number, z: number, illuminated: boolean, intensity: number, player_visible: boolean, shadow_only: boolean, carried_item: string?, retired: boolean }
 export type Api = {
     player: () -> Position,
     actor: (id: string) -> Actor,
+    held_item: () -> string?,
+    handoff: (id: string) -> (),
+    retire_hidden: (id: string) -> (),
     navigate: (id: string, x: number, y: number, z: number) -> (),
     message: (title: string, lines: {string}) -> (),
     finish: (won: boolean, title: string, detail: string) -> (),

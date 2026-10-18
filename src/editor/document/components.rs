@@ -197,6 +197,21 @@ impl Document {
                 json!({"component":"light_response","enter_intensity":0.035_f32,"exit_intensity":0.005_f32,"release_seconds":0.2_f32})
             }
             "audio" => json!({"component":"audio","sound":"switch_click","gain":1.0_f32}),
+            "carry" => {
+                let identities = self.level().prop_instance_ids();
+                let item = self
+                    .level()
+                    .props
+                    .iter()
+                    .zip(identities)
+                    .find(|(prop, _)| {
+                        prop.is_physics_movable()
+                            && prop.physics.as_ref().is_some_and(|physics| physics.pickup)
+                    })
+                    .map(|(_, identity)| identity)
+                    .ok_or("Add a pickup item before its NPC handoff")?;
+                json!({"component":"carry","item":item,"socket":"hand.R","offset":[0.0_f32,0.0_f32,0.0_f32],"rotation_degrees":[0.0_f32,0.0_f32,0.0_f32],"idle_clip":"carry_idle","walk_clip":"carry_walk"})
+            }
             _ => return Err("Choose a supported capability".into()),
         };
         let mut raw = self.raw().clone();

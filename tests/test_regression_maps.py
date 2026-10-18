@@ -14,12 +14,15 @@ SPEC.loader.exec_module(MAPS)
 class MapRegressionInventoryTests(unittest.TestCase):
     def test_progressive_order_keeps_every_actual_path_and_coincident_id(self):
         rows = MAPS.inventory(ROOT)
-        self.assertEqual([row["source"] for row in rows[:6]], list(MAPS.PROGRESSIVE_SOURCES))
         actual = {path.relative_to(ROOT).as_posix() for directory in MAPS.MAP_ROOTS
                   for path in (ROOT / directory).rglob("*.json")}
+        actual.update(source.relative_to(ROOT).as_posix() for _, source in MAPS.lineup()
+                      if MAPS.project_manifest(source) is not None)
+        progressive = [source for source in MAPS.PROGRESSIVE_SOURCES if source in actual]
+        self.assertEqual([row["source"] for row in rows[:len(progressive)]], progressive)
         self.assertEqual({row["source"] for row in rows}, actual)
         self.assertEqual(len(rows), len(actual))
-        remaining = [row["source"] for row in rows[6:]]
+        remaining = [row["source"] for row in rows[len(progressive):]]
         self.assertEqual(remaining, sorted(remaining))
         self.assertTrue({"architecture_before", "architecture_after", "material_transport"}.issubset({row["level"] for row in rows}))
 
@@ -34,6 +37,21 @@ class MapRegressionInventoryTests(unittest.TestCase):
             self.assertEqual(len(rows), 2)
             self.assertEqual(len({row["key"] for row in rows}), 2)
             self.assertEqual({row["level"] for row in rows}, {"same_id"})
+            project = root / "projects/environments"
+            (project / "levels").mkdir(parents=True)
+            (root / "levels").mkdir()
+            (root / "levels/lineup.txt").write_text("environments\n")
+            manifest = dict(schema="places-project", id="environments", entry_level="hub",
+                            levels=[dict(id=identity, source=f"levels/{identity}.json")
+                                    for identity in ("hub", "pool")])
+            (project / "places.project.json").write_text(json.dumps(manifest))
+            for identity in ("hub", "pool"):
+                (project / f"levels/{identity}.json").write_text(json.dumps(dict(id=identity)))
+            rows = MAPS.inventory(root)
+            self.assertEqual(len(rows), 3, 'the complete project is one campaign export')
+            bundle, = [row for row in rows if row['classification'] == 'playable-project']
+            self.assertEqual(bundle['project_members'], ['hub', 'pool'])
+            self.assertEqual(len(bundle['member_sources']), 2)
 
     def test_intended_negative_and_synthetic_cpu_contracts_are_explicit(self):
         rows = MAPS.inventory(ROOT)
@@ -74,6 +92,18 @@ class MapRegressionInventoryTests(unittest.TestCase):
             self.assertEqual(command[command.index("--out") + 1], expected)
         command = MAPS.planned_commands(shipped, compiler, out)[0]
         self.assertEqual(command[command.index("--out") + 1], "/evidence/packages/shipped.placesmap")
+        # Two IDs protect complete-project export and per-member verification;
+        # this only plans CLI arguments and never prepares a world.
+        project = dict(key="project", source="projects/environments/places.project.json",
+                       distribution_id="environments", project_members=["hub", "pool"],
+                       classification="playable-project")
+        commands = MAPS.planned_commands(project, compiler, out, install_source_packages=True)
+        self.assertEqual([command[1] for command in commands],
+                         ["export-project", "verify", "verify", "validate"])
+        self.assertEqual(commands[0][commands[0].index("--out")+1],
+                         str(ROOT / "assets/levels/environments.placesmap"))
+        self.assertEqual([command[command.index("--level")+1] for command in commands[1:3]],
+                         ["hub", "pool"])
 
 
 if __name__ == "__main__":

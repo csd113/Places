@@ -1,5 +1,5 @@
 #!/bin/sh
-# Compile the curated map lineup explicitly. Pass options through to compile.py.
+# Export the curated distributions explicitly, including every project sub-map.
 set -eu
 REPO=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$REPO"

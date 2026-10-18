@@ -859,6 +859,11 @@
             0.1365000084042549
           ],
           "kind": "cuboid"
+        },
+        "water": {
+          "displaced_volume_m3": 0.024,
+          "linear_drag": 3.0,
+          "angular_drag": 2.0
         }
       },
       "rotation_degrees": 0,

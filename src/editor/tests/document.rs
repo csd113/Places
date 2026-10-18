@@ -348,9 +348,9 @@ fn invalid_edits_and_external_changes_leave_sources_and_history_safe() -> Result
     Ok(())
 }
 
-// Essential persistence regression: the map-level Boolean must use raw document
-// history and survive per-level selection/save/reopen. Two existing tiny files,
-// no assets/GPU/bake; only a few local writes, distinct from transform coverage.
+// Essential persistence regression: map defaults use document history while the
+// project's separate entry policy survives save/reopen and false stays omitted.
+// Two existing tiny files, no assets/GPU/bake; only a few local writes.
 #[test]
 fn crosshair_default_survives_history_and_reopen() -> Result<(), String> {
     let fixture = Fixture::new()?;
@@ -371,5 +371,157 @@ fn crosshair_default_survives_history_and_reopen() -> Result<(), String> {
     assert!(!reopened.level().crosshair, "saved entry remains disabled");
     reopened.select_level("second")?;
     assert!(reopened.level().crosshair, "other map remains enabled");
+    assert!(
+        !reopened.manifest().menu_entry_only,
+        "existing projects retain all menu rows"
+    );
+    reopened.set_menu_entry_only(true)?;
+    let mut policy = Document::open(&fixture.0)?;
+    assert!(
+        policy.manifest().menu_entry_only,
+        "entry-only policy survives reopening"
+    );
+    policy.set_menu_entry_only(false)?;
+    let restored = Document::open(&fixture.0)?;
+    assert!(
+        !restored.manifest().menu_entry_only,
+        "all-map policy can be restored"
+    );
+    let raw: Value = serde_json::from_slice(
+        &fs::read(fixture.0.join("places.project.json")).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())?;
+    assert!(
+        raw.get("menu_entry_only").is_none(),
+        "false policy remains omitted"
+    );
+    Ok(())
+}
+
+// Essential new import-boundary regressions: preserve original bytes and one
+// reviewed placement through admission, and refuse ambiguous/dependent/conflict
+// inputs before publication. Existing document tests do not exercise import.
+// Tiny JSON fixtures and a handful of file writes; no assets, renderer or bake.
+#[test]
+fn standalone_import_preserves_bytes_and_reviewed_placement() -> Result<(), String> {
+    use crate::editor::safety::{SafetyCategory, SafetyFinding, SafetySeverity};
+    use crate::engine::spatial::Aabb;
+
+    let fixture = Fixture::new()?;
+    let raw = scene("legacy");
+    let finding = SafetyFinding {
+        check: "reviewed-chair-placement",
+        category: SafetyCategory::Collision,
+        severity: SafetySeverity::Warning,
+        title: "Intentional chair contact".into(),
+        risk: "Synthetic placement review".into(),
+        position: [1.0_f32, 0.0_f32, 1.0_f32],
+        bounds: Aabb {
+            min: [0.5_f32, 0.0_f32, 0.5_f32],
+            max: [1.5_f32, 1.0_f32, 1.5_f32],
+        },
+        objects: vec![ObjectId::Prop(0)],
+        surfaces: Vec::new(),
+        fix: None,
+        placement_ignore: None,
+    };
+    let reviewed = crate::editor::document::intent::ignore_in_raw(&raw, &finding)?;
+    let mut bytes = serde_json::to_vec_pretty(&reviewed).map_err(|error| error.to_string())?;
+    bytes.extend_from_slice(b"\n\n");
+    let incoming = fixture.0.join("incoming.json");
+    fs::write(&incoming, &bytes).map_err(|error| error.to_string())?;
+    let mut document = Document::open(&fixture.0)?;
+    assert_eq!(
+        document.import_level(&incoming)?,
+        "legacy",
+        "existing map ID is retained"
+    );
+    assert_eq!(
+        document.raw(),
+        &reviewed,
+        "unknown fields and placement intent survive admission"
+    );
+    document.save_all()?;
+    assert_eq!(
+        fs::read(fixture.source("legacy")).map_err(|error| error.to_string())?,
+        bytes,
+        "unmodified imported source retains original formatting and bytes"
+    );
+    let mut reopened = Document::open(&fixture.0)?;
+    reopened.select_level("legacy")?;
+    assert_eq!(
+        reopened.raw(),
+        &reviewed,
+        "reopen retains stable instance and intent context"
+    );
+    assert_eq!(
+        fs::read(&incoming).map_err(|error| error.to_string())?,
+        bytes,
+        "import never edits original source"
+    );
+    Ok(())
+}
+
+#[test]
+fn standalone_import_refuses_invalid_dependencies_and_existing_destinations() -> Result<(), String>
+{
+    let fixture = Fixture::new()?;
+    let mut document = Document::open(&fixture.0)?;
+    let manifest =
+        fs::read(fixture.0.join("places.project.json")).map_err(|error| error.to_string())?;
+    let incoming = fixture.0.join("incoming.json");
+    for raw in [
+        scene("entry"),
+        {
+            let mut raw = scene("legacy");
+            drop(
+                raw.as_object_mut()
+                    .ok_or("Scene object")?
+                    .insert("transitions".into(), serde_json::json!(["missing"])),
+            );
+            raw
+        },
+        {
+            let mut raw = scene("legacy");
+            drop(raw.as_object_mut().ok_or("Scene object")?.insert(
+                "scripts".into(),
+                serde_json::json!(["scripts/missing.luau"]),
+            ));
+            raw
+        },
+    ] {
+        write_json(&incoming, &raw)?;
+        assert!(
+            document.import_level(&incoming).is_err(),
+            "conflicts and unresolved dependencies are refused"
+        );
+    }
+    fs::write(&incoming, br#"{"id":"legacy","id":"other"}"#).map_err(|error| error.to_string())?;
+    assert!(
+        document.import_level(&incoming).is_err(),
+        "ambiguous duplicate keys are refused before parsing"
+    );
+    write_json(&incoming, &scene("legacy"))?;
+    fs::write(fixture.source("legacy"), b"unowned existing source")
+        .map_err(|error| error.to_string())?;
+    assert!(
+        document.import_level(&incoming).is_err(),
+        "unlisted existing files are never replaced"
+    );
+    assert_eq!(
+        fs::read(fixture.source("legacy")).map_err(|error| error.to_string())?,
+        b"unowned existing source",
+        "no-replace publication preserves the existing file"
+    );
+    assert_eq!(
+        fs::read(fixture.0.join("places.project.json")).map_err(|error| error.to_string())?,
+        manifest,
+        "every refusal leaves project membership unchanged"
+    );
+    assert_eq!(
+        document.level_id(),
+        "entry",
+        "refused import leaves selection intact"
+    );
     Ok(())
 }

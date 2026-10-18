@@ -49,24 +49,25 @@ only completed image comparisons are parallelized.
 ```sh
 # Active content: explicit edit -> compile -> launch, separate from source CI.
 cargo build --release
-./target/release/places-compile build levels/office_demo.json \
-    --out assets/levels/office_demo.placesmap --asset-root assets --workers 8
-./target/release/places-compile validate assets/levels/office_demo.placesmap
-./target/release/places-compile verify levels/office_demo.json \
-    --package assets/levels/office_demo.placesmap --require-current
-sh tools/build-maps.sh  # optional full maintained lineup; performs offline bakes
-PLACES_LEVEL=office_demo ./target/release/places
+./target/release/places-compile export-project projects/environments \
+    --out assets/levels/environments.placesmap --asset-root assets --workers 8
+./target/release/places-compile validate assets/levels/environments.placesmap
+./target/release/places-compile verify projects/environments --level office \
+    --package assets/levels/environments.placesmap --asset-root assets --require-current
+sh tools/build-maps.sh  # optional complete curated export; performs offline bakes
+PLACES_LEVEL=hub ./target/release/places
 
-# Discovery only: the playable rows the Level Select menu would show, without a
-# window or a GPU. One `id<TAB>source<TAB>path` row per compiled package; the
-# JSON authoring sources live under levels/; only compiled packages are playable.
+# Complete installed membership without a window or GPU: one
+# `id<TAB>source<TAB>path` row per map, including internal project members.
+# Explore may show only the entry; multiple diagnostic rows can share one
+# package. Editable collection sources live under projects/environments/.
 ./target/release/places --list-levels
 
 python3 -m unittest tests.test_tool_execution tests.test_zoo_generator
 python3 tools/props/preview.py --all --workers 8 --out target/previews
 python3 tools/textures/build.py --check
 python3 tools/textures/author_arcade.py --check  # saved masters/native parity
-python3 tools/levels/build_retro_arcade.py --check
+python3 tools/levels/compile.py --list-json
 python3 tools/textures/build.py --workers 4 --only core:tex_pool_tile_deck_01
 python3 tools/props/build.py --workers 4 --only home:fork home:bowl
 python3 tools/props/animate_spooner_man.py --workers 6
@@ -332,11 +333,11 @@ production map bakes.
 
 | Workflow | Entry points and ownership |
 | --- | --- |
-| Fast source acceptance | `tools/assets/validate.py`, texture/prop `build.py --check`, maintained map generators `--check`, Python test discovery; exact automatic checks are in `.github/workflows/rust.yml` |
-| Map publication | `tools/levels/compile.py`, `tools/build-maps.sh`; explicit eight-source allowlist, generated packages under ignored `assets/levels/` |
+| Fast source acceptance | `tools/assets/validate.py`, texture/prop and focused fixture `build.py --check`, curated source allowlist, Python test discovery; exact automatic checks are in `.github/workflows/rust.yml` |
+| Map publication | `tools/levels/compile.py`, `tools/build-maps.sh`; explicit distribution allowlist, complete `projects/environments/` export under ignored `assets/levels/` |
 | Source contract / wall repair | [Project format](PROJECT_FORMAT.md) defines revision 1; the obsolete pre-release converter is retired. `repair_alignment.py` checks source hashes/old values and only applies with post-validation and rollback |
-| Generated scenes | Maintained map owners in the [map index](../levels/README.md); `build_fixture_levels.py`, `build_outdoor_fixture.py`, `build_lighting_quality.py`, `build_capacity_fixtures.py` own focused controls |
-| Historical source reconstruction | `build_model_zoo.py`, `build_outdoor_route.py`, `refine_home.py`, `refine_pool.py`; explicit working inputs/outputs, never the frozen archive as output |
+| Generated scenes | The collection is editor-owned; `build_fixture_levels.py`, `build_outdoor_fixture.py`, `build_lighting_quality.py`, `build_capacity_fixtures.py` own focused controls |
+| Historical source reconstruction | Former environment builders, `build_model_zoo.py`, `build_outdoor_route.py`, `refine_home.py`, `refine_pool.py`; explicit scratch inputs/outputs, never migrated projects or the frozen archive as output |
 | PNG / GLB authoring | `tools/textures/` saved-art readers and explicit exporters; `tools/props/build.py` dispatches registered `parts/` constructors; `mesh`, `tex`, `glb`, `geometry`, `glyphs` and `refreshed` are shared libraries |
 | Distinct source owners | Office/Winter texture derivatives, Arcade/Bepsi artwork, Beach animals, original entity constructors and Spoonerman animation; accepted delivered models use `completed-models.json` and the `build.py --check` guard |
 | Asset inspection / repair | `audit.py`, `preview.py`, `validate_domestic_remake.py`, `repair_geometry.py`, `resize_embedded_textures.py`, seam tools, entity validators/contact sheets and `inspect_arcade_vending.py`; reports or explicit selected writes, no default map bake |
