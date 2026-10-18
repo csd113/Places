@@ -83,6 +83,28 @@ interaction priority. The target rule and existing small regression now preserve
 set-down for locked doors. The failed native attempt is retained alongside the
 final rerun rather than counted as acceptance.
 
+The final native player passes eight campaigns (53 focused captures, 202 audit
+checks, plus the explicit post-win reset checks): both ordinary win routes;
+Closing's alternate return/switch order, held removal and restart; Beam's two
+death/reset cycles, return reentry/removal, hints/sign reset and beam/partition
+occlusion; carried-door opening/traversal/set-down; and Closing's actual Full
+retention, quality changes, circuit state and reset. A closer held-door approach
+also retained its physical obstruction guard. These are correctness runs; no
+uncapped-throughput conclusion is drawn from their capture timing.
+
+The final delivery compiler and both final packages pass all 44 package-safety
+checks and all 11 hostile Luau initializer refusals. A name-only export of an
+isolated Closing copy hits the verified prepared-world cache, preserving all
+prepared record references and lighting fingerprint while updating package
+provenance. The delivered Closing package passes project-aware
+`verify --require-current`. Beam's accepted package remains byte-identical.
+
+Read-only native Safety scans preserve both sources. Closing has 29 entries
+(two notes, 27 review candidates); Beam has ten (two notes, eight review
+candidates, including sampled leak/drop/sliver findings). These remain contextual
+review candidates under the documented sampled-geometry limits, not a claim that
+either map is proven closed. No automatic correction or ignore was applied.
+
 ## Explicit remaining work
 
 Arbitrary mixed-circuit Static preparation requires a renderer/prepared-record

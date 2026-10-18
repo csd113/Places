@@ -45,20 +45,14 @@ def circuit_quality():
 def held_door():
     p = beam.Walk()
     p.enter(); p.press('F')
-    p.move(12.8,13.1); p.move(12.8,5.6)
-    p.aim(12.8,4.1,4.9); p.press(); p.ms += 850
-    p.move(12.8,4.2); p.move(12.8,2.2); p.move(11,2.2)
-    p.item('gift_green'); p.press(); p.carrying = True
-    p.capture('green-held')
-    p.move(10.8,2.2)
-    # Open leaf is 90 degrees from its hinge, along the side of the passage.
-    p.aim(11.92,4.0,3.6); p.ms += 500
-    p.capture('held-door-aim'); p.press(); p.ms += 900
-    p.capture('held-door-closed')
-    p.move(12.8,2.7); p.aim(12.8,4.0,4.9); p.ms += 500; p.press(); p.ms += 950
-    p.capture('held-door-reopened')
-    p.move(12.8,6.2); p.capture('carried-through')
-    p.aim(12.8,2.8,7.2); p.ms += 500; p.capture('deliberate-drop-aim')
+    p.move(10.5,12.2); p.item('gift_stars'); p.press(); p.carrying = True
+    p.capture('gift-held')
+    p.move(10.5,13.3); p.move(12.8,13.3); p.move(12.8,6.6)
+    p.aim(12.8,4.1,4.9); p.ms += 500
+    p.capture('held-door-aim'); p.press(); p.ms += 950
+    p.capture('held-door-opened')
+    p.move(12.8,4.2); p.move(12.8,2.2); p.capture('carried-through')
+    p.aim(12.8,3.2,1.0); p.ms += 500; p.capture('deliberate-drop-aim')
     p.press(); p.carrying = False; p.ms += 600; p.capture('deliberate-drop')
     return p.finish()
 
@@ -90,11 +84,11 @@ def main():
         else:
             def held(n): return samples[n]['physics']['held']
             checks = {
-                'held_door_targets_world': samples['held-door-aim']['interaction_target']['kind'] == 'world',
-                'closed_with_item_held': samples['held-door-closed']['doors'][1]['angle_degrees'] < 1 and held('held-door-closed') == held('green-held'),
-                'reopened_with_item_held': samples['held-door-reopened']['doors'][1]['angle_degrees'] > 75 and held('held-door-reopened') == held('green-held'),
-                'crossed_while_carrying': held('carried-through') == held('green-held') and samples['carried-through']['player_position'][2] > 5,
-                'look_away_offers_drop': samples['deliberate-drop-aim']['interaction_target']['kind'] == 'drop',
+                'gift_really_held': held('gift-held') is not None,
+                'closed_door_targets_world': (samples['held-door-aim']['interaction_target'] or {}).get('kind') == 'world' and samples['held-door-aim']['doors'][1]['angle_degrees'] < 1,
+                'opened_with_item_held': samples['held-door-opened']['doors'][1]['angle_degrees'] > 75 and held('held-door-opened') == held('gift-held'),
+                'crossed_while_carrying': held('carried-through') == held('gift-held') and samples['carried-through']['player_position'][2] < 4 and samples['carried-through']['player_position'][1] > 4,
+                'look_away_offers_drop': (samples['deliberate-drop-aim']['interaction_target'] or {}).get('kind') == 'drop',
                 'deliberate_drop_releases': held('deliberate-drop') is None,
             }
             (out/'acceptance.json').write_text(json.dumps({'passed':all(checks.values()),'checks':checks},indent=2)+'\n')

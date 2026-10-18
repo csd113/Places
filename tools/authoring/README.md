@@ -53,3 +53,13 @@ environment override, so the explicit root is exercised. Claimed large sizes
 are metadata mutations, never allocated payloads. Each child has a 60-second
 timeout; fixtures and the machine-readable receipt remain under the new output
 directory. No full map bake or native rendering is involved.
+
+`gaps_safety_native.py --binary PATH --closing CLOSING.placesmap --beam
+BEAM.placesmap --out NEW_DIRECTORY --case all` runs the combined authoring-gap
+acceptance against the supplied direct native executable. It includes both
+ordinary wins, Beam death/reset/beam and item edges, held-door opening/traversal,
+and Closing's required-Full/quality/circuit recovery. Closing's edge setup uses
+explicit item-pose diagnostics; the ordinary routes use actual gameplay keys
+and camera aiming. Every capture requires actual SDL window focus. Door motion
+still stops at held items; the traversal route leaves clearance before opening.
+Use a fresh output directory; retained attempts are evidence, never overwritten.
