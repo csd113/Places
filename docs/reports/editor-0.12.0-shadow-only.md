@@ -37,7 +37,7 @@ clear range lane. Native reopen/toggle/undo/save preserves every final source
 byte, including advanced fields. Failed setup attempts remain in the evidence;
 they are not counted as acceptance.
 
-The direct macOS/Metal player passes 88 focused evidence assertions: all hidden
+The direct macOS/Metal player passes 103 focused evidence assertions: all hidden
 actors stay colour-invisible and opaque shadow casters, animation revisions and
 silhouette pixels change, ordinary E interaction and independent solid collision
 work, Static/Full and Low lighting/quality changes preserve policy, third-person
@@ -48,13 +48,20 @@ ordinary control; hidden models remain absent.
 
 Matched hidden-present/removed scenes are byte-identical in flashlight-off,
 blocked-beam, >24 m and mirror captures (zero changed pixels). The same view with
-the beam on differs in 12,022 shadow pixels. These are actual rendered images;
+the beam on differs in 11,902 shadow pixels. These are actual rendered images;
 no scene image was synthesized. The final native video is 18 seconds, 1280×720,
 540 frames at 30 fps with explicit BT.709 conversion. Its consecutive source-frame
 receipt and visual review remain alongside the original captures.
 
-The accepted Beam source and package remain unchanged. A focused ordinary-win
-replay is retained with the new player, separate from this feature's gallery.
+Final review caught and corrected an animation ownership edge: a visibility-only
+frame now carries no pose override. A separate tiny native fixture confirms
+placed hidden/visible mannequins both use automatic walking with matching
+advancing revisions, while uncued spawned hidden/visible mannequins retain their
+held pose. This fixture is explicit developer tooling, outside routine CI.
+
+The accepted Beam source and package remain unchanged. Because the correction
+touches the shared pose handoff, both its ordinary-win/reset and beam-response
+routes were replayed with the final player, separate from this feature's gallery.
 No later feature-test campaign, merge, release or branch deletion belongs here.
 
 ## Scaling and checks
@@ -67,20 +74,20 @@ no recording/readback pacing runs during measurement. The render camera is
 pinned from the first ready frame. The 1/16-actor runs exceed the 120 Hz cadence;
 the 64-actor runs plateau near 120 Hz despite Immediate. Uncapped throughput at
 64 therefore remains **inconclusive**: only CPU/GPU costs are reported, with no
-average-FPS or improvement claim. Its CPU update/pose work is 7.28–7.33 ms and
+average-FPS or improvement claim. Its CPU update/pose work is 7.41–7.50 ms and
 mean present time is 0.02 ms; the raw intervals and earlier camera-setup trials
 remain retained.
 
 
 | Hidden actors | Frame cadence median, two runs | GPU pass-union mean |
 | --- | --- | --- |
-| 1 | 1.87–2.85 ms | 1.47–1.48 ms |
-| 16 | 3.06–3.14 ms | 1.78–1.81 ms |
-| 64 | 8.31–8.33 ms | 1.96–1.98 ms |
+| 1 | 1.56–1.62 ms | 1.32–1.42 ms |
+| 16 | 2.96–2.97 ms | 1.75–1.79 ms |
+| 64 | 8.47–8.58 ms | 1.92–1.94 ms |
 
 Strict all-target/all-feature Clippy, release Clippy, locked all-feature release
 build, formatting, all 166 small Rust regressions and the 369 Python source
-checks (16 supported skips) pass. Four focused regressions cover entity/reset
+checks (3 supported local skips) pass. Four focused regressions cover entity/reset
 and first-spawn handoff, missing-model fallback leakage, older-host capability
 admission, and editor collision-independent undo/reopen. No routine test or CI
 step bakes the gallery. Asset validation has zero warnings. Independent focused

@@ -333,6 +333,10 @@ fn shadow_only_presence_preserves_opacity_capabilities_and_reset() -> Result<(),
             .find(|f| f.instance_id == "actor")
             .ok_or("hidden actor needs a frame without a route or fade")?;
         assert!(frame.shadow_only);
+        assert!(
+            frame.cue.is_none(),
+            "visibility alone must preserve the existing locomotion/held pose driver"
+        );
         assert!((frame.opacity - 1.0).abs() < f32::EPSILON);
         let handle = world.handle_of("actor").ok_or("missing actor handle")?;
         assert!(
@@ -363,7 +367,9 @@ fn shadow_only_presence_preserves_opacity_capabilities_and_reset() -> Result<(),
         spawned
             .entity_frames()
             .iter()
-            .any(|frame| frame.instance_id == "hidden_spawn" && frame.shadow_only),
+            .any(|frame| frame.instance_id == "hidden_spawn"
+                && frame.shadow_only
+                && frame.cue.is_none()),
         "the first published spawned frame must already suppress colour geometry"
     );
     source.props.first_mut().ok_or("missing actor")?.physics =

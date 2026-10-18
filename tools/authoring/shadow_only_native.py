@@ -30,8 +30,13 @@ def actions(level,case):
     def tap(ms,key):
         add(ms,'key',key=key,pressed=True);add(ms+60,'key',key=key,pressed=False)
     add(0,'focus',focused=True)
-    add(150,'player',position=[5.8,1.6,28],yaw=0,pitch=-6)
-    if case=='video':
+    add(150,'player',position=[3,1.6,6] if case=='default-pose' else [5.8,1.6,28],yaw=0,pitch=-6)
+    if case=='default-pose':
+        add(250,'capture',name='initial')
+        add(400,'key',key='W',pressed=True);add(900,'capture',name='walking')
+        add(1100,'key',key='W',pressed=False);tap(1300,'F')
+        add(1600,'capture',name='held-runtime');add(2000,'quit')
+    elif case=='video':
         tap(1100,'F')
         add(2200,'key',key='Left',pressed=True);add(3100,'key',key='Left',pressed=False)
         add(3700,'key',key='Right',pressed=True);add(5400,'key',key='Right',pressed=False)
@@ -101,6 +106,9 @@ def run(args):
         PLACES_BENCH='1',PLACES_VERBOSE='1',PLACES_VSYNC='off',PLACES_BENCH_FRAMES='0',
         PLACES_SPAWN='5.8,1.6,28,0',PLACES_BENCH_ACTIONS=str(out/'actions.json'),
         PLACES_LOAD_TRACE=str(out/'trace.jsonl'),PLACES_BENCH_FIXED_DELTA_SECONDS='0.016666667')
+    if args.case=='default-pose':
+        env.pop('PLACES_BENCH_FIXED_DELTA_SECONDS',None)
+        env['PLACES_SPAWN']='3,1.6,6,0'
     if args.case=='performance':
         env.update(PLACES_BENCH_FRAMES='1200',PLACES_BENCH_WARMUP='120',PLACES_CAMERA='0,-6',
                    PLACES_BENCH_OUT=str(out/'frames.csv'),PLACES_MOVE_SCRIPT='flashlight@0-0.035')
@@ -142,5 +150,5 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--binary',type=Path,required=True);p.add_argument('--package',type=Path,required=True)
     p.add_argument('--level',required=True);p.add_argument('--out',type=Path,required=True)
-    p.add_argument('--case',choices=['acceptance','video','compare','performance'],default='acceptance')
+    p.add_argument('--case',choices=['acceptance','video','compare','performance','default-pose'],default='acceptance')
     run(p.parse_args())

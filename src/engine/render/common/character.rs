@@ -2142,46 +2142,41 @@ impl CharacterScene {
             .instance_id
             .as_deref()
             .and_then(|target_id| frames.iter().find(|frame| frame.instance_id == target_id));
-        match frame {
-            Some(entity_frame) => {
-                // The frame's fade is applied every pass, before the pose: the
-                // opacity is independent of whether the pose changed.
-                character.set_opacity(entity_frame.opacity);
-                character.shadow_only = entity_frame.shadow_only;
-                if let Some((position, yaw)) = entity_frame.transform
-                    && !transforms_agree(
-                        character.transform,
-                        position,
-                        character.scale,
-                        yaw,
-                        character.pose_tilt,
-                    )
-                {
-                    character.set_pose(position, yaw);
-                }
-                if let Some(balloon) = entity_frame.balloon {
-                    return character.set_balloon_pose(balloon);
-                }
+        if let Some(entity_frame) = frame {
+            // Visibility/coverage never chooses the animation driver.
+            character.set_opacity(entity_frame.opacity);
+            character.shadow_only = entity_frame.shadow_only;
+            if let Some((position, yaw)) = entity_frame.transform
+                && !transforms_agree(
+                    character.transform,
+                    position,
+                    character.scale,
+                    yaw,
+                    character.pose_tilt,
+                )
+            {
+                character.set_pose(position, yaw);
+            }
+            if let Some(balloon) = entity_frame.balloon {
+                return character.set_balloon_pose(balloon);
+            }
+            if let Some(cue) = entity_frame.cue.as_ref() {
+                return character.animator.update_cued(animation_delta, cue);
+            }
+        }
+        if let Some(locomotion) = character.runtime_locomotion {
+            if character.animator.is_rigid() {
                 character
                     .animator
-                    .update_cued(animation_delta, &entity_frame.cue)
+                    .update_cued(animation_delta, &PoseCue::Idle)
+            } else {
+                character.animator.update(animation_delta, locomotion)
             }
-            None if character.runtime_locomotion.is_some() => {
-                if character.animator.is_rigid() {
-                    character
-                        .animator
-                        .update_cued(animation_delta, &PoseCue::Idle)
-                } else {
-                    character.animator.update(
-                        animation_delta,
-                        character.runtime_locomotion.unwrap_or_default(),
-                    )
-                }
-            }
-            // A rigid prop has no locomotion state to drive: until an action
-            // cues it, it holds the bind pose it was spawned in.
-            None if !follow_locomotion || character.animator.is_rigid() => false,
-            None => character.animator.update(animation_delta, snapshot),
+        } else if !follow_locomotion || character.animator.is_rigid() {
+            // Runtime and rigid actors retain their default held pose.
+            false
+        } else {
+            character.animator.update(animation_delta, snapshot)
         }
     }
 }

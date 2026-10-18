@@ -550,9 +550,9 @@ pub struct EntityFrame {
     /// [`RouteState::yaw`] and the renderer's `Character::set_pose`. The AI
     /// layer stores degrees and converts once at its frame handoff.
     pub transform: Option<(Vec3, f32)>,
-    /// The pose to play this frame (an interaction override wins over the
-    /// route's own cue).
-    pub cue: PoseCue,
+    /// An explicit pose override (interaction wins over the route). Absent
+    /// preserves the existing placed-locomotion or runtime-held pose driver.
+    pub cue: Option<PoseCue>,
     /// Opacity of the entity this frame, `1.0` when it has no `fade`
     /// component.
     pub opacity: f32,

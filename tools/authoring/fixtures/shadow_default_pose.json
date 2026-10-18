@@ -1,0 +1,119 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "shadow_default_pose",
+  "name": "Default pose ownership regression",
+  "spawn": {
+    "x": 3,
+    "z": 6
+  },
+  "rooms": [
+    {
+      "width": 6,
+      "depth": 8,
+      "height": 3
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.2,
+      "z": -0.2,
+      "width": 6.4,
+      "depth": 0.2,
+      "height": 3
+    },
+    {
+      "x": -0.2,
+      "z": 8,
+      "width": 6.4,
+      "depth": 0.2,
+      "height": 3
+    },
+    {
+      "x": -0.2,
+      "z": 0,
+      "width": 0.2,
+      "depth": 8,
+      "height": 3
+    },
+    {
+      "x": 6,
+      "z": 0,
+      "width": 0.2,
+      "depth": 8,
+      "height": 3
+    }
+  ],
+  "props": [
+    {
+      "id": "default_shadow",
+      "model": "mannequin",
+      "x": 2,
+      "z": 2,
+      "shadow_only": true
+    },
+    {
+      "id": "default_control",
+      "model": "mannequin",
+      "x": 4,
+      "z": 2
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3,
+      "z": 4,
+      "brightness": 0.3
+    }
+  ],
+  "spawn_templates": [
+    {
+      "id": "held_shadow_template",
+      "model": "mannequin",
+      "shadow_only": true
+    },
+    {
+      "id": "held_control_template",
+      "model": "mannequin"
+    }
+  ],
+  "spawn_points": [
+    {
+      "id": "shadow_point",
+      "template": "held_shadow_template",
+      "x": 2,
+      "z": 3
+    },
+    {
+      "id": "control_point",
+      "template": "held_control_template",
+      "x": 4,
+      "z": 3
+    }
+  ],
+  "timers": [
+    {
+      "id": "spawn_defaults",
+      "seconds": 0.01,
+      "autostart": true,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "spawn_entity",
+              "point": "shadow_point",
+              "name": "held_shadow"
+            },
+            {
+              "action": "spawn_entity",
+              "point": "control_point",
+              "name": "held_control"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

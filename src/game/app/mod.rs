@@ -3312,7 +3312,7 @@ impl FrameLoop<'_> {
                 "intensity": observation.intensity,
                 "active": observation.active,
                 "opacity": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).map(|frame| frame.opacity),
-                "pose": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).map(|frame| format!("{:?}", frame.cue)),
+                "pose": self.game.entity_frames().iter().find(|frame| frame.instance_id == observation.instance_id).and_then(|frame| frame.cue.as_ref()).map(|cue| format!("{cue:?}")),
             })
         }).collect();
         drop(fields.insert("light_responses".to_string(), light_responses.into()));

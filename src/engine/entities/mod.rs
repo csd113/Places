@@ -4385,7 +4385,7 @@ impl EntityWorld {
                 // that converts; nothing downstream may re-interpret the
                 // value as degrees.
                 transform: Some((agent.position, agent.yaw_degrees.to_radians())),
-                cue,
+                cue: Some(cue),
                 opacity: opacity * agent.opacity(),
                 glow,
                 shadow_only: self.frame_shadow_only(&agent.instance_id),
@@ -4413,7 +4413,7 @@ impl EntityWorld {
             self.entity_frames.push(EntityFrame {
                 instance_id: route.instance_id.clone(),
                 transform: Some((state.position, state.yaw)),
-                cue,
+                cue: Some(cue),
                 opacity,
                 glow,
                 shadow_only: self.frame_shadow_only(&route.instance_id),
@@ -4439,7 +4439,7 @@ impl EntityWorld {
             self.entity_frames.push(EntityFrame {
                 instance_id: instance_id.clone(),
                 transform: None,
-                cue: cue.clone(),
+                cue: Some(cue.clone()),
                 opacity,
                 glow,
                 shadow_only: self.frame_shadow_only(instance_id),
@@ -4494,7 +4494,12 @@ impl EntityWorld {
                 shadow_only: self.frame_shadow_only(&instance_id),
                 instance_id,
                 transform: None,
-                cue: PoseCue::Idle,
+                // Visibility alone must not seize animation ownership. Keep
+                // the historical idle cue for existing visual components.
+                cue: (self.components.fades.contains(handle)
+                    || self.components.glows.contains(handle)
+                    || self.components.balloons.contains(handle))
+                .then_some(PoseCue::Idle),
                 opacity,
                 glow,
                 balloon: self.frame_balloon(handle),

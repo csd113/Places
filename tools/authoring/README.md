@@ -79,3 +79,9 @@ fixed simulation; it is never a performance result. Performance uses 120 warmup
 and 1200 measured frames without capture pacing, V-sync or a frame cap. Record
 actual presentation, drawable and display pacing before interpreting timings.
 The gallery README gives runnable commands; these tools never run in ordinary CI.
+
+`fixtures/shadow_default_pose.json` is a separate four-actor developer regression
+for animation ownership. Explicitly compile it and run native `--case default-pose`:
+the placed hidden/visible pair must both retain automatic walk locomotion; the
+spawned hidden/visible pair must both retain their default held pose. This tiny
+source is opt-in tooling, never an automatic map-bake dependency.
