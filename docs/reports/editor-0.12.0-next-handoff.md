@@ -87,7 +87,25 @@ Do not infer Source-equivalent coverage or capabilities from the word “mesh”
 
 ## Following queue
 
-1. Integrate accepted finished 37 Home/shared models and rebuilt rubber duck,
+1. Author Closing Time in the **actual editor** with a real authoring-process
+   video, using the currently integrated assets. Document every manual level-file
+   workaround, not just the finished map.
+2. Author the fleshed-out single-map horror mode **It Only Exists in the Beam**.
+   Use the currently integrated assets for this initial mode. A creature is visible
+   only when illuminated by the player’s flashlight; objects
+   recovered among furniture unlock an achievable exit. Include explicit win and
+   death feedback and usable respawn/reset. Perform three substantive passes:
+   complete mechanics/objectives/win/death/reset; atmosphere/readability/pacing/fair
+   creature behavior; then final gameplay/visual/performance polish. Each pass must
+   actually verify win, death and reset and record findings/changes.
+3. Both demos need practical future-improvements reports: concrete editor gaps
+   requiring manual level/Luau edits, missing/unimplemented helpful sounds, and
+   useful lighting/AI/physics/engine capabilities. Each item names its encounter or
+   workflow, workaround and proposed improvement. Deduplicate shared items and
+   distinguish intentional ordinary Luau authoring from a real editor limitation.
+   Reporting is not permission to implement every suggestion.
+4. After both game maps are made, integrate accepted finished 37 Home/shared
+   models and rebuilt rubber duck,
    plus the new supply/janitor closet environment set when its separate cloud
    Blender/GIMP worker supplies verified archives/metadata. Reject the newer
    Spoonerman. Do no Mac modeling for the closet set. This stage did not fetch,
@@ -97,21 +115,6 @@ Do not infer Source-equivalent coverage or capabilities from the word “mesh”
    contracts are `docs/ASSET_SPECIFICATION.md`, `docs/MAP_AUTHORING_GUIDE.md`,
    `assets/completed-models.json`, and the existing ignored `import/model-rework/`
    review/delivery/unpacked folders. Preserve all mandatory fitted UV/PNG contracts.
-2. Author Closing Time in the **actual editor** with a real authoring-process
-   video. Document every manual level-file workaround, not just the finished map.
-3. Author the fleshed-out single-map horror mode **It Only Exists in the Beam**.
-   A creature is visible only when illuminated by the player’s flashlight; objects
-   recovered among furniture unlock an achievable exit. Include explicit win and
-   death feedback and usable respawn/reset. Perform three substantive passes:
-   complete mechanics/objectives/win/death/reset; atmosphere/readability/pacing/fair
-   creature behavior; then final gameplay/visual/performance polish. Each pass must
-   actually verify win, death and reset and record findings/changes.
-4. Both demos need practical future-improvements reports: concrete editor gaps
-   requiring manual level/Luau edits, missing/unimplemented helpful sounds, and
-   useful lighting/AI/physics/engine capabilities. Each item names its encounter or
-   workflow, workaround and proposed improvement. Deduplicate shared items and
-   distinguish intentional ordinary Luau authoring from a real editor limitation.
-   Reporting is not permission to implement every suggestion.
 5. Run the dedicated Luau/map-import safety review using **both finished modes**
    and malicious small fixtures. Reassess VM execution/memory/action budgets,
    scoped callback/reset lifetimes, in-process/cooperative limitations, archive

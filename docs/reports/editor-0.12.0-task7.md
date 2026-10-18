@@ -181,7 +181,9 @@ cooperative and in-process, with the stage 6 allocation/native-call limits.
 Concurrent malicious filesystem mutation is not a promised local authoring sandbox.
 
 Issues #18/#21 remain open for their broader acceptance criteria. The next
-separately authorized task is the navigation pass, followed by accepted asset
-integration, editor-authored Closing Time, three passes on It Only Exists in the
-Beam, and the dedicated Luau/map-import safety review of both finished modes.
+separately authorized task is the navigation pass, followed by editor-authored
+Closing Time and three passes on It Only Exists in the Beam using currently
+integrated assets. Integrate the accepted Home/shared, rubber duck and janitor-closet
+assets after both maps are made, then run the dedicated Luau/map-import safety
+review of both finished modes.
 Stop before roadmap stages 8/9. See the [current handoff](editor-0.12.0-next-handoff.md).
