@@ -147,6 +147,13 @@ smokes do not establish their absence or fixes; exact causes remain unconfirmed.
 - [Editor #29](https://github.com/csd113/Places/issues/29): extreme z-fighting on
   Relay Annex's **second-room ceiling**, including the unresolved authoring/export
   validation gap. This does not identify a second map or floor as its cause.
+- [UI #5](https://github.com/csd113/Places/issues/5): long error messages have
+  reportedly run off-screen; wrapping, viewport bounds and reachable controls
+  remain unfinished. This report has not been independently reproduced.
+- Earlier #27/#29 samples also retain slow Arcade/fog-overlap views, perceptible
+  editor preview refresh and a map-switch regression. These dated observations
+  are not a fresh universal baseline or a demonstrated memory leak; no new
+  performance fix is claimed here.
 - Sound polish and the tiny always-packaged live main-menu background remain
   unfinished in #28, coordinated with #11/#13/#21. The current collection can
   provide menu scenery; an empty installation has no dedicated live scene.
