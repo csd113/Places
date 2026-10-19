@@ -64,12 +64,15 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
         paths = json.loads(run('paths-empty', [player, '--paths']).stdout)
         assert Path(paths['assets']) == (installed / 'assets').resolve()
         assert Path(paths['data']) == state
-        for key in ('levels', 'import', 'projects', 'cache'):
+        for key in ('levels', 'import', 'projects', 'cache', 'saves'):
             assert Path(paths[key]).is_dir()
         assert run('empty-discovery', [player, '--list-levels']).stdout == ''
         run('native-empty-explore', [player], changes={'PLACES_SCREEN': 'explore'}, native=True)
         settings = state / 'settings.json'
         saved_settings = settings.read_bytes()
+        save_file = Path(paths['saves']) / 'preservation-probe.save'
+        save_file.write_bytes(b'user save data must survive first-run initialization\n')
+        saved_data = save_file.read_bytes()
         run('paths-overrides', [player, '--paths'], changes={
             'PLACES_ASSET_ROOT': str(installed), 'PLACES_CONFIG_ROOT': str(work / 'Config ü'),
             'PLACES_CACHE_ROOT': str(work / 'Cache ü')})
@@ -112,6 +115,7 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
         assert str(installed_map) in discovery
         run('native-imported-play', [player], changes={'PLACES_LEVEL': level_id}, cwd=other_launch, native=True)
         assert settings.read_bytes() == saved_settings
+        assert save_file.read_bytes() == saved_data
         assert not list((state / 'levels').glob('*.partial*'))
         assert not (launch / 'settings.json').exists()
         assert not (installed / 'settings.json').exists()
@@ -133,6 +137,10 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
         bare.mkdir()
         shutil.copyfile(player, bare / player.name)
         (bare / player.name).chmod(player.stat().st_mode)
+        # Keep the relocated macOS loader dependency so this case reaches
+        # Places' missing-assets error, rather than failing in dyld first.
+        if (installed / 'lib').is_dir():
+            shutil.copytree(installed / 'lib', bare / 'lib')
         run('missing-resource-payload', [bare / player.name, '--paths'], expected=1)
         if os.name == 'posix':
             owned = [installed, *installed.rglob('*')]
@@ -148,7 +156,7 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
                 fresh_paths = json.loads(run('readonly-first-run-paths', [player, '--paths'], cwd=installed,
                     changes={'PLACES_STATE_ROOT': str(fresh_state)}).stdout)
                 assert (fresh_state / 'settings.json').is_file()
-                for key in ('levels', 'import', 'projects', 'cache'):
+                for key in ('levels', 'import', 'projects', 'cache', 'saves'):
                     assert Path(fresh_paths[key]).is_dir()
                 readonly = work / 'readonly-user'
                 readonly.mkdir(mode=0o555)
@@ -162,8 +170,9 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
         summary = {'platform': sys.platform, 'checks': checks,
                    'installation': str(installed), 'state': str(state),
                    'package_sha256': imported_hash, 'settings_preserved': True,
+                   'save_file_preserved': True,
                    'limitations': ['explicit isolated user storage; default platform locations covered by pure path tests',
-                                   'host SDL/system dependencies remain installed',
+                                   'system frameworks remain OS-provided; no clean-OS installer acceptance',
                                    'no Windows/Linux native, installer/signing or performance acceptance']}
         (output / 'installation-summary.json').write_text(json.dumps(summary, indent=2) + '\n')
         print(json.dumps(summary, indent=2))

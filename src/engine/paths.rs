@@ -254,6 +254,11 @@ impl UserPaths {
     pub fn projects(&self) -> PathBuf {
         self.data.join("projects")
     }
+    /// Reserved persistent game data, separate from replaceable caches/imports.
+    #[must_use]
+    pub fn saves(&self) -> PathBuf {
+        self.data.join("saves")
+    }
     #[must_use]
     pub fn settings(&self) -> PathBuf {
         self.config.join("settings.json")
@@ -275,6 +280,7 @@ impl UserPaths {
             self.levels(),
             self.imports(),
             self.projects(),
+            self.saves(),
             self.diagnostics(),
         ];
         // Validate every path before creating or probing any of them. Existing
@@ -293,13 +299,31 @@ impl UserPaths {
 
 fn check_writable_target(root: &Path, resources: &Path) -> Result<(), String> {
     let mut existing = root;
-    while !existing.exists() {
-        existing = existing
-            .parent()
-            .ok_or("User directory has no existing ancestor")?;
+    loop {
+        match fs::symlink_metadata(existing) {
+            Ok(_) => break,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                existing = existing
+                    .parent()
+                    .ok_or("User directory has no existing ancestor")?;
+            }
+            Err(error) => {
+                return Err(format!(
+                    "Cannot inspect writable directory {}: {error}; correct {STATE_ROOT_ENV}, {CONFIG_ROOT_ENV} or {CACHE_ROOT_ENV}",
+                    root.display()
+                ));
+            }
+        }
     }
     let resolved = fs::canonicalize(existing)
         .map_err(|error| format!("Cannot resolve {}: {error}", root.display()))?;
+    if !resolved.is_dir() {
+        return Err(format!(
+            "Writable directory {} has a non-directory ancestor {}; correct {STATE_ROOT_ENV}, {CONFIG_ROOT_ENV} or {CACHE_ROOT_ENV}",
+            root.display(),
+            existing.display()
+        ));
+    }
     let tail = root
         .strip_prefix(existing)
         .map_err(|error| error.to_string())?;

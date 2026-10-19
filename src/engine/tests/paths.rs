@@ -1,6 +1,8 @@
 //! Three compact regressions protect platform/override precedence, authoritative
 //! resource discovery and first-run persistence. Only tiny temp files/directories;
 //! no environment mutation, native resources, map build or checkout assets.
+//! The first-run fixture also protects save-file custody and a config-file
+//! obstruction: every target must pass preflight before the data root is created.
 
 use std::fs;
 use std::path::PathBuf;
@@ -188,6 +190,7 @@ fn first_run_creates_only_user_folders_and_preserves_existing_files() -> Result<
         user.levels(),
         user.imports(),
         user.projects(),
+        user.saves(),
         user.diagnostics(),
         user.cache.clone(),
     ] {
@@ -200,6 +203,8 @@ fn first_run_creates_only_user_folders_and_preserves_existing_files() -> Result<
     fs::write(user.settings(), b"existing settings").map_err(|error| error.to_string())?;
     let package = user.levels().join("existing.placesmap");
     fs::write(&package, b"existing map").map_err(|error| error.to_string())?;
+    let save = user.saves().join("existing.save");
+    fs::write(&save, b"existing save").map_err(|error| error.to_string())?;
     user.initialize(&assets)?;
     assert_eq!(
         fs::read(user.settings()).map_err(|error| error.to_string())?,
@@ -210,6 +215,10 @@ fn first_run_creates_only_user_folders_and_preserves_existing_files() -> Result<
         b"existing map"
     );
     assert_eq!(
+        fs::read(save).map_err(|error| error.to_string())?,
+        b"existing save"
+    );
+    assert_eq!(
         fs::read_dir(&assets)
             .map_err(|error| error.to_string())?
             .count(),
@@ -217,27 +226,12 @@ fn first_run_creates_only_user_folders_and_preserves_existing_files() -> Result<
         "resources are never storage"
     );
     #[cfg(unix)]
-    {
-        let redirected = UserPaths {
-            data: fixture.0.join("redirected"),
-            ..user.clone()
-        };
-        fs::create_dir(&redirected.data).map_err(|error| error.to_string())?;
-        std::os::unix::fs::symlink(&assets, redirected.levels())
-            .map_err(|error| error.to_string())?;
-        assert!(
-            redirected.initialize(&assets).is_err(),
-            "derived symlink cannot redirect writes into assets"
-        );
-        assert!(
-            !redirected.imports().exists(),
-            "all targets checked before any first-run writes"
-        );
-    }
+    check_storage_symlink_preflight(&fixture, &user, &assets)?;
     let obstruction = fixture.0.join("not-a-directory");
     fs::write(&obstruction, b"keep me").map_err(|error| error.to_string())?;
     let invalid = UserPaths {
-        data: obstruction.clone(),
+        data: fixture.0.join("must-stay-absent"),
+        config: obstruction.clone(),
         ..user
     };
     let storage_error = invalid
@@ -251,6 +245,48 @@ fn first_run_creates_only_user_folders_and_preserves_existing_files() -> Result<
     assert_eq!(
         fs::read(obstruction).map_err(|error| error.to_string())?,
         b"keep me"
+    );
+    assert!(
+        !invalid.data.exists(),
+        "preflight every directory before creating the first one"
+    );
+    Ok(())
+}
+
+#[cfg(unix)]
+fn check_storage_symlink_preflight(
+    fixture: &Fixture,
+    user: &UserPaths,
+    assets: &std::path::Path,
+) -> Result<(), String> {
+    let redirected = UserPaths {
+        data: fixture.0.join("redirected"),
+        ..user.clone()
+    };
+    fs::create_dir(&redirected.data).map_err(|error| error.to_string())?;
+    std::os::unix::fs::symlink(assets, redirected.levels()).map_err(|error| error.to_string())?;
+    assert!(
+        redirected.initialize(assets).is_err(),
+        "derived symlink cannot redirect writes into assets"
+    );
+    assert!(
+        !redirected.imports().exists(),
+        "all targets checked before any first-run writes"
+    );
+    let dangling = UserPaths {
+        data: fixture.0.join("dangling-must-stay-absent"),
+        config: fixture.0.join("dangling-config"),
+        ..user.clone()
+    };
+    std::os::unix::fs::symlink(fixture.0.join("missing-target"), &dangling.config)
+        .map_err(|error| error.to_string())?;
+    assert!(
+        dangling.initialize(assets).is_err(),
+        "dangling storage symlinks must fail preflight"
+    );
+    assert!(
+        !dangling.data.exists(),
+        "dangling config cannot leave a partially initialized data root"
     );
     Ok(())
 }

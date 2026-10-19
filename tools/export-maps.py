@@ -18,6 +18,8 @@ def export_maps(source: Path, payload: Path, compiler: Path) -> None:
     expected_ids = []
     with tempfile.TemporaryDirectory(prefix='places-export-state-') as state:
         env['PLACES_STATE_ROOT'] = state
+        env['PLACES_CONFIG_ROOT'] = str(Path(state) / 'config')
+        env['PLACES_CACHE_ROOT'] = str(Path(state) / 'cache')
         for package in packages:
             result = subprocess.run([str(compiler), 'validate', str(package), '--json'],
                                     env=env, text=True, capture_output=True, check=True)

@@ -4212,7 +4212,8 @@ fn dispatch_paths_cli(args: &[String]) -> Result<bool, String> {
             serde_json::json!({
                 "assets": crate::engine::paths::assets()?, "data": user.data,
                 "config": user.config, "cache": user.cache, "settings": user.settings(),
-                "levels": user.levels(), "import": user.imports(), "projects": user.projects()
+                "levels": user.levels(), "import": user.imports(), "projects": user.projects(),
+                "saves": user.saves()
             })
         );
         return Ok(true);
@@ -4266,8 +4267,14 @@ fn dispatch_list_levels_cli(args: &[String]) -> Result<bool, String> {
 /// # Errors
 /// Returns an error when the input is malformed, out of bounds or unsupported.
 pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
-    crate::engine::assets::validate_installation()?;
-    let _user = crate::engine::paths::initialize_user()?;
+    let preparation = crate::engine::assets::validate_installation()
+        .and_then(|()| crate::engine::paths::initialize_user().map(|_| ()));
+    if let Err(message) = preparation {
+        if args.is_empty() {
+            diagnostics::show_notice("Places could not start", &message);
+        }
+        return Err(message.into());
+    }
     if dispatch_paths_cli(args)? || dispatch_list_levels_cli(args)? {
         return Ok(());
     }

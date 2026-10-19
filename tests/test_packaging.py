@@ -42,8 +42,12 @@ class PackageDestinationGuardTests(unittest.TestCase):
             source = root / 'source'
             (source / 'tools').mkdir(parents=True)
             shutil.copyfile(PACKAGE_SH, source / 'tools/package.sh')
+            # Script-only payload fixture: native dependency relocation is
+            # checked separately with mocked otool and by explicit macOS QA.
+            (source / 'tools/bundle-macos.py').write_text('import sys\nassert len(sys.argv) == 3\n')
             (source / 'docs').mkdir()
             (source / 'docs/INSTALLATION.md').write_text('installation fixture')
+            (source / 'docs/EDITOR.md').write_text('editor fixture')
             (source / 'Cargo.toml').write_text('[package]\nversion = "0.9.0"\n')
             for name in ('README.md', 'THIRD_PARTY_LICENSES.txt'):
                 (source / name).write_text('fixture')
@@ -104,6 +108,38 @@ class PackageDestinationGuardTests(unittest.TestCase):
             self.assertEqual(with_compiler.returncode, 0, with_compiler.stdout + with_compiler.stderr)
             for binary in (output / 'Places/places-compile', output / 'Places.app/Contents/MacOS/places-compile'):
                 self.assertEqual(binary.read_bytes(), compiler.read_bytes())
+            editor = source / 'target/release/places-editor'
+            editor.write_text('#!/bin/sh\nexit 0\n')
+            editor.chmod(0o755)
+            with_editor = subprocess.run(['sh', str(source / 'tools/package.sh'), '--with-editor', str(output)],
+                                         text=True, capture_output=True, timeout=30, check=False)
+            self.assertEqual(with_editor.returncode, 0, with_editor.stdout + with_editor.stderr)
+            for binary in (output / 'Places/places-editor', output / 'Places.app/Contents/MacOS/places-editor'):
+                self.assertEqual(binary.read_bytes(), editor.read_bytes())
+            for payload in (output / 'Places', output / 'Places.app/Contents/Resources'):
+                self.assertEqual((payload / 'docs/EDITOR.md').read_text(), 'editor fixture')
+            # Force the second publication rename to fail. Both previous
+            # products must survive, not just unrelated export-root siblings.
+            for product in ('Places', 'Places.app'):
+                (output / product / 'previous.txt').write_text(product)
+            commands = root / 'commands'
+            commands.mkdir()
+            move = commands / 'mv'
+            move.write_text(f'#!{sys.executable}\n'
+                            'import os, sys\nfrom pathlib import Path\n'
+                            'source = Path(sys.argv[1])\n'
+                            'if source.name == "Places.app" and source.parent.name.startswith(".places-package-stage."):\n'
+                            '    sys.exit(7)\n'
+                            'os.execv("/bin/mv", ["mv", *sys.argv[1:]])\n')
+            move.chmod(0o755)
+            failed = subprocess.run(['sh', str(source / 'tools/package.sh'), '--with-editor', str(output)],
+                                    env={**os.environ, 'PATH': str(commands) + os.pathsep + os.environ['PATH']},
+                                    text=True, capture_output=True, timeout=30, check=False)
+            self.assertNotEqual(failed.returncode, 0)
+            for product in ('Places', 'Places.app'):
+                self.assertEqual((output / product / 'previous.txt').read_text(), product)
+            self.assertEqual((output / 'keep.txt').read_text(), 'unique sibling')
+            self.assertEqual(list(output.glob('.places-package-stage.*')), [])
 
     def test_dangerous_destinations_are_refused(self):
         cases = {

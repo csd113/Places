@@ -1,5 +1,10 @@
 ## 0.12.0 — in progress
 
+- Complete essential macOS distribution handling: bundle and relocate SDL3,
+  ad-hoc sign exports, optionally include the editor/compiler, preflight all
+  first-run folders and reserve persistent `saves/` storage. Show native startup
+  failures and retain executable-relative resources and validated map imports.
+  See [installation instructions](docs/INSTALLATION.md).
 - Connect the eight environments through a central hub in one editable
   **Quiet Collection** `.placesmap`, with themed doorways, return doors and an
   optional entry-only Explore row. Preserve the separate campaigns and archive.

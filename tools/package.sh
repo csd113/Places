@@ -1,5 +1,5 @@
 #!/bin/sh
-# package.sh [--check-destination] [--with-compiler] [--maps directory] [output-root]
+# package.sh [--check-destination] [--with-compiler | --with-editor] [--maps directory] [output-root]
 #
 # Stages a clean Places resource payload from a host release binary.
 #
@@ -10,6 +10,8 @@
 #   <output-root>/Places/
 #       places              the executable (built as `places`)
 #       places-compile      optional --with-compiler, same resource discovery
+#       places-editor       optional --with-editor (includes compiler)
+#       lib/                bundled SDL3 on macOS
 #       assets/             catalog, gameplay profiles, levels, models, textures, decals
 #       docs/INSTALLATION.md
 #       README.md           the project README, for reference
@@ -24,15 +26,15 @@
 # product directories above are owned and replaced by this script. The root is
 # canonicalised and refused when it is `/`, the home directory, the repository
 # (or one of its ancestors). Publication is staged: the payload is built in a
-# private directory and moved into place after the old products are removed,
+# private directory and moved into place while old products remain recoverable,
 # so a failure leaves the previous package (or the unrelated siblings) alone.
 #
 # `--check-destination` runs the destination validation only and exits 0/2; it
 # never creates, deletes or copies anything. The regression suite uses it.
 #
-# Both executables resolve assets beside themselves or in Contents/Resources.
+# All executables resolve assets beside themselves or in Contents/Resources.
 # They never depend on the launch directory or write into this payload.
-# This stages host executables/resources, not a signed installer or bundled SDL.
+# macOS exports include SDL3 and ad-hoc signatures, not notarized installers.
 set -eu
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
@@ -40,10 +42,12 @@ OUT="$REPO/target/package"
 CHECK_ONLY=0
 MAPS=""
 WITH_COMPILER=0
+WITH_EDITOR=0
 while [ $# -gt 0 ]; do
     case "$1" in
     --check-destination) CHECK_ONLY=1 ;;
     --with-compiler) WITH_COMPILER=1 ;;
+    --with-editor) WITH_EDITOR=1; WITH_COMPILER=1 ;;
     --maps)
         shift
         if [ $# -eq 0 ] || [ -n "$MAPS" ]; then
@@ -154,6 +158,9 @@ fi
 if [ "$WITH_COMPILER" = 1 ]; then
     [ -x "$REPO/target/release/places-compile" ] || fail "release places-compile not found; build the workspace first"
 fi
+if [ "$WITH_EDITOR" = 1 ]; then
+    [ -x "$REPO/target/release/places-editor" ] || fail "release places-editor not found; build the workspace first"
+fi
 
 if [ -n "$MAPS" ]; then
     [ -d "$MAPS" ] || fail "map directory does not exist: $MAPS"
@@ -164,12 +171,26 @@ fi
 echo "packaging Places $VERSION -> $OUT_ABS"
 mkdir -p "$OUT_ABS"
 STAGE=""
+PUBLISHING=0
 cleanup() {
     if [ -n "$STAGE" ]; then
+        if [ "$PUBLISHING" = 1 ]; then
+            # A failed publication restores both previous products. A missing
+            # staged product means its new version was moved into the root.
+            for product in Places Places.app; do
+                if [ ! -d "$STAGE/$product" ]; then
+                    rm -rf "$OUT_ABS/$product"
+                fi
+                if [ -d "$STAGE/previous/$product" ]; then
+                    mv "$STAGE/previous/$product" "$OUT_ABS/$product"
+                fi
+            done
+        fi
         rm -rf "$STAGE"
     fi
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
 STAGE=$(mktemp -d "$OUT_ABS/.places-package-stage.XXXXXX")
 
 # Build the whole payload in the private stage first; nothing below the root
@@ -181,9 +202,15 @@ cp "$BIN" "$STAGE/Places/$NAME"
 if [ "$WITH_COMPILER" = 1 ]; then
     cp "$REPO/target/release/places-compile" "$STAGE/Places/places-compile"
 fi
+if [ "$WITH_EDITOR" = 1 ]; then
+    cp "$REPO/target/release/places-editor" "$STAGE/Places/places-editor"
+fi
 cp "$REPO/README.md" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places/"
 mkdir -p "$STAGE/Places/assets/levels" "$STAGE/Places/docs"
 cp "$REPO/docs/INSTALLATION.md" "$STAGE/Places/docs/"
+if [ "$WITH_EDITOR" = 1 ]; then
+    cp "$REPO/docs/EDITOR.md" "$STAGE/Places/docs/"
+fi
 cp "$REPO/assets/catalog.json" "$REPO/assets/gameplay.json" "$STAGE/Places/assets/"
 # Sound licenses and exact provenance accompany the compact runtime library.
 cp -R "$REPO/assets/audio" "$STAGE/Places/assets/audio"
@@ -202,6 +229,9 @@ fi
 cp "$BIN" "$STAGE/Places.app/Contents/MacOS/$NAME"
 if [ "$WITH_COMPILER" = 1 ]; then
     cp "$REPO/target/release/places-compile" "$STAGE/Places.app/Contents/MacOS/places-compile"
+fi
+if [ "$WITH_EDITOR" = 1 ]; then
+    cp "$REPO/target/release/places-editor" "$STAGE/Places.app/Contents/MacOS/places-editor"
 fi
 cat >"$STAGE/Places.app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -223,12 +253,23 @@ cp -R "$STAGE/Places/assets" "$STAGE/Places.app/Contents/Resources/assets"
 cp -R "$STAGE/Places/docs" "$STAGE/Places.app/Contents/Resources/docs"
 cp "$REPO/README.md" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places.app/Contents/Resources/"
 
+if [ "$(uname -s)" = Darwin ]; then
+    python3 "$REPO/tools/bundle-macos.py" "$STAGE/Places" "$STAGE/Places.app"
+fi
+
 # Publish: replace exactly the two owned products, leaving every unrelated
 # sibling in the export root untouched. `mv` within one directory is a rename.
-rm -rf "$OUT_ABS/Places" "$OUT_ABS/Places.app"
+mkdir "$STAGE/previous"
+PUBLISHING=1
+for product in Places Places.app; do
+    if [ -d "$OUT_ABS/$product" ]; then
+        mv "$OUT_ABS/$product" "$STAGE/previous/$product"
+    fi
+done
 mv "$STAGE/Places" "$OUT_ABS/Places"
 mv "$STAGE/Places.app" "$OUT_ABS/Places.app"
-rmdir "$STAGE"
+PUBLISHING=0
+rm -rf "$STAGE"
 STAGE=""
 trap - EXIT HUP INT TERM
 

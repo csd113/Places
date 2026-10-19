@@ -1,4 +1,4 @@
-# Installation and paths (0.12.0 foundations)
+# Installation and paths (0.12.0 staging)
 
 Ship the executable **and** its external `assets/` payload. Maps are optional:
 a complete installation starts with zero maps and opens Explore with import
@@ -12,6 +12,9 @@ Places/
   places                     places.exe on Windows
   places-compile             optional authoring tool
   places-editor              optional basic authoring application
+  lib/libSDL3.0.dylib         macOS runtime, included by the exporter
+  SDL3-LICENSE.txt            license for the exact bundled SDL runtime
+  MACOS_RUNTIME.json         runtime identity and ad-hoc signing receipt
   assets/
     catalog.json, gameplay.json
     shared/, environments/, entities/, diagnostic/, janitor_closet/, audio/
@@ -25,13 +28,53 @@ under `Contents/Resources/`. Unix prefix layouts may use `bin/places` alongside
 `share/places/assets/`. These paths are discovered from the executable, never
 from the process working directory. No writes are required in the installation.
 
-`sh tools/package.sh [--with-compiler] [--maps <directory>] <export-parent>`
+`sh tools/package.sh [--with-compiler | --with-editor] [--maps <directory>] <export-parent>`
 stages the flat layout and Mac bundle from existing release binaries. It copies
 licenses, sound credits and runtime resources, excludes source artwork/masters,
 and includes no maps unless explicitly requested. `--maps` validates existing
-packages against the staged assets; it does not bake maps. This is a host payload
-exporter, not a signed installer, SDL bundler or cross-platform release builder.
-Signing, native installers and Windows/Linux acceptance remain stage 9.
+packages against the staged assets; it does not bake maps. `--with-editor` includes
+the compiler, player and editor instructions. On macOS the exporter copies the
+linked SDL3 runtime and its license, rewrites player/tool load commands to relative
+paths and ad-hoc signs the completed payload. Unexpected non-system dependencies
+stop the export before publication. Apple system frameworks remain OS-provided.
+The runtime license is found beside the installed SDL prefix; a nonstandard SDL
+installation can supply `PLACES_SDL_LICENSE=/absolute/path/LICENSE.txt`.
+This is a host-architecture export. Developer ID signing, notarization, native
+installers and Windows/Linux native acceptance remain deferred. Ad-hoc signing
+does not grant Gatekeeper trust to downloaded software.
+The effective minimum macOS version is the highest deployment target declared
+by the executables and bundled SDL3; it is recorded in `MACOS_RUNTIME.json` and
+the bundle's `LSMinimumSystemVersion`. The October 18 native acceptance payload
+is **arm64, macOS 27.0 or newer** because its host SDL3 requires 27.0. An older
+OS needs a compatible SDL3 build before exporting; Rust's lower target alone
+does not make the payload compatible.
+See the [macOS distribution acceptance report](reports/macos-distribution-0.12.0.md)
+for the tested scope and remaining limits.
+
+## macOS launch
+
+Build and export from the checkout, retaining the existing verified collection:
+
+```sh
+cargo build --locked --release --workspace --all-features
+sh tools/package.sh --with-editor --maps assets/levels "$HOME/Places Exports/0.12.0"
+```
+
+Keep the entire `Places` directory together when moving it. Launch the direct
+binary from Terminal; neither `cd` into the installation nor a resource override
+is needed. Quote paths containing spaces:
+
+```sh
+"$HOME/Places Exports/0.12.0/Places/places"
+"$HOME/Places Exports/0.12.0/Places/places" --paths
+"$HOME/Places Exports/0.12.0/Places/places" --import "$HOME/Downloads/example.placesmap"
+"$HOME/Places Exports/0.12.0/Places/places-editor" "/absolute/path/my project"
+```
+
+The equivalent bundle binaries live at `Places.app/Contents/MacOS/`; its SDL3
+runtime lives in `Contents/Frameworks/`. Native acceptance uses these direct
+binaries. The two layouts contain the same resources and share the default user
+profile. The exporter never changes the source binaries in `target/release`.
 
 ## Quiet Collection
 
@@ -79,9 +122,19 @@ Custom texture/model/sound importing is reserved, not implemented.
 | Linux/Unix | `${XDG_DATA_HOME:-~/.local/share}/places` | `${XDG_CONFIG_HOME:-~/.config}/places` | `${XDG_CACHE_HOME:-~/.cache}/places` |
 
 Data owns `levels/` (installed maps), `import/` (drop-in inbox), `projects/`
-(default authoring workspace) and `diagnostics/`. Settings are `settings.json`
+(default authoring workspace), `saves/` (reserved persistent game data) and
+`diagnostics/`. Settings are `settings.json`
 under the settings directory. Projects may live elsewhere: a project root is an
 explicit authoring folder, never an inference from the resource or data root.
+
+0.12.0 currently persists settings, installed packages and saved editor projects.
+Gameplay position, quest progress and moved objects are session-local; there is
+no gameplay save/load command or save format. `saves/` is reserved so future save
+data has a stable writable home, and first-run/relaunch never replace its files.
+The existing menu uses the first visible installed map as its background; with
+the collection-only export this is Central Hub. A map-free install still offers
+Explore/import and Settings. The dedicated menu scene and sound polish are
+deferred to 0.13.0.
 
 On first player launch, required directories are created and checked for write
 access. Existing files are preserved. A non-directory, inaccessible or unwritable
@@ -93,7 +146,7 @@ beside a previous executable; copy wanted maps/settings deliberately.
 
 ## Overrides and precedence
 
-`engine::paths` is the single path policy for game, compiler and future editor.
+`engine::paths` is the single path policy for game, compiler and editor.
 
 * Assets: explicit compiler `--asset-root` / `PathConfig::resolve_assets(Some(..))`
   > `PLACES_ASSET_ROOT` > executable-relative layout > actual Cargo checkout.
@@ -151,9 +204,10 @@ Save validated authoring documents atomically, then invoke `places-compile build
 discovery works without `--asset-root`. `BuildRequest.asset_root` should come from
 the same resolver. The default output still uses `project::output_path`.
 
-For a compact compile/import/play check, use the retained stage1 project and
-packages under `local/verification/0.12.0-task1/project/` (local evidence, not
-shipped source). Import via `places --import <output.placesmap>`, discover via
+For a compact compile/import/play check, use a current tiny editor project with
+a built-in chair dependency. Historical stage1 fixtures contain a metadata-only
+Luau placeholder that predates script execution and is no longer a valid module.
+Import via `places --import <output.placesmap>`, discover via
 `--list-levels`, then run the direct executable with `PLACES_LEVEL=<id>`.
 For repeatable native acceptance after exporting a map-free `--with-compiler`
 payload, run `python3 tools/verify-installation.py --installation <flat-payload>
