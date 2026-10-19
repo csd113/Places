@@ -3,6 +3,13 @@
 - Connect the eight environments through a central hub in one editable
   **Quiet Collection** `.placesmap`, with themed doorways, return doors and an
   optional entry-only Explore row. Preserve the separate campaigns and archive.
+- Retire the eight superseded standalone environment JSON entries and packaged
+  outputs from normal distribution; use `environments` as the sole environment
+  lineup entry. Preserve historical reconstruction tools, recovery evidence and
+  the independent Closing Time, It Only Exists in the Beam and Relay Annex modes.
+  Include Pool's janitor resources in runtime exports. See the
+  [retirement handoff](docs/reports/environment-collection-0.12.0-retirement.md).
+  Sound polish and a dedicated main-menu background are deferred to 0.13.0.
 - Redesign Home with polished domestic assets and a mannequin fetch/handoff
   quest; add reusable animated item attachment and retirement only after the
   complete actor and carried prop leave view. Expand Pool with a second basin

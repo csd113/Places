@@ -16,12 +16,9 @@ python3 tools/entities/check_clip_boundaries.py
 # The outdoor kit fixture is generated from the shipped scatter/asset tools and
 # must match what those tools emit today.
 python3 tools/levels/build_outdoor_fixture.py --check
-# The maintained outdoor night slice has its own idempotent generator.
-python3 tools/levels/build_lantern_hollow.py --check
+python3 tools/levels/compile.py --list-json
+./target/release/places-compile check-project projects/environments --asset-root assets
 python3 tools/levels/build_lighting_quality.py --check
-python3 tools/levels/build_winter.py --check
-python3 tools/levels/build_beach.py --check
-python3 tools/levels/build_frutiger_aero.py --check
 python3 tools/textures/frutiger_aero_art.py --check
 python3 tools/levels/build_capacity_fixtures.py --check
 # Build the explicit maintained lineup with normal qualities and probe capture.

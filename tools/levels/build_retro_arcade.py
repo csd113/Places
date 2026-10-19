@@ -19,7 +19,6 @@ else:
     from arcade_restroom import compose_restroom, tile_trim
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT = ROOT / "levels/retro_arcade_demo.json"
 CARPET = "arcade:carpet_cosmic_bowl_01"
 WALL = "arcade:wall_navy_01"
 CEILING = "arcade:ceiling_acoustic_01"
@@ -464,15 +463,21 @@ def build_level():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--out", type=Path, required=True,
+                        help="Explicit historical scratch output; migrated editor projects are authoritative")
     args = parser.parse_args()
+    output = args.out.resolve()
+    if any(output.is_relative_to(ROOT / owner) for owner in ("levels", "projects", "docs/archive")):
+        parser.error("Choose scratch output outside maintained sources, projects and the historical archive")
     text = json.dumps(build_level(), indent=2, ensure_ascii=False)+"\n"
     if args.check:
-        if not OUTPUT.exists() or OUTPUT.read_text() != text:
+        if not output.exists() or output.read_text() != text:
             raise SystemExit("Retro Arcade source is stale; run its generator")
         print("Retro Arcade source current")
     else:
-        OUTPUT.write_text(text)
-        print(OUTPUT)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(text)
+        print(output)
 
 
 if __name__ == "__main__":

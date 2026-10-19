@@ -17,16 +17,8 @@ __pycache__/
 .DS_Store
 AGENTS.md
 
-# Only the curated source lineup is versioned in levels/.
+# Maintained environment sources live in projects/environments/.
 /levels/*.json
-!/levels/lantern_hollow.json
-!/levels/winter.json
-!/levels/beach_demo.json
-!/levels/frutiger_aero_demo.json
-!/levels/retro_arcade_demo.json
-!/levels/home_showcase.json
-!/levels/pool_showcase.json
-!/levels/office_demo.json
 
 # Machine receipts/captures stay local; documentation keeps curated images.
 /tools/bench/results/

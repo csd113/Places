@@ -22,7 +22,11 @@ real walking footage from all eight environments, with a short cut between each.
 
 ## Somewhere to go
 
-Eight environments offer different moods: the three floors of **Office: After
+The **Quiet Collection** connects eight environments through a central hub.
+Enter a themed door and use the destination's return door to come back. Each
+visit starts fresh; objects and local objectives stay in their environment.
+
+The environments offer different moods: the three floors of **Office: After
 Hours**, the still water of **Pool**, the domestic spaces of **Home**, the
 night trails of **Lantern Hollow**, the snow and ice of **Winter**, the open
 waterfront of **Beach**, the bright architecture of **Frutiger Aero**, and the
@@ -36,7 +40,8 @@ bowling lanes, cabinets, birthday room and restroom of **Cosmic Lanes & Arcade**
 
 Doors, switches, weather and occasional encounters give the spaces their own
 rhythms. Adjustable graphics and remappable controls let you settle into yours.
-**Custom game modes are coming.** The current game focuses on exploration.
+Separate editable game modes include **Closing Time**, **It Only Exists in the
+Beam** and **Relay Annex**. They remain independent of the collection.
 
 ## Controls
 
@@ -63,6 +68,22 @@ changed in Settings; Escape always pauses.
 **Places 0.11.0** is a prerelease. Current native validation is on
 macOS with Metal. The [release summary](docs/reports/release-0.11.0.md) records
 what was checked and the remaining limitations.
+
+The `0.12.0-staging` branch contains the nine-map Quiet Collection project and
+native editor. The eight standalone environment demos are superseded by this
+single package. See the [collection handoff](docs/reports/environment-collection-0.12.0-retirement.md)
+for the exact retirement inventory, validation and remaining work.
+
+To play an existing collection package with a matching player and asset library:
+
+```sh
+PLACES_ASSET_ROOT="$PWD/assets" ./target/release/places --import /absolute/path/environments.placesmap
+PLACES_ASSET_ROOT="$PWD/assets" PLACES_LEVEL=hub ./target/release/places
+```
+
+Choose **Places / The Quiet Collection** in Explore for normal menu entry.
+Authors can open `projects/environments/` in the native editor; an explicit
+[collection export](levels/README.md) is only needed after changing its sources.
 
 The images and walking footage above were captured from the native 0.9.0 game.
 [Developer documentation](docs/DEVELOPMENT.md) · [Changelog](CHANGELOG.md) ·

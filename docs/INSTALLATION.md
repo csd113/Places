@@ -14,7 +14,7 @@ Places/
   places-editor              optional basic authoring application
   assets/
     catalog.json, gameplay.json
-    shared/, environments/, entities/, diagnostic/, audio/
+    shared/, environments/, entities/, diagnostic/, janitor_closet/, audio/
     levels/                  optional compiled .placesmap files
   docs/INSTALLATION.md
   THIRD_PARTY_LICENSES.txt
@@ -32,6 +32,29 @@ and includes no maps unless explicitly requested. `--maps` validates existing
 packages against the staged assets; it does not bake maps. This is a host payload
 exporter, not a signed installer, SDL bundler or cross-platform release builder.
 Signing, native installers and Windows/Linux acceptance remain stage 9.
+
+## Quiet Collection
+
+The maintained environment distribution is `environments.placesmap`: Central
+Hub plus eight destinations, with only the hub exposed in Explore. Each
+destination has a physical return door. The former eight standalone environment
+packages are retired; [the retirement inventory](reports/environment-collection-0.12.0-retirement.md)
+records their exact IDs. Closing Time, It Only Exists in the Beam and Relay Annex
+remain separate optional project packages.
+
+Import an existing collection package using the matching player and resources:
+
+```sh
+PLACES_ASSET_ROOT="$PWD/assets" ./target/release/places --import /absolute/path/environments.placesmap
+PLACES_ASSET_ROOT="$PWD/assets" PLACES_LEVEL=hub ./target/release/places
+```
+
+For an installation export, use `sh tools/package.sh --maps assets/levels
+<export-parent>` after the existing verified collection is installed in that
+directory. This validates and copies packages without baking. Include the
+`janitor_closet/` resources used by Pool; the exporter now carries them alongside
+the other catalog resources. Keep user-imported maps and recovery copies intact;
+the repository retirement does not delete anyone's installed user maps.
 
 Models are external catalog-selected `.glb` files, **not embedded in the player**.
 The supported GLB profile stores its PNG material images inside the GLB itself;
@@ -140,12 +163,13 @@ and checks read-only storage/dependency failures. `cases/` must not already exis
 This replaces obsolete smoke tests that required a full Arcade bake and wrote
 state beside the executable. Ordinary unit tests never launch this tool.
 
-The [basic editor](EDITOR.md) now provides source editing and save/build/play.
+The [native editor](EDITOR.md) provides source editing and save/build/play.
 Its compiler/player paths can be overridden independently; editor play uses an
-isolated profile below the shared user cache. Custom asset importing, advanced
-editor tools, Luau execution, project bundle export and menu levels remain later
-stages. Old real-map packages need explicit revision-one
-rebakes; this path stage does not bake the demo lineup.
+isolated profile below the shared user cache. Project-local Luau, complete project
+export/recovery and per-map menu artwork are implemented in 0.12.0 staging.
+Custom runtime asset importing remains deferred. Historical packages with old
+schema or compiler identities require an explicit export from maintained sources;
+the collection handoff reuses its already verified final package.
 
 ## Stage 2 validation (2026-10-17)
 

@@ -37,6 +37,10 @@ checks every sub-map's provenance, archive validity and Static/Full payloads;
 `--check` performs those checks without rebuilding. `--map environments` selects
 the distribution and still exports the complete project.
 
+For an existing verified package, use `--check` directly. The
+[retirement handoff](../docs/reports/environment-collection-0.12.0-retirement.md)
+lists all eight superseded standalone IDs and the preserved recovery material.
+
 For an explicit project export or native compiler selection:
 
 ```sh

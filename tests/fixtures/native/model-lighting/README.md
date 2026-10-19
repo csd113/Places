@@ -1,5 +1,13 @@
 # Native model-lighting regression replays
 
+These are historical camera controls for the standalone maps, whose source paths
+are retired. Recover their exact inputs from Git history or the local retirement
+archive before replaying into a scratch package directory. The commands below
+describe that historical setup; they must not recreate standalone packages in
+the normal distribution. Current collection acceptance uses
+`tools/authoring/environment_acceptance.py`; changed layouts require reviewed
+camera/route inputs rather than automatic retargeting of these manifests.
+
 These are the accepted production camera, player and animation controls for the
 [model-lighting correction](../../../../docs/reports/model-lighting-root-cause-and-fix.md).
 They use real Lantern Hollow skeletons and kitchen models in Demo, Hallows and

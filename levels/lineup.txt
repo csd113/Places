@@ -1,8 +1,1 @@
-pool_showcase
-home_showcase
-lantern_hollow
-winter
-beach_demo
-frutiger_aero_demo
-retro_arcade_demo
-office_demo
+environments

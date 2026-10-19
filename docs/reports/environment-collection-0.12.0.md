@@ -4,8 +4,10 @@ Status: the final nine-map Full package is exported and verified current, with
 all twelve editable source snapshots recovered byte-exactly. All thirteen essential final
 native cases passed (1,131 checks), followed by a normal Hub startup after Cargo
 cleanup. The tested launch command is in
-`local/environment-collection-0.12.0/normal-hub-post-clean/command.txt`. Latest user override defers commit, push, CI,
-retirement, performance/media and extra report work; changes remain uncommitted.
+`local/environment-collection-0.12.0/normal-hub-post-clean/command.txt`. The collection
+and supporting tooling are committed in `d2ec9971`. The subsequent
+[distribution handoff](environment-collection-0.12.0-retirement.md) retires the
+standalone demos and records current validation, launch commands and deferred work.
 The package is 449,857,977 bytes (449.857977 MB / 429.017999 MiB). The accepted
 compile/bake/export took 5,770.880 seconds; supervisor-observed wall was
 5,771.838 seconds. Detailed per-map size/phase timing and cache decisions are in

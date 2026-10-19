@@ -20,7 +20,6 @@ from parts.winter import (ROOF_SCALE, ROOF_SNOW_HIGH_Z, ROOF_SNOW_LIP,
                           roof_support_profile)
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT = ROOT / 'levels/winter.json'
 SEVERE_WEATHER = ROOT / 'tools/levels/config/winter_severe_weather.json'
 # x, z, floor_y, facade family. Entrances face south (+Z).
 HOMES = ((-16, -16, .6, '02'), (8, -30, 0, '01'), (-17, 4, 0, '04'))
@@ -591,16 +590,22 @@ def build_severe_review(level: dict) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
+    parser.add_argument("--out", type=Path, required=True,
+                        help="Explicit historical scratch output; migrated editor projects are authoritative")
     args = parser.parse_args()
+    output = args.out.resolve()
+    if any(output.is_relative_to(ROOT / owner) for owner in ("levels", "projects", "docs/archive")):
+        parser.error("Choose scratch output outside maintained sources, projects and the historical archive")
     expected = serialise(build_level())
     if args.check:
-        if not OUTPUT.is_file() or OUTPUT.read_text() != expected:
-            print(f'{OUTPUT.name} is stale; run tools/levels/build_winter.py')
+        if not output.is_file() or output.read_text() != expected:
+            print(f'{output.name} is stale; run tools/levels/build_winter.py')
             return 1
         print('Winter source is deterministic and current')
     else:
-        OUTPUT.write_text(expected)
-        print(f'Authored {OUTPUT}')
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(expected)
+        print(f'Authored {output}')
     return 0
 
 

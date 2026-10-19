@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
+import subprocess
 import unittest
 from unittest import mock
 import zipfile
@@ -19,6 +20,9 @@ sys.path.insert(0, str(ROOT / 'tools/levels'))
 SPEC = importlib.util.spec_from_file_location('curated_compile', ROOT / 'tools/levels/compile.py')
 COMPILE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(COMPILE)
+EXPORT_SPEC = importlib.util.spec_from_file_location('export_maps', ROOT / 'tools/export-maps.py')
+EXPORT = importlib.util.module_from_spec(EXPORT_SPEC)
+EXPORT_SPEC.loader.exec_module(EXPORT)
 
 
 def lighting_manifest(identity):
@@ -28,6 +32,30 @@ def lighting_manifest(identity):
 
 
 class CuratedCompileTests(unittest.TestCase):
+    def test_runtime_export_checks_project_members_instead_of_package_count(self):
+        # Tiny ZIP metadata catches the nine-members/one-package mismatch and
+        # missing or substituted discoveries without native resources or baking.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, payload = root / 'maps', root / 'payload'
+            source.mkdir()
+            (payload / 'assets/levels').mkdir(parents=True)
+            package = source / 'collection.placesmap'
+            with zipfile.ZipFile(package, 'w') as archive:
+                archive.writestr('project.json', json.dumps({'levels': [{'id': 'hub'}, {'id': 'home'}]}))
+            for identities in (('hub', 'home'), ('hub',), ('hub', 'hub')):
+                results = [subprocess.CompletedProcess([], 0, json.dumps({'dependencies_intact': True})),
+                           subprocess.CompletedProcess([], 0, ''.join(f'{identity}\tbundled\tpackage\n'
+                                                                     for identity in identities), '')]
+                with mock.patch.object(EXPORT.subprocess, 'run', side_effect=results), \
+                     contextlib.redirect_stdout(io.StringIO()):
+                    if identities == ('hub', 'home'):
+                        EXPORT.export_maps(source, payload, root / 'compiler')
+                        self.assertEqual((payload / 'assets/levels' / package.name).read_bytes(), package.read_bytes())
+                    else:
+                        with self.assertRaisesRegex(ValueError, 'differ from selected members'):
+                            EXPORT.export_maps(source, payload, root / 'compiler')
+
     def test_default_acceptance_covers_every_lineup_source(self):
         with mock.patch.dict(os.environ):
             os.environ.pop('PLACES_PACKAGE_TEST_IDS', None)

@@ -81,14 +81,10 @@ jobs:
           python3 tools/entities/author_halloween_assets.py --check --glb sheet-ghost --glb sheet-ghost-cat
           python3 tools/entities/check_clip_boundaries.py
           python3 tools/levels/build_outdoor_fixture.py --check
-          python3 tools/levels/build_lantern_hollow.py --check
+          python3 tools/levels/compile.py --list-json
+          "$RUNNER_TEMP/places-engine/target/release/places-compile" check-project projects/environments --asset-root assets
           python3 tools/levels/build_lighting_quality.py --check
-          python3 tools/levels/build_winter.py --check
-          python3 tools/levels/build_beach.py --check
-          python3 tools/levels/build_frutiger_aero.py --check
           python3 tools/textures/frutiger_aero_art.py --check
-          python3 tools/levels/build_retro_arcade.py --check
-          python3 tools/levels/build_office.py --check
           python3 tools/props/build_cockroach.py --check
           python3 tools/entities/build_mannequin.py --check-run-arms-forward
           python3 tools/textures/author_arcade.py --check

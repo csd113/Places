@@ -19,14 +19,30 @@ environment generators are historical construction tools and must not overwrite
 these edited maps. The complete package retains these exact sources and the
 project thumbnail for recovery in the editor.
 
-After building the direct tools:
+To play the existing verified package after building the direct tools:
 
 ```sh
-PLACES_ASSET_ROOT="$PWD/assets" ./target/release/places-compile export-project \
-  projects/environments --out /tmp/Places-Quiet-Collection.placesmap --workers 6
-PLACES_ASSET_ROOT="$PWD/assets" ./target/release/places --import /tmp/Places-Quiet-Collection.placesmap
+PLACES_ASSET_ROOT="$PWD/assets" ./target/release/places --import /absolute/path/environments.placesmap
 PLACES_ASSET_ROOT="$PWD/assets" PLACES_LEVEL=hub ./target/release/places
 ```
+
+For the preserved local delivery, no build or import is needed:
+
+```sh
+PLACES_ASSET_ROOT="$PWD/assets" PLACES_LEVEL=hub \
+  ./local/environment-collection-0.12.0/payload-collection-final/places
+```
+
+This uses the accepted package installed as `assets/levels/environments.placesmap`.
+Only export again after editing the authoritative project:
+
+```sh
+./target/release/places-compile export-project projects/environments \
+  --out assets/levels/environments.placesmap --asset-root assets --workers 6
+```
+
+The [retirement handoff](../../docs/reports/environment-collection-0.12.0-retirement.md)
+records superseded standalone IDs, preserved material and deferred work.
 
 `local/environment-collection-0.12.0/` holds the stage's explicit developer
 evidence and preserved direct executables. Its final report/handoff records

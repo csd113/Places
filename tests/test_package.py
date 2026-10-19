@@ -161,17 +161,39 @@ class RepositoryTests(unittest.TestCase):
 
 
 class ShippedLevelTests(unittest.TestCase):
-    def test_the_shipped_levels_include_the_playable_showcase(self):
+    def test_the_collection_contains_the_hub_and_every_environment(self):
+        self.assertEqual([identity for identity, _ in lineup()], ["environments"])
         shipped = {path.stem: load_level(path) for path in level_files()}
         self.assertEqual(
             set(shipped),
-            {"lantern_hollow", "winter", "beach_demo", "frutiger_aero_demo", "home_showcase", "pool_showcase", "retro_arcade_demo", "office_demo"},
-            "the curated showcases are the supported source lineup",
+            {"hub", "home", "pool", "office", "lantern_hollow", "winter", "beach", "aero", "arcade"},
+            "the hub and eight environments are the complete editable collection",
         )
         showcase = shipped["lantern_hollow"]
         self.assertEqual(showcase["id"], "lantern_hollow")
         self.assertEqual(showcase["name"], "Lantern Hollow")
         self.assertEqual(showcase["format_version"], 1)
+
+        # Protect actual travel links as well as inventory, without compiling
+        # worlds. A declared destination alone does not make its door usable.
+        project = load_level(PACKAGE / "projects/environments/places.project.json")
+        self.assertEqual(project["entry_level"], "hub")
+        self.assertTrue(project["menu_entry_only"])
+        destinations = set(shipped) - {"hub"}
+        for identity, level in shipped.items():
+            expected = destinations if identity == "hub" else {"hub"}
+            self.assertEqual(set(level["transitions"]), expected, identity)
+            links = []
+            for door in level.get("doors", []):
+                for binding in door.get("bindings", []):
+                    for action in binding.get("actions", []):
+                        if action["action"] == "change_level":
+                            self.assertEqual(binding["on"], "interact", door["id"])
+                            self.assertTrue(any(component["component"] == "interactable"
+                                                for component in door.get("components", [])), door["id"])
+                            links.append(action["level"])
+            self.assertCountEqual(links, expected, identity)
+
     def test_retired_maps_preserve_historical_content_outside_active_discovery(self):
         # Two small hashes prevent accidental regeneration of the historical
         # record. No model inspection, renderer or production-map bake runs.

@@ -18,7 +18,6 @@ from tools.levels.beach_components import daylight, shore_segment, coast_z, cove
 from tools.props.parts.beach_structures import placed_components
 from tools.props.parts.beach_nature import placed_components as nature_components
 
-OUTPUT = ROOT / 'levels/beach_demo.json'
 FLOOR = -2.2
 COAST_WIDTH = .75
 
@@ -368,16 +367,22 @@ def build_level():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
+    parser.add_argument("--out", type=Path, required=True,
+                        help="Explicit historical scratch output; migrated editor projects are authoritative")
     args = parser.parse_args()
+    output = args.out.resolve()
+    if any(output.is_relative_to(ROOT / owner) for owner in ("levels", "projects", "docs/archive")):
+        parser.error("Choose scratch output outside maintained sources, projects and the historical archive")
     expected = serialise(build_level())
     if args.check:
-        if not OUTPUT.is_file() or OUTPUT.read_text() != expected:
+        if not output.is_file() or output.read_text() != expected:
             print('Beach source is stale; run tools/levels/build_beach.py')
             return 1
         print('Beach source is deterministic and current')
     else:
-        OUTPUT.write_text(expected)
-        print(f'Authored {OUTPUT}')
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(expected)
+        print(f'Authored {output}')
     return 0
 
 

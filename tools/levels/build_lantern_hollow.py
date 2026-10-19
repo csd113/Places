@@ -16,7 +16,6 @@ from pathlib import Path
 from railings import RailingAuthor
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT = ROOT / "levels/lantern_hollow.json"
 SEED = 20260930
 HOUSE_CENTERS = (-27.0, -9.0, 9.0, 27.0)
 FIRE = (-18.0, -34.0)
@@ -380,18 +379,23 @@ def build_level() -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="Fail if committed JSON differs from authored output")
+    parser.add_argument("--check", action="store_true", help="Check the explicit historical scratch output")
+    parser.add_argument("--out", type=Path, required=True,
+                        help="Explicit historical scratch output; migrated editor projects are authoritative")
     args = parser.parse_args()
+    output = args.out.resolve()
+    if any(output.is_relative_to(ROOT / owner) for owner in ("levels", "projects", "docs/archive")):
+        parser.error("Choose scratch output outside maintained sources, projects and the historical archive")
     expected = serialise(build_level())
     if args.check:
-        if not OUTPUT.exists() or OUTPUT.read_text() != expected:
-            print(f"FAIL: {OUTPUT} is stale; run {Path(__file__).name}")
+        if not output.exists() or output.read_text() != expected:
+            print(f"FAIL: {output} is stale; run {Path(__file__).name}")
             return 1
         print("Lantern Hollow source is deterministic and current")
         return 0
-    OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(expected)
-    print(f"Authored {OUTPUT}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(expected)
+    print(f"Authored {output}")
     return 0
 
 

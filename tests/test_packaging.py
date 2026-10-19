@@ -47,8 +47,13 @@ class PackageDestinationGuardTests(unittest.TestCase):
             (source / 'Cargo.toml').write_text('[package]\nversion = "0.9.0"\n')
             for name in ('README.md', 'THIRD_PARTY_LICENSES.txt'):
                 (source / name).write_text('fixture')
-            for name in ('shared', 'environments', 'entities', 'diagnostic', 'levels', 'audio'):
+            for name in ('shared', 'environments', 'entities', 'diagnostic', 'janitor_closet', 'levels', 'audio'):
                 (source / 'assets' / name).mkdir(parents=True)
+            # Pool's catalog resources live outside environments/. Check their
+            # byte custody in this tiny fixture instead of baking the collection.
+            janitor = source / 'assets/janitor_closet/models/fixture.glb'
+            janitor.parent.mkdir()
+            janitor.write_bytes(b'janitor runtime fixture')
             runtime_metadata = {
                 'catalog.json': b'{"assets": []}\n',
                 'gameplay.json': b'{"physics": {"fixture:crate": {"mass": 2}}}\n',
@@ -84,6 +89,8 @@ class PackageDestinationGuardTests(unittest.TestCase):
                     self.assertEqual((payload / 'assets' / name).read_bytes(), data)
                 for name, data in audio_payload.items():
                     self.assertEqual((payload / 'assets/audio' / name).read_bytes(), data)
+                self.assertEqual((payload / 'assets/janitor_closet/models/fixture.glb').read_bytes(),
+                                 janitor.read_bytes())
                 self.assertFalse((payload / 'assets/completed-models.json').exists())
                 self.assertFalse((payload / 'assets/shared/branding').exists())
                 self.assertFalse((payload / 'levels').exists(), 'writable levels belong in user storage')

@@ -16,7 +16,6 @@ from railings import RailingAuthor
 from soundscapes import apply_soundscape
 
 ROOT = Path(__file__).resolve().parents[2]
-OUTPUT = ROOT / 'levels/office_demo.json'
 CLEAN = 'core:wallpaper_yellow_01'
 DIRTY = 'core:wallpaper_stained_01'
 CARPET = 'core:carpet_beige_01'
@@ -427,15 +426,21 @@ def build_level():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
+    parser.add_argument("--out", type=Path, required=True,
+                        help="Explicit historical scratch output; migrated editor projects are authoritative")
     args = parser.parse_args()
+    output = args.out.resolve()
+    if any(output.is_relative_to(ROOT / owner) for owner in ("levels", "projects", "docs/archive")):
+        parser.error("Choose scratch output outside maintained sources, projects and the historical archive")
     serialized = json.dumps(build_level(), indent=2, ensure_ascii=False)+'\n'
     if args.check:
-        if not OUTPUT.is_file() or OUTPUT.read_text() != serialized:
-            raise SystemExit(f'{OUTPUT}: regenerate with tools/levels/build_office.py')
+        if not output.is_file() or output.read_text() != serialized:
+            raise SystemExit(f'{output}: regenerate with tools/levels/build_office.py')
         print('Office source is current')
     else:
-        OUTPUT.write_text(serialized)
-        print(f'Wrote {OUTPUT}')
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(serialized)
+        print(f'Wrote {output}')
 
 
 if __name__ == '__main__':

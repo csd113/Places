@@ -17,7 +17,6 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / 'tools/props')]
 from parts.frutiger_aero import placed_components
 
-OUTPUT = ROOT / 'levels/frutiger_aero_demo.json'
 WHITE = 'frutiger_aero:white_panel_01'
 FLOOR = 'frutiger_aero:white_floor_01'
 AQUA = 'frutiger_aero:aqua_tile_01'
@@ -240,15 +239,21 @@ def build_level():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
+    parser.add_argument("--out", type=Path, required=True,
+                        help="Explicit historical scratch output; migrated editor projects are authoritative")
     args = parser.parse_args()
+    output = args.out.resolve()
+    if any(output.is_relative_to(ROOT / owner) for owner in ("levels", "projects", "docs/archive")):
+        parser.error("Choose scratch output outside maintained sources, projects and the historical archive")
     text = json.dumps(build_level(), indent=2, ensure_ascii=False)+'\n'
     if args.check:
-        if not OUTPUT.exists() or OUTPUT.read_text() != text:
+        if not output.exists() or output.read_text() != text:
             raise SystemExit('Frutiger Aero source is stale; run its generator')
         print('Frutiger Aero source current')
     else:
-        OUTPUT.write_text(text)
-        print(OUTPUT)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(text)
+        print(output)
 
 
 if __name__ == '__main__':
