@@ -1,4 +1,4 @@
-# Installation and paths (0.12.0 staging)
+# Installation and paths (0.12.0 prerelease)
 
 Ship the executable **and** its external `assets/` payload. Maps are optional:
 a complete installation starts with zero maps and opens Explore with import
@@ -50,6 +50,10 @@ OS needs a compatible SDL3 build before exporting; Rust's lower target alone
 does not make the payload compatible.
 See the [macOS distribution acceptance report](reports/macos-distribution-0.12.0.md)
 for the tested scope and remaining limits.
+
+The [0.12.0 release report](reports/release-0.12.0.md) describes the downloadable
+macOS payload, separate campaign launchers and known gameplay defects. These
+defects remain open; successful installation is not exhaustive gameplay acceptance.
 
 ## macOS launch
 

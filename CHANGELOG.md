@@ -1,4 +1,14 @@
-## 0.12.0 — in progress
+## 0.12.0 — 2026-10-18
+
+Prerelease of the native editor, editable multi-map projects, Quiet Collection
+and three separate game modes. The validated binary distribution is macOS arm64,
+macOS 27.0+, ad-hoc signed; Windows/Linux native acceptance is outstanding.
+See the [release report](docs/reports/release-0.12.0.md) for validation, package
+compatibility, launch commands and known defects. This prerelease retains reported
+Home/Pool slowdowns, frozen-prop contact problems, player-visible “release blocked”
+feedback, and Relay Annex NPC-animation, quest-item loss, stair/ramp fall-through
+and second-room ceiling z-fighting reports. Their causes/fixes remain open in
+#27–#29; sound polish and the dedicated main-menu background remain deferred.
 
 - Complete essential macOS distribution handling: bundle and relocate SDL3,
   ad-hoc sign exports, optionally include the editor/compiler, preflight all

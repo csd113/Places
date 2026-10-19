@@ -65,11 +65,11 @@ changed in Settings; Escape always pauses.
 
 ## About this version
 
-**Places 0.11.0** is a prerelease. Current native validation is on
-macOS with Metal. The [release summary](docs/reports/release-0.11.0.md) records
+**Places 0.12.0** is a prerelease. Current native validation is on
+macOS arm64 with Metal. The [release summary](docs/reports/release-0.12.0.md) records
 what was checked and the remaining limitations.
 
-The `0.12.0-staging` branch contains the nine-map Quiet Collection project and
+This release contains the nine-map Quiet Collection project and
 native editor. The eight standalone environment demos are superseded by this
 single package. See the [collection handoff](docs/reports/environment-collection-0.12.0-retirement.md)
 for the exact retirement inventory, validation and remaining work.
