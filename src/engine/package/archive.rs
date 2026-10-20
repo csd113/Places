@@ -559,10 +559,23 @@ pub(crate) fn write_archive_checked(
 
 pub(crate) fn write_archive_guarded(
     path: &Path,
-    mut entries: Vec<PendingEntry>,
+    entries: Vec<PendingEntry>,
     check: impl Fn() -> Result<(), String>,
     publish_check: impl Fn() -> Result<(), String>,
 ) -> Result<(), String> {
+    write_archive_with_level_guarded(path, entries, check, publish_check, 6)
+}
+
+pub(crate) fn write_archive_with_level_guarded(
+    path: &Path,
+    mut entries: Vec<PendingEntry>,
+    check: impl Fn() -> Result<(), String>,
+    publish_check: impl Fn() -> Result<(), String>,
+    compression: i64,
+) -> Result<(), String> {
+    if !(1..=9).contains(&compression) {
+        return Err("Invalid archive compression level".into());
+    }
     check()?;
     entries.sort_by(|left, right| left.name.cmp(&right.name));
     if entries
@@ -591,7 +604,7 @@ pub(crate) fn write_archive_guarded(
     // Own the temporary before writing or cleaning it up. Exclusive creation
     // never truncates a pre-existing file or follows a pre-existing symlink.
     let (temporary, file) = create_temporary(path)?;
-    let result = write_archive_to(file, &entries, &check)
+    let result = write_archive_to(file, &entries, &check, compression)
         .and_then(|()| check())
         .and_then(|()| publish_check());
     if let Err(error) = result {
@@ -610,15 +623,28 @@ pub(crate) fn write_archive_guarded(
 /// is published before bounded index and virtual-member admission succeeds.
 pub(crate) fn write_project_archive_files_guarded(
     path: &Path,
-    mut entries: Vec<SpoolEntry>,
+    entries: Vec<SpoolEntry>,
     check: impl Fn() -> Result<(), String>,
     publish_check: impl Fn() -> Result<(), String>,
 ) -> Result<(), String> {
+    write_project_archive_files_with_level_guarded(path, entries, check, publish_check, 6)
+}
+
+pub(crate) fn write_project_archive_files_with_level_guarded(
+    path: &Path,
+    mut entries: Vec<SpoolEntry>,
+    check: impl Fn() -> Result<(), String>,
+    publish_check: impl Fn() -> Result<(), String>,
+    compression: i64,
+) -> Result<(), String> {
+    if !(1..=9).contains(&compression) {
+        return Err("Invalid archive compression level".into());
+    }
     check()?;
     entries.sort_by(|left, right| left.name.cmp(&right.name));
     validate_spool_entries(&entries)?;
     let (temporary, file) = create_temporary(path)?;
-    let result = write_project_archive_to(file, &entries, &check)
+    let result = write_project_archive_to(file, &entries, &check, compression)
         .and_then(|()| check())
         .and_then(|()| {
             let mut reader =
@@ -688,13 +714,14 @@ fn write_project_archive_to(
     file: std::fs::File,
     entries: &[SpoolEntry],
     check: &impl Fn() -> Result<(), String>,
+    compression: i64,
 ) -> Result<(), String> {
     let mut writer = zip::ZipWriter::new(file);
     for entry in entries {
         check()?;
         let mut input = open_spool_file(entry)?;
         writer
-            .start_file(entry.name.as_str(), file_options())
+            .start_file(entry.name.as_str(), file_options(compression))
             .map_err(|error| format!("could not start entry '{}': {error}", entry.name))?;
         let (_, digest) = copy_bounded(&mut input, &mut writer, entry.bytes, entry.bytes, check)
             .map_err(|error| format!("could not write entry '{}': {error}", entry.name))?;
@@ -802,12 +829,13 @@ fn write_archive_to(
     file: std::fs::File,
     entries: &[PendingEntry],
     check: &impl Fn() -> Result<(), String>,
+    compression: i64,
 ) -> Result<(), String> {
     let mut writer = zip::ZipWriter::new(file);
     for entry in entries {
         check()?;
         writer
-            .start_file(entry.name.as_str(), file_options())
+            .start_file(entry.name.as_str(), file_options(compression))
             .map_err(|error| format!("could not start entry '{}': {error}", entry.name))?;
         writer
             .write_all(&entry.bytes)
@@ -816,10 +844,10 @@ fn write_archive_to(
     finish_archive(writer)
 }
 
-fn file_options() -> zip::write::SimpleFileOptions {
+fn file_options(compression: i64) -> zip::write::SimpleFileOptions {
     zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated)
-        .compression_level(Some(6))
+        .compression_level(Some(compression))
         .last_modified_time(zip::DateTime::default())
         .unix_permissions(0o644)
 }

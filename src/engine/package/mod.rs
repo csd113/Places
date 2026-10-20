@@ -51,6 +51,7 @@
 
 pub mod archive;
 pub mod binary;
+pub mod catalog_inputs;
 pub mod collision;
 pub mod compact_lightmaps;
 pub(crate) mod dependencies;

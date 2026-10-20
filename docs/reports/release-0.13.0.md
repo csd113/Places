@@ -814,3 +814,231 @@ bytes simplified. The next work is **storage/compiler optimization**, then
 engine/game performance, mannequin ragdolls and historical docs cleanup. Those
 passes are not started here. All work remains on staging; no main merge,
 release, force push, CI wait or `cargo clean` was performed.
+
+## Map storage and compiler optimization
+
+This stage starts from integration commit `655a6d8433a1ac24fbafe4e9fd6fa15d1d7cc3ad`.
+It preserves the accepted art, geometry, collision, animation, every supported
+lighting mode and circuit state. Evidence is under
+`local/map-storage-0.13.0/final/`; the original collection, compiler/player,
+rejected storage prototypes and earlier receipts remain outside `target`.
+
+### Implemented behavior
+
+New compiler provenance revision 2 records a validated, transitive catalog
+closure for each level and preparation-source identity. Referenced materials,
+textures/masks, fixtures, placed/template models, decals and missing lookups
+participate. File dependencies still require their size and SHA-256. An unused
+catalog entry or unrelated CLI/game/editor source change does not invalidate
+lighting; shared preparation/engine source changes conservatively do. Compiler
+identity includes target/features, dependency lockfile, fixed preparation assets
+and the compiled-in model registry. It deliberately remains conservative within
+shared engine code, including comments and renderer changes.
+
+`verify --level ID --json` and `map_compiler::verify_project` expose per-level
+`current`, `refresh`, `bake` or `invalid` status, `bake_required`, integrity and
+named reasons for the later editor pass. Metadata/navigation refresh retains
+prepared lighting. A complete unchanged export verifies source bytes, source
+manifest/index agreement and every member's payload hashes, then leaves the
+archive untouched. Partial export directly streams verified current members;
+only affected members enter the existing seed/build pipeline.
+
+Static directional visibility now uses bounded conservative trees for walls,
+horizontal solids and oriented props, retaining the original exact leaf tests.
+Unsupported/nonfinite or oversized geometry falls back to the linear oracle.
+The derived trees are absent from wire data and bounded below 24 MiB combined.
+Immutable visibility/index allocations are shared between Static switch-state
+clones; state-dependent light values and baked colors remain separate. Vertex
+preparation now observes the existing cancellation token inside long batches.
+
+Static (`off`) still computes room/fixture lighting, hard-shadow visibility and
+vertex colors from local light, five sky rays and authored directional lights;
+it also prepares authored circuit-off vertex colors. It means no lightmap
+atlas, not no lighting (`render/common/api.rs:762`, `lighting/bake.rs:1939`,
+`map_compiler/mod.rs:1720`, all under `src/engine/` except the last).
+Full adds chart planning, direct/two-bounce transport, switchable-light data,
+irradiance probes, HDR atlases and reflection captures. The reported forced
+Static command includes navigation, records and compression, not Full transport.
+Static is a separate playable lighting variant; the default export builds both
+Static and Full, rather than treating this timing as the entire Full solve.
+
+The explicit `optimize-storage INPUT --out NEW.placesmap` operation validates
+the existing package/dependencies and performs no lighting or geometry bake.
+It chooses established PPS1 revision 2 or exact byte-lane shuffled revision 4
+by measured compressed cost, with bounded scratch and unchanged decode limits.
+Readers retain revisions 1–4; new required capabilities make older players
+refuse unsupported packages explicitly. Archive format remains version 1.
+Archival migration uses Deflate-9; normal builds retain Deflate-6. No geometry,
+float, texture, lightmap or probe precision is reduced. Source/provenance and
+all non-prop payload bytes survive unchanged. Input/output guards, atomic
+publication and owned temporary cleanup preserve the last usable package.
+
+### Measured storage and compilation
+
+The current accepted nine-level collection was remeasured, rather than using
+the historical 449.9 MB baseline. Actual ZIP payload sets count shared records
+once; per-map rows overlap and must not be summed.
+
+| Collection measure | Before | After |
+| --- | ---: | ---: |
+| Complete archive bytes | 472,639,184 | **446,058,430** |
+| Unique uncompressed ZIP record bytes | 1,499,883,500 | 1,467,307,398 |
+| Physical ZIP records | 207 | 205 |
+| Unique reconstructed PMP1 prop bytes (21 records) | 1,009,761,466 | 1,009,761,466 |
+| Static-only payload bytes compressed | 52,854,244 | 55,249,011 |
+| Full-only payload bytes compressed | 269,170,699 | 255,836,420 |
+| Static/Full shared payload bytes compressed | 149,073,748 | 133,645,923 |
+
+Savings are **26,580,754 bytes (5.62%)** overall and 32,576,102 uncompressed ZIP
+record bytes; reconstructed prop sizes remain unchanged. Static-only cost increases by 2.39 MB as the chosen factoring
+changes shared-record boundaries; the collection total includes this cost.
+Pure Deflate-9 of the original representation yields 448,866,575 bytes;
+adaptive structural storage therefore saves another **2,808,145 bytes** beyond
+that compression-only control. This is not a 26.6 MB structural-only gain.
+
+| Map, both modes, unique referenced compressed payload bytes | Before | After |
+| --- | ---: | ---: |
+| Hub | 5,610,257 | 5,295,731 |
+| Home | 12,406,882 | 11,689,561 |
+| Pool | 21,068,800 | 19,692,897 |
+| Office | 44,476,313 | 41,027,309 |
+| Arcade | 93,796,206 | 87,600,005 |
+| Lantern Hollow | 185,598,040 | 176,779,884 |
+| Winter | 72,771,362 | 69,369,323 |
+| Beach | 19,222,979 | 17,926,294 |
+| Aero | 16,452,819 | 15,558,619 |
+
+The per-map figures are actual referenced ZIP payloads, excluding archive
+headers/index and external assets, rather than hypothetical independent
+archives. `storage-before.json` and `final/storage-after.json` also retain each
+map's Static/Full/shared and uncompressed breakdown. Standalone real Static
+builds are 76,163,556→76,171,479 bytes for Lantern and 549,574→554,033 for Home;
+their small provenance growth is not a storage win. Unconditional shuffled
+storage grew Lantern Static substantially in a rejected prototype; adaptive
+selection retains its established representation.
+
+Lantern Static forced compilation fell from **700.919 s to 23.115/22.853 s**
+in two final-binary repeats, with identical reconstructed props and every other
+prepared record. Earlier candidate repeats were 22.439/22.289 s and remain
+preserved. Prop geometry/color preparation fell from 680.321 s to
+7.469/7.398 s; architecture from 9.810 s to 0.688/0.680 s. The baseline was one
+historical controlled invocation, with release linking overlapping part of it;
+these are observed timings, not a statistical confidence interval. Candidate
+repeats run serially, record host load/CPU/RSS, and emit identical archives.
+The final warm integrity-checked no-op is 0.545 s. Maximum final repeat compile
+RSS is 1,365,999,616 bytes; a complete baseline peak was not captured.
+
+The dominant hotspot was Static vertex lighting in prop preparation (97% of
+baseline wall time), across about 5.21 million vertex slots. Prop coloring calls
+`global_surface_light` (`src/engine/render/common/props.rs:274,924`), including
+the unchanged five sky rays in `src/engine/lighting/bake.rs:1965` and authored
+directional lights. Previously each visibility ray scanned all walls,
+floor/ceiling solids and props. `Visibility::occludes_direction`
+(`src/engine/lighting/visibility.rs:2592`) now rejects entire groups that the ray
+cannot intersect through `src/engine/lighting/directional_index.rs:106`, then
+runs the same exact leaf tests. This skips irrelevant intersection work without
+changing samples or geometry. Forced builds bypass reuse, so the large cold
+gain is not a cache hit; Full transport is unchanged. Architecture also saves
+about nine seconds, while trying both lossless storage candidates adds work.
+
+Home Static remains approximately 0.546→0.542 s, and the tiny Static/Full
+switch fixture 2.180→2.189 s: neither establishes a speed gain. Home switch
+clones share 158,200 visibility/index bytes, clone in 0.008 ms, and prepare the
+alternate state in 20.888 ms. The tiny two-level no-op takes about 0.11 s in
+both tools, but the new tool reports `rebuilt=false` and performs no publication.
+Costly Full light transport and the remaining prop factoring/compression time
+are retained findings for later work, rather than another full collection bake.
+
+A user-requested bounded second outdoor comparison uses Beach, identical source,
+catalog/existing dependency hashes, 12-worker budget and forced Static-only requests:
+**57.048→2.472 s (23.1×)**, with exact props and every other prepared payload.
+Its architecture phase falls **49.720→0.469 s**, props **5.515→0.096 s**; the
+same ray acceleration therefore helps architecture as well as model coloring.
+Warm reuse takes 0.223 s. Peak RSS is 77,299,712→82,919,424 bytes, and standalone
+archive size 1,210,482→1,214,207 bytes (provenance overhead, not a size win).
+Together with Home's unchanged small indoor case, these single-pair controls
+demonstrate gains on two expensive outdoor cases, not a universal speed factor
+or a Full-bake measurement. `campaign-beach.json` and `beach-inputs-exact.json`
+retain the measurements and equivalence checks; no full collection bake ran.
+The new compiler also records Beach's unchanged `collection_hub.png` decal,
+which the old dependency collector omitted; this is tracking, not an asset edit.
+
+Archival migration takes 100.821 s (100.919 s process wall), with measured peak
+RSS 2,079,588,352 bytes and observed temporary disk peak 1,913,365,828 bytes
+(250 ms sampling). A final-binary cancellation/restart repeat takes 102.440 s
+and emits the identical archive SHA-256. It processes one member's prop streams at a time and
+disk-spools unique project records under existing caps. These are measured
+campaign costs, not an assertion that whole-process RSS equals the decoder's
+1 GiB charged working-set limit. The 65,536-vertex shuffle scratch is bounded
+to 2,949,120 bytes and included in that limit; no hostile-input cap was raised.
+
+### Verification and native preservation
+
+All nine member prop reconstructions, every non-prop prepared payload and all
+12 recovered source files are byte-identical to the accepted input. Complete
+package validation passes with 375 unique installed dependency identities.
+Repeated Lantern builds are archive-identical. Focused reuse checks cover:
+
+- Unchanged export and unrelated catalog/asset/code edits leave the archive unchanged;
+  runtime validation also accepts unrelated catalog metadata changes.
+- One level's metadata refresh retains lighting; a light edit rebakes that
+  level while its peer directly reuses verified records.
+- A shared material edit invalidates both dependents; changed shared model
+  bytes fail `--require-current` for both. Corrupt payloads are refused.
+- Failed source admission preserves the previous output. Observed in-flight
+  cancellation exits 130, preserves it, removes owned staging, and restarts
+  successfully. The storage operation also cancels/restarts with unchanged input
+  and identical completed output; incomplete standalone transition packages are
+  refused. Source-manifest/index disagreement cannot return a no-op hit.
+- An older compiler explicitly refuses the new storage capability. Legacy
+  revision 1 provenance remains runtime-valid under its original checks;
+  acquiring revision 2 reuse keys requires one real rebuild. Storage migration
+  intentionally preserves old provenance and does not claim all nine are current.
+
+Native Mac/Metal checks use the actual selected package/member identities,
+**V-Sync off, Immediate presentation, 1280×720 drawable**, High textures/filter,
+Full reflections and bloom. Package comparisons hold the stage player constant
+to isolate storage; derived index storage is charged separately by its retained
+byte accounting. Matched Home/Lantern captures and all six
+Static/Full on/off/restored captures have **zero changed channels**. Native
+Home folding-door traversal/reversal retains nine collision boxes and zero
+resets; Pool entry, underwater dive, resurfacing, rim exit and jump entry pass.
+No runtime source preparation occurs.
+
+Two alternating cold-application/warm-OS-cache Hub→Home→Pool→Hub runs give
+per-run load-window medians 390.7/379.4 ms before and 394.3/385.3 ms after;
+maxima stay approximately 3.23–3.27 s. Short Home initial loads are
+819.6→828.3 ms, Lantern 5,147.8→4,992.2 ms. These do not establish a load-time
+gain or material regression. Retained prepared CPU bytes are unchanged:
+Home 84,680,421 and Lantern 965,299,278. Lantern's transient native peak RSS
+increases **1,915,797,504→2,243,395,584 bytes** in the short capture pair;
+Home stays approximately 499 MB. The peak increase is a limitation for the
+performance pass, not a resident-memory saving. GPU allocations and RSS are
+not added to the decoded-record totals.
+
+Strict workspace/all-target/all-feature Clippy, workspace tests (**212 passed**),
+format, diff checks and locked all-feature workspace release build pass. Added
+tests are small exact-oracle/catalog/tile-boundary regressions; none bake a
+shipped map. No full-map CI workload was added. Initial harness runs selecting
+the installed package or redundantly toggling a shared circuit were caught,
+excluded and retained; corrected package-identity/state runs pass.
+
+The validated smaller collection is installed at
+`assets/levels/environments.placesmap`, SHA-256
+`8012dbb71ba73fbc85d81582511e0d99a4e7a2103d5dfb48fbce1a33e0cf0783`.
+The original `1a4ecdf4…` collection and prior stage3 assets remain preserved.
+Acceptance is representative Mac/Metal coverage, not every map/platform/view
+or a fresh nine-level Full bake. Capture/action diagnostics make no FPS gain
+claim. Runtime tracing by source shows a conditional frame path through moved
+props/characters' center-light refresh (`wgpu/renderer.rs:1317,2458` →
+`common/light_transport.rs:710` → `fallback_entity_texel` → `occludes_direction`),
+when no valid irradiance sample resolves. Exact placement/lighting keys skip
+unchanged receivers; valid Full probe samples avoid this fallback. Directional
+caustics receiver setup also uses it (`wgpu/caustics_field.rs:380,517`), then
+caches its factors. These are runtime profiling leads, not established FPS
+gains; steady static geometry uses prepared colors/atlases. Paths are under
+`src/engine/render/`, with fallback in `src/engine/lighting/bake.rs:2007`.
+The next stage is engine/game performance, then the separately authorized
+additional engine optimization sweep, mannequin ragdolls, docs cleanup, editor,
+audio, menu/UI, styles and final validation.
+No main merge, release, force push, CI wait or `cargo clean` occurred.

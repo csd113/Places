@@ -234,6 +234,7 @@ impl BatchBuilder {
         lighting: &LevelLighting,
         defer_lighting: bool,
     ) {
+        let cancellation = crate::engine::progress::cancellation_flag();
         let model = &asset.model;
         if model.vertices.iter().any(|v| v.normal.is_none()) {
             // Missing NORMAL means flat triangles, including the vertex-lit
@@ -249,6 +250,9 @@ impl BatchBuilder {
                     continue;
                 };
                 for &[index_a, index_b, index_c] in indices.as_chunks::<3>().0 {
+                    if cancellation.load(std::sync::atomic::Ordering::Relaxed) {
+                        return;
+                    }
                     let (Some(a), Some(b), Some(c)) = (
                         model.vertices.get(usize::from(index_a)),
                         model.vertices.get(usize::from(index_b)),
@@ -1227,10 +1231,14 @@ fn append_instance_vertices(
     representatives: &[usize],
     samples: &mut Vec<crate::engine::lighting::LightColor>,
 ) {
+    let cancellation = crate::engine::progress::cancellation_flag();
     samples.clear();
     batch.reserve(source.len());
     let normal_matrix = model.inverse().transpose();
     for (index, vertex) in source.iter().enumerate() {
+        if index.is_multiple_of(256) && cancellation.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
         let position =
             model.transform_point3(glam::Vec3::new(vertex.pos[0], vertex.pos[1], vertex.pos[2]));
         let light = representatives

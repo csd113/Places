@@ -39,6 +39,7 @@ USAGE:
                        [--asset-root <dir>] [--variants static,full] [--workers N]
                        [--force] [--json] [--progress auto|plain|off]
   places-compile export-project <project> --out <project.placesmap> [build options]
+  places-compile optimize-storage <package> --out <NEW-package> [--asset-root <dir>] [--json|--events]
   places-compile import-project <project.placesmap> --out <NEW-project-folder> [--events]
   places-compile check-project <project> [--events] [--asset-root <dir>]
   places-compile migrate-project <project> [--asset-root <dir>]
@@ -66,7 +67,7 @@ OPTIONS:
                       Build default: the source's sibling .placesmap.
   --force             Rebuild even when the existing package is current.
   --json              Machine-readable result on stdout.
-  --events            build/export/import/check: versioned NDJSON progress/result on stdout.
+  --events            build/export/import/check/optimize: versioned NDJSON progress/result on stdout.
                       Stdin accepts {\"command\":\"cancel\"}; EOF cancels safely.
   --progress <mode>   Build feedback on stderr (default: auto). Auto redraws on
                       a capable terminal; redirected/CI output is plain text.
@@ -337,11 +338,11 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
     if options.events
         && (!matches!(
             command,
-            "build" | "export-project" | "import-project" | "check-project"
+            "build" | "export-project" | "import-project" | "check-project" | "optimize-storage"
         ) || options.json)
     {
         return Err(CliError::Usage(
-            "--events supports build/export/import/check and cannot be combined with --json".into(),
+            "--events supports build/export/import/check/optimize and cannot be combined with --json".into(),
         ));
     }
     if options.level.is_some() && !matches!(command, "build" | "verify") {
@@ -380,7 +381,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
             )?;
             Ok(())
         }
-        "build" | "export-project" | "import-project" => {
+        "build" | "export-project" | "import-project" | "optimize-storage" => {
             if positional.len() != 1
                 || (command != "build" && option_value(&option_args, "--out").is_none())
             {
@@ -429,6 +430,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
             let session = Session::start(options.progress)?;
             let result = match command {
                 "export-project" => compiler::distribution::export(&request),
+                "optimize-storage" => super::storage::optimize(&request),
                 "import-project" => compiler::distribution::recover(&request),
                 _ => compiler::build(&request),
             };

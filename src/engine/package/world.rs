@@ -39,6 +39,8 @@ use crate::engine::render::{LevelMesh, PropMeshBatch};
 struct CatalogBuildInput {
     revision: u32,
     catalog_sha256: String,
+    #[serde(default)]
+    catalog_inputs: Option<super::catalog_inputs::CatalogInputs>,
 }
 
 /// The part of a package a discovery or material pass needs: the manifest and
@@ -195,7 +197,7 @@ fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
     let level = LevelDef::from_json(text)
         .map_err(|error| format!("package semantics are not valid: {error}"))?;
     validate_semantics(&reader, &manifest, &level)?;
-    check_catalog_build_input(&mut reader, &manifest, root)?;
+    check_catalog_build_input(&mut reader, &manifest, &level, root)?;
     check_dependencies(&manifest, root)?;
     Ok(OpenedPackage { manifest, level })
 }
@@ -291,6 +293,7 @@ pub(crate) fn validate_lighting_requirement(
 fn check_catalog_build_input<R: std::io::Read + std::io::Seek>(
     reader: &mut PackageReader<R>,
     manifest: &Manifest,
+    level: &LevelDef,
     root: Option<&Path>,
 ) -> Result<(), String> {
     const NAME: &str = "build-inputs.json";
@@ -317,7 +320,7 @@ fn check_catalog_build_input<R: std::io::Read + std::io::Seek>(
     // consumes the catalog identity from this declared revision.
     let inputs: CatalogBuildInput = serde_json::from_slice(&bytes)
         .map_err(|error| format!("package '{NAME}' is malformed: {error}"))?;
-    if inputs.revision != 1 {
+    if !matches!(inputs.revision, 1 | 2) {
         return Err(format!(
             "package '{NAME}' revision {} is unsupported; rebuild with places-compile",
             inputs.revision
@@ -334,6 +337,21 @@ fn check_catalog_build_input<R: std::io::Read + std::io::Seek>(
     let Some(installed_root) = root else {
         return Err("Package requires installed catalog.json for provenance verification; install the complete payload or set PLACES_ASSET_ROOT".into());
     };
+    if inputs.revision == 2 {
+        let expected = inputs
+            .catalog_inputs
+            .ok_or("Package catalog closure is absent; rebuild package")?;
+        let _identity = expected.identity()?;
+        let catalog_bytes = crate::engine::project::read_bounded_file(
+            &installed_root.join("catalog.json"),
+            8 * 1024 * 1024,
+        )?;
+        let actual = super::catalog_inputs::CatalogInputs::for_level(level, &catalog_bytes)?;
+        if actual != expected {
+            return Err("Package referenced catalog definitions changed; rebuild this level with places-compile".into());
+        }
+        return Ok(());
+    }
     let actual = crate::engine::package::hash::sha256_file(&installed_root.join("catalog.json"))
         .map_err(|error| format!("package catalog.json could not be verified: {error}"))?;
     if actual != inputs.catalog_sha256 {

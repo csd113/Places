@@ -121,7 +121,7 @@ never triggers procedural geometry generation.
 
 * `required_capabilities` names what a runtime must understand. The current
   player understands `geometry`, `props`, `lighting`, `lightmaps-hdr`,
-  `lightmaps-compact-v1`, `props-shared-streams`, `props-shared-streams-v2`,
+  `lightmaps-compact-v1`, `props-shared-streams`, `props-shared-streams-v2`, `props-shared-streams-v3`, `props-shared-streams-v4`,
   `irradiance-probes`,
   `probes-hdr`, `collision` and
   `navigation`, `light-circuits-v1`, `static-light-state-v1`, `luau-v1`,
@@ -167,19 +167,27 @@ never triggers procedural geometry generation.
 * `entries` must list every archive entry except `manifest.json` itself.
   Undeclared entries, duplicate declarations and declared-but-missing entries
   are errors.
-* `compiler_fingerprint` is a **developer rebuild identity**: exact source
-  and catalogue bytes, dependency hashes, record versions, requested variants,
-  geometry/light-model/solver revisions, installed compiler executable SHA-256
-  and reflection-capture mode. The executable is hashed once per process using
-  bounded streaming storage. A changed tool rebuilds automatically, including
-  preparation changes outside manually versioned subsystems. Runtime format
-  validity remains separate from this compiler identity.
-* `build-inputs.json` is an optional declared entry with role `compiler-inputs`:
-  revision 1, `source_sha256`, `catalog_sha256`, `tool_sha256` and
-  `capture_probes`. Missing, corrupt or incompatible provenance requires a full
-  compiler rebuild. Packages carrying this record also verify the recorded
-  catalogue hash at player package-open; a changed catalogue requires rebuilding.
-  The record is optional for data-only packages authored outside this compiler.
+* `compiler_fingerprint` is a **developer rebuild identity**: exact selected
+  source, the map-local catalog closure, resource hashes, record versions,
+  requested variants, geometry/light-model/solver revisions, compiler preparation
+  source identity and reflection-capture mode. `build.rs` hashes preparation
+  sources, shaders, embedded preparation assets, dependency/toolchain inputs,
+  target and features; it never compiles a map. Game/editor application code,
+  compiler UI/CLI, executable packaging and debug symbols are excluded. Engine
+  source changes conservatively invalidate every prepared stage. Paths and file
+  timestamps never enter this key.
+* `build-inputs.json` is an optional declared `compiler-inputs` entry. Revision 2
+  carries `source_sha256`, informational `catalog_sha256`/`tool_sha256`,
+  `compiler_code_sha256`, `capture_probes` and `catalog_inputs`. The closure is
+  itself revisioned: sorted logical IDs map to exact catalog records or explicit
+  absent lookups, including recursive material/image/baseboard references,
+  props/templates, fixtures, decals and sky. The player recomputes this closure
+  against installed assets; unrelated definitions can change, while referenced
+  definitions and file hashes must still match. Revision 1 remains readable
+  under its original whole-catalog runtime check, but requires one compiler
+  rebuild to acquire revision 2 reuse keys. Unsupported or corrupt provenance
+  never becomes a cache hit. Storage migration retains original provenance.
+  This entry remains optional for data-only packages from other producers.
 * `lighting_fingerprint` identifies prepared geometry, collision, lighting and
   reflections. It retains source materials/images/models, physical environment
   and fog, lights, entities, tool/capture identity, formats and quality. It
@@ -469,15 +477,21 @@ old navigation. There is no runtime migration, geometry bake or repair path.
 The compiler factors repeated current PMP1 streams losslessly when the dictionary
 saves both raw bytes and Deflate-6 archive bytes, including a conservative
 manifest allowance. Recipes exceeding the reader working-set budget remain
-literal. The PPS1 version 2 writer separates each vertex into exact 12-byte
+literal. The compiler compares the actual publication codec cost of PPS1 versions 2 and 4,
+retaining the smaller valid representation. Both separate each vertex into exact 12-byte
 world position, 16-byte baked colour, 8-byte model UV and remaining
 lighting/frame planes. Changing baked colour therefore cannot prevent identical
 position or UV bytes from sharing. The version 1 reader retains its combined
-36-byte position/colour/UV prefix and separate tail. Both versions preserve all
+36-byte position/colour/UV prefix and separate tail. All four versions preserve all
 currently accepted vertex strides (43, 45, 55, 57, 69 and 81 bytes). Raw headers,
 material data, frame palettes and ordered indices remain exact. First occurrence
 order interns chunks of at most 65,520 bytes into at most 16 MiB shared segments.
-Original GLBs and PNGs remain external dependencies.
+Version 4 transposes each attribute plane into byte lanes within
+65,536-vertex tiles before chunk interning. This is an exact byte permutation,
+including signed zero and every floating-point bit. The decoder uses one bounded
+tile scratch buffer (at most 2,949,120 bytes, included in the 1 GiB budget) and the original output allocation;
+versions 1 and 2 retain their original layouts; version 3 retains its 256-vertex shuffle tiles. Original GLBs and PNGs remain
+external dependencies.
 
 A PPS1 recipe replaces a variant's `props` entry (role `props`). It records the
 original PMP1 length/hash, required segment lengths/hashes, bounded chunk
@@ -489,7 +503,8 @@ The 512 MiB expanded-record limit remains. Recipe wire data is capped at 64 MiB;
 output, fetched segments and conservative recipe-table overhead together are
 capped at 1 GiB. Missing, truncated, out-of-range, unused or trailing
 recipe data is rejected. Version 1 packages require `props-shared-streams`;
-version 2 additionally requires `props-shared-streams-v2`, so older players fail
+version 2 additionally requires `props-shared-streams-v2`, version 3 also requires `props-shared-streams-v3`, and version 4 additionally
+requires `props-shared-streams-v4`, so older players fail
 by named capability before fetching these streams. Current literal PMP1 records
 remain valid when sharing would not save space. This changes storage only: no
 float quantization, triangle reduction, texture or lighting quality change, or
@@ -784,8 +799,8 @@ package schema. The authored semantics require `schema: "places-level"` and
 `format_version: 1`. These mandatory schema markers distinguish this deliberate
 pre-release reset from historical files that also carried numeric revision 1.
 Binary records use their declared current signatures and revisions. Navigation
-PNV2 uses revision 2. PPS1 shared props read revisions 1 and 2, while the writer
-emits revision 2 attribute planes; this preserves existing current-schema v1
+PNV2 uses revision 2. PPS1 shared props read revisions 1, 2, 3 and 4, while the writer
+selects revision 2 or 4 attribute planes by measured archive cost; this preserves existing current-schema v1
 recipes without accepting superseded package schemas or historical signatures.
 Other superseded packages require recompilation.
 
@@ -868,3 +883,39 @@ Validated semantic placements retain the named rigid clip and individual node
 boxes; the player resolves their current poses from the installed hash-validated
 model. Static collision record layout is unchanged. Older players reject the
 capability before accepting a visual-only replacement for moving collision.
+
+### Lossless storage migration and build validity (0.13.0)
+
+`places-compile optimize-storage INPUT --out NEW.placesmap --asset-root assets`
+validates all input records, runtime catalog admission and installed dependencies,
+then re-encodes prepared prop storage without a geometry or lighting bake.
+This explicit archival operation uses Deflate-9; ordinary builds and exports
+retain Deflate-6 to keep iteration fast. It
+retains every variant/circuit state, exact PMP1 reconstruction identity, all
+non-prop payload bytes, source recovery and compiler provenance. The input is
+never overwritten; a changed input, cancellation or an appearing destination
+refuses publication. Project records are disk-spooled and deduplicated under the
+existing entry/aggregate caps. The bounded working set still includes one map's
+original/factored prop streams; it never expands the full collection at once.
+
+`verify --level ID --json` includes `status` (`current`, `refresh`, `bake`,
+`invalid`), `bake_required`, `integrity_valid` and named differences.
+`map_compiler::verify_project` returns this data per declared level for later
+editor presentation. A refresh updates metadata/navigation without repeating
+light transport. Complete no-op exports verify source bytes and every member
+payload and leave the existing archive untouched. During a partial export,
+current members stream directly from the previous package into bounded disk
+staging; only changed members enter the ordinary build/reuse pipeline.
+
+Directional Static sky/sun queries use conservative derived wall, horizontal
+and prop rejection trees, with the original exact leaf predicates unchanged.
+Their combined storage is bounded below 24 MiB; larger inputs use the exact linear oracle. The index is rebuilt
+from bounded prepared geometry on decode and is absent from wire records.
+Static switch preparation shares immutable visibility/index allocations through
+`Arc`; state-dependent light values, meshes and baked colours remain distinct.
+
+Project validation totals count physical ZIP records once, including sources and
+index, and deduplicate installed dependency identities across members. Per-map
+logical references must not be added to that physical collection total. Static
+prop preparation checks the shared cancellation token between batches of vertices;
+the compiler refuses to encode or publish any interrupted partial preparation.

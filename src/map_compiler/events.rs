@@ -135,6 +135,7 @@ pub(super) fn build(request: &BuildRequest, operation: &str) -> Result<BuildRepo
             "export-project" => super::distribution::export(request),
             "check-project" => super::distribution::check(request),
             "import-project" => super::distribution::recover(request),
+            "optimize-storage" => super::storage::optimize(request),
             _ => super::build(request),
         });
         let mut stream_error = None;

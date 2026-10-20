@@ -2,8 +2,8 @@
 //! baked colour must not duplicate identical position/UV streams. Two synthetic
 //! triangles roundtrip the real PMP1 writer. Tiny independent wire fixtures
 //! protect v1 compatibility, all accepted strides and hostile plane boundaries.
-//! No assets, GPU or map baking. The one real chunk-boundary run uses 442 KiB
-//! of original data (about 1 MiB total); other fixtures use a few KiB.
+//! No assets, GPU or map baking. The one real chunk-boundary run crosses the 65,536-vertex tile boundary with 5.1 MiB
+//! of original data (under 16 MiB total); other fixtures use a few KiB.
 
 use crate::engine::materials::{MaterialAlpha, MaterialEmission, MaterialResponse};
 use crate::engine::package::props;
@@ -11,7 +11,8 @@ use crate::engine::render::{PropMeshBatch, PropSubmeshBatch, Vertex};
 use crate::engine::spatial::Aabb;
 
 use super::{
-    COLOR_BYTES, MAGIC, PREFIX_VERSION, SHARED_PROPS_CHUNK_BYTES, SHARED_PROPS_RECIPE_VERSION,
+    ATTRIBUTE_VERSION, COLOR_BYTES, MAGIC, PREFIX_VERSION, PREVIOUS_SHUFFLE_VERTICES,
+    SHARED_PROPS_CHUNK_BYTES, SHARED_PROPS_RECIPE_VERSION, SHUFFLE_VERTICES, SHUFFLED_VERSION,
     Writer, attribute_widths, factor_props, hash, read_recipe, reconstruct_props, u32_from_usize,
     u64_from_usize,
 };
@@ -120,8 +121,25 @@ fn wire_fixture_count(version: u16, stride: usize, count: usize) -> Result<WireF
         let end = start.saturating_add(width);
         if width != 0 {
             let mut plane = Vec::new();
-            for vertex in original.chunks_exact(stride) {
-                plane.extend_from_slice(vertex.get(start..end).ok_or("fixture plane truncated")?);
+            if version >= SHUFFLED_VERSION {
+                let tile_count = if version == SHUFFLED_VERSION {
+                    PREVIOUS_SHUFFLE_VERTICES
+                } else {
+                    SHUFFLE_VERTICES
+                };
+                for tile in original.chunks(stride.saturating_mul(tile_count)) {
+                    for lane in start..end {
+                        for vertex in tile.chunks_exact(stride) {
+                            plane.push(*vertex.get(lane).ok_or("fixture lane missing")?);
+                        }
+                    }
+                }
+            } else {
+                for vertex in original.chunks_exact(stride) {
+                    plane.extend_from_slice(
+                        vertex.get(start..end).ok_or("fixture plane truncated")?,
+                    );
+                }
             }
             for chunk in plane.chunks(SHARED_PROPS_CHUNK_BYTES) {
                 let offset = segment.len();
@@ -164,7 +182,12 @@ fn wire_fixture_count(version: u16, stride: usize, count: usize) -> Result<WireF
 
 #[test]
 fn shared_recipe_v1_and_v2_preserve_every_supported_vertex_stride() -> Result<(), String> {
-    for version in [PREFIX_VERSION, SHARED_PROPS_RECIPE_VERSION] {
+    for version in [
+        PREFIX_VERSION,
+        ATTRIBUTE_VERSION,
+        SHUFFLED_VERSION,
+        SHARED_PROPS_RECIPE_VERSION,
+    ] {
         for stride in [43usize, 45, 55, 57, 69, 81] {
             let fixture = wire_fixture(version, stride)?;
             let recipe = read_recipe(&fixture.recipe)?;
@@ -182,7 +205,7 @@ fn shared_recipe_v1_and_v2_preserve_every_supported_vertex_stride() -> Result<()
 #[test]
 fn attribute_recipe_refuses_wrong_plane_lengths_truncation_and_payload_hash() -> Result<(), String>
 {
-    let boundary = wire_fixture_count(SHARED_PROPS_RECIPE_VERSION, 81, 5461)?;
+    let boundary = wire_fixture_count(SHARED_PROPS_RECIPE_VERSION, 81, 65_537)?;
     let boundary_recipe = read_recipe(&boundary.recipe)?;
     assert_eq!(
         reconstruct_props(&boundary_recipe, &[&boundary.segment])?,

@@ -24,7 +24,7 @@
 //!
 //! Developer rebuild identity is the `compiler_fingerprint`: source bytes,
 //! dependency identities, record versions, variant list and the compiler
-//! executable identity and capture mode. It is deliberately *not* a runtime validity check; a package whose
+//! preparation-source identity and capture mode. It is deliberately *not* a runtime validity check; a package whose
 //! fingerprint is stale still loads if its records satisfy the format.
 //!
 //! Reflection probe *captures* are the one part of the build that needs a GPU:
@@ -161,6 +161,10 @@ struct BuildInputs {
     revision: u32,
     source_sha256: String,
     catalog_sha256: String,
+    #[serde(default)]
+    catalog_inputs: Option<crate::engine::package::catalog_inputs::CatalogInputs>,
+    #[serde(default)]
+    compiler_code_sha256: Option<String>,
     tool_sha256: String,
     capture_probes: bool,
 }
@@ -253,6 +257,8 @@ pub struct ValidationReport {
 /// Why a package is (not) current with a source.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VerifyReport {
+    /// Selected member, including non-entry project levels.
+    pub id: String,
     /// Source path.
     pub source: String,
     /// Package path.
@@ -265,6 +271,13 @@ pub struct VerifyReport {
     pub current: bool,
     /// Input differences that made the build stale.
     pub differences: Vec<String>,
+    /// Every declared payload passed integrity validation. Resource drift is
+    /// reported separately among input differences.
+    pub integrity_valid: bool,
+    /// A new lighting/geometry preparation is required, rather than a refresh.
+    pub bake_required: bool,
+    /// Stable state for editor admission: current, refresh, bake, invalid.
+    pub status: String,
 }
 
 /// Builds one map package, reusing a current package unless `force`.
@@ -319,7 +332,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     let tool_started = Instant::now();
     progress::stage("hashing compiler identity");
     let build_inputs = BuildInputs {
-        revision: 1,
+        revision: 2,
+        catalog_inputs: Some(catalog_inputs(&level, &catalog_path)?),
+        compiler_code_sha256: Some(env!("PLACES_COMPILER_CODE_SHA256").into()),
         source_sha256: source_hash.clone(),
         catalog_sha256: catalog_hash.clone(),
         tool_sha256: compiler_tool_sha256()?.to_string(),
@@ -634,6 +649,12 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     if blobs_need_shared_props_v2(&entries)? {
         required.push("props-shared-streams-v2".to_string());
     }
+    if blobs_need_shared_props_revision(&entries, 3)? {
+        required.push("props-shared-streams-v3".to_string());
+    }
+    if blobs_need_shared_props_revision(&entries, 4)? {
+        required.push("props-shared-streams-v4".to_string());
+    }
     if variants
         .iter()
         .any(|variant| variant.entries.lightmaps.is_some())
@@ -800,10 +821,20 @@ pub fn validate(path: &Path) -> Result<ValidationReport, String> {
     if let Some(index) = crate::engine::package::project::inspect(path)? {
         crate::engine::package::project::validate(path, &progress::check_cancelled)?;
         let mut combined: Option<ValidationReport> = None;
+        let mut identities = BTreeSet::new();
         for level in &index.levels {
             progress::check_cancelled()?;
             let mut selected = open_package(path)?;
             crate::engine::package::project::select(&mut selected, Some(&level.id))?;
+            let manifest = read_manifest(&mut selected)?;
+            identities.extend(manifest.dependencies.iter().map(|dependency| {
+                format!(
+                    "{} {} {}",
+                    dependency_kind_name(dependency.kind),
+                    dependency.path,
+                    dependency.sha256
+                )
+            }));
             let report = validate_reader(path, selected)?;
             if let Some(aggregate) = &mut combined {
                 aggregate.dependencies_intact &= report.dependencies_intact;
@@ -815,6 +846,13 @@ pub fn validate(path: &Path) -> Result<ValidationReport, String> {
         let mut report = combined.ok_or("Project has no levels")?;
         report.id = index.project.id;
         report.name = index.project.name;
+        let mut physical = open_package(path)?;
+        report.entries = physical.names().len();
+        report.bytes = 0;
+        for name in physical.names().to_vec() {
+            report.bytes = report.bytes.saturating_add(physical.entry_size(&name)?);
+        }
+        report.dependencies = identities.len();
         return Ok(report);
     }
     validate_reader(path, open_package(path)?)
@@ -916,7 +954,9 @@ pub fn verify_selected(
         })
         .collect();
     let build_inputs = BuildInputs {
-        revision: 1,
+        revision: 2,
+        catalog_inputs: Some(catalog_inputs(&level, &catalog_path)?),
+        compiler_code_sha256: Some(env!("PLACES_COMPILER_CODE_SHA256").into()),
         source_sha256: sha256_hex(&source_bytes),
         catalog_sha256: catalog_hash,
         tool_sha256: compiler_tool_sha256()?.to_string(),
@@ -938,14 +978,63 @@ pub fn verify_selected(
         &variants,
         &current_fingerprint,
     ));
+    let integrity = verify_declared_entries(package, &manifest);
+    let integrity_valid = integrity.is_ok() && warnings_absent(&differences);
+    if let Err(error) = integrity {
+        differences.push(format!("package integrity failed: {error}"));
+    }
+    let prepared = fingerprint_with_build_inputs(
+        &lighting_fingerprint(&level, &variants, &dependencies)?,
+        &build_inputs,
+    );
+    let prepared_reusable =
+        integrity_valid && manifest.lighting_fingerprint.as_deref() == Some(&prepared);
+    let current = differences.is_empty();
+    let status = if !integrity_valid {
+        "invalid"
+    } else if current {
+        "current"
+    } else if prepared_reusable {
+        "refresh"
+    } else {
+        "bake"
+    }
+    .into();
     Ok(VerifyReport {
+        id: level.id,
         source: source.display().to_string(),
         package: package.display().to_string(),
         package_fingerprint: manifest.compiler_fingerprint,
         current_fingerprint,
-        current: differences.is_empty(),
+        current,
         differences,
+        integrity_valid,
+        bake_required: !prepared_reusable,
+        status,
     })
+}
+
+fn warnings_absent(differences: &[String]) -> bool {
+    !differences
+        .iter()
+        .any(|reason| reason.starts_with("dependency '") && reason.contains("could not be read"))
+}
+
+/// Read-only complete-project validity for the editor/build planner. Never bakes.
+/// # Errors
+/// Returns unsafe project, source, or package errors.
+pub fn verify_project(
+    source: &Path,
+    package: &Path,
+    asset_root: &Path,
+) -> Result<Vec<VerifyReport>, String> {
+    let folder = crate::engine::project::ProjectFolder::open(source)?;
+    folder
+        .manifest()
+        .levels
+        .iter()
+        .map(|level| verify_selected(source, Some(&level.id), package, asset_root))
+        .collect()
 }
 
 /// The output path a source compiles to by default: the sibling `.placesmap`.
@@ -1652,7 +1741,13 @@ fn prepare_static_light_off(
     if fixtures.is_empty() {
         return Ok(None);
     }
+    let state_started = Instant::now();
     let mut lighting = build.lighting.clone();
+    crate::engine::logging::info(format_args!(
+        "[compiler-state] shared_visibility_bytes={} clone_ms={:.3}",
+        build.lighting.shared_visibility_bytes(),
+        state_started.elapsed().as_secs_f64() * 1_000.0_f64
+    ));
     for fixture in &fixtures {
         let sources = lighting.fixture_light_indices(*fixture);
         if sources.is_empty() {
@@ -1664,6 +1759,10 @@ fn prepare_static_light_off(
     }
     let mut batches = Vec::new();
     let mesh = rebuild_vertex_lit_level(level, catalog, assets, materials, &lighting, &mut batches);
+    crate::engine::logging::info(format_args!(
+        "[compiler-state] static_off_prepare_ms={:.3}",
+        state_started.elapsed().as_secs_f64() * 1_000.0_f64
+    ));
     Ok(Some(crate::engine::package::manifest::StaticLightEntries {
         fixtures,
         mesh: insert_blob(blobs, write_mesh(&mesh)?, ".mesh", "mesh"),
@@ -1720,6 +1819,13 @@ fn blobs_have_shared_props(entries: &[PendingEntry]) -> bool {
 }
 
 fn blobs_need_shared_props_v2(entries: &[PendingEntry]) -> Result<bool, String> {
+    blobs_need_shared_props_revision(entries, 2)
+}
+
+fn blobs_need_shared_props_revision(
+    entries: &[PendingEntry],
+    minimum: u16,
+) -> Result<bool, String> {
     let mut needed = false;
     for entry in entries
         .iter()
@@ -1728,7 +1834,7 @@ fn blobs_need_shared_props_v2(entries: &[PendingEntry]) -> Result<bool, String> 
         let recipe = crate::engine::package::shared_props::read_recipe(&entry.bytes)?;
         // Inspect the stored revision: reusable v1 recipes keep their original
         // capability, while v2 must be refused by older hosts before fetching.
-        needed |= recipe.version() >= 2;
+        needed |= recipe.version() >= minimum;
     }
     Ok(needed)
 }
@@ -1826,6 +1932,14 @@ fn collect_dependencies(
             add(DependencyKind::Model, &path)?;
         }
         if let Some(path) = catalog.assets().fixture_sheet_path(&light.fixture) {
+            add(DependencyKind::Texture, path)?;
+        }
+    }
+    for decal in &level.decals {
+        if let Some(entry) = catalog.assets().get(&decal.material)
+            && entry.asset_type.as_str() == crate::engine::assets::AssetType::DECAL
+            && let Some(path) = entry.model.as_deref()
+        {
             add(DependencyKind::Texture, path)?;
         }
     }
@@ -2059,13 +2173,21 @@ pub(crate) fn bake_navigation(
 fn load_catalog_identity(
     path: &Path,
 ) -> Result<(crate::engine::loader::PropCatalog, String), String> {
-    let bytes = std::fs::read(path)
+    let bytes = crate::engine::project::read_bounded_file(path, 8 * 1024 * 1024)
         .map_err(|error| format!("could not read catalog {}: {error}", path.display()))?;
     let text = std::str::from_utf8(&bytes)
         .map_err(|error| format!("catalog {} is not valid UTF-8: {error}", path.display()))?;
     let catalog = crate::engine::loader::PropCatalog::from_json_str(text)
         .map_err(|error| format!("catalog {} is invalid: {error}", path.display()))?;
     Ok((catalog, sha256_hex(&bytes)))
+}
+
+fn catalog_inputs(
+    level: &LevelDef,
+    path: &Path,
+) -> Result<crate::engine::package::catalog_inputs::CatalogInputs, String> {
+    let bytes = crate::engine::project::read_bounded_file(path, 8 * 1024 * 1024)?;
+    crate::engine::package::catalog_inputs::CatalogInputs::for_level(level, &bytes)
 }
 
 /// Versioned catalogue identity surrounds both complete and reusable stage
@@ -2109,11 +2231,21 @@ fn compiler_tool_sha256() -> Result<&'static str, String> {
 }
 
 fn fingerprint_with_build_inputs(input: &str, inputs: &BuildInputs) -> String {
-    let catalogued = fingerprint_with_catalog(input, &inputs.catalog_sha256);
+    let catalog_identity = inputs
+        .catalog_inputs
+        .as_ref()
+        .and_then(|closure| closure.identity().ok())
+        .unwrap_or_else(|| inputs.catalog_sha256.clone());
+    let catalogued = fingerprint_with_catalog(input, &catalog_identity);
     sha256_hex(
         format!(
             "compiler_inputs_v{}\ninput {catalogued}\ntool {}\ncapture_probes {}\n",
-            inputs.revision, inputs.tool_sha256, inputs.capture_probes
+            inputs.revision,
+            inputs
+                .compiler_code_sha256
+                .as_deref()
+                .unwrap_or(&inputs.tool_sha256),
+            inputs.capture_probes
         )
         .as_bytes(),
     )
@@ -2126,7 +2258,7 @@ fn fingerprint_with_build_inputs(input: &str, inputs: &BuildInputs) -> String {
 /// record versions, the lighting model and the transport solver, and the
 /// requested variants. Display name/author, navigation/AI components and final
 /// presentation are excluded; the outer key additionally hashes the exact
-/// catalogue snapshot, executable and reflection capture mode. An edit to the
+/// referenced catalog closure, preparation source and reflection capture mode. An edit to the
 /// excluded fields reuses the previous geometry, lightmaps, probes and collision.
 ///
 /// # Errors
@@ -2552,7 +2684,7 @@ fn read_build_inputs(out: &Path, manifest: &Manifest) -> Result<BuildInputs, Str
     let bytes = read_declared_entry(&mut reader, entry)?;
     let inputs: BuildInputs = serde_json::from_slice(&bytes)
         .map_err(|error| format!("compiler input provenance is invalid: {error}"))?;
-    if inputs.revision != 1 {
+    if !matches!(inputs.revision, 1 | 2) {
         return Err("compiler input provenance revision is unsupported".to_string());
     }
     Ok(inputs)
@@ -2579,12 +2711,12 @@ fn package_input_differences(
                     "source bytes changed",
                 ),
                 (
-                    previous.catalog_sha256 != inputs.catalog_sha256,
-                    "catalogue bytes changed",
+                    previous.catalog_inputs != inputs.catalog_inputs,
+                    "referenced catalog definitions changed",
                 ),
                 (
-                    previous.tool_sha256 != inputs.tool_sha256,
-                    "compiler executable changed",
+                    previous.compiler_code_sha256 != inputs.compiler_code_sha256,
+                    "compiler preparation code changed",
                 ),
                 (
                     previous.capture_probes != inputs.capture_probes,

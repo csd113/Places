@@ -43,6 +43,20 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     let original_output = output_identity(&request.out)?;
     progress::stage("validating complete project sources");
     let sources = project::snapshot(&folder, &progress::check_cancelled)?;
+    if !request.force && request.out.exists() && project_is_current(request, &folder, &sources)? {
+        if project::snapshot(&folder, &progress::check_cancelled)? != sources
+            || output_identity(&request.out)? != original_output
+        {
+            return Err("Project or output changed during verification; retry export".into());
+        }
+        let mut report = operation_report(request);
+        report.rebuilt = false;
+        report.reuse_reason =
+            "Complete project sources, level dependencies and all records verified".into();
+        report.bytes = fs::metadata(&request.out).map_err(|e| e.to_string())?.len();
+        report.millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
+        return Ok(report);
+    }
     let temporary = archive::create_temporary_directory(&request.out)?;
     let result = (|| {
         let staged_source = stage_sources(&temporary, &sources)?;
@@ -63,6 +77,21 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         let mut cache_decisions = Vec::new();
         for level in &folder.manifest().levels {
             progress::check_cancelled()?;
+            if !request.force && member_current(request, &staged_source, &level.id) {
+                index
+                    .levels
+                    .push(spool_current(request, &level.id, &mut blobs)?);
+                cache_decisions.push(super::CacheDecision {
+                    stage: format!("{}/package", level.id),
+                    status: "hit".into(),
+                    reasons: vec![
+                        "Verified current member streamed directly; no seed/recompression or bake"
+                            .into(),
+                    ],
+                });
+                last_report = Some(operation_report(request));
+                continue;
+            }
             let selected_output = temporary.join(format!("{}.placesmap", level.id));
             let built = build_staged(request, &staged_source, &selected_output, &level.id)?;
             warnings.extend(built.warnings.iter().cloned());
@@ -105,7 +134,14 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         publication.finish(&outcome);
         outcome
     })();
-    let cleanup = fs::remove_dir_all(&temporary);
+    finish_staging(result, &temporary)
+}
+
+fn finish_staging(
+    result: Result<BuildReport, String>,
+    temporary: &std::path::Path,
+) -> Result<BuildReport, String> {
+    let cleanup = fs::remove_dir_all(temporary);
     match (result, cleanup) {
         (Ok(mut report), Err(error)) => {
             report.warnings.push(format!(
@@ -120,6 +156,62 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         )),
         (outcome, Ok(())) => outcome,
     }
+}
+
+fn spool_current(
+    request: &BuildRequest,
+    id: &str,
+    blobs: &mut ProjectSpool,
+) -> Result<project::ProjectMap, String> {
+    let mut reader = super::open_package(&request.out)?;
+    project::select(&mut reader, Some(id))?;
+    let mut records = BTreeMap::new();
+    for name in reader.names().to_vec() {
+        let physical = blobs.add_entry(&mut reader, &name, &progress::check_cancelled)?;
+        drop(records.insert(name, physical));
+    }
+    Ok(project::ProjectMap {
+        id: id.into(),
+        records,
+    })
+}
+
+fn member_current(request: &BuildRequest, source: &std::path::Path, id: &str) -> bool {
+    super::verify_selected(source, Some(id), &request.out, &request.asset_root)
+        .is_ok_and(|report| report.current)
+        && crate::engine::package::world::inspect_level(&request.out, id).is_ok_and(|manifest| {
+            manifest
+                .variants
+                .iter()
+                .map(|variant| variant.lightmap_quality.as_str())
+                .eq(request.variants.iter().map(|quality| quality.name()))
+        })
+}
+
+fn project_is_current(
+    request: &BuildRequest,
+    folder: &ProjectFolder,
+    sources: &BTreeMap<crate::engine::project::ProjectPath, Vec<u8>>,
+) -> Result<bool, String> {
+    let mut reader = super::open_package(&request.out)?;
+    let Some(index) = project::read_index(&mut reader)? else {
+        return Ok(false);
+    };
+    if index.project != *folder.manifest() || index.sources.len() != sources.len() {
+        return Ok(false);
+    }
+    for (path, bytes) in sources {
+        let Some(record) = index.sources.get(path) else {
+            return Ok(false);
+        };
+        if reader.read_blob(record, project::MAX_SOURCE_BYTES)? != *bytes {
+            return Ok(false);
+        }
+    }
+    Ok(index
+        .levels
+        .iter()
+        .all(|level| member_current(request, &request.source, &level.id)))
 }
 
 fn spool_map(
@@ -215,7 +307,7 @@ fn check_destination(output: &std::path::Path, id: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn package_entries(
+pub(super) fn package_entries(
     index: &project::ProjectPackage,
     blobs: ProjectSpool,
     temporary: &std::path::Path,

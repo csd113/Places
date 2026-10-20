@@ -34,6 +34,8 @@ fn write_fixture(root: &Path) -> Result<(PathBuf, project::ProjectPackage), Stri
     for id in ["entry", "second"] {
         let inputs = serde_json::to_vec(&super::super::BuildInputs {
             revision: 1,
+            catalog_inputs: None,
+            compiler_code_sha256: None,
             source_sha256: id.into(),
             catalog_sha256: "catalog".into(),
             tool_sha256: "tool".into(),

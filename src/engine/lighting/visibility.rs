@@ -108,7 +108,7 @@ use crate::engine::spatial::{
 /// the wall-boundary leak the nudge's documentation warns about cannot return.
 const SEGMENT_CLIP_EPS: f32 = 1.0e-5;
 
-fn directional_box_hit(
+pub(super) fn directional_box_hit(
     origin: [f32; 3],
     direction: [f32; 3],
     min: [f32; 3],
@@ -281,13 +281,51 @@ impl Blocker {
 /// exact same code path it always did.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(super) struct OrientedBox {
-    center: [f32; 3],
+    pub(super) center: [f32; 3],
     half: [f32; 3],
     sin: f32,
     cos: f32,
 }
 
 impl OrientedBox {
+    pub(super) fn directional_index_eligible(&self) -> bool {
+        let norm = self.sin.mul_add(self.sin, self.cos * self.cos);
+        let (min, max) = self.directional_bounds();
+        (norm - 1.0).abs() <= 0.000_001 && min.iter().chain(&max).all(|value| value.is_finite())
+    }
+
+    pub(super) fn directional_bounds(&self) -> ([f32; 3], [f32; 3]) {
+        let (x0, x1, z0, z1) = self.footprint();
+        let min = [x0, self.center[1] - self.half[1], z0];
+        let max = [x1, self.center[1] + self.half[1], z1];
+        // Broad phase only: enlarge for rotated f32 coordinate roundoff. The
+        // original local-space f64 clip remains the sole occlusion decision.
+        let margin = self
+            .center
+            .iter()
+            .chain(&self.half)
+            .fold(0.0_f32, |largest, value| largest.max(value.abs()))
+            .mul_add(0.000_01, 0.001);
+        (
+            min.map(|value| value - margin),
+            max.map(|value| value + margin),
+        )
+    }
+
+    pub(super) fn directional_hit(&self, origin: [f32; 3], direction: [f32; 3]) -> bool {
+        let local_direction = [
+            self.cos.mul_add(direction[0], -self.sin * direction[2]),
+            direction[1],
+            self.sin.mul_add(direction[0], self.cos * direction[2]),
+        ];
+        directional_box_hit(
+            self.local_point(origin),
+            local_direction,
+            self.half.map(|v| -v),
+            self.half,
+        )
+    }
+
     /// Conservative world bounds retain every rotated corner for region queries.
     fn world_bounds(self) -> Aabb {
         let (x0, x1, z0, z1) = self.footprint();
@@ -1819,6 +1857,9 @@ fn push_ceiling_body(
 #[derive(Clone, Debug, Default)]
 pub struct Visibility {
     occluders: Occluders,
+    directional: super::directional_index::DirectionalIndex,
+    directional_walls: super::directional_index::DirectionalIndex,
+    directional_horizontals: super::directional_index::DirectionalIndex,
     /// Solids reachable from each query site, concatenated and ordered by
     /// distance from the site.
     pool: Vec<SiteSolid>,
@@ -1833,6 +1874,9 @@ impl Visibility {
     #[must_use]
     pub(super) fn retained_heap_bytes(&self) -> usize {
         [
+            self.directional.retained_heap_bytes(),
+            self.directional_walls.retained_heap_bytes(),
+            self.directional_horizontals.retained_heap_bytes(),
             allocation_bytes(&self.pool),
             allocation_bytes(&self.ranges),
             allocation_bytes(&self.sites),
@@ -1936,6 +1980,11 @@ impl Visibility {
         }
 
         Self {
+            directional: super::directional_index::DirectionalIndex::build(&occluders.props),
+            directional_walls: super::directional_index::DirectionalIndex::build(&occluders.walls),
+            directional_horizontals: super::directional_index::DirectionalIndex::build(
+                &occluders.horizontals,
+            ),
             occluders,
             pool,
             ranges,
@@ -2544,45 +2593,14 @@ impl Visibility {
         if !origin.iter().chain(&direction).all(|v| v.is_finite()) {
             return true;
         }
-        let ray_box = |min, max| directional_box_hit(origin, direction, min, max);
-        if self
-            .occluders
-            .walls
-            .iter()
-            .any(|box_| ray_box(box_.min, box_.max))
-        {
-            return true;
-        }
-        if self.occluders.horizontals.iter().any(|solid| match solid {
-            Horizontal::Slab(box_) => ray_box(box_.min, box_.max),
-            Horizontal::Floor(plane) => {
-                if direction[1] == 0.0 {
-                    return false;
-                }
-                let t = (f64::from(plane.y) - f64::from(origin[1])) / f64::from(direction[1]);
-                let x = f64::from(direction[0]).mul_add(t, f64::from(origin[0]));
-                let z = f64::from(direction[2]).mul_add(t, f64::from(origin[2]));
-                t > 0.0_f64
-                    && (f64::from(plane.x0)..=f64::from(plane.x1)).contains(&x)
-                    && (f64::from(plane.z0)..=f64::from(plane.z1)).contains(&z)
-            }
-        }) {
-            return true;
-        }
-        self.occluders.props.iter().any(|box_| {
-            let local_origin = box_.local_point(origin);
-            let local_direction = [
-                box_.cos.mul_add(direction[0], -box_.sin * direction[2]),
-                direction[1],
-                box_.sin.mul_add(direction[0], box_.cos * direction[2]),
-            ];
-            directional_box_hit(
-                local_origin,
-                local_direction,
-                box_.half.map(|v| -v),
-                box_.half,
-            )
-        })
+        self.directional_walls
+            .occludes(&self.occluders.walls, origin, direction)
+            || self
+                .directional_horizontals
+                .occludes(&self.occluders.horizontals, origin, direction)
+            || self
+                .directional
+                .occludes(&self.occluders.props, origin, direction)
     }
 
     /// Encodes the built visibility set for the compiled map package.
@@ -2774,6 +2792,11 @@ impl Visibility {
             ));
         }
         Ok(Self {
+            directional: super::directional_index::DirectionalIndex::build(&props),
+            directional_walls: super::directional_index::DirectionalIndex::build(&walls),
+            directional_horizontals: super::directional_index::DirectionalIndex::build(
+                &horizontals,
+            ),
             occluders: Occluders {
                 horizontal_grid: SegmentGrid::build(&horizontals),
                 prop_grid: SegmentGrid::build(&props),
@@ -2932,3 +2955,61 @@ const fn allocation_bytes<T>(values: &Vec<T>) -> usize {
 #[cfg(test)]
 #[path = "../tests/caustics_receiver_floor.rs"]
 mod caustics_receiver_floor_tests;
+
+fn expanded_directional_bounds(bounds: Aabb) -> ([f32; 3], [f32; 3]) {
+    (
+        bounds
+            .min
+            .map(|value| value.abs().mul_add(-0.000_01, value - 0.001)),
+        bounds
+            .max
+            .map(|value| value.abs().mul_add(0.000_01, value + 0.001)),
+    )
+}
+
+impl super::directional_index::DirectionalSolid for OrientedBox {
+    fn directional_bounds(&self) -> ([f32; 3], [f32; 3]) {
+        self.directional_bounds()
+    }
+    fn directional_hit(&self, origin: [f32; 3], direction: [f32; 3]) -> bool {
+        self.directional_hit(origin, direction)
+    }
+    fn directional_index_eligible(&self) -> bool {
+        self.directional_index_eligible()
+    }
+}
+
+impl super::directional_index::DirectionalSolid for Blocker {
+    fn directional_bounds(&self) -> ([f32; 3], [f32; 3]) {
+        expanded_directional_bounds(self.world_bounds())
+    }
+    fn directional_hit(&self, origin: [f32; 3], direction: [f32; 3]) -> bool {
+        directional_box_hit(origin, direction, self.min, self.max)
+    }
+}
+
+impl super::directional_index::DirectionalSolid for Horizontal {
+    fn directional_bounds(&self) -> ([f32; 3], [f32; 3]) {
+        expanded_directional_bounds(self.world_bounds())
+    }
+    fn directional_hit(&self, origin: [f32; 3], direction: [f32; 3]) -> bool {
+        match self {
+            Self::Slab(box_) => directional_box_hit(origin, direction, box_.min, box_.max),
+            Self::Floor(plane) => {
+                if direction[1] == 0.0 {
+                    return false;
+                }
+                let t = (f64::from(plane.y) - f64::from(origin[1])) / f64::from(direction[1]);
+                let x = f64::from(direction[0]).mul_add(t, f64::from(origin[0]));
+                let z = f64::from(direction[2]).mul_add(t, f64::from(origin[2]));
+                t > 0.0_f64
+                    && (f64::from(plane.x0)..=f64::from(plane.x1)).contains(&x)
+                    && (f64::from(plane.z0)..=f64::from(plane.z1)).contains(&z)
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "../tests/directional_index.rs"]
+mod directional_index_tests;

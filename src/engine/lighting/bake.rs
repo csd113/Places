@@ -695,7 +695,7 @@ pub struct LevelLighting {
     room_zones: Vec<Option<RoomZones>>,
     /// Static solid geometry, used to keep a fixture's local pool from lighting
     /// surfaces it cannot see. Built once per level load.
-    visibility: Visibility,
+    visibility: std::sync::Arc<Visibility>,
     /// Per room, indices of the fixtures whose pool can reach that room, in
     /// fixture order. A fixture outside the list is farther than
     /// [`LOCAL_LIGHT_RADIUS_M`] from every point in the room, so pruning is
@@ -1906,13 +1906,18 @@ impl LevelLighting {
             sky_radiance: super::sky_radiance(level),
             blends,
             room_zones,
-            visibility,
+            visibility: std::sync::Arc::new(visibility),
             room_lights,
             all_lights,
             fixture_lights,
             default_ceiling_y,
             sampling_taps: config.sampling.taps_per_axis,
         }
+    }
+
+    /// Immutable acceleration storage shared by switch-state clones.
+    pub(crate) fn shared_visibility_bytes(&self) -> usize {
+        self.visibility.retained_heap_bytes()
     }
 
     /// Baked rooms, in the level's room order.
@@ -3331,7 +3336,7 @@ impl LevelLighting {
             light_index,
             blends,
             room_zones,
-            visibility,
+            visibility: std::sync::Arc::new(visibility),
             room_lights,
             all_lights,
             fixture_lights,

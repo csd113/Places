@@ -138,6 +138,7 @@
 mod bake;
 mod color;
 pub mod directional;
+mod directional_index;
 mod light;
 pub mod lightmap;
 pub(crate) mod probe_placement;

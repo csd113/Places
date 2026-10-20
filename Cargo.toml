@@ -63,6 +63,9 @@ zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2
 # Shared sandboxed Luau, statically built; no JIT, FFI or module loader.
 mlua = { version = "0.12.2", default-features = false, features = ["luau", "vendored", "send"] }
 
+[build-dependencies]
+sha2 = "0.11.1"
+
 # One bounded persistent CPU executor for independent runtime preparation.
 # Browser builds retain the identical serial work without native threads.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

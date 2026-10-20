@@ -27,9 +27,13 @@ pub const MAX_SHARED_PROPS_RECIPE_BYTES: u64 = 64 * 1024 * 1024;
 
 const MAGIC: [u8; 4] = *b"PPS1";
 /// Current exact attribute-plane recipe version; version 1 remains readable.
-pub const SHARED_PROPS_RECIPE_VERSION: u16 = 2;
+pub const SHARED_PROPS_RECIPE_VERSION: u16 = 4;
 const VERSION: u16 = SHARED_PROPS_RECIPE_VERSION;
 const PREFIX_VERSION: u16 = 1;
+const ATTRIBUTE_VERSION: u16 = 2;
+const SHUFFLED_VERSION: u16 = 3;
+const SHUFFLE_VERTICES: usize = 65_536;
+const PREVIOUS_SHUFFLE_VERTICES: usize = 256;
 const PREFIX_BYTES: usize = 36;
 const POSITION_BYTES: usize = 12;
 const COLOR_BYTES: usize = 16;
@@ -235,28 +239,58 @@ impl ChunkStore {
             .collect()
     }
 
+    fn vertex_planes(
+        &mut self,
+        vertices: &[u8],
+        stride: usize,
+        shuffle: bool,
+    ) -> Result<VertexPlanes, String> {
+        Ok(VertexPlanes {
+            widths: attribute_widths(stride),
+            streams: [
+                self.plane(vertices, stride, 0..POSITION_BYTES, shuffle)?,
+                self.plane(vertices, stride, POSITION_BYTES..COLOR_END, shuffle)?,
+                self.plane(vertices, stride, COLOR_END..PREFIX_BYTES, shuffle)?,
+                self.plane(vertices, stride, PREFIX_BYTES..stride, shuffle)?,
+            ],
+        })
+    }
+
     fn plane(
         &mut self,
         vertices: &[u8],
         stride: usize,
         range: std::ops::Range<usize>,
+        shuffle: bool,
     ) -> Result<Vec<u32>, String> {
         let mut refs = Vec::new();
         let mut buffer = Vec::with_capacity(SHARED_PROPS_CHUNK_BYTES);
-        for vertex in vertices.chunks_exact(stride) {
-            let mut plane = vertex
-                .get(range.clone())
-                .ok_or_else(|| "shared prop vertex plane is truncated".to_string())?;
-            while !plane.is_empty() {
-                let count = plane
-                    .len()
-                    .min(SHARED_PROPS_CHUNK_BYTES.saturating_sub(buffer.len()));
-                let (head, rest) = plane.split_at(count);
-                buffer.extend_from_slice(head);
-                plane = rest;
-                if buffer.len() == SHARED_PROPS_CHUNK_BYTES {
-                    refs.push(self.intern(&buffer)?);
-                    buffer.clear();
+        let tile_bytes = stride
+            .checked_mul(SHUFFLE_VERTICES)
+            .ok_or("shared prop tile overflows")?;
+        if shuffle {
+            for tile in vertices.chunks(tile_bytes) {
+                for lane in range.clone() {
+                    for vertex in tile.chunks_exact(stride) {
+                        buffer.push(*vertex.get(lane).ok_or("shared prop plane is truncated")?);
+                        if buffer.len() == SHARED_PROPS_CHUNK_BYTES {
+                            refs.push(self.intern(&buffer)?);
+                            buffer.clear();
+                        }
+                    }
+                }
+            }
+        } else {
+            for vertex in vertices.chunks_exact(stride) {
+                for byte in vertex
+                    .get(range.clone())
+                    .ok_or("shared prop plane is truncated")?
+                {
+                    buffer.push(*byte);
+                    if buffer.len() == SHARED_PROPS_CHUNK_BYTES {
+                        refs.push(self.intern(&buffer)?);
+                        buffer.clear();
+                    }
                 }
             }
         }
@@ -279,6 +313,16 @@ impl ChunkStore {
 /// Rejects invalid original PMP1 data, unsupported versions, too many qualities,
 /// hash collisions, or physical/recipe storage beyond the package bounds.
 pub fn factor_props(records: &[&[u8]]) -> Result<FactoredProps, String> {
+    factor_props_with_version(records, VERSION)
+}
+
+pub(crate) fn factor_props_with_version(
+    records: &[&[u8]],
+    version: u16,
+) -> Result<FactoredProps, String> {
+    if !matches!(version, ATTRIBUTE_VERSION | VERSION) {
+        return Err("Unsupported shared prop writer version".into());
+    }
     if records.is_empty() || records.len() > MAX_VARIANTS {
         return Err("shared props require a bounded nonempty quality record set".to_string());
     }
@@ -308,15 +352,7 @@ pub fn factor_props(records: &[&[u8]]) -> Result<FactoredProps, String> {
                     .checked_div(region.stride)
                     .ok_or_else(|| "shared prop vertex stride is zero".to_string())?,
                 stride: region.stride,
-                planes: VertexPlanes {
-                    widths: attribute_widths(region.stride),
-                    streams: [
-                        store.plane(vertices, region.stride, 0..POSITION_BYTES)?,
-                        store.plane(vertices, region.stride, POSITION_BYTES..COLOR_END)?,
-                        store.plane(vertices, region.stride, COLOR_END..PREFIX_BYTES)?,
-                        store.plane(vertices, region.stride, PREFIX_BYTES..region.stride)?,
-                    ],
-                },
+                planes: store.vertex_planes(vertices, region.stride, version == VERSION)?,
             });
             cursor = region.end;
         }
@@ -330,7 +366,7 @@ pub fn factor_props(records: &[&[u8]]) -> Result<FactoredProps, String> {
             });
         }
         recipes.push(PropsRecipe {
-            version: VERSION,
+            version,
             expanded_bytes: u64_from_usize(bytes.len())?,
             sha256: hash::sha256_hex(bytes),
             segments: Vec::new(),
@@ -418,7 +454,7 @@ fn localize_recipe(
 fn write_recipe(recipe: &PropsRecipe) -> Result<Vec<u8>, String> {
     let mut writer = Writer::new();
     writer.bytes(&MAGIC);
-    writer.u16(VERSION);
+    writer.u16(recipe.version);
     writer.u64(recipe.expanded_bytes);
     writer.bytes(recipe.sha256.as_bytes());
     writer.u32(u32_from_usize(recipe.segments.len())?);
@@ -528,7 +564,10 @@ fn read_recipe_checked(bytes: &[u8]) -> Result<PropsRecipe, RecipeReadError> {
             .into());
     }
     let version = reader.u16()?;
-    if !matches!(version, PREFIX_VERSION | VERSION) {
+    if !matches!(
+        version,
+        PREFIX_VERSION | ATTRIBUTE_VERSION | SHUFFLED_VERSION | VERSION
+    ) {
         return Err("shared props recipe has an unsupported version"
             .to_string()
             .into());
@@ -547,6 +586,16 @@ fn read_recipe_checked(bytes: &[u8]) -> Result<PropsRecipe, RecipeReadError> {
         .iter()
         .try_fold(expanded_bytes, |total, segment| {
             total.checked_add(segment.bytes)
+        })
+        .and_then(|total| {
+            let tile = if version == SHUFFLED_VERSION {
+                PREVIOUS_SHUFFLE_VERTICES
+            } else if version == VERSION {
+                SHUFFLE_VERTICES
+            } else {
+                0
+            };
+            total.checked_add(u64_from_usize(tile.saturating_mul(45)).ok()?)
         })
         .and_then(|total| {
             u64::try_from(bytes.len())
@@ -790,16 +839,31 @@ pub fn reconstruct_props(recipe: &PropsRecipe, segments: &[&[u8]]) -> Result<Vec
             }
             Part::Vertices {
                 count,
-                stride: _,
+                stride,
                 planes,
             } => {
                 let mut cursors = planes
                     .streams
                     .each_ref()
                     .map(|stream| ChunkCursor::new(recipe, segments, stream));
-                for _ in 0..*count {
-                    for (cursor, width) in cursors.iter_mut().zip(planes.widths) {
-                        cursor.append(&mut output, width)?;
+                if recipe.version >= SHUFFLED_VERSION {
+                    restore_shuffled(
+                        &mut output,
+                        &mut cursors,
+                        *count,
+                        *stride,
+                        planes.widths,
+                        if recipe.version == SHUFFLED_VERSION {
+                            PREVIOUS_SHUFFLE_VERTICES
+                        } else {
+                            SHUFFLE_VERTICES
+                        },
+                    )?;
+                } else {
+                    for _ in 0..*count {
+                        for (cursor, width) in cursors.iter_mut().zip(planes.widths) {
+                            cursor.append(&mut output, width)?;
+                        }
                     }
                 }
             }
@@ -809,6 +873,58 @@ pub fn reconstruct_props(recipe: &PropsRecipe, segments: &[&[u8]]) -> Result<Vec
         return Err("shared props expanded record length or SHA-256 mismatch".to_string());
     }
     Ok(output)
+}
+
+fn restore_shuffled(
+    output: &mut Vec<u8>,
+    cursors: &mut [ChunkCursor<'_>; 4],
+    vertex_count: usize,
+    stride: usize,
+    widths: [usize; 4],
+    tile_vertices: usize,
+) -> Result<(), String> {
+    let mut plane = Vec::new();
+    let mut remaining = vertex_count;
+    while remaining > 0 {
+        let count = remaining.min(tile_vertices);
+        let start = output.len();
+        let end = start
+            .checked_add(
+                count
+                    .checked_mul(stride)
+                    .ok_or("shared prop tile overflows")?,
+            )
+            .ok_or("shared prop output overflows")?;
+        output.resize(end, 0);
+        let restored = output
+            .get_mut(start..end)
+            .ok_or("shared prop tile is truncated")?;
+        let mut offset = 0_usize;
+        for (cursor, width) in cursors.iter_mut().zip(widths) {
+            plane.clear();
+            cursor.append(
+                &mut plane,
+                count
+                    .checked_mul(width)
+                    .ok_or("shared prop plane overflows")?,
+            )?;
+            for (index, vertex) in restored.chunks_exact_mut(stride).enumerate() {
+                for (lane, byte) in vertex
+                    .get_mut(offset..offset.saturating_add(width))
+                    .ok_or("shared prop plane exceeds stride")?
+                    .iter_mut()
+                    .enumerate()
+                {
+                    *byte = *plane
+                        .get(lane.saturating_mul(count).saturating_add(index))
+                        .ok_or("shared prop plane is truncated")?;
+                }
+            }
+            offset = offset.saturating_add(width);
+        }
+        remaining = remaining.saturating_sub(count);
+    }
+    Ok(())
 }
 
 struct ChunkCursor<'a> {

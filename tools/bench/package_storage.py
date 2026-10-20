@@ -74,7 +74,7 @@ def inspect(path):
                         continue
                     data = small(records[name])
                     if (data[:4] != b"PPS1" or len(data) < 82
-                            or struct.unpack_from("<H", data, 4)[0] not in (1, 2)):
+                            or struct.unpack_from("<H", data, 4)[0] not in (1, 2, 3, 4)):
                         raise ValueError("unsupported PPS1 recipe")
                     count = struct.unpack_from("<I", data, 78)[0]
                     if count > 4096 or 82 + count * 72 > len(data):
