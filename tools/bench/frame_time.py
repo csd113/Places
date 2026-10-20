@@ -17,7 +17,9 @@ from pathlib import Path
 import re
 import statistics
 import subprocess
+import sys
 import time
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -28,6 +30,7 @@ def statistics_for(values: list[float]) -> dict | None:
     ordered = sorted(values)
     return {
         "samples": len(ordered),
+        "mean": statistics.fmean(ordered),
         "median": statistics.median(ordered),
         "p95": ordered[max(0, math.ceil(len(ordered) * 0.95) - 1)],
         "p99": ordered[max(0, math.ceil(len(ordered) * 0.99) - 1)],
@@ -50,12 +53,46 @@ def digest(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+def package_manifest_identity(package: Path, level: str) -> str:
+    """Match the runtime's member-manifest identity, including project archives."""
+    with zipfile.ZipFile(package) as archive:
+        def metadata(name: str) -> bytes:
+            if archive.getinfo(name).file_size > 2 * 1024 ** 2:
+                raise ValueError(f"package index/manifest exceeds the runtime bound: {name}")
+            return archive.read(name)
+
+        name = "manifest.json"
+        if "project.json" in archive.namelist():
+            project = json.loads(metadata("project.json"))
+            members = [member for member in project["levels"] if member["id"] == level]
+            if len(members) != 1:
+                raise ValueError(f"expected one package member named {level}")
+            name = members[0]["records"][name]
+        raw = metadata(name)
+        if json.loads(raw)["id"] != level:
+            raise ValueError(f"package manifest does not describe {level}")
+        return hashlib.sha256(raw).hexdigest()
+
+
+def verify_runtime_identity(log: str, level: str, variant: str | None, expected: str) -> None:
+    observed = re.findall(
+        r"^\[loading\] package identity level=(\S+) variant=(\S+) sha256=([0-9a-f]{64}) source=",
+        log, re.MULTILINE,
+    )
+    if not observed or any(
+        member != level or digest != expected or (variant is not None and lighting != variant)
+        for member, lighting, digest in observed
+    ):
+        raise RuntimeError(f"native package/member/lighting identity differs: {observed}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places")
     parser.add_argument("--asset-root", type=Path, default=ROOT, help="package root containing assets; supports preserved baseline bundles")
     parser.add_argument("--out", type=Path, required=True, help="new isolated result directory")
     parser.add_argument("--level", default="retro_arcade_demo")
+    parser.add_argument("--package", type=Path, help="existing project/single-map package to install into isolated state; filename need not match the member ID")
     parser.add_argument("--spawn", default="-1.6,1.6,2.8,90", help="X,Y,Z,yaw; use --spawn= for negative X")
     parser.add_argument("--camera", default="90,0", help="yaw,pitch in degrees")
     parser.add_argument("--eye", default="", help="fixed render-eye X,Y,Z independent of player physics")
@@ -84,6 +121,9 @@ def main() -> None:
     parser.add_argument("--lightmaps", choices=("static", "full"), default="full", help="matched lighting control")
     parser.add_argument("--entity-light-trace", default="", help="capture-only entity lighting payload witness")
     parser.add_argument("--cpu-trace", action="store_true", help="three steady frames of CPU stage spans; diagnostic")
+    parser.add_argument("--physics-log", action="store_true", help="bounded per-frame body/step counters")
+    parser.add_argument("--physics-trace", action="store_true", help="item state snapshots in the load trace; diagnostic")
+    parser.add_argument("--real-delta", action="store_true", help="use normal wall-clock gameplay delta for interaction/traversal reproduction")
     args = parser.parse_args()
     if not 1 <= args.frames <= 3600 or not 0 <= args.warmup <= 1200:
         parser.error("frames must be 1..3600; warmup must be 0..1200")
@@ -107,9 +147,13 @@ def main() -> None:
             parser.error("expected drawable dimensions must be 64..16384")
     binary = args.binary.resolve(strict=True)
     asset_root = args.asset_root.resolve(strict=True)
-    package = (asset_root / "assets/levels" / f"{args.level}.placesmap").resolve(strict=True)
+    package = (args.package or asset_root / "assets/levels" / f"{args.level}.placesmap").resolve(strict=True)
+    manifest_identity = package_manifest_identity(package, args.level)
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
+    if args.package:
+        (out / "levels").mkdir()
+        (out / "levels" / package.name).symlink_to(package)
     settings = json.loads((ROOT / "tests/fixtures/native/retro-arcade-manifest.json").read_text())["settings"]
     settings.update(
         window_width=width, window_height=height,
@@ -144,8 +188,12 @@ def main() -> None:
         "PLACES_BENCH_GPU_TRACE": "1" if args.gpu_trace else "",
         "PLACES_BENCH_GPU_TIMING": "off" if args.no_gpu_timing else "",
         "PLACES_BENCH_CAUSTICS": "off" if args.no_caustics else "",
+        "PLACES_PHYSICS_LOG": str(out / "physics.csv") if args.physics_log else "",
+        "PLACES_PHYSICS_TRACE": "1" if args.physics_trace else "",
     }
     env.update({key: value for key, value in optional.items() if value})
+    if args.real_delta:
+        env.pop("PLACES_BENCH_FIXED_DELTA_SECONDS")
     if args.console_open and args.actions:
         parser.error("select --console-open or --actions")
     if args.console_open:
@@ -174,12 +222,21 @@ def main() -> None:
     # or time out a native permission wait: another launch would orphan the first.
     rss_samples = []
     rss_error = None
+    usage = None
     with (native_out / "stdout.log").open("w") as stdout, (native_out / "stderr.log").open("w") as stderr:
         child = subprocess.Popen(command, cwd=ROOT, env=env, stdout=stdout, stderr=stderr)
         (native_out / "identity.json").write_text(json.dumps(dict(
             launch_method="direct", source_binary=str(binary), binary_sha256=binary_sha256,
             pid=child.pid, cwd=str(ROOT)), indent=2) + "\n")
-        while child.poll() is None:
+        while True:
+            if hasattr(os, "wait4"):
+                pid, status, observed = os.wait4(child.pid, os.WNOHANG)
+                if pid:
+                    usage = observed
+                    child.returncode = os.waitstatus_to_exitcode(status)
+                    break
+            elif child.poll() is not None:
+                break
             try:
                 sample = subprocess.run(["ps", "-o", "rss=", "-p", str(child.pid)],
                                         capture_output=True, text=True, check=False)
@@ -191,10 +248,7 @@ def main() -> None:
             except OSError as error:
                 # Unavailable diagnostics must never abandon a live player.
                 rss_error = str(error)
-            try:
-                child.wait(timeout=1)
-            except subprocess.TimeoutExpired:
-                pass
+            time.sleep(1)
     (native_out / "launch.json").write_text(json.dumps(dict(
         returncode=child.returncode, seconds=time.monotonic() - started,
         native_rss_samples=rss_samples, rss_sampling_error=rss_error,
@@ -205,6 +259,11 @@ def main() -> None:
         raise RuntimeError(f"binary/package changed during native run; see {out / 'native.log'}")
     if child.returncode or f"[loading] committed {args.level}" not in log:
         raise RuntimeError(f"native run failed ({child.returncode}); see {out / 'native.log'}")
+    # Discovery can prefer another same-ID bundled archive over --package.
+    # Accept only the planned member and lighting payload, independent of ZIP layout.
+    # Explicit action/settings scripts may deliberately change lighting variants.
+    planned_variant = None if args.actions or args.graphics_cycle else "off" if args.lightmaps == "static" else "full"
+    verify_runtime_identity(log, args.level, planned_variant, manifest_identity)
     if any(message in log.lower() for message in ("validation error", "panicked", "fatal device", "catalog hash mismatch")):
         raise RuntimeError(f"native validation failed; see {out / 'native.log'}")
     if (re.search(r"\[props\] \d+ models cached \([1-9]\d* failed\)", log)
@@ -249,9 +308,12 @@ def main() -> None:
         for key in ("loop_ms", "frame_ms", "update_ms", "render_ms", "swap_ms")
     }
     receipt = dict(
-        kind="capture" if capture else "diagnostic" if (args.cpu_trace or args.gpu_trace or args.graphics_cycle or args.quality_cycle or args.lighting_sequence) else "timing",
+        kind="capture" if capture else "diagnostic" if (args.cpu_trace or args.gpu_trace or args.graphics_cycle or args.quality_cycle or args.lighting_sequence or args.physics_trace or args.actions) else "timing",
         started_utc=started_utc, elapsed_seconds=time.monotonic() - started,
         binary=str(binary), binary_sha256=binary_sha256, package=str(package), package_sha256=package_sha256,
+        member_manifest_sha256=manifest_identity,
+        loaded_package_identities=[line for line in log.splitlines()
+                                   if line.startswith("[loading] package identity ")],
         asset_root=str(asset_root), settings=settings, spawn=args.spawn, camera=args.camera,
         expected_drawable=expected_drawable,
         environment={key: value for key, value in env.items() if key.startswith("PLACES_")},
@@ -259,6 +321,11 @@ def main() -> None:
         native_identity=[line for line in log.splitlines()
                          if line.startswith(("[renderer]", "[window]", "[settings]", "[wgpu] GPU timing", "[wgpu] present mode"))],
         metrics=metrics, gpu_elapsed_ms=None if capture else statistics_for(list(gpu.values())),
+        average_fps=None if capture else 1000 / statistics.fmean(float(row["loop_ms"]) for row in rows),
+        process_usage=None if usage is None else dict(
+            user_seconds=usage.ru_utime, system_seconds=usage.ru_stime,
+            peak_rss_bytes=usage.ru_maxrss if sys.platform == "darwin" else usage.ru_maxrss * 1024,
+            scope="whole native process including load; CPU seconds include worker threads"),
         peak_native_rss_bytes=json.loads((native_out / "launch.json").read_text())["peak_native_rss_bytes"],
         base_scene_draws=statistics_for([int(row["draw_calls"]) for row in rows]),
         base_scene_triangles=statistics_for([int(row["visible_indices"]) // 3 for row in rows]),

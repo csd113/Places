@@ -1,6 +1,7 @@
 """Measurement correctness for the offline compiler benchmark harness."""
 from datetime import datetime
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -17,6 +18,43 @@ SPEC.loader.exec_module(BENCH)
 COMPARE_SPEC = importlib.util.spec_from_file_location("compare_packages", ROOT / "tools/bench/compare_packages.py")
 COMPARE = importlib.util.module_from_spec(COMPARE_SPEC)
 COMPARE_SPEC.loader.exec_module(COMPARE)
+FRAME_SPEC = importlib.util.spec_from_file_location("frame_time", ROOT / "tools/bench/frame_time.py")
+FRAME = importlib.util.module_from_spec(FRAME_SPEC)
+FRAME_SPEC.loader.exec_module(FRAME)
+
+
+class FrameTimeIdentityTests(unittest.TestCase):
+    # Prevent acceptance of another discovered package/member: two tiny ZIPs and
+    # short log strings add unique project/runtime identity coverage, no bake/GPU.
+    def test_project_member_uses_same_identity_as_single_map_manifest(self):
+        raw = b'{"id":"member","variants":[]}\n'
+        with tempfile.TemporaryDirectory() as directory:
+            single = Path(directory) / "single.placesmap"
+            project = Path(directory) / "project.placesmap"
+            with zipfile.ZipFile(single, "w") as archive:
+                archive.writestr("manifest.json", raw)
+            with zipfile.ZipFile(project, "w") as archive:
+                archive.writestr("project.json", json.dumps(dict(levels=[
+                    dict(id="member", records={"manifest.json": "blobs/member.record"})])))
+                archive.writestr("blobs/member.record", raw)
+            expected = hashlib.sha256(raw).hexdigest()
+            self.assertEqual(FRAME.package_manifest_identity(single, "member"), expected)
+            self.assertEqual(FRAME.package_manifest_identity(project, "member"), expected)
+            for package in (single, project):
+                with self.assertRaises(ValueError):
+                    FRAME.package_manifest_identity(package, "another")
+
+    def test_runtime_must_load_planned_member_content_and_unscripted_variant(self):
+        digest = "a" * 64
+        def line(level="member", variant="full", sha=digest):
+            return f"[loading] package identity level={level} variant={variant} sha256={sha} source=/map\n"
+        FRAME.verify_runtime_identity(line(), "member", "full", digest)
+        FRAME.verify_runtime_identity(line() + line(variant="off"), "member", None, digest)
+        for log in ("", line(level="another"), line(sha="b" * 64), line(variant="off")):
+            with self.assertRaises(RuntimeError):
+                FRAME.verify_runtime_identity(log, "member", "full", digest)
+        with self.assertRaises(RuntimeError):
+            FRAME.verify_runtime_identity(line(sha="b" * 64), "member", None, digest)
 
 
 class CompilerBenchTests(unittest.TestCase):
