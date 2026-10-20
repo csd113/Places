@@ -221,6 +221,14 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
         }
     }
     crate::engine::loader::validate_level(level)?;
+    if level.props.iter().any(|prop| prop.animated_door.is_some())
+        && !manifest
+            .required_capabilities
+            .iter()
+            .any(|capability| capability == "animated-door-v1")
+    {
+        return Err("Animated solid mechanisms require animated-door-v1 capability".into());
+    }
     validate_shadow_only(level, manifest)?;
     validate_item_receipts(level, manifest)?;
     validate_lighting_requirement(level, manifest)?;

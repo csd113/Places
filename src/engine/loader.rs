@@ -2522,10 +2522,57 @@ fn validate_props(level: &LevelDef) -> Result<(), String> {
             ));
         }
         span_slices += validate_static_prop_options(i, prop)?;
+        if let Some(door) = &prop.animated_door {
+            if prop.solid
+                || prop.physics.is_some()
+                || prop.float.is_some()
+                || prop.span.is_some()
+                || prop.pitch_degrees != 0.0
+                || prop.roll_degrees != 0.0
+                || prop.shadow_only
+                || !prop.material_overrides.is_empty()
+                || !prop.emission_overrides.is_empty()
+                || door.clip.trim().is_empty()
+                || door.boxes.is_empty()
+                || door.boxes.len() > 32
+                || door.boxes.iter().any(|shape| {
+                    shape.node.trim().is_empty()
+                        || shape
+                            .center
+                            .iter()
+                            .any(|v| !v.is_finite() || v.abs() > 32.0)
+                        || shape
+                            .size
+                            .iter()
+                            .any(|v| !v.is_finite() || *v <= 0.0 || *v > 32.0)
+                })
+            {
+                return Err(format!(
+                    "Prop {i} animated_door requires an upright fixed placement, a clip and 1..32 finite node boxes"
+                ));
+            }
+            if level
+                .routes
+                .iter()
+                .any(|route| prop.id.as_deref() == Some(route.id.as_str()))
+            {
+                return Err(format!("Prop {i} animated_door cannot follow a route"));
+            }
+        }
     }
     if span_slices > 32_768.0 {
         return Err("Level span collision complexity exceeds 32768 slices".into());
     }
+    if level
+        .props
+        .iter()
+        .filter(|prop| prop.animated_door.is_some())
+        .count()
+        > 64
+    {
+        return Err("A level supports at most 64 animated doors".into());
+    }
+    let _validated_doors = crate::engine::animated_door::load(level)?;
     Ok(())
 }
 

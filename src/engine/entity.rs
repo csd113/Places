@@ -57,6 +57,9 @@ pub enum PoseCue {
     /// re-targeting mid-travel reverses from the current pose with no snap and
     /// no restart at an endpoint.
     Scrub { name: String, target: f32 },
+    /// Exact gameplay-owned clip fraction. No renderer clock or crossfade is
+    /// permitted: moving solid nodes and their picture share this sample.
+    Sample { name: String, progress: f32 },
 }
 
 impl PoseCue {
@@ -69,7 +72,8 @@ impl PoseCue {
                 once: _,
                 paused: _,
             }
-            | Self::Scrub { name, target: _ } => Some(name),
+            | Self::Scrub { name, target: _ }
+            | Self::Sample { name, progress: _ } => Some(name),
             Self::Idle | Self::Walk { speed_mps: _ } => None,
         }
     }

@@ -1,4 +1,58 @@
 {
+  "entities/beach_crab/model/beach_crab.glb": {
+    "sha256": "4a47bb3b304a6b8e5a41f1b9e1aa98ec07672935590d212ea0835a49a683ec44",
+    "triangles": 900,
+    "texture_edge": 256,
+    "identities": [
+      "beach:crab"
+    ],
+    "bounds_min": [
+      -0.41604509949684143,
+      0.0,
+      -0.2806006669998169
+    ],
+    "bounds_max": [
+      0.41604509949684143,
+      0.38100001215934753,
+      0.2806006669998169
+    ]
+  },
+  "entities/beach_fish/model/beach_fish.glb": {
+    "sha256": "097c6c1959d867f4b0b262beb84a892018d48d21b1b214e5791c884fd7d89787",
+    "triangles": 472,
+    "texture_edge": 256,
+    "identities": [
+      "beach:fish"
+    ],
+    "bounds_min": [
+      -0.1469999998807907,
+      0.0,
+      -0.3190000057220459
+    ],
+    "bounds_max": [
+      0.1469999998807907,
+      0.37700000405311584,
+      0.3190000057220459
+    ]
+  },
+  "entities/beach_seagull/model/beach_seagull.glb": {
+    "sha256": "737330a82c1c9a695b297b712d5bb15f92d5d0467ed4dedf890ba7be0c14ecc0",
+    "triangles": 556,
+    "texture_edge": 256,
+    "identities": [
+      "beach:seagull"
+    ],
+    "bounds_min": [
+      -0.5479999780654907,
+      0.0,
+      -0.4429999887943268
+    ],
+    "bounds_max": [
+      0.5479999780654907,
+      0.746999979019165,
+      0.4429999887943268
+    ]
+  },
   "entities/carved-pumpkin/model/carved-pumpkin.glb": {
     "sha256": "7162ef1f1499eabf39bf348f318f067cff6f12df74f597b057a58290fccc5c93",
     "triangles": 2384,
@@ -15,6 +69,24 @@
       0.2897777557373047,
       0.6311264634132385,
       0.26079997420310974
+    ]
+  },
+  "entities/cockroach/model/cockroach.glb": {
+    "sha256": "d575f219fcda8661b276e11e79893ec3cf41997fba556e55ff68a704a825562d",
+    "triangles": 792,
+    "texture_edge": 32,
+    "identities": [
+      "entity:cockroach"
+    ],
+    "bounds_min": [
+      -0.043707188218832016,
+      0.0,
+      -0.06606263667345047
+    ],
+    "bounds_max": [
+      0.043707188218832016,
+      0.01856258511543274,
+      0.06606263667345047
     ]
   },
   "entities/mannequin/model/mannequin.glb": {
@@ -70,6 +142,24 @@
       0.05600636452436447,
       0.1298867166042328,
       0.23615746200084686
+    ]
+  },
+  "entities/sheet-ghost-cat/model/sheet-ghost-cat.glb": {
+    "sha256": "889a21177743ce91973ca7d0cb9b1280f5139c48774afd62737f60c7bb6e2b19",
+    "triangles": 434,
+    "texture_edge": 256,
+    "identities": [
+      "sheet-ghost-cat"
+    ],
+    "bounds_min": [
+      -0.11299999803304672,
+      0.045956987887620926,
+      -0.29649996757507324
+    ],
+    "bounds_max": [
+      0.11299999803304672,
+      0.36884525418281555,
+      0.29649996757507324
     ]
   },
   "entities/skeleton/model/skeleton.glb": {
@@ -1576,6 +1666,1554 @@
       0.35074999928474426
     ]
   },
+  "environments/beach/props/bunting.glb": {
+    "sha256": "7f4df9756ea80fd638d7965b6ca68f610445c6fbb154c29001c514491b60db3d",
+    "triangles": 280,
+    "texture_edge": 256,
+    "identities": [
+      "beach:bunting"
+    ],
+    "bounds_min": [
+      -2.190889596939087,
+      0.0,
+      -0.012000000104308128
+    ],
+    "bounds_max": [
+      2.190889596939087,
+      0.4440457820892334,
+      0.012000000104308128
+    ]
+  },
+  "environments/beach/props/coastal_rock.glb": {
+    "sha256": "8c0619bb090505f2fc6497ca9a3863b56117cedcb4c3ec660585eee6adef40a3",
+    "triangles": 60,
+    "texture_edge": 256,
+    "identities": [
+      "beach:coastal_rock"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.5249999761581421
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      1.2000000476837158,
+      0.5249999761581421
+    ]
+  },
+  "environments/beach/props/coastal_rock_wide.glb": {
+    "sha256": "a29653c5359a2e3136c7176c106e47fdaf17c6a0537ce33886ac352c5e9b2fcb",
+    "triangles": 68,
+    "texture_edge": 256,
+    "identities": [
+      "beach:coastal_rock_wide"
+    ],
+    "bounds_min": [
+      -1.2999999523162842,
+      0.0,
+      -1.0
+    ],
+    "bounds_max": [
+      1.2999999523162842,
+      1.5,
+      1.0
+    ]
+  },
+  "environments/beach/props/cove_foam.glb": {
+    "sha256": "d84f929d1c4e6e79d3fa1dd068821db4bfdfef05858f756dcea2827879cb33f7",
+    "triangles": 548,
+    "texture_edge": 256,
+    "identities": [
+      "beach:cove_foam"
+    ],
+    "bounds_min": [
+      -24.0,
+      0.0,
+      -1.1176520586013794
+    ],
+    "bounds_max": [
+      24.0,
+      0.014999999664723873,
+      1.1176520586013794
+    ]
+  },
+  "environments/beach/props/crate.glb": {
+    "sha256": "a9709e74cb72290e4d34844c27ebf60d6e651fe35eb543edd9797eb3dbe8a450",
+    "triangles": 468,
+    "texture_edge": 256,
+    "identities": [
+      "beach:crate"
+    ],
+    "bounds_min": [
+      -0.4099999964237213,
+      0.0,
+      -0.4099999964237213
+    ],
+    "bounds_max": [
+      0.4099999964237213,
+      0.8199999928474426,
+      0.4099999964237213
+    ]
+  },
+  "environments/beach/props/dock.glb": {
+    "sha256": "8aa31cb16277437ca15dd6c7055a2cab8688f08abf45fe1e2d0cf8e9a373305a",
+    "triangles": 300,
+    "texture_edge": 256,
+    "identities": [
+      "beach:dock"
+    ],
+    "bounds_min": [
+      -2.200000047683716,
+      0.0,
+      -1.100000023841858
+    ],
+    "bounds_max": [
+      2.200000047683716,
+      1.600000023841858,
+      1.100000023841858
+    ]
+  },
+  "environments/beach/props/grassy_bank.glb": {
+    "sha256": "119eaefab3d4e501f907c829045822c0c7459e66bdf4ccab27092ac472bb0ec7",
+    "triangles": 70,
+    "texture_edge": 256,
+    "identities": [
+      "beach:grassy_bank"
+    ],
+    "bounds_min": [
+      -4.0,
+      0.0,
+      -2.5
+    ],
+    "bounds_max": [
+      4.0,
+      0.75,
+      2.5
+    ]
+  },
+  "environments/beach/props/hut_brown.glb": {
+    "sha256": "bf45684e15316c651a7637e2f992400fea818f448be60699b8491a93ecde1550",
+    "triangles": 396,
+    "texture_edge": 256,
+    "identities": [
+      "beach:hut_brown"
+    ],
+    "bounds_min": [
+      -1.75,
+      0.0,
+      -1.6200000047683716
+    ],
+    "bounds_max": [
+      1.75,
+      3.549999952316284,
+      1.6200000047683716
+    ]
+  },
+  "environments/beach/props/island.glb": {
+    "sha256": "d8938c5f98e1a0da52ae8cd09027f944516ddcf7f1aef4efe41fa169dedb85e9",
+    "triangles": 84,
+    "texture_edge": 256,
+    "identities": [
+      "beach:island"
+    ],
+    "bounds_min": [
+      -5.0,
+      0.0,
+      -3.5
+    ],
+    "bounds_max": [
+      5.0,
+      3.5999999046325684,
+      3.5
+    ]
+  },
+  "environments/beach/props/kiosk.glb": {
+    "sha256": "a7f2ef7a712acead5f8effb31f67c49485656677ea188bc0bcaac0f0f0718c5e",
+    "triangles": 400,
+    "texture_edge": 256,
+    "identities": [
+      "beach:kiosk"
+    ],
+    "bounds_min": [
+      -1.600000023841858,
+      0.0,
+      -1.4500000476837158
+    ],
+    "bounds_max": [
+      1.600000023841858,
+      3.640000104904175,
+      1.4500000476837158
+    ]
+  },
+  "environments/beach/props/lighthouse.glb": {
+    "sha256": "8ee1c15888096bdd3a25ced8245221628c64aab7febae21633e84aedb28e7969",
+    "triangles": 528,
+    "texture_edge": 256,
+    "identities": [
+      "beach:lighthouse"
+    ],
+    "bounds_min": [
+      -1.3600000143051147,
+      0.0,
+      -1.3600000143051147
+    ],
+    "bounds_max": [
+      1.3600000143051147,
+      7.699999809265137,
+      1.3600000143051147
+    ]
+  },
+  "environments/beach/props/lounge_chair.glb": {
+    "sha256": "89336b1806ef8829a718cd2ba046f6f1640d8faf76fedb9ff20483e6aa8fbdbd",
+    "triangles": 212,
+    "texture_edge": 256,
+    "identities": [
+      "beach:lounge_chair"
+    ],
+    "bounds_min": [
+      -0.3700000047683716,
+      0.0,
+      -0.7302296161651611
+    ],
+    "bounds_max": [
+      0.3700000047683716,
+      1.0864344835281372,
+      0.7302296161651611
+    ]
+  },
+  "environments/beach/props/palm.glb": {
+    "sha256": "6d807a1aabaa0dc0dedf6fbd3709f194e0371d52eefe2e2305513a68198a8821",
+    "triangles": 634,
+    "texture_edge": 256,
+    "identities": [
+      "beach:palm"
+    ],
+    "bounds_min": [
+      -2.4000000953674316,
+      0.0,
+      -2.200000047683716
+    ],
+    "bounds_max": [
+      2.3999998569488525,
+      6.0,
+      2.200000047683716
+    ]
+  },
+  "environments/beach/props/palm_small.glb": {
+    "sha256": "efa270c62df189944a812f928df1a636b7131f67c3d6fca315ba6c20fc068bc1",
+    "triangles": 558,
+    "texture_edge": 256,
+    "identities": [
+      "beach:palm_small"
+    ],
+    "bounds_min": [
+      -1.75,
+      0.0,
+      -1.600000023841858
+    ],
+    "bounds_max": [
+      1.75,
+      4.199999809265137,
+      1.600000023841858
+    ]
+  },
+  "environments/beach/props/sand_patch.glb": {
+    "sha256": "4c376c9c13e1f7d7a389e607f4eb98d4885df39bd6bf171aac5284d48e99a741",
+    "triangles": 46,
+    "texture_edge": 256,
+    "identities": [
+      "beach:sand_patch"
+    ],
+    "bounds_min": [
+      -4.0,
+      0.0,
+      -3.0
+    ],
+    "bounds_max": [
+      4.0,
+      0.2199999988079071,
+      3.0
+    ]
+  },
+  "environments/beach/props/sea_arch.glb": {
+    "sha256": "5d76a1ad7b818b8e7cde361840bb32b0e49889c65c87822f87d26bb82a24455a",
+    "triangles": 216,
+    "texture_edge": 256,
+    "identities": [
+      "beach:sea_arch"
+    ],
+    "bounds_min": [
+      -6.5,
+      0.0,
+      -2.25
+    ],
+    "bounds_max": [
+      6.5,
+      5.800000190734863,
+      2.25
+    ]
+  },
+  "environments/beach/props/shoreline_foam.glb": {
+    "sha256": "8971eb04f522be9d27f936d69f4557fd76d530aed8b511f07cfb18ff7dd32f13",
+    "triangles": 248,
+    "texture_edge": 256,
+    "identities": [
+      "beach:shoreline_foam"
+    ],
+    "bounds_min": [
+      -4.0,
+      0.0,
+      -0.550000011920929
+    ],
+    "bounds_max": [
+      4.0,
+      0.03999999910593033,
+      0.550000011920929
+    ]
+  },
+  "environments/beach/props/signpost.glb": {
+    "sha256": "0b603b8a9bda1aed725dcff01f6bebed7df78393ba8b074ba501cafb7650203a",
+    "triangles": 84,
+    "texture_edge": 256,
+    "identities": [
+      "beach:signpost"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.10000000149011612
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      1.7599999904632568,
+      0.10000000149011612
+    ]
+  },
+  "environments/beach/props/stilt_house_blue.glb": {
+    "sha256": "bf43b052e210865599aeb1333ad22b7e21ea41fd60effef04e9b07e739c41ad4",
+    "triangles": 672,
+    "texture_edge": 256,
+    "identities": [
+      "beach:stilt_house_blue"
+    ],
+    "bounds_min": [
+      -2.700000047683716,
+      0.0,
+      -2.3499999046325684
+    ],
+    "bounds_max": [
+      2.700000047683716,
+      6.079999923706055,
+      2.3499999046325684
+    ]
+  },
+  "environments/beach/props/town_arch.glb": {
+    "sha256": "41e49903f406a1f42fe1d07f2ab5f6583f29b29e9ec69ccbdd309dd4a21d72f6",
+    "triangles": 176,
+    "texture_edge": 256,
+    "identities": [
+      "beach:town_arch"
+    ],
+    "bounds_min": [
+      -1.7999999523162842,
+      0.0,
+      -0.20999999344348907
+    ],
+    "bounds_max": [
+      1.7999999523162842,
+      2.799999952316284,
+      0.20999999344348907
+    ]
+  },
+  "environments/beach/props/town_house_blue.glb": {
+    "sha256": "4bc605b60f8a89a4df2b75363d876b560b2d64c8e44c8e05dc812e01f5920be6",
+    "triangles": 384,
+    "texture_edge": 256,
+    "identities": [
+      "beach:town_house_blue"
+    ],
+    "bounds_min": [
+      -2.0999999046325684,
+      0.0,
+      -1.875
+    ],
+    "bounds_max": [
+      2.0999999046325684,
+      5.449999809265137,
+      1.875
+    ]
+  },
+  "environments/beach/props/town_house_coral.glb": {
+    "sha256": "35df3ebbb1db093f2ae8b83ba82eba27dae4c6714f26b6fa13fbcec89a41ee14",
+    "triangles": 444,
+    "texture_edge": 256,
+    "identities": [
+      "beach:town_house_coral"
+    ],
+    "bounds_min": [
+      -1.899999976158142,
+      0.0,
+      -1.7999999523162842
+    ],
+    "bounds_max": [
+      1.899999976158142,
+      4.0,
+      1.7999999523162842
+    ]
+  },
+  "environments/beach/props/town_house_cream.glb": {
+    "sha256": "ea51fbb517d0ae51324b067fb9c81f2e3c8440e4014585d977ced194e748748a",
+    "triangles": 444,
+    "texture_edge": 256,
+    "identities": [
+      "beach:town_house_cream"
+    ],
+    "bounds_min": [
+      -2.299999952316284,
+      0.0,
+      -1.9500000476837158
+    ],
+    "bounds_max": [
+      2.299999952316284,
+      5.400000095367432,
+      1.9500000476837158
+    ]
+  },
+  "environments/beach/props/town_parapet.glb": {
+    "sha256": "d5450782ec0334994dd8d97740cc941f4f9edf247de4d8c342da907f6739809c",
+    "triangles": 32,
+    "texture_edge": 256,
+    "identities": [
+      "beach:town_parapet"
+    ],
+    "bounds_min": [
+      -1.2000000476837158,
+      0.0,
+      -0.125
+    ],
+    "bounds_max": [
+      1.2000000476837158,
+      0.7400000095367432,
+      0.125
+    ]
+  },
+  "environments/beach/props/town_shrub.glb": {
+    "sha256": "6b061b99100fc2e8b694616858262b484d79ed5d658d46780e88ea8b85ac3d2d",
+    "triangles": 132,
+    "texture_edge": 256,
+    "identities": [
+      "beach:town_shrub"
+    ],
+    "bounds_min": [
+      -0.6499999761581421,
+      0.0,
+      -0.574999988079071
+    ],
+    "bounds_max": [
+      0.6499999761581421,
+      0.800000011920929,
+      0.574999988079071
+    ]
+  },
+  "environments/beach/props/town_stairs.glb": {
+    "sha256": "170a47f08013e3d3c60826ddfa0ee4f3d689cb661a552d51522b569327b239dc",
+    "triangles": 308,
+    "texture_edge": 256,
+    "identities": [
+      "beach:town_stairs"
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      0.0,
+      -2.0999999046325684
+    ],
+    "bounds_max": [
+      0.699999988079071,
+      2.4000000953674316,
+      2.0999999046325684
+    ]
+  },
+  "environments/beach/props/town_terrace.glb": {
+    "sha256": "081d02b77a74b616eb514ae6714ce00d06d0b0de2e7995403217a7c7cdb9896a",
+    "triangles": 140,
+    "texture_edge": 256,
+    "identities": [
+      "beach:town_terrace"
+    ],
+    "bounds_min": [
+      -2.015000104904175,
+      0.0,
+      -1.5149999856948853
+    ],
+    "bounds_max": [
+      2.015000104904175,
+      0.8999999761581421,
+      1.5149999856948853
+    ]
+  },
+  "environments/beach/props/town_terrace_base.glb": {
+    "sha256": "f87829d74b7ae13af63e71fe00ff8f6c529ec7bc72371994702e7bfd7b9fc40c",
+    "triangles": 424,
+    "texture_edge": 256,
+    "identities": [
+      "beach:town_terrace_base"
+    ],
+    "bounds_min": [
+      -2.0,
+      0.0,
+      -1.5
+    ],
+    "bounds_max": [
+      2.0,
+      2.2200000286102295,
+      1.5
+    ]
+  },
+  "environments/beach/props/umbrella.glb": {
+    "sha256": "7943f234867b8a539f5123972e022901e9322c9a7daab54c73fd9f5efb5cf94e",
+    "triangles": 308,
+    "texture_edge": 256,
+    "identities": [
+      "beach:umbrella"
+    ],
+    "bounds_min": [
+      -1.2000000476837158,
+      0.0,
+      -1.2000000476837158
+    ],
+    "bounds_max": [
+      1.2000000476837158,
+      2.549999952316284,
+      1.2000000476837158
+    ]
+  },
+  "environments/frutiger_aero/props/accent_panel.glb": {
+    "sha256": "3587856a886ef16af108dc17dcf97099500202180e18c188e5b9ca90d9d03b68",
+    "triangles": 36,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:accent_panel"
+    ],
+    "bounds_min": [
+      -0.550000011920929,
+      0.0,
+      -0.03500000014901161
+    ],
+    "bounds_max": [
+      0.550000011920929,
+      2.200000047683716,
+      0.03500000014901161
+    ]
+  },
+  "environments/frutiger_aero/props/atrium_dome.glb": {
+    "sha256": "f606af57dc7f8880968e3138b878375ce576e4ef51f6a37e976a6753d8ca5486",
+    "triangles": 1212,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:atrium_dome"
+    ],
+    "bounds_min": [
+      -6.0,
+      0.0,
+      -6.0
+    ],
+    "bounds_max": [
+      6.0,
+      2.4474658966064453,
+      6.0
+    ]
+  },
+  "environments/frutiger_aero/props/banner_atrium.glb": {
+    "sha256": "c73163cc32583929d418ff0b7ee5211e7b38a3c56ffa3545aec99903b28e48c1",
+    "triangles": 36,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:banner_atrium"
+    ],
+    "bounds_min": [
+      -0.5999999642372131,
+      0.0,
+      -0.029999999329447746
+    ],
+    "bounds_max": [
+      0.5999999642372131,
+      2.3999998569488525,
+      0.029999999329447746
+    ]
+  },
+  "environments/frutiger_aero/props/banner_corridor.glb": {
+    "sha256": "c81f3444f9f89e5cf2d47e8db4979ffdcefdedb03077fc077d260b9144817165",
+    "triangles": 36,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:banner_corridor"
+    ],
+    "bounds_min": [
+      -0.5999999642372131,
+      0.0,
+      -0.029999999329447746
+    ],
+    "bounds_max": [
+      0.5999999642372131,
+      2.3999998569488525,
+      0.029999999329447746
+    ]
+  },
+  "environments/frutiger_aero/props/banner_reception.glb": {
+    "sha256": "7e64880ac8576e11772ded8042b37d082249eb62399e80133021e0b4066d3e97",
+    "triangles": 36,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:banner_reception"
+    ],
+    "bounds_min": [
+      -0.5999999642372131,
+      0.0,
+      -0.029999999329447746
+    ],
+    "bounds_max": [
+      0.5999999642372131,
+      2.3999998569488525,
+      0.029999999329447746
+    ]
+  },
+  "environments/frutiger_aero/props/bubble_sculpture.glb": {
+    "sha256": "1b98726f19bc4c24e2c685c3455b211880f187c8d6a48623327c1db8db09ed99",
+    "triangles": 324,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:bubble_sculpture"
+    ],
+    "bounds_min": [
+      -0.6756340265274048,
+      0.0,
+      -0.6181864738464355
+    ],
+    "bounds_max": [
+      0.6756340265274048,
+      2.700000047683716,
+      0.6181864738464355
+    ]
+  },
+  "environments/frutiger_aero/props/ceiling_ring.glb": {
+    "sha256": "8a05b6d13d88c3b441d4aa8f7583f30a7c4a925e7bd8ef5f885d912dcb04c482",
+    "triangles": 444,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:ceiling_ring"
+    ],
+    "bounds_min": [
+      -0.6499999761581421,
+      0.0,
+      -0.6499999761581421
+    ],
+    "bounds_max": [
+      0.6499999761581421,
+      0.12999999523162842,
+      0.6499999761581421
+    ]
+  },
+  "environments/frutiger_aero/props/city_backdrop.glb": {
+    "sha256": "79199e360405dad8e7a7b13c10dc51988a7dffc263f405737181d94140cb2395",
+    "triangles": 576,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:city_backdrop"
+    ],
+    "bounds_min": [
+      -11.925000190734863,
+      0.0,
+      -1.4205000400543213
+    ],
+    "bounds_max": [
+      11.925000190734863,
+      8.59999942779541,
+      1.4205000400543213
+    ]
+  },
+  "environments/frutiger_aero/props/display_kiosk.glb": {
+    "sha256": "7c97886ad6aa725dc215dcbea8a4828736cbf5e0b711a09e5b9fd1c7572520a5",
+    "triangles": 148,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:display_kiosk"
+    ],
+    "bounds_min": [
+      -0.5,
+      0.0,
+      -0.2985000014305115
+    ],
+    "bounds_max": [
+      0.5,
+      2.3999998569488525,
+      0.2985000014305115
+    ]
+  },
+  "environments/frutiger_aero/props/double_doors.glb": {
+    "sha256": "f041773df2c4d8fcd53a366355c76535ffeadb4280136dfcd894c1ea5ca7e19f",
+    "triangles": 156,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:double_doors"
+    ],
+    "bounds_min": [
+      -1.399999976158142,
+      0.0,
+      -0.17000000178813934
+    ],
+    "bounds_max": [
+      1.399999976158142,
+      3.200000047683716,
+      0.17000000178813934
+    ]
+  },
+  "environments/frutiger_aero/props/double_doors_open.glb": {
+    "sha256": "330096c572a65376c407e0a3dca329335c8bbbe0bed7db0232fe3154548083ca",
+    "triangles": 156,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:double_doors_open"
+    ],
+    "bounds_min": [
+      -1.399999976158142,
+      0.0,
+      -0.672911524772644
+    ],
+    "bounds_max": [
+      1.399999976158142,
+      3.200000047683716,
+      0.6729114651679993
+    ]
+  },
+  "environments/frutiger_aero/props/fountain_basin.glb": {
+    "sha256": "539a3da4f1a1025140396540e040abdf2f8ad900bb3bd78941176e70d1ab92d9",
+    "triangles": 676,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:fountain_basin"
+    ],
+    "bounds_min": [
+      -1.600000023841858,
+      0.0,
+      -1.600000023841858
+    ],
+    "bounds_max": [
+      1.600000023841858,
+      0.46000000834465027,
+      1.600000023841858
+    ]
+  },
+  "environments/frutiger_aero/props/glass_canopy.glb": {
+    "sha256": "a331d9230cdf877da306825d563a706ce42dcaea9b22448be7101a71cf011801",
+    "triangles": 480,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:glass_canopy"
+    ],
+    "bounds_min": [
+      -1.600000023841858,
+      0.0,
+      -1.7999999523162842
+    ],
+    "bounds_max": [
+      1.600000023841858,
+      3.4000000953674316,
+      1.7999999523162842
+    ]
+  },
+  "environments/frutiger_aero/props/glass_partition.glb": {
+    "sha256": "d4152cb58f399a1df348fe5486753c535b48b17f9336447344f115b9bb43dbf5",
+    "triangles": 240,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:glass_partition"
+    ],
+    "bounds_min": [
+      -1.7475000619888306,
+      0.0,
+      -0.3474999964237213
+    ],
+    "bounds_max": [
+      1.7475000619888306,
+      2.5,
+      0.3474999964237213
+    ]
+  },
+  "environments/frutiger_aero/props/green_backdrop.glb": {
+    "sha256": "1e804e5ef403aa8eab9014df7f47f27d19471f1fa1e83b3b14cd1441d3db8f91",
+    "triangles": 70,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:green_backdrop"
+    ],
+    "bounds_min": [
+      -12.0,
+      0.0,
+      -2.5
+    ],
+    "bounds_max": [
+      12.0,
+      1.2999999523162842,
+      2.5
+    ]
+  },
+  "environments/frutiger_aero/props/light_pod.glb": {
+    "sha256": "18de406555e12b0585d6151d0c3f774e41cfdd07c8a064b3e355d43e7db4c307",
+    "triangles": 316,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:light_pod"
+    ],
+    "bounds_min": [
+      -1.1999999284744263,
+      0.0,
+      -1.1999999284744263
+    ],
+    "bounds_max": [
+      1.1999999284744263,
+      3.5999999046325684,
+      1.1999999284744263
+    ]
+  },
+  "environments/frutiger_aero/props/lime_arch.glb": {
+    "sha256": "31c10b2ff03dcd149326b342520a3f4f3dc419b840883208fdf90d5e718996c4",
+    "triangles": 192,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:lime_arch"
+    ],
+    "bounds_min": [
+      -1.7999999523162842,
+      0.0,
+      -0.23149999976158142
+    ],
+    "bounds_max": [
+      1.7999999523162842,
+      3.4000000953674316,
+      0.23149999976158142
+    ]
+  },
+  "environments/frutiger_aero/props/portal_spandrel.glb": {
+    "sha256": "0b6b7202dea46c09c42ce58319e1b88c9d6e5c77a7c2fb72e94a4f293ffad9ff",
+    "triangles": 76,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:portal_spandrel"
+    ],
+    "bounds_min": [
+      -1.7999999523162842,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.7999999523162842,
+      2.366000175476074,
+      0.11999999731779099
+    ]
+  },
+  "environments/frutiger_aero/props/reception_counter.glb": {
+    "sha256": "e92d2a5132dda86ed8e36914d9b05f92e8473d0ed9c81004cf60000736b85da0",
+    "triangles": 560,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:reception_counter"
+    ],
+    "bounds_min": [
+      -2.25,
+      0.0,
+      -0.7387855052947998
+    ],
+    "bounds_max": [
+      2.25,
+      1.3799999952316284,
+      0.7387855052947998
+    ]
+  },
+  "environments/frutiger_aero/props/reception_soffit.glb": {
+    "sha256": "623a7ed4a55a78c6f3dabfb2866421d534c46032112e2227e59abc3fcdd7f6da",
+    "triangles": 572,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:reception_soffit"
+    ],
+    "bounds_min": [
+      -2.5999999046325684,
+      0.0,
+      -1.0499999523162842
+    ],
+    "bounds_max": [
+      2.5999999046325684,
+      0.3400000035762787,
+      1.0499999523162842
+    ]
+  },
+  "environments/frutiger_aero/props/seating_pod.glb": {
+    "sha256": "8518ea4fd6916941cd7e80cbe6460027bcc3a04893792c77bf8b8b3e8b81dc0e",
+    "triangles": 472,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:seating_pod"
+    ],
+    "bounds_min": [
+      -1.1999999284744263,
+      0.0,
+      -0.550000011920929
+    ],
+    "bounds_max": [
+      1.1999999284744263,
+      1.0399999618530273,
+      0.550000011920929
+    ]
+  },
+  "environments/frutiger_aero/props/tree_planter.glb": {
+    "sha256": "3f01a68515dbbf19fcc18ab688f6a26fb2fd34ced80dc9f0816d64f7f4d139b6",
+    "triangles": 1244,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:tree_planter"
+    ],
+    "bounds_min": [
+      -0.7930834889411926,
+      0.0,
+      -0.8142364621162415
+    ],
+    "bounds_max": [
+      0.7930834889411926,
+      3.0088698863983154,
+      0.8142364621162415
+    ]
+  },
+  "environments/frutiger_aero/props/wall_bay.glb": {
+    "sha256": "78bc2b7363c6031853cdb84c57bda4c4f2d330ce787747cb1df8d6a4e91acdf9",
+    "triangles": 312,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:wall_bay"
+    ],
+    "bounds_min": [
+      -1.7999999523162842,
+      0.0,
+      -0.27799999713897705
+    ],
+    "bounds_max": [
+      1.7999999523162842,
+      3.4000000953674316,
+      0.27799999713897705
+    ]
+  },
+  "environments/frutiger_aero/props/wall_bay_tall.glb": {
+    "sha256": "118809eda4d93f8e1fa1c1c97f74339c08dee03492c6b7af6855d68b4d5b545e",
+    "triangles": 312,
+    "texture_edge": 256,
+    "identities": [
+      "frutiger_aero:wall_bay_tall"
+    ],
+    "bounds_min": [
+      -1.7999999523162842,
+      0.0,
+      -0.27799999713897705
+    ],
+    "bounds_max": [
+      1.7999999523162842,
+      4.199999809265137,
+      0.27799999713897705
+    ]
+  },
+  "environments/home/props/armchair.glb": {
+    "sha256": "78c4235808b6c7284921a098bad1afdd628760a9c0a57d9e26fe3072d9e6e47e",
+    "triangles": 492,
+    "texture_edge": 256,
+    "identities": [
+      "home:armchair"
+    ],
+    "bounds_min": [
+      -0.44999998807907104,
+      0.0,
+      -0.44999998807907104
+    ],
+    "bounds_max": [
+      0.44999998807907104,
+      0.8999999761581421,
+      0.4749999940395355
+    ]
+  },
+  "environments/home/props/ball_light.glb": {
+    "sha256": "c182f73af6431910decfddd5c0c704e1385be0c37655f4353e7355f2721a421a",
+    "triangles": 720,
+    "texture_edge": 256,
+    "identities": [
+      "home:ball_light"
+    ],
+    "bounds_min": [
+      -0.1899999976158142,
+      0.0005164914764463902,
+      -0.1899999976158142
+    ],
+    "bounds_max": [
+      0.1899999976158142,
+      0.800000011920929,
+      0.1899999976158142
+    ]
+  },
+  "environments/home/props/book_stack.glb": {
+    "sha256": "9c25aede1be4fd06ac76af82ee804afd379d06deedb2d563b15400b07999fdec",
+    "triangles": 436,
+    "texture_edge": 256,
+    "identities": [
+      "home:book_stack"
+    ],
+    "bounds_min": [
+      -0.125,
+      0.0020000000949949026,
+      -0.09000000357627869
+    ],
+    "bounds_max": [
+      0.125,
+      0.05700000002980232,
+      0.09000000357627869
+    ]
+  },
+  "environments/home/props/bookshelf.glb": {
+    "sha256": "a50fbd8df25ff353d40d8ff427d297a373e5dbd75ff4395f348e4caaab307bff",
+    "triangles": 676,
+    "texture_edge": 256,
+    "identities": [
+      "home:bookshelf"
+    ],
+    "bounds_min": [
+      -0.5,
+      0.0,
+      -0.17499999701976776
+    ],
+    "bounds_max": [
+      0.5,
+      1.7999999523162842,
+      0.17499999701976776
+    ]
+  },
+  "environments/home/props/bowl.glb": {
+    "sha256": "eadbfbd80797d000170b8450a0b47ea69562680a83599da1b24f4b6036877dba",
+    "triangles": 1004,
+    "texture_edge": 64,
+    "identities": [
+      "home:bowl"
+    ],
+    "bounds_min": [
+      -0.07500000298023224,
+      0.0,
+      -0.07500000298023224
+    ],
+    "bounds_max": [
+      0.07500000298023224,
+      0.06499999761581421,
+      0.07500000298023224
+    ]
+  },
+  "environments/home/props/cabinet_base.glb": {
+    "sha256": "f305c13beb81efb6f03ecb930b5967d370cf6367fbcf77c3e80ba198e36048ff",
+    "triangles": 440,
+    "texture_edge": 256,
+    "identities": [
+      "home:cabinet_base"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.8999999761581421,
+      0.30000001192092896
+    ]
+  },
+  "environments/home/props/cabinet_strip.glb": {
+    "sha256": "4fc96e8f28be2579ec753d3b807205ece154b4c26dcb4138fb06fcb35cca13e0",
+    "triangles": 136,
+    "texture_edge": 256,
+    "identities": [
+      "home:cabinet_strip"
+    ],
+    "bounds_min": [
+      -0.2750000059604645,
+      0.0,
+      -0.03500000014901161
+    ],
+    "bounds_max": [
+      0.2750000059604645,
+      0.026000000536441803,
+      0.03500000014901161
+    ]
+  },
+  "environments/home/props/cabinet_wall.glb": {
+    "sha256": "38a1ac8bb9f50914ab81932eba72ed2a6a91d394400225c0be01d7ec1030f438",
+    "triangles": 272,
+    "texture_edge": 256,
+    "identities": [
+      "home:cabinet_wall"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.16300000250339508
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.7200000286102295,
+      0.16500000655651093
+    ]
+  },
+  "environments/home/props/closet_folding_door.glb": {
+    "sha256": "8e713092feff04f385606ad2b9e69bfdf07638ad5d3e44981cbb72894227e9d9",
+    "triangles": 792,
+    "texture_edge": 256,
+    "identities": [
+      "home:closet_folding_door"
+    ],
+    "bounds_min": [
+      -0.9800000190734863,
+      0.0,
+      -0.1120000034570694
+    ],
+    "bounds_max": [
+      0.9800000190734863,
+      2.180000066757202,
+      0.1120000034570694
+    ]
+  },
+  "environments/home/props/coffee_table.glb": {
+    "sha256": "adcf8153539c21e47ed4a7f2e903edd11a7c3737ad1da1d123a10acc373ffa4d",
+    "triangles": 624,
+    "texture_edge": 256,
+    "identities": [
+      "home:coffee_table"
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      0.0,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.699999988079071,
+      0.46000000834465027,
+      0.4000000059604645
+    ]
+  },
+  "environments/home/props/crt_tv.glb": {
+    "sha256": "09c74fde015b00f03a069b78e2e56ba29b93823fee83d7e69debe5bbf8d8f508",
+    "triangles": 1166,
+    "texture_edge": 256,
+    "identities": [
+      "home:crt_tv"
+    ],
+    "bounds_min": [
+      -0.2750000059604645,
+      0.0,
+      -0.23000000417232513
+    ],
+    "bounds_max": [
+      0.2750000059604645,
+      0.47999998927116394,
+      0.23000000417232513
+    ]
+  },
+  "environments/home/props/cushion.glb": {
+    "sha256": "004a648b737f5d3e6072ffa7922855dfb3b78ad1b42ed3a623ba0d00e4adb22e",
+    "triangles": 124,
+    "texture_edge": 256,
+    "identities": [
+      "home:cushion"
+    ],
+    "bounds_min": [
+      -0.16500000655651093,
+      0.0,
+      -0.057500001043081284
+    ],
+    "bounds_max": [
+      0.16500000655651093,
+      0.3199999928474426,
+      0.057500001043081284
+    ]
+  },
+  "environments/home/props/dining_chair.glb": {
+    "sha256": "611cb5bbf9f8ec1c6be97ea0ff39026f205605afe2d33f4ad339c0df90cb59ae",
+    "triangles": 476,
+    "texture_edge": 256,
+    "identities": [
+      "home:dining_chair"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.24500000476837158
+    ],
+    "bounds_max": [
+      0.25,
+      0.9020000100135803,
+      0.24500000476837158
+    ]
+  },
+  "environments/home/props/dining_chair_refined.glb": {
+    "sha256": "bdc61ce076c7a529a3e0fdd157ec56d7d1edd0fca118f19f765897f13654e3f7",
+    "triangles": 460,
+    "texture_edge": 256,
+    "identities": [
+      "home:dining_chair_refined"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.24500000476837158
+    ],
+    "bounds_max": [
+      0.25,
+      0.9020000100135803,
+      0.24500000476837158
+    ]
+  },
+  "environments/home/props/dining_table.glb": {
+    "sha256": "566366787aff68227228fcfc734bfce4d5d2392dac31516ad6fc1d1d2511cab7",
+    "triangles": 668,
+    "texture_edge": 256,
+    "identities": [
+      "home:dining_table"
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      0.0,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.699999988079071,
+      0.75,
+      0.4000000059604645
+    ]
+  },
+  "environments/home/props/door_casing.glb": {
+    "sha256": "8548792548a33f85c3d5acaf12f3cb47ee6c26909cf5b9c5755787a7b864c57b",
+    "triangles": 144,
+    "texture_edge": 256,
+    "identities": [
+      "home:door_casing"
+    ],
+    "bounds_min": [
+      -0.7900000214576721,
+      0.0,
+      -0.029999999329447746
+    ],
+    "bounds_max": [
+      0.7900000214576721,
+      2.180000066757202,
+      0.024000000208616257
+    ]
+  },
+  "environments/home/props/floor_lamp.glb": {
+    "sha256": "30a89683ce98acb4fe3ffd2584b508c7fdb1ab262485dfda80378d050c6267f9",
+    "triangles": 800,
+    "texture_edge": 256,
+    "identities": [
+      "home:floor_lamp"
+    ],
+    "bounds_min": [
+      -0.17499999701976776,
+      0.0,
+      -0.17499999701976776
+    ],
+    "bounds_max": [
+      0.17499999701976776,
+      1.5,
+      0.17499999701976776
+    ]
+  },
+  "environments/home/props/fork.glb": {
+    "sha256": "51acdb95687454f0d38fe1e7fc4579c50e2dca33d42c07842e9ecfdde15746db",
+    "triangles": 396,
+    "texture_edge": 64,
+    "identities": [
+      "home:fork"
+    ],
+    "bounds_min": [
+      -0.013000000268220901,
+      0.0,
+      -0.09799999743700027
+    ],
+    "bounds_max": [
+      0.013000000268220901,
+      0.012000000104308128,
+      0.09799999743700027
+    ]
+  },
+  "environments/home/props/kettle.glb": {
+    "sha256": "3b39271c64bd4c1feb7ef70c13bc37e6fcabb962cdc4e47e10e142085145acf0",
+    "triangles": 548,
+    "texture_edge": 256,
+    "identities": [
+      "home:kettle"
+    ],
+    "bounds_min": [
+      -0.1054999977350235,
+      0.0,
+      -0.08100000023841858
+    ],
+    "bounds_max": [
+      0.11699999868869781,
+      0.20100000500679016,
+      0.08100000023841858
+    ]
+  },
+  "environments/home/props/knife.glb": {
+    "sha256": "85ca17da8bceb28b6cce406ebf66305b956c61e527bc8517bfe6ba8647613013",
+    "triangles": 256,
+    "texture_edge": 64,
+    "identities": [
+      "home:knife"
+    ],
+    "bounds_min": [
+      -0.008999999612569809,
+      0.0,
+      -0.10750000178813934
+    ],
+    "bounds_max": [
+      0.012000000104308128,
+      0.01600000075995922,
+      0.10750000178813934
+    ]
+  },
+  "environments/home/props/landscape_frame.glb": {
+    "sha256": "327706a82b5118e1eb0f0eaf6b72d69c0613bd8b1662f0d77480cadc69ac5765",
+    "triangles": 426,
+    "texture_edge": 256,
+    "identities": [
+      "home:landscape_frame"
+    ],
+    "bounds_min": [
+      -0.22499999403953552,
+      0.0,
+      -0.012000000104308128
+    ],
+    "bounds_max": [
+      0.22499999403953552,
+      0.5,
+      0.017999999225139618
+    ]
+  },
+  "environments/home/props/mug.glb": {
+    "sha256": "795f05a6dad5594e64f7d0202c6f56f2da565dfdad1c4f6f6ab4fb5d6feea280",
+    "triangles": 928,
+    "texture_edge": 256,
+    "identities": [
+      "home:mug"
+    ],
+    "bounds_min": [
+      -0.04899999871850014,
+      0.0,
+      -0.039000000804662704
+    ],
+    "bounds_max": [
+      0.06800000369548798,
+      0.09000000357627869,
+      0.039000000804662704
+    ]
+  },
+  "environments/home/props/outlet.glb": {
+    "sha256": "c31f2871360e0e5ecc3fd1a00c8b79cf86500f7eb0e4afa434d248811f635078",
+    "triangles": 380,
+    "texture_edge": 256,
+    "identities": [
+      "home:outlet"
+    ],
+    "bounds_min": [
+      -0.042500000447034836,
+      0.0,
+      -0.004999999888241291
+    ],
+    "bounds_max": [
+      0.042500000447034836,
+      0.11999999731779099,
+      0.013000000268220901
+    ]
+  },
+  "environments/home/props/plant_table.glb": {
+    "sha256": "513c99a2c849ebe3369c72e53c64ba10ceb5ccd7338b532ea9fffc12b1183671",
+    "triangles": 996,
+    "texture_edge": 64,
+    "identities": [
+      "home:plant_table"
+    ],
+    "bounds_min": [
+      -0.06499999761581421,
+      0.0,
+      -0.06499999761581421
+    ],
+    "bounds_max": [
+      0.06499999761581421,
+      0.2804843485355377,
+      0.06499999761581421
+    ]
+  },
+  "environments/home/props/plate.glb": {
+    "sha256": "08ddfef59212f0e99a6274abb5214f09cf28bc98afab5e9356d355ec9f4839c0",
+    "triangles": 908,
+    "texture_edge": 64,
+    "identities": [
+      "home:plate"
+    ],
+    "bounds_min": [
+      -0.10999999940395355,
+      0.0,
+      -0.10999999940395355
+    ],
+    "bounds_max": [
+      0.10999999940395355,
+      0.02199999988079071,
+      0.10999999940395355
+    ]
+  },
+  "environments/home/props/rug.glb": {
+    "sha256": "2030ea10db69b1a36fae191d9912e2e4d80bb96ed497f2757c61d74e6d4f2a29",
+    "triangles": 296,
+    "texture_edge": 256,
+    "identities": [
+      "home:rug"
+    ],
+    "bounds_min": [
+      -1.0,
+      0.0,
+      -0.699999988079071
+    ],
+    "bounds_max": [
+      1.0,
+      0.019999999552965164,
+      0.699999988079071
+    ]
+  },
+  "environments/home/props/sink.glb": {
+    "sha256": "3a24275493e21072608c0bb4e31fdb0ae9ff5e9fc703ff8b2c57cf1830a62a25",
+    "triangles": 752,
+    "texture_edge": 256,
+    "identities": [
+      "home:sink"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      1.0889999866485596,
+      0.30000001192092896
+    ]
+  },
+  "environments/home/props/sofa.glb": {
+    "sha256": "55ea4630a3092d334942ede259470bbb98c521bab309ae04998cf9a6d78b0fae",
+    "triangles": 748,
+    "texture_edge": 256,
+    "identities": [
+      "home:sofa"
+    ],
+    "bounds_min": [
+      -1.0,
+      0.0,
+      -0.44999998807907104
+    ],
+    "bounds_max": [
+      1.0,
+      0.8999999761581421,
+      0.4749999940395355
+    ]
+  },
+  "environments/home/props/spoon.glb": {
+    "sha256": "aa901dd2ad4fcf1c3cb66d74b78e311153cece303dd487e3cb10741363c283ac",
+    "triangles": 676,
+    "texture_edge": 64,
+    "identities": [
+      "home:spoon"
+    ],
+    "bounds_min": [
+      -0.017999999225139618,
+      0.0,
+      -0.0925000011920929
+    ],
+    "bounds_max": [
+      0.017999999225139618,
+      0.019999999552965164,
+      0.0925000011920929
+    ]
+  },
+  "environments/home/props/stove.glb": {
+    "sha256": "5c619632629de82c1ff2ea5e8d43a841712df350ebe991c18a43c18f8ceba00a",
+    "triangles": 784,
+    "texture_edge": 256,
+    "identities": [
+      "home:stove"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.32100000977516174
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.9160000085830688,
+      0.3199999928474426
+    ]
+  },
+  "environments/home/props/toaster.glb": {
+    "sha256": "6a3a7b0b05e302897f59325ea8f5f29eb166dbb73fa71ab70fee20da6883f0d9",
+    "triangles": 216,
+    "texture_edge": 256,
+    "identities": [
+      "home:toaster"
+    ],
+    "bounds_min": [
+      -0.125,
+      0.0,
+      -0.07999999821186066
+    ],
+    "bounds_max": [
+      0.12700000405311584,
+      0.16099999845027924,
+      0.08799999952316284
+    ]
+  },
+  "environments/home/props/tv_console.glb": {
+    "sha256": "8ffbc1c166444df06fb381b4a827490db9d66750f2a94f103c358dc9c0376ff8",
+    "triangles": 732,
+    "texture_edge": 256,
+    "identities": [
+      "home:tv_console"
+    ],
+    "bounds_min": [
+      -0.7749999761581421,
+      0.0,
+      -0.22499999403953552
+    ],
+    "bounds_max": [
+      0.7749999761581421,
+      0.550000011920929,
+      0.23800000548362732
+    ]
+  },
+  "environments/home/props/wall_switch.glb": {
+    "sha256": "7dfa1dd0bc2ad4b1aec6684749a1c03026031e140e019e35bc70e9a75a0994b6",
+    "triangles": 304,
+    "texture_edge": 128,
+    "identities": [
+      "home:wall_switch"
+    ],
+    "bounds_min": [
+      -0.0430000014603138,
+      0.0,
+      -0.0
+    ],
+    "bounds_max": [
+      0.0430000014603138,
+      0.11999999731779099,
+      0.03252364695072174
+    ]
+  },
   "environments/office/props/cabinet.glb": {
     "sha256": "e59ebdafe232631397af72070f4a8ae13374e05717bd2aae22b1866ea9d055d0",
     "triangles": 324,
@@ -1755,6 +3393,1554 @@
       0.17499999701976776,
       1.100000023841858,
       0.17500001192092896
+    ]
+  },
+  "environments/outdoor/props/boundary_ridge.glb": {
+    "sha256": "bfd808f2f09969d0fc23d29ea481fe3e1b88440353897049ffda4fdb3b6c83c8",
+    "triangles": 86,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:boundary_ridge"
+    ],
+    "bounds_min": [
+      -10.0,
+      0.0,
+      -2.0
+    ],
+    "bounds_max": [
+      10.0,
+      10.0,
+      2.0
+    ]
+  },
+  "environments/outdoor/props/bush_low.glb": {
+    "sha256": "234df30c08665c96cb439cb4d0ba25a7c072cb70fa419c5ecffe322eb0b1a739",
+    "triangles": 324,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:bush_low"
+    ],
+    "bounds_min": [
+      -0.8500000238418579,
+      0.0,
+      -0.7250000238418579
+    ],
+    "bounds_max": [
+      0.8500000238418579,
+      0.6499999761581421,
+      0.7250000238418579
+    ]
+  },
+  "environments/outdoor/props/bush_round.glb": {
+    "sha256": "13e3e7b22675a34ee0664e560959b256adee3e757627309198df89d9a2519185",
+    "triangles": 324,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:bush_round"
+    ],
+    "bounds_min": [
+      -0.7749999761581421,
+      0.0,
+      -0.675000011920929
+    ],
+    "bounds_max": [
+      0.7749999761581421,
+      1.0499999523162842,
+      0.675000011920929
+    ]
+  },
+  "environments/outdoor/props/campfire_static.glb": {
+    "sha256": "86c629e1fa3e964965d83dc5e4c283b6c203169afe21b3fe1c043dfb581e3665",
+    "triangles": 954,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:campfire_static"
+    ],
+    "bounds_min": [
+      -0.6499999761581421,
+      0.0,
+      -0.6499999761581421
+    ],
+    "bounds_max": [
+      0.6499999761581421,
+      1.25,
+      0.6499999761581421
+    ]
+  },
+  "environments/outdoor/props/collision_peg.glb": {
+    "sha256": "3c64cf6830ae01b49d6c9b57a911193c73913ecbba022b9aa4f2555d31f60b99",
+    "triangles": 12,
+    "texture_edge": 32,
+    "identities": [
+      "outdoor:collision_peg"
+    ],
+    "bounds_min": [
+      -0.029999999329447746,
+      0.0,
+      -0.029999999329447746
+    ],
+    "bounds_max": [
+      0.029999999329447746,
+      0.05999999865889549,
+      0.029999999329447746
+    ]
+  },
+  "environments/outdoor/props/concrete_step.glb": {
+    "sha256": "d07fd267f9866caccec934e500ac64b007c3d7dab48893fd97d79becdb1cb9de",
+    "triangles": 136,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:concrete_step"
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      0.0,
+      -0.3499999940395355
+    ],
+    "bounds_max": [
+      0.699999988079071,
+      0.18000000715255737,
+      0.3499999940395355
+    ]
+  },
+  "environments/outdoor/props/fence_post.glb": {
+    "sha256": "7f2386920dba3705b428b9c9b5df110b8041df81452e3a492fbd1adc38de4b53",
+    "triangles": 88,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:fence_post"
+    ],
+    "bounds_min": [
+      -0.05999999865889549,
+      0.0,
+      -0.05999999865889549
+    ],
+    "bounds_max": [
+      0.05999999865889549,
+      1.0499999523162842,
+      0.05999999865889549
+    ]
+  },
+  "environments/outdoor/props/fence_two_rail.glb": {
+    "sha256": "1a4d15a75bcf9fd77b0b269f657cfd2f418b24ff18c2dc484ea6afca75500ce4",
+    "triangles": 432,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:fence_two_rail"
+    ],
+    "bounds_min": [
+      -1.0,
+      0.0,
+      -0.07999999821186066
+    ],
+    "bounds_max": [
+      1.0,
+      1.0499999523162842,
+      0.07999999821186066
+    ]
+  },
+  "environments/outdoor/props/grass_patch_large.glb": {
+    "sha256": "ee1a0f9061245b06255b07ecbbb615c39c02c8a2e82eac2a3c428dd18ff10f1c",
+    "triangles": 48,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:grass_patch_large"
+    ],
+    "bounds_min": [
+      -0.4749999940395355,
+      0.0,
+      -0.4749999940395355
+    ],
+    "bounds_max": [
+      0.4749999940395355,
+      0.6200000047683716,
+      0.4749999940395355
+    ]
+  },
+  "environments/outdoor/props/grass_patch_small.glb": {
+    "sha256": "e5b5b651736e80cbda7d80d879f0ab4c1a0bb8fb306605ed1b0c61302a386b20",
+    "triangles": 36,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:grass_patch_small"
+    ],
+    "bounds_min": [
+      -0.2750000059604645,
+      0.0,
+      -0.2750000059604645
+    ],
+    "bounds_max": [
+      0.2750000059604645,
+      0.30000001192092896,
+      0.2750000059604645
+    ]
+  },
+  "environments/outdoor/props/house_01_corner_trim.glb": {
+    "sha256": "541b3c5ab5d7572f66a4acca723b9a8cdcc4c1b2a9845fd0ffe8b88f21e6dc86",
+    "triangles": 88,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_01_corner_trim"
+    ],
+    "bounds_min": [
+      -0.09000000357627869,
+      0.0,
+      -0.09000000357627869
+    ],
+    "bounds_max": [
+      0.09000000357627869,
+      2.700000047683716,
+      0.09000000357627869
+    ]
+  },
+  "environments/outdoor/props/house_01_gable.glb": {
+    "sha256": "7320e9cdb82ea0028d04bae0333137a5402875c0b9f33597d2ad9ebd522ee201",
+    "triangles": 28,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_01_gable"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      1.0199999809265137,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_01_porch_deck.glb": {
+    "sha256": "cf2cc2a29f321f06e12709c690f2893aa51046387c28d8b5e8c86a423f8b0d06",
+    "triangles": 572,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_01_porch_deck"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.75
+    ],
+    "bounds_max": [
+      1.5,
+      0.23999999463558197,
+      0.75
+    ]
+  },
+  "environments/outdoor/props/house_01_porch_post.glb": {
+    "sha256": "d3c2078fb42aa5e892a7521b90230328c421898e4fb67fe5072095f5c32c7c36",
+    "triangles": 176,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_01_porch_post"
+    ],
+    "bounds_min": [
+      -0.07000000029802322,
+      0.0,
+      -0.07000000029802322
+    ],
+    "bounds_max": [
+      0.07000000029802322,
+      2.299999952316284,
+      0.07000000029802322
+    ]
+  },
+  "environments/outdoor/props/house_01_roof_ridge.glb": {
+    "sha256": "2b200301c9966e3681869c1b41550941cedb51be533a545d0223446fe1e76d4b",
+    "triangles": 152,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_01_roof_ridge"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      0.2199999988079071,
+      0.30000001192092896
+    ]
+  },
+  "environments/outdoor/props/house_01_roof_slope.glb": {
+    "sha256": "96be3f354285400853f63f870f1d2e38bba5aca1eb9f43aff717ad034f5aaa71",
+    "triangles": 152,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_01_roof_slope"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -1.2999999523162842
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      1.75,
+      1.2999999523162842
+    ]
+  },
+  "environments/outdoor/props/house_01_wall_doorway.glb": {
+    "sha256": "6b743003192cfb3dac684f34db645b339d5d3262b9f07679509cc91510692a68",
+    "triangles": 940,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_01_wall_doorway"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.20000000298023224
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.20000000298023224
+    ]
+  },
+  "environments/outdoor/props/house_01_wall_solid.glb": {
+    "sha256": "05045eafc303ec15edd47f91a3357eaecbc6bc3d7a4f0648ecc00f83fb3f4ffe",
+    "triangles": 432,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_01_wall_solid"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_01_wall_window.glb": {
+    "sha256": "fd89df7cbfa9ff1e09ffaf35aa077825faa0aa604e0504781d971627baf6699a",
+    "triangles": 956,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_01_wall_window"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_02_corner_trim.glb": {
+    "sha256": "6fb1d14134e5d684cadc96c4a9d708b93adb95680cd99a63eb6339b764937831",
+    "triangles": 132,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_02_corner_trim"
+    ],
+    "bounds_min": [
+      -0.09000000357627869,
+      0.0,
+      -0.09000000357627869
+    ],
+    "bounds_max": [
+      0.09000000357627869,
+      2.700000047683716,
+      0.09000000357627869
+    ]
+  },
+  "environments/outdoor/props/house_02_gable.glb": {
+    "sha256": "23239b85faa2b686b44dcd80e4406452cb4dfb471f793dd13a9274d568b98eee",
+    "triangles": 28,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_02_gable"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      1.0199999809265137,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_02_porch_deck.glb": {
+    "sha256": "941002657a9eecc33fe2c695f36b40651777d673b59a99759cd028a9fdf55824",
+    "triangles": 572,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_02_porch_deck"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.75
+    ],
+    "bounds_max": [
+      1.5,
+      0.23999999463558197,
+      0.75
+    ]
+  },
+  "environments/outdoor/props/house_02_porch_post.glb": {
+    "sha256": "fb8b3bf2ea0105c7504532c9dbf9a4134c8e53359e368a2f137057c327e5b802",
+    "triangles": 220,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_02_porch_post"
+    ],
+    "bounds_min": [
+      -0.07000000029802322,
+      0.0,
+      -0.07000000029802322
+    ],
+    "bounds_max": [
+      0.07000000029802322,
+      2.299999952316284,
+      0.07000000029802322
+    ]
+  },
+  "environments/outdoor/props/house_02_roof_ridge.glb": {
+    "sha256": "67486c20ef072d9d2993c7479fb5d63775c35e88c31bd02306ba740cb19c40bd",
+    "triangles": 152,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_02_roof_ridge"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      0.2199999988079071,
+      0.30000001192092896
+    ]
+  },
+  "environments/outdoor/props/house_02_roof_slope.glb": {
+    "sha256": "1b333e8dbaf76dc8b8344b77d65e8bf65d2a5e8304d25e9c6441d009eab0294b",
+    "triangles": 284,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_02_roof_slope"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -1.2999999523162842
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      1.75,
+      1.2999999523162842
+    ]
+  },
+  "environments/outdoor/props/house_02_wall_doorway.glb": {
+    "sha256": "c1cb5b912113f725fdcf2ceeae99dec6233e85024ba59d56f610be8e5b31e612",
+    "triangles": 940,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_02_wall_doorway"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.20000000298023224
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.20000000298023224
+    ]
+  },
+  "environments/outdoor/props/house_02_wall_solid.glb": {
+    "sha256": "8c07468cc84786c64b838bc75fef418cef1502f834cdf5ba5107cefab9483c57",
+    "triangles": 432,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_02_wall_solid"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_02_wall_window.glb": {
+    "sha256": "bd80b120bf450ff87f6c6626870407a91a283fc57cbb83783e68bb2d967ccd9c",
+    "triangles": 1068,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_02_wall_window"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_03_corner_trim.glb": {
+    "sha256": "e1101303ba630f2499e5fe6d5e8428a9d01b2ccd40bdce02536b4339d2f06658",
+    "triangles": 88,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_03_corner_trim"
+    ],
+    "bounds_min": [
+      -0.09000000357627869,
+      0.0,
+      -0.09000000357627869
+    ],
+    "bounds_max": [
+      0.09000000357627869,
+      2.700000047683716,
+      0.09000000357627869
+    ]
+  },
+  "environments/outdoor/props/house_03_gable.glb": {
+    "sha256": "6dae524a0df521f9535b49df93d0d5b1bfe9087346663fab8b514006766a01fa",
+    "triangles": 28,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_03_gable"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      1.0199999809265137,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_03_porch_deck.glb": {
+    "sha256": "5af519a9915b8950f1034520f2aca4904c2c1916613a00841f98085e58b9ed98",
+    "triangles": 572,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_03_porch_deck"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.75
+    ],
+    "bounds_max": [
+      1.5,
+      0.23999999463558197,
+      0.75
+    ]
+  },
+  "environments/outdoor/props/house_03_porch_post.glb": {
+    "sha256": "2c92faed6dfba68e6c555df1f9173ebff5dfbee4a0dce436268a482558854c81",
+    "triangles": 160,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_03_porch_post"
+    ],
+    "bounds_min": [
+      -0.07000000029802322,
+      0.0,
+      -0.07000000029802322
+    ],
+    "bounds_max": [
+      0.07000000029802322,
+      2.299999952316284,
+      0.07000000029802322
+    ]
+  },
+  "environments/outdoor/props/house_03_roof_ridge.glb": {
+    "sha256": "1e627201f3a310b373249de002e2841c97d0c81392459265847fa8ceeb8644ba",
+    "triangles": 152,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_03_roof_ridge"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      0.2199999988079071,
+      0.30000001192092896
+    ]
+  },
+  "environments/outdoor/props/house_03_roof_slope.glb": {
+    "sha256": "27e5aa7e5228c42cd7aa9ce2bfe56f9aed1e35cea166d56d92b209d4f78f1574",
+    "triangles": 152,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_03_roof_slope"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -1.2999999523162842
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      1.75,
+      1.2999999523162842
+    ]
+  },
+  "environments/outdoor/props/house_03_wall_doorway.glb": {
+    "sha256": "ec9fcf1334bf1e84e2540d9009f1d8138df4577cdeaf734364976ecdac48d4a3",
+    "triangles": 1012,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_03_wall_doorway"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.20000000298023224
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.20000000298023224
+    ]
+  },
+  "environments/outdoor/props/house_03_wall_solid.glb": {
+    "sha256": "b55c3ac72721c51fd1ba76a861b427bd4bbf97ab7bda67d3c883eb67a1752517",
+    "triangles": 480,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_03_wall_solid"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_03_wall_window.glb": {
+    "sha256": "fcdc5b2bc782243c0906b3270276fbaa8339bfa29ff06184d84aba17f4d1b345",
+    "triangles": 1120,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_03_wall_window"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_04_corner_trim.glb": {
+    "sha256": "88c57b741e01d7b0363aee2549c37cdfa61922b0325ae948e927d29addf750e2",
+    "triangles": 132,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_04_corner_trim"
+    ],
+    "bounds_min": [
+      -0.09000000357627869,
+      0.0,
+      -0.09000000357627869
+    ],
+    "bounds_max": [
+      0.09000000357627869,
+      2.700000047683716,
+      0.09000000357627869
+    ]
+  },
+  "environments/outdoor/props/house_04_gable.glb": {
+    "sha256": "a5b69104fba85a44c7a0f17b7e535369b973eb8ffa65c18e0f7ee0636b4dfdf8",
+    "triangles": 72,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_04_gable"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      1.0199999809265137,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_04_porch_deck.glb": {
+    "sha256": "ff6a241b46e11173df8e737cbcb585d5117e7f659eb70cc8a5f59f35b84023e2",
+    "triangles": 572,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_04_porch_deck"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.75
+    ],
+    "bounds_max": [
+      1.5,
+      0.23999999463558197,
+      0.75
+    ]
+  },
+  "environments/outdoor/props/house_04_porch_post.glb": {
+    "sha256": "ae73804c1d8746c05c01ad40df5d5c71e8f72488ac3eb87d9f5b4ac4aa5a5ae5",
+    "triangles": 220,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_04_porch_post"
+    ],
+    "bounds_min": [
+      -0.07000000029802322,
+      0.0,
+      -0.07000000029802322
+    ],
+    "bounds_max": [
+      0.07000000029802322,
+      2.299999952316284,
+      0.07000000029802322
+    ]
+  },
+  "environments/outdoor/props/house_04_roof_ridge.glb": {
+    "sha256": "b81df8aced889f82cee305dd0a008eeae10f5edb03e8d45f1faba7f0cb59727b",
+    "triangles": 152,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_04_roof_ridge"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      0.2199999988079071,
+      0.30000001192092896
+    ]
+  },
+  "environments/outdoor/props/house_04_roof_slope.glb": {
+    "sha256": "7fd11568ed571c381ab16ed8888beb14fb4cc46cc5e3cf0880340cf6e2146d7c",
+    "triangles": 284,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_04_roof_slope"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -1.2999999523162842
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      1.75,
+      1.2999999523162842
+    ]
+  },
+  "environments/outdoor/props/house_04_wall_doorway.glb": {
+    "sha256": "3aafd2765c65c4cdc308bf70975f620bc048b0dd3c338368a07beea9c06c4e4a",
+    "triangles": 628,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_04_wall_doorway"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.20000000298023224
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.20000000298023224
+    ]
+  },
+  "environments/outdoor/props/house_04_wall_solid.glb": {
+    "sha256": "55886462754337170e0ff25ae49c72cad460818506f1248e285a06805b25218e",
+    "triangles": 384,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_04_wall_solid"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_04_wall_window.glb": {
+    "sha256": "f7559fef117b10fd72f0be2210bdd21ced7260a802216cdc798ad790c64633c1",
+    "triangles": 952,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_04_wall_window"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_05_corner_trim.glb": {
+    "sha256": "5d365343345bac2c460d1bd4491b9ea1325fa1c1036416ee37ae7fa3f49669ae",
+    "triangles": 132,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_05_corner_trim"
+    ],
+    "bounds_min": [
+      -0.09000000357627869,
+      0.0,
+      -0.09000000357627869
+    ],
+    "bounds_max": [
+      0.09000000357627869,
+      2.700000047683716,
+      0.09000000357627869
+    ]
+  },
+  "environments/outdoor/props/house_05_gable.glb": {
+    "sha256": "37929b126b9f7cc1c263c124643a51d722db7a29e93bf34a3bb51e90b2e4a264",
+    "triangles": 392,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_05_gable"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      1.0199999809265137,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_05_porch_deck.glb": {
+    "sha256": "3ce0949f199859a5e72b56e02069459be18b0a54f50341618d6438314dcfb83c",
+    "triangles": 572,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_05_porch_deck"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.75
+    ],
+    "bounds_max": [
+      1.5,
+      0.23999999463558197,
+      0.75
+    ]
+  },
+  "environments/outdoor/props/house_05_porch_post.glb": {
+    "sha256": "34ebe361d1f4be4e47ff72555a902059387c8cf36a3b0c888d25105ba18512cb",
+    "triangles": 220,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_05_porch_post"
+    ],
+    "bounds_min": [
+      -0.07000000029802322,
+      0.0,
+      -0.07000000029802322
+    ],
+    "bounds_max": [
+      0.07000000029802322,
+      2.299999952316284,
+      0.07000000029802322
+    ]
+  },
+  "environments/outdoor/props/house_05_roof_ridge.glb": {
+    "sha256": "b0cb3981679718e5a12804e0800d4685da997498c48adcf7a9480258c9a0eec1",
+    "triangles": 152,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_05_roof_ridge"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      0.2199999988079071,
+      0.30000001192092896
+    ]
+  },
+  "environments/outdoor/props/house_05_roof_slope.glb": {
+    "sha256": "f39626b2d80f032cc69425bff5bf444785ccd58b86ed80c879f1746ffeb499f9",
+    "triangles": 284,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_05_roof_slope"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -1.2999999523162842
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      1.75,
+      1.2999999523162842
+    ]
+  },
+  "environments/outdoor/props/house_05_wall_doorway.glb": {
+    "sha256": "cbd151618ad1fe32ba8e846f52ceb4b3e568642b686e7114bb460dc209de2914",
+    "triangles": 1108,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_05_wall_doorway"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.20000000298023224
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.20000000298023224
+    ]
+  },
+  "environments/outdoor/props/house_05_wall_solid.glb": {
+    "sha256": "cfa3bfe13856934e057e6c885d892c79295b2a05c6f4e7e93d987d0c9c5859c6",
+    "triangles": 528,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_05_wall_solid"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_05_wall_window.glb": {
+    "sha256": "597f7b1d98ac4c0227a4810b7f673bf6546a2c1abf7ca7d90685fb3e62f1ff04",
+    "triangles": 1368,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_05_wall_window"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_corner_trim.glb": {
+    "sha256": "36960427800e3ad65a524aed166c9388ef8f865b47a4e23bd844a09772b4484b",
+    "triangles": 88,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_corner_trim"
+    ],
+    "bounds_min": [
+      -0.09000000357627869,
+      0.0,
+      -0.09000000357627869
+    ],
+    "bounds_max": [
+      0.09000000357627869,
+      2.700000047683716,
+      0.09000000357627869
+    ]
+  },
+  "environments/outdoor/props/house_roof_ridge.glb": {
+    "sha256": "228d2140be29953cdbfde34a8e2746ee884cc26f305d71f4c2dbfc794a71009c",
+    "triangles": 152,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:house_roof_ridge"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      0.2199999988079071,
+      0.30000001192092896
+    ]
+  },
+  "environments/outdoor/props/house_roof_slope.glb": {
+    "sha256": "f43b0261eac7bafe4e8557c17d98271d23f0589b70c9f001c2620d173b240c35",
+    "triangles": 152,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_roof_slope"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -1.2999999523162842
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      1.75,
+      1.2999999523162842
+    ]
+  },
+  "environments/outdoor/props/house_wall_doorway.glb": {
+    "sha256": "a848d430cb0ebbb47b2a92690dc418a92d51e2096709941fba04dd607ca240fb",
+    "triangles": 940,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_wall_doorway"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.20399999618530273
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.20399999618530273
+    ]
+  },
+  "environments/outdoor/props/house_wall_solid.glb": {
+    "sha256": "7fbd89dcdc853644e592de748a7da99f889f2db8447849f50474cd4cb5f8e256",
+    "triangles": 432,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_wall_solid"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/house_wall_window.glb": {
+    "sha256": "233f77d008462c29b9d6695cf1932541818c72ce3d9450cbeceebba4cca04445",
+    "triangles": 912,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:house_wall_window"
+    ],
+    "bounds_min": [
+      -1.5,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      1.5,
+      2.700000047683716,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/lamp_fence.glb": {
+    "sha256": "6f8725ed96a7d8d854310ac7cfa2030a785ccf55fb84a7d9c77579e23364d490",
+    "triangles": 324,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:lamp_fence"
+    ],
+    "bounds_min": [
+      -0.1599999964237213,
+      0.0,
+      -0.18000000715255737
+    ],
+    "bounds_max": [
+      0.1599999964237213,
+      0.41999998688697815,
+      0.18000000715255737
+    ]
+  },
+  "environments/outdoor/props/lamp_stand.glb": {
+    "sha256": "1c45841a07dbebb4c9866425b11646380169be6e8e78b968309bc4f36110558f",
+    "triangles": 352,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:lamp_stand"
+    ],
+    "bounds_min": [
+      -0.17000000178813934,
+      0.0,
+      -0.17000000178813934
+    ],
+    "bounds_max": [
+      0.17000000178813934,
+      1.0499999523162842,
+      0.17000000178813934
+    ]
+  },
+  "environments/outdoor/props/lamp_wall.glb": {
+    "sha256": "e86bcc17a76146941c1e7d1a19f57a293c640db81058db98f781ae5c97de28ac",
+    "triangles": 384,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:lamp_wall"
+    ],
+    "bounds_min": [
+      -0.15000000596046448,
+      0.0,
+      -0.17000000178813934
+    ],
+    "bounds_max": [
+      0.15000000596046448,
+      0.5199999809265137,
+      0.17000000178813934
+    ]
+  },
+  "environments/outdoor/props/masonry_pier.glb": {
+    "sha256": "a2dd3fe027539731db86d60d93f7a51c18a9e4f5c0b23ebb9e9b389a50b1c64c",
+    "triangles": 568,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:masonry_pier"
+    ],
+    "bounds_min": [
+      -0.28999999165534973,
+      0.0,
+      -0.28999999165534973
+    ],
+    "bounds_max": [
+      0.28999999165534973,
+      1.2000000476837158,
+      0.28999999165534973
+    ]
+  },
+  "environments/outdoor/props/porch_canopy.glb": {
+    "sha256": "d8f6fb74809ecbfe3290faa031bebcbe6beb91fac7b21dced53120c17e4a6f7e",
+    "triangles": 180,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:porch_canopy"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -0.949999988079071
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      0.7200000286102295,
+      0.949999988079071
+    ]
+  },
+  "environments/outdoor/props/porch_post.glb": {
+    "sha256": "fca23500c3390901e53d1277232ddeb549a48d02a677e7bf426cb745874a51f0",
+    "triangles": 176,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:porch_post"
+    ],
+    "bounds_min": [
+      -0.05999999865889549,
+      0.0,
+      -0.05999999865889549
+    ],
+    "bounds_max": [
+      0.05999999865889549,
+      1.0499999523162842,
+      0.05999999865889549
+    ]
+  },
+  "environments/outdoor/props/porch_railing_corner.glb": {
+    "sha256": "53da9ddff353dce14e5c6a403c3b93a0f2634c2839d5106a2d82197bed9c96c8",
+    "triangles": 208,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:porch_railing_corner"
+    ],
+    "bounds_min": [
+      -0.15000000596046448,
+      0.14000000059604645,
+      -0.15000000596046448
+    ],
+    "bounds_max": [
+      0.15000000596046448,
+      1.0499999523162842,
+      0.15000000596046448
+    ]
+  },
+  "environments/outdoor/props/porch_railing_end.glb": {
+    "sha256": "7281af350b8f0390d39f0a05fe31fb782627ccd1d7c4c26be80496f7756b535d",
+    "triangles": 280,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:porch_railing_end"
+    ],
+    "bounds_min": [
+      -0.15000000596046448,
+      0.0,
+      -0.05999999865889549
+    ],
+    "bounds_max": [
+      0.15000000596046448,
+      1.0499999523162842,
+      0.05999999865889549
+    ]
+  },
+  "environments/outdoor/props/porch_railing_straight.glb": {
+    "sha256": "0b9379bb6db8a1cd7e01cd151c263433a21a8e34ac68f9152b15b17d49614d28",
+    "triangles": 456,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:porch_railing_straight"
+    ],
+    "bounds_min": [
+      -0.8999999761581421,
+      0.14000000059604645,
+      -0.05999999865889549
+    ],
+    "bounds_max": [
+      0.8999999761581421,
+      1.0499999523162842,
+      0.05999999865889549
+    ]
+  },
+  "environments/outdoor/props/road_barrier.glb": {
+    "sha256": "37ad035aed10d948d5a7315d5f13530d130256cfe7127f10dd560ff4ffea3e81",
+    "triangles": 352,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:road_barrier"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -0.20999999344348907
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      1.100000023841858,
+      0.20999999344348907
+    ]
+  },
+  "environments/outdoor/props/showcase_boulder.glb": {
+    "sha256": "bfd27a3124dc5c21972d6cb17c3e79d3c30b90b9de60abc07b2459e5a2355a9f",
+    "triangles": 194,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:showcase_boulder"
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      0.0,
+      -0.6499999761581421
+    ],
+    "bounds_max": [
+      0.699999988079071,
+      0.8500000238418579,
+      0.6499999761581421
+    ]
+  },
+  "environments/outdoor/props/showcase_campfire.glb": {
+    "sha256": "fad61f4eab6142c48dc646c0f605daa6eec59673de223e94f419734b412c2f5b",
+    "triangles": 954,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:showcase_campfire"
+    ],
+    "bounds_min": [
+      -0.6499999761581421,
+      0.0,
+      -0.6499999761581421
+    ],
+    "bounds_max": [
+      0.6499999761581421,
+      1.25,
+      0.6499999761581421
+    ]
+  },
+  "environments/outdoor/props/showcase_curb.glb": {
+    "sha256": "fcf11e2df36cee5eee65bac610a95513a392038e1e294d3e3ff7c865986721a1",
+    "triangles": 120,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:showcase_curb"
+    ],
+    "bounds_min": [
+      -0.11999999731779099,
+      0.0,
+      -3.0
+    ],
+    "bounds_max": [
+      0.11999999731779099,
+      0.14000000059604645,
+      3.0
+    ]
+  },
+  "environments/outdoor/props/showcase_curb_ramp.glb": {
+    "sha256": "87d2f13694a6d1485a2c7bfba9c1526d9683c09062fea64398fe997123212968",
+    "triangles": 60,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:showcase_curb_ramp"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -1.2000000476837158
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.14000000059604645,
+      1.2000000476837158
+    ]
+  },
+  "environments/outdoor/props/showcase_road_dash.glb": {
+    "sha256": "45a92b580d7e897f8f3952288cd5d80e57fc370a450b9202c969bce3aaeab8db",
+    "triangles": 44,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:showcase_road_dash"
+    ],
+    "bounds_min": [
+      -0.05999999865889549,
+      0.0,
+      -0.75
+    ],
+    "bounds_max": [
+      0.05999999865889549,
+      0.006000000052154064,
+      0.75
+    ]
+  },
+  "environments/outdoor/props/showcase_road_gate.glb": {
+    "sha256": "59ac8c00bf98a693e73ffc3d45518d0820dba5a304165b2173ad71653787c0b9",
+    "triangles": 980,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:showcase_road_gate"
+    ],
+    "bounds_min": [
+      -4.0,
+      0.0,
+      -0.11999999731779099
+    ],
+    "bounds_max": [
+      4.0,
+      3.5999999046325684,
+      0.11999999731779099
+    ]
+  },
+  "environments/outdoor/props/showcase_road_straight.glb": {
+    "sha256": "7516f21091880d62e10044b330f40b105ee4848eae44ac26d8cb1619b214afc3",
+    "triangles": 44,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:showcase_road_straight"
+    ],
+    "bounds_min": [
+      -4.0,
+      0.0,
+      -3.0
+    ],
+    "bounds_max": [
+      4.0,
+      0.07000000029802322,
+      3.0
+    ]
+  },
+  "environments/outdoor/props/showcase_road_unmarked.glb": {
+    "sha256": "95b50e0a993458d88b2f96d4ea43fba3f0ec520a5b243766634e346b62c45441",
+    "triangles": 20,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:showcase_road_unmarked"
+    ],
+    "bounds_min": [
+      -4.0,
+      0.0,
+      -3.0
+    ],
+    "bounds_max": [
+      4.0,
+      0.06400000303983688,
+      3.0
+    ]
+  },
+  "environments/outdoor/props/showcase_rock_face.glb": {
+    "sha256": "f7db3c419d4936120070029c650a71189e60038645bc5508b17eb51705607bf2",
+    "triangles": 86,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:showcase_rock_face"
+    ],
+    "bounds_min": [
+      -2.0,
+      0.0,
+      -1.100000023841858
+    ],
+    "bounds_max": [
+      2.0,
+      5.0,
+      1.100000023841858
+    ]
+  },
+  "environments/outdoor/props/showcase_rock_face_variant.glb": {
+    "sha256": "bbf90f30014c0b64cc2fb8791a4efe8cabd31b5873501100ff25b76fceda4cb1",
+    "triangles": 86,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:showcase_rock_face_variant"
+    ],
+    "bounds_min": [
+      -1.7000000476837158,
+      0.0,
+      -1.2999999523162842
+    ],
+    "bounds_max": [
+      1.7000000476837158,
+      4.800000190734863,
+      1.2999999523162842
+    ]
+  },
+  "environments/outdoor/props/showcase_sidewalk.glb": {
+    "sha256": "2e0f00f74107824939be1d3a11e1d0de9555a29a7f0cd013d4a82669a7ed4b72",
+    "triangles": 220,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:showcase_sidewalk"
+    ],
+    "bounds_min": [
+      -1.2000000476837158,
+      0.0,
+      -3.0
+    ],
+    "bounds_max": [
+      1.2000000476837158,
+      0.14000000059604645,
+      3.0
+    ]
+  },
+  "environments/outdoor/props/showcase_sidewalk_corner.glb": {
+    "sha256": "757c6f2fa927899d39290534ff937a6976a1eced81e16bdf80461fa434b91f51",
+    "triangles": 100,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:showcase_sidewalk_corner"
+    ],
+    "bounds_min": [
+      -1.2000000476837158,
+      0.0,
+      -1.2000000476837158
+    ],
+    "bounds_max": [
+      1.2000000476837158,
+      0.14000000059604645,
+      1.2000000476837158
+    ]
+  },
+  "environments/outdoor/props/showcase_sidewalk_transition.glb": {
+    "sha256": "a1acc82ac59ba97b6ad1750f4b0c2e7819904f11d467845ee15cee9ca7284d17",
+    "triangles": 60,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:showcase_sidewalk_transition"
+    ],
+    "bounds_min": [
+      -1.2000000476837158,
+      0.0,
+      -0.6000000238418579
+    ],
+    "bounds_max": [
+      1.2000000476837158,
+      0.14000000059604645,
+      0.6000000238418579
+    ]
+  },
+  "environments/outdoor/props/showcase_stump_seat.glb": {
+    "sha256": "7444511efdc0bd31f34f4e7240b47977216080be8e4c68651782ec9c89068db0",
+    "triangles": 172,
+    "texture_edge": 128,
+    "identities": [
+      "outdoor:showcase_stump_seat"
+    ],
+    "bounds_min": [
+      -0.3499999940395355,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.3499999940395355,
+      0.44999998807907104,
+      0.30000001192092896
+    ]
+  },
+  "environments/outdoor/props/streetlight.glb": {
+    "sha256": "da55ba8663ab5bcb4018154953ab82a31897287885b3c577b98ce822199377d5",
+    "triangles": 432,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:streetlight"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.6000000238418579
+    ],
+    "bounds_max": [
+      0.25,
+      6.400000095367432,
+      0.6000000238418579
     ]
   },
   "environments/outdoor/props/tree_01.glb": {
@@ -2931,960 +6117,6 @@
       0.10499999672174454
     ]
   },
-  "shared/props/armchair.glb": {
-    "sha256": "957fa9cb1f4dad245b63b1f0f872162cfdc5400e31ea71374b549ec84f98606d",
-    "triangles": 454,
-    "texture_edge": 256,
-    "identities": [
-      "core:armchair"
-    ],
-    "bounds_min": [
-      -0.44999998807907104,
-      0.0,
-      -0.44999998807907104
-    ],
-    "bounds_max": [
-      0.44999998807907104,
-      0.8999999761581421,
-      0.44999998807907104
-    ]
-  },
-  "shared/props/bed.glb": {
-    "sha256": "8229ccd767ec341a4b44d4acce0fbfe3f0d4a7295466734410a5fcd16855d7ec",
-    "triangles": 780,
-    "texture_edge": 256,
-    "identities": [
-      "core:bed"
-    ],
-    "bounds_min": [
-      -0.699999988079071,
-      0.0,
-      -1.0
-    ],
-    "bounds_max": [
-      0.6999999284744263,
-      0.5499999523162842,
-      1.0
-    ]
-  },
-  "shared/props/bookshelf.glb": {
-    "sha256": "ad50a9be15073ccefe1a19df5effca463cf5398ec5fe93a8e86de64e5b9101fb",
-    "triangles": 468,
-    "texture_edge": 256,
-    "identities": [
-      "core:bookshelf"
-    ],
-    "bounds_min": [
-      -0.5,
-      0.0,
-      -0.17499999701976776
-    ],
-    "bounds_max": [
-      0.4999999701976776,
-      1.7999999523162842,
-      0.17500001192092896
-    ]
-  },
-  "shared/props/couch.glb": {
-    "sha256": "e11ef19a923d0ef5ae0372112799b411049f72fa60af99b7fd6775123c086b3b",
-    "triangles": 580,
-    "texture_edge": 256,
-    "identities": [
-      "core:couch"
-    ],
-    "bounds_min": [
-      -1.0,
-      0.0,
-      -0.44999998807907104
-    ],
-    "bounds_max": [
-      1.0,
-      0.8999999761581421,
-      0.44999998807907104
-    ]
-  },
-  "shared/props/fridge.glb": {
-    "sha256": "95adfd7b52d9d920508b53a02ad5c5108f15065b19bc96b300d68ef2a5fb1264",
-    "triangles": 596,
-    "texture_edge": 256,
-    "identities": [
-      "core:fridge"
-    ],
-    "bounds_min": [
-      -0.3500000238418579,
-      1.862645149230957e-09,
-      -0.3500000238418579
-    ],
-    "bounds_max": [
-      0.3499999940395355,
-      1.8000000715255737,
-      0.3499999940395355
-    ]
-  },
-  "shared/props/lamp.glb": {
-    "sha256": "af28478ff1eab79cc85574ade5ea1b8d0bc791f73e9633e4fc91de74445fe8e6",
-    "triangles": 700,
-    "texture_edge": 256,
-    "identities": [
-      "core:lamp"
-    ],
-    "bounds_min": [
-      -0.17499999701976776,
-      0.0,
-      -0.17499999701976776
-    ],
-    "bounds_max": [
-      0.17499999701976776,
-      1.5,
-      0.17499999701976776
-    ]
-  },
-  "shared/props/painting_frame_landscape_01.glb": {
-    "sha256": "85469ac4b2811779473280e60a75e65fbdcac936d3532df7787d1fefcb967d49",
-    "triangles": 48,
-    "texture_edge": 256,
-    "identities": [
-      "core:painting_frame_landscape_01"
-    ],
-    "bounds_min": [
-      -0.949999988079071,
-      0.0,
-      -0.029999999329447746
-    ],
-    "bounds_max": [
-      0.949999988079071,
-      1.1920000314712524,
-      0.029999999329447746
-    ]
-  },
-  "shared/props/plant.glb": {
-    "sha256": "37ad0d0b56561bd1ccb6e7db99253484e167467a84aafd47eafb0c381a2b069f",
-    "triangles": 868,
-    "texture_edge": 256,
-    "identities": [
-      "core:plant"
-    ],
-    "bounds_min": [
-      -0.20621159672737122,
-      0.0,
-      -0.20918318629264832
-    ],
-    "bounds_max": [
-      0.20621159672737122,
-      0.9850000143051147,
-      0.20918318629264832
-    ]
-  },
-  "shared/props/rug.glb": {
-    "sha256": "db4f28e44f123c67357ba966eb89fc96fea121e230e71f56757c610d82fa015a",
-    "triangles": 60,
-    "texture_edge": 256,
-    "identities": [
-      "core:rug"
-    ],
-    "bounds_min": [
-      -1.0,
-      0.0,
-      -0.699999988079071
-    ],
-    "bounds_max": [
-      1.0,
-      0.019999999552965164,
-      0.699999988079071
-    ]
-  },
-  "shared/props/sink.glb": {
-    "sha256": "ff81be96768a072288d43132a250c00b5723895c30056f32ebc25567424afc6e",
-    "triangles": 684,
-    "texture_edge": 256,
-    "identities": [
-      "core:sink"
-    ],
-    "bounds_min": [
-      -0.30000001192092896,
-      0.0,
-      -0.2750000059604645
-    ],
-    "bounds_max": [
-      0.30000001192092896,
-      1.100000023841858,
-      0.2750000059604645
-    ]
-  },
-  "shared/props/stove.glb": {
-    "sha256": "bd64864b9c4273428e0fd1629f62608fad36d5afb1e775e730926e465553ec9e",
-    "triangles": 552,
-    "texture_edge": 256,
-    "identities": [
-      "core:stove"
-    ],
-    "bounds_min": [
-      -0.30000001192092896,
-      0.0,
-      -0.30000001192092896
-    ],
-    "bounds_max": [
-      0.30000001192092896,
-      0.8999999761581421,
-      0.29999998211860657
-    ]
-  },
-  "shared/props/table.glb": {
-    "sha256": "324d6868bd3f142a06216f0f9e366688e463b06dec234162e787edb92720d071",
-    "triangles": 300,
-    "texture_edge": 256,
-    "identities": [
-      "core:table"
-    ],
-    "bounds_min": [
-      -0.699999988079071,
-      0.0,
-      -0.4000000059604645
-    ],
-    "bounds_max": [
-      0.699999988079071,
-      0.75,
-      0.4000000059604645
-    ]
-  },
-  "shared/props/table_sideways.glb": {
-    "sha256": "1bfda1496ebdbed0bc2ec4e3273038f804b853c6178cc45b86499b43d806584b",
-    "triangles": 428,
-    "texture_edge": 256,
-    "identities": [
-      "core:table_sideways"
-    ],
-    "bounds_min": [
-      -0.3750000298023224,
-      -5.960464477539063e-08,
-      -0.4000000059604645
-    ],
-    "bounds_max": [
-      0.375,
-      1.3999998569488525,
-      0.4000000059604645
-    ]
-  },
-  "shared/props/tv.glb": {
-    "sha256": "004d03205324003aacf7d4dd7dec2a173b449d4df30a908fc9a3d8c6e7ec9f4d",
-    "triangles": 280,
-    "texture_edge": 256,
-    "identities": [
-      "core:tv"
-    ],
-    "bounds_min": [
-      -0.550000011920929,
-      0.0,
-      -0.05000000074505806
-    ],
-    "bounds_max": [
-      0.550000011920929,
-      0.699999988079071,
-      0.05000000074505806
-    ]
-  },
-  "shared/props/washer_drum.glb": {
-    "sha256": "51288d5497e30aa8b77260b3da4c1cc818875c8773896f378a3821d7ab380e37",
-    "triangles": 352,
-    "texture_edge": 256,
-    "identities": [
-      "core:washer_drum"
-    ],
-    "bounds_min": [
-      -0.20999999344348907,
-      0.0,
-      -0.20999999344348907
-    ],
-    "bounds_max": [
-      0.20999999344348907,
-      0.30000001192092896,
-      0.20999999344348907
-    ]
-  },
-  "shared/props/washing_machine.glb": {
-    "sha256": "51d2efcbe80315281ab20d51a967f8812a56e20ec510b235de97183bd5e3ac0f",
-    "triangles": 552,
-    "texture_edge": 256,
-    "identities": [
-      "core:washing_machine"
-    ],
-    "bounds_min": [
-      -0.30000001192092896,
-      0.0,
-      -0.29999998211860657
-    ],
-    "bounds_max": [
-      0.30000001192092896,
-      0.8500000238418579,
-      0.30000001192092896
-    ]
-  },
-  "environments/home/props/armchair.glb": {
-    "sha256": "78c4235808b6c7284921a098bad1afdd628760a9c0a57d9e26fe3072d9e6e47e",
-    "triangles": 492,
-    "texture_edge": 256,
-    "identities": [
-      "home:armchair"
-    ],
-    "bounds_min": [
-      -0.44999998807907104,
-      0.0,
-      -0.44999998807907104
-    ],
-    "bounds_max": [
-      0.44999998807907104,
-      0.8999999761581421,
-      0.4749999940395355
-    ]
-  },
-  "environments/home/props/ball_light.glb": {
-    "sha256": "c182f73af6431910decfddd5c0c704e1385be0c37655f4353e7355f2721a421a",
-    "triangles": 720,
-    "texture_edge": 256,
-    "identities": [
-      "home:ball_light"
-    ],
-    "bounds_min": [
-      -0.1899999976158142,
-      0.0005164914764463902,
-      -0.1899999976158142
-    ],
-    "bounds_max": [
-      0.1899999976158142,
-      0.800000011920929,
-      0.1899999976158142
-    ]
-  },
-  "environments/home/props/book_stack.glb": {
-    "sha256": "9c25aede1be4fd06ac76af82ee804afd379d06deedb2d563b15400b07999fdec",
-    "triangles": 436,
-    "texture_edge": 256,
-    "identities": [
-      "home:book_stack"
-    ],
-    "bounds_min": [
-      -0.125,
-      0.0020000000949949026,
-      -0.09000000357627869
-    ],
-    "bounds_max": [
-      0.125,
-      0.05700000002980232,
-      0.09000000357627869
-    ]
-  },
-  "environments/home/props/bookshelf.glb": {
-    "sha256": "a50fbd8df25ff353d40d8ff427d297a373e5dbd75ff4395f348e4caaab307bff",
-    "triangles": 676,
-    "texture_edge": 256,
-    "identities": [
-      "home:bookshelf"
-    ],
-    "bounds_min": [
-      -0.5,
-      0.0,
-      -0.17499999701976776
-    ],
-    "bounds_max": [
-      0.5,
-      1.7999999523162842,
-      0.17499999701976776
-    ]
-  },
-  "environments/home/props/bowl.glb": {
-    "sha256": "eadbfbd80797d000170b8450a0b47ea69562680a83599da1b24f4b6036877dba",
-    "triangles": 1004,
-    "texture_edge": 64,
-    "identities": [
-      "home:bowl"
-    ],
-    "bounds_min": [
-      -0.07500000298023224,
-      0.0,
-      -0.07500000298023224
-    ],
-    "bounds_max": [
-      0.07500000298023224,
-      0.06499999761581421,
-      0.07500000298023224
-    ]
-  },
-  "environments/home/props/cabinet_base.glb": {
-    "sha256": "f305c13beb81efb6f03ecb930b5967d370cf6367fbcf77c3e80ba198e36048ff",
-    "triangles": 440,
-    "texture_edge": 256,
-    "identities": [
-      "home:cabinet_base"
-    ],
-    "bounds_min": [
-      -0.30000001192092896,
-      0.0,
-      -0.30000001192092896
-    ],
-    "bounds_max": [
-      0.30000001192092896,
-      0.8999999761581421,
-      0.30000001192092896
-    ]
-  },
-  "environments/home/props/cabinet_strip.glb": {
-    "sha256": "4fc96e8f28be2579ec753d3b807205ece154b4c26dcb4138fb06fcb35cca13e0",
-    "triangles": 136,
-    "texture_edge": 256,
-    "identities": [
-      "home:cabinet_strip"
-    ],
-    "bounds_min": [
-      -0.2750000059604645,
-      0.0,
-      -0.03500000014901161
-    ],
-    "bounds_max": [
-      0.2750000059604645,
-      0.026000000536441803,
-      0.03500000014901161
-    ]
-  },
-  "environments/home/props/cabinet_wall.glb": {
-    "sha256": "38a1ac8bb9f50914ab81932eba72ed2a6a91d394400225c0be01d7ec1030f438",
-    "triangles": 272,
-    "texture_edge": 256,
-    "identities": [
-      "home:cabinet_wall"
-    ],
-    "bounds_min": [
-      -0.30000001192092896,
-      0.0,
-      -0.16300000250339508
-    ],
-    "bounds_max": [
-      0.30000001192092896,
-      0.7200000286102295,
-      0.16500000655651093
-    ]
-  },
-  "environments/home/props/coffee_table.glb": {
-    "sha256": "adcf8153539c21e47ed4a7f2e903edd11a7c3737ad1da1d123a10acc373ffa4d",
-    "triangles": 624,
-    "texture_edge": 256,
-    "identities": [
-      "home:coffee_table"
-    ],
-    "bounds_min": [
-      -0.699999988079071,
-      0.0,
-      -0.4000000059604645
-    ],
-    "bounds_max": [
-      0.699999988079071,
-      0.46000000834465027,
-      0.4000000059604645
-    ]
-  },
-  "environments/home/props/crt_tv.glb": {
-    "sha256": "09c74fde015b00f03a069b78e2e56ba29b93823fee83d7e69debe5bbf8d8f508",
-    "triangles": 1166,
-    "texture_edge": 256,
-    "identities": [
-      "home:crt_tv"
-    ],
-    "bounds_min": [
-      -0.2750000059604645,
-      0.0,
-      -0.23000000417232513
-    ],
-    "bounds_max": [
-      0.2750000059604645,
-      0.47999998927116394,
-      0.23000000417232513
-    ]
-  },
-  "environments/home/props/cushion.glb": {
-    "sha256": "004a648b737f5d3e6072ffa7922855dfb3b78ad1b42ed3a623ba0d00e4adb22e",
-    "triangles": 124,
-    "texture_edge": 256,
-    "identities": [
-      "home:cushion"
-    ],
-    "bounds_min": [
-      -0.16500000655651093,
-      0.0,
-      -0.057500001043081284
-    ],
-    "bounds_max": [
-      0.16500000655651093,
-      0.3199999928474426,
-      0.057500001043081284
-    ]
-  },
-  "environments/home/props/dining_chair.glb": {
-    "sha256": "611cb5bbf9f8ec1c6be97ea0ff39026f205605afe2d33f4ad339c0df90cb59ae",
-    "triangles": 476,
-    "texture_edge": 256,
-    "identities": [
-      "home:dining_chair"
-    ],
-    "bounds_min": [
-      -0.25,
-      0.0,
-      -0.24500000476837158
-    ],
-    "bounds_max": [
-      0.25,
-      0.9020000100135803,
-      0.24500000476837158
-    ]
-  },
-  "environments/home/props/dining_chair_refined.glb": {
-    "sha256": "bdc61ce076c7a529a3e0fdd157ec56d7d1edd0fca118f19f765897f13654e3f7",
-    "triangles": 460,
-    "texture_edge": 256,
-    "identities": [
-      "home:dining_chair_refined"
-    ],
-    "bounds_min": [
-      -0.25,
-      0.0,
-      -0.24500000476837158
-    ],
-    "bounds_max": [
-      0.25,
-      0.9020000100135803,
-      0.24500000476837158
-    ]
-  },
-  "environments/home/props/dining_table.glb": {
-    "sha256": "566366787aff68227228fcfc734bfce4d5d2392dac31516ad6fc1d1d2511cab7",
-    "triangles": 668,
-    "texture_edge": 256,
-    "identities": [
-      "home:dining_table"
-    ],
-    "bounds_min": [
-      -0.699999988079071,
-      0.0,
-      -0.4000000059604645
-    ],
-    "bounds_max": [
-      0.699999988079071,
-      0.75,
-      0.4000000059604645
-    ]
-  },
-  "environments/home/props/door_casing.glb": {
-    "sha256": "8548792548a33f85c3d5acaf12f3cb47ee6c26909cf5b9c5755787a7b864c57b",
-    "triangles": 144,
-    "texture_edge": 256,
-    "identities": [
-      "home:door_casing"
-    ],
-    "bounds_min": [
-      -0.7900000214576721,
-      0.0,
-      -0.029999999329447746
-    ],
-    "bounds_max": [
-      0.7900000214576721,
-      2.180000066757202,
-      0.024000000208616257
-    ]
-  },
-  "environments/home/props/floor_lamp.glb": {
-    "sha256": "30a89683ce98acb4fe3ffd2584b508c7fdb1ab262485dfda80378d050c6267f9",
-    "triangles": 800,
-    "texture_edge": 256,
-    "identities": [
-      "home:floor_lamp"
-    ],
-    "bounds_min": [
-      -0.17499999701976776,
-      0.0,
-      -0.17499999701976776
-    ],
-    "bounds_max": [
-      0.17499999701976776,
-      1.5,
-      0.17499999701976776
-    ]
-  },
-  "environments/home/props/fork.glb": {
-    "sha256": "51acdb95687454f0d38fe1e7fc4579c50e2dca33d42c07842e9ecfdde15746db",
-    "triangles": 396,
-    "texture_edge": 64,
-    "identities": [
-      "home:fork"
-    ],
-    "bounds_min": [
-      -0.013000000268220901,
-      0.0,
-      -0.09799999743700027
-    ],
-    "bounds_max": [
-      0.013000000268220901,
-      0.012000000104308128,
-      0.09799999743700027
-    ]
-  },
-  "environments/home/props/kettle.glb": {
-    "sha256": "3b39271c64bd4c1feb7ef70c13bc37e6fcabb962cdc4e47e10e142085145acf0",
-    "triangles": 548,
-    "texture_edge": 256,
-    "identities": [
-      "home:kettle"
-    ],
-    "bounds_min": [
-      -0.1054999977350235,
-      0.0,
-      -0.08100000023841858
-    ],
-    "bounds_max": [
-      0.11699999868869781,
-      0.20100000500679016,
-      0.08100000023841858
-    ]
-  },
-  "environments/home/props/knife.glb": {
-    "sha256": "85ca17da8bceb28b6cce406ebf66305b956c61e527bc8517bfe6ba8647613013",
-    "triangles": 256,
-    "texture_edge": 64,
-    "identities": [
-      "home:knife"
-    ],
-    "bounds_min": [
-      -0.008999999612569809,
-      0.0,
-      -0.10750000178813934
-    ],
-    "bounds_max": [
-      0.012000000104308128,
-      0.01600000075995922,
-      0.10750000178813934
-    ]
-  },
-  "environments/home/props/landscape_frame.glb": {
-    "sha256": "327706a82b5118e1eb0f0eaf6b72d69c0613bd8b1662f0d77480cadc69ac5765",
-    "triangles": 426,
-    "texture_edge": 256,
-    "identities": [
-      "home:landscape_frame"
-    ],
-    "bounds_min": [
-      -0.22499999403953552,
-      0.0,
-      -0.012000000104308128
-    ],
-    "bounds_max": [
-      0.22499999403953552,
-      0.5,
-      0.017999999225139618
-    ]
-  },
-  "environments/home/props/mug.glb": {
-    "sha256": "795f05a6dad5594e64f7d0202c6f56f2da565dfdad1c4f6f6ab4fb5d6feea280",
-    "triangles": 928,
-    "texture_edge": 256,
-    "identities": [
-      "home:mug"
-    ],
-    "bounds_min": [
-      -0.04899999871850014,
-      0.0,
-      -0.039000000804662704
-    ],
-    "bounds_max": [
-      0.06800000369548798,
-      0.09000000357627869,
-      0.039000000804662704
-    ]
-  },
-  "environments/home/props/outlet.glb": {
-    "sha256": "c31f2871360e0e5ecc3fd1a00c8b79cf86500f7eb0e4afa434d248811f635078",
-    "triangles": 380,
-    "texture_edge": 256,
-    "identities": [
-      "home:outlet"
-    ],
-    "bounds_min": [
-      -0.042500000447034836,
-      0.0,
-      -0.004999999888241291
-    ],
-    "bounds_max": [
-      0.042500000447034836,
-      0.11999999731779099,
-      0.013000000268220901
-    ]
-  },
-  "environments/home/props/plant_table.glb": {
-    "sha256": "513c99a2c849ebe3369c72e53c64ba10ceb5ccd7338b532ea9fffc12b1183671",
-    "triangles": 996,
-    "texture_edge": 64,
-    "identities": [
-      "home:plant_table"
-    ],
-    "bounds_min": [
-      -0.06499999761581421,
-      0.0,
-      -0.06499999761581421
-    ],
-    "bounds_max": [
-      0.06499999761581421,
-      0.2804843485355377,
-      0.06499999761581421
-    ]
-  },
-  "environments/home/props/plate.glb": {
-    "sha256": "08ddfef59212f0e99a6274abb5214f09cf28bc98afab5e9356d355ec9f4839c0",
-    "triangles": 908,
-    "texture_edge": 64,
-    "identities": [
-      "home:plate"
-    ],
-    "bounds_min": [
-      -0.10999999940395355,
-      0.0,
-      -0.10999999940395355
-    ],
-    "bounds_max": [
-      0.10999999940395355,
-      0.02199999988079071,
-      0.10999999940395355
-    ]
-  },
-  "environments/home/props/rug.glb": {
-    "sha256": "2030ea10db69b1a36fae191d9912e2e4d80bb96ed497f2757c61d74e6d4f2a29",
-    "triangles": 296,
-    "texture_edge": 256,
-    "identities": [
-      "home:rug"
-    ],
-    "bounds_min": [
-      -1.0,
-      0.0,
-      -0.699999988079071
-    ],
-    "bounds_max": [
-      1.0,
-      0.019999999552965164,
-      0.699999988079071
-    ]
-  },
-  "environments/home/props/sink.glb": {
-    "sha256": "3a24275493e21072608c0bb4e31fdb0ae9ff5e9fc703ff8b2c57cf1830a62a25",
-    "triangles": 752,
-    "texture_edge": 256,
-    "identities": [
-      "home:sink"
-    ],
-    "bounds_min": [
-      -0.30000001192092896,
-      0.0,
-      -0.30000001192092896
-    ],
-    "bounds_max": [
-      0.30000001192092896,
-      1.0889999866485596,
-      0.30000001192092896
-    ]
-  },
-  "environments/home/props/sofa.glb": {
-    "sha256": "55ea4630a3092d334942ede259470bbb98c521bab309ae04998cf9a6d78b0fae",
-    "triangles": 748,
-    "texture_edge": 256,
-    "identities": [
-      "home:sofa"
-    ],
-    "bounds_min": [
-      -1.0,
-      0.0,
-      -0.44999998807907104
-    ],
-    "bounds_max": [
-      1.0,
-      0.8999999761581421,
-      0.4749999940395355
-    ]
-  },
-  "environments/home/props/spoon.glb": {
-    "sha256": "aa901dd2ad4fcf1c3cb66d74b78e311153cece303dd487e3cb10741363c283ac",
-    "triangles": 676,
-    "texture_edge": 64,
-    "identities": [
-      "home:spoon"
-    ],
-    "bounds_min": [
-      -0.017999999225139618,
-      0.0,
-      -0.0925000011920929
-    ],
-    "bounds_max": [
-      0.017999999225139618,
-      0.019999999552965164,
-      0.0925000011920929
-    ]
-  },
-  "environments/home/props/stove.glb": {
-    "sha256": "5c619632629de82c1ff2ea5e8d43a841712df350ebe991c18a43c18f8ceba00a",
-    "triangles": 784,
-    "texture_edge": 256,
-    "identities": [
-      "home:stove"
-    ],
-    "bounds_min": [
-      -0.30000001192092896,
-      0.0,
-      -0.32100000977516174
-    ],
-    "bounds_max": [
-      0.30000001192092896,
-      0.9160000085830688,
-      0.3199999928474426
-    ]
-  },
-  "environments/home/props/toaster.glb": {
-    "sha256": "6a3a7b0b05e302897f59325ea8f5f29eb166dbb73fa71ab70fee20da6883f0d9",
-    "triangles": 216,
-    "texture_edge": 256,
-    "identities": [
-      "home:toaster"
-    ],
-    "bounds_min": [
-      -0.125,
-      0.0,
-      -0.07999999821186066
-    ],
-    "bounds_max": [
-      0.12700000405311584,
-      0.16099999845027924,
-      0.08799999952316284
-    ]
-  },
-  "environments/home/props/tv_console.glb": {
-    "sha256": "8ffbc1c166444df06fb381b4a827490db9d66750f2a94f103c358dc9c0376ff8",
-    "triangles": 732,
-    "texture_edge": 256,
-    "identities": [
-      "home:tv_console"
-    ],
-    "bounds_min": [
-      -0.7749999761581421,
-      0.0,
-      -0.22499999403953552
-    ],
-    "bounds_max": [
-      0.7749999761581421,
-      0.550000011920929,
-      0.23800000548362732
-    ]
-  },
-  "environments/home/props/wall_switch.glb": {
-    "sha256": "7dfa1dd0bc2ad4b1aec6684749a1c03026031e140e019e35bc70e9a75a0994b6",
-    "triangles": 304,
-    "texture_edge": 128,
-    "identities": [
-      "home:wall_switch"
-    ],
-    "bounds_min": [
-      -0.0430000014603138,
-      0.0,
-      -0.0
-    ],
-    "bounds_max": [
-      0.0430000014603138,
-      0.11999999731779099,
-      0.03252364695072174
-    ]
-  },
-  "shared/props/cardboard_box.glb": {
-    "sha256": "fa883e5675e1d47b208b0ac4bc47b77e7002b48f5013d0e8b4121a2dee159264",
-    "triangles": 104,
-    "texture_edge": 256,
-    "identities": [
-      "core:cardboard_box"
-    ],
-    "bounds_min": [
-      -0.25,
-      0.0,
-      -0.25
-    ],
-    "bounds_max": [
-      0.25,
-      0.5,
-      0.25
-    ]
-  },
-  "shared/props/ceiling_diffuser_01.glb": {
-    "sha256": "550ab68f9ceca2651647fd49bd43cb744cd136404422aee959b7d31567fc5f63",
-    "triangles": 352,
-    "texture_edge": 256,
-    "identities": [
-      "core:ceiling_diffuser_01"
-    ],
-    "bounds_min": [
-      -0.30000001192092896,
-      0.0,
-      -0.30000001192092896
-    ],
-    "bounds_max": [
-      0.30000001192092896,
-      0.06499999761581421,
-      0.30000001192092896
-    ]
-  },
-  "shared/props/crate.glb": {
-    "sha256": "427436fb69054f8fd58ad7352ce89c1ea45b0fd83eb75b50d3fdff6d2f4411ac",
-    "triangles": 616,
-    "texture_edge": 256,
-    "identities": [
-      "core:crate"
-    ],
-    "bounds_min": [
-      -0.30000001192092896,
-      0.0,
-      -0.30000001192092896
-    ],
-    "bounds_max": [
-      0.30000001192092896,
-      0.6000000238418579,
-      0.30000001192092896
-    ]
-  },
-  "shared/props/exit_sign.glb": {
-    "sha256": "988abb7c8aaa1034c4c0543a91a8d9ab081f5b307a08f72c158b1ca294276f24",
-    "triangles": 310,
-    "texture_edge": 256,
-    "identities": [
-      "core:exit_sign"
-    ],
-    "bounds_min": [
-      -0.22499999403953552,
-      0.0,
-      -0.03999999910593033
-    ],
-    "bounds_max": [
-      0.22499999403953552,
-      0.5699999928474426,
-      0.03999999910593033
-    ]
-  },
-  "shared/props/stop_sign.glb": {
-    "sha256": "3c9cd7f504c7c9243c3f30f438a385f52ae4c40e2ddaaae9dfbf65124473bd0e",
-    "triangles": 184,
-    "texture_edge": 256,
-    "identities": [
-      "core:stop_sign"
-    ],
-    "bounds_min": [
-      -0.22499999403953552,
-      0.0,
-      -0.029999999329447746
-    ],
-    "bounds_max": [
-      0.22499999403953552,
-      1.7999999523162842,
-      0.029999999329447746
-    ]
-  },
   "janitor_closet/models/cardboard_supply_box.glb": {
     "sha256": "ffb9d36d3286003fa4c3fb624894e444ae98fb977f7bc1a88240039826ae8663",
     "triangles": 80,
@@ -4154,6 +6386,384 @@
       0.1525000035762787,
       0.6104090213775635,
       0.17314493656158447
+    ]
+  },
+  "shared/props/armchair.glb": {
+    "sha256": "957fa9cb1f4dad245b63b1f0f872162cfdc5400e31ea71374b549ec84f98606d",
+    "triangles": 454,
+    "texture_edge": 256,
+    "identities": [
+      "core:armchair"
+    ],
+    "bounds_min": [
+      -0.44999998807907104,
+      0.0,
+      -0.44999998807907104
+    ],
+    "bounds_max": [
+      0.44999998807907104,
+      0.8999999761581421,
+      0.44999998807907104
+    ]
+  },
+  "shared/props/bed.glb": {
+    "sha256": "8229ccd767ec341a4b44d4acce0fbfe3f0d4a7295466734410a5fcd16855d7ec",
+    "triangles": 780,
+    "texture_edge": 256,
+    "identities": [
+      "core:bed"
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      0.0,
+      -1.0
+    ],
+    "bounds_max": [
+      0.6999999284744263,
+      0.5499999523162842,
+      1.0
+    ]
+  },
+  "shared/props/bookshelf.glb": {
+    "sha256": "ad50a9be15073ccefe1a19df5effca463cf5398ec5fe93a8e86de64e5b9101fb",
+    "triangles": 468,
+    "texture_edge": 256,
+    "identities": [
+      "core:bookshelf"
+    ],
+    "bounds_min": [
+      -0.5,
+      0.0,
+      -0.17499999701976776
+    ],
+    "bounds_max": [
+      0.4999999701976776,
+      1.7999999523162842,
+      0.17500001192092896
+    ]
+  },
+  "shared/props/cardboard_box.glb": {
+    "sha256": "fa883e5675e1d47b208b0ac4bc47b77e7002b48f5013d0e8b4121a2dee159264",
+    "triangles": 104,
+    "texture_edge": 256,
+    "identities": [
+      "core:cardboard_box"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.25
+    ],
+    "bounds_max": [
+      0.25,
+      0.5,
+      0.25
+    ]
+  },
+  "shared/props/ceiling_diffuser_01.glb": {
+    "sha256": "550ab68f9ceca2651647fd49bd43cb744cd136404422aee959b7d31567fc5f63",
+    "triangles": 352,
+    "texture_edge": 256,
+    "identities": [
+      "core:ceiling_diffuser_01"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.06499999761581421,
+      0.30000001192092896
+    ]
+  },
+  "shared/props/couch.glb": {
+    "sha256": "e11ef19a923d0ef5ae0372112799b411049f72fa60af99b7fd6775123c086b3b",
+    "triangles": 580,
+    "texture_edge": 256,
+    "identities": [
+      "core:couch"
+    ],
+    "bounds_min": [
+      -1.0,
+      0.0,
+      -0.44999998807907104
+    ],
+    "bounds_max": [
+      1.0,
+      0.8999999761581421,
+      0.44999998807907104
+    ]
+  },
+  "shared/props/crate.glb": {
+    "sha256": "427436fb69054f8fd58ad7352ce89c1ea45b0fd83eb75b50d3fdff6d2f4411ac",
+    "triangles": 616,
+    "texture_edge": 256,
+    "identities": [
+      "core:crate"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.6000000238418579,
+      0.30000001192092896
+    ]
+  },
+  "shared/props/exit_sign.glb": {
+    "sha256": "988abb7c8aaa1034c4c0543a91a8d9ab081f5b307a08f72c158b1ca294276f24",
+    "triangles": 310,
+    "texture_edge": 256,
+    "identities": [
+      "core:exit_sign"
+    ],
+    "bounds_min": [
+      -0.22499999403953552,
+      0.0,
+      -0.03999999910593033
+    ],
+    "bounds_max": [
+      0.22499999403953552,
+      0.5699999928474426,
+      0.03999999910593033
+    ]
+  },
+  "shared/props/fridge.glb": {
+    "sha256": "95adfd7b52d9d920508b53a02ad5c5108f15065b19bc96b300d68ef2a5fb1264",
+    "triangles": 596,
+    "texture_edge": 256,
+    "identities": [
+      "core:fridge"
+    ],
+    "bounds_min": [
+      -0.3500000238418579,
+      1.862645149230957e-09,
+      -0.3500000238418579
+    ],
+    "bounds_max": [
+      0.3499999940395355,
+      1.8000000715255737,
+      0.3499999940395355
+    ]
+  },
+  "shared/props/lamp.glb": {
+    "sha256": "af28478ff1eab79cc85574ade5ea1b8d0bc791f73e9633e4fc91de74445fe8e6",
+    "triangles": 700,
+    "texture_edge": 256,
+    "identities": [
+      "core:lamp"
+    ],
+    "bounds_min": [
+      -0.17499999701976776,
+      0.0,
+      -0.17499999701976776
+    ],
+    "bounds_max": [
+      0.17499999701976776,
+      1.5,
+      0.17499999701976776
+    ]
+  },
+  "shared/props/painting_frame_landscape_01.glb": {
+    "sha256": "85469ac4b2811779473280e60a75e65fbdcac936d3532df7787d1fefcb967d49",
+    "triangles": 48,
+    "texture_edge": 256,
+    "identities": [
+      "core:painting_frame_landscape_01"
+    ],
+    "bounds_min": [
+      -0.949999988079071,
+      0.0,
+      -0.029999999329447746
+    ],
+    "bounds_max": [
+      0.949999988079071,
+      1.1920000314712524,
+      0.029999999329447746
+    ]
+  },
+  "shared/props/plant.glb": {
+    "sha256": "37ad0d0b56561bd1ccb6e7db99253484e167467a84aafd47eafb0c381a2b069f",
+    "triangles": 868,
+    "texture_edge": 256,
+    "identities": [
+      "core:plant"
+    ],
+    "bounds_min": [
+      -0.20621159672737122,
+      0.0,
+      -0.20918318629264832
+    ],
+    "bounds_max": [
+      0.20621159672737122,
+      0.9850000143051147,
+      0.20918318629264832
+    ]
+  },
+  "shared/props/rug.glb": {
+    "sha256": "db4f28e44f123c67357ba966eb89fc96fea121e230e71f56757c610d82fa015a",
+    "triangles": 60,
+    "texture_edge": 256,
+    "identities": [
+      "core:rug"
+    ],
+    "bounds_min": [
+      -1.0,
+      0.0,
+      -0.699999988079071
+    ],
+    "bounds_max": [
+      1.0,
+      0.019999999552965164,
+      0.699999988079071
+    ]
+  },
+  "shared/props/sink.glb": {
+    "sha256": "ff81be96768a072288d43132a250c00b5723895c30056f32ebc25567424afc6e",
+    "triangles": 684,
+    "texture_edge": 256,
+    "identities": [
+      "core:sink"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.2750000059604645
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      1.100000023841858,
+      0.2750000059604645
+    ]
+  },
+  "shared/props/stop_sign.glb": {
+    "sha256": "3c9cd7f504c7c9243c3f30f438a385f52ae4c40e2ddaaae9dfbf65124473bd0e",
+    "triangles": 184,
+    "texture_edge": 256,
+    "identities": [
+      "core:stop_sign"
+    ],
+    "bounds_min": [
+      -0.22499999403953552,
+      0.0,
+      -0.029999999329447746
+    ],
+    "bounds_max": [
+      0.22499999403953552,
+      1.7999999523162842,
+      0.029999999329447746
+    ]
+  },
+  "shared/props/stove.glb": {
+    "sha256": "bd64864b9c4273428e0fd1629f62608fad36d5afb1e775e730926e465553ec9e",
+    "triangles": 552,
+    "texture_edge": 256,
+    "identities": [
+      "core:stove"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.8999999761581421,
+      0.29999998211860657
+    ]
+  },
+  "shared/props/table.glb": {
+    "sha256": "324d6868bd3f142a06216f0f9e366688e463b06dec234162e787edb92720d071",
+    "triangles": 300,
+    "texture_edge": 256,
+    "identities": [
+      "core:table"
+    ],
+    "bounds_min": [
+      -0.699999988079071,
+      0.0,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.699999988079071,
+      0.75,
+      0.4000000059604645
+    ]
+  },
+  "shared/props/table_sideways.glb": {
+    "sha256": "1bfda1496ebdbed0bc2ec4e3273038f804b853c6178cc45b86499b43d806584b",
+    "triangles": 428,
+    "texture_edge": 256,
+    "identities": [
+      "core:table_sideways"
+    ],
+    "bounds_min": [
+      -0.3750000298023224,
+      -5.960464477539063e-08,
+      -0.4000000059604645
+    ],
+    "bounds_max": [
+      0.375,
+      1.3999998569488525,
+      0.4000000059604645
+    ]
+  },
+  "shared/props/tv.glb": {
+    "sha256": "004d03205324003aacf7d4dd7dec2a173b449d4df30a908fc9a3d8c6e7ec9f4d",
+    "triangles": 280,
+    "texture_edge": 256,
+    "identities": [
+      "core:tv"
+    ],
+    "bounds_min": [
+      -0.550000011920929,
+      0.0,
+      -0.05000000074505806
+    ],
+    "bounds_max": [
+      0.550000011920929,
+      0.699999988079071,
+      0.05000000074505806
+    ]
+  },
+  "shared/props/washer_drum.glb": {
+    "sha256": "51288d5497e30aa8b77260b3da4c1cc818875c8773896f378a3821d7ab380e37",
+    "triangles": 352,
+    "texture_edge": 256,
+    "identities": [
+      "core:washer_drum"
+    ],
+    "bounds_min": [
+      -0.20999999344348907,
+      0.0,
+      -0.20999999344348907
+    ],
+    "bounds_max": [
+      0.20999999344348907,
+      0.30000001192092896,
+      0.20999999344348907
+    ]
+  },
+  "shared/props/washing_machine.glb": {
+    "sha256": "51d2efcbe80315281ab20d51a967f8812a56e20ec510b235de97183bd5e3ac0f",
+    "triangles": 552,
+    "texture_edge": 256,
+    "identities": [
+      "core:washing_machine"
+    ],
+    "bounds_min": [
+      -0.30000001192092896,
+      0.0,
+      -0.29999998211860657
+    ],
+    "bounds_max": [
+      0.30000001192092896,
+      0.8500000238418579,
+      0.30000001192092896
     ]
   }
 }

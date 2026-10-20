@@ -584,3 +584,233 @@ cost. Full performance, editor polish, audio, UI/menu and visual styles remain
 later queue stages. Cloud model integration is queued for a safe slot after this
 handoff; no model assets were changed here. Final consolidated CI waiting/fixes
 remain at the queue gate. No main merge, release or force push occurred.
+
+## Cloud model integration — released native queue slot
+
+This integration continues from water-stage commit
+`5ebf0fab086cc527e9dfed290acd9301cbe1996a` on `0.13.0-staging`; local HEAD and the
+live remote matched before work. The Mac queue had no competing game, compiler
+or Cargo writer. All intake, checkpoints, old bytes, prepared packages, direct
+binaries and native receipts are retained outside `target` in
+`local/model-integration-0.13.0/`. The two pre-existing untracked Python audit
+reports are untouched. Historical report consolidation and compiler/storage
+optimization remain separate queue tasks.
+
+### Exact runtime intake and asset contracts
+
+Supported owned-Library materialization delivered the final runtime archives and
+manifests to a separate intake directory. Archive CRC, traversal, duplicate-name,
+link, encryption, bounded-size and path checks preceded adoption. Expected archive
+byte counts/SHA-256 and every canonical file's manifest hash match. No private
+URL was inferred, source archive regenerated, or authoring imagery substituted.
+The unified `PLACES-144-VERIFIED-DELIVERY-INDEX.json` reconciles 243 unique runtime
+files: **144 replacement GLBs and 99 PNGs**. The separate new Home door adds one
+GLB and one PNG: **245 exact runtime files** in total. Full paths, byte counts and
+SHA-256 values are retained in `adoption-candidate.json` in the local evidence
+root; the frozen Library index is `libfile_4132eac1ec9c81918e2a8fe70d7ef599`.
+
+| Cohort | Replacement GLBs | Runtime PNGs | Canonical repository locations |
+| --- | ---: | ---: | --- |
+| Outdoor houses/porches | 58 | 58 | `assets/environments/outdoor/props/` |
+| Outdoor landscape | 28 | 28 | `assets/environments/outdoor/props/` |
+| Frutiger Aero, 22 families | 24 | 6 | `assets/environments/frutiger_aero/props/` |
+| Beach nature | 11 | 1 | `assets/environments/beach/props/`, `beach_nature_fitted.png` |
+| Beach architecture/props | 18 | 1 | `assets/environments/beach/props/`, `beach_fitted.png` |
+| Entity rigs | 5 | 5 | `assets/entities/{cockroach,sheet-ghost-cat,beach_seagull,beach_crab,beach_fish}/` |
+| New Home folding door | 1 new | 1 | `assets/environments/home/props/closet_folding_door.{glb,png}` |
+
+The catalog and accepted-export ledger pin actual geometry hashes, bounds,
+triangle counts, texture edges and semantic slots. All 230 earlier accepted
+ledger records remain equal. Six Landscape review-only modules, the ordinary
+sheet ghost and Spoonerman remain untouched/excluded from this replacement
+batch. Existing collision/placement/rig contracts and source masters remain
+intact. The ghost-cat hem and Landscape MASK grass are intentional open surfaces;
+reviewed compound contact seams were assessed using their specific notes rather
+than a single watertightness heuristic. Office's 44 painted porch-post overrides
+now cover the delivered trim slot as well as the original stock slot, retaining
+the authored paint material. No global art, importer, draw or texture limit was
+raised. Editable archives and review imagery remain outside runtime distribution.
+
+The installed GLB set grows from 381 to 382 distinct paths. Decoded pixel
+inventory is **87,797,760 → 91,926,528 bytes**, a **4,128,768-byte / 3.9375 MiB**
+increase. Replacements account for 3,866,624 bytes / 3.6875 MiB; the new door adds
+262,144 bytes. This is not zero overall texture growth. The production
+`PropAssets` cache independently confirms the final total: 418 image references
+share **187 actual decoded image allocations**, exactly 91,926,528 bytes. The
+PNG-identity conservative checker reports 93,499,392 bytes / 89.168 MiB, below
+the unchanged 106 MiB budget. These are installed decoded model-image totals,
+not a claim that every image is simultaneously uploaded by a level, nor a GPU
+allocation/utilization counter. Raw-image and native per-level receipts retain
+those distinct scopes.
+
+### Functional Home closet door
+
+The actual Home showcase placement is `home_closet_folding_door`, position
+**(0,0,8.6), yaw 90°**, at the bedroom's west wall, with a real backed alcove,
+floor and ceiling. The continuous 300 mm west wall retains its existing passage and has a
+1.96×2.18 m zero-sill rough opening for the full casing around the nominal
+1.80×2.10 m aperture. This prevents frame stock/lighting anchors being embedded
+in the wall and avoids the vertical seam from an earlier segmented wall.
+The supplied final GLB remains SHA-256
+`8e713092feff04f385606ad2b9e69bfdf07638ad5d3e44981cbb72894227e9d9`:
+792 triangles, ten primitives, two opaque materials, one opaque 256² PNG and the
+original LINEAR `fold_open` clip lasting 1.4 seconds.
+
+Reusable `animated_door` support resolves named rigid nodes and samples that
+same clip for both visual pose and live oriented collision. Four leaf cores,
+two pulls and three fixed frame boxes leave the real aperture open; there is no
+full-width solid prop box or single native door slab. Prospective motion probes
+at most 5 ms of clip time, limits hitch consumption to 100 ms, stops at the last
+safe pose and retries when clear. A new interaction reverses from that fraction.
+Player, AI, fixed geometry, held/loose props and other leaf sets constrain motion.
+The same live set feeds movement, interaction occlusion, item physics and
+navigation clearance; posed bounds update culling. `animated-door-v1` makes the
+new package contract explicit. Native slab doors and stage 2/3 safeguards retain
+their interfaces. This supports upright rigid mechanisms, not general skinned
+or triangle-mesh moving collision.
+
+### Local gates and native acceptance
+
+Strict workspace/all-target/all-feature Clippy passes (`clippy-reviewed2.log`).
+The locked all-feature workspace release build passes (`build-reviewed-release.log`,
+3m04s). All **210 Rust tests** pass in 0.40 s (`tests-reviewed.log`): the 206 prior
+regressions plus three tiny delivered-rig pose/obstruction tests and one paused
+held-body obstacle-pose contract. No full-map bake is part of ordinary Rust tests.
+Asset validation reports 621 assets and zero warnings; prop budget validation
+passes, while texture validation retains 96 pre-existing advisories.
+
+Focused native fixture checks have exercised actual four-leaf opening,
+mid-travel reversal, repeated traversal, 37° yawed placement, occupied close,
+clear-close and loose-prop obstruction. A settled mug stops closing near progress
+0.703 and clearing it permits the closed endpoint. During a held-mug close, the
+existing carry controller moves the mug out of the approaching leaf path;
+16 native captures record zero penetration. A suspected stale-query explanation
+was disproved by matching live obstacle/body bounds, so no speculative physics
+change was made. Ten delivered entity clips advance with original clip names;
+`tail_tip` resolves and zero opacity suppresses its light. The full-lighting
+checks below complete native acceptance. Diagnostic action/capture runs are not
+performance comparisons.
+
+Selective rebuilding already exists: `places-compile build <project> --level <id>`
+reads the selected level (`src/map_compiler/project.rs:17`) and emits its own
+package. The ordinary current-package check returns without rebuilding when
+that member's inputs match (`src/map_compiler/mod.rs:349`); a separate prepared
+lighting fingerprint can retain solved lighting for supported non-lighting edits.
+Editing one level therefore does not inherently require rebaking every level.
+Here, seven members actually use changed models. Pool and Arcade use none.
+
+There is nevertheless over-broad catalog invalidation: `load_catalog_identity`
+hashes the entire catalog, including unused entries
+(`src/map_compiler/mod.rs:2058`), both package and prepared-stage keys include that
+hash, and runtime validation requires its exact installed value
+(`src/engine/package/world.rs:326`). This integration's **local, task-specific
+script** `compose_collection.py` automates dependency-file SHA/size and used
+catalog-entry equivalence checks, then rebinds only catalog provenance and its
+manifest hashes for Pool/Arcade. Member selection is explicit. Their prepared
+geometry, lighting, probes and original source/compiler provenance remain intact;
+this is not a new supported automatic compiler reconciliation facility. Automatic
+used-entry invalidation and the broad executable-identity key are recorded for
+the **next storage/compiler optimization pass**, with no compiler optimization
+implemented here. The revised later queue is engine/game performance, mannequin
+ragdolls, then historical documentation cleanup.
+
+Project distribution export also seeds each staged member from the previous
+collection (`src/map_compiler/distribution.rs:178`, `project_cache.rs:9`) before
+those checks. Thus a normal unchanged member can already be reused during a
+collection export; it is the broad global identities above that made automatic
+reuse miss for these otherwise unaffected members.
+
+All seven changed members pass `verify --require-current`: Home, Hub, Office,
+Winter, Beach, Aero and Lantern Hollow. The final nine-member collection passes
+production validation with intact dependencies and zero warnings. Pool/Arcade
+retain their original prepared payloads and tool provenance; their developer
+currentness receipts explicitly remain false with `compiler executable changed`.
+This limitation is preserved rather than representing retained work as a fresh
+compile. The local rebinder preserves the engine's pretty manifest serialization,
+so raw manifest hashes and actual native identity logs agree. Its first compact
+JSON attempt passed content validation but failed the identity receipt gate;
+that exploratory Pool receipt is not accepted evidence.
+
+| Focused native evidence | Accepted result |
+| --- | --- |
+| `home-door-mounted-reviewed` | Actual Home, Full lighting. Closed walk stops at X 0.367; open entry reaches X −0.673, close reaches progress 0, interruption changes opening 0.426→closing 0.318, reopening reaches 1, exit reaches X 0.666. All 12 captures have reset_count=0. Ordinary E activates the real leaves/frame. |
+| `door-fixture-r2`, `door-props-yaw-r1`, `door-loose-r1` | Player obstruction holds near 0.684; clear-close/reopen and repeated traversal pass. 37° yawed placement crosses normally; instances remain independent. Settled mug blocks near 0.703 and removal restores close. Earlier missed-pickup labels in props-yaw are not prop acceptance. |
+| `door-carried-sweep-reviewed` | Actual E pickup and carry routing; all 16 captured penetration depths are 0. The carry system retracts the mug clear, rather than the closing leaf passing through it. |
+| `entity-clips-reviewed`, `entity-close-full-reviewed` | Five replacement rigs, ten original clips advance; native sockets resolve. Full-lighting front/side views retain partial-opacity sorting and emission. Thirteen cycle captures span opacity 0.0158–0.9844 with the moving `tail_tip` attachment. Local node/skin/scene/clip JSON and animation/inverse-bind bytes match the originals across 67 joints. |
+| `ghost-zero-reviewed` vs `ghost-absent-reviewed` | Identical room, lights and camera with the sole zero-opacity rig removed in the control: **0 changed pixels out of 921,600**, max channel difference 0. This directly checks absent depth, shadow and emission contribution. |
+| `lantern_hollow-models-reviewed` | Four house facades, porch joins, pond landscape, ghost and campfire inspected. Fitted stock, aligned rail/post contacts, MASK grass, opaque masses and warm emission/light response remain coherent. Reviewed bargeboard/platform/core contact seams and inherited roof clearances remain intact. |
+| `beach-models-reviewed`, `beach-town-final-reviewed` | Native pier, town/stairs/bunting, lighthouse, sea arch, grounded offset palm, cove/foam edge and three animal types inspected. Static OPAQUE surfaces, fitted materials, water-edge alignment and original collision surfaces/placement remain intact. Initial town camera was obstructed; the accepted town view uses the explicit fixed render eye(8,4,20). |
+| `aero-models-reviewed` | Dome and partition glazing, fountain/bubbles, ceiling emission, upright fitted banners, reception and green/city backdrops inspected under Full lighting/reflections. |
+| `office-models-reviewed`, `winter-models-reviewed`, `hub-models-reviewed` | Painted rail/post slots, actual upper ramp rails, winter landscape/boulder response, and all three changed Hub preview props inspected. An obstructed Office upper camera was superseded by the ramp capture. |
+| `pool-water-final-reviewed`, `office-ramp-final-reviewed` | Pool walk/jump entry, submersion, view-directed dive, resurfacing and rim exit retain reset_count=0; ordinary upper-ramp ascent/descent reaches eye Y 8.8/5.2 with reset_count=0. These focus on preservation of accepted stage 2/3 behavior. |
+
+Native captures were actually viewed for scale/orientation, texture fitting,
+opacity/emission, lighting/shadows, joins and animation. Home's initial segmented
+wall had a visible vertical join; a continuous wall with a clear-aperture-sized
+cut then embedded the outer frame and darkened its spatial lighting. Cutting the
+rough opening to the **outer casing dimensions** fixes both defects while
+retaining the supplied model and ordinary lighting policy. Only Home was
+re-prepared for these observed placement defects. The final Home overview,
+close/open/inside/reversal captures retain the correct painted stock and visible
+frame; no lighting boost, emissive override or artwork simplification was used.
+
+Initial all-peer catalog rejection, missed prop-pickup setups, the too-short
+480-second Office preparation, noncanonical rebound-manifest identity and the
+Home placement prototypes remain local exploratory evidence. They are not
+counted as passing acceptance. No extra full-map or quality matrix was repeated.
+
+### Focused uncapped performance
+
+Two interleaved baseline/candidate pairs per view measure 1,200 frames after 180
+warmup frames, fixed render eye and 1/60 simulation delta. The preserved stage3
+player/package/assets are the baseline; the reviewed player and new assets are
+the candidate. No compiler or other game overlapped. Apple M2 Pro/Metal,
+640×360 logical / **1280×720 actual drawable**, High textures/filtering/lighting,
+Full lightmaps/reflections, bloom, 60° FOV. Every run records actual **Immediate**,
+V-Sync off, zero missed ready surfaces, and no frame limiter. Throughput 184–623 fps,
+median loop times below 8.33 ms, and mean swap 0.014–0.030 ms exclude a 120 Hz refresh
+plateau. Capture/interaction runs supply no FPS claims.
+
+| Fixed view, two equal-frame means | Before→after mean loop ms | Before→after FPS | Loop change | Base scene draws / triangles before→after |
+| --- | --- | --- | ---: | --- |
+| Lantern house front, eye(9,1.6,11), yaw 0 | 5.2349→5.3559 | 191.03→186.71 | +2.31% | 409 /1,367,966→419 /1,379,130 |
+| Beach pier, eye(10,1.6,−3), yaw 0 | 1.6114→1.6635 | 620.57→601.16 | +3.23% | 22 /3,069→27 /3,605 |
+| Aero atrium, eye(2.5,1.6,10.1), yaw 38 | 1.6564→1.6512 | 603.73→605.62 | −0.31% | 85 /20,378→102 /23,734 |
+
+Pairwise loop changes are Lantern +3.30/+1.32%, Beach +2.47/+4.00%,
+Aero +1.20/−1.82%. GPU means are respectively 5.300→5.377 ms,
+1.576→1.430 ms and 1.118→1.185 ms; timestamps include scheduling stalls, not
+utilization. These short controls show modest measured costs with the additional
+art/draws in two views and variation around equal throughput in Aero. They do
+not establish a performance gain, confidence interval, thermal-controlled result
+or full-game performance guarantee. Raw CSV/settings/native identities and
+`performance-comparison.json` preserve every run. The later Home-only rough-cut
+refinement leaves all three timed member records **byte-identical**, so no FPS
+repeat or unrelated optimization was performed.
+
+### Artifacts, limits and handoff
+
+| Preserved final artifact | SHA-256 |
+| --- | --- |
+| `source-binaries/places` | `644eb4f92641105c7cdc21c12723157e7c8d714c46a919459f5055ece51d8076` |
+| `source-binaries/places-compile` | `d5e37d74e3c35a523126d142efcab1d2e202821906fed55c52df977026a23e9f` |
+| `The-Quiet-Collection-Models-Accepted.placesmap` | `1a4ecdf4ae0f87d0403c9477e090288373557b8e8b5d044e6894bc6afc6c9f73` |
+
+The accepted collection is **472,639,184 bytes**, versus 467,503,143 at stage3;
+this is not a storage improvement. The final package is installed as
+`assets/levels/environments.placesmap`; old packages, model/catalog bytes and
+all receipts remain available locally. Home/Hub/Office/Winter/Beach/Aero/Lantern
+preparations took approximately 65/48/1,200/474/252/245/1,239 seconds before the
+small Home fit iterations. Lantern's roughly eleven minutes of Static preparation on one CPU core
+and subsequent transport progress with six workers are retained for the next compiler
+pass; no duplicate process was launched during connection fluctuations.
+
+Acceptance is scoped to this Mac/Metal, the measured resolution/settings and
+representative placements. The mechanism is upright rigid-node OBB collision,
+not general skinned/mesh collision, native slab lock parity or a full-game
+platform campaign. Two legacy geometry-check service-passage warnings and 96
+texture advisories remain unchanged. No global limits were raised and no art
+bytes simplified. The next work is **storage/compiler optimization**, then
+engine/game performance, mannequin ragdolls and historical docs cleanup. Those
+passes are not started here. All work remains on staging; no main merge,
+release, force push, CI wait or `cargo clean` was performed.

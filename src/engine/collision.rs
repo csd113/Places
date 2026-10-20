@@ -313,6 +313,38 @@ pub struct DoorCollider {
 }
 
 impl DoorCollider {
+    /// Exact separating-axis overlap of two upright oriented rectangles.
+    #[must_use]
+    pub fn overlaps_leaf(&self, other: &Self) -> bool {
+        if !self.overlaps_body_y(other.hinge_y, other.height) {
+            return false;
+        }
+        let a = glam::Vec2::new(self.dir_x, self.dir_z);
+        let b = glam::Vec2::new(other.dir_x, other.dir_z);
+        let an = glam::Vec2::new(-a.y, a.x);
+        let bn = glam::Vec2::new(-b.y, b.x);
+        let center_a = glam::Vec2::new(
+            a.x.mul_add(self.width * 0.5, self.hinge_x),
+            a.y.mul_add(self.width * 0.5, self.hinge_z),
+        );
+        let center_b = glam::Vec2::new(
+            b.x.mul_add(other.width * 0.5, other.hinge_x),
+            b.y.mul_add(other.width * 0.5, other.hinge_z),
+        );
+        let delta = glam::Vec2::new(center_b.x - center_a.x, center_b.y - center_a.y);
+        [a, an, b, bn].iter().all(|axis| {
+            delta.dot(*axis).abs()
+                < other.thickness.mul_add(
+                    bn.dot(*axis).abs(),
+                    other.width.mul_add(
+                        b.dot(*axis).abs(),
+                        self.thickness
+                            .mul_add(an.dot(*axis).abs(), self.width * a.dot(*axis).abs()),
+                    ),
+                ) * 0.5
+        })
+    }
+
     /// Builds the collider for a hinge pose and leaf direction.
     ///
     /// `hinge` is the leaf's bottom hinge edge, `direction` the unit `(x, z)`

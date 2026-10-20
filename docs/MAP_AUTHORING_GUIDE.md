@@ -8920,3 +8920,39 @@ Pick up/drop to activate props; look down + forward dives, Jump rises. Changing
 only `motion.direction_degrees` reverses flow without altering density or light.
 Build this example explicitly with `places-compile build`, never as a Rust test.
 The [0.13.0 report](reports/release-0.13.0.md#stage-3--water-motion-currents-and-player-interaction) records native conditions, evidence and remaining limits.
+
+
+### Clip-driven compound doors (0.13.0)
+
+An upright rigid prop may author `animated_door` with a `clip`, optional
+`initial_open` (default false), and 1..32 `boxes`. Each box names a real GLB
+`node`, local `center` and positive local `size`. The loader resolves that exact
+rig/clip and validates upright rigid node transforms. Up to 64 mechanisms are
+supported within the existing 128-character budget. This profile requires
+`solid:false`, no physics, float, span, route, pitch/roll, shadow-only or material
+replacement. Keep its normal `animation` and `interactable` components and use
+`toggle_animation` on the named clip; `play_animation` requests the open end.
+Native slab `doors[]` retain their existing action/lock interface.
+
+Gameplay advances the actual clip at its authored duration. Prospective poses
+are checked in at most 5 ms of clip time and 100 ms per update against player,
+AI, fixed world, held/loose item bounds and other mechanism leaves. An obstructed
+mechanism holds its last accepted pose and resumes when clear; another toggle
+reverses immediately from that fraction. Rendering samples that exact accepted
+fraction with no secondary clock or crossfade. Separate oriented boxes follow
+each leaf and pull; fixed frame stock is never a filled aperture box. The same
+live set feeds movement, interaction occlusion, rigid physics and AI clearance;
+movement changes the navigation clearance revision. Culling uses actual posed
+bounds. This does not introduce mesh collision or general skinned collision.
+
+`home:closet_folding_door` uses `fold_open` (1.4 seconds), four leaf cores,
+two separately bounded pulls and three fixed jamb/header boxes. Its source
+placement is `home_closet_folding_door` at `(0,0,8.6)`, yaw 90°, in the Home
+bedroom's west alcove. Its zero-sill rough opening is 1.96×2.18 m in the continuous 300 mm west
+wall, accommodating the full casing around the nominal 1.8×2.1 m aperture. The alcove has real floor, ceiling, side walls and backing.
+Keep the +Z forward folding sweep clear and preserve the delivered hinge offset.
+The rigid character route excludes immutable bind-pose bake occlusion; actual
+attached light and flashlight shadow behavior still follow existing policies.
+New packages require `animated-door-v1` so older players reject this collision
+contract explicitly. Focused CPU tests use only the delivered rig and a tiny
+placement; native acceptance belongs in the consolidated release report.

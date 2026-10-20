@@ -2525,3 +2525,34 @@ only the entry map inherits the project thumbnail, otherwise a code-native
 framed P is the fallback. Decode uses the existing 4 MiB encoded/8 MiB bounded
 thumbnail path (up to 1280×720), not the world texture edge limit. The renderer
 caches at most eight visible images and performs no per-frame PNG decoding.
+
+
+### Home folding closet and October 20 completed replacements
+
+`home:closet_folding_door` is a new ordinary rigid animated prop with exact
+final runtime GLB SHA-256
+`8e713092feff04f385606ad2b9e69bfdf07638ad5d3e44981cbb72894227e9d9`.
+It retains 792 triangles, 1,504 exported vertices, ten primitives, two opaque
+materials and one fitted opaque 256² PNG beside the GLB under
+`environments/home/props/`. Its four atlas quadrants are painted stock,
+recessed paint, aged hardware and dark track. UVs remain fitted/clamped and
+unchanged; 1024² masters and editable archives stay outside runtime distribution.
+Closed bounds are 1.96×2.18×0.224 m, floor-centred, +Y up and +Z front.
+The original `fold_open` LINEAR quaternion clip lasts 1.4 seconds and reverses
+for closing. Preserve named pivot hierarchy, rear fold-hinge offsets and all
+four independently folding leaves. Full-open measured clear width is 1.279497 m;
+forward sweep is 0.435504 m. It requires clip-driven individual live collision,
+not a solid prop envelope or a native single swinging slab. See the map guide.
+
+The 144 supplied replacement exports retain exact delivered GLB/PNG bytes,
+original canonical identities, measured bounds and semantic material roles.
+Their accepted-export ledger protects them from historical procedural rebuilds.
+The Outdoor grass card MASK exception and ghost-cat's intentional lower cloth
+hem are reviewed open surfaces; compound contact seams and constant-cell UVs
+require their specific evidence, not blanket rejection by a mesh heuristic.
+Original references, source masters and the previously accepted cohort remain
+unchanged. New fitted Beach atlases are separate `beach_nature_fitted.png` and
+`beach_fitted.png`; they do not replace an unrelated shared atlas.
+Native acceptance and installed deduplicated memory accounting belong in the
+single 0.13.0 release report. No global art, draw, texture or importer budget is
+raised by this adoption.

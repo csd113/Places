@@ -2680,7 +2680,11 @@
       "color": "#4c6b3c",
       "category": "Vegetation",
       "solid": false,
-      "description": "Standing tuft of alpha-cutout grass cards for LOW-density scatter; non-solid, does not occlude the light bake."
+      "description": "Standing tuft of alpha-cutout grass cards for LOW-density scatter; non-solid, does not occlude the light bake.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:grass_patch_large",
@@ -2698,7 +2702,11 @@
       "color": "#4f6f3e",
       "category": "Vegetation",
       "solid": false,
-      "description": "Taller standing grass cluster for MEDIUM and DENSE scatter; non-solid, does not occlude the light bake."
+      "description": "Taller standing grass cluster for MEDIUM and DENSE scatter; non-solid, does not occlude the light bake.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:tree_01",
@@ -2738,7 +2746,11 @@
       "color": "#3b3a36",
       "category": "Lighting",
       "solid": false,
-      "description": "Ground-standing garden lamp on a short post: a dark housing with a warm emissive pane. Author its point light at offset [0, 0.86, 0] (the documented mounting origin)."
+      "description": "Ground-standing garden lamp on a short post: a dark housing with a warm emissive pane. Author its point light at offset [0, 0.86, 0] (the documented mounting origin).",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:lamp_fence",
@@ -2756,7 +2768,11 @@
       "color": "#3b3a36",
       "category": "Lighting",
       "solid": false,
-      "description": "Small cap lamp for a fence post: the bracket seats on a 0.12 m post and the warm emissive pane faces +Z. Author its point light at offset [0, 0.30, 0.05]."
+      "description": "Small cap lamp for a fence post: the bracket seats on a 0.12 m post and the warm emissive pane faces +Z. Author its point light at offset [0, 0.30, 0.05].",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:lamp_wall",
@@ -2774,7 +2790,11 @@
       "color": "#3b3a36",
       "category": "Lighting",
       "solid": false,
-      "description": "Building/eave-hanging lantern: an arched bracket meets the wall at y = 0.52 and the lamp hangs below it. Author its point light at offset [0, 0.18, 0.12]."
+      "description": "Building/eave-hanging lantern: an arched bracket meets the wall at y = 0.52 and the lamp hangs below it. Author its point light at offset [0, 0.18, 0.12].",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:fence_post",
@@ -2792,7 +2812,11 @@
       "color": "#6a5a45",
       "category": "Structure",
       "solid": true,
-      "description": "Simple capped fence post; supports outdoor:lamp_fence and gives a run of posts a repeated silhouette."
+      "description": "Simple capped fence post; supports outdoor:lamp_fence and gives a run of posts a repeated silhouette.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_wall_solid",
@@ -2810,7 +2834,11 @@
       "color": "#5c6b58",
       "category": "Structure",
       "solid": false,
-      "description": "Modular exterior wall panel: siding on both faces with a painted base band and corner boards. Use level size [3.0, 2.7, 0.24] and solid true, or butt it against real level walls."
+      "description": "Modular exterior wall panel: siding on both faces with a painted base band and corner boards. Use level size [3.0, 2.7, 0.24] and solid true, or butt it against real level walls.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_wall_window",
@@ -2828,7 +2856,11 @@
       "color": "#5c6b58",
       "category": "Structure",
       "solid": false,
-      "description": "Exterior wall panel with a centered framed window, sill and dark glazing; the window is decorative and the panel stays solid."
+      "description": "Exterior wall panel with a centered framed window, sill and dark glazing; the window is decorative and the panel stays solid.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_wall_doorway",
@@ -2846,7 +2878,11 @@
       "color": "#5c6b58",
       "category": "Structure",
       "solid": false,
-      "description": "Exterior wall panel with a centered 1.1 x 2.15 m doorway: real jamb depth through the panel, a lintel and a threshold board. Non-solid; the level authors a real wall with a door opening behind it. Eave lamp mounts are documented at [+/-1.15, 2.55, 0.20] local."
+      "description": "Exterior wall panel with a centered 1.1 x 2.15 m doorway: real jamb depth through the panel, a lintel and a threshold board. Non-solid; the level authors a real wall with a door opening behind it. Eave lamp mounts are documented at [+/-1.15, 2.55, 0.20] local.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_roof_slope",
@@ -2864,7 +2900,11 @@
       "color": "#4a4640",
       "category": "Structure",
       "solid": false,
-      "description": "Pitched roof slope with a visible eave: shingle field on top, fascia and soffit board at the low edge, origin at the eave's underside centre so a slope can be butted against a gable."
+      "description": "Pitched roof slope with a visible eave: shingle field on top, fascia and soffit board at the low edge, origin at the eave's underside centre so a slope can be butted against a gable.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_roof_ridge",
@@ -2882,7 +2922,11 @@
       "color": "#3f3b36",
       "category": "Structure",
       "solid": false,
-      "description": "Ridge cap that covers the joint where two roof slopes meet."
+      "description": "Ridge cap that covers the joint where two roof slopes meet.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_corner_trim",
@@ -2900,7 +2944,11 @@
       "color": "#6a5a45",
       "category": "Structure",
       "solid": false,
-      "description": "Vertical corner board that covers panel junctions at a house corner."
+      "description": "Vertical corner board that covers panel junctions at a house corner.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:concrete_step",
@@ -2918,7 +2966,11 @@
       "color": "#8a8781",
       "category": "Structure",
       "solid": false,
-      "description": "Low cast step joining a concrete walkway or dirt path to a doorway threshold without a large step; set the level size with solid true when the player should stand on it."
+      "description": "Low cast step joining a concrete walkway or dirt path to a doorway threshold without a large step; set the level size with solid true when the player should stand on it.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:collision_peg",
@@ -2936,7 +2988,11 @@
       "color": "#3d3e42",
       "category": "Structure",
       "solid": true,
-      "description": "Deliberately tiny 6 cm grey cube that carries an authored invisible containment collider, not scenery: place it solid: true with the collider's real size (e.g. [0.3, 3.0, 3.0]), set occludes: false and author a y that buries the cube below the local floor, so the drawn geometry is never visible and the bake never sees it."
+      "description": "Deliberately tiny 6 cm grey cube that carries an authored invisible containment collider, not scenery: place it solid: true with the collider's real size (e.g. [0.3, 3.0, 3.0]), set occludes: false and author a y that buries the cube below the local floor, so the drawn geometry is never visible and the bake never sees it.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "sheet-ghost-cat",
@@ -2954,7 +3010,11 @@
       "color": "#bfe4e8",
       "category": "Decorative",
       "solid": false,
-      "description": "Small painted sheet ghost cat on a five-joint rig; floating loop float_forward (authored for 0.2 m/s) and an idle sway, sharing the sheet ghost's blended cyan cloth contract. Use fade and glow components for its cycle."
+      "description": "Small painted sheet ghost cat on a five-joint rig; floating loop float_forward (authored for 0.2 m/s) and an idle sway, sharing the sheet ghost's blended cyan cloth contract. Use fade and glow components for its cycle.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:tree_02",
@@ -3016,7 +3076,11 @@
       "color": "#3f3c36",
       "category": "Lighting",
       "solid": false,
-      "description": "Tall streetlight on a 6 m post with a top arm and a downward-facing warm lantern head. Author its point light at offset [0, 6.05, 0.43] under the pane (the hood shadows upward, so the pool stays on the ground); the catalogued 1.2 m depth includes the arm and the head's hood, and the emitter anchor is inside that box."
+      "description": "Tall streetlight on a 6 m post with a top arm and a downward-facing warm lantern head. Author its point light at offset [0, 6.05, 0.43] under the pane (the hood shadows upward, so the pool stays on the ground); the catalogued 1.2 m depth includes the arm and the head's hood, and the emitter anchor is inside that box.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:porch_railing_straight",
@@ -3034,7 +3098,11 @@
       "color": "#8d8577",
       "category": "Structure",
       "solid": false,
-      "description": "Straight 1.8 m porch railing module: top and bottom rails with balusters, origin at the floor, centred on the run. Non-solid dressing over a prop or wall collider."
+      "description": "Straight 1.8 m porch railing module: top and bottom rails with balusters, origin at the floor, centred on the run. Non-solid dressing over a prop or wall collider.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:porch_railing_corner",
@@ -3052,7 +3120,11 @@
       "color": "#8d8577",
       "category": "Structure",
       "solid": false,
-      "description": "Right-angle porch corner with floor-reference origin. Local X/Z post anchor [-0.09,-0.09]; join endpoints [0.15,-0.09] and [-0.09,0.15]. Use one 0.12 m porch_post at the anchor; lower rail y=0.14..0.21 and top y=0.95..1.05."
+      "description": "Right-angle porch corner with floor-reference origin. Local X/Z post anchor [-0.09,-0.09]; join endpoints [0.15,-0.09] and [-0.09,0.15]. Use one 0.12 m porch_post at the anchor; lower rail y=0.14..0.21 and top y=0.95..1.05.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:porch_railing_end",
@@ -3070,7 +3142,11 @@
       "color": "#8d8577",
       "category": "Structure",
       "solid": false,
-      "description": "Porch railing terminal: a short rail end and a newel cap closing a run without a gap."
+      "description": "Porch railing terminal: a short rail end and a newel cap closing a run without a gap.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:porch_post",
@@ -3088,7 +3164,11 @@
       "color": "#8d8577",
       "category": "Structure",
       "solid": false,
-      "description": "Square porch support post with a flat cap seat at y = 1.05; the railing support piece and the seat for a porch roof."
+      "description": "Square porch support post with a flat cap seat at y = 1.05; the railing support piece and the seat for a porch roof.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_01_wall_solid",
@@ -3106,7 +3186,11 @@
       "color": "#cfc6ab",
       "category": "Structure",
       "solid": false,
-      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. 3 m wall panel with the type's cladding, base band and corner boards."
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. 3 m wall panel with the type's cladding, base band and corner boards.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_01_wall_window",
@@ -3124,7 +3208,11 @@
       "color": "#cfc6ab",
       "category": "Structure",
       "solid": false,
-      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. 3 m wall panel with the type's framed window and dark glazing."
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. 3 m wall panel with the type's framed window and dark glazing.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_01_wall_doorway",
@@ -3142,7 +3230,11 @@
       "color": "#cfc6ab",
       "category": "Structure",
       "solid": false,
-      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20."
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_01_gable",
@@ -3160,7 +3252,11 @@
       "color": "#3f4a3a",
       "category": "Structure",
       "solid": false,
-      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard."
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_01_roof_slope",
@@ -3178,7 +3274,11 @@
       "color": "#5b564c",
       "category": "Structure",
       "solid": false,
-      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z."
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_01_roof_ridge",
@@ -3196,7 +3296,11 @@
       "color": "#5b564c",
       "category": "Structure",
       "solid": false,
-      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Ridge cap closing two roof slopes; apex edge at local y = 0.22."
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Ridge cap closing two roof slopes; apex edge at local y = 0.22.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_01_corner_trim",
@@ -3214,7 +3318,11 @@
       "color": "#3f4a3a",
       "category": "Structure",
       "solid": false,
-      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Vertical corner board covering a panel junction."
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Vertical corner board covering a panel junction.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_01_porch_deck",
@@ -3232,7 +3340,11 @@
       "color": "#3f4a3a",
       "category": "Structure",
       "solid": false,
-      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0."
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_01_porch_post",
@@ -3250,7 +3362,11 @@
       "color": "#3f4a3a",
       "category": "Structure",
       "solid": false,
-      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it."
+      "description": "Faded cream clapboard with dark-green trim, a two-pane window, grey shingles and a simple stoop. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_02_wall_solid",
@@ -3268,7 +3384,11 @@
       "color": "#93a3ac",
       "category": "Structure",
       "solid": false,
-      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. 3 m wall panel with the type's cladding, base band and corner boards."
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. 3 m wall panel with the type's cladding, base band and corner boards.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_02_wall_window",
@@ -3286,7 +3406,11 @@
       "color": "#93a3ac",
       "category": "Structure",
       "solid": false,
-      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. 3 m wall panel with the type's framed window and dark glazing."
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. 3 m wall panel with the type's framed window and dark glazing.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_02_wall_doorway",
@@ -3304,7 +3428,11 @@
       "color": "#93a3ac",
       "category": "Structure",
       "solid": false,
-      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20."
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_02_gable",
@@ -3322,7 +3450,11 @@
       "color": "#6d2f2a",
       "category": "Structure",
       "solid": false,
-      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard."
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_02_roof_slope",
@@ -3340,7 +3472,11 @@
       "color": "#6d5947",
       "category": "Structure",
       "solid": false,
-      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z."
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_02_roof_ridge",
@@ -3358,7 +3494,11 @@
       "color": "#6d5947",
       "category": "Structure",
       "solid": false,
-      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Ridge cap closing two roof slopes; apex edge at local y = 0.22."
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Ridge cap closing two roof slopes; apex edge at local y = 0.22.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_02_corner_trim",
@@ -3376,7 +3516,11 @@
       "color": "#6d2f2a",
       "category": "Structure",
       "solid": false,
-      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Vertical corner board covering a panel junction."
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Vertical corner board covering a panel junction.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_02_porch_deck",
@@ -3394,7 +3538,11 @@
       "color": "#6d2f2a",
       "category": "Structure",
       "solid": false,
-      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0."
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_02_porch_post",
@@ -3412,7 +3560,11 @@
       "color": "#6d2f2a",
       "category": "Structure",
       "solid": false,
-      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it."
+      "description": "Pale blue-grey clapboard with oxblood trim, a four-pane window, brown shingles and a covered porch. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_03_wall_solid",
@@ -3430,7 +3582,11 @@
       "color": "#c8a05a",
       "category": "Structure",
       "solid": false,
-      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. 3 m wall panel with the type's cladding, base band and corner boards."
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. 3 m wall panel with the type's cladding, base band and corner boards.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_03_wall_window",
@@ -3448,7 +3604,11 @@
       "color": "#c8a05a",
       "category": "Structure",
       "solid": false,
-      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. 3 m wall panel with the type's framed window and dark glazing."
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. 3 m wall panel with the type's framed window and dark glazing.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_03_wall_doorway",
@@ -3466,7 +3626,11 @@
       "color": "#c8a05a",
       "category": "Structure",
       "solid": false,
-      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20."
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_03_gable",
@@ -3484,7 +3648,11 @@
       "color": "#e6e0d2",
       "category": "Structure",
       "solid": false,
-      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard."
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_03_roof_slope",
@@ -3502,7 +3670,11 @@
       "color": "#3d4249",
       "category": "Structure",
       "solid": false,
-      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z."
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_03_roof_ridge",
@@ -3520,7 +3692,11 @@
       "color": "#3d4249",
       "category": "Structure",
       "solid": false,
-      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Ridge cap closing two roof slopes; apex edge at local y = 0.22."
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Ridge cap closing two roof slopes; apex edge at local y = 0.22.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_03_corner_trim",
@@ -3538,7 +3714,11 @@
       "color": "#e6e0d2",
       "category": "Structure",
       "solid": false,
-      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Vertical corner board covering a panel junction."
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Vertical corner board covering a panel junction.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_03_porch_deck",
@@ -3556,7 +3736,11 @@
       "color": "#e6e0d2",
       "category": "Structure",
       "solid": false,
-      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0."
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_03_porch_post",
@@ -3574,7 +3758,11 @@
       "color": "#e6e0d2",
       "category": "Structure",
       "solid": false,
-      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it."
+      "description": "Ochre clapboard with white trim, a tall narrow window, dark slate shingles and porch railings. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_04_wall_solid",
@@ -3592,7 +3780,11 @@
       "color": "#41523f",
       "category": "Structure",
       "solid": false,
-      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. 3 m wall panel with the type's cladding, base band and corner boards."
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. 3 m wall panel with the type's cladding, base band and corner boards.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_04_wall_window",
@@ -3610,7 +3802,11 @@
       "color": "#41523f",
       "category": "Structure",
       "solid": false,
-      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. 3 m wall panel with the type's framed window and dark glazing."
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. 3 m wall panel with the type's framed window and dark glazing.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_04_wall_doorway",
@@ -3628,7 +3824,11 @@
       "color": "#41523f",
       "category": "Structure",
       "solid": false,
-      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20."
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_04_gable",
@@ -3646,7 +3846,11 @@
       "color": "#d8d2bd",
       "category": "Structure",
       "solid": false,
-      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard."
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_04_roof_slope",
@@ -3664,7 +3868,11 @@
       "color": "#2f3236",
       "category": "Structure",
       "solid": false,
-      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z."
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_04_roof_ridge",
@@ -3682,7 +3890,11 @@
       "color": "#2f3236",
       "category": "Structure",
       "solid": false,
-      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Ridge cap closing two roof slopes; apex edge at local y = 0.22."
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Ridge cap closing two roof slopes; apex edge at local y = 0.22.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_04_corner_trim",
@@ -3700,7 +3912,11 @@
       "color": "#d8d2bd",
       "category": "Structure",
       "solid": false,
-      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Vertical corner board covering a panel junction."
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Vertical corner board covering a panel junction.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_04_porch_deck",
@@ -3718,7 +3934,11 @@
       "color": "#d8d2bd",
       "category": "Structure",
       "solid": false,
-      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0."
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_04_porch_post",
@@ -3736,7 +3956,11 @@
       "color": "#d8d2bd",
       "category": "Structure",
       "solid": false,
-      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it."
+      "description": "Dark green board-and-batten with cream trim, a wide three-lite window, near-black shingles and a small porch. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_05_wall_solid",
@@ -3754,7 +3978,11 @@
       "color": "#d9d6cc",
       "category": "Structure",
       "solid": false,
-      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. 3 m wall panel with the type's cladding, base band and corner boards."
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. 3 m wall panel with the type's cladding, base band and corner boards.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_05_wall_window",
@@ -3772,7 +4000,11 @@
       "color": "#d9d6cc",
       "category": "Structure",
       "solid": false,
-      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. 3 m wall panel with the type's framed window and dark glazing."
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. 3 m wall panel with the type's framed window and dark glazing.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_05_wall_doorway",
@@ -3790,7 +4022,11 @@
       "color": "#d9d6cc",
       "category": "Structure",
       "solid": false,
-      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20."
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. 3 m wall panel with a real 1.10 x 2.15 m doorway through its 0.40 m depth; eave lamp mounts at local +/-1.15, 2.55, 0.20.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_05_gable",
@@ -3808,7 +4044,11 @@
       "color": "#2e3b4e",
       "category": "Structure",
       "solid": false,
-      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard."
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Triangular gable panel for a 3 m module at the kit's roof pitch, base at y = 0, with the type's bargeboard.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_05_roof_slope",
@@ -3826,7 +4066,11 @@
       "color": "#59645c",
       "category": "Structure",
       "solid": false,
-      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z."
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Shingle roof slope with eave fascia and soffit; origin at the eave underside centre, rising towards local -Z.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_05_roof_ridge",
@@ -3844,7 +4088,11 @@
       "color": "#59645c",
       "category": "Structure",
       "solid": false,
-      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Ridge cap closing two roof slopes; apex edge at local y = 0.22."
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Ridge cap closing two roof slopes; apex edge at local y = 0.22.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_05_corner_trim",
@@ -3862,7 +4110,11 @@
       "color": "#2e3b4e",
       "category": "Structure",
       "solid": false,
-      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Vertical corner board covering a panel junction."
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Vertical corner board covering a panel junction.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_05_porch_deck",
@@ -3880,7 +4132,11 @@
       "color": "#2e3b4e",
       "category": "Structure",
       "solid": false,
-      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0."
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Porch deck slab for one 3 m module, extending +Z from the wall plane, base at y = 0.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:house_05_porch_post",
@@ -3898,7 +4154,11 @@
       "color": "#2e3b4e",
       "category": "Structure",
       "solid": false,
-      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it."
+      "description": "Weathered white shiplap with navy trim, two small square windows, green-grey shingles and a deep porch deck. Porch post, base at y = 0, flat top; the porch deck's front edge seats on it.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "core:hot_tub",
@@ -3938,7 +4198,11 @@
       "color": "#4a4d52",
       "category": "Structure",
       "solid": false,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_road_unmarked",
@@ -3956,7 +4220,11 @@
       "color": "#4a4d52",
       "category": "Structure",
       "solid": false,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_road_dash",
@@ -3974,7 +4242,11 @@
       "color": "#d4b976",
       "category": "Structure",
       "solid": false,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_sidewalk",
@@ -3992,7 +4264,11 @@
       "color": "#9d9890",
       "category": "Structure",
       "solid": false,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_sidewalk_corner",
@@ -4010,7 +4286,11 @@
       "color": "#9d9890",
       "category": "Structure",
       "solid": false,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_curb",
@@ -4028,7 +4308,11 @@
       "color": "#9d9890",
       "category": "Structure",
       "solid": false,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_curb_ramp",
@@ -4046,7 +4330,11 @@
       "color": "#9d9890",
       "category": "Structure",
       "solid": false,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_sidewalk_transition",
@@ -4064,7 +4352,11 @@
       "color": "#9d9890",
       "category": "Structure",
       "solid": false,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_rock_face",
@@ -4082,7 +4374,11 @@
       "color": "#9d9890",
       "category": "Structure",
       "solid": true,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_rock_face_variant",
@@ -4100,7 +4396,11 @@
       "color": "#9d9890",
       "category": "Structure",
       "solid": true,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_boulder",
@@ -4118,7 +4418,11 @@
       "color": "#9d9890",
       "category": "Structure",
       "solid": true,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_campfire",
@@ -4136,7 +4440,11 @@
       "color": "#9d9890",
       "category": "Lighting",
       "solid": false,
-      "description": "Five rigid animated flames, flicker clip 1.25 s. Add a real point light at [0,1.48,0]; emissive materials alone do not illuminate surroundings."
+      "description": "Five rigid animated flames, flicker clip 1.25 s. Add a real point light at [0,1.48,0]; emissive materials alone do not illuminate surroundings.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_road_gate",
@@ -4154,7 +4462,11 @@
       "color": "#6a5a45",
       "category": "Structure",
       "solid": true,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_stump_seat",
@@ -4172,7 +4484,11 @@
       "color": "#6a5a45",
       "category": "Structure",
       "solid": true,
-      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level."
+      "description": "Closed metre-scale Lantern Hollow module. Collision and floor transitions are authored in the level.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:showcase_asphalt",
@@ -5732,7 +6048,11 @@
       ],
       "color": "#617744",
       "category": "Vegetation",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:bush_low",
@@ -5749,7 +6069,11 @@
       ],
       "color": "#617744",
       "category": "Vegetation",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:fence_two_rail",
@@ -5766,7 +6090,11 @@
       ],
       "color": "#9d9890",
       "category": "Structure",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:fence_two_rail_section",
@@ -5819,7 +6147,11 @@
       ],
       "color": "#9d9890",
       "category": "Structure",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:porch_canopy",
@@ -5836,7 +6168,11 @@
       ],
       "color": "#9d9890",
       "category": "Structure",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:road_barrier",
@@ -5853,7 +6189,11 @@
       ],
       "color": "#9d9890",
       "category": "Structure",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:boundary_ridge",
@@ -5870,7 +6210,11 @@
       ],
       "color": "#586580",
       "category": "Landscape",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:campfire_static",
@@ -5888,7 +6232,11 @@
       "color": "#9d9890",
       "category": "Lighting",
       "solid": false,
-      "description": "Static stone ring, charred logs and five emissive flame meshes in their bind pose. No animation/character ownership; add a local point light to illuminate surroundings."
+      "description": "Static stone ring, charred logs and five emissive flame meshes in their bind pose. No animation/character ownership; add a local point light to illuminate surroundings.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:stone_wall_snow",
@@ -6400,7 +6748,11 @@
       "color": "#ead2a8",
       "category": "Terrain",
       "solid": false,
-      "description": "Faceted Beach visual; author walking support and structural collision separately."
+      "description": "Faceted Beach visual; author walking support and structural collision separately.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:grassy_bank",
@@ -6418,7 +6770,11 @@
       "color": "#74b041",
       "category": "Terrain",
       "solid": false,
-      "description": "Faceted Beach visual; author walking support and structural collision separately."
+      "description": "Faceted Beach visual; author walking support and structural collision separately.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:coastal_rock",
@@ -6436,7 +6792,11 @@
       "color": "#737b90",
       "category": "Rocks",
       "solid": false,
-      "description": "Faceted Beach visual; author walking support and structural collision separately."
+      "description": "Faceted Beach visual; author walking support and structural collision separately.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:coastal_rock_wide",
@@ -6454,7 +6814,11 @@
       "color": "#737b90",
       "category": "Rocks",
       "solid": false,
-      "description": "Faceted Beach visual; author walking support and structural collision separately."
+      "description": "Faceted Beach visual; author walking support and structural collision separately.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:island",
@@ -6472,7 +6836,11 @@
       "color": "#737b90",
       "category": "Terrain",
       "solid": false,
-      "description": "Faceted Beach visual; author walking support and structural collision separately."
+      "description": "Faceted Beach visual; author walking support and structural collision separately.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:sea_arch",
@@ -6490,7 +6858,11 @@
       "color": "#737b90",
       "category": "Terrain",
       "solid": false,
-      "description": "Faceted Beach visual; author walking support and structural collision separately."
+      "description": "Faceted Beach visual; author walking support and structural collision separately.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:palm",
@@ -6508,7 +6880,11 @@
       "color": "#74b041",
       "category": "Vegetation",
       "solid": false,
-      "description": "Faceted Beach visual; author walking support and structural collision separately."
+      "description": "Faceted Beach visual; author walking support and structural collision separately.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:palm_small",
@@ -6526,7 +6902,11 @@
       "color": "#74b041",
       "category": "Vegetation",
       "solid": false,
-      "description": "Faceted Beach visual; author walking support and structural collision separately."
+      "description": "Faceted Beach visual; author walking support and structural collision separately.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:town_shrub",
@@ -6544,7 +6924,11 @@
       "color": "#74b041",
       "category": "Vegetation",
       "solid": false,
-      "description": "Faceted Beach visual; author walking support and structural collision separately."
+      "description": "Faceted Beach visual; author walking support and structural collision separately.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:shoreline_foam",
@@ -6562,7 +6946,11 @@
       "color": "#faf5e8",
       "category": "Terrain",
       "solid": false,
-      "description": "Faceted Beach visual; author walking support and structural collision separately."
+      "description": "Faceted Beach visual; author walking support and structural collision separately.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:lighthouse",
@@ -6579,7 +6967,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:crate",
@@ -6596,7 +6988,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:dock",
@@ -6613,7 +7009,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:kiosk",
@@ -6630,7 +7030,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:stilt_house_blue",
@@ -6647,7 +7051,11 @@
       ],
       "color": "#328aca",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:hut_brown",
@@ -6664,7 +7072,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:umbrella",
@@ -6681,7 +7093,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:lounge_chair",
@@ -6698,7 +7114,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:signpost",
@@ -6715,7 +7135,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:town_house_cream",
@@ -6732,7 +7156,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:town_house_blue",
@@ -6749,7 +7177,11 @@
       ],
       "color": "#328aca",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:town_house_coral",
@@ -6766,7 +7198,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:town_arch",
@@ -6783,7 +7219,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:town_stairs",
@@ -6800,7 +7240,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:town_terrace",
@@ -6817,7 +7261,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:town_parapet",
@@ -6834,7 +7282,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:bunting",
@@ -6851,7 +7303,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:seagull",
@@ -6870,7 +7326,11 @@
       "color": "#f6ecd6",
       "category": "Beach Animals",
       "solid": false,
-      "description": "Idle and flying seagull with dark wingtips and yellow beak/legs. Start playback with an explicit play_animation action."
+      "description": "Idle and flying seagull with dark wingtips and yellow beak/legs. Start playback with an explicit play_animation action.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:crab",
@@ -6889,7 +7349,11 @@
       "color": "#f46753",
       "category": "Beach Animals",
       "solid": false,
-      "description": "Stalk-eyed coral crab with pincers; idle and in-place walking clips. Start playback with an explicit play_animation action."
+      "description": "Stalk-eyed coral crab with pincers; idle and in-place walking clips. Start playback with an explicit play_animation action.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:fish",
@@ -6908,7 +7372,11 @@
       "color": "#fed95d",
       "category": "Beach Animals",
       "solid": false,
-      "description": "Yellow/turquoise fish with dorsal fin and forked tail; looping swim clip. Start playback with an explicit play_animation action."
+      "description": "Yellow/turquoise fish with dorsal fin and forked tail; looping swim clip. Start playback with an explicit play_animation action.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:tex_white_panel_01",
@@ -7113,7 +7581,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:wall_bay_tall",
@@ -7130,7 +7602,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:lime_arch",
@@ -7147,7 +7623,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:glass_partition",
@@ -7164,7 +7644,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:light_pod",
@@ -7181,7 +7665,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:tree_planter",
@@ -7198,7 +7686,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:seating_pod",
@@ -7215,7 +7707,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:display_kiosk",
@@ -7232,7 +7728,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:fountain_basin",
@@ -7249,7 +7749,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:bubble_sculpture",
@@ -7266,7 +7770,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:glass_canopy",
@@ -7283,7 +7791,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:accent_panel",
@@ -7300,7 +7812,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": true
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:atrium_dome",
@@ -7317,7 +7833,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:ceiling_ring",
@@ -7334,7 +7854,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:double_doors",
@@ -7351,7 +7875,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:double_doors_open",
@@ -7368,7 +7896,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:reception_counter",
@@ -7385,7 +7917,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:reception_soffit",
@@ -7402,7 +7938,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:banner_atrium",
@@ -7419,7 +7959,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:banner_corridor",
@@ -7436,7 +7980,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:banner_reception",
@@ -7453,7 +8001,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:city_backdrop",
@@ -7470,7 +8022,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:green_backdrop",
@@ -7487,7 +8043,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:white_ceiling_01",
@@ -7518,7 +8078,11 @@
       ],
       "color": "#ead2a8",
       "category": "Beach Structures",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "beach:cove_foam",
@@ -7535,7 +8099,11 @@
       ],
       "color": "#f4eee0",
       "category": "Beach Nature",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "frutiger_aero:portal_spandrel",
@@ -7552,7 +8120,11 @@
       ],
       "color": "#f5f0ea",
       "category": "Frutiger Aero",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:snow_roof_blanket",
@@ -9652,7 +10224,11 @@
       "color": "#572e16",
       "category": "Decorative",
       "solid": false,
-      "description": "Tiny low-poly cockroach with six articulated legs and antennae; looping idle, walk and run tripod scurry."
+      "description": "Tiny low-poly cockroach with six articulated legs and antennae; looping idle, walk and run tripod scurry.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "arcade:restroom_toilet",
@@ -10792,6 +11368,28 @@
       "model": "shared/decals/collection_welcome.png",
       "alpha_mode": "cutout",
       "description": "4:1 fitted wayfinding plate, upright text, transparent perimeter. Place at width/height 4:1."
+    },
+    {
+      "id": "home:closet_folding_door",
+      "display_name": "Home Folding Closet Door",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/closet_folding_door.glb",
+      "size": [
+        1.96,
+        2.18,
+        0.224
+      ],
+      "color": "#ddd6c2",
+      "category": "Architecture",
+      "solid": false,
+      "description": "Four-leaf painted Shaker closet with mirrored bifold banks, head track, brass pulls and a reversible 1.4-second rigid fold_open clip. Requires live folding collision for blocking gameplay use.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     }
   ]
 }

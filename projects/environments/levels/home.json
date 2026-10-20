@@ -2,7 +2,7 @@
   "schema": "places-level",
   "format_version": 1,
   "id": "home",
-  "name": "Home — A Quiet Favour",
+  "name": "Home \u2014 A Quiet Favour",
   "author": "Places",
   "spawn": {
     "x": 7.0,
@@ -84,6 +84,15 @@
       "height": 3.0,
       "material": "home:hardwood_walnut_02",
       "ceiling_material": "home:ceiling_warm_01"
+    },
+    {
+      "x": -1.4,
+      "z": 7.7,
+      "width": 1.4,
+      "depth": 1.8,
+      "height": 3,
+      "material": "home:hardwood_walnut_02",
+      "ceiling_material": "home:ceiling_warm_01"
     }
   ],
   "walls": [
@@ -130,6 +139,13 @@
           "width": 1.5,
           "height": 2.3,
           "sill": 0.0
+        },
+        {
+          "kind": "door",
+          "offset": 7.47,
+          "width": 1.96,
+          "height": 2.18,
+          "sill": 0
         }
       ]
     },
@@ -251,6 +267,27 @@
       "material": "home:backsplash_01",
       "y": 0.9,
       "height": 0.6
+    },
+    {
+      "x": -1.47,
+      "z": 7.63,
+      "width": 0.14,
+      "depth": 1.94,
+      "material": "home:wall_paint_warm_01"
+    },
+    {
+      "x": -1.33,
+      "z": 7.63,
+      "width": 1.26,
+      "depth": 0.14,
+      "material": "home:wall_paint_warm_01"
+    },
+    {
+      "x": -1.33,
+      "z": 9.43,
+      "width": 1.26,
+      "depth": 0.14,
+      "material": "home:wall_paint_warm_01"
     }
   ],
   "doors": [
@@ -1783,6 +1820,168 @@
               "action": "run_script",
               "script": "scripts/home.luau",
               "handler": "talk"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "home_closet_folding_door",
+      "model": "home:closet_folding_door",
+      "display_name": "Folding Closet",
+      "x": 0,
+      "y": 0,
+      "z": 8.6,
+      "rotation_degrees": 90,
+      "size": [
+        1.96,
+        2.18,
+        0.224
+      ],
+      "solid": false,
+      "occludes": false,
+      "animated_door": {
+        "clip": "fold_open",
+        "boxes": [
+          {
+            "node": "Pivot_L_Jamb",
+            "center": [
+              0.218,
+              1.05,
+              0.003
+            ],
+            "size": [
+              0.424,
+              2.056,
+              0.036
+            ]
+          },
+          {
+            "node": "Pivot_L_Fold",
+            "center": [
+              0.218,
+              1.05,
+              0.033
+            ],
+            "size": [
+              0.424,
+              2.056,
+              0.036
+            ]
+          },
+          {
+            "node": "Pivot_R_Jamb",
+            "center": [
+              -0.218,
+              1.05,
+              0.003
+            ],
+            "size": [
+              0.424,
+              2.056,
+              0.036
+            ]
+          },
+          {
+            "node": "Pivot_R_Fold",
+            "center": [
+              -0.218,
+              1.05,
+              0.033
+            ],
+            "size": [
+              0.424,
+              2.056,
+              0.036
+            ]
+          },
+          {
+            "node": "Pivot_L_Fold",
+            "center": [
+              0.344,
+              1.045,
+              0.0735
+            ],
+            "size": [
+              0.044,
+              0.04,
+              0.047
+            ]
+          },
+          {
+            "node": "Pivot_R_Fold",
+            "center": [
+              -0.344,
+              1.045,
+              0.0735
+            ],
+            "size": [
+              0.044,
+              0.04,
+              0.047
+            ]
+          },
+          {
+            "node": "Frame_Track_Fixed",
+            "center": [
+              -0.94,
+              1.09,
+              0
+            ],
+            "size": [
+              0.08,
+              2.18,
+              0.224
+            ]
+          },
+          {
+            "node": "Frame_Track_Fixed",
+            "center": [
+              0.94,
+              1.09,
+              0
+            ],
+            "size": [
+              0.08,
+              2.18,
+              0.224
+            ]
+          },
+          {
+            "node": "Frame_Track_Fixed",
+            "center": [
+              0,
+              2.13,
+              0
+            ],
+            "size": [
+              1.96,
+              0.1,
+              0.224
+            ]
+          }
+        ]
+      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Open / close closet",
+          "reach": 2.5
+        },
+        {
+          "component": "animation",
+          "clip": "fold_open",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "fold_open"
             }
           ]
         }

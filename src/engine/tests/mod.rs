@@ -1,3 +1,4 @@
+mod animated_door;
 mod archive_budget;
 mod authored_physics_removal;
 mod automatic_reset;
@@ -7,6 +8,7 @@ mod entity_sequences;
 mod essential_recovery;
 mod fog_volumes;
 mod gameplay_authoring;
+mod held_obstacle;
 mod level_import;
 mod navigation_ai;
 mod package_loading;

@@ -383,6 +383,11 @@ impl Doors {
         self.version
     }
 
+    /// A compound mechanism changed clearance in the shared live-leaf set.
+    pub const fn notify_clearance_changed(&mut self) {
+        self.bump();
+    }
+
     /// Bumps the version (any observable state change).
     const fn bump(&mut self) {
         self.version = self.version.wrapping_add(1);

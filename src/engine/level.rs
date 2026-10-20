@@ -6337,6 +6337,10 @@ pub struct PropDef {
     /// remain independent. Unsupported or over-budget models fail closed.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub shadow_only: bool,
+    /// A reversible rigid clip with individually posed solid node boxes.
+    /// Mutually exclusive with the fixed prop box and rigid item physics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub animated_door: Option<AnimatedDoorDef>,
     /// Opt-in rigid-body settings. Omitted keeps the legacy static placement,
     /// even if the catalog declares a developer-spawned item profile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6370,6 +6374,26 @@ pub struct PropDef {
     /// buoy). Omitted means the prop stands where it was placed.
     #[serde(default)]
     pub float: Option<PropFloatDef>,
+}
+
+/// Shared clip-driven mechanism. Boxes are expressed in their named node's
+/// local frame, including separate fixed frame stock and moving hardware.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AnimatedDoorDef {
+    pub clip: String,
+    pub boxes: Vec<AnimatedDoorBox>,
+    #[serde(default)]
+    pub initial_open: bool,
+}
+
+/// An upright oriented solid following one actual rigid animation node.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AnimatedDoorBox {
+    pub node: String,
+    pub center: [f32; 3],
+    pub size: [f32; 3],
 }
 
 /// Offline fit of a centred, floor-reference, local-X static model module.

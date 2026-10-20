@@ -861,3 +861,10 @@ yaw. Validated embedded source restores controls alongside unchanged compiled
 collision geometry; no float control is hidden in mesh, collision or material
 bytes. Older hosts reject the capability explicitly. Existing source/packages
 without controls remain readable with calm ripples and zero current.
+
+
+New exports containing `props[].animated_door` require `animated-door-v1`.
+Validated semantic placements retain the named rigid clip and individual node
+boxes; the player resolves their current poses from the installed hash-validated
+model. Static collision record layout is unchanged. Older players reject the
+capability before accepting a visual-only replacement for moving collision.

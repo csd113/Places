@@ -3244,6 +3244,33 @@ impl FrameLoop<'_> {
         })
     }
 
+    /// Explicit bounded pose/collision witnesses for native acceptance.
+    fn trace_moving_solids(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        drop(fields.insert(
+            "animated_doors".into(),
+            self.game.entities().animated_door_diagnostics(),
+        ));
+        drop(
+            fields.insert(
+                "physical_obstacles".into(),
+                self.items
+                    .world
+                    .navigation_obstacles()
+                    .map(|bounds| {
+                        serde_json::json!([
+                            [bounds.min_x, bounds.min_y, bounds.min_z],
+                            [bounds.max_x, bounds.max_y, bounds.max_z]
+                        ])
+                    })
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+        );
+        drop(fields.insert("item_penetrations".into(), self.items.world.snapshots().iter().map(|body| {
+        serde_json::json!({"key":body.key,"depth":self.items.world.body_penetration_depth(body.key)})
+    }).collect::<Vec<_>>().into()));
+    }
+
     fn trace_world(&mut self, event: &str) {
         let (renderer_level, renderer_quality, renderer_lightmaps) =
             self.renderer.installed_identity();
@@ -3279,6 +3306,7 @@ impl FrameLoop<'_> {
             "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
         });
         if let Some(fields) = state.as_object_mut() {
+            self.trace_moving_solids(fields);
             drop(fields.insert("crosshair_visible".into(), self.crosshair_visible().into()));
             drop(fields.insert(
                 "crosshair_override".into(),

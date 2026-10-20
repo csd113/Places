@@ -4,6 +4,7 @@
 //! remain private to the renderer backend; compiled records stay CPU-owned.
 
 pub mod ai;
+pub mod animated_door;
 pub mod assets;
 pub mod audio;
 pub mod canonical_json;

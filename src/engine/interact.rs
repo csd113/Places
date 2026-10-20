@@ -6,7 +6,7 @@
 
 use glam::Vec3;
 
-use crate::engine::collision::{DoorCollider, WallAabb, nearest_door_entry, ray_aabb_entry};
+use crate::engine::collision::{DoorCollider, WallAabb, ray_aabb_entry};
 use crate::engine::door::DoorPhase;
 use crate::engine::level::LevelDef;
 use crate::engine::spatial::{Aabb, rotated_half_extents};
@@ -83,6 +83,8 @@ pub struct Interactable {
     /// For a door target: the door's index in [`Doors`], so the aim ray never
     /// treats the target leaf as its own occluder.
     pub door_index: Option<usize>,
+    /// Half-open range of live colliders owned by a compound mechanism.
+    pub leaf_range: Option<(usize, usize)>,
     /// False disables aiming: the instance keeps its place in the table (and
     /// its label state) but E cannot target it until an `enable` action runs.
     pub enabled: bool,
@@ -212,6 +214,20 @@ pub struct Interactables {
 }
 
 impl Interactables {
+    /// Bind a compound target to its actual live leaves and fixed frame stock.
+    pub fn sync_leaves(&mut self, id: &str, start: usize, end: usize, doors: &[DoorCollider]) {
+        let Some(item) = self.items.iter_mut().find(|item| item.id == id) else {
+            return;
+        };
+        item.leaf_range = Some((start, end));
+        let mut bounds = Aabb::EMPTY;
+        for leaf in doors.get(start..end).unwrap_or(&[]) {
+            let sync = InteractableSync::from_door_collider(leaf);
+            bounds.expand(sync.bounds.min);
+            bounds.expand(sync.bounds.max);
+        }
+        item.bounds = bounds;
+    }
     /// An empty set: nothing is aimable.
     #[must_use]
     pub const fn new() -> Self {
@@ -375,6 +391,7 @@ pub fn nearest_target(
             OcclusionTarget {
                 own_box: item.own_box.as_ref(),
                 own_door: item.door_index,
+                own_leaves: item.leaf_range,
                 margin: INTERACTION_OCCLUSION_EPS_M,
             },
             walls,
@@ -414,6 +431,13 @@ fn target_entry(
     item: &Interactable,
     doors: &[DoorCollider],
 ) -> Option<f32> {
+    if let Some((start, end)) = item.leaf_range {
+        return doors
+            .get(start..end)?
+            .iter()
+            .filter_map(|leaf| leaf.ray_entry(origin, direction, item.reach))
+            .min_by(f32::total_cmp);
+    }
     if let Some(door_index) = item.door_index {
         let door = doors.get(door_index)?;
         return door.ray_entry(origin, direction, item.reach);
@@ -481,6 +505,7 @@ pub fn nearest_target_indexed(
             OcclusionTarget {
                 own_box: item.own_box.as_ref(),
                 own_door: item.door_index,
+                own_leaves: item.leaf_range,
                 margin: INTERACTION_OCCLUSION_EPS_M,
             },
             index,
@@ -503,6 +528,7 @@ struct OcclusionTarget<'a> {
     own_box: Option<&'a WallAabb>,
     /// The target door's leaf index, if the target is a door.
     own_door: Option<usize>,
+    own_leaves: Option<(usize, usize)>,
     /// Interaction uses one millimetre; projected labels retain five centimetres.
     margin: f32,
 }
@@ -539,6 +565,7 @@ pub fn clear_line_of_sight_indexed(
         OcclusionTarget {
             own_box,
             own_door,
+            own_leaves: None,
             margin: LABEL_OCCLUSION_EPS_M,
         },
         index,
@@ -561,9 +588,13 @@ fn occluded_before_indexed(
     doors: &[DoorCollider],
 ) -> bool {
     let limit = entry - own.margin;
-    if nearest_door_entry(doors, origin, direction, limit)
-        .is_some_and(|(door_index, _)| own.own_door != Some(door_index))
-    {
+    if doors.iter().enumerate().any(|(door_index, door)| {
+        own.own_door != Some(door_index)
+            && own
+                .own_leaves
+                .is_none_or(|(start, end)| door_index < start || door_index >= end)
+            && door.ray_entry(origin, direction, limit).is_some()
+    }) {
         return true;
     }
     let mut occluded = false;
@@ -600,9 +631,13 @@ fn occluded_before(
     // bounded world coordinates.
 
     let limit = entry - own.margin;
-    if nearest_door_entry(doors, origin, direction, limit)
-        .is_some_and(|(index, _)| own.own_door != Some(index))
-    {
+    if doors.iter().enumerate().any(|(index, door)| {
+        own.own_door != Some(index)
+            && own
+                .own_leaves
+                .is_none_or(|(start, end)| index < start || index >= end)
+            && door.ray_entry(origin, direction, limit).is_some()
+    }) {
         return true;
     }
     for wall in walls {

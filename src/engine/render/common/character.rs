@@ -2209,7 +2209,19 @@ impl CharacterScene {
                 return character.set_balloon_pose(balloon);
             }
             if let Some(cue) = entity_frame.cue.as_ref() {
-                return character.animator.update_cued(animation_delta, cue);
+                let changed = character.animator.update_cued(animation_delta, cue);
+                if changed
+                    && matches!(
+                        cue,
+                        PoseCue::Sample {
+                            name: _,
+                            progress: _
+                        }
+                    )
+                {
+                    character.world_bounds = character.posed_bounds();
+                }
+                return changed;
             }
         }
         if let Some(locomotion) = character.runtime_locomotion {
@@ -2612,6 +2624,10 @@ fn scrub_target_for(cue: &PoseCue, duration: f32) -> Option<f32> {
         }
         PoseCue::Idle
         | PoseCue::Walk { speed_mps: _ }
+        | PoseCue::Sample {
+            name: _,
+            progress: _,
+        }
         | PoseCue::Clip {
             name: _,
             once: _,
@@ -2964,6 +2980,54 @@ impl CharacterAnimator {
         self.node_globals.get(index).copied()
     }
 
+    /// Duration of an explicitly named clip, without a fallback selection.
+    #[must_use]
+    pub fn clip_duration(&self, name: &str) -> Option<f32> {
+        let index = self.clip_index(name)?;
+        self.clips
+            .as_ref()?
+            .clips
+            .get(index)
+            .map(|clip| clip.duration)
+    }
+
+    /// Samples the exact clip fraction owned by a gameplay mechanism. This
+    /// uses the same channel interpolation and hierarchy as ordinary animation.
+    pub fn sample_fraction(&mut self, name: &str, progress: f32) -> bool {
+        let Some(clip) = self.clip_index(name) else {
+            return false;
+        };
+        let Some(duration) = self.clip_duration(name) else {
+            return false;
+        };
+        if !progress.is_finite() {
+            return false;
+        }
+        let time = duration * progress.clamp(0.0, 1.0);
+        if self.cue.as_ref().is_some_and(|state| {
+            state.clip == clip && state.time.to_bits() == time.to_bits() && state.paused
+        }) && self.cue_fade.is_none()
+        {
+            return false;
+        }
+        self.cue = Some(CueState {
+            clip,
+            time,
+            once: true,
+            paused: true,
+            finished: false,
+            scrub: None,
+        });
+        self.cue_fade = None;
+        if !self.sample_active_cue() {
+            return false;
+        }
+        self.compose_globals();
+        self.compute_deltas();
+        self.revision = self.revision.wrapping_add(1);
+        true
+    }
+
     /// Skins one bind-pose vertex with the current joint deltas.
     ///
     /// The weights are renormalised defensively; a vertex with no weight (a
@@ -3080,6 +3144,9 @@ impl CharacterAnimator {
     /// completion through [`Self::take_cue_finished`].
     // bounded pose arithmetic
     pub fn update_cued(&mut self, delta_seconds: f32, cue: &PoseCue) -> bool {
+        if let PoseCue::Sample { name, progress } = cue {
+            return self.sample_fraction(name, *progress);
+        }
         let Some(clips) = self.clips.as_ref() else {
             return false;
         };
@@ -3292,6 +3359,9 @@ impl CharacterAnimator {
             // time toward the authored fraction instead.
             PoseCue::Scrub { name, target: _ } => {
                 (self.clip_index(name).unwrap_or(0), true, false, 1.0)
+            }
+            PoseCue::Sample { name, progress: _ } => {
+                (self.clip_index(name).unwrap_or(0), true, true, 1.0)
             }
         }
     }

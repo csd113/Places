@@ -377,6 +377,7 @@ pub struct EntityWorld {
     components: ComponentTables,
     interactables: Interactables,
     doors: Doors,
+    animated_doors: Vec<crate::engine::animated_door::AnimatedDoor>,
     door_colliders: Vec<DoorCollider>,
     routes: EntityRoutes,
     route_states: Vec<RouteState>,
@@ -495,6 +496,7 @@ impl EntityWorld {
             interactables: Interactables::new(),
             doors: Doors::default(),
             door_colliders: Vec::new(),
+            animated_doors: Vec::new(),
             routes: EntityRoutes::new(),
             route_states: Vec::new(),
             animation_overrides: Vec::new(),
@@ -612,6 +614,10 @@ impl EntityWorld {
         self.animated_emissions
             .clone_from(&level.animated_emissions);
         self.doors = Doors::from_level(level);
+        self.animated_doors = crate::engine::animated_door::load(level).unwrap_or_else(|error| {
+            warn_once("animated-door-load", error);
+            Vec::new()
+        });
         self.timers = Timers::from_level(level);
         self.sequences = Sequences::from_level(level);
         self.spawn_groups = SpawnGroups::from_level(level);
@@ -732,6 +738,9 @@ impl EntityWorld {
         }
         self.reset_audio();
         self.doors.reset();
+        for door in &mut self.animated_doors {
+            door.reset();
+        }
         self.timers.reset();
         self.spawn_groups.reset();
         self.reset_bindings();
@@ -1630,6 +1639,7 @@ impl EntityWorld {
                 size,
                 own_box,
                 door_index: None,
+                leaf_range: None,
                 enabled,
             });
         }
@@ -1652,10 +1662,12 @@ impl EntityWorld {
                 size: [door.def.width, door.def.height, door.def.thickness],
                 own_box: None,
                 door_index: Some(door_index),
+                leaf_range: None,
                 enabled: component.enabled,
             });
         }
         self.interactables = Interactables::with_items(items);
+        self.sync_animated_door_interactables();
     }
 
     /// Adds, drops and refreshes aiming entries after runtime spawns,
@@ -1736,14 +1748,32 @@ impl EntityWorld {
                 yaw_degrees: yaw,
                 own_box: None,
                 door_index: None,
+                leaf_range: None,
                 enabled: component.enabled,
             });
         }
         self.interactables = Interactables::with_items(items);
+        self.sync_animated_door_interactables();
     }
 
     fn rebuild_door_colliders(&mut self) {
         self.door_colliders = self.doors.colliders();
+        self.door_colliders.extend(
+            self.animated_doors
+                .iter()
+                .flat_map(|door| door.colliders().iter().copied()),
+        );
+        self.sync_animated_door_interactables();
+    }
+
+    fn sync_animated_door_interactables(&mut self) {
+        let mut start = self.doors.len();
+        for door in &self.animated_doors {
+            let end = start.saturating_add(door.colliders().len());
+            self.interactables
+                .sync_leaves(&door.id, start, end, &self.door_colliders);
+            start = end;
+        }
     }
 
     fn sync_door_interactables(&mut self) {
@@ -1848,6 +1878,36 @@ impl EntityWorld {
     #[must_use]
     pub fn door_colliders(&self) -> &[DoorCollider] {
         &self.door_colliders
+    }
+
+    /// Explicit trace of accepted compound mechanism poses and obstruction.
+    #[must_use]
+    pub fn animated_door_diagnostics(&self) -> serde_json::Value {
+        self.animated_doors
+            .iter()
+            .map(|door| {
+                let mut value = door.diagnostics();
+                if let Some(fields) = value.as_object_mut() {
+                    drop(
+                        fields.insert(
+                            "obstacles".into(),
+                            self.navigation_obstacles
+                                .iter()
+                                .map(|bounds| {
+                                    serde_json::json!([
+                                        [bounds.min_x, bounds.min_y, bounds.min_z],
+                                        [bounds.max_x, bounds.max_y, bounds.max_z]
+                                    ])
+                                })
+                                .collect::<Vec<_>>()
+                                .into(),
+                        ),
+                    );
+                }
+                value
+            })
+            .collect::<Vec<_>>()
+            .into()
     }
 
     /// The aiming table.
@@ -3048,6 +3108,14 @@ impl EntityWorld {
     }
 
     fn set_animation_cue(&mut self, instance_id: &str, clip: &str, looped: bool, toggle: bool) {
+        if let Some(door) = self
+            .animated_doors
+            .iter_mut()
+            .find(|door| door.id == instance_id)
+        {
+            let _accepted = door.request(clip, toggle);
+            return;
+        }
         let next = if toggle {
             let current = self
                 .animation_overrides
@@ -3057,6 +3125,10 @@ impl EntityWorld {
                 .and_then(|(_, cue)| match cue {
                     PoseCue::Scrub { target, name: _ } => Some(*target),
                     PoseCue::Idle
+                    | PoseCue::Sample {
+                        name: _,
+                        progress: _,
+                    }
                     | PoseCue::Walk { speed_mps: _ }
                     | PoseCue::Clip {
                         name: _,
@@ -4101,7 +4173,12 @@ impl EntityWorld {
 
     /// Advances every moving door and republishes its collider and aim bound.
     pub fn update_doors(&mut self, ctx: &WorldContext<'_>) -> usize {
-        if !self.doors.any_moving() {
+        if !self.doors.any_moving()
+            && !self
+                .animated_doors
+                .iter()
+                .any(crate::engine::animated_door::AnimatedDoor::is_moving)
+        {
             return 0;
         }
         let player = ctx.feet;
@@ -4110,7 +4187,7 @@ impl EntityWorld {
         let walls = ctx.walls;
         let agents = self.ai.agents();
         let obstacles = &self.navigation_obstacles;
-        let moved = self.doors.advance(ctx.delta_seconds, |_, candidate| {
+        let mut moved = self.doors.advance(ctx.delta_seconds, |_, candidate| {
             door_pose_hits_player(candidate, player, body)
                 || door_pose_hits_static(index, walls, candidate)
                 || agents.iter().any(|agent| {
@@ -4126,9 +4203,54 @@ impl EntityWorld {
                     .iter()
                     .any(|solid| door_pose_hits_box(candidate, solid))
         });
+        for slot in 0..self.animated_doors.len() {
+            if self
+                .animated_doors
+                .get(slot)
+                .is_none_or(|door| !door.is_moving())
+            {
+                continue;
+            }
+            let other: Vec<DoorCollider> = self
+                .doors
+                .colliders()
+                .into_iter()
+                .chain(
+                    self.animated_doors
+                        .iter()
+                        .enumerate()
+                        .filter(|(i, _)| *i != slot)
+                        .flat_map(|(_, door)| door.colliders().iter().copied()),
+                )
+                .collect();
+            let Some(door) = self.animated_doors.get_mut(slot) else {
+                continue;
+            };
+            if door.advance(ctx.delta_seconds, |candidate| {
+                door_pose_hits_player(candidate, player, body)
+                    || walls.iter().any(|wall| door_pose_hits_box(candidate, wall))
+                    || obstacles
+                        .iter()
+                        .any(|solid| door_pose_hits_box(candidate, solid))
+                    || agents.iter().any(|agent| {
+                        !matches!(agent.state, crate::engine::ai::AiState::Hidden)
+                            && candidate.overlaps_body_y(agent.position.y, agent.profile.height)
+                            && candidate.overlaps_disc(
+                                agent.position.x,
+                                agent.position.z,
+                                agent.profile.radius,
+                            )
+                    })
+                    || other.iter().any(|leaf| candidate.overlaps_leaf(leaf))
+            }) {
+                moved = moved.saturating_add(1);
+                self.doors.notify_clearance_changed();
+            }
+        }
         if moved > 0 {
             self.rebuild_door_colliders();
             self.sync_door_interactables();
+            self.rebuild_entity_frames();
         }
         moved
     }
@@ -4551,6 +4673,23 @@ impl EntityWorld {
             });
         }
         self.append_visual_frames();
+        self.append_animated_door_frames();
+    }
+
+    fn append_animated_door_frames(&mut self) {
+        for door in &self.animated_doors {
+            self.entity_frames
+                .retain(|frame| frame.instance_id != door.id);
+            self.entity_frames.push(EntityFrame {
+                instance_id: door.id.clone(),
+                transform: None,
+                cue: Some(door.cue()),
+                opacity: 1.0,
+                shadow_only: false,
+                glow: None,
+                balloon: None,
+            });
+        }
     }
 
     fn append_visual_frames(&mut self) {
@@ -4792,7 +4931,7 @@ fn door_pose_hits_player(candidate: &DoorCollider, player_feet: Vec3, body_heigh
 
 /// Separating-axis overlap of a live rectangular leaf and a physics item bound.
 /// The four footprint axes retain leaf thickness, including small item contacts.
-fn door_pose_hits_box(leaf: &DoorCollider, solid: &WallAabb) -> bool {
+pub(crate) fn door_pose_hits_box(leaf: &DoorCollider, solid: &WallAabb) -> bool {
     if !leaf.overlaps_body_y(solid.min_y, solid.max_y - solid.min_y) {
         return false;
     }
