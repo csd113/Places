@@ -557,7 +557,7 @@ pub struct EntityFrame {
     /// layer stores degrees and converts once at its frame handoff.
     pub transform: Option<(Vec3, f32)>,
     /// An explicit pose override (interaction wins over the route). Absent
-    /// preserves the existing placed-locomotion or runtime-held pose driver.
+    /// follows the actor's own supplied locomotion or frame displacement.
     pub cue: Option<PoseCue>,
     /// Opacity of the entity this frame, `1.0` when it has no `fade`
     /// component.

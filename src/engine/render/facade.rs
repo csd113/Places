@@ -556,21 +556,15 @@ impl Renderer {
     /// Advances every animated character's pose and re-uploads the ones that
     /// moved.
     ///
-    /// `locomotion` is the player's state for this frame; each character's
-    /// blend weights and phase follow it unless `frames` addresses that
-    /// character by instance id (a route's live transform and pose cue); a
-    /// runtime-spawned actor is driven by its frame alone and holds its pose
-    /// without one. The caller owns the frame list. Returns how many characters
-    /// moved (and were therefore re-skinned). A runtime spawn or despawn since
-    /// the last call rebuilds the character GPU state before it syncs.
+    /// Each actor follows its own action, movement or idle state. The caller
+    /// owns the frame list; the player representation supplies its locomotion
+    /// separately. Returns how many characters moved and were re-skinned.
     pub fn update_characters(
         &mut self,
         delta_seconds: f32,
-        locomotion: LocomotionSnapshot,
         frames: &[EntityFrame],
     ) -> crate::engine::render::CharacterUpdate {
-        self.renderer
-            .update_characters(delta_seconds, locomotion, frames)
+        self.renderer.update_characters(delta_seconds, frames)
     }
 
     /// Spawns an animatable runtime actor through the character path.

@@ -1,7 +1,9 @@
 //! Collision-aware carrying and safe release, with no teleport-derived velocity.
 
 use glam::{Quat, Vec3};
-use rapier3d::parry::query::{NonlinearRigidMotion, ShapeCastOptions, distance, intersection_test};
+use rapier3d::parry::query::{
+    NonlinearRigidMotion, ShapeCastOptions, contact, distance, intersection_test,
+};
 use rapier3d::parry::shape::Ball;
 use rapier3d::prelude::{
     ColliderHandle, Pose, QueryFilter, QueryFilterFlags, Ray, RigidBodyType, SharedShape, Vector,
@@ -408,8 +410,23 @@ impl ItemWorld {
         if runtime
             .world
             .intersect_shape(candidate, entry.shape.as_ref(), filter)
-            .next()
-            .is_some()
+            .any(|(_, collider)| {
+                // Resting shapes retain solver-scale roundoff at their support.
+                // An intersection flag alone mistakes that contact for an
+                // unsafe drop; actual penetration still refuses release.
+                !contact(
+                    &candidate,
+                    entry.shape.as_ref(),
+                    collider.position(),
+                    collider.shape(),
+                    0.0,
+                )
+                .is_ok_and(|geometry| {
+                    geometry.is_none_or(|surface| {
+                        surface.dist >= -crate::engine::collision::CONTACT_EPS
+                    })
+                })
+            })
         {
             return false;
         }

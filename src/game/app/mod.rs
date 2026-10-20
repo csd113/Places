@@ -1041,17 +1041,11 @@ impl FrameLoop<'_> {
             .sync_visuals(self.renderer, &self.items.world);
         let _update_stats = self.renderer.update_dynamic(visual_delta);
         self.advance_weather();
-        // Animated characters follow the player's locomotion state unless a
-        // map-authored route or interaction addresses them by instance id
-        // (`game.entity_frames()`); the renderer re-skins only the characters
-        // whose pose moved. A one-shot cue that completed this frame is fed
-        // back as an `animation_complete` event, which is how a sequence's
-        // `wait_animation` step and an authored binding learn about it.
-        let characters = self.renderer.update_characters(
-            visual_delta,
-            self.game.locomotion_snapshot(),
-            self.game.entity_frames(),
-        );
+        // Each actor owns its pose. Completed one-shot cues feed back to
+        // entity sequences and animation_complete bindings.
+        let characters = self
+            .renderer
+            .update_characters(visual_delta, self.game.entity_frames());
         self.update_carry_attachments();
         for instance_id in &characters.finished {
             self.game

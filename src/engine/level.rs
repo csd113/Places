@@ -9506,6 +9506,37 @@ impl WalkableRamp {
     fn height_at(&self, x: f32, z: f32) -> f32 {
         self.floor_y + self.surface.offset_at(x, z)
     }
+
+    /// Highest point of the slope touched by an upright feet disc. The
+    /// transverse distance limits the available run to the circle's chord,
+    /// rather than inventing support at the corner of its enclosing square.
+    fn disc_height(&self, point: glam::Vec2, radius: f32) -> Option<f32> {
+        let (x0, x1, z0, z1) = self.surface.bounds();
+        let (run, across, low, high, across_low, across_high) = match self.surface.axis() {
+            WallAxis::X => (point.x, point.y, x0, x1, z0, z1),
+            WallAxis::Z => (point.y, point.x, z0, z1, x0, x1),
+        };
+        let transverse = across.clamp(across_low, across_high);
+        let offset = across - transverse;
+        let chord_squared = radius.mul_add(radius, -(offset * offset));
+        if chord_squared <= 0.0 {
+            return None;
+        }
+        let reach = chord_squared.sqrt();
+        if run + reach < low || run - reach > high {
+            return None;
+        }
+        let extreme = self
+            .surface
+            .rise()
+            .signum()
+            .mul_add(reach, run)
+            .clamp(low, high);
+        Some(match self.surface.axis() {
+            WallAxis::X => self.height_at(extreme, transverse),
+            WallAxis::Z => self.height_at(transverse, extreme),
+        })
+    }
 }
 
 /// One staircase resolved into the walkable surface model.
@@ -9881,6 +9912,12 @@ impl WalkableFloor {
         max_y: f32,
     ) -> Option<f32> {
         let floor = self.height_below_disc(point, radius, max_y);
+        let ramps = self.rooms.iter().flat_map(|room| {
+            room.ramps.iter().filter_map(move |ramp| {
+                ramp.disc_height(point, radius)
+                    .filter(|height| *height <= max_y)
+            })
+        });
         let stairs = self.rooms.iter().flat_map(|room| {
             room.stairs.iter().filter_map(move |stair| {
                 let (x0, x1, z0, z1) = stair.surface.bounds();
@@ -9892,7 +9929,11 @@ impl WalkableFloor {
                     .then_some(height)
             })
         });
-        floor.into_iter().chain(stairs).max_by(f32::total_cmp)
+        floor
+            .into_iter()
+            .chain(ramps)
+            .chain(stairs)
+            .max_by(f32::total_cmp)
     }
 
     /// Exposed ramp/flight perimeters and stair risers in the live body band.
@@ -9929,6 +9970,23 @@ impl WalkableFloor {
                     0.0
                 };
                 let crossing = (end - start).mul_add(fraction, start);
+                // An airborne body can enter the rising slope from *inside*
+                // the footprint. Perimeter faces alone cannot catch it. The
+                // contour at the feet plane closes that horizontal section of
+                // the wedge; walking continues to use its legal step rule.
+                if step <= 0.0 && fraction > 0.0 && fraction < 1.0 {
+                    let outward = -rise.signum();
+                    match ramp.surface.axis() {
+                        WallAxis::X => visit(
+                            &WallAabb::with_y(crossing, backing, z0, 0.0, 0.0, z1 - z0),
+                            glam::Vec2::new(outward, 0.0),
+                        ),
+                        WallAxis::Z => visit(
+                            &WallAabb::with_y(x0, backing, crossing, x1 - x0, 0.0, 0.0),
+                            glam::Vec2::new(0.0, outward),
+                        ),
+                    }
+                }
                 let (low, high) = if rise > 0.0 {
                     (crossing, end)
                 } else if rise < 0.0 {

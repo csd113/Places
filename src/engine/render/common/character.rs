@@ -1118,7 +1118,7 @@ pub struct Character {
     /// clamped to `0..=1`; `1.0` for a character with no fade component.
     opacity: f32,
     /// Optional simulation-driven playback for runtime visual representations.
-    /// Ordinary runtime actors still hold their pose without an entity frame.
+    /// Other skinned actors derive movement from their own entity frames.
     runtime_locomotion: Option<LocomotionSnapshot>,
     /// A player visual can advance with unscaled time for the next pose pass.
     runtime_frame_delta: Option<f32>,
@@ -1878,22 +1878,14 @@ impl CharacterScene {
 
     /// Advances every character's pose by `delta_seconds`.
     ///
-    /// A character addressed by an [`EntityFrame`] follows that frame: the
-    /// route's live transform (when it moved) and its pose cue. A placed
-    /// character with no frame keeps following the player's locomotion
-    /// snapshot, so a level that authors no routes behaves exactly as before. A
-    /// runtime character with no frame holds its current pose: it was spawned
-    /// by gameplay and has no placed locomotion to inherit.
-    pub fn update(
-        &mut self,
-        delta_seconds: f32,
-        snapshot: LocomotionSnapshot,
-        frames: &[EntityFrame],
-    ) -> CharacterUpdate {
+    /// Each actor follows its own explicit pose cue, supplied locomotion or
+    /// actual frame displacement. A stationary skinned actor advances its idle
+    /// animation; an unaddressed rigid prop retains its current pose.
+    pub fn update(&mut self, delta_seconds: f32, frames: &[EntityFrame]) -> CharacterUpdate {
         let mut moved = 0usize;
         let mut finished: Vec<String> = Vec::new();
         for character in &mut self.characters {
-            if Self::advance_character(character, delta_seconds, snapshot, frames, true) {
+            if Self::advance_character(character, delta_seconds, frames) {
                 moved = moved.saturating_add(1);
             }
             if character.animator.take_cue_finished()
@@ -1903,7 +1895,7 @@ impl CharacterScene {
             }
         }
         for character in &mut self.runtime {
-            if Self::advance_character(character, delta_seconds, snapshot, frames, false) {
+            if Self::advance_character(character, delta_seconds, frames) {
                 moved = moved.saturating_add(1);
             }
             if character.animator.take_cue_finished()
@@ -2183,20 +2175,17 @@ impl CharacterScene {
 
     /// Advances one character against this frame's handoff.
     ///
-    /// `follow_locomotion` is true for a placed character: with no frame it
-    /// follows the player's locomotion snapshot. A runtime character passes
-    /// false and holds its current pose instead.
+    /// Animation ownership stays with the actor, including an absent frame.
     fn advance_character(
         character: &mut Character,
         delta_seconds: f32,
-        snapshot: LocomotionSnapshot,
         frames: &[EntityFrame],
-        follow_locomotion: bool,
     ) -> bool {
         let animation_delta = character
             .runtime_frame_delta
             .take()
             .unwrap_or(delta_seconds);
+        let previous_position = character.transform.w_axis.truncate();
         let frame = character
             .instance_id
             .as_deref()
@@ -2231,12 +2220,38 @@ impl CharacterScene {
             } else {
                 character.animator.update(animation_delta, locomotion)
             }
-        } else if !follow_locomotion || character.animator.is_rigid() {
-            // Runtime and rigid actors retain their default held pose.
+        } else if character.animator.is_rigid() {
             false
         } else {
-            character.animator.update(animation_delta, snapshot)
+            let current_position = character.transform.w_axis.truncate();
+            let displacement = Vec3::new(
+                current_position.x - previous_position.x,
+                current_position.y - previous_position.y,
+                current_position.z - previous_position.z,
+            );
+            character.animator.update(
+                animation_delta,
+                actor_locomotion(displacement, animation_delta),
+            )
         }
+    }
+}
+
+/// A transform-only actor still owns its gait. Explicit action cues and the
+/// player representation's simulation snapshot take precedence over this path.
+fn actor_locomotion(displacement: Vec3, delta: f32) -> LocomotionSnapshot {
+    let speed = if delta.is_finite() && delta > 0.0 {
+        displacement.x.hypot(displacement.z) / delta
+    } else {
+        0.0
+    };
+    LocomotionSnapshot {
+        state: if speed > 0.01 {
+            LocomotionState::Walking
+        } else {
+            LocomotionState::Idle
+        },
+        speed,
     }
 }
 
@@ -3610,3 +3625,7 @@ pub const fn character_vertex(albedo: [f32; 4], uv: [f32; 2], position: [f32; 3]
 #[cfg(test)]
 #[path = "../../tests/character_clip_selection.rs"]
 mod clip_selection_tests;
+
+#[cfg(test)]
+#[path = "../../tests/character_ownership.rs"]
+mod ownership_tests;

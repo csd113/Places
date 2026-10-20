@@ -96,6 +96,42 @@ impl ItemWorld {
 }
 
 impl Runtime {
+    /// The controller stops just before dormant shapes, so waiting for a
+    /// solver penetration can never wake them. Treat that same small contact
+    /// gap as contact before the all-dormant fast path skips the solver.
+    pub(super) fn activate_player_contacts(&mut self) {
+        let Some(player) = self.world.colliders.get(self.player_collider) else {
+            return;
+        };
+        if !player.is_enabled() {
+            return;
+        }
+        let touching: Vec<u64> = self
+            .entries
+            .iter()
+            .filter_map(|(&key, entry)| {
+                if !entry.dormant || !entry.motion.is_movable() || entry.recovery.suspended {
+                    return None;
+                }
+                let body = self.world.bodies.get(entry.body)?;
+                contact(
+                    body.position(),
+                    entry.shape.as_ref(),
+                    player.position(),
+                    player.shape(),
+                    CONTACT_MARGIN + MAX_PLAYER_PENETRATION,
+                )
+                .is_ok_and(|geometry| {
+                    geometry.is_some_and(|surface| surface.dist >= -MAX_PLAYER_PENETRATION)
+                })
+                .then_some(key)
+            })
+            .collect();
+        for key in touching {
+            let _activated = self.activate_key(key);
+        }
+    }
+
     pub(super) fn activate_key(&mut self, key: u64) -> bool {
         let Some(entry) = self.entries.get_mut(&key) else {
             return false;

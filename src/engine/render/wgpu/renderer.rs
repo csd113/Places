@@ -2444,14 +2444,13 @@ impl WgpuRenderer {
     pub fn update_characters(
         &mut self,
         delta_seconds: f32,
-        locomotion: LocomotionSnapshot,
         frames: &[EntityFrame],
     ) -> crate::engine::render::CharacterUpdate {
         if self.check_device_lost() {
             return crate::engine::render::CharacterUpdate::default();
         }
         let animation_started = cpu_trace_start(self.animation_seconds);
-        let update = self.characters.update(delta_seconds, locomotion, frames);
+        let update = self.characters.update(delta_seconds, frames);
         cpu_trace_finish("character_animation", animation_started);
         let lighting_started = cpu_trace_start(self.animation_seconds);
         if let Some(lighting) = self.dynamic_lighting.as_ref() {

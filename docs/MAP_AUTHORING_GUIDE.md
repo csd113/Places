@@ -156,7 +156,7 @@ Authoritative paths:
 | Animation actions (`play_animation`, `toggle_animation`) | Implemented per instance; the target must carry an `animation` component. |
 | Audio actions (`play_sound`, `stop_sound`) | Implemented through the shared entity dispatcher and preloaded native audio backend; cue ids resolve through `assets/audio/catalog.json`. |
 | Water refraction, realtime shadow maps and runtime static transport solves | Not implemented; straight alpha/depth transmission and bounded entity direct lights are implemented |
-| Animated entities: a placed skinned GLB follows the player's locomotion state (idle/walking/airborne/swimming); a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
+| Animated entities: each placed skinned GLB follows its own action/movement/idle state; a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
 | Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
 | GLB MASK/cutout and BLEND on static props, characters and dynamic props | Implemented; shared back-to-front object/batch sorting, without intersecting-triangle sorting |
 | Emissive decals; per-placement emission overrides; cone/spot lights | Not implemented |
@@ -1765,6 +1765,9 @@ How the two behave:
   against the live feet and step plane. Stair flights also sweep their real
   riser bands. Incoming contacts block an airborne body from entering the
   closed terrain while inside exits, the low end and legal climb stay open.
+  An airborne horizontal sweep also closes the ramp interior at the live feet
+  plane, preventing entry when the slope overtakes a jump. Falling ramp support
+  samples the highest slope point within the actual circular feet disc.
   Falling disc support includes internal ramp edges and staircase treads.
   A ramp or flight that lands flush on a raised
   platform is closed by that platform's own skirt, and the platform's rim does
@@ -3064,7 +3067,10 @@ embedded in the GLB; they are not separate catalog assets.
   character path. Fully claimed models are excluded from immutable bind-pose
   lighting casters and receive live entity grounding; partial or over-budget
   groups retain the visible static fallback's caster. Collision is unchanged.
-  The engine ceiling is 128 joints per model.
+  The engine ceiling is 128 joints per model. Animation follows that actor's
+  explicit cue, supplied locomotion or actual frame displacement; a stationary
+  skinned actor advances idle. Player locomotion is supplied only to the player's
+  visual representation. Unaddressed rigid animated props retain their pose.
 * **Animations** (optional): LINEAR and STEP samplers driving node translation,
   rotation or scale; up to 64 clips and 4096 channels per model. CUBICSPLINE
   samplers and morph-target weight channels are rejected by name. A clip whose
@@ -4288,8 +4294,11 @@ rigid items. Movable items do not become standable surfaces for that controller.
 **Authored movable bodies start dormant in every map.** Dormant preserves the
 exact authored model-origin position and rotation; gravity, settling and ordinary
 solver contacts cannot shift it on load. Looking at an item does not activate it.
-Pickup, an explicit activation action or a prescribed kinematic pose activates
-motion. A meaningful impact from an already active dynamic body activates dormant
+Pickup, player stepping/jumping/body contact, an explicit activation action or a
+prescribed kinematic pose activates motion. Player contact includes the small
+swept contact gap and is checked before an all-dormant world skips the solver.
+Contact activation respects pause/zero time scale and refuses genuine player
+penetration. A meaningful impact from an already active dynamic body activates dormant
 dynamic bodies. Dormant neighbors and stationary support contacts do not start
 a cascade. This is the engine-wide
 default; there is no map flag, physics-profile field or special Arcade path.
@@ -4351,6 +4360,11 @@ The loader rejects unknown groups and malformed names. Reset returns the group's
 authored bodies to their initial poses and dormant state, clears velocity and releases a held member;
 unrelated bodies and the player keep their state. This is a reusable action,
 independent of a map name, model id or bowling-specific engine path.
+Essential progression items should use a dedicated group. An exact-item, unheld
+trigger in an authored loss volume can return that group, and an accessible
+interaction provides retry when its starting place is blocked. This preserves
+identity, other objects and objective state without creating copies or restarting
+the visit. Relay Intake applies this policy to its well and recovery sign.
 Reset first validates every destination against the live player, doors and
 unrelated bodies. Authored members preserve their original intersections with
 immutable scenery, so a slightly imperfect authored placement can return to its

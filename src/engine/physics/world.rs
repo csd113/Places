@@ -1149,6 +1149,9 @@ impl ItemWorld {
         runtime.last_player = Some(player);
         runtime.update_player(player);
         runtime.update_doors(doors, interval <= 0.0);
+        if interval > 0.0 {
+            runtime.activate_player_contacts();
+        }
         if !runtime
             .entries
             .values()

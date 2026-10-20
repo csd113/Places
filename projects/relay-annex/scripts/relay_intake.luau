@@ -5,7 +5,7 @@ local function hint(api)
         if stamped then 'Supply logged. The north airlock is open.' else 'Ives needs the cardboard box on the ice.',
         if stamped then 'Open the north door and step into the airlock.' else 'Carry it to the pale square by the crate.',
         'E carries and sets down. Let it settle.',
-        'F: beam. The noticeboard restarts this visit.',
+        'Lost box? Use the sign beside the well.',
         'Airlocks clear your hands and local systems.',
     })
 end
@@ -25,7 +25,7 @@ return {
         if stamped then
             api.message('IVES / INTAKE', {'Good. That supply is staying here.', 'Continue through the north airlock.', 'Your hands are cleared at the threshold.'})
         else
-            api.message('IVES / INTAKE', {'Our last supply slid onto the ice.', 'Leave the box on the pale receiving square.', 'Wait for the bell. Take the north airlock.', 'Mind the ice. The marked well returns you.'})
+            api.message('IVES / INTAKE', {'Our last supply slid onto the ice.', 'Leave the box on the pale receiving square.', 'Wait for the bell. Take the north airlock.', 'Mind the ice. The well sign recovers lost supplies.'})
         end
     end,
     returned = function(api)
@@ -40,7 +40,17 @@ return {
         if stamped then api.change_level('relay_tower') end
     end,
     well = function(api)
-        api.message('MAINTENANCE RECOVERY WELL', {'Step into the marked well for a safe reset.', 'This visit and carried supplies will reset.', 'This drill is optional.'})
+        if stamped then
+            api.message('SUPPLY RECOVERY', {'Intake is already accepted.', 'Continue through the north airlock.'})
+            return
+        end
+        api.physics('essential_supply',false)
+        api.message('SUPPLY RECOVERY', {
+            'The box returns to its starting place on the ice.',
+            'If that place is occupied, clear it and use this sign again.',
+            'Your progress and other supplies stay as they are.',
+            'Falling into the well still restarts this visit.',
+        })
     end,
     recover = function(api) api.reset() end,
     hint = hint,

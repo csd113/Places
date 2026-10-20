@@ -194,7 +194,7 @@
         "mass_kg": 0.65,
         "motion": "dynamic",
         "pickup": true,
-        "reset_group": "supplies",
+        "reset_group": "essential_supply",
         "restitution": 0.08
       },
       "pitch_degrees": 0.0,
@@ -419,7 +419,7 @@
       "components": [
         {
           "component": "interactable",
-          "prompt": "Recovery well",
+          "prompt": "Recover lost supply",
           "reach": 3
         }
       ],
@@ -612,6 +612,32 @@
       "depth": 2.2,
       "id": "well_catch",
       "top_y": -2,
+      "width": 2.2,
+      "x": 10.9,
+      "z": 13.9
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "reset_physics_group",
+              "group": "essential_supply"
+            }
+          ],
+          "cooldown_seconds": 0.5,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": -2.8,
+      "depth": 2.2,
+      "filter": {
+        "held": false,
+        "instance": "supply",
+        "kind": "item"
+      },
+      "id": "lost_supply",
+      "top_y": -1.2,
       "width": 2.2,
       "x": 10.9,
       "z": 13.9

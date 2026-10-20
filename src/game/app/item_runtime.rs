@@ -949,29 +949,15 @@ impl Items {
             crate::game::ui::draw_text(
                 vertices,
                 if self.release_blocked {
-                    "RELEASE BLOCKED - move item clear of contact"
+                    "Make room to set this down."
                 } else {
-                    "HELD MOVEMENT BLOCKED - move clear of contact"
+                    "The item cannot follow here."
                 },
                 24.0,
                 238.0,
                 0.75,
                 [0.9, 0.75, 0.5],
             );
-            if let Some((_, instance, _)) = self
-                .authored
-                .iter()
-                .find(|(key, _, _)| Some(*key) == self.world.held())
-            {
-                crate::game::ui::draw_text(
-                    vertices,
-                    &format!("Holding: {instance}"),
-                    24.0,
-                    254.0,
-                    0.75,
-                    [0.9, 0.75, 0.5],
-                );
-            }
         }
     }
 }

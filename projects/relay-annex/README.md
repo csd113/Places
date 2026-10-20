@@ -10,6 +10,12 @@ restarts after the ending. A noticeboard restarts the current visit. The west
 Discharge noticeboard returns to Intake. Door transitions deliberately create
 fresh local state and clear hands; persistent campaign inventory is unsupported.
 
+Intake returns an unheld required box lost in the well to its starting place.
+Use the well sign to recover it from another inaccessible place or retry after
+clearing an occupied return point. Recovery preserves intake progress and other
+props; after acceptance the sign does not move the delivered box. Falling into
+the well still restarts the visit.
+
 From the repository root, the preserved delivery launches directly:
 
 ```sh
