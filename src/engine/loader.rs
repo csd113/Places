@@ -1126,6 +1126,11 @@ fn validate_water_contract(
             "Water volume {i} attenuation_per_metre must be finite in 0..=16"
         ));
     }
+    if !volume.motion.is_valid() {
+        return Err(format!(
+            "Water volume {i} motion requires finite speed in 0..=8, strength in 0..=1, flow_speed in 0..=4 m/s and direction_degrees in 0..=360"
+        ));
+    }
     if !volume.caustics.is_valid() {
         return Err(format!(
             "Water volume {i} caustics requires finite tint channels in 0..=1, speed in 0..=8 and strength in 0..=1"

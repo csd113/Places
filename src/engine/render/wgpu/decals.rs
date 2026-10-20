@@ -401,7 +401,7 @@ fn caustics_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("places-decal-caustics-layout"),
         entries: &[
-            storage(7, 112),
+            storage(7, super::caustics::MIN_BUFFER_BYTES),
             wgpu::BindGroupLayoutEntry {
                 binding: 8,
                 visibility: wgpu::ShaderStages::FRAGMENT,

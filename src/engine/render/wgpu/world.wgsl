@@ -250,6 +250,7 @@ struct WorldVertex {
     @location(5) handedness: f32,
     @location(8) uv_visibility: vec4<f32>,
     @location(9) caustics_albedo: vec3<f32>,
+    @location(10) water_surface: f32,
 };
 
 struct VsOut {
@@ -266,6 +267,7 @@ struct VsOut {
     @location(8) local_position: vec3<f32>,
     @location(9) uv_visibility: vec4<f32>,
     @location(10) caustics_albedo: vec3<f32>,
+    @location(11) water_surface: f32,
 };
 
 @vertex
@@ -277,6 +279,7 @@ fn vs_main(vertex: WorldVertex) -> VsOut {
     out.color = vertex.color;
     out.uv_visibility = vertex.uv_visibility;
     out.caustics_albedo = vertex.caustics_albedo;
+    out.water_surface = vertex.water_surface;
     // Normals use the inverse transpose; tangents use the model transform.
     // The material stage normalizes and re-orthogonalizes the frame.
     let normal_matrix = mat3x3<f32>(environment.normal_model[0].xyz, environment.normal_model[1].xyz, environment.normal_model[2].xyz);
@@ -594,6 +597,21 @@ fn surface_normals(in: VsOut, front_facing: bool) -> SurfaceNormals {
         normal = normalize(tangent * scaled.x + bitangent * scaled.y + normal * scaled.z);
     }
     var out: SurfaceNormals;
+    if (in.water_surface > 0.5) {
+        let selected = water_surface_node(in.world_position);
+        if (selected > 0u) {
+            let motion = caustics.nodes[selected - 1u].motion;
+            let point = in.world_position.xz - motion.zw * caustics.seconds;
+            let phase = caustics.seconds * motion.x;
+            // Analytic wave slopes perturb the existing surface frame; imagery
+            // continues to come exclusively from the authored PNG.
+            let a = dot(point, vec2<f32>(2.8, 1.1)) - phase * 1.7;
+            let b = dot(point, vec2<f32>(-1.3, 3.2)) - phase * 1.1;
+            let slope = (vec2<f32>(2.8, 1.1) * cos(a) + vec2<f32>(-1.3, 3.2) * cos(b) * 0.45) * motion.y * 0.035;
+            let facing = select(-1.0, 1.0, front_facing);
+            normal = normalize(normal + vec3<f32>(-slope.x, 0.0, -slope.y) * facing);
+        }
+    }
     out.material = normal;
     out.geometric = geometric;
     return out;
@@ -847,7 +865,26 @@ fn caustic_receiver_light(in: VsOut, selected: u32) -> vec4<f32> {
 }
 
 fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
-    let base = textureSample(base_texture, base_sampler, in.uv);
+    // Derivatives stay outside volume-dependent flow control. Transform fluid
+    // metres into this material's actual world UV frame, preserving its tiling.
+    let uv_dx = dpdx(in.uv); let uv_dy = dpdy(in.uv);
+    let pos_dx = dpdx(in.world_position.xz); let pos_dy = dpdy(in.world_position.xz);
+    var uv = in.uv;
+    if (in.water_surface > 0.5) {
+        let selected = water_surface_node(in.world_position);
+        if (selected > 0u) {
+            let motion = caustics.nodes[selected - 1u].motion;
+            let determinant = pos_dx.x * pos_dy.y - pos_dy.x * pos_dx.y;
+            if (abs(determinant) > 1.0e-12) {
+                let travel = motion.zw * caustics.seconds;
+                let coefficients = vec2<f32>(travel.x * pos_dy.y - travel.y * pos_dy.x, pos_dx.x * travel.y - pos_dx.y * travel.x) / determinant;
+                uv -= uv_dx * coefficients.x + uv_dy * coefficients.y;
+            }
+            let phase = caustics.seconds * motion.x;
+            uv += vec2<f32>(sin(phase * 0.73), sin(phase * 0.91)) * motion.y * 0.025;
+        }
+    }
+    let base = textureSampleGrad(base_texture, base_sampler, uv, uv_dx, uv_dy);
     let base_linear = base.rgb;
     // The reference's alpha: texture x vertex-colour alpha x material opacity,
     // then the per-instance opacity. The instance factor is exactly 1.0 for

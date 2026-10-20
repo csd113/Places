@@ -178,6 +178,8 @@ pub struct WorldVertex {
     pub uv_visibility: [f32; 4],
     /// Neutral material factor, independent of vertex-baked illumination.
     pub caustics_albedo: [f32; 3],
+    /// Static water-surface classification, derived once from source and mesh.
+    pub water_surface: f32,
 }
 
 impl From<&Vertex> for WorldVertex {
@@ -193,6 +195,7 @@ impl From<&Vertex> for WorldVertex {
             handedness: vertex.handedness,
             uv_visibility: [0.0; 4],
             caustics_albedo: vertex.caustics_albedo,
+            water_surface: 0.0,
         }
     }
 }
@@ -203,7 +206,7 @@ impl From<Vertex> for WorldVertex {
     }
 }
 
-const WORLD_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 10] = wgpu::vertex_attr_array![
+const WORLD_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 11] = wgpu::vertex_attr_array![
     WORLD_ATTRIB_POSITION => Float32x3,
     WORLD_ATTRIB_NORMAL => Float32x3,
     WORLD_ATTRIB_UV => Float32x2,
@@ -214,6 +217,7 @@ const WORLD_VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 10] = wgpu::vertex_attr_a
     WORLD_ATTRIB_HANDEDNESS => Float32,
     WORLD_ATTRIB_UV_VISIBILITY => Float32x4,
     9 => Float32x3,
+    10 => Float32,
 ];
 
 /// Bytes between consecutive world vertices.
@@ -991,7 +995,7 @@ pub fn environment_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLa
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(112),
+                    min_binding_size: wgpu::BufferSize::new(super::caustics::MIN_BUFFER_BYTES),
                 },
                 count: None,
             },
@@ -1356,7 +1360,7 @@ impl WgpuWorldGeometry {
         mesh: &LevelMesh,
         materials: &MaterialRenderState,
     ) -> Self {
-        Self::upload_with_blacklight(device, queue, mesh, materials, None)
+        Self::upload_with_blacklight(device, queue, mesh, materials, None, None)
     }
 
     #[must_use]
@@ -1366,13 +1370,25 @@ impl WgpuWorldGeometry {
         mesh: &LevelMesh,
         materials: &MaterialRenderState,
         visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        water_source: Option<(
+            &crate::engine::level::LevelDef,
+            &crate::engine::materials::MaterialTable,
+        )>,
     ) -> Self {
         let (packer, draws) = pack_world_ranges(mesh, materials);
         crate::engine::perf::startup_mark("world geometry: pack");
 
         let mut chunks: Vec<WorldChunk> = Vec::with_capacity(packer.chunks.len());
-        for chunk in &packer.chunks {
-            chunks.push(upload_chunk(device, queue, chunk, visibility));
+        for (chunk_index, chunk) in packer.chunks.iter().enumerate() {
+            chunks.push(upload_chunk(
+                device,
+                queue,
+                chunk,
+                visibility,
+                water_source,
+                &draws,
+                chunk_index,
+            ));
         }
         crate::engine::perf::startup_mark("world geometry: GPU upload");
 
@@ -1686,8 +1702,14 @@ fn upload_chunk(
     queue: &wgpu::Queue,
     chunk: &MeshChunk,
     visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+    water_source: Option<(
+        &crate::engine::level::LevelDef,
+        &crate::engine::materials::MaterialTable,
+    )>,
+    draws: &[WorldDraw],
+    chunk_index: usize,
 ) -> WorldChunk {
-    let vertices: Vec<WorldVertex> = chunk
+    let mut vertices: Vec<WorldVertex> = chunk
         .vertices
         .iter()
         .map(|vertex| {
@@ -1698,6 +1720,7 @@ fn upload_chunk(
             gpu
         })
         .collect();
+    mark_water_surfaces(&mut vertices, chunk, draws, chunk_index, water_source);
     let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("places-wgpu-world-vertices"),
         size: u64::try_from(vertices.len())
@@ -1718,6 +1741,62 @@ fn upload_chunk(
         index_buffer,
         vertex_count: u32::try_from(chunk.vertices.len()).unwrap_or(u32::MAX),
         index_count: u32::try_from(chunk.indices.len()).unwrap_or(u32::MAX),
+    }
+}
+
+/// Classify once at upload using the floor draw's actual material and mean
+/// plane. It supports full coverage and never animates dynamic/model vertices
+/// or a different transparent surface merely touching the same water height.
+fn mark_water_surfaces(
+    vertices: &mut [WorldVertex],
+    chunk: &MeshChunk,
+    draws: &[WorldDraw],
+    chunk_index: usize,
+    source: Option<(
+        &crate::engine::level::LevelDef,
+        &crate::engine::materials::MaterialTable,
+    )>,
+) {
+    let Some((level, materials)) = source else {
+        return;
+    };
+    for draw in draws.iter().filter(|draw| {
+        draw.chunk == chunk_index
+            && draw.kind == SurfaceKind::Floor
+            && draw.pass == BatchPass::Translucent
+    }) {
+        let start = usize::try_from(draw.index_start).unwrap_or(usize::MAX);
+        let end = start.saturating_add(usize::try_from(draw.index_count).unwrap_or(0));
+        let Some(indices) = chunk.indices.get(start..end) else {
+            continue;
+        };
+        for water in &level.water {
+            if materials.index_of(water.material_id()) != Some(draw.material) {
+                continue;
+            }
+            let (x0, x1, z0, z1) = water.bounds();
+            for index in indices {
+                let Some(vertex) = vertices.get_mut(usize::from(*index)) else {
+                    continue;
+                };
+                let [x, y, z] = vertex.position;
+                let in_circle = water.radius.is_none_or(|radius| {
+                    let dx = x - f32::midpoint(x0, x1);
+                    let dz = z - f32::midpoint(z0, z1);
+                    dx.hypot(dz) <= radius + 0.0001
+                });
+                if vertex.normal[1] > 0.99
+                    && (y - water.surface_y).abs() < 0.0001
+                    && x >= x0 - 0.0001
+                    && x <= x1 + 0.0001
+                    && z >= z0 - 0.0001
+                    && z <= z1 + 0.0001
+                    && in_circle
+                {
+                    vertex.water_surface = 1.0;
+                }
+            }
+        }
     }
 }
 

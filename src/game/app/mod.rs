@@ -3231,6 +3231,19 @@ impl FrameLoop<'_> {
             .collect()
     }
 
+    fn trace_player_body(&self) -> serde_json::Value {
+        serde_json::json!({
+            "feet_y": self.game.feet_y(), "body_height": self.game.body_height(),
+            "eye_height": self.game.player_position.y - self.game.feet_y(),
+            "grounded": self.game.grounded, "crouched": self.game.is_crouched(),
+            "swimming": self.game.is_swimming(), "underwater": self.game.is_underwater(),
+            "water_depth_level": self.game.water_depth_level(), "water_jump": self.game.water_exit.is_some(),
+            "water_exit_support": self.game.water_exit.map(|exit| exit.support_y),
+            "velocity_y": self.game.vertical_velocity, "velocity_xz": self.game.horizontal_velocity.to_array(),
+            "fluid_velocity_xz": self.game.player_fluid_velocity().to_array(), "reset_count": self.game.reset_count()
+        })
+    }
+
     fn trace_world(&mut self, event: &str) {
         let (renderer_level, renderer_quality, renderer_lightmaps) =
             self.renderer.installed_identity();
@@ -3245,10 +3258,7 @@ impl FrameLoop<'_> {
             "characters": self.renderer.character_count(), "dynamic_objects": self.renderer.dynamic_scene().len(),
             "entity_simulation": self.entity_simulation_snapshot(),
             "player_position": position, "quality": self.settings.quality_level().name(),
-            "player_body": {"feet_y": self.game.feet_y(), "body_height": self.game.body_height(),
-                "eye_height": position[1] - self.game.feet_y(), "grounded": self.game.grounded,
-                "crouched": self.game.is_crouched(), "swimming": self.game.is_swimming(),
-                "underwater": self.game.is_underwater(), "reset_count": self.game.reset_count()},
+            "player_body": self.trace_player_body(),
             "view_direction": self.game.view_direction().to_array(),
             "interaction_target": self.interaction_target_snapshot(),
             "interaction_hand_visible": self.items.hand_visible(),

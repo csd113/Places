@@ -54,6 +54,7 @@ pub(super) struct WaterBody {
 struct Immersion {
     volume_m3: f32,
     moment: Vec3,
+    flow_moment: Vec3,
     // Preserve an analytic centre without multiplying/dividing world positions.
     // Their round-trip error otherwise creates torque on symmetric floats.
     exact_centre: Option<Vec3>,
@@ -120,6 +121,7 @@ impl WaterBody {
             let sample = part.immersion(body_pose, water);
             result.volume_m3 += sample.volume_m3;
             result.moment = add(result.moment, sample.moment);
+            result.flow_moment = add(result.flow_moment, sample.flow_moment);
         }
         result
     }
@@ -170,6 +172,7 @@ impl DisplacedPart {
                 return Immersion {
                     volume_m3: self.volume_m3,
                     moment: scaled(centre, self.volume_m3),
+                    flow_moment: scaled(flow_vector(volume), self.volume_m3),
                     exact_centre: Some(centre),
                 };
             }
@@ -184,6 +187,7 @@ impl DisplacedPart {
                 return Immersion {
                     volume_m3,
                     moment: scaled(wet_centre, volume_m3),
+                    flow_moment: scaled(flow_vector(volume), volume_m3),
                     exact_centre: Some(wet_centre),
                 };
             }
@@ -205,6 +209,7 @@ impl DisplacedPart {
         Immersion {
             volume_m3,
             moment: scaled(measured_wet.moment, volume_m3 / measured_wet.volume_m3),
+            flow_moment: scaled(measured_wet.flow_moment, volume_m3 / measured_wet.volume_m3),
             exact_centre: None,
         }
     }
@@ -248,6 +253,7 @@ impl DisplacedPart {
         let ray_length = above - below;
         let mut measured_wet_volume = 0.0;
         let mut wet_moment = Vec3::ZERO;
+        let mut wet_flow_moment = Vec3::ZERO;
         let mut covering_surface = f32::NEG_INFINITY;
         for volume in water.volumes().iter().rev() {
             if !volume.enabled {
@@ -303,6 +309,10 @@ impl DisplacedPart {
                     }
                     let submerged_volume = (wet_top - wet_bottom) * column_area;
                     measured_wet_volume += submerged_volume;
+                    wet_flow_moment = add(
+                        wet_flow_moment,
+                        scaled(flow_vector(selected), submerged_volume),
+                    );
                     wet_moment = add(
                         wet_moment,
                         scaled(
@@ -316,6 +326,7 @@ impl DisplacedPart {
         Immersion {
             volume_m3: measured_wet_volume,
             moment: wet_moment,
+            flow_moment: wet_flow_moment,
             exact_centre: None,
         }
     }
@@ -343,12 +354,14 @@ impl DisplacedPart {
                 let Some((bottom, top)) = self.column_interval(world_pose, x, z, limits) else {
                     continue;
                 };
-                let Some((_, wet_bottom, wet_top)) = submerged_interval(water, x, z, bottom, top)
+                let Some((selected, wet_bottom, wet_top)) =
+                    submerged_interval(water, x, z, bottom, top)
                 else {
                     continue;
                 };
                 let volume = (wet_top - wet_bottom) * area;
                 result.volume_m3 += volume;
+                result.flow_moment = add(result.flow_moment, scaled(flow_vector(selected), volume));
                 result.moment = add(
                     result.moment,
                     scaled(Vec3::new(x, f32::midpoint(wet_bottom, wet_top), z), volume),
@@ -445,6 +458,7 @@ fn clip_interval(volume: &WaterVolume, bottom: f32, top: f32) -> Option<(f32, f3
 
 impl Runtime {
     pub(super) fn apply_water(&mut self, water: &WaterVolumes) {
+        self.wake_current_water(water);
         if self.entries.len() < MIN_PARALLEL_WATER_BODIES || water.is_empty() {
             self.apply_water_serial(water);
             return;
@@ -570,6 +584,41 @@ impl Runtime {
         }
     }
 
+    fn wake_current_water(&mut self, water: &WaterVolumes) {
+        if !water
+            .volumes()
+            .iter()
+            .any(|volume| volume.enabled && volume.swimming && volume.motion.flow_speed > 0.0)
+        {
+            return;
+        }
+        for (&key, entry) in &self.entries {
+            if entry.dormant
+                || entry.recovery.suspended
+                || self.held.as_ref().is_some_and(|held| held.key == key)
+            {
+                continue;
+            }
+            let Some(response) = entry.water.as_ref() else {
+                continue;
+            };
+            let Some(body) = self.world.bodies.get(entry.body) else {
+                continue;
+            };
+            if body.is_sleeping()
+                && body.is_enabled()
+                && body.is_dynamic()
+                && response
+                    .immersion(*body.position(), water)
+                    .flow_moment
+                    .length_squared()
+                    > 0.0
+            {
+                self.world.wake_up(entry.body, true);
+            }
+        }
+    }
+
     pub(super) fn wake_changed_water(&mut self) {
         for entry in self.entries.values() {
             if entry.motion == BodyMotion::Dynamic && !entry.dormant && !entry.recovery.suspended {
@@ -577,6 +626,11 @@ impl Runtime {
             }
         }
     }
+}
+
+fn flow_vector(volume: &WaterVolume) -> Vec3 {
+    let [x, z] = volume.motion.flow();
+    Vec3::new(x, 0.0, z)
 }
 
 fn apply_immersion(response: &mut WaterBody, body: &mut RigidBody, immersion: &Immersion) {
@@ -588,11 +642,14 @@ fn apply_immersion(response: &mut WaterBody, body: &mut RigidBody, immersion: &I
     // Exponential mass-weighted damping is stable even at the validated
     // 100/s maximum, unlike an explicit velocity-proportional force.
     // Existing dry damping and every collision/CCD constraint remain
-    // owned by Rapier. Drag adds no horizontal current or scripted bob.
+    // owned by Rapier. Relative-fluid drag supplies the same authored current
+    // as the player; vertically it preserves the displacement response.
     let fluid_mass_ratio = WATER_DENSITY_KG_M3 * immersion.volume_m3 / body.mass();
     let linear_decay = (-response.linear_drag * fluid_mass_ratio * FIXED_STEP).exp();
     let angular_decay = (-response.angular_drag * fluid_mass_ratio * FIXED_STEP).exp();
-    body.set_linvel(vector(scaled(point(body.linvel()), linear_decay)), false);
+    let fluid = scaled(immersion.flow_moment, 1.0 / immersion.volume_m3);
+    let velocity = fluid.lerp(point(body.linvel()), linear_decay);
+    body.set_linvel(vector(velocity), false);
     body.set_angvel(vector(scaled(point(body.angvel()), angular_decay)), false);
     let centre = immersion
         .exact_centre

@@ -34,3 +34,7 @@ mkdir -p /tmp/places-fixture/levels
   --out /tmp/places-fixture/levels/test_room.placesmap --asset-root assets
 PLACES_STATE_ROOT=/tmp/places-fixture PLACES_LEVEL=test_room ./target/release/places
 ```
+
+`water_flow.json` is the stage 3 manual water example: west still, centre +X
+0.8 m/s, east −X 1.6 m/s; matching floating/dense props and bank geometry.
+Explicit native authoring/acceptance only; Cargo tests use tiny metadata worlds.

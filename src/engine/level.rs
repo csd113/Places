@@ -3,6 +3,8 @@ pub use ground::GroundSurfaces;
 mod balloon;
 pub use balloon::{BalloonColor, BalloonDef};
 mod physics;
+mod water_motion;
+pub use water_motion::WaterMotionDef;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -570,6 +572,9 @@ pub struct WaterVolumeDef {
     /// Presentation controls for source-lit caustics beneath this volume.
     #[serde(default)]
     pub caustics: CausticsDef,
+    /// Ripple presentation and horizontal fluid velocity, independent of light.
+    #[serde(default, skip_serializing_if = "WaterMotionDef::is_default")]
+    pub motion: WaterMotionDef,
     /// Whether the player swims in this volume. `false` keeps it decorative:
     /// the surface draws and the player walks or falls through it normally.
     #[serde(default = "default_true")]
@@ -10802,6 +10807,8 @@ pub struct WaterVolume {
     /// A `disable` action clears this: the surface still draws (it is baked
     /// geometry) but the controller walks or falls through the volume.
     pub enabled: bool,
+    /// Source controls restored beside compiled collision geometry.
+    pub motion: WaterMotionDef,
 }
 
 impl WaterVolume {
@@ -10886,6 +10893,8 @@ pub struct WaterSample {
     pub bottom_y: f32,
     /// Surface-to-bottom depth, in metres.
     pub depth: f32,
+    /// Horizontal fluid velocity in world XZ metres per second.
+    pub flow: [f32; 2],
     /// Whether the volume allows swimming.
     pub swimming: bool,
 }
@@ -11025,9 +11034,19 @@ impl WaterVolumes {
                 },
                 swimming: def.swimming,
                 enabled: true,
+                motion: def.motion,
             });
         }
         Self { volumes }
+    }
+
+    /// Restore source-only controls without changing the collision record layout.
+    #[must_use]
+    pub fn with_motion(mut self, level: &LevelDef) -> Self {
+        for (volume, source) in self.volumes.iter_mut().zip(&level.water) {
+            volume.motion = source.motion;
+        }
+        self
     }
 
     /// Enables or disables the volume at `index`.
@@ -11082,6 +11101,7 @@ impl WaterVolumes {
                 surface_y: volume.surface_y,
                 bottom_y: volume.bottom_y,
                 depth: volume.depth(),
+                flow: volume.motion.flow(),
                 swimming: volume.swimming,
             });
         }
@@ -11264,6 +11284,7 @@ fn read_water_volume(reader: &mut Reader<'_>) -> Result<WaterVolume, String> {
         opacity,
         swimming,
         enabled: true,
+        motion: WaterMotionDef::default(),
     })
 }
 

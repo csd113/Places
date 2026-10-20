@@ -41,6 +41,7 @@ use crate::game::settings::Settings;
 
 mod developer;
 mod recovery;
+mod water;
 use recovery::{PlayableSpace, RecoveryDestination};
 
 pub const TWO_PI: f32 = std::f32::consts::TAU;
@@ -113,56 +114,12 @@ const ICE_FRICTION: f32 = 1.6;
 const ICE_AIR_CONTROL_RESPONSE: f32 = 1.2;
 const ICE_STOP_SPEED: f32 = 0.025;
 
-/// Upper bound on vertical substeps consumed in one frame.
-const MAX_VERTICAL_SUBSTEPS: usize = 12;
-
 /// Water depth at the player's feet at or below which the player wades: the
 /// historical walking controller, including jumping, applies unchanged.
 pub const WADE_DEPTH: f32 = 0.55;
 
-/// Horizontal speed multiplier while swimming.
-pub const SWIM_SPEED_FACTOR: f32 = 0.55;
-
-/// Upward speed while Jump is held in deep water, in m/s.
-pub const SWIM_RISE_SPEED: f32 = 1.1;
-
-/// How far above the water surface the eye floats while Jump is held, in
-/// metres.
-pub const FLOAT_EYE_MARGIN: f32 = 0.12;
-
-/// Amplitude of the idle bob at the float line, in metres.
-pub const SWIM_BOB_AMPLITUDE: f32 = 0.03;
-
-/// Angular speed of the float bob, in radians per second.
-pub const SWIM_BOB_SPEED: f32 = 2.4;
-
-/// Reduced gravity while swimming, in m/s^2 (negative is downward).
-///
-/// Roughly two fifths of the surface gravity: heavy enough that releasing Jump
-/// sinks noticeably, light enough that the plunge stays a deceleration rather
-/// than a drop. The sink is integrated in fixed [`VERTICAL_SUBSTEP`] steps, so
-/// the descent is the same trajectory at every frame rate.
-pub const SWIM_GRAVITY: f32 = -4.5;
-
-/// Terminal sink speed in water, in m/s (positive magnitude).
-///
-/// Above the old `0.5 m/s` crawl: an unassisted descent crosses the demo
-/// basin in about one second instead of two while still reaching the reduced
-/// gravity's terminal smoothly. The floor clamp and the float-line handoff
-/// stay delta-bounded.
-pub const SWIM_SINK_TERMINAL: f32 = 1.1;
-
-/// Maximum water depth below the surface at which standing up is allowed, in
-/// metres: the standing eye offset minus the float margin.
-///
-/// A supporting floor whose upright eyes clear the float line is waded.
-/// Entry uses the same support test, so the wider standing depth cannot cause
-/// repeated swim/stand transitions. The current stance scales this threshold.
-pub const EXIT_DEPTH: f32 = EYE_HEIGHT - FLOAT_EYE_MARGIN;
-
-/// The top of the swim band above the free surface, in metres: how far above
-/// the waterline the eye may be while the body still counts as in the water.
-const SWIM_BAND_MARGIN: f32 = SURFACE_SWIM_EYE_MARGIN + FLOAT_EYE_MARGIN;
+/// Eye-height band used only for the surface swimming animation.
+const SURFACE_SWIM_EYE_MARGIN: f32 = 0.25;
 
 /// How far below the water surface the eye may be and still stand up, in
 /// metres.
@@ -179,20 +136,8 @@ const EXIT_EYE_MARGIN: f32 = 0.6;
 /// barrier at the water's edge still blocks.
 pub const WATER_EXIT_STEP_M: f32 = 0.5;
 
-/// Eye height above which the swimming pose is the surface pose, in metres.
-const SURFACE_SWIM_EYE_MARGIN: f32 = 0.25;
-
 /// Vertical climbing speed on a ladder, in m/s.
 pub const LADDER_CLIMB_SPEED: f32 = 2.2;
-
-/// Vertical speed of the bounded, cancellable climb out of the water, in m/s.
-///
-/// Deliberately the ladder's speed: standing up out of chest-deep water and
-/// climbing a ladder read the same to the player, and both transitions move at
-/// most `speed * delta` per frame instead of writing the standing pose in one
-/// step. The support must still be directly under the player's centre — this
-/// speed is a rate, never a reach.
-pub const WATER_EXIT_CLIMB_SPEED: f32 = LADDER_CLIMB_SPEED;
 
 /// How far past the player radius the pressed-exit probe reaches, in metres.
 ///
@@ -381,7 +326,7 @@ impl CollisionWorld {
             ground_surfaces: GroundSurfaces::default(),
             walls: statics.walls,
             floor: statics.floor,
-            water: statics.water,
+            water: statics.water.with_motion(level),
             ceiling: statics.ceiling,
             ladders: statics.ladders,
             world: EntityWorld::from_level(level),
@@ -506,32 +451,12 @@ pub struct Game {
     locomotion: LocomotionSnapshot,
     /// True while the water under the player is deep enough to swim.
     swimming: bool,
-    /// The bounded climb out of the water in progress, if any.
-    ///
-    /// Set when the swim pose reaches a standable floor at the surface (or a
-    /// volume ends over one) and cleared on completion or cancellation; see
-    /// [`WaterExit`]. While set, the player is still `swimming` and the
-    /// horizontal step stays the swimming one, so the climb is a rate rather
-    /// than a pose write.
+    /// A checked, timed ledge jump in progress.
     water_exit: Option<WaterExit>,
-    /// The standable water-exit floor the swimmer pressed into this frame, if
-    /// any: a raised rim the body touches whose top the camera has not cleared
-    /// yet.
-    ///
-    /// Recorded by the swimming horizontal step and consumed by
-    /// [`Game::swim_vertical`] to start the bounded pull-up climb from the
-    /// water side, before the body crosses the rim the camera is still below.
-    /// Cleared at the start of every Playing frame, so releasing the movement
-    /// key cancels the pull-up exactly like reversing off the rim.
+    /// Walkable rim touched by the current horizontal sweep.
     pressed_exit_support: Option<f32>,
-    /// True while the swimmer holds the float line.
-    ///
-    /// The idle bob is only applied on the frames that continue a hold, so a
-    /// rise that first reaches the line lands on its mean (phase zero) instead
-    /// of jumping straight onto the bob. Cleared whenever the hold is not
-    /// continued (sinking under a released Jump, entering the water, or
-    /// cancelling out of a climb).
-    float_hold: bool,
+    /// Reused contact probes; ordinary swimming performs no per-step allocation.
+    water_exit_probes: Vec<Vec2>,
     /// The current stance (standing or crouched).
     stance: Stance,
     /// Index into [`Game::ladders`] while attached to a ladder.
@@ -567,8 +492,6 @@ pub struct Game {
     ceiling_contact_this_frame: bool,
     /// Explicit opt-in frame/contact diagnostics, silent during normal play.
     movement_debug: bool,
-    /// Phase of the idle bob at the water's float line, in radians.
-    bob_phase: f32,
     /// Counters of the most recent entity-world tick.
     last_tick: WorldTick,
 }
@@ -612,24 +535,16 @@ enum StepOutcome {
     Void,
 }
 
-/// One bounded, cancellable climb out of the water, in progress.
-///
-/// The support is recorded once, when the climb begins, and must stay the
-/// support the player is actually reaching for: either directly under the
-/// centre (the ordinary stand-up, or the crossing phase of a pull-up) or the
-/// raised rim the swimmer keeps pressing into before the body has crossed it.
-/// The exit never reaches for a distant ledge, and horizontal movement keeps
-/// running through the ordinary swimming collision step. The surface reference
-/// is the waterline the exit was validated against (the pre-move sample when
-/// the volume ended under the player), so a support that stops being a
-/// standable exit — reversing back over deep water — cancels the climb to
-/// swimming.
+/// A checked ballistic ledge exit, limited to a short forward arc.
+/// Physical sweeps and the shared vertical solver own all motion and landing.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct WaterExit {
-    /// World Y of the walkable floor the feet climb toward.
+    /// World Y of the validated destination floor.
     support_y: f32,
     /// World Y of the water surface the exit is measured against.
     surface_y: f32,
+    direction: Vec2,
+    remaining: f32,
 }
 
 /// The walking support under one candidate position, relative to the surface
@@ -684,7 +599,7 @@ impl Game {
             swimming: false,
             water_exit: None,
             pressed_exit_support: None,
-            float_hold: false,
+            water_exit_probes: Vec::with_capacity(8),
             stance: Stance::Standing,
             climbing: None,
             jump_latched: false,
@@ -699,7 +614,6 @@ impl Game {
             vertical_accumulator: 0.0,
             ceiling_contact_this_frame: false,
             movement_debug: std::env::var("PLACES_MOVEMENT_DEBUG").is_ok_and(|value| value == "1"),
-            bob_phase: 0.0,
             last_tick: WorldTick::default(),
         };
         game.recover_spawn_overlap();
@@ -887,8 +801,6 @@ impl Game {
         self.pressed_exit_support = None;
         self.ceiling_contact_this_frame = false;
         self.outside_map_seconds = 0.0;
-        self.float_hold = false;
-        self.bob_phase = 0.0;
         self.stance = Stance::Standing;
         self.climbing = None;
         self.recover_spawn_overlap();
@@ -1177,26 +1089,12 @@ impl Game {
         self.player_position.y = self.feet_y + self.eye_offset_current;
     }
 
-    /// Derives the physical feet from the buoyant eye while swimming.
-    fn sync_feet(&mut self) {
-        self.feet_y = self.player_position.y - self.eye_offset_current;
-    }
-
-    /// Moves the physical feet to `feet_y`, deriving the rendered eye.
+    /// Move physical feet and derive the eye from the live stance.
     fn set_feet_y(&mut self, feet_y: f32) {
         self.feet_y = feet_y;
         self.sync_eye();
     }
 
-    /// Moves the buoyant eye to `eye_y`, deriving the physical feet.
-    fn set_eye_y(&mut self, eye_y: f32) {
-        self.player_position.y = eye_y;
-        self.sync_feet();
-    }
-
-    /// Eases the animated eye offset toward the current stance's offset and
-    /// keeps the rendered eye and the physical feet on the invariant line.
-    ///
     /// Feet anchor the stance in water as well as on land: a crouch eases the
     /// camera without moving the supporting body or fabricating a volume entry.
     fn advance_eye_offset(&mut self, delta: f32) {
@@ -1434,7 +1332,9 @@ impl Game {
             direction.x * settings.walk_speed,
             direction.y * settings.walk_speed,
         );
-        let velocity = if ice_motion {
+        let velocity = if in_water {
+            self.horizontal_velocity
+        } else if ice_motion {
             let response = if on_ice {
                 if target.length_squared() > 0.0 {
                     ICE_CONTROL_RESPONSE
@@ -1457,15 +1357,25 @@ impl Game {
         } else {
             target
         };
-        if velocity.length_squared() > 0.0 {
+        let drift = if in_water || ice_motion || before_sample.is_none() {
+            Vec2::ZERO
+        } else {
+            let flow = self.player_fluid_velocity();
+            let immersion = self.player_immersion();
+            Vec2::new(flow.x * immersion, flow.y * immersion)
+        };
+        let effective_velocity = if in_water || ice_motion {
+            velocity
+        } else {
+            Vec2::new(target.x + drift.x, target.y + drift.y)
+        };
+        if effective_velocity.length_squared() > 0.0 {
             let mode = if let Some(exit) = self.water_exit {
-                // The climb keeps the swimming collision step against the
-                // waterline the exit was validated on, so the player walks onto
-                // the real deck with ordinary input and real collision.
+                // A checked exit retains its mean-water collision reference.
                 HorizontalMode::Swim {
                     surface_y: exit.surface_y,
                 }
-            } else if self.swimming {
+            } else if self.swimming && !self.grounded {
                 HorizontalMode::Swim {
                     surface_y: before_sample.map_or(feet, |s| s.surface_y),
                 }
@@ -1474,20 +1384,16 @@ impl Game {
             } else {
                 HorizontalMode::Airborne
             };
-            let speed = if in_water {
-                settings.walk_speed * SWIM_SPEED_FACTOR
-            } else {
-                settings.walk_speed
-            };
-            if ice_motion {
+            if ice_motion || in_water || drift.length_squared() > 0.0 {
                 self.move_horizontal(
-                    Vec3::new(velocity.x, 0.0, velocity.y),
-                    velocity.length(),
+                    Vec3::new(effective_velocity.x, 0.0, effective_velocity.y),
+                    effective_velocity.length(),
                     delta,
                     mode,
                 );
             } else {
-                self.move_horizontal(move_dir, speed, delta, mode);
+                // Dry land retains its original direction/speed path exactly.
+                self.move_horizontal(move_dir, settings.walk_speed, delta, mode);
             }
         }
         let current = Vec2::new(self.player_position.x, self.player_position.z);
@@ -1507,10 +1413,7 @@ impl Game {
     /// One short locomotion interval, with current contacts and velocity.
     /// Input edges, stance, looking and doors remain frame-owned.
     fn update_locomotion_step(&mut self, input: &InputState, settings: &Settings, delta: f32) {
-        // The pressed-exit probe is per frame: the swimming horizontal step
-        // records a raised rim the body is pushing into, and releasing the key
-        // (no movement this frame) must leave it unrecorded so the pull-up is
-        // as cancellable as the walk-off climb.
+        // Rim contact is recomputed for this locomotion interval.
         self.pressed_exit_support = None;
 
         // Planar horizontal movement (independent of pitch). The held
@@ -1551,80 +1454,58 @@ impl Game {
             return;
         }
 
-        // The water state (swimming, or a bounded climb out of it) decides this
-        // frame's horizontal mode and speed; the post-move sample decides the
-        // vertical behaviour.
-        let feet = self.feet_y();
-        let before_sample = self
-            .water
-            .sample(self.player_position.x, self.player_position.z, feet);
-        let in_water = self.swimming || self.water_exit.is_some();
-
-        if !in_water && self.grounded {
+        if self.water_exit.is_some() {
+            let distance = self.advance_water_exit(delta);
+            self.refresh_locomotion(distance, delta);
+            return;
+        }
+        let before_sample = self.water.sample(
+            self.player_position.x,
+            self.player_position.z,
+            self.feet_y(),
+        );
+        self.swimming = self.deep_water_under(before_sample);
+        if self.swimming {
+            self.climbing = None;
+            self.water_velocity(input, settings, delta);
+        } else if self.grounded {
             self.refresh_ground_support();
         }
-        let on_ice = !in_water
+        let on_ice = !self.swimming
             && self.grounded
             && self
                 .ground_surfaces
                 .at(self.player_position.x, self.player_position.z, self.feet_y)
                 == GroundSurface::Ice;
-        if self.grounded || in_water {
+        if self.grounded || self.swimming {
             self.ice_airborne = on_ice;
         }
-        if !in_water && jump_pressed && self.grounded && !self.entering_water(before_sample) {
+        if !self.swimming && jump_pressed && self.grounded {
             self.vertical_velocity = JUMP_VELOCITY;
             self.grounded = false;
             self.vertical_accumulator = 0.0;
         }
-
         let horizontal_distance =
             self.move_on_surface(move_dir, settings, delta, before_sample, on_ice);
-
-        // The water at the post-move position decides the vertical behaviour.
-        // Staying in the swim state is keyed on the *depth* under the player,
-        // not on the eye band: while deep water remains, a swimmer whose eye
-        // rises above the band (a cold surface, a pulled-up pose) keeps the
-        // state instead of leaving it, zeroing the velocity and re-entering next
-        // frame. The eye band only shapes the entry gate.
         let after_sample = self.water.sample(
             self.player_position.x,
             self.player_position.z,
             self.feet_y(),
         );
-        let deep_under = self.deep_water_under(after_sample);
-
-        if self.water_exit.is_some() {
-            // A climb out of the water was already under way: advance it (or
-            // cancel it back to the swim pose) instead of re-resolving the
-            // water state from the sample.
-            self.update_water_exit(delta);
-        } else if self.swimming {
-            if deep_under {
-                if let Some(sample) = after_sample {
-                    self.swim_vertical(sample, jump_held);
-                }
-            } else {
-                // The water ended or became shallow under the player. When the
-                // volume ends exactly at a platform edge, the surface they were
-                // floating at (the pre-move sample) is the exit reference.
-                self.leave_water(after_sample.or(before_sample));
+        let now_swimming = self.deep_water_under(after_sample);
+        if now_swimming {
+            if !self.swimming {
+                self.swimming = true;
+                self.water_velocity(input, settings, delta);
             }
-        } else if self.grounded
-            && let Some(water) = after_sample
-            && let Some(support) = self.pressed_exit_support
-            && support > self.feet_y + PLAYER_STEP_HEIGHT + STEP_EPS
-            && self.player_position.y >= water.surface_y - EXIT_EYE_MARGIN
-        {
-            // Chest-deep wading retains the same bounded rim pull-up as
-            // swimming; ordinary shallow walking steps keep their land rule.
-            self.begin_water_exit(support, water.surface_y);
-            self.update_water_exit(delta);
-        } else if self.entering_water(after_sample) {
-            if let Some(sample) = after_sample {
-                self.enter_water(sample, jump_held);
+            // The ledge check precedes vertical rise, like the reference: a
+            // held rise may otherwise cross the waist boundary before it runs.
+            self.try_water_exit(move_dir);
+            if self.water_exit.is_none() {
+                self.advance_swimming(delta);
             }
         } else {
+            self.swimming = false;
             self.land_vertical(jump_pressed);
         }
 
@@ -1654,114 +1535,6 @@ impl Game {
         self.water
             .sample(self.player_position.x, self.player_position.z, eye)
             .is_some_and(|sample| eye < sample.surface_y)
-    }
-
-    /// True when a water sample should put the player into the swim state.
-    ///
-    /// The entry is *body based*: the water under the feet must be a swimming
-    /// volume deeper than [`WADE_DEPTH`] and the walkable floor under the
-    /// centre must not be a standable exit ([`Self::standable_water_exit`]), so
-    /// a wading player on a shallow floor never enters swimming at all. The
-    /// motion gate then separates the three cases:
-    ///
-    /// * A falling player enters as soon as the water is deep enough to swim
-    ///   in, wherever the eye is: the plunge decelerates in the water it is
-    ///   actually in instead of grounding on the pool floor before the eye
-    ///   band is reached.
-    /// * A stationary player (standing on a floor the stance cannot stand in,
-    ///   or on the frame support was just lost) enters once the eye is inside
-    ///   the surface band.
-    /// * A rising player is never recaptured: a ladder launch clears the
-    ///   waterline with the eye still inside the band.
-    ///
-    /// Once swimming, the state is held while deep water remains under the
-    /// player ([`Self::deep_water_under`]).
-    fn entering_water(&self, sample: Option<WaterSample>) -> bool {
-        let Some(water) = sample else {
-            return false;
-        };
-        // The body must be in the water: the feet below the wade depth. The
-        // deep-under test can also be true from a surface pose over deep water
-        // (a cancelled climb), which must never start swimming from a
-        // toe-touch.
-        if water.surface_y - self.feet_y() <= WADE_DEPTH {
-            return false;
-        }
-        if !self.deep_water_under(Some(water)) || self.vertical_velocity > 0.0 {
-            return false;
-        }
-        if self.vertical_velocity == 0.0
-            && self.player_position.y > water.surface_y + SWIM_BAND_MARGIN
-        {
-            return false;
-        }
-        self.standable_water_exit(water.surface_y).is_none()
-    }
-
-    /// True when the sample's swimming volume is deep under the player,
-    /// regardless of where the eye is.
-    ///
-    /// This is the swim *state* test: while deep water remains under the
-    /// player, leaving the state merely because the eye rose above the float
-    /// band would zero the velocity and re-enter on the next frame. Two
-    /// positions count as deep:
-    ///
-    /// * the body is immersed — the feet more than [`WADE_DEPTH`]
-    ///   below the surface — which is the historical test and what raises a
-    ///   deep swimmer over a rising floor; or
-    /// * the body is floating at the surface (the eye inside the swim band)
-    ///   over a volume whose floor is deeper than [`WADE_DEPTH`].
-    ///
-    /// The second case exists because a bounded water exit raises the eye (and
-    /// therefore the feet) above the waterline as it climbs: a climb
-    /// cancelled by reversing off the rim would otherwise read its own raised
-    /// pose as shallow water, hand the body to the airborne pass, and let the
-    /// rim collider depenetrate the disc by up to a body radius.
-    fn deep_water_under(&self, sample: Option<WaterSample>) -> bool {
-        sample.is_some_and(|water| {
-            water.swimming
-                && (water.surface_y - self.feet_y() > WADE_DEPTH
-                    || (self.player_position.y >= water.surface_y - SWIM_BAND_MARGIN
-                        && self
-                            .floor
-                            .walk_height_at(self.player_position.x, self.player_position.z)
-                            .is_some_and(|support| water.surface_y - support > WADE_DEPTH)))
-        })
-    }
-
-    /// The walkable floor under the player's centre a bounded water exit could
-    /// stand on at `surface_y`, if any.
-    ///
-    /// See [`Self::exit_support_standable`]: the exit support is *always* the
-    /// rendered walkable floor directly under the centre, never a reach toward
-    /// a neighbouring rim. The near-surface eye test stays with the callers,
-    /// because it decides whether a climb may *begin*, not whether a floor
-    /// would be standable.
-    fn standable_water_exit(&self, surface_y: f32) -> Option<f32> {
-        self.floor
-            .walk_height_at(self.player_position.x, self.player_position.z)
-            .filter(|support| self.exit_support_standable(*support, surface_y))
-    }
-
-    /// True when a walkable floor at `support` is a standable water exit at
-    /// `surface_y`: at most one bounded water-exit step above the surface,
-    /// shallow enough for the current stance to stand in ([`EXIT_DEPTH`] scaled
-    /// by the stance), with the stance's body clear overhead.
-    ///
-    /// Only the walkable floor answers this: a solid prop or wall top is never
-    /// a floor exit, exactly as before. Because the threshold is derived from
-    /// the swim band, a stand-up can never immediately re-enter swimming and a
-    /// pool edge cannot oscillate.
-    fn exit_support_standable(&self, support: f32, surface_y: f32) -> bool {
-        self.water_support_reachable(support, surface_y)
-            && surface_y - support <= self.stand_depth_limit()
-    }
-
-    /// A clear floor the water can lift the body onto. Submerged steps can
-    /// remain too deep for wading; their completion retains swimming.
-    fn water_support_reachable(&self, support: f32, surface_y: f32) -> bool {
-        support <= surface_y + WATER_EXIT_STEP_M + STEP_EPS
-            && self.head_clear_for(support, self.body_height())
     }
 
     /// Applies keyboard and mouse camera rotation for one frame.
@@ -2071,8 +1844,6 @@ impl Game {
         // Anchor the feet during stance easing, then re-acquire the float
         // line at the ordinary rise/sink rate instead of moving the body by
         // the changed eye offset.
-        self.float_hold = false;
-        self.bob_phase = 0.0;
     }
 
     /// The lowest overhead limit above `feet`: the room ceiling or a box
@@ -2118,18 +1889,6 @@ impl Game {
             .into_iter()
             .flatten()
             .min_by(f32::total_cmp)
-    }
-
-    /// The deepest water the current stance can stand up in, in metres.
-    ///
-    /// The standing value is [`EXIT_DEPTH`]; the crouched stance scales it with
-    /// its lower eye, so a crouched swimmer in chest-deep water stands by
-    /// standing up first.
-    fn stand_depth_limit(&self) -> f32 {
-        match self.stance {
-            Stance::Standing => EXIT_DEPTH,
-            Stance::Crouched => CROUCH_EYE_HEIGHT - FLOAT_EYE_MARGIN,
-        }
     }
 
     /// True when a body of `height` whose feet stand at `feet` fits under the
@@ -2389,7 +2148,7 @@ impl Game {
         }
     }
 
-    /// Swimming and chest-deep wading share the bounded rim exit.
+    /// Swimming and deep wading can discover a real rim contact.
     fn waterline_for_exit(&self, mode: HorizontalMode, position: Vec2, feet: f32) -> Option<f32> {
         match mode {
             HorizontalMode::Swim { surface_y } => Some(surface_y),
@@ -2749,9 +2508,9 @@ impl Game {
     /// leading edge reaching either). A candidate floor is only an exit when
     /// the point itself is free space — a wall standing on a floor is a
     /// barrier, never a climbable pool edge. The record is only set while the
-    /// player moves toward the exit, so releasing the key cancels the pull-up
-    /// like any reversal. The physical body band keeps the rim recognised
-    /// while the full disc crosses it, including diagonal contacts.
+    /// movement points into that edge. Parallel travel and side-current
+    /// pressure cannot claim a ledge in the player's forward direction.
+    /// The physical band retains diagonal corner contacts.
     fn note_pressed_water_exit(&mut self, position: Vec2, step_dir: Vec2, surface_y: f32) {
         // The indexed disc query collects the rim contact points; the exit
         // floor validation runs afterwards, because validating a floor asks
@@ -2759,7 +2518,8 @@ impl Game {
         // re-entrant (its scratch borrow is held across the visitor). The
         // candidate list is one leading probe plus the rims the disc touches,
         // so the buffer stays tiny.
-        let mut probes: Vec<Vec2> = Vec::new();
+        let mut probes = std::mem::take(&mut self.water_exit_probes);
+        probes.clear();
         if step_dir.length_squared() > 0.0 {
             let probe_dir = step_dir.normalize();
             probes.push(Vec2::new(
@@ -2788,7 +2548,11 @@ impl Game {
                 let dx = closest_x - position.x;
                 let dz = closest_z - position.y;
                 let length = dx.hypot(dz);
-                if length <= CONTACT_EPS {
+                // A near-tangent corner of a segmented bank is side contact.
+                // The approach cone still admits ordinary diagonal exits.
+                if length <= CONTACT_EPS
+                    || dx.mul_add(step_dir.x, dz * step_dir.y) <= 0.6 * length * step_dir.length()
+                {
                     return;
                 }
                 probes.push(Vec2::new(
@@ -2806,6 +2570,7 @@ impl Game {
         if let Some(floor) = best {
             self.pressed_exit_support = Some(floor);
         }
+        self.water_exit_probes = probes;
     }
 
     /// The standable exit floor at `probe`, if the point is free space.
@@ -3036,341 +2801,6 @@ impl Game {
         }
     }
 
-    /// Vertical step while in deep water: hold Jump to rise to the float line,
-    /// release to sink under the reduced underwater gravity at the terminal
-    /// sink speed, and begin the bounded climb out when the floor underfoot
-    /// becomes a standable exit.
-    ///
-    /// Water retains the stance's upright body and eye offset. The floor
-    /// supports its feet; [`FLOAT_EYE_MARGIN`] sets the surface float line.
-    /// Every branch integrates
-    /// [`Game::vertical_velocity`] over one fixed [`VERTICAL_SUBSTEP`] and moves
-    /// the eye at most `speed * substep`, so the pose is continuous on entry,
-    /// at the float line and under a released Jump, and the sink and rise are
-    /// the same trajectory at every frame rate; the floor and overhead clamps
-    /// stay bounded clamps.
-    fn swim_vertical(&mut self, sample: WaterSample, jump_held: bool) {
-        // The same fixed-substep pattern the land vertical path uses: all of
-        // the frame's time is consumed at most `MAX_VERTICAL_SUBSTEPS` times,
-        // and the left-over fraction is always below one substep, so 30, 60
-        // and 144 fps share one trajectory.
-        self.vertical_accumulator =
-            (self.vertical_accumulator + self.sim_delta_seconds).min(MAX_SIM_DELTA);
-        let mut steps = 0_usize;
-        while self.vertical_accumulator >= VERTICAL_SUBSTEP && steps < MAX_VERTICAL_SUBSTEPS {
-            self.vertical_accumulator -= VERTICAL_SUBSTEP;
-            steps = steps.saturating_add(1);
-            self.swim_vertical_substep(sample, jump_held);
-            // A substep that reached a standable exit hands the pose to the
-            // bounded climb; the rest of the frame's time belongs to it.
-            if self.water_exit.is_some() {
-                break;
-            }
-        }
-    }
-
-    /// One fixed [`VERTICAL_SUBSTEP`] of the buoyant swim pose.
-    fn swim_vertical_substep(&mut self, sample: WaterSample, jump_held: bool) {
-        let delta = VERTICAL_SUBSTEP;
-        let start_feet = self.feet_y;
-        let surface_y = sample.surface_y;
-        let float_line = surface_y + FLOAT_EYE_MARGIN;
-        let floor = self
-            .floor
-            .walk_height_at(self.player_position.x, self.player_position.z);
-
-        if jump_held {
-            let eye = self.player_position.y;
-            if self.float_hold {
-                // Holding at the line: the idle bob is a deterministic function
-                // of the advanced phase. The phase was started at zero when the
-                // rise first reached the line, so the handoff to the bob is
-                // continuous and the line is entered at its mean.
-                self.bob_phase = SWIM_BOB_SPEED.mul_add(delta, self.bob_phase) % TWO_PI;
-                self.set_eye_y(SWIM_BOB_AMPLITUDE.mul_add(self.bob_phase.sin(), float_line));
-                self.vertical_velocity = 0.0;
-            } else if eye > float_line {
-                // Above the line without a hold (a cancelled climb, or a plunge
-                // whose eye has not sunk yet): descend to the line under the
-                // sink terminal instead of snapping onto the bob.
-                let next = SWIM_GRAVITY
-                    .mul_add(delta, self.vertical_velocity)
-                    .max(-SWIM_SINK_TERMINAL);
-                let fallen = next.mul_add(delta, eye);
-                if fallen <= float_line {
-                    self.set_eye_y(float_line);
-                    self.vertical_velocity = 0.0;
-                } else {
-                    self.set_eye_y(fallen);
-                    self.vertical_velocity = next;
-                }
-            } else {
-                // Below the line: accelerate upward, capped at the rise speed,
-                // and hold exactly at the line. No launch velocity is
-                // accumulated, so the hold never pops the player out of the
-                // water.
-                let next = (-SWIM_GRAVITY)
-                    .mul_add(delta, self.vertical_velocity)
-                    .min(SWIM_RISE_SPEED);
-                let risen = next.mul_add(delta, eye);
-                if risen >= float_line {
-                    self.bob_phase = 0.0;
-                    self.float_hold = true;
-                    self.set_eye_y(float_line);
-                    self.vertical_velocity = 0.0;
-                } else {
-                    self.set_eye_y(risen);
-                    self.vertical_velocity = next;
-                }
-            }
-        } else {
-            let next = SWIM_GRAVITY
-                .mul_add(delta, self.vertical_velocity)
-                .max(-SWIM_SINK_TERMINAL);
-            self.set_eye_y(next.mul_add(delta, self.player_position.y));
-            self.vertical_velocity = next;
-            self.bob_phase = 0.0;
-            self.float_hold = false;
-        }
-
-        // The same feet-to-eye offset applies on the basin floor as on land.
-        // Horizontal sweeps refuse a higher floor until the bounded exit has
-        // lifted the whole body above it, so this is a landing clamp.
-        if let Some(support) =
-            self.support_at(self.player_position.x, self.player_position.z, start_feet)
-        {
-            let min_eye = support + self.eye_offset();
-            if self.player_position.y < min_eye {
-                self.set_feet_y(support);
-                if self.vertical_velocity < 0.0 {
-                    self.vertical_velocity = 0.0;
-                }
-            }
-        }
-
-        // The actual upright head and the animated camera share clearance.
-        if let Some(limit) = self.head_limit(self.feet_y) {
-            let head_offset =
-                (self.body_height() - self.eye_offset()).max(WATER_EXIT_EYE_CLEARANCE_M);
-            let max_eye = limit - head_offset - CONTACT_EPS;
-            if self.player_position.y > max_eye {
-                self.set_eye_y(max_eye);
-                if self.vertical_velocity > 0.0 {
-                    self.vertical_velocity = 0.0;
-                }
-            }
-        }
-
-        // Exit: the walkable floor under the centre is a standable exit and the
-        // eye is near the top of the water; or the body is pressed into a
-        // standable raised exit whose rim the camera has not cleared yet, so
-        // the ordinary swim step cannot cross it without carrying the eye
-        // inside the rim. The feet are *not* written to the exit: the climb is
-        // a bounded, cancellable rate, so the eye path has no step. The exited
-        // feet are shallow enough that [`WADE_DEPTH`] cannot immediately
-        // re-enter swimming, so a pool edge never oscillates.
-        let near_surface = self.player_position.y >= surface_y - EXIT_EYE_MARGIN;
-        let pressed_exit = self
-            .pressed_exit_support
-            .filter(|support| self.water_support_reachable(*support, surface_y))
-            .filter(|support| *support > self.feet_y + CONTACT_EPS)
-            // A submerged exit below the waterline can be pulled up from any
-            // depth — the water carries the body — while a raised exit above
-            // the surface needs the swimmer near the top of the water.
-            .filter(|support| near_surface || *support <= surface_y + STEP_EPS);
-        let exit = self
-            .standable_water_exit(surface_y)
-            .filter(|_| near_surface)
-            .or(pressed_exit);
-        if let Some(support) = exit {
-            self.begin_water_exit(support, surface_y);
-        } else {
-            self.player_floor_y = floor.unwrap_or(self.player_floor_y);
-        }
-    }
-
-    /// Enters the swim state from `sample`.
-    ///
-    /// The plunge keeps its vertical velocity, bounded to twice the rise speed
-    /// ([`Self::bounded_swim_velocity`]), so the fall decelerates continuously
-    /// in the water instead of being zeroed or keeping free-fall speed; the
-    /// buoyant pose then integrates from the current eye and the head clearance
-    /// is the body's own.
-    fn enter_water(&mut self, sample: WaterSample, jump_held: bool) {
-        self.swimming = true;
-        self.grounded = false;
-        self.climbing = None;
-        self.vertical_velocity = bounded_swim_velocity(self.vertical_velocity);
-        self.vertical_accumulator = 0.0;
-        self.bob_phase = 0.0;
-        self.float_hold = false;
-        self.swim_vertical(sample, jump_held);
-    }
-
-    /// Begins the bounded, cancellable climb out of the water onto `support`.
-    ///
-    /// The caller has already validated `support` against `surface_y` with
-    /// [`Self::exit_support_standable`] and the near-surface eye test. The
-    /// climb moves the feet and derives the eye ([`Self::set_feet_y`]), so the
-    /// rendered eye is continuous with the swim pose it replaces: the swim pose
-    /// already keeps `feet = eye - offset`. Any unspent swim time is dropped:
-    /// the climb owns the frame from here.
-    const fn begin_water_exit(&mut self, support: f32, surface_y: f32) {
-        self.water_exit = Some(WaterExit {
-            support_y: support,
-            surface_y,
-        });
-        self.grounded = false;
-        self.player_floor_y = support;
-        self.bob_phase = 0.0;
-        self.float_hold = false;
-        self.vertical_accumulator = 0.0;
-    }
-
-    /// Advances the bounded climb out of the water by one frame.
-    ///
-    /// The climb keeps the recorded support under the player's centre: once
-    /// the body is over it, only the ordinary swim collision step decides
-    /// whether the support is still there, and reversing back over deep water
-    /// cancels to swimming. Before the body is over the support (the bounded
-    /// pull-up a raised rim needs, because the camera must clear the rim
-    /// before the swim step may carry the centre across it) the climb stays
-    /// alive while the swimmer keeps pressing into the same rim, and lifts the
-    /// feet only until they clear the rim top.
-    /// Completion requires the support under the centre. A higher standable
-    /// floor that comes under the centre against the same waterline (the deck
-    /// past a submerged step) is adopted as the support, so the climb can
-    /// never be cancelled with the feet embedded in it. Head clearance is
-    /// validated at the support and throughout the ascent.
-    fn update_water_exit(&mut self, delta: f32) {
-        let Some(mut exit) = self.water_exit else {
-            return;
-        };
-        let centre_support = self
-            .floor
-            .walk_height_at(self.player_position.x, self.player_position.z);
-        // The support the body is actually over is adopted when it is a higher
-        // standable floor against the same waterline (the deck past a
-        // submerged step): cancelling there would leave the feet
-        // embedded in the higher floor, and the climb is already the bounded
-        // mechanism that stands the body up.
-        if let Some(support) = centre_support
-            .into_iter()
-            .chain(self.pressed_exit_support)
-            .max_by(f32::total_cmp)
-            && support > exit.support_y + CONTACT_EPS
-            && self.water_support_reachable(support, exit.surface_y)
-        {
-            exit.support_y = support;
-            self.water_exit = Some(exit);
-        }
-        let over_support =
-            centre_support.is_some_and(|support| (support - exit.support_y).abs() <= STEP_EPS);
-        // Finish at the actual centre support, rather than a nearby probe's
-        // epsilon-close height: even a sub-millimetre gap can lose grounding
-        // when the shoreline becomes a flat dry floor.
-        let target = if over_support {
-            centre_support.unwrap_or(exit.support_y)
-        } else {
-            exit.support_y
-        };
-        let pressed = self
-            .pressed_exit_support
-            .is_some_and(|support| (support - exit.support_y).abs() <= STEP_EPS);
-        if !over_support && !pressed {
-            self.water_exit = None;
-            return;
-        }
-        if !self.water_support_reachable(exit.support_y, exit.surface_y) {
-            self.water_exit = None;
-            return;
-        }
-        let feet = self.feet_y;
-        let headroom = self.head_limit(feet).map_or(f32::INFINITY, |limit| {
-            limit
-                - self
-                    .body_height()
-                    .max(self.eye_offset() + WATER_EXIT_EYE_CLEARANCE_M)
-                - CONTACT_EPS
-        });
-        let max_step = WATER_EXIT_CLIMB_SPEED * delta;
-        let step = if over_support && feet > target {
-            max_step
-        } else {
-            max_step.min((headroom - feet).max(0.0))
-        };
-        if over_support && (target - feet).abs() <= step {
-            // Arrived: stand on the real floor, with the ordinary grounded
-            // line. The climb owned the feet for the whole transition, so this
-            // is the end of a motion, never a teleport.
-            self.set_feet_y(target);
-            self.player_floor_y = target;
-            self.vertical_velocity = 0.0;
-            self.vertical_accumulator = 0.0;
-            self.grounded = self.exit_support_standable(target, exit.surface_y);
-            self.swimming = !self.grounded;
-            self.water_exit = None;
-        } else if over_support {
-            // Approach in either direction: positive float bob may already
-            // place the feet slightly above a newly standable support.
-            self.set_feet_y((target - feet).signum().mul_add(step, feet));
-        } else {
-            // Hold the feet at the rim top until the full disc crosses it.
-            // Both the physical body and its camera clear the support before
-            // horizontal movement can complete the bounded exit.
-            let hold_feet = exit.support_y;
-            if feet < hold_feet {
-                self.set_feet_y((feet + step).min(hold_feet));
-            }
-        }
-    }
-
-    /// Leaves the swimming state when the water under the player ends or
-    /// becomes shallow.
-    ///
-    /// The buoyant swimmer retains an upright stance with physical feet.
-    /// Leaving raises those feet onto the supporting floor through the same
-    /// bounded climb [`Self::begin_water_exit`] starts from the surface:
-    /// the support is at most one bounded water-exit step above the surface (or
-    /// below it, within standing depth), the eye is near the surface, and the
-    /// stance's body fits under the local ceiling. The `sample` may be the
-    /// pre-move sample: when the water volume ends exactly at a platform edge,
-    /// the surface the swimmer was floating at is the exit reference.
-    ///
-    /// With no standable floor the player becomes airborne from the current eye
-    /// line with the current bounded swim velocity — the water never teleports
-    /// the body to the pool floor — and [`Self::land_vertical`] owns the fall
-    /// from there. The one exception is the historical embedded-body rule: when
-    /// the feet are inside the floor and the stance does not fit yet,
-    /// the swim state is held until the player moves somewhere it does.
-    fn leave_water(&mut self, sample: Option<WaterSample>) {
-        let floor = self
-            .floor
-            .walk_height_at(self.player_position.x, self.player_position.z);
-        if let Some(surface) = sample.map(|water| water.surface_y)
-            && self.player_position.y >= surface - EXIT_EYE_MARGIN
-            && let Some(support) = self.standable_water_exit(surface)
-        {
-            self.begin_water_exit(support, surface);
-            return;
-        }
-        if let Some(support) = floor {
-            self.player_floor_y = support;
-            if self.feet_y < support - STEP_EPS {
-                // The feet are inside the floor and there is no
-                // standable exit: stay swimming until the player moves
-                // somewhere the body fits, rather than pushing the body
-                // through the floor or leaving it inside one.
-                return;
-            }
-        }
-        self.swimming = false;
-        self.bob_phase = 0.0;
-        self.float_hold = false;
-        self.grounded = false;
-        self.vertical_accumulator = 0.0;
-    }
-
     /// Attaches to and climbs a ladder, or reports that the frame was not a
     /// climbing frame.
     ///
@@ -3569,19 +2999,6 @@ fn normalized_climb_intent(move_dir: Vec3, ladder: &Ladder) -> f32 {
     }
     let normalized = move_dir.normalize();
     ladder.climb_intent(normalized.x, normalized.z)
-}
-
-/// The swim vertical velocity seeded from a plunge's current speed, in m/s.
-///
-/// Bounded to twice the swim rise speed: entering water keeps the motion the
-/// body already had (so the plunge decelerates instead of stopping dead), but
-/// never carries free-fall speed into the buoyant pose or a non-finite value.
-fn bounded_swim_velocity(velocity: f32) -> f32 {
-    if velocity.is_finite() {
-        velocity.clamp(-2.0 * SWIM_RISE_SPEED, 2.0 * SWIM_RISE_SPEED)
-    } else {
-        0.0
-    }
 }
 
 /// Pushes a body disc out of one wall box, or `None` when it does not touch.

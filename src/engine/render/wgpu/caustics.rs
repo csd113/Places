@@ -32,6 +32,8 @@ pub struct Node {
     pub tint_speed: [f32; 4],
     /// Focus strength, animation phase offset, followed by reserved zeros.
     pub params: [f32; 4],
+    /// Ripple speed/strength, followed by physical XZ fluid velocity.
+    pub motion: [f32; 4],
 }
 
 #[repr(C)]
@@ -40,11 +42,13 @@ struct Header {
     seconds: f32,
     count: u32,
     mean: f32,
-    padding: u32,
+    water_count: u32,
 }
 
-const _: [(); 96] = [(); std::mem::size_of::<Node>()];
+const _: [(); 112] = [(); std::mem::size_of::<Node>()];
 const _: [(); 16] = [(); std::mem::size_of::<Header>()];
+/// Header plus one storage-array element, shared by every pipeline layout.
+pub const MIN_BUFFER_BYTES: u64 = 16_u64.saturating_add(super::buffer_element_bytes::<Node>());
 
 fn leaf(volume: &WaterVolume, index: usize, controls: CausticsDef, grid: [u32; 4]) -> Node {
     let priority = u32::try_from(index).unwrap_or(0).saturating_add(1);
@@ -70,6 +74,12 @@ fn leaf(volume: &WaterVolume, index: usize, controls: CausticsDef, grid: [u32; 4
             controls.speed,
         ],
         params: [controls.strength, 0.0, 0.0, 0.0],
+        motion: [
+            volume.motion.speed,
+            volume.motion.strength,
+            volume.motion.flow()[0],
+            volume.motion.flow()[1],
+        ],
     }
 }
 
@@ -92,6 +102,7 @@ fn tree(leaves: &mut [Node], nodes: &mut Vec<Node>) {
         grid: [0; 4],
         tint_speed: [0.0; 4],
         params: [0.0; 4],
+        motion: [0.0; 4],
     });
     if let [only] = leaves {
         if let Some(node) = nodes.get_mut(first) {
@@ -143,6 +154,7 @@ pub struct Caustics {
     last_count: Option<u32>,
     last_seconds: f32,
     last_flashlight: bool,
+    focus_enabled: bool,
     source_uploads: u64,
     receiver_lighting: Option<Arc<LevelLighting>>,
     receiver_volumes: Vec<WaterVolume>,
@@ -153,7 +165,7 @@ impl Caustics {
         Self {
             buffer: device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("places-caustics-empty"),
-                contents: &[0; 112],
+                contents: &[0; 128],
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             }),
             texture: cache.fallback(),
@@ -168,6 +180,7 @@ impl Caustics {
             last_count: None,
             last_seconds: 0.0,
             last_flashlight: false,
+            focus_enabled: true,
             source_uploads: 0,
             receiver_lighting: None,
             receiver_volumes: Vec::new(),
@@ -186,9 +199,11 @@ impl Caustics {
         let volumes = WaterVolumes::from_level(level);
         let disabled = std::env::var("PLACES_BENCH").is_ok_and(|value| value == "1")
             && std::env::var("PLACES_BENCH_CAUSTICS").is_ok_and(|value| value == "off");
-        if volumes.is_empty() || disabled {
+        if volumes.is_empty() {
             return result;
         }
+        result.focus_enabled = !disabled;
+        result.prepare_field(device, queue, level, lighting, &volumes);
         let decoded = crate::engine::assets::resolve_asset_root().and_then(|root| {
             crate::engine::materials::load_png_relative(
                 &root,
@@ -201,6 +216,8 @@ impl Caustics {
                 "caustics-mask",
                 "[caustics] missing mask PNG; effect disabled",
             );
+            result.focus_enabled = false;
+            result.update(queue, 0.0, false);
             return result;
         };
         let sum: f32 = image
@@ -228,7 +245,6 @@ impl Caustics {
             crate::engine::materials::TextureOrigin::Catalog,
         );
         result.texture = texture;
-        result.prepare_field(device, queue, level, lighting, &volumes);
         result.update(queue, 0.0, false);
         crate::engine::logging::info(format!(
             "[caustics] {} volumes, {} tree nodes, {} receiver samples, {} sparse factors, {} mask bytes, mean {:.6}",
@@ -277,7 +293,7 @@ impl Caustics {
         );
         self.buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-caustics-volumes"),
-            size: byte_len.max(112),
+            size: byte_len.max(MIN_BUFFER_BYTES),
             usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -374,8 +390,7 @@ impl Caustics {
         true
     }
 
-    /// Writes just the clock while an eligible source or flashlight is active.
-    /// All-off transitions write one zero-count header, then remain upload-free.
+    /// Keep the surface clock live; eligible sources independently gate focus.
     pub fn update(&mut self, queue: &wgpu::Queue, seconds: f32, flashlight_active: bool) {
         self.last_seconds = seconds;
         self.last_flashlight = flashlight_active;
@@ -383,25 +398,25 @@ impl Caustics {
             return;
         }
         let source_active = self.field.has_active_sources();
-        let active = self.nodes.iter().any(|node| {
-            node.meta[2] > 0
-                && node.params[0] > 0.0
-                && node.tint_speed[..3].iter().any(|channel| *channel > 0.0)
-                && (source_active || flashlight_active)
-        });
+        let active = self.focus_enabled
+            && self.nodes.iter().any(|node| {
+                node.meta[2] > 0
+                    && node.params[0] > 0.0
+                    && node.tint_speed[..3].iter().any(|channel| *channel > 0.0)
+                    && (source_active || flashlight_active)
+            });
         let count = if active {
             u32::try_from(self.nodes.len()).unwrap_or(0)
         } else {
             0
         };
-        if count == 0 && self.last_count == Some(0) {
-            return;
-        }
+        // The water clock stays live even when no eligible light is on.
+        // Eligibility still gates the independent caustic receiver count.
         let header = Header {
             seconds,
             count,
             mean: self.mean,
-            padding: 0,
+            water_count: u32::try_from(self.nodes.len()).unwrap_or(0),
         };
         queue.write_buffer(&self.buffer, 0, bytemuck::bytes_of(&header));
         self.last_count = Some(count);

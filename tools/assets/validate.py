@@ -3165,6 +3165,14 @@ def validate_water_shapes(level: dict, where: str, errors: List[str]) -> None:
         attenuation = volume.get("attenuation_per_metre", 0.0)
         if not is_finite_number(attenuation) or not 0.0 <= attenuation <= 16.0:
             errors.append(f"{context} attenuation_per_metre must be finite in 0..16")
+        motion = volume.get("motion", {})
+        if not isinstance(motion, dict) or set(motion) - {"speed", "strength", "flow_speed", "direction_degrees"}:
+            errors.append(f"{context} motion must be an object with known controls")
+        else:
+            for field, default, maximum in (("speed", 1.0, 8.0), ("strength", 0.35, 1.0), ("flow_speed", 0.0, 4.0), ("direction_degrees", 0.0, 360.0)):
+                value = motion.get(field, default)
+                if not is_finite_number(value) or not 0.0 <= value <= maximum:
+                    errors.append(f"{context} motion {field} must be finite in 0..{maximum:g}")
         caustics = volume.get("caustics", {})
         if not isinstance(caustics, dict):
             errors.append(f"{context} caustics must be an object")

@@ -682,6 +682,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     {
         required.push("item-receipts-v1".into());
     }
+    if !level.water.is_empty() {
+        required.push("water-motion-v1".into());
+    }
     let manifest = Manifest {
         schema: crate::engine::package::PACKAGE_SCHEMA.to_string(),
         package_format: FORMAT_VERSION,
@@ -2160,6 +2163,11 @@ pub(crate) fn lighting_fingerprint_with_revision(
     stripped.scripts.clear();
     stripped.script_sources.clear();
     strip_navigation_components(&mut stripped);
+    // Motion is applied only by the live renderer/controller and does not
+    // change the mean-plane mesh, collision, transport or baked probes.
+    for water in &mut stripped.water {
+        water.motion = crate::engine::level::WaterMotionDef::default();
+    }
     // Exposure, shoulder and display grade are applied after linear-HDR probe
     // capture. Fog remains in the stage key: it is present in captured cubes.
     let mut environment = stripped.environment.unwrap_or_default();

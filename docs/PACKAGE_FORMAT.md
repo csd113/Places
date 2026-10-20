@@ -852,3 +852,12 @@ spawn template. Admission checks the source semantics as well as the manifest,
 so older hosts refuse the feature rather than silently exposing its meshes.
 This additive policy uses existing posed geometry and shadow resources; source,
 mesh, prepared-record and package format versions are unchanged.
+
+### Water motion source capability
+
+New water exports declare `water-motion-v1`. The optional strict source
+`water[].motion` object carries ripple speed/strength and horizontal flow speed/
+yaw. Validated embedded source restores controls alongside unchanged compiled
+collision geometry; no float control is hidden in mesh, collision or material
+bytes. Older hosts reject the capability explicitly. Existing source/packages
+without controls remain readable with calm ripples and zero current.

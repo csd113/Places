@@ -6,3 +6,5 @@ mod terrain_collision;
 
 mod crosshair;
 mod guidance;
+
+mod water;

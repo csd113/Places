@@ -3075,7 +3075,13 @@
       "bottom_y": -1.5,
       "material": "core:water_pool_01",
       "opacity": 0.62,
-      "swimming": true
+      "swimming": true,
+      "motion": {
+        "speed": 0.65,
+        "strength": 0.15,
+        "flow_speed": 0.0,
+        "direction_degrees": 0.0
+      }
     },
     {
       "shape": "rect",
@@ -3089,7 +3095,13 @@
       "opacity": 0.42,
       "attenuation_per_metre": 0.16,
       "swimming": true,
-      "comment": "[pool-water-demo] Main basin: 1.35 m of standing-depth water."
+      "comment": "[pool-water-demo] Main basin: 1.35 m of standing-depth water.",
+      "motion": {
+        "speed": 0.85,
+        "strength": 0.35,
+        "flow_speed": 0.0,
+        "direction_degrees": 0.0
+      }
     },
     {
       "shape": "rect",
@@ -3103,7 +3115,13 @@
       "opacity": 0.42,
       "attenuation_per_metre": 0.16,
       "swimming": true,
-      "comment": "[pool-water-demo] Walk-in shelf: 20 cm of shallow water."
+      "comment": "[pool-water-demo] Walk-in shelf: 20 cm of shallow water.",
+      "motion": {
+        "speed": 0.85,
+        "strength": 0.35,
+        "flow_speed": 0.0,
+        "direction_degrees": 0.0
+      }
     },
     {
       "shape": "rect",
@@ -3116,7 +3134,13 @@
       "material": "core:water_pool_01",
       "opacity": 0.42,
       "attenuation_per_metre": 0.16,
-      "swimming": true
+      "swimming": true,
+      "motion": {
+        "speed": 0.85,
+        "strength": 0.35,
+        "flow_speed": 0.0,
+        "direction_degrees": 0.0
+      }
     },
     {
       "shape": "rect",
@@ -3129,7 +3153,13 @@
       "material": "core:water_pool_01",
       "opacity": 0.42,
       "attenuation_per_metre": 0.16,
-      "swimming": true
+      "swimming": true,
+      "motion": {
+        "speed": 0.85,
+        "strength": 0.35,
+        "flow_speed": 0.0,
+        "direction_degrees": 0.0
+      }
     }
   ],
   "thresholds": [

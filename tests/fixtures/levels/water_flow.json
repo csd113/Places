@@ -1,0 +1,466 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "water_flow",
+  "name": "Water flow / Still, East 0.8, West 1.6",
+  "author": "Places stage 3",
+  "spawn": {
+    "x": 5.0,
+    "z": 12.0,
+    "yaw_degrees": 0.0
+  },
+  "defaults": {
+    "wall": "core:pool_tile_wall_01",
+    "floor": "core:pool_tile_deck_01",
+    "ceiling": "core:pool_ceiling_01"
+  },
+  "rooms": [
+    {
+      "x": 0.0,
+      "z": 0.0,
+      "width": 26.0,
+      "depth": 15.0,
+      "height": 6.0,
+      "ceiling": {
+        "kind": "open"
+      }
+    }
+  ],
+  "global_illuminators": [
+    {
+      "id": "sun",
+      "kind": "sun",
+      "direction": [
+        0.3,
+        -1.0,
+        0.2
+      ],
+      "color": [
+        1.0,
+        0.9,
+        0.75
+      ],
+      "intensity": 1.0
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 2.0,
+      "z": 3.0,
+      "width": 6.0,
+      "depth": 7.0,
+      "offset_y": -2.4,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 10.0,
+      "z": 3.0,
+      "width": 6.0,
+      "depth": 7.0,
+      "offset_y": -2.4,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 18.0,
+      "z": 3.0,
+      "width": 6.0,
+      "depth": 7.0,
+      "offset_y": -2.4,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    }
+  ],
+  "ramps": [
+    {
+      "x": 2.0,
+      "z": 10.0,
+      "width": 1.4,
+      "depth": 4.0,
+      "offset_y": -2.4,
+      "rise": 2.4,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 10.0,
+      "z": 10.0,
+      "width": 1.4,
+      "depth": 4.0,
+      "offset_y": -2.4,
+      "rise": 2.4,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 18.0,
+      "z": 10.0,
+      "width": 1.4,
+      "depth": 4.0,
+      "offset_y": -2.4,
+      "rise": 2.4,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    }
+  ],
+  "water": [
+    {
+      "x": 2.0,
+      "z": 3.0,
+      "width": 6.0,
+      "depth": 7.0,
+      "surface_y": -0.15,
+      "bottom_y": -2.4,
+      "opacity": 0.42,
+      "attenuation_per_metre": 0.16,
+      "motion": {
+        "speed": 0.0,
+        "strength": 0.0,
+        "flow_speed": 0.0,
+        "direction_degrees": 0.0
+      },
+      "caustics": {
+        "speed": 0.0,
+        "strength": 0.24
+      }
+    },
+    {
+      "x": 2.0,
+      "z": 10.0,
+      "width": 1.4,
+      "depth": 3.7,
+      "surface_y": -0.15,
+      "bottom_y": -2.4,
+      "opacity": 0.42,
+      "attenuation_per_metre": 0.16,
+      "motion": {
+        "speed": 0.0,
+        "strength": 0.0,
+        "flow_speed": 0.0,
+        "direction_degrees": 0.0
+      },
+      "caustics": {
+        "speed": 0.0,
+        "strength": 0.24
+      }
+    },
+    {
+      "x": 10.0,
+      "z": 3.0,
+      "width": 6.0,
+      "depth": 7.0,
+      "surface_y": -0.15,
+      "bottom_y": -2.4,
+      "opacity": 0.42,
+      "attenuation_per_metre": 0.16,
+      "motion": {
+        "speed": 0.8,
+        "strength": 0.4,
+        "flow_speed": 0.8,
+        "direction_degrees": 90.0
+      },
+      "caustics": {
+        "speed": 0.8,
+        "strength": 0.24
+      }
+    },
+    {
+      "x": 10.0,
+      "z": 10.0,
+      "width": 1.4,
+      "depth": 3.7,
+      "surface_y": -0.15,
+      "bottom_y": -2.4,
+      "opacity": 0.42,
+      "attenuation_per_metre": 0.16,
+      "motion": {
+        "speed": 0.8,
+        "strength": 0.4,
+        "flow_speed": 0.8,
+        "direction_degrees": 90.0
+      },
+      "caustics": {
+        "speed": 0.8,
+        "strength": 0.24
+      }
+    },
+    {
+      "x": 18.0,
+      "z": 3.0,
+      "width": 6.0,
+      "depth": 7.0,
+      "surface_y": -0.15,
+      "bottom_y": -2.4,
+      "opacity": 0.42,
+      "attenuation_per_metre": 0.16,
+      "motion": {
+        "speed": 1.6,
+        "strength": 0.8,
+        "flow_speed": 1.6,
+        "direction_degrees": 270.0
+      },
+      "caustics": {
+        "speed": 1.6,
+        "strength": 0.24
+      }
+    },
+    {
+      "x": 18.0,
+      "z": 10.0,
+      "width": 1.4,
+      "depth": 3.7,
+      "surface_y": -0.15,
+      "bottom_y": -2.4,
+      "opacity": 0.42,
+      "attenuation_per_metre": 0.16,
+      "motion": {
+        "speed": 1.6,
+        "strength": 0.8,
+        "flow_speed": 1.6,
+        "direction_degrees": 270.0
+      },
+      "caustics": {
+        "speed": 1.6,
+        "strength": 0.24
+      }
+    }
+  ],
+  "props": [
+    {
+      "id": "still_float",
+      "model": "core:rubber_duck",
+      "x": 4.0,
+      "z": 6.0,
+      "y": 2.2,
+      "scale": 1.0,
+      "rotation_degrees": 180.0,
+      "size": [
+        0.1,
+        0.12,
+        0.145
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.05,
+            0.06,
+            0.0725
+          ]
+        },
+        "mass_kg": 0.065,
+        "friction": 0.6,
+        "restitution": 0.08,
+        "linear_damping": 0.05,
+        "angular_damping": 0.15,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 0.00065,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        },
+        "reset_group": "flow_demo"
+      },
+      "comment": "Pick up and drop to activate; mass/displacement profile is the same in every bay.",
+      "display_name": "Still float / 0 m/s"
+    },
+    {
+      "id": "still_sink",
+      "model": "core:washer_drum",
+      "x": 6.0,
+      "z": 6.0,
+      "y": 2.2,
+      "size": [
+        0.42,
+        0.3,
+        0.42
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "friction": 0.5,
+        "restitution": 0.02,
+        "linear_damping": 0.1,
+        "angular_damping": 0.2,
+        "reset_group": "flow_demo",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.21,
+            0.15,
+            0.21
+          ]
+        },
+        "mass_kg": 6.4,
+        "water": {
+          "displaced_volume_m3": 0.0008,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        }
+      },
+      "comment": "Pick up and drop to activate; mass/displacement profile is the same in every bay.",
+      "display_name": "Still sink / 0 m/s"
+    },
+    {
+      "id": "east_float",
+      "model": "core:rubber_duck",
+      "x": 12.0,
+      "z": 6.0,
+      "y": 2.2,
+      "scale": 1.0,
+      "rotation_degrees": 180.0,
+      "size": [
+        0.1,
+        0.12,
+        0.145
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.05,
+            0.06,
+            0.0725
+          ]
+        },
+        "mass_kg": 0.065,
+        "friction": 0.6,
+        "restitution": 0.08,
+        "linear_damping": 0.05,
+        "angular_damping": 0.15,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 0.00065,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        },
+        "reset_group": "flow_demo"
+      },
+      "comment": "Pick up and drop to activate; mass/displacement profile is the same in every bay.",
+      "display_name": "East float / 0.8 m/s"
+    },
+    {
+      "id": "east_sink",
+      "model": "core:washer_drum",
+      "x": 14.0,
+      "z": 6.0,
+      "y": 2.2,
+      "size": [
+        0.42,
+        0.3,
+        0.42
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "friction": 0.5,
+        "restitution": 0.02,
+        "linear_damping": 0.1,
+        "angular_damping": 0.2,
+        "reset_group": "flow_demo",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.21,
+            0.15,
+            0.21
+          ]
+        },
+        "mass_kg": 6.4,
+        "water": {
+          "displaced_volume_m3": 0.0008,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        }
+      },
+      "comment": "Pick up and drop to activate; mass/displacement profile is the same in every bay.",
+      "display_name": "East sink / 0.8 m/s"
+    },
+    {
+      "id": "west_float",
+      "model": "core:rubber_duck",
+      "x": 20.0,
+      "z": 6.0,
+      "y": 2.2,
+      "scale": 1.0,
+      "rotation_degrees": 180.0,
+      "size": [
+        0.1,
+        0.12,
+        0.145
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.05,
+            0.06,
+            0.0725
+          ]
+        },
+        "mass_kg": 0.065,
+        "friction": 0.6,
+        "restitution": 0.08,
+        "linear_damping": 0.05,
+        "angular_damping": 0.15,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 0.00065,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        },
+        "reset_group": "flow_demo"
+      },
+      "comment": "Pick up and drop to activate; mass/displacement profile is the same in every bay.",
+      "display_name": "West float / 1.6 m/s"
+    },
+    {
+      "id": "west_sink",
+      "model": "core:washer_drum",
+      "x": 22.0,
+      "z": 6.0,
+      "y": 2.2,
+      "size": [
+        0.42,
+        0.3,
+        0.42
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "friction": 0.5,
+        "restitution": 0.02,
+        "linear_damping": 0.1,
+        "angular_damping": 0.2,
+        "reset_group": "flow_demo",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.21,
+            0.15,
+            0.21
+          ]
+        },
+        "mass_kg": 6.4,
+        "water": {
+          "displaced_volume_m3": 0.0008,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        }
+      },
+      "comment": "Pick up and drop to activate; mass/displacement profile is the same in every bay.",
+      "display_name": "West sink / 1.6 m/s"
+    }
+  ],
+  "comment": "West bay: fully still surface/current. Middle: east +X 0.8 m/s. East bay: west -X 1.6 m/s, double ripple rate and strength. Same density profiles and banks. No global water physics exceptions."
+}

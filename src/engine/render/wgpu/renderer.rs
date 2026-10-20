@@ -3021,6 +3021,7 @@ impl WgpuRenderer {
                             dynamic: None,
                         }
                     }),
+                    Some((&pending.loaded.level, &pending.loaded.materials)),
                 ));
                 pending.phase = UploadPhase::Textures;
             }
@@ -3340,6 +3341,7 @@ impl WgpuRenderer {
                 &build.mesh,
                 &materials,
                 uv_visibility,
+                Some((&loaded.level, &loaded.materials)),
             )
         });
         let world_textures = uploaded_textures.unwrap_or_else(|| {
@@ -3634,6 +3636,7 @@ impl WgpuRenderer {
             &state.mesh,
             &materials,
             visibility,
+            Some((&loaded.level, &loaded.materials)),
         );
         let textures = WorldTextures::resolve(
             &mut self.textures,

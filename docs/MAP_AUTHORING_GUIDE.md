@@ -1486,6 +1486,7 @@ own air.
 | `opacity` | number | no | `0.62` | `0.0..=1.0`; base surface coverage. The material opacity remains 1 so one material serves every volume. |
 | `attenuation_per_metre` | number | no | `0.0` | Finite 0–16. Transmission is `(1-opacity) * exp(-attenuation_per_metre * vertical_depth)`. Zero retains exact existing coverage. This stylized vertical-depth approximation changes visual coverage only, not swimming/collision; it is not screen-space thickness or refraction. |
 | `caustics` | object | no | `{ "tint": [1, 1, 1], "speed": 1.35, "strength": 0.24 }` | Optional independent per-water focus controls. Each nested field can be omitted. Linear RGB `tint` channels must be finite in `0..1`; `speed` is finite in `0..8` (`0` freezes animation); `strength` is finite in `0..1` (`0` disables this water's caustics). These affect eligible source light only and create no emission. |
+| `motion` | object | no | `{ "speed": 1, "strength": 0.35, "flow_speed": 0, "direction_degrees": 0 }` | Strict optional controls: finite `speed` 0–8 (ripple clock), `strength` 0–1 (ripple amount), `flow_speed` 0–4 metres/second, `direction_degrees` 0–360 using Places yaw (0 = −Z, 90 = +X). Unknown nested fields reject. Zero flow is physically still; speed 0 holds ripples, strength 0 removes them. For a fully static picture also set caustics speed to 0. |
 | `swimming` | boolean | no | `true` | `false` keeps the surface decorative: the player walks or falls through it, and no swim state can trigger. |
 
 Medium/Full water surfaces receive ordinary incident-HDR floor charts and their
@@ -1533,68 +1534,63 @@ How it behaves:
   *bake* also treats the volume as transmissive with depth attenuation rather
   than as a lid, so the basin keeps the light a fixture above it can deliver
   (section 18).
-* **Wading** is the ordinary walking controller: the water at the player's feet
-  at or below `0.55 m` deep is waded at full walk speed, and a jump works
-  normally. A standing player also keeps wading where the water is deeper than
-  that as long as the floor underfoot is standable (within `EXIT_DEPTH` of the
-  surface), so shallow basins read as chest-deep walking rather than floating.
-* **Entering** is body based. The water under the feet must be a swimming
-  volume deeper than `0.55 m` (`WADE_DEPTH`) and the walkable floor under the
-  centre must *not* be standable (see Getting out): a wading player on a floor
-  shallow enough to stand on never enters swimming at all. A falling player
-  enters as soon as the water is deep enough — the plunge keeps its vertical
-  velocity (bounded to twice `SWIM_RISE_SPEED`), so the fall decelerates in the
-  water instead of grounding on the pool floor first; a body already sinking or
-  resting enters once its eye is inside the surface band (`surface_y + 0.37 m`:
-  the float margin plus the surface-swim margin); a **rising** player is never
-  recaptured, so a ladder launch or a surfacing swimmer clears the waterline.
-* **Swimming** moves at `0.55×` walk speed. The body sinks under the reduced
-  underwater gravity (`SWIM_GRAVITY`, `-4.5 m/s²`) at a `1.1 m/s` terminal
-  until the feet rest on the floor. Water retains the ordinary upright stance:
-  `1.8 m` body and `1.6 m` eye offset when standing, or `0.9 m` body and
-  `0.8 m` eye offset after an explicit crouch. Crouch eases the eye around the
-  supported feet and standing is refused under a low ceiling. Holding Jump
-  accelerates upward to `1.1 m/s` and holds the float line at
-  `surface_y + 0.12 m` with a small idle bob, where the eye stays. Every
-  branch is integrated in fixed `1/120 s` substeps, so entering, surfacing and
-  releasing Jump move continuously, a released Jump's sink takes the same time
-  at 30, 60 and 144 fps, and the eye is never written to the float line in one
-  frame. Releasing Jump sinks again. A jump press never ground-jumps while
-  submerged.
-* **Getting out** is a bounded, cancellable climb, not a stand-up teleport. The
-  walkable floor directly under the centre must be a standable exit at the
-  waterline — at most one `WATER_EXIT_STEP_M` (`0.5 m`) above the surface or
-  within `EXIT_DEPTH` below it (`1.48 m` standing, `0.68 m` crouched), with the
-  stance's body clear overhead — and the eye must be near the top of the water
-  (`surface_y − 0.6 m`). The climb raises the feet at `WATER_EXIT_CLIMB_SPEED`
-  (`2.2 m/s`, the ladder speed) and derives the eye, so the camera rises
-  continuously from the current feet to the support; head clearance is checked
-  at the destination and throughout ascent. Horizontal movement keeps
-  the ordinary swimming collision step throughout, so the player walks onto the
-  real deck with ordinary input and real collision, and no horizontal position
-  is ever written. A raised exit whose top sits above the camera is a
-  **pull-up**: the disc keeps a body radius from the rim until the physical feet
-  clear its top. The climb lifts the full upright body at
-  `WATER_EXIT_CLIMB_SPEED` and holds the feet at the support; the ordinary swim
-  step then carries the centre over it and completes the exit. The camera also
-  retains projection near-plane clearance (`SCENE_NEAR_M`, `0.1 m`,
-  `WATER_EXIT_EYE_CLEARANCE_M`). The pull-up needs the
-  movement key held into the rim: releasing it cancels back to the swim pose,
-  exactly like reversing. Reversing back over deeper water (the floor under the
-  centre stops being a standable exit) cancels back to the swim pose at the
-  current eye line: the surface pose over a floor deeper than `WADE_DEPTH`
-  still counts as swimming, so a cancelled climb never falls through the air
-  beside the rim. A higher standable floor that comes under the centre against
-  the same waterline (the deck past a submerged walk-in step) is adopted as the
-  climb's support, so the climb is never cancelled with the feet
-  embedded in it.
-  Entry uses the same standable-floor threshold, so an exit cannot immediately
-  re-enter swimming. Collision sweeps the actual feet and stance body, including
-  underwater obstacles. Chest-deep wading uses the same bounded rim pull-up;
-  submerged floor risers and ramps use it too, retaining swimming when the
-  destination is still too deep for wading. Surface bob settles onto a support
-  from either direction, and completion uses the exact floor under the centre.
-  A solid prop or wall top is never a floor exit.
+* **Surface motion** advects the existing PNG in the authored flow direction
+  at its own material tiling and adds restrained analytic ripple slopes to its
+  lighting/reflection frame. The mean plane, opacity, lightmap UVs and collision
+  footprint stay fixed. Neighbouring volumes with equal controls share world
+  phase; there is no per-volume phase reset, scrolling wrap jump, per-frame mesh
+  build or new image generation. Texture resolution and filtering keep their
+  independent settings. Source-light caustics keep all existing eligibility,
+  colour and intensity rules; their pattern follows the same current. Water
+  continues moving with all caustic lights off.
+* **Depth** follows feet, live stance midpoint (waist), then eye, inspired by
+  Source SDK 2013 **singleplayer** commit `77567eb4bce8d7b6b7f73e929fcde3a331c0216e`.
+  Feet-only water retains land movement. Waist-deep water uses swimming even
+  when the bottom is standable; eye immersion selects the underwater state.
+  Crouch retains Places' existing toggle, upright collision shape and eased eye.
+* **Swimming** uses view-directed forward/back input and horizontal strafing.
+  Look down and move forward to dive; look up and move forward to rise, with the
+  reference's amplified upward wish. Hold Jump to rise. With no movement input
+  the body drifts down. Friction acts on the full 3D velocity relative to the
+  authored current, followed by bounded acceleration. The wish speed is capped
+  to `0.8 × walk_speed`; friction is 4/s, acceleration 10/s. Acceleration uses
+  speed projected along the requested direction, an adaptation that preserves
+  control along a bank when a perpendicular current is blocked by its wall. The standing hull
+  ratio 1.8 m / 72 Source units gives idle sink wish 1.5 m/s (before the 0.8
+  factor) and held rise seed 2.5 m/s. There is no hard eye float-line constraint
+  or artificial camera bob. Crossing the waist line returns to ordinary gravity,
+  so holding rise produces a modest natural surface cycle.
+* **Entry and impact** retain the incoming velocity and dissipate it through
+  water friction. There is no arbitrary plunge-speed clamp or position snap.
+  Held rise deliberately follows the reference's swim-rise input. The basin's
+  actual floor and overhead contacts always constrain the live upright body.
+* **Ramps and banks** use the shared walking support/step path while the swimmer
+  contacts the bottom. The waist transition hands off to land continuously.
+  Airborne support uses the stage 2 slope/feet-disc correction unchanged.
+* **Ledges** use a checked water jump: forward intent at waist depth, a touched
+  real walkable rim, clear standing space and a reachable destination are
+  required. Backward/sideways approaches, full eye immersion, fast sinking and
+  wall/prop tops do not qualify. The jump uses a stance-sized ballistic rise (1.5 m standing, 1.05 m crouched)
+  under Places' 9.8 m/s² gravity and 1.25 m/s forward motion, lasting at most
+  two seconds and ending on landing, overhead contact or descent. Every step
+  retains physical collision. Holding Jump across landing does not ground-jump
+  again. This adapts the reference's water jump to metre units and Places'
+  upright circular body; it is not a claim of exact HL2 trajectory parity.
+* **Currents** are horizontal fluid velocities, not arbitrary per-map forces.
+  Player water friction and rigid-body relative-fluid drag use the same vector.
+  Five player footprint samples ease bank/volume crossings; rigid-body columns
+  weight flow by actual submerged displaced volume. Feet-only wading receives
+  an immersion-weighted current. Held/dormant props keep their established
+  ownership; picking up and dropping activates the ordinary physical response.
+  Fixed/decorative/disabled bodies of water supply no fluid force. The authored
+  `physics.water.linear_drag: 0` intentionally disables an object's coupling.
+* **Compatibility** keeps source format 1 and existing geometry/collision binary
+  layouts. Motion controls live in validated embedded source and hydrate the
+  compiled collision sampler at load. New exports containing water require
+  `water-motion-v1`; older players reject that capability by name. Existing
+  packages remain readable with calm ripple/no-current defaults. Only changed
+  sources need re-exporting; no collection-wide rebake is required for this
+  runtime controller change.
 * **Overlapping volumes** resolve like overlapping floor regions: the last one
   authored at a point wins.
 * **Validation**: non-finite values, a non-positive footprint or radius, a
@@ -1609,15 +1605,10 @@ How it behaves:
   centre and four interior points — so a bounding box corner a square would
   wrongly include never decides a circle's depth.
 
-Places Demo's pool is two adjacent volumes at one waterline: the basin
-(`x 8..20, z 10..16`, surface `-1.65`, floor `-3.0` → 1.35 m deep) and the
-submerged walk-in step (`x 10..16, z 16..16.9`, the same surface, floor
-`-1.85` → 0.2 m of wading). The standing player stands on the basin floor with
-eyes at `-1.4`, 0.25 m above the water. Explicit crouch permits submerging there;
-deeper water swims with either stance. Walk to the submerged step, pull up over
-the rim, or climb the chrome ladder at the east rim to leave. Walking off the
-deck is a real drop to the supporting basin floor, and pulling back onto the
-rim is a bounded 2.2 m/s climb.
+The archived Places Demo basin is 1.35 m deep. Its standing body now swims
+at waist depth while the basin floor supports the feet and keeps the eyes above
+water. Crouch or a deeper basin permits full eye immersion. Its walk-in shelf,
+checked rim and chrome ladder remain real exits.
 
 The active **Pool Showcase** (`levels/pool_showcase.json`) uses the same
 contract at its own coordinates: the main basin is `x 4..13, z 3..7.5`,
@@ -1625,7 +1616,7 @@ floor `-1.5`, surface `-0.15` (1.35 m deep), with the adjacent walk-in shelf
 at `x 9..13, z 7.5..8.4`, floor `-0.35` (0.20 m deep). Both volumes use
 `core:water_pool_01`, opacity `0.42` and attenuation `0.16` per metre, so the
 existing basin tile and lane markings stay legible under the existing lights.
-Upright movement is chest-deep wading; explicit crouch permits submerging.
+Upright movement uses waist-depth swimming with floor contact; explicit crouch permits full eye submersion.
 The east ladder uses an open item-only fixed compound for its metal rails and
 treads, plus a player climb volume from floor `-1.5` to deck `0`, facing `90°`.
 Its player bounds box is disabled so it cannot block the climb. The dry spawn is `3, 9`, facing `56°`
@@ -4251,8 +4242,10 @@ against actual footprints and finite bottom/surface heights, and integrate the
 submerged centroid. Full immersion uses cached solid volume and its exact
 centroid; vertical cuboids/cylinders wholly inside one footprint use an exact
 height slice. Tilted or boundary-crossing bodies retain column quadrature.
-Buoyancy at that centroid creates torque; exponential drag
-scales with submerged water mass. More than sixteen relevant unshadowed regions
+Buoyancy at that centroid creates torque; exponential drag relative to the authored
+fluid velocity scales with submerged water mass. The column integral weights flow
+through footprint boundaries and last-authored overlap precedence. An active
+sleeping body in a nonzero current wakes; authored dormancy stays unchanged. More than sixteen relevant unshadowed regions
 use a coarser fixed column grid with the same footprint/depth/priority rules,
 keeping shape ray work bounded; coincident covered regions are skipped.
 There is no surface-position constraint, asset-name rule,
@@ -4260,7 +4253,7 @@ fluid solver or extra texture. Authored dormancy, pickup/carry, contacts, reset
 and bounded recovery retain their existing ownership. Water does not activate
 authored dormant props. Disabled or decorative (`swimming: false`) volumes
 supply no physical response. The player shares base gravity and retains the
-established upright controller and reduced effective underwater acceleration.
+upright controller with depth-based 3D swim friction/acceleration (see §10).
 
 Convex hulls require 4..96 finite points forming a nondegenerate solid; axis
 extents are `0.001..=100` metres before/after scale and point axes stay within
@@ -8915,3 +8908,15 @@ identity heuristic. It keeps genuine identical static-prop findings and states
 that overlapping geometry can z-fight; it does not assert that a runtime actor
 is redundant. This is conservative diagnostic eligibility, not a saved ignore
 or permission to delete an intentional placement.
+
+### Water motion acceptance fixture (0.13.0 stage 3)
+
+`tests/fixtures/levels/water_flow.json` is an explicit developer example, outside
+the shipped collection and ordinary tests. Its identical 2.25 m deep bays are:
+west X2–8: still (`speed: 0`, `strength: 0`, `flow_speed: 0`); middle X10–16:
++X at 0.8 m/s with ripple speed 0.8/strength 0.4; east X18–24: −X at 1.6 m/s
+with speed 1.6/strength 0.8. Each has the same duck, dense basket and real bank.
+Pick up/drop to activate props; look down + forward dives, Jump rises. Changing
+only `motion.direction_degrees` reverses flow without altering density or light.
+Build this example explicitly with `places-compile build`, never as a Rust test.
+The [0.13.0 report](reports/release-0.13.0.md#stage-3--water-motion-currents-and-player-interaction) records native conditions, evidence and remaining limits.

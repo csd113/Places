@@ -7,12 +7,13 @@ struct CausticNode {
     grid: vec4<u32>,
     tint_speed: vec4<f32>,
     params: vec4<f32>,
+    motion: vec4<f32>,
 };
 struct CausticData {
     seconds: f32,
     count: u32,
     mean: f32,
-    padding: u32,
+    water_count: u32,
     nodes: array<CausticNode>,
 };
 @group(3) @binding(7) var<storage, read> caustics: CausticData;
@@ -86,11 +87,35 @@ fn caustic_modulation(position: vec3<f32>, selected: u32, dx: vec2<f32>, dy: vec
     var edge = min(edge_box.x, edge_box.y);
     if (node.max.w > 0.0) { edge = node.max.w - distance(position.xz, (node.min.xz + node.max.xz) * 0.5); }
     let fade = smoothstep(0.01, 0.12, depth) * exp(-0.22 * depth) * smoothstep(0.0, 0.06, edge);
-    let uv = position.xz * 0.45;
+    // Surface and receiver patterns share fluid advection, retaining their
+    // independent light eligibility, tint, speed and strength.
+    let uv = (position.xz - node.motion.zw * caustics.seconds) * 0.45;
     let t = caustics.seconds * node.tint_speed.w + node.params.y;
     let rotate = mat2x2<f32>(0.8, 0.6, -0.6, 0.8);
     let a = textureSampleGrad(caustic_texture, caustic_sampler, uv + vec2<f32>(0.013, 0.009) * t, dx, dy).r;
     let b = textureSampleGrad(caustic_texture, caustic_sampler, rotate * uv * 1.13 + vec2<f32>(-0.008, 0.011) * t, rotate * dx * 1.13, rotate * dy * 1.13).r;
     let modulation = (0.5 * (a + b) / max(caustics.mean, 0.001) - 1.0) * node.params.x * fade;
     return supported * node.tint_speed.rgb * modulation;
+}
+
+// Static water sheets alone ask for presentation controls. The same bounded
+// tree is shared, with an independent count so unlit water still moves.
+fn water_surface_node(position: vec3<f32>) -> u32 {
+    var cursor = 0u;
+    var priority = 0u;
+    var selected = 0u;
+    while (cursor < caustics.water_count) {
+        let node = caustics.nodes[cursor];
+        if (node.links.y <= priority || any(position.xz < node.min.xz) || any(position.xz > node.max.xz)) {
+            cursor = node.links.x;
+        } else if (node.links.z == 0u) {
+            cursor += 1u;
+        } else {
+            if (abs(position.y - node.min.w) < 0.001 && caustic_contains(node, position.xz)) {
+                priority = node.links.z; selected = cursor + 1u;
+            }
+            cursor = node.links.x;
+        }
+    }
+    return selected;
 }
