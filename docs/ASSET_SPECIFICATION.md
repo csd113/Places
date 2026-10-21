@@ -978,7 +978,7 @@ normal runtime texture         256x 256 native
   `completed-models.json` guards the adopted export; final editable masters remain
   in Downloads. The superseded body-only refiner and its duplicate checker were
   retired; the original source GLB and accepted export remain preserved. The earlier
-  [refinement report](reports/spoonerman-body-refinement.md) remains dated evidence;
+  [refinement report](reports/release-0.8.0.md#spoonerman-body-refinement) remains dated evidence;
   original head/PNG/rest-transform preservation does not describe the new export.
 
 The refined sign/fixture/CRT builders also load standalone PNG source atlases

@@ -19,7 +19,7 @@ The compiler dump inspection corrected an indirect export that had carried combi
 
 The maintained native camera definition is [the hero manifest](../../tests/fixtures/native/hero-manifest.json). Use the normal compiler/player with compatible source, package and asset catalogue; a historical image alone does not supply a compatible runnable build. [Verification](../VERIFICATION.md) defines current build/package order, diagnostics and acceptance.
 
-[Seven-stage history](../style-upgrade-20261007/art-style-history.md) explains the completed progression. [Stage 2](stage2/README.md) establishes linear colour/HDR; [Stage 3](stage3/README.md) covers real surface/transport continuity; [Stage 4](stage4/README.md) covers live entities; [Stage 5](stage5/README.md) covers presentation/weather; [Stage 6](stage6/README.md) covers content/cache currency; [Stage 7](stage7/README.md) records completed inventory integration. The separate [model-lighting correction](../reports/model-lighting-root-cause-and-fix.md) addresses later production kitchen, corridor and close-skeleton reports.
+[Seven-stage history](../style-upgrade-20261007/art-style-history.md) explains the completed progression. [Stage 2](stage2/README.md) establishes linear colour/HDR; [Stage 3](stage3/README.md) covers real surface/transport continuity; [Stage 4](stage4/README.md) covers live entities; [Stage 5](stage5/README.md) covers presentation/weather; [Stage 6](stage6/README.md) covers content/cache currency; [Stage 7](stage7/README.md) records completed inventory integration. The separate [model-lighting correction](../reports/release-0.8.0.md#model-lighting-root-cause-and-fix) addresses later production kitchen, corridor and close-skeleton reports.
 
 ## Historical implementation and checks
 

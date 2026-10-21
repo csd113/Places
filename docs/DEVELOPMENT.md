@@ -198,7 +198,7 @@ Both flat and macOS bundle exports include empty writable map folders. Runtime
 exports exclude concept references and source masters. Destination checks reject
 the repository root, its ancestors, home-root destinations and product symlinks.
 Cargo source packages exclude optional `levels/` and generated `assets/levels/`.
-See [map independence verification](reports/map-independence.md) for the empty
+See [map independence verification](reports/release-0.8.0.md#map-independence) for the empty
 installation and external-map acceptance evidence.
 
 ## Evidence and generated output

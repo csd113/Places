@@ -9,7 +9,7 @@ the normal distribution. Current collection acceptance uses
 camera/route inputs rather than automatic retargeting of these manifests.
 
 These are the accepted production camera, player and animation controls for the
-[model-lighting correction](../../../../docs/reports/model-lighting-root-cause-and-fix.md).
+[model-lighting correction](../../../../docs/reports/release-0.8.0.md#model-lighting-root-cause-and-fix).
 They use real Lantern Hollow skeletons and kitchen models in Demo, Hallows and
 `levels/home_showcase.json`; no replacement models or synthetic lighting scene.
 

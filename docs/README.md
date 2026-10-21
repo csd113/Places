@@ -43,24 +43,24 @@ current package currency, test counts or platform performance.
   delivered models, compiler GUI, final checks and compatibility limits.
 - [0.9.0 release summary](reports/release-0.9.0.md): final supported-package,
   empty-install and native acceptance, with remaining limitations.
-- [Feature expansion](reports/feature-expansion-summary.md): movement, entities,
+- [Feature expansion](reports/release-0.8.0.md#feature-expansion-summary): movement, entities,
   geometry, capacity and measured offline tooling.
-- [Winter development](reports/winter-final-audit.md): settlement, snow kit, ice,
+- [Winter development](reports/release-0.8.0.md#winter-final-audit): settlement, snow kit, ice,
   warm lights, aurora and sheltered weather, with curated comparisons.
 - [Environment reconstruction](style-upgrade-20261007/README.md) and
   [seven Art-style milestones](style-upgrade-20261007/art-style-history.md):
   the original-to-final visual progression and bounded technical results.
 - [Completed renderer integration](art-style/stage7/README.md) and
-  [model-lighting correction](reports/model-lighting-root-cause-and-fix.md):
+  [model-lighting correction](reports/release-0.8.0.md#model-lighting-root-cause-and-fix):
   what the campaigns proved and the defects later close-up controls exposed.
-- [Map independence](reports/map-independence.md): empty installation and external
-  package acceptance. [Storage and lighting](reports/map-storage-lighting.md)
+- [Map independence](reports/release-0.8.0.md#map-independence): empty installation and external
+  package acceptance. [Storage and lighting](reports/release-0.8.0.md#map-storage-lighting)
   records exact compact formats and independent quality controls.
-- [Office implementation](reports/office-demo.md) and
-  [Office defect repairs](reports/office-defect-repair.md): the connected environment,
+- [Office implementation](reports/release-0.8.0.md#office-demo) and
+  [Office defect repairs](reports/release-0.8.0.md#office-defect-repair): the connected environment,
   collision/recovery and lighting fixes.
 
-Other finalized reports in `reports/` retain distinct investigations and asset
+The canonical version reports retain distinct investigations and asset
 provenance. Raw receipts, timing logs and repeated campaign captures belong in
 ignored local verification output. `images/` holds the curated original native
 PNG selection; immutable concept art lives under `assets/references/`.

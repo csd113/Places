@@ -123,7 +123,7 @@ call to return. The display never hides the cursor or changes terminal modes.
 The compiler GUI reads the same pass counters and uses the same safe cancellation
 boundaries. Progress changes no bake arithmetic, ordering, quality, codecs or
 cache rules; a changed compiler executable still changes its stored identity.
-The [pipeline audit's terminal follow-up](reports/compiler-pipeline-audit-20261003.md#terminal-progress-follow-up)
+The [pipeline audit's terminal follow-up](reports/release-0.7.0.md#compiler-pipeline-audit-20261003-terminal-progress-follow-up)
 records the original bounded equivalence and native acceptance.
 
 ## Asset authoring
@@ -235,7 +235,7 @@ set of reviewed domestic, Office and Pool models. `--apply` opts into its propos
 repairs after original-hash preflight. It is not a universal capper: open trays,
 shade interiors, rail ends and intentional assembly contacts need their own
 geometry rules. Recheck UVs, materials, bounds, collision and native silhouettes
-after any topology change. The [repair report](reports/geometry-repair.md)
+after any topology change. The [repair report](reports/release-0.7.0.md#geometry-repair)
 records the original scope and reviewed exceptions.
 
 `preview.py` produces scratch bind-pose software images/contact sheets. It uses
@@ -379,7 +379,7 @@ dated reports retain their original inspection and native evidence. Retained
 constructors and accepted exports use the distinct ownership rules above.
 
 Documentation consolidates the eight superseded Winter pass reports into
-[Winter development](reports/winter-final-audit.md). The developer and benchmark
+[Winter development](reports/release-0.8.0.md#winter-final-audit). The developer and benchmark
 guides now distinguish active workflows from historical replay; redundant machine
 cleanup inventories and stale example launches are removed. Curated images,
 immutable concepts, all eight active maps and both frozen historical JSON sources

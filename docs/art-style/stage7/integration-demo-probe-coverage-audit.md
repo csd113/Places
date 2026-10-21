@@ -1,6 +1,6 @@
 # Demo prepared coverage: cause and bounded correction
 
-2026-10-09. The initial saved C 1 layout had real unsupported positions in connected playable rooms 7/8; Stage 7's final native registered-entity controls establish Prepared support after the phase correction. This audit separates radius/ownership/visibility proof from observed native response. The later [model-lighting correction](../../reports/model-lighting-root-cause-and-fix.md) addresses distinct static receiver and close-camera defects.
+2026-10-09. The initial saved C 1 layout had real unsupported positions in connected playable rooms 7/8; Stage 7's final native registered-entity controls establish Prepared support after the phase correction. This audit separates radius/ownership/visibility proof from observed native response. The later [model-lighting correction](../../reports/release-0.8.0.md#model-lighting-root-cause-and-fix) addresses distinct static receiver and close-camera defects.
 
 ## Saved unsupported positions
 

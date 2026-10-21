@@ -54,7 +54,7 @@ region insets. The lamp has joined hollow-shade hems and remains non-emissive;
 plant leaves are closed 0.8 mm shells. Assembly intersections are intentional
 where described by the builders. The painting frame uses the bookshelf sheet;
 its separate decal preserves the supplied photograph. See specification §7.2
-and [painting provenance](../reports/hanging-painting.md).
+and [painting provenance](../reports/release-0.8.0.md#hanging-painting).
 
 ## Office
 
@@ -87,7 +87,7 @@ offsets 184/831; stained ceiling 16/6 bands, radius 6, offsets 16. These are
 source repairs, not runtime processing. Use the seam tool's pinned parameters
 and inspect the result before intentional reauthoring.
 
-[Office refinement](../reports/office-refinement.md) retains provenance and
+[Office refinement](../reports/release-0.8.0.md#office-refinement) retains provenance and
 native review. `tests/fixtures/levels/office_asset_review.json` and
 `tools/bench/capture_office.py` provide the connected review scene/cameras.
 
@@ -125,7 +125,7 @@ walking treads have real floor support and 300 mm risers. `refine_pool.py`
 owns tagged Demo dressing, separate from water/climb mechanics.
 [Pool reconstruction](../style-upgrade-20261007/pool/README.md) preserves
 matched captures and validation; later duck geometry/art provenance is in
-[the duck report](../reports/rubber-duck-remake.md).
+[the duck report](../reports/release-0.7.0.md#rubber-duck-remake).
 
 ## Home
 
@@ -251,12 +251,12 @@ The map's overhead/rail sources use .32/4.5 m and .10/3 m intensity/range.
 
 The aurora retains opaque 2048×1024 equirectangular U-repeat/V-clamp artwork;
 its source and exact seam correction are documented in
-[aurora provenance](../reports/winter-final-audit.md#aurora-and-weather) and specification §26.
+[aurora provenance](../reports/release-0.8.0.md#winter-final-audit-aurora-and-weather) and specification §26.
 Calm snowfall and configurable blizzard presentation are map/environment
 features. The lodge's manual strengths and timed cycle are documented in
-[environment refinement](../reports/environment-refinement.md).
+[environment refinement](../reports/release-0.8.0.md#environment-refinement).
 [Winter reconstruction](../style-upgrade-20261007/winter/README.md) and the
-[consolidated development history](../reports/winter-final-audit.md) retain
+[consolidated development history](../reports/release-0.8.0.md#winter-final-audit) retain
 accepted evidence and limits; dated timings are not current performance claims.
 
 ## Beach
@@ -308,8 +308,8 @@ blockers; the caller owns the approach/seabed. Palm collision follows its
 bent trunk. Invisible peg carriers use explicit sizes and `occludes:false`.
 
 The connected foam shell, terrace arcade and seated bunting anchors are in
-[environment refinement](../reports/environment-refinement.md).
-[Beach/Aero program provenance](../reports/two-environment-implementation-plan.md)
+[environment refinement](../reports/release-0.8.0.md#environment-refinement).
+[Beach/Aero program provenance](../reports/release-0.8.0.md#two-environment-implementation-plan)
 retains original board hashes, coverage and native acceptance.
 
 ## Frutiger Aero
@@ -347,8 +347,8 @@ with `swimming:false`. The open doors are an accessible static variant.
 Normal exports load committed PNGs; `frutiger_aero_art.py --author` is an
 explicit offline artwork operation. The kit uses existing transparency,
 lighting, water and scalar sheen; its imagery introduces no creature rig.
-[Program report](../reports/two-environment-implementation-plan.md) and
-[refinement](../reports/environment-refinement.md) preserve coverage and native review.
+[Program report](../reports/release-0.8.0.md#two-environment-implementation-plan) and
+[refinement](../reports/release-0.8.0.md#environment-refinement) preserve coverage and native review.
 
 ## Retro Arcade
 

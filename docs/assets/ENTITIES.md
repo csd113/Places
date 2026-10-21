@@ -81,8 +81,8 @@ in the idle stance and contains a vertical pelvis arc; level movement and
 attack behavior require separate authoring. A route cue is
 `{"step":"play","clip":"pounce","seconds":1.4,"loop":false}`.
 
-The [body refinement](../reports/spoonerman-body-refinement.md) and
-[motion](../reports/spoonerman-cat-motion.md) reports retain the earlier
+The [body refinement](../reports/release-0.8.0.md#spoonerman-body-refinement) and
+[motion](../reports/release-0.7.0.md#spoonerman-cat-motion) reports retain the earlier
 three-sheet export, gait/skin-repair method, preservation hashes and accepted
 concept differences. Those exports predate the completed model. The retained
 `tools/props/animate_spooner_man.py` describes that earlier baker; it cannot
@@ -250,8 +250,8 @@ for anatomical union; the documented source export used Blender 5.2.2. The
 committed model contains subsequent geometry work and the additional `dead`
 clip, so a constructor rebuild must be reviewed in scratch. Provenance and
 native lighting context are in the
-[asset polish](../reports/asset-polish.md) and
-[entity lighting integration](../reports/entity-lighting-integration.md) reports.
+[asset polish](../reports/release-0.7.0.md#asset-polish) and
+[entity lighting integration](../reports/release-0.7.0.md#entity-lighting-integration) reports.
 
 ## Skeleton
 
@@ -309,8 +309,8 @@ artwork is `textures/surface_01.png` in each entity directory.
 Emissive surfaces provide appearance; a moving light uses a runtime `glow`
 component at the named animated socket. A static `props[].lights` entry would
 leave baked illumination at the spawn. Ghost material opacity is 1 before the
-runtime fade multiplier. The [lighting integration report](../reports/entity-lighting-integration.md)
-records the original integration; the [asset polish report](../reports/asset-polish.md)
+runtime fade multiplier. The [lighting integration report](../reports/release-0.7.0.md#entity-lighting-integration)
+records the original integration; the [asset polish report](../reports/release-0.7.0.md#asset-polish)
 records subsequent repairs.
 
 ### Carved candle pumpkin
@@ -403,7 +403,7 @@ atlases have four columns, two rows and four-native-texel UV insets:
 Normal builders load committed artwork. `--author-textures` deliberately
 repaints master and native PNGs offline. Their `--check` exports in a temporary
 directory, compares committed bytes and evaluates geometry, skin, loop,
-rigid-edge and bounds contracts. See the [Beach/Aero program record](../reports/two-environment-implementation-plan.md)
+rigid-edge and bounds contracts. See the [Beach/Aero program record](../reports/release-0.8.0.md#two-environment-implementation-plan)
 for the original acceptance and scene work.
 
 The following local bounds are the retained 120 Hz authoring sweeps, rounded

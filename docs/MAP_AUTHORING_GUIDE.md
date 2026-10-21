@@ -21,7 +21,7 @@ The active connected Arcade showcase includes the commercial restroom.
 | Linked railing authoring | October 15, 2026: static prop span transforms, continuous slope collision, numeric material-slot overrides and prepared package texture restoration are documented in §16. Geometry revision 13 invalidates prior prepared geometry. |
 | Editor ramp geometry correction | October 17, 2026: after the 0.12.0 source reset, geometry revision **2** cuts room carrier floors at ramp footprints and defers adjoining region skirts to the real ramp profile. Recessed slopes no longer sit behind the original flat deck or a flush basin landing skirt. Existing packages require recompilation. |
 | Completed Pool/Office authoring | October 15, 2026: accepted GLB fixtures, measured emitter anchors, fixed-prop light controllers and numeric emission overrides checked against the working renderer/compiler. Geometry revision 14 and PLMP v8 preserve these prepared instances. Native results belong in the integration report. |
-| Environment refinement verification | October 10, 2026: neighbor-clipped ramp side geometry revision 9 and reusable `weather_alternate`, `weather_cycle`, `toggle_weather`, `set_weather_strength`, `set_weather_cycle`, `set_prompt` checked against current authoring/runtime sources and focused regression tests. Native acceptance and final gates are recorded in [environment-refinement.md](reports/environment-refinement.md). |
+| Environment refinement verification | October 10, 2026: neighbor-clipped ramp side geometry revision 9 and reusable `weather_alternate`, `weather_cycle`, `toggle_weather`, `set_weather_strength`, `set_weather_cycle`, `set_prompt` checked against current authoring/runtime sources and focused regression tests. Native acceptance and final gates are recorded in [Environment refinement acceptance](reports/release-0.8.0.md#environment-refinement). |
 | Trigger/audio authoring verification | October 16, 2026: additive `filter`/`occupancy` volume schema, bounded swept item occupancy, shared binding rearm behavior, cue reference validation and audio emitter lifecycle checked against `src/engine/level.rs`, `src/engine/loader.rs`, `src/engine/entities/volumes.rs` and `src/engine/entities/mod.rs`; targeted CPU regressions live in `src/engine/tests/trigger_occupants.rs`. Native playback evidence is recorded separately. |
 | Primary benchmark level | `levels/places_demo.json` |
 
@@ -841,7 +841,7 @@ go through the collision index (`src/engine/collision_index.rs`). The former
 Rust parity tests were removed in 0.11.0; runtime query fallbacks remain. Notes
 that remain load-time costs: the lightmap fill is linear in chart texels ×
 nearby fixtures, and the prop vertex expansion samples lighting per vertex. See
-`docs/reports/feature-expansion-summary.md` for the historical measurements.
+`docs/reports/release-0.8.0.md#feature-expansion-summary` for the historical measurements.
 
 ---
 
@@ -3536,7 +3536,7 @@ does not stop the search. The same chosen grid supplies target positions and
 baked coefficients. Unrecoverable spaces still produce warnings;
 runtime support and opaque visibility remain unchanged. `PLACES_PROBE_DUMP_DIR=<directory>`
 enables deterministic JSON diagnostics; use `--force` and a separate directory
-per source/build. See [Probe baker audit](reports/probe-baker-audit.md) and
+per source/build. See [Probe baker audit](reports/release-0.7.0.md#probe-baker-audit) and
 [the PPF1 contract](PACKAGE_FORMAT.md#61-irradiance-field-for-moving-objects).
 
 Current PPF1 revision 1 keeps combined light, a selected local-direct sidecar and separate
@@ -3827,7 +3827,7 @@ player uploads these prepared package layers and multiplies receiver albedo once
   Hallows Full plan needs eleven pages: 176 MiB for the base group. The
   320 MiB +64 KiB typed record, group/shape and aggregate bounds remain enforced;
   extra page capacity does not waive them. See
-  [the correction report](reports/model-lighting-root-cause-and-fix.md) for current
+  [the correction report](reports/release-0.8.0.md#model-lighting-root-cause-and-fix) for current
   verification status, distinct from the dated Stage 7 evidence.
 * Medium/Full finite-source transport uses the selected solver's shaped taps
   with per-tap visibility/cosine and complete bounded receiver coverage. The
@@ -7704,7 +7704,7 @@ recompile the demo, recapture.
 | Ground | One `void_walls[]` slab (`night_ground_slab`, x −6..30, z −98..3, top y = −0.08) 8 cm under the yard's own floor: looking over a boundary edge shows continuous night ground instead of the void. Non-solid and non-occluding; the buried pegs still own containment. |
 
 The authored route's measured 29.1 s walk is documented in
-[the environment refinement report](reports/environment-refinement.md).
+[the environment refinement report](reports/release-0.8.0.md#environment-refinement).
 Full route validation is an explicit native content campaign; default Rust
 controller tests use bounded contact fixtures independent of this optional map.
 
@@ -7834,7 +7834,7 @@ awning shelters its porch rails and window sills. Keep those supports bare.
 Pond corner drifts sit on tapered dry shelves, and forest scatter leaves a
 clear packed walking spine and a small illuminated resting place. The generator
 also synchronizes the severe review's composition while preserving its existing
-weather. See `docs/reports/winter-final-audit.md` for native evidence and limits.
+weather. See `docs/reports/release-0.8.0.md#winter-final-audit` for native evidence and limits.
 
 ### Winter string-light modules
 

@@ -151,7 +151,7 @@ A skip is not native acceptance.
 `--maps PACKAGE_DIRECTORY` includes external packages after validation/discovery
 checks; packaging never bakes maps or consults the source lineup. Destination
 and symlink guards protect existing source and user data. See
-[map independence](reports/map-independence.md) for the historical acceptance.
+[map independence](reports/release-0.8.0.md#map-independence) for the historical acceptance.
 
 ## Native capture, loading and movement
 
@@ -231,9 +231,9 @@ Use the smallest direct executable campaign covering the changed behavior.
 Recorded native campaigns on the development host use M2 Pro/Metal. Historical
 Linux container runs used software Vulkan; Windows cross-builds were not native
 execution. Those results are limited to their dated reports, including
-[feature expansion](reports/feature-expansion-summary.md),
+[feature expansion](reports/release-0.8.0.md#feature-expansion-summary),
 [Art-style integration](art-style/stage7/README.md) and
-[Office repairs](reports/office-defect-repair.md). They do not establish current
+[Office repairs](reports/release-0.8.0.md#office-defect-repair). They do not establish current
 Linux/Windows physical GPU acceptance. A source CI pass establishes its source
 checks, not every installed package's currency or manual keyboard/mouse feel.
 

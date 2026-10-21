@@ -1,6 +1,6 @@
 # Seven completed Art-style milestones
 
-October 8–9, 2026. This history shows what each milestone established and preserves its practical limits. Representative continuity/live-lighting pairs and the original-to-final hero comparison remain below; repeated intermediate room frames are retained locally. The images are genuine original native captures copied without changing their bytes. The [scene index](README.md) covers the preceding Pool/Home/Outdoors/Winter reconstruction; [current verification](../VERIFICATION.md) and the separate [model-lighting correction](../reports/model-lighting-root-cause-and-fix.md) describe the later working implementation.
+October 8–9, 2026. This history shows what each milestone established and preserves its practical limits. Representative continuity/live-lighting pairs and the original-to-final hero comparison remain below; repeated intermediate room frames are retained locally. The images are genuine original native captures copied without changing their bytes. The [scene index](README.md) covers the preceding Pool/Home/Outdoors/Winter reconstruction; [current verification](../VERIFICATION.md) and the separate [model-lighting correction](../reports/release-0.8.0.md#model-lighting-root-cause-and-fix) describe the later working implementation.
 
 ## 1 — Establish the baseline
 

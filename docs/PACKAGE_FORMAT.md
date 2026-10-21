@@ -736,7 +736,7 @@ or corner; unreachable support remains zero. Valid dark samples remain dark.
 
 Solver revision 1 identifies the current solve. Recompile outputs from superseded
 schemas. See
-[Probe baker audit](reports/probe-baker-audit.md) for diagnostics, regression evidence and
+[Probe baker audit](reports/release-0.7.0.md#probe-baker-audit) for diagnostics, regression evidence and
 remaining compiler/runtime limitations, and [Stage 4 contracts](art-style/stage4/contracts.md)
 for current entity direct/visibility/resource behavior.
 

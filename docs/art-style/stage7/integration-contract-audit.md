@@ -1,6 +1,6 @@
 # Integration contracts and verification method
 
-Audited October 8–9, 2026. [Stage 7](README.md) completed with the historical Geometry 7/solver 16 contract below. Current source currency is Geometry 8/solver 17; Full planning max 11 pages (Demo two-group switch budget 10), Medium max 8. [Verification](../../VERIFICATION.md) is authoritative for current guards and commands, and the [separate model-lighting correction](../../reports/model-lighting-root-cause-and-fix.md) explains the later changes. Reader compatibility, currentness, planning capacity and safety ceilings remain distinct.
+Audited October 8–9, 2026. [Stage 7](README.md) completed with the historical Geometry 7/solver 16 contract below. Current source currency is Geometry 8/solver 17; Full planning max 11 pages (Demo two-group switch budget 10), Medium max 8. [Verification](../../VERIFICATION.md) is authoritative for current guards and commands, and the [separate model-lighting correction](../../reports/release-0.8.0.md#model-lighting-root-cause-and-fix) explains the later changes. Reader compatibility, currentness, planning capacity and safety ceilings remain distinct.
 
 ## Ghost collider root cause and correction
 

@@ -79,7 +79,7 @@ download bytes and exact staging/main CI identities are verified in the handoff.
 ## Honest limitations and preservation
 
 **The original intermittent gameplay crashes remain unattributed.** The
-[crash investigation](crash-diagnostics-investigation.md) establishes the renderer
+[crash investigation](release-0.8.0.md#crash-diagnostics-investigation) establishes the renderer
 invariant fixes and bounded evidence, not elimination of those crashes. This
 release completes the previously inconclusive notice visual check. Short native
 walks and fixture controls do not establish exhaustive traversal or long-session

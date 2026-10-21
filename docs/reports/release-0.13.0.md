@@ -18,15 +18,25 @@ hashes and cleanup are recorded in `local/final-validation-0.13.0/FINAL-HANDOFF.
 
 ### Reports and final source checks
 
-There is one canonical release report for 0.9.0, 0.10.0, 0.11.0, 0.12.0 and
-0.13.0, listed in the [report index](README.md). Fifty former feature/stage reports
-were integrated: thirteen into 0.10.0, fourteen into 0.11.0 and twenty-three into
-0.12.0. Unique substantive implementation, measurements, limitations and evidence
-references remain; superseded queue instructions are retrospective. Technical and
-authoring guides, distinct historical audits, raw checklists, images and original
-local evidence remain. The two unrelated untracked Python audits are unchanged.
-`report-mapping.json` and `reports-before/` retain the exact consolidation inventory
-and original bytes outside target. All local Markdown paths and anchors pass.
+There is one canonical report for each version from 0.7.0 through 0.13.0, listed
+in the [report index](README.md). Ninety-four former feature/stage/investigation
+reports were integrated: eighteen into 0.7.0, twenty-five into 0.8.0, thirteen into
+0.10.0, fourteen into 0.11.0 and twenty-four into 0.12.0. The 0.7/0.8 records retain
+their historical dates and package metadata; no new release or tag is implied.
+Unique substantive implementation, measurements, limitations and evidence remain;
+superseded queue instructions are retrospective. Authoring, API and developer
+guides remain in place, and raw CSV/images/original local evidence are preserved.
+The two unrelated untracked Python audits are unchanged. `report-mapping.json`
+and `reports-before/` retain the exact inventory and original bytes outside target.
+All local Markdown paths and anchors pass.
+
+Compared with baseline `b7459119`, tracked `docs/` files fall **429 → 338** and
+tracked `docs/reports/` files **100 → 9**, a net reduction of 91. The report subtree
+now contains seven canonical Markdown reports, one index and one raw CSV. Excluding
+the index, report Markdown documents fall **99 → 7**. The 94 source reports were
+replaced by two new historical canonical reports and one index; the existing five
+canonical reports remain. Local backups and the untracked audits are excluded
+from these tracked counts.
 
 The baseline CI failure on `b7459119` was an engine test including optional
 `projects/relay-annex/scripts/relay_intake.luau`, while CI deliberately excludes

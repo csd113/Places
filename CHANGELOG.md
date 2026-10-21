@@ -504,7 +504,7 @@ Consolidated documentation and duplicate artwork:
   `docs/reports/release-0.10.0.md#pool-office-winter-model-integration`: merge unique acceptance
   evidence into the final delivery report and remove completed queue advice.
 - `docs/reports/compiler-progress.md` → `docs/OFFLINE_TOOLING.md` and
-  `docs/reports/compiler-pipeline-audit-20261003.md`: separate maintained
+  `docs/reports/release-0.7.0.md#compiler-pipeline-audit-20261003`: separate maintained
   progress/cancellation contracts from dated equivalence evidence.
 - `docs/reports/integration-provenance-20261007.md` →
   `docs/style-upgrade-20261007/README.md`: retain provenance and acceptance
