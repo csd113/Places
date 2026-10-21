@@ -157,6 +157,7 @@ pub(super) struct EntityLightingRefreshKey {
     scene: usize,
     dynamic: usize,
     dynamic_revision: u64,
+    observed_dynamic_revision: u64,
     receiver: Option<DynamicId>,
 }
 
@@ -211,8 +212,13 @@ impl<'a> EntityLightingRefreshContext<'a> {
         bounds: Aabb,
         position: [f32; 3],
         receiver: Option<DynamicId>,
+        previous: Option<EntityLightingRefreshKey>,
+        rays: Option<&super::light_transport::EntityStaticRayCache>,
     ) -> Option<EntityLightingRefreshKey> {
-        Some(EntityLightingRefreshKey {
+        let observed = self
+            .visibility
+            .map_or(0, super::dynamic_visibility::DynamicVisibility::revision);
+        let mut key = EntityLightingRefreshKey {
             center: EntityCenterLightKey::new(self.revision?, self.lighting, self.field, position),
             model: model
                 .to_cols_array_2d()
@@ -224,11 +230,85 @@ impl<'a> EntityLightingRefreshContext<'a> {
             dynamic: self
                 .visibility
                 .map_or(0, |value| std::ptr::from_ref(value).addr()),
-            dynamic_revision: self
-                .visibility
-                .map_or(0, super::dynamic_visibility::DynamicVisibility::revision),
+            dynamic_revision: observed,
+            observed_dynamic_revision: observed,
             receiver,
-        })
+        };
+        if let Some(cached) = previous {
+            let mut unchanged = key;
+            unchanged.dynamic_revision = cached.dynamic_revision;
+            // A moving receiver or changed resource already needs new samples;
+            // it must not first scan an obsolete dependency set to learn that.
+            if !unchanged.spatial_changed(Some(cached))
+                && self.visibility.is_some_and(|visibility| {
+                    visibility
+                        .changed_regions_since(cached.observed_dynamic_revision)
+                        .is_some_and(|regions| {
+                            regions.iter().all(|dirty| {
+                                !self.visibility_affects(
+                                    super::props::transform_bounds(&bounds, &model),
+                                    *dirty,
+                                ) || rays.is_some_and(|cache| !cache.visibility_affected(*dirty))
+                            })
+                        })
+                })
+            {
+                key.dynamic_revision = cached.dynamic_revision;
+            }
+        }
+        Some(key)
+    }
+
+    /// Old and new caster bounds are a conservative visibility dependency.
+    /// Missed revisions use the complete scene; unchanging receivers elsewhere
+    /// retain their exact eight-anchor payload without enumerating ray samples.
+    fn visibility_affects(self, receivers: Aabb, dirty: Aabb) -> bool {
+        use crate::engine::spatial::{
+            directional_light_region_overlaps, finite_light_region_overlaps,
+        };
+        if dirty.is_empty() {
+            return false;
+        }
+        if self.field.is_some_and(|field| {
+            // Probe candidates lie within two lattice cells of each anchor.
+            // This also encloses anchor-to-anchor fallback connections.
+            let reach = field.cell_m.mul_add(2.0, 0.000_1);
+            !reach.is_finite()
+                || receivers
+                    .min
+                    .into_iter()
+                    .zip(receivers.max)
+                    .zip(dirty.min)
+                    .zip(dirty.max)
+                    .all(|(((low, high), dirty_low), dirty_high)| {
+                        dirty_high >= low - reach && dirty_low <= high + reach
+                    })
+        }) {
+            return true;
+        }
+        self.lighting
+            .lights()
+            .iter()
+            .filter(|light| light.is_active())
+            .any(|light| {
+                let source = Aabb {
+                    min: [
+                        light.x() - light.half_w(),
+                        light.y(),
+                        light.z() - light.half_d(),
+                    ],
+                    max: [
+                        light.x() + light.half_w(),
+                        light.y(),
+                        light.z() + light.half_d(),
+                    ],
+                };
+                finite_light_region_overlaps(source, receivers, dirty)
+            })
+            || self.lighting.global_lights().iter().any(|light| {
+                light.angular_radius > 0.0
+                    || directional_light_region_overlaps(light.incoming, receivers, dirty)
+            })
     }
 }
 
@@ -817,6 +897,7 @@ impl DynamicObject {
                     "world_anchors": spatial.diagnostic_world_anchors(sampled_model),
                 })),
                 "cache": self.spatial_key.map(super::light_transport::EntitySpatialKey::diagnostic_snapshot),
+                "ray_cache": self.static_rays.diagnostic_snapshot(),
                 "spatial_payload_identity": self.spatial_lighting().map(|payload| std::ptr::from_ref(payload).addr()),
             },
         })
@@ -872,10 +953,19 @@ impl DynamicObject {
             visibility,
             lighting_revision,
         )
-        .key(transform, self.mesh.bounds, probe, Some(self.id));
+        .key(
+            transform,
+            self.mesh.bounds,
+            probe,
+            Some(self.id),
+            self.lighting_refresh_key,
+            Some(&self.static_rays),
+        );
         if refresh_key.is_some() && self.lighting_refresh_key == refresh_key {
             return false;
         }
+        #[cfg(feature = "visual-diagnostics")]
+        let refresh_started = std::time::Instant::now();
         let center_key = lighting_revision
             .map(|revision| EntityCenterLightKey::new(revision, lighting, irradiance, probe));
         let center_changed = self.center_light_key != center_key;
@@ -912,6 +1002,8 @@ impl DynamicObject {
             }
         }
         self.lighting_refresh_key = refresh_key;
+        #[cfg(feature = "visual-diagnostics")]
+        self.static_rays.record_refresh(refresh_started);
         changed
     }
 }
@@ -1690,6 +1782,15 @@ impl DynamicScene {
         moved
     }
 
+    /// Fixture switches change energy, never immutable visibility geometry.
+    pub fn retain_static_visibility_on_source_change(&mut self, previous: u64, revision: u64) {
+        for object in &mut self.objects {
+            object
+                .static_rays
+                .advance_source_revision(previous, revision);
+        }
+    }
+
     fn refresh_entity_lighting(
         &mut self,
         lighting: Option<&LevelLighting>,
@@ -1708,18 +1809,30 @@ impl DynamicScene {
             visibility,
             lighting_revision,
         );
-        let dirty = |object: &DynamicObject| {
-            object.visible
-                && context
-                    .key(
-                        object.transform(),
-                        object.mesh.bounds,
-                        object.centre().to_array(),
-                        Some(object.id),
-                    )
-                    .is_none_or(|key| object.lighting_refresh_key != Some(key))
-        };
-        let dirty_count = self.objects.iter().filter(|object| dirty(object)).count();
+        let mut dirty_count = 0_usize;
+        for object in &mut self.objects {
+            if !object.visible {
+                continue;
+            }
+            let key = context.key(
+                object.transform(),
+                object.mesh.bounds,
+                object.centre().to_array(),
+                Some(object.id),
+                object.lighting_refresh_key,
+                Some(&object.static_rays),
+            );
+            if let (Some(current), Some(previous)) = (key, object.lighting_refresh_key)
+                && current.center == previous.center
+                && !current.spatial_changed(Some(previous))
+            {
+                // Reuse still consumes this observed revision. Cache hits must
+                // not inflate the worker threshold or become missed history.
+                object.lighting_refresh_key = Some(current);
+            } else {
+                dirty_count = dirty_count.saturating_add(1);
+            }
+        }
         if dirty_count == 0 {
             return DynamicUpdate::default();
         }

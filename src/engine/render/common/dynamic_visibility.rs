@@ -68,12 +68,44 @@ impl BlacklightReceiverCache {
             bounds: [bounds.min.map(f32::to_bits), bounds.max.map(f32::to_bits)],
             receiver,
         };
+        if let Some(previous) = self.key.as_mut()
+            && previous.dynamic == key.dynamic
+            && context.dynamic.is_some_and(|dynamic| {
+                dynamic
+                    .changed_regions_since(previous.dynamic_revision)
+                    .is_some_and(|regions| {
+                        regions.iter().all(|dirty| {
+                            !blacklight_visibility_affected(&key.sources, bounds, model, *dirty)
+                        })
+                    })
+            })
+        {
+            previous.dynamic_revision = key.dynamic_revision;
+        }
         if self.key.as_ref() != Some(&key) {
             self.value = context.receiver(bounds, model, receiver);
             self.key = Some(key);
         }
         self.value
     }
+}
+
+fn blacklight_visibility_affected(
+    sources: &[super::light_transport::EntityDirectLight; super::blacklight::MAX_BLACKLIGHTS],
+    bounds: Aabb,
+    model: Mat4,
+    dirty: Aabb,
+) -> bool {
+    let receiver = super::props::transform_bounds(&bounds, &model);
+    sources.iter().any(|source| {
+        let mut emitter = Aabb::EMPTY;
+        for [x, y, z, weight] in source.taps {
+            if weight > 0.0 {
+                emitter.expand([x, y, z]);
+            }
+        }
+        !emitter.is_empty() && finite_light_region_overlaps(emitter, receiver, dirty)
+    })
 }
 
 struct CachedMesh {
@@ -111,6 +143,7 @@ pub struct DynamicVisibility {
     revision: u64,
     changed_from: u64,
     changed_bounds: Aabb,
+    changed_regions: Vec<Aabb>,
     scene_revision: u64,
     model_builds: usize,
     preparation_millis: f64,
@@ -135,6 +168,19 @@ impl DynamicVisibility {
             Some(Aabb::EMPTY)
         } else if revision == self.changed_from {
             Some(self.changed_bounds)
+        } else {
+            None
+        }
+    }
+
+    /// Independent old/new caster regions avoid invalidating the empty space
+    /// between unrelated changes. Missing history still requires full refresh.
+    #[must_use]
+    pub fn changed_regions_since(&self, revision: u64) -> Option<&[Aabb]> {
+        if revision == self.revision {
+            Some(&[])
+        } else if revision == self.changed_from {
+            Some(&self.changed_regions)
         } else {
             None
         }
@@ -219,7 +265,13 @@ impl DynamicVisibility {
                 },
             ));
         }
-        let changed_bounds = self.changed_caster_bounds(dynamic);
+        let mut changed_regions = std::mem::take(&mut self.changed_regions);
+        changed_regions.clear();
+        self.changed_caster_regions(dynamic, &mut changed_regions);
+        let changed_bounds = changed_regions
+            .iter()
+            .fold(Aabb::EMPTY, |bounds, region| bounds.union(region));
+        self.changed_regions = changed_regions;
         self.casters.clear();
         for object in dynamic.objects().iter().filter(|object| object.visible()) {
             let transform = object.transform();
@@ -253,34 +305,43 @@ impl DynamicVisibility {
         Ok(true)
     }
 
-    fn changed_caster_bounds(&self, dynamic: &DynamicScene) -> Aabb {
+    fn changed_caster_regions(&self, dynamic: &DynamicScene, regions: &mut Vec<Aabb>) {
         let objects = || dynamic.objects().iter().filter(|object| object.visible());
         let same_layout = objects().count() == self.casters.len()
             && objects()
                 .zip(&self.casters)
                 .all(|(object, previous)| object.id() == previous.id);
-        let mut changed_bounds = Aabb::EMPTY;
         if same_layout {
             for (object, previous) in objects().zip(&self.casters) {
                 if mesh_identity(object.mesh()) != previous.mesh
                     || matrix_bits(object.transform()) != previous.matrix
                 {
-                    changed_bounds = changed_bounds
-                        .union(&previous.bounds)
-                        .union(&object.world_bounds());
+                    regions.push(previous.bounds);
+                    regions.push(object.world_bounds());
                 }
             }
         } else {
-            // Admission/removal/reordering is uncommon. Cover every former and
-            // current caster rather than retaining an incomplete positional diff.
+            // Admission/removal/reordering is uncommon and bounded by the scene
+            // budget. Match identity so unchanged neighbours retain dependencies.
             for previous in &self.casters {
-                changed_bounds = changed_bounds.union(&previous.bounds);
+                if !objects().any(|object| {
+                    object.id() == previous.id
+                        && mesh_identity(object.mesh()) == previous.mesh
+                        && matrix_bits(object.transform()) == previous.matrix
+                }) {
+                    regions.push(previous.bounds);
+                }
             }
             for object in objects() {
-                changed_bounds = changed_bounds.union(&object.world_bounds());
+                if !self.casters.iter().any(|previous| {
+                    object.id() == previous.id
+                        && mesh_identity(object.mesh()) == previous.mesh
+                        && matrix_bits(object.transform()) == previous.matrix
+                }) {
+                    regions.push(object.world_bounds());
+                }
             }
         }
-        changed_bounds
     }
 
     /// Visibility uses the drawn mesh/UV/alpha in its current world transform.

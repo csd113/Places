@@ -17,7 +17,7 @@ impl FrameLoop<'_> {
             }
             // A carried resource is returned to the ordinary solver at its current
             // socket before the skeleton moves. A blocked release rolls back physics.
-            self.release_carried_item(id);
+            self.release_carried_item_now(id);
             if self.items.carry.has_attachment(id) {
                 self.renderer.cancel_ragdoll(id, &mut self.items.world);
                 self.ui_state.set_status(

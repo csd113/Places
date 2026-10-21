@@ -93,12 +93,21 @@ use crate::engine::scene::LocomotionSnapshot;
 
 /// Three warm steady frames only; the explicit diagnostic is excluded from timing.
 fn cpu_trace_start(seconds: f32) -> Option<std::time::Instant> {
-    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    let enabled = ENABLED.get_or_init(|| {
-        std::env::var_os("PLACES_BENCH").is_some()
-            && std::env::var_os("PLACES_BENCH_CPU_TRACE").is_some()
+    static WINDOW: std::sync::OnceLock<Option<f32>> = std::sync::OnceLock::new();
+    let window = WINDOW.get_or_init(|| {
+        (std::env::var_os("PLACES_BENCH").is_some()
+            && std::env::var_os("PLACES_BENCH_CPU_TRACE").is_some())
+        .then(|| {
+            std::env::var("PLACES_BENCH_CPU_TRACE_START_SECONDS")
+                .ok()
+                .and_then(|value| value.parse::<f32>().ok())
+                .filter(|value| value.is_finite() && (0.0..=60.0).contains(value))
+                .unwrap_or(3.0)
+        })
     });
-    (*enabled && (3.0..3.05).contains(&seconds)).then(std::time::Instant::now)
+    window
+        .filter(|start| (*start..*start + 0.05).contains(&seconds))
+        .map(|_| std::time::Instant::now())
 }
 
 fn cpu_trace_finish(stage: &str, started: Option<std::time::Instant>) {
@@ -2395,7 +2404,16 @@ impl WgpuRenderer {
             if let Some(lighting) = self.dynamic_lighting.as_ref() {
                 self.caustics.refresh_sources(&self.queue, lighting);
             }
+            let previous_revision = self.entity_lighting_revision;
             self.entity_lighting_revision = self.entity_lighting_revision.wrapping_add(1);
+            self.dynamic.retain_static_visibility_on_source_change(
+                previous_revision,
+                self.entity_lighting_revision,
+            );
+            self.characters.retain_static_visibility_on_source_change(
+                previous_revision,
+                self.entity_lighting_revision,
+            );
             let uniform = self.level_environment();
             if let Some(environment) = self.environment.as_mut() {
                 let _update_stats = environment.update(&self.queue, &uniform);
@@ -2795,7 +2813,9 @@ impl WgpuRenderer {
         self.characters.reset_ragdoll(id, world)
     }
     pub fn sync_ragdolls(&mut self, world: &crate::engine::physics::ItemWorld) {
+        let started = cpu_trace_start(self.animation_seconds);
         self.characters.sync_ragdolls(world);
+        cpu_trace_finish("ragdoll_pose", started);
     }
     /// Posed socket matrix for reusable physical item attachment.
     #[must_use]

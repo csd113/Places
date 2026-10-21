@@ -5534,6 +5534,10 @@ frame updates. `string_length` is the resting knot height; `offset` fans bouquet
 copies above their common anchor. Keep resting knot height above the bob
 amplitude plus 0.05 m and check the whole motion envelope against the ceiling
 and neighbouring balloons. Colour is non-emissive linear latex albedo.
+An AI/navigation body may translate the placement and its local anchor together;
+the same analytic bob and string pose remains attached to that moving frame.
+This is a guided drift along baked navigation, not free-flight physics. Keep the
+whole balloon envelope clear of geometry; routes and `float` remain excluded.
 
 `tools/levels/birthday_compositions.py` supplies independent balloons, configurable
 bouquets and four reusable table arrangements. The source uses common tie
@@ -8835,6 +8839,22 @@ ID or applies heuristic geometry repairs: run Safety, inspect each finding and
 preview its conservative correction separately. Protected placement ignores are
 retained and skipped by automatic correction.
 
+### Bounded script-controlled movement and runtime actors (0.13.0)
+
+`api.navigate(id,x,y,z,speed_mps?)` keeps normal baked navigation and physical
+sweeps. Omission uses authored walking speed; a finite optional speed must be
+within 0.05–8 m/s. A later ordinary request and reset restore ordinary walking.
+The mannequin selects its existing run gait at the corresponding movement speed.
+
+`api.spawn(point,name?)` still requires a declared typed spawn point. An optional
+bounded runtime name lets later steps address the queued instance; returning that
+name is not proof that the spawn has completed. Check `api.exists` on a later tick.
+`api.despawn(name)` accepts only a live runtime spawn, never an authored entity.
+Removal uses the existing ownership path, including AI, renderer and ragdoll
+bodies/joints. Author camera-safe hiding or darkness before visual removal.
+`api.actor` positions for physical authored items follow current solver positions,
+so choreography can wait for the actual floating/moving item.
+
 ### Beam authoring additions (October 2026)
 
 Reusable `navigate {target, position:[x,y,z]}` requires an AI body and bounded
@@ -8946,6 +8966,14 @@ return to Play. Shared opposite floor/ceiling faces are explicitly classified
 findings, with no blanket ignore or automatic topology repair.
 
 ### Environment collection NPC handoff (0.12.0)
+
+Carry offsets and local rotation specify the seated item pose at the actual
+socket. Clip-driven pickup preserves the loose item's first contact pose, then
+continuously seats it in that authored grip during the lift. Measure the visible
+palm and actual rendered item bounds, including scale; do not retain an arbitrary
+initial wrist-to-item gap or assume one offset fits every item. Native preview
+must show contact in idle and walking poses. Different actors may reference the
+same authored pickup, but only one physical/socket owner can accept it at a time.
 
 The approved mannequin's `hand.R`, `carry_idle` and `carry_walk` now support an
 actual authored prop attachment and atomic held-item handoff. Use the native
@@ -9069,6 +9097,9 @@ with `places-compile build projects/menu --out <local-package>` and
 `places-compile verify projects/menu --package <local-package> --require-current`,
 then publish the validated bytes to that fixed resource path. It uses existing
 catalog models/PNGs, a real Full atlas and probes, and the ordinary Static variant.
+The current scene declares `requires_full_lighting` for its independent blackout
+circuits. Seven complete, shuffled vignettes use real side doors and concealed
+waiting wings; no unrelated event starts before the previous cast leaves.
 
 Geometry revision 5 removes structural backing bands already owned by a higher
 floor's real terrain skirt at a recess/step. Equal adjacent slab edges remain

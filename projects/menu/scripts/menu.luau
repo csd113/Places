@@ -1,277 +1,252 @@
 --!strict
--- Ten-minute miniature: 120 authored beats at five-second intervals.
--- No spawns, subscriptions or growing tables. A fresh cycle uses the normal whole-world reset.
-local clock = 0
-local nextBeat = 1
-local pendingActor = nil
-local pendingKind = nil
-local pendingAt = 0
-local function walk(api, id, x, z) api.navigate(id, x, 0, z) end
-local function pose(api, id, clip) api.animate(id, clip, false) end
-local function hold(api, id) api.handoff(id) end
-local function duck(api, i) api.physics("duck_" .. tostring(i), false); api.physics("duck_" .. tostring(i), true) end
-local function put(api, actor)
-    api.animate(actor,"set_down_floor",false)
-    pendingActor, pendingKind, pendingAt = actor, "release", clock + 0.9
+-- Seven complete shuffled events. Internal steps are not separate events.
+-- Persistent cast waits in opaque wings; insects/ghosts/ragdolls have bounded
+-- runtime ownership and are removed only outside view or in complete darkness.
+local clock, startAt, stageAt, step = 0, 2, 0, 0
+local order, current, cursor, lastBeat = {}, 1, 1, -1
+local doorStates = {}
+local cast={"porter","guest","attendant","caretaker","arcade_player"}
+local homes={porter={-5.5,1,"office_left_door"},guest={5.5,1,"office_right_door"},attendant={-5.5,-3.1,"pool_left_door"},caretaker={5.5,-5.5,"home_right_door"},arcade_player={-5.5,-7.85,"arcade_left_door"}}
+local roomLights={"arcade_lamp","home_lamp","pool_lamp","office_lamp"}
+local doors={"office_left_door","office_right_door","pool_left_door","pool_right_door","home_right_door","arcade_left_door","arcade_right_door"}
+local ragNames={"office_left","office_right","pool_left","pool_right","home_right","arcade_left","arcade_right"}
+local ragGoals={{-1.35,1.8},{1.75,1.8},{-1.65,-3.4},{1.65,-3.4},{.1,-5.45},{-.65,-8.3},{.65,-8.3}}
+local escapeGoals={{-2.4,3.3},{-1.4,3.8},{-.5,3.1},{.4,3.6},{2.45,3.5},{2.1,3.9},{1.2,3.6},{-2.2,3.7}}
+local function walk(api,id,x,z,speed) api.navigate(id,x,0,z,speed) end
+local function near(api,id,x,z) local p=api.actor(id);return (p.x-x)^2+(p.z-z)^2<.12 end
+local function hidden(api,id,limit) return math.abs(api.actor(id).x)>(limit or 4.6) end
+local function door(api,id,on) if doorStates[id]~=on then api.door(id,on and "open" or "close");doorStates[id]=on end end
+local function roomLight(api,index,on)
+ api.light(roomLights[index],on)
+ if index==1 then api.light("arcade_left",on);api.light("arcade_right",on) end
 end
-local function take(api, actor)
-    api.animate(actor,"pick_up_floor",false)
-    pendingActor, pendingKind, pendingAt = actor, "take", clock + 0.9
+local function allLights(api,on) for i=1,4 do roomLight(api,i,on) end end
+local function leave(api,id,speed) local h=homes[id];walk(api,id,h[1],h[2],speed) end
+local function advance() step+=1;stageAt=clock;cursor=1 end
+local function take(api,id) api.animate(id,"pick_up_floor",false);api.handoff(id) end
+local function put(api,id) api.animate(id,"set_down_floor",false);api.release_item(id) end
+local function noRuntime(api)
+ if api.exists("closet_ghost") then return false end
+ for i=0,4 do if api.exists("menu_balloon_"..tostring(i)) then return false end end
+ for i=0,7 do if api.exists("roach_"..tostring(i)) then return false end end
+ for _,name in ragNames do if api.exists("vanish_"..name) then return false end end
+ return true
 end
-local beats = {
-    -- 001 / 000s: The late parcel: porter bends for the delivery
-    function(api) pose(api,"porter","pick_up_floor") end,
-    -- 002 / 005s: Parcel takes the posed right hand
-    function(api) hold(api,"porter");walk(api,"porter",-.45,.65) end,
-    -- 003 / 010s: Reader looks up from the office
-    function(api) pose(api,"reader","pose_arms_forward") end,
-    -- 004 / 015s: Porter presents the parcel to the reader
-    function(api) walk(api,"porter",.15,.65);pose(api,"reader","pose_arms_up") end,
-    -- 005 / 020s: Reader steps aside to let the delivery through
-    function(api) walk(api,"reader",1.1,1.7) end,
-    -- 006 / 025s: Porter crosses the Office foreground
-    function(api) walk(api,"porter",1.25,.65) end,
-    -- 007 / 030s: The first duck joins the Pool current
-    function(api) duck(api,0) end,
-    -- 008 / 035s: Attendant follows its progress from the dry deck
-    function(api) walk(api,"attendant",.45,-3.5) end,
-    -- 009 / 040s: Porter sets the parcel on the Office floor
-    function(api) put(api,"porter") end,
-    -- 010 / 045s: Delivery porter returns along the opposite edge
-    function(api) walk(api,"porter",-1.35,.65) end,
-    -- 011 / 050s: The borrowed book: reader reaches down
-    function(api) pose(api,"reader","pick_up_floor") end,
-    -- 012 / 055s: Reader collects the book stack
-    function(api) hold(api,"reader") end,
-    -- 013 / 060s: Caretaker notices someone across the water
-    function(api) pose(api,"caretaker","pose_arms_up") end,
-    -- 014 / 065s: Reader approaches the Pool threshold with the books
-    function(api) walk(api,"reader",.65,1.7) end,
-    -- 015 / 070s: Caretaker comes to the Home threshold
-    function(api) walk(api,"caretaker",-.4,-4.55) end,
-    -- 016 / 075s: Reader holds up the books for inspection
-    function(api) pose(api,"reader","pose_arms_forward") end,
-    -- 017 / 080s: Guest joins the caretaker to look
-    function(api) walk(api,"guest",.55,-4.7) end,
-    -- 018 / 085s: Reader puts the book stack down while two ducks pass
-    function(api) put(api,"reader");duck(api,1);duck(api,2) end,
-    -- 019 / 090s: Guest acknowledges the reader collecting the books
-    function(api) pose(api,"guest","pose_arms_forward");take(api,"reader") end,
-    -- 020 / 095s: Reader carries the books back to the Office
-    function(api) walk(api,"reader",1.55,1.7) end,
-    -- 021 / 100s: Pool shift begins: attendant bends for the towel
-    function(api) pose(api,"attendant","pick_up_floor") end,
-    -- 022 / 105s: Attendant gathers the folded towel
-    function(api) hold(api,"attendant") end,
-    -- 023 / 110s: Towel crosses the rear deck while porter returns for the parcel
-    function(api) walk(api,"attendant",-1.4,-3.5);walk(api,"porter",1.25,.65) end,
-    -- 024 / 115s: Guest yields as the porter stoops for the delivery
-    function(api) walk(api,"guest",.9,-6.5);take(api,"porter") end,
-    -- 025 / 120s: Caretaker waves the attendant over
-    function(api) pose(api,"caretaker","pose_arms_forward") end,
-    -- 026 / 125s: Attendant brings the towel to the Home side
-    function(api) walk(api,"attendant",-.4,-3.5) end,
-    -- 027 / 130s: Guest waves across the warm waiting room
-    function(api) pose(api,"guest","pose_arms_up") end,
-    -- 028 / 135s: A single duck drifts beneath the towel
-    function(api) duck(api,2) end,
-    -- 029 / 140s: Attendant places the blue towel on the dry deck
-    function(api) put(api,"attendant") end,
-    -- 030 / 145s: Caretaker makes room while the towel is collected again
-    function(api) walk(api,"caretaker",-.35,-5.2);take(api,"attendant") end,
-    -- 031 / 150s: A quiet favour: caretaker reaches for a cushion
-    function(api) pose(api,"caretaker","pick_up_floor") end,
-    -- 032 / 155s: Cushion follows the animated hand
-    function(api) hold(api,"caretaker") end,
-    -- 033 / 160s: Guest approaches to inspect the checked fabric
-    function(api) walk(api,"guest",.6,-6.4) end,
-    -- 034 / 165s: Caretaker puts the checked cushion beside the Home chair
-    function(api) walk(api,"caretaker",.65,-5.6) end,
-    -- 035 / 170s: The cushion is set down where the guest can inspect it
-    function(api) put(api,"caretaker");pose(api,"guest","pose_arms_forward") end,
-    -- 036 / 175s: Closet folds open on its four real leaf colliders
-    function(api) api.toggle_animation("menu_closet","fold_open") end,
-    -- 037 / 180s: Guest examines the open closet while the cushion waits
-    function(api) walk(api,"guest",-.3,-6.3) end,
-    -- 038 / 185s: Caretaker picks the cushion back up beside the chair
-    function(api) take(api,"caretaker") end,
-    -- 039 / 190s: Closet folds closed while the caretaker waits clear
-    function(api) api.toggle_animation("menu_closet","fold_open") end,
-    -- 040 / 195s: Caretaker brings the cushion back to the warm threshold
-    function(api) walk(api,"caretaker",-.45,-4.65) end,
-    -- 041 / 200s: Arcade prize: player notices a gift on the floor
-    function(api) pose(api,"player","pick_up_floor") end,
-    -- 042 / 205s: The little gift is picked up in the Arcade
-    function(api) hold(api,"player") end,
-    -- 043 / 210s: Player walks left between the two cabinets
-    function(api) walk(api,"player",-.8,-8.45) end,
-    -- 044 / 215s: Gift is placed between the Arcade cabinets as guest arrives
-    function(api) put(api,"player");walk(api,"guest",.5,-6.35) end,
-    -- 045 / 220s: Arcade player retrieves the prize from the cabinet aisle
-    function(api) take(api,"player") end,
-    -- 046 / 225s: Guest congratulates the gift-bearing player at center
-    function(api) pose(api,"guest","pose_arms_up");walk(api,"player",0,-8.15) end,
-    -- 047 / 230s: Office reader joins the distant celebration
-    function(api) walk(api,"reader",.5,1.7) end,
-    -- 048 / 235s: Caretaker carries the cushion clear of the congratulating guest
-    function(api) walk(api,"caretaker",-1.1,-5.1) end,
-    -- 049 / 240s: Player takes the gift to the right cabinet
-    function(api) walk(api,"player",.9,-8.6) end,
-    -- 050 / 245s: Guest returns from the Arcade threshold
-    function(api) walk(api,"guest",.65,-5.05) end,
-    -- 051 / 250s: Duck parade: attendant prepares at the left deck end
-    function(api) walk(api,"attendant",-1.45,-3.5) end,
-    -- 052 / 255s: First duck enters ahead of the others
-    function(api) duck(api,0) end,
-    -- 053 / 260s: Porter stops to watch with the parcel
-    function(api) walk(api,"porter",-.5,.65) end,
-    -- 054 / 265s: Reader puts books down to watch the second water lane
-    function(api) put(api,"reader");duck(api,1) end,
-    -- 055 / 270s: Reader collects the stack beside the waiting parcel porter
-    function(api) take(api,"reader") end,
-    -- 056 / 275s: Third duck completes the little flotilla
-    function(api) duck(api,2) end,
-    -- 057 / 280s: Guest comes to the rear of the Pool opening
-    function(api) walk(api,"guest",.4,-4.5) end,
-    -- 058 / 285s: Attendant walks alongside the current
-    function(api) walk(api,"attendant",1.45,-3.5) end,
-    -- 059 / 290s: Porter takes the parcel past the watching reader
-    function(api) walk(api,"porter",1.35,.65) end,
-    -- 060 / 295s: Reader leaves the water view for the book desk
-    function(api) walk(api,"reader",1.5,1.7) end,
-    -- 061 / 300s: A missed greeting: guest raises a hand at the porter
-    function(api) pose(api,"guest","pose_arms_up") end,
-    -- 062 / 305s: Porter has already crossed out toward the Office side
-    function(api) walk(api,"porter",-1.45,.65) end,
-    -- 063 / 310s: Reader steps forward to acknowledge the guest
-    function(api) walk(api,"reader",.65,1.7) end,
-    -- 064 / 315s: Guest comes closer with a second greeting
-    function(api) walk(api,"guest",.45,-4.55) end,
-    -- 065 / 320s: The attendant sets the blue towel down during the greeting
-    function(api) put(api,"attendant") end,
-    -- 066 / 325s: Reader waits to one side of the opening
-    function(api) walk(api,"reader",1.15,1.7) end,
-    -- 067 / 330s: Guest points after the departing attendant
-    function(api) pose(api,"guest","pose_arms_forward") end,
-    -- 068 / 335s: Attendant doubles back to complete the greeting
-    function(api) walk(api,"attendant",.6,-3.5) end,
-    -- 069 / 340s: A duck interrupts the reunion while the towel is collected
-    function(api) duck(api,1);take(api,"attendant") end,
-    -- 070 / 345s: Guest relaxes and returns to the Home chair
-    function(api) pose(api,"guest","pose_stand");walk(api,"guest",.85,-6.35) end,
-    -- 071 / 350s: Office crossing: porter approaches with the parcel
-    function(api) walk(api,"porter",-.35,.65) end,
-    -- 072 / 355s: Reader yields toward the near edge with the books
-    function(api) walk(api,"reader",.65,1.7) end,
-    -- 073 / 360s: Porter passes through the center of the Office
-    function(api) walk(api,"porter",.9,.65) end,
-    -- 074 / 365s: Porter puts the parcel down as the reader passes with books
-    function(api) put(api,"porter");walk(api,"reader",-.9,1.7) end,
-    -- 075 / 370s: Porter pauses at the delivery desk
-    function(api) walk(api,"porter",1.35,.65) end,
-    -- 076 / 375s: Reader turns back along the Pool threshold
-    function(api) walk(api,"reader",-.65,1.7) end,
-    -- 077 / 380s: Guest watches the porter stoop to collect the delivery
-    function(api) walk(api,"guest",.45,-4.55);take(api,"porter") end,
-    -- 078 / 385s: Porter leaves the desk by the far lane
-    function(api) walk(api,"porter",-.9,.65) end,
-    -- 079 / 390s: Reader completes a dry-floor loop with the books
-    function(api) walk(api,"reader",.9,1.7) end,
-    -- 080 / 395s: Guest answers with a small open-handed sign
-    function(api) pose(api,"guest","pose_arms_forward") end,
-    -- 081 / 400s: Closet inspection: caretaker waits outside the sweep
-    function(api) walk(api,"caretaker",-.35,-5.65) end,
-    -- 082 / 405s: Guest opens the four-leaf closet from clear ground
-    function(api) api.toggle_animation("menu_closet","fold_open") end,
-    -- 083 / 410s: Guest steps back to look inside
-    function(api) walk(api,"guest",.95,-6.4) end,
-    -- 084 / 415s: Caretaker sets the cushion down for the closet inspection
-    function(api) put(api,"caretaker") end,
-    -- 085 / 420s: Attendant arrives with the contrasting blue towel
-    function(api) walk(api,"attendant",-.45,-3.5) end,
-    -- 086 / 425s: Guest points out the towel while caretaker retrieves the cushion
-    function(api) pose(api,"guest","pose_arms_forward");take(api,"caretaker") end,
-    -- 087 / 430s: Caretaker carries the cushion across Home
-    function(api) walk(api,"caretaker",.65,-5.6) end,
-    -- 088 / 435s: Closet closes after the inspection
-    function(api) api.toggle_animation("menu_closet","fold_open") end,
-    -- 089 / 440s: Guest gives the caretaker space beside the chair
-    function(api) walk(api,"guest",-.5,-5.25) end,
-    -- 090 / 445s: The blue-towel attendant returns to the Pool end
-    function(api) walk(api,"attendant",1.5,-3.5) end,
-    -- 091 / 450s: Evening Arcade: player carries the prize to center
-    function(api) walk(api,"player",0,-8.2) end,
-    -- 092 / 455s: Guest comes to watch the cabinet player
-    function(api) walk(api,"guest",.55,-6.4) end,
-    -- 093 / 460s: Left Arcade lamp pauses while the cabinets remain visible
-    function(api) api.light("arcade_left_lamp",false) end,
-    -- 094 / 465s: Arcade player places the gift at the left cabinet
-    function(api) walk(api,"player",-.8,-8.6) end,
-    -- 095 / 470s: Guest points to the other cabinet as the gift is put down
-    function(api) pose(api,"guest","pose_arms_forward");put(api,"player") end,
-    -- 096 / 475s: Player collects the prize before crossing the Arcade
-    function(api) take(api,"player") end,
-    -- 097 / 480s: Violet practical returns as the gift crosses to the right
-    function(api) api.light("arcade_left_lamp",true);walk(api,"player",.8,-8.6) end,
-    -- 098 / 485s: Caretaker joins the guest carrying the cushion
-    function(api) walk(api,"caretaker",-.5,-6.35) end,
-    -- 099 / 490s: Player brings the prize back to the two visitors
-    function(api) walk(api,"player",0,-8.15) end,
-    -- 100 / 495s: Guest celebrates a second, different arrival
-    function(api) pose(api,"guest","pose_arms_up") end,
-    -- 101 / 500s: Closing round: porter takes the parcel past the doorway
-    function(api) walk(api,"porter",1.25,.65) end,
-    -- 102 / 505s: Reader moves the books to the opposite Office lane
-    function(api) walk(api,"reader",-1.2,1.7) end,
-    -- 103 / 510s: Attendant places the towel down before the closing duck round
-    function(api) put(api,"attendant") end,
-    -- 104 / 515s: Last single duck enters while attendant collects the towel
-    function(api) duck(api,0);take(api,"attendant") end,
-    -- 105 / 520s: Guest returns from the Arcade to the warm room
-    function(api) walk(api,"guest",.7,-5.05) end,
-    -- 106 / 525s: Caretaker follows with the checked cushion
-    function(api) walk(api,"caretaker",-.7,-5.05) end,
-    -- 107 / 530s: Porter passes behind the reader on the return walk
-    function(api) walk(api,"porter",-1.2,.65) end,
-    -- 108 / 535s: Reader carries the books toward the right desk
-    function(api) walk(api,"reader",1.1,1.7) end,
-    -- 109 / 540s: Attendant walks with the duck to the far end
-    function(api) walk(api,"attendant",1.45,-3.5) end,
-    -- 110 / 545s: Arcade player leaves the central opening clear
-    function(api) walk(api,"player",.85,-8.6) end,
-    -- 111 / 550s: A last conversation: Home guest greets the caretaker
-    function(api) pose(api,"guest","pose_arms_forward") end,
-    -- 112 / 555s: Caretaker shows the guest the cushion on the floor
-    function(api) put(api,"caretaker") end,
-    -- 113 / 560s: Office reader pauses with the books at the threshold
-    function(api) walk(api,"reader",.6,1.7) end,
-    -- 114 / 565s: The parcel is put down in the opposite Office foreground
-    function(api) put(api,"porter") end,
-    -- 115 / 570s: Two final ducks pass while porter collects the parcel
-    function(api) duck(api,1);duck(api,2);take(api,"porter") end,
-    -- 116 / 575s: Attendant carries the blue towel back along the deck
-    function(api) walk(api,"attendant",.2,-3.5) end,
-    -- 117 / 580s: Arcade player leaves the gift beside the distant cabinet
-    function(api) put(api,"player") end,
-    -- 118 / 585s: Guest raises a quiet farewell across all four rooms
-    function(api) pose(api,"guest","pose_arms_up") end,
-    -- 119 / 590s: Caretaker collects the cushion while porter clears the sightline
-    function(api) take(api,"caretaker");walk(api,"porter",-1.2,.65) end,
-    -- 120 / 595s: Reader and guest settle before the next ten-minute visit
-    function(api) walk(api,"porter",-2.3,.65);walk(api,"reader",1.1,.75);walk(api,"attendant",1.4,-3.5);walk(api,"caretaker",-.65,-5.4);walk(api,"guest",.85,-6.7);walk(api,"player",0,-8.45) end,
-}
+local function quiet(api)
+ for _,id in cast do if not hidden(api,id) then return false end end
+ return noRuntime(api)
+end
+local function parcel(api)
+ local x,z=-.9,1.2;local age=clock-stageAt
+ if step==0 then if api.actor("porter").carried_item==nil then take(api,"porter") end;advance()
+ elseif step==1 and age>=3.5 then
+  if api.actor("porter").carried_item==nil then return false end
+  door(api,"office_left_door",true);walk(api,"porter",x,z-.5);advance()
+ elseif step==2 and near(api,"porter",x,z-.5) then walk(api,"porter",x,z);advance()
+ elseif step==3 and age>=1 and near(api,"porter",x,z) then put(api,"porter");advance()
+ elseif step==4 and age>=3.3 then
+  if api.actor("porter").carried_item~=nil then return false end
+  leave(api,"porter");advance()
+ elseif step==5 and hidden(api,"porter") then door(api,"office_left_door",false);advance()
+ elseif step==6 and age>=1.5 then door(api,"office_right_door",true);walk(api,"guest",x,z-.5);advance()
+ elseif step==7 and near(api,"guest",x,z-.5) then walk(api,"guest",x,z);advance()
+ elseif step==8 and age>=1 and near(api,"guest",x,z) then take(api,"guest");advance()
+ elseif step==9 and age>=3.5 then
+  if api.actor("guest").carried_item==nil then return false end
+  walk(api,"guest",x,1.95);advance()
+ elseif step==10 and near(api,"guest",x,1.95) then walk(api,"guest",1.8,1.95);advance()
+ elseif step==11 and near(api,"guest",1.8,1.95) then walk(api,"guest",2.4,1);advance()
+ elseif step==12 and near(api,"guest",2.4,1) then leave(api,"guest");advance()
+ elseif step==13 and hidden(api,"guest") then door(api,"office_right_door",false);api.release_item("guest");advance()
+ elseif step==14 and api.actor("guest").carried_item==nil then api.physics("parcel",false);advance()
+ end
+ return step==15 and clock-stageAt>=1.5
+end
+local function duck(api)
+ local age=clock-stageAt
+ if step==0 then if api.actor("attendant").carried_item==nil then take(api,"attendant") end;advance()
+ elseif step==1 and age>=3.5 then
+  if api.actor("attendant").carried_item==nil then return false end
+  door(api,"pool_left_door",true);walk(api,"attendant",-2.25,-3.7);advance()
+ elseif step==2 and near(api,"attendant",-2.25,-3.7) then walk(api,"attendant",-2.25,-3.35);advance()
+ elseif step==3 and age>=1 and near(api,"attendant",-2.25,-3.35) then
+  api.set_state("attendant","face_pool",1);api.animate("attendant","pose_arms_forward",true);advance()
+ elseif step==4 and age>=.8 then api.release_item("attendant");advance()
+ elseif step==5 and age>=.5 then
+  if api.actor("attendant").carried_item~=nil then return false end
+  walk(api,"attendant",2.35,-3.7);advance()
+ elseif step==6 and near(api,"attendant",2.35,-3.7) then walk(api,"attendant",2.35,-3.35);advance()
+ elseif step==7 and age>=1 and near(api,"attendant",2.35,-3.35) then
+  api.set_state("attendant","face_pool",2);advance()
+ elseif step==8 and age>=1 then
+  local d=api.actor("duck_0")
+  if d.x<2.1 or d.z> -2.7 then return false end
+  take(api,"attendant");advance()
+ elseif step==9 and age>=3.5 then
+  if api.actor("attendant").carried_item==nil then return false end
+  door(api,"pool_right_door",true);walk(api,"attendant",5.5,-3.1);advance()
+ elseif step==10 and hidden(api,"attendant") then door(api,"pool_left_door",false);door(api,"pool_right_door",false);advance()
+ end
+ return step==11 and clock-stageAt>=1.5
+end
+local chaseAt=0
+local function ghost(api)
+ local age=clock-stageAt
+ if step==0 then
+  api.spawn("closet_ghost_point","closet_ghost");door(api,"home_right_door",true);walk(api,"caretaker",-.75,-5.5);advance()
+ elseif step==1 and near(api,"caretaker",-.75,-5.5) then api.toggle_animation("menu_closet","fold_open");advance()
+ elseif step==2 and age>=.6 then
+  api.animate("caretaker","pose_arms_up",true);advance()
+ elseif step==3 and age>=1 then walk(api,"caretaker",-.35,-5.5,.35);advance()
+ elseif step==4 and age>=1 and near(api,"caretaker",-.35,-5.5) then leave(api,"caretaker",2.8);walk(api,"closet_ghost",-1.05,-5.5,1.1);chaseAt=clock+.65;advance()
+ elseif step==5 then
+  if clock>=chaseAt then local p=api.actor("caretaker");walk(api,"closet_ghost",p.x,p.z,2.35);chaseAt=clock+.35 end
+  if hidden(api,"caretaker") and hidden(api,"closet_ghost") then api.despawn("closet_ghost");advance() end
+ elseif step==6 and not api.exists("closet_ghost") then
+  api.toggle_animation("menu_closet","fold_open");door(api,"home_right_door",false);advance()
+ end
+ return step==7 and clock-stageAt>=1.5
+end
+local function arcade(api)
+ local age=clock-stageAt
+ if step==0 then door(api,"arcade_left_door",true);walk(api,"arcade_player",-.95,-8);advance()
+ elseif step==1 and near(api,"arcade_player",-.95,-8) then walk(api,"arcade_player",-.95,-8.65);advance()
+ elseif step==2 and age>=.8 and near(api,"arcade_player",-.95,-8.65) then api.animate("arcade_player","pose_arms_forward",true);api.light("arcade_left",false);advance()
+ elseif step==3 and age>=.4 then api.light("arcade_left",true);advance()
+ elseif step==4 and age>=3 then api.light("arcade_left",false);advance()
+ elseif step==5 and age>=.25 then api.light("arcade_left",true);api.animate("arcade_player","pose_arms_up",true);advance()
+ elseif step==6 and age>=1.6 then leave(api,"arcade_player");advance()
+ elseif step==7 and hidden(api,"arcade_player") then door(api,"arcade_left_door",false);advance()
+ end
+ return step==8 and clock-stageAt>=1.5
+end
+local flicker, darkAt, restoreAt, revealAt = 0,0,0,0
+local function roaches(api,t)
+ local times={0,.24,.58,.92,1.27,1.58,1.95,2.32,2.65}
+ if step==0 then
+  if flicker<#times and t>=times[flicker+1] then
+   flicker+=1;allLights(api,flicker%2==0)
+   if flicker==#times then darkAt=clock;advance() end
+  end
+ elseif step==1 then
+  for _=1,2 do
+   if cursor<=8 then api.spawn("roach_"..tostring(cursor-1).."_point","roach_"..tostring(cursor-1));cursor+=1 end
+  end
+  if cursor>8 then advance() end
+ elseif step==2 and clock-darkAt>=1 then
+  for i=0,7 do if not api.exists("roach_"..tostring(i)) then return false end end
+  restoreAt=clock;advance()
+ elseif step==3 then
+  if cursor<=4 and clock-restoreAt>=(cursor-1)*.45 then
+   roomLight(api,cursor,true);cursor+=1
+   if cursor==5 then revealAt=clock;advance() end
+  end
+ elseif step==4 and clock-revealAt>=.35 then
+  for _=1,2 do
+   if cursor<=8 then local q=escapeGoals[cursor];walk(api,"roach_"..tostring(cursor-1),q[1],q[2],3.5);cursor+=1 end
+  end
+  if cursor>8 then advance() end
+ elseif step==5 then
+  local removed=0;local alive=false
+  for i=0,7 do
+   local id="roach_"..tostring(i)
+   if api.exists(id) then
+    alive=true
+    -- At z>2.9 the whole small mesh is below the fixed 55-degree camera,
+    -- with floor support retained; no doorway or visible lifetime timeout.
+    if api.actor(id).z>2.9 and removed<2 then api.despawn(id);removed+=1 end
+   end
+  end
+  if not alive then advance() end
+ end
+ return step==6 and clock-stageAt>=1.2
+end
+local function balloons(api)
+ if step==0 then
+  for _=1,2 do if cursor<=5 then local id="menu_balloon_"..tostring(cursor-1);api.spawn(id.."_point",id);cursor+=1 end end
+  if cursor>5 then door(api,"arcade_right_door",true);door(api,"arcade_left_door",true);advance() end
+ elseif step==1 then
+  for i=0,4 do if not api.exists("menu_balloon_"..tostring(i)) then return false end end
+  if cursor<=5 and clock-stageAt>=.8+(cursor-1)*1.1 then
+   walk(api,"menu_balloon_"..tostring(cursor-1),-5.9+.5*(cursor-1),-8.65,.32);cursor+=1
+  end
+  if cursor>5 then advance() end
+ elseif step==2 then
+  local alive=false;local removed=0
+  for i=0,4 do
+   local id="menu_balloon_"..tostring(i)
+   if api.exists(id) then
+    alive=true
+    if api.actor(id).x< -3.75 and removed<2 then api.despawn(id);removed+=1 end
+   end
+  end
+  if not alive then door(api,"arcade_left_door",false);door(api,"arcade_right_door",false);advance() end
+ end
+ return step==3 and clock-stageAt>=1.5
+end
+local function ragdolls(api)
+ local age=clock-stageAt
+ if step==0 then
+  for _=1,2 do if cursor<=#doors then door(api,doors[cursor],true);cursor+=1 end end
+  if cursor>#doors then advance() end
+ elseif step==1 and age>=.8 then
+  for _=1,2 do if cursor<=#ragNames then local id="vanish_"..ragNames[cursor];api.spawn(id.."_point",id);cursor+=1 end end
+  if cursor>#ragNames then advance() end
+ elseif step==2 then
+  for _,name in ragNames do if not api.exists("vanish_"..name) then return false end end
+  for _=1,2 do if cursor<=#ragNames then local q=ragGoals[cursor];walk(api,"vanish_"..ragNames[cursor],q[1],q[2]);cursor+=1 end end
+  if cursor>#ragNames then advance() end
+ elseif step==3 then
+  for i,name in ragNames do local q=ragGoals[i];if not near(api,"vanish_"..name,q[1],q[2]) then return false end end
+  advance()
+ elseif step==4 then
+  for _=1,2 do
+   if cursor<=#ragNames then local q=ragGoals[cursor];api.ragdoll("vanish_"..ragNames[cursor],true,q[1]<0 and -.9 or .9,0,.2);cursor+=1 end
+  end
+  if cursor>#ragNames then advance() end
+ elseif step==5 and age>=1.2 then flicker=0;advance()
+ elseif step==6 then
+  local times={0,.28,.65,1.05,1.35}
+  if flicker<#times and age>=times[flicker+1] then
+   flicker+=1;allLights(api,flicker%2==0)
+   if flicker==#times then darkAt=clock;advance() end
+  end
+ elseif step==7 and clock-darkAt>=.2 then
+  for _=1,2 do if cursor<=#ragNames then api.despawn("vanish_"..ragNames[cursor]);cursor+=1 end end
+  if cursor>#ragNames then advance() end
+ elseif step==8 and clock-darkAt>=1 then
+  for _,name in ragNames do if api.exists("vanish_"..name) then return false end end
+  flicker=0;advance()
+ elseif step==9 then
+  local times={0,.22,.58,1.0,1.4}
+  if flicker<#times and age>=times[flicker+1] then
+   flicker+=1;allLights(api,flicker%2==1)
+   if flicker==#times then advance() end
+  end
+ elseif step==10 then
+  for _=1,2 do if cursor<=#doors then door(api,doors[cursor],false);cursor+=1 end end
+  if cursor>#doors then advance() end
+ end
+ return step==11 and clock-stageAt>=1.2
+end
+local vignettes={parcel,duck,ghost,arcade,roaches,balloons,ragdolls}
 return {
-    update = function(api, event)
-        clock += event.dt
-        if pendingActor ~= nil and clock >= pendingAt then
-            if pendingKind == "release" then api.release_item(pendingActor) else api.handoff(pendingActor) end
-            pendingActor, pendingKind = nil, nil
-        end
-        if clock >= 600 then api.reset(); return end
-        if nextBeat <= #beats and clock >= (nextBeat - 1) * 5 then
-            beats[nextBeat](api)
-            api.set_state("guest", "beat", nextBeat)
-            nextBeat += 1
-        end
-    end,
+ start=function(api)
+  math.randomseed(api.state("guest","menu_seed"))
+  for i=1,#vignettes do order[i]=i end
+  for i=#order,2,-1 do local j=math.random(1,i);order[i],order[j]=order[j],order[i] end
+  local forced=api.state("guest","menu_first")
+  if forced>0 then for i,id in order do if id==forced then order[1],order[i]=order[i],order[1];break end end
+  elseif order[1]==api.state("guest","previous_vignette") then order[1],order[2]=order[2],order[1] end
+ end,
+ update=function(api,event)
+  clock+=event.dt
+  if clock<startAt then return end
+  if current>#order then if quiet(api) then allLights(api,true);api.reset() end;return end
+  local id=order[current];local beat=id*100+step
+  if beat~=lastBeat then api.set_state("guest","vignette",id);api.set_state("guest","beat",beat);lastBeat=beat;return end
+  if vignettes[id](api,clock-startAt) and quiet(api) then
+   allLights(api,true);current+=1;startAt=clock+1;stageAt=startAt;step=0;cursor=1;flicker=0
+  end
+ end,
 }

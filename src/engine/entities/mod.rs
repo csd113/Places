@@ -2321,12 +2321,17 @@ impl EntityWorld {
                     report.unsupported = report.unsupported.saturating_add(1);
                 }
             }
-            ActionDef::Navigate { target, position } => {
+            ActionDef::Navigate {
+                target,
+                position,
+                speed_mps,
+            } => {
                 let _released = self.scripted_poses.remove(target);
-                if self
-                    .ai
-                    .set_navigation_goal(target, Vec3::from_array(*position))
-                {
+                if self.ai.set_navigation_goal_with_speed(
+                    target,
+                    Vec3::from_array(*position),
+                    *speed_mps,
+                ) {
                     report.actions_run = report.actions_run.saturating_add(1);
                 } else {
                     report.unsupported = report.unsupported.saturating_add(1);
@@ -3925,6 +3930,24 @@ impl EntityWorld {
         })
     }
 
+    /// Runtime-only removal capability; authored entities cannot be deleted by Lua.
+    pub(crate) fn is_runtime_spawn(&self, id: &str) -> bool {
+        self.handle_of(id)
+            .is_some_and(|handle| self.live_spawns.contains(&handle))
+    }
+
+    /// Physical query transforms follow the solver, rather than stale placement
+    /// coordinates. This reuses the bounded trigger snapshot and creates no poses.
+    pub fn observe_physical_items<'a>(&mut self, items: impl Iterator<Item = TriggerItem<'a>>) {
+        for item in items {
+            if let Some(handle) = self.handle_of(item.instance)
+                && let Some(transform) = self.components.transforms.get_mut(handle)
+            {
+                transform.position = item.to;
+            }
+        }
+    }
+
     /// Publishes a bounded owned identity snapshot before script invocation.
     pub fn observe_held_item(&mut self, item: Option<String>) {
         self.script_held_item = item;
@@ -4751,7 +4774,9 @@ impl EntityWorld {
                 opacity: opacity * agent.opacity(),
                 glow,
                 shadow_only: self.frame_shadow_only(&agent.instance_id),
-                balloon: None,
+                balloon: self
+                    .handle_of(&agent.instance_id)
+                    .and_then(|handle| self.frame_balloon(handle)),
             });
         }
         let ai_owned: Vec<&str> = self

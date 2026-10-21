@@ -882,6 +882,7 @@ impl Game {
     /// Advances a non-playable menu world through the normal scripts, AI and door runtime.
     /// The fixed camera/player has no locomotion or gameplay input.
     pub(crate) fn update_menu_world(&mut self) {
+        self.update_doors(self.sim_delta_seconds());
         let feet = Vec3::new(
             self.player_position.x,
             self.feet_y(),

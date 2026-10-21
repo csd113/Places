@@ -472,6 +472,8 @@ pub struct AiAgent {
     pub path_queries: u64,
     /// Explicit developer inspection destination, using the ordinary planner.
     pub navigation_goal: Option<Vec3>,
+    /// Explicit script speed for the current collision-respecting navigation goal.
+    pub navigation_speed: Option<f32>,
     /// The goal whose route was already walked to its end. An empty path for
     /// this goal is arrival, not a reason to plan again.
     pub path_done_goal: Option<Vec3>,
@@ -829,6 +831,7 @@ impl AiWorld {
             last_path_attempt_at: -PATH_RETRY_S,
             path_queries: 0,
             navigation_goal: None,
+            navigation_speed: None,
             path_done_goal: None,
             current_waypoint: 0,
             spawned,
@@ -912,6 +915,7 @@ impl AiWorld {
             agent.last_path_attempt_at = -PATH_RETRY_S;
             agent.path_queries = 0;
             agent.navigation_goal = None;
+            agent.navigation_speed = None;
             agent.path_done_goal = None;
             agent.current_waypoint = 0;
             agent.speed_mps = 0.0;
@@ -998,6 +1002,7 @@ impl AiWorld {
         };
         agent.state = state;
         agent.navigation_goal = None;
+        agent.navigation_speed = None;
         agent.path.clear();
         agent.path_goal = None;
         true
@@ -1006,7 +1011,19 @@ impl AiWorld {
     /// Installs a finite inspection goal without bypassing collision or routing.
     /// Reset, scripted ownership and caught state continue to take precedence.
     pub fn set_navigation_goal(&mut self, instance_id: &str, goal: Vec3) -> bool {
-        if !goal.is_finite() {
+        self.set_navigation_goal_with_speed(instance_id, goal, None)
+    }
+
+    /// Scripted walking/running still uses the same baked body and collision sweep.
+    pub fn set_navigation_goal_with_speed(
+        &mut self,
+        instance_id: &str,
+        goal: Vec3,
+        speed: Option<f32>,
+    ) -> bool {
+        if !goal.is_finite()
+            || speed.is_some_and(|value| !value.is_finite() || !(0.05..=8.0).contains(&value))
+        {
             return false;
         }
         let Some(agent) = self
@@ -1019,6 +1036,7 @@ impl AiWorld {
         if agent.bounds().is_some_and(|bounds| !bounds.contains(goal)) {
             return false;
         }
+        agent.navigation_speed = speed;
         if agent
             .navigation_goal
             .is_some_and(|previous| previous.distance_squared(goal) < 0.0625)
@@ -1745,7 +1763,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         agent.speed_mps = 0.0;
         return;
     };
-    let speed = match agent.state {
+    let state_speed = match agent.state {
         AiState::Flee {
             threat: _,
             destination: _,
@@ -1761,6 +1779,11 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         | AiState::Catch { target: _ }
         | AiState::Scripted
         | AiState::Caught => agent.def.walk_speed,
+    };
+    let speed = if agent.navigation_goal.is_some() {
+        agent.navigation_speed.unwrap_or(state_speed)
+    } else {
+        state_speed
     };
     let goal_changed = agent
         .path_goal

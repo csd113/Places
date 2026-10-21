@@ -2163,6 +2163,11 @@ impl LevelLighting {
         if self.indexed_room(position[0], Some(position[1]), position[2], false) != Some(room) {
             return None;
         }
+        self.probe_region_in_room(room, position)
+    }
+
+    /// Caller has already resolved this point's actual air-volume owner.
+    fn probe_region_in_room(&self, room: usize, position: [f32; 3]) -> Option<u32> {
         self.room_zones
             .get(room)
             .and_then(Option::as_ref)
@@ -2174,6 +2179,11 @@ impl LevelLighting {
                     position[2],
                 )
             })
+    }
+
+    fn probe_area(&self, position: [f32; 3]) -> Option<(usize, u32)> {
+        let room = self.indexed_room(position[0], Some(position[1]), position[2], false)?;
+        Some((room, self.probe_region_in_room(room, position)?))
     }
 
     /// Whether two positions share an existing connected lighting area.
@@ -2193,24 +2203,33 @@ impl LevelLighting {
         probe: [f32; 3],
         label: i32,
     ) -> bool {
-        usize::try_from(label).ok() == self.room_index_at_height(probe[0], probe[1], probe[2])
-            && self.probe_visible_from(position, probe)
+        self.labelled_probe_visibility(position)(probe, label)
+    }
+
+    /// Prepare the receiver's immutable air/partition check once for all probe
+    /// candidates. Probe ownership and exact segment occlusion remain checked.
+    pub fn labelled_probe_visibility(
+        &self,
+        position: [f32; 3],
+    ) -> impl Fn([f32; 3], i32) -> bool + '_ {
+        let receiver_valid = self.probe_area(position).is_some();
+        move |probe, label| {
+            receiver_valid
+                && self
+                    .probe_area(probe)
+                    .is_some_and(|(room, _)| usize::try_from(label).ok() == Some(room))
+                && self.runtime_probe_segment_visible(position, probe)
+        }
     }
 
     /// Whether a prepared probe may contribute at an entity position.
-    /// Indexed compiled solids require a clear segment even within one area:
-    /// a short divider or furniture can block light without splitting a room.
-    /// An open doorway permits both visible room populations to contribute.
+    /// Both endpoints retain actual air-volume/partition guards; a clear exact
+    /// segment permits valid populations across open doorways to contribute.
     #[must_use]
     pub fn probe_visible_from(&self, position: [f32; 3], probe: [f32; 3]) -> bool {
-        let area = |point: [f32; 3]| {
-            self.indexed_room(point[0], Some(point[1]), point[2], false)
-                .and_then(|room| self.probe_region_at(room, point).map(|zone| (room, zone)))
-        };
-        let (Some(_source), Some(_target)) = (area(position), area(probe)) else {
-            return false;
-        };
-        self.runtime_probe_segment_visible(position, probe)
+        self.probe_area(position).is_some()
+            && self.probe_area(probe).is_some()
+            && self.runtime_probe_segment_visible(position, probe)
     }
 
     /// Tests one finite source tap against its compiled, owner-aware solids.
@@ -3838,3 +3857,7 @@ fn read_fixture_lights(
 const fn allocation_bytes<T>(values: &Vec<T>) -> usize {
     values.capacity().saturating_mul(std::mem::size_of::<T>())
 }
+
+#[cfg(test)]
+#[path = "../tests/probe_visibility.rs"]
+mod probe_visibility_tests;

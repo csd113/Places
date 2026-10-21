@@ -253,6 +253,7 @@ fn explicit_actor_pose_releases_to_locomotion_and_reset() -> Result<(), String> 
         &[ActionDef::Navigate {
             target: "actor".into(),
             position: [2.0, 0.0, 1.0],
+            speed_mps: None,
         }],
         None,
     );

@@ -1,28 +1,60 @@
-# Places menu miniature
+# Places menu scene
 
-This application-owned, non-playable scene follows the supplied four-room PNG
-concept: Office foreground, Pool second, Home third, Arcade fourth. The Home
-closet alcove adds no depth layer. The camera is fixed at `(0,1.6,3.5)`, yaw 0,
-55° vertical lens. Keep this composition and the central sightline intact.
+The application-owned, non-playable scene has four depth layers: Office, Pool,
+Home and Arcade. The Home closet belongs to its room. The camera is fixed at
+`(0,1.6,4.7)`, yaw 0, pitch −5°, with a 55° vertical lens.
 
-The supplied UI reference is Library `libfile_3d8f1646686881919749d01eec4941bb`;
-the scene reference is `libfile_b71c7ad102d48191b2b167b8e0bf02f8`. Both original
-images were inspected. The references and generated logo extraction attempts
-remain local evidence; no generated cutout that failed the PNG/alpha contract is
-shipped. The cream wordmark uses the committed font atlas with compact display
-proportions. The main page has Explore, Settings, Credits and Exit; cards live
-only in Explore.
+Seven complete events are shuffled as units, without repetition until the bag
+is exhausted. A fresh entry receives a new seed; the previous last event is
+avoided at the boundary. Settings do not reshuffle an active event. Internal
+animation steps are not additional events, and there is no fixed ten-minute
+padding. The cap remains 15 events.
 
-`menu.luau` contains 120 chronological five-second cues across twelve miniature
-vignettes, including coordinated crossings, greetings, parcel/book/towel/cushion/
-gift pickup and physical putdown, the real folding closet, practical lighting,
-and three reusable buoyant ducks moving with the water current. Contact actions
-run at 0.9 seconds using one pending actor/action pair. The script retains no
-host callbacks and spawns no objects. Six actors, eight movable items and one
-module are reused; at 600 seconds the ordinary reset lifecycle restores source
-poses, physics groups, audio, lamps, navigation and the VM.
+1. Office parcel relay: the porter enters left, places the original parcel and
+   leaves. A different collector enters right, retrieves it and leaves right.
+2. Pool duck: an attendant releases the same carried duck into the water, walks
+   along the dry deck, retrieves it at the opposite bank and exits the other door.
+3. Home ghost chase: the folding closet opens, the visitor raises both arms in
+   fear, turns and runs, pursued by a ghost. Cleanup follows both leaving view.
+4. Arcade game: the player uses the cabinet, its actual practical light responds,
+   and the player celebrates before leaving.
+5. Blackout and roaches: longer irregular flickering, about one second of full
+   darkness, then Arcade → Home → Pool → Office restoration. Eight existing
+   cockroaches are staged during darkness before any restoration; they rapidly
+   scatter along the floor below the camera and despawn only after leaving view.
+6. Five Arcade balloons: varied heights, spacing, bob and entry times; the whole
+   envelope clears the doors. All five despawn only after leaving the camera
+   into the concealed opposite wing, so later entrances do not inherit traffic.
+7. Vanishing bodies: the seven side doors open outward, one NPC enters from each,
+   and all become true physics ragdolls. Irregular flickering leads to darkness;
+   the runtime bodies are removed there, and flickering lights reveal an empty room.
 
-Bake explicitly with the release compiler and native Metal/Vulkan/D3D support:
+The crowd is an explicit exception to sparse staging. Other events use only their
+necessary cast. Waiting actors and reset items stay behind opaque wings. No
+insect door choreography or visible lifetime timeout is used. Spawn groups and
+runtime names bound the temporary cast; removal releases AI, render and ragdoll
+ownership. The ordinary whole-bag reset occurs only after the scene is quiet.
+
+Carry requests use the shared posed-contact path and keep the original item's
+resource, scale and physical identity. Contact retains its initial world pose,
+then continuously seats it in the authored palm transform during the lift. An
+initial wrist-to-item gap is not retained permanently. The duck keeps its existing
+water/buoyancy body through release, travel and recollection. Lua physical item
+queries follow solver positions rather than stale authored placements.
+
+The scene requires Full lighting for independent circuits. That presentation
+belongs to the application menu; the player's saved gameplay preference remains
+unchanged. Lighting changes use actual supported circuits. The main page retains
+the committed font-atlas title and functional navigation, with no decorative
+under-title or top-right text. Its existing shading uses continuous vertex alpha
+instead of separate stepped strips.
+
+Developer controls `PLACES_MENU_SEED` and `PLACES_MENU_FIRST=1..7` make runs
+repeatable. Native recordings establish appearance and behavior; capture-free
+VSync-off runs establish performance separately, with actual presentation mode
+and drawable size recorded. Source implementation is not native acceptance.
+
+Bake explicitly with the release compiler and native GPU support:
 
 ```sh
 places-compile build projects/menu --out local/menu.placesmap --asset-root assets --variants static,full --workers 6
@@ -30,8 +62,7 @@ places-compile validate local/menu.placesmap --asset-root assets
 places-compile verify projects/menu --package local/menu.placesmap --asset-root assets --require-current
 ```
 
-Only after verification, copy the package bytes to
-`assets/shared/menu/scene.bin`. This prepared application resource is intentionally
-tracked; no gameplay package or source checkout is needed at runtime. Packaging
-already includes `assets/shared/`. Never add this scene to Explore or load a
-collection to render its background.
+Only after verification, copy the package to `assets/shared/menu/scene.bin`.
+Cargo and ordinary tests do not bake this scene. It is a tracked application
+resource and works without gameplay maps or a source checkout. It never appears
+as an Explore entry.

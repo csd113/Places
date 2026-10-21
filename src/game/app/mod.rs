@@ -46,6 +46,8 @@ const STATE_LOG_INTERVAL: u64 = 5;
 
 /// Items in the fixed main menu: Explore, Settings, Credits, Exit.
 const MAIN_MENU_ITEM_COUNT: usize = 4;
+static MENU_SHUFFLE_COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(1);
+static LAST_MENU_VIGNETTE: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0);
 
 /// Items in the fixed pause menu: Resume, Settings, Return to Main Menu.
 const PAUSE_MENU_ITEM_COUNT: usize = 3;
@@ -865,7 +867,20 @@ impl FrameLoop<'_> {
     }
 
     fn record_menu_beat(&mut self) {
-        if !self.trace.is_recording() || !self.menu_world() {
+        if !self.menu_world() {
+            return;
+        }
+        if let Some(crate::engine::entities::components::StateValue::Int(value)) = self
+            .game
+            .entities()
+            .handle_of("guest")
+            .and_then(|handle| self.game.entities().components().states.get(handle))
+            .and_then(|state| state.get("vignette"))
+            && (1..=12).contains(value)
+        {
+            LAST_MENU_VIGNETTE.store(*value, std::sync::atomic::Ordering::Relaxed);
+        }
+        if !self.trace.is_recording() {
             return;
         }
         let beat = self
@@ -1110,7 +1125,8 @@ impl FrameLoop<'_> {
         let characters = self
             .renderer
             .update_characters(visual_delta, self.game.entity_frames());
-        self.update_carry_attachments();
+        self.update_carry_contacts(visual_delta);
+        self.update_carry_attachments(visual_delta);
         for instance_id in &characters.finished {
             self.game
                 .entities_mut()
@@ -1133,6 +1149,49 @@ impl FrameLoop<'_> {
         for group in groups {
             self.reset_item_group(&group);
         }
+        self.initialize_menu_choreography();
+    }
+
+    fn initialize_menu_choreography(&mut self) {
+        if !self.menu_world() {
+            return;
+        }
+        let counter = MENU_SHUFFLE_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let fresh = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(counter, |duration| {
+                duration.subsec_nanos().wrapping_add(counter)
+            });
+        let seed = std::env::var("PLACES_MENU_SEED")
+            .ok()
+            .and_then(|value| value.parse::<u32>().ok())
+            .unwrap_or(fresh)
+            & 0x7fff_ffff;
+        let first = std::env::var("PLACES_MENU_FIRST")
+            .ok()
+            .and_then(|value| value.parse::<i64>().ok())
+            .filter(|value| (1..=12).contains(value))
+            .unwrap_or(0);
+        let actions = [
+            crate::engine::level::ActionDef::SetState {
+                target: Some("guest".into()),
+                name: "menu_seed".into(),
+                value: crate::engine::entities::components::StateValue::Int(i64::from(seed)),
+            },
+            crate::engine::level::ActionDef::SetState {
+                target: Some("guest".into()),
+                name: "menu_first".into(),
+                value: crate::engine::entities::components::StateValue::Int(first),
+            },
+            crate::engine::level::ActionDef::SetState {
+                target: Some("guest".into()),
+                name: "previous_vignette".into(),
+                value: crate::engine::entities::components::StateValue::Int(
+                    LAST_MENU_VIGNETTE.load(std::sync::atomic::Ordering::Relaxed),
+                ),
+            },
+        ];
+        let _published = self.game.entities_mut().dispatch_actions(&actions, None);
     }
 
     fn menu_world(&self) -> bool {
@@ -1547,6 +1606,29 @@ impl FrameLoop<'_> {
         self.reconcile_graphics();
     }
 
+    /// The application scene owns its circuit presentation independently of
+    /// the saved gameplay preference. Never rewrite settings to load the menu.
+    fn graphics_for_level(&self, id: &str) -> quality::GraphicsSpec {
+        let mut spec = self.settings.graphics_spec();
+        if id == "places_menu" {
+            spec.lightmaps = quality::LightmapQuality::Full;
+        }
+        spec
+    }
+
+    fn requested_graphics(&self) -> quality::GraphicsSpec {
+        let id = self
+            .load_source
+            .as_ref()
+            .map(loading::Source::level_id)
+            .or_else(|| {
+                self.current_level
+                    .as_ref()
+                    .map(|loaded| loaded.level.id.as_str())
+            });
+        self.graphics_for_level(id.unwrap_or_default())
+    }
+
     /// Reconciles the requested graphics configuration against the renderer.
     ///
     /// Runs every frame: a graphics transition is a non-blocking background
@@ -1556,7 +1638,7 @@ impl FrameLoop<'_> {
     /// systems.
     fn reconcile_graphics(&mut self) {
         let action = quality::graphics_action(
-            self.settings.graphics_spec(),
+            self.requested_graphics(),
             self.renderer.graphics_applied(),
             self.renderer.staged_graphics(),
             self.failed_graphics,
@@ -1624,11 +1706,11 @@ impl FrameLoop<'_> {
     /// Publishes the selected configuration after a failed request may have
     /// restored the renderer's request to its previous resident configuration.
     fn request_renderer_graphics(&mut self) {
+        let lightmaps = self.requested_graphics().lightmaps;
         self.renderer.set_quality(self.settings.quality_level());
         self.renderer
             .set_lighting_quality(self.settings.lighting_quality());
-        self.renderer
-            .set_lightmap_quality(self.settings.lightmap_quality());
+        self.renderer.set_lightmap_quality(lightmaps);
         self.renderer
             .set_reflection_quality(self.settings.reflection_quality());
         self.renderer
@@ -1646,7 +1728,7 @@ impl FrameLoop<'_> {
                     "quality": self.settings.quality_level().name(),
                     "lighting": self.settings.lighting_quality().name(),
                     "use_low_quality_lighting": self.settings.use_low_quality_lighting,
-                    "lightmaps": self.settings.lightmap_quality().name(),
+                    "lightmaps": self.requested_graphics().lightmaps.name(),
                     "reflections": self.settings.reflection_quality().name(),
                     "bloom": self.settings.bloom_enabled(),
                     "filtering": self.settings.texture_filtering_preset(),
@@ -1664,7 +1746,7 @@ impl FrameLoop<'_> {
             // Nothing to rebuild from: the request cannot be scheduled here.
             // Hold it so the reconciliation does not retry every frame; the
             // next world commit makes the request schedulable again.
-            self.failed_graphics = Some(self.settings.graphics_spec());
+            self.failed_graphics = Some(self.requested_graphics());
             return;
         };
         let intent = self.load_intent.unwrap_or(LoadIntent::Graphics);
@@ -1677,7 +1759,7 @@ impl FrameLoop<'_> {
                 "quality": self.settings.quality_level().name(),
                 "lighting": self.settings.lighting_quality().name(),
                 "use_low_quality_lighting": self.settings.use_low_quality_lighting,
-                "lightmaps": self.settings.lightmap_quality().name(),
+                "lightmaps": self.requested_graphics().lightmaps.name(),
                 "reflections": self.settings.reflection_quality().name(),
                 "bloom": self.settings.bloom_enabled(),
                 "filtering": self.settings.texture_filtering_preset(),
@@ -3205,13 +3287,14 @@ impl FrameLoop<'_> {
                 entry.path.display()
             ),
         );
-        let lightmaps = self.settings.lightmap_quality();
+        let lightmaps = self.graphics_for_level(&level_id).lightmaps;
         let request = loading::Request {
             source: source.clone(),
             lightmaps,
         };
         match self.loader.request(request) {
             Ok(id) => {
+                self.renderer.set_lightmap_quality(lightmaps);
                 if self.load_intent.is_none() {
                     self.load_return_state = if matches!(intent, LoadIntent::Background) {
                         AppState::MainMenu
@@ -3279,13 +3362,15 @@ impl FrameLoop<'_> {
         source: &loading::Source,
         intent: LoadIntent,
     ) -> bool {
-        if self.load_intent.is_none() || self.load_lightmaps != self.settings.lightmap_quality() {
+        if self.load_intent.is_none()
+            || self.load_lightmaps != self.graphics_for_level(source.level_id()).lightmaps
+        {
             return false;
         }
         if self
             .renderer
             .staged_graphics()
-            .is_some_and(|staged| staged != self.settings.graphics_spec())
+            .is_some_and(|staged| staged != self.graphics_for_level(source.level_id()))
         {
             return false;
         }
@@ -3361,7 +3446,7 @@ impl FrameLoop<'_> {
                     };
                     self.trace
                         .record("cpu_ready", id, &prepared.loaded.level.id);
-                    if prepared.lightmaps != self.settings.lightmap_quality() {
+                    if prepared.lightmaps != self.requested_graphics().lightmaps {
                         if let Some(source) = self.load_source.clone() {
                             self.request_load(source, intent);
                         }
@@ -3464,7 +3549,7 @@ impl FrameLoop<'_> {
         }
         let graphics = matches!(self.load_intent, Some(LoadIntent::Graphics));
         if graphics {
-            let spec = self.settings.graphics_spec();
+            let spec = self.requested_graphics();
             self.failed_graphics = Some(spec);
             crate::engine::logging::warn(format!(
                 "graphics change to {} did not apply: {error}",
@@ -3852,6 +3937,9 @@ impl FrameLoop<'_> {
         self.ui_state.clear_status();
         self.clear_loading_inputs(matches!(intent, LoadIntent::Graphics));
         self.game.reset_timing();
+        if !matches!(intent, LoadIntent::Graphics) {
+            self.initialize_menu_choreography();
+        }
         if self.launch_overrides {
             self.launch_overrides = false;
             if let Some(spawn) = spawn_override_from_env() {
@@ -4332,7 +4420,15 @@ impl FrameLoop<'_> {
                 ),
             AppState::MainMenu | AppState::LevelSelect | AppState::Settings => {
                 // Static menu background camera
-                (*self.spawn_pos, *self.spawn_yaw, 0.0)
+                (
+                    *self.spawn_pos,
+                    *self.spawn_yaw,
+                    if self.menu_world() {
+                        -5.0_f32.to_radians()
+                    } else {
+                        0.0
+                    },
+                )
             }
         };
         // `PLACES_CAMERA=yaw[,pitch]` pins the camera so a hardware benchmark

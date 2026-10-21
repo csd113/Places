@@ -689,6 +689,9 @@ impl FrameLoop<'_> {
             &self.items.authored,
             &self.console_runtime,
         );
+        self.game
+            .entities_mut()
+            .observe_physical_items(actors.clone());
         if seed {
             self.game.seed_volume_occupants_iter(actors);
         } else {

@@ -1174,17 +1174,18 @@ fn draw_error(vertices: &mut Vec<Vertex>, ui: &UiState) {
 }
 fn main_geometry(ui: &UiState, settings: &Settings, version: &str) -> Vec<Vertex> {
     let mut vertices = Vec::new();
-    // A composed left scrim leaves the framed live scene unobscured.
-    for strip in 0_u8..16 {
-        let x = f32::from(strip) * 14.0;
-        add_rect_rgba(
-            &mut vertices,
-            x,
-            0.0,
-            x + 14.0,
-            272.0,
-            [0.018, 0.026, 0.032, 0.74 * (1.0 - f32::from(strip) / 16.0)],
-        );
+    // Interpolate alpha across one quad. Separate constant-alpha strips made
+    // visible vertical bands over the otherwise continuous scene lighting.
+    add_rect_rgba(
+        &mut vertices,
+        0.0,
+        0.0,
+        224.0,
+        272.0,
+        [0.018, 0.026, 0.032, 0.74],
+    );
+    for vertex in &mut vertices {
+        vertex.color[3] = (1.0 - vertex.pos[0] / 224.0) * 0.74;
     }
     let logo_start = vertices.len();
     draw_text(&mut vertices, "Places", 23.0, 22.0, 5.0, TEXT);
@@ -1195,25 +1196,8 @@ fn main_geometry(ui: &UiState, settings: &Settings, version: &str) -> Vec<Vertex
         }
     }
 
-    draw_text(
-        &mut vertices,
-        "Take a walk. Stay a while.",
-        25.0,
-        62.0,
-        0.8,
-        TEXT,
-    );
     let layout = menu_layout(AppState::MainMenu, ui, settings, &DisplayStatus::default());
     draw_rows(&mut vertices, &layout, AppState::MainMenu, ui);
-    draw_text(
-        &mut vertices,
-        "A FEW PLACES, ALL AT ONCE",
-        298.0,
-        16.0,
-        0.65,
-        TEXT,
-    );
-    draw_text(&mut vertices, "LIVE SCENE", 380.0, 26.0, 0.65, ACCENT);
     draw_text(
         &mut vertices,
         "Enter: select   Arrows: move",
@@ -1241,13 +1225,11 @@ fn main_geometry(ui: &UiState, settings: &Settings, version: &str) -> Vec<Vertex
         );
         draw_text(&mut vertices, "PLACES", 36.0, 32.0, 3.0, TEXT);
         for (line, text) in [
-            "A small collection of places to be.",
             "Created by Connor Dawkins",
             "",
             "Built with Rust, wgpu, SDL3, Luau and Kira.",
             "Open source licenses accompany this installation.",
             "",
-            "Take a walk. Stay a while.",
         ]
         .into_iter()
         .enumerate()

@@ -142,7 +142,16 @@ fn ragdoll_contacts_settle_pause_step_and_remove_every_solver_handle() -> Result
         "resting core penetration remains within two centimetres"
     );
     let pelvis = Vec3::from_array(*snapshot.world_positions.first().ok_or("pelvis missing")?);
+    // A sleeping pose must not invalidate lighting and GPU skinning every frame.
+    // Reuses this already-settled fixture, adding only two pose publications.
+    let mut published = vec![Mat4::IDENTITY; current.len()];
+    assert!(world.write_ragdoll_pose("fall", &mut published));
+    assert!(!world.write_ragdoll_pose("fall", &mut published));
     wake_with_item(&mut world, pelvis)?;
+    assert!(
+        world.write_ragdoll_pose("fall", &mut published),
+        "contact wake must publish the changed pose"
+    );
     world.pause();
     let frozen = world
         .ragdoll_snapshots()

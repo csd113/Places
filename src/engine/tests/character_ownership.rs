@@ -85,6 +85,68 @@ fn tiny_rig() -> Arc<LoadedPropAsset> {
     })
 }
 
+// Protects observed idle skin/upload waste and cue-to-automatic ownership.
+// One synthetic node and two keys check exact pose retention plus real motion;
+// this adds milliseconds, no asset decode, GPU, simulation or map bake.
+#[test]
+fn identical_automatic_poses_keep_revision_while_motion_and_cue_release_update()
+-> Result<(), String> {
+    use crate::engine::gltf::{AnimationInterpolation, AnimationPath, PropAnimationChannel};
+    let mut model = tiny_rig().model.clone();
+    for (index, animation) in model.animations.iter_mut().enumerate() {
+        animation.duration = if index == 0 { 0.0 } else { 1.0 };
+        animation.channels = vec![PropAnimationChannel {
+            node: 0,
+            path: AnimationPath::Translation,
+            interpolation: AnimationInterpolation::Linear,
+            times: vec![0.0, 1.0],
+            values: if index == 0 {
+                vec![0.25, 0.0, 0.0, 0.25, 0.0, 0.0]
+            } else {
+                vec![0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+            },
+            values_per_key: 3,
+        }];
+    }
+    let mut animator = CharacterAnimator::new(&model).ok_or("missing tiny rig")?;
+    let idle = LocomotionSnapshot {
+        state: LocomotionState::Idle,
+        speed: 0.0,
+    };
+    assert!(
+        animator.update(0.1, idle),
+        "initial authored pose must publish"
+    );
+    let revision = animator.revision();
+    let pose = animator.node_global("root");
+    for _ in 0_u8..60 {
+        assert!(
+            !animator.update(0.1, idle),
+            "unchanged keys must not dirty GPU skinning"
+        );
+    }
+    assert_eq!(animator.revision(), revision);
+    assert_eq!(animator.node_global("root"), pose);
+    assert!(animator.sample_fraction("walk", 0.75));
+    assert!(
+        animator.update(0.1, idle),
+        "leaving a cue must restore automatic pose"
+    );
+    assert_eq!(animator.node_global("root"), pose);
+    let walking = LocomotionSnapshot {
+        state: LocomotionState::Walking,
+        speed: 1.0,
+    };
+    assert!(
+        animator.update(0.2, walking),
+        "real key motion still publishes"
+    );
+    let walking_revision = animator.revision();
+    assert!(animator.update(0.1, walking));
+    assert!(animator.revision() > walking_revision);
+    Ok(())
+}
+
 #[test]
 fn actors_own_idle_movement_and_action_independently_of_the_player() -> Result<(), String> {
     let asset = tiny_rig();

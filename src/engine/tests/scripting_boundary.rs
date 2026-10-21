@@ -153,3 +153,95 @@ fn label_actions_require_the_runtime_capability_but_allow_disabled_controls() ->
     );
     Ok(())
 }
+
+// One asset-free runtime entity protects the new named spawn/removal boundary:
+// Lua cannot delete authored data, live physical queries are not stale placement
+// coordinates, and repeated named creation releases every runtime name/group.
+#[test]
+fn named_runtime_lifecycle_refuses_authored_deletion_and_queries_live_items() -> Result<(), String>
+{
+    use crate::engine::entities::TriggerItem;
+    use glam::Vec3;
+    let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"runtime_scope","name":"Runtime scope","spawn":{"x":0,"z":0},"props":[{"id":"permanent","model":"core:crate","x":1,"z":1}],"spawn_templates":[{"id":"t","model":"core:crate"}],"spawn_groups":[{"id":"g","at_most_one_active":true}],"spawn_points":[{"id":"p","x":0,"z":0,"template":"t","group":"g"}]}"#).map_err(|problem| problem.to_string())?;
+    let mut world = EntityWorld::from_level(&level);
+    world.observe_physical_items(std::iter::once(TriggerItem {
+        key: 1,
+        instance: "permanent",
+        asset: "core:crate",
+        from: Vec3::ONE,
+        to: Vec3::new(2.0, 0.0, 3.0),
+        half_extents: Vec3::splat(0.1),
+        held: false,
+        sleeping: false,
+        path: None,
+        centre_path: None,
+    }));
+    let module = Module::load(&ScriptSource {
+        path: ProjectPath::new("scripts/lifecycle.luau".into())?,
+        source: "return {}".into(),
+    })
+    .map_err(|problem| problem.to_string())?;
+    let queue = Mutex::new(Vec::new());
+    let notices = Mutex::new(Vec::new());
+    let points = BTreeSet::from(["p".to_string()]);
+    let groups = BTreeSet::new();
+    for cycle in 0_u8..2 {
+        let calls = Cell::new(0usize);
+        module
+            .lua
+            .scope(|scope| {
+                let host = api::host(
+                    &module.lua,
+                    scope,
+                    &world,
+                    &queue,
+                    &notices,
+                    &points,
+                    &groups,
+                    &calls,
+                    8,
+                )?;
+                let actor: mlua::Function = host.raw_get("actor")?;
+                let position: mlua::Table = actor.call("permanent")?;
+                assert_eq!(position.raw_get::<f32>("x")?, 2.0);
+                assert_eq!(position.raw_get::<f32>("z")?, 3.0);
+                let despawn: mlua::Function = host.raw_get("despawn")?;
+                assert!(despawn.call::<()>("permanent").is_err());
+                let spawn: mlua::Function = host.raw_get("spawn")?;
+                let name: String = spawn.call(("p", "temporary"))?;
+                assert_eq!(name, "temporary");
+                Ok(())
+            })
+            .map_err(|problem| problem.to_string())?;
+        let actions = std::mem::take(&mut *queue.lock().map_err(|problem| problem.to_string())?);
+        assert_eq!(
+            world.dispatch_actions(&actions, None).spawned,
+            1,
+            "cycle {cycle}"
+        );
+        assert!(world.is_runtime_spawn("temporary"));
+        module
+            .lua
+            .scope(|scope| {
+                let host = api::host(
+                    &module.lua,
+                    scope,
+                    &world,
+                    &queue,
+                    &notices,
+                    &points,
+                    &groups,
+                    &calls,
+                    8,
+                )?;
+                let despawn: mlua::Function = host.raw_get("despawn")?;
+                despawn.call::<()>("temporary")
+            })
+            .map_err(|problem| problem.to_string())?;
+        let removals = std::mem::take(&mut *queue.lock().map_err(|problem| problem.to_string())?);
+        assert_eq!(world.dispatch_actions(&removals, None).despawned, 1);
+        assert!(world.handle_of("temporary").is_none());
+        assert!(world.handle_of("permanent").is_some());
+    }
+    Ok(())
+}

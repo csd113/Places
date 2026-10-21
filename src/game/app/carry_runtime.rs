@@ -15,6 +15,7 @@ struct Attachment {
     item: String,
     socket: String,
     local: Mat4,
+    alignment: Option<GripAlignment>,
     retirement_requested: bool,
     retired: bool,
     bounds: Option<Aabb>,
@@ -22,6 +23,37 @@ struct Attachment {
     item_bounds: Option<Aabb>,
     hidden: bool,
     reset: OwnedItemReset,
+}
+
+/// Contact retains the loose item's exact pose, then continuously seats it in
+/// the authored grip during the lift. A contact offset must not become a
+/// permanent gap between the fingers and the held item.
+struct GripAlignment {
+    start: Mat4,
+    target: Mat4,
+    elapsed: f32,
+    first_sample: bool,
+}
+
+impl GripAlignment {
+    fn advance(&mut self, delta: f32) -> Mat4 {
+        if self.first_sample {
+            self.first_sample = false;
+            return self.start;
+        }
+        self.elapsed = delta.max(0.0).mul_add(1.0, self.elapsed).min(0.35);
+        let fraction = (self.elapsed / 0.35).clamp(0.0, 1.0);
+        if fraction >= 1.0 {
+            return self.target;
+        }
+        let eased = fraction.powi(2) * fraction.mul_add(-2.0, 3.0);
+        let (_, start_rotation, start_position) = self.start.to_scale_rotation_translation();
+        let (_, target_rotation, target_position) = self.target.to_scale_rotation_translation();
+        Mat4::from_rotation_translation(
+            start_rotation.slerp(target_rotation, eased),
+            start_position.lerp(target_position, eased),
+        )
+    }
 }
 
 /// Original authored body contract captured before physical ownership leaves.
@@ -38,9 +70,37 @@ struct RestoredCarry {
     pose: crate::engine::physics::ItemPose,
 }
 
+/// A request follows the actual posed grip, rather than a wall-clock delay.
+struct ContactMotion {
+    start: Vec3,
+    previous: Vec3,
+}
+
+impl ContactMotion {
+    const fn new(position: Vec3) -> Self {
+        Self {
+            start: position,
+            previous: position,
+        }
+    }
+
+    fn at_contact(&mut self, position: Vec3, delta: f32) -> bool {
+        let moved = position.distance(self.start) >= 0.08;
+        let speed = if delta > 0.0 {
+            position.distance(self.previous) / delta
+        } else {
+            f32::INFINITY
+        };
+        self.previous = position;
+        moved && speed < 0.12
+    }
+}
+
 #[derive(Default)]
 pub(super) struct CarryRuntime {
     attachments: BTreeMap<String, Attachment>,
+    pending_pickups: BTreeMap<String, ContactMotion>,
+    pending_putdowns: BTreeMap<String, ContactMotion>,
     occluders: Vec<WallAabb>,
     item_groups: BTreeMap<String, String>,
 }
@@ -112,6 +172,8 @@ impl CarryRuntime {
             .collect();
         Self {
             attachments: BTreeMap::new(),
+            pending_pickups: BTreeMap::new(),
+            pending_putdowns: BTreeMap::new(),
             occluders,
             item_groups,
         }
@@ -135,6 +197,8 @@ impl CarryRuntime {
         &mut self,
         physics: &mut crate::engine::physics::ItemWorld,
     ) -> Result<Vec<RestoredCarry>, String> {
+        self.pending_pickups.clear();
+        self.pending_putdowns.clear();
         let mut restored: Vec<RestoredCarry> = Vec::with_capacity(self.attachments.len());
         for (actor, attachment) in &self.attachments {
             let original = &attachment.reset;
@@ -170,8 +234,12 @@ impl CarryRuntime {
     ) -> serde_json::Value {
         serde_json::json!({
             "opaque_uncut_walls":self.occluders.len(),
+            "pending_pickups":self.pending_pickups.keys().collect::<Vec<_>>(),
+            "pending_putdowns":self.pending_putdowns.keys().collect::<Vec<_>>(),
             "attachments":self.attachments.iter().map(|(actor,attachment)| serde_json::json!({
                 "actor":actor,"item":attachment.item,"key":attachment.key,"socket":attachment.socket,
+                "socket_world":renderer.character_socket_transform(actor, &attachment.socket).map(|m| m.to_cols_array_2d()),
+                "grip_local":attachment.local.to_cols_array_2d(),
                 "retirement_requested":attachment.retirement_requested,"retired":attachment.retired,
                 "whole_assembly_hidden":attachment.hidden,
                 "item_mesh_visible":renderer.runtime_model_lighting_snapshot(attachment.key)
@@ -350,7 +418,48 @@ impl FrameLoop<'_> {
         true
     }
 
+    fn grip_transform(&self, target: &str) -> Option<Mat4> {
+        let handle = self.game.entities().handle_of(target)?;
+        let def = &self.game.entities().components().carries.get(handle)?.def;
+        let socket = self
+            .renderer
+            .character_socket_transform(target, &def.socket)?;
+        let [x, y, z] = def.rotation_degrees.map(f32::to_radians);
+        Some(socket.mul_mat4(&Mat4::from_rotation_translation(
+            Quat::from_euler(EulerRot::XYZ, x, y, z),
+            Vec3::from_array(def.offset),
+        )))
+    }
+
+    fn contact_clip(&self, target: &str, prefix: &str) -> bool {
+        self.game
+            .entity_frames()
+            .iter()
+            .find(|frame| frame.instance_id == target)
+            .and_then(|frame| frame.cue.as_ref())
+            .and_then(crate::engine::entity::PoseCue::clip_name)
+            .is_some_and(|name| name.starts_with(prefix))
+    }
+
     pub(super) fn handoff_item(&mut self, target: &str) {
+        if self.items.carry.has_attachment(target) {
+            return;
+        }
+        if self.contact_clip(target, "pick_up_") {
+            if let Some(grip) = self.grip_transform(target) {
+                let _request = self
+                    .items
+                    .carry
+                    .pending_pickups
+                    .entry(target.to_string())
+                    .or_insert_with(|| ContactMotion::new(grip.transform_point3(Vec3::ZERO)));
+            }
+        } else {
+            self.handoff_item_now(target, false);
+        }
+    }
+
+    fn handoff_item_now(&mut self, target: &str, preserve_pose: bool) {
         if self.items.carry.attachments.contains_key(target) {
             return;
         }
@@ -384,10 +493,35 @@ impl FrameLoop<'_> {
             return;
         };
         let [x, y, z] = def.rotation_degrees.map(f32::to_radians);
-        let local = Mat4::from_rotation_translation(
+        let authored_grip = Mat4::from_rotation_translation(
             Quat::from_euler(EulerRot::XYZ, x, y, z),
             Vec3::from_array(def.offset),
         );
+        let local = if preserve_pose {
+            let Some(socket) = self
+                .renderer
+                .character_socket_transform(target, &def.socket)
+            else {
+                return;
+            };
+            let mut original_pose = None;
+            self.items.world.for_each_pose(|body, pose| {
+                if body == key {
+                    original_pose = Some(pose);
+                }
+            });
+            let Some(pose) = original_pose else {
+                return;
+            };
+            // The existing item starts in exactly its pre-contact world pose.
+            // Subsequent socket motion lifts that same rendered resource.
+            socket.inverse().mul_mat4(&Mat4::from_rotation_translation(
+                pose.rotation,
+                pose.position,
+            ))
+        } else {
+            authored_grip
+        };
         let transferred = if menu_pickup {
             self.items.world.remove_movable(key)
         } else {
@@ -405,6 +539,12 @@ impl FrameLoop<'_> {
                 item: item.clone(),
                 socket,
                 local,
+                alignment: preserve_pose.then_some(GripAlignment {
+                    start: local,
+                    target: authored_grip,
+                    elapsed: 0.0,
+                    first_sample: true,
+                }),
                 retirement_requested: false,
                 retired: false,
                 bounds: None,
@@ -421,6 +561,26 @@ impl FrameLoop<'_> {
     }
 
     pub(super) fn release_carried_item(&mut self, target: &str) {
+        if !self.items.carry.has_attachment(target) {
+            return;
+        }
+        if self.contact_clip(target, "set_down_") {
+            if let Some(grip) = self.grip_transform(target) {
+                let _request = self
+                    .items
+                    .carry
+                    .pending_putdowns
+                    .entry(target.to_string())
+                    .or_insert_with(|| ContactMotion::new(grip.transform_point3(Vec3::ZERO)));
+            }
+        } else {
+            self.release_carried_item_now(target);
+        }
+    }
+
+    pub(super) fn release_carried_item_now(&mut self, target: &str) {
+        let _removed_request = self.items.carry.pending_pickups.remove(target);
+        let _removed_putdown = self.items.carry.pending_putdowns.remove(target);
         let Some(attachment) = self.items.carry.attachments.get(target) else {
             return;
         };
@@ -462,7 +622,77 @@ impl FrameLoop<'_> {
         }
     }
 
-    pub(super) fn update_carry_attachments(&mut self) {
+    pub(super) fn update_carry_contacts(&mut self, delta: f32) {
+        let pickups: Vec<_> = self.items.carry.pending_pickups.keys().cloned().collect();
+        for actor in pickups {
+            if !self.contact_clip(&actor, "pick_up_") {
+                let _removed_request = self.items.carry.pending_pickups.remove(&actor);
+                continue;
+            }
+            let Some(grip) = self
+                .grip_transform(&actor)
+                .map(|m| m.transform_point3(Vec3::ZERO))
+            else {
+                continue;
+            };
+            let ready = self
+                .items
+                .carry
+                .pending_pickups
+                .get_mut(&actor)
+                .is_some_and(|motion| motion.at_contact(grip, delta));
+            let item = self
+                .game
+                .entities()
+                .handle_of(&actor)
+                .and_then(|handle| self.game.entities().components().carries.get(handle))
+                .map(|carry| carry.def.item.clone());
+            let near = item
+                .and_then(|id| {
+                    self.items
+                        .authored
+                        .iter()
+                        .find(|(_, name, _)| *name == id)
+                        .map(|(key, _, _)| *key)
+                })
+                .and_then(|key| self.renderer.runtime_model_world_bounds(key))
+                .is_some_and(|bounds| {
+                    let nearest =
+                        grip.clamp(Vec3::from_array(bounds.min), Vec3::from_array(bounds.max));
+                    grip.distance(nearest) <= 0.16
+                });
+            if ready && near {
+                let _removed_request = self.items.carry.pending_pickups.remove(&actor);
+                self.handoff_item_now(&actor, true);
+                self.trace_world("npc_pickup_hand_contact");
+            }
+        }
+        let putdowns: Vec<_> = self.items.carry.pending_putdowns.keys().cloned().collect();
+        for actor in putdowns {
+            if !self.contact_clip(&actor, "set_down_") {
+                let _removed_request = self.items.carry.pending_putdowns.remove(&actor);
+                continue;
+            }
+            let Some(grip) = self
+                .grip_transform(&actor)
+                .map(|m| m.transform_point3(Vec3::ZERO))
+            else {
+                continue;
+            };
+            if self
+                .items
+                .carry
+                .pending_putdowns
+                .get_mut(&actor)
+                .is_some_and(|motion| motion.at_contact(grip, delta))
+            {
+                self.release_carried_item_now(&actor);
+                self.trace_world("npc_putdown_hand_contact");
+            }
+        }
+    }
+
+    pub(super) fn update_carry_attachments(&mut self, delta: f32) {
         if self.items.carry.attachments.is_empty() {
             return;
         }
@@ -479,6 +709,12 @@ impl FrameLoop<'_> {
             else {
                 continue;
             };
+            if let Some(alignment) = &mut attachment.alignment {
+                attachment.local = alignment.advance(delta);
+                if attachment.local == alignment.target {
+                    attachment.alignment = None;
+                }
+            }
             let (_, rotation, position) = socket
                 .mul_mat4(&attachment.local)
                 .to_scale_rotation_translation();

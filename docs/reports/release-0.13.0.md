@@ -6,15 +6,197 @@ stage; earlier next-stage statements are historical handoffs. Raw local receipts
 and direct binaries remain outside `target` in their original stage directories.
 No main merge or release is implied by this staging report.
 
-## Final staging acceptance — 2026-10-21
+## Pool, menu and shared dependency follow-up — 2026-10-21
 
-The approved queue is complete in staging, subject to the explicit platform,
-delivery and GUI coverage limits below. This stage consolidates reports, corrects
-source-check ownership and native acceptance tooling, updates Cargo/lock/changelog
-to 0.13.0, and validates integrated candidates. It adds no gameplay architecture,
-map artwork or enhancement backlog. No release, tag, main merge or deployment is
-authorized or performed. Exact commits, remote verification, terminal CI, candidate
-hashes and cleanup are recorded in `local/final-validation-0.13.0/FINAL-HANDOFF.json`.
+This follow-up supersedes the earlier menu cast, 120-beat/611-second campaign,
+decorative copy, executable/package hashes and upload-helper blocker. Historical
+sections retain their actual measurements and provenance. No release, tag,
+version bump or main merge was performed. Hosted CI was not queried or awaited,
+as explicitly instructed; it is a future version-final/pre-bump gate.
+
+### Accepted behavior and shared fixes
+
+The original late pickup attached the item after the visible lift. The shared
+carry transaction now transfers the existing physical item at hand contact,
+preserves its exact world pose at transfer and blends continuously into its
+authored grip. Putdown and ragdoll release preserve that same identity. Native
+parcel and duck captures show actual palm support; the original parcel key is
+`9223372036854775819` and duck key `9223372036854775825`. The menu removes the
+repetitive book/towel/cushion/gift handling variants, so those removed events are
+not claimed as additional final grip acceptance.
+
+The live menu now contains **seven complete events**, shuffled as whole events
+without repeats within a bag. Normal fresh entries vary the seed and first event;
+explicit developer seed/first-event controls reproduce tests. Settings do not
+reshuffle an active interaction. The ordinary cast starts behind genuinely
+occluding side wings, enters through side doors, acts and exits out of view.
+
+1. Office parcel delivery: one NPC places the parcel and leaves; a different NPC
+   enters through the other doorway and collects that same parcel.
+2. Pool duck: one NPC releases the duck into real water/current, walks around the
+   dry deck, retrieves it at the opposite bank and exits through a different door.
+3. Home closet: an NPC opens the closet, raises both arms in fear, turns and runs;
+   a full-size ghost emerges after the turn and chases them out of view.
+4. Arcade play: cabinet interaction, practical-light feedback, celebration and exit.
+5. Blackout: four irregular pulses over 2.65 seconds, about one second dark, then
+   Arcade → Home → Pool → Office restoration. Eight roaches already occupy the
+   Office floor before restoration; they scatter rapidly off screen and despawn
+   only outside view. They do not queue through doors.
+6. Five Arcade balloons drift with varied heights, spacing, bobbing and arrival;
+   all leave view and despawn before another event needs those paths.
+7. Vanishing bodies: seven outward-opening side doors admit seven NPCs, which
+   become real articulated ragdolls. Flicker leads to full darkness; only then
+   are all bodies removed, and flickering restoration reveals an empty scene.
+   This event alone deliberately permits a crowd.
+
+The old ten-minute/120-beat target was superseded by quality over quantity and a
+15-event cap. Two complete final seven-event bags reset at 171.806 and 341.639
+seconds in the deterministic native campaign. Every temporary entity returned to
+the six-character baseline; diagnostics stayed empty. Balloon ownership was
+corrected after a repeated-cycle test exposed hidden permanent balloons blocking
+later crowd entrances. Ghost emergence and the duck's final facing/arrival were
+also corrected from native failures; failed attempts remain in local evidence.
+The wordmark remains the committed font atlas. Under-title and top-right
+slogans are removed. Left-side light banding came from sixteen constant-alpha UI
+strips: one continuous-alpha quad using the existing white PNG removes the seams.
+Native standard/alternate styles, three aspect ratios and small UI captures were
+inspected. This is not a universal artwork-quality claim.
+
+The Pool thrown-item case required additional shared work beyond excluding
+unrelated doors and props. Source/cell caustics certificates, receiver keys,
+immutable ray reuse and hoisted room/floor probe guards reduce the matched box
+impact CPU update **5.779 → 2.035 ms**. Prethrow/impact/settling/recovery means were
+**0.596/5.779/1.839/0.501 → 0.836/2.035/1.251/0.671 ms**: the later idle and recovery
+samples are higher and remain explicit. Mug and a Home cushion exercised the
+same infrastructure; static queries stop after settling and unrelated Home props
+retain their samples. There is no Pool/model allowlist or future-asset opt-in.
+The per-dynamic-ray experiment was ineffective and removed, with its patch kept
+locally. The user reported the Pool symptom resolved; this is not represented as
+an independently described personal acceptance test.
+
+### Focused ragdoll and dependency review
+
+Ragdolls use the ordinary character receiver/probe path with posed bounds, and
+pose revisions change only when physics actually changes bones. In the focused
+seven-ragdoll fixture all 105 bodies slept, with **zero additional pose revisions,
+lighting refreshes or immutable queries** across the stationary checkpoints.
+Contact wakes the target while the other six retain cached lighting; reset retires
+all 98 joints and bone-pose caches. Unrelated rigid props and water perform no
+additional lighting queries during the ragdolls' motion. Existing character
+projected grounding/flashlight shadows remain their implemented contract; this
+review does not introduce skeletal ambient mesh occlusion or claim it existed.
+
+Separate baseline stage samples measured active character lighting about
+0.083 ms for one physical actor and 0.504 ms for seven. Seven sleeping actors
+used 0.0012 ms for lighting, 0.0096 ms for pose publication and 0.0192 ms for
+skin/upload checks. The same fixture keeps seven visible actors: six ordinary
+idle actors in the one-ragdoll case exposed an independent defect. Automatic
+zero-duration poses advanced revisions and re-skinned unchanged vertices. Shared
+animation now detects exact unchanged local transforms/morphs before composing,
+updating joint deltas or invalidating GPU skinning; real keys, morphs, crossfades,
+cue release and waking still update. Focused regression uses one synthetic node.
+
+The queued dependency pass preserves separate old/new bounds per changed caster,
+including rotation/scale and spawn/despawn. Two distant changes no longer form a
+large enclosing dirty box that needlessly refreshes receivers/water between them.
+Rigid, character, ultraviolet and caustics consumers use the shared regions.
+The list is bounded by the existing scene budget and released with the world.
+Missing history, changed resources or incomplete ray caches conservatively refresh.
+Energy-only fixture switches retain immutable visibility rays while recomputing
+illumination; a missed resource revision cannot adopt this shortcut. Prepared
+probe bounce and potentially global source-energy effects remain conservatively
+resampled where narrower dependencies cannot be proved. No lighting is frozen,
+resolution lowered, effect removed or map-specific exemption introduced.
+
+Eight-probe switch fixtures compare every cached HDR anchor/direct tap exactly
+against uncached refresh. Small water fixtures compare exact samples against full
+refresh for movement, rotation/scale, entry/exit, removal and missed revisions.
+The 2/16/64-caster cases measure the former enclosing-union work against separate
+regions. Final measured results and exact executable identities are retained in
+`corrections/dependency-tracking-results.json` and `corrections/FINAL-ACCEPTANCE.json`.
+
+The final native source-switch runs add **zero immutable queries** on both off
+and on transitions, change actual illumination and restore the exact prior HDR
+anchor payload. Six ordinary idle actors retain revision 1. In the matched
+steady-menu control, CPU update time falls **0.231 → 0.090 ms** at 3024×1676;
+observed FPS is 149 → 206, with macOS pacing variation explicitly preventing an
+uncapped-throughput claim. The 2/16/64-caster water fixtures reduce **726 → 0**
+cell queries, preserving exact full-refresh output. Small diagnostic CPU times
+were 71/154/316 → 1/2/10 microseconds; these ran during compilation and are not
+native FPS results. Active ragdoll costs vary with substep count/presentation:
+final one/seven-physical-actor windows average 1.246/2.503 ms total CPU update and
+0.243/0.726 ms physics step; all-bones-asleep windows average 0.533/0.474 ms total
+update and 0.046/0.065 ms physics. Both cases retain seven visible models. Final
+short active lighting/skin profiles are 0.148/0.400 ms for one and 0.570/0.979 ms
+for seven. The earlier samples are retained rather than claiming every timing
+improved; zero unnecessary stationary/unrelated queries is the acceptance result.
+
+### Validation, distribution and evidence
+
+Formatting, strict debug/release Clippy and all **254 Rust tests** pass; the locked release workspace/all-feature build passed in 195.59 seconds. Final package identity is recorded in the local handoff.
+The source Python suite retains **363 passing and three optional native skips**;
+asset validation retains **621 assets, zero warnings**. No full shipped-map bake
+was added to Cargo tests or automatic CI. Native integrated assertions pass 36
+checks, and installation tooling passes 27 cases. The editor round trip saves,
+reopens, compiles, plays, returns, exports and imports outside the checkout with
+exact JSON/Luau recovery. Empty gameplay-map startup still has the bundled live
+menu and preserves gameplay lighting preferences. Master mute/persistence,
+Explore/pause/return, styles and audio shutdown passed; four archive campaign
+launchers and all 14 packaged members are discoverable outside the checkout.
+
+Capture-free menu windows at actual **3024×1676**, Full/high/bloom/reflections,
+VSync and limiters off, actual Immediate, observed roughly 236–253 FPS for ordinary
+events and 120 FPS for the crowd. Discrete refresh-related macOS presentation
+states differ between launches: these are **not established uncapped throughput
+comparisons**. A separate native profile's 96 selected first/slow render traces
+averaged 4.627 ms, including 4.202 ms surface acquisition, 0.326 ms encoding and
+0.050 ms submission. These selected trace means are not all-frame utilization;
+GPU spans overlap and include scheduling waits. The older 147.75 FPS sample used
+an earlier scene at 1600×900 and is not a matched before/after result.
+
+The separately named macOS candidate preserves existing packages. Its 14 curated
+members retain their accepted historical preparer fingerprints; final-runtime
+compatibility is exercised without relabeling them as newly rebaked. The menu is
+current-source verified. Archive hashes, signature and extraction custody are in
+`corrections/archive-receipt.json`. The final separate archive is
+`Places-0.13.0-macos-arm64-dependency-candidate.zip`, **715,574,566 bytes**, SHA-256
+`56da16f611f81c9404851292fc4459d788990de2f506a001f9f71979eaf73beb`;
+its strict ad-hoc signature and all 1,502 extracted file hashes pass. The final
+standalone player SHA-256 is
+`16c07cb27ce5452aba5a749737b511a0488c7c6ed0593d6ef70cb1c4fad4f0ec`.
+Native Windows/Linux, clean-OS installation,
+downloaded Gatekeeper/notarization and standalone compiler GUI interaction remain
+unverified. The GUI control timed out; no GUI bake or security bypass was sent.
+CLI and native editor compiler paths passed. Historical **+312 MiB** residency and
+independent presentation pacing remain unresolved, although map owners release.
+Straight stairs retain their overlapping-flat-floor limitation and 0.15 m backing;
+Annex has zero errors/29 current heuristic warnings (48 historically). Ragdoll
+reset is explicit; historical transient grip overlap is not falsely marked fixed.
+Architecture #31, player/multiplayer 0.14 and game modes #25/#26 remain deferred.
+
+Delivery recovered through the supported direct local-file Library tool after
+historical `prepare_uploads` failures. **Thirteen media files have confirmed IDs** in
+`corrections/library-confirmed.json`: six editor screenshots, stair video, original
+ragdoll clip and five final menu files including the smaller delivery copy. The single
+[seven-event video](https://chatgpt.com/api/library/files/libfile_726acb1e7878819198ed8d8f7970ec3f/download)
+is 338 seconds, 1280×720 H.264, 2.07 MB at 2 fps, with all 676 original frames
+retained. Its original 1600×900 copy remains preserved: Library accepted it,
+but sending that 29.9 MB file to the main chat exceeded the ChatGPT attachment
+limit. The smaller copy was confirmed delivered before work resumed. Separate
+roach, duck and vanishing-body clips retain 10 fps. The main archive remains local without an invented Library link.
+All original indexed artifacts, source recovery, report originals and raw failed
+attempts remain outside target. Cleanup occurs only after final local validation,
+remote verification, custody checks and no active target users; the installed
+post-clean launch and explicit ownership release are recorded in `FINAL-HANDOFF.json`.
+
+## Integrated checkpoint before Pool/menu follow-up — 2026-10-21
+
+This checkpoint records the integrated validation and distribution before the
+later user-requested thrown-prop and menu corrections. Its executable, menu and
+archive hashes are historical; the final correction section and handoff identify
+the accepted replacement bytes. No release, tag, main merge, deployment or version
+bump is authorized. The latest user instruction removes hosted CI waiting from
+this task; it remains a future version-final/pre-bump gate.
 
 ### Reports and final source checks
 
@@ -43,7 +225,7 @@ The baseline CI failure on `b7459119` was an engine test including optional
 projects. The existing recovery test now uses a minimal local Luau fixture and
 keeps its progress/reward/group-isolation assertions. Its scope is the shared host
 contract; production project checking and native play cover the authored script.
-No Rust tests were added and no map bake was added to Cargo or CI.
+No Rust tests were added at that initial checkpoint and no map bake was added to Cargo or CI.
 
 The first source Python run found obsolete constructor goldens after accepted
 model/art adoption. Six redundant tests tied to superseded byte layouts were
@@ -67,7 +249,7 @@ Earlier failed attempts and their evidence are preserved.
 | Asset catalog and maintained generators | 621 assets, zero warnings; generator checks passed |
 | Production Luau | Eleven bounded refusals and four finished-project checks passed, no map bake |
 | Native integrated assertions | 36 core plus 22 additional native/package assertions passing on the final production executables |
-| Hosted CI | Source checkpoint `5fcb8514` passed [run 39614334703](https://github.com/csd113/Places/actions/runs/39614334703); final tooling checkpoint `a7a5b2d4` passed [run 39620501057](https://github.com/csd113/Places/actions/runs/39620501057). The final documentation commit and terminal CI receipt are recorded in the handoff |
+| Hosted CI | Source checkpoint `5fcb8514` passed [run 39614334703](https://github.com/csd113/Places/actions/runs/39614334703); final tooling checkpoint `a7a5b2d4` passed [run 39620501057](https://github.com/csd113/Places/actions/runs/39620501057). Later CI is not awaited under the user’s superseding instruction |
 
 This Mac uses the documented `RUSTC_WRAPPER=` override because its restricted
 sccache cannot start; Rust/Cargo are 1.99.1. The native host is Mac14,9 / Apple
@@ -120,10 +302,10 @@ The live-menu campaign completes two Explore → gameplay → pause/settings →
 round trips, empty Explore and small-window layouts, credits and style selection.
 The displayed version is 0.13.0. Master zero persists while effects/ambience remain
 0.8/0.6; restart captures 266,240 PCM samples exactly zero. Shutdown has no live or
-queued voices or audio errors. The unchanged scene.bin hash preserves the prior
+queued voices or audio errors. At this earlier checkpoint, the scene.bin hash preserved the prior
 611-second/120-beat reset, five successful carriers, nineteen handoffs, fourteen
 putdowns and bounded ownership evidence; a new full ten-minute recording was not
-needed. The committed font-atlas wordmark and diagnostic-video limitations remain.
+needed then. The later sparse choreography supersedes this cast and timing. The committed font-atlas wordmark and diagnostic-video limitations remain.
 
 All new integration runs are functional diagnostics, often concurrent with the
 explicit compiler export. Their frame summaries are not FPS comparisons. The
@@ -209,7 +391,7 @@ not represented as delivered attachments or invented download links.
 
 All evidence, source recovery, requested media, executables and candidates remain
 outside target. Authorized cleanup follows completed Rust/build/native/package
-work, terminal final-commit CI and a no-target-users check. `cleanup.json` and the
+work and a no-target-users check. Hosted CI is not a gate under the latest user instruction. `cleanup.json` and the
 final handoff record the actual cargo-clean result and post-clean preserved launch.
 Unfinished platform/delivery coverage does not authorize the deferred architecture
 #31, player-model/multiplayer 0.14 work or game modes #25/#26.
@@ -2182,7 +2364,9 @@ in the final handoff. The next menu owner can start at
 persistent master control/mix path.
 
 
-## Main menu, miniature and visual styles stage
+## Main menu, miniature and visual styles stage (historical)
+
+This stage was superseded by the [Pool, menu and shared dependency follow-up](#pool-menu-and-shared-dependency-follow-up--2026-10-21), including seven complete events, sparse staging, removed slogans and recovered Library delivery.
 
 Both supplied PNGs were inspected as actual pixels. The UI original is the
 preserved local image from “Draft Places menu concept art”; the scene reference

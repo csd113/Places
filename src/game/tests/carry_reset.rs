@@ -78,6 +78,7 @@ fn fixture() -> Result<Fixture, String> {
             item: "requested".into(),
             socket: "hand.R".into(),
             local: Mat4::IDENTITY,
+            alignment: None,
             retirement_requested: true,
             retired: true,
             bounds: None,
@@ -179,4 +180,35 @@ fn translucent_coincident_wall_override_cannot_prove_an_actor_hidden() -> Result
         "an earlier opaque member cannot occlude through the later glass render owner"
     );
     Ok(())
+}
+
+// Essential regression: retain the original item at contact, settle to authored
+// grip without a jump, and freeze that transition during pause. This isolates
+// the floating-item bug in 24 matrix samples; no asset, GPU or map-bake cost.
+#[test]
+fn contact_grip_preserves_first_pose_pauses_and_reaches_authored_metadata() {
+    let start = Mat4::from_translation(Vec3::new(0.0, -0.18, 0.0));
+    let target = Mat4::from_rotation_translation(Quat::from_rotation_x(0.2), Vec3::ZERO);
+    let mut alignment = super::GripAlignment {
+        start,
+        target,
+        elapsed: 0.0,
+        first_sample: true,
+    };
+    assert_eq!(alignment.advance(1.0 / 60.0), start);
+    let mut previous = start;
+    for _ in 0_u8..24 {
+        let current = alignment.advance(1.0 / 60.0);
+        assert!(current.w_axis.distance(previous.w_axis) < 0.025);
+        assert_eq!(
+            alignment.advance(0.0),
+            current,
+            "pause must freeze the item"
+        );
+        previous = current;
+    }
+    assert_eq!(
+        previous, target,
+        "the contact offset must not remain a held gap"
+    );
 }

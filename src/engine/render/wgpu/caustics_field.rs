@@ -67,6 +67,79 @@ struct Source {
     intensity_share: f32,
     bounds: Aabb,
     receiver_supported: bool,
+    /// Complete per-cell certificates; movement refreshes only intersecting light paths.
+    dynamic_cells: Vec<SourceCell>,
+    refreshed_queries: u64,
+}
+
+struct SourceCell {
+    cell: usize,
+    start: usize,
+    end: usize,
+    dirty: bool,
+    visible: bool,
+    queried: bool,
+}
+
+fn source_cells(factors: &[Factor]) -> Vec<SourceCell> {
+    let mut records: Vec<SourceCell> = Vec::new();
+    for (index, factor) in factors.iter().enumerate() {
+        let cell = usize::try_from(factor.sample / 8).unwrap_or(usize::MAX);
+        if let Some(previous) = records.last_mut().filter(|entry| entry.cell == cell) {
+            previous.end = index.saturating_add(1);
+        } else {
+            records.push(SourceCell {
+                cell,
+                start: index,
+                end: index.saturating_add(1),
+                dirty: false,
+                visible: true,
+                queried: false,
+            });
+        }
+    }
+    records
+}
+
+// A conservative shadow footprint for lights above both the blocker and water.
+// Interval arithmetic bounds every E + lambda*(B-E) receiver; near-horizontal
+// or overlapping-height configurations retain the complete existing SAT path.
+fn affected_receiver_bounds(source: Aabb, receivers: Aabb, dirty: Aabb) -> Option<[[f64; 3]; 2]> {
+    let low = f64::from(source.min[1]);
+    let high = f64::from(source.max[1]);
+    let gap = low - f64::from(dirty.max[1]);
+    if gap <= 0.000_1_f64 || low <= f64::from(receivers.max[1]) {
+        return None;
+    }
+    let first = (low - f64::from(receivers.max[1])) / (high - f64::from(dirty.min[1]));
+    let last = (high - f64::from(receivers.min[1])) / gap;
+    if !first.is_finite() || !last.is_finite() || first > last {
+        return None;
+    }
+    let mut minimum = [f64::INFINITY; 3];
+    let mut maximum = [f64::NEG_INFINITY; 3];
+    for ((((emitter_min, emitter_max), blocker_min), blocker_max), (axis_min, axis_max)) in source
+        .min
+        .into_iter()
+        .zip(source.max)
+        .zip(dirty.min)
+        .zip(dirty.max)
+        .zip(minimum.iter_mut().zip(maximum.iter_mut()))
+    {
+        for emitter in <[f32; 2]>::from((emitter_min, emitter_max)) {
+            for blocker in <[f32; 2]>::from((blocker_min, blocker_max)) {
+                for amount in [first, last] {
+                    let value = (f64::from(blocker) - f64::from(emitter))
+                        .mul_add(amount, f64::from(emitter));
+                    let margin = value.abs().max(1.0) * 0.000_01_f64;
+                    *axis_min = axis_min.min(value - margin);
+                    *axis_max = axis_max.max(value + margin);
+                }
+            }
+        }
+    }
+    let result = [minimum, maximum];
+    Some(result)
 }
 
 #[derive(Clone, Copy)]
@@ -213,8 +286,8 @@ pub(super) struct ReceiverField {
     pub(super) source_revision: u64,
     cells: Vec<ReceiverCell>,
     receiver_bounds: Aabb,
-    dynamic_transmissions: Vec<f32>,
-    dynamic_support: Vec<bool>,
+    dirty_cells: Vec<bool>,
+    compose_all: bool,
 }
 
 fn local_sources(level: &LevelDef, lighting: &LevelLighting) -> Vec<Source> {
@@ -268,6 +341,8 @@ fn local_sources(level: &LevelDef, lighting: &LevelLighting) -> Vec<Source> {
                 intensity_share: intensity_shares.get(index).copied().unwrap_or(1.0),
                 bounds,
                 receiver_supported: false,
+                dynamic_cells: Vec::new(),
+                refreshed_queries: 0,
             }
         })
         .collect()
@@ -301,6 +376,8 @@ fn directional_source(def: &GlobalIlluminatorDef, lighting: &LevelLighting) -> O
         intensity_share: 1.0,
         bounds: Aabb::EMPTY,
         receiver_supported: false,
+        dynamic_cells: Vec::new(),
+        refreshed_queries: 0,
     })
 }
 
@@ -567,67 +644,115 @@ fn source_basis(
     Some(factors)
 }
 
+struct CellVisibility<'a> {
+    kind: SourceKind,
+    source: Aabb,
+    affected: Option<[[f64; 3]; 2]>,
+    changed: Option<&'a [Aabb]>,
+    visibility: &'a DynamicVisibility,
+    cells: &'a [ReceiverCell],
+    has_casters: bool,
+}
+
+impl CellVisibility<'_> {
+    fn refresh(&self, record: &mut SourceCell) {
+        record.queried = false;
+        record.dirty = false;
+        let Some(cell) = self.cells.get(record.cell) else {
+            return;
+        };
+        if self.affected.is_some_and(|[minimum, maximum]| {
+            cell.bounds
+                .min
+                .into_iter()
+                .zip(cell.bounds.max)
+                .zip(minimum)
+                .zip(maximum)
+                .any(|(((low, high), affected_low), affected_high)| {
+                    f64::from(high) < affected_low || f64::from(low) > affected_high
+                })
+        }) {
+            return;
+        }
+        if self.changed.is_some_and(|regions| {
+            regions.iter().all(|dirty| !match self.kind {
+                SourceKind::Local(_) => {
+                    finite_light_region_overlaps(self.source, cell.bounds, *dirty)
+                }
+                SourceKind::Directional(incoming) => {
+                    directional_light_region_overlaps(incoming, cell.bounds, *dirty)
+                }
+            })
+        }) {
+            return;
+        }
+        record.queried = self.has_casters;
+        let visible = !self.has_casters
+            || match self.kind {
+                SourceKind::Local(_) => {
+                    self.visibility
+                        .local_region_visible(self.source, cell.bounds, None)
+                }
+                SourceKind::Directional(incoming) => {
+                    self.visibility
+                        .directional_region_visible(cell.bounds, incoming, None)
+                }
+            };
+        record.dirty = record.visible != visible;
+        record.visible = visible;
+    }
+}
+
 fn refresh_source_visibility(
     source: &mut Source,
     visibility: &DynamicVisibility,
     cells: &[ReceiverCell],
-    transmissions: &mut [f32],
-    support: &mut [bool],
     has_casters: bool,
+    changed_regions: Option<&[Aabb]>,
+    receiver_bounds: Aabb,
 ) -> (bool, u64) {
     if !source.state.active() || source.factors.is_empty() {
         return (false, 0);
     }
-    transmissions.fill(1.0);
-    support.fill(false);
-    let mut region_queries = 0_u64;
-    for factor in &source.factors {
-        let Ok(index) = usize::try_from(factor.sample) else {
-            continue;
-        };
-        if let Some(supported) = support.get_mut(index) {
-            *supported = true;
-        }
-    }
-    if has_casters {
-        for cell in cells {
-            if cell.bounds.is_empty()
-                || !cell
-                    .corners
+    let query = CellVisibility {
+        kind: source.kind,
+        source: source.bounds,
+        affected: changed_regions
+            .map(|regions| {
+                regions
                     .iter()
-                    .any(|corner| support.get(*corner).copied().unwrap_or(false))
-            {
-                continue;
-            }
-            region_queries = region_queries.saturating_add(1);
-            let visible = match source.kind {
+                    .fold(Aabb::EMPTY, |bounds, region| bounds.union(region))
+            })
+            .and_then(|dirty| match source.kind {
                 SourceKind::Local(_) => {
-                    visibility.local_region_visible(source.bounds, cell.bounds, None)
+                    affected_receiver_bounds(source.bounds, receiver_bounds, dirty)
                 }
-                SourceKind::Directional(incoming) => {
-                    visibility.directional_region_visible(cell.bounds, incoming, None)
-                }
-            };
-            if !visible {
-                for corner in cell.corners {
-                    if let Some(value) = transmissions.get_mut(corner) {
-                        *value = 0.0;
-                    }
-                }
+                SourceKind::Directional(_) => None,
+            }),
+        changed: changed_regions,
+        visibility,
+        cells,
+        has_casters,
+    };
+    crate::engine::runtime_work::for_each_mut(&mut source.dynamic_cells, 256, |record| {
+        query.refresh(record);
+    });
+    let mut queries = 0_u64;
+    let mut changed = false;
+    for record in &source.dynamic_cells {
+        queries = queries.saturating_add(u64::from(record.queried));
+        if !record.dirty {
+            continue;
+        }
+        changed = true;
+        let transmission = f32::from(u8::from(record.visible));
+        if let Some(factors) = source.factors.get_mut(record.start..record.end) {
+            for factor in factors {
+                factor.transmission = transmission;
             }
         }
     }
-    let mut changed = false;
-    for factor in &mut source.factors {
-        let transmission = usize::try_from(factor.sample)
-            .ok()
-            .and_then(|index| transmissions.get(index))
-            .copied()
-            .unwrap_or(0.0);
-        changed |= transmission.to_bits() != factor.transmission.to_bits();
-        factor.transmission = transmission;
-    }
-    (changed, region_queries)
+    (changed, queries)
 }
 
 impl ReceiverField {
@@ -659,7 +784,6 @@ impl ReceiverField {
                     .map(|point| point_receivers.get(point).copied().flatten())
             })
             .collect();
-        let sample_count = samples.len();
         let receiver_bounds = cells
             .iter()
             .fold(Aabb::EMPTY, |bounds, cell| bounds.union(&cell.bounds));
@@ -673,10 +797,10 @@ impl ReceiverField {
             dynamic_queries: 0,
             dynamic_region_queries: 0,
             source_revision: 0,
+            dirty_cells: vec![false; cells.len()],
+            compose_all: true,
             cells,
             receiver_bounds,
-            dynamic_transmissions: vec![1.0; sample_count],
-            dynamic_support: vec![false; sample_count],
         };
         field.sources.extend(
             level
@@ -702,6 +826,7 @@ impl ReceiverField {
                 MAX_FACTORS.saturating_sub(factor_count),
             ) {
                 factor_count = factor_count.saturating_add(factors.len());
+                source.dynamic_cells = source_cells(&factors);
                 source.factors = factors;
             } else {
                 source.receiver_supported = false;
@@ -744,6 +869,12 @@ impl ReceiverField {
     }
 
     pub(super) fn compose(&mut self) {
+        if !self.compose_all {
+            self.compose_dirty_cells();
+            return;
+        }
+        self.compose_all = false;
+        self.dirty_cells.fill(false);
         for sample in &mut self.samples {
             *sample = [0.0, 0.0, 0.0, sample[3]];
         }
@@ -759,6 +890,50 @@ impl ReceiverField {
                 {
                     for (channel, light) in sample.iter_mut().take(3).zip(energy) {
                         *channel = light.mul_add(factor.value * factor.transmission, *channel);
+                    }
+                }
+            }
+        }
+    }
+
+    // Preserve source order and the same fused operations as full composition.
+    // No accumulated deltas: revisiting a cell cannot introduce numeric drift.
+    fn compose_dirty_cells(&mut self) {
+        for (cell, dirty) in self.dirty_cells.iter_mut().enumerate() {
+            if !std::mem::take(dirty) {
+                continue;
+            }
+            let start = cell.saturating_mul(8);
+            if let Some(samples) = self.samples.get_mut(start..start.saturating_add(8)) {
+                for sample in samples {
+                    *sample = [0.0, 0.0, 0.0, sample[3]];
+                }
+            }
+            for source in &self.sources {
+                let energy = source.state.energy();
+                if !energy.iter().any(|channel| *channel > 0.0) {
+                    continue;
+                }
+                let Ok(record_index) = source
+                    .dynamic_cells
+                    .binary_search_by_key(&cell, |entry| entry.cell)
+                else {
+                    continue;
+                };
+                let Some(record) = source.dynamic_cells.get(record_index) else {
+                    continue;
+                };
+                let Some(factors) = source.factors.get(record.start..record.end) else {
+                    continue;
+                };
+                for factor in factors {
+                    if let Some(sample) = usize::try_from(factor.sample)
+                        .ok()
+                        .and_then(|index| self.samples.get_mut(index))
+                    {
+                        for (channel, light) in sample.iter_mut().take(3).zip(energy) {
+                            *channel = light.mul_add(factor.value * factor.transmission, *channel);
+                        }
                     }
                 }
             }
@@ -803,6 +978,7 @@ impl ReceiverField {
         if source_changed {
             self.source_revision = self.source_revision.saturating_add(1);
         }
+        self.compose_all |= changed;
         changed
     }
 
@@ -813,6 +989,7 @@ impl ReceiverField {
             }
         }
         self.dynamic_revision = None;
+        self.compose_all = true;
         self.source_revision = previous.source_revision;
     }
 
@@ -861,6 +1038,7 @@ impl ReceiverField {
         if source_changed {
             self.source_revision = self.source_revision.saturating_add(1);
         }
+        self.compose_all |= changed;
         found.then_some(changed)
     }
 
@@ -872,41 +1050,64 @@ impl ReceiverField {
         if self.dynamic_revision == Some(revision) {
             return false;
         }
-        let changed_bounds = self
+        let changed_regions = self
             .dynamic_revision
-            .and_then(|previous| visibility.changed_bounds_since(previous));
+            .and_then(|previous| visibility.changed_regions_since(previous));
         self.dynamic_revision = Some(revision);
         let has_casters = visibility.stats().casters > 0;
-        let mut changed = false;
-        for source in &mut self.sources {
-            if changed_bounds.is_some_and(|dirty| {
-                dirty.is_empty()
-                    || match source.kind {
-                        SourceKind::Local(_) => !finite_light_region_overlaps(
-                            source.bounds,
-                            self.receiver_bounds,
-                            dirty,
-                        ),
-                        SourceKind::Directional(incoming) => !directional_light_region_overlaps(
-                            incoming,
-                            self.receiver_bounds,
-                            dirty,
-                        ),
-                    }
+        let cells = &self.cells;
+        let receiver_bounds = self.receiver_bounds;
+        // Sources own disjoint factor/certificate slots. Reuse the existing
+        // bounded executor and join before composition/upload or world unload.
+        crate::engine::runtime_work::for_each_mut(&mut self.sources, 4, |source| {
+            source.refreshed_queries = 0;
+            if changed_regions.is_some_and(|regions| {
+                regions.iter().all(|dirty| {
+                    dirty.is_empty()
+                        || match source.kind {
+                            SourceKind::Local(_) => !finite_light_region_overlaps(
+                                source.bounds,
+                                receiver_bounds,
+                                *dirty,
+                            ),
+                            SourceKind::Directional(incoming) => {
+                                !directional_light_region_overlaps(
+                                    incoming,
+                                    receiver_bounds,
+                                    *dirty,
+                                )
+                            }
+                        }
+                })
             }) {
-                continue;
+                return;
             }
-            let (source_changed, regions) = refresh_source_visibility(
+            let (_, queries) = refresh_source_visibility(
                 source,
                 visibility,
-                &self.cells,
-                &mut self.dynamic_transmissions,
-                &mut self.dynamic_support,
+                cells,
                 has_casters,
+                changed_regions,
+                receiver_bounds,
             );
-            changed |= source_changed;
-            self.dynamic_queries = self.dynamic_queries.saturating_add(regions);
-            self.dynamic_region_queries = self.dynamic_region_queries.saturating_add(regions);
+            source.refreshed_queries = queries;
+        });
+        let mut changed = false;
+        for source in &mut self.sources {
+            self.dynamic_queries = self
+                .dynamic_queries
+                .saturating_add(source.refreshed_queries);
+            self.dynamic_region_queries = self
+                .dynamic_region_queries
+                .saturating_add(source.refreshed_queries);
+            for record in &mut source.dynamic_cells {
+                if std::mem::take(&mut record.dirty) {
+                    changed = true;
+                    if let Some(dirty) = self.dirty_cells.get_mut(record.cell) {
+                        *dirty = true;
+                    }
+                }
+            }
         }
         changed
     }
@@ -922,7 +1123,7 @@ impl ReceiverField {
                 serde_json::json!({ "id": source.id, "kind": kind, "enabled": source.state.enabled,
                 "intensity": source.state.intensity, "color": source.state.color,
                 "resolved_intensity": source.state.intensity, "intensity_share": source.intensity_share,
-                "factor_entries": source.factors.len(), "eligible": source.eligible,
+                "factor_entries": source.factors.len(), "cached_visibility_cells": source.dynamic_cells.len(), "eligible": source.eligible,
                 "active": source.state.active() && source.receiver_supported,
                 "receiver_supported": source.receiver_supported,
                 "energy": if source.eligible { source.state.energy() } else { [0.0; 3] } })

@@ -322,8 +322,19 @@ pub(super) fn host<'scope>(
         capability(
             scope,
             calls,
-            move |_, (value, x, y, z): (HostString, Coordinate, Coordinate, Coordinate)| {
+            move |_,
+                  (value, x, y, z, speed): (
+                HostString,
+                Coordinate,
+                Coordinate,
+                Coordinate,
+                Option<Coordinate>,
+            )| {
                 let id = entity(world, value)?;
+                let speed_mps = speed.map(|requested| requested.0);
+                if speed_mps.is_some_and(|requested| !(0.05..=8.0).contains(&requested)) {
+                    return Err(error("Navigation speed requires 0.05..=8 m/s"));
+                }
                 let position = [x.0, y.0, z.0];
                 if world
                     .handle_of(&id)
@@ -340,6 +351,7 @@ pub(super) fn host<'scope>(
                     ActionDef::Navigate {
                         target: id,
                         position,
+                        speed_mps,
                     },
                 )
             },
@@ -522,21 +534,37 @@ pub(super) fn host<'scope>(
     )?;
     api.set(
         "spawn",
+        capability(
+            scope,
+            calls,
+            move |_, (value, raw_name): (HostString, Option<HostString>)| {
+                let point = text(value, 96)?;
+                let name = raw_name.map(|requested| text(requested, 96)).transpose()?;
+                if !points.contains(&point) {
+                    return Err(error("Unknown spawn point"));
+                }
+                push(
+                    queue,
+                    limit,
+                    ActionDef::SpawnEntity {
+                        point: Some(point),
+                        template: None,
+                        group: None,
+                        name: name.clone(),
+                    },
+                )?;
+                Ok(name)
+            },
+        )?,
+    )?;
+    api.set(
+        "despawn",
         capability(scope, calls, move |_, value: HostString| {
-            let point = text(value, 96)?;
-            if !points.contains(&point) {
-                return Err(error("Unknown spawn point"));
+            let id = text(value, 96)?;
+            if !world.is_runtime_spawn(&id) {
+                return Err(error("Despawn requires a live runtime spawn"));
             }
-            push(
-                queue,
-                limit,
-                ActionDef::SpawnEntity {
-                    point: Some(point),
-                    template: None,
-                    group: None,
-                    name: None,
-                },
-            )
+            push(queue, limit, ActionDef::DespawnEntity { target: id })
         })?,
     )?;
     api.set(

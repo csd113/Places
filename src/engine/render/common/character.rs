@@ -2184,6 +2184,15 @@ impl CharacterScene {
         CharacterUpdate { moved, finished }
     }
 
+    /// Retains exact immutable visibility answers across energy-only switches.
+    pub fn retain_static_visibility_on_source_change(&mut self, previous: u64, revision: u64) {
+        for character in self.characters.iter_mut().chain(self.runtime.iter_mut()) {
+            character
+                .static_rays
+                .advance_source_revision(previous, revision);
+        }
+    }
+
     /// Refreshes all environmental samples after entity transforms advance.
     pub fn refresh_lighting(
         &mut self,
@@ -2263,6 +2272,8 @@ impl CharacterScene {
                     character.lighting_local_bounds,
                     character.lighting_sample_position(),
                     None,
+                    character.lighting_refresh_key,
+                    Some(&character.static_rays),
                 )
                 .is_none_or(|key| character.lighting_refresh_key != Some(key))
         };
@@ -2270,10 +2281,18 @@ impl CharacterScene {
             if !dirty(character) {
                 return;
             }
+            #[cfg(feature = "visual-diagnostics")]
+            let refresh_started = std::time::Instant::now();
             let position = character.lighting_sample_position();
             let transform = character.transform();
-            let refresh_key =
-                refresh_context.key(transform, character.lighting_local_bounds, position, None);
+            let refresh_key = refresh_context.key(
+                transform,
+                character.lighting_local_bounds,
+                position,
+                None,
+                character.lighting_refresh_key,
+                Some(&character.static_rays),
+            );
             let center_key = lighting_revision.map(|revision| {
                 super::dynamic::EntityCenterLightKey::new(revision, lighting, irradiance, position)
             });
@@ -2306,6 +2325,8 @@ impl CharacterScene {
                 }
             }
             character.lighting_refresh_key = refresh_key;
+            #[cfg(feature = "visual-diagnostics")]
+            character.static_rays.record_refresh(refresh_started);
         };
         // Each receiver owns its output; field/transport/visibility are shared
         // immutable snapshots. Join before the backend observes these samples.
@@ -2434,6 +2455,13 @@ impl CharacterScene {
                         .get(&format!("{GLOW_KEY_PREFIX}{light_id}"))
                 });
                 serde_json::json!({"id":instance_id, "cue":cue, "revision":animator.revision,
+                    "ragdoll_owned":character.ragdoll_owned,
+                    "lighting": {"ray_cache":character.static_rays.diagnostic_snapshot(),
+                        "bounds_min":character.lighting_local_bounds.min,
+                        "bounds_max":character.lighting_local_bounds.max,
+                        "hdr":character.entity_lighting.display,
+                        "spatial":character.spatial_lighting.as_ref().map(|sample| serde_json::json!({
+                            "anchors":sample.anchors,"direct":sample.direct}))},
                     "mesh_visible":character.is_visible(), "shadow_only":character.shadow_only(),
                     "flashlight_caster":character.casts_flashlight_shadow(), "opacity":character.opacity(),
                     "automatic_clip":animator.clips.as_ref().and_then(|player| name_of(player.active)),
@@ -3119,8 +3147,8 @@ impl CharacterAnimator {
 
     /// Samples the locomotion state's clip pair into the pose buffers.
     ///
-    /// Returns false when the rig cannot produce a clip pose; a rig with no
-    /// clips falls back to the procedural driver and always succeeds.
+    /// Returns whether the sampled pose or morph weights changed. A rig with
+    /// no clips retains the time-varying procedural driver.
     fn sample_locomotion_clips(&mut self, step: f32, state: usize) -> bool {
         let Some(clips) = self.clips.as_mut() else {
             self.apply_procedural_pose();
@@ -3168,28 +3196,35 @@ impl CharacterAnimator {
             }
             None => 1.0,
         };
+        let mut changed = false;
         if blend_weight < 0.999 {
             for (node, (previous, active_pose)) in self
                 .pose
                 .iter_mut()
                 .zip(self.clip_b.iter().zip(self.clip_a.iter()))
             {
-                *node = previous.blend(*active_pose, blend_weight);
+                let sampled = previous.blend(*active_pose, blend_weight);
+                changed |= *node != sampled;
+                *node = sampled;
             }
             for (slot, (previous, active_morph)) in self
                 .morphs
                 .iter_mut()
                 .zip(self.morph_b.iter().zip(self.morph_a.iter()))
             {
-                *slot = (*active_morph - *previous).mul_add(blend_weight, *previous);
+                let sampled = (*active_morph - *previous).mul_add(blend_weight, *previous);
+                changed |= slot.to_bits() != sampled.to_bits();
+                *slot = sampled;
             }
         } else {
             for (node, active_pose) in self.pose.iter_mut().zip(self.clip_a.iter()) {
+                changed |= *node != *active_pose;
                 *node = *active_pose;
             }
+            changed |= self.morphs != self.morph_a;
             self.morphs.copy_from_slice(&self.morph_a);
         }
-        true
+        changed
     }
 
     /// Poses the latex node and twelve visible string segments from an analytic cue.

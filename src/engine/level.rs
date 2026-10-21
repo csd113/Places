@@ -776,7 +776,13 @@ pub enum ActionDef {
     /// Show a dismissible, optional authored explanation without advancing play.
     ShowMessage { title: String, lines: Vec<String> },
     /// Give an AI body a goal through the shared bounded planner and mover.
-    Navigate { target: String, position: [f32; 3] },
+    Navigate {
+        target: String,
+        position: [f32; 3],
+        /// Optional bounded scripted locomotion speed; omission uses ordinary walking.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        speed_mps: Option<f32>,
+    },
     /// Atomically accept the carry component's exact held item.
     HandoffItem { target: String },
     /// Return this actor's original carried item to physical simulation at its live socket.
@@ -1078,6 +1084,7 @@ impl ActionDef {
             Self::Navigate {
                 target: _,
                 position: _,
+                speed_mps: _,
             } => "navigate",
             Self::HandoffItem { target: _ } => "handoff_item",
             Self::ReleaseItem { target: _ } => "release_item",
@@ -1229,6 +1236,7 @@ impl ActionDef {
             Self::Navigate {
                 target,
                 position: _,
+                speed_mps: _,
             }
             | Self::ReleaseItem { target }
             | Self::HandoffItem { target }

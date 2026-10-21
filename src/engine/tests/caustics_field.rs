@@ -475,9 +475,21 @@ fn moving_receiver_below_static_platform_carries_rejection_floor() -> Result<(),
     Ok(())
 }
 
+fn assert_supported_water_sources(field: &ReceiverField) {
+    assert!(
+        [false, true]
+            .into_iter()
+            .all(|directional| field.sources.iter().any(|source| matches!(
+                source.kind,
+                SourceKind::Directional(_)
+            ) == directional
+                && !source.factors.is_empty()))
+    );
+}
+
 // Essential dependency regression: a moving off-water caster must not refresh
 // the field, while old/new bounds, visibility changes and missed revisions must
-// match a full refresh. Two triangles and a .4m water bay cost milliseconds;
+// match a full refresh. Two triangles and a 1.6m water bay cost milliseconds;
 // there are no asset loads, atlas builds, native windows or GPU allocations.
 #[test]
 fn off_water_motion_reuses_certificates_without_losing_changed_blockers() -> Result<(), String> {
@@ -486,7 +498,7 @@ fn off_water_motion_reuses_certificates_without_losing_changed_blockers() -> Res
 
     let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"water_dependency","name":"Water dependency",
         "spawn":{"x":0,"z":0},"rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"floor_y":-1,"height":4,"ceiling":{"kind":"open"}}],
-        "water":[{"x":-0.2,"z":-0.2,"width":0.4,"depth":0.4,"surface_y":0,"bottom_y":-1}],
+        "water":[{"x":-0.8,"z":-0.8,"width":1.6,"depth":1.6,"surface_y":0,"bottom_y":-1}],
         "ceiling_lights":[{"id":"local","fixture":"core:pool_light_round","x":0,"z":0,"y":2}],
         "global_illuminators":[{"id":"sun","kind":"sun","direction":[0,-1,0]}]}"#)
         .map_err(|error| error.to_string())?;
@@ -507,14 +519,18 @@ fn off_water_motion_reuses_certificates_without_losing_changed_blockers() -> Res
     field.compose();
     let clear = field.samples.clone();
     assert!(clear.iter().any(|sample| sample[0] > 0.0));
-    assert!(field.sources.iter().any(|source| matches!(source.kind, SourceKind::Local(_)) && !source.factors.is_empty()));
-    assert!(
-        field
-            .sources
-            .iter()
-            .any(|source| matches!(source.kind, SourceKind::Directional(_))
-                && !source.factors.is_empty())
-    );
+    assert_supported_water_sources(&field);
+    assert_partial_water_refresh(
+        &level,
+        &lighting,
+        &volumes,
+        &mut dynamic,
+        &mut visibility,
+        &mut field,
+        id,
+    )?;
+    assert_eq!(field.samples, clear);
+
     let queries = field.dynamic_region_queries;
     assert!(dynamic.set_transform(id, [11.0, 1.0, 0.0], 45.0, 2.0));
     assert!(visibility.sync(&dynamic)?);
@@ -580,6 +596,95 @@ fn off_water_motion_reuses_certificates_without_losing_changed_blockers() -> Res
     Ok(())
 }
 
+// Essential multi-change regression: distant simultaneous changes must not
+// invalidate water between them. 2/16/64 shared tiny plates compare exact
+// samples to a full refresh and count the former union's wasted cell queries.
+// This is a millisecond CPU fixture, with no assets, bake, renderer or GPU.
+#[test]
+fn separated_caster_changes_keep_water_gaps_cached_at_scene_scale() -> Result<(), String> {
+    use crate::engine::render::common::dynamic::{DynamicScene, SpawnOrientation};
+    use crate::engine::render::common::dynamic_visibility::DynamicVisibility;
+    let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"separate_changes","name":"Separate changes",
+        "spawn":{"x":0,"z":0},"rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"floor_y":-1,"height":4,"ceiling":{"kind":"open"}}],
+        "water":[{"x":-0.8,"z":-0.8,"width":1.6,"depth":1.6,"surface_y":0,"bottom_y":-1}],
+        "ceiling_lights":[{"id":"local","fixture":"core:pool_light_round","x":0,"z":0,"y":2}],
+        "global_illuminators":[{"id":"sun","kind":"sun","direction":[0,-1,0]}]}"#)
+        .map_err(|error| error.to_string())?;
+    let lighting = LevelLighting::bake(&level);
+    let volumes = WaterVolumes::from_level(&level);
+    for count in [2_u16, 16, 64] {
+        let mut dynamic = DynamicScene::new();
+        let mesh = dynamic
+            .register_model("shared-plate", &movable_water_plate(), Vec::new(), &[])
+            .ok_or("plate refused")?;
+        let mut ids = Vec::new();
+        for index in 0..count {
+            let sign = if index % 2 == 0 { 1.0 } else { -1.0 };
+            let x = sign * (10.0 + f32::from(index));
+            ids.push((
+                dynamic
+                    .spawn_registered(mesh, [x, 1.0, 0.0], SpawnOrientation::YAW_ONLY, 0.0, 1.0)
+                    .ok_or("caster refused")?,
+                x,
+            ));
+        }
+        let mut visibility = DynamicVisibility::new();
+        assert!(visibility.sync(&dynamic)?);
+        let mut field = ReceiverField::build(&level, &lighting, volumes.volumes());
+        let _initial = field.refresh_dynamic_visibility(&visibility);
+        field.compose();
+        let clear = field.samples.clone();
+        let queries = field.dynamic_region_queries;
+        let previous = visibility.revision();
+        for (id, x) in &ids {
+            assert!(dynamic.set_transform(*id, [*x, 1.1, 0.0], 35.0, 1.25));
+        }
+        assert!(visibility.sync(&dynamic)?);
+        let started = std::time::Instant::now();
+        assert!(!field.refresh_dynamic_visibility(&visibility));
+        let precise_us = started.elapsed().as_micros();
+        assert_eq!(
+            field.dynamic_region_queries, queries,
+            "separated changes must trace no water cells"
+        );
+        assert_full_water_refresh(&field, &level, &lighting, volumes.volumes(), &visibility);
+        assert_eq!(field.samples, clear);
+        let union = visibility
+            .changed_bounds_since(previous)
+            .ok_or("latest changes missing")?;
+        let mut coarse_queries = 0_u64;
+        let coarse_started = std::time::Instant::now();
+        for source in &mut field.sources {
+            let (_, added) = super::refresh_source_visibility(
+                source,
+                &visibility,
+                &field.cells,
+                true,
+                Some(&[union]),
+                field.receiver_bounds,
+            );
+            coarse_queries = coarse_queries.saturating_add(added);
+        }
+        let coarse_us = coarse_started.elapsed().as_micros();
+        assert!(
+            coarse_queries > 0,
+            "the old enclosing union must reproduce unnecessary queries"
+        );
+        let (retired, _) = ids.first().ok_or("missing caster")?;
+        assert!(dynamic.despawn(*retired));
+        assert!(visibility.sync(&dynamic)?);
+        assert!(!field.refresh_dynamic_visibility(&visibility));
+        assert_eq!(
+            field.dynamic_region_queries, queries,
+            "far removal must not invalidate unchanged neighbours"
+        );
+        crate::engine::logging::info(format!(
+            "dependency scale={count} coarse_queries={coarse_queries} precise_queries=0 coarse_us={coarse_us} precise_us={precise_us}"
+        ));
+    }
+    Ok(())
+}
+
 fn assert_full_water_refresh(
     actual: &ReceiverField,
     level: &LevelDef,
@@ -628,4 +733,40 @@ fn movable_water_plate() -> crate::engine::gltf::PropModel {
         materials: 1,
         ..PropModel::default()
     }
+}
+
+fn assert_partial_water_refresh(
+    level: &LevelDef,
+    lighting: &LevelLighting,
+    volumes: &WaterVolumes,
+    dynamic: &mut crate::engine::render::common::dynamic::DynamicScene,
+    visibility: &mut crate::engine::render::common::dynamic_visibility::DynamicVisibility,
+    field: &mut ReceiverField,
+    id: crate::engine::render::common::dynamic::DynamicId,
+) -> Result<(), String> {
+    // Essential regression for the thrown-in-water slowdown: a small in-water
+    // move must retain exact full-refresh shadows without querying the whole bay.
+    assert!(dynamic.set_transform(id, [0.5, 0.5, 0.5], 0.0, 0.1));
+    assert!(visibility.sync(dynamic)?);
+    let _entered = field.refresh_dynamic_visibility(visibility);
+    assert!(dynamic.set_transform(id, [0.52, 0.5, 0.5], 0.0, 0.1));
+    assert!(visibility.sync(dynamic)?);
+    let previous_queries = field.dynamic_region_queries;
+    let _moved = field.refresh_dynamic_visibility(visibility);
+    field.compose();
+    assert_full_water_refresh(field, level, lighting, volumes.volumes(), visibility);
+    let mut full = ReceiverField::build(level, lighting, volumes.volumes());
+    let _full = full.refresh_dynamic_visibility(visibility);
+    assert!(
+        field
+            .dynamic_region_queries
+            .saturating_sub(previous_queries)
+            < full.dynamic_region_queries,
+        "small in-water motion must not refresh all receiver cells"
+    );
+    assert!(dynamic.set_transform(id, [10.0, 1.0, 0.0], 0.0, 1.0));
+    assert!(visibility.sync(dynamic)?);
+    let _left = field.refresh_dynamic_visibility(visibility);
+    field.compose();
+    Ok(())
 }

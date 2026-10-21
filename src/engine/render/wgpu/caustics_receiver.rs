@@ -40,7 +40,6 @@ struct ReceiverKey {
     dynamic: usize,
     dynamic_revision: u64,
     source_revision: u64,
-    source_uploads: u64,
     bounds: [[u32; 3]; 2],
     model: [[u32; 4]; 4],
     excluded: Option<DynamicId>,
@@ -82,19 +81,57 @@ impl CausticsReceiverCache {
             dynamic: std::ptr::from_ref(visibility).addr(),
             dynamic_revision: visibility.revision(),
             source_revision: caustics.field.source_revision,
-            source_uploads: caustics.source_uploads,
             bounds: [bounds.min.map(f32::to_bits), bounds.max.map(f32::to_bits)],
             model: model
                 .to_cols_array_2d()
                 .map(|column| column.map(f32::to_bits)),
             excluded,
         };
+        if let Some(previous) = &mut self.key
+            && previous.dynamic == key.dynamic
+            && visibility
+                .changed_regions_since(previous.dynamic_revision)
+                .is_some_and(|regions| {
+                    regions.iter().all(|dirty| {
+                        !receiver_visibility_affected(&caustics.field, bounds, model, *dirty)
+                    })
+                })
+        {
+            previous.dynamic_revision = key.dynamic_revision;
+        }
         if self.key.as_ref() != Some(&key) {
             self.value = caustics.receiver(bounds, model, excluded, visibility);
             self.key = Some(key);
         }
         self.value
     }
+}
+
+// Receiver overrides use source geometry/state and immutable floor bounds;
+// global lattice RGB uploads are not a dependency of this self-excluded result.
+fn receiver_visibility_affected(
+    field: &ReceiverField,
+    bounds: Aabb,
+    model: Mat4,
+    dirty: Aabb,
+) -> bool {
+    use crate::engine::spatial::{directional_light_region_overlaps, finite_light_region_overlaps};
+    if dirty.is_empty() {
+        return false;
+    }
+    let mut receivers = crate::engine::render::common::props::transform_bounds(&bounds, &model);
+    receivers.min[1] = receivers.min[1].min(field.receiver_bounds.min[1]);
+    receivers.max[1] = receivers.max[1].max(field.receiver_bounds.max[1]);
+    field
+        .sources
+        .iter()
+        .filter(|source| source.eligible && source.receiver_supported && source.state.active())
+        .any(|source| match source.kind {
+            SourceKind::Local(_) => finite_light_region_overlaps(source.bounds, receivers, dirty),
+            SourceKind::Directional(incoming) => {
+                directional_light_region_overlaps(incoming, receivers, dirty)
+            }
+        })
 }
 
 fn axis_cell(position: f32, minimum: f32, maximum: f32, count: u16) -> (u16, f32) {

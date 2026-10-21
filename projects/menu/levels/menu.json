@@ -6,7 +6,7 @@
   "author": "Places",
   "spawn": {
     "x": 0,
-    "z": 3.5,
+    "z": 4.7,
     "yaw_degrees": 0
   },
   "defaults": {
@@ -70,13 +70,76 @@
       "ceiling_material": "arcade:ceiling_acoustic_01"
     },
     {
-      "x": -2.6,
+      "x": -3.1,
       "z": -6.64,
-      "width": 0.8,
+      "width": 1.3,
       "depth": 1.98,
       "height": 3.1,
       "material": "home:hardwood_walnut_02",
       "ceiling_material": "home:ceiling_plaster_01"
+    },
+    {
+      "x": -6.3,
+      "z": 0,
+      "width": 3.3,
+      "depth": 2,
+      "height": 3.1,
+      "material": "core:carpet_beige_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 3,
+      "z": 0,
+      "width": 3.3,
+      "depth": 2,
+      "height": 3.1,
+      "material": "core:carpet_beige_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": -6.3,
+      "z": -4,
+      "width": 3.3,
+      "depth": 1.8,
+      "height": 3.1,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 3,
+      "z": -4,
+      "width": 3.3,
+      "depth": 1.8,
+      "height": 3.1,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 3,
+      "z": -6.35,
+      "width": 3.3,
+      "depth": 1.6999999999999993,
+      "height": 3.1,
+      "material": "home:hardwood_walnut_02",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": -6.3,
+      "z": -9.2,
+      "width": 3.3,
+      "depth": 1.6999999999999993,
+      "height": 3.1,
+      "material": "arcade:carpet_retro_swirl_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": 3,
+      "z": -9.2,
+      "width": 5.0,
+      "depth": 1.6999999999999993,
+      "height": 3.1,
+      "material": "arcade:carpet_retro_swirl_01",
+      "ceiling_material": "core:ceiling_panel_01"
     }
   ],
   "walls": [
@@ -86,7 +149,16 @@
       "width": 0.2,
       "depth": 5,
       "height": 3.1,
-      "material": "core:wallpaper_yellow_01"
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 0.35,
+          "width": 1.3,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
     },
     {
       "x": 3,
@@ -94,7 +166,16 @@
       "width": 0.2,
       "depth": 5,
       "height": 3.1,
-      "material": "core:wallpaper_yellow_01"
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 0.35,
+          "width": 1.3,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
     },
     {
       "x": -3,
@@ -119,7 +200,16 @@
       "width": 0.2,
       "depth": 4,
       "height": 3.1,
-      "material": "core:pool_tile_wall_01"
+      "material": "core:pool_tile_wall_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 0.325,
+          "width": 1.15,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
     },
     {
       "x": 3,
@@ -127,7 +217,16 @@
       "width": 0.2,
       "depth": 4,
       "height": 3.1,
-      "material": "core:pool_tile_wall_01"
+      "material": "core:pool_tile_wall_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 0.325,
+          "width": 1.15,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
     },
     {
       "x": -3,
@@ -169,7 +268,16 @@
       "width": 0.2,
       "depth": 3.3,
       "height": 3.1,
-      "material": "home:wall_paint_offwhite_01"
+      "material": "home:wall_paint_offwhite_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.15,
+          "width": 1.3,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
     },
     {
       "x": -3,
@@ -194,7 +302,16 @@
       "width": 0.2,
       "depth": 3.2,
       "height": 3.1,
-      "material": "arcade:wall_navy_01"
+      "material": "arcade:wall_navy_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.5,
+          "width": 1.3,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
     },
     {
       "x": 3,
@@ -202,7 +319,16 @@
       "width": 0.2,
       "depth": 3.2,
       "height": 3.1,
-      "material": "arcade:wall_navy_01"
+      "material": "arcade:wall_navy_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.5,
+          "width": 1.3,
+          "height": 2.35,
+          "sill": 0
+        }
+      ]
     },
     {
       "x": -3,
@@ -221,38 +347,206 @@
       "material": "arcade:wall_navy_01"
     },
     {
-      "x": -2.5999999999999996,
+      "x": -3.1,
       "z": -6.84,
-      "width": 0.6,
+      "width": 1.3,
       "depth": 0.2,
       "height": 3.1,
       "material": "home:wall_paint_offwhite_01"
     },
     {
-      "x": -2.5999999999999996,
+      "x": -3.1,
       "z": -4.66,
-      "width": 0.6,
+      "width": 1.3,
       "depth": 0.2,
       "height": 3.1,
       "material": "home:wall_paint_offwhite_01"
     },
     {
-      "x": -2.8,
+      "x": -3.3,
       "z": -6.64,
       "width": 0.2,
       "depth": 1.98,
       "height": 3.1,
       "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": -6.3,
+      "z": -0.15,
+      "width": 3.3,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": -6.3,
+      "z": 2,
+      "width": 3.3,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": -6.45,
+      "z": 0,
+      "width": 0.15,
+      "depth": 2,
+      "height": 3.1,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 3,
+      "z": -0.15,
+      "width": 3.3,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 3,
+      "z": 2,
+      "width": 3.3,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 6.3,
+      "z": 0,
+      "width": 0.15,
+      "depth": 2,
+      "height": 3.1,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": -6.3,
+      "z": -4.15,
+      "width": 3.3,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -6.3,
+      "z": -2.2,
+      "width": 3.3,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -6.45,
+      "z": -4,
+      "width": 0.15,
+      "depth": 1.8,
+      "height": 3.1,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 3,
+      "z": -4.15,
+      "width": 3.3,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 3,
+      "z": -2.2,
+      "width": 3.3,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 6.3,
+      "z": -4,
+      "width": 0.15,
+      "depth": 1.8,
+      "height": 3.1,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 3,
+      "z": -6.5,
+      "width": 3.3,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 3,
+      "z": -4.65,
+      "width": 3.3,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 6.3,
+      "z": -6.35,
+      "width": 0.15,
+      "depth": 1.6999999999999993,
+      "height": 3.1,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": -6.3,
+      "z": -9.35,
+      "width": 3.3,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": -6.3,
+      "z": -7.5,
+      "width": 3.3,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": -6.45,
+      "z": -9.2,
+      "width": 0.15,
+      "depth": 1.6999999999999993,
+      "height": 3.1,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": 3,
+      "z": -9.35,
+      "width": 5.0,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": 3,
+      "z": -7.5,
+      "width": 5.0,
+      "depth": 0.15,
+      "height": 3.1,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": 8.0,
+      "z": -9.2,
+      "width": 0.15,
+      "depth": 1.6999999999999993,
+      "height": 3.1,
+      "material": "arcade:wall_navy_01"
     }
   ],
   "props": [
     {
       "id": "desk",
       "model": "core:desk",
-      "x": 2.45,
+      "x": 0.63,
       "y": 0,
-      "z": 1.55,
-      "rotation_degrees": 270,
+      "z": 1.1,
+      "rotation_degrees": 0,
       "size": [
         1.6,
         0.75,
@@ -275,25 +569,11 @@
       "solid": true
     },
     {
-      "id": "office_books",
-      "model": "home:book_stack",
-      "x": 2.45,
-      "y": 0.755,
-      "z": 1.55,
-      "rotation_degrees": 0,
-      "size": [
-        0.262,
-        0.057,
-        0.197
-      ],
-      "solid": false
-    },
-    {
       "id": "office_mug",
       "model": "home:mug",
-      "x": 2.25,
+      "x": 1.15,
       "y": 0.755,
-      "z": 1.15,
+      "z": 1.05,
       "rotation_degrees": 0,
       "size": [
         0.117,
@@ -307,7 +587,7 @@
       "model": "core:pool_chair",
       "x": 2.52,
       "y": 0,
-      "z": -3.55,
+      "z": -0.9,
       "rotation_degrees": 270,
       "size": [
         0.52,
@@ -335,7 +615,7 @@
       "model": "home:armchair",
       "x": 2,
       "y": 0,
-      "z": -5.8,
+      "z": -6.5,
       "rotation_degrees": 270,
       "size": [
         0.9,
@@ -349,7 +629,7 @@
       "model": "home:coffee_table",
       "x": 1.8,
       "y": 0,
-      "z": -4.8,
+      "z": -4.6,
       "rotation_degrees": 0,
       "size": [
         1.4,
@@ -363,7 +643,7 @@
       "model": "home:book_stack",
       "x": 1.8,
       "y": 0.465,
-      "z": -4.8,
+      "z": -4.6,
       "rotation_degrees": 0,
       "size": [
         0.262,
@@ -375,7 +655,7 @@
     {
       "id": "arcade_left",
       "model": "arcade:cabinet_scifi",
-      "x": -1.95,
+      "x": -0.95,
       "y": 0,
       "z": -9.6,
       "rotation_degrees": 0,
@@ -384,7 +664,15 @@
         2.04,
         0.942
       ],
-      "solid": true
+      "solid": true,
+      "components": [
+        {
+          "component": "light",
+          "enabled": true,
+          "switchable": true,
+          "emission_scale": 1
+        }
+      ]
     },
     {
       "id": "arcade_right",
@@ -398,7 +686,15 @@
         2.04,
         1.056388
       ],
-      "solid": true
+      "solid": true,
+      "components": [
+        {
+          "component": "light",
+          "enabled": true,
+          "switchable": true,
+          "emission_scale": 1
+        }
+      ]
     },
     {
       "id": "menu_closet",
@@ -565,9 +861,9 @@
     {
       "id": "parcel",
       "model": "core:cardboard_box",
-      "x": -2.3,
-      "y": 0,
-      "z": 1.05,
+      "x": -5.371,
+      "y": 0.005,
+      "z": 1.328,
       "rotation_degrees": 0,
       "size": [
         0.5,
@@ -586,9 +882,9 @@
     {
       "id": "porter",
       "model": "mannequin",
-      "x": -2.3,
+      "x": -5.5,
       "y": 0,
-      "z": 0.65,
+      "z": 1.0,
       "rotation_degrees": 0,
       "size": [
         0.578539,
@@ -601,17 +897,18 @@
           "component": "nav_agent",
           "radius": 0.22,
           "height": 1.8,
-          "speed_mps": 0.65,
+          "speed_mps": 1.15,
           "step_height": 0.3,
           "max_slope": 2
         },
         {
           "component": "ai",
           "behavior": "idler",
-          "walk_speed": 0.65,
-          "run_speed": 0.65,
+          "walk_speed": 1.15,
+          "run_speed": 1.15,
           "sight_range": 0,
-          "hearing_range": 0
+          "hearing_range": 0,
+          "can_open_doors": true
         },
         {
           "component": "animation",
@@ -623,9 +920,9 @@
           "item": "parcel",
           "socket": "hand.R",
           "offset": [
-            -0.06,
-            0,
-            0
+            -0.1554,
+            -0.0735,
+            0.006
           ],
           "rotation_degrees": [
             0,
@@ -636,107 +933,13 @@
           "walk_clip": "carry_walk"
         }
       ]
-    },
-    {
-      "id": "book",
-      "model": "home:book_stack",
-      "x": 1.1,
-      "y": 0,
-      "z": 2.1,
-      "rotation_degrees": 0,
-      "size": [
-        0.262,
-        0.057,
-        0.197
-      ],
-      "solid": false,
-      "physics": {
-        "motion": "dynamic",
-        "mass_kg": 0.2,
-        "pickup": true,
-        "reset_group": "book"
-      }
-    },
-    {
-      "id": "reader",
-      "model": "mannequin",
-      "x": 1.1,
-      "y": 0,
-      "z": 0.75,
-      "rotation_degrees": 0,
-      "size": [
-        0.578539,
-        1.723035,
-        0.316965
-      ],
-      "solid": false,
-      "components": [
-        {
-          "component": "nav_agent",
-          "radius": 0.22,
-          "height": 1.8,
-          "speed_mps": 0.65,
-          "step_height": 0.3,
-          "max_slope": 2
-        },
-        {
-          "component": "ai",
-          "behavior": "idler",
-          "walk_speed": 0.65,
-          "run_speed": 0.65,
-          "sight_range": 0,
-          "hearing_range": 0
-        },
-        {
-          "component": "animation",
-          "clip": "pose_stand",
-          "playing": false
-        },
-        {
-          "component": "carry",
-          "item": "book",
-          "socket": "hand.R",
-          "offset": [
-            -0.06,
-            0,
-            0
-          ],
-          "rotation_degrees": [
-            0,
-            0,
-            0
-          ],
-          "idle_clip": "carry_idle",
-          "walk_clip": "carry_walk"
-        }
-      ]
-    },
-    {
-      "id": "towel",
-      "model": "janitor:folded_towel_blue",
-      "x": 0.05,
-      "y": 0,
-      "z": -3.5,
-      "rotation_degrees": 0,
-      "size": [
-        0.360001,
-        0.057001,
-        0.276
-      ],
-      "solid": false,
-      "physics": {
-        "motion": "dynamic",
-        "mass_kg": 0.2,
-        "pickup": true,
-        "reset_group": "towel"
-      }
     },
     {
       "id": "attendant",
       "model": "mannequin",
-      "x": 1.4,
+      "x": -5.5,
       "y": 0,
-      "z": -3.5,
+      "z": -3.1,
       "rotation_degrees": 0,
       "size": [
         0.578539,
@@ -749,17 +952,18 @@
           "component": "nav_agent",
           "radius": 0.22,
           "height": 1.8,
-          "speed_mps": 0.65,
+          "speed_mps": 1.15,
           "step_height": 0.3,
           "max_slope": 2
         },
         {
           "component": "ai",
           "behavior": "idler",
-          "walk_speed": 0.65,
-          "run_speed": 0.65,
+          "walk_speed": 1.15,
+          "run_speed": 1.15,
           "sight_range": 0,
-          "hearing_range": 0
+          "hearing_range": 0,
+          "can_open_doors": true
         },
         {
           "component": "animation",
@@ -768,49 +972,46 @@
         },
         {
           "component": "carry",
-          "item": "towel",
+          "item": "duck_0",
           "socket": "hand.R",
           "offset": [
-            -0.06,
-            0,
-            0
+            -0.1159,
+            0.064,
+            0.126
           ],
           "rotation_degrees": [
-            0,
+            -90,
             0,
             0
           ],
           "idle_clip": "carry_idle",
           "walk_clip": "carry_walk"
+        },
+        {
+          "component": "state",
+          "name": "face_pool",
+          "value": 0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "object_state",
+          "key": "face_pool",
+          "actions": [
+            {
+              "action": "start_sequence",
+              "sequence": "face_pool_water"
+            }
+          ]
         }
       ]
     },
     {
-      "id": "cushion",
-      "model": "home:cushion",
-      "x": -0.11,
-      "y": 0,
-      "z": -5.51,
-      "rotation_degrees": 0,
-      "size": [
-        0.33,
-        0.32,
-        0.115
-      ],
-      "solid": false,
-      "physics": {
-        "motion": "dynamic",
-        "mass_kg": 0.2,
-        "pickup": true,
-        "reset_group": "cushion"
-      }
-    },
-    {
       "id": "caretaker",
       "model": "mannequin",
-      "x": -0.65,
+      "x": 5.5,
       "y": 0,
-      "z": -5.4,
+      "z": -5.5,
       "rotation_degrees": 0,
       "size": [
         0.578539,
@@ -823,48 +1024,32 @@
           "component": "nav_agent",
           "radius": 0.22,
           "height": 1.8,
-          "speed_mps": 0.65,
+          "speed_mps": 1.15,
           "step_height": 0.3,
           "max_slope": 2
         },
         {
           "component": "ai",
           "behavior": "idler",
-          "walk_speed": 0.65,
-          "run_speed": 0.65,
+          "walk_speed": 1.15,
+          "run_speed": 1.15,
           "sight_range": 0,
-          "hearing_range": 0
+          "hearing_range": 0,
+          "can_open_doors": true
         },
         {
           "component": "animation",
           "clip": "pose_stand",
           "playing": false
-        },
-        {
-          "component": "carry",
-          "item": "cushion",
-          "socket": "hand.R",
-          "offset": [
-            -0.06,
-            0,
-            0
-          ],
-          "rotation_degrees": [
-            0,
-            0,
-            0
-          ],
-          "idle_clip": "carry_idle",
-          "walk_clip": "carry_walk"
         }
       ]
     },
     {
       "id": "guest",
       "model": "mannequin",
-      "x": 0.85,
+      "x": 5.5,
       "y": 0,
-      "z": -6.7,
+      "z": 1.0,
       "rotation_degrees": 0,
       "size": [
         0.578539,
@@ -877,17 +1062,18 @@
           "component": "nav_agent",
           "radius": 0.22,
           "height": 1.8,
-          "speed_mps": 0.65,
+          "speed_mps": 1.15,
           "step_height": 0.3,
           "max_slope": 2
         },
         {
           "component": "ai",
           "behavior": "idler",
-          "walk_speed": 0.65,
-          "run_speed": 0.65,
+          "walk_speed": 1.15,
+          "run_speed": 1.15,
           "sight_range": 0,
-          "hearing_range": 0
+          "hearing_range": 0,
+          "can_open_doors": true
         },
         {
           "component": "animation",
@@ -898,72 +1084,35 @@
           "component": "state",
           "name": "beat",
           "value": 0
-        }
-      ]
-    },
-    {
-      "id": "gift",
-      "model": "arcade:party_gift_stars",
-      "x": 0,
-      "y": 0,
-      "z": -8.049999999999999,
-      "rotation_degrees": 0,
-      "size": [
-        0.304,
-        0.3748,
-        0.304
-      ],
-      "solid": false,
-      "physics": {
-        "motion": "dynamic",
-        "mass_kg": 0.7,
-        "pickup": true,
-        "reset_group": "gift"
-      }
-    },
-    {
-      "id": "player",
-      "model": "mannequin",
-      "x": 0,
-      "y": 0,
-      "z": -8.45,
-      "rotation_degrees": 0,
-      "size": [
-        0.578539,
-        1.723035,
-        0.316965
-      ],
-      "solid": false,
-      "components": [
-        {
-          "component": "nav_agent",
-          "radius": 0.22,
-          "height": 1.8,
-          "speed_mps": 0.65,
-          "step_height": 0.3,
-          "max_slope": 2
         },
         {
-          "component": "ai",
-          "behavior": "idler",
-          "walk_speed": 0.65,
-          "run_speed": 0.65,
-          "sight_range": 0,
-          "hearing_range": 0
+          "component": "state",
+          "name": "menu_seed",
+          "value": 0
         },
         {
-          "component": "animation",
-          "clip": "pose_stand",
-          "playing": false
+          "component": "state",
+          "name": "menu_first",
+          "value": 0
+        },
+        {
+          "component": "state",
+          "name": "previous_vignette",
+          "value": 0
+        },
+        {
+          "component": "state",
+          "name": "vignette",
+          "value": 0
         },
         {
           "component": "carry",
-          "item": "gift",
+          "item": "parcel",
           "socket": "hand.R",
           "offset": [
-            -0.06,
-            0,
-            0
+            -0.1554,
+            -0.0735,
+            0.006
           ],
           "rotation_degrees": [
             0,
@@ -976,13 +1125,51 @@
       ]
     },
     {
+      "id": "arcade_player",
+      "model": "mannequin",
+      "x": -5.5,
+      "y": 0,
+      "z": -7.85,
+      "rotation_degrees": 0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 1.15,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 1.15,
+          "run_speed": 1.15,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": true
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        }
+      ]
+    },
+    {
       "id": "duck_0",
       "model": "core:rubber_duck",
-      "x": -2.35,
-      "z": -1.1,
-      "y": 0.54,
-      "scale": 1.0,
-      "rotation_degrees": 90,
+      "x": -5.371,
+      "z": -2.772,
+      "y": 0.005,
+      "scale": 2.0,
+      "rotation_degrees": 0,
       "size": [
         0.1,
         0.12,
@@ -999,94 +1186,18 @@
             0.0725
           ]
         },
-        "mass_kg": 0.065,
+        "mass_kg": 0.16,
         "friction": 0.6,
         "restitution": 0.08,
         "linear_damping": 0.05,
         "angular_damping": 0.15,
         "pickup": true,
         "water": {
-          "displaced_volume_m3": 0.00065,
+          "displaced_volume_m3": 6e-05,
           "linear_drag": 4.0,
-          "angular_drag": 2.5
+          "angular_drag": 5
         },
         "reset_group": "duck_0"
-      }
-    },
-    {
-      "id": "duck_1",
-      "model": "core:rubber_duck",
-      "x": -2.35,
-      "z": -1.6,
-      "y": 0.54,
-      "scale": 1.0,
-      "rotation_degrees": 90,
-      "size": [
-        0.1,
-        0.12,
-        0.145
-      ],
-      "solid": false,
-      "physics": {
-        "motion": "dynamic",
-        "shape": {
-          "kind": "cuboid",
-          "half_extents": [
-            0.05,
-            0.06,
-            0.0725
-          ]
-        },
-        "mass_kg": 0.065,
-        "friction": 0.6,
-        "restitution": 0.08,
-        "linear_damping": 0.05,
-        "angular_damping": 0.15,
-        "pickup": true,
-        "water": {
-          "displaced_volume_m3": 0.00065,
-          "linear_drag": 4.0,
-          "angular_drag": 2.5
-        },
-        "reset_group": "duck_1"
-      }
-    },
-    {
-      "id": "duck_2",
-      "model": "core:rubber_duck",
-      "x": -2.35,
-      "z": -2.1,
-      "y": 0.54,
-      "scale": 1.0,
-      "rotation_degrees": 90,
-      "size": [
-        0.1,
-        0.12,
-        0.145
-      ],
-      "solid": false,
-      "physics": {
-        "motion": "dynamic",
-        "shape": {
-          "kind": "cuboid",
-          "half_extents": [
-            0.05,
-            0.06,
-            0.0725
-          ]
-        },
-        "mass_kg": 0.065,
-        "friction": 0.6,
-        "restitution": 0.08,
-        "linear_damping": 0.05,
-        "angular_damping": 0.15,
-        "pickup": true,
-        "water": {
-          "displaced_volume_m3": 0.00065,
-          "linear_drag": 4.0,
-          "angular_drag": 2.5
-        },
-        "reset_group": "duck_2"
       }
     }
   ],
@@ -1105,8 +1216,10 @@
         0.91,
         0.66
       ],
-      "switchable": false,
-      "align": "none"
+      "switchable": true,
+      "align": "none",
+      "switch_group": "menu_office",
+      "hold_in_static": true
     },
     {
       "id": "pool_lamp",
@@ -1122,7 +1235,9 @@
         0.9,
         1
       ],
-      "switchable": false
+      "switchable": true,
+      "switch_group": "menu_pool",
+      "hold_in_static": true
     },
     {
       "id": "pool_side",
@@ -1138,7 +1253,9 @@
         0.94,
         1
       ],
-      "switchable": false
+      "switchable": true,
+      "switch_group": "menu_pool",
+      "hold_in_static": true
     },
     {
       "id": "home_lamp",
@@ -1154,7 +1271,9 @@
         0.8,
         0.52
       ],
-      "switchable": false
+      "switchable": true,
+      "switch_group": "menu_home",
+      "hold_in_static": true
     },
     {
       "id": "arcade_lamp",
@@ -1170,7 +1289,9 @@
         0.63,
         1
       ],
-      "switchable": false
+      "switchable": true,
+      "switch_group": "menu_arcade",
+      "hold_in_static": true
     },
     {
       "id": "arcade_left_lamp",
@@ -1186,7 +1307,9 @@
         0.36,
         1
       ],
-      "switchable": true
+      "switchable": true,
+      "switch_group": "menu_arcade",
+      "hold_in_static": true
     }
   ],
   "scripts": [
@@ -1218,7 +1341,7 @@
         "speed": 0.8,
         "strength": 0.25,
         "flow_speed": 0.32,
-        "direction_degrees": 90
+        "direction_degrees": 75
       },
       "caustics": {
         "tint": [
@@ -1244,6 +1367,1022 @@
       "gain": 0.2,
       "min_distance": 1,
       "max_distance": 12
+    }
+  ],
+  "doors": [
+    {
+      "id": "office_left_door",
+      "x": -3.1,
+      "z": 1.6,
+      "width": 1.2,
+      "height": 2.35,
+      "rotation_degrees": 90,
+      "initial_state": "closed",
+      "open_speed_degrees": 150,
+      "open_direction": "left"
+    },
+    {
+      "id": "office_right_door",
+      "x": 3.1,
+      "z": 1.6,
+      "width": 1.2,
+      "height": 2.35,
+      "rotation_degrees": 90,
+      "initial_state": "closed",
+      "open_speed_degrees": 150,
+      "open_direction": "right"
+    },
+    {
+      "id": "pool_left_door",
+      "x": -3.1,
+      "z": -2.575,
+      "width": 1.05,
+      "height": 2.35,
+      "rotation_degrees": 90,
+      "initial_state": "closed",
+      "open_speed_degrees": 150,
+      "open_direction": "left"
+    },
+    {
+      "id": "pool_right_door",
+      "x": 3.1,
+      "z": -2.575,
+      "width": 1.05,
+      "height": 2.35,
+      "rotation_degrees": 90,
+      "initial_state": "closed",
+      "open_speed_degrees": 150,
+      "open_direction": "right"
+    },
+    {
+      "id": "home_right_door",
+      "x": 3.1,
+      "z": -4.9,
+      "width": 1.2,
+      "height": 2.35,
+      "rotation_degrees": 90,
+      "initial_state": "closed",
+      "open_speed_degrees": 150,
+      "open_direction": "right"
+    },
+    {
+      "id": "arcade_left_door",
+      "x": -3.1,
+      "z": -7.75,
+      "width": 1.2,
+      "height": 2.35,
+      "rotation_degrees": 90,
+      "initial_state": "closed",
+      "open_speed_degrees": 150,
+      "open_direction": "left"
+    },
+    {
+      "id": "arcade_right_door",
+      "x": 3.1,
+      "z": -7.75,
+      "width": 1.2,
+      "height": 2.35,
+      "rotation_degrees": 90,
+      "initial_state": "closed",
+      "open_speed_degrees": 150,
+      "open_direction": "right"
+    }
+  ],
+  "requires_full_lighting": true,
+  "spawn_templates": [
+    {
+      "id": "roach_0_template",
+      "model": "entity:cockroach",
+      "scale": 1.6,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.105,
+          "height": 0.08,
+          "speed_mps": 3.5,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 3.5,
+          "run_speed": 3.5,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "roach_1_template",
+      "model": "entity:cockroach",
+      "scale": 1.6,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.105,
+          "height": 0.08,
+          "speed_mps": 3.5,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 3.5,
+          "run_speed": 3.5,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "roach_2_template",
+      "model": "entity:cockroach",
+      "scale": 1.6,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.105,
+          "height": 0.08,
+          "speed_mps": 3.5,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 3.5,
+          "run_speed": 3.5,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "roach_3_template",
+      "model": "entity:cockroach",
+      "scale": 1.6,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.105,
+          "height": 0.08,
+          "speed_mps": 3.5,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 3.5,
+          "run_speed": 3.5,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "roach_4_template",
+      "model": "entity:cockroach",
+      "scale": 1.6,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.105,
+          "height": 0.08,
+          "speed_mps": 3.5,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 3.5,
+          "run_speed": 3.5,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "roach_5_template",
+      "model": "entity:cockroach",
+      "scale": 1.6,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.105,
+          "height": 0.08,
+          "speed_mps": 3.5,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 3.5,
+          "run_speed": 3.5,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "roach_6_template",
+      "model": "entity:cockroach",
+      "scale": 1.6,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.105,
+          "height": 0.08,
+          "speed_mps": 3.5,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 3.5,
+          "run_speed": 3.5,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "roach_7_template",
+      "model": "entity:cockroach",
+      "scale": 1.6,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.105,
+          "height": 0.08,
+          "speed_mps": 3.5,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 3.5,
+          "run_speed": 3.5,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "closet_ghost_template",
+      "model": "sheet-ghost",
+      "scale": 0.8,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.48,
+          "height": 1.4,
+          "speed_mps": 1.15,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 1.15,
+          "run_speed": 1.15,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "idle_clip": "idle",
+          "move_clip": "idle"
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "vanish_office_left_template",
+      "model": "mannequin",
+      "scale": 1.0,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 1.35,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 1.35,
+          "run_speed": 1.35,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "vanish_office_right_template",
+      "model": "mannequin",
+      "scale": 1.0,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 1.35,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 1.35,
+          "run_speed": 1.35,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "vanish_pool_left_template",
+      "model": "mannequin",
+      "scale": 1.0,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 1.35,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 1.35,
+          "run_speed": 1.35,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "vanish_pool_right_template",
+      "model": "mannequin",
+      "scale": 1.0,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 1.35,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 1.35,
+          "run_speed": 1.35,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "vanish_home_right_template",
+      "model": "mannequin",
+      "scale": 1.0,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 1.35,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 1.35,
+          "run_speed": 1.35,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "vanish_arcade_left_template",
+      "model": "mannequin",
+      "scale": 1.0,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 1.35,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 1.35,
+          "run_speed": 1.35,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "vanish_arcade_right_template",
+      "model": "mannequin",
+      "scale": 1.0,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 1.35,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 1.35,
+          "run_speed": 1.35,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        }
+      ]
+    },
+    {
+      "id": "menu_balloon_0_template",
+      "model": "arcade:party_balloon",
+      "scale": 1,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "golden_yellow",
+          "scale": 0.8,
+          "string_length": 0.95,
+          "anchor": [
+            0,
+            0.2,
+            0
+          ],
+          "sway_amplitude": 0.04,
+          "bob_amplitude": 0.045,
+          "speed_hz": 0.11,
+          "phase": 0.0,
+          "rotation_degrees": 4
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.24,
+          "height": 2.2,
+          "speed_mps": 0.32,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.32,
+          "run_speed": 0.32,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        }
+      ]
+    },
+    {
+      "id": "menu_balloon_1_template",
+      "model": "arcade:party_balloon",
+      "scale": 1,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "royal_blue",
+          "scale": 1.0,
+          "string_length": 1.12,
+          "anchor": [
+            0,
+            0.2,
+            0
+          ],
+          "sway_amplitude": 0.046,
+          "bob_amplitude": 0.053,
+          "speed_hz": 0.128,
+          "phase": 0.17,
+          "rotation_degrees": 4
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.24,
+          "height": 2.2,
+          "speed_mps": 0.32,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.32,
+          "run_speed": 0.32,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        }
+      ]
+    },
+    {
+      "id": "menu_balloon_2_template",
+      "model": "arcade:party_balloon",
+      "scale": 1,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "pink",
+          "scale": 0.9,
+          "string_length": 1.22,
+          "anchor": [
+            0,
+            0.2,
+            0
+          ],
+          "sway_amplitude": 0.052000000000000005,
+          "bob_amplitude": 0.061,
+          "speed_hz": 0.146,
+          "phase": 0.34,
+          "rotation_degrees": 4
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.24,
+          "height": 2.2,
+          "speed_mps": 0.32,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.32,
+          "run_speed": 0.32,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        }
+      ]
+    },
+    {
+      "id": "menu_balloon_3_template",
+      "model": "arcade:party_balloon",
+      "scale": 1,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "grass_green",
+          "scale": 1.05,
+          "string_length": 1.03,
+          "anchor": [
+            0,
+            0.2,
+            0
+          ],
+          "sway_amplitude": 0.058,
+          "bob_amplitude": 0.069,
+          "speed_hz": 0.16399999999999998,
+          "phase": 0.51,
+          "rotation_degrees": 4
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.24,
+          "height": 2.2,
+          "speed_mps": 0.32,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.32,
+          "run_speed": 0.32,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        }
+      ]
+    },
+    {
+      "id": "menu_balloon_4_template",
+      "model": "arcade:party_balloon",
+      "scale": 1,
+      "components": [
+        {
+          "component": "balloon",
+          "color": "orange",
+          "scale": 0.75,
+          "string_length": 1.1500000000000001,
+          "anchor": [
+            0,
+            0.2,
+            0
+          ],
+          "sway_amplitude": 0.064,
+          "bob_amplitude": 0.077,
+          "speed_hz": 0.182,
+          "phase": 0.68,
+          "rotation_degrees": 4
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.24,
+          "height": 2.2,
+          "speed_mps": 0.32,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.32,
+          "run_speed": 0.32,
+          "can_open_doors": false,
+          "sight_range": 0,
+          "hearing_range": 0
+        }
+      ]
+    }
+  ],
+  "spawn_points": [
+    {
+      "id": "roach_0_point",
+      "x": -1.6,
+      "y": 0,
+      "z": 1.35,
+      "template": "roach_0_template",
+      "group": "roach_0_group"
+    },
+    {
+      "id": "roach_1_point",
+      "x": -1.1,
+      "y": 0,
+      "z": 1.1,
+      "template": "roach_1_template",
+      "group": "roach_1_group"
+    },
+    {
+      "id": "roach_2_point",
+      "x": -0.45,
+      "y": 0,
+      "z": 1.65,
+      "template": "roach_2_template",
+      "group": "roach_2_group"
+    },
+    {
+      "id": "roach_3_point",
+      "x": -0.25,
+      "y": 0,
+      "z": 1.8,
+      "template": "roach_3_template",
+      "group": "roach_3_group"
+    },
+    {
+      "id": "roach_4_point",
+      "x": 1.6,
+      "y": 0,
+      "z": 1.65,
+      "template": "roach_4_template",
+      "group": "roach_4_group"
+    },
+    {
+      "id": "roach_5_point",
+      "x": 2,
+      "y": 0,
+      "z": 1.1,
+      "template": "roach_5_template",
+      "group": "roach_5_group"
+    },
+    {
+      "id": "roach_6_point",
+      "x": 1.9,
+      "y": 0,
+      "z": 0.45,
+      "template": "roach_6_template",
+      "group": "roach_6_group"
+    },
+    {
+      "id": "roach_7_point",
+      "x": -1.8,
+      "y": 0,
+      "z": 0.55,
+      "template": "roach_7_template",
+      "group": "roach_7_group"
+    },
+    {
+      "id": "closet_ghost_point",
+      "x": -2.45,
+      "y": 0,
+      "z": -5.5,
+      "template": "closet_ghost_template",
+      "group": "closet_ghost_group"
+    },
+    {
+      "id": "vanish_office_left_point",
+      "x": -4.8,
+      "y": 0,
+      "z": 1.0,
+      "template": "vanish_office_left_template",
+      "group": "vanish_office_left_group"
+    },
+    {
+      "id": "vanish_office_right_point",
+      "x": 4.8,
+      "y": 0,
+      "z": 1.0,
+      "template": "vanish_office_right_template",
+      "group": "vanish_office_right_group"
+    },
+    {
+      "id": "vanish_pool_left_point",
+      "x": -4.8,
+      "y": 0,
+      "z": -3.4,
+      "template": "vanish_pool_left_template",
+      "group": "vanish_pool_left_group"
+    },
+    {
+      "id": "vanish_pool_right_point",
+      "x": 4.8,
+      "y": 0,
+      "z": -3.4,
+      "template": "vanish_pool_right_template",
+      "group": "vanish_pool_right_group"
+    },
+    {
+      "id": "vanish_home_right_point",
+      "x": 4.8,
+      "y": 0,
+      "z": -5.8,
+      "template": "vanish_home_right_template",
+      "group": "vanish_home_right_group"
+    },
+    {
+      "id": "vanish_arcade_left_point",
+      "x": -4.8,
+      "y": 0,
+      "z": -8.75,
+      "template": "vanish_arcade_left_template",
+      "group": "vanish_arcade_left_group"
+    },
+    {
+      "id": "vanish_arcade_right_point",
+      "x": 4.8,
+      "y": 0,
+      "z": -8.8,
+      "template": "vanish_arcade_right_template",
+      "group": "vanish_arcade_right_group"
+    },
+    {
+      "id": "menu_balloon_0_point",
+      "x": 4.8,
+      "y": 0,
+      "z": -8.65,
+      "template": "menu_balloon_0_template",
+      "group": "menu_balloon_0_group"
+    },
+    {
+      "id": "menu_balloon_1_point",
+      "x": 5.3999999999999995,
+      "y": 0,
+      "z": -8.65,
+      "template": "menu_balloon_1_template",
+      "group": "menu_balloon_1_group"
+    },
+    {
+      "id": "menu_balloon_2_point",
+      "x": 6.0,
+      "y": 0,
+      "z": -8.65,
+      "template": "menu_balloon_2_template",
+      "group": "menu_balloon_2_group"
+    },
+    {
+      "id": "menu_balloon_3_point",
+      "x": 6.6,
+      "y": 0,
+      "z": -8.65,
+      "template": "menu_balloon_3_template",
+      "group": "menu_balloon_3_group"
+    },
+    {
+      "id": "menu_balloon_4_point",
+      "x": 7.199999999999999,
+      "y": 0,
+      "z": -8.65,
+      "template": "menu_balloon_4_template",
+      "group": "menu_balloon_4_group"
+    }
+  ],
+  "spawn_groups": [
+    {
+      "id": "roach_0_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "roach_1_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "roach_2_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "roach_3_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "roach_4_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "roach_5_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "roach_6_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "roach_7_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "closet_ghost_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "vanish_office_left_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "vanish_office_right_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "vanish_pool_left_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "vanish_pool_right_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "vanish_home_right_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "vanish_arcade_left_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "vanish_arcade_right_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "menu_balloon_0_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "menu_balloon_1_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "menu_balloon_2_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "menu_balloon_3_group",
+      "at_most_one_active": true
+    },
+    {
+      "id": "menu_balloon_4_group",
+      "at_most_one_active": true
+    }
+  ],
+  "sequences": [
+    {
+      "id": "face_pool_water",
+      "looped": false,
+      "steps": [
+        {
+          "step": "face",
+          "yaw_degrees": 0
+        }
+      ]
     }
   ]
 }

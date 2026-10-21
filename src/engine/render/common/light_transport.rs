@@ -452,6 +452,10 @@ impl EntitySpatialKey {
 pub struct EntityStaticRayCache {
     scope: Option<(Option<EntitySpatialKey>, [[u32; 3]; 2], u64)>,
     rays: std::collections::HashMap<StaticRayKey, f32>,
+    complete: bool,
+    static_queries: u64,
+    refresh_count: u64,
+    last_refresh_ms: f64,
 }
 
 impl EntityStaticRayCache {
@@ -465,6 +469,8 @@ impl EntityStaticRayCache {
             identity.dynamic = 0;
             identity.dynamic_revision = 0;
             identity.receiver = None;
+            // Switch state changes irradiance, not immutable ray visibility.
+            identity.enabled = 0;
         }
         let scope = (
             key,
@@ -473,8 +479,64 @@ impl EntityStaticRayCache {
         );
         if self.scope.as_ref() != Some(&scope) {
             self.rays.clear();
+            self.complete = true;
             self.scope = Some(scope);
         }
+    }
+
+    /// Called only for source-energy changes while field and geometry remain
+    /// installed. Ordinary resource revisions still invalidate the entire scope.
+    pub(super) const fn advance_source_revision(&mut self, previous: u64, revision: u64) {
+        if let Some((_, _, observed)) = self.scope.as_mut()
+            && *observed == previous
+        {
+            *observed = revision;
+        }
+    }
+    #[cfg(feature = "visual-diagnostics")]
+    pub(super) fn record_refresh(&mut self, started: std::time::Instant) {
+        self.refresh_count = self.refresh_count.saturating_add(1);
+        self.last_refresh_ms = started.elapsed().as_secs_f64() * 1000.0_f64;
+    }
+
+    pub(super) fn diagnostic_snapshot(&self) -> serde_json::Value {
+        serde_json::json!({"entries":self.rays.len(),"complete":self.complete,"static_queries":self.static_queries,
+            "refreshes":self.refresh_count,"last_refresh_ms":self.last_refresh_ms})
+    }
+
+    /// Every possible dynamic query follows a recorded immutable ray first.
+    /// Off-path old/new caster bounds preserve the complete receiver result.
+    /// Over-cap scopes never justify reuse; missed revisions are caller-owned.
+    pub(super) fn visibility_affected(&self, dirty: crate::engine::spatial::Aabb) -> bool {
+        if !self.complete {
+            return true;
+        }
+        self.rays.iter().any(|(ray, value)| {
+            if *value <= 0.0 {
+                return false;
+            }
+            let from = ray.from.map(f32::from_bits);
+            let to = ray.to.map(f32::from_bits);
+            let scale = from
+                .into_iter()
+                .chain(to)
+                .chain(dirty.min)
+                .chain(dirty.max)
+                .map(|v| f64::from(v.abs()))
+                .fold(1.0_f64, f64::max);
+            let padding = scale * f64::from(f32::EPSILON) * 8.0_f64;
+            !value.is_finite()
+                || from.into_iter().zip(to).zip(dirty.min).zip(dirty.max).all(
+                    |(((a, b), low), high)| {
+                        !a.is_finite()
+                            || !b.is_finite()
+                            || !low.is_finite()
+                            || !high.is_finite()
+                            || (f64::from(a.min(b)) <= f64::from(high) + padding
+                                && f64::from(a.max(b)) >= f64::from(low) - padding)
+                    },
+                )
+        })
     }
 }
 
@@ -539,8 +601,11 @@ fn static_ray(
         return *value;
     }
     let value = compute();
+    storage.static_queries = storage.static_queries.saturating_add(1);
     if storage.rays.len() < 2048 {
         let _previous = storage.rays.insert(key, value);
+    } else {
+        storage.complete = false;
     }
     value
 }
@@ -646,6 +711,27 @@ pub fn entity_spatial_key_with_visibility(
     })
 }
 
+fn sample_receiver_irradiance(
+    prepared: &crate::engine::lighting::probes::ProbeField,
+    lighting: &LevelLighting,
+    visibility: EntityVisibility<'_>,
+    cache: &std::cell::RefCell<Option<&mut EntityStaticRayCache>>,
+    point: [f32; 3],
+) -> Option<crate::engine::lighting::lightmap::LightmapTexel> {
+    let visible = lighting.labelled_probe_visibility(point);
+    prepared.sample_nonlocal_with_switchable_indirect(
+        point,
+        None,
+        |index| probe_light_enabled(lighting, index),
+        |probe, label| {
+            static_ray(cache, 0, i64::from(label), point, probe, || {
+                f32::from(u8::from(visible(probe, label)))
+            }) > 0.0
+                && visibility.transmittance(point, probe) > 0.0
+        },
+    )
+}
+
 /// Reuses immutable ray answers while still evaluating every current movable caster.
 #[must_use]
 pub fn entity_spatial_lighting_cached(
@@ -666,17 +752,7 @@ pub fn entity_spatial_lighting_cached(
     let prepared = field?;
     let _selected_direct = prepared.local_direct.as_ref()?;
     let positions = entity_anchor_positions(bounds, model)?;
-    let sample = |point| {
-        prepared.sample_nonlocal_with_switchable_indirect(
-            point,
-            None,
-            |index| probe_light_enabled(lighting, index),
-            |probe, label| {
-                static_probe_visible(&cache, lighting, point, probe, label)
-                    && visibility.transmittance(point, probe) > 0.0
-            },
-        )
-    };
+    let sample = |point| sample_receiver_irradiance(prepared, lighting, visibility, &cache, point);
     let samples = positions.world.map(|world| (world, sample(world)));
     let centre_sample = sample(positions.centre);
     if centre_sample.is_none() && samples.iter().all(|(_, value)| value.is_none()) {
@@ -845,11 +921,12 @@ pub fn entity_lighting(
         .filter(|r| lighting.probe_region_at(*r, position).is_some());
     let prepared = room.and_then(|_| {
         irradiance.and_then(|field| {
+            let visible = lighting.labelled_probe_visibility(position);
             field.sample_with_switchable_indirect(
                 position,
                 None,
                 |index| probe_light_enabled(lighting, index),
-                |probe, label| lighting.labelled_probe_visible_from(position, probe, label),
+                &visible,
             )
         })
     });

@@ -931,3 +931,54 @@ fn assert_lifted_route_blockage(body: &AgentMove, suspended: WallAabb) -> Result
     );
     Ok(())
 }
+
+// The ghost vignette needs a real run without changing the actor's future walk
+// speed. One 25-cell CPU fixture also proves malformed speed cannot replace a
+// valid goal; no assets, GPU or map bake and only three simulation ticks.
+#[test]
+fn scripted_run_speed_is_bounded_and_plain_navigation_restores_walking() -> Result<(), String> {
+    let mut fixture = Fixture::new(grid(5, 5, &(0_usize..25).collect::<Vec<_>>()))?;
+    let (floor, ceiling) = room_floor(r#"[{"x":0,"z":0,"width":5,"depth":5,"height":3}]"#)?;
+    fixture.floor = floor;
+    fixture.ceiling = ceiling;
+    let mut world = AiWorld::new();
+    let def = AiDef::default();
+    let walk_speed = def.walk_speed;
+    let _handle = register(&mut world, 0, def, Vec3::new(1.5, 0.0, 1.5));
+    let goal = Vec3::new(3.5, 0.0, 1.5);
+    assert!(world.set_navigation_goal_with_speed("agent_0", goal, Some(2.8)));
+    assert!(!world.set_navigation_goal_with_speed("agent_0", Vec3::ZERO, Some(f32::NAN)));
+    assert_eq!(
+        world
+            .agent("agent_0")
+            .ok_or("missing agent")?
+            .navigation_goal,
+        Some(goal)
+    );
+    for _ in 0_u8..2 {
+        world.tick(&fixture.context(0.05, &[]), &mut AiOutcome::default());
+    }
+    let running = world.agent("agent_0").ok_or("missing agent")?;
+    assert!(
+        running.speed_mps > walk_speed,
+        "position={:?} speed={} override={:?} waypoints={:?}",
+        running.position,
+        running.speed_mps,
+        running.navigation_speed,
+        running.path.waypoints
+    );
+    assert!(world.set_navigation_goal("agent_0", goal));
+    world.tick(&fixture.context(0.05, &[]), &mut AiOutcome::default());
+    let agent = world.agent("agent_0").ok_or("missing agent")?;
+    assert!(agent.navigation_speed.is_none());
+    assert!(agent.speed_mps <= walk_speed + 1.0e-5);
+    world.reset();
+    assert!(
+        world
+            .agent("agent_0")
+            .ok_or("missing reset agent")?
+            .navigation_speed
+            .is_none()
+    );
+    Ok(())
+}

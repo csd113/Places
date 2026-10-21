@@ -3397,27 +3397,8 @@ fn validate_moving_components(context: &str, components: &[ComponentDef]) -> Res
             }
         }
     }
-    if components
-        .iter()
-        .any(|component| matches!(component, ComponentDef::Balloon(_)))
-        && components.iter().any(|component| {
-            matches!(
-                component,
-                ComponentDef::Ai(_)
-                    | ComponentDef::NavAgent {
-                        radius: _,
-                        speed_mps: _,
-                        height: _,
-                        step_height: _,
-                        max_slope: _
-                    }
-            )
-        })
-    {
-        return Err(format!(
-            "{context} `balloon` cannot share a moving AI/navigation body; its anchor is fixed"
-        ));
-    }
+    // AI translates the placement-local anchor; its frame retains the same
+    // analytic balloon pose. Routes/float remain excluded at the prop boundary.
     Ok(())
 }
 
@@ -4163,7 +4144,14 @@ fn validate_action(
                 |facts| facts.has_carry,
             )?;
         }
-        ActionDef::Navigate { target, position } => {
+        ActionDef::Navigate {
+            target,
+            position,
+            speed_mps,
+        } => {
+            if speed_mps.is_some_and(|speed| !speed.is_finite() || !(0.05..=8.0).contains(&speed)) {
+                return Err("Navigation speed must be finite within 0.05..=8 m/s".into());
+            }
             if position
                 .iter()
                 .any(|value| !value.is_finite() || value.abs() > 100_000.0)
