@@ -246,12 +246,14 @@ pub enum WindowAction {
     Minimize,
     /// Restore a minimized window.
     Restore,
+    /// Request native focus/activation for explicit presentation diagnostics.
+    Raise,
 }
 
 /// Parses one `PLACES_BENCH_WINDOW_CYCLE` action.
 ///
 /// Accepts `resize:<width>x<height>` (positive integers), `minimize` and
-/// `restore`, case-insensitively. Anything else is `None` and is ignored by
+/// `restore` or `raise`, case-insensitively. Anything else is `None` and is ignored by
 /// the runner, like every other malformed benchmark value.
 #[must_use]
 pub fn parse_window_action(value: &str) -> Option<WindowAction> {
@@ -261,6 +263,9 @@ pub fn parse_window_action(value: &str) -> Option<WindowAction> {
     }
     if trimmed_value.eq_ignore_ascii_case("restore") {
         return Some(WindowAction::Restore);
+    }
+    if trimmed_value.eq_ignore_ascii_case("raise") {
+        return Some(WindowAction::Raise);
     }
     let (width, height) = trimmed_value.strip_prefix("resize:")?.split_once('x')?;
     let pixel_width = width.trim().parse::<u32>().ok().filter(|edge| *edge > 0)?;

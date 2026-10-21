@@ -717,16 +717,24 @@ fn prepare_world(
             manager.refresh_catalog();
             let key = PackageKey::for_entry(&entry, request.lightmaps)?;
             let reusable = reusable_records(&key, builds, identities);
+            // Validate semantics/catalog/dependencies once per request. Both
+            // consumers use this snapshot; the variant reader still checks its
+            // freshly opened archive's manifest and every payload hash.
+            let opened = crate::engine::package::world::open_level(&entry.path, &entry.id)?;
+            key.check_manifest(&opened.manifest)?;
             let loaded = if reusable.is_some() {
-                manager.load_level(&entry)?
+                manager.load_opened_level(&entry, opened)?
             } else {
+                ensure_variant_supported(&entry, &opened.manifest, key.quality)?;
+                let manifest = opened.manifest.clone();
                 // The level's texture pixels and the compiled variant come from
                 // different files and caches, so read them concurrently: a load
                 // pays the longer half instead of their sum. Phase::Reading
                 // spans both halves; the Geometry boundary follows the join.
                 let (loaded, variant) = std::thread::scope(|scope| {
-                    let reader = scope.spawn(|| load_entry_variant(&entry, &key, assets));
-                    let loaded = manager.load_level(&entry);
+                    let reader =
+                        scope.spawn(|| load_variant(&entry.path, &manifest, key.quality, assets));
+                    let loaded = manager.load_opened_level(&entry, opened);
                     (loaded, reader.join())
                 });
                 // A failed level keeps its own error; the variant read reports

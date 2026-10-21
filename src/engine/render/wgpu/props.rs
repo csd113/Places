@@ -301,7 +301,10 @@ impl PropUpload {
         batch: &PropMeshBatch,
         visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
     ) {
-        if batch.indices.is_empty() || self.skip_models.iter().any(|model| model == &batch.model) {
+        if batch.indices.is_empty()
+            || self.skip_models.iter().any(|model| model == &batch.model)
+            || super::diagnostic_model_hidden(&batch.model)
+        {
             return;
         }
         let WgpuProps {

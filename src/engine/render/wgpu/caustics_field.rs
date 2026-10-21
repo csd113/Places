@@ -5,7 +5,9 @@
 use crate::engine::level::{GlobalIlluminatorDef, LevelDef, LevelSurfaces, WaterVolume};
 use crate::engine::lighting::{BakedLight, LevelLighting, directional::DirectionalLight};
 use crate::engine::render::common::dynamic_visibility::DynamicVisibility;
-use crate::engine::spatial::Aabb;
+use crate::engine::spatial::{
+    Aabb, directional_light_region_overlaps, finite_light_region_overlaps,
+};
 
 #[path = "caustics_receiver.rs"]
 pub(super) mod receiver;
@@ -210,6 +212,7 @@ pub(super) struct ReceiverField {
     pub(super) dynamic_region_queries: u64,
     pub(super) source_revision: u64,
     cells: Vec<ReceiverCell>,
+    receiver_bounds: Aabb,
     dynamic_transmissions: Vec<f32>,
     dynamic_support: Vec<bool>,
 }
@@ -657,6 +660,9 @@ impl ReceiverField {
             })
             .collect();
         let sample_count = samples.len();
+        let receiver_bounds = cells
+            .iter()
+            .fold(Aabb::EMPTY, |bounds, cell| bounds.union(&cell.bounds));
         let mut field = Self {
             samples,
             grids,
@@ -668,6 +674,7 @@ impl ReceiverField {
             dynamic_region_queries: 0,
             source_revision: 0,
             cells,
+            receiver_bounds,
             dynamic_transmissions: vec![1.0; sample_count],
             dynamic_support: vec![false; sample_count],
         };
@@ -865,10 +872,30 @@ impl ReceiverField {
         if self.dynamic_revision == Some(revision) {
             return false;
         }
+        let changed_bounds = self
+            .dynamic_revision
+            .and_then(|previous| visibility.changed_bounds_since(previous));
         self.dynamic_revision = Some(revision);
         let has_casters = visibility.stats().casters > 0;
         let mut changed = false;
         for source in &mut self.sources {
+            if changed_bounds.is_some_and(|dirty| {
+                dirty.is_empty()
+                    || match source.kind {
+                        SourceKind::Local(_) => !finite_light_region_overlaps(
+                            source.bounds,
+                            self.receiver_bounds,
+                            dirty,
+                        ),
+                        SourceKind::Directional(incoming) => !directional_light_region_overlaps(
+                            incoming,
+                            self.receiver_bounds,
+                            dirty,
+                        ),
+                    }
+            }) {
+                continue;
+            }
             let (source_changed, regions) = refresh_source_visibility(
                 source,
                 visibility,

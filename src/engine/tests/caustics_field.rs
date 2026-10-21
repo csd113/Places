@@ -474,3 +474,158 @@ fn moving_receiver_below_static_platform_carries_rejection_floor() -> Result<(),
     );
     Ok(())
 }
+
+// Essential dependency regression: a moving off-water caster must not refresh
+// the field, while old/new bounds, visibility changes and missed revisions must
+// match a full refresh. Two triangles and a .4m water bay cost milliseconds;
+// there are no asset loads, atlas builds, native windows or GPU allocations.
+#[test]
+fn off_water_motion_reuses_certificates_without_losing_changed_blockers() -> Result<(), String> {
+    use crate::engine::render::common::dynamic::{DynamicScene, SpawnOrientation};
+    use crate::engine::render::common::dynamic_visibility::DynamicVisibility;
+
+    let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"water_dependency","name":"Water dependency",
+        "spawn":{"x":0,"z":0},"rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"floor_y":-1,"height":4,"ceiling":{"kind":"open"}}],
+        "water":[{"x":-0.2,"z":-0.2,"width":0.4,"depth":0.4,"surface_y":0,"bottom_y":-1}],
+        "ceiling_lights":[{"id":"local","fixture":"core:pool_light_round","x":0,"z":0,"y":2}],
+        "global_illuminators":[{"id":"sun","kind":"sun","direction":[0,-1,0]}]}"#)
+        .map_err(|error| error.to_string())?;
+    let lighting = LevelLighting::bake(&level);
+    let volumes = WaterVolumes::from_level(&level);
+    let model = movable_water_plate();
+    let mut dynamic = DynamicScene::new();
+    let mesh = dynamic
+        .register_model("dependency-plate", &model, Vec::new(), &[])
+        .ok_or("plate mesh refused")?;
+    let id = dynamic
+        .spawn_registered(mesh, [10.0, 1.0, 0.0], SpawnOrientation::YAW_ONLY, 0.0, 1.0)
+        .ok_or("plate refused")?;
+    let mut visibility = DynamicVisibility::new();
+    assert!(visibility.sync(&dynamic)?);
+    let mut field = ReceiverField::build(&level, &lighting, volumes.volumes());
+    let _initial_changed = field.refresh_dynamic_visibility(&visibility);
+    field.compose();
+    let clear = field.samples.clone();
+    assert!(clear.iter().any(|sample| sample[0] > 0.0));
+    assert!(field.sources.iter().any(|source| matches!(source.kind, SourceKind::Local(_)) && !source.factors.is_empty()));
+    assert!(
+        field
+            .sources
+            .iter()
+            .any(|source| matches!(source.kind, SourceKind::Directional(_))
+                && !source.factors.is_empty())
+    );
+    let queries = field.dynamic_region_queries;
+    assert!(dynamic.set_transform(id, [11.0, 1.0, 0.0], 45.0, 2.0));
+    assert!(visibility.sync(&dynamic)?);
+    assert!(!field.refresh_dynamic_visibility(&visibility));
+    assert_eq!(
+        field.dynamic_region_queries, queries,
+        "off-water motion performs no cell queries"
+    );
+    assert_eq!(field.samples, clear);
+
+    for (position, yaw, scale) in [
+        ([0.0, 1.0, 0.0], 0.0, 1.0),
+        ([0.0, 1.0, 0.0], 45.0, 1.0),
+        ([0.0, 1.0, 0.0], 45.0, 0.25),
+        ([11.0, 1.0, 0.0], 45.0, 0.25),
+        ([0.0, 1.0, 0.0], 0.0, 1.0),
+    ] {
+        assert!(dynamic.set_transform(id, position, yaw, scale));
+        assert!(visibility.sync(&dynamic)?);
+        let _motion_changed = field.refresh_dynamic_visibility(&visibility);
+        field.compose();
+        assert_full_water_refresh(&field, &level, &lighting, volumes.volumes(), &visibility);
+        let [x, _, _] = position;
+        if x.abs() < f32::EPSILON {
+            assert_ne!(
+                field.samples, clear,
+                "a newly relevant blocker must change the field"
+            );
+        } else {
+            assert_eq!(
+                field.samples, clear,
+                "old bounds must restore vacated cells"
+            );
+        }
+    }
+    assert!(dynamic.set_visible(id, false));
+    assert!(visibility.sync(&dynamic)?);
+    let _hidden_changed = field.refresh_dynamic_visibility(&visibility);
+    field.compose();
+    assert_eq!(
+        field.samples, clear,
+        "removed visible casters restore their former shadow"
+    );
+    assert!(dynamic.set_visible(id, true));
+    assert!(visibility.sync(&dynamic)?);
+    assert!(dynamic.set_transform(id, [0.05, 1.0, 0.0], 0.0, 1.0));
+    assert!(visibility.sync(&dynamic)?);
+    let _missed_changed = field.refresh_dynamic_visibility(&visibility);
+    field.compose();
+    assert_full_water_refresh(&field, &level, &lighting, volumes.volumes(), &visibility);
+    assert_ne!(
+        field.samples, clear,
+        "a consumer missing a revision must fully refresh"
+    );
+    assert!(dynamic.despawn(id));
+    assert!(visibility.sync(&dynamic)?);
+    let _despawn_changed = field.refresh_dynamic_visibility(&visibility);
+    field.compose();
+    assert_eq!(
+        field.samples, clear,
+        "despawned blockers restore their former shadow"
+    );
+    Ok(())
+}
+
+fn assert_full_water_refresh(
+    actual: &ReceiverField,
+    level: &LevelDef,
+    lighting: &LevelLighting,
+    volumes: &[crate::engine::level::WaterVolume],
+    visibility: &crate::engine::render::common::dynamic_visibility::DynamicVisibility,
+) {
+    let mut reference = ReceiverField::build(level, lighting, volumes);
+    let _reference_changed = reference.refresh_dynamic_visibility(visibility);
+    reference.compose();
+    assert_eq!(
+        actual.samples, reference.samples,
+        "incremental certificates match a complete current-scene refresh"
+    );
+}
+
+fn movable_water_plate() -> crate::engine::gltf::PropModel {
+    use crate::engine::gltf::{PropModel, PropSubmesh, PropVertex};
+    use crate::engine::materials::{MaterialAlpha, MaterialEmission, MaterialResponse};
+    PropModel {
+        vertices: [
+            [-0.4, 0.0, -0.4],
+            [0.4, 0.0, -0.4],
+            [0.4, 0.0, 0.4],
+            [-0.4, 0.0, 0.4],
+        ]
+        .map(|pos| PropVertex {
+            pos,
+            normal: Some([0.0, 1.0, 0.0]),
+            color: [1.0; 4],
+            uv: [0.0; 2],
+        })
+        .to_vec(),
+        indices: vec![0, 1, 2, 0, 2, 3],
+        submeshes: vec![PropSubmesh {
+            double_sided: true,
+            response: MaterialResponse::default(),
+            material: 0,
+            texture: None,
+            emission: MaterialEmission::default(),
+            alpha: MaterialAlpha::OPAQUE,
+            first_index: 0,
+            index_count: 6,
+        }],
+        triangles: 2,
+        materials: 1,
+        ..PropModel::default()
+    }
+}

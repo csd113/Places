@@ -51,6 +51,16 @@ pub mod character;
 pub mod decals;
 #[cfg(feature = "visual-diagnostics")]
 pub mod diagnostics;
+
+#[cfg(feature = "visual-diagnostics")]
+fn diagnostic_model_hidden(model: &str) -> bool {
+    diagnostics::model_hidden(model)
+}
+
+#[cfg(not(feature = "visual-diagnostics"))]
+const fn diagnostic_model_hidden(_model: &str) -> bool {
+    false
+}
 pub mod dynamic;
 pub mod effects;
 pub mod environment;

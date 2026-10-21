@@ -6,6 +6,41 @@
 
 use std::borrow::Cow;
 
+/// Explicit asset-isolation control; leaves authored state and lighting intact.
+pub(super) fn model_hidden(model: &str) -> bool {
+    #[cfg(feature = "visual-diagnostics")]
+    {
+        static MODELS: std::sync::OnceLock<Vec<String>> = std::sync::OnceLock::new();
+        let models = MODELS.get_or_init(|| {
+            if !std::env::var("PLACES_BENCH").is_ok_and(|value| value == "1") {
+                return Vec::new();
+            }
+            let selected: Vec<_> = std::env::var("PLACES_BENCH_HIDE_MODELS")
+                .unwrap_or_default()
+                .split(';')
+                .map(str::trim)
+                .filter(|entry| !entry.is_empty() && entry.len() <= 512)
+                .take(64)
+                .map(str::to_owned)
+                .collect();
+            if !selected.is_empty() {
+                crate::engine::logging::info(format!("[bench] hidden model draws: {selected:?}; authored state/physics/lighting unchanged"));
+            }
+            selected
+        });
+        models.iter().any(|selected| {
+            selected
+                .strip_suffix('*')
+                .map_or_else(|| selected == model, |prefix| model.starts_with(prefix))
+        })
+    }
+    #[cfg(not(feature = "visual-diagnostics"))]
+    {
+        let _model = model;
+        false
+    }
+}
+
 /// Native world diagnostic selected independently of graphics settings.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum VisualDiagnosticMode {

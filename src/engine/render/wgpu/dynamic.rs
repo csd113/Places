@@ -67,6 +67,7 @@ struct DynamicSubmeshGpu {
 struct DynamicObjectGpu {
     id: DynamicId,
     visible: bool,
+    diagnostic_hidden: bool,
     culling_reflected: Option<bool>,
     /// Slot into [`WgpuDynamic::meshes`].
     mesh: usize,
@@ -307,6 +308,7 @@ impl WgpuDynamic {
             value.objects.push(DynamicObjectGpu {
                 id: object.id(),
                 visible: object.visible(),
+                diagnostic_hidden: super::diagnostic_model_hidden(&object.mesh().model_path),
                 culling_reflected: super::world::culling_reflected(object.transform()),
                 mesh: mesh_index,
                 environment,
@@ -461,7 +463,7 @@ impl WgpuDynamic {
             let Some(live) = scene.objects().get(slot) else {
                 continue;
             };
-            object.visible = live.visible();
+            object.visible = live.visible() && !object.diagnostic_hidden;
             if !object.visible {
                 continue;
             }
@@ -513,7 +515,7 @@ impl WgpuDynamic {
         let Some(object) = self.objects.get_mut(slot) else {
             return false;
         };
-        object.visible = visible;
+        object.visible = visible && !object.diagnostic_hidden;
         true
     }
 

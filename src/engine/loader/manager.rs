@@ -422,6 +422,22 @@ impl LevelManager {
         result
     }
 
+    /// Resolves pixels from the same validated semantic snapshot used by the
+    /// request's variant reader. No path/mtime or cross-request validity cache.
+    pub(crate) fn load_opened_level(
+        &self,
+        entry: &LevelEntry,
+        opened: crate::engine::package::world::OpenedPackage,
+    ) -> Result<LoadedLevel, String> {
+        let result = if opened.level.id == entry.id {
+            self.assembled_level(entry.clone(), opened)
+        } else {
+            Err("Opened package does not describe the selected level".into())
+        };
+        self.texture_cache.borrow_mut().begin_level();
+        result
+    }
+
     /// Imports an external `.placesmap` package into the installed levels
     /// directory.
     ///

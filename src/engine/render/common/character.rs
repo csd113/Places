@@ -95,6 +95,66 @@ pub use crate::engine::entity::{EntityFrame, PoseCue};
 /// budget, exactly as before.
 pub const MAX_CHARACTERS: usize = 128;
 
+/// Reuses an adjacent vertex's exact blended normal transform. This scratch
+/// belongs to one skinning pass, so it can never outlive the animator revision.
+pub struct SkinNormalCache<'a> {
+    animator: &'a CharacterAnimator,
+    previous: Option<([u16; 4], [u32; 4], SkinNormalTransform)>,
+}
+
+#[derive(Clone, Copy)]
+enum SkinNormalTransform {
+    Unweighted,
+    Weighted(Option<Mat4>),
+}
+
+impl SkinNormalTransform {
+    fn apply(self, normal: [f32; 3]) -> [f32; 3] {
+        match self {
+            Self::Unweighted => normal,
+            Self::Weighted(inverse) => inverse.map_or([0.0; 3], |matrix| {
+                matrix
+                    .transform_vector3(Vec3::from_array(normal))
+                    .normalize_or_zero()
+                    .to_array()
+            }),
+        }
+    }
+}
+
+impl<'a> SkinNormalCache<'a> {
+    #[must_use]
+    pub const fn new(animator: &'a CharacterAnimator) -> Self {
+        Self {
+            animator,
+            previous: None,
+        }
+    }
+
+    /// Joint slots and weight bits must agree; the vertex normal may differ.
+    /// Rigid weights already use the animator's per-joint inverse directly.
+    pub fn skin_normal(
+        &mut self,
+        joints: [u16; 4],
+        weights: [f32; 4],
+        normal: [f32; 3],
+    ) -> [f32; 3] {
+        let bits = weights.map(f32::to_bits);
+        if bits == [1.0_f32.to_bits(), 0, 0, 0] {
+            return self.animator.skin_normal(joints, weights, normal);
+        }
+        if let Some((previous_joints, previous_weights, transform)) = self.previous
+            && previous_joints == joints
+            && previous_weights == bits
+        {
+            return transform.apply(normal);
+        }
+        let transform = self.animator.skin_normal_transform(joints, weights);
+        self.previous = Some((joints, bits, transform));
+        transform.apply(normal)
+    }
+}
+
 struct PlacedCharacter {
     prop_index: usize,
     asset: Arc<LoadedPropAsset>,
@@ -3079,13 +3139,12 @@ impl CharacterAnimator {
                 .normal_deltas
                 .get(usize::from(joints.first().copied().unwrap_or(0)))
         {
-            return inverse.map_or([0.0; 3], |matrix| {
-                matrix
-                    .transform_vector3(Vec3::from_array(normal))
-                    .normalize_or_zero()
-                    .to_array()
-            });
+            return SkinNormalTransform::Weighted(*inverse).apply(normal);
         }
+        self.skin_normal_transform(joints, weights).apply(normal)
+    }
+
+    fn skin_normal_transform(&self, joints: [u16; 4], weights: [f32; 4]) -> SkinNormalTransform {
         let mut blended = Mat4::ZERO;
         let mut total = 0.0_f32;
         for (slot, weight) in joints.iter().zip(weights.iter()) {
@@ -3104,15 +3163,9 @@ impl CharacterAnimator {
             }
         }
         if total <= 0.0 {
-            return normal;
+            return SkinNormalTransform::Unweighted;
         }
-        let Some(inverse) = super::normal::inverse_transpose(blended) else {
-            return [0.0; 3];
-        };
-        inverse
-            .transform_vector3(Vec3::from_array(normal))
-            .normalize_or_zero()
-            .to_array()
+        SkinNormalTransform::Weighted(super::normal::inverse_transpose(blended))
     }
 
     /// Buffer capacities, for the no-allocation regression test.

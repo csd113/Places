@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Bounded native frame-time/capture run; requires an existing playable package.
 
-No map baking, GPU drains, trace profiler, or graphics quality reduction. Motion
-uses fixed simulation steps to match workload, while timings use real wall time.
+No map baking or graphics quality reduction. Motion uses fixed simulation steps
+to match workload, while timings use real wall time. Explicit diagnostic options
+may drain the GPU, omit scene draws or discard presentation; these runs are
+labeled separately and must not be reported as normal presented throughput.
 """
 from __future__ import annotations
 
@@ -110,6 +112,7 @@ def main() -> None:
     parser.add_argument("--move-script", default="", help="explicit held controls in simulation seconds")
     parser.add_argument("--interact", default="", help="authored interactable IDs at startup, e.g. restroom_entry")
     parser.add_argument("--graphics-cycle", default="", help="existing benchmark Advanced-settings cycle")
+    parser.add_argument("--window-cycle", default="", help="diagnostic native window actions by frame: resize/minimize/restore/raise")
     parser.add_argument("--quality-cycle", default="", help="existing benchmark texture-quality cycle")
     parser.add_argument("--actions", type=Path, help="bounded native SDL action script")
     parser.add_argument("--lighting-sequence", type=Path, help="existing bounded entity/light/door/capture actions")
@@ -117,11 +120,17 @@ def main() -> None:
     parser.add_argument("--gpu-trace", action="store_true", help="three labelled raw GPU samples; diagnostic run")
     parser.add_argument("--no-caustics", action="store_true", help="same-build disabled-effect control")
     parser.add_argument("--no-gpu-timing", action="store_true", help="same-build instrumentation control")
+    parser.add_argument("--no-present", action="store_true", help="diagnostic only: render and discard acquired frames; no presented-FPS claim")
+    parser.add_argument("--no-render", action="store_true", help="diagnostic only: cycle the native surface without scene/UI work")
+    parser.add_argument("--finish", action="store_true", help="diagnostic only: wait for GPU completion before presentation/discard")
     parser.add_argument("--runtime-workers", type=int, choices=range(1, 9), help="bounded CPU pool; 1 runs inline")
     parser.add_argument("--low-lighting", action="store_true", help="independent Low lighting mode; preserve texture quality")
     parser.add_argument("--lightmaps", choices=("static", "full"), default="full", help="matched lighting control")
     parser.add_argument("--entity-light-trace", default="", help="capture-only entity lighting payload witness")
     parser.add_argument("--cpu-trace", action="store_true", help="three steady frames of CPU stage spans; diagnostic")
+    parser.add_argument("--render-trace", action="store_true", help="bounded render preparation/acquisition/encode/submit spans; diagnostic")
+    parser.add_argument("--surface-trace", action="store_true", help="periodic native surface/window and GPU resource state; diagnostic")
+    parser.add_argument("--hide-models", default="", help="diagnostic model paths separated by semicolons; trailing * selects a prefix")
     parser.add_argument("--physics-log", action="store_true", help="bounded per-frame body/step counters")
     parser.add_argument("--physics-trace", action="store_true", help="item state snapshots in the load trace; diagnostic")
     parser.add_argument("--real-delta", action="store_true", help="use normal wall-clock gameplay delta for interaction/traversal reproduction")
@@ -182,14 +191,21 @@ def main() -> None:
         "PLACES_BENCH_CAMERA_POSITION": args.eye,
         "PLACES_ENTITY_LIGHT_TRACE": args.entity_light_trace,
         "PLACES_BENCH_CPU_TRACE": "1" if args.cpu_trace else "",
+        "PLACES_BENCH_RENDER_TRACE": "1" if args.render_trace else "",
+        "PLACES_GPU_RESOURCE_TRACE": "1" if args.surface_trace else "",
+        "PLACES_BENCH_HIDE_MODELS": args.hide_models,
         "PLACES_MOVE_SCRIPT": lateral_script() if args.motion else args.move_script,
         "PLACES_INTERACT": args.interact,
         "PLACES_BENCH_GRAPHICS_CYCLE": args.graphics_cycle,
+        "PLACES_BENCH_WINDOW_CYCLE": args.window_cycle,
         "PLACES_BENCH_QUALITY_CYCLE": args.quality_cycle,
         "PLACES_BENCH_LIGHTING_SEQUENCE": str(args.lighting_sequence.resolve(strict=True)) if args.lighting_sequence else "",
         "PLACES_BENCH_ACTIONS": str(args.actions.resolve(strict=True)) if args.actions else "",
         "PLACES_BENCH_GPU_TRACE": "1" if args.gpu_trace else "",
         "PLACES_BENCH_GPU_TIMING": "off" if args.no_gpu_timing else "",
+        "PLACES_BENCH_NOSWAP": "1" if args.no_present else "",
+        "PLACES_BENCH_NORENDER": "1" if args.no_render else "",
+        "PLACES_BENCH_FINISH": "1" if args.finish else "",
         "PLACES_BENCH_CAUSTICS": "off" if args.no_caustics else "",
         "PLACES_PHYSICS_LOG": str(out / "physics.csv") if args.physics_log else "",
         "PLACES_PHYSICS_TRACE": "1" if args.physics_trace else "",
@@ -297,7 +313,7 @@ def main() -> None:
     events = [json.loads(line) for line in (out / "trace.jsonl").read_text().splitlines()]
     presented = sum(event["event"] == "present" and event["detail"] == "ready" for event in events)
     missed = sum(event["event"] == "surface_not_presented" and event["detail"] == "ready" for event in events)
-    if not presented or missed:
+    if not args.no_present and (not presented or missed):
         raise RuntimeError(f"native surface was occluded/unavailable: {presented} ready, {missed} skipped")
     with (out / "frames.csv").open() as stream:
         rows = list(csv.DictReader(stream))
@@ -307,7 +323,7 @@ def main() -> None:
             raise RuntimeError("missing native capture")
         if not rows or int(rows[-1]["draw_calls"]) == 0:
             raise RuntimeError(f"native capture contains no submitted scene geometry; see {out / 'native.log'}")
-    elif (args.seconds is None and len(rows) != args.frames) or not rows or not all(int(row["draw_calls"]) > 0 for row in rows):
+    elif (args.seconds is None and len(rows) != args.frames) or not rows or (not args.no_render and not all(int(row["draw_calls"]) > 0 for row in rows)):
         raise RuntimeError("missing measured frames or real scene submissions")
     gpu = {}
     for row in rows:
@@ -320,7 +336,7 @@ def main() -> None:
         for key in ("loop_ms", "frame_ms", "update_ms", "render_ms", "swap_ms")
     }
     receipt = dict(
-        kind="capture" if capture else "diagnostic" if (args.cpu_trace or args.gpu_trace or args.graphics_cycle or args.quality_cycle or args.lighting_sequence or args.physics_trace or args.actions) else "timing",
+        kind="capture" if capture else "diagnostic" if (args.cpu_trace or args.render_trace or args.surface_trace or args.hide_models or args.no_present or args.no_render or args.finish or args.gpu_trace or args.graphics_cycle or args.window_cycle or args.quality_cycle or args.lighting_sequence or args.physics_trace or args.actions) else "timing",
         requested_ready_seconds=args.seconds, warmup_frames=args.warmup,
         started_utc=started_utc, elapsed_seconds=time.monotonic() - started,
         binary=str(binary), binary_sha256=binary_sha256, package=str(package), package_sha256=package_sha256,
@@ -334,7 +350,9 @@ def main() -> None:
         native_identity=[line for line in log.splitlines()
                          if line.startswith(("[renderer]", "[window]", "[settings]", "[wgpu] GPU timing", "[wgpu] present mode"))],
         metrics=metrics, gpu_elapsed_ms=None if capture else statistics_for(list(gpu.values())),
-        average_fps=None if capture else 1000 / statistics.fmean(float(row["loop_ms"]) for row in rows),
+        average_fps=None if capture or args.no_present else 1000 / statistics.fmean(float(row["loop_ms"]) for row in rows),
+        render_iterations_per_second=(1000 / statistics.fmean(float(row["loop_ms"]) for row in rows)
+                                      if args.no_present and not capture else None),
         process_usage=None if usage is None else dict(
             user_seconds=usage.ru_utime, system_seconds=usage.ru_stime,
             peak_rss_bytes=usage.ru_maxrss if sys.platform == "darwin" else usage.ru_maxrss * 1024,

@@ -110,6 +110,48 @@ fn cpu_trace_finish(stage: &str, started: Option<std::time::Instant>) {
     }
 }
 
+fn render_trace_start(seconds: f32) -> Option<std::time::Instant> {
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    let enabled = ENABLED.get_or_init(|| {
+        std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+            && std::env::var("PLACES_BENCH_RENDER_TRACE").as_deref() == Ok("1")
+    });
+    (*enabled && seconds >= 3.0).then(std::time::Instant::now)
+}
+
+/// Bounded slow-frame evidence; opt-in runs are never authoritative timings.
+fn render_trace_finish(stamps: [Option<std::time::Instant>; 6]) {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static REPORTS: AtomicUsize = AtomicUsize::new(0);
+    let [
+        Some(start),
+        Some(polled),
+        Some(prepared),
+        Some(acquired),
+        Some(encoded),
+        Some(submitted),
+    ] = stamps
+    else {
+        return;
+    };
+    let total = submitted.saturating_duration_since(start).as_secs_f64() * 1_000.0_f64;
+    if (total >= 4.0_f64 || REPORTS.load(Ordering::Relaxed) < 3)
+        && REPORTS.fetch_add(1, Ordering::Relaxed) < 96
+    {
+        let ms = |end: std::time::Instant, begin| {
+            end.saturating_duration_since(begin).as_secs_f64() * 1_000.0_f64
+        };
+        logging::info(format!(
+            "[render-cpu] total_ms={total:.6} poll_setup_ms={:.6} prepare_ms={:.6} acquire_ms={:.6} encode_ms={:.6} submit_ms={:.6}",
+            ms(polled, start),
+            ms(prepared, polled),
+            ms(acquired, prepared),
+            ms(encoded, acquired),
+            ms(submitted, encoded),
+        ));
+    }
+}
+
 /// Fixed scalar storage for explicit native resource-lifetime diagnostics.
 /// Peaks describe sampled observations, including staged old/new worlds; they
 /// do not claim to measure an unsampled driver allocation high-water mark.
@@ -1259,6 +1301,8 @@ impl WgpuRenderer {
         let _update_stats_2 = self.effects.update(self.animation_seconds);
         let lighting_started = cpu_trace_start(self.animation_seconds);
         let update = self.refresh_dynamic_lighting(delta_seconds);
+        cpu_trace_finish("dynamic_receivers", lighting_started);
+        let caustics_started = cpu_trace_start(self.animation_seconds);
         if self.dynamic_transport.is_none() && self.caustics.has_active_sources() {
             match self.dynamic_visibility.sync(&self.dynamic) {
                 Ok(_) => self.dynamic_visibility_error = None,
@@ -1269,6 +1313,7 @@ impl WgpuRenderer {
             self.caustics
                 .refresh_dynamic_visibility(&self.queue, &self.dynamic_visibility);
         }
+        cpu_trace_finish("caustics_visibility", caustics_started);
         self.caustics.update(
             &self.queue,
             self.animation_seconds,
@@ -4495,6 +4540,7 @@ impl WgpuRenderer {
         reason = "one cohesive frame submission: prepare, encode and present"
     )] // one cohesive frame submission: prepare, encode and present
     pub fn render_scene(&mut self, camera: RenderCamera) {
+        let trace_started = render_trace_start(self.animation_seconds);
         // Per-frame submission counters: RenderStats and the bench CSV report
         // this frame's reflection captures, which is what the documented
         // "submissions the frame spent on reflections" field means.
@@ -4515,6 +4561,7 @@ impl WgpuRenderer {
             return;
         }
         self.poll_device();
+        let trace_polled = trace_started.map(|_| std::time::Instant::now());
         if self.fatal.is_some() {
             return;
         }
@@ -4702,7 +4749,10 @@ impl WgpuRenderer {
         // A frame whose present was skipped (`PLACES_BENCH_NOSWAP`) must not
         // hold the swapchain: discard it before acquiring the next one.
         self.pending_frame = None;
-        match self.acquire_frame() {
+        let trace_prepared = trace_started.map(|_| std::time::Instant::now());
+        let acquired = self.acquire_frame();
+        let trace_acquired = trace_started.map(|_| std::time::Instant::now());
+        match acquired {
             Acquired::Frame(texture) => {
                 let view = texture
                     .texture
@@ -4714,7 +4764,18 @@ impl WgpuRenderer {
                         });
                 let totals =
                     self.encode_frame_into(&mut encoder, &view, &frame, Some(&self.gpu_timer));
-                let _submission = self.queue.submit([encoder.finish()]);
+                let commands = encoder.finish();
+                let trace_encoded = trace_started.map(|_| std::time::Instant::now());
+                let _submission = self.queue.submit([commands]);
+                let trace_submitted = trace_started.map(|_| std::time::Instant::now());
+                render_trace_finish([
+                    trace_started,
+                    trace_polled,
+                    trace_prepared,
+                    trace_acquired,
+                    trace_encoded,
+                    trace_submitted,
+                ]);
                 self.pending_frame = Some(texture);
                 self.record_render_stats(totals);
             }
@@ -6547,9 +6608,38 @@ impl WgpuRenderer {
             "post_attachment_texel_bytes": self.post.as_ref().map_or(0, PostProcess::diagnostic_attachment_bytes),
             "atlas_texel_bytes": self.lightmaps.stats().resident_bytes,
             "drawable": [self.drawable_size.width, self.drawable_size.height],
+            "surface_present_mode": surface::present_mode_label(self.config.present_mode),
+            "surface_desired_frame_latency": self.config.desired_maximum_frame_latency,
+            "surface_format": format!("{:?}", self.config.format),
+            "metal_layer": self.metal_layer_diagnostics(),
+            "window_native_focus": self.window.as_ref().map(Window::has_input_focus),
+            "window_native_flags": self.window.as_ref().map(|window| format!("{:?}", window.window_flags())),
             "staging": self.prepared_install.is_some(), "fatal": self.fatal,
         });
         logging::info(format!("[gpu-resources] {receipt}"));
+    }
+
+    #[cfg(all(feature = "visual-diagnostics", target_os = "macos"))]
+    fn metal_layer_diagnostics(&self) -> Option<serde_json::Value> {
+        // SAFETY: Read-only properties under the HAL layer lock; neither the
+        // guarded surface nor its native resources are mutated or destroyed.
+        let surface = unsafe { self.surface.as_ref()?.as_hal::<wgpu::hal::api::Metal>() }?;
+        let layer = surface.render_layer().lock();
+        let drawable = layer.drawableSize();
+        let state = serde_json::json!({
+            "display_sync_enabled": layer.displaySyncEnabled(),
+            "maximum_drawable_count": layer.maximumDrawableCount(),
+            "presents_with_transaction": layer.presentsWithTransaction(),
+            "allows_next_drawable_timeout": layer.allowsNextDrawableTimeout(),
+            "drawable": [drawable.width, drawable.height],
+        });
+        drop(layer);
+        Some(state)
+    }
+
+    #[cfg(all(feature = "visual-diagnostics", not(target_os = "macos")))]
+    fn metal_layer_diagnostics(&self) -> Option<serde_json::Value> {
+        None
     }
 
     /// Reports and records a device loss, once.

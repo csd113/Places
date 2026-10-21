@@ -87,6 +87,7 @@ struct Caster {
     matrix: [[u32; 4]; 4],
     inverse: Mat4,
     bounds: Aabb,
+    rounding_scale: f64,
     scene: Arc<TransportScene>,
 }
 
@@ -108,6 +109,8 @@ pub struct DynamicVisibility {
     meshes: HashMap<usize, CachedMesh>,
     casters: Vec<Caster>,
     revision: u64,
+    changed_from: u64,
+    changed_bounds: Aabb,
     scene_revision: u64,
     model_builds: usize,
     preparation_millis: f64,
@@ -122,6 +125,19 @@ impl DynamicVisibility {
     #[must_use]
     pub const fn revision(&self) -> u64 {
         self.revision
+    }
+
+    /// Bounds of both the old and new geometry for the latest revision only.
+    /// A consumer that missed revisions must refresh from the complete scene.
+    #[must_use]
+    pub const fn changed_bounds_since(&self, revision: u64) -> Option<Aabb> {
+        if revision == self.revision {
+            Some(Aabb::EMPTY)
+        } else if revision == self.changed_from {
+            Some(self.changed_bounds)
+        } else {
+            None
+        }
     }
 
     #[must_use]
@@ -203,6 +219,7 @@ impl DynamicVisibility {
                 },
             ));
         }
+        let changed_bounds = self.changed_caster_bounds(dynamic);
         self.casters.clear();
         for object in dynamic.objects().iter().filter(|object| object.visible()) {
             let transform = object.transform();
@@ -219,6 +236,7 @@ impl DynamicVisibility {
                 matrix: matrix_bits(transform),
                 inverse,
                 bounds,
+                rounding_scale: placement_rounding_scale(transform, object.mesh().bounds),
                 scene: Arc::clone(&mesh.scene),
             });
         }
@@ -228,9 +246,41 @@ impl DynamicVisibility {
                     && Arc::ptr_eq(object.mesh(), &cached.mesh)
             })
         });
+        self.changed_from = self.revision;
+        self.changed_bounds = changed_bounds;
         self.revision = self.revision.wrapping_add(1);
         self.scene_revision = dynamic.revision();
         Ok(true)
+    }
+
+    fn changed_caster_bounds(&self, dynamic: &DynamicScene) -> Aabb {
+        let objects = || dynamic.objects().iter().filter(|object| object.visible());
+        let same_layout = objects().count() == self.casters.len()
+            && objects()
+                .zip(&self.casters)
+                .all(|(object, previous)| object.id() == previous.id);
+        let mut changed_bounds = Aabb::EMPTY;
+        if same_layout {
+            for (object, previous) in objects().zip(&self.casters) {
+                if mesh_identity(object.mesh()) != previous.mesh
+                    || matrix_bits(object.transform()) != previous.matrix
+                {
+                    changed_bounds = changed_bounds
+                        .union(&previous.bounds)
+                        .union(&object.world_bounds());
+                }
+            }
+        } else {
+            // Admission/removal/reordering is uncommon. Cover every former and
+            // current caster rather than retaining an incomplete positional diff.
+            for previous in &self.casters {
+                changed_bounds = changed_bounds.union(&previous.bounds);
+            }
+            for object in objects() {
+                changed_bounds = changed_bounds.union(&object.world_bounds());
+            }
+        }
+        changed_bounds
     }
 
     /// Visibility uses the drawn mesh/UV/alpha in its current world transform.
@@ -240,9 +290,33 @@ impl DynamicVisibility {
         if !from.iter().chain(&to).all(|value| value.is_finite()) {
             return 0.0;
         }
+        if self.casters.is_empty() {
+            return 1.0;
+        }
+        // Small sets already reject cheaply in each model's BVH. Amortize the
+        // additional world-space slabs only across a large caster set.
+        if self.casters.len() < 64 {
+            self.transmittance_candidates::<false>(from, to, excluded)
+        } else {
+            self.transmittance_candidates::<true>(from, to, excluded)
+        }
+    }
+
+    fn transmittance_candidates<const REFINE: bool>(
+        &self,
+        from: [f32; 3],
+        to: [f32; 3],
+        excluded: Option<DynamicId>,
+    ) -> f32 {
         let mut throughput = 1.0_f32;
+        let segment = REFINE.then(|| VisibilitySegment::new(from, to));
         for caster in &self.casters {
-            if excluded == Some(caster.id) || !segment_bounds_overlap(from, to, caster.bounds) {
+            if excluded == Some(caster.id)
+                || !segment_bounds_overlap(from, to, caster.bounds)
+                || segment
+                    .as_ref()
+                    .is_some_and(|query| !query.overlaps(caster.bounds, caster.rounding_scale))
+            {
                 continue;
             }
             let local_from = caster
@@ -362,13 +436,17 @@ impl DynamicVisibility {
         receivers: Aabb,
         excluded: Option<DynamicId>,
     ) -> bool {
-        finite_region_bounds(source)
-            && finite_region_bounds(receivers)
-            && self
-                .casters
-                .iter()
-                .filter(|caster| excluded != Some(caster.id))
-                .all(|caster| !finite_light_region_overlaps(source, receivers, caster.bounds))
+        if !finite_region_bounds(source) || !finite_region_bounds(receivers) {
+            return false;
+        }
+        let envelope = source.union(&receivers);
+        self.casters
+            .iter()
+            .filter(|caster| excluded != Some(caster.id))
+            .all(|caster| {
+                !light_region_bounds_overlap(envelope, caster.bounds)
+                    || !finite_light_region_overlaps(source, receivers, caster.bounds)
+            })
     }
 
     /// Conservative full-cell visibility toward a source at infinity.
@@ -390,6 +468,31 @@ impl DynamicVisibility {
                     !directional_light_region_overlaps(incoming, receivers, caster.bounds)
                 })
     }
+}
+
+/// The finite source/receiver hull lies inside this enclosing box. Reject only
+/// clear misses before constructing the full f64 separating-axis certificate.
+/// Caster bounds were validated by sync; source and receiver bounds by caller.
+fn light_region_bounds_overlap(envelope: Aabb, blocker: Aabb) -> bool {
+    let scale = envelope
+        .min
+        .into_iter()
+        .chain(envelope.max)
+        .chain(blocker.min)
+        .chain(blocker.max)
+        .fold(1.0_f64, |scale, value| scale.max(f64::from(value.abs())));
+    // Wider than the full certificate's f64 projection allowance, including
+    // very small boxes at large coordinates. Boundary cases keep the full test.
+    let padding = scale * f64::from(f32::EPSILON) * 4.0_f64;
+    envelope
+        .min
+        .into_iter()
+        .zip(envelope.max)
+        .zip(blocker.min.into_iter().zip(blocker.max))
+        .all(|((low, high), (minimum, maximum))| {
+            f64::from(low) <= f64::from(maximum) + padding
+                && f64::from(minimum) <= f64::from(high) + padding
+        })
 }
 
 fn finite_region_bounds(bounds: Aabb) -> bool {
@@ -417,3 +520,103 @@ fn segment_bounds_overlap(from: [f32; 3], to: [f32; 3], bounds: Aabb) -> bool {
         .zip(bounds.min.into_iter().zip(bounds.max))
         .all(|((a, b), (minimum, maximum))| a.min(b) <= maximum && a.max(b) >= minimum)
 }
+
+/// Bound the magnitude of placement arithmetic before cancellation. A large
+/// imported pivot translated back to the origin still needs its f32 rounding
+/// allowance, even when the final world bounds and ray endpoints are small.
+fn placement_rounding_scale(transform: Mat4, local: Aabb) -> f64 {
+    let [x, y, z] = std::array::from_fn(|axis| {
+        f64::from(local.min.get(axis).copied().unwrap_or(0.0_f32).abs()).max(f64::from(
+            local.max.get(axis).copied().unwrap_or(0.0_f32).abs(),
+        ))
+    });
+    let mut rows = [0.0_f64; 3];
+    for (column, extent) in transform
+        .to_cols_array_2d()
+        .into_iter()
+        .zip([x, y, z, 1.0_f64])
+    {
+        for (sum, coefficient) in rows.iter_mut().zip(column) {
+            *sum = f64::from(coefficient.abs()).mul_add(extent, *sum);
+        }
+    }
+    rows.into_iter().fold(1.0_f64, f64::max)
+}
+
+/// Reject clear diagonal misses before transforming a ray into a mesh BVH.
+/// Double precision and outward padding retain boundary/near-parallel cases;
+/// uncertain overlaps still use the unchanged triangle/alpha query.
+struct VisibilitySegment {
+    origin: [f64; 3],
+    inverse: [f64; 3],
+    parallel: [bool; 3],
+    scale: f64,
+}
+
+impl VisibilitySegment {
+    fn new(from: [f32; 3], to: [f32; 3]) -> Self {
+        let origin = from.map(f64::from);
+        let delta: [f64; 3] = std::array::from_fn(|axis| {
+            f64::from(to.get(axis).copied().unwrap_or(0.0_f32))
+                - origin.get(axis).copied().unwrap_or(0.0_f64)
+        });
+        Self {
+            origin,
+            inverse: delta.map(|value| {
+                if value == 0.0_f64 {
+                    0.0_f64
+                } else {
+                    value.recip()
+                }
+            }),
+            parallel: delta.map(|value| value == 0.0_f64),
+            scale: from
+                .into_iter()
+                .chain(to)
+                .fold(1.0_f64, |scale, value| scale.max(f64::from(value.abs()))),
+        }
+    }
+
+    fn overlaps(&self, bounds: Aabb, placement_scale: f64) -> bool {
+        // Covers f32 transform/triangle rounding as well as the slab division.
+        // It only admits more candidates, never changes a mesh's ray answer.
+        let scale = bounds
+            .min
+            .into_iter()
+            .chain(bounds.max)
+            .fold(self.scale.max(placement_scale), |scale, value| {
+                scale.max(f64::from(value.abs()))
+            });
+        let padding = scale * f64::from(f32::EPSILON) * 16.0_f64;
+        let mut entry = 0.0_f64;
+        let mut exit = 1.0_f64;
+        for (((origin, inverse), parallel), (minimum, maximum)) in self
+            .origin
+            .into_iter()
+            .zip(self.inverse)
+            .zip(self.parallel)
+            .zip(bounds.min.into_iter().zip(bounds.max))
+        {
+            let low = f64::from(minimum) - padding;
+            let high = f64::from(maximum) + padding;
+            if parallel {
+                if origin < low || origin > high {
+                    return false;
+                }
+            } else {
+                let a = (low - origin) * inverse;
+                let b = (high - origin) * inverse;
+                entry = entry.max(a.min(b));
+                exit = exit.min(a.max(b));
+                if entry > exit {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+}
+
+#[cfg(test)]
+#[path = "../../tests/dynamic_ray_bounds.rs"]
+mod bounds_tests;

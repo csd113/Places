@@ -1477,7 +1477,7 @@ Native receipts/results include `expanded-results.json`,
 `expanded-extended-results.json`, `expanded-final-*-results.json`,
 `expanded-visual-results.json` and `expanded-editor-roundtrip-receipt.json`.
 
-The separate fresh engine sweep remains next. Remaining leads include the
+The separate fresh engine sweep follows below. Remaining leads at that handoff included the
 unexplained render/acquisition pacing cases, unchanged busy-view GPU cost,
 residual lighting/animation work, complete safe shadow/reflection dirty keys,
 PPS segment/output overlap, duplicate request-local package opening and unused
@@ -1485,3 +1485,255 @@ graphics-only gameplay assembly, aggregate unified-memory/model/discovery
 budgets and recoverable host/driver pressure behavior. Already solved guards
 and the 27 outcomes above should not be reimplemented. Mannequin ragdolls, docs
 cleanup and later editor/audio/menu/UI/style work remain separate queue stages.
+
+
+### Separate fresh engine sweep
+
+This pass starts from staging `f160493f8f0f93593a7981298e61cbc12ff8f473`.
+Its evidence is under `local/performance-0.13.0/fresh-sweep/`; original evidence
+and the preceding 27 dispositions are preserved. Shared rendering, lighting,
+geometry, physics integration, AI/Luau, loading and cache ownership were read
+again; `inspection.json` records the fresh leads. Issue #31's GPU skinning/pose
+sharing, portal occlusion, streaming, codec, lightmap-storage and new job-system
+projects remain deferred. A reproducible Pool opening/entry CPU fault is traced
+and corrected below; the independent native presentation wait remains a separate
+limit and does not establish that every historical Home/Pool fault is solved.
+
+The first three localized improvements were validated in player SHA
+`8eeeda45053826f81cad1bece2382202fef410fdec0751e85b685ee61efe95a7`;
+the later bounded surface/model diagnostics build is
+`051ca0743777e340934bae0300fb6607bd849d52cd439a24a94da164ceb8a552`:
+
+- Skinning reuses the last exact joint/weight blend's normal inverse within one
+  skin pass. The scratch borrows an immutable animator, cannot survive a pose
+  change, allocates nothing and preserves rigid-joint handling and arithmetic.
+  Mannequin blended inverses fall from 968 vertices to 47 adjacent runs;
+  skeleton from 626 to 151. A small deterministic fixture protects exact bits
+  across different keys, poses, zero/tiny weights, invalid joints, reflections
+  and singular scales; it needs no model load, bake or GPU. This is CPU normal
+  preparation, with no GPU skinning, animation cadence or crowd sharing change.
+- Cold loading uses one validated semantic/dependency snapshot rather than two
+  simultaneous complete opens. The variant reader still independently checks
+  the reopened archive's manifest, every payload hash and all existing bounds.
+  No integrity check is skipped using a filename, timestamp or unchecked cache.
+- Large dynamic-caster sets reject segment/AABB misses before transform/mesh-BVH
+  work. A padded f64 slab guard refines the original enclosing-box guard and
+  keeps original candidate order and exact triangle/alpha tests. Padding also
+  accounts for large model pivots canceled by placement translation. Sets below
+  64 retain the original monomorphized path after the all-size prototype added
+  about 0.05 ms to the lab. Three narrow scalar/actual-triangle/canceled-pivot
+  fixtures protect against false rejection without baking or loading maps.
+
+On the same M2 Pro/Metal hardware, all timings below are capture-free with
+VSync/limiters off, actual Immediate and the recorded physical drawable. High
+textures/filtering/lighting, Full lightmaps/reflections, bloom and FOV60 remain.
+**Immediate alone did not establish uncapped throughput in this sweep:** several
+views exhibit acquisition pacing. Their FPS changes are retained as observations,
+not accepted throughput gains. No recording overlays supply timings.
+
+| Case and evidence | Before → candidate | Disposition |
+| --- | --- | --- |
+| Isolated normal-cache lab, CPU update | 2.149/2.148 → 2.116/2.108 ms | Small repeatable CPU reduction; FPS overlaps under presentation pacing. |
+| One visible moving bowling ball, CPU update, final ABBA | 7.832/7.886 → 6.936/6.883 ms | About 12% less CPU update work. Exactly one active body throughout all selected samples; physics step remains about 0.05 ms. |
+| Same moving-ball view, observed FPS at 1280×720 | 109.78/110.64 → 117.08/118.09 | Pacing-limited observation; no robust uncapped throughput claim. |
+| Final lab, 1280×720 | 168.49/172.53 → 165.76/166.53 FPS | Presented regression retained despite CPU 2.198/2.204 → 2.067/2.155 ms. |
+| Bathroom, 2560×1440 | 367.33/367.74 → 363.71/365.56 FPS | Flat/slightly regressed. Earlier 209 FPS fault did not recur; not declared solved. |
+| Busy Arcade, 2560×1440 | 241.26/244.10 → 245.02/244.26 FPS | Effectively unchanged; GPU work about 4.4 ms remains. |
+| Fixed near closet, 1280×720 | 172.25/178.81 → 179.25/184.45 FPS | Overlap under acquisition pacing; original severe fault remains open. |
+| Lantern request-to-commit, fresh process/warm OS cache | 4719/4771 → 4707/4703 ms | No robust end-to-end load-time or peak-RAM reduction claim. Duplicate validated work is removed. |
+
+`accepted-results.json` and raw per-run receipts preserve the 24-run final ABBA
+set. Original real-time interactions use matched twelve-second runs and
+6–11.8 s recovery windows. The initial original closet sequence regressed from
+184.8/173.4 to 159.8/151.6 FPS; fixed-eye controls do not erase that result.
+Bowling repeats also show why movement state must be retained: one BEFORE run
+still had active bodies and CPU 6.62 ms, whereas the other BEFORE and both AFTER
+runs were settled at about 1.28–1.30 ms. The earlier round had the active outlier
+on AFTER instead. No general persistent Home collapse is declared solved.
+
+Pool causal investigation is retained in `pool-cause/`. Bounded render spans
+locate the largest stalls in drawable acquisition, with CPU preparation and
+encoding small. Discarded frames are explicitly labeled render iterations, never
+presented FPS. Enforcing GPU completion in both paths rules out CPU run-ahead as
+the sole discard advantage: far/near completed discard GPU spans are about
+0.61/0.90 ms, versus about 5 ms normal presented render time. This locates a
+presentation cost but does not establish its cause. Eight alternating native
+window controls verify actual Metal `displaySyncEnabled=false`,
+`presentsWithTransaction=false`, three drawables, Immediate, 1280×720 and a 120 Hz
+display. Raising the window establishes real native INPUT_FOCUS throughout the
+selected frames without removing the slowdown. Interior controls also retain small CPU update cost. The open-door fixed-eye
+probe initially obstructed the leaf at 29 degrees; it is not proof of traversal.
+Eight SDL-owned Metal-view versus raw-host trials were flat and that prototype
+was rejected. All 15 unique closet GLBs (16 placements) have finite geometry,
+13,372 triangles in total, opaque double-sided materials and no exact duplicate
+position triangles or degenerates. Hiding all closet model draws changes the
+near submission from 81 draws/54,390 indices to 28/13,602 but leaves roughly
+175–180 FPS; binary partitions and interior repeats do not identify one primary
+asset culprit. This draw-only control preserves physics and baked lighting; it
+does not rule out every asset/system interaction in the original fault.
+
+An attached 12-second native Metal System Trace (successful target PID, unlike
+the preserved invalid launch trace) finds 6.819 seconds of drawable-acquisition
+wait in a nine-second steady window. About 4.884 seconds of those waits have no
+recorded GPU execution overlap; Places GPU-stage union is 3.114 seconds. These
+are merged API intervals, not a GPU utilization percentage. Native SDL/Metal
+controls with no Rust/wgpu/engine/assets also wait about 5 ms for drawables.
+Direct/scheduled presentation, transaction flush, event pumping and temporary
+App Nap suppression do not remove it. An independent AppKit/Metal control also
+reproduces the wait with real native focus. This establishes a general native
+presentation limitation in this session, **not the cause of the user's original
+location-specific severe closet drop**.
+
+The user authorized one temporary display-refresh control. System Settings
+verified ProMotion → 60 Hertz → ProMotion, with the original setting restored
+immediately after the bounded control. At 60 Hz the empty Metal control runs
+59.998/60.000 cycles/s and both full-quality Pool near/far views run 60 FPS
+despite actual display-sync false. They are refresh-capped and excluded from
+throughput claims. After restoration, empty controls initially run 318/324
+cycles/s and focused near/far Pool views 269–275 FPS. Later ordinary-window
+old/candidate ABBA overlaps around 137–143 FPS; native focus and session state
+remain material qualifications. Changing overall presentation state has not
+proven that the original near/far differential is fixed. Continuous original/minimal-map controls are recorded under
+`pool-cause/map-isolation/`. The minimal project retains the exact closet room,
+three exterior walls, shared door opening, all 18 prop records with physics and
+both switches, and relevant lights. It replaces outside Pool context with a
+small enclosed approach and rebakes Full lighting in that diagnostic context.
+Both sources have zero geometry errors/warnings; the 2.16 MB package builds in
+6.47 s, validates and verifies current. Native editor open/save/reopen passes
+with exact manifest/source bytes preserved. Closed-door first approaches show
+only modest differences in both maps (original 516→467 and 537→511 FPS; minimal
+563→514 and 570→514). Return legs hit the minimal approach's west boundary at
+X12.85 instead of the original X12.05–12.08, so those are not called matched
+positions. Later camera-following open routes escape a 120 FPS presentation
+plateau: original far 516, interior east 721, interior west 509 and return 499
+FPS; the minimal copy also reaches several hundred FPS. None of those clear
+routes reproduces the severe fault. No shipped map or asset has been changed, and no
+quality reduction, frame discard or limiter is proposed as a fix.
+
+The user's clarification—**after opening or entering**—led to a supply-contact
+route at Z13.6. It reproduces a distinct CPU-heavy fault in the full original
+map: far 527 FPS / 0.319 ms update, pushing/entry 140 FPS / 6.009 ms update, with
+physics stepping only 0.020 ms. The minimal closet retains its supplies and
+physics yet runs about 536 FPS / 0.654 ms on that segment. A bounded profile
+captures about 16 ms in dynamic-lighting preparation. The earlier draw-hiding
+control retained physics and CPU occluders, so it did not exclude this work.
+The existing caustics-off diagnostic only suppresses displayed focus; it still
+prepares visibility and is not an isolation of this CPU path.
+
+**The fourth shared-engine improvement corrects unnecessary water visibility
+invalidation.** A door or movable prop changes one global visibility revision.
+Previously every active water-light source then revisited its supported cells
+and possible movable blockers, even when all changed objects were outside any
+light-to-water path. Pool has 65,120 receiver records and 209,420 sparse factors.
+Props do not contribute light here; they are possible blockers. A padded bounds
+rejection before the unchanged full separating-axis certificate first reduces
+this profiled preparation to 4.0–4.1 ms. The final change retains the latest
+revision's old/new changed-caster bounds plus the field's receiver envelope.
+Each source reuses its existing certificates only when its finite emitter hull
+or infinite directional prism is disjoint from that changed geometry. Moving
+out includes the old bounds; admission/removal conservatively includes former
+and current casters; a consumer missing revisions performs a full refresh.
+Source activation retains its existing full invalidation. No map/asset IDs,
+quality changes, throttling or deferred architecture are involved. These new
+dependency records are scalar bounds/revisions, with no new retained map owner
+or per-frame heap allocation.
+
+Isolation compares the earlier core checkpoint `051ca074…` with final player
+`1e5629935f032aa07dd8aee68a18a2da80cb2015643a2acd89823687827349d6`:
+
+| Matched native control, 1280×720 High/Full | Before → final | Evidence and limit |
+| --- | --- | --- |
+| Door-only update, 128 predetermined motion frames/run, ABBA | 16.987/16.864 → 1.719/1.768 ms | About 90% less update CPU. Every selected frame has zero active physics bodies; physics step is about 0.001–0.002 ms. |
+| Door-only observed FPS | 59.26/59.52 → 136.12/136.44 | Settled controls vary 121–151 FPS; presentation pacing remains, so this is not a general uncapped-throughput multiplier. |
+| Original contact-route update during pushing/entry, ABBA | 11.726/11.624 → 1.658/1.227 ms | Normal real-time input and full props/physics; positions and body state retained in raw receipts. |
+| Same entry observed FPS | 69.6/69.8 → 124.2/123.6 | Far views sit near a 120–128 FPS presentation floor. The CPU cliff is removed; the platform wait is not. |
+| Focused off-region water visibility diagnostic | About 16 ms combined preparation initially; 3.43–3.52 ms water visibility after bounds rejection → 0.002–0.005 ms water visibility final | Ordinary dynamic receivers remain about 0.8–0.9 ms in the last profile. Diagnostic logging is excluded from authoritative timing runs. |
+
+The final player's lab/one-body recheck against `f160493` also retains the
+CPU gains (`final-journal-timings.json`): lab 2.356/2.340 → 2.280/2.284 ms;
+one moving visible bowling ball 7.913/7.907 → 6.973/7.093 ms, with exactly one
+active body in every selected sample. Observed lab FPS is 141–143 → 144–145,
+and moving-ball FPS 109 → 115–117; acquisition pacing still qualifies those
+throughput observations. The older flat/regressed Retina and interaction sets
+above remain recorded rather than being replaced with only favorable trials.
+
+A few thousand scalar boxes compare bounds rejection with the existing full
+certificate across tiny/large scales and large translations. A two-triangle,
+0.4 m water fixture checks both finite light and sunlight bases, unrelated
+motion reuse, rotation, scale, movement in/out, hidden/restored/despawned
+blockers and missed revisions against complete fresh field samples. It uses
+no assets, GPU or atlas bake. Ten deterministic native High/Full captures—five
+Pool states and five Aero circular-water/sunlight states—have **zero changed
+RGB channels** versus the earlier core checkpoint: initial, off-water move,
+over-water placement, move out and despawn. The actual prepared fields contain
+209,420 and 1,650 factors respectively. These checks protect the supported
+visibility calculation; they do not promise that arbitrary future in-water
+workloads are free.
+
+Both the core implementation and later diagnostic source pass format, strict
+all-target/all-feature Clippy, locked workspace release build and **228 tests,
+zero failures/ignored**. The final `final-integrated-*` logs record 0.40 s tests
+and a 3m17s locked workspace release build; all four executables and SHA256 values
+are preserved in `final-validated/`. The final built player is byte-identical
+to the one used for the accepted Pool controls. Default-feature compilation is included in the
+workspace tests. Earlier failed diagnostic feature-gating logs are retained
+and superseded by this successful run. Four matched lab/Home/Pool/Arcade frame-180 captures
+have zero changed RGB channels. Native lab controls retain 25 contacts, activate
+and reset the intended props, and spawn/reset the visitor. Luau's bounded 64-call
+host-inclusive diagnostic averages 0.106 ms, p95 0.189 ms, max 0.209 ms; no isolated
+VM speedup is claimed. Folding-door obstruction/traversal/reversal, Pool water
+entry/dive/resurface/rim-exit/reentry, original cushion/books/bowling interactions,
+loading cancellation, graphics restore and allocation-failure checks pass.
+The lab source is unchanged; this pass relies on the preceding native editor
+edit/save/reopen/reverse/export proof rather than claiming another editor pass.
+
+The earlier eight-transition heavy-map cycle completes all eight requests and
+commits. Every retired prepared owner is zero at menu; active prepared bytes,
+script modules/VM, AI, physics and pending loads are zero. Final settled menu GPU
+counts are 35 buffers/19 textures/35 bind groups/35 views (one transient buffer
+persists in two earlier tail samples). Active Lantern prepared data remains
+965,299,582 bytes, accepted by the user. Heavy RSS samples are 2023/1972/2265 MiB,
+menu 1016 MiB, peak 2418 MiB. This is not monotonic growth evidence, and neither
+this menu residency nor the historical +312 MiB has a proven cause. Map owners
+releasing does not prove all allocator/driver residency is explained. Metal HAL
+byte counters remain unavailable. Existing process/shared-model aggregate
+budgets, discovery directory/disk quotas, general recoverable allocation failure
+and 8 GiB/discrete-hardware gaps remain explicit in the original resource audit;
+arbitrary active-map RAM reduction is not substituted for a demonstrated defect.
+
+On the final `1e562993…` player, lab contacts activate/reset and the Luau visitor
+again follows 12→13→12→13; Pool water entry/dive/resurface/rim exit/reentry and
+Home carrying pass. A final Pool→Aero→Hub→menu check leaves all three retired
+prepared-build/record owners at zero, active prepared bytes zero, no scripts/VM,
+AI, physics, pending commit or preparation. Worker caches report prepared,
+identity, image and model counts zero. Menu GPU tail returns to 35 buffers,
+19 textures, 35 bind groups and 35 views after transient capture/command buffers.
+Menu RSS is about 595 MiB in this shorter run; it does not explain the earlier
+menu residency or historical +312 MiB. Final receipts and state witnesses are
+in `final-native-checks.json`; no new ownership-bearing cache was introduced.
+
+Fourteen new matched short raw clips and editable assemblies are preserved
+outside `target/`. The final decoded and visually inspected **112-second**
+montage keeps the original 56-second preceding montage and six core-sweep cards,
+then appends the newly matched Pool opening/entry pair with CPU savings and
+pacing qualifications. Local file:
+`fresh-sweep/montage-final/places-0.13.0-performance-fresh-engine.mp4`,
+1920×1080 H.264 High/yuv420p, 30 FPS, 3,360 frames, 7,199,587 bytes, SHA256
+`d851a7e6150f7cdfc78e13433ea6b693d780c25830bd281f42025f165e50623e`.
+It replaces only this sweep's checkpoint item as **Library
+`libfile_bb4cac714b748191aeb7324d98396e43`, version 1**, file
+`file_00000000d624823091171dd807ae54ba`; a read verifies its ID/name/size/version,
+and its local Library xattr is verified as 1. The checkpoint's version-0 local
+video/receipt and all raw evidence remain. A read also confirms the untouched
+preceding Library `libfile_d5af9e225d148191b29083e5883c28aa`. Captures are paced
+at 60 Hz with 30 FPS output; numeric panels use separate capture-free runs.
+
+No deferred issue #31 project, shipped map, asset, physics policy or integrity
+check is changed. The reproduced Pool CPU fault has a validated shared-engine
+fix; the native OS/Metal presentation wait and broader historical Home/Pool,
+RAM-residency and hardware-tier limits remain explicit. CI is owned by the
+final integrated queue stage and is not awaited here. The next stage is
+editor/audio polish, then main-menu/visual styles; mannequin ragdolls is second
+to last, before docs cleanup/final integration. The approved stair-generation
+and structural-thickness work is recorded for that next owner, not implemented
+in this performance pass.

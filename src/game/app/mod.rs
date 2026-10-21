@@ -1767,6 +1767,13 @@ impl FrameLoop<'_> {
                     Err(sdl3::get_error().to_string())
                 }
             }
+            bench::WindowAction::Raise => {
+                if self.window.raise() {
+                    Ok(())
+                } else {
+                    Err(sdl3::get_error().to_string())
+                }
+            }
         };
         if let Err(error) = result {
             crate::engine::logging::warn_once(
@@ -3411,10 +3418,7 @@ impl FrameLoop<'_> {
                 "rebinding_action": self.ui_state.rebinding_action, "bindings": self.settings.bindings,
             })));
             drop(fields.insert("caustics".into(), self.renderer.caustics_diagnostics()));
-            drop(fields.insert(
-                "window_native_focus".into(),
-                self.window.has_input_focus().into(),
-            ));
+            self.trace_native_window(fields);
             drop(fields.insert(
                 "audio_voices".into(),
                 serde_json::json!(self.audio.system.voice_snapshot()),
@@ -3448,6 +3452,25 @@ impl FrameLoop<'_> {
         }
         self.trace
             .record(event, self.load_generation, &state.to_string());
+    }
+
+    fn trace_native_window(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        drop(fields.insert(
+            "window_native_focus".into(),
+            self.window.has_input_focus().into(),
+        ));
+        let flags = sdl3::video::WindowFlags::from(self.window.window_flags());
+        let display = self
+            .window
+            .get_display()
+            .ok()
+            .and_then(|display| display.get_mode().ok());
+        drop(fields.insert("window_native_state".into(), serde_json::json!({
+            "id": self.window.id(), "flags": format!("{flags:?}"),
+            "occluded": flags.contains(sdl3::video::WindowFlags::OCCLUDED),
+            "logical": self.window.size(), "drawable": self.window.size_in_pixels(),
+            "display": display.map(|mode| serde_json::json!({"size": [mode.w, mode.h], "hz": mode.refresh_rate, "hz_ratio": [mode.refresh_rate_numerator, mode.refresh_rate_denominator]})),
+        })));
     }
 
     fn append_character_trace(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {

@@ -33,7 +33,7 @@ use super::world::{EnvironmentUniform, WORLD_VERTEX_STRIDE, WorldVertex};
 use crate::engine::materials::TextureOrigin;
 use crate::engine::quality::{QualityLevel, TextureClass};
 use crate::engine::render::common::character::{
-    Character, CharacterAnimator, CharacterScene, character_vertex,
+    Character, CharacterAnimator, CharacterScene, SkinNormalCache, character_vertex,
 };
 use crate::engine::render::common::dynamic_visibility::BlacklightReceiverCache;
 use crate::engine::render::common::materials::BatchPass;
@@ -592,6 +592,7 @@ impl WgpuCharacters {
     ) -> Aabb {
         out.clear();
         let mut bounds = Aabb::EMPTY;
+        let mut normals = SkinNormalCache::new(animator);
         for (index, vertex) in model.vertices.iter().enumerate() {
             let joints = model.joints.get(index).copied().unwrap_or([0; 4]);
             let weights = model.weights.get(index).copied().unwrap_or([0.0; 4]);
@@ -600,7 +601,7 @@ impl WgpuCharacters {
             let colour = albedo.get(index).copied().unwrap_or([1.0; 4]);
             let mut posed = character_vertex(colour, vertex.uv, position);
             posed.normal = vertex.normal.map_or([0.0; 3], |normal| {
-                animator.skin_normal(joints, weights, normal)
+                normals.skin_normal(joints, weights, normal)
             });
             out.push(WorldVertex::from(posed));
         }

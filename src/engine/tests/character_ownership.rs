@@ -184,3 +184,40 @@ fn cached_rigid_normals_follow_each_pose_and_preserve_blended_fallback() -> Resu
     }
     Ok(())
 }
+
+// Protects adjacent blend reuse against wrong keys, stale poses, singular
+// transforms and zero weights. A tiny synthetic rig and scalar normals add
+// essential exact-output coverage without assets, GPU work or a map bake.
+#[test]
+fn adjacent_blended_normals_preserve_exact_results_and_pose_lifetime() -> Result<(), String> {
+    let asset = tiny_rig();
+    let mut animator = CharacterAnimator::new(&asset.model).ok_or("missing rig")?;
+    for scale in [Vec3::new(-1.0, 2.0, 0.5), Vec3::ZERO, Vec3::splat(1.0e-8)] {
+        *animator.node_globals.first_mut().ok_or("missing root")? =
+            Mat4::from_scale_rotation_translation(scale, Quat::from_rotation_z(0.7), Vec3::ZERO);
+        animator.compute_deltas();
+        let mut cache = super::SkinNormalCache::new(&animator);
+        for (joints, weights) in [
+            ([0; 4], [0.25, 0.75, 0.0, 0.0]),
+            ([0; 4], [1.0, 0.0, 0.0, 0.0]),
+            ([0; 4], [0.25, 0.75, 0.0, 0.0]),
+            ([0; 4], [0.5, 0.5, 0.0, 0.0]),
+            ([0, 1, 0, 0], [0.5, 0.5, 0.0, 0.0]),
+            ([u16::MAX; 4], [0.5, 0.5, 0.0, 0.0]),
+            ([0; 4], [0.0; 4]),
+            ([0; 4], [-0.0, 0.0, 0.0, 0.0]),
+            ([0; 4], [1.0e-20, 1.0e-20, 0.0, 0.0]),
+        ] {
+            for normal in [[1.0, 2.0, 3.0], [0.0, -1.0, 0.0], [0.0; 3]] {
+                let expected = animator
+                    .skin_normal(joints, weights, normal)
+                    .map(f32::to_bits);
+                assert_eq!(
+                    cache.skin_normal(joints, weights, normal).map(f32::to_bits),
+                    expected
+                );
+            }
+        }
+    }
+    Ok(())
+}
