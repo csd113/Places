@@ -53,7 +53,7 @@ Earlier failed attempts and their evidence are preserved.
 | Strict workspace/all-target/all-feature debug and release Clippy | Passed with `-D warnings`, no lint policy reductions |
 | Essential Rust suite | 245 passing, no failed/ignored cases or shipped-map bake |
 | Locked release workspace/all-feature build | Passed; initial build 194.702 s; final incremental gate passed and preserved executable hashes match |
-| Source Python | 366 passing, three explicit optional skips, 120.547 s |
+| Source Python | 366 total: 363 passed, three explicit optional skips, 120.547 s |
 | Asset catalog and maintained generators | 621 assets, zero warnings; generator checks passed |
 | Production Luau | Eleven bounded refusals and four finished-project checks passed, no map bake |
 | Native integrated assertions | 36 core plus 22 additional native/package assertions passing on the final production executables |
