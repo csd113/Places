@@ -48,14 +48,26 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
     def run(label, args, *, changes=None, cwd=launch, expected=0, native=False):
         environment = {**base, **(changes or {})}
         if native:
-            environment.update({'PLACES_BENCH': '1', 'PLACES_CAPTURE': str(output / (label + '.png')),
-                                'PLACES_CAPTURE_FRAME': '3', 'PLACES_VERBOSE': '1'})
+            # Use wall-clock actions after the actual world is ready. A fast
+            # menu can render several frames before an import keypress runs.
+            steps = json.loads(Path(environment['PLACES_BENCH_ACTIONS']).read_text()) if environment.get('PLACES_BENCH_ACTIONS') else []
+            anchor = 'ready:' + environment.get('PLACES_LEVEL', 'places_menu')
+            steps.extend([
+                {'after': anchor, 'delay_ms': 1500, 'action': {'kind': 'capture', 'name': label}},
+                {'after': anchor, 'delay_ms': 2000, 'action': {'kind': 'quit'}},
+            ])
+            actions_file = output / (label + '-actions.json')
+            actions_file.write_text(json.dumps(steps))
+            environment.update({'PLACES_BENCH': '1', 'PLACES_BENCH_FRAMES': '0',
+                                'PLACES_BENCH_ACTIONS': str(actions_file), 'PLACES_VERBOSE': '1'})
         result = subprocess.run(list(map(str, args)), cwd=cwd, env=environment,
                                 text=True, capture_output=True, timeout=120, check=False)
         (output / (label + '.log')).write_text(result.stdout + result.stderr)
         assert result.returncode == expected, (label, result.returncode, result.stderr)
         if native:
-            assert (output / (label + '.png')).is_file(), (label, 'missing native capture')
+            captured = Path(environment['PLACES_STATE_ROOT']) / (label + '.png')
+            assert captured.is_file(), (label, 'missing native capture')
+            shutil.copyfile(captured, output / (label + '.png'))
             assert 'fatal device error' not in result.stdout + result.stderr
         checks.append({'check': label, 'exit_code': result.returncode})
         return result
@@ -93,8 +105,8 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
         shutil.copyfile(original, state / 'import' / original.name)
         actions = work / 'import-actions.json'
         actions.write_text(json.dumps([
-            {'after': 'start', 'delay_ms': 500, 'action': {'kind': 'key', 'key': 'Return', 'pressed': True}},
-            {'after': 'start', 'delay_ms': 600, 'action': {'kind': 'key', 'key': 'Return', 'pressed': False}},
+            {'after': 'ready:places_menu', 'delay_ms': 250, 'action': {'kind': 'key', 'key': 'Return', 'pressed': True}},
+            {'after': 'ready:places_menu', 'delay_ms': 300, 'action': {'kind': 'key', 'key': 'Return', 'pressed': False}},
         ]))
         run('native-inbox-import', [player], changes={'PLACES_SCREEN': 'explore', 'PLACES_BENCH_ACTIONS': str(actions)}, native=True)
         assert (state / 'levels' / original.name).is_file()
@@ -128,9 +140,9 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
         missing.rename(backup)
         try:
             run('missing-required-model', [player, '--paths'], expected=1)
-            run('missing-dependency-validation', [compiler, 'validate', original, '--json'])
-            report = json.loads((output / 'missing-dependency-validation.log').read_text())
-            assert not report['dependencies_intact']
+            rejected = run('missing-dependency-validation', [compiler, 'validate', original, '--json'], expected=1)
+            assert 'dependency' in rejected.stderr and chair_resource in rejected.stderr
+            assert digest(installed_map) == imported_hash
         finally:
             backup.rename(missing)
         bare = work / 'bare-binary'
