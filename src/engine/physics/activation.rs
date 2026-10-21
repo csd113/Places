@@ -106,6 +106,9 @@ impl Runtime {
         if !player.is_enabled() {
             return;
         }
+        let player_bounds = player
+            .compute_aabb()
+            .loosened(CONTACT_MARGIN + MAX_PLAYER_PENETRATION);
         let touching: Vec<u64> = self
             .entries
             .iter()
@@ -114,6 +117,15 @@ impl Runtime {
                     return None;
                 }
                 let body = self.world.bodies.get(entry.body)?;
+                // Conservative rejection only; the original exact contact test
+                // and stable key order still decide every activation.
+                if !entry
+                    .shape
+                    .compute_aabb(body.position())
+                    .intersects(&player_bounds)
+                {
+                    return None;
+                }
                 contact(
                     body.position(),
                     entry.shape.as_ref(),

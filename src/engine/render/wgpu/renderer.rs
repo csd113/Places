@@ -31,7 +31,7 @@
 //! post-processing and the HUD).
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, OnceLock};
 
 use sdl3::video::Window;
 
@@ -60,8 +60,8 @@ use super::surface::{
 use super::texture::{TextureCache, TextureFiltering};
 use super::ui::{UiRenderer, UiTiming};
 use super::world::{
-    EnvironmentUniform, WgpuWorldGeometry, WorldDrawTotals, WorldPipeline, WorldTextures,
-    environment_bind_group_layout, prepare_world_frame,
+    DynamicLightsUniform, EnvironmentUniform, WgpuWorldGeometry, WorldDrawTotals, WorldPipeline,
+    WorldTextures, environment_bind_group_layout, prepare_world_frame,
 };
 use crate::engine::lighting::lightmap::{LightmapFailure, LightmapMode};
 use crate::engine::loader::LoadedLevel;
@@ -629,7 +629,7 @@ pub struct WgpuRenderer {
     /// Set once the renderer must stop issuing GPU work.
     fatal: Option<String>,
     /// Filled by wgpu's device-lost callback on whichever thread reports it.
-    device_lost: Arc<Mutex<Option<String>>>,
+    device_lost: Arc<OnceLock<String>>,
     /// The neutral dynamic scene. The engine spawns its objects through
     /// `set_dynamic_demo` and the level's doors through `spawn_doors`; the GPU
     /// side lives in `world_dynamic`.
@@ -901,7 +901,7 @@ impl WgpuRenderer {
         present_mode: wgpu::PresentMode,
         alpha_mode: wgpu::CompositeAlphaMode,
         drawable_size: DrawableSize,
-        device_lost: Arc<Mutex<Option<String>>>,
+        device_lost: Arc<OnceLock<String>>,
     ) -> Self {
         // The texture layout, samplers and fallback sheet the world draws
         // bind. One fallback upload at construction; levels add their own.
@@ -1104,15 +1104,11 @@ impl WgpuRenderer {
     ///
     /// The callback only records the reason; the main thread reports it once
     /// and stops issuing GPU work.
-    fn watch_device_loss(device: &wgpu::Device) -> Arc<Mutex<Option<String>>> {
-        let slot = Arc::new(Mutex::new(None));
+    fn watch_device_loss(device: &wgpu::Device) -> Arc<OnceLock<String>> {
+        let slot = Arc::new(OnceLock::new());
         let writer = Arc::clone(&slot);
         device.set_device_lost_callback(move |reason, message| {
-            if let Ok(mut loss_message) = writer.lock()
-                && loss_message.is_none()
-            {
-                *loss_message = Some(format!("{reason:?}: {message}"));
-            }
+            let _first_reason = writer.get_or_init(|| format!("{reason:?}: {message}"));
         });
         slot
     }
@@ -1980,10 +1976,32 @@ impl WgpuRenderer {
         self.blacklights = crate::engine::render::common::blacklight::BlacklightSet::default();
         self.textures.release_profile_textures();
         self.caustics = super::caustics::Caustics::empty(&self.device, &self.textures);
-        // Decal bind groups retain caustics resources. Recreate them on next install.
-        self.decal_pipeline = None;
-        self.decal_reflection_pipeline = None;
-        self.decal_scene_pipeline = None;
+        // Keep format-specific pipelines, but release every old-map caustics binding.
+        // A same-format reload reuses these pipelines and their sheet layouts.
+        for pipeline in [
+            &mut self.decal_pipeline,
+            &mut self.decal_reflection_pipeline,
+            &mut self.decal_scene_pipeline,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            pipeline.bind_caustics(&self.device, &self.caustics, &self.textures);
+        }
+        for pipeline in [
+            &mut self.world_pipeline,
+            &mut self.capture_pipeline,
+            &mut self.scene_pipeline,
+            &mut self.emissive_pipeline,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            pipeline.release_frame_scratch();
+        }
+        if let Some(shadow) = self.flashlight_shadow.as_mut() {
+            shadow.pipeline.release_frame_scratch();
+        }
         self.lightmaps = LightmapAtlas::upload(&self.device, &self.queue, None);
         self.lightmaps_resident = false;
         self.reflection_targets = ReflectionTargets::default();
@@ -3658,8 +3676,8 @@ impl WgpuRenderer {
         // when the world, its textures, its materials and its decals are all
         // resident.
         if let Some(probes) = precompiled_probes {
-            self.packaged_probes = Some(probes.clone());
             self.upload_packaged_probes(&probes);
+            self.packaged_probes = Some(probes);
         } else {
             self.packaged_probes = None;
             self.bake_reflection_probes();
@@ -4553,26 +4571,22 @@ impl WgpuRenderer {
             self.encode_flashlight_shadow(&mut encoder);
             let _submission = self.queue.submit([encoder.finish()]);
         }
-        if let Some(pipeline) = self.capture_pipeline.as_ref() {
-            pipeline.update_flashlight_lights(
-                &self.queue,
-                self.characters.dynamic_lights(),
-                self.flashlight,
-            );
+        let lights = DynamicLightsUniform::with_flashlight(
+            self.characters.dynamic_lights(),
+            self.flashlight,
+        );
+        if let Some(pipeline) = self.capture_pipeline.as_mut() {
+            pipeline.update_light_uniform(&self.queue, &lights);
         }
         for pipeline in [
-            &self.decal_pipeline,
-            &self.decal_scene_pipeline,
-            &self.decal_reflection_pipeline,
+            &mut self.decal_pipeline,
+            &mut self.decal_scene_pipeline,
+            &mut self.decal_reflection_pipeline,
         ]
         .into_iter()
         .flatten()
         {
-            pipeline.update_flashlight_lights(
-                &self.queue,
-                self.characters.dynamic_lights(),
-                self.flashlight,
-            );
+            pipeline.update_light_uniform(&self.queue, &lights);
         }
         let captured = plane_index.is_some_and(|index| self.encode_planar_capture(&frame, index));
         // The main pass samples the frame's real reflection sources (the
@@ -4629,19 +4643,17 @@ impl WgpuRenderer {
         if let Some(pipeline) = self.emissive_pipeline.as_mut() {
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
         }
-        // The attached lights are this frame's character glows. The three
-        // main-scene pipelines upload the same set (an empty one writes a zero
-        // count, clearing the previous frame); the reflection-capture pipeline
-        // keeps its zeroed set, so a mirror or probe never bakes a glow in.
-        let lights = self.characters.dynamic_lights();
-        if let Some(pipeline) = self.world_pipeline.as_ref() {
-            pipeline.update_flashlight_lights(&self.queue, lights, self.flashlight);
-        }
-        if let Some(pipeline) = self.scene_pipeline.as_ref() {
-            pipeline.update_flashlight_lights(&self.queue, lights, self.flashlight);
-        }
-        if let Some(pipeline) = self.emissive_pipeline.as_ref() {
-            pipeline.update_flashlight_lights(&self.queue, lights, self.flashlight);
+        // Every target uses this frame's exact attached lights. Empty sets clear
+        // the preceding state; unchanged sets need no queue write.
+        for pipeline in [
+            &mut self.world_pipeline,
+            &mut self.scene_pipeline,
+            &mut self.emissive_pipeline,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            pipeline.update_light_uniform(&self.queue, &lights);
         }
         if let Some(pipeline) = self.decal_scene_pipeline.as_mut() {
             pipeline.upload_camera_with_storm(
@@ -5458,11 +5470,10 @@ impl WgpuRenderer {
             &self.queue,
             &crate::engine::render::common::DynamicLightSet::new(),
         );
-        if let Some(decals) = self.decal_reflection_pipeline.as_ref() {
-            decals.update_flashlight_lights(
+        if let Some(decals) = self.decal_reflection_pipeline.as_mut() {
+            decals.update_light_uniform(
                 &self.queue,
-                &crate::engine::render::common::DynamicLightSet::new(),
-                None,
+                &DynamicLightsUniform::new(&crate::engine::render::common::DynamicLightSet::new()),
             );
         }
 
@@ -6209,7 +6220,7 @@ impl WgpuRenderer {
     pub fn read_back_probe_faces(
         &self,
     ) -> Result<Vec<super::reflections::ProbeFaceReadback>, String> {
-        if self.fatal.is_some() || self.device_lost.lock().is_ok_and(|slot| slot.is_some()) {
+        if self.fatal.is_some() || self.device_lost.get().is_some() {
             return Err("the GPU device is unavailable for probe read-back".to_string());
         }
         let mut probes = Vec::with_capacity(self.reflection_targets.probes().len());
@@ -6549,7 +6560,7 @@ impl WgpuRenderer {
         if self.fatal.is_some() {
             return true;
         }
-        let reported = self.device_lost.lock().ok().and_then(|slot| slot.clone());
+        let reported = self.device_lost.get().cloned();
         if let Some(reported_size) = reported {
             self.mark_fatal(format!("wgpu device lost ({reported_size})"));
             return true;

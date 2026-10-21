@@ -83,9 +83,9 @@ pub struct LoadedVariant {
 #[derive(Clone, Debug, Default)]
 pub struct ProbeCaptures {
     /// 48-texel captures (Reflections Medium).
-    pub medium: Option<ProbeCapture>,
+    pub medium: Option<Arc<ProbeCapture>>,
     /// 64-texel captures (Reflections Full).
-    pub full: Option<ProbeCapture>,
+    pub full: Option<Arc<ProbeCapture>>,
 }
 
 impl ProbeCaptures {
@@ -97,10 +97,10 @@ impl ProbeCaptures {
 
     /// The capture for one face size.
     #[must_use]
-    pub const fn for_face_size(&self, face_edge: u32) -> Option<&ProbeCapture> {
+    pub fn for_face_size(&self, face_edge: u32) -> Option<&ProbeCapture> {
         match face_edge {
-            crate::engine::render::PROBE_FACE_SIZE_MEDIUM => self.medium.as_ref(),
-            crate::engine::render::PROBE_FACE_SIZE_FULL => self.full.as_ref(),
+            crate::engine::render::PROBE_FACE_SIZE_MEDIUM => self.medium.as_deref(),
+            crate::engine::render::PROBE_FACE_SIZE_FULL => self.full.as_deref(),
             _ => None,
         }
     }
@@ -788,8 +788,8 @@ fn read_probes<R: std::io::Read + std::io::Seek>(
             chains,
         };
         match payload.face_edge {
-            48 => captures.medium = Some(capture),
-            64 => captures.full = Some(capture),
+            48 => captures.medium = Some(Arc::new(capture)),
+            64 => captures.full = Some(Arc::new(capture)),
             other => {
                 return Err(format!("unsupported probe face edge {other}"));
             }

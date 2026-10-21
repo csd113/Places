@@ -1051,9 +1051,10 @@ This pass implements measured CPU fixes and explicit inactive-world teardown for
 [#27](https://github.com/csd113/Places/issues/27) and
 [#28](https://github.com/csd113/Places/issues/28). It does not close either issue
 or replace the separately authorized fresh engine sweep. Baseline is
-`f38c638e7a7ba6fa93136636600b82e0ae4f8937`; the final player SHA-256 is
+`f38c638e7a7ba6fa93136636600b82e0ae4f8937`; the initial checkpoint player SHA-256 is
 `b0c07d737012ced1c6cbdf4b2a81cb506e664453a8aa21ce8ef5167c8755b216`.
-The commit containing this section binds that binary's source. Baseline and
+Checkpoint `2c9671b2a850deb7585f082a522c3da8824f4329` binds that binary's source;
+the expanded final binary and results appear below. Baseline and
 final executables, the 446,058,430-byte collection, lab packages, inputs and raw
 clips are preserved outside `target` under `local/performance-0.13.0/`.
 The collection's SHA-256 remains `8012dbb7…0cf0783`; no collection rebake ran.
@@ -1259,8 +1260,9 @@ oversized-cache bypass/eviction, canceled jobs, settings/resize retirement and
 controlled VM allocation failure are checked. No safety cap was blindly raised.
 
 Known policy gaps remain: no aggregate process/unified-memory admission budget;
-no aggregate decoded shared-model byte budget; process-global warning-key set
-and installed-package directory discovery lack aggregate count/byte caps;
+no aggregate decoded shared-model byte budget; installed-package directory
+discovery lacks aggregate count/byte caps (warning identities are now bounded
+in the expansion below);
 persistent user data and explicit unlimited diagnostic traces/recordings have no aggregate disk quota; editor serialized history accounting is
 not actual `Value` heap size; and most general host/driver allocations do not
 have recoverable OOM injection. On 16 GiB, measured scenes/transitions are the
@@ -1287,18 +1289,199 @@ Three inspected in-game JPEGs are already in Library: dense models
 `libfile_dddc2ce782fc81918eb2cfc7f5a6c593`, and animated AI/passages
 `libfile_c7039a69e1888191af367d02785ce297`.
 
-Format, strict all-target/all-feature workspace Clippy, locked all-feature
-workspace release build and all **217 tests** pass. The five added regressions
+At this checkpoint, format, strict all-target/all-feature workspace Clippy,
+locked all-feature workspace release build and all **217 tests** pass. The five added regressions
 use tiny scalar/channel/pose/header fixtures; no Cargo test or CI step bakes a
 map. Native final-editor/game checks above pass. The two unrelated untracked
 Python audit reports, old packages/receipts and `target` are preserved. No CI
 wait, force push, main merge, release or credential change occurs in this pass.
-The current pass now also includes the user's 27-item checklist, organized into
-five focused groups: rendering/GPU reuse/culling/batching; physics/spatial
-queries; AI/Luau scheduling/allocation; loading/memory copies/bounded reuse;
-then frame pacing/synchronization/scratch/duplicate work and release-PGO checks.
-The static-ray, rigid-normal, shared-nav-scratch, eight-sheet staging,
-vertex-boundary and menu/cancellation fixes above are validated checkpoint
-inputs. Group outcomes will extend this section without duplicating those
-fixes. The separate fresh engine sweep remains afterward, followed by mannequin
-ragdolls and the other queued stages.
+
+### Current 27-item expansion
+
+The first validated checkpoint was pushed as
+`2c9671b2a850deb7585f082a522c3da8824f4329`. The user's later request brought all
+27 ideas into this same stage. The outcomes below supersede the checkpoint's
+performance summary where noted; its binaries, clips and receipts are preserved.
+`local/performance-0.13.0/checklist-27.json` records each item's detailed outcome.
+The measured final player SHA-256 is
+`fe1f2097fa0735052d72489be965515fd301187054f9fcda7a62f4872eb3e5a5`.
+
+| Items | Implemented or verified outcome |
+|---|---|
+| 1 | Unchanged dynamic matrices reuse normal transforms, full bounds and winding; independent lighting/receiver dependencies still update. |
+| 2 | Cull transparent entries before sorting with that pass's actual frustum and complete posed/world bounds. |
+| 3 | Bind shared dynamic geometry once/object; retain compatible decal pipelines while replacing their old-map caustics bindings. |
+| 4 | Pack attached lights/flashlight once/frame; exact full-state guards suppress unchanged uploads in all targets, including bake/empty-set clearing. Existing pose/uniform guards remain. |
+| 5 | Existing compatible static/character batching retained. Per-object lighting/environment bindings prevent a simple general instancing substitution; no unmeasured renderer rewrite. |
+| 6 | Empty static classes skip binding setup. Existing emission-visible bloom, absent-flashlight, empty-effect and zero-index guards remain; transparent emission occluders remain. |
+| 7–8 | Shadow/reflection dependency audit: preserve moving/held/posed/opacity/shadow-only visibility and live lights/materials/caustics. Prepared probes are reused; no incomplete dirty shadow/planar key introduced. |
+| 9 | Bounded eight-sheet staging and persistent pose/effect/GPU buffers retained; redundant light writes removed. No unsupported staging-ring speedup claim. |
+| 10 | Exact unchanged solver-pose/interpolation/trigger-path work skipped; final settling motion and rotation/reversal sweeps retained. All wake/solver/force thresholds preserved. |
+| 11 | Query refresh follows both player and door changes once; static structures and unchanged Rapier setters already guarded. |
+| 12 | Expanded AABBs reject distant dormant/player pairs before the original exact test, preserving key order. Existing broad-phase/swept pickup/controller/camera queries remain. |
+| 13–15 | Existing goal/door/age/retry replanning gates, eight-query fairness, staggered perception, events/timers and change-only state events retained. Perception now clones only the selected contact's role and skips non-winning farther sight rays. |
+| 16 | Bounded 32-slot stack schedule replaces automatic-handler path clones/allocation/search; each invocation still dispatches before the next and checks disabled/frame budgets. |
+| 17 | Cache immutable validated start/update functions within their owning VM. Source already compiles once/load; resets still create isolated closures/globals. |
+| 18 | Separate script timing and bounded VM allocation/automatic GC retained. No demonstrated benefit warrants changing compiler/debug/GC policy or caching bytecode across fresh VMs. |
+| 19 | Existing spatial trigger tree, swept queries, occupied retry set and bounded scratch retained. No trigger-contract or polling-cadence change. |
+| 20 | Share immutable navigation/grid statistics and probe faces; prepare validated navigation once/variant, upload captures then move them, and release parsed recipe wire bytes early. Collision ownership and bounded segment/PMP overlap remain. |
+| 21 | Remove duplicate segment hashing: bounded descriptor-derived reads still receive complete length/SHA verification before output allocation and final PMP verification before decoding. ZIP/alias/source-recovery contracts remain. |
+| 22 | Keep existing content-keyed cache budgets/eviction; charge shared backing capacities, pointees and control blocks. No cap increase or path/mtime validity shortcut. |
+| 23 | Skip expensive world snapshots when neither explicit tracing nor the persistent lifecycle journal consumes the event. Embedded shaders/preloaded audio remain outside ordinary frame work. |
+| 24 | Replace repeated device-loss mutex locks with first-reason `OnceLock`; normal GPU polling/timestamp readback remain nonblocking. Explicit readback/evidence waits remain. |
+| 25 | Reuse transparent scratch/precomputed distances, with insertion ordinal preserving exact stable ties; release all five stores on menu. No-blend decals avoid order-vector allocation. |
+| 26 | Remove duplicate lighting/transform/physics/hash/immutable-storage work above. Bound process warning identities at 4,096 keys/1 MiB UTF-8 payload, with one terminal saturation notice; ordinary warnings/fatals remain independent. |
+| 27 | Verify release optimization 3/full LTO/one codegen unit/strip. Preserve Luau-required unwind. No unsupported PGO, fast-math, target or worker-count change. |
+
+A concrete additional root cause was stationary rotated-prop interpolation.
+Using an actual sleeping Bowling ball pose, the old equal-endpoint formula
+produced **10 canonical model matrices and 74 consecutive changes across 257
+frame fractions**, with at most 1.91 micrometres of position error. Those matrix
+bits are inputs to shared visibility and receiver-lighting keys. The identity
+return preserves the exact settled pose, without a movement epsilon or reduced
+simulation. A 257-scalar regression protects it. In four isolated Group1→Group2
+Bowling trials, recovery CPU time fell **4.17–4.99→1.04–1.05 ms** and loop p99
+**8.80–8.94→3.07–3.12 ms**; bodies were asleep in both. Physics-step time accounts
+for only about 0.02 ms of that difference. The isolated group includes the other
+small physics bookkeeping changes, so its entire gain is not assigned to one
+line. The separate headless 480-frame campaign retains exact before/after state
+hashes and one/four-worker parity; its inactive-player contacts/water/dormant
+throughput is effectively unchanged (128-contact serial median ~0.244 ms).
+
+### Expanded final timings and limits
+
+Twenty-eight new capture-free alternating trials use the original `f38c638`
+baseline and the final production binary above: two runs/build in ABBA order for
+each case. Settings/backend/drawable/presentation evidence follows the earlier
+method: M2 Pro/Metal, Release, High/Full, VSync and limiters off, actual Immediate,
+no missed ready surfaces, and measured throughput exceeding display refresh.
+Static samples use 120 warmup frames then 2,400 lab/1,800 Retina frames. Interaction
+runs last 12 real seconds; recovery is 6–11.8 s and closet-near is 2.4–4 s after
+ready. GPU samples are deduplicated by completion ID. All means, p95/p99/worst,
+stutter counts and physics/held counts remain in `expanded-results.json` and raw
+receipts. No compile/recording competes with authoritative trials.
+
+| Matched view/window | Average FPS before→after, two runs/build | CPU update mean before→after | Loop p99 before→after |
+|---|---|---|---|
+| Lab, 1280×720 | 388–392→429–431 | 1.95–1.96→1.75–1.77 ms | 3.30–4.47→3.13–3.14 ms |
+| Home books recovery, 1280×720 | 505–537→594–600 | 1.18–1.40→0.227–0.236 ms | 2.77–5.23→3.05–3.19 ms |
+| Bowling recovery, 1280×720 | 91–108→451–452 | 8.03–9.66→1.078–1.081 ms | 13.53–13.78→2.83–2.95 ms |
+| Home cushion recovery, 1280×720 | 552–580→557–588 | 1.08–1.16→0.234–0.235 ms | 2.64–2.66→3.01–8.26 ms |
+| Pool closet near, 1280×720 | 622–640→626–630 | 0.175–0.182→0.180–0.201 ms | 3.02–8.67→2.94–3.68 ms |
+| Arcade busy, 2560×1440 | 244.05–244.62→244.36–244.80 | 1.163–1.165→1.042–1.046 ms | 5.84–6.65→6.16–7.50 ms |
+| Bathroom, 2560×1440 | 367–370→364 / **209** | 1.124–1.148→1.007 / 1.211 ms | 5.02–6.62→6.69 / **11.25** ms |
+
+The lab improves about 10.3% in throughput. Books/Bowling recovery CPU savings
+are substantial; real-time trajectories differ slightly, and per-frame solver
+cost also falls when fewer frames contain a fixed step. These are not changes
+to the fixed-step rate, collision accuracy or sleep policy. Cushion throughput
+ranges overlap despite lower CPU cost. Closet throughput is flat; its earlier
+627→375 pacing pair remains unexplained. Arcade GPU span remains ~4.44 ms.
+Bathroom GPU span is 4.11–4.14 ms before, 4.03 ms in the normal after trial and
+4.51 ms in the regressed trial; CPU render mean rises from ~1.42 to 3.35 ms in
+that regressed run. New-rendering-only repeats also showed pacing variation in
+both builds, so no cause or reliable GPU-throughput gain is assigned. The
+regressions are retained in evidence and montage labels.
+
+Four matched fresh-process Lantern loads, comparing checkpoint→expanded code
+with warm OS cache, measure request-to-commit **4,778–4,832→4,669–4,679 ms** and
+kernel peak RSS **2,121–2,126→2,099–2,104 MiB**. Commit RSS is ~2,099–2,101 versus
+~2,079–2,082 MiB. This small matched improvement is distinct from the earlier
++312 MiB observation, whose cause/lifetime remains unproven. Retained prepared
+payload is 965,299,278→965,299,582 bytes; the 304-byte increase is updated shared
+navigation/statistics accounting, not more scene content. Active-map RAM
+reduction remains secondary to safe inactive-map release and speed/quality.
+
+The final 318.89-second native campaign completed **42 requests/42 commits,
+28 graphics-setting changes and 29 drawable observations**. At all seven menu
+captures, active prepared bytes, script modules/VM bytes/calls, AI agents, physics
+bodies, pending commits and retired prepared-record/build owners were zero.
+The final menu GPU counts were **35 buffers, 19 textures, 35 bind groups and 34
+views**, identical at all seven captures. These bounded device/UI/pipeline
+resources include the three retained decal pipelines rebound to empty caustics;
+fresh/reloaded lanes and mirrors now have identical pixels and draw counts.
+Menu RSS ranged 613–849 MiB, ending at 752 MiB; retained allocator/driver capacity
+is not called live old-map ownership. Kernel peak was 2,706,325,504 bytes. This
+five-minute campaign establishes the tested plateau, not an hours-long guarantee.
+
+A final 123.51-second Lantern→Hub→Home→Lantern→Hub→Arcade→Lantern→Hub→menu
+reconfirmation on the measured player completes all eight commits. Every retired
+Lantern record/build reaches zero; bounded passive Hub/Home/Arcade cache entries
+release at menu, where all eight retired owners and all map subsystems are zero.
+Menu GPU counts again match 35/19/35/34. Heavy RSS is 1,544/1,919/1,899 MiB,
+menu 737 MiB, kernel peak 2,476,916,736 bytes. This checks the final shared
+navigation/probe ownership changes; `expanded-heavy-lifetime-results.json`
+retains the snapshots, rather than inferring release from RSS alone.
+
+Final native cancellation/retry confirms a canceled Lantern load cannot commit
+later or resurrect map resources. The controlled 3 MiB Luau allocation against
+the existing 2 MiB VM cap still disables the failed module, discards staged
+actions, repeats safely after reload and releases VM ownership on menu. Lab
+contact activation/reset and visitor counts **12→13→12→13** pass; water entry,
+dive, resurfacing and rim exit, and the folding door's closed collision,
+traversal, inside close and mid-travel reversal pass. Walking into and stepping
+onto authored dormant movable props and genuine Rapier sleepers wake them in
+focused side/top regressions; fixed props remain fixed. No sleep/solver policy
+was relaxed. Home cushion pickup/carry/drop and books jump/landing/recovery, and
+Arcade held/contact-heavy paths pass the recorded inputs. The original severe
+persistent Home collapse and Pool proximity fault are not fully reproduced or
+declared resolved by these inputs.
+
+The earlier same-view Hub comparison remains relevant to the prior-map CPU
+hypothesis: fresh **583 FPS / 0.167 ms update** versus **625/636 FPS /
+0.132/0.149 ms** after repeated heavy transitions, with the same 39 draws and
+zero old scripts/AI/physics. Old-map active ticking did not explain a slowdown
+in that tested case. Higher RSS alone establishes neither a leak nor a cause of
+other pacing cases. The isolated heavy-menu cleanup callback's 52.46 ms remains
+a latency lead; skipping discarded snapshots does not prove that drop cost gone.
+
+All four final matched static Home/Pool/Arcade/lab frames have **zero changed RGB
+channels** against the original baseline. The final native editor again edited,
+saved, closed, reopened the edited document, reversed the edit and exported the
+whole lab project normally. Restored source values match except serialization
+of the existing `floor_y=0` default. Prepared export payloads are identical;
+manifest/provenance fingerprints legitimately differ for the rebuilt compiler.
+The existing large collection passes validation without rebaking. Separate lab
+Luau invocation timing (including capability setup) is 0.0899 ms mean, 0.1285 ms
+p95, 0.1362 ms maximum across its bounded 64-call diagnostic, versus checkpoint
+0.0781/0.1052/0.1336 ms. There is no isolated VM execution speedup claim; automatic
+schedule allocation/search occurs outside that invocation interval.
+
+The warning-key policy gap above is now closed: key payload and cardinality are
+both bounded, duplicates allocate no string, and pressure stops new identities
+with one notice. It is diagnostic suppression state, not an asset-admission
+limit. Hash-table/String metadata is additionally bounded by cardinality; the
+1 MiB label is UTF-8 key payload, not total allocator residency. Other aggregate
+process/shared-model/directory/disk/OOM/tier-policy gaps remain explicit in
+`resource-audit.json`; issue #27 is not declared fully closed.
+
+The updated **56-second, 1920×1080, H.264/yuv420p, 30 FPS montage** is confirmed
+in Library as **`libfile_d5af9e225d148191b29083e5883c28aa`**. Its 1,680 frames
+fully decode; sampled full-resolution frames have readable labels and the
+matched actual game views. The nine new raw after clips, original before clips,
+editable `edit.json`/builder, QA frames and decode/probe receipts are retained in
+`local/performance-0.13.0/`; the new assembly is in `montage-expanded/`, upload
+receipt in `EXPANDED-VIDEO-LIBRARY.json`. The first delivered montage
+(`libfile_27a4369238608191bbab0aef74a21fe0`) remains untouched. Capture is explicitly
+paced separately; all labels use capture-free timings and show overlapping or
+regressed results honestly. No captured overlay supplies a benchmark number.
+
+Final format, strict `cargo clippy --workspace --all-targets --all-features --
+-D warnings`, locked all-feature workspace release build, and **222 tests**
+(0.43 s) pass. Added scalar, contact, sorting and diagnostic-budget fixtures have
+specific regression value and require no map bake. The final test-only rebuild
+produces the exact same player SHA as the accepted timings. Gate logs are
+`final-expanded-{fmt,clippy,tests,build}.log`; the actual final player, compiler,
+editor and physics tool plus hashes are preserved in `validated-binaries/`.
+Native receipts/results include `expanded-results.json`,
+`expanded-extended-results.json`, `expanded-final-*-results.json`,
+`expanded-visual-results.json` and `expanded-editor-roundtrip-receipt.json`.
+
+The separate fresh engine sweep remains next. Remaining leads include the
+unexplained render/acquisition pacing cases, unchanged busy-view GPU cost,
+residual lighting/animation work, complete safe shadow/reflection dirty keys,
+PPS segment/output overlap, duplicate request-local package opening and unused
+graphics-only gameplay assembly, aggregate unified-memory/model/discovery
+budgets and recoverable host/driver pressure behavior. Already solved guards
+and the 27 outcomes above should not be reimplemented. Mannequin ragdolls, docs
+cleanup and later editor/audio/menu/UI/style work remain separate queue stages.

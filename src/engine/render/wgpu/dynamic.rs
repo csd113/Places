@@ -466,8 +466,24 @@ impl WgpuDynamic {
                 continue;
             }
             let transform = live.transform();
-            let mut uniform = environment
-                .with_model(transform)
+            let previous = object.environment.uploaded_uniform();
+            let transform_changed = previous.model != transform.to_cols_array_2d();
+            let model_environment = if transform_changed {
+                object.world_bounds = crate::engine::render::common::props::transform_bounds(
+                    &live.mesh().bounds,
+                    &transform,
+                );
+                object.culling_reflected = super::world::culling_reflected(transform);
+                environment.with_model(transform)
+            } else {
+                // Template and receiver lighting still refresh independently of pose.
+                EnvironmentUniform {
+                    model: previous.model,
+                    normal_model: previous.normal_model,
+                    ..*environment
+                }
+            };
+            let mut uniform = model_environment
                 .with_entity_lighting(live.entity_lighting())
                 .with_spatial_lighting(live.spatial_lighting());
             uniform.uv_receiver = object.uv_receiver.sample(
@@ -486,11 +502,6 @@ impl WgpuDynamic {
                 );
             }
             let _update_stats = object.environment.update(queue, &uniform);
-            object.world_bounds = crate::engine::render::common::props::transform_bounds(
-                &live.mesh().bounds,
-                &transform,
-            );
-            object.culling_reflected = super::world::culling_reflected(transform);
         }
         self.stats.draws = scene.draw_count();
         self.stats.vertices = scene.vertex_count();

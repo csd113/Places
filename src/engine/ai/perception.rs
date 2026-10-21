@@ -113,7 +113,7 @@ fn sight_target(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
     let half_fov = (agent.def.sight_fov_degrees * 0.5)
         .to_radians()
         .min(std::f32::consts::PI);
-    let mut best: Option<(f32, Perceived)> = None;
+    let mut best: Option<(f32, &super::AiTarget)> = None;
     for target in ctx.targets {
         if target.handle == agent.handle || target.caught {
             continue;
@@ -124,6 +124,12 @@ fn sight_target(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
         let to_target = target.position - agent.position;
         let distance = to_target.length();
         if distance > agent.def.sight_range + target.radius {
+            continue;
+        }
+        if !best
+            .as_ref()
+            .is_none_or(|(best_distance, _)| distance < *best_distance)
+        {
             continue;
         }
         // Across floors: a body more than its own height away vertically is
@@ -147,23 +153,17 @@ fn sight_target(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
         if !sight_clear_with_leaves(ctx.index, ctx.walls, ctx.leaves, eye, gaze) {
             continue;
         }
-        let contact = Perceived {
-            handle: target.handle,
-            position: target.position,
-            radius: target.radius,
-            height: target.height,
-            role: target.role.clone().unwrap_or_default(),
-            heard_only: false,
-            age: 0.0,
-        };
-        if best
-            .as_ref()
-            .is_none_or(|(best_distance, _)| distance < *best_distance)
-        {
-            best = Some((distance, contact));
-        }
+        best = Some((distance, target));
     }
-    best.map(|(_, contact)| contact)
+    best.map(|(_, target)| Perceived {
+        handle: target.handle,
+        position: target.position,
+        radius: target.radius,
+        height: target.height,
+        role: target.role.clone().unwrap_or_default(),
+        heard_only: false,
+        age: 0.0,
+    })
 }
 
 /// The newest audible stimulus, resolved to its source's role when it has one.
@@ -171,7 +171,7 @@ fn heard(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
     if agent.def.hearing_range <= 0.0 {
         return None;
     }
-    let mut best: Option<(f32, Perceived)> = None;
+    let mut best: Option<(f32, &Stimulus)> = None;
     for stimulus in ctx.stimuli {
         if stimulus.source == Some(agent.handle) {
             continue;
@@ -181,10 +181,20 @@ fn heard(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
         if radius <= 0.0 || distance > agent.def.hearing_range.min(radius) {
             continue;
         }
+        // Prefer the freshest stimulus, then the loudest proximity.
+        let score = stimulus.age - radius / 100.0;
+        if best
+            .as_ref()
+            .is_none_or(|(best_score, _)| score < *best_score)
+        {
+            best = Some((score, stimulus));
+        }
+    }
+    best.map(|(_, stimulus)| {
         let source_target = stimulus
             .source
             .and_then(|handle| ctx.targets.iter().find(|target| target.handle == handle));
-        let contact = Perceived {
+        Perceived {
             handle: stimulus.source.unwrap_or(agent.handle),
             position: stimulus.position,
             radius: source_target.map_or(0.0, |target| target.radius),
@@ -194,17 +204,8 @@ fn heard(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
                 .unwrap_or_default(),
             heard_only: true,
             age: stimulus.age,
-        };
-        // Prefer the freshest stimulus, then the loudest proximity.
-        let score = stimulus.age - radius / 100.0;
-        if best
-            .as_ref()
-            .is_none_or(|(best_score, _)| score < *best_score)
-        {
-            best = Some((score, contact));
         }
-    }
-    best.map(|(_, contact)| contact)
+    })
 }
 
 /// True when nothing blocks the straight segment between two eye points.

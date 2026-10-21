@@ -3344,6 +3344,12 @@ impl FrameLoop<'_> {
     }
 
     fn trace_world(&mut self, event: &str) {
+        if self.trace.will_record(event) {
+            self.record_world_snapshot(event);
+        }
+    }
+
+    fn record_world_snapshot(&mut self, event: &str) {
         let (renderer_level, renderer_quality, renderer_lightmaps) =
             self.renderer.installed_identity();
         let position = self.game.player_position.to_array();

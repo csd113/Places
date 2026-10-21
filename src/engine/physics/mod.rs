@@ -34,3 +34,7 @@ pub const MAX_BODIES: usize = 128;
 pub const PICKUP_REACH: f32 = 2.2;
 /// Forward hand target for ordinary small bodies, in metres from the eye.
 pub const HOLD_DISTANCE: f32 = 0.85;
+
+#[cfg(test)]
+#[path = "../tests/settled_interpolation.rs"]
+mod settled_interpolation;

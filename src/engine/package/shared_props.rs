@@ -1072,9 +1072,13 @@ pub fn read_record<R: std::io::Read + std::io::Seek>(
         return Ok(bytes);
     }
     let recipe = read_recipe(&bytes)?;
+    drop(bytes);
     let mut segments = Vec::with_capacity(recipe.segments().len());
     for segment in recipe.segments() {
-        let payload = reader.read_blob(&segment.blob_name(), segment.bytes)?;
+        // The descriptor-derived name carries this exact SHA. Reconstruction
+        // verifies every immutable segment before allocating output; avoid
+        // hashing it a second time here. Alias/ZIP bounds remain in read_entry.
+        let payload = reader.read_entry(&segment.blob_name(), segment.bytes)?;
         if u64_from_usize(payload.len())? != segment.bytes {
             return Err("shared prop segment length disagrees with its recipe".to_string());
         }

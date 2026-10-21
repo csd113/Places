@@ -28,6 +28,8 @@ use crate::engine::project::ProjectPath;
 
 pub const MAX_SOURCE_BYTES: u64 = 65_536;
 const MAX_MODULES: usize = 16;
+type AutomaticCall = (usize, &'static str);
+const AUTOMATIC_SLOTS: usize = MAX_MODULES.saturating_mul(2);
 const MAX_TOTAL_BYTES: usize = 524_288;
 const VM_BYTES: usize = 2 * 1024 * 1024;
 const MAX_HANDLERS: usize = 64;
@@ -95,6 +97,8 @@ struct Module {
     path: ProjectPath,
     lua: Lua,
     exports: Table,
+    start: Option<Function>,
+    update: Option<Function>,
     disabled: bool,
     started: bool,
 }
@@ -182,10 +186,14 @@ impl Module {
             }
         }
         exports.set_readonly(true);
+        let start = exports.raw_get("start")?;
+        let update = exports.raw_get("update")?;
         Ok(Self {
             path: source.path.clone(),
             lua,
             exports,
+            start,
+            update,
             disabled: false,
             started: false,
         })
@@ -403,6 +411,20 @@ impl ScriptRuntime {
             self.note(format!("{}: script unavailable", path.as_str()));
             return Vec::new();
         };
+        self.call_index(index, handler, world, subject, origin, delta)
+    }
+
+    /// Automatic tokens avoid path allocation/search; execution still rechecks
+    /// disabled state and budgets before constructing scoped capabilities.
+    pub(crate) fn call_index(
+        &mut self,
+        index: usize,
+        handler: &str,
+        world: &EntityWorld,
+        subject: Option<&str>,
+        origin: Option<glam::Vec3>,
+        delta: f32,
+    ) -> Vec<ActionDef> {
         let Some(module) = self.modules.get_mut(index) else {
             return Vec::new();
         };
@@ -414,10 +436,11 @@ impl ScriptRuntime {
             || self.elapsed >= Duration::from_millis(8)
         {
             module.disabled = true;
-            self.note(format!(
+            let message = format!(
                 "{} / {handler}: per-frame script budget exhausted; module disabled",
-                path.as_str()
-            ));
+                module.path.as_str()
+            );
+            self.note(message);
             return Vec::new();
         }
         self.calls = self.calls.saturating_add(1);
@@ -452,7 +475,14 @@ impl ScriptRuntime {
                 event.set("z", position.z)?;
             }
             event.set_readonly(true);
-            let function: Function = module.exports.raw_get(handler)?;
+            let cached = match handler {
+                "start" => module.start.as_ref(),
+                "update" => module.update.as_ref(),
+                _ => None,
+            };
+            let function: Function = cached
+                .cloned()
+                .map_or_else(|| module.exports.raw_get(handler), Ok)?;
             // Building the scoped capability/event tables is host setup, not
             // script execution. Its cost still counts against the frame total.
             deadline(
@@ -464,10 +494,16 @@ impl ScriptRuntime {
         module.lua.remove_interrupt();
         let invocation_elapsed = started.elapsed();
         self.elapsed = self.elapsed.saturating_add(invocation_elapsed);
-        trace_invocation(path, handler, invocation_elapsed, native_calls.get());
+        trace_invocation(
+            &module.path,
+            handler,
+            invocation_elapsed,
+            native_calls.get(),
+        );
         if let Err(problem) = result {
             module.disabled = true;
-            self.note(diagnostic(path.as_str(), handler, &problem));
+            let message = diagnostic(module.path.as_str(), handler, &problem);
+            self.note(message);
             return Vec::new();
         }
         if let Ok(messages) = notices.into_inner() {
@@ -502,28 +538,28 @@ impl ScriptRuntime {
     }
 
     /// Automatic handlers run in declared source order on playing ticks only.
-    pub fn automatic(&mut self) -> Vec<(ProjectPath, &'static str)> {
-        let mut handlers = Vec::new();
-        for module in &mut self.modules {
+    /// Readonly validated exports cannot change, so tokens need no VM lookup.
+    pub(crate) fn automatic(&mut self) -> [Option<AutomaticCall>; AUTOMATIC_SLOTS] {
+        let mut handlers = [None; AUTOMATIC_SLOTS];
+        let mut next = 0_usize;
+        for (index, module) in self.modules.iter_mut().enumerate() {
             if module.disabled {
                 continue;
             }
             if !module.started {
                 module.started = true;
-                if module
-                    .exports
-                    .raw_get::<Value>("start")
-                    .is_ok_and(|value| matches!(value, Value::Function(_)))
+                if module.start.is_some()
+                    && let Some(slot) = handlers.get_mut(next)
                 {
-                    handlers.push((module.path.clone(), "start"));
+                    *slot = Some((index, "start"));
+                    next = next.saturating_add(1);
                 }
             }
-            if module
-                .exports
-                .raw_get::<Value>("update")
-                .is_ok_and(|value| matches!(value, Value::Function(_)))
+            if module.update.is_some()
+                && let Some(slot) = handlers.get_mut(next)
             {
-                handlers.push((module.path.clone(), "update"));
+                *slot = Some((index, "update"));
+                next = next.saturating_add(1);
             }
         }
         handlers

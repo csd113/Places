@@ -30,8 +30,14 @@ impl LoadTrace {
         }
     }
 
-    pub fn record(&mut self, event: &str, request: u64, detail: &str) {
-        if matches!(
+    /// Allows expensive callers to skip state nobody will consume.
+    #[must_use]
+    pub fn will_record(&self, event: &str) -> bool {
+        self.output.is_some() || Self::journaled(event)
+    }
+
+    fn journaled(event: &str) -> bool {
+        matches!(
             event,
             "entry"
                 | "window_ready"
@@ -53,7 +59,11 @@ impl LoadTrace {
                 | "shutdown_complete"
                 | "menu_ready"
                 | "action"
-        ) {
+        )
+    }
+
+    pub fn record(&mut self, event: &str, request: u64, detail: &str) {
+        if Self::journaled(event) {
             crate::engine::diagnostics::record(event, format_args!("request={request} {detail}"));
         }
         let Some(output) = &mut self.output else {
@@ -74,3 +84,7 @@ impl LoadTrace {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/load_trace_filter.rs"]
+mod tests;

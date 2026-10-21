@@ -248,6 +248,7 @@ pub struct DecalPipeline {
     flashlight_shadow_bound: bool,
     /// The last uploaded camera state, so a still camera writes nothing.
     uploaded: Option<DecalCamera>,
+    uploaded_lights: Option<super::world::DynamicLightsUniform>,
 }
 
 #[repr(C)]
@@ -526,6 +527,7 @@ impl DecalPipeline {
             lights_sampler,
             flashlight_shadow_bound: false,
             uploaded: None,
+            uploaded_lights: None,
         }
     }
 
@@ -552,15 +554,16 @@ impl DecalPipeline {
         self.flashlight_shadow_bound = true;
     }
 
-    pub fn update_flashlight_lights(
-        &self,
+    /// Uploads only changed light state; an empty set still clears old lights.
+    pub fn update_light_uniform(
+        &mut self,
         queue: &wgpu::Queue,
-        lights: &crate::engine::render::common::DynamicLightSet,
-        flashlight: Option<crate::engine::render::common::Flashlight>,
+        uniform: &super::world::DynamicLightsUniform,
     ) {
-        let mut uniform = super::world::DynamicLightsUniform::new(lights);
-        uniform.flashlight = super::world::GpuFlashlight::new(flashlight);
-        queue.write_buffer(&self.lights_buffer, 0, bytemuck::bytes_of(&uniform));
+        if self.uploaded_lights.as_ref() != Some(uniform) {
+            queue.write_buffer(&self.lights_buffer, 0, bytemuck::bytes_of(uniform));
+            self.uploaded_lights = Some(*uniform);
+        }
     }
 
     /// The group-1 layout every decal sheet bind group is created against.
@@ -770,9 +773,10 @@ impl WgpuDecals {
         // Cut-out ranges first (they write depth), then the blended ranges back
         // to front. The sort only runs when the level actually authors a
         // soft-edged sheet, so an ordinary level keeps its exact packed order.
-        let mut order: Vec<usize> = (0..self.draws.len()).collect();
+        let mut order: Vec<usize> = Vec::new();
         let has_blend = self.draws.iter().any(|draw| draw.blend);
         if has_blend {
+            order.extend(0..self.draws.len());
             let eye = inputs.frame.eye;
             let distance_squared = |index: usize| -> f32 {
                 self.draws.get(index).map_or(0.0, |draw| {
@@ -798,7 +802,8 @@ impl WgpuDecals {
         let mut bound_pipeline: Option<bool> = None;
         let mut bound_chunk: Option<usize> = None;
         let mut bound_sheet: Option<usize> = None;
-        for index in order {
+        for packed_index in 0..self.draws.len() {
+            let index = order.get(packed_index).copied().unwrap_or(packed_index);
             let Some(draw) = self.draws.get(index) else {
                 continue;
             };

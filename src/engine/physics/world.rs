@@ -97,6 +97,9 @@ pub struct ItemPose {
 
 impl ItemPose {
     pub(super) fn interpolate(self, next: Self, alpha: f32, center: Vec3) -> Self {
+        if self == next {
+            return self;
+        }
         let previous_center = add(self.position, self.rotation.mul_vec3(center));
         let next_center = add(next.position, next.rotation.mul_vec3(center));
         let rotation = self.rotation.slerp(next.rotation, alpha);
@@ -255,6 +258,7 @@ pub(super) struct BodyEntry {
     pub reset_group: Option<Box<str>>,
     pub previous: ItemPose,
     pub current: ItemPose,
+    pub solver_pose: Option<rapier3d::prelude::Pose>,
     trigger_path: TriggerPath,
     impact_motion: ImpactMotion,
     impact_cooldown: f32,
@@ -548,6 +552,7 @@ impl ItemWorld {
                 initialized.last_player = Some(context);
                 initialized.update_player(context);
                 initialized.update_doors(&self.pending_doors, true);
+                initialized.refresh_queries();
             }
             Box::new(initialized)
         })
@@ -674,6 +679,7 @@ impl ItemWorld {
                 reset_group: def.reset_group.as_deref().map(Into::into),
                 previous: initial,
                 current: initial,
+                solver_pose: None,
                 trigger_path,
                 impact_motion: ImpactMotion::default(),
                 impact_cooldown: 0.0,
@@ -1149,6 +1155,7 @@ impl ItemWorld {
         runtime.last_player = Some(player);
         runtime.update_player(player);
         runtime.update_doors(doors, interval <= 0.0);
+        runtime.refresh_queries();
         if interval > 0.0 {
             runtime.activate_player_contacts();
         }
@@ -1700,6 +1707,7 @@ impl Runtime {
         }
         entry.previous = entry.authored_pose;
         entry.current = entry.authored_pose;
+        entry.solver_pose = None;
         entry.trigger_path = TriggerPath::new(entry.authored_pose, entry.center, &entry.shape);
         entry.impact_motion = ImpactMotion::default();
         entry.impact_cooldown = 0.0;
@@ -1853,7 +1861,6 @@ impl Runtime {
             body.set_position(target, false);
             body.set_next_kinematic_position(target);
         }
-        self.refresh_queries();
     }
 
     fn update_doors(&mut self, doors: &[DoorCollider], immediate: bool) {
@@ -1890,9 +1897,14 @@ impl Runtime {
             if entry.dormant {
                 entry.previous = entry.authored_pose;
                 entry.current = entry.authored_pose;
+                entry.solver_pose = None;
                 continue;
             }
             if let Some(body) = self.world.bodies.get(entry.body) {
+                if entry.solver_pose.as_ref() == Some(body.position()) {
+                    continue;
+                }
+                entry.solver_pose = Some(*body.position());
                 let rotation = quaternion(*body.rotation());
                 entry.current = ItemPose {
                     position: subtract(point(body.translation()), rotation.mul_vec3(entry.center)),

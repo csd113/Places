@@ -862,6 +862,17 @@ pub struct DynamicLightsUniform {
 }
 
 impl DynamicLightsUniform {
+    /// Packs the shared light state once for all render targets.
+    #[must_use]
+    pub fn with_flashlight(
+        lights: &DynamicLightSet,
+        flashlight: Option<crate::engine::render::common::Flashlight>,
+    ) -> Self {
+        let mut uniform = Self::new(lights);
+        uniform.flashlight = GpuFlashlight::new(flashlight);
+        uniform
+    }
+
     /// Packs one frame's light set; every unused slot stays zero.
     #[must_use]
     pub fn new(lights: &DynamicLightSet) -> Self {
@@ -1863,10 +1874,20 @@ enum TransparentItem {
     Character(usize),
 }
 
-fn sort_transparency(items: &mut [(TransparentItem, [f32; 3])], eye: glam::Vec3) {
-    items.sort_by(|left, right| {
-        let distance = |point| glam::Vec3::from_array(point).distance_squared(eye);
-        distance(right.1).total_cmp(&distance(left.1))
+#[derive(Clone, Copy, Debug)]
+struct TransparentEntry {
+    item: TransparentItem,
+    distance: f32,
+    ordinal: usize,
+}
+
+fn sort_transparency(items: &mut [TransparentEntry]) {
+    // Exact original stable ties without an allocating stable-sort workspace.
+    items.sort_unstable_by(|left, right| {
+        right
+            .distance
+            .total_cmp(&left.distance)
+            .then_with(|| left.ordinal.cmp(&right.ordinal))
     });
 }
 
@@ -2172,9 +2193,7 @@ pub struct WorldPipeline {
     emission_blend: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
     camera_buffer: wgpu::Buffer,
-    /// The group-4 attached-light uniform. Created zeroed and written by
-    /// [`WorldPipeline::update_lights`]; the reflection-capture pipelines never
-    /// write it, so their captures stay light-free.
+    /// The group-4 attached-light uniform, shared across this pipeline's draws.
     lights_buffer: wgpu::Buffer,
     /// The group-4 binding over `lights_buffer`.
     lights_bind_group: wgpu::BindGroup,
@@ -2186,6 +2205,8 @@ pub struct WorldPipeline {
     format: wgpu::TextureFormat,
     /// The last uploaded camera state, so a still camera writes nothing.
     uploaded: Option<CameraUniform>,
+    uploaded_lights: Option<DynamicLightsUniform>,
+    transparent_scratch: std::cell::RefCell<Vec<TransparentEntry>>,
     #[cfg(feature = "visual-diagnostics")]
     visual_diagnostic: super::diagnostics::VisualDiagnosticMode,
 }
@@ -2335,6 +2356,8 @@ impl WorldPipeline {
             flashlight_shadow_bound: false,
             format,
             uploaded: None,
+            uploaded_lights: None,
+            transparent_scratch: std::cell::RefCell::new(Vec::new()),
             #[cfg(feature = "visual-diagnostics")]
             visual_diagnostic: super::diagnostics::VisualDiagnosticMode::Final,
         }
@@ -2375,15 +2398,12 @@ impl WorldPipeline {
         self.flashlight_shadow_bound = true;
     }
 
-    pub fn update_flashlight_lights(
-        &self,
-        queue: &wgpu::Queue,
-        lights: &DynamicLightSet,
-        flashlight: Option<crate::engine::render::common::Flashlight>,
-    ) {
-        let mut uniform = DynamicLightsUniform::new(lights);
-        uniform.flashlight = GpuFlashlight::new(flashlight);
-        queue.write_buffer(&self.lights_buffer, 0, bytemuck::bytes_of(&uniform));
+    /// Uploads only changed light state, including transitions to an empty set.
+    pub fn update_light_uniform(&mut self, queue: &wgpu::Queue, uniform: &DynamicLightsUniform) {
+        if self.uploaded_lights.as_ref() != Some(uniform) {
+            queue.write_buffer(&self.lights_buffer, 0, bytemuck::bytes_of(uniform));
+            self.uploaded_lights = Some(*uniform);
+        }
     }
 
     /// The colour target format these pipelines' fragment state was built for.
@@ -2461,15 +2481,9 @@ impl WorldPipeline {
         self.uploaded.map(|uniform| uniform.diagnostic_selector)
     }
 
-    /// Uploads one frame's attached lights.
-    ///
-    /// Always writes the whole uniform, an empty set included: a zero count is
-    /// what clears the previous frame's lights, so no stale glow can linger in
-    /// a frame that attaches none. Callers are the main scene, offscreen-scene
-    /// and emissive pipelines; the reflection-capture pipelines deliberately
-    /// keep their zeroed set, so a mirror or probe never bakes a glow in.
-    pub fn update_lights(&self, queue: &wgpu::Queue, lights: &DynamicLightSet) {
-        write_dynamic_lights(queue, &self.lights_buffer, lights);
+    /// Clears transient lights during an offline reflection bake.
+    pub fn update_lights(&mut self, queue: &wgpu::Queue, lights: &DynamicLightSet) {
+        self.update_light_uniform(queue, &DynamicLightsUniform::new(lights));
     }
 }
 
@@ -2527,15 +2541,6 @@ pub(super) fn dynamic_lights_binding(
             },
         ],
     })
-}
-
-/// Writes one light set into a group-4 uniform buffer.
-///
-/// Split from [`WorldPipeline::update_lights`] so the byte-level contents are
-/// testable with a bare device and a copy-back buffer.
-fn write_dynamic_lights(queue: &wgpu::Queue, buffer: &wgpu::Buffer, lights: &DynamicLightSet) {
-    let uniform = DynamicLightsUniform::new(lights);
-    queue.write_buffer(buffer, 0, bytemuck::bytes_of(&uniform));
 }
 
 /// The resources and frame state one world submission needs.
@@ -2638,10 +2643,12 @@ impl WorldPipeline {
         inputs: WorldEncodeInputs<'a>,
         emission_only: bool,
     ) -> WorldDrawTotals {
-        let mut items = Self::transparent_items(inputs);
-        sort_transparency(&mut items, inputs.frame.eye);
+        let mut items = self.transparent_scratch.borrow_mut();
+        Self::transparent_items(inputs, &mut items);
+        sort_transparency(&mut items);
         let mut totals = WorldDrawTotals::default();
-        for (item, _) in items {
+        for entry in items.iter() {
+            let item = entry.item;
             let submitted = match item {
                 TransparentItem::World(index) => self.encode_class(
                     pass,
@@ -2698,8 +2705,15 @@ impl WorldPipeline {
         totals
     }
 
-    fn transparent_items(inputs: WorldEncodeInputs<'_>) -> Vec<(TransparentItem, [f32; 3])> {
-        let mut items = Vec::new();
+    fn transparent_items(inputs: WorldEncodeInputs<'_>, items: &mut Vec<TransparentEntry>) {
+        items.clear();
+        let mut push = |item, centre| {
+            items.push(TransparentEntry {
+                item,
+                distance: glam::Vec3::from_array(centre).distance_squared(inputs.frame.eye),
+                ordinal: items.len(),
+            });
+        };
         // The shared stable sort already orders every family. Collect each in
         // packed/scene order so ties stay unchanged without sorting subsets.
         for index in inputs
@@ -2710,19 +2724,21 @@ impl WorldPipeline {
             if let Some(draw) = usize::try_from(*index)
                 .ok()
                 .and_then(|slot| inputs.geometry.draws.get(slot))
-                .filter(|draw| draw.index_count > 0)
+                .filter(|draw| {
+                    draw.index_count > 0
+                        && (!inputs.cull || inputs.frame.frustum.intersects_aabb(&draw.bounds))
+                })
             {
-                items.push((TransparentItem::World(*index), draw.bounds.centre()));
+                push(TransparentItem::World(*index), draw.bounds.centre());
             }
         }
         if let Some(props) = inputs.props {
-            for (index, draw) in props
-                .draws()
-                .iter()
-                .enumerate()
-                .filter(|(_, draw)| draw.pass == BatchPass::Translucent && draw.index_count > 0)
-            {
-                items.push((TransparentItem::Prop(index), draw.bounds.centre()));
+            for (index, draw) in props.draws().iter().enumerate().filter(|(_, draw)| {
+                draw.pass == BatchPass::Translucent
+                    && draw.index_count > 0
+                    && (!inputs.cull || inputs.frame.frustum.intersects_aabb(&draw.bounds))
+            }) {
+                push(TransparentItem::Prop(index), draw.bounds.centre());
             }
         }
         if let Some(dynamic) = inputs.dynamic {
@@ -2730,8 +2746,9 @@ impl WorldPipeline {
                 if (0..dynamic.submesh_count(index)).any(|submesh| {
                     dynamic.submesh_pass(index, submesh) == Some(BatchPass::Translucent)
                 }) && let Some(bounds) = dynamic.world_bounds(index)
+                    && (!inputs.cull || inputs.frame.frustum.intersects_aabb(&bounds))
                 {
-                    items.push((TransparentItem::Dynamic(index), bounds.centre()));
+                    push(TransparentItem::Dynamic(index), bounds.centre());
                 }
             }
         }
@@ -2739,12 +2756,18 @@ impl WorldPipeline {
             for index in (0..characters.character_count())
                 .filter(|index| characters.has_submesh_pass(*index, BatchPass::Translucent))
             {
-                if let Some(bounds) = characters.world_bounds(index) {
-                    items.push((TransparentItem::Character(index), bounds.centre()));
+                if let Some(bounds) = characters.world_bounds(index)
+                    && (!inputs.cull || inputs.frame.frustum.intersects_aabb(&bounds))
+                {
+                    push(TransparentItem::Character(index), bounds.centre());
                 }
             }
         }
-        items
+    }
+
+    /// Releases map-sized scratch while keeping GPU pipeline objects reusable.
+    pub fn release_frame_scratch(&mut self) {
+        *self.transparent_scratch.get_mut() = Vec::new();
     }
 
     /// Encodes the opaque extras spliced after the static opaque class, in the
@@ -2812,7 +2835,7 @@ impl WorldPipeline {
             pass.set_bind_group(3, environment, &[]);
             let mut bound_texture: Option<usize> = None;
             let mut bound_material: Option<usize> = None;
-            let mut bound_geometry: Option<(usize, usize)> = None;
+            let mut geometry_bound = false;
             let before_draws = totals.draw_calls;
             for submesh in 0..dynamic.submesh_count(object) {
                 if dynamic.submesh_pass(object, submesh) != Some(wanted) {
@@ -2855,10 +2878,10 @@ impl WorldPipeline {
                 else {
                     continue;
                 };
-                if bound_geometry != Some((object, submesh)) {
+                if !geometry_bound {
                     pass.set_vertex_buffer(0, vertex_buffer.slice(..));
                     pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                    bound_geometry = Some((object, submesh));
+                    geometry_bound = true;
                 }
                 let Some(end) = first_index.checked_add(index_count) else {
                     continue;
@@ -3148,6 +3171,9 @@ impl WorldPipeline {
         pass_kind: BatchPass,
         emission_only: bool,
     ) -> WorldDrawTotals {
+        if indices.is_empty() {
+            return WorldDrawTotals::default();
+        }
         let geometry = inputs.geometry;
         let materials = inputs.materials;
         let textures = inputs.textures;
@@ -3239,3 +3265,7 @@ impl WorldPipeline {
         totals
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/transparency_sort.rs"]
+mod transparency_tests;

@@ -447,6 +447,7 @@ impl Runtime {
         }
         entry.previous = safe;
         entry.current = safe;
+        entry.solver_pose = None;
     }
 
     fn recover_one(&mut self, request: RecoveryRequest, space: &RecoverySpace) -> bool {
@@ -658,6 +659,7 @@ impl Runtime {
         }
         entry.previous = target;
         entry.current = target;
+        entry.solver_pose = None;
         entry.recovery.reset(target);
         entry.recovery.suspended = suspended;
         if !entry.dormant && !suspended {

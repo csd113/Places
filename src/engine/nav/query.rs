@@ -223,8 +223,8 @@ pub struct RegionStat {
 /// statistics.
 #[derive(Debug, Clone, Default)]
 pub struct NavMesh {
-    grid: NavGrid,
-    regions: Vec<Vec<RegionStat>>,
+    grid: std::sync::Arc<NavGrid>,
+    regions: std::sync::Arc<Vec<Vec<RegionStat>>>,
 }
 
 impl NavMesh {
@@ -238,12 +238,37 @@ impl NavMesh {
         let regions = (0..grid.classes.len())
             .map(|class| region_stats(&grid, class))
             .collect();
-        Ok(Self { grid, regions })
+        Ok(Self {
+            grid: std::sync::Arc::new(grid),
+            regions: std::sync::Arc::new(regions),
+        })
+    }
+
+    /// Unique immutable navigation storage, charged once by its prepared owner.
+    #[must_use]
+    pub(crate) fn retained_heap_bytes(&self) -> usize {
+        self.grid
+            .retained_heap_bytes()
+            .saturating_add(
+                self.regions
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<Vec<RegionStat>>()),
+            )
+            .saturating_add(self.regions.iter().fold(0_usize, |sum, region| {
+                sum.saturating_add(
+                    region
+                        .capacity()
+                        .saturating_mul(std::mem::size_of::<RegionStat>()),
+                )
+            }))
+            .saturating_add(std::mem::size_of::<NavGrid>())
+            .saturating_add(std::mem::size_of::<Vec<Vec<RegionStat>>>())
+            .saturating_add(std::mem::size_of::<usize>().saturating_mul(4))
     }
 
     /// The baked grid.
     #[must_use]
-    pub const fn grid(&self) -> &NavGrid {
+    pub fn grid(&self) -> &NavGrid {
         &self.grid
     }
 

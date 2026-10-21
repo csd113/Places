@@ -3926,8 +3926,9 @@ impl EntityWorld {
         if ctx.delta_seconds.is_finite() && ctx.delta_seconds > 0.0 {
             let mut runtime = std::mem::take(&mut self.scripts);
             let automatic = runtime.automatic();
-            for (path, handler) in automatic {
-                let actions = runtime.call(&path, handler, self, None, None, ctx.delta_seconds);
+            for (index, handler) in automatic.into_iter().flatten() {
+                let actions =
+                    runtime.call_index(index, handler, self, None, None, ctx.delta_seconds);
                 let report = self.dispatch_actions(&actions, None);
                 tick.record_dispatch(&report);
                 if tick.player_reset {

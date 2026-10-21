@@ -51,6 +51,7 @@ pub(super) struct TriggerPath {
     centres: [Vec3; MAX_TRIGGER_PATH_POINTS],
     len: u8,
     rotation: Quat,
+    last: ItemPose,
     rotated: bool,
 }
 
@@ -63,6 +64,7 @@ impl TriggerPath {
             centres: [centre; MAX_TRIGGER_PATH_POINTS],
             len: 1,
             rotation: initial.rotation,
+            last: initial,
             rotated: false,
         }
     }
@@ -73,6 +75,9 @@ impl TriggerPath {
         center: Vec3,
         shape: &rapier3d::prelude::SharedShape,
     ) {
+        if current == self.last {
+            return;
+        }
         self.rotated |= current.rotation != self.rotation;
         if let Some(destination) = self.origins.get_mut(usize::from(self.len)) {
             let origin = add(current.position, current.rotation.mul_vec3(center));
@@ -81,6 +86,7 @@ impl TriggerPath {
                 *centre = point(shape.compute_aabb(&pose(origin, current.rotation)).center());
             }
             self.len = self.len.saturating_add(1);
+            self.last = current;
         }
     }
 
@@ -93,7 +99,16 @@ impl TriggerPath {
         radius: f32,
     ) -> ItemTriggerBody {
         let origin = add(current.position, current.rotation.mul_vec3(center));
-        let centre = point(shape.compute_aabb(&pose(origin, current.rotation)).center());
+        let centre = if current == self.last {
+            self.centres
+                .get(usize::from(self.len.saturating_sub(1)))
+                .copied()
+                .unwrap_or_else(|| {
+                    point(shape.compute_aabb(&pose(origin, current.rotation)).center())
+                })
+        } else {
+            point(shape.compute_aabb(&pose(origin, current.rotation)).center())
+        };
         let mut path = self.origins;
         let mut centre_path = self.centres;
         let mut path_len = self.len;

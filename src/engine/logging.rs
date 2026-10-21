@@ -136,19 +136,67 @@ pub fn warn(message: impl Display) {
     stderr_line(message);
 }
 
+// Diagnostic identities are optional process-wide suppression state. Bound
+// both allocation dimensions; pressure emits one notice and suppresses new keys.
+// Genuine warn/fatal messages never enter this budget.
+const MAX_ONCE_KEYS: usize = 4096;
+const MAX_ONCE_KEY_BYTES: usize = 1024 * 1024;
+
+#[derive(Default)]
+struct OnceWarnings {
+    keys: HashSet<String>,
+    bytes: usize,
+    saturated: bool,
+}
+
+enum OnceDecision {
+    First,
+    Duplicate,
+    Saturated,
+}
+
+impl OnceWarnings {
+    fn admit(&mut self, key: &str) -> OnceDecision {
+        if self.keys.contains(key) {
+            return OnceDecision::Duplicate;
+        }
+        if self.saturated {
+            return OnceDecision::Duplicate;
+        }
+        let bytes = self.bytes.saturating_add(key.len());
+        if self.keys.len() >= MAX_ONCE_KEYS || bytes > MAX_ONCE_KEY_BYTES {
+            self.saturated = true;
+            return OnceDecision::Saturated;
+        }
+        let _new_key = self.keys.insert(key.to_owned());
+        self.bytes = bytes;
+        OnceDecision::First
+    }
+}
+
 /// Prints one warning the first time `key` is seen in this process.
 ///
 /// `key` identifies the problem class (usually the asset id or file path), so
 /// repeated encounters collapse into one line. Use for problems that can occur
 /// once per item in a loop.
 pub fn warn_once(key: impl AsRef<str>, message: impl Display) {
-    static SEEN: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
-    let seen = SEEN.get_or_init(|| Mutex::new(HashSet::new()));
-    let first = seen
+    static SEEN: OnceLock<Mutex<OnceWarnings>> = OnceLock::new();
+    let seen = SEEN.get_or_init(|| Mutex::new(OnceWarnings::default()));
+    let decision = seen
         .lock()
-        .is_ok_and(|mut set| set.insert(key.as_ref().to_string()));
-    if first {
-        crate::engine::diagnostics::record("warning", &message);
-        stderr_line(message);
+        .map_or(OnceDecision::Duplicate, |mut set| set.admit(key.as_ref()));
+    match decision {
+        OnceDecision::First => {
+            crate::engine::diagnostics::record("warning", &message);
+            stderr_line(message);
+        }
+        OnceDecision::Duplicate => {}
+        OnceDecision::Saturated => warn(
+            "once-warning identity budget reached (4096 keys / 1 MiB); further new once-warnings suppressed",
+        ),
     }
 }
+
+#[cfg(test)]
+#[path = "tests/logging_budget.rs"]
+mod tests;

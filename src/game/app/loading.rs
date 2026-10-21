@@ -502,9 +502,8 @@ impl PackageKey {
 struct PreparedRecords {
     build: Arc<LevelBuild>,
     collision: CompiledCollision,
-    /// The decoded baked navigation grid; the runtime mesh is built from it
-    /// once per install.
-    navigation: crate::engine::package::navigation::NavGrid,
+    /// Validated immutable navigation and region statistics, shared by installs.
+    navigation: crate::engine::nav::NavMesh,
     probes: ProbeCaptures,
 }
 
@@ -514,7 +513,9 @@ impl PreparedRecords {
             .into_iter()
             .flatten()
             .map(|capture| {
-                let bytes = allocation_bytes(&capture.points)
+                let bytes = std::mem::size_of::<crate::engine::package::world::ProbeCapture>()
+                    .saturating_add(std::mem::size_of::<usize>().saturating_mul(2))
+                    .saturating_add(allocation_bytes(&capture.points))
                     .saturating_add(allocation_bytes(&capture.chains));
                 capture.chains.iter().fold(bytes, |sum, chain| {
                     chain.iter().fold(
@@ -825,7 +826,8 @@ fn prepare_world(
         let records = Arc::new(PreparedRecords {
             build,
             collision: variant.collision,
-            navigation: variant.navigation,
+            navigation: crate::engine::nav::NavMesh::from_record(variant.navigation)
+                .map_err(|error| format!("navigation record: {error}"))?,
             probes: variant.probes,
         });
         if control.cancelled.load(Ordering::Relaxed) {
@@ -841,8 +843,7 @@ fn prepare_world(
     // A malformed navigation record fails the load: there is no runtime
     // bake or repair path, and a world without navigation would silently
     // disable every AI behavior.
-    let navigation = crate::engine::nav::NavMesh::from_record(records.navigation.clone())
-        .map_err(|error| format!("navigation record: {error}"))?;
+    let navigation = records.navigation.clone();
     let collision =
         CollisionWorld::from_compiled(&loaded.level, records.collision.clone(), Some(navigation))
             .with_ground_materials(&loaded.level, &loaded.materials);
