@@ -88,6 +88,7 @@ that the editor performs Luau typechecking.
 | `api.light(id, on: boolean)` | Requires a switchable light; ordinary prepared lighting limits apply |
 | `api.sound(id, playing: boolean)` | Starts/stops an existing emitter using its authored cue and loop policy |
 | `api.physics(group, activate: boolean)` | True activates, false restores an authored movable physics group |
+| `api.ragdoll(id, enabled: boolean, vx?, vy?, vz?)` | Queues the shared articulated mannequin handoff or authored reset; optional finite additive world velocity ≤15 m/s; unsupported rigs are refused by native rig validation |
 | `api.spawn(point)` | Uses that point's template/group, existing spawn/lifetime/render budgets |
 | `api.state(id, key)` | Reads an existing declared bool/integer/float/text state |
 | `api.set_state(id, key, value)` | Stages a same-type write to a declared slot; cannot grow state bags |
@@ -290,3 +291,20 @@ This path is confined to the running application-owned menu world; gameplay
 retains the exact player-held item and aimed-target handoff contract above.
 `projects/menu/scripts/menu.luau` authors a single bounded delayed contact action
 between its five-second beats, without retaining the scoped host API.
+
+### Articulated ownership
+
+`api.ragdoll("actor", true, 1.5, 0, -0.4)` transfers the currently displayed
+mannequin skeleton to the ordinary Rapier world. The renderer retains its mesh,
+materials, skin weights and normal/lighting path. AI, movement, sequences and
+animation stop owning the actor. Its script position then follows the live
+pelvis, and a carried item returns to physical simulation at its current socket.
+A failed item release cancels the transfer without changing the displayed pose.
+
+`api.ragdoll("actor", false)` retires all bone bodies/joints and restarts authored
+animation/AI at the authored placement. It does not perform a stand-up animation.
+Released items remain ordinary items; whole-map reload restores authored item
+placement. Calls are queued and use invocation-start observations, like other
+host capabilities. Pause/time scale and single-step share the existing world
+clock. Eight skeletons and 128 shared physical item/bone bodies bound allocation.
+`projects/ragdoll-lab` and `tools/bench/ragdoll.py` provide editable/native examples.

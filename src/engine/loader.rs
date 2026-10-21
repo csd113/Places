@@ -4186,6 +4186,16 @@ fn validate_action(
         } => {
             crate::engine::level::validate_run_feedback(title, detail)?;
         }
+        ActionDef::Ragdoll {
+            target: _,
+            enabled: _,
+            velocity,
+        } => {
+            let speed = glam::Vec3::from_array(*velocity);
+            if !speed.is_finite() || speed.length() > 15.0 {
+                return Err("ragdoll velocity must be finite and at most 15 m/s".into());
+            }
+        }
         ActionDef::ResetToStart => {}
         ActionDef::ResetPhysicsGroup { group } | ActionDef::ActivatePhysicsGroup { group } => {
             crate::engine::physics::config::validate_reset_group(group)?;

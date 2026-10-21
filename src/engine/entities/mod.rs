@@ -30,6 +30,7 @@ pub mod components;
 pub mod developer;
 pub mod events;
 pub mod id;
+mod ragdoll;
 mod sequence_runtime;
 pub mod sequences;
 pub mod spawn;
@@ -136,6 +137,11 @@ pub enum WorldCommand {
     ResetPhysicsGroup { group: String },
     /// Activate dormant members of an authored physical group.
     ActivatePhysicsGroup { group: String },
+    Ragdoll {
+        target: String,
+        enabled: bool,
+        velocity: [f32; 3],
+    },
     /// Atomically claim the authored carry contract's exact held item.
     HandoffItem { target: String },
     /// Return this actor's original carried item to physical simulation at its live socket.
@@ -381,6 +387,8 @@ pub struct EntityWorld {
     doors: Doors,
     animated_doors: Vec<crate::engine::animated_door::AnimatedDoor>,
     door_colliders: Vec<DoorCollider>,
+    physics_actors: std::collections::BTreeMap<String, ragdoll::ActorController>,
+    authored_transforms: Vec<(EntityHandle, components::Transform)>,
     routes: EntityRoutes,
     route_states: Vec<RouteState>,
     animation_overrides: Vec<(String, PoseCue)>,
@@ -500,6 +508,8 @@ impl EntityWorld {
             doors: Doors::default(),
             door_colliders: Vec::new(),
             animated_doors: Vec::new(),
+            physics_actors: std::collections::BTreeMap::new(),
+            authored_transforms: Vec::new(),
             routes: EntityRoutes::new(),
             route_states: Vec::new(),
             animation_overrides: Vec::new(),
@@ -609,6 +619,7 @@ impl EntityWorld {
         self.authored_prompts.clear();
         self.authored_audio.clear();
         self.ai.clear();
+
         self.stimuli.clear();
         self.sim_time = 0.0;
         self.water = WaterVolumes::from_level(level);
@@ -641,6 +652,7 @@ impl EntityWorld {
         self.resolve_sound_emitters(level);
         self.resolve_ai();
         self.resolve_routes(level);
+        self.resolve_ragdoll_ownership();
         self.trigger_index = volumes::TriggerIndex::build(&self.components.volumes);
         self.authored_states = self
             .components
@@ -657,16 +669,17 @@ impl EntityWorld {
         self.rebuild_interactables(level);
         self.rebuild_door_colliders();
         self.rebuild_entity_frames();
+        self.queue_initial_audio();
+    }
+
+    fn queue_initial_audio(&mut self) {
         self.authored_audio = self
             .components
             .audio
             .iter()
             .map(|(handle, emitter)| (handle, emitter.clone()))
             .collect();
-        self.queue_initial_audio();
-    }
 
-    fn queue_initial_audio(&mut self) {
         let starts: Vec<EntityHandle> = self
             .components
             .audio
@@ -682,6 +695,7 @@ impl EntityWorld {
     /// world: the `reset_to_start` contract.
     pub fn reset_runtime(&mut self) {
         self.discard_scene_commands();
+        self.queue_ragdoll_resets();
         self.scripts.reload();
         self.script_event = None;
         if self.weather_strength > 0.0
@@ -783,6 +797,11 @@ impl EntityWorld {
             !matches!(
                 command,
                 WorldCommand::ShowMessage { title: _, lines: _ }
+                    | WorldCommand::Ragdoll {
+                        target: _,
+                        enabled: _,
+                        velocity: _
+                    }
                     | WorldCommand::ReleaseItem { target: _ }
                     | WorldCommand::HandoffItem { target: _ }
                     | WorldCommand::RetireHidden { target: _ }
@@ -2253,6 +2272,10 @@ impl EntityWorld {
         report: &mut DispatchReport,
         depth: u8,
     ) {
+        if self.ragdoll_blocks_action(action, actor) {
+            report.unsupported = report.unsupported.saturating_add(1);
+            return;
+        }
         match action {
             ActionDef::ShowMessage { title, lines } => {
                 if crate::engine::level::validate_message(title, lines).is_ok() {
@@ -2353,6 +2376,21 @@ impl EntityWorld {
                         level: level.clone(),
                     });
                     report.actions_run = report.actions_run.saturating_add(1);
+                }
+            }
+            ActionDef::Ragdoll {
+                target,
+                enabled,
+                velocity,
+            } => {
+                let Some(id) = self.resolve_target(target.as_deref(), actor) else {
+                    report.missing_targets = report.missing_targets.saturating_add(1);
+                    return;
+                };
+                if self.request_ragdoll(&id, *enabled, *velocity).is_ok() {
+                    report.actions_run = report.actions_run.saturating_add(1);
+                } else {
+                    report.unsupported = report.unsupported.saturating_add(1);
                 }
             }
             ActionDef::ResetToStart => {
@@ -3298,6 +3336,12 @@ impl EntityWorld {
         let goals = std::mem::take(&mut self.moves);
         let mut keep: Vec<MoveGoal> = Vec::with_capacity(goals.len());
         for goal in goals {
+            if self
+                .id_of(goal.entity)
+                .is_some_and(|id| self.physics_actors.contains_key(id))
+            {
+                continue;
+            }
             let Some(transform) = self.components.transforms.get(goal.entity).copied() else {
                 continue;
             };
@@ -3644,6 +3688,9 @@ impl EntityWorld {
             depth.saturating_add(1),
         );
         self.register_spawned_ai(handle, &runtime_name);
+        if let Some(transform) = self.components.transforms.get(handle) {
+            self.authored_transforms.push((handle, *transform));
+        }
         self.note_stimulus(
             Vec3::new(authored_point.x, base_y, authored_point.z),
             7.0,
@@ -3714,6 +3761,8 @@ impl EntityWorld {
         self.live_spawns.retain(|candidate| *candidate != handle);
         self.authored_physics
             .retain(|candidate| *candidate != handle);
+        self.authored_transforms
+            .retain(|(candidate, _)| *candidate != handle);
         self.authored_lights
             .retain(|(candidate, _)| *candidate != handle);
         self.authored_states
@@ -3731,6 +3780,7 @@ impl EntityWorld {
         let _release_status = self.spawn_groups.release(handle);
         let _removed_value = self.ai.remove(handle);
         if let Some(removed_id) = id {
+            drop(self.physics_actors.remove(&removed_id));
             let _released_pose = self.scripted_poses.remove(&removed_id);
             self.animation_overrides
                 .retain(|(candidate, _)| candidate != &removed_id);
@@ -4420,6 +4470,9 @@ impl EntityWorld {
                 let Some(route) = self.routes.routes().get(index) else {
                     continue;
                 };
+                if self.physics_actors.contains_key(&route.instance_id) {
+                    continue;
+                }
                 let Some(state) = self.route_states.get_mut(index) else {
                     continue;
                 };
@@ -4539,6 +4592,13 @@ impl EntityWorld {
             .find(|agent| agent.instance_id == instance_id)
         {
             return Some(agent.position);
+        }
+        if self.physics_actors.contains_key(instance_id) {
+            return self
+                .components
+                .transforms
+                .get(handle)
+                .map(|item| item.position);
         }
         for (index, route) in self.routes.routes().iter().enumerate() {
             if route.instance_id == instance_id {
@@ -4832,7 +4892,7 @@ impl EntityWorld {
             let Some(item) = self.interactables.get(index) else {
                 continue;
             };
-            if item.door_index.is_some() {
+            if item.door_index.is_some() || self.physics_actors.contains_key(&item.id) {
                 continue;
             }
             let Some(transform) = self
@@ -4851,6 +4911,9 @@ impl EntityWorld {
     /// Republishes every routed interactable's live pose.
     pub fn sync_routed_interactables(&mut self) {
         for (route_index, route) in self.routes.routes().iter().enumerate() {
+            if self.physics_actors.contains_key(&route.instance_id) {
+                continue;
+            }
             let Some(state) = self.route_states.get(route_index) else {
                 continue;
             };

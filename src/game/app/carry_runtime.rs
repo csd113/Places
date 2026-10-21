@@ -117,6 +117,10 @@ impl CarryRuntime {
         }
     }
 
+    pub(super) fn has_attachment(&self, id: &str) -> bool {
+        self.attachments.contains_key(id)
+    }
+
     pub(super) fn owns_group(&self, group: &str) -> bool {
         self.attachments.values().any(|attachment| {
             self.item_groups

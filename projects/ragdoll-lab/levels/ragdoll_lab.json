@@ -1,0 +1,953 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "ragdoll_lab",
+  "name": "Ragdoll Lab / articulated mannequin",
+  "author": "Places",
+  "spawn": {
+    "x": -3.8,
+    "z": 6,
+    "yaw_degrees": 0
+  },
+  "defaults": {
+    "wall": "home:wallpaper_offwhite_01",
+    "floor": "home:hardwood_oak_warm_01",
+    "ceiling": "home:ceiling_warm_01"
+  },
+  "rooms": [
+    {
+      "x": -7,
+      "z": -5,
+      "width": 18,
+      "depth": 14,
+      "height": 4
+    }
+  ],
+  "walls": [
+    {
+      "x": -7.2,
+      "z": -5.2,
+      "width": 18.4,
+      "depth": 0.2
+    },
+    {
+      "x": -7.2,
+      "z": 9,
+      "width": 18.4,
+      "depth": 0.2
+    },
+    {
+      "x": -7.2,
+      "z": -5,
+      "width": 0.2,
+      "depth": 14
+    },
+    {
+      "x": 11,
+      "z": -5,
+      "width": 0.2,
+      "depth": 14
+    }
+  ],
+  "stairs": [
+    {
+      "x": -0.9,
+      "z": -3,
+      "width": 1.8,
+      "depth": 3,
+      "rise": 1.2,
+      "steps": 6,
+      "material": "home:hardwood_oak_warm_01"
+    }
+  ],
+  "props": [
+    {
+      "id": "floor_actor",
+      "model": "mannequin",
+      "x": -4,
+      "y": 0,
+      "z": 2,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Let go / ragdoll"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": false
+        },
+        {
+          "component": "carry",
+          "item": "carry_cushion",
+          "socket": "hand.R",
+          "idle_clip": "carry_idle",
+          "walk_clip": "carry_walk"
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.2,
+          "speed_mps": 0.7,
+          "height": 1.8
+        },
+        {
+          "component": "ai",
+          "behavior": "wanderer",
+          "walk_speed": 0.7,
+          "wander_radius": 0.5,
+          "idle_seconds": 0.3
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                1.5,
+                0,
+                -0.4
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wall_actor",
+      "model": "mannequin",
+      "x": -4,
+      "y": 0,
+      "z": -3.9,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Let go / ragdoll"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                0,
+                0,
+                -3
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stair_actor",
+      "model": "mannequin",
+      "x": 0,
+      "y": 0,
+      "z": -0.2,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Let go / ragdoll"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                0,
+                0,
+                -2.5
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "prop_actor",
+      "model": "mannequin",
+      "x": 4,
+      "y": 0.46,
+      "z": 1,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Let go / ragdoll"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                0.8,
+                0,
+                -1.8
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "extra_1",
+      "model": "mannequin",
+      "x": 7,
+      "y": 0,
+      "z": -3,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Let go / ragdoll"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                0.8,
+                0,
+                0.3
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "extra_2",
+      "model": "mannequin",
+      "x": 9,
+      "y": 0,
+      "z": -3,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Let go / ragdoll"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                -0.8,
+                0,
+                0.4
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "extra_3",
+      "model": "mannequin",
+      "x": 7,
+      "y": 0,
+      "z": 1,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Let go / ragdoll"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                0.5,
+                0,
+                -0.5
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "extra_4",
+      "model": "mannequin",
+      "x": 9,
+      "y": 0,
+      "z": 1,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Let go / ragdoll"
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": false
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.2,
+          "speed_mps": 0.7,
+          "height": 1.8
+        },
+        {
+          "component": "ai",
+          "behavior": "idler"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                -0.5,
+                0,
+                -0.4
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "contact_table",
+      "model": "home:coffee_table",
+      "x": 4,
+      "y": 0,
+      "z": 1,
+      "size": [
+        1.4,
+        0.46,
+        0.8
+      ],
+      "solid": true
+    },
+    {
+      "id": "carry_cushion",
+      "model": "home:cushion",
+      "x": -4,
+      "y": 0,
+      "z": 3.5,
+      "size": [
+        0.33,
+        0.32,
+        0.115
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true,
+        "mass_kg": 0.3,
+        "shape": {
+          "half_extents": [
+            0.165,
+            0.16,
+            0.0575
+          ],
+          "kind": "cuboid"
+        }
+      }
+    },
+    {
+      "id": "lamp_0",
+      "model": "home:floor_lamp",
+      "x": -4,
+      "y": 0,
+      "z": -4.4,
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "solid": true,
+      "lights": [
+        {
+          "offset": [
+            0,
+            1.6,
+            0
+          ],
+          "color": [
+            1,
+            0.94,
+            0.84
+          ],
+          "intensity": 1.7,
+          "range": 12
+        }
+      ]
+    },
+    {
+      "id": "lamp_1",
+      "model": "home:floor_lamp",
+      "x": 1,
+      "y": 0,
+      "z": -4.4,
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "solid": true,
+      "lights": [
+        {
+          "offset": [
+            0,
+            1.6,
+            0
+          ],
+          "color": [
+            1,
+            0.94,
+            0.84
+          ],
+          "intensity": 1.7,
+          "range": 12
+        }
+      ]
+    },
+    {
+      "id": "lamp_2",
+      "model": "home:floor_lamp",
+      "x": 7,
+      "y": 0,
+      "z": -4.4,
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "solid": true,
+      "lights": [
+        {
+          "offset": [
+            0,
+            1.6,
+            0
+          ],
+          "color": [
+            1,
+            0.94,
+            0.84
+          ],
+          "intensity": 1.7,
+          "range": 12
+        }
+      ]
+    },
+    {
+      "id": "lamp_3",
+      "model": "home:floor_lamp",
+      "x": -6,
+      "y": 0,
+      "z": 6.5,
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "solid": true,
+      "lights": [
+        {
+          "offset": [
+            0,
+            1.6,
+            0
+          ],
+          "color": [
+            1,
+            0.94,
+            0.84
+          ],
+          "intensity": 1.4,
+          "range": 12
+        }
+      ]
+    },
+    {
+      "id": "lamp_4",
+      "model": "home:floor_lamp",
+      "x": 8,
+      "y": 0,
+      "z": 6.5,
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ],
+      "solid": true,
+      "lights": [
+        {
+          "offset": [
+            0,
+            1.6,
+            0
+          ],
+          "color": [
+            1,
+            0.94,
+            0.84
+          ],
+          "intensity": 1.4,
+          "range": 12
+        }
+      ]
+    }
+  ],
+  "volumes": [
+    {
+      "id": "drop_floor",
+      "x": 10,
+      "z": 5.0,
+      "width": 0.5,
+      "depth": 0.25,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.2,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "target": "floor_actor",
+              "enabled": true,
+              "velocity": [
+                1.5,
+                0,
+                -0.4
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drop_wall",
+      "x": 10,
+      "z": 5.35,
+      "width": 0.5,
+      "depth": 0.25,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.2,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "target": "wall_actor",
+              "enabled": true,
+              "velocity": [
+                0,
+                0,
+                -3
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drop_stair",
+      "x": 10,
+      "z": 5.7,
+      "width": 0.5,
+      "depth": 0.25,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.2,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "target": "stair_actor",
+              "enabled": true,
+              "velocity": [
+                0,
+                0,
+                -2.5
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drop_prop",
+      "x": 10,
+      "z": 6.05,
+      "width": 0.5,
+      "depth": 0.25,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.2,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "target": "prop_actor",
+              "enabled": true,
+              "velocity": [
+                0.8,
+                0,
+                -1.8
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drop_extra_1",
+      "x": 10,
+      "z": 6.4,
+      "width": 0.5,
+      "depth": 0.25,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.2,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "target": "extra_1",
+              "enabled": true,
+              "velocity": [
+                0.8,
+                0,
+                0.3
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drop_extra_2",
+      "x": 10,
+      "z": 6.75,
+      "width": 0.5,
+      "depth": 0.25,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.2,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "target": "extra_2",
+              "enabled": true,
+              "velocity": [
+                -0.8,
+                0,
+                0.4
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drop_extra_3",
+      "x": 10,
+      "z": 7.1,
+      "width": 0.5,
+      "depth": 0.25,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.2,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "target": "extra_3",
+              "enabled": true,
+              "velocity": [
+                0.5,
+                0,
+                -0.5
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drop_extra_4",
+      "x": 10,
+      "z": 7.449999999999999,
+      "width": 0.5,
+      "depth": 0.25,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.2,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "target": "extra_4",
+              "enabled": true,
+              "velocity": [
+                -0.5,
+                0,
+                -0.4
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reset_all",
+      "x": 9.2,
+      "z": 5,
+      "width": 0.5,
+      "depth": 0.35,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.3,
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/lab.luau",
+              "handler": "reset"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "drop_all",
+      "x": 9.2,
+      "z": 5.5,
+      "width": 0.5,
+      "depth": 0.35,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.3,
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/lab.luau",
+              "handler": "all"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "carry_demo",
+      "x": 9.2,
+      "z": 6,
+      "width": 0.5,
+      "depth": 0.35,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.3,
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/lab.luau",
+              "handler": "carry"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "script_demo",
+      "x": 9.2,
+      "z": 6.5,
+      "width": 0.5,
+      "depth": 0.35,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "cooldown_seconds": 0.3,
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/lab.luau",
+              "handler": "floor"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "extra_3",
+      "loop": true,
+      "steps": [
+        {
+          "step": "move_to",
+          "x": 7.6,
+          "z": 1,
+          "speed": 0.7
+        },
+        {
+          "step": "move_to",
+          "x": 7,
+          "z": 1,
+          "speed": 0.7
+        }
+      ]
+    },
+    {
+      "id": "wall_actor",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_arms_up",
+          "seconds": 60,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "stair_actor",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_arms_forward",
+          "seconds": 60,
+          "loop": true
+        }
+      ]
+    }
+  ],
+  "scripts": [
+    "scripts/lab.luau"
+  ],
+  "floor_patches": [
+    {
+      "x": -6,
+      "z": 0.5,
+      "width": 5,
+      "depth": 4.5,
+      "material": "core:pool_deck_wet_01"
+    }
+  ]
+}

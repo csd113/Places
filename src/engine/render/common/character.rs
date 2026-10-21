@@ -1149,6 +1149,53 @@ fn tinted_albedo(asset: &LoadedPropAsset, tint: [f32; 3]) -> Vec<[f32; 4]> {
 }
 
 /// One character: a placement, shared model, animator and per-vertex albedo.
+/// A weighted vertex lies inside the union of its transformed joint endpoints.
+/// Retain bind-space influence boxes once, so physics never adds a second full
+/// vertex-skinning pass merely to update visibility/lighting bounds.
+struct InfluenceBounds {
+    joints: Vec<Aabb>,
+    unweighted: Aabb,
+}
+
+impl InfluenceBounds {
+    fn new(model: &crate::engine::gltf::PropModel, joint_count: usize) -> Self {
+        let mut joints = vec![Aabb::EMPTY; joint_count];
+        let mut unweighted = Aabb::EMPTY;
+        for (index, vertex) in model.vertices.iter().enumerate() {
+            let slots = model.joints.get(index).copied().unwrap_or([0; 4]);
+            let weights = model.weights.get(index).copied().unwrap_or([0.0; 4]);
+            let mut weighted = false;
+            for (slot, weight) in slots.into_iter().zip(weights) {
+                if weight > 0.0
+                    && let Some(bounds) = joints.get_mut(usize::from(slot))
+                {
+                    bounds.expand(vertex.pos);
+                    weighted = true;
+                }
+            }
+            if !weighted {
+                unweighted.expand(vertex.pos);
+            }
+        }
+        Self { joints, unweighted }
+    }
+
+    fn posed(&self, animator: &CharacterAnimator, placement: Mat4) -> Aabb {
+        let mut bounds = self.unweighted;
+        for (slot, influence) in self
+            .joints
+            .iter()
+            .enumerate()
+            .filter(|(_, influence)| !influence.is_empty())
+        {
+            if let Some(delta) = animator.joint_delta(slot) {
+                bounds = bounds.union(&transform_bounds(influence, &delta));
+            }
+        }
+        transform_bounds(&bounds, &placement)
+    }
+}
+
 pub struct Character {
     asset: Arc<LoadedPropAsset>,
     transform: Mat4,
@@ -1188,6 +1235,12 @@ pub struct Character {
     /// Suspended runtime props retain resources without drawing or lighting.
     runtime_visible: bool,
     shadow_only: bool,
+    ragdoll_owned: bool,
+    ragdoll_bounds: Option<InfluenceBounds>,
+    authored_transform: Mat4,
+    pose_history: Vec<Mat4>,
+    pose_delta: f32,
+    previous_transform: Mat4,
 }
 
 impl Character {
@@ -1254,6 +1307,9 @@ impl Character {
     pub fn contact_bounds(&self) -> Aabb {
         if !self.is_visible() {
             return Aabb::EMPTY;
+        }
+        if self.ragdoll_owned {
+            return self.world_bounds;
         }
         if self.balloon_color.is_some() {
             return transform_bounds(&self.lighting_local_bounds, &self.transform);
@@ -1490,6 +1546,139 @@ impl CharacterScene {
             .find(|character| character.instance_id.as_deref() == Some(instance_id))
     }
 
+    /// Transfers a supported displayed skeleton to the shared articulated solver.
+    ///
+    /// # Errors
+    /// Missing character, unsupported rig, invalid pose or exhausted physics budget.
+    pub fn start_ragdoll(
+        &mut self,
+        id: &str,
+        world: &mut crate::engine::physics::ItemWorld,
+        velocity: Vec3,
+    ) -> Result<(), String> {
+        let character = self
+            .characters
+            .iter_mut()
+            .chain(self.runtime.iter_mut())
+            .find(|character| character.instance_id() == Some(id))
+            .ok_or("ragdoll character does not exist")?;
+        let skin = character
+            .asset
+            .model
+            .skin
+            .as_ref()
+            .ok_or("ragdoll requires a skinned model")?;
+        let previous = if character.pose_history.len() == character.animator.node_globals.len() {
+            &character.pose_history
+        } else {
+            &character.animator.node_globals
+        };
+        world.start_ragdoll(
+            id,
+            &crate::engine::physics::ragdoll::RagdollInput {
+                skin,
+                globals: &character.animator.node_globals,
+                previous,
+                placement: character.transform,
+                previous_placement: character.previous_transform,
+                delta: character.pose_delta,
+            },
+            velocity,
+        )?;
+        character.ragdoll_bounds = Some(InfluenceBounds::new(
+            &character.asset.model,
+            character.animator.deltas.len(),
+        ));
+        character.ragdoll_owned = true;
+        character.animator.cue_finished = false;
+        Ok(())
+    }
+
+    /// Rolls back an uncommitted handoff without changing the displayed animation.
+    pub fn cancel_ragdoll(&mut self, id: &str, world: &mut crate::engine::physics::ItemWorld) {
+        let _removed = world.remove_ragdoll(id);
+        if let Some(character) = self
+            .characters
+            .iter_mut()
+            .chain(self.runtime.iter_mut())
+            .find(|character| character.instance_id() == Some(id))
+        {
+            character.ragdoll_owned = false;
+            character.ragdoll_bounds = None;
+        }
+    }
+
+    /// Restores the authored placement and a fresh animation clock, without stand-up.
+    pub fn reset_ragdoll(
+        &mut self,
+        id: &str,
+        world: &mut crate::engine::physics::ItemWorld,
+    ) -> bool {
+        let Some(character) = self
+            .characters
+            .iter_mut()
+            .chain(self.runtime.iter_mut())
+            .find(|character| character.instance_id() == Some(id))
+        else {
+            return false;
+        };
+        if !character.ragdoll_owned {
+            return false;
+        }
+        let Some(animator) = CharacterAnimator::new(&character.asset.model) else {
+            return false;
+        };
+        let _removed = world.remove_ragdoll(id);
+        let previous_revision = character.animator.revision;
+        character.animator = animator;
+        // A new animator must invalidate the resident GPU revision even if its
+        // initial counter happens to equal the final physics counter.
+        character.animator.revision = previous_revision.wrapping_add(1);
+        character.transform = character.authored_transform;
+        character.ragdoll_owned = false;
+        character.ragdoll_bounds = None;
+        character.pose_history.clear();
+        character.pose_delta = 0.0;
+        character.world_bounds = character_bounds(&character.asset, &character.transform);
+        character.lighting_local_bounds = character
+            .asset
+            .model
+            .bounds()
+            .map_or(Aabb::EMPTY, |(min, max)| Aabb { min, max });
+        character.lighting_local_centre =
+            Vec3::from_array(character.lighting_local_bounds.centre());
+        character.spatial_key = None;
+        true
+    }
+
+    /// Publishes physics through the existing skinning, normals, bounds and light path.
+    pub fn sync_ragdolls(&mut self, world: &crate::engine::physics::ItemWorld) {
+        for character in self
+            .characters
+            .iter_mut()
+            .chain(self.runtime.iter_mut())
+            .filter(|character| character.ragdoll_owned)
+        {
+            let Some(id) = character.instance_id.as_deref() else {
+                continue;
+            };
+            if world.write_ragdoll_pose(id, &mut character.animator.node_globals) {
+                character.animator.compute_deltas();
+                character.animator.revision = character.animator.revision.wrapping_add(1);
+                let bounds = character.ragdoll_bounds.as_ref().map_or_else(
+                    || character.posed_bounds(),
+                    |influences| influences.posed(&character.animator, character.transform),
+                );
+                character.world_bounds = bounds;
+                character.lighting_local_bounds =
+                    transform_bounds(&bounds, &character.transform.inverse());
+                character.lighting_local_centre =
+                    Vec3::from_array(character.lighting_local_bounds.centre());
+                character.spatial_key = None;
+            }
+        }
+    }
+
     /// Hides/restores a placed or spawned character and all of its passes.
     pub fn set_character_visible(&mut self, instance_id: &str, visible: bool) -> bool {
         let Some(character) = self
@@ -1582,6 +1771,16 @@ impl CharacterScene {
             std::mem::swap(&mut character.animator, &mut old.animator);
             character.transform = old.transform;
             character.world_bounds = old.world_bounds;
+            character.ragdoll_owned = old.ragdoll_owned;
+            character.ragdoll_bounds = old.ragdoll_bounds.take();
+            if character.ragdoll_owned {
+                character.lighting_local_bounds = old.lighting_local_bounds;
+                character.lighting_local_centre = old.lighting_local_centre;
+            }
+            character.authored_transform = old.authored_transform;
+            std::mem::swap(&mut character.pose_history, &mut old.pose_history);
+            character.pose_delta = old.pose_delta;
+            character.previous_transform = old.previous_transform;
             character.opacity = old.opacity;
             character.runtime_visible = old.runtime_visible;
         }
@@ -1653,6 +1852,12 @@ impl CharacterScene {
                 lighting_local_centre,
                 lighting_local_bounds,
                 balloon_color: None,
+                ragdoll_owned: false,
+                ragdoll_bounds: None,
+                authored_transform: transform,
+                pose_history: Vec::new(),
+                pose_delta: 0.0,
+                previous_transform: transform,
                 world_bounds,
                 instance_id,
                 scale: prop.scale,
@@ -1782,6 +1987,12 @@ impl CharacterScene {
             lighting_local_centre,
             lighting_local_bounds,
             balloon_color: None,
+            ragdoll_owned: false,
+            ragdoll_bounds: None,
+            authored_transform: transform,
+            pose_history: Vec::new(),
+            pose_delta: 0.0,
+            previous_transform: transform,
             world_bounds,
             instance_id: Some(trimmed_id.to_string()),
             scale,
@@ -2246,6 +2457,21 @@ impl CharacterScene {
         delta_seconds: f32,
         frames: &[EntityFrame],
     ) -> bool {
+        if !character.ragdoll_owned
+            && delta_seconds > 0.0
+            && character
+                .animator
+                .rig
+                .nodes
+                .iter()
+                .any(|node| node.name == "pelvis")
+        {
+            character
+                .pose_history
+                .clone_from(&character.animator.node_globals);
+            character.pose_delta = delta_seconds;
+            character.previous_transform = character.transform;
+        }
         let animation_delta = character
             .runtime_frame_delta
             .take()
@@ -2259,6 +2485,9 @@ impl CharacterScene {
             // Visibility/coverage never chooses the animation driver.
             character.set_opacity(entity_frame.opacity);
             character.shadow_only = entity_frame.shadow_only;
+            if character.ragdoll_owned {
+                return false;
+            }
             if let Some((position, yaw)) = entity_frame.transform
                 && !transforms_agree(
                     character.transform,
@@ -2288,6 +2517,9 @@ impl CharacterScene {
                 }
                 return changed;
             }
+        }
+        if character.ragdoll_owned {
+            return false;
         }
         if let Some(locomotion) = character.runtime_locomotion {
             if character.animator.is_rigid() {
@@ -3775,3 +4007,7 @@ mod clip_selection_tests;
 #[cfg(test)]
 #[path = "../../tests/character_ownership.rs"]
 mod ownership_tests;
+
+#[cfg(test)]
+#[path = "../../tests/ragdoll_bounds.rs"]
+mod ragdoll_bounds_tests;

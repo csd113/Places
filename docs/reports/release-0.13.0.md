@@ -2096,3 +2096,184 @@ project #31 was started. Ragdolls remain second to last, followed by documentati
 cleanup and final integrated checks. Exact commit, verified remote identity,
 binary/package hashes, confirmed Library IDs or delivery blockers and ownership
 release are recorded in the final on-disk handoff after publication.
+
+## Articulated mannequin ragdoll stage — 2026-10-21
+
+Completed against menu-stage baseline
+`dca83d4b2c52dc07e1b9c33ede22dd158a956a7f` on `0.13.0-staging`. This is the
+approved second-to-last stage. Final documentation cleanup, integrated validation
+and CI remain the following owner's work. No shipped map, mannequin model/PNG,
+menu choreography, material quality or architecture project #31 was changed.
+
+### Engine, ownership and use
+
+The existing mannequin now transfers its current displayed skeleton into the
+ordinary Rapier item world: **15 bodies, 14 real constrained joints and 68 kg**.
+The inspected GLB has 39 nodes and 37 skin-joint slots; pelvis, spine, head/neck,
+upper/lower arms, hands, thighs, shins and feet have physical segments. Fingers
+and the head descendant follow their physical parent with their entry local pose.
+Mapping uses node identity and the actual skin-slot order. Unsupported hierarchy,
+proportions, transforms, scales or skin mappings fail before allocation.
+
+Pelvis/chest boxes and fitted capsules retain full world, stair, prop, item,
+door and player-proxy collision. Each skeleton excludes its own internal contacts;
+different mannequins collide. Joint translations are constrained, all angular
+axes have finite anatomical limits, and an already violated authored entry angle
+expands that bound to preserve pose continuity. CCD, friction 0.65, zero bounce,
+linear/angular damping 0.35/2, eight additional solver iterations and overdamped
+120 Hz joint compliance produce bounded contacts. A full quiet second with the
+0.1 m/s normalized Rapier sleep threshold allows resting islands to sleep;
+ordinary item contacts wake them. Stronger damping of the constraints resolved
+the raised-arm wall fixture's persistent small-hand rotation without reducing
+collision or visual quality.
+
+Current/previous displayed bones and actor placement provide bounded inherited
+linear/angular velocities, including submillisecond render frames. Physics owns
+the pose exclusively after activation: the actual AI agent leaves the active
+controller/perception sets, movement/sequences stop, and animation actions cannot
+reclaim the bones. Skinning, inverse-transpose normals, lighting, shadows and
+reflection draws use the existing character path. Bind-space joint-influence
+boxes cache a conservative posed visibility/lighting envelope without another
+full vertex-skinning pass. The recent normal cache and draw sharing remain intact.
+Interaction bounds and script position track the physical envelope/live pelvis.
+
+Use `/ragdoll floor_actor on 1.5 0 -0.4` and
+`/ragdoll floor_actor reset`, an ordinary JSON `ragdoll` binding, or sandboxed
+`api.ragdoll(id, enabled, vx?, vy?, vz?)`. Optional additive velocity is finite and
+at most 15 m/s. Reset removes bodies/joints/caches and restores a fresh authored
+animation clock, placement, routes and controller. Runtime-spawned actors retain
+their authored spawn transform too. Reset/reload is explicit; no stand-up or
+recovery animation was implemented. Eight ragdolls share the existing 128-body
+item/bone budget; duplicate/over-budget requests allocate no partial rig.
+
+A carried item returns to ordinary physics at the current posed socket before
+the controller changes. Failed release rolls back the unchanged entry pose.
+The native carry trial preserves the exact cushion key `9223372036854775817`,
+removes its attachment and retains one ordinary item body, with no hidden carrier
+or orphan. Individual actor reset leaves that released item physical; map reload
+restores the authored world. One contact-onset sample has 9.25 cm of item/hand
+collider overlap inherited from the grip; the capture 0.45 seconds after release
+is clear and the actor/item settle without explosion. This is a transient socket
+release overlap, not a claim of zero penetration at every solver tick.
+
+### Native acceptance and focused gates
+
+`projects/ragdoll-lab` is a separate ordinary editor project with eight existing
+mannequins, routes/AI, a six-step stair, table, lamps, reflective floor patch and
+carry cushion. Console, E bindings and its Luau module exercise production paths.
+`tools/bench/ragdoll.py` supplies explicit native acceptance outside Cargo/CI.
+Source project checks, geometry (zero errors/warnings), package dependencies,
+integrity and `verify --require-current` pass. Complete project export/import
+round-trips the manifest, level JSON and Luau bytes exactly. The final editor
+opens the project cleanly and its Scripts Check passes with `dirty:false`.
+Preserved executables need their normal asset-root override when run outside a
+distribution; initial missing-asset diagnostics are retained beside corrected runs.
+
+All nine final native runs exit zero on the final locked release player,
+SHA-256 `eddc3adc3fdf60be60aa482adc5bab35b1e8b149ea82f1901a76dabeafd70ea6`.
+The final lab package SHA-256 is
+`8267320450c585f3d2ae98e1aa46e11c119a2ba4bdfe99263b3ddaa6f7785d9b`;
+its current fingerprint is
+`5bf25fc785b572387b9408fb10dd8499358c129ed451deba8ca8d89e35ac884e`.
+Contact/multiple views use diagnostic camera/noclip placement; activation and
+ownership changes still use ordinary console, authored bindings and Luau paths.
+
+- Two animated → fall → settle → reset cycles both reach 15/15 sleeping segments,
+  with settled joint error 0.32/0.21 mm. Wall, stair and table trials also sleep
+  all segments, with settled errors 0.41/0.44/0.96 mm and zero sampled resting
+  core penetration. Native screenshots show connected limbs, preserved normals,
+  lighting and moving contact/shadow bounds; the reflective floor pass remains on.
+- Three eight-mannequin cycles perform 24 activations and 24 resets. Eight duplicate
+  requests are refused. Peak ownership is 122 solver bodies (120 bones, one item,
+  one player proxy), 112 joints and 312 cached pose nodes. Reset returns to two
+  bodies, zero joints/cached nodes and the original two AI agents. The early stress
+  capture still has two moving actors; it is not an all-sleep claim. In the separate
+  extended timing run all 120 bones sleep by 34.16 seconds from ready, about
+  29.1 seconds after activation, and stay asleep through the reset at 40 seconds.
+- Physics pause holds identical bone positions and fixed-step count 31; one
+  explicit step advances exactly to 32. Resume, Medium/High graphics rebuilds
+  and ordinary pause-menu suspension retain the same articulated ownership.
+  Actual map unload records zero bodies, colliders, joints, pose caches, script
+  modules/VM bytes and retired prepared owners. The fresh menu has zero ragdolls
+  and normal cast controllers; reloading the lab restores its authored actors.
+- Rigid/unknown targets and nonfinite launch velocity leave baseline resources
+  intact. No script diagnostics occur. Full native evidence includes ordinary
+  carry/socket release, unsupported commands and the final editor script check.
+
+Final formatting, strict workspace/all-target/all-feature Clippy with
+`-D warnings`, `cargo test --workspace`, and
+`cargo build --locked --release --workspace --all-features` pass. **245 tests pass**
+(238 existing + seven focused regressions; 0.49 seconds fixture execution).
+The new tests cover displayed-pose/skin-slot continuity, angular/translation
+constraints, contact stability, sleep/contact wake, pause/single-step/retirement,
+atomic unsupported/budget rejection, actual AI/reset ownership, conservative
+weighted-vertex bounds, table chatter and raised-arm wall settling. The focused
+seven execute in 0.26 seconds using the installed rig and analytic room/box/wall
+fixtures, with no shipped-map bake or GPU. Asset validation passes 621 assets,
+zero warnings; Python syntax and `git diff --check` pass.
+
+### Idle, active and sleeping cost
+
+Separate 45-second native runs contain no screenshots/video and run after the
+build/compiler jobs finish. They retain High quality/filtering, Full lightmaps
+and reflections, bloom, one actual reflection pass, 800×450 logical / **1600×900
+physical drawable**, actual Immediate presentation and V-Sync off. Metal records
+`display_sync_enabled:false`; phase averages of 454–576 FPS and sub-refresh loop
+times establish uncapped presentation on the 120 Hz display. Each run has zero
+missed ready surfaces (23,068 / 23,663 presented gameplay frames). Earlier machine
+refresh plateaus remain a known measurement limitation and are not used here.
+
+The following means are CPU wall-stage costs, not CPU utilization. Active windows
+are 5.2–8.2 seconds; initial idle is 1–4.8 seconds; sleeping windows require every
+bone asleep with zero active bodies, and reset samples start after 40.5 seconds.
+GPU spans deduplicate timestamp IDs and include scheduling stalls, not active GPU
+utilization. The single/eight cameras differ, so render/FPS columns describe
+their respective workloads rather than an isolated scaling experiment.
+
+| Workload / phase | CPU update ms | CPU render ms | Physics ms / executed 120 Hz substep | GPU pass span ms | Frames/s |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| One / authored idle | 1.016 | 0.853 | no active solver step | 1.207 | 493.1 |
+| One / active | 1.034 | 0.830 | 0.136 | 1.202 | 494.5 |
+| One / sleeping | 0.769 | 0.889 | 0.027 | 1.147 | 543.9 |
+| One / reset | 0.981 | 0.893 | no active solver step | 1.215 | 492.1 |
+| Eight / authored idle | 0.999 | 0.933 | no active solver step | 1.253 | 479.2 |
+| Eight / active | 1.448 | 0.604 | 0.799 | 1.323 | 453.7 |
+| Eight / sleeping | 0.178 | 1.369 | 0.042 | 1.264 | 575.9 |
+| Eight / reset | 1.028 | 0.860 | no active solver step | 1.205 | 481.4 |
+
+Idle includes eight authored animated models; one physical actor leaves seven
+animated, while eight sleeping actors stop all competing animation/controllers.
+Sleeping retains exact joints/poses until reset; there is no collision/lighting
+quality reduction. Single/eight peak whole-process RSS is 338.17/346.45 MiB,
+including loading, not isolated ragdoll allocation. Sampled live GPU objects stay
+bounded (at most 119 buffers, 31 textures and 133 bind groups after ready) across
+activation/reset. Metal does not expose complete allocation-byte counters; no
+total GPU-memory claim or engine-wide speedup follows from these two tiny-lab runs.
+
+### Evidence, delivery and stage boundary
+
+All raw runs, failed tuning probes, logs, CSVs, settings, old binaries/packages
+and videos remain under `local/ragdoll-0.13.0/`, outside `target`. Final receipts
+are `gates-validated.json`, `final-campaign-complete.json`, `acceptance-final.json`,
+`gpu-resources-final.json`, package checks and SHA-256 manifests. The silent final
+clip has **383 native frames at nominal 10 Hz / 38.3 encoded seconds**, 1600×900;
+it is visual evidence and supplies no performance measurements. Ten selected
+screenshots and the complete editable project export are in `deliverables/`
+alongside `Places-0.13.0-Ragdoll-Cycle.mp4`. The delivery manifest lists exact bytes
+and hashes. Native acceptance covers this Mac/Metal host; Windows/Linux and final
+integrated CI remain unvalidated by this stage.
+
+The current Library skill's unmodified supported helper was called **once** after
+reading both prior failure logs. Its ordered 31-file batch preserved the previous
+19-file request and appended the final 12 ragdoll artifacts. It exited 1 with
+**`library upload failed: prepare_uploads failed`**, empty result and **no confirmed
+Library IDs**. No alternate transfer route or further retry was used. Exact
+request/result/log and `library-delivery-status.json` preserve the service blocker;
+the local files are not claimed as delivered.
+
+The two unrelated untracked Python audit reports retain their original SHA-256
+identities. No unique evidence, shared target or previous package was removed.
+No CI wait, force push, release, main merge or credential change was performed.
+The final on-disk handoff records the exact staging commit, verified remote,
+artifact paths, delivery blocker and explicit ownership release; final docs and
+integrated validation are the next stage.

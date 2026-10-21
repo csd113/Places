@@ -15,6 +15,7 @@ pub enum CommandKind {
     Position,
     Remove,
     Physics,
+    Ragdoll,
     Time,
     Trigger,
     Become,
@@ -29,6 +30,16 @@ pub struct CommandSpec {
 }
 
 pub const REGISTRY: &[CommandSpec] = &[
+    CommandSpec {
+        kind: CommandKind::Ragdoll,
+        name: "ragdoll",
+        usage: "/ragdoll <instance-id> on|reset [vx vy vz]",
+        description: "Transfer a supported mannequin to articulated physics, or restore its authored behavior.",
+        help: &[
+            "Optional on velocity is world metres/second, at most 15. Current animation motion is inherited. Eight ragdolls / 128 shared bodies maximum.",
+            "Reset removes all segments/joints, restores the authored placement and restarts animation/AI. Reload also resets. No automatic stand-up.",
+        ],
+    },
     CommandSpec {
         kind: CommandKind::Crosshair,
         name: "crosshair",
@@ -223,6 +234,9 @@ pub fn parse(line: &str) -> Result<Command, String> {
         (CommandKind::Physics, ["pause"]) => Some(GameplayAction::Physics(PhysicsAction::Pause)),
         (CommandKind::Physics, ["resume"]) => Some(GameplayAction::Physics(PhysicsAction::Resume)),
         (CommandKind::Physics, ["step"]) => Some(GameplayAction::Physics(PhysicsAction::Step)),
+        (CommandKind::Ragdoll, arguments) => {
+            return ragdoll_command(arguments).map(Command::Action);
+        }
         (CommandKind::Time, ["scale", value]) => {
             let scale = value
                 .parse::<f32>()
@@ -272,5 +286,27 @@ pub fn parse(line: &str) -> Result<Command, String> {
             "Usage: {}. /{} help explains options.",
             spec.usage, spec.name
         )
+    })
+}
+
+fn ragdoll_command(arguments: &[&str]) -> Result<GameplayAction, String> {
+    let (id, enabled, velocity) = match arguments {
+        [id, mode] if matches!(*mode, "on" | "reset") => (*id, *mode == "on", [0.0; 3]),
+        [id, "on", x, y, z] => {
+            let [Ok(vx), Ok(vy), Ok(vz)] = [x, y, z].map(|value| value.parse::<f32>()) else {
+                return Err("Ragdoll velocity needs three finite numbers".into());
+            };
+            (*id, true, [vx, vy, vz])
+        }
+        _ => return Err("Usage: /ragdoll <instance-id> on|reset [vx vy vz]".into()),
+    };
+    let speed = glam::Vec3::from_array(velocity);
+    if !is_valid_command_id(id) || !speed.is_finite() || speed.length() > 15.0 {
+        return Err("Ragdoll needs a valid instance ID and finite velocity at most 15 m/s".into());
+    }
+    Ok(GameplayAction::Ragdoll {
+        target: id.to_string(),
+        enabled,
+        velocity,
     })
 }

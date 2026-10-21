@@ -153,6 +153,9 @@ impl Runtime {
                     Err("No movable physics instance exists for that key.".into())
                 }
             }
+            GameplayAction::Ragdoll { target, enabled, velocity } => context.game.entities_mut()
+                .request_ragdoll(target, *enabled, *velocity)
+                .map(|()| format!("Ragdoll request for '{target}' queued; any refusal appears in world status.")),
             GameplayAction::TimeScale(value) => {
                 context.physics.set_time_scale(*value)?;
                 context.game.set_world_time_scale(*value)?;

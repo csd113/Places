@@ -692,6 +692,31 @@ impl Renderer {
         self.renderer.character_count()
     }
 
+    /// Activates the current posed skeleton in the shared physics world.
+    ///
+    /// # Errors
+    /// Unsupported character or invalid/budget-exhausted handoff.
+    pub fn start_ragdoll(
+        &mut self,
+        id: &str,
+        world: &mut crate::engine::physics::ItemWorld,
+        velocity: glam::Vec3,
+    ) -> Result<(), String> {
+        self.renderer.start_ragdoll(id, world, velocity)
+    }
+    pub fn cancel_ragdoll(&mut self, id: &str, world: &mut crate::engine::physics::ItemWorld) {
+        self.renderer.cancel_ragdoll(id, world);
+    }
+    pub fn reset_ragdoll(
+        &mut self,
+        id: &str,
+        world: &mut crate::engine::physics::ItemWorld,
+    ) -> bool {
+        self.renderer.reset_ragdoll(id, world)
+    }
+    pub fn sync_ragdolls(&mut self, world: &crate::engine::physics::ItemWorld) {
+        self.renderer.sync_ragdolls(world);
+    }
     /// Current posed node matrix, for actual physical prop attachment.
     #[must_use]
     pub fn character_socket_transform(&self, id: &str, socket: &str) -> Option<glam::Mat4> {

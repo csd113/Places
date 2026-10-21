@@ -6,6 +6,7 @@ pub mod config;
 mod contacts;
 mod hold;
 mod impacts;
+pub mod ragdoll;
 mod recovery;
 mod surfaces;
 mod trigger_path;
@@ -38,3 +39,7 @@ pub const HOLD_DISTANCE: f32 = 0.85;
 #[cfg(test)]
 #[path = "../tests/settled_interpolation.rs"]
 mod settled_interpolation;
+
+#[cfg(test)]
+#[path = "../tests/ragdoll.rs"]
+mod ragdoll_tests;

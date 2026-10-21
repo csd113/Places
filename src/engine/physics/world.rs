@@ -283,6 +283,7 @@ pub(super) struct Runtime {
     pub world: PhysicsWorld,
     floor_contacts: FloorContactHooks,
     pub entries: BTreeMap<u64, BodyEntry>,
+    pub ragdolls: BTreeMap<String, super::ragdoll::Ragdoll>,
     pub held: Option<HeldItem>,
     pub player: RigidBodyHandle,
     pub player_collider: ColliderHandle,
@@ -323,7 +324,7 @@ pub struct ItemWorld {
     pub(super) runtime: Option<Box<Runtime>>,
     pending_player: Option<PlayerContext>,
     pending_doors: Vec<DoorCollider>,
-    accumulator: f32,
+    pub(super) accumulator: f32,
     simulation: SimulationState,
     pub(super) stats: PhysicsStats,
     #[cfg(not(target_arch = "wasm32"))]
@@ -410,6 +411,7 @@ impl ItemWorld {
             for entry in runtime.entries.values_mut() {
                 entry.previous = entry.current;
             }
+            runtime.update_ragdolls(true);
         }
     }
 
@@ -470,7 +472,7 @@ impl ItemWorld {
         }
     }
 
-    fn initialize(
+    pub(super) fn initialize(
         &mut self,
         #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
         serial_solver_pool: Arc<rayon::ThreadPool>,
@@ -522,6 +524,7 @@ impl ItemWorld {
                 world,
                 floor_contacts,
                 entries: BTreeMap::new(),
+                ragdolls: BTreeMap::new(),
                 held: None,
                 player,
                 player_collider,
@@ -618,7 +621,7 @@ impl ItemWorld {
         if self
             .runtime
             .as_ref()
-            .is_some_and(|runtime| runtime.entries.len() >= MAX_BODIES)
+            .is_some_and(|runtime| runtime.owned_body_count() >= MAX_BODIES)
         {
             return Err("physics body limit reached (128)".into());
         }
@@ -1191,10 +1194,10 @@ impl ItemWorld {
         if interval > 0.0 {
             runtime.activate_player_contacts();
         }
-        if !runtime
-            .entries
-            .values()
-            .any(|entry| entry.motion.is_movable() && !entry.dormant && !entry.recovery.suspended)
+        if runtime.ragdolls.is_empty()
+            && !runtime.entries.values().any(|entry| {
+                entry.motion.is_movable() && !entry.dormant && !entry.recovery.suspended
+            })
         {
             self.stats.step_millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
             return;
@@ -1557,7 +1560,7 @@ impl Runtime {
         for entry in self.entries.values_mut() {
             entry.trigger_path = TriggerPath::new(entry.current, entry.center, &entry.shape);
         }
-        stats.body_count = self.entries.len();
+        stats.body_count = self.owned_body_count();
         stats.static_colliders = self.static_count;
         self.populate_counts(stats);
     }
@@ -1575,11 +1578,13 @@ impl Runtime {
         for entry in self.entries.values_mut() {
             entry.previous = entry.current;
         }
+        self.update_ragdolls(true);
         self.apply_water(water);
         self.activate_impacts();
         self.prepare_impact_step();
         self.world.step_with_events(&self.floor_contacts, &());
         self.update_poses();
+        self.update_ragdolls(false);
         stats.recovered_bodies = stats
             .recovered_bodies
             .saturating_add(self.recover_escaped(recovery_space, FIXED_STEP));
@@ -1856,6 +1861,18 @@ impl Runtime {
                 .get(entry.body)
                 .is_some_and(rapier3d::prelude::RigidBody::is_sleeping)
             {
+                stats.sleeping_bodies = stats.sleeping_bodies.saturating_add(1);
+            } else {
+                stats.active_bodies = stats.active_bodies.saturating_add(1);
+            }
+        }
+        for body in self
+            .ragdolls
+            .values()
+            .flat_map(|ragdoll| &ragdoll.bodies)
+            .filter_map(|bone| self.world.bodies.get(bone.body))
+        {
+            if body.is_sleeping() {
                 stats.sleeping_bodies = stats.sleeping_bodies.saturating_add(1);
             } else {
                 stats.active_bodies = stats.active_bodies.saturating_add(1);

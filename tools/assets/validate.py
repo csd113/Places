@@ -129,6 +129,7 @@ ACTION_TAGS = (
     "spawn_entity",
     "despawn_entity",
     "reset_to_start",
+    "ragdoll",
     "reset_physics_group",
     "activate_physics_group",
 )
@@ -2395,6 +2396,12 @@ def _validate_actions(
                 errors.append(f"{entry}: run_script requires a confined scripts/*.luau path")
             if not isinstance(handler, str) or re.fullmatch(r"[A-Za-z0-9_]{1,64}", handler) is None:
                 errors.append(f"{entry}: run_script handler requires 1..64 ASCII letters, digits or underscores")
+        elif tag == "ragdoll":
+            velocity = action.get("velocity", [0, 0, 0])
+            if (not isinstance(action.get("enabled"), bool) or not isinstance(velocity, list)
+                    or len(velocity) != 3 or not all(is_finite_number(v) for v in velocity)
+                    or sum(v * v for v in velocity) > 225):
+                errors.append(f"{entry}: ragdoll needs boolean enabled and finite velocity at most 15 m/s")
         elif tag in ("reset_physics_group", "activate_physics_group"):
             group = action.get("group")
             if not _is_reset_group(group) or group not in index["physics_reset_groups"]:

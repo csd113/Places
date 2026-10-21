@@ -34,6 +34,11 @@ pub enum GameplayAction {
     Physics(PhysicsAction),
     /// Direct keyed activation for trigger boxes and game modes.
     ActivatePhysics(u64),
+    Ragdoll {
+        target: String,
+        enabled: bool,
+        velocity: [f32; 3],
+    },
     TimeScale(f32),
     Trigger(String),
     TriggerLabels(Option<bool>),

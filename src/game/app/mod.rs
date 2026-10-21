@@ -9,6 +9,7 @@ mod flashlight;
 mod item_input;
 mod item_runtime;
 mod loading;
+mod ragdoll_runtime;
 mod video;
 
 use crate::engine::{diagnostics, level, loader, logging, perf, quality, render};
@@ -1100,6 +1101,12 @@ impl FrameLoop<'_> {
         self.advance_weather();
         // Each actor owns its pose. Completed one-shot cues feed back to
         // entity sequences and animation_complete bindings.
+        self.renderer.sync_ragdolls(&self.items.world);
+        for (id, position, bounds) in self.items.world.ragdoll_roots() {
+            self.game
+                .entities_mut()
+                .publish_ragdoll(id, position, bounds);
+        }
         let characters = self
             .renderer
             .update_characters(visual_delta, self.game.entity_frames());
@@ -1327,6 +1334,13 @@ impl FrameLoop<'_> {
                 crate::engine::entities::WorldCommand::RetireHidden { target } => {
                     self.request_carry_retirement(&target);
                 }
+                crate::engine::entities::WorldCommand::Ragdoll {
+                    target,
+                    enabled,
+                    velocity,
+                } => {
+                    self.apply_ragdoll(&target, enabled, Vec3::from_array(velocity));
+                }
                 crate::engine::entities::WorldCommand::ActivatePhysicsGroup { group } => {
                     self.activate_item_group(&group);
                 }
@@ -1415,6 +1429,7 @@ impl FrameLoop<'_> {
                 } => {
                     let _despawn_runtime_model_status = self.renderer.despawn_runtime_model(entity);
                     if !instance_id.is_empty() {
+                        let _ragdoll_removed = self.items.world.remove_ragdoll(&instance_id);
                         let _despawn_runtime_character_status =
                             self.renderer.despawn_runtime_character(&instance_id);
                     }
@@ -3667,6 +3682,7 @@ impl FrameLoop<'_> {
                     ),
             ));
             drop(fields.insert("flashlight_on".to_string(), self.flashlight.is_on().into()));
+
             self.append_character_trace(fields);
         }
         self.trace
@@ -3693,6 +3709,14 @@ impl FrameLoop<'_> {
     }
 
     fn append_character_trace(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        drop(fields.insert(
+            "solver_resources".into(),
+            self.items.world.solver_resources(),
+        ));
+        drop(fields.insert(
+            "ragdolls".into(),
+            serde_json::json!(self.items.world.ragdoll_snapshots()),
+        ));
         let light_responses: Vec<_> = self.game.entities().light_response_observations().map(|observation| {
             serde_json::json!({
                 "instance_id": observation.instance_id,

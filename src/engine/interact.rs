@@ -310,6 +310,45 @@ impl Interactables {
         self.items.iter().position(|item| item.id == id)
     }
 
+    /// Restores a physics-transferred actor's original aim shape and authored pose.
+    pub(crate) fn restore_actor_pose(
+        &mut self,
+        index: usize,
+        size: [f32; 3],
+        position: Vec3,
+        yaw: f32,
+    ) -> bool {
+        if !size.iter().all(|value| value.is_finite() && *value > 0.0)
+            || !position.is_finite()
+            || !yaw.is_finite()
+        {
+            return false;
+        }
+        let Some(item) = self.items.get_mut(index) else {
+            return false;
+        };
+        item.size = size;
+        self.set_live_pose(index, position, yaw)
+    }
+
+    /// Articulated physics owns a live axis-aligned aim envelope. Reset rebuilds
+    /// the original size from unchanged authored components.
+    pub fn set_articulated_bounds(&mut self, index: usize, bounds: Aabb) {
+        if bounds.is_empty() {
+            return;
+        }
+        let Some(item) = self.items.get_mut(index) else {
+            return;
+        };
+        item.bounds = bounds;
+        let [x0, y0, z0] = bounds.min;
+        let [x1, y1, z1] = bounds.max;
+        item.size = [x1 - x0, y1 - y0, z1 - z0];
+        item.yaw_degrees = 0.0;
+        let [x, _, z] = bounds.centre();
+        item.anchor = Vec3::new(x, y1 + LABEL_HEIGHT_MARGIN_M, z);
+    }
+
     /// Republishes one routed instance's live anchor and bounds.
     ///
     /// `position` is the entity's live base (feet) position and `yaw_degrees`

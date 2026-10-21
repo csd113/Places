@@ -14,6 +14,12 @@ use std::sync::Arc;
 fn actor(id: &str, asset: Arc<LoadedPropAsset>) -> Result<Character, String> {
     let animator = CharacterAnimator::new(&asset.model).ok_or("invalid tiny rig")?;
     Ok(Character {
+        ragdoll_owned: false,
+        ragdoll_bounds: None,
+        authored_transform: Mat4::IDENTITY,
+        pose_history: Vec::new(),
+        pose_delta: 0.0,
+        previous_transform: Mat4::IDENTITY,
         asset,
         transform: Mat4::IDENTITY,
         animator,

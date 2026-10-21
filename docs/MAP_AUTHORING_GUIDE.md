@@ -3217,6 +3217,65 @@ the level prop-vertex budget → placeholder box plus a one-time `[props]` warni
 a file was involved. `solid` is never affected by any of this.
 
 
+### Articulated mannequin physics (0.13.0)
+
+The installed mannequin can explicitly transfer its displayed pose to the shared
+Rapier item world. This is fifteen dynamic segments and fourteen angular-limited
+joints, not one whole-body rigid prop. The concrete and charcoal mannequin use
+the same supported bone hierarchy. Other skeletons, altered proportions,
+nonuniform placement scaling, bone scaling/shear and nonidentity mesh transforms
+are refused before ownership changes. Supported uniform placement scale is
+0.25–3. The original model/PNG, weighted skinning, inverse-transpose normals and
+ordinary animated timing remain unchanged.
+
+Author an ordinary binding action:
+
+```json
+{"action":"ragdoll","target":"floor_actor","enabled":true,"velocity":[1.5,0,-0.4]}
+```
+
+`target` may be omitted for the acting entity; `enabled` is required. Optional
+`velocity` is an additive world velocity in metres/second, finite and at most
+15 m/s. Current displayed bone and actor motion is inherited with bounded entry
+velocities. `enabled:false` removes the articulated bodies/joints and restores
+a fresh authored animation/controller state at the authored placement. Reset is
+an explicit restart; no stand-up or recovery animation is implemented. Full
+world reset and map reload also retire articulated ownership.
+
+Developer console uses `/ragdoll <instance-id> on [vx vy vz]` and
+`/ragdoll <instance-id> reset`. Luau uses
+`api.ragdoll(id, enabled, vx?, vy?, vz?)`. Unsupported or duplicate requests show
+status/log diagnostics. At most eight mannequins and 128 shared item/bone bodies
+may exist; a refused activation allocates no partial skeleton.
+
+Pelvis/chest use boxes, the head/limbs/hands/feet use fitted capsules. Segment
+masses total 68 kg; CCD, zero restitution, friction, body damping and additional
+joint solver iterations keep contact bounded. Joint constraints use overdamped
+120 Hz compliance (millimetres under mannequin load), avoiding persistent
+hard-limit contact chatter; translational axes remain constrained. The same skeleton has no internal
+collisions; other ragdolls, existing items, world/stair/prop/door geometry and
+the player proxy collide normally. Fingers/head descendants retain their entry
+local pose under the corresponding physical hand/head segment. Limits use rest
+axes; an unusual authored entry pose expands only a violated bound so handoff
+does not force the rig into another pose.
+
+Physics takes exclusive ownership: AI is removed from active controller and
+perception sets, routes/movement/sequences stop, and animation cannot reclaim
+the bones until reset. Posed bounds, light sampling, glow sockets, flashlight
+shadows and the existing reflection draws follow the physics-driven skin.
+Interaction bounds follow live collider envelopes; script actor position is the
+live pelvis while physical. A carried item must first return to the ordinary
+solver at its current socket; failed release cancels the handoff at the unchanged
+entry pose. The original render key/item identity is retained. Individual actor
+reset leaves the released item physical; reload restores the whole authored map.
+
+Pause, world time scale and exact 1/120-second single-step use the existing
+physics clock. Bodies sleep through Rapier after a full quiet second (0.1 m/s
+normalized contact-motion threshold) and wake through ordinary contacts. No detached
+simulation, runtime texture generation, automatic spawning or menu activation
+is added. `projects/ragdoll-lab` is an ordinary editable acceptance project;
+`tools/bench/ragdoll.py` runs explicit native trials outside Cargo tests/CI.
+
 ### Rigid animated props (clips without a skin)
 
 A model may declare `animations` and a node hierarchy **without** a `skins`
@@ -5704,6 +5763,7 @@ whose target cannot do the thing is a named load error.
 | `reset_to_start` | — | — | return the player to the authored spawn, re-arm triggers, clear pose/route overrides and return doors to `initial_state`; ends the batch |
 | `reset_physics_group` | `group` (required ASCII id, 1..64 bytes) | an authored movable physics group | restore starting poses and dormant state, clear linear/angular motion and release a held member; unrelated bodies and player state are preserved |
 | `activate_physics_group` | `group` (required ASCII id, 1..64 bytes) | an authored movable physics group | activate dormant members without teleporting them or resetting already active motion |
+| `ragdoll` | `target?`, required `enabled`, optional `velocity:[x,y,z]` | supported mannequin skeleton | true transfers current posed bones to articulated physics; false restores authored animation/controller behavior; see §16 |
 
 `spawn_entity` resolution: with a `point`, the point's own template is used
 unless `template` overrides it; a `template` alone has no world position and is

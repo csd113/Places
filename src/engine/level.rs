@@ -1023,6 +1023,14 @@ pub enum ActionDef {
         /// Group id declared by one or more authored movable physics props.
         group: String,
     },
+    /// Transfer a supported skeleton to physics, or reset its authored behavior.
+    Ragdoll {
+        #[serde(default)]
+        target: Option<String>,
+        enabled: bool,
+        #[serde(default)]
+        velocity: [f32; 3],
+    },
     /// Activate dormant movable bodies in one authored physics group.
     ActivatePhysicsGroup {
         /// Group id declared by authored movable physics props.
@@ -1091,6 +1099,11 @@ impl ActionDef {
             Self::Disable { target: _ } => "disable",
             Self::SetLight { target: _, on: _ } => "set_light",
             Self::ToggleWeather => "toggle_weather",
+            Self::Ragdoll {
+                target: _,
+                enabled: _,
+                velocity: _,
+            } => "ragdoll",
             Self::ResetPhysicsGroup { group: _ } => "reset_physics_group",
             Self::ActivatePhysicsGroup { group: _ } => "activate_physics_group",
             Self::SetWeatherStrength {
@@ -1175,6 +1188,11 @@ impl ActionDef {
                 target,
                 clip: _,
                 looped: _,
+            }
+            | Self::Ragdoll {
+                target,
+                enabled: _,
+                velocity: _,
             }
             | Self::ToggleAnimation { target, clip: _ }
             | Self::PlaySound {

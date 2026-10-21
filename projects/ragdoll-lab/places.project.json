@@ -1,0 +1,13 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "ragdoll_lab_project",
+  "name": "Mannequin Ragdoll Lab",
+  "entry_level": "ragdoll_lab",
+  "levels": [
+    {
+      "id": "ragdoll_lab",
+      "source": "levels/ragdoll_lab.json"
+    }
+  ]
+}

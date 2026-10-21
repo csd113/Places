@@ -854,6 +854,28 @@ impl AiWorld {
         });
     }
 
+    /// Gives exclusive control to articulated physics; no hidden AI controller remains.
+    pub(crate) fn take_for_physics(&mut self, id: &str) -> Option<AiAgent> {
+        let index = self
+            .agents
+            .iter()
+            .position(|agent| agent.instance_id == id)?;
+        Some(self.agents.remove(index))
+    }
+
+    /// Re-registers the original authored behavior with a fresh controller clock.
+    pub(crate) fn restore_from_physics(&mut self, agent: AiAgent) {
+        self.register(
+            agent.handle,
+            &agent.instance_id,
+            agent.def,
+            agent.profile,
+            agent.home,
+            agent.home_yaw,
+            agent.spawned,
+        );
+    }
+
     /// Removes one agent; true when it existed.
     pub fn remove(&mut self, handle: EntityHandle) -> bool {
         let before = self.agents.len();

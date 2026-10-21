@@ -464,6 +464,41 @@ pub(super) fn host<'scope>(
         )?,
     )?;
     api.set(
+        "ragdoll",
+        capability(
+            scope,
+            calls,
+            move |_,
+                  (value, enabled, x, y, z): (
+                HostString,
+                Flag,
+                Option<Coordinate>,
+                Option<Coordinate>,
+                Option<Coordinate>,
+            )| {
+                let id = entity(world, value)?;
+                let velocity = [
+                    x.map_or(0.0, |coordinate| coordinate.0),
+                    y.map_or(0.0, |coordinate| coordinate.0),
+                    z.map_or(0.0, |coordinate| coordinate.0),
+                ];
+                let speed = glam::Vec3::from_array(velocity);
+                if !speed.is_finite() || speed.length() > 15.0 {
+                    return Err(error("Ragdoll velocity must be finite and at most 15 m/s"));
+                }
+                push(
+                    queue,
+                    limit,
+                    ActionDef::Ragdoll {
+                        target: Some(id),
+                        enabled: enabled.0,
+                        velocity,
+                    },
+                )
+            },
+        )?,
+    )?;
+    api.set(
         "physics",
         capability(
             scope,
