@@ -107,6 +107,20 @@ impl App {
         false
     }
 
+    fn modal_event(&mut self, event: &Event, window: &Window, hits: &[Hit]) -> bool {
+        self.stair_event(event)
+            || self.drag_event(event, window)
+            || self.browser_event(event)
+            || self.authoring_event(event)
+            || self.project_text_event(event)
+            || self.script_event(event, window)
+            || self.component_text_event(event)
+            || self.transform_event(event)
+            || self.search_event(event)
+            || self.numeric_event(event)
+            || self.focus_event(event, window, hits)
+    }
+
     fn focus_event(&mut self, event: &Event, window: &Window, hits: &[Hit]) -> bool {
         if let Event::KeyDown {
             keycode: Some(key),
@@ -188,15 +202,7 @@ impl App {
             self.request(Pending::Close, window);
             return;
         }
-        if self.authoring_event(event)
-            || self.project_text_event(event)
-            || self.script_event(event, window)
-            || self.component_text_event(event)
-            || self.transform_event(event)
-            || self.search_event(event)
-            || self.numeric_event(event)
-            || self.focus_event(event, window, hits)
-        {
+        if self.modal_event(event, window, hits) {
             return;
         }
         match event {

@@ -15,7 +15,7 @@
       "range": 8,
       "switchable": false,
       "x": 4,
-      "y": 3.18,
+      "y": 3.03,
       "z": 5
     },
     {
@@ -32,7 +32,7 @@
       "range": 8,
       "switchable": false,
       "x": 4,
-      "y": 6.38,
+      "y": 6.23,
       "z": 5
     },
     {
@@ -50,7 +50,7 @@
       "range": 8,
       "switchable": true,
       "x": 4,
-      "y": 9.58,
+      "y": 9.43,
       "z": 5
     },
     {
@@ -687,7 +687,7 @@
       "ceiling_material": "home:ceiling_white_01",
       "depth": 10.0,
       "floor_y": 0.0,
-      "height": 3.2,
+      "height": 3.05,
       "material": "home:tile_home_01",
       "width": 8.0,
       "x": 0.0,
@@ -697,7 +697,7 @@
       "ceiling_material": "home:ceiling_white_01",
       "depth": 10.0,
       "floor_y": 3.2,
-      "height": 3.2,
+      "height": 3.05,
       "material": "outdoor:concrete_pavement_01",
       "width": 8.0,
       "x": 0.0,
@@ -707,7 +707,7 @@
       "ceiling_material": "home:ceiling_white_01",
       "depth": 10.0,
       "floor_y": 6.4,
-      "height": 3.2,
+      "height": 3.05,
       "material": "home:tile_home_01",
       "width": 8.0,
       "x": 0.0,
@@ -735,7 +735,7 @@
     },
     {
       "ceiling": {
-        "kind": "flat"
+        "kind": "open"
       },
       "ceiling_material": "home:ceiling_white_01",
       "depth": 2,
@@ -748,7 +748,7 @@
     },
     {
       "ceiling": {
-        "kind": "flat"
+        "kind": "open"
       },
       "ceiling_material": "home:ceiling_white_01",
       "depth": 2,
@@ -761,7 +761,7 @@
     },
     {
       "ceiling": {
-        "kind": "flat"
+        "kind": "open"
       },
       "ceiling_material": "home:ceiling_white_01",
       "depth": 2,

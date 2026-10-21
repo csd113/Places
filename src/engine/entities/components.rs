@@ -338,6 +338,8 @@ pub struct Interactable {
 /// `crate::audio`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct AudioEmitter {
+    /// Standalone source near/far distances; attached sounds use cue defaults.
+    pub attenuation: Option<[f32; 2]>,
     /// Authored sound asset id.
     pub sound: String,
     /// Linear gain.

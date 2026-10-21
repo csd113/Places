@@ -38,6 +38,9 @@ enum Action {
     Control {
         action: String,
     },
+    ScrollView {
+        lines: i16,
+    },
     ScrollScene {
         lines: i16,
     },
@@ -189,7 +192,8 @@ impl Verification {
                     .ok_or("World click is outside the visible scene viewport")?;
                 mouse(app, window, MouseButton::Left, false, point)?;
             }
-            Action::ScrollScene { lines } => scroll_scene(app, window, *lines)?,
+            Action::ScrollScene { lines } => scroll_scene(app, window, *lines, false)?,
+            Action::ScrollView { lines } => scroll_scene(app, window, *lines, true)?,
             Action::Control { action } => {
                 let (_, controls) = ui::build(app);
                 let control = controls
@@ -292,6 +296,11 @@ impl Verification {
             "input_focus": window.has_input_focus(),
             "ui_focus": app.ui_focus.map(|action| format!("{action:?}")),
             "audio_preview": app.preview_audio.stats(),
+            "editor_resources":app.document.as_ref().map(super::Document::resource_snapshot),
+            "preview_metrics":app.viewport.preview_metrics(),
+            "axis_handles":app.viewport.axis_handles(),
+            "thumbnail_cache_tiles":app.browser.cached_tiles(),
+            "bake_rows":app.bakes.rows.iter().map(|(id,result)|serde_json::json!({"id":id,"report":result.as_ref().ok(),"error":result.as_ref().err()})).collect::<Vec<_>>(),
             "drawable": window.size_in_pixels(), "camera_target": app.viewport.target(),
             "safety": app.safety_report.as_ref().map(|report| report.findings.iter().map(|finding| serde_json::json!({
                 "check":finding.check,"title":finding.title,"category":finding.category.label(),
@@ -318,6 +327,7 @@ const fn busy(app: &App) -> bool {
     app.compile.is_some()
         || app.play.is_some()
         || app.viewport.is_preparing()
+        || app.bakes.busy()
         || app.safety_job.is_some()
         || app.navigation.is_baking()
 }
@@ -329,7 +339,9 @@ fn validate(action: &Action) -> Result<(), String> {
             // recipe retains its 64 KiB and 256-action admission limits.
             !name.is_empty() && name.len() <= 512 && !name.chars().any(char::is_control)
         }
-        Action::ScrollScene { lines } => (1..=64).contains(&lines.unsigned_abs()),
+        Action::ScrollScene { lines } | Action::ScrollView { lines } => {
+            (1..=64).contains(&lines.unsigned_abs())
+        }
         Action::Click { x, y } => valid_point(*x, *y),
         Action::WorldClick { position } => position
             .iter()
@@ -371,8 +383,15 @@ fn valid_point(x: f32, y: f32) -> bool {
     (0.0..480.0).contains(&x) && (0.0..272.0).contains(&y)
 }
 
-fn scroll_scene(app: &mut App, window: &Window, lines: i16) -> Result<(), String> {
-    let [x, y] = window_point(window, [50.0, 90.0])?;
+fn scroll_scene(app: &mut App, window: &Window, lines: i16, viewport: bool) -> Result<(), String> {
+    let [x, y] = window_point(
+        window,
+        if viewport {
+            [300.0, 140.0]
+        } else {
+            [50.0, 90.0]
+        },
+    )?;
     let direction = f32::from(lines.signum());
     for _ in 0..lines.unsigned_abs() {
         dispatch(

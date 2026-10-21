@@ -60,24 +60,24 @@ const ADJACENT_PROBE_M: f32 = 0.05;
 
 /// One planar architectural face, ready to emit.
 #[derive(Clone, Copy)]
-struct ArchitectureFace {
+pub(super) struct ArchitectureFace {
     /// Corners in winding order; the quad's front points along `normal`.
-    points: [[f32; 3]; 4],
+    pub(super) points: [[f32; 3]; 4],
     /// Texture coordinates in the same corner order.
-    uv: [[f32; 2]; 4],
+    pub(super) uv: [[f32; 2]; 4],
     /// Which corners lie on the face's upper edge: a vertical face takes the
     /// wall gradient from these.
-    top: [bool; 4],
+    pub(super) top: [bool; 4],
     /// Outward normal of the face.
-    normal: [f32; 3],
+    pub(super) normal: [f32; 3],
     /// True for a vertical face (directional shade + vertical gradient), false
     /// for a horizontal one.
-    vertical: bool,
+    pub(super) vertical: bool,
     /// Horizontal faces looking up take [`FACE_UP_MULT`], looking down
     /// [`FACE_DOWN_MULT`]. Ignored for vertical faces.
-    up: bool,
-    key: SurfaceKey,
-    kind: PatchKind,
+    pub(super) up: bool,
+    pub(super) key: SurfaceKey,
+    pub(super) kind: PatchKind,
 }
 
 /// Applies a per-corner mapping over a quad's four values without indexing, so
@@ -229,7 +229,7 @@ fn face_mult(normal: [f32; 3]) -> f32 {
 
 /// Emits one architectural face, clearing and flushing its quad on its own so
 /// multi-material pieces stay simple.
-fn emit_face(
+pub(super) fn emit_face(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
     scratch: &mut Vec<Vertex>,

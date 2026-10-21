@@ -20,6 +20,9 @@ pub(super) enum Pending {
 }
 
 pub(super) enum Popup {
+    Stairs(Box<super::stairs::Wizard>),
+    DoorAssets,
+    Bakes,
     Authoring,
     AuthoringForm(Box<super::authoring::Draft>),
     SceneSearch(String),
@@ -80,6 +83,14 @@ pub(super) enum Popup {
 impl Popup {
     pub fn draw(&self, app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mut Vec<Hit>) {
         hits.clear();
+        if let Self::Stairs(wizard) = self {
+            super::stairs::draw(app, v, hits, wizard);
+            return;
+        }
+        if matches!(self, Self::Bakes) {
+            super::bakes::draw(app, v, hits);
+            return;
+        }
         if matches!(self, Self::Authoring | Self::AuthoringForm(_)) {
             super::authoring::draw(app, v, hits);
             return;
@@ -131,7 +142,9 @@ impl Popup {
     ) {
         match self {
             Self::SceneSearch(value) => super::selection::draw_search(v, hits, value),
-            Self::Authoring
+            Self::Stairs(_)
+            | Self::Bakes
+            | Self::Authoring
             | Self::AuthoringForm(_)
             | Self::Transform(_)
             | Self::Project
@@ -196,6 +209,7 @@ impl Popup {
                 }
             }
             Self::Number { value, field } => draw_number(app, v, value, *field),
+            Self::DoorAssets => ui::library::draw_grid(app, v, hits, &app.door_choices(), 0, None),
             Self::Library { materials, page } => ui::library_popup(app, v, hits, *materials, *page),
         }
     }
@@ -303,6 +317,7 @@ impl App {
                     )
                 }
             })
+            .filter(|entry| self.browser_matches(entry))
             .map(|entry| entry.id.clone())
             .collect()
     }
@@ -319,7 +334,8 @@ impl App {
     }
 
     fn contextual_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
-        Ok(self.authoring_action(action)?
+        Ok(self.stair_action(action)?
+            || self.authoring_action(action)?
             || self.project_action(action, window)?
             || self.script_action(action)?
             || self.navigation_action(action)?
@@ -348,6 +364,9 @@ impl App {
     )]
     fn global_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
         match action {
+            Action::BakeStatus => self.check_bakes()?,
+            Action::BakeLevel(index) => self.build_bake_row(index)?,
+            Action::BakeCancel => self.bakes.invalidate(),
             Action::New => self.request(Pending::New, window),
             Action::Open => self.request(Pending::Open, window),
             Action::Save => self.save()?,
@@ -359,6 +378,14 @@ impl App {
             }
             Action::Focus | Action::Grid | Action::Snap | Action::Step => self.view_action(action),
             Action::Nudge(field, positive) => self.nudge(field, positive)?,
+            Action::DoorAssets => {
+                self.browser.query.clear();
+                self.popup = Some(Popup::DoorAssets);
+            }
+            Action::MaterialTarget => {
+                self.browser.material_ceiling = !self.browser.material_ceiling;
+            }
+            Action::BrowserTheme => self.browser_theme(),
             Action::ChooseAsset(index) => self.choose_asset(index)?,
             Action::Page(forward) => self.page_library(forward),
             Action::ClosePopup | Action::ConfirmCancel => self.close_popup(),
@@ -590,6 +617,24 @@ impl App {
     }
 
     fn choose_asset(&mut self, index: usize) -> Result<(), String> {
+        if matches!(self.popup, Some(Popup::DoorAssets)) {
+            let id = self
+                .door_choices()
+                .get(index)
+                .cloned()
+                .ok_or("Door selection expired")?;
+            let style = id
+                .strip_prefix("editor:door_")
+                .ok_or("Invalid door style")?;
+            self.document
+                .as_mut()
+                .ok_or("Open a project first")?
+                .set_door_style(self.selected.ok_or("Select a door first")?, style)?;
+            self.popup = None;
+            self.changed();
+            return Ok(());
+        }
+
         if let Some(Popup::Library { materials, page: _ }) = self.popup {
             let id = self
                 .library(materials)
@@ -598,10 +643,12 @@ impl App {
                 .ok_or("Asset selection expired")?;
             if materials {
                 let selected = self.selected.ok_or("Select a floor or wall")?;
-                self.document
-                    .as_mut()
-                    .ok_or("Open a project first")?
-                    .set_material(selected, &id)?;
+                let doc = self.document.as_mut().ok_or("Open a project first")?;
+                if self.browser.material_ceiling {
+                    doc.set_ceiling_material(selected, &id)?;
+                } else {
+                    doc.set_material(selected, &id)?;
+                }
                 self.changed();
                 self.status = format!("Assigned material {id}");
             } else {
@@ -623,7 +670,18 @@ impl App {
         Ok(())
     }
 
-    fn page_library(&mut self, forward: bool) {
+    pub(super) fn page_library(&mut self, forward: bool) {
+        if matches!(self.popup, Some(Popup::Bakes)) {
+            self.bakes.page = if forward {
+                self.bakes
+                    .page
+                    .saturating_add(1)
+                    .min(self.bakes.rows.len().saturating_sub(1) / 4)
+            } else {
+                self.bakes.page.saturating_sub(1)
+            };
+            return;
+        }
         if let Some(Popup::ScriptHandlers {
             path: _,
             names,
@@ -643,7 +701,22 @@ impl App {
             self.popup = Some(Popup::GameplayChoices {
                 choice,
                 page: if forward {
-                    page.saturating_add(1).min(count.saturating_sub(1) / 10)
+                    page.saturating_add(1).min(
+                        count
+                            .saturating_sub(1)
+                            .checked_div(
+                                if matches!(
+                                    choice,
+                                    super::gameplay_actions::GameplayChoice::Fixture
+                                        | super::gameplay_actions::GameplayChoice::EntityModel
+                                ) {
+                                    super::browser::PAGE_SIZE
+                                } else {
+                                    10
+                                },
+                            )
+                            .unwrap_or(0),
+                    )
                 } else {
                     page.saturating_sub(1)
                 },
@@ -657,14 +730,15 @@ impl App {
         };
         if let Some(Popup::Library { page, materials: _ }) = &mut self.popup {
             *page = if forward {
-                page.saturating_add(1).min(count.saturating_sub(1) / 10)
+                page.saturating_add(1)
+                    .min(count.saturating_sub(1) / super::browser::PAGE_SIZE)
             } else {
                 page.saturating_sub(1)
             };
         }
     }
 
-    fn start_build(&mut self, play: bool) -> Result<(), String> {
+    pub(super) fn start_build(&mut self, play: bool) -> Result<(), String> {
         if self.compile.is_some() || self.play.is_some() {
             return Err("A build or player is already running".into());
         }

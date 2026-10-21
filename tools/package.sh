@@ -214,6 +214,9 @@ fi
 cp "$REPO/assets/catalog.json" "$REPO/assets/gameplay.json" "$STAGE/Places/assets/"
 # Sound licenses and exact provenance accompany the compact runtime library.
 cp -R "$REPO/assets/audio" "$STAGE/Places/assets/audio"
+if [ "$WITH_EDITOR" = 1 ]; then
+    cp -R "$REPO/assets/editor" "$STAGE/Places/assets/editor"
+fi
 # References and master source artwork belong to authoring, not runtime exports.
 for directory in shared environments entities diagnostic janitor_closet; do
     cp -R "$REPO/assets/$directory" "$STAGE/Places/assets/$directory"

@@ -143,6 +143,30 @@ fn tree(leaves: &mut [Node], nodes: &mut Vec<Node>) {
     }
 }
 
+/// CPU-only receiver data, owned by one immutable prepared scene. The editor
+/// builds it on its existing coalesced worker; no GPU handle crosses threads.
+pub struct PreparedCaustics {
+    field: field::ReceiverField,
+    lighting: Arc<LevelLighting>,
+    volumes: Vec<WaterVolume>,
+}
+impl PreparedCaustics {
+    #[must_use]
+    pub fn prepare(level: &LevelDef, lighting: &LevelLighting) -> Option<Self> {
+        let volumes = WaterVolumes::from_level(level);
+        (!volumes.is_empty()).then(|| Self::for_volumes(level, lighting, &volumes))
+    }
+    fn for_volumes(level: &LevelDef, lighting: &LevelLighting, volumes: &WaterVolumes) -> Self {
+        let mut source_lighting = lighting.clone();
+        source_lighting.resolve_caustics_eligibility(level);
+        Self {
+            field: field::ReceiverField::build(level, &source_lighting, volumes.volumes()),
+            lighting: Arc::new(source_lighting),
+            volumes: volumes.volumes().to_vec(),
+        }
+    }
+}
+
 /// Shared by static, movable, animated and reflection environment bindings.
 pub struct Caustics {
     pub buffer: wgpu::Buffer,
@@ -195,6 +219,18 @@ impl Caustics {
         lighting: &LevelLighting,
         quality: QualityLevel,
     ) -> Self {
+        Self::upload_prepared(device, queue, cache, level, lighting, quality, None)
+    }
+
+    pub fn upload_prepared(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        cache: &mut TextureCache,
+        level: &LevelDef,
+        lighting: &LevelLighting,
+        quality: QualityLevel,
+        prepared: Option<PreparedCaustics>,
+    ) -> Self {
         let mut result = Self::empty(device, cache);
         let volumes = WaterVolumes::from_level(level);
         let disabled = std::env::var("PLACES_BENCH").is_ok_and(|value| value == "1")
@@ -203,7 +239,7 @@ impl Caustics {
             return result;
         }
         result.focus_enabled = !disabled;
-        result.prepare_field(device, queue, level, lighting, &volumes);
+        result.prepare_field(device, queue, level, lighting, &volumes, prepared);
         let decoded = crate::engine::assets::resolve_asset_root().and_then(|root| {
             crate::engine::materials::load_png_relative(
                 &root,
@@ -265,14 +301,13 @@ impl Caustics {
         level: &LevelDef,
         lighting: &LevelLighting,
         volumes: &WaterVolumes,
+        prepared: Option<PreparedCaustics>,
     ) {
-        // Legacy prepared records predate the flag; explicit packaged authoring
-        // still owns source semantics and stable source identities.
-        let mut source_lighting = lighting.clone();
-        source_lighting.resolve_caustics_eligibility(level);
-        self.field = field::ReceiverField::build(level, &source_lighting, volumes.volumes());
-        self.receiver_lighting = Some(Arc::new(source_lighting));
-        self.receiver_volumes = volumes.volumes().to_vec();
+        let data =
+            prepared.unwrap_or_else(|| PreparedCaustics::for_volumes(level, lighting, volumes));
+        self.field = data.field;
+        self.receiver_lighting = Some(data.lighting);
+        self.receiver_volumes = data.volumes;
         let mut leaves: Vec<_> = volumes
             .volumes()
             .iter()

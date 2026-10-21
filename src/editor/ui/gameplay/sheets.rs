@@ -88,6 +88,8 @@ pub(super) fn audio_sheet(
         (1, false, "Loop", S::Loop),
         (1, true, "Play on load", S::Playing),
         (2, false, "Enabled", S::Enabled),
+        (2, true, "Near m", S::AudioNear),
+        (3, false, "Far m", S::AudioFar),
     ] {
         property(app, vertices, hits, row, right, label, setting);
     }
@@ -95,7 +97,7 @@ pub(super) fn audio_sheet(
         vertices,
         "Positional off = ambient throughout the level.",
         140.0,
-        143.0,
+        156.0,
         MUTED,
         68,
     );
@@ -103,7 +105,7 @@ pub(super) fn audio_sheet(
         vertices,
         "Play on load off lets triggers start the cue.",
         140.0,
-        154.0,
+        167.0,
         MUTED,
         68,
     );
@@ -230,6 +232,13 @@ pub(super) fn door_sheet(
         144.0,
         MUTED,
         68,
+    );
+    super::super::popup_button(
+        vertices,
+        hits,
+        [140.0, 160.0, 240.0, 12.0],
+        "Door styles >",
+        Action::DoorAssets,
     );
 }
 

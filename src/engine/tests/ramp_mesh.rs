@@ -27,6 +27,7 @@ fn ramp_replaces_carrier_and_meets_region_without_a_landing_lip() -> Result<(), 
         for z in [1.5_f32, 2.5_f32, 3.5_f32] {
             let heights: Vec<_> = triangles
                 .iter()
+                .filter(|triangle| upward(**triangle))
                 .filter_map(|triangle| height_at(*triangle, 1.5_f32, z))
                 .collect();
             let expected = floor
@@ -105,6 +106,7 @@ fn partial_ramp_keeps_its_surface_when_its_centre_is_outside_the_room() -> Resul
     crate::engine::loader::validate_level(&level)?;
     let hits: Vec<_> = triangles_for(&level)
         .iter()
+        .filter(|triangle| upward(**triangle))
         .filter_map(|triangle| height_at(*triangle, 1.75_f32, 1.0_f32))
         .collect();
     assert!(
@@ -113,6 +115,52 @@ fn partial_ramp_keeps_its_surface_when_its_centre_is_outside_the_room() -> Resul
                 .iter()
                 .all(|height| (*height + 0.125_f32).abs() < 0.0001_f32),
         "a supported part of a valid partial ramp must render at the physical slope, without losing its carrier and slope together"
+    );
+    Ok(())
+}
+
+// One four-metre raised deck protects the visible underside and
+// collision backing contract that caused Annex's paper-thin exposed edges.
+// CPU mesh construction only; no asset decoding, GPU or lighting solve.
+#[test]
+fn raised_deck_has_closed_backing_matching_collision() -> Result<(), String> {
+    let level = LevelDef::from_json(
+        r#"{
+        "schema":"places-level", "format_version":1, "id":"backing", "name":"Backing",
+        "spawn":{"x":1,"z":1},
+        "rooms":[{"width":4,"depth":4,"height":3,"floor_y":3,"ceiling":{"kind":"open"}}]
+    }"#,
+    )
+    .map_err(|error| error.to_string())?;
+    let mesh = triangles_for(&level);
+    let underside = 3.0_f32 - crate::engine::level::MIN_STRUCTURE_M;
+    assert!(
+        mesh.iter().any(|triangle| {
+            !upward(*triangle)
+                && triangle
+                    .iter()
+                    .all(|p| (p.y - underside).abs() < 0.0001_f32)
+                && height_at(*triangle, 1.0_f32, 1.0_f32).is_some()
+        }),
+        "a raised deck must have a real downward-facing underside"
+    );
+    assert!(
+        mesh.iter().any(|triangle| {
+            triangle.iter().all(|p| p.x.abs() < 0.0001_f32)
+                && triangle
+                    .iter()
+                    .any(|p| (p.y - underside).abs() < 0.0001_f32)
+                && triangle.iter().any(|p| (p.y - 3.0_f32).abs() < 0.0001_f32)
+        }),
+        "the exposed structural edge must connect top to underside"
+    );
+    let patches = WalkableFloor::from_level(&level).structural_patches();
+    assert!(
+        !patches.is_empty()
+            && patches
+                .iter()
+                .all(|p| (p.backing - underside).abs() < 0.0001_f32),
+        "visible structure and the rigid collision prism must share the same bottom"
     );
     Ok(())
 }
@@ -171,4 +219,12 @@ fn height_at([first, second, third]: [Vec3; 3], x: f32, z: f32) -> Option<f32> {
             third.y,
             second_weight.mul_add(second.y, first_weight * first.y),
         ))
+}
+
+fn upward(triangle: [Vec3; 3]) -> bool {
+    let [a, b, c] = triangle;
+    Vec3::new(b.x - a.x, b.y - a.y, b.z - a.z)
+        .cross(Vec3::new(c.x - a.x, c.y - a.y, c.z - a.z))
+        .y
+        > 0.0
 }

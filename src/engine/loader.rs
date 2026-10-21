@@ -1495,7 +1495,9 @@ fn validate_stairs(level: &LevelDef) -> Result<(), String> {
         // walkable surface resolves each room's own floor.
         let mut stair_floor: Option<f32> = None;
         for (room_index, room) in level.room_iter().enumerate() {
-            if !rects_overlap(stair.bounds(), room.bounds()) {
+            let (sx0, sx1, sz0, sz1) = stair.bounds();
+            let (rx0, rx1, rz0, rz1) = room.bounds();
+            if sx1.min(rx1) - sx0.max(rx0) <= 1.0e-4 || sz1.min(rz1) - sz0.max(rz0) <= 1.0e-4 {
                 continue;
             }
             let top = room.floor_y + stair.top_offset();
@@ -5825,6 +5827,13 @@ fn validate_sound_emitters(level: &LevelDef) -> Result<(), String> {
         ));
     }
     for (index, emitter) in level.sound_emitters.iter().enumerate() {
+        if emitter.attenuation.is_some_and(|[near, far]| {
+            !near.is_finite() || !far.is_finite() || near < 0.0 || far <= near || far > 1_000.0
+        }) {
+            return Err(format!(
+                "Sound emitter {index} attenuation requires 0 <= near < far <= 1000 metres"
+            ));
+        }
         if [emitter.x, emitter.y, emitter.z]
             .iter()
             .any(|value| !value.is_finite())

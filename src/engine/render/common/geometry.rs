@@ -166,6 +166,7 @@ pub(super) fn build_level_geometry_mesh_with_fixture_models(
     //    3. walls, 4. fixtures, 5. prop fallbacks and 6. decals, in the order
     //    they are drawn.
     emit_floors(&context, &mut buckets, &mut scratch, &rooms);
+    super::structure::emit(&context, &mut buckets, &mut scratch);
     // One translucent surface quad per authored water volume, in the floor
     // family: the material's `blend` contract puts it in the sorted
     // translucent pass, and the volume's opacity rides in the vertex alpha.

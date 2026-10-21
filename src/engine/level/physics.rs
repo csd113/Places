@@ -254,7 +254,7 @@ fn consume_patch(
             let bottom = corners.iter().fold(backing, |low, point| low.min(point.y));
             output.push(PhysicalPatch {
                 corners,
-                backing: bottom - 0.12,
+                backing: bottom - super::MIN_STRUCTURE_M,
                 ceiling: false,
                 room_floor_y: backing,
             });
@@ -267,6 +267,17 @@ fn consume_patch(
 impl WalkableFloor {
     /// Exact visible floors, with last-authored overlay precedence and real treads.
     pub(crate) fn physical_geometry(&self) -> (Vec<PhysicalPatch>, Vec<[Vec3; 4]>) {
+        self.physical_geometry_inner(true)
+    }
+
+    pub(crate) fn structural_patches(&self) -> Vec<PhysicalPatch> {
+        self.physical_geometry_inner(false).0
+    }
+
+    fn physical_geometry_inner(
+        &self,
+        barriers_needed: bool,
+    ) -> (Vec<PhysicalPatch>, Vec<[Vec3; 4]>) {
         let mut output = Vec::new();
         let mut barriers = Vec::new();
         let mut prior_rooms: Vec<(Rect, f32)> = Vec::new();
@@ -331,7 +342,7 @@ impl WalkableFloor {
                 room.floor_y,
                 &mut output,
             );
-            if let Some(room_patches) = output.get(patch_start..) {
+            if barriers_needed && let Some(room_patches) = output.get(patch_start..) {
                 close_steps(room_patches, &mut barriers);
             }
         }
@@ -345,11 +356,10 @@ impl WalkableFloor {
 fn unshared_ceiling(bounds: Rect, height: f32, floors: &[PhysicalPatch]) -> Vec<Rect> {
     let mut remaining = vec![bounds];
     for floor in floors {
-        if floor
-            .corners
-            .iter()
-            .any(|corner| (corner.y - height).abs() > 1.0e-4)
-        {
+        if floor.corners.iter().any(|corner| {
+            (corner.y - height).abs() > 1.0e-4
+                && ((floor.backing - height).abs() > 1.0e-4 || corner.y < height)
+        }) {
             continue;
         }
         let [a, _, c, _] = floor.corners;
@@ -417,7 +427,7 @@ impl WalkableCeiling {
                 let backing = corners
                     .iter()
                     .fold(f32::NEG_INFINITY, |high, point| high.max(point.y))
-                    + 0.12;
+                    + super::MIN_STRUCTURE_M;
                 output.push(PhysicalPatch {
                     corners,
                     backing,

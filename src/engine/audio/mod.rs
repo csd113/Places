@@ -60,6 +60,8 @@ pub struct PlayRequest {
     pub looping: Option<bool>,
     /// Finite linear amplitude in `0..=1`.
     pub gain: f32,
+    /// Optional per-emitter near/far attenuation distances in metres.
+    pub attenuation: Option<[f32; 2]>,
     /// Playback clock policy.
     pub time_domain: TimeDomain,
     /// Volume category.
@@ -74,6 +76,7 @@ impl Default for PlayRequest {
             spatial: None,
             looping: None,
             gain: 1.0,
+            attenuation: None,
             time_domain: TimeDomain::World,
             bus: AudioBus::Effects,
         }

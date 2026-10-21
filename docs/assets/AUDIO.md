@@ -5,7 +5,7 @@ visual `assets/catalog.json`: maps name sound cue IDs, and sound cues name real
 WAV files under `assets/audio/`. Every shipped WAV is mono, 44,100 Hz, signed
 16-bit PCM. No microphone input or runtime sound synthesis is involved.
 
-The library has **24 cues / 63 WAV files / 5,519,032 bytes** (5.26 MiB). Its
+The library has **25 cues / 63 WAV files / 5,519,032 bytes** (5.26 MiB). Its
 decoded stereo float allocation estimate is **21.04 MiB**, below the runtime's
 64 MiB library limit. One-shots range from 0.103 to 1.413 seconds. The longest
 loop is 26 seconds. Mono ambient recordings deliberately play without positional
@@ -166,3 +166,24 @@ extracting paths. A changed upstream hash is a review failure, never an automati
 update. The importer records the `ffmpeg` version; decoder/resampler version
 changes may alter exact PCM bytes, so review and retain the new output hashes
 deliberately. The committed WAV bytes are the runtime authority.
+
+### 0.13.0 polish
+
+The library now has **25 cues / 63 WAVs**. `water_transition` reuses the three
+recorded wet splashes for a restrained swim entry/exit cue; loading/reset does not
+manufacture a transition. A 750 ms real-time retrigger guard prevents shallow
+ramp contact from producing repeated splashes; it changes no water physics and
+queues no delayed sound. Unload resets both the state and guard.
+The unusually loud third switch/plastic takes receive
+explicit post-normalization gains of 0.65 / 0.5. Source identity, trim and edge
+fades are unchanged; `authoring.json` and `provenance.json` retain the processing
+and hashes, and `tools/audio/build.py` reproduces/audits the gain step offline.
+The audit now includes maintained project levels and standalone emitters.
+
+Standalone emitters may author `attenuation: [near, far]` with metre distances,
+`0 <= near < far <= 1000`; omission uses the cue. Editor Near/Far controls,
+Gain and Stop preview share the existing source/mixer lifecycle. Persistent
+`Settings::master_volume`, `set_master_volume` and `AudioSettings::master_volume`
+already cover active and future gameplay sounds, effects and ambience. Zero is
+silent without discarding loops. The following menu stage should reuse that
+setter and normal settings persistence rather than introduce another master bus.

@@ -47,7 +47,7 @@ fn write_fixture(root: &Path) -> Result<(PathBuf, project::ProjectPackage), Stri
         let prepared = hash::blob_name(&[], ".fixture");
         let common = hash::blob_name(&[], ".record");
         drop(blobs.insert(common.clone(), Vec::new()));
-        let inner = serde_json::json!({"schema":"places-map","package_format":1_u32,"id":id,"name":id,"entries":[{"name":"build-inputs.json","role":"compiler-inputs","bytes":inputs.len(),"sha256":hash::sha256_hex(&inputs)},{"name":prepared,"role":"","bytes":0_u32,"sha256":hash::sha256_hex(&[])}],"variants":[{"lightmap_quality":"off","quality_profile":"low","entries":{"mesh":prepared,"props":prepared,"lighting":prepared,"collision":prepared,"navigation":prepared}}]});
+        let inner = serde_json::json!({"schema":"places-map","package_format":1_u32,"id":id,"name":id,"lighting_fingerprint":"stage","entries":[{"name":"build-inputs.json","role":"compiler-inputs","bytes":inputs.len(),"sha256":hash::sha256_hex(&inputs)},{"name":prepared,"role":"","bytes":0_u32,"sha256":hash::sha256_hex(&[])}],"variants":[{"lightmap_quality":"off","quality_profile":"low","entries":{"mesh":prepared,"props":prepared,"lighting":prepared,"collision":prepared,"navigation":prepared}}]});
         let inner_bytes = serde_json::to_vec(&inner).map_err(|e| e.to_string())?;
         let inner_blob = hash::blob_name(&inner_bytes, ".record");
         drop(blobs.insert(inner_blob.clone(), inner_bytes));
@@ -89,6 +89,17 @@ fn project_provenance_and_cache_seed_select_and_verify_exact_records() -> Result
         "selected provenance must not use the entry level or raw archive root"
     );
     super::super::verify_declared_entries(&package, &selected)?;
+    // Prepared reuse must select the same non-entry virtual member, too. This
+    // protects metadata-only builds with no standalone cache; placeholder
+    // records exercise selection/integrity only, with no solve or GPU.
+    let selected_level = crate::engine::level::LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"second","name":"Second","spawn":{"x":1,"z":1},"rooms":[{"width":2,"depth":2,"height":3}]}"#).map_err(|error|error.to_string())?;
+    let (variants, prepared) =
+        super::super::reuse_prepared_lighting(&package, "stage", &selected_level, &mut Vec::new())?;
+    assert_eq!(variants.len(), 1);
+    assert!(
+        !prepared.is_empty(),
+        "selected export records must seed prepared reuse without changing the export"
+    );
     let staged = root.0.join("seed.placesmap");
     super::super::project_cache::seed(&package, "second", &staged)?;
     let seeded = super::super::inspect(&staged)?;

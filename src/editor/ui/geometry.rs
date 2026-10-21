@@ -18,8 +18,8 @@ pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &m
     button(
         v,
         hits,
-        [140.0, 130.0, 240.0, 13.0],
-        "Space and environment >",
+        [140.0, 130.0, 116.0, 13.0],
+        "Space / environment >",
         Action::Author(crate::editor::authoring::Command::Hub),
         true,
     );
@@ -30,6 +30,14 @@ pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &m
         146.0,
         INK,
         68,
+    );
+    button(
+        v,
+        hits,
+        [264.0, 130.0, 116.0, 13.0],
+        "Connect two floors >",
+        Action::StairWizard,
+        true,
     );
     let floor = matches!(app.selected, Some(ObjectId::Room(_)));
     button(

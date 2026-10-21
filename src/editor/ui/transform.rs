@@ -44,7 +44,14 @@ pub(in crate::editor) fn draw(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec
         } else {
             label
         };
-        text(v, field_label, x, y, MUTED, 23);
+        text(
+            v,
+            field_label,
+            x,
+            y,
+            super::AXIS_COLORS.get(index).copied().unwrap_or(MUTED),
+            23,
+        );
         let value = draft.fields.get(index).map_or("", String::as_str);
         popup_button(
             v,

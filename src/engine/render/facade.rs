@@ -12,6 +12,8 @@
 //! `docs/RENDERER.md` for the current contracts and `docs/RENDERER_REFERENCE.md`
 //! for the preserved reference implementation.
 
+pub use super::wgpu::caustics::PreparedCaustics;
+
 use sdl3::video::Window;
 
 use super::common::api::GraphicsTransition;
@@ -214,6 +216,13 @@ impl Renderer {
     /// Advances bounded GPU preparation; true only once the whole world is installed.
     pub fn advance_prepared_install(&mut self) -> bool {
         self.renderer.advance_prepared_install()
+    }
+
+    /// Attaches CPU-only water receiver preparation to the just-queued scene.
+    /// Supersession drops it with that scene; ordinary player installs retain
+    /// their existing preparation path.
+    pub fn set_prepared_caustics(&mut self, prepared: Option<PreparedCaustics>) {
+        self.renderer.set_prepared_caustics(prepared);
     }
 
     /// Discards an upload superseded by a newer request.

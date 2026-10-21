@@ -304,6 +304,19 @@
       "spatial": true,
       "min_distance": 1.0,
       "max_distance": 24.0
+    },
+    {
+      "id": "water_transition",
+      "files": [
+        "footstep_water/01.wav",
+        "footstep_water/02.wav",
+        "footstep_water/03.wav"
+      ],
+      "gain": 0.38,
+      "looping": false,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
     }
   ]
 }

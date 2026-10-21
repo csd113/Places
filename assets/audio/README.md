@@ -2,7 +2,7 @@
 
 The runtime reads `catalog.json` and the committed PCM WAVs in this directory.
 There is no asset generation or download during startup, level loading, or normal
-compilation. The 24 cues have 63 selected takes totaling 5,519,032 WAV bytes.
+compilation. The 25 cues have 63 selected takes totaling 5,519,032 WAV bytes.
 
 All source sounds are **CC0-1.0**, verified against the authors' linked primary
 pages on October 16, 2026. Credit Kenney, rubberduck, OwlishMedia, TinyWorlds,

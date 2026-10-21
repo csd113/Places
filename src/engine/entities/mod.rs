@@ -1324,6 +1324,7 @@ impl EntityWorld {
                     drop(self.components.audio.insert(
                         handle,
                         AudioEmitter {
+                            attenuation: None,
                             sound: sound.clone(),
                             gain: if gain.is_finite() && *gain >= 0.0 {
                                 *gain

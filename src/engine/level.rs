@@ -1947,6 +1947,9 @@ const fn default_audio_gain() -> f32 {
     reason = "serialized loop, enable, initial playback and spatial policies are independent authoring choices"
 )]
 pub struct SoundEmitterDef {
+    /// Optional near/far spatial attenuation; omission retains the cue defaults.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attenuation: Option<[f32; 2]>,
     pub id: String,
     #[serde(default)]
     pub x: f32,
@@ -5933,8 +5936,9 @@ pub struct LightFixtureDef {
     /// Ceiling (default) or wall mounting.
     #[serde(default)]
     pub mount: LightMount,
-    /// World Y of a wall fixture's centre. Ignored for ceiling fixtures, whose
-    /// height is derived from the room's ceiling.
+    /// World mounting-plane Y. Required for wall fixtures; an explicit ceiling
+    /// fixture Y selects its storey and is preserved. Omission hangs the fixture
+    /// just below the resolved room ceiling.
     #[serde(default)]
     pub y: Option<f32>,
     /// Distance at which the light reaches zero, in metres. Omitted means
@@ -8135,7 +8139,7 @@ impl LevelDef {
             .iter()
             .filter(|stair| {
                 let (sx0, sx1, sz0, sz1) = stair.bounds();
-                sx1 > x0 && sx0 < x1 && sz1 > z0 && sz0 < z1
+                sx1.min(x1) - sx0.max(x0) > 1.0e-4 && sz1.min(z1) - sz0.max(z0) > 1.0e-4
             })
             .collect()
     }
@@ -8895,6 +8899,10 @@ fn split_rim_span(low: f32, high: f32) -> Vec<(f32, f32)> {
         .collect()
 }
 
+/// Minimum structural backing below authored walking surfaces, in metres.
+/// Shared by rendered undersides, player head/edge contact and rigid terrain.
+pub const MIN_STRUCTURE_M: f32 = 0.15;
+
 /// Depth of a floor-region rim collider under the higher floor, in metres.
 ///
 /// The rim is a zero-thickness face in the mesh; the collider is a real box so
@@ -9429,7 +9437,7 @@ impl<'a> LevelSurfaces<'a> {
             .iter()
             .filter(|stair| {
                 let (sx0, sx1, sz0, sz1) = stair.bounds();
-                sx1 > x0 && sx0 < x1 && sz1 > z0 && sz0 < z1
+                sx1.min(x1) - sx0.max(x0) > 1.0e-4 && sz1.min(z1) - sz0.max(z0) > 1.0e-4
             })
             .collect()
     }
@@ -10073,6 +10081,14 @@ impl WalkableFloor {
                     return None;
                 }
                 Self::room_height_at(room, x, z, StairSampling::Stepped)
+                    .map(|top| {
+                        let ramp_low = room
+                            .ramps
+                            .iter()
+                            .find(|r| r.surface.contains(x, z))
+                            .map_or(top, |r| r.floor_y + r.surface.low_offset());
+                        top.min(room.floor_y).min(ramp_low) - MIN_STRUCTURE_M
+                    })
                     .filter(|height| *height > feet + crate::engine::collision::CONTACT_EPS)
             })
             .min_by(f32::total_cmp)

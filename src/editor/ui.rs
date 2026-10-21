@@ -10,7 +10,7 @@ pub(super) mod components;
 mod gameplay;
 mod geometry;
 mod inspector;
-mod library;
+pub(super) mod library;
 mod navigation;
 mod safety;
 mod scripts;
@@ -24,8 +24,14 @@ use inspector::inspector;
 pub(super) use library::draw_library as library_popup;
 pub(super) use safety::safety_popup;
 
+pub(super) const AXIS_COLORS: [[f32; 4]; 3] = [
+    [1.0, 0.25, 0.2, 1.0],
+    [0.35, 1.0, 0.35, 1.0],
+    [0.3, 0.55, 1.0, 1.0],
+];
+
 pub(super) const INK: [f32; 4] = [0.88, 0.92, 0.95, 1.0];
-const MUTED: [f32; 4] = [0.68, 0.75, 0.80, 1.0];
+pub(super) const MUTED: [f32; 4] = [0.68, 0.75, 0.80, 1.0];
 const ACCENT: [f32; 4] = [0.37, 0.86, 0.71, 1.0];
 const PANEL: [f32; 4] = [0.065, 0.09, 0.12, 1.0];
 
@@ -94,11 +100,18 @@ pub(super) enum Action {
     Save,
     Undo,
     Redo,
+    BakeStatus,
+    BakeLevel(usize),
+    BakeCancel,
     Build,
     Play,
     Cancel,
     Stop,
     Add(ObjectKind),
+    StairWizard,
+    StairFloor(bool),
+    StairPreview,
+    StairApply,
     Geometry,
     Shape,
     CutOpening,
@@ -112,6 +125,7 @@ pub(super) enum Action {
     Select(ObjectId),
     SceneSearch,
     PreviewSound(usize),
+    StopPreviewSound,
     Duplicate,
     Delete,
     Focus,
@@ -125,6 +139,9 @@ pub(super) enum Action {
     TransformApply,
     Nudge(usize, bool),
     Assets,
+    BrowserTheme,
+    MaterialTarget,
+    DoorAssets,
     Materials,
     ChooseAsset(usize),
     Page(bool),
@@ -208,7 +225,7 @@ pub(super) fn text(
     }
 }
 
-fn button(
+pub(super) fn button(
     vertices: &mut Vec<Vertex>,
     hits: &mut Vec<Hit>,
     bounds: [f32; 4],
@@ -576,6 +593,7 @@ fn footer_actions(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                     | ObjectId::Wall(_)
                     | ObjectId::Ramp(_)
                     | ObjectId::FloorRegion(_)
+                    | ObjectId::Door(_)
             )
         }),
     );

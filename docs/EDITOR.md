@@ -406,3 +406,34 @@ For explicit CPU latency checks, run `editor-profile PATH_TO_ISOLATED_PROJECT`.
 It reports document operations and performs reversible in-memory transform/history
 work. Native `--verify-script` recipes retain per-action handler and idle-wait
 milliseconds in `timings.jsonl`. Neither is an FPS benchmark or a CI map bake.
+
+### 0.13.0 selection, structure and bake review
+
+Model/entity, fixture and material pickers show committed previews in an eight-tile
+grid. Type to search, Backspace or Cmd/Ctrl A to clear, cycle the theme button,
+scroll or use Left/Right to page, and use Tab/Enter to select. Missing artwork is
+labelled and does not disable a valid asset. Only visible artwork is decoded,
+one tile per frame; at most 24 tiles are retained. Model previews use the shipped
+GLB's bind pose, actual textures and tint; they do not continuously animate or
+render the entire catalog.
+
+Project → Bake status checks **saved** levels in a background worker through the
+installed compiler. Valid results reuse their output, metadata refresh reuses
+prepared lighting, and stale results require a rebake. Integrity failure or
+missing output remains invalid/unknown with its cause. Both the project export
+and individual outputs are considered, so an old individual file cannot hide a
+valid project member. The panel pages through all levels and gives a cause per row. Select an individual row
+to build that level. Cancellation retains the last published package. Entry-byte
+breakdowns are after ZIP decoding and before internal codecs; installed cache
+and runtime RAM are separate and are not inferred from package size.
+
+Drag the selected prop, light or isolated room's colored viewport axis. Toolbar
+snapping applies, Escape/focus loss cancels, release commits one undo step, and
+numeric controls remain. Isolated-room dragging carries supported contained
+records; shared/stacked boundaries and coordinate-bearing global terrain/scripts
+receive a refusal requiring explicit numeric/group review. It does not guess
+which neighboring authored room should move.
+
+For stairs and floor clearance, see the structural backing section of the map
+authoring guide. Connect two floors previews the shaft cut and landings before
+applying ordinary editable records. Cancel leaves source unchanged.

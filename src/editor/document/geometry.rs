@@ -104,7 +104,7 @@ impl Document {
         {
             return Err("This footprint has global regions, ramps or stairs that would affect both storeys; create a separate upper floor footprint".into());
         }
-        let floor_y = room.eave_y();
+        let floor_y = room.eave_y() + crate::engine::level::MIN_STRUCTURE_M;
         let upper_eave = floor_y + room.height;
         if self.level().rooms.iter().any(|other| {
             overlaps(footprint, other.bounds())

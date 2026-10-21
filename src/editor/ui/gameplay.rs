@@ -212,6 +212,18 @@ pub(in crate::editor) fn choices_popup(
     choice: C,
     page: usize,
 ) {
+    if matches!(choice, C::EntityModel | C::Fixture) {
+        super::library::draw_grid(
+            app,
+            vertices,
+            hits,
+            &app.gameplay_choices(choice),
+            page,
+            Some(choice),
+        );
+        return;
+    }
+
     text(
         vertices,
         match choice {
@@ -273,6 +285,16 @@ pub(in crate::editor) fn choices_popup(
                 true,
             );
         }
+    }
+    if choice == C::Sound {
+        button(
+            vertices,
+            hits,
+            [255.0, 196.0, 65.0, 11.0],
+            "Stop preview",
+            Action::StopPreviewSound,
+            true,
+        );
     }
     for (x, label, action) in [
         (140.0, "< Prev", Action::Page(false)),

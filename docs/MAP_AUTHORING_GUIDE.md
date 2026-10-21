@@ -8956,3 +8956,44 @@ attached light and flashlight shadow behavior still follow existing policies.
 New packages require `animated-door-v1` so older players reject this collision
 contract explicitly. Focused CPU tests use only the delivered rig and a tiny
 placement; native acceptance belongs in the consolidated release report.
+
+### Structural backing and two-floor stairs (0.13.0)
+
+`MIN_STRUCTURE_M` is **0.15 m**, in the existing metre-based coordinate system.
+Walking elevations remain authoritative. Floors, regions, ramps and stairs now
+show the underside and lowest exposed edge band of the **same convex terrain
+patches** used by rigid collision; ramps/stairs retain their existing solid wedge
+contract, not a different visual-only sloping shell. Player head contact uses the
+same lower backing. Matching lower-room ceilings own their existing underside
+material, avoiding a duplicated coplanar underside. Geometry revision 4 requires
+recompilation of older prepared geometry.
+
+Closed lower ceilings must leave at least 0.15 m beneath an overlapping upper
+walking floor. A zero-gap floor/ceiling pair is a structural defect, not merely
+an informational shared-storey plane. Editor Safety offers an explicit ceiling
+height proposal where standing clearance permits, with preview/cancel/apply/undo;
+nearby explicitly positioned flush fixtures retain their ceiling mount offsets
+in the same proposal. Other fittings and headroom still need visual review;
+normal loader validation rejects an invalid proposed scene. Export rejects
+unresolved insufficient stacked clearance. No room shifts or stairwell fills are
+automatic. Add Upper Floor creates the new floor above the unchanged lower
+ceiling with this clearance. Existing intentional decals and placement ignores
+retain their separate contracts.
+
+**Add Geometry → Connect two floors** chooses a lower floor, upper floor and
+width (0.9–4 m, default 1.2 m). The first supported layout is a straight flight
+inside the shared rectangle of two flat rooms. It proposes a visible shaft,
+equal risers at most 0.2 m and 0.28 m treads, a lower landing and a retained
+upper-floor landing at least the flight width / 1.2 m long. The shaft is cut
+through the two explicit room footprints only after Preview and Apply, creating
+ordinary editable room strips plus one tall carrier room and a normal `stairs`
+record in one undo step. Numeric/manual Staircase authoring remains available.
+Insufficient run, low upper standing clearance, intervening floors, walls,
+props, fixtures and existing ambiguous global terrain receive actionable
+refusals. It does not guess winding flights or move obstacles out of the way.
+
+Standalone `sound_emitters[].attenuation: [near, far]` optionally overrides
+cue distances in metres (`0 <= near < far <= 1000`). Omission preserves the cue;
+non-positional sources ignore distance. Editor Configure exposes Near/Far and
+Gain; trigger-started playback uses the same override. Kira, the 48-voice bound,
+category gains and persisted master gain remain shared by all game audio.

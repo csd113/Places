@@ -354,7 +354,9 @@ impl NativeAudio {
     }
 
     pub fn play(&mut self, id: &str, request: PlayRequest) -> bool {
-        if !valid_gain(request.gain)
+        if request.attenuation.is_some_and(|[near, far]| {
+            !near.is_finite() || !far.is_finite() || near < 0.0 || far <= near || far > 1_000.0
+        }) || !valid_gain(request.gain)
             || request
                 .position
                 .is_some_and(|position| !valid_position(position))
@@ -446,8 +448,10 @@ impl NativeAudio {
                     time_domain: request.time_domain,
                     bus: request.bus,
                     spatial: request.spatial.unwrap_or(cue.spatial),
-                    min_distance: cue.min_distance,
-                    max_distance: cue.max_distance,
+                    min_distance: request
+                        .attenuation
+                        .map_or(cue.min_distance, |[near, _]| near),
+                    max_distance: request.attenuation.map_or(cue.max_distance, |[_, far]| far),
                     paused,
                     cue_index,
                     looping,
@@ -676,8 +680,10 @@ impl NativeAudio {
                     self.mix,
                     request.position,
                     request.spatial.unwrap_or(cue.spatial),
-                    cue.min_distance,
-                    cue.max_distance,
+                    request
+                        .attenuation
+                        .map_or(cue.min_distance, |[near, _]| near),
+                    request.attenuation.map_or(cue.max_distance, |[_, far]| far),
                     request.gain * cue.gain,
                     request.bus,
                 );

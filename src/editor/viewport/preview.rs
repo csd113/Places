@@ -14,6 +14,8 @@ use crate::engine::render::{
 
 pub(super) struct PreparedPreview {
     pub loaded: LoadedLevel,
+    pub metrics: serde_json::Value,
+    pub caustics: Option<crate::engine::render::PreparedCaustics>,
     pub build: Arc<LevelBuild>,
     pub assets: PropAssets,
     pub objects: Vec<PickObject>,
@@ -161,6 +163,7 @@ fn prepare(
     assets: &mut PropAssets,
     textures: &mut TextureCache,
 ) -> Result<PreparedPreview, String> {
+    let started = std::time::Instant::now();
     let root = crate::engine::assets::resolve_asset_root()
         .ok_or_else(|| "Cannot locate built-in assets for the scene preview".to_string())?;
     // Preview the same derived trim and aligned fixtures as compilation while
@@ -209,6 +212,9 @@ fn prepare(
     } else {
         build_authoring_preview(&level, catalog, assets, &materials)
     });
+    let caustics_started = std::time::Instant::now();
+    let caustics = crate::engine::render::PreparedCaustics::prepare(&level, &build.lighting);
+    let caustics_ms = caustics_started.elapsed().as_secs_f64() * 1_000.0_f64;
     let object_bounds = objects(&level, catalog, assets, &build.lighting);
     let characters = CharacterScene::spawn_characters(&level, catalog, assets, &build.lighting);
     let entry = LevelEntry {
@@ -226,7 +232,11 @@ fn prepare(
         light_sheets,
         entry,
     };
+    let stats = assets.stats();
+    let metrics = serde_json::json!({"cpu_prepare_ms":started.elapsed().as_secs_f64()*1_000.0_f64,"caustics_prepare_ms":caustics_ms,"cached_models":stats.models_loaded,"model_texture_bytes":stats.texture_bytes,"cached_images":textures.len(),"image_decodes":textures.decoded_count()});
     Ok(PreparedPreview {
+        metrics,
+        caustics,
         loaded,
         build,
         assets: assets.clone(),

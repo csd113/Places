@@ -15,6 +15,8 @@ pub(super) struct Audio {
     last_feet: Option<Vec3>,
     distance: f32,
     world_reset: u64,
+    swimming: Option<bool>,
+    last_water_sound: Option<std::time::Instant>,
     capture: Option<Capture>,
 }
 
@@ -35,6 +37,8 @@ impl Audio {
             last_feet: None,
             distance: 0.0,
             world_reset: 0,
+            swimming: None,
+            last_water_sound: None,
             capture: Capture::new(),
         }
     }
@@ -45,6 +49,8 @@ impl Audio {
         self.last_feet = None;
         self.distance = 0.0;
         self.world_reset = 0;
+        self.swimming = None;
+        self.last_water_sound = None;
     }
 
     pub fn finish(&mut self) {
@@ -94,6 +100,28 @@ impl FrameLoop<'_> {
         self.update_audio_mix();
         let active = self.gameplay_active();
         if active {
+            let swimming = self.game.is_swimming();
+            if self
+                .audio
+                .swimming
+                .replace(swimming)
+                .is_some_and(|old| old != swimming)
+                && !self.game.noclip_enabled()
+                && self
+                    .audio
+                    .last_water_sound
+                    .is_none_or(|last| last.elapsed() >= std::time::Duration::from_millis(750))
+            {
+                // Shallow ramp contact can briefly toggle swimming. Bound the
+                // audible retrigger rate without delaying or changing physics.
+                self.audio.last_water_sound = Some(std::time::Instant::now());
+                self.play_game_sound(
+                    "water_transition",
+                    None,
+                    if swimming { 0.7 } else { 0.45 },
+                    TimeDomain::Real,
+                );
+            }
             self.update_footsteps();
             self.update_door_sounds();
         } else {
@@ -255,6 +283,7 @@ impl FrameLoop<'_> {
             sound,
             PlayRequest {
                 source: Some(SourceId(entity)),
+                attenuation: self.game.entities().audio_source_attenuation(entity),
                 position,
                 spatial,
                 gain,

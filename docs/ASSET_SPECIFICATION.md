@@ -1604,6 +1604,23 @@ the current compiler builds maps against the installed asset bundle; see
 
 ## 12. Non-runtime imagery
 
+### Editor catalog previews (0.13.0)
+
+`assets/editor/previews/*.png` are opaque 160×120 RGBA8, 4:3 catalog
+previews. They are offline renders of the actual shipped GLB's geometry,
+materials, texture and catalog tint, or fitted samples of the actual material
+texture. They retain their source orientation and never replace world textures.
+`tools/editor/build_previews.py` writes the catalog-ID index and source hashes;
+run it explicitly after changing a model/material. The editor only reads these
+committed PNGs, decodes visible tiles lazily and retains at most 24 tiles.
+Missing previews show an explicit message and keep selection available.
+Native fixture bodies and the three built-in door styles use the same 160×120
+contract under `assets/editor/native-previews/`, with capture/source metadata in
+`native-previews.json`. Capture these explicitly through the native editor after
+changing their runtime geometry, mounting or textures; the generator preserves
+them rather than substituting flat fixture faces. Editor-enabled packages include
+this directory and its index; player-only exports do not need it.
+
 ### 12.1 Application icon and documentation screenshots
 
 * `assets/shared/branding/places.png` is the single approved icon and README

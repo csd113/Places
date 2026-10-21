@@ -371,7 +371,8 @@
     {
       "file": "switch_click/03.wav",
       "source": "kenney_interface",
-      "source_file": "Audio/switch_003.ogg"
+      "source_file": "Audio/switch_003.ogg",
+      "post_peak_gain": 0.65
     },
     {
       "file": "door_open/01.wav",
@@ -406,7 +407,8 @@
     {
       "file": "prop_plastic/03.wav",
       "source": "owlish_more",
-      "source_file": "Plastic/Plastic_08.wav"
+      "source_file": "Plastic/Plastic_08.wav",
+      "post_peak_gain": 0.5
     },
     {
       "file": "prop_ceramic/01.wav",

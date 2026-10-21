@@ -4,8 +4,11 @@
 mod actions;
 mod audio_preview;
 mod authoring;
+mod bakes;
+mod browser;
 mod component_actions;
 pub mod document;
+mod dragging;
 mod gameplay_actions;
 mod geometry_actions;
 mod input;
@@ -16,6 +19,7 @@ pub mod safety;
 mod safety_actions;
 mod scripting;
 mod selection;
+mod stairs;
 mod transform;
 mod ui;
 mod verification;
@@ -78,6 +82,7 @@ struct App {
     project_operation: Option<projects::Operation>,
     project_import: Option<PathBuf>,
     selected: Option<ObjectId>,
+    translation: Option<dragging::Translation>,
     status: String,
     ui_focus: Option<ui::Action>,
     thumbnail_image: Option<std::sync::Arc<crate::engine::materials::RawImage>>,
@@ -86,6 +91,8 @@ struct App {
     step: f32,
     object_scroll: usize,
     object_query: String,
+    browser: browser::Browser,
+    bakes: bakes::Planner,
     prop: String,
     sound_cues: Vec<String>,
     preview_audio: crate::engine::audio::AudioSystem,
@@ -106,6 +113,9 @@ struct App {
 impl App {
     fn load(&mut self, path: &Path) -> Result<(), String> {
         let document = Document::open(path)?;
+        self.bakes.invalidate();
+        self.preview_audio.clear_world();
+        self.sound_preview_until = None;
         self.invalidate_navigation();
         self.viewport.rebuild(document.level());
         self.viewport.frame_next_preview();
@@ -124,6 +134,7 @@ impl App {
 
     fn changed(&mut self) {
         self.invalidate_navigation();
+        self.bakes.invalidate();
         self.safety_report = None;
         self.safety_index = 0;
         self.opening_rect = None;
@@ -193,22 +204,27 @@ impl App {
     }
 
     fn update_window(&self, window: &mut sdl3::video::Window, video: &sdl3::VideoSubsystem) {
-        let wants_text = matches!(
-            self.popup,
-            Some(
-                Popup::Number { field: _, value: _ }
-                    | Popup::ProjectText { field: _, value: _ }
-                    | Popup::ScriptEdit {
-                        path: _,
-                        cursor: _,
-                        scroll: _,
-                        all: _
-                    }
-                    | Popup::Transform(_)
-                    | Popup::AuthoringForm(_)
-                    | Popup::SceneSearch(_)
-            )
-        );
+        let wants_text = matches!(self.popup, Some(Popup::Stairs(_)))
+            || self.browser_page().is_some()
+            || matches!(
+                self.popup,
+                Some(
+                    Popup::Library {
+                        materials: _,
+                        page: _
+                    } | Popup::Number { field: _, value: _ }
+                        | Popup::ProjectText { field: _, value: _ }
+                        | Popup::ScriptEdit {
+                            path: _,
+                            cursor: _,
+                            scroll: _,
+                            all: _
+                        }
+                        | Popup::Transform(_)
+                        | Popup::AuthoringForm(_)
+                        | Popup::SceneSearch(_)
+                )
+            );
         let text_input = video.text_input();
         if text_input.is_active(window) != wants_text {
             if wants_text {
@@ -231,6 +247,7 @@ impl App {
     }
 
     fn draw(&mut self, window: &sdl3::video::Window) {
+        let browser_images = self.browser_images();
         let (vertices, _hits) = ui::build(self);
         let images = if matches!(self.popup, Some(Popup::Thumbnail)) {
             self.thumbnail_image
@@ -241,7 +258,7 @@ impl App {
                 })
                 .collect()
         } else {
-            Vec::new()
+            browser_images
         };
         self.viewport.set_ui_images(images);
         let _presented = self.viewport.draw(window, &vertices);
@@ -374,36 +391,32 @@ fn editor_window(video: &sdl3::VideoSubsystem) -> Result<sdl3::video::Window, St
     Ok(window)
 }
 
-fn application(options: Options) -> Result<(), String> {
-    let mut verification = options
-        .verify_script
-        .as_deref()
-        .map(verification::Verification::from_path)
-        .transpose()?;
-    if let Some(root) = &options.asset_root {
-        paths::configure_assets(root)?;
-    }
-    assets::validate_installation()?;
-    let _user = paths::initialize_user()?;
-    let tools = configured_tools(&options)?;
-    let sdl = sdl3::init().map_err(|e| e.to_string())?;
-    let video = sdl.video().map_err(|e| e.to_string())?;
-    let mut window = editor_window(&video)?;
-    let viewport = Viewport::new(&window)?;
+fn create_app(
+    window: &sdl3::video::Window,
+    sdl: &sdl3::Sdl,
+    tools: ToolPaths,
+    capture_dir: Option<PathBuf>,
+) -> Result<App, String> {
+    let viewport = Viewport::new(window)?;
     let (dialog_sender, dialog_receiver) = mpsc::channel();
-    let capture = options.capture_dir.map(Capture::new).transpose()?;
-    let mut app = App {
+    let capture = capture_dir.map(Capture::new).transpose()?;
+    let catalog = assets::AssetCatalog::load_default();
+    let browser = browser::Browser::new(&catalog);
+    let app = App {
         capture,
         document: None,
         viewport,
         tools,
-        catalog: assets::AssetCatalog::load_default(),
+        catalog,
+        browser,
+        bakes: bakes::Planner::default(),
         compile: None,
         play: None,
         play_after_build: false,
         project_operation: None,
         project_import: None,
         selected: None,
+        translation: None,
         ui_focus: None,
         thumbnail_image: None,
         status: "New: choose a parent folder. Open: choose an existing project folder.".into(),
@@ -420,7 +433,7 @@ fn application(options: Options) -> Result<(), String> {
             .cue_ids()
             .map(str::to_string)
             .collect(),
-        preview_audio: crate::engine::audio::AudioSystem::new(paths::assets()?, &sdl),
+        preview_audio: crate::engine::audio::AudioSystem::new(paths::assets()?, sdl),
         sound_preview_until: None,
         popup: None,
         script_feedback: String::new(),
@@ -434,6 +447,25 @@ fn application(options: Options) -> Result<(), String> {
         dialog_receiver,
         closing: false,
     };
+    Ok(app)
+}
+
+fn application(options: Options) -> Result<(), String> {
+    let mut verification = options
+        .verify_script
+        .as_deref()
+        .map(verification::Verification::from_path)
+        .transpose()?;
+    if let Some(root) = &options.asset_root {
+        paths::configure_assets(root)?;
+    }
+    assets::validate_installation()?;
+    let _user = paths::initialize_user()?;
+    let tools = configured_tools(&options)?;
+    let sdl = sdl3::init().map_err(|e| e.to_string())?;
+    let video = sdl.video().map_err(|e| e.to_string())?;
+    let mut window = editor_window(&video)?;
+    let mut app = create_app(&window, &sdl, tools, options.capture_dir)?;
     app.load_initial(options.project, options.new, options.level)?;
     let mut events = sdl.event_pump().map_err(|e| e.to_string())?;
     while !app.closing {
@@ -456,6 +488,7 @@ fn application(options: Options) -> Result<(), String> {
         app.dialogs();
         app.update_audio_preview();
         app.poll_jobs();
+        app.bakes.poll();
         app.poll_safety();
         app.poll_navigation();
         if let Some(error) = app.viewport.status() {

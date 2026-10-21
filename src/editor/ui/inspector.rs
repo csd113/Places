@@ -138,7 +138,14 @@ fn scalar(
     label: &str,
     value: f32,
 ) {
-    text(v, label, 5.0, top + 3.0, MUTED, 8);
+    text(
+        v,
+        label,
+        5.0,
+        top + 3.0,
+        super::AXIS_COLORS.get(index).copied().unwrap_or(MUTED),
+        8,
+    );
     button(
         v,
         hits,

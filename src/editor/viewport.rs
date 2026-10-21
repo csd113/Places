@@ -57,6 +57,8 @@ pub(super) struct Viewport {
     uploading: bool,
     frame_next: bool,
     last_frame: Instant,
+    requested: Option<Instant>,
+    preview_metrics: serde_json::Value,
 }
 
 impl Viewport {
@@ -92,6 +94,8 @@ impl Viewport {
             uploading: false,
             frame_next: true,
             last_frame: Instant::now(),
+            requested: None,
+            preview_metrics: serde_json::json!({}),
         })
     }
 
@@ -100,6 +104,7 @@ impl Viewport {
     }
 
     pub fn rebuild(&mut self, level: &LevelDef) {
+        self.requested = Some(Instant::now());
         self.volume_guides = overlay::volumes(level);
         self.worker.request(level, self.environment_preview());
     }
@@ -216,7 +221,7 @@ impl Viewport {
         self.movement.clear();
     }
 
-    fn selected_bounds(&self) -> Option<Aabb> {
+    pub(super) fn selected_bounds(&self) -> Option<Aabb> {
         self.objects
             .iter()
             .find(|object| Some(object.id) == self.selected)
@@ -236,12 +241,37 @@ impl Viewport {
             .map(|(id, _)| id)
     }
 
+    pub fn axis_handles(&self) -> Vec<[[f32; 2]; 2]> {
+        let Some(bounds) = self.selected_bounds() else {
+            return Vec::new();
+        };
+        let centre = Vec3::from_array(bounds.centre());
+        [Vec3::X, Vec3::Y, Vec3::Z]
+            .into_iter()
+            .filter_map(|axis| {
+                Some([
+                    self.project(centre)?,
+                    self.project(Vec3::new(
+                        centre.x + axis.x,
+                        centre.y + axis.y,
+                        centre.z + axis.z,
+                    ))?,
+                ])
+            })
+            .collect()
+    }
+
+    pub const fn preview_metrics(&self) -> &serde_json::Value {
+        &self.preview_metrics
+    }
+
     pub fn draw(&mut self, window: &Window, ui: &[Vertex]) -> bool {
         let (width, height) = window.size_in_pixels();
         self.size = DrawableSize::new(width, height);
         self.window_size = window.size();
         let _resized = self.renderer.set_drawable_size(self.size);
         if let Some(preview) = self.worker.poll() {
+            self.preview_metrics = preview.metrics;
             self.objects = preview.objects;
             if self.frame_next {
                 self.frame_next = false;
@@ -255,10 +285,35 @@ impl Viewport {
                 false,
                 crate::engine::package::world::ProbeCaptures::default(),
             );
+            self.renderer.set_prepared_caustics(preview.caustics);
             self.uploading = true;
         }
-        if self.uploading && self.renderer.advance_prepared_install() {
-            self.uploading = false;
+        if self.uploading {
+            let upload_started = Instant::now();
+            let finished = self.renderer.advance_prepared_install();
+            let blocked_ms = upload_started.elapsed().as_secs_f64() * 1_000.0_f64;
+            let old = self
+                .preview_metrics
+                .get("max_upload_handler_ms")
+                .and_then(serde_json::Value::as_f64)
+                .unwrap_or(0.0_f64);
+            if let Some(metrics) = self.preview_metrics.as_object_mut() {
+                drop(metrics.insert(
+                    "max_upload_handler_ms".into(),
+                    serde_json::json!(old.max(blocked_ms)),
+                ));
+            }
+            if finished {
+                self.uploading = false;
+                if let Some(requested) = self.requested.take()
+                    && let Some(metrics) = self.preview_metrics.as_object_mut()
+                {
+                    drop(metrics.insert(
+                        "request_to_ready_ms".into(),
+                        serde_json::json!(requested.elapsed().as_secs_f64() * 1_000.0_f64),
+                    ));
+                }
+            }
         }
         let now = Instant::now();
         let delta = now.duration_since(self.last_frame).as_secs_f32().min(0.05);

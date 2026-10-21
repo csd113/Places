@@ -116,11 +116,10 @@ impl Guides {
     pub fn selection(&mut self, bounds: Aabb) {
         self.box_lines(bounds, [1.0, 0.74, 0.2, 1.0]);
         let centre = Vec3::from_array(bounds.centre());
-        for (axis, color) in [
-            (Vec3::X, [1.0, 0.25, 0.2, 1.0]),
-            (Vec3::Y, [0.35, 1.0, 0.35, 1.0]),
-            (Vec3::Z, [0.3, 0.55, 1.0, 1.0]),
-        ] {
+        for (axis, color) in [Vec3::X, Vec3::Y, Vec3::Z]
+            .into_iter()
+            .zip(crate::editor::ui::AXIS_COLORS)
+        {
             self.axis(centre, axis, color);
         }
     }

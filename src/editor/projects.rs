@@ -84,6 +84,13 @@ pub(super) fn draw(app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: 
         draw_text(v, hits, *field, value);
     } else {
         draw_project(app, v, hits);
+        ui::popup_button(
+            v,
+            hits,
+            [238.0, 219.0, 136.0, 12.0],
+            "Migration check",
+            Action::ProjectMigrate,
+        );
     }
     ui::popup_button(
         v,
@@ -319,7 +326,7 @@ fn draw_level(
             Action::ProjectField(Field::Import),
         ),
         ("Check project", Action::ProjectCheck),
-        ("Migration check", Action::ProjectMigrate),
+        ("Bake status / reuse", Action::BakeStatus),
         ("Import JSON map", Action::ProjectField(Field::ImportJson)),
     ]
     .into_iter()

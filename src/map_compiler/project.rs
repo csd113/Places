@@ -70,6 +70,17 @@ pub fn output_path(input: &Path, selected: Option<&str>) -> Result<PathBuf, Stri
     }
 }
 
+/// Standard complete export is a read-only cache candidate for selected builds.
+/// It is never replaced or extracted into the user's published output.
+pub(super) fn exported_cache(input: &Path) -> Option<PathBuf> {
+    let folder = ProjectFolder::open(input).ok()?;
+    Some(
+        folder
+            .root()
+            .join(format!("{}.placesmap", folder.manifest().id)),
+    )
+}
+
 /// Plans one package per manifest level in declared order.
 ///
 /// Planning validates every source before any output is written. The output directory is explicit

@@ -35,6 +35,7 @@ pub mod reflections;
 pub mod snow;
 pub mod stats;
 pub mod storm;
+mod structure;
 pub mod view;
 pub mod water;
 
@@ -729,7 +730,7 @@ fn merge_light_runs(
 const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 
 /// Current pre-release geometry revision; superseded layouts require recompilation.
-pub const GEOMETRY_REVISION: u32 = 3;
+pub const GEOMETRY_REVISION: u32 = 4;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.

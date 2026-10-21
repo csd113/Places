@@ -323,6 +323,15 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     let (catalog, catalog_hash) = load_catalog_identity(&catalog_path)?;
     crate::map_compiler::prepare_level(&mut level, catalog.assets(), None);
     crate::engine::project::validate_level_assets(&level, catalog.assets())?;
+    if let Some(issue) = crate::engine::structure::clearances(&level).first() {
+        return Err(format!(
+            "Structural clearance: room {} ceiling and room {} floor leave {:.3} m; need at least {:.2} m. Review in editor Safety; move no room automatically.",
+            issue.lower,
+            issue.upper,
+            issue.gap,
+            crate::engine::level::MIN_STRUCTURE_M
+        ));
+    }
     let source_hash = sha256_hex(&source_bytes);
     let mut assets = crate::engine::props::PropAssets::with_root(request.asset_root.clone());
 
@@ -436,7 +445,18 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     let reused = if request.force {
         Err("forced rebuild requested".to_string())
     } else {
-        reuse_prepared_lighting(&request.out, &lighting_fingerprint, &level, &mut warnings)
+        reuse_prepared_lighting(&request.out, &lighting_fingerprint, &level, &mut warnings).or_else(
+            |original| {
+                let Some(exported) = project::exported_cache(&request.source) else {
+                    return Err(original);
+                };
+                if exported == request.out || !exported.is_file() {
+                    return Err(original);
+                }
+                reuse_prepared_lighting(&exported, &lighting_fingerprint, &level, &mut warnings)
+                    .map_err(|reason| format!("{original}; project export: {reason}"))
+            },
+        )
     };
     record_phase(&mut phases, "prepared_package_integrity", reuse_started);
     if let Ok((reused_variants, reused_blobs)) = reused {
@@ -2427,6 +2447,7 @@ fn reuse_prepared_lighting(
         return Err("no previous package".to_string());
     }
     let mut reader = open_package(out)?;
+    crate::engine::package::project::select(&mut reader, Some(&level.id))?;
     let names = reader.names().to_vec();
     let manifest_bytes =
         reader.read_entry("manifest.json", crate::engine::package::MAX_MANIFEST_BYTES)?;

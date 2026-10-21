@@ -49,6 +49,9 @@ impl Document {
     /// Reads the contextual property without replacing unsupported source data.
     #[must_use]
     pub fn gameplay_value(&self, id: ObjectId, setting: GameplaySetting) -> Value {
+        if let Some(value) = self.audio_setting(id, setting) {
+            return value;
+        }
         if let Some(number) = resolved_light_value(self.level(), id, setting) {
             return json!(number);
         }
@@ -56,19 +59,8 @@ impl Document {
         let Some(object) = self.raw().get(collection).and_then(|v| v.get(index)) else {
             return Value::Null;
         };
-        if let ObjectId::SpawnPoint(i) = id {
-            let template = self.level().spawn_points.get(i).and_then(|point| {
-                self.level()
-                    .spawn_templates
-                    .iter()
-                    .find(|t| t.id == point.template)
-            });
-            if setting == GameplaySetting::ShadowOnly {
-                return json!(template.is_some_and(|t| t.shadow_only));
-            }
-            if setting == GameplaySetting::Lifetime {
-                return json!(template.and_then(|t| t.lifetime_seconds).unwrap_or(0.0));
-            }
+        if let Some(value) = self.template_setting(id, setting) {
+            return value;
         }
         let source = if matches!(
             setting,
@@ -116,7 +108,9 @@ impl Document {
                 GameplaySetting::Brightness
                 | GameplaySetting::Emission
                 | GameplaySetting::Gain
-                | GameplaySetting::Mass => json!(1.0_f32),
+                | GameplaySetting::Mass
+                | GameplaySetting::AudioNear => json!(1.0_f32),
+                GameplaySetting::AudioFar => json!(24.0_f32),
                 GameplaySetting::FogFalloff => json!(crate::engine::level::DEFAULT_FOG_FALLOFF_M),
                 GameplaySetting::Range => json!(crate::engine::lighting::DEFAULT_LIGHT_RANGE_M),
                 GameplaySetting::Swing => json!(90.0_f32),
@@ -142,6 +136,44 @@ impl Document {
             })
     }
 
+    fn audio_setting(&self, id: ObjectId, setting: GameplaySetting) -> Option<Value> {
+        if !matches!(
+            setting,
+            GameplaySetting::AudioNear | GameplaySetting::AudioFar
+        ) {
+            return None;
+        }
+        let index = usize::from(setting == GameplaySetting::AudioFar);
+        Some(
+            self.raw()
+                .get("sound_emitters")
+                .and_then(|v| v.get(id.collection().1))
+                .and_then(|v| v.get("attenuation"))
+                .and_then(|v| v.get(index))
+                .cloned()
+                .unwrap_or_else(|| json!(if index == 0 { 1.0_f32 } else { 24.0_f32 })),
+        )
+    }
+    fn template_setting(&self, id: ObjectId, setting: GameplaySetting) -> Option<Value> {
+        if let ObjectId::SpawnPoint(i) = id {
+            let template = self.level().spawn_points.get(i).and_then(|point| {
+                self.level()
+                    .spawn_templates
+                    .iter()
+                    .find(|t| t.id == point.template)
+            });
+            if setting == GameplaySetting::ShadowOnly {
+                return Some(json!(template.is_some_and(|t| t.shadow_only)));
+            }
+            if setting == GameplaySetting::Lifetime {
+                return Some(json!(
+                    template.and_then(|t| t.lifetime_seconds).unwrap_or(0.0)
+                ));
+            }
+        }
+        None
+    }
+
     /// Changes one supported property in one validated undo step.
     ///
     /// # Errors
@@ -154,6 +186,25 @@ impl Document {
         catalog: &AssetCatalog,
     ) -> Result<(), String> {
         let mut raw = self.raw().clone();
+        if matches!(
+            setting,
+            GameplaySetting::AudioNear | GameplaySetting::AudioFar
+        ) {
+            if !matches!(id, ObjectId::Audio(_)) {
+                return Err("Attenuation belongs to a standalone sound emitter".into());
+            }
+            let object = object_mut(&mut raw, id)?;
+            let mut distances = object
+                .get("attenuation")
+                .cloned()
+                .unwrap_or_else(|| json!([1.0_f32, 24.0_f32]));
+            let component = distances
+                .get_mut(usize::from(setting == GameplaySetting::AudioFar))
+                .ok_or("Invalid attenuation vector")?;
+            *component = value;
+            drop(object.insert("attenuation".into(), distances));
+            return self.accept_edit(raw);
+        }
         if setting == GameplaySetting::ShadowOnly {
             return self.set_shadow_only(id, value);
         }
@@ -383,6 +434,8 @@ fn resolved_light_value(
             GameplaySetting::Enabled
             | GameplaySetting::Switchable
             | GameplaySetting::Gain
+            | GameplaySetting::AudioNear
+            | GameplaySetting::AudioFar
             | GameplaySetting::Loop
             | GameplaySetting::Playing
             | GameplaySetting::Spatial

@@ -95,7 +95,8 @@ pub struct SafetyFix {
     pub title: String,
     pub explanation: String,
     expected: Arc<Value>,
-    remove_wall: usize,
+    remove_wall: Option<usize>,
+    ceiling: Option<(usize, f32)>,
 }
 
 impl SafetyFix {
@@ -112,14 +113,31 @@ impl SafetyFix {
             );
         }
         let mut candidate = current_raw.clone();
+        if let Some((room, height)) = self.ceiling {
+            let level =
+                LevelDef::from_json(&current_raw.to_string()).map_err(|error| error.to_string())?;
+            let record = candidate
+                .get_mut("rooms")
+                .and_then(|rooms| rooms.get_mut(room))
+                .and_then(Value::as_object_mut)
+                .ok_or("The ceiling room no longer exists")?;
+            drop(record.insert("height".into(), serde_json::json!(height)));
+            let _adjusted = reanchor_ceiling_fixtures(&level, &mut candidate, room, height);
+            crate::editor::document::intent::ensure_automatic_edit_allowed(
+                current_raw,
+                &candidate,
+            )?;
+            return Ok(candidate);
+        }
+        let remove_wall = self.remove_wall.ok_or("Missing correction")?;
         let walls = candidate
             .get_mut("walls")
             .and_then(Value::as_array_mut)
             .ok_or("The duplicate wall collection no longer exists")?;
-        if self.remove_wall >= walls.len() {
+        if remove_wall >= walls.len() {
             return Err("The duplicate wall no longer exists".into());
         }
-        drop(walls.remove(self.remove_wall));
+        drop(walls.remove(remove_wall));
         crate::editor::document::intent::ensure_automatic_edit_allowed(current_raw, &candidate)?;
         Ok(candidate)
     }
@@ -206,6 +224,7 @@ pub fn analyze(level: &LevelDef, raw: &Value) -> SafetyReport {
             checked.suppressed
         );
     }
+    structural_clearance_fixes(level, raw, &mut report);
     duplicate_wall_fixes(level, raw, &mut report);
     items::check(&prepared, &mut report);
     boundaries::check(&prepared, &mut report);
@@ -417,7 +436,8 @@ fn duplicate_wall_fixes(level: &LevelDef, raw: &Value, report: &mut SafetyReport
                 title: format!("Remove duplicate wall {}", remove.saturating_add(1)),
                 explanation: format!("Removes only wall {}; keeps identical wall {}. Apply creates one undo step. Any source edit invalidates this preview.", remove.saturating_add(1), keep.saturating_add(1)),
                 expected: Arc::clone(&expected),
-                remove_wall: remove,
+                remove_wall: Some(remove),
+                ceiling: None,
             }),
         });
     }
@@ -540,4 +560,77 @@ fn marker_bounds(position: [f32; 3]) -> Aabb {
         min: position.map(|value| value - 0.15),
         max: position.map(|value| value + 0.15),
     }
+}
+
+fn structural_clearance_fixes(level: &LevelDef, raw: &Value, report: &mut SafetyReport) {
+    let issues = crate::engine::structure::clearances(level);
+    if issues.is_empty() {
+        return;
+    }
+    if issues.len() > MAX_FINDINGS {
+        let _limit = write!(
+            report.limitations,
+            " Structural clearance proposals are limited to {MAX_FINDINGS}; fix and rerun to review the rest."
+        );
+    }
+    // All findings share one source snapshot; full candidates are created only
+    // when selected for Preview, rather than cloning the map for every pair.
+    let expected = Arc::new(raw.clone());
+    for issue in issues.into_iter().take(MAX_FINDINGS) {
+        let proposed = level.rooms.get(issue.lower).map_or(0.0, |r| {
+            r.height - (crate::engine::level::MIN_STRUCTURE_M - issue.gap)
+        });
+        let fix = if proposed >= crate::engine::collision::PLAYER_HEIGHT + 0.3 {
+            Some(SafetyFix {
+                title: "Review ceiling clearance".into(),
+                explanation: format!(
+                    "Lowers room {} ceiling to {proposed:.3} m, retaining nearby flush-fixture mount offsets. Preserves upper floor/routes/openings. Review headroom and fixtures; Cancel changes nothing and Apply is one undo step.",
+                    issue.lower
+                ),
+                expected: Arc::clone(&expected),
+                remove_wall: None,
+                ceiling: Some((issue.lower, proposed)),
+            })
+        } else {
+            None
+        };
+        report.findings.push(SafetyFinding {check:"structural-clearance", category:SafetyCategory::Coplanar,severity:SafetySeverity::Error,title:format!("room {} ceiling / room {} floor",issue.lower,issue.upper),risk:format!("Only {:.3} m separates these surfaces; need {:.2} m of structure. Back-to-back floor/ceiling planes can z-fight. Export refuses this stack. Adjust elevations/ceiling deliberately; never fill a stairwell.",issue.gap,crate::engine::level::MIN_STRUCTURE_M),position:issue.position,bounds:marker_bounds(issue.position),objects:vec![ObjectId::Room(issue.lower),ObjectId::Room(issue.upper)],surfaces:Vec::new(),fix,placement_ignore:None});
+    }
+}
+
+// Explicit fixture Y is an anchor, not an automatic ceiling attachment. Keep
+// a flush fixture's existing drop when reviewing a lower ceiling, otherwise it
+// would be buried inside the new structural slab (the Annex regression).
+fn reanchor_ceiling_fixtures(
+    level: &LevelDef,
+    candidate: &mut Value,
+    lower: usize,
+    proposed: f32,
+) -> usize {
+    let Some(room) = level.rooms.get(lower) else {
+        return 0;
+    };
+    let mut adjusted = 0_usize;
+    for (index, fixture) in level.ceiling_lights.iter().enumerate() {
+        if fixture.mount != crate::engine::level::LightMount::Ceiling
+            || !room.contains(fixture.x, fixture.z)
+        {
+            continue;
+        }
+        let Some(y) = fixture
+            .y
+            .filter(|mount_y| (*mount_y - room.eave_y()).abs() < 0.2)
+        else {
+            continue;
+        };
+        if let Some(record) = candidate
+            .get_mut("ceiling_lights")
+            .and_then(|lights| lights.get_mut(index))
+            .and_then(Value::as_object_mut)
+        {
+            drop(record.insert("y".into(), serde_json::json!(y + proposed - room.height)));
+            adjusted = adjusted.saturating_add(1);
+        }
+    }
+    adjusted
 }

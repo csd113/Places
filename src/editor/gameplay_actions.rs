@@ -24,7 +24,7 @@ pub(super) enum GameplayChoice {
     TransitionAction,
 }
 
-pub(super) const NUMBER_SETTINGS: [GameplaySetting; 14] = [
+pub(super) const NUMBER_SETTINGS: [GameplaySetting; 16] = [
     GameplaySetting::Brightness,
     GameplaySetting::Range,
     GameplaySetting::Red,
@@ -39,6 +39,8 @@ pub(super) const NUMBER_SETTINGS: [GameplaySetting; 14] = [
     GameplaySetting::FogDensity,
     GameplaySetting::FogFalloff,
     GameplaySetting::Lifetime,
+    GameplaySetting::AudioNear,
+    GameplaySetting::AudioFar,
 ];
 
 pub(super) fn number_field(setting: GameplaySetting) -> Option<usize> {
@@ -76,9 +78,15 @@ impl App {
                     "Carrier type changed. Use Mount surface to align with geometry.".into();
             }
             Action::Create => self.popup = Some(Popup::Create),
-            Action::Gameplay => self.popup = Some(Popup::Gameplay { page: 0 }),
+            Action::Gameplay => {
+                self.preview_audio.clear_world();
+                self.sound_preview_until = None;
+                self.popup = Some(Popup::Gameplay { page: 0 });
+            }
             Action::GameplayActions => self.popup = Some(Popup::GameplayActions),
             Action::GamePick(choice) => {
+                self.browser.query.clear();
+                self.browser.theme = 0;
                 self.popup = Some(Popup::GameplayChoices { choice, page: 0 });
             }
             Action::GameChoose(choice, index) => self.choose_gameplay(choice, index)?,
@@ -148,14 +156,14 @@ impl App {
                 .catalog
                 .entries()
                 .into_iter()
-                .filter(|e| e.asset_type.as_str() == AssetType::LIGHT)
+                .filter(|e| e.asset_type.as_str() == AssetType::LIGHT && self.browser_matches(e))
                 .map(|e| e.id.clone())
                 .collect(),
             GameplayChoice::EntityModel => self
                 .catalog
                 .entries()
                 .into_iter()
-                .filter(|e| e.asset_type.as_str() == AssetType::ENTITY)
+                .filter(|e| e.asset_type.as_str() == AssetType::ENTITY && self.browser_matches(e))
                 .map(|e| e.id.clone())
                 .collect(),
             GameplayChoice::Sound => self.sound_cues.clone(),
@@ -223,6 +231,10 @@ impl App {
     }
 
     fn choose_gameplay(&mut self, choice: GameplayChoice, index: usize) -> Result<(), String> {
+        if choice == GameplayChoice::Sound {
+            self.preview_audio.clear_world();
+            self.sound_preview_until = None;
+        }
         let value = self
             .gameplay_choices(choice)
             .get(index)

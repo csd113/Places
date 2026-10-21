@@ -1737,3 +1737,237 @@ editor/audio polish, then main-menu/visual styles; mannequin ragdolls is second
 to last, before docs cleanup/final integration. The approved stair-generation
 and structural-thickness work is recorded for that next owner, not implemented
 in this performance pass.
+
+## Editor and audio polish stage — 2026-10-21
+
+This stage starts from `6c1127ff869d5c0c44f06725efd70b489c708ed6` on
+`0.13.0-staging`. The single writer retained the previous performance evidence,
+packages and two unrelated untracked Python audit reports. Issues #18 and #29
+and their comments were read; completed 0.12 authoring work was reused. Issue #31
+architecture projects remain deferred. No main merge, release or CI wait belongs
+to this stage. Cargo's release version remains the queue's existing 0.12.0 value;
+this work does not independently change release metadata.
+
+### Delivered behavior
+
+- **Visual selection:** 525 indexed, committed 160×120 PNG previews cover the
+  actual prop/entity GLBs, catalog tint, material images, six native fixture
+  bodies and all three native door styles. Eight-tile grids retain names, theme
+  filtering, search, paging, keyboard access and missing-preview feedback.
+  Room material selection distinguishes Floor/Ceiling. Door styles and door
+  materials preserve the rest of the authored instance. A visible tile is decoded
+  at most once per frame; CPU artwork retention is capped at 24 tiles (1.76 MiB),
+  and the existing GPU UI image cache remains capped at eight. Offline generation
+  uses shipped assets; the editor never renders the entire catalog continuously.
+  `--with-editor` distributions include the preview files and index.
+- **Bake review:** Project → Bake status uses the installed compiler's dependency
+  and integrity contracts on a background worker. It considers both individual
+  outputs and the complete export, with valid / metadata refresh / stale rebake /
+  invalid or unknown states, causes per row and paging. Valid rows cannot start
+  redundant builds. An affected row builds only its selected map. Existing
+  compiler progress, cancellation and atomic publication retain the last usable
+  package. The size review counts physical shared project blobs once, classifies
+  their virtual roles, and explicitly distinguishes ZIP archive bytes, entry
+  bytes before internal codecs, installed cache and RAM. Index/size work also
+  runs off the UI thread.
+- **Structure:** the shared default is **0.15 m** in the existing metre units,
+  compared with the previous 0.12 m rigid terrain backing. Floors, raised regions,
+  slopes and stairs have actual downward faces and exposed edge bands from the
+  same convex patches as collision. Existing solid ramp/stair wedge semantics
+  remain. Equal internal seams and wall-covered bands are clipped, and lower
+  ceilings own matching underside material. Player head contact uses that same
+  backing. Geometry revision 4 intentionally requires older prepared geometry
+  to be rebuilt; the planner must not call that global contract change unrelated
+  per-level motion.
+- **Stack safeguards and Annex:** Safety/export reject insufficient lower-ceiling
+  to upper-floor clearance, including a ceiling intruding into the upper occupied
+  room. An enclosing hall roof above several storeys retains its ownership.
+  Safety provides an exact-source, reviewable ceiling proposal with adequate
+  standing clearance; nearby explicit flush-fixture drops are retained in the
+  same undoable proposal. Nothing silently moves a room or fills a shaft. Add
+  Upper Floor places the new floor above the unchanged lower ceiling. Tower
+  rooms 0–2 keep their walking elevations and have 3.05 m ceiling height; three
+  redundant landing ceilings inside the tall stair hall are open. Only the
+  corresponding three flush-fixture heights are reanchored by 0.15 m. Existing
+  ramps, stairs, passages, floor elevations and intentional layering remain.
+- **Stairs:** Add Geometry → Connect two floors selects the lower/upper rooms and
+  width. The conservative straight-flight workflow supports overlapping flat
+  floors, 0.9–4 m width (1.2 m default), risers at most 0.2 m, 0.28 m treads,
+  landings at least width/1.2 m, a real cut shaft and upper standing clearance.
+  It checks the flight/landing envelope against walls, transformed prop bounds,
+  fixture footprints, door swing envelopes and intervening floors. Ambiguous
+  global terrain or insufficient fit gives an actionable refusal. Preview/Cancel
+  preserve source; Apply creates ordinary editable room/stair records in one
+  undo step. Manual Staircase and numeric controls remain available.
+- **Editing:** colored viewport axes translate props, fixtures and isolated rooms
+  with toolbar snapping, private previews, Escape/focus-loss cancellation and one
+  history commit on release. XYZ labels share the actual red/green/blue viewport
+  colors. Isolated-room moves carry supported contained records and fog boxes;
+  shared boundaries, crossing boxes and coordinate-bearing global geometry/scripts
+  require explicit review. This is not arbitrary connected-room group dragging.
+  Existing per-map history bounds (64 revisions / 32 MiB per undo or redo stack),
+  coalesced preparation and cache pruning remain; diagnostic receipts now expose
+  retained counts and preview latency. Safety remains explicit/background work,
+  with no continuous all-pairs validation added.
+- **Audio:** Kira 0.12.5/SDL3 is retained. The 63 WAVs now supply 25 cues; a restrained
+  `water_transition` reuses recorded splashes for real swim entry/exit. Loading
+  and reset do not manufacture a transition. The unusually loud third switch
+  and plastic takes have reproducible post-normalization gains of 0.65 / 0.5;
+  source identity, trim and edge fades remain. Provenance and packaged WAVs are
+  updated. Standalone emitters expose gain and optional near/far attenuation;
+  authored/triggered playback carries the same override. Preview supports
+  stop/replay and is cleared on Back, assignment, close and map replacement.
+  Missing references remain named validation errors, and voices retain the
+  engine's bound of 48.
+
+### Acceptance and limits
+
+The stage's authoritative logs, exact package/binary identities, native source
+fixtures, screenshots, recipes and receipts are under
+`local/editor-audio-0.13.0/`; the final index and ownership state are in
+`FINAL-HANDOFF.json`. Deliverables remain outside `target/`. Tiny deterministic
+regressions protect stair shaft/landing support and undo/save/reopen, structural
+undersides matching collision, reviewable ceiling/fixture correction and room
+fog translation/refusal. They perform no shipped-map bake. Existing trigger,
+fog, door, physics, placement-intent and shared water-lighting regressions remain
+in the owning suites.
+
+Native audio campaigns pass controls (37 checks), lifecycle (43), settings (28)
+and movement/material footsteps (32), with real post-mixer PCM and voice traces.
+The actual master-zero restart records saved master `0.0`, zero active/new voice
+gains and 64,512 stereo PCM frames with exact zero peak. The next menu stage must
+reuse `Settings::set_master_volume`, normal settings persistence and the shared
+`AudioSettings::master_volume` mix path for main/pause settings. No new main-menu
+scene or second master bus was built. These observations do **not** establish
+subjective sound quality or physical device hotplug behavior; neither was tested.
+Browser audio and other desktop platforms were not part of native acceptance.
+
+Native generation exercised Preview/Cancel/Apply/Undo/Redo, save/reopen and export;
+ordinary W/S movement, with noclip off, reached and returned from the generated
+3.35 m landing. Native drag receipts distinguish actual cancellation after
+reselecting objects following undo; all three cancellation sources are unchanged.
+The 80-edit history run retains 64 revisions / 33,102 serialized bytes, and after
+64 undos retains 64 redo revisions / 33,103 bytes. Its native peak footprint was
+371,967,224 bytes; serialized history accounting is not process RAM.
+
+Initial diagnostic failures are retained: catalog/transition/script admission
+correctly refused incompatible baseline packages; corrected geometry-only
+baseline fixtures retain compiled scripts and remove transition admission only
+in the copied diagnostic source. One baseline capture run had two unavailable
+surface frames and is excluded from throughput evidence. Early UI recipes that
+requested hidden scene controls or used Close instead of Back were corrected;
+an extra diagnostic nudge correctly produced an unsaved-close dialog. None was
+used to bypass an access denial, and no user project was discarded.
+
+The matched seven-map editor baseline did not show a general map-switch speedup:
+ready times before/after were Hub 399/416 ms, Home 413/414 ms, Pool 2700/2780 ms,
+Office 397/399 ms, Arcade 1246/1148 ms, Lantern Hollow 5806/5893 ms and Winter
+1470/1465 ms. One short native peak-footprint sample was 3,095,349,408 versus
+3,069,003,912 bytes; that is not a general memory improvement claim. A subsequent
+nine-member project loop completed twice and stabilized at nine documents and
+69 decoded images, returning to each map's same retained model count. Its peak
+footprint was 3,118,221,472 bytes. Serialized history and image cache bytes are
+not total process residency.
+
+The retained Pool UI stall was investigated before handoff. Native sampling with
+symbols traced it to `Caustics::upload → ReceiverField::build`, including source
+visibility work on the UI thread. The editor now prepares that exact CPU field
+on its existing coalesced preview worker and attaches it to the same immutable
+prepared scene. No GPU handles cross threads, no new scheduler/streaming project
+was started, and the ordinary player path retains the existing preparation.
+The final matched, unsampled release pair records the longest UI upload handler
+**1,595.38 → 78.56 ms**, while total request-to-ready stays approximately unchanged
+at **2,828.78 → 2,860.48 ms**. Both retain 149 viewport objects, 38 models, 43
+images, 19,136,512 model texture bytes and exactly 65,120 water receiver samples /
+208,716 sparse factors / 1,398,100 mask bytes / mean 0.140651. The new worker field
+cost is 1,547.09 ms. The symbol witness locates receiver preparation on that
+worker. The remaining ~79 ms upload span, large-map CPU preparation and
+multi-gigabyte residency are explicit limits; broader issue #31 work stays deferred.
+These editor operation measurements use Fifo at physical 2880×1632 and the
+editor's normal pacing, and are **not FPS throughput evidence**. Player captures
+request Immediate, retain actual drawable/settings in receipts, and show the
+known ~120 Hz presentation plateau; this stage claims no engine FPS gain.
+
+A native two-level bake review demonstrated metadata refresh, both current,
+then only Workshop requiring a bake while Second stayed current; checker and
+build cancellation retained usable output. An additional export-only regression
+selects the **non-entry** Second member with no standalone output, changes only
+its name and builds it. It reports a verified `prepared_world` hit in 51.84 ms,
+with no illumination solve or probe capture, publishes a current standalone
+package and leaves the complete export byte-for-byte unchanged. Compiler reuse
+now resolves project member records before checking provenance and can read the
+standard complete export as a read-only cache fallback. The tiny existing
+project-archive fixture also covers this virtual record selection. Structural
+Safety proposals share one immutable source and retain at most 256 proposals;
+full candidates are constructed only when reviewed, avoiding a full document
+copy per stacked-room pair.
+
+Annex Tower's explicit geometry check reports **zero errors / 48 retained
+heuristic warnings**: 14 missing-wall runs, 31 reversed faces and three room-leak
+samples. No new placement ignores or broad suppression were added. Native final
+views inspect the SECOND ROOM ceiling, flush fixtures, exposed upper-floor edge
+and real ramp/stair backing. The final three-level export passes integrity and
+current-source verification for every member, and import preserves its project,
+three source JSONs and three Luau scripts byte-for-byte. Full collection rebaking
+is reserved for final integrated validation after subsequent stages.
+
+Actual native audio receipts cover a triggered, authored emitter at gain 0.6
+with 0.5/6 m attenuation, preview stop/replay/Back cleanup, and door/physics/
+trigger/fog authoring controls. Its far voice gain is exactly zero while the
+near voice has positive mixer gain; unrelated attached water retains its
+catalog falloff. A finished Discharge basin/ramp route produces real entry/exit
+cues and finite nonzero post-mixer PCM. Continuous ordinary movement exposed
+brief swim-state oscillation on the ramp; a 750 ms real-time sound retrigger
+guard suppresses repeated splashes without altering collision, water physics or
+queuing audio. It resets on unload. Diagnostic pose-assisted and continuous
+routes, including the initial repeated-splash witness, are retained separately.
+The final continuous route uses W/D/S from the initial dry fixture with no
+intermediate player pose, observes the entry and exit sound without subsequent
+retrigger chatter, reaches grounded dry support with noclip off and records
+492,544 stereo PCM frames (peak 0.221519). Shutdown reports zero live/queued
+voices, dropped requests and errors. No subjective listening claim is made.
+
+The final macOS distribution includes the player, compiler and editor in flat
+and app forms, with every one of the 63 WAVs and 525 previews byte-identical to
+source. The packaged editor opens from `/tmp` with no asset-root override and
+exercises paging, search, no-match feedback and ceiling materials; 12 page
+checkpoints retain at most 16 decoded tiles. The first package recipe searched
+an authored prop's ID as though it were its model label and was corrected to the
+existing Workshop scene; the failed log remains. No user content was removed.
+
+Six native screenshots and a 12.97-second, 389-frame silent stair traversal demo
+are preserved in `local/editor-audio-0.13.0/deliverables/`. Library saving failed
+during preparation in the required batch workflow, including one normal-network
+retry; it returned no confirmed file IDs. The local deliverables and failure
+logs remain ready for the parent to save later. No alternate upload path was
+used after starting the required workflow.
+
+Remaining acceptance boundaries are explicit: generated stairs require the
+supported overlapping-flat-floor straight-flight fit; connected-room group
+moves, arbitrary stair layouts, subjective audio balance, physical device
+hotplug, browser audio and other desktop platforms were not validated. Main/pause
+master-volume UI belongs to the following menu stage. Mannequin ragdolls remain
+second to last, then docs cleanup/final integration. No main-menu scene, main
+merge or release was made here.
+
+
+The final gates pass: `cargo fmt --all -- --check`,
+`cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+`cargo test --workspace` (232 passing; no shipped-map bake), and
+`cargo build --locked --release --workspace --all-features`. Native structural
+review additionally confirms Preview/Cancel leave source exact, Apply changes
+the lower ceiling 3.0→2.85 m and flush fixture 2.98→2.83 m together, Undo restores
+the original, and Redo/Save retain the reviewed proposal. Rejected export of the
+zero-gap source leaves its previous package hash unchanged. The scope page is
+advanced before choosing the measured finding; the initial mistaken recipe is
+preserved. Staging commit and verified remote identity are recorded in the
+on-disk handoff after publication; CI remains the final integrated queue's job.
+
+
+Final local deliverables are `Relay-Annex-Complete.placesmap` (23,465,925 bytes,
+static and full variants), `Sound-Authoring-Complete.placesmap`, and the flat/app
+`payload-complete/` distribution under the stage evidence directory. All older
+stage packages remain. Their SHA256 identities and exact release binaries are
+in the final handoff. The next menu owner can start at
+`src/game/settings.rs:1260` and `src/game/app/audio_runtime.rs` for the existing
+persistent master control/mix path.

@@ -51,6 +51,10 @@ impl App {
         match action {
             Action::SceneSearch => self.popup = Some(Popup::SceneSearch(self.object_query.clone())),
             Action::PreviewSound(index) => self.preview_sound(index)?,
+            Action::StopPreviewSound => {
+                self.preview_audio.clear_world();
+                self.sound_preview_until = None;
+            }
             Action::Select(id) => {
                 self.selected = Some(id);
                 self.viewport.select(Some(id));
@@ -58,6 +62,9 @@ impl App {
             }
             Action::Field(field) => self.open_number(field)?,
             Action::Assets | Action::Materials => {
+                self.browser.material_ceiling = false;
+                self.browser.query.clear();
+                self.browser.theme = 0;
                 self.popup = Some(Popup::Library {
                     materials: action == Action::Materials,
                     page: 0,

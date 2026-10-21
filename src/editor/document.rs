@@ -3,6 +3,7 @@
 //! therefore survive ordinary edits and saves.
 
 pub(crate) mod components;
+mod dragging;
 mod fog;
 mod gameplay;
 mod geometry;
@@ -119,6 +120,23 @@ impl Document {
                 .insert(previous.level.id.clone(), previous),
         );
         Ok(())
+    }
+
+    pub(super) fn resource_snapshot(&self) -> serde_json::Value {
+        let (documents, revisions, history_bytes) = std::iter::once(&self.selected)
+            .chain(self.other_levels.values())
+            .fold(
+                (0_usize, 0_usize, 0_usize),
+                |(documents, revisions, bytes), d| {
+                    let (count, size) = d.history.usage();
+                    (
+                        documents.saturating_add(1),
+                        revisions.saturating_add(count),
+                        bytes.saturating_add(size),
+                    )
+                },
+            );
+        serde_json::json!({"documents":documents,"history_revisions":revisions,"history_serialized_bytes":history_bytes,"history_policy":"64 revisions / 32 MiB per undo or redo stack; current and saved documents retained"})
     }
 
     #[must_use]
@@ -279,11 +297,32 @@ impl Document {
     pub fn set_material(&mut self, id: ObjectId, material: &str) -> Result<(), String> {
         if !matches!(
             id,
-            ObjectId::Room(_) | ObjectId::Wall(_) | ObjectId::Ramp(_) | ObjectId::FloorRegion(_)
+            ObjectId::Room(_)
+                | ObjectId::Wall(_)
+                | ObjectId::Ramp(_)
+                | ObjectId::FloorRegion(_)
+                | ObjectId::Door(_)
         ) {
             return Err("Select a floor or wall to change its material".into());
         }
         self.set_object_string(id, "material", material)
+    }
+
+    pub(super) fn set_door_style(&mut self, id: ObjectId, style: &str) -> Result<(), String> {
+        if !matches!(id, ObjectId::Door(_)) {
+            return Err("Select a door first".into());
+        }
+        self.set_object_string(id, "kind", style)
+    }
+    pub(super) fn set_ceiling_material(
+        &mut self,
+        id: ObjectId,
+        material: &str,
+    ) -> Result<(), String> {
+        if !matches!(id, ObjectId::Room(_)) {
+            return Err("Select a room ceiling first".into());
+        }
+        self.set_object_string(id, "ceiling_material", material)
     }
 
     /// Changes the model of a passive prop without replacing its other data.

@@ -108,7 +108,11 @@ def edit_pcm(data, clip):
     target = clip.get("peak", 26_214)
     if peak == 0 or not 0 < target < 32_767:
         raise ValueError(f"invalid peak: {clip['file']}")
-    pcm = array("h", (round(value * target / peak) for value in samples))
+    normalized = [round(value * target / peak) for value in samples]
+    gain = clip.get("post_peak_gain", 1.0)
+    if not 0 < gain <= 1:
+        raise ValueError(f"invalid polish gain: {clip['file']}")
+    pcm = array("h", (round(value * gain) for value in normalized))
     if sys.byteorder != "little":
         pcm.byteswap()
     result = io.BytesIO()
@@ -202,7 +206,7 @@ def audit(authoring):
     # Catch map typos without requiring any map bake or a decoder dependency.
     def inspect(value, source):
         if isinstance(value, dict):
-            if (value.get("component") == "audio" or value.get("action") == "play_sound") and "sound" in value:
+            if (value.get("component") == "audio" or value.get("action") == "play_sound" or ("sound" in value and "spatial" in value)) and "sound" in value:
                 if value["sound"] not in cues:
                     raise ValueError(f"{source}: unknown sound {value['sound']}")
             for child in value.values():
@@ -212,6 +216,7 @@ def audit(authoring):
                 inspect(child, source)
     paths = list((ROOT / "levels").glob("*.json"))
     paths += list((ROOT / "tests/fixtures/native").glob("*.json"))
+    paths += list((ROOT / "projects").glob("*/levels/*.json"))
     for path in paths:
         inspect(json.loads(path.read_text()), path.relative_to(ROOT))
     print(f"Audio audit: {len(cues)} cues, {len(records)} WAVs, {encoded_bytes:,} bytes; "

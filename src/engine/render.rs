@@ -66,7 +66,7 @@ pub use common::{
     decal_sheet_index, decal_uv_rect, decal_uv_rect_full, dequantize_unit, logical_materials,
     relight_blend_decals, spatial_cell_grid, tiled_uv,
 };
-pub use facade::{Renderer, RuntimeModelInfo};
+pub use facade::{PreparedCaustics, Renderer, RuntimeModelInfo};
 pub use wgpu::reflections::{PROBE_FACE_SIZE_FULL, PROBE_FACE_SIZE_MEDIUM, ProbeFaceReadback};
 
 // The surface creation and ownership contract lives in `render::wgpu::surface`:

@@ -23,6 +23,7 @@ impl EntityWorld {
             drop(self.components.audio.insert(
                 handle,
                 AudioEmitter {
+                    attenuation: def.attenuation,
                     sound: def.sound.clone(),
                     gain: def.gain,
                     looped: def.looped,
@@ -64,6 +65,15 @@ impl EntityWorld {
             self.id_of(handle)?,
             self.components.transforms.get(handle)?.position,
         ))
+    }
+
+    /// Per-emitter near/far distance override, resolved by generation-safe source.
+    #[must_use]
+    pub fn audio_source_attenuation(&self, key: u64) -> Option<[f32; 2]> {
+        self.components
+            .audio
+            .get(self.audio_handle(key)?)?
+            .attenuation
     }
 
     /// Optional per-emitter spatial policy; attached sounds retain catalog defaults.

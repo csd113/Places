@@ -293,6 +293,7 @@ struct PreparedInstall {
     probes: crate::engine::package::world::ProbeCaptures,
     /// True when `probes` must be uploaded instead of baking captures.
     precompiled_probes: bool,
+    prepared_caustics: Option<super::caustics::PreparedCaustics>,
 }
 
 /// Texture/filtering/reflection changes cannot alter immutable atlas data.
@@ -3094,9 +3095,16 @@ impl WgpuRenderer {
             phase: UploadPhase::Atlas,
             probes: crate::engine::package::world::ProbeCaptures::default(),
             precompiled_probes: false,
+            prepared_caustics: None,
         });
         #[cfg(feature = "visual-diagnostics")]
         self.trace_gpu_resources("install-started");
+    }
+
+    pub fn set_prepared_caustics(&mut self, prepared: Option<super::caustics::PreparedCaustics>) {
+        if let Some(pending) = &mut self.prepared_install {
+            pending.prepared_caustics = prepared;
+        }
     }
 
     pub fn cancel_prepared_install(&mut self) {
@@ -3288,6 +3296,7 @@ impl WgpuRenderer {
             props,
             probes,
             precompiled_probes,
+            prepared_caustics,
             materials: _,
             blacklights,
             uv_transport,
@@ -3337,6 +3346,7 @@ impl WgpuRenderer {
             std::time::Instant::now(),
             Some((characters, uploaded)),
             precompiled_probes.then_some(probes),
+            prepared_caustics,
         );
         if inherit_playback {
             self.animation_seconds = animation_seconds;
@@ -3368,6 +3378,7 @@ impl WgpuRenderer {
         started: std::time::Instant,
         prepared: Option<(CharacterScene, UploadedLevel)>,
         precompiled_probes: Option<crate::engine::package::world::ProbeCaptures>,
+        prepared_caustics: Option<super::caustics::PreparedCaustics>,
     ) -> Arc<LevelBuild> {
         self.invalidate_frame();
         let (characters, uploaded) = prepared.map_or((None, None), |(characters, uploaded)| {
@@ -3683,14 +3694,26 @@ impl WgpuRenderer {
                 .first()
                 .map(|probe| probe.face_size),
         );
-        let mut caustics = super::caustics::Caustics::upload(
-            &self.device,
-            &self.queue,
-            &mut self.textures,
-            &loaded.level,
-            &build.lighting,
-            self.quality,
-        );
+        let mut caustics = if let Some(cpu) = prepared_caustics {
+            super::caustics::Caustics::upload_prepared(
+                &self.device,
+                &self.queue,
+                &mut self.textures,
+                &loaded.level,
+                &build.lighting,
+                self.quality,
+                Some(cpu),
+            )
+        } else {
+            super::caustics::Caustics::upload(
+                &self.device,
+                &self.queue,
+                &mut self.textures,
+                &loaded.level,
+                &build.lighting,
+                self.quality,
+            )
+        };
         if !level_changed {
             caustics.inherit_runtime_state(&self.caustics, &self.queue);
         }

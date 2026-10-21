@@ -12,6 +12,15 @@ pub(super) struct History {
 }
 
 impl History {
+    pub(super) fn usage(&self) -> (usize, usize) {
+        self.undo
+            .iter()
+            .chain(&self.redo)
+            .fold((0_usize, 0_usize), |(count, bytes), (_, size)| {
+                (count.saturating_add(1), bytes.saturating_add(*size))
+            })
+    }
+
     pub(super) fn candidate(&self, redo: bool) -> Option<&Value> {
         let source = if redo { &self.redo } else { &self.undo };
         source.back().map(|(value, _)| value)

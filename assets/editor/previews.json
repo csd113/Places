@@ -1,0 +1,2645 @@
+{
+  "arcade:ball_rack": {
+    "path": "editor/previews/c53f8797423addcafd278531.png",
+    "sha256": "3359aa8f853efe9cb4fcce16e448dceec73d8d461f20aa1cf1af9c3429c328e9",
+    "source": "environments/arcade/props/ball_rack.glb"
+  },
+  "arcade:ball_return": {
+    "path": "editor/previews/90f28cf2ff5be9d36cdd126d.png",
+    "sha256": "479ae504680378ec4b51a873db376a7e54454434e7ef4282dc5891df983aec4f",
+    "source": "environments/arcade/props/ball_return.glb"
+  },
+  "arcade:bench_three_seat_blue_red_blue": {
+    "path": "editor/previews/bc2db1c05b9a546a3abe4e98.png",
+    "sha256": "26aabc444925d00c02136c76c58b4e02ca3340e7958f904162600dbf71bf903d",
+    "source": "environments/arcade/props/bench_three_seat_blue_red_blue.glb"
+  },
+  "arcade:bench_three_seat_red_blue_red": {
+    "path": "editor/previews/e55d0fbebd2e4352c2d83b4c.png",
+    "sha256": "2e405fadaebe0a4e1e8bb9a91886fe2975c3a608ea76276205578823d62bd319",
+    "source": "environments/arcade/props/bench_three_seat_red_blue_red.glb"
+  },
+  "arcade:blacklight_fixture": {
+    "path": "editor/previews/3f7580247a9ef0e035532f2e.png",
+    "sha256": "15fa1649fd7d7eb265a0ea7c01b658a58f52fe5d30ed34b490a13c398756015c",
+    "source": "environments/arcade/props/blacklight_fixture.glb"
+  },
+  "arcade:blacklight_tube": {
+    "geometry_revision": 4,
+    "method": "native editor Inspect; frame selection; deselect; 200x150 UI viewport crop; 160x120 Lanczos",
+    "path": "editor/native-previews/fixture_5.png",
+    "sha256": "01acdb1e6904d2bb2174e3c11e8ac06a76b77d40ca7f080ea71997be1a0cad79",
+    "source": "environments/arcade/textures/lights/blacklight_tube_01.png"
+  },
+  "arcade:bowling_ball_black": {
+    "path": "editor/previews/ffac1a7ae28a386b3eab4c8f.png",
+    "sha256": "497ea77d36cfe2a2a9f4f98312d6ad519c184bc1748cf618fb34d40b41c04880",
+    "source": "environments/arcade/props/bowling_ball_black.glb"
+  },
+  "arcade:bowling_ball_burgundy": {
+    "path": "editor/previews/02595c31aff2cb3cda982f39.png",
+    "sha256": "20c607d9ae9a52636e35a1e073dda48bea5e5e48af673216754fe7be30924ff2",
+    "source": "environments/arcade/props/bowling_ball_burgundy.glb"
+  },
+  "arcade:bowling_ball_cobalt": {
+    "path": "editor/previews/fc187ea732b9fb3a0b9d9dad.png",
+    "sha256": "a234d89de1806caf83181ba0f2fac3a9305cf47ba9b9df7ceca5fd1b668ca647",
+    "source": "environments/arcade/props/bowling_ball_cobalt.glb"
+  },
+  "arcade:bowling_ball_green": {
+    "path": "editor/previews/54a68348536e28848e9eb329.png",
+    "sha256": "4cd6e29aa3e27dd992f1720f30e234a96541e8e2914fad1af30ebc13154dda09",
+    "source": "environments/arcade/props/bowling_ball_green.glb"
+  },
+  "arcade:bowling_ball_marbled": {
+    "path": "editor/previews/5ddbaaa60f2efa887696e122.png",
+    "sha256": "f1bf8c5db3c42bc55ec814bc73eca5df515b76daaf906cf531319cd916e306c7",
+    "source": "environments/arcade/props/bowling_ball_marbled.glb"
+  },
+  "arcade:bowling_ball_purple": {
+    "path": "editor/previews/c6a15c5355a869fc9c621a06.png",
+    "sha256": "4ca5b33c37b7269d348b12ba11e4ba4138518b95bd46d786a6036b1196f59a7e",
+    "source": "environments/arcade/props/bowling_ball_purple.glb"
+  },
+  "arcade:bowling_ball_red": {
+    "path": "editor/previews/a9fc6962583f383bd3325c27.png",
+    "sha256": "0206b0d9d2217490ff3662f681c8f0124d1126210ec02be7e412624ea7ede2f9",
+    "source": "environments/arcade/props/bowling_ball_red.glb"
+  },
+  "arcade:bowling_pin": {
+    "path": "editor/previews/ba1f7812445c678277aaa805.png",
+    "sha256": "b69dbe1e804c9859c7c3454970c2c93f4a323f242fc5076f5c6f63432c14fbb8",
+    "source": "environments/arcade/props/bowling_pin.glb"
+  },
+  "arcade:cabinet_action": {
+    "path": "editor/previews/c333b2d4cf3f24ad981b3aa2.png",
+    "sha256": "95d183bdb4eba5b4cdaf61410decd104916001d42425292391059e716f38473f",
+    "source": "environments/arcade/props/cabinet_action.glb"
+  },
+  "arcade:cabinet_fighting": {
+    "path": "editor/previews/38604e9d38e13a3f71b5f29a.png",
+    "sha256": "0348a2d75c61b3ef213bddcd28adad5fe54575f357621b40c0fc48070d636273",
+    "source": "environments/arcade/props/cabinet_fighting.glb"
+  },
+  "arcade:cabinet_racing": {
+    "path": "editor/previews/d2abcbfdb84a853f687d7943.png",
+    "sha256": "45ebf2d9e40f8f00699d74417ba7eb10730f3675612bf99b9a31afcb8d8eb926",
+    "source": "environments/arcade/props/cabinet_racing.glb"
+  },
+  "arcade:cabinet_scifi": {
+    "path": "editor/previews/90b62711a075cd2bb67180a7.png",
+    "sha256": "dfb10945a0f6b280c1b34933e5bc034ec44e517f77d1c9dac8ed8ffca353c17c",
+    "source": "environments/arcade/props/cabinet_scifi.glb"
+  },
+  "arcade:cabinet_shooter": {
+    "path": "editor/previews/9d0926689871aa7c117223b7.png",
+    "sha256": "48d7d561108f4434d9a8a196a3403fcc70d0b89ece38a1b78a802c126eacde63",
+    "source": "environments/arcade/props/cabinet_shooter.glb"
+  },
+  "arcade:carpet_arcade_grid_01": {
+    "path": "editor/previews/80f03702d8ee249f5b64e7b0.png",
+    "sha256": "e7f5f0243c93e828d16a5bb7fdcefdabb89ccadbc70a99e0610f2e51a7944774",
+    "source": "environments/arcade/textures/floors/carpet_arcade_grid_01.png"
+  },
+  "arcade:carpet_cosmic_bowl_01": {
+    "path": "editor/previews/3b9eeafb75fc04d277c9eeca.png",
+    "sha256": "48733dd0e313382f506d608ebd94c01e7b6e4b5f8a6ce9aec13174f427f9652d",
+    "source": "environments/arcade/textures/floors/carpet_cosmic_bowl_01.png"
+  },
+  "arcade:carpet_geometric_01": {
+    "path": "editor/previews/f22b3ce5640ce972bc4151a1.png",
+    "sha256": "33899733784470961b3aee7f707932b0ccac2b88ac13ce3a8d6b5f13b561528d",
+    "source": "environments/arcade/textures/floors/carpet_geometric_01.png"
+  },
+  "arcade:carpet_neon_confetti_01": {
+    "path": "editor/previews/d4a98e827dded66919d47873.png",
+    "sha256": "1babc27a86ec00b3ee091e6d69b5cd70cc7d84045a37d324b55e47743b987f85",
+    "source": "environments/arcade/textures/floors/carpet_neon_confetti_01.png"
+  },
+  "arcade:carpet_retro_swirl_01": {
+    "path": "editor/previews/1f594e6b8710ba93bdae229e.png",
+    "sha256": "4e642c8525bc6436760e0f681ac6b51cefddd3884138312124346ea22cf5ee79",
+    "source": "environments/arcade/textures/floors/carpet_retro_swirl_01.png"
+  },
+  "arcade:carpet_starburst_01": {
+    "path": "editor/previews/45a2e5ff50278cefa7c094c1.png",
+    "sha256": "b9deb762547251e800d953fce73e6f61ce0355e7297b18649b4330ae65bb1384",
+    "source": "environments/arcade/textures/floors/carpet_starburst_01.png"
+  },
+  "arcade:cat_plush": {
+    "path": "editor/previews/31e4550ec6a98bb344366636.png",
+    "sha256": "33faafd23411a834610b241928c644148b7201ee425a674503b0991cafaadc47",
+    "source": "environments/arcade/props/cat_plush.glb"
+  },
+  "arcade:ceiling_acoustic_01": {
+    "path": "editor/previews/496ddb4018865e25b17341d1.png",
+    "sha256": "8b18cd828148a7581a1770acd21fdfb9f82ed15e5682016b33b2e8611a14e7f2",
+    "source": "environments/arcade/textures/ceilings/ceiling_acoustic_01.png"
+  },
+  "arcade:change_machine": {
+    "path": "editor/previews/f3249556d19177ab4b34ec40.png",
+    "sha256": "a732446f0af3691d5cf21188c2dfcf9d613b6b8724ac95248a9db94ba5e72b78",
+    "source": "environments/arcade/props/change_machine.glb"
+  },
+  "arcade:decal_bowling_mural_01": {
+    "path": "editor/previews/f6642cea8286f246cc930461.png",
+    "sha256": "84117408dca73f1f879bc802f56af5243e3138bd3d5910ddcfd0fe4f7a929fb5",
+    "source": "environments/arcade/decals/bowling_mural_01.png"
+  },
+  "arcade:decal_foul_line_01": {
+    "path": "editor/previews/abf49da79766526a2d5f7530.png",
+    "sha256": "3eca47f12ed2b1a4fe0f3fa3e3e66926c7bb2a6f741f376ffa9b88b2d982a5f9",
+    "source": "environments/arcade/decals/foul_line_01.png"
+  },
+  "arcade:decal_lane_arrow_01": {
+    "path": "editor/previews/a969e214f671e0745d56fe09.png",
+    "sha256": "ffd1eab5efea598c10a5d5b633d037b8ad2ea37e266dd19eaee2c1bb3c2fcb46",
+    "source": "environments/arcade/decals/lane_arrow_01.png"
+  },
+  "arcade:fixed_chair_blue": {
+    "path": "editor/previews/b334d23dfe27843f4039cbbc.png",
+    "sha256": "f50dd7e68e49d087d0fb207423eae718af7f88d8e4f8c439e06b985827420905",
+    "source": "environments/arcade/props/fixed_chair_blue.glb"
+  },
+  "arcade:fixed_chair_red": {
+    "path": "editor/previews/d50bb9abe4c3491077ae74e1.png",
+    "sha256": "1f996c9a4ddbbba9383c2103c91ca876216d3b942c5e8dbc67ef393cf59b10f9",
+    "source": "environments/arcade/props/fixed_chair_red.glb"
+  },
+  "arcade:fluorescent_panel_01": {
+    "geometry_revision": 4,
+    "method": "native editor Inspect; frame selection; deselect; 200x150 UI viewport crop; 160x120 Lanczos",
+    "path": "editor/native-previews/fixture_4.png",
+    "sha256": "019c330e448db505ef9404442310a9d8db0c53983164bb5c028cda47f2fe193f",
+    "source": "environments/arcade/textures/lights/fluorescent_panel_01.png"
+  },
+  "arcade:gutter_dark_01": {
+    "path": "editor/previews/485a8a72e39d9ffd6866ef4e.png",
+    "sha256": "d98ff0d539c4b042726f280e84c6e9f090f5613018405a331042f69613ba7ccc",
+    "source": "environments/arcade/textures/floors/gutter_dark_01.png"
+  },
+  "arcade:gutter_segment": {
+    "path": "editor/previews/960c31980d175203897ef0fd.png",
+    "sha256": "d80d475b9715a0aef527daca2a3b64127c6218e1e88afa3b9172d1ff9bd35ccf",
+    "source": "environments/arcade/props/gutter_segment.glb"
+  },
+  "arcade:lane_divider": {
+    "path": "editor/previews/4b5a8bfc060706e9d6bb780f.png",
+    "sha256": "0bdc9274f222fe50ee80d7f42fe0bcf706c68bf7b1b04b397d035fe7032cd8f7",
+    "source": "environments/arcade/props/lane_divider.glb"
+  },
+  "arcade:lane_wood_01": {
+    "path": "editor/previews/46cf4d680ae76130fc194e6d.png",
+    "sha256": "f5ee0fe205823bb64be4fe23e9ca5db2da9c3c4dcd9284ed9c29c87af6e4db45",
+    "source": "environments/arcade/textures/floors/lane_wood_01.png"
+  },
+  "arcade:litter_bottle_fallen": {
+    "path": "editor/previews/8550e758c12e82440422a305.png",
+    "sha256": "bec7375fb247f52f85dab237afa694059375fbd8c4b30d4e5158a87733395a00",
+    "source": "environments/arcade/props/litter_bottle_fallen.glb"
+  },
+  "arcade:litter_can": {
+    "path": "editor/previews/dfe4492f541ac5c19283c3e9.png",
+    "sha256": "7dc50582c3ade31228a05ff615acee896ce6c9330458c5ded86e9a561b6053ac",
+    "source": "environments/arcade/props/litter_can.glb"
+  },
+  "arcade:litter_cup": {
+    "path": "editor/previews/907a878b2009f3b67439d9e5.png",
+    "sha256": "41854c4994631cbff81ea5b242ac63d81cfff0b5dbcc5304874f38030249bc1c",
+    "source": "environments/arcade/props/litter_cup.glb"
+  },
+  "arcade:litter_paper": {
+    "path": "editor/previews/362c40556686813120a8209a.png",
+    "sha256": "51b750aad313b5b2d244ca5d8a2c43a802cec905b939f43e05ef023ccd62c4cd",
+    "source": "environments/arcade/props/litter_paper.glb"
+  },
+  "arcade:litter_wrapper": {
+    "path": "editor/previews/822c97632d47c4d17c7f9f67.png",
+    "sha256": "8b8f18d7e1b3a8bb60a034a66f691b9d3ebfa631bde6a60051d795c2fef67c39",
+    "source": "environments/arcade/props/litter_wrapper.glb"
+  },
+  "arcade:neon_bowl": {
+    "path": "editor/previews/18892a39c1774b5e27800f05.png",
+    "sha256": "e099ebc952bf6fa5bc523db0935d9bca0eae1e27d5293009c978da52a7dc5df9",
+    "source": "environments/arcade/props/neon_bowl.glb"
+  },
+  "arcade:party_balloon": {
+    "path": "editor/previews/ccd48ddfa4f33a88b3b21d3e.png",
+    "sha256": "e97ff359f6228359bb0ff0e6b299a79cbbf82d0d8563184c519b6274b97c6678",
+    "source": "environments/arcade/party/models/party_balloon.glb"
+  },
+  "arcade:party_balloon_weight": {
+    "path": "editor/previews/c992b1abd64cadaf1c3323c2.png",
+    "sha256": "09274c8591d761d9f4a6306afa35a05efe1c8e0b3827b8d0da3ef8440633274c",
+    "source": "environments/arcade/party/models/party_balloon_weight.glb"
+  },
+  "arcade:party_cake_lit": {
+    "path": "editor/previews/092e261a5b0b3eaf18f8670f.png",
+    "sha256": "d7971c1841d3699dd2ee7d1597d88c9c0a52c34920338492ea36172a0732e185",
+    "source": "environments/arcade/party/models/party_cake_lit.glb"
+  },
+  "arcade:party_cake_unlit": {
+    "path": "editor/previews/01541d72f98e93c52a9bc992.png",
+    "sha256": "614cca0838b0eac7633e16faa331e9cd8a5191ead35693ec1cd19e3517cf6a73",
+    "source": "environments/arcade/party/models/party_cake_unlit.glb"
+  },
+  "arcade:party_cloth_rect_arcade": {
+    "path": "editor/previews/a237e78a843a20f7b66817cb.png",
+    "sha256": "3868e5dc46348683b9e042894e05d01d3ff597be83877c23576f76512f1f614e",
+    "source": "environments/arcade/party/models/party_cloth_rect_arcade.glb"
+  },
+  "arcade:party_cloth_rect_balloons": {
+    "path": "editor/previews/f7636ebe0b34f5deb64eb97f.png",
+    "sha256": "0e7d92adf6874e3de2bb8ef13f26a981f24150a4a1f7f8babbe992224f4ed2ca",
+    "source": "environments/arcade/party/models/party_cloth_rect_balloons.glb"
+  },
+  "arcade:party_cloth_rect_confetti": {
+    "path": "editor/previews/37a32630a3daf70ee1b7f27c.png",
+    "sha256": "8f4704d52fd1b4a29b0b34ab67fb855dffb4aec53b6f55f13ac9a077ee4e791c",
+    "source": "environments/arcade/party/models/party_cloth_rect_confetti.glb"
+  },
+  "arcade:party_cloth_rect_stars": {
+    "path": "editor/previews/927d8161f6d91f5385f2af26.png",
+    "sha256": "76291501f4f98bd747567c8fbc6b4b27768c63ca22b10e0f6b16c3e6dce9f7b3",
+    "source": "environments/arcade/party/models/party_cloth_rect_stars.glb"
+  },
+  "arcade:party_cloth_round_arcade": {
+    "path": "editor/previews/b3861954972c1394024ce954.png",
+    "sha256": "1a7aa8bffa18b7fb1eeb19d1557f647cf0b0b30fe2791edc41b929ce69fa8ce6",
+    "source": "environments/arcade/party/models/party_cloth_round_arcade.glb"
+  },
+  "arcade:party_cloth_round_balloons": {
+    "path": "editor/previews/cf9bb4fc51a72e46327aa123.png",
+    "sha256": "7036ebe9ff9e5c155fa5abd8ac2b366b44f9f3bfff163e05b1fccc876c0fe762",
+    "source": "environments/arcade/party/models/party_cloth_round_balloons.glb"
+  },
+  "arcade:party_cloth_round_confetti": {
+    "path": "editor/previews/ddd6dd15abb49ae32fcef7cd.png",
+    "sha256": "773151496fbb6288e9f903d5abc10021d966dcf631b1931a10eb82798f4096ae",
+    "source": "environments/arcade/party/models/party_cloth_round_confetti.glb"
+  },
+  "arcade:party_cloth_round_stars": {
+    "path": "editor/previews/0c7684ed8b06ed5068e82eac.png",
+    "sha256": "93284857291e467cd4bed09652fb405f645969e2cc7b69bfdd0725d2adbce7ea",
+    "source": "environments/arcade/party/models/party_cloth_round_stars.glb"
+  },
+  "arcade:party_cup_balloons": {
+    "path": "editor/previews/435752124985e5d349c72579.png",
+    "sha256": "3a6d65fc9762a30eceb75d5cd864cc4741d5628374152407fd6512f073087390",
+    "source": "environments/arcade/party/models/party_cup_balloons.glb"
+  },
+  "arcade:party_cup_confetti": {
+    "path": "editor/previews/aaefbd7f32a65aaeb7723dd3.png",
+    "sha256": "c0a33105974e322bcd1634aa0aeb397e807b2cba1c8dabdf319ca2b525208b9e",
+    "source": "environments/arcade/party/models/party_cup_confetti.glb"
+  },
+  "arcade:party_cup_geometric": {
+    "path": "editor/previews/4d9cc96c26c2e66021fa090c.png",
+    "sha256": "f3d601b87aecf1c9965ffba038d1709751308ad1b6f6961661e39c5a20433421",
+    "source": "environments/arcade/party/models/party_cup_geometric.glb"
+  },
+  "arcade:party_cup_stars": {
+    "path": "editor/previews/ea013d3df3bdcaee8779a1f7.png",
+    "sha256": "8ae4cfad460d2f630b73ddb9abe2c4214619181680fb962e2f8a47277025c0b1",
+    "source": "environments/arcade/party/models/party_cup_stars.glb"
+  },
+  "arcade:party_gift_arcade": {
+    "path": "editor/previews/3676f8d8cdaa212e7f62e80e.png",
+    "sha256": "39614124ae7768b6dadbe9cef61928826e809b89cc3895b0a3cefc39226880b9",
+    "source": "environments/arcade/party/models/party_gift_arcade.glb"
+  },
+  "arcade:party_gift_confetti": {
+    "path": "editor/previews/98270cc506ca7a4badaf17ea.png",
+    "sha256": "e3b8d8c160d83f3abefb65a949897991081d040214f9ea98f41cdb0e1ed4688c",
+    "source": "environments/arcade/party/models/party_gift_confetti.glb"
+  },
+  "arcade:party_gift_green": {
+    "path": "editor/previews/d6c76001f9d2a944322c5c61.png",
+    "sha256": "8e28a4aaf2eec3ef00110077396669726b47bafbfdb165d4979f61b405bb81bd",
+    "source": "environments/arcade/party/models/party_gift_green.glb"
+  },
+  "arcade:party_gift_red": {
+    "path": "editor/previews/1a4485937fe24d307f05978a.png",
+    "sha256": "0c0d4c9860947987fc64edc6d6c1955270cc6704e6823fb81b8eaac711c124b9",
+    "source": "environments/arcade/party/models/party_gift_red.glb"
+  },
+  "arcade:party_gift_stars": {
+    "path": "editor/previews/2767c53e7d0cd3ea9b4680c1.png",
+    "sha256": "d0b61be5c49febe0756f4ec8451682150230ad98154580f2a714a5c33291a3f1",
+    "source": "environments/arcade/party/models/party_gift_stars.glb"
+  },
+  "arcade:party_gift_stripes": {
+    "path": "editor/previews/30637f0fa3ac1cce716af39c.png",
+    "sha256": "dcc35c9b59c8b936b970cb47ac72f7b39c3cc6f7a7c30390f3b501e8594e0cc5",
+    "source": "environments/arcade/party/models/party_gift_stripes.glb"
+  },
+  "arcade:party_hat_confetti": {
+    "path": "editor/previews/6143dc7d0947dd9a7946b6c7.png",
+    "sha256": "4ef8e7bff75e5752e065cf1e7f7e7707663a0c9caf8209d274385d15f0162fbb",
+    "source": "environments/arcade/party/models/party_hat_confetti.glb"
+  },
+  "arcade:party_hat_dots": {
+    "path": "editor/previews/fea00b7651437374e9936e72.png",
+    "sha256": "803c765b92aedfc2b8780d189ba6a1623ef2b28753b4ad07e76431cc4926fcf3",
+    "source": "environments/arcade/party/models/party_hat_dots.glb"
+  },
+  "arcade:party_hat_shapes": {
+    "path": "editor/previews/01528d683fd093edffa0a8ec.png",
+    "sha256": "810eda02d6c83c4124eb2a06061b44b957fb7de346f9b6cc273f7caa4225997f",
+    "source": "environments/arcade/party/models/party_hat_shapes.glb"
+  },
+  "arcade:party_hat_stars": {
+    "path": "editor/previews/c427a09461f35bfe6cc63524.png",
+    "sha256": "ef8ee70df9c270fce3ee3bc6bafcd6fe485c503de4cab442059e1c3d35b29c1a",
+    "source": "environments/arcade/party/models/party_hat_stars.glb"
+  },
+  "arcade:party_hat_stripes": {
+    "path": "editor/previews/18e389156087a4c8fae91cb2.png",
+    "sha256": "799956dc1e5e462415b444c839a6430f232c5d8e9bbb91522b71795a41373bad",
+    "source": "environments/arcade/party/models/party_hat_stripes.glb"
+  },
+  "arcade:party_plate_balloons": {
+    "path": "editor/previews/58dd5f89a605799b1f8523cf.png",
+    "sha256": "ffa1087eed3fcfde09d3928f87b093621b014ce34d172bd5e68e5abe5cf8939a",
+    "source": "environments/arcade/party/models/party_plate_balloons.glb"
+  },
+  "arcade:party_plate_border": {
+    "path": "editor/previews/9bd39a1ca63cefe57f0b3a2c.png",
+    "sha256": "13cd4810dbf100188f629a729471656243a37c1a86a6b9560ebf4cb9cabe463f",
+    "source": "environments/arcade/party/models/party_plate_border.glb"
+  },
+  "arcade:party_plate_confetti": {
+    "path": "editor/previews/5b731b734074ecdf0fa2fc12.png",
+    "sha256": "2f939f173aa3f3a2130ad69ccbb30510d354e9d120f28a78ffe795df7f698009",
+    "source": "environments/arcade/party/models/party_plate_confetti.glb"
+  },
+  "arcade:party_plate_stars": {
+    "path": "editor/previews/2e210778e0f0e5808ddedb7e.png",
+    "sha256": "edeee6e90dc1a61b723832ff5c3ff74196dc5c3e47dbe37bc0072cb2f419ff53",
+    "source": "environments/arcade/party/models/party_plate_stars.glb"
+  },
+  "arcade:party_streamer_blue": {
+    "path": "editor/previews/b1a1a6de27fa71635dd34c1b.png",
+    "sha256": "8772e0efe3aa82af411f29965e256b88fbd62ea2f79cc19e88adbc4ee7a8de0e",
+    "source": "environments/arcade/party/models/party_streamer.glb"
+  },
+  "arcade:party_streamer_orange": {
+    "path": "editor/previews/c7f2f958b352813c9cb3f738.png",
+    "sha256": "8772e0efe3aa82af411f29965e256b88fbd62ea2f79cc19e88adbc4ee7a8de0e",
+    "source": "environments/arcade/party/models/party_streamer.glb"
+  },
+  "arcade:party_streamer_pink": {
+    "path": "editor/previews/867ad3929d2920c9635361a1.png",
+    "sha256": "8772e0efe3aa82af411f29965e256b88fbd62ea2f79cc19e88adbc4ee7a8de0e",
+    "source": "environments/arcade/party/models/party_streamer.glb"
+  },
+  "arcade:party_streamer_purple": {
+    "path": "editor/previews/a3dee89714bc2db19f44cec5.png",
+    "sha256": "8772e0efe3aa82af411f29965e256b88fbd62ea2f79cc19e88adbc4ee7a8de0e",
+    "source": "environments/arcade/party/models/party_streamer.glb"
+  },
+  "arcade:party_streamer_yellow": {
+    "path": "editor/previews/e365eb8983e5970b42a09bc3.png",
+    "sha256": "8772e0efe3aa82af411f29965e256b88fbd62ea2f79cc19e88adbc4ee7a8de0e",
+    "source": "environments/arcade/party/models/party_streamer.glb"
+  },
+  "arcade:party_table_rect": {
+    "path": "editor/previews/68202f0887cfec24fd29cb51.png",
+    "sha256": "eda7147468cb82d9a8bdbf2c89e15920588a47ca84b30077ce5a0ab88c51eaf9",
+    "source": "environments/arcade/party/models/party_table_rect.glb"
+  },
+  "arcade:party_table_round": {
+    "path": "editor/previews/b66c4277a251dc25e9bc8f8b.png",
+    "sha256": "595bd435e58ec0040f5deb0f79c4ca40cfd34267f14de8d9eae6876a11e26804",
+    "source": "environments/arcade/party/models/party_table_round.glb"
+  },
+  "arcade:pedestal_table": {
+    "path": "editor/previews/e259f803ee2cf69541513eea.png",
+    "sha256": "0640eac6aa650147613b67a58c68fea486e3b8b9bda34f45b7173dceff58b7c8",
+    "source": "environments/arcade/props/pedestal_table.glb"
+  },
+  "arcade:pinball_comet": {
+    "path": "editor/previews/9ad88bd59b980ccebe79221c.png",
+    "sha256": "b061726e9cbf26b6ceeddf61fdebd710eac649c1a8547d5b9acb2495df036198",
+    "source": "environments/arcade/props/pinball_comet.glb"
+  },
+  "arcade:pinball_cosmic": {
+    "path": "editor/previews/64d867c7e9dc34c3c338ed35.png",
+    "sha256": "7c0140e07cc6a5568275e5f175968839482ba7f4a87b126ed4cc3c2b10b7bdfc",
+    "source": "environments/arcade/props/pinball_cosmic.glb"
+  },
+  "arcade:restroom_grab_bar": {
+    "path": "editor/previews/e352f0368d5d434c42a30c42.png",
+    "sha256": "fec32e33cc28d525c9ba589548101781538f12161786a79462a4ab551df680f1",
+    "source": "environments/arcade/restroom/restroom_grab_bar.glb"
+  },
+  "arcade:restroom_mirror_01": {
+    "path": "editor/previews/0b4b7f797074feefd1cfa86f.png",
+    "sha256": "b8ece440e5c8cb37b58d8246bf4eb8e3bd6747d2103193cc96f208634bd1222f",
+    "source": "shared/textures/white_01.png"
+  },
+  "arcade:restroom_mirror_frame": {
+    "path": "editor/previews/2ca843ea9d31e67b34a60aac.png",
+    "sha256": "3426c8f5490ff84012541aeb853d4ec5fd7147cd9468264df881031a177b86b9",
+    "source": "environments/arcade/restroom/restroom_mirror_frame.glb"
+  },
+  "arcade:restroom_paper_holder": {
+    "path": "editor/previews/353844def485ad4c20419d53.png",
+    "sha256": "76ed83d0fcfbf5c69e89a512db3248ee420ca171074af3784f91577c44d9024a",
+    "source": "environments/arcade/restroom/restroom_paper_holder.glb"
+  },
+  "arcade:restroom_partition_01": {
+    "path": "editor/previews/82ebc09553e67d2bb8daa508.png",
+    "sha256": "b8ece440e5c8cb37b58d8246bf4eb8e3bd6747d2103193cc96f208634bd1222f",
+    "source": "shared/textures/white_01.png"
+  },
+  "arcade:restroom_sink": {
+    "path": "editor/previews/25164732577fe71a4e7514cd.png",
+    "sha256": "0d4714fce8c5fda4b751a4a199fd6a4f0cf989b563a45671d51f2ee74443c338",
+    "source": "environments/arcade/restroom/restroom_sink.glb"
+  },
+  "arcade:restroom_soap_dispenser": {
+    "path": "editor/previews/b3b2a99c5888ba34329036c3.png",
+    "sha256": "db34289428ea31f3a5edd2632262da0157226d8a2498420536fa445cc7bfaa51",
+    "source": "environments/arcade/restroom/restroom_soap_dispenser.glb"
+  },
+  "arcade:restroom_stall_divider": {
+    "path": "editor/previews/32da94a8eeff0906d05748b3.png",
+    "sha256": "1526e856a369528c5614b755cd9912171d11028cbb2e8ea892e34da0e1260c5e",
+    "source": "environments/arcade/restroom/restroom_stall_divider.glb"
+  },
+  "arcade:restroom_stall_door": {
+    "path": "editor/previews/ce79a77eba8e6aadf122ae8e.png",
+    "sha256": "371b25ab18786cc6fc8b34a715370ce4a82df51b0896b6f323847f68761e951a",
+    "source": "environments/arcade/restroom/restroom_stall_door.glb"
+  },
+  "arcade:restroom_stall_front": {
+    "path": "editor/previews/87c7f948c07996eb5d00f8e0.png",
+    "sha256": "db3e16ca3ae1afd267cc95f3a760d4a07eb43a490b9da0f8672abbabc54bc068",
+    "source": "environments/arcade/restroom/restroom_stall_front.glb"
+  },
+  "arcade:restroom_stall_front_wide": {
+    "path": "editor/previews/fcb8a0aba21bc1f108e262a4.png",
+    "sha256": "54d5fbf93e2b2b1274ccf000c4cdab830772d3f1ad3a24e872e4af0efe4cf443",
+    "source": "environments/arcade/restroom/restroom_stall_front_wide.glb"
+  },
+  "arcade:restroom_tile_01": {
+    "path": "editor/previews/e60691f252b8d021e4515d98.png",
+    "sha256": "b97538adee8e8e20fe6a1ec74a7a4be3245bf7e61523cb5b48b984af764c5364",
+    "source": "environments/home/textures/floors/tile_home_01.png"
+  },
+  "arcade:restroom_toilet": {
+    "path": "editor/previews/42d9d20e21cae19598fbfd0e.png",
+    "sha256": "982ebf190e4a8ace8a63aad9581254a1a275bb7a8ea4b4eec6cfccbe7bc3e500",
+    "source": "environments/arcade/restroom/restroom_toilet.glb"
+  },
+  "arcade:score_monitor": {
+    "path": "editor/previews/81d9428999f8437c0ceeb63f.png",
+    "sha256": "f9f3c807fab8ab519782a68b99edc2192c0a4309f8c0d42b9d6157753de697d2",
+    "source": "environments/arcade/props/score_monitor.glb"
+  },
+  "arcade:score_monitor_inactive": {
+    "path": "editor/previews/379739f21d635ca5fc4e3f2f.png",
+    "sha256": "0fa30cc16877c73fa9ac5623f0836b48d1879008ef5c29ef9cfaacc517b11c80",
+    "source": "environments/arcade/props/score_monitor_inactive.glb"
+  },
+  "arcade:soda_bottle": {
+    "path": "editor/previews/b316ac46a754944a1078df59.png",
+    "sha256": "c30c4349b27bf6e2e8223f407a77f0fe9550d9dc46ba2e44440a4ab76f5f9ca2",
+    "source": "environments/arcade/props/soda_bottle.glb"
+  },
+  "arcade:vending_machine": {
+    "path": "editor/previews/d1e60e85a9888661a022a729.png",
+    "sha256": "7c6f257682ef89fd39da3d5d3cf5cfc32c457d4b0a0cba55877906b22814c1ef",
+    "source": "environments/arcade/props/vending_machine.glb"
+  },
+  "arcade:wall_navy_01": {
+    "path": "editor/previews/8164eb34d4c58d7734528088.png",
+    "sha256": "32603676ccc6be1a31398a021ae825b8e4661292154e20833b854efda0840a92",
+    "source": "environments/arcade/textures/walls/wall_navy_01.png"
+  },
+  "arcade:wall_party_purple_01": {
+    "path": "editor/previews/a755857be4b5ca0f2609b3dc.png",
+    "sha256": "c14c9bc03cbea622494abda7273449d02db1d2a9b552924f8565f18f7d853f53",
+    "source": "environments/arcade/textures/walls/wall_party_purple_01.png"
+  },
+  "beach:bunting": {
+    "path": "editor/previews/985883521b056c8c5b1da09f.png",
+    "sha256": "7f4df9756ea80fd638d7965b6ca68f610445c6fbb154c29001c514491b60db3d",
+    "source": "environments/beach/props/bunting.glb"
+  },
+  "beach:coastal_rock": {
+    "path": "editor/previews/972f83bc82259e111c6564e7.png",
+    "sha256": "8c0619bb090505f2fc6497ca9a3863b56117cedcb4c3ec660585eee6adef40a3",
+    "source": "environments/beach/props/coastal_rock.glb"
+  },
+  "beach:coastal_rock_wide": {
+    "path": "editor/previews/f02c02ecaf397ce310328e0d.png",
+    "sha256": "a29653c5359a2e3136c7176c106e47fdaf17c6a0537ce33886ac352c5e9b2fcb",
+    "source": "environments/beach/props/coastal_rock_wide.glb"
+  },
+  "beach:cove_foam": {
+    "path": "editor/previews/4f04cdffb296da7c5b5a2f0f.png",
+    "sha256": "d84f929d1c4e6e79d3fa1dd068821db4bfdfef05858f756dcea2827879cb33f7",
+    "source": "environments/beach/props/cove_foam.glb"
+  },
+  "beach:crab": {
+    "path": "editor/previews/1264de8ddea94aae5d7a8f46.png",
+    "sha256": "4a47bb3b304a6b8e5a41f1b9e1aa98ec07672935590d212ea0835a49a683ec44",
+    "source": "entities/beach_crab/model/beach_crab.glb"
+  },
+  "beach:crate": {
+    "path": "editor/previews/fef849255544f6600f3fccbe.png",
+    "sha256": "a9709e74cb72290e4d34844c27ebf60d6e651fe35eb543edd9797eb3dbe8a450",
+    "source": "environments/beach/props/crate.glb"
+  },
+  "beach:dock": {
+    "path": "editor/previews/118456360178b8fa92072512.png",
+    "sha256": "8aa31cb16277437ca15dd6c7055a2cab8688f08abf45fe1e2d0cf8e9a373305a",
+    "source": "environments/beach/props/dock.glb"
+  },
+  "beach:fish": {
+    "path": "editor/previews/3f5b304866240d60fdcbbf4e.png",
+    "sha256": "097c6c1959d867f4b0b262beb84a892018d48d21b1b214e5791c884fd7d89787",
+    "source": "entities/beach_fish/model/beach_fish.glb"
+  },
+  "beach:foam_01": {
+    "path": "editor/previews/4a121bddaf87afb94584a7f5.png",
+    "sha256": "c17161b8b7d5917bf42497efd122528171d78d688ce543e30b0ba92758381f3f",
+    "source": "environments/beach/textures/water/foam_01.png"
+  },
+  "beach:grass_01": {
+    "path": "editor/previews/3e401b0aa5b6293ed6e62d5b.png",
+    "sha256": "0c83cc194f3ff60dbb2a69aabd75f4f5529ef32e4b7f9b359c855ddbe8ef737d",
+    "source": "environments/beach/textures/floors/grass_01.png"
+  },
+  "beach:grassy_bank": {
+    "path": "editor/previews/bfef0804f30b6f31c82b4278.png",
+    "sha256": "119eaefab3d4e501f907c829045822c0c7459e66bdf4ccab27092ac472bb0ec7",
+    "source": "environments/beach/props/grassy_bank.glb"
+  },
+  "beach:hut_brown": {
+    "path": "editor/previews/cdabab4f1a646df1e9cabe9a.png",
+    "sha256": "bf45684e15316c651a7637e2f992400fea818f448be60699b8491a93ecde1550",
+    "source": "environments/beach/props/hut_brown.glb"
+  },
+  "beach:island": {
+    "path": "editor/previews/774befacc50cebb736e01cfd.png",
+    "sha256": "d8938c5f98e1a0da52ae8cd09027f944516ddcf7f1aef4efe41fa169dedb85e9",
+    "source": "environments/beach/props/island.glb"
+  },
+  "beach:kiosk": {
+    "path": "editor/previews/e9cdd511476c0f6f151ced0a.png",
+    "sha256": "a7f2ef7a712acead5f8effb31f67c49485656677ea188bc0bcaac0f0f0718c5e",
+    "source": "environments/beach/props/kiosk.glb"
+  },
+  "beach:lighthouse": {
+    "path": "editor/previews/9ea6626d037158c226ef1853.png",
+    "sha256": "8ee1c15888096bdd3a25ced8245221628c64aab7febae21633e84aedb28e7969",
+    "source": "environments/beach/props/lighthouse.glb"
+  },
+  "beach:lounge_chair": {
+    "path": "editor/previews/fe9e75c9c30c25ad456751ea.png",
+    "sha256": "89336b1806ef8829a718cd2ba046f6f1640d8faf76fedb9ff20483e6aa8fbdbd",
+    "source": "environments/beach/props/lounge_chair.glb"
+  },
+  "beach:palm": {
+    "path": "editor/previews/242d6e2e6f8c9327799a0471.png",
+    "sha256": "6d807a1aabaa0dc0dedf6fbd3709f194e0371d52eefe2e2305513a68198a8821",
+    "source": "environments/beach/props/palm.glb"
+  },
+  "beach:palm_leaf_01": {
+    "path": "editor/previews/18b4e6c191dd85b56cc21e8b.png",
+    "sha256": "0bd0fe9438aa8a757adfd2263a6443b50fccdb46d19151ef3e88a7446141444d",
+    "source": "environments/beach/textures/walls/palm_leaf_01.png"
+  },
+  "beach:palm_small": {
+    "path": "editor/previews/53518b60977700077cafbe5e.png",
+    "sha256": "efa270c62df189944a812f928df1a636b7131f67c3d6fca315ba6c20fc068bc1",
+    "source": "environments/beach/props/palm_small.glb"
+  },
+  "beach:palm_trunk_01": {
+    "path": "editor/previews/7dd6903ec4d9d95538dd5f95.png",
+    "sha256": "4a8471dbc6f4242c2e2ca8479d0ab0c6928a5055914fde22f6e7f78934f7a26e",
+    "source": "environments/beach/textures/walls/palm_trunk_01.png"
+  },
+  "beach:rock_01": {
+    "path": "editor/previews/0b4ded24f7252d96bf926017.png",
+    "sha256": "6b12933b889af013951a1cf208552e8a4adad5bb83243f053935cb57b776c250",
+    "source": "environments/beach/textures/walls/rock_01.png"
+  },
+  "beach:roof_yellow_01": {
+    "path": "editor/previews/784d18631ce814d2f825ef42.png",
+    "sha256": "b4f040fae7aed21573079c6af86035ddb3cd32ad28e5c9c1e31f42af48d4cfbf",
+    "source": "environments/beach/textures/ceilings/roof_yellow_01.png"
+  },
+  "beach:sand_01": {
+    "path": "editor/previews/82f7d1051ab0152a175856e9.png",
+    "sha256": "93fdaa3e3d4a9349d8d9b0d175932b4ecb278bffa29eab90a9a62fc73763196d",
+    "source": "environments/beach/textures/floors/sand_01.png"
+  },
+  "beach:sand_patch": {
+    "path": "editor/previews/323a93a8fbf28b345db3f4e3.png",
+    "sha256": "4c376c9c13e1f7d7a389e607f4eb98d4885df39bd6bf171aac5284d48e99a741",
+    "source": "environments/beach/props/sand_patch.glb"
+  },
+  "beach:sea_arch": {
+    "path": "editor/previews/3fb0d890600e3388c3418a67.png",
+    "sha256": "5d76a1ad7b818b8e7cde361840bb32b0e49889c65c87822f87d26bb82a24455a",
+    "source": "environments/beach/props/sea_arch.glb"
+  },
+  "beach:seagull": {
+    "path": "editor/previews/58f364a9981e2b03de4a2fdf.png",
+    "sha256": "737330a82c1c9a695b297b712d5bb15f92d5d0467ed4dedf890ba7be0c14ecc0",
+    "source": "entities/beach_seagull/model/beach_seagull.glb"
+  },
+  "beach:shoreline_foam": {
+    "path": "editor/previews/c89a88ef04eebc0d89d579ea.png",
+    "sha256": "8971eb04f522be9d27f936d69f4557fd76d530aed8b511f07cfb18ff7dd32f13",
+    "source": "environments/beach/props/shoreline_foam.glb"
+  },
+  "beach:signpost": {
+    "path": "editor/previews/910fdadef50897d0d13730ad.png",
+    "sha256": "0b603b8a9bda1aed725dcff01f6bebed7df78393ba8b074ba501cafb7650203a",
+    "source": "environments/beach/props/signpost.glb"
+  },
+  "beach:stilt_house_blue": {
+    "path": "editor/previews/87d2e731bf1e2c073d860c46.png",
+    "sha256": "bf43b052e210865599aeb1333ad22b7e21ea41fd60effef04e9b07e739c41ad4",
+    "source": "environments/beach/props/stilt_house_blue.glb"
+  },
+  "beach:stucco_01": {
+    "path": "editor/previews/f882a857a12aadc609e855bc.png",
+    "sha256": "e72bc3ef60967f2f6a32b86fadb2cdc7e7b3d40217db83de03ebe71d237020ad",
+    "source": "environments/beach/textures/walls/stucco_01.png"
+  },
+  "beach:town_arch": {
+    "path": "editor/previews/2a5e4aa2735c5001bbb641d4.png",
+    "sha256": "41e49903f406a1f42fe1d07f2ab5f6583f29b29e9ec69ccbdd309dd4a21d72f6",
+    "source": "environments/beach/props/town_arch.glb"
+  },
+  "beach:town_house_blue": {
+    "path": "editor/previews/8bce20572fdc75395dd1c279.png",
+    "sha256": "4bc605b60f8a89a4df2b75363d876b560b2d64c8e44c8e05dc812e01f5920be6",
+    "source": "environments/beach/props/town_house_blue.glb"
+  },
+  "beach:town_house_coral": {
+    "path": "editor/previews/ebfd652bad1325dbe4adea0e.png",
+    "sha256": "35df3ebbb1db093f2ae8b83ba82eba27dae4c6714f26b6fa13fbcec89a41ee14",
+    "source": "environments/beach/props/town_house_coral.glb"
+  },
+  "beach:town_house_cream": {
+    "path": "editor/previews/dfbd6c6ba45772c496818df3.png",
+    "sha256": "ea51fbb517d0ae51324b067fb9c81f2e3c8440e4014585d977ced194e748748a",
+    "source": "environments/beach/props/town_house_cream.glb"
+  },
+  "beach:town_parapet": {
+    "path": "editor/previews/321bfcdc7f64c3faba0f3995.png",
+    "sha256": "d5450782ec0334994dd8d97740cc941f4f9edf247de4d8c342da907f6739809c",
+    "source": "environments/beach/props/town_parapet.glb"
+  },
+  "beach:town_shrub": {
+    "path": "editor/previews/62a87d1d20d58619ed65ccd2.png",
+    "sha256": "6b061b99100fc2e8b694616858262b484d79ed5d658d46780e88ea8b85ac3d2d",
+    "source": "environments/beach/props/town_shrub.glb"
+  },
+  "beach:town_stairs": {
+    "path": "editor/previews/bd57f02454c8efd15e347789.png",
+    "sha256": "170a47f08013e3d3c60826ddfa0ee4f3d689cb661a552d51522b569327b239dc",
+    "source": "environments/beach/props/town_stairs.glb"
+  },
+  "beach:town_terrace": {
+    "path": "editor/previews/17af7d418ffc385d37a14c46.png",
+    "sha256": "081d02b77a74b616eb514ae6714ce00d06d0b0de2e7995403217a7c7cdb9896a",
+    "source": "environments/beach/props/town_terrace.glb"
+  },
+  "beach:town_terrace_base": {
+    "path": "editor/previews/0606c1f02fc7344be2c1972b.png",
+    "sha256": "f87829d74b7ae13af63e71fe00ff8f6c529ec7bc72371994702e7bfd7b9fc40c",
+    "source": "environments/beach/props/town_terrace_base.glb"
+  },
+  "beach:umbrella": {
+    "path": "editor/previews/d71f523d59ee5de4893a6b48.png",
+    "sha256": "7943f234867b8a539f5123972e022901e9322c9a7daab54c73fd9f5efb5cf94e",
+    "source": "environments/beach/props/umbrella.glb"
+  },
+  "beach:water_deep_01": {
+    "path": "editor/previews/fc0b80f5d8d3c1caca5d8e59.png",
+    "sha256": "e99ac2f3a472fd4992376f7447caff5f95bd11bd654267237bafb10e5c343517",
+    "source": "environments/beach/textures/water/water_01.png"
+  },
+  "beach:water_shallow_01": {
+    "path": "editor/previews/943bd241747dacb10c952d42.png",
+    "sha256": "e99ac2f3a472fd4992376f7447caff5f95bd11bd654267237bafb10e5c343517",
+    "source": "environments/beach/textures/water/water_01.png"
+  },
+  "beach:wood_plank_01": {
+    "path": "editor/previews/f98c42947fddbec5cb0ddb50.png",
+    "sha256": "75854b6ca3d82d01a45bd5a92482bff75ac14f28d58d7773e421cc038412b87b",
+    "source": "environments/beach/textures/floors/wood_plank_01.png"
+  },
+  "carved-pumpkin": {
+    "path": "editor/previews/6c8f43ccce8213ad46036108.png",
+    "sha256": "7162ef1f1499eabf39bf348f318f067cff6f12df74f597b057a58290fccc5c93",
+    "source": "entities/carved-pumpkin/model/carved-pumpkin.glb"
+  },
+  "collection:sign_aero": {
+    "path": "editor/previews/219e34b640612976c5912ca6.png",
+    "sha256": "89b7917068da345a665db3e8588f87ceb60a1841ccaddf6e4355b7c2051c5295",
+    "source": "shared/decals/collection_aero.png"
+  },
+  "collection:sign_arcade": {
+    "path": "editor/previews/b8d2d55c48879727b2fbf2ce.png",
+    "sha256": "fc1b7b7c60516db71c8c051753eccfb0842c8c68d7d0c6de041bcae932928972",
+    "source": "shared/decals/collection_arcade.png"
+  },
+  "collection:sign_beach": {
+    "path": "editor/previews/a0114493a4831531ce69ee11.png",
+    "sha256": "8d282fc4c70ea4ebecbc2143b783f7fdb982351b438699d22fc4e285dd64607b",
+    "source": "shared/decals/collection_beach.png"
+  },
+  "collection:sign_home": {
+    "path": "editor/previews/a38bdf01524cc86a38311d5e.png",
+    "sha256": "e7f6a3b54f7f13994933226b5e2dc302090691145c23c4891520f8c3b8cdbfa2",
+    "source": "shared/decals/collection_home.png"
+  },
+  "collection:sign_hub": {
+    "path": "editor/previews/9b8c9d8b9f706173562fc17f.png",
+    "sha256": "1e884e85cb3ece0d85a69325f062e0c8046c9609d1a6b92362c21ba32c73835a",
+    "source": "shared/decals/collection_hub.png"
+  },
+  "collection:sign_lantern_hollow": {
+    "path": "editor/previews/3127475c8df38127d354a4f9.png",
+    "sha256": "6ea3c24685184e7ccbacce2c8de43442cc3393b70c0398dcbc00e3697536929e",
+    "source": "shared/decals/collection_lantern_hollow.png"
+  },
+  "collection:sign_office": {
+    "path": "editor/previews/19e969df5be2fd05a213f331.png",
+    "sha256": "0c3b673f513c2eb8654f1409b5227a318c2581caa88a3bc9b300d6461f794f9f",
+    "source": "shared/decals/collection_office.png"
+  },
+  "collection:sign_pool": {
+    "path": "editor/previews/c22d10b225d81b55770d22db.png",
+    "sha256": "da68ecc727c2c571e5c04e3a4fdeba449a54e60ed0ab8d9f2990bc6306f28459",
+    "source": "shared/decals/collection_pool.png"
+  },
+  "collection:sign_welcome": {
+    "path": "editor/previews/de59969acb94e9cf7a4d51a3.png",
+    "sha256": "b58cae328ca66428add114ac296a01a17a964687b2b176994c47a49d136b33ad",
+    "source": "shared/decals/collection_welcome.png"
+  },
+  "collection:sign_winter": {
+    "path": "editor/previews/cccec4b629dd4fb4686b1f40.png",
+    "sha256": "1344c21682c7cb3a09828a785062df6deddd93ca029554824f1c9561c6036e73",
+    "source": "shared/decals/collection_winter.png"
+  },
+  "core:armchair": {
+    "path": "editor/previews/2884170d5f35cc9e232fc8e9.png",
+    "sha256": "957fa9cb1f4dad245b63b1f0f872162cfdc5400e31ea71374b549ec84f98606d",
+    "source": "shared/props/armchair.glb"
+  },
+  "core:baseboard_office_01": {
+    "path": "editor/previews/7362aaf64eaa41d3db0e8654.png",
+    "sha256": "33e56521491224e0d9f39614dd4d616218eea79fd46f23c7ad2bcb5072ffa28b",
+    "source": "environments/office/textures/walls/wallpaper_yellow_01.png"
+  },
+  "core:bed": {
+    "path": "editor/previews/153e780593de611c052d894b.png",
+    "sha256": "8229ccd767ec341a4b44d4acce0fbfe3f0d4a7295466734410a5fcd16855d7ec",
+    "source": "shared/props/bed.glb"
+  },
+  "core:bookshelf": {
+    "path": "editor/previews/d0ba0a0adf9d761205db5f46.png",
+    "sha256": "ad50a9be15073ccefe1a19df5effca463cf5398ec5fe93a8e86de64e5b9101fb",
+    "source": "shared/props/bookshelf.glb"
+  },
+  "core:cabinet": {
+    "path": "editor/previews/303f08f646bef23439dc0362.png",
+    "sha256": "e59ebdafe232631397af72070f4a8ae13374e05717bd2aae22b1866ea9d055d0",
+    "source": "environments/office/props/cabinet.glb"
+  },
+  "core:cardboard_box": {
+    "path": "editor/previews/ec94c865a5e8a8531ad1f728.png",
+    "sha256": "fa883e5675e1d47b208b0ac4bc47b77e7002b48f5013d0e8b4121a2dee159264",
+    "source": "shared/props/cardboard_box.glb"
+  },
+  "core:carpet_beige_01": {
+    "path": "editor/previews/728cd1dd2753ea8154373b0f.png",
+    "sha256": "beb6d0d74787e5e78104b0f1ae2cb641127eb601ddfaf48fc348344c94772b87",
+    "source": "environments/office/textures/floors/carpet_beige_01.png"
+  },
+  "core:carpet_damp_01": {
+    "path": "editor/previews/5389d373e97b6a65271e7d76.png",
+    "sha256": "112f0e5bd44c006e0d835522f872896ae477b21c425e59704080a4b25a9bd6d3",
+    "source": "environments/office/textures/floors/carpet_damp_01.png"
+  },
+  "core:ceiling_diffuser_01": {
+    "path": "editor/previews/81103bf9404956f1839f1ad2.png",
+    "sha256": "550ab68f9ceca2651647fd49bd43cb744cd136404422aee959b7d31567fc5f63",
+    "source": "shared/props/ceiling_diffuser_01.glb"
+  },
+  "core:ceiling_panel_01": {
+    "path": "editor/previews/b17f22bcaaf0e2129f7ca208.png",
+    "sha256": "77773b64877e4b28856ebd6a972acb51d7d4016e9464c595a895af4b471c2edc",
+    "source": "environments/office/textures/ceilings/ceiling_panel_01.png"
+  },
+  "core:ceiling_stained_01": {
+    "path": "editor/previews/9818d9d8dd1fc86260ce5825.png",
+    "sha256": "ce17d289824c5f8883f9b00a5018d3bee3271733709aaac51c722285123e5eda",
+    "source": "environments/office/textures/ceilings/ceiling_stained_01.png"
+  },
+  "core:chair": {
+    "path": "editor/previews/f99784c7a86b2b128febf738.png",
+    "sha256": "03e980b7ff0ba8c2ea70cfca3333aae33d0c1cdac9ea1e13114b54ab45085218",
+    "source": "environments/office/props/chair.glb"
+  },
+  "core:couch": {
+    "path": "editor/previews/216a61d1d86ab2a862cb555a.png",
+    "sha256": "e11ef19a923d0ef5ae0372112799b411049f72fa60af99b7fd6775123c086b3b",
+    "source": "shared/props/couch.glb"
+  },
+  "core:crate": {
+    "path": "editor/previews/f234cbc3770b2e23d1915e56.png",
+    "sha256": "427436fb69054f8fd58ad7352ce89c1ea45b0fd83eb75b50d3fdff6d2f4411ac",
+    "source": "shared/props/crate.glb"
+  },
+  "core:decal_arrow_01": {
+    "path": "editor/previews/5593dd2d8cf543ae9d18e909.png",
+    "sha256": "d4b1ae6dc91a74df69656f6ef59fe380ee2f96125a3d88d021f26465799eb4d3",
+    "source": "shared/decals/arrow_01.png"
+  },
+  "core:decal_ceiling_vent_01": {
+    "path": "editor/previews/3ad5391a447d7d1829bbf94c.png",
+    "sha256": "5596db369f7163881f9b437f26ccade3667dea330ab2d4123e0a0db6702538f7",
+    "source": "shared/decals/ceiling_vent_01.png"
+  },
+  "core:decal_no_diving_01": {
+    "path": "editor/previews/d5f3d9ad1bc37ee7b10496c1.png",
+    "sha256": "d4fa9b984de1303cd159851fceb26247da14f184cd5f193f8cb7d5bc8eed4e42",
+    "source": "environments/pool/decals/no_diving_01.png"
+  },
+  "core:decal_stripes_01": {
+    "path": "editor/previews/3abfca323cd111dbadf303e0.png",
+    "sha256": "b54b6b71950f038fcb00a1ea64272959d7af9fe6de3b78514081149c6bef1601",
+    "source": "shared/decals/stripes_01.png"
+  },
+  "core:decal_temptation_adam_eve_01": {
+    "path": "editor/previews/6869731039305a8303112e14.png",
+    "sha256": "092634219f571b9201c6821544707c082ab187c3cf1b1d7bb69c9d4cf63f171f",
+    "source": "shared/decals/temptation_adam_eve_01.png"
+  },
+  "core:decal_test_01": {
+    "path": "editor/previews/70afe548a19057b813c716f7.png",
+    "sha256": "72d84c0ceb1025c3ecc6fce57f4cb9f6c950270fa581515c0277f76fed4dd502",
+    "source": "shared/decals/validation_atlas_01.png"
+  },
+  "core:desk": {
+    "path": "editor/previews/ee0b63bc1dfa8ab2b7c38ef4.png",
+    "sha256": "c79949e4c9e572714cbad8341321012ef192929912ef700491407983a39b79c5",
+    "source": "environments/office/props/desk.glb"
+  },
+  "core:diagnostic_alpha_01": {
+    "path": "editor/previews/b9ee282350753daab95587b7.png",
+    "sha256": "764b6da6f7a8a603baa56c50def921cd58a2ccf08009ca2360c45543de0dbadf",
+    "source": "diagnostic/textures/diagnostic_alpha_01.png"
+  },
+  "core:diagnostic_alt_01": {
+    "path": "editor/previews/27d02285c6afcbd3c9938713.png",
+    "sha256": "9310d6f2ce744c49552d9ff9f39be541c7b74150ac585f9cb14470a5ea6d661e",
+    "source": "diagnostic/textures/diagnostic_alt_01.png"
+  },
+  "core:diagnostic_ceiling_01": {
+    "path": "editor/previews/b1d402375d5cce22842ba84a.png",
+    "sha256": "e30c355cfb1022e625a1c8dd0c31ffe102427706f86b6709fa2927c96a27dcaa",
+    "source": "diagnostic/textures/diagnostic_ceiling_01.png"
+  },
+  "core:diagnostic_floor_01": {
+    "path": "editor/previews/16b6ea926d0cf2d99f09056e.png",
+    "sha256": "55ac48420ad2bb3c92d1aaec387fdcb29517005aaf5323070bbb7da5b0a4a988",
+    "source": "diagnostic/textures/diagnostic_floor_01.png"
+  },
+  "core:diagnostic_wall_01": {
+    "path": "editor/previews/78322620f7d1b6e1b0d841b0.png",
+    "sha256": "c349433c39cd14c00619e2503ea3fa8885870b07287e36e55e12e31dd7fb1b62",
+    "source": "diagnostic/textures/diagnostic_wall_01.png"
+  },
+  "core:exit_sign": {
+    "path": "editor/previews/8ee378c8f9f1b4d9aef62d81.png",
+    "sha256": "988abb7c8aaa1034c4c0543a91a8d9ab081f5b307a08f72c158b1ca294276f24",
+    "source": "shared/props/exit_sign.glb"
+  },
+  "core:fluorescent_panel_01": {
+    "geometry_revision": 4,
+    "method": "native editor Inspect; frame selection; deselect; 200x150 UI viewport crop; 160x120 Lanczos",
+    "path": "editor/native-previews/fixture_0.png",
+    "sha256": "55db5b8b8ee11f740f3413ba864f538a1d44a32812d4e7b27e082b3cbc97a358",
+    "source": "environments/office/textures/lights/fluorescent_panel_01.png"
+  },
+  "core:fluorescent_panel_housing": {
+    "path": "editor/previews/eb9d7dbdfa207a64235dbc99.png",
+    "sha256": "25b9ecbe8ed2c9a20cf1849e21ee5d776c320a6948d5c691fa332e6c777bcb34",
+    "source": "shared/textures/walls/metal_panel_01.png"
+  },
+  "core:fridge": {
+    "path": "editor/previews/e46da8f083155adaeac9023f.png",
+    "sha256": "95adfd7b52d9d920508b53a02ad5c5108f15065b19bc96b300d68ef2a5fb1264",
+    "source": "shared/props/fridge.glb"
+  },
+  "core:glass_sign_flicker_01": {
+    "path": "editor/previews/62b90d807bf0d73abc96dfea.png",
+    "sha256": "5a0c17c4eb5f631ae1a36a7cabeb7da418e34fc591fcc1bec3559138798db71d",
+    "source": "shared/textures/glass/glass_tinted_01.png"
+  },
+  "core:glass_sign_lit_01": {
+    "path": "editor/previews/b88fcc536b31cf3d0beb1789.png",
+    "sha256": "5a0c17c4eb5f631ae1a36a7cabeb7da418e34fc591fcc1bec3559138798db71d",
+    "source": "shared/textures/glass/glass_tinted_01.png"
+  },
+  "core:glass_tinted_01": {
+    "path": "editor/previews/b72094e3d3f9b4d5d70c26bd.png",
+    "sha256": "5a0c17c4eb5f631ae1a36a7cabeb7da418e34fc591fcc1bec3559138798db71d",
+    "source": "shared/textures/glass/glass_tinted_01.png"
+  },
+  "core:glass_window_clear_01": {
+    "path": "editor/previews/0e6541b0b0b7b49a8adad922.png",
+    "sha256": "218c6e30035c5a552867f876b388b45a166205a27b75b4c2b92dda943c98bc70",
+    "source": "shared/textures/glass/glass_clear_01.png"
+  },
+  "core:glass_window_dirty_01": {
+    "path": "editor/previews/c05c447446d931a200e081df.png",
+    "sha256": "81a61cda8b9e0cb0d2532808b2e6e78d420310915132e29f5188ad4e770eba5e",
+    "source": "shared/textures/glass/glass_dirty_01.png"
+  },
+  "core:grille_vent_01": {
+    "path": "editor/previews/2f3ff355b68b7351039a77c0.png",
+    "sha256": "56cdd920bb8b0ca249aa414948f54228942cddbeca56c7b6ac6455cb336d0b23",
+    "source": "shared/textures/walls/grille_01.png"
+  },
+  "core:hot_tub": {
+    "path": "editor/previews/7d36bb4c05bf259e2e4cd830.png",
+    "sha256": "605736dc82788cf2ec56ce8b3b03fda25a70e4d5261f9e96cc16b3b48547fc3e",
+    "source": "environments/pool/props/hot_tub.glb"
+  },
+  "core:lamp": {
+    "path": "editor/previews/7d94c36776dd66334d5f94ff.png",
+    "sha256": "af28478ff1eab79cc85574ade5ea1b8d0bc791f73e9633e4fc91de74445fe8e6",
+    "source": "shared/props/lamp.glb"
+  },
+  "core:linoleum_polished_01": {
+    "path": "editor/previews/bb35f8c650189e89d66e8b0e.png",
+    "sha256": "beccae9271208401f1d50770d512d3c93bd1561ef9fe54eb1d59d6b42e40bf16",
+    "source": "shared/textures/floors/linoleum_01.png"
+  },
+  "core:mannequin_black": {
+    "path": "editor/previews/8005ec6629e40b6e797d9757.png",
+    "sha256": "6627807d4cddf7331cc7f96b03adb43f3686af71366bc8dc257f881b6ddf1156",
+    "source": "entities/mannequin/model/mannequin.glb"
+  },
+  "core:metal_brass_01": {
+    "path": "editor/previews/4b67a461f05f8858b1916b79.png",
+    "sha256": "c3b3ee65a0dad58e4fbc498fb39a1aa7c6688054c65c7ea995bf8d849e76b4c8",
+    "source": "shared/textures/metal/brass_01.png"
+  },
+  "core:metal_brushed_01": {
+    "path": "editor/previews/a1f285128246099ca691baa0.png",
+    "sha256": "25b9ecbe8ed2c9a20cf1849e21ee5d776c320a6948d5c691fa332e6c777bcb34",
+    "source": "shared/textures/walls/metal_panel_01.png"
+  },
+  "core:office_filing_cabinet_tall": {
+    "path": "editor/previews/ec77e17fceafe0245a200345.png",
+    "sha256": "fce79eb6ad1fa212ae328e8d45d31bb8b98bb08d6d88fda90c1294e53e3ed7f9",
+    "source": "environments/office/props/office_filing_cabinet_tall.glb"
+  },
+  "core:office_fluorescent_panel_housing": {
+    "path": "editor/previews/06f8655476bc48f20bfb1c16.png",
+    "sha256": "97074b003c0e141256547783bd959d7cfcf7dd6e6cf00fdacaac3d9fd9481237",
+    "source": "environments/office/props/office_fluorescent_panel.glb"
+  },
+  "core:office_noticeboard": {
+    "path": "editor/previews/6f985c4929af8f1c85595229.png",
+    "sha256": "7db4d34db372a1ac151c6d5ee75b076ee098bcb6abb7a4c3dd29ffbd5ed8079c",
+    "source": "environments/office/props/office_noticeboard.glb"
+  },
+  "core:office_reception_desk": {
+    "path": "editor/previews/1cd11360e3fce6eb1017ff39.png",
+    "sha256": "f8a4f4198dcebabfb25519d96acdbcf8a6d352096381e7e85c032b5ffe6351cc",
+    "source": "environments/office/props/office_reception_desk.glb"
+  },
+  "core:office_snack_machine": {
+    "path": "editor/previews/9caf1ff8e744c5f19fda5d3a.png",
+    "sha256": "524340672a396bbec5f55ba0e1db14b94c24a3c46bd9b706e4f88dc2bdcf5c0d",
+    "source": "environments/office/props/office_snack_machine.glb"
+  },
+  "core:painting_dull_01": {
+    "path": "editor/previews/ffd0ed4078dd43a316e66235.png",
+    "sha256": "33e56521491224e0d9f39614dd4d616218eea79fd46f23c7ad2bcb5072ffa28b",
+    "source": "environments/office/textures/walls/wallpaper_yellow_01.png"
+  },
+  "core:painting_frame_landscape_01": {
+    "path": "editor/previews/e18a1779c17e47a868446c8e.png",
+    "sha256": "85469ac4b2811779473280e60a75e65fbdcac936d3532df7787d1fefcb967d49",
+    "source": "shared/props/painting_frame_landscape_01.glb"
+  },
+  "core:plant": {
+    "path": "editor/previews/2b4ea547629b97e02acfd618.png",
+    "sha256": "37ad0d0b56561bd1ccb6e7db99253484e167467a84aafd47eafb0c381a2b069f",
+    "source": "shared/props/plant.glb"
+  },
+  "core:plastic_panel_01": {
+    "path": "editor/previews/00f15b9dbe987e6842903ca5.png",
+    "sha256": "994b0579e467d6927cf0899095add34714c59f0f7b0a49c426bc246024030e57",
+    "source": "shared/textures/walls/plastic_panel_01.png"
+  },
+  "core:pool_ceiling_01": {
+    "path": "editor/previews/426b98017924b885c82843d8.png",
+    "sha256": "185facf8c2b2eb80e3bdc8bfa0b34c920d9c8c556a92b30edf2a702d70c9734d",
+    "source": "environments/pool/textures/ceilings/pool_ceiling_01.png"
+  },
+  "core:pool_chair": {
+    "path": "editor/previews/d3dfff369572b6cf0c5e6921.png",
+    "sha256": "3a755f7b7a3b1fe3e16ddad77ba801e0433bf146b82bbfe43963851c305c4e76",
+    "source": "environments/pool/props/pool_chair.glb"
+  },
+  "core:pool_curtain_corner": {
+    "path": "editor/previews/1604e1188e1c72dd883d02fa.png",
+    "sha256": "0f410b9baaed0af8172affdceeee935cb99081c9e80daed7adaed4c6f2b5c2f9",
+    "source": "environments/pool/props/pool_curtain_corner.glb"
+  },
+  "core:pool_curtain_end": {
+    "path": "editor/previews/0060aa3411cf6028cd8e4198.png",
+    "sha256": "56541ded22d64e0f6423aeacab4b8474c923bb77cb7c08e5c3b9c1c073c5126c",
+    "source": "environments/pool/props/pool_curtain_end.glb"
+  },
+  "core:pool_curtain_straight": {
+    "path": "editor/previews/0808442613d13d2aa0503dfa.png",
+    "sha256": "bef5d7f4c2fb581b350c784539d529d12ad61cf0b304b322195097998093924b",
+    "source": "environments/pool/props/pool_curtain_straight.glb"
+  },
+  "core:pool_deck_wet_01": {
+    "path": "editor/previews/f21321819fdfe11b8a9b2a30.png",
+    "sha256": "89c337b44b8ab42de176ce192384d44806eeebfce43ed6affb9130a5ee794b0b",
+    "source": "environments/pool/textures/floors/pool_tile_deck_01.png"
+  },
+  "core:pool_guardrail_corner": {
+    "path": "editor/previews/60ea1742b7b7cf67b7c7c577.png",
+    "sha256": "9da6af411ec952cfd7a0fc00cc2e66f8bf26697c36e17d3302e4694704761ef3",
+    "source": "environments/pool/props/pool_guardrail_corner.glb"
+  },
+  "core:pool_guardrail_end": {
+    "path": "editor/previews/347b65d5b9a9e6518e2715a1.png",
+    "sha256": "ddfef67f99a9c428b3a72bdbcef7467cee8c357064afff634fda785f1f4062e4",
+    "source": "environments/pool/props/pool_guardrail_end.glb"
+  },
+  "core:pool_guardrail_straight": {
+    "path": "editor/previews/00050438884e0fa8ffe65a2b.png",
+    "sha256": "2f644b55de75824d382a7b2b7bf2c236d32c0e658b10f459c467ffe2adfca7df",
+    "source": "environments/pool/props/pool_guardrail_straight.glb"
+  },
+  "core:pool_ladder": {
+    "path": "editor/previews/61d734d2db651a8e67ce58b2.png",
+    "sha256": "ba7cd7611c8e15044e3c352f99318498b610d7d0644cc2d1a4d5d41ebecc6aea",
+    "source": "environments/pool/props/pool_ladder.glb"
+  },
+  "core:pool_light_round": {
+    "geometry_revision": 4,
+    "method": "native editor Inspect; frame selection; deselect; 200x150 UI viewport crop; 160x120 Lanczos",
+    "path": "editor/native-previews/fixture_1.png",
+    "sha256": "3a4c935a87c8e7e1cec65916a75d0de270dd923d6e9321b26827d244d82dc2e4",
+    "source": "environments/pool/textures/lights/pool_light_round_01.png"
+  },
+  "core:pool_light_round_housing": {
+    "path": "editor/previews/d4f14834713c57aa5fdda1d4.png",
+    "sha256": "f6e885e03f58f96ad424d7e313a53cec1d0859a1dcd5584ee2bdae6b163828b1",
+    "source": "environments/pool/props/pool_light_round.glb"
+  },
+  "core:pool_light_wall": {
+    "geometry_revision": 4,
+    "method": "native editor Inspect; frame selection; deselect; 200x150 UI viewport crop; 160x120 Lanczos",
+    "path": "editor/native-previews/fixture_2.png",
+    "sha256": "afc219b7d0e4718f5d66bcd73ad347aa4e7624c12dd6d41ef9043cda8bc712a3",
+    "source": "environments/pool/textures/lights/pool_light_wall_01.png"
+  },
+  "core:pool_light_wall_housing": {
+    "path": "editor/previews/3ced5fe14940c7d57ed21b0b.png",
+    "sha256": "d8e4ceaa9233d07d8d21dfc88a275c353528c092b4aa684ea0d5eeb174acd5e0",
+    "source": "environments/pool/props/pool_light_wall.glb"
+  },
+  "core:pool_table": {
+    "path": "editor/previews/ee7672f1291358f5f1e3640f.png",
+    "sha256": "59ce98caa4b92f3745fc109b4600aef46ddefbbc9e8ea0eff69b94cbe0076fe2",
+    "source": "environments/pool/props/pool_table.glb"
+  },
+  "core:pool_tile_basin_01": {
+    "path": "editor/previews/a9505750d3fe93274e0aa28a.png",
+    "sha256": "f4ee07dab94ddd3be3c714a64818799b2710f5ada70413f217a375bf57599d81",
+    "source": "environments/pool/textures/floors/pool_tile_basin_01.png"
+  },
+  "core:pool_tile_deck_01": {
+    "path": "editor/previews/7933a3da9ee464c46438fba1.png",
+    "sha256": "89c337b44b8ab42de176ce192384d44806eeebfce43ed6affb9130a5ee794b0b",
+    "source": "environments/pool/textures/floors/pool_tile_deck_01.png"
+  },
+  "core:pool_tile_wall_01": {
+    "path": "editor/previews/2a9a4342cf1c1e0a3f3bcb0a.png",
+    "sha256": "4a07a895c52cc33832e0e79b29f552a231ffc43a1466ae1949bf5f526f06bd40",
+    "source": "environments/pool/textures/walls/pool_tile_wall_01.png"
+  },
+  "core:rubber_duck": {
+    "path": "editor/previews/1f9876f84575ddd6911393a0.png",
+    "sha256": "a3e306329179900549b38168bf1e8299d24a3aea18a35723b0016dce7d8c6518",
+    "source": "environments/pool/props/rubber_duck.glb"
+  },
+  "core:rug": {
+    "path": "editor/previews/6ba31cbfb93a0db295c10d7e.png",
+    "sha256": "db4f28e44f123c67357ba966eb89fc96fea121e230e71f56757c610d82fa015a",
+    "source": "shared/props/rug.glb"
+  },
+  "core:sink": {
+    "path": "editor/previews/24c30592452d4c9d472de3dd.png",
+    "sha256": "ff81be96768a072288d43132a250c00b5723895c30056f32ebc25567424afc6e",
+    "source": "shared/props/sink.glb"
+  },
+  "core:snowflake_01": {
+    "path": "editor/previews/01225d813cde6e5848b7304a.png",
+    "sha256": "3e9d4e48f54b5bb5f0bd8fbcb4d0a60ff70882e2ceb18ebc72197f8ef7eee587",
+    "source": "shared/textures/effects/snowflake_01.png"
+  },
+  "core:steam_01": {
+    "path": "editor/previews/8f4e6323d6414c5d8fa7c373.png",
+    "sha256": "5dbc87a8f0303934620275f0207b28d7478649689f64a85bce771360046f3086",
+    "source": "shared/textures/effects/steam_01.png"
+  },
+  "core:stop_sign": {
+    "path": "editor/previews/5def7b52297531b00ce98ebe.png",
+    "sha256": "3c9cd7f504c7c9243c3f30f438a385f52ae4c40e2ddaaae9dfbf65124473bd0e",
+    "source": "shared/props/stop_sign.glb"
+  },
+  "core:stove": {
+    "path": "editor/previews/4c4c9fbb1e1ae9988820d232.png",
+    "sha256": "bd64864b9c4273428e0fd1629f62608fad36d5afb1e775e730926e465553ec9e",
+    "source": "shared/props/stove.glb"
+  },
+  "core:table": {
+    "path": "editor/previews/36856a2f97ee4ce905ee0ccf.png",
+    "sha256": "324d6868bd3f142a06216f0f9e366688e463b06dec234162e787edb92720d071",
+    "source": "shared/props/table.glb"
+  },
+  "core:table_sideways": {
+    "path": "editor/previews/70ede0ac3431b74277884130.png",
+    "sha256": "1bfda1496ebdbed0bc2ec4e3273038f804b853c6178cc45b86499b43d806584b",
+    "source": "shared/props/table_sideways.glb"
+  },
+  "core:tv": {
+    "path": "editor/previews/f1fcea306af28e64f42e5019.png",
+    "sha256": "004d03205324003aacf7d4dd7dec2a173b449d4df30a908fc9a3d8c6e7ec9f4d",
+    "source": "shared/props/tv.glb"
+  },
+  "core:vending_machine": {
+    "path": "editor/previews/a88cccd0530216627a39f424.png",
+    "sha256": "2bec6e5a70c4a637cf9a3c047eccf4d539738bce0953ab61d8cbc6f406181443",
+    "source": "environments/office/props/vending_machine.glb"
+  },
+  "core:wallpaper_stained_01": {
+    "path": "editor/previews/99aa1572b8f62f5b48c0c6cf.png",
+    "sha256": "39847f1bf877eae398563219da98ec026306966858f73e6bbd7bae8482a2a398",
+    "source": "environments/office/textures/walls/wallpaper_stained_01.png"
+  },
+  "core:wallpaper_yellow_01": {
+    "path": "editor/previews/f4bf38720bfd5d0ee8f7a7ac.png",
+    "sha256": "33e56521491224e0d9f39614dd4d616218eea79fd46f23c7ad2bcb5072ffa28b",
+    "source": "environments/office/textures/walls/wallpaper_yellow_01.png"
+  },
+  "core:washer_drum": {
+    "path": "editor/previews/46f0e044fcb8e77ea6938c33.png",
+    "sha256": "51288d5497e30aa8b77260b3da4c1cc818875c8773896f378a3821d7ab380e37",
+    "source": "shared/props/washer_drum.glb"
+  },
+  "core:washing_machine": {
+    "path": "editor/previews/3e7e248107884171924eb9a8.png",
+    "sha256": "51d2efcbe80315281ab20d51a967f8812a56e20ec510b235de97183bd5e3ac0f",
+    "source": "shared/props/washing_machine.glb"
+  },
+  "core:water_cooler": {
+    "path": "editor/previews/bd40329f24c56ab1d6c5a11a.png",
+    "sha256": "4f2b6494431f801f6ad335643ff87e5f8d9df01f4bcd03f510f505363e3185a2",
+    "source": "environments/office/props/water_cooler.glb"
+  },
+  "core:water_pool_01": {
+    "path": "editor/previews/daa755152f34027cd0277432.png",
+    "sha256": "dc9caa62d80c0884c2b6f062143934340b12d57d500441d16e831ebd4b18711a",
+    "source": "environments/pool/textures/water/pool_water_01.png"
+  },
+  "editor:door_interior": {
+    "geometry_revision": 4,
+    "method": "native editor Inspect; frame selection; deselect; 200x150 UI viewport crop; 160x120 Lanczos",
+    "path": "editor/native-previews/door_0.png",
+    "sha256": "3859e37e3fae476c02a425542daafa209960bd3b625a77b54240dd79faf13275",
+    "source": "src/engine/render/common/doors.rs"
+  },
+  "editor:door_restroom": {
+    "geometry_revision": 4,
+    "method": "native editor Inspect; frame selection; deselect; 200x150 UI viewport crop; 160x120 Lanczos",
+    "path": "editor/native-previews/door_2.png",
+    "sha256": "3859e37e3fae476c02a425542daafa209960bd3b625a77b54240dd79faf13275",
+    "source": "src/engine/render/common/doors.rs"
+  },
+  "editor:door_sauna": {
+    "geometry_revision": 4,
+    "method": "native editor Inspect; frame selection; deselect; 200x150 UI viewport crop; 160x120 Lanczos",
+    "path": "editor/native-previews/door_1.png",
+    "sha256": "3859e37e3fae476c02a425542daafa209960bd3b625a77b54240dd79faf13275",
+    "source": "src/engine/render/common/doors.rs"
+  },
+  "entity:cockroach": {
+    "path": "editor/previews/61e411bc5774267cec66101a.png",
+    "sha256": "d575f219fcda8661b276e11e79893ec3cf41997fba556e55ff68a704a825562d",
+    "source": "entities/cockroach/model/cockroach.glb"
+  },
+  "frutiger_aero:accent_panel": {
+    "path": "editor/previews/465bdc0c7cf211e7e1a620c8.png",
+    "sha256": "3587856a886ef16af108dc17dcf97099500202180e18c188e5b9ca90d9d03b68",
+    "source": "environments/frutiger_aero/props/accent_panel.glb"
+  },
+  "frutiger_aero:aqua_tile_01": {
+    "path": "editor/previews/06c72625f18fd02c1a955094.png",
+    "sha256": "ca980729090da91e02f8454f572970f05fd52641da9aa7db679634773c064beb",
+    "source": "environments/frutiger_aero/textures/floors/aqua_tile_01.png"
+  },
+  "frutiger_aero:atrium_dome": {
+    "path": "editor/previews/46bd719e110207d28329499f.png",
+    "sha256": "f606af57dc7f8880968e3138b878375ce576e4ef51f6a37e976a6753d8ca5486",
+    "source": "environments/frutiger_aero/props/atrium_dome.glb"
+  },
+  "frutiger_aero:banner_atrium": {
+    "path": "editor/previews/8cf0d8f758645c1b5c2274d6.png",
+    "sha256": "c73163cc32583929d418ff0b7ee5211e7b38a3c56ffa3545aec99903b28e48c1",
+    "source": "environments/frutiger_aero/props/banner_atrium.glb"
+  },
+  "frutiger_aero:banner_corridor": {
+    "path": "editor/previews/382680e70eec93fbce2ccc99.png",
+    "sha256": "c81f3444f9f89e5cf2d47e8db4979ffdcefdedb03077fc077d260b9144817165",
+    "source": "environments/frutiger_aero/props/banner_corridor.glb"
+  },
+  "frutiger_aero:banner_reception": {
+    "path": "editor/previews/2ab07f40f43c9aa41e2f76d4.png",
+    "sha256": "7e64880ac8576e11772ded8042b37d082249eb62399e80133021e0b4066d3e97",
+    "source": "environments/frutiger_aero/props/banner_reception.glb"
+  },
+  "frutiger_aero:bubble_sculpture": {
+    "path": "editor/previews/06f57b3ebef34de4230e4bbc.png",
+    "sha256": "1b98726f19bc4c24e2c685c3455b211880f187c8d6a48623327c1db8db09ed99",
+    "source": "environments/frutiger_aero/props/bubble_sculpture.glb"
+  },
+  "frutiger_aero:ceiling_ring": {
+    "path": "editor/previews/4bfc55f77fa9972df45f7603.png",
+    "sha256": "8a05b6d13d88c3b441d4aa8f7583f30a7c4a925e7bd8ef5f885d912dcb04c482",
+    "source": "environments/frutiger_aero/props/ceiling_ring.glb"
+  },
+  "frutiger_aero:city_backdrop": {
+    "path": "editor/previews/96ad18950f23c331cf5687ad.png",
+    "sha256": "79199e360405dad8e7a7b13c10dc51988a7dffc263f405737181d94140cb2395",
+    "source": "environments/frutiger_aero/props/city_backdrop.glb"
+  },
+  "frutiger_aero:cyan_glass_01": {
+    "path": "editor/previews/041632ec791eb841c270a63b.png",
+    "sha256": "edab20b1a205987bf27627099d2be41a00c0099a4faa064553337bf285eeebfd",
+    "source": "environments/frutiger_aero/textures/walls/cyan_glass_01.png"
+  },
+  "frutiger_aero:cyan_water_01": {
+    "path": "editor/previews/8ce04e313d641e156382b777.png",
+    "sha256": "5663fbb336f36a7f66d1e1ab66b5383597c98e9017904049c9442a2c7ca86db7",
+    "source": "environments/frutiger_aero/textures/water/cyan_water_01.png"
+  },
+  "frutiger_aero:decal_atrium_banner_01": {
+    "path": "editor/previews/618595508112b7d5ce96b246.png",
+    "sha256": "09f3bcfd8db30a1103bd66220fe2c6d0ac9e32f1a49f9825094bb6d64784c88d",
+    "source": "environments/frutiger_aero/decals/atrium_banner_01.png"
+  },
+  "frutiger_aero:decal_corridor_typography_01": {
+    "path": "editor/previews/e77e23ee1e281c40415e165c.png",
+    "sha256": "b05543782b8fe9ec6ae7cddf06fc0d85ab091bf1fd4b3f3fc6dc91bcc59844b2",
+    "source": "environments/frutiger_aero/decals/corridor_typography_01.png"
+  },
+  "frutiger_aero:decal_kiosk_typography_01": {
+    "path": "editor/previews/161585be4c044059b52151cf.png",
+    "sha256": "9d5a1837cc90f22958d919458733e49194a0e9ed31b42b5553950303e80b3549",
+    "source": "environments/frutiger_aero/decals/kiosk_typography_01.png"
+  },
+  "frutiger_aero:decal_leaf_brand_01": {
+    "path": "editor/previews/c64ddd246b39f9d26c8f4711.png",
+    "sha256": "55a512ef098e660f9e05e333a685603178548aa1b7cc74cf826d34c3d6833a9e",
+    "source": "environments/frutiger_aero/decals/leaf_brand_01.png"
+  },
+  "frutiger_aero:decal_reception_banner_01": {
+    "path": "editor/previews/f46f50df58657edd86e02971.png",
+    "sha256": "58bf5709b7ef0bd304bed9829ad1237957e470696108e89a8e8623d135e3d4f0",
+    "source": "environments/frutiger_aero/decals/reception_banner_01.png"
+  },
+  "frutiger_aero:display_kiosk": {
+    "path": "editor/previews/db4f2ba27e1dc7592f45e5d0.png",
+    "sha256": "7c97886ad6aa725dc215dcbea8a4828736cbf5e0b711a09e5b9fd1c7572520a5",
+    "source": "environments/frutiger_aero/props/display_kiosk.glb"
+  },
+  "frutiger_aero:double_doors": {
+    "path": "editor/previews/8d71e3b45e616cb1a3a67e04.png",
+    "sha256": "f041773df2c4d8fcd53a366355c76535ffeadb4280136dfcd894c1ea5ca7e19f",
+    "source": "environments/frutiger_aero/props/double_doors.glb"
+  },
+  "frutiger_aero:double_doors_open": {
+    "path": "editor/previews/681c75acbc14bcb9efba2575.png",
+    "sha256": "330096c572a65376c407e0a3dca329335c8bbbe0bed7db0232fe3154548083ca",
+    "source": "environments/frutiger_aero/props/double_doors_open.glb"
+  },
+  "frutiger_aero:fountain_basin": {
+    "path": "editor/previews/3369a2137a9eb911bc5d94ce.png",
+    "sha256": "539a3da4f1a1025140396540e040abdf2f8ad900bb3bd78941176e70d1ab92d9",
+    "source": "environments/frutiger_aero/props/fountain_basin.glb"
+  },
+  "frutiger_aero:glass_canopy": {
+    "path": "editor/previews/4c72ead7119d00e5dae4a3d1.png",
+    "sha256": "a331d9230cdf877da306825d563a706ce42dcaea9b22448be7101a71cf011801",
+    "source": "environments/frutiger_aero/props/glass_canopy.glb"
+  },
+  "frutiger_aero:glass_partition": {
+    "path": "editor/previews/ce4e1ff801d9fb7479d3e21d.png",
+    "sha256": "d4152cb58f399a1df348fe5486753c535b48b17f9336447344f115b9bb43dbf5",
+    "source": "environments/frutiger_aero/props/glass_partition.glb"
+  },
+  "frutiger_aero:green_backdrop": {
+    "path": "editor/previews/6100f4f5c8895dc21206d7d9.png",
+    "sha256": "1e804e5ef403aa8eab9014df7f47f27d19471f1fa1e83b3b14cd1441d3db8f91",
+    "source": "environments/frutiger_aero/props/green_backdrop.glb"
+  },
+  "frutiger_aero:light_pod": {
+    "path": "editor/previews/7d708e7c09681c5a553d09a4.png",
+    "sha256": "18de406555e12b0585d6151d0c3f774e41cfdd07c8a064b3e355d43e7db4c307",
+    "source": "environments/frutiger_aero/props/light_pod.glb"
+  },
+  "frutiger_aero:lime_arch": {
+    "path": "editor/previews/4d6f64e7c0b660a78990f77a.png",
+    "sha256": "31c10b2ff03dcd149326b342520a3f4f3dc419b840883208fdf90d5e718996c4",
+    "source": "environments/frutiger_aero/props/lime_arch.glb"
+  },
+  "frutiger_aero:portal_spandrel": {
+    "path": "editor/previews/d42f366b1ab5109aa5c72177.png",
+    "sha256": "0b6b7202dea46c09c42ce58319e1b88c9d6e5c77a7c2fb72e94a4f293ffad9ff",
+    "source": "environments/frutiger_aero/props/portal_spandrel.glb"
+  },
+  "frutiger_aero:reception_counter": {
+    "path": "editor/previews/f5abda1142c91fa1ffd3ad96.png",
+    "sha256": "e92d2a5132dda86ed8e36914d9b05f92e8473d0ed9c81004cf60000736b85da0",
+    "source": "environments/frutiger_aero/props/reception_counter.glb"
+  },
+  "frutiger_aero:reception_soffit": {
+    "path": "editor/previews/d5b7afb4ca17df5392f95fbb.png",
+    "sha256": "623a7ed4a55a78c6f3dabfb2866421d534c46032112e2227e59abc3fcdd7f6da",
+    "source": "environments/frutiger_aero/props/reception_soffit.glb"
+  },
+  "frutiger_aero:seating_pod": {
+    "path": "editor/previews/48d720ad1e8686a90aafbdf6.png",
+    "sha256": "8518ea4fd6916941cd7e80cbe6460027bcc3a04893792c77bf8b8b3e8b81dc0e",
+    "source": "environments/frutiger_aero/props/seating_pod.glb"
+  },
+  "frutiger_aero:tree_planter": {
+    "path": "editor/previews/003ef53fa56c1bd39ba5b487.png",
+    "sha256": "3f01a68515dbbf19fcc18ab688f6a26fb2fd34ced80dc9f0816d64f7f4d139b6",
+    "source": "environments/frutiger_aero/props/tree_planter.glb"
+  },
+  "frutiger_aero:wall_bay": {
+    "path": "editor/previews/3eb4791774eceb8067b448f5.png",
+    "sha256": "78bc2b7363c6031853cdb84c57bda4c4f2d330ce787747cb1df8d6a4e91acdf9",
+    "source": "environments/frutiger_aero/props/wall_bay.glb"
+  },
+  "frutiger_aero:wall_bay_tall": {
+    "path": "editor/previews/8570756d4736e54fc7e121a7.png",
+    "sha256": "118809eda4d93f8e1fa1c1c97f74339c08dee03492c6b7af6855d68b4d5b545e",
+    "source": "environments/frutiger_aero/props/wall_bay_tall.glb"
+  },
+  "frutiger_aero:white_ceiling_01": {
+    "path": "editor/previews/564cfd82a27bd2278d1b9891.png",
+    "sha256": "cf809aae279ebda35948a617fe629fe07c994e5ddf19f56b331d4374bb3bc43d",
+    "source": "environments/frutiger_aero/textures/walls/white_panel_01.png"
+  },
+  "frutiger_aero:white_floor_01": {
+    "path": "editor/previews/c924c2f90c191a0398731ba6.png",
+    "sha256": "cf809aae279ebda35948a617fe629fe07c994e5ddf19f56b331d4374bb3bc43d",
+    "source": "environments/frutiger_aero/textures/walls/white_panel_01.png"
+  },
+  "frutiger_aero:white_panel_01": {
+    "path": "editor/previews/5a0cd9742bbe4fb1e6e31ba8.png",
+    "sha256": "cf809aae279ebda35948a617fe629fe07c994e5ddf19f56b331d4374bb3bc43d",
+    "source": "environments/frutiger_aero/textures/walls/white_panel_01.png"
+  },
+  "home:armchair": {
+    "path": "editor/previews/1c8cf3cc4dadfb4697bbb3a1.png",
+    "sha256": "78c4235808b6c7284921a098bad1afdd628760a9c0a57d9e26fe3072d9e6e47e",
+    "source": "environments/home/props/armchair.glb"
+  },
+  "home:backsplash_01": {
+    "path": "editor/previews/b0072f612f30d47f2ee9e7f9.png",
+    "sha256": "3aa20a428d89b75821f8de7d5d3648462eda7b96cd9700b1ec49de471f5c7711",
+    "source": "environments/home/textures/walls/backsplash_01.png"
+  },
+  "home:ball_light": {
+    "path": "editor/previews/0eb0118d15ebb8f8a3330983.png",
+    "sha256": "c182f73af6431910decfddd5c0c704e1385be0c37655f4353e7355f2721a421a",
+    "source": "environments/home/props/ball_light.glb"
+  },
+  "home:baseboard_white_01": {
+    "path": "editor/previews/29ffbc63f856dba2bd4ed6fd.png",
+    "sha256": "55bac184ea7520f9b281a6ada4c364108dd80f13b7bb01f46e2c217faaa851ec",
+    "source": "environments/home/textures/walls/baseboard_white_01.png"
+  },
+  "home:baseboard_wood_01": {
+    "path": "editor/previews/d61d4cccd24dbf0930c85f26.png",
+    "sha256": "5bf09de702583d850e06a75a30c1a5466d375ae51e44b21b43423637d929c843",
+    "source": "environments/home/textures/walls/baseboard_wood_01.png"
+  },
+  "home:book_stack": {
+    "path": "editor/previews/04e2d01170e08b3f07a61251.png",
+    "sha256": "9c25aede1be4fd06ac76af82ee804afd379d06deedb2d563b15400b07999fdec",
+    "source": "environments/home/props/book_stack.glb"
+  },
+  "home:bookshelf": {
+    "path": "editor/previews/258ce1d7e2dacd050e0160ab.png",
+    "sha256": "a50fbd8df25ff353d40d8ff427d297a373e5dbd75ff4395f348e4caaab307bff",
+    "source": "environments/home/props/bookshelf.glb"
+  },
+  "home:bowl": {
+    "path": "editor/previews/89679a4baa391278cf690793.png",
+    "sha256": "eadbfbd80797d000170b8450a0b47ea69562680a83599da1b24f4b6036877dba",
+    "source": "environments/home/props/bowl.glb"
+  },
+  "home:cabinet_base": {
+    "path": "editor/previews/76daf0e0d627aa263f02a595.png",
+    "sha256": "f305c13beb81efb6f03ecb930b5967d370cf6367fbcf77c3e80ba198e36048ff",
+    "source": "environments/home/props/cabinet_base.glb"
+  },
+  "home:cabinet_strip": {
+    "path": "editor/previews/82a03953d03f3d667c89de95.png",
+    "sha256": "4fc96e8f28be2579ec753d3b807205ece154b4c26dcb4138fb06fcb35cca13e0",
+    "source": "environments/home/props/cabinet_strip.glb"
+  },
+  "home:cabinet_wall": {
+    "path": "editor/previews/f43901aa7c821fc9d364a606.png",
+    "sha256": "38a1ac8bb9f50914ab81932eba72ed2a6a91d394400225c0be01d7ec1030f438",
+    "source": "environments/home/props/cabinet_wall.glb"
+  },
+  "home:carpet_cream_01": {
+    "path": "editor/previews/466cf4ced7c31f08d26b9bd5.png",
+    "sha256": "02bfac2257a4cc3e51a3bb603dcadd027fbda70e50b85c0f367a99cc0007ef4c",
+    "source": "environments/home/textures/floors/carpet_cream_01.png"
+  },
+  "home:ceiling_light_round": {
+    "geometry_revision": 4,
+    "method": "native editor Inspect; frame selection; deselect; 200x150 UI viewport crop; 160x120 Lanczos",
+    "path": "editor/native-previews/fixture_3.png",
+    "sha256": "1906b81f845cdf7ee1471b0052239f5a6b03cf58205eae7e4ed7682cdbe5ccfe",
+    "source": "environments/home/textures/lights/ceiling_light_round_01.png"
+  },
+  "home:ceiling_plaster_01": {
+    "path": "editor/previews/de1de5bcfcfc768f1ab00a60.png",
+    "sha256": "2281fe50643d6ec0d3471cdaba24a5b094e109e60114f98587d30f291890cdbc",
+    "source": "environments/home/textures/ceilings/ceiling_plaster_01.png"
+  },
+  "home:ceiling_plaster_warm_01": {
+    "path": "editor/previews/b17e6b264f69eede3a228ba6.png",
+    "sha256": "a74d27e781aee9a0c32dcbb62e1369c7a2de4779e3aa6a5a7c93dbdaa87df96c",
+    "source": "environments/home/textures/ceilings/ceiling_plaster_warm_01.png"
+  },
+  "home:ceiling_warm_01": {
+    "path": "editor/previews/ae13c73ce65c0d0ba0ae0db4.png",
+    "sha256": "56949a52b1e5d28226cd015388dab88553391972cb8f5d0165c4e05bf62dde4b",
+    "source": "environments/home/textures/ceilings/ceiling_warm_01.png"
+  },
+  "home:ceiling_white_01": {
+    "path": "editor/previews/aef86a9ae9dd54c390a5e0a9.png",
+    "sha256": "69e3183327b5592e030f5d6bb421b4f24ca51cac4aef6020a587e7ca3c24dadb",
+    "source": "environments/home/textures/ceilings/ceiling_white_01.png"
+  },
+  "home:closet_folding_door": {
+    "path": "editor/previews/f6c9e3ebdba990a259d0c7bf.png",
+    "sha256": "8e713092feff04f385606ad2b9e69bfdf07638ad5d3e44981cbb72894227e9d9",
+    "source": "environments/home/props/closet_folding_door.glb"
+  },
+  "home:coffee_table": {
+    "path": "editor/previews/fb80a0063120cd39c9e6a1fc.png",
+    "sha256": "adcf8153539c21e47ed4a7f2e903edd11a7c3737ad1da1d123a10acc373ffa4d",
+    "source": "environments/home/props/coffee_table.glb"
+  },
+  "home:crt_tv": {
+    "path": "editor/previews/5a857dc68c6387388d382b0c.png",
+    "sha256": "09c74fde015b00f03a069b78e2e56ba29b93823fee83d7e69debe5bbf8d8f508",
+    "source": "environments/home/props/crt_tv.glb"
+  },
+  "home:cushion": {
+    "path": "editor/previews/7159587fc9c678a2bd43a638.png",
+    "sha256": "004a648b737f5d3e6072ffa7922855dfb3b78ad1b42ed3a623ba0d00e4adb22e",
+    "source": "environments/home/props/cushion.glb"
+  },
+  "home:dining_chair": {
+    "path": "editor/previews/88e715c465c28186e9ffd47a.png",
+    "sha256": "611cb5bbf9f8ec1c6be97ea0ff39026f205605afe2d33f4ad339c0df90cb59ae",
+    "source": "environments/home/props/dining_chair.glb"
+  },
+  "home:dining_chair_refined": {
+    "path": "editor/previews/bf27a1991e95882f6d433496.png",
+    "sha256": "bdc61ce076c7a529a3e0fdd157ec56d7d1edd0fca118f19f765897f13654e3f7",
+    "source": "environments/home/props/dining_chair_refined.glb"
+  },
+  "home:dining_table": {
+    "path": "editor/previews/16f3ff4c733a0d8dce4476c4.png",
+    "sha256": "566366787aff68227228fcfc734bfce4d5d2392dac31516ad6fc1d1d2511cab7",
+    "source": "environments/home/props/dining_table.glb"
+  },
+  "home:door_casing": {
+    "path": "editor/previews/d473fdc5f132dd06b3d3653a.png",
+    "sha256": "8548792548a33f85c3d5acaf12f3cb47ee6c26909cf5b9c5755787a7b864c57b",
+    "source": "environments/home/props/door_casing.glb"
+  },
+  "home:door_white_01": {
+    "path": "editor/previews/94c14a04f64c09ad95b1f69b.png",
+    "sha256": "7ecb91db71dac2afa8682499420a6ed9b1eab35f95c90d6306d2bcfb5351ab6d",
+    "source": "environments/home/textures/doors/door_white_01.png"
+  },
+  "home:floor_lamp": {
+    "path": "editor/previews/33ac5eb1a0afca451383230a.png",
+    "sha256": "30a89683ce98acb4fe3ffd2584b508c7fdb1ab262485dfda80378d050c6267f9",
+    "source": "environments/home/props/floor_lamp.glb"
+  },
+  "home:fork": {
+    "path": "editor/previews/ee775fdcb8d6fd1049400172.png",
+    "sha256": "51acdb95687454f0d38fe1e7fc4579c50e2dca33d42c07842e9ecfdde15746db",
+    "source": "environments/home/props/fork.glb"
+  },
+  "home:handrail_wood_01": {
+    "path": "editor/previews/d58a568f78808d3fa08f786c.png",
+    "sha256": "66fb5172167b4599dd5d45d055af6c714406941f6fb55f3d022a433652153a31",
+    "source": "environments/home/textures/walls/handrail_wood_01.png"
+  },
+  "home:hardwood_oak_01": {
+    "path": "editor/previews/ba78ee837775f0bd96c5a1a5.png",
+    "sha256": "ec7196525a7c2d3b15b949401067d972d2afac42844e4cb0210c8bbeccb70dde",
+    "source": "environments/home/textures/floors/hardwood_oak_01.png"
+  },
+  "home:hardwood_oak_warm_01": {
+    "path": "editor/previews/895227d6adfacb4f92e38bb9.png",
+    "sha256": "87401587e9b81109a636f163582cbeb3509cab3c6b5eb68b98d03efd1ee72f4a",
+    "source": "environments/home/textures/floors/hardwood_oak_warm_01.png"
+  },
+  "home:hardwood_walnut_02": {
+    "path": "editor/previews/c92eab886f228b72e84214a3.png",
+    "sha256": "733c6006676ebc3cb24418699fc22f9c626cb6b04a6923767b31210f2113b16c",
+    "source": "environments/home/textures/floors/hardwood_walnut_02.png"
+  },
+  "home:kettle": {
+    "path": "editor/previews/50f6c81611d067cc49578f81.png",
+    "sha256": "3b39271c64bd4c1feb7ef70c13bc37e6fcabb962cdc4e47e10e142085145acf0",
+    "source": "environments/home/props/kettle.glb"
+  },
+  "home:knife": {
+    "path": "editor/previews/9442d00909dfea5cafbfc15f.png",
+    "sha256": "85ca17da8bceb28b6cce406ebf66305b956c61e527bc8517bfe6ba8647613013",
+    "source": "environments/home/props/knife.glb"
+  },
+  "home:landscape_frame": {
+    "path": "editor/previews/423cfaef583c34f02392a714.png",
+    "sha256": "327706a82b5118e1eb0f0eaf6b72d69c0613bd8b1662f0d77480cadc69ac5765",
+    "source": "environments/home/props/landscape_frame.glb"
+  },
+  "home:mug": {
+    "path": "editor/previews/671fa70a973eee2ef72e2d82.png",
+    "sha256": "795f05a6dad5594e64f7d0202c6f56f2da565dfdad1c4f6f6ab4fb5d6feea280",
+    "source": "environments/home/props/mug.glb"
+  },
+  "home:outlet": {
+    "path": "editor/previews/5f40b3b2f5a548fc4824262e.png",
+    "sha256": "c31f2871360e0e5ecc3fd1a00c8b79cf86500f7eb0e4afa434d248811f635078",
+    "source": "environments/home/props/outlet.glb"
+  },
+  "home:plant_table": {
+    "path": "editor/previews/c04dee7f72d5e2dfa04182ea.png",
+    "sha256": "513c99a2c849ebe3369c72e53c64ba10ceb5ccd7338b532ea9fffc12b1183671",
+    "source": "environments/home/props/plant_table.glb"
+  },
+  "home:plate": {
+    "path": "editor/previews/853356b6b61b280de30eeb1b.png",
+    "sha256": "08ddfef59212f0e99a6274abb5214f09cf28bc98afab5e9356d355ec9f4839c0",
+    "source": "environments/home/props/plate.glb"
+  },
+  "home:rug": {
+    "path": "editor/previews/7c7b24d05fdaed2062870643.png",
+    "sha256": "2030ea10db69b1a36fae191d9912e2e4d80bb96ed497f2757c61d74e6d4f2a29",
+    "source": "environments/home/props/rug.glb"
+  },
+  "home:sauna_wood_01": {
+    "path": "editor/previews/f4a5ee6dcf799f4e75c7b161.png",
+    "sha256": "b3668ca802e8a8b3830696cb69412e9d3af4545e0598d33946ae0ba017e83c90",
+    "source": "environments/home/textures/doors/sauna_wood_01.png"
+  },
+  "home:sink": {
+    "path": "editor/previews/2338dc95c2dd4c9c48cc6be8.png",
+    "sha256": "3a24275493e21072608c0bb4e31fdb0ae9ff5e9fc703ff8b2c57cf1830a62a25",
+    "source": "environments/home/props/sink.glb"
+  },
+  "home:sofa": {
+    "path": "editor/previews/6d99da2fabfe95f4a8ffcce0.png",
+    "sha256": "55ea4630a3092d334942ede259470bbb98c521bab309ae04998cf9a6d78b0fae",
+    "source": "environments/home/props/sofa.glb"
+  },
+  "home:spoon": {
+    "path": "editor/previews/1f19adea7734ac314652923a.png",
+    "sha256": "aa901dd2ad4fcf1c3cb66d74b78e311153cece303dd487e3cb10741363c283ac",
+    "source": "environments/home/props/spoon.glb"
+  },
+  "home:stove": {
+    "path": "editor/previews/264356967ff866a15ee0534c.png",
+    "sha256": "5c619632629de82c1ff2ea5e8d43a841712df350ebe991c18a43c18f8ceba00a",
+    "source": "environments/home/props/stove.glb"
+  },
+  "home:threshold_wood_01": {
+    "path": "editor/previews/231c0378a23fb4d781f16ac4.png",
+    "sha256": "aaa0e5e96e3a6121a620d5cf6e1970e25f1709b023b35e9a0249822cf9e55cd3",
+    "source": "environments/home/textures/floors/threshold_wood_01.png"
+  },
+  "home:tile_home_01": {
+    "path": "editor/previews/2873219d9847196b9920d463.png",
+    "sha256": "b97538adee8e8e20fe6a1ec74a7a4be3245bf7e61523cb5b48b984af764c5364",
+    "source": "environments/home/textures/floors/tile_home_01.png"
+  },
+  "home:toaster": {
+    "path": "editor/previews/139123b75ee8df8ace4e03d2.png",
+    "sha256": "6a3a7b0b05e302897f59325ea8f5f29eb166dbb73fa71ab70fee20da6883f0d9",
+    "source": "environments/home/props/toaster.glb"
+  },
+  "home:tv_console": {
+    "path": "editor/previews/4276118efc00c76983ff0eb0.png",
+    "sha256": "8ffbc1c166444df06fb381b4a827490db9d66750f2a94f103c358dc9c0376ff8",
+    "source": "environments/home/props/tv_console.glb"
+  },
+  "home:wall_paint_offwhite_01": {
+    "path": "editor/previews/0764a741951c4dd8f2c189f9.png",
+    "sha256": "fabdc048ec80d9c3e07fe1a92bb6ba20e5d7797bd304f17dfe1c578d033ec7c4",
+    "source": "environments/home/textures/walls/wall_paint_offwhite_01.png"
+  },
+  "home:wall_paint_warm_01": {
+    "path": "editor/previews/c3aeea85adf207a81675f9fa.png",
+    "sha256": "7eb3e3d9bc2d7ece33099a4467f04ed1b191951da192290f4559ece64126ba6c",
+    "source": "environments/home/textures/walls/wall_paint_warm_01.png"
+  },
+  "home:wall_switch": {
+    "path": "editor/previews/780ad17e4981074c54237479.png",
+    "sha256": "7dfa1dd0bc2ad4b1aec6684749a1c03026031e140e019e35bc70e9a75a0994b6",
+    "source": "environments/home/props/wall_switch.glb"
+  },
+  "home:wallpaper_offwhite_01": {
+    "path": "editor/previews/93a7bf7bd637d7bd3014afc9.png",
+    "sha256": "e9f5715deb0533f25939a0a45d3b4e16f35d5a1f27b3e94b216beb7b78f7bc87",
+    "source": "environments/home/textures/walls/wallpaper_offwhite_01.png"
+  },
+  "home:wallpaper_pattern_01": {
+    "path": "editor/previews/0e407797ee7e7c7ba3793d1e.png",
+    "sha256": "3c8c135c5257576a593cbf05b71eb12ce22a9fecd573f3fa7e8f6fb2b007201b",
+    "source": "environments/home/textures/walls/wallpaper_pattern_01.png"
+  },
+  "janitor:cardboard_supply_box": {
+    "path": "editor/previews/2ff5b6b0278f8bd8eb728c47.png",
+    "sha256": "ffb9d36d3286003fa4c3fb624894e444ae98fb977f7bc1a88240039826ae8663",
+    "source": "janitor_closet/models/cardboard_supply_box.glb"
+  },
+  "janitor:cleaner_jug": {
+    "path": "editor/previews/9d450c43e52353e9a132e808.png",
+    "sha256": "62f7ff12b77a871c4a53b4d10a8f04b46779962e2d1916d2bddf330351b27595",
+    "source": "janitor_closet/models/cleaner_jug.glb"
+  },
+  "janitor:detergent_bottle": {
+    "path": "editor/previews/9d26ecafa5139c29b03e4453.png",
+    "sha256": "62fe70065cb9d91bd3cf26bf318c1a4b992cd383cfca4d054aee16d624aa95f6",
+    "source": "janitor_closet/models/detergent_bottle.glb"
+  },
+  "janitor:folded_towel": {
+    "path": "editor/previews/afa895280f3b6ed1b739159d.png",
+    "sha256": "86bd98e9bc6192857aec39b43839088ba77c8e5a83cbcd34949b417e4b23d624",
+    "source": "janitor_closet/models/folded_towel.glb"
+  },
+  "janitor:folded_towel_blue": {
+    "path": "editor/previews/22e1a6bfbcf16e8408f9eb84.png",
+    "sha256": "86bd98e9bc6192857aec39b43839088ba77c8e5a83cbcd34949b417e4b23d624",
+    "source": "janitor_closet/models/folded_towel.glb"
+  },
+  "janitor:janitor_cart": {
+    "path": "editor/previews/ec14d6bb781cd7152e4b1e2e.png",
+    "sha256": "81d5e3bdd5f20933a1f62088821e5add7f15623c92f7353c40985edacdd22d34",
+    "source": "janitor_closet/models/janitor_cart.glb"
+  },
+  "janitor:lidded_storage_bin": {
+    "path": "editor/previews/1802145987df9d6f1650bdd1.png",
+    "sha256": "f8f6253523c85510ce28d906f03b54b16e28d8b57bacb0f5ecedf070536711a3",
+    "source": "janitor_closet/models/lidded_storage_bin.glb"
+  },
+  "janitor:metal_storage_rack": {
+    "path": "editor/previews/01e48ff5d49729f4ae35c763.png",
+    "sha256": "2476c851c0e816f8d7b249881733d8ca4ddcc741f046bcc85b85203d59bab110",
+    "source": "janitor_closet/models/metal_storage_rack.glb"
+  },
+  "janitor:mop_wringer_bucket": {
+    "path": "editor/previews/5a09271669385a7573ead9a2.png",
+    "sha256": "c3509e06139a035aa6730f573b577b91a1cf957c974efe4beaaa573afc808a69",
+    "source": "janitor_closet/models/mop_wringer_bucket.glb"
+  },
+  "janitor:paper_towel_roll": {
+    "path": "editor/previews/5f73613259e19ab2da61d087.png",
+    "sha256": "9e4f26bb556bf3bd5dd4750e4d0cb6d018ea159d1328d1485d2b89a454d993b4",
+    "source": "janitor_closet/models/paper_towel_roll.glb"
+  },
+  "janitor:perforated_supply_crate": {
+    "path": "editor/previews/2b893a8eeb5fc4e457ff8b9a.png",
+    "sha256": "6dec6657ff84543c9a20ff46e9de04c0d1aa7d72a859c8083dcd9f51e9b4e297",
+    "source": "janitor_closet/models/perforated_supply_crate.glb"
+  },
+  "janitor:spray_cleaner_bottle": {
+    "path": "editor/previews/25024f38fcc5aaa2324d1ada.png",
+    "sha256": "d5ef9b2a29a498eb3dcc0881debd092c865cdaf4ac81354bd29e30a96efb1159",
+    "source": "janitor_closet/models/spray_cleaner_bottle.glb"
+  },
+  "janitor:string_mop": {
+    "path": "editor/previews/e6746bfe603390b801fdcd99.png",
+    "sha256": "0a95047faf0f070fd9f285010ca6f38e0a383616b6fb57f257acc1ddf4d8a2c4",
+    "source": "janitor_closet/models/string_mop.glb"
+  },
+  "janitor:toilet_paper_roll": {
+    "path": "editor/previews/e56759c6956695c393af3ca0.png",
+    "sha256": "58077c83fba7ffff4fb8897f83a0bf27664153ad7d8040bfdded3866e177ef97",
+    "source": "janitor_closet/models/toilet_paper_roll.glb"
+  },
+  "janitor:utility_sink": {
+    "path": "editor/previews/3990badfd9799b9d6ab5d7d6.png",
+    "sha256": "adca3c9d023a9e120637ccb87cf756430cfbcbe869b3bf54f6c7fd21b487fc47",
+    "source": "janitor_closet/models/utility_sink.glb"
+  },
+  "janitor:wet_floor_sign": {
+    "path": "editor/previews/f12a7b1b402846503a470b9a.png",
+    "sha256": "3063fcf0a7c0b27a361838d879c8a65bb4f5fb303957d752644ad297e44fbc2d",
+    "source": "janitor_closet/models/wet_floor_sign.glb"
+  },
+  "mannequin": {
+    "path": "editor/previews/0e41c7d8c0dbe214604fe5b0.png",
+    "sha256": "6627807d4cddf7331cc7f96b03adb43f3686af71366bc8dc257f881b6ddf1156",
+    "source": "entities/mannequin/model/mannequin.glb"
+  },
+  "outdoor:boundary_ridge": {
+    "path": "editor/previews/92c1ea368e0afa7f97328854.png",
+    "sha256": "bfd808f2f09969d0fc23d29ea481fe3e1b88440353897049ffda4fdb3b6c83c8",
+    "source": "environments/outdoor/props/boundary_ridge.glb"
+  },
+  "outdoor:bush_low": {
+    "path": "editor/previews/031c82666f870882297ed4a3.png",
+    "sha256": "234df30c08665c96cb439cb4d0ba25a7c072cb70fa419c5ecffe322eb0b1a739",
+    "source": "environments/outdoor/props/bush_low.glb"
+  },
+  "outdoor:bush_round": {
+    "path": "editor/previews/bea0f0703161227eb400ff45.png",
+    "sha256": "13e3e7b22675a34ee0664e560959b256adee3e757627309198df89d9a2519185",
+    "source": "environments/outdoor/props/bush_round.glb"
+  },
+  "outdoor:campfire_static": {
+    "path": "editor/previews/47eddbb672164c08a302e312.png",
+    "sha256": "86c629e1fa3e964965d83dc5e4c283b6c203169afe21b3fe1c043dfb581e3665",
+    "source": "environments/outdoor/props/campfire_static.glb"
+  },
+  "outdoor:collision_peg": {
+    "path": "editor/previews/f989b9bf9c82868f7d30a41d.png",
+    "sha256": "3c64cf6830ae01b49d6c9b57a911193c73913ecbba022b9aa4f2555d31f60b99",
+    "source": "environments/outdoor/props/collision_peg.glb"
+  },
+  "outdoor:concrete_pavement_01": {
+    "path": "editor/previews/43362d2a472e846a4b2b8645.png",
+    "sha256": "a632fb7ecc4c80191af54a738bbf50122cf57f7cd40d6c175ed83079fe5d2340",
+    "source": "environments/outdoor/textures/floors/concrete_pavement_01.png"
+  },
+  "outdoor:concrete_step": {
+    "path": "editor/previews/b1c059baf0562cfeaa667dd1.png",
+    "sha256": "d07fd267f9866caccec934e500ac64b007c3d7dab48893fd97d79becdb1cb9de",
+    "source": "environments/outdoor/props/concrete_step.glb"
+  },
+  "outdoor:decal_path_corner_01": {
+    "path": "editor/previews/a58faf76ed952f642c3b4812.png",
+    "sha256": "1b218025fcc5fd0917ecd493d211f6259ffc1e1d6b1323957a6886a4e4234c0b",
+    "source": "environments/outdoor/decals/path_corner_01.png"
+  },
+  "outdoor:decal_path_edge_01": {
+    "path": "editor/previews/94c18eec449c0159c420e87d.png",
+    "sha256": "efd0c8d2fd4fb188dc1a9af8e72a11e8c39097c588a3df62698baccc052ee1c7",
+    "source": "environments/outdoor/decals/path_edge_01.png"
+  },
+  "outdoor:decal_path_end_01": {
+    "path": "editor/previews/b86ecf5e66911e994dad3b3e.png",
+    "sha256": "fd0394ec83ce3c05ba052898594485b58cdfbcc723994cb2225a0b6297252d7b",
+    "source": "environments/outdoor/decals/path_end_01.png"
+  },
+  "outdoor:dirt_gravel_01": {
+    "path": "editor/previews/f526fc89c12ca0b049edeacb.png",
+    "sha256": "68f3af5c3d282af475d1c8792d2b51a1e061c8ed8dca12173b9d719e9dd9f381",
+    "source": "environments/outdoor/textures/floors/dirt_gravel_01.png"
+  },
+  "outdoor:fence_post": {
+    "path": "editor/previews/e9fda127deb2e550da31744b.png",
+    "sha256": "7f2386920dba3705b428b9c9b5df110b8041df81452e3a492fbd1adc38de4b53",
+    "source": "environments/outdoor/props/fence_post.glb"
+  },
+  "outdoor:fence_two_rail": {
+    "path": "editor/previews/22c5a104373bee86cf0b0d48.png",
+    "sha256": "1a4d15a75bcf9fd77b0b269f657cfd2f418b24ff18c2dc484ea6afca75500ce4",
+    "source": "environments/outdoor/props/fence_two_rail.glb"
+  },
+  "outdoor:fence_two_rail_post": {
+    "path": "editor/previews/f5e947c1f90e0ac7809394f8.png",
+    "sha256": "dfb2f76a45c3d4809624bb40be74dcbadf36bb5f53d9a49dc203830cb3ef7383",
+    "source": "environments/outdoor/props/fence_two_rail_post.glb"
+  },
+  "outdoor:fence_two_rail_section": {
+    "path": "editor/previews/1589cf73354b94461f17db12.png",
+    "sha256": "eb284863891a481b6c122c377c45403f006a03525de23ac11b9ab662cc17c4a5",
+    "source": "environments/outdoor/props/fence_two_rail_section.glb"
+  },
+  "outdoor:grass_ground_01": {
+    "path": "editor/previews/90c9d0d6626e559301d8eed2.png",
+    "sha256": "41ac64043cd745009cd148a3b2f11fcc39d1c2b2657e6499631621a237dd7340",
+    "source": "environments/outdoor/textures/floors/grass_ground_01.png"
+  },
+  "outdoor:grass_patch_large": {
+    "path": "editor/previews/82daebe8b3e37a7e1e3c7e02.png",
+    "sha256": "ee1a0f9061245b06255b07ecbbb615c39c02c8a2e82eac2a3c428dd18ff10f1c",
+    "source": "environments/outdoor/props/grass_patch_large.glb"
+  },
+  "outdoor:grass_patch_small": {
+    "path": "editor/previews/86a88b6dd2c1f74071a03720.png",
+    "sha256": "e5b5b651736e80cbda7d80d879f0ab4c1a0bb8fb306605ed1b0c61302a386b20",
+    "source": "environments/outdoor/props/grass_patch_small.glb"
+  },
+  "outdoor:house_01_corner_trim": {
+    "path": "editor/previews/4a17a02cf27969a33fe6f47a.png",
+    "sha256": "541b3c5ab5d7572f66a4acca723b9a8cdcc4c1b2a9845fd0ffe8b88f21e6dc86",
+    "source": "environments/outdoor/props/house_01_corner_trim.glb"
+  },
+  "outdoor:house_01_gable": {
+    "path": "editor/previews/139300376f6b6fb1b50702a3.png",
+    "sha256": "7320e9cdb82ea0028d04bae0333137a5402875c0b9f33597d2ad9ebd522ee201",
+    "source": "environments/outdoor/props/house_01_gable.glb"
+  },
+  "outdoor:house_01_porch_deck": {
+    "path": "editor/previews/0301cfe3556a2c4be8dcd264.png",
+    "sha256": "cf2cc2a29f321f06e12709c690f2893aa51046387c28d8b5e8c86a423f8b0d06",
+    "source": "environments/outdoor/props/house_01_porch_deck.glb"
+  },
+  "outdoor:house_01_porch_post": {
+    "path": "editor/previews/a21a5a166d6adf1dc2260a1f.png",
+    "sha256": "d3c2078fb42aa5e892a7521b90230328c421898e4fb67fe5072095f5c32c7c36",
+    "source": "environments/outdoor/props/house_01_porch_post.glb"
+  },
+  "outdoor:house_01_roof_ridge": {
+    "path": "editor/previews/f7452b8a2f1a05177c4afdbf.png",
+    "sha256": "2b200301c9966e3681869c1b41550941cedb51be533a545d0223446fe1e76d4b",
+    "source": "environments/outdoor/props/house_01_roof_ridge.glb"
+  },
+  "outdoor:house_01_roof_slope": {
+    "path": "editor/previews/adf064900fa6bfaed74cab2f.png",
+    "sha256": "96be3f354285400853f63f870f1d2e38bba5aca1eb9f43aff717ad034f5aaa71",
+    "source": "environments/outdoor/props/house_01_roof_slope.glb"
+  },
+  "outdoor:house_01_wall_doorway": {
+    "path": "editor/previews/bcdbc45070b76261b24228f5.png",
+    "sha256": "6b743003192cfb3dac684f34db645b339d5d3262b9f07679509cc91510692a68",
+    "source": "environments/outdoor/props/house_01_wall_doorway.glb"
+  },
+  "outdoor:house_01_wall_solid": {
+    "path": "editor/previews/1cd4a9c264b75ff342f47765.png",
+    "sha256": "05045eafc303ec15edd47f91a3357eaecbc6bc3d7a4f0648ecc00f83fb3f4ffe",
+    "source": "environments/outdoor/props/house_01_wall_solid.glb"
+  },
+  "outdoor:house_01_wall_window": {
+    "path": "editor/previews/3a0e0dcced81943d13d31a2b.png",
+    "sha256": "fd89df7cbfa9ff1e09ffaf35aa077825faa0aa604e0504781d971627baf6699a",
+    "source": "environments/outdoor/props/house_01_wall_window.glb"
+  },
+  "outdoor:house_02_corner_trim": {
+    "path": "editor/previews/446f74ac4800f05693266f83.png",
+    "sha256": "6fb1d14134e5d684cadc96c4a9d708b93adb95680cd99a63eb6339b764937831",
+    "source": "environments/outdoor/props/house_02_corner_trim.glb"
+  },
+  "outdoor:house_02_gable": {
+    "path": "editor/previews/85436595d0ff0d8f41651277.png",
+    "sha256": "23239b85faa2b686b44dcd80e4406452cb4dfb471f793dd13a9274d568b98eee",
+    "source": "environments/outdoor/props/house_02_gable.glb"
+  },
+  "outdoor:house_02_porch_deck": {
+    "path": "editor/previews/451fe8cb48ba09ad124e84d8.png",
+    "sha256": "941002657a9eecc33fe2c695f36b40651777d673b59a99759cd028a9fdf55824",
+    "source": "environments/outdoor/props/house_02_porch_deck.glb"
+  },
+  "outdoor:house_02_porch_post": {
+    "path": "editor/previews/99961746a11df0c677e2c3ae.png",
+    "sha256": "fb8b3bf2ea0105c7504532c9dbf9a4134c8e53359e368a2f137057c327e5b802",
+    "source": "environments/outdoor/props/house_02_porch_post.glb"
+  },
+  "outdoor:house_02_roof_ridge": {
+    "path": "editor/previews/e8e2219e35e2a848505ee2ef.png",
+    "sha256": "67486c20ef072d9d2993c7479fb5d63775c35e88c31bd02306ba740cb19c40bd",
+    "source": "environments/outdoor/props/house_02_roof_ridge.glb"
+  },
+  "outdoor:house_02_roof_slope": {
+    "path": "editor/previews/5b0e3b330fb222410e204486.png",
+    "sha256": "1b333e8dbaf76dc8b8344b77d65e8bf65d2a5e8304d25e9c6441d009eab0294b",
+    "source": "environments/outdoor/props/house_02_roof_slope.glb"
+  },
+  "outdoor:house_02_wall_doorway": {
+    "path": "editor/previews/ddf5c7030afb6750a45e1716.png",
+    "sha256": "c1cb5b912113f725fdcf2ceeae99dec6233e85024ba59d56f610be8e5b31e612",
+    "source": "environments/outdoor/props/house_02_wall_doorway.glb"
+  },
+  "outdoor:house_02_wall_solid": {
+    "path": "editor/previews/734aaf7c52adfd50f17e0129.png",
+    "sha256": "8c07468cc84786c64b838bc75fef418cef1502f834cdf5ba5107cefab9483c57",
+    "source": "environments/outdoor/props/house_02_wall_solid.glb"
+  },
+  "outdoor:house_02_wall_window": {
+    "path": "editor/previews/231172d24735cd2b4ace0b44.png",
+    "sha256": "bd80b120bf450ff87f6c6626870407a91a283fc57cbb83783e68bb2d967ccd9c",
+    "source": "environments/outdoor/props/house_02_wall_window.glb"
+  },
+  "outdoor:house_03_corner_trim": {
+    "path": "editor/previews/f738482788593dc676e4d558.png",
+    "sha256": "e1101303ba630f2499e5fe6d5e8428a9d01b2ccd40bdce02536b4339d2f06658",
+    "source": "environments/outdoor/props/house_03_corner_trim.glb"
+  },
+  "outdoor:house_03_gable": {
+    "path": "editor/previews/5cea11214d24487d0a528ccb.png",
+    "sha256": "6dae524a0df521f9535b49df93d0d5b1bfe9087346663fab8b514006766a01fa",
+    "source": "environments/outdoor/props/house_03_gable.glb"
+  },
+  "outdoor:house_03_porch_deck": {
+    "path": "editor/previews/337e3f196a522e2816782420.png",
+    "sha256": "5af519a9915b8950f1034520f2aca4904c2c1916613a00841f98085e58b9ed98",
+    "source": "environments/outdoor/props/house_03_porch_deck.glb"
+  },
+  "outdoor:house_03_porch_post": {
+    "path": "editor/previews/ef3c116d2690463c0e14a2c4.png",
+    "sha256": "2c92faed6dfba68e6c555df1f9173ebff5dfbee4a0dce436268a482558854c81",
+    "source": "environments/outdoor/props/house_03_porch_post.glb"
+  },
+  "outdoor:house_03_roof_ridge": {
+    "path": "editor/previews/5628ab40cffc68b04508b617.png",
+    "sha256": "1e627201f3a310b373249de002e2841c97d0c81392459265847fa8ceeb8644ba",
+    "source": "environments/outdoor/props/house_03_roof_ridge.glb"
+  },
+  "outdoor:house_03_roof_slope": {
+    "path": "editor/previews/3716bffee376b094e1747017.png",
+    "sha256": "27e5aa7e5228c42cd7aa9ce2bfe56f9aed1e35cea166d56d92b209d4f78f1574",
+    "source": "environments/outdoor/props/house_03_roof_slope.glb"
+  },
+  "outdoor:house_03_wall_doorway": {
+    "path": "editor/previews/410a6f1c2d06d2e4e1abfcea.png",
+    "sha256": "ec9fcf1334bf1e84e2540d9009f1d8138df4577cdeaf734364976ecdac48d4a3",
+    "source": "environments/outdoor/props/house_03_wall_doorway.glb"
+  },
+  "outdoor:house_03_wall_solid": {
+    "path": "editor/previews/62bb8f1073c6de91b33ab509.png",
+    "sha256": "b55c3ac72721c51fd1ba76a861b427bd4bbf97ab7bda67d3c883eb67a1752517",
+    "source": "environments/outdoor/props/house_03_wall_solid.glb"
+  },
+  "outdoor:house_03_wall_window": {
+    "path": "editor/previews/6b87735cff42ccdc3556e44f.png",
+    "sha256": "fcdc5b2bc782243c0906b3270276fbaa8339bfa29ff06184d84aba17f4d1b345",
+    "source": "environments/outdoor/props/house_03_wall_window.glb"
+  },
+  "outdoor:house_04_corner_trim": {
+    "path": "editor/previews/552ea8191930b93f3251149e.png",
+    "sha256": "88c57b741e01d7b0363aee2549c37cdfa61922b0325ae948e927d29addf750e2",
+    "source": "environments/outdoor/props/house_04_corner_trim.glb"
+  },
+  "outdoor:house_04_gable": {
+    "path": "editor/previews/635d1a1e10fead2159d5ed4d.png",
+    "sha256": "a5b69104fba85a44c7a0f17b7e535369b973eb8ffa65c18e0f7ee0636b4dfdf8",
+    "source": "environments/outdoor/props/house_04_gable.glb"
+  },
+  "outdoor:house_04_porch_deck": {
+    "path": "editor/previews/72bdc79cb22218fc8a4869da.png",
+    "sha256": "ff6a241b46e11173df8e737cbcb585d5117e7f659eb70cc8a5f59f35b84023e2",
+    "source": "environments/outdoor/props/house_04_porch_deck.glb"
+  },
+  "outdoor:house_04_porch_post": {
+    "path": "editor/previews/e6ee86aca50852bc99e1a5fd.png",
+    "sha256": "ae73804c1d8746c05c01ad40df5d5c71e8f72488ac3eb87d9f5b4ac4aa5a5ae5",
+    "source": "environments/outdoor/props/house_04_porch_post.glb"
+  },
+  "outdoor:house_04_roof_ridge": {
+    "path": "editor/previews/b9c04eb08f070484bb146da0.png",
+    "sha256": "b81df8aced889f82cee305dd0a008eeae10f5edb03e8d45f1faba7f0cb59727b",
+    "source": "environments/outdoor/props/house_04_roof_ridge.glb"
+  },
+  "outdoor:house_04_roof_slope": {
+    "path": "editor/previews/6da10a63c89ab81ac3ea8820.png",
+    "sha256": "7fd11568ed571c381ab16ed8888beb14fb4cc46cc5e3cf0880340cf6e2146d7c",
+    "source": "environments/outdoor/props/house_04_roof_slope.glb"
+  },
+  "outdoor:house_04_wall_doorway": {
+    "path": "editor/previews/bbc67ae1a48e1c3e368beed7.png",
+    "sha256": "3aafd2765c65c4cdc308bf70975f620bc048b0dd3c338368a07beea9c06c4e4a",
+    "source": "environments/outdoor/props/house_04_wall_doorway.glb"
+  },
+  "outdoor:house_04_wall_solid": {
+    "path": "editor/previews/01f9055c91165cbeeb9ed18c.png",
+    "sha256": "55886462754337170e0ff25ae49c72cad460818506f1248e285a06805b25218e",
+    "source": "environments/outdoor/props/house_04_wall_solid.glb"
+  },
+  "outdoor:house_04_wall_window": {
+    "path": "editor/previews/bf432022e7f308a589e80f1a.png",
+    "sha256": "f7559fef117b10fd72f0be2210bdd21ced7260a802216cdc798ad790c64633c1",
+    "source": "environments/outdoor/props/house_04_wall_window.glb"
+  },
+  "outdoor:house_05_corner_trim": {
+    "path": "editor/previews/5269f3636560369447df4415.png",
+    "sha256": "5d365343345bac2c460d1bd4491b9ea1325fa1c1036416ee37ae7fa3f49669ae",
+    "source": "environments/outdoor/props/house_05_corner_trim.glb"
+  },
+  "outdoor:house_05_gable": {
+    "path": "editor/previews/2a61cdc28102180440494d52.png",
+    "sha256": "37929b126b9f7cc1c263c124643a51d722db7a29e93bf34a3bb51e90b2e4a264",
+    "source": "environments/outdoor/props/house_05_gable.glb"
+  },
+  "outdoor:house_05_porch_deck": {
+    "path": "editor/previews/855244c25203b8a3afbc1074.png",
+    "sha256": "3ce0949f199859a5e72b56e02069459be18b0a54f50341618d6438314dcfb83c",
+    "source": "environments/outdoor/props/house_05_porch_deck.glb"
+  },
+  "outdoor:house_05_porch_post": {
+    "path": "editor/previews/a7d32f143c354237ba07d2d4.png",
+    "sha256": "34ebe361d1f4be4e47ff72555a902059387c8cf36a3b0c888d25105ba18512cb",
+    "source": "environments/outdoor/props/house_05_porch_post.glb"
+  },
+  "outdoor:house_05_roof_ridge": {
+    "path": "editor/previews/deb3a1164e4c3d4a793d2934.png",
+    "sha256": "b0cb3981679718e5a12804e0800d4685da997498c48adcf7a9480258c9a0eec1",
+    "source": "environments/outdoor/props/house_05_roof_ridge.glb"
+  },
+  "outdoor:house_05_roof_slope": {
+    "path": "editor/previews/4f6c2a6f752c2c3225ce73ec.png",
+    "sha256": "f39626b2d80f032cc69425bff5bf444785ccd58b86ed80c879f1746ffeb499f9",
+    "source": "environments/outdoor/props/house_05_roof_slope.glb"
+  },
+  "outdoor:house_05_wall_doorway": {
+    "path": "editor/previews/e4691f57a60d4c4113e2ac47.png",
+    "sha256": "cbd151618ad1fe32ba8e846f52ceb4b3e568642b686e7114bb460dc209de2914",
+    "source": "environments/outdoor/props/house_05_wall_doorway.glb"
+  },
+  "outdoor:house_05_wall_solid": {
+    "path": "editor/previews/176f63331411dc0c86e38664.png",
+    "sha256": "cfa3bfe13856934e057e6c885d892c79295b2a05c6f4e7e93d987d0c9c5859c6",
+    "source": "environments/outdoor/props/house_05_wall_solid.glb"
+  },
+  "outdoor:house_05_wall_window": {
+    "path": "editor/previews/47c3a51763982ab4cbb4e3c3.png",
+    "sha256": "597f7b1d98ac4c0227a4810b7f673bf6546a2c1abf7ca7d90685fb3e62f1ff04",
+    "source": "environments/outdoor/props/house_05_wall_window.glb"
+  },
+  "outdoor:house_corner_trim": {
+    "path": "editor/previews/cdab34a6530436367367b2db.png",
+    "sha256": "36960427800e3ad65a524aed166c9388ef8f865b47a4e23bd844a09772b4484b",
+    "source": "environments/outdoor/props/house_corner_trim.glb"
+  },
+  "outdoor:house_roof_ridge": {
+    "path": "editor/previews/ff8bdb568acd706a8bb99f6a.png",
+    "sha256": "228d2140be29953cdbfde34a8e2746ee884cc26f305d71f4c2dbfc794a71009c",
+    "source": "environments/outdoor/props/house_roof_ridge.glb"
+  },
+  "outdoor:house_roof_shingle_01": {
+    "path": "editor/previews/95c66ebfe8be5a51438a2a56.png",
+    "sha256": "9206a838eae43f3a3109ba8d6f5d3bd453955f2303423e9f583c6c66da89b6ce",
+    "source": "environments/outdoor/textures/ceilings/roof_shingle_01.png"
+  },
+  "outdoor:house_roof_slope": {
+    "path": "editor/previews/0bfc4007918cffcd633ea73b.png",
+    "sha256": "f43b0261eac7bafe4e8557c17d98271d23f0589b70c9f001c2620d173b240c35",
+    "source": "environments/outdoor/props/house_roof_slope.glb"
+  },
+  "outdoor:house_siding_01": {
+    "path": "editor/previews/feb6a63f7c66e41f5414c464.png",
+    "sha256": "cea853ccd313be74a35a9a10e3905de1aec8c44306dce9179723ff7fedc2a331",
+    "source": "environments/outdoor/textures/walls/siding_01.png"
+  },
+  "outdoor:house_wall_doorway": {
+    "path": "editor/previews/a42fdeb3c60394e32667e9c5.png",
+    "sha256": "a848d430cb0ebbb47b2a92690dc418a92d51e2096709941fba04dd607ca240fb",
+    "source": "environments/outdoor/props/house_wall_doorway.glb"
+  },
+  "outdoor:house_wall_solid": {
+    "path": "editor/previews/0f21a8aa32f99a975e347a47.png",
+    "sha256": "7fbd89dcdc853644e592de748a7da99f889f2db8447849f50474cd4cb5f8e256",
+    "source": "environments/outdoor/props/house_wall_solid.glb"
+  },
+  "outdoor:house_wall_window": {
+    "path": "editor/previews/3ef89697953c4f73051cb4a9.png",
+    "sha256": "233f77d008462c29b9d6695cf1932541818c72ce3d9450cbeceebba4cca04445",
+    "source": "environments/outdoor/props/house_wall_window.glb"
+  },
+  "outdoor:lamp_fence": {
+    "path": "editor/previews/152599c4f4034502a9289415.png",
+    "sha256": "6f8725ed96a7d8d854310ac7cfa2030a785ccf55fb84a7d9c77579e23364d490",
+    "source": "environments/outdoor/props/lamp_fence.glb"
+  },
+  "outdoor:lamp_stand": {
+    "path": "editor/previews/50fd6e589c01f4f1282caf5e.png",
+    "sha256": "1c45841a07dbebb4c9866425b11646380169be6e8e78b968309bc4f36110558f",
+    "source": "environments/outdoor/props/lamp_stand.glb"
+  },
+  "outdoor:lamp_wall": {
+    "path": "editor/previews/a9c7de84fc10490bd8d4bd95.png",
+    "sha256": "e86bcc17a76146941c1e7d1a19f57a293c640db81058db98f781ae5c97de28ac",
+    "source": "environments/outdoor/props/lamp_wall.glb"
+  },
+  "outdoor:masonry_pier": {
+    "path": "editor/previews/ddaa9e37c128ff637f9aa7dc.png",
+    "sha256": "a2dd3fe027539731db86d60d93f7a51c18a9e4f5c0b23ebb9e9b389a50b1c64c",
+    "source": "environments/outdoor/props/masonry_pier.glb"
+  },
+  "outdoor:porch_canopy": {
+    "path": "editor/previews/1eea1ea0c7f48d6c1d7c48fc.png",
+    "sha256": "d8f6fb74809ecbfe3290faa031bebcbe6beb91fac7b21dced53120c17e4a6f7e",
+    "source": "environments/outdoor/props/porch_canopy.glb"
+  },
+  "outdoor:porch_post": {
+    "path": "editor/previews/64223f0dce71c8bac2d7f757.png",
+    "sha256": "fca23500c3390901e53d1277232ddeb549a48d02a677e7bf426cb745874a51f0",
+    "source": "environments/outdoor/props/porch_post.glb"
+  },
+  "outdoor:porch_railing_corner": {
+    "path": "editor/previews/65b873743cebf5b3d48430de.png",
+    "sha256": "53da9ddff353dce14e5c6a403c3b93a0f2634c2839d5106a2d82197bed9c96c8",
+    "source": "environments/outdoor/props/porch_railing_corner.glb"
+  },
+  "outdoor:porch_railing_end": {
+    "path": "editor/previews/3680825d3a88d44851c63eee.png",
+    "sha256": "7281af350b8f0390d39f0a05fe31fb782627ccd1d7c4c26be80496f7756b535d",
+    "source": "environments/outdoor/props/porch_railing_end.glb"
+  },
+  "outdoor:porch_railing_straight": {
+    "path": "editor/previews/613f26b9ec32c66823bc0b79.png",
+    "sha256": "0b9379bb6db8a1cd7e01cd151c263433a21a8e34ac68f9152b15b17d49614d28",
+    "source": "environments/outdoor/props/porch_railing_straight.glb"
+  },
+  "outdoor:road_barrier": {
+    "path": "editor/previews/24b7beddd34f9975ecd5814e.png",
+    "sha256": "37ad035aed10d948d5a7315d5f13530d130256cfe7127f10dd560ff4ffea3e81",
+    "source": "environments/outdoor/props/road_barrier.glb"
+  },
+  "outdoor:showcase_asphalt": {
+    "path": "editor/previews/8ba2a4138e5a5e68c07f1f31.png",
+    "sha256": "a632fb7ecc4c80191af54a738bbf50122cf57f7cd40d6c175ed83079fe5d2340",
+    "source": "environments/outdoor/textures/floors/concrete_pavement_01.png"
+  },
+  "outdoor:showcase_boulder": {
+    "path": "editor/previews/5bd60f899878f57e0fbf34d6.png",
+    "sha256": "bfd27a3124dc5c21972d6cb17c3e79d3c30b90b9de60abc07b2459e5a2355a9f",
+    "source": "environments/outdoor/props/showcase_boulder.glb"
+  },
+  "outdoor:showcase_campfire": {
+    "path": "editor/previews/3988693a2d28cb99f6f54966.png",
+    "sha256": "fad61f4eab6142c48dc646c0f605daa6eec59673de223e94f419734b412c2f5b",
+    "source": "environments/outdoor/props/showcase_campfire.glb"
+  },
+  "outdoor:showcase_curb": {
+    "path": "editor/previews/cebd27ca2daf4feaaf468f50.png",
+    "sha256": "fcf11e2df36cee5eee65bac610a95513a392038e1e294d3e3ff7c865986721a1",
+    "source": "environments/outdoor/props/showcase_curb.glb"
+  },
+  "outdoor:showcase_curb_ramp": {
+    "path": "editor/previews/6782d47e7f5c8bd17ca853ee.png",
+    "sha256": "87d2f13694a6d1485a2c7bfba9c1526d9683c09062fea64398fe997123212968",
+    "source": "environments/outdoor/props/showcase_curb_ramp.glb"
+  },
+  "outdoor:showcase_road_dash": {
+    "path": "editor/previews/1e713bded19ae914fe23aa20.png",
+    "sha256": "45a92b580d7e897f8f3952288cd5d80e57fc370a450b9202c969bce3aaeab8db",
+    "source": "environments/outdoor/props/showcase_road_dash.glb"
+  },
+  "outdoor:showcase_road_gate": {
+    "path": "editor/previews/eb515aa3e209f57fae227a21.png",
+    "sha256": "59ac8c00bf98a693e73ffc3d45518d0820dba5a304165b2173ad71653787c0b9",
+    "source": "environments/outdoor/props/showcase_road_gate.glb"
+  },
+  "outdoor:showcase_road_marking": {
+    "path": "editor/previews/8dc1ba3a40b7e5c125b90b78.png",
+    "sha256": "b8ece440e5c8cb37b58d8246bf4eb8e3bd6747d2103193cc96f208634bd1222f",
+    "source": "shared/textures/white_01.png"
+  },
+  "outdoor:showcase_road_straight": {
+    "path": "editor/previews/c6b889e32f116cc248965f09.png",
+    "sha256": "7516f21091880d62e10044b330f40b105ee4848eae44ac26d8cb1619b214afc3",
+    "source": "environments/outdoor/props/showcase_road_straight.glb"
+  },
+  "outdoor:showcase_road_unmarked": {
+    "path": "editor/previews/07ed00a0bc385e6c57018d39.png",
+    "sha256": "95b50e0a993458d88b2f96d4ea43fba3f0ec520a5b243766634e346b62c45441",
+    "source": "environments/outdoor/props/showcase_road_unmarked.glb"
+  },
+  "outdoor:showcase_rock_face": {
+    "path": "editor/previews/8e43e39f842a6b160606e398.png",
+    "sha256": "f7db3c419d4936120070029c650a71189e60038645bc5508b17eb51705607bf2",
+    "source": "environments/outdoor/props/showcase_rock_face.glb"
+  },
+  "outdoor:showcase_rock_face_variant": {
+    "path": "editor/previews/43f63235bffd872ff7073fb4.png",
+    "sha256": "bbf90f30014c0b64cc2fb8791a4efe8cabd31b5873501100ff25b76fceda4cb1",
+    "source": "environments/outdoor/props/showcase_rock_face_variant.glb"
+  },
+  "outdoor:showcase_sidewalk": {
+    "path": "editor/previews/2ee85a7655108dea9857c155.png",
+    "sha256": "2e0f00f74107824939be1d3a11e1d0de9555a29a7f0cd013d4a82669a7ed4b72",
+    "source": "environments/outdoor/props/showcase_sidewalk.glb"
+  },
+  "outdoor:showcase_sidewalk_corner": {
+    "path": "editor/previews/f71bfc725bf196c336b11187.png",
+    "sha256": "757c6f2fa927899d39290534ff937a6976a1eced81e16bdf80461fa434b91f51",
+    "source": "environments/outdoor/props/showcase_sidewalk_corner.glb"
+  },
+  "outdoor:showcase_sidewalk_transition": {
+    "path": "editor/previews/26c97c9f4d9e39f358fc5140.png",
+    "sha256": "a1acc82ac59ba97b6ad1750f4b0c2e7819904f11d467845ee15cee9ca7284d17",
+    "source": "environments/outdoor/props/showcase_sidewalk_transition.glb"
+  },
+  "outdoor:showcase_stump_seat": {
+    "path": "editor/previews/7cdbf4712514071ee84e6676.png",
+    "sha256": "7444511efdc0bd31f34f4e7240b47977216080be8e4c68651782ec9c89068db0",
+    "source": "environments/outdoor/props/showcase_stump_seat.glb"
+  },
+  "outdoor:streetlight": {
+    "path": "editor/previews/6f9bd219e2dd47dca2a8db3c.png",
+    "sha256": "da55ba8663ab5bcb4018154953ab82a31897287885b3c577b98ce822199377d5",
+    "source": "environments/outdoor/props/streetlight.glb"
+  },
+  "outdoor:tree_01": {
+    "path": "editor/previews/94d67868bef7acec44ded8d3.png",
+    "sha256": "45b1346e148fcf497726f34dd8c48e95a43153634e377881cc329d83ce26df50",
+    "source": "environments/outdoor/props/tree_01.glb"
+  },
+  "outdoor:tree_02": {
+    "path": "editor/previews/d9e29ad04eca657d2ee80876.png",
+    "sha256": "90f032e61b79deda26afe8fe70aecb6bb3080eb59a5a2e48b7766319db286907",
+    "source": "environments/outdoor/props/tree_02.glb"
+  },
+  "outdoor:tree_03": {
+    "path": "editor/previews/f5570fde637f6921c4bd24bc.png",
+    "sha256": "8b7a3fa19d272ddff860a45724cd6fe73b0566834e7f0632cc79a77e0f142a5f",
+    "source": "environments/outdoor/props/tree_03.glb"
+  },
+  "pool:band_01": {
+    "path": "editor/previews/416f45c32e34e902adf1a08e.png",
+    "sha256": "20ff99bf123933e7f856a19d60117c2fe0621b1fe0ceb2f53a30e599483363a7",
+    "source": "environments/pool/textures/walls/pool_band_01.png"
+  },
+  "pool:coping_01": {
+    "path": "editor/previews/f9ce78990c74a17bb4ce2160.png",
+    "sha256": "d0260cc9d983b4db03aaf7584ee38c86a6c2aac01d041497c1b57da000da832b",
+    "source": "environments/pool/textures/floors/pool_coping_01.png"
+  },
+  "pool:decal_lane_01": {
+    "path": "editor/previews/0b33079eefc03d12d53129a6.png",
+    "sha256": "fc0655790dd3787bdaeac1cc251dd95d56138bf2b1b534a60855154f328b00a0",
+    "source": "environments/pool/decals/lane_01.png"
+  },
+  "pool:metal_01": {
+    "path": "editor/previews/2ef9373912799d6cdeefcbe0.png",
+    "sha256": "3d91688bd13b9f58995b65842e3dda5ad7494779160d184363069f651e9e2ac5",
+    "source": "environments/pool/textures/walls/pool_metal_01.png"
+  },
+  "pool:pool_basin_tile_module": {
+    "path": "editor/previews/b7b9a497b3b9211025aede9e.png",
+    "sha256": "14848b4ff4c3c92bca17999639b6efe877f41b1d8b5d4ceb9e16300299c09565",
+    "source": "environments/pool/props/pool_basin_tile_module.glb"
+  },
+  "pool:pool_bench": {
+    "path": "editor/previews/28acabec3a42c178515b8bec.png",
+    "sha256": "d8541c999ddeab6d2308a452f2b668a16685834989125ba50cf6a637f999c43f",
+    "source": "environments/pool/props/pool_bench.glb"
+  },
+  "pool:pool_ceiling_panel_module": {
+    "path": "editor/previews/a8e46f88b9e64e2b4bbdce4f.png",
+    "sha256": "6a1518a9bc6f65dee4f09e3e8b9ef2a4c01bda9dddfb733ab5d1dfc5d0f166df",
+    "source": "environments/pool/props/pool_ceiling_panel_module.glb"
+  },
+  "pool:pool_deck_tile_module": {
+    "path": "editor/previews/1fb6af071c226f9256945cf7.png",
+    "sha256": "c39f4b09ebfb251ed4bd9a89624e9138e8a89cf34482326b397fc467df785f6e",
+    "source": "environments/pool/props/pool_deck_tile_module.glb"
+  },
+  "pool:pool_drain": {
+    "path": "editor/previews/d6099bd00a79345c7fc35b07.png",
+    "sha256": "c6528f8c7961c850d195f8a16f81ff9400e9efb145cca4e982138734c3a7c289",
+    "source": "environments/pool/props/pool_drain.glb"
+  },
+  "pool:pool_entry_steps": {
+    "path": "editor/previews/479a13b70fe918e0c37d5d08.png",
+    "sha256": "fc01aad4c25daac3383e6c757e77e98db31efad3ab957da4128d9e6a5c9d274e",
+    "source": "environments/pool/props/pool_entry_steps.glb"
+  },
+  "pool:pool_potted_plant": {
+    "path": "editor/previews/186bfc634bd5b0a4243f7174.png",
+    "sha256": "6f2e0a1091fe6309ff1e84c38bb0f5e4be9eda707b144534c23cc1d5bb67d55f",
+    "source": "environments/pool/props/pool_potted_plant.glb"
+  },
+  "pool:pool_safety_sign": {
+    "path": "editor/previews/7575f8c34f7c85c7c7490203.png",
+    "sha256": "65f28c52a0f55887647e07c715f3b6f3226748915d8215e7420a59cdf76a1525",
+    "source": "environments/pool/props/pool_safety_sign.glb"
+  },
+  "pool:pool_service_door": {
+    "path": "editor/previews/9baddc1b0b2f6e041f32870e.png",
+    "sha256": "0d3d229cd124286b73884e673186081299d9b1c70e9b4e9022c4086ff5f23905",
+    "source": "environments/pool/props/pool_service_door.glb"
+  },
+  "pool:pool_wall_tile_module": {
+    "path": "editor/previews/fa6e9bc3c62380571bc7013f.png",
+    "sha256": "930ca6f267ceaf4df255e81e94209224dd8102aef0123dd6b085c900c3b41024",
+    "source": "environments/pool/props/pool_wall_tile_module.glb"
+  },
+  "pumpkin-skeleton": {
+    "path": "editor/previews/819814de09bc32d15bc374b1.png",
+    "sha256": "ee4439721cf785d6bd19325f35d18f94bd2789ffa1463f033b89898debfb655a",
+    "source": "entities/pumpkin-skeleton/model/pumpkin-skeleton.glb"
+  },
+  "rat": {
+    "path": "editor/previews/9950cec246ece55e46c9929e.png",
+    "sha256": "22fb9e6293c01ca82a6093ed3c8763ed22f37d0d8d27b840938f7ffed131a8a0",
+    "source": "entities/rat/model/rat.glb"
+  },
+  "sheet-ghost": {
+    "path": "editor/previews/ef331fe6cc2bfa110e9a786e.png",
+    "sha256": "ea07c5f3e89eebf426943aff688258392796917be8fc1be86571707aa0e0fe16",
+    "source": "entities/sheet-ghost/model/sheet-ghost.glb"
+  },
+  "sheet-ghost-cat": {
+    "path": "editor/previews/1b611d0adf13c7e319633546.png",
+    "sha256": "889a21177743ce91973ca7d0cb9b1280f5139c48774afd62737f60c7bb6e2b19",
+    "source": "entities/sheet-ghost-cat/model/sheet-ghost-cat.glb"
+  },
+  "skeleton": {
+    "path": "editor/previews/2ac11a92104c4d7d1403c565.png",
+    "sha256": "449cf146e3a1768e3cbd4f99614d4f424b08d932d66876e34c17af7fe8357e07",
+    "source": "entities/skeleton/model/skeleton.glb"
+  },
+  "spooner-man": {
+    "path": "editor/previews/0875f743035e2bc85e1af7ea.png",
+    "sha256": "e0aa64e6c7378d53e1bd08d3aca1c68f1e7beb178a54e7193abf55b232edd87f",
+    "source": "entities/spooner-man/model/spooner-man.glb"
+  },
+  "winter:boulder_snow": {
+    "path": "editor/previews/35b666078b1cbd4ae59f8947.png",
+    "sha256": "5da4037ba8423c4b8fbd916704ed77a1a908dc35caf4de81f1b934ab8f79dcbb",
+    "source": "environments/winter/props/boulder_snow.glb"
+  },
+  "winter:door_hood_snow": {
+    "path": "editor/previews/e3bc5b6a430bdf30f43a5194.png",
+    "sha256": "05a0ba3ef0db5c12925bdfc434fab2de2e568644771ad098f1b9a288984464e2",
+    "source": "environments/winter/props/door_hood_snow.glb"
+  },
+  "winter:drift_fence": {
+    "path": "editor/previews/1e0e1a5891fbf34020b785c4.png",
+    "sha256": "f2fbd99a02000d9a6bd2e2ceac0f56cc9acba0ef65e893d54d122e0ce88dc1f7",
+    "source": "environments/winter/props/drift_fence.glb"
+  },
+  "winter:drift_large": {
+    "path": "editor/previews/80535e84aca097ea6e663354.png",
+    "sha256": "c223759be3ffa70bd8b9b645a0bc651d0dc482fcd90afe2972702132ac522e83",
+    "source": "environments/winter/props/drift_large.glb"
+  },
+  "winter:drift_medium": {
+    "path": "editor/previews/75dedf5ef638eeaf54ff99d2.png",
+    "sha256": "53c134f6065a6cf1c720a9c48e30c032d76cd98744bfc405c861d76d79ab40ec",
+    "source": "environments/winter/props/drift_medium.glb"
+  },
+  "winter:drift_small": {
+    "path": "editor/previews/27a26c7aab41172ff080bd91.png",
+    "sha256": "e53e74c2b49bf879eedada73a4805b47b46c9ddde89ad9a1485f52c7ec568b4c",
+    "source": "environments/winter/props/drift_small.glb"
+  },
+  "winter:drift_wall": {
+    "path": "editor/previews/9cd16a6d0a239c9cb9330531.png",
+    "sha256": "021bc655357910caf722fddfd13e50d69022ca87ad3d17756ca6f76e34630b22",
+    "source": "environments/winter/props/drift_wall.glb"
+  },
+  "winter:entrance_frame": {
+    "path": "editor/previews/ff31c6146fe605e4d610b9c3.png",
+    "sha256": "ce529356ddb34bfcb6f840bcae3cea03d5aa5f6b6f7c15c23a82bb74c8d87d18",
+    "source": "environments/winter/props/entrance_frame.glb"
+  },
+  "winter:fence_post_snow": {
+    "path": "editor/previews/24d22ca56fc1908a38b98368.png",
+    "sha256": "7396d045071f63171f3648784c7de6ac92345fdc0fa695ed0d60923868d3a49a",
+    "source": "environments/winter/props/fence_post_snow.glb"
+  },
+  "winter:fence_two_rail_post_snow": {
+    "path": "editor/previews/b8c34060a452267928a34f1e.png",
+    "sha256": "37e12bbbc8bce872d2e6a39d4703b874028354f87c3a66b516d8ea8cf69711e5",
+    "source": "environments/winter/props/fence_two_rail_post_snow.glb"
+  },
+  "winter:fence_two_rail_section_snow": {
+    "path": "editor/previews/9412145beabaad60faac7f35.png",
+    "sha256": "a454dc7b8630d79a3bc555a1cab3fa36f02cc1dff99b6f4e2d7d086ef4c18c1c",
+    "source": "environments/winter/props/fence_two_rail_section_snow.glb"
+  },
+  "winter:ice_01": {
+    "path": "editor/previews/6a4d52be5fdb5794f025502d.png",
+    "sha256": "9138d6b3488feef6b75d8af9bceb7aeddb6c8ecec1daf46bf2deb6a5c98ce474",
+    "source": "environments/winter/textures/floors/ice_01.png"
+  },
+  "winter:ice_depth_01": {
+    "path": "editor/previews/f8f540ff6cc4a4525e7e7646.png",
+    "sha256": "9138d6b3488feef6b75d8af9bceb7aeddb6c8ecec1daf46bf2deb6a5c98ce474",
+    "source": "environments/winter/textures/floors/ice_01.png"
+  },
+  "winter:ice_fragment": {
+    "path": "editor/previews/3570fbddef3a4dbad14f3cfc.png",
+    "sha256": "709b7063bb5203c2865b0108e248e150d161cce84f45e07391466a4f2b47badb",
+    "source": "environments/winter/props/ice_fragment.glb"
+  },
+  "winter:icicle_cluster_mixed": {
+    "path": "editor/previews/f418a7f00b44ad5b3bf1cad8.png",
+    "sha256": "dba91fa97aa4b42bd22f56d543e8660459e27cea36297e96c980702888f5eba7",
+    "source": "environments/winter/props/icicle_cluster_mixed.glb"
+  },
+  "winter:icicle_cluster_sparse": {
+    "path": "editor/previews/fc17a3731912e05ac6458f9a.png",
+    "sha256": "f0cfcf06bf7460e1b8713371b908f6e340cd0dfbb7c56cd141fab71af1bf9c57",
+    "source": "environments/winter/props/icicle_cluster_sparse.glb"
+  },
+  "winter:icicle_long": {
+    "path": "editor/previews/830f23c79d4ba2ed359e6fa3.png",
+    "sha256": "d811fc98c4f4c29aefd46388ec11b28e04a1855b33b36a41631040ad9f1ae85a",
+    "source": "environments/winter/props/icicle_long.glb"
+  },
+  "winter:icicle_medium": {
+    "path": "editor/previews/5feed8087fed68da69fae4f6.png",
+    "sha256": "5f2a4c6ca50172a7e14a7047604e82d891915bb3619f062b31ca8492143dac09",
+    "source": "environments/winter/props/icicle_medium.glb"
+  },
+  "winter:icicle_short": {
+    "path": "editor/previews/dc5e985ebd1cad1b0206d3a3.png",
+    "sha256": "2e6c8914473d2abc874578575548b3ff33f14d9a071802d3668a39974347c0d2",
+    "source": "environments/winter/props/icicle_short.glb"
+  },
+  "winter:masonry_pier_snow": {
+    "path": "editor/previews/356f94dec3e6b6e52965ea24.png",
+    "sha256": "1c04479eee481e6d823184f905941c98cd9487056afc995302ab61780574461d",
+    "source": "environments/winter/props/masonry_pier_snow.glb"
+  },
+  "winter:mound_irregular": {
+    "path": "editor/previews/98ba0c7650519a77a0373cb1.png",
+    "sha256": "58c12ccaa7fbff909aa269490e60baf666b3ea5ec45d832dd3c5db5b92f3252f",
+    "source": "environments/winter/props/mound_irregular.glb"
+  },
+  "winter:railing_snow_corner": {
+    "path": "editor/previews/97295c34e0faf7e755fd0678.png",
+    "sha256": "18be83c459fdf88d50dbe1e28695a3d2056c8a258f568a99dedcbb78ed12f11c",
+    "source": "environments/winter/props/railing_snow_corner.glb"
+  },
+  "winter:railing_snow_corner_assembly": {
+    "path": "editor/previews/f4aca5e9fd7fe4025041f5db.png",
+    "sha256": "d723af24f0683976f0d23bdd7a597e012da8863ee78fe2325d103741e3822fb1",
+    "source": "environments/winter/props/railing_snow_corner_assembly.glb"
+  },
+  "winter:railing_snow_end": {
+    "path": "editor/previews/628e47b1a22d766039af4196.png",
+    "sha256": "768331f84bb83680e28b1b7de785650b539bedceceb38d33f4b0b95049f40db9",
+    "source": "environments/winter/props/railing_snow_end.glb"
+  },
+  "winter:railing_snow_straight": {
+    "path": "editor/previews/276e1e1285a3c940c3cdc8b8.png",
+    "sha256": "4a82626e2cf6d450a784b90c31c0678d2ca0ebfa4b41c8bac13fc0e94370e51b",
+    "source": "environments/winter/props/railing_snow_straight.glb"
+  },
+  "winter:railing_snow_straight_assembly": {
+    "path": "editor/previews/8e628675e544b5848837485a.png",
+    "sha256": "115c197fd0856030e486dcaf3d3ffcf7f5e4979121410752ae8c73934846216e",
+    "source": "environments/winter/props/railing_snow_straight_assembly.glb"
+  },
+  "winter:rock_face_snow": {
+    "path": "editor/previews/b38a4c86f0a51d6886694b80.png",
+    "sha256": "e72ccb8a57c7d412a50cb946aa5846dd6fd8da7cbd45cc10f5d7807c62338fa4",
+    "source": "environments/winter/props/rock_face_snow.glb"
+  },
+  "winter:snow_01": {
+    "path": "editor/previews/28c4104c6e10eca481ad0f01.png",
+    "sha256": "c79313f7c30a48f4505577f3f1496e30f0bef5a311b61d5732756ecb034c1965",
+    "source": "environments/winter/textures/floors/snow_01.png"
+  },
+  "winter:snow_awning": {
+    "path": "editor/previews/483eea8d30c420bfa784ad73.png",
+    "sha256": "fb1379fc0b49f082d2e1b9ce9ede5f5572bdc6d09b828705323c544620b19c70",
+    "source": "environments/winter/props/snow_awning.glb"
+  },
+  "winter:snow_door_overhang": {
+    "path": "editor/previews/38236f42f09ae35d1b274210.png",
+    "sha256": "5ea72390072c247d2c2bbdbea9ef173cb476f12b93545413dd929cc8111f6e92",
+    "source": "environments/winter/props/snow_door_overhang.glb"
+  },
+  "winter:snow_ledge": {
+    "path": "editor/previews/61769b4609c7d030fd5c01ab.png",
+    "sha256": "a714c9ff0ade9afb746b517ac14f0356fb631f8f88c351f548a66962c744e1d2",
+    "source": "environments/winter/props/snow_ledge.glb"
+  },
+  "winter:snow_packed_01": {
+    "path": "editor/previews/7bf0966c45d3166240e180c2.png",
+    "sha256": "c79313f7c30a48f4505577f3f1496e30f0bef5a311b61d5732756ecb034c1965",
+    "source": "environments/winter/textures/floors/snow_01.png"
+  },
+  "winter:snow_porch_edge": {
+    "path": "editor/previews/c41f48ef314cd40f4b99931c.png",
+    "sha256": "0dd9a4fd79abb2d76bcabb7570335d6150902402ca17c95cf3b109e8596a8d14",
+    "source": "environments/winter/props/snow_porch_edge.glb"
+  },
+  "winter:snow_post_cap": {
+    "path": "editor/previews/c1340771b212a312f17bc151.png",
+    "sha256": "7fea3ac7f7e6ce39bd46a9eb877343696ec7b0e1b114b4a9dc2a322dc1ee2148",
+    "source": "environments/winter/props/snow_post_cap.glb"
+  },
+  "winter:snow_rail_top": {
+    "path": "editor/previews/b92bb4473c28bf737fed8062.png",
+    "sha256": "5ed89b379db5ae731a3dec7eeab4d676e75114704562b41235d35fcb3e4966f3",
+    "source": "environments/winter/props/snow_rail_top.glb"
+  },
+  "winter:snow_roof_blanket": {
+    "path": "editor/previews/e1a869cb76ee026e2b82e46f.png",
+    "sha256": "d5b557beb44984d6c415d717460fb2450ef35ccc28818668eab2109a577680c8",
+    "source": "environments/winter/props/snow_roof_blanket.glb"
+  },
+  "winter:snow_roof_edge": {
+    "path": "editor/previews/1202854bf6ec1fd955d8f905.png",
+    "sha256": "22dfe160376fa105e12be21924416b413a5a451a70fcde32d675ded91e692ba5",
+    "source": "environments/winter/props/snow_roof_edge.glb"
+  },
+  "winter:snow_roof_slope": {
+    "path": "editor/previews/cc690215702fc05430b49c32.png",
+    "sha256": "86ccdbcd0636aeebcfe8df2621eeb7c9189f3dbab662dd9f51da96515b87f909",
+    "source": "environments/winter/props/snow_roof_slope.glb"
+  },
+  "winter:snow_stair_edge": {
+    "path": "editor/previews/156f87ab326f47459ca7b023.png",
+    "sha256": "2e6d674bc93a24d52d465a0896667757b91d2885df718ac249f4ca26cbafe24c",
+    "source": "environments/winter/props/snow_stair_edge.glb"
+  },
+  "winter:stone_masonry_01": {
+    "path": "editor/previews/88f9f540075c3f2fdbe76720.png",
+    "sha256": "123ce9297e9f54ba09a13f553873fba4dbdcb01aec1a2e96db99d745248b97c5",
+    "source": "environments/winter/textures/walls/stone_masonry_01.png"
+  },
+  "winter:stone_wall_snow": {
+    "path": "editor/previews/07e65da4dbf8e6e1014cea39.png",
+    "sha256": "fd5757241a988edf11c7ae6dcdc549c688932c5c41b862d2365f834a190ad61d",
+    "source": "environments/winter/props/stone_wall_snow.glb"
+  },
+  "winter:string_lights_long": {
+    "path": "editor/previews/aa65bf198c290113f097632f.png",
+    "sha256": "393e67492e24ccdae389814ee479c8d5e0704db2bfc3b7c8317cb9e28b3258c4",
+    "source": "environments/winter/props/string_lights_long.glb"
+  },
+  "winter:string_lights_medium": {
+    "path": "editor/previews/1304f57289e00888490d124e.png",
+    "sha256": "c873c2e45ed918fd5efd9297ad6754066f9882b1fad3eef3129354c090988fed",
+    "source": "environments/winter/props/string_lights_medium.glb"
+  },
+  "winter:string_lights_short": {
+    "path": "editor/previews/5a127a17a07dd20b9c4892af.png",
+    "sha256": "846305cd7bda71c8001a583adbc248a19c06157223dfad46c7adb0c8d7312772",
+    "source": "environments/winter/props/string_lights_short.glb"
+  },
+  "winter:timber_01": {
+    "path": "editor/previews/bb32b13d57fba7d38473538e.png",
+    "sha256": "9d659c690dc9d18e781a302664277cbf5595dbe1a64cc25681917d6714e0c347",
+    "source": "environments/winter/textures/walls/timber_01.png"
+  },
+  "winter:timber_lantern": {
+    "path": "editor/previews/4069c069938e09ba18b2abdd.png",
+    "sha256": "e819c4f0ad15f66f72fba0b7048368c4b950d2fee1d20b6210a2506ee859c539",
+    "source": "environments/winter/props/timber_lantern.glb"
+  },
+  "winter:tree_snow_01": {
+    "path": "editor/previews/31c43f6091ed03ce5775d60b.png",
+    "sha256": "2ff6bb6523796318201d40e47dc66e624e3c24c01e89b44b0e47ae2202f3e200",
+    "source": "environments/winter/props/tree_snow_01.glb"
+  },
+  "winter:tree_snow_02": {
+    "path": "editor/previews/138352d307c93cae401df1d0.png",
+    "sha256": "c8729e9320ac6c007143c0c5fe49b541e01c8a0261d656258db19cbd38c56181",
+    "source": "environments/winter/props/tree_snow_02.glb"
+  },
+  "winter:window_amber_01": {
+    "path": "editor/previews/2751c9e22725f3e861998440.png",
+    "sha256": "218c6e30035c5a552867f876b388b45a166205a27b75b4c2b92dda943c98bc70",
+    "source": "shared/textures/glass/glass_clear_01.png"
+  },
+  "winter:window_frame": {
+    "path": "editor/previews/7f20d11f8c925babf58bce42.png",
+    "sha256": "37a818d334b437ac9f809819cb1998afa3e91720dea06e89a11005acadf1d834",
+    "source": "environments/winter/props/window_frame.glb"
+  }
+}

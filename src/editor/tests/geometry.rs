@@ -366,8 +366,8 @@ fn local_floor_override_preserves_other_storeys_and_ceiling() -> Result<(), Stri
     doc.apply_authoring_edit(&before, candidate)?;
     assert_eq!(doc.raw().pointer("/rooms/0"), before.pointer("/rooms/0"));
     let local = doc.level().rooms.last().ok_or("Missing local section")?;
-    assert!((local.floor_y - 4.2).abs() < 1.0e-5);
-    assert!((local.eave_y() - 8.0).abs() < 1.0e-5);
+    assert!((local.floor_y - (4.2 + crate::engine::level::MIN_STRUCTURE_M)).abs() < 1.0e-5);
+    assert!((local.eave_y() - (8.0 + crate::engine::level::MIN_STRUCTURE_M)).abs() < 1.0e-5);
     assert!(doc.undo());
     assert_eq!(doc.raw(), &before);
     assert!(doc.redo());
@@ -375,5 +375,169 @@ fn local_floor_override_preserves_other_storeys_and_ceiling() -> Result<(), Stri
     let recovered = Document::open(&fixture.0)?;
     assert_eq!(doc.raw(), recovered.raw());
     assert_eq!(doc.raw().get("future_scene"), before.get("future_scene"));
+    Ok(())
+}
+
+// Protects the accepted two-floor workflow's source ownership, actual support
+// heights and atomic recovery. One tiny source document, no bake/assets/device.
+#[test]
+fn generated_stair_shaft_preserves_landings_support_and_one_undo_step() -> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut doc = Document::open(&fixture.0)?;
+    let mut pose = doc.transform(ObjectId::Room(0))?;
+    pose.size = [8.0_f32, 3.2_f32, 10.0_f32];
+    doc.set_transform(ObjectId::Room(0), pose)?;
+    let _upper = doc.add_upper_floor(ObjectId::Room(0))?;
+    let before = doc.raw().clone();
+    let proposed = crate::editor::stairs::candidate(
+        &doc,
+        0,
+        1,
+        1.2_f32,
+        &crate::engine::assets::AssetCatalog::default(),
+    )?;
+    assert_eq!(doc.raw(), &before, "preview must leave source untouched");
+    doc.apply_checked_edit(&before, proposed)?;
+    let stairs = doc.level().stairs.first().ok_or("No generated stairs")?;
+    let floor = crate::engine::level::WalkableFloor::from_level(doc.level());
+    let (x0, x1, z0, z1) = stairs.bounds();
+    let mut previous = 0.0_f32;
+    for index in 0_u16..=100 {
+        let fraction = f32::from(index) / 100.0_f32;
+        let (x, z) = if stairs.axis() == crate::engine::level::WallAxis::X {
+            ((x1 - x0).mul_add(fraction, x0), f32::midpoint(z0, z1))
+        } else {
+            (f32::midpoint(x0, x1), (z1 - z0).mul_add(fraction, z0))
+        };
+        let support = floor
+            .height_below(x, z, previous + 0.4_f32)
+            .ok_or("Missing stair support")?;
+        assert!(
+            support >= previous - 0.0001_f32 && support - previous <= 0.4_f32,
+            "every generated tread must be reachable by the player step contract"
+        );
+        previous = support;
+    }
+    assert!(
+        (previous - 3.35_f32).abs() < 0.0001_f32,
+        "top tread must connect to the actual upper floor"
+    );
+    assert!(
+        crate::engine::structure::clearances(doc.level()).is_empty(),
+        "generated shaft must not create thin stacked surfaces"
+    );
+    assert!(doc.undo());
+    assert_eq!(doc.raw(), &before);
+    assert!(doc.redo());
+    doc.save_all()?;
+    let reopened = Document::open(&fixture.0)?;
+    assert_eq!(doc.raw(), reopened.raw());
+    Ok(())
+}
+
+// Protects the formerly informational shared-storey plane: the editor must
+// offer a nonmutating, exact-source correction and preserve ordinary undo.
+#[test]
+fn structural_clearance_fix_requires_review_and_is_reversible() -> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut doc = Document::open(&fixture.0)?;
+    let upper = doc.add_upper_floor(ObjectId::Room(0))?;
+    let mut pose = doc.transform(upper)?;
+    pose.position[1] = 4.0_f32;
+    doc.set_transform(upper, pose)?;
+    let mut raw = doc.raw().clone();
+    drop(raw.as_object_mut().ok_or("Invalid scene")?.insert("ceiling_lights".into(), serde_json::json!([{"id":"flush", "fixture":"core:fluorescent_panel_01", "x":1.0_f32, "z":1.0_f32,"y":3.98_f32}])));
+    doc.apply_checked_edit(&doc.raw().clone(), raw)?;
+    let before = doc.raw().clone();
+    let mut intruding = doc.level().clone();
+    intruding
+        .rooms
+        .get_mut(0)
+        .ok_or("Missing lower room")?
+        .height += 0.1_f32;
+    assert!(
+        !crate::engine::structure::clearances(&intruding).is_empty(),
+        "a ceiling inside the upper occupied volume is worse than a zero gap"
+    );
+    let report = crate::editor::safety::analyze(doc.level(), doc.raw());
+    let fix = report
+        .findings
+        .iter()
+        .find(|f| f.check == "structural-clearance")
+        .and_then(|f| f.fix.as_ref())
+        .ok_or("Missing structural correction")?;
+    let proposed = fix.preview(&before)?;
+    assert_eq!(doc.raw(), &before, "review must not change source");
+    doc.apply_checked_edit(&before, proposed)?;
+    let y = doc
+        .raw()
+        .pointer("/ceiling_lights/0/y")
+        .and_then(Value::as_f64)
+        .ok_or("Missing fixture Y")?;
+    assert!(
+        (y - 3.83_f64).abs() < 0.0001_f64,
+        "reviewed ceiling fix must preserve the fixture mount drop"
+    );
+    assert!(crate::engine::structure::clearances(doc.level()).is_empty());
+    assert!(doc.undo());
+    assert_eq!(doc.raw(), &before);
+    Ok(())
+}
+
+// A tiny source-only fixture protects room moves from leaving fog behind or
+// moving a box shared with another space. This catches authored-data corruption
+// that a visual mesh check cannot detect; no assets, GPU or bake are involved.
+#[test]
+fn room_drag_moves_contained_fog_and_refuses_shared_boxes() -> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut doc = Document::open(&fixture.0)?;
+    let mut raw = doc.raw().clone();
+    let object = raw.as_object_mut().ok_or("Invalid scene")?;
+    drop(object.insert("fog_regions".into(), serde_json::from_str(r#"[{"id":"mist", "min":[1,0,1], "max":[2,2,2], "density":0.02, "ground_y":0, "top_y":2}]"#).map_err(|error| error.to_string())?));
+    drop(object.insert("ground_fog".into(), serde_json::from_str(r#"[{"id":"low_mist", "min":[1,1], "max":[2,2], "density":0.02,"ground_y":0,"height":0.5}]"#).map_err(|error| error.to_string())?));
+    doc.apply_checked_edit(&doc.raw().clone(), raw)?;
+    let before = doc.raw().clone();
+    let mut pose = doc.transform(ObjectId::Room(0))?;
+    pose.position = [2.0_f32, 1.0_f32, 3.0_f32];
+    doc.apply_drag(
+        ObjectId::Room(0),
+        pose,
+        &crate::engine::assets::AssetCatalog::default(),
+    )?;
+    assert_eq!(
+        doc.raw()
+            .pointer("/fog_regions/0/min")
+            .ok_or("Missing fog corner")?,
+        &serde_json::json!([3.0_f32, 1.0_f32, 4.0_f32])
+    );
+    assert_eq!(
+        doc.raw()
+            .pointer("/ground_fog/0/min")
+            .ok_or("Missing ground fog corner")?,
+        &serde_json::json!([3.0_f32, 4.0_f32])
+    );
+    assert_eq!(
+        doc.raw()
+            .pointer("/ground_fog/0/ground_y")
+            .and_then(Value::as_f64),
+        Some(1.0_f64)
+    );
+    assert!(doc.undo());
+    assert_eq!(doc.raw(), &before);
+    let mut shared = before.clone();
+    *shared
+        .pointer_mut("/fog_regions/0/min/0")
+        .ok_or("Missing fog coordinate")? = serde_json::json!(-1.0_f32);
+    doc.apply_checked_edit(&before, shared)?;
+    let unchanged = doc.raw().clone();
+    assert!(
+        doc.apply_drag(
+            ObjectId::Room(0),
+            pose,
+            &crate::engine::assets::AssetCatalog::default()
+        )
+        .is_err()
+    );
+    assert_eq!(doc.raw(), &unchanged);
     Ok(())
 }

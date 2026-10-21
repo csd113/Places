@@ -633,11 +633,13 @@
       "source": "kenney_interface",
       "source_file": "Audio/switch_003.ogg",
       "source_file_sha256": "ca12dd32103f401481d5aff56d5e9831174e99bb577139c09b07d046eb8b837e",
-      "sha256": "eff151a6ac61a40c4f51d052718305236de875a5170be0f5f4c78f24f167a488",
+      "sha256": "2f9713fd791c8cf75e644b99d001a9b431fb26595e83988bb381a531c4a3ea4a",
       "frames": 22050,
       "sample_rate": 44100,
       "channels": 1,
-      "sample_bits": 16
+      "sample_bits": 16,
+      "polish_input_sha256": "eff151a6ac61a40c4f51d052718305236de875a5170be0f5f4c78f24f167a488",
+      "post_peak_gain": 0.65
     },
     {
       "file": "door_open/01.wav",
@@ -710,11 +712,13 @@
       "source": "owlish_more",
       "source_file": "Plastic/Plastic_08.wav",
       "source_file_sha256": "5f153bfffefeeca3dc33448660c055cf1d277e04d184d04f976fde4d01dd821c",
-      "sha256": "7ea5b3fc1e4992f3b20127689affed7a7a3264597ba817d4623e05c6b193dc9b",
+      "sha256": "4091ba412d0cd489091d3ec4c6ff1e656f76776a619a3da7ec1dbeac737e4a4f",
       "frames": 10625,
       "sample_rate": 44100,
       "channels": 1,
-      "sample_bits": 16
+      "sample_bits": 16,
+      "polish_input_sha256": "7ea5b3fc1e4992f3b20127689affed7a7a3264597ba817d4623e05c6b193dc9b",
+      "post_peak_gain": 0.5
     },
     {
       "file": "prop_ceramic/01.wav",
