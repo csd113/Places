@@ -24,18 +24,20 @@ are separate developer controls. Places Demo and Model Zoo remain frozen JSON in
 
 ## Project evolution and visual history
 
+The [release report index](reports/README.md) provides one canonical report per version.
+
 Historical reports describe the version they measured. They do not establish
 current package currency, test counts or platform performance.
 
-- [Relay Annex feature campaign](reports/editor-0.12.0-relay-annex.md): native
+- [Relay Annex feature campaign](reports/release-0.12.0.md#editor-0120-relay-annex): native
   multi-map/four-storey gameplay, authoring provenance, coverage and editor gaps.
-- [Quiet Collection handoff and retirement](reports/environment-collection-0.12.0-retirement.md):
+- [Quiet Collection handoff and retirement](reports/release-0.12.0.md#environment-collection-0120-retirement):
   current distribution, exact retired entries, launch commands and remaining work.
 - [0.11.0 prerelease summary](reports/release-0.11.0.md): completed release queue,
   exact-head verification, issue completion, source delivery and remaining limits.
-- [0.11.0 developer console](reports/developer-console-0.11.0.md): reusable typed
+- [0.11.0 developer console](reports/release-0.11.0.md#developer-console-0110): reusable typed
   actions, curated pickups, simulation controls and model representation.
-- [0.11.0 fixture audit](reports/fixture-leaks-0.11.0.md): Office closure evidence,
+- [0.11.0 fixture audit](reports/release-0.11.0.md#fixture-leaks-0110): Office closure evidence,
   procedural housing corrections and restricted Home lamp emission.
 - [0.10.0 prerelease summary](reports/release-0.10.0.md): integrated gameplay,
   delivered models, compiler GUI, final checks and compatibility limits.

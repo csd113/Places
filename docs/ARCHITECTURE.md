@@ -685,4 +685,4 @@ player actions/footsteps and authored ventilation retain normal speed while
 world time is stopped. Physics pause affects physical impacts without freezing
 other world audio. Shared trigger occupancy includes bounded physical substep
 paths and exact actor filters. See [audio assets](assets/AUDIO.md) and
-[the sound-stage report](reports/sound-0.11.0.md) for authoring and evidence.
+[the sound-stage report](reports/release-0.11.0.md#sound-0110) for authoring and evidence.

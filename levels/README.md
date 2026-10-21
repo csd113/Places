@@ -38,7 +38,7 @@ checks every sub-map's provenance, archive validity and Static/Full payloads;
 the distribution and still exports the complete project.
 
 For an existing verified package, use `--check` directly. The
-[retirement handoff](../docs/reports/environment-collection-0.12.0-retirement.md)
+[retirement handoff](../docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
 lists all eight superseded standalone IDs and the preserved recovery material.
 
 For an explicit project export or native compiler selection:

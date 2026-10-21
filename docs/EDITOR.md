@@ -127,7 +127,7 @@ water, ladders and every camera/depth situation are not simulated. Oversized
 scenes, missing models and exhausted budgets produce explicit incomplete-review
 findings. Play-test jumps, shafts and pools. Source and manifest formats remain
 unchanged; geometry revision 3 requires recompiling prior prepared output for
-full prop orientation and the preceding ramp correction. See [stage 4 evidence and limits](reports/editor-0.12.0-task4.md).
+full prop orientation and the preceding ramp correction. See [stage 4 evidence and limits](reports/release-0.12.0.md#editor-0120-task4).
 
 `Ignore for this placement` dismisses only the selected warning and its measured
 instance/geometry context. Save persists it; normal finding navigation skips
@@ -229,7 +229,7 @@ choose Actions / Script handler, open a module and Link handler. Enter/exit,
 once, cooldown, actor filters and ordinary action removal remain the trigger
 controls. Build+Play snapshots each map’s scripts into the complete project; replay/reset recreates
 VM state. No external editor is required. See [the API, limits and lifecycle](SCRIPTING.md)
-and [the native stage 6 evidence](reports/editor-0.12.0-task6.md).
+and [the native stage 6 evidence](reports/release-0.12.0.md#editor-0120-task6).
 
 ## Complete projects and source recovery (stage 7)
 

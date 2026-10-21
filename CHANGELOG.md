@@ -1,3 +1,18 @@
+## 0.13.0 — 2026-10-21
+
+Staging candidate; no release or tag has been published. The approved queue fixes
+shared collision, recovery, lighting invalidation and resource ownership defects;
+adds bounded visual editor browsers, per-level bake planning, solid generated
+stairs and structural floors/ramps; improves audio authoring and persistent master
+volume; ships an always-packaged live menu with Explore/pause/style controls; and
+adds articulated mannequin ragdolls with explicit reset. Version reports are
+consolidated in [the report index](docs/reports/README.md).
+
+See [0.13.0 acceptance and limitations](docs/reports/release-0.13.0.md) for exact
+validation evidence. Native Windows/Linux acceptance, unexplained historical
+memory residency and macOS presentation pacing remain open. Ragdolls do not stand
+up automatically; generated stairs support the documented straight-floor case.
+
 ## 0.12.0 — 2026-10-18
 
 Prerelease of the native editor, editable multi-map projects, Quiet Collection
@@ -23,7 +38,7 @@ and second-room ceiling z-fighting reports. Their causes/fixes remain open in
   lineup entry. Preserve historical reconstruction tools, recovery evidence and
   the independent Closing Time, It Only Exists in the Beam and Relay Annex modes.
   Include Pool's janitor resources in runtime exports. See the
-  [retirement handoff](docs/reports/environment-collection-0.12.0-retirement.md).
+  [retirement handoff](docs/reports/release-0.12.0.md#environment-collection-0120-retirement).
   Sound polish and a dedicated main-menu background are deferred to 0.13.0.
 - Redesign Home with polished domestic assets and a mannequin fetch/handoff
   quest; add reusable animated item attachment and retirement only after the
@@ -37,7 +52,7 @@ and second-room ceiling z-fighting reports. Their causes/fixes remain open in
   intake, four connected service floors and a flooded discharge hall. Record
   native editor provenance, NPC conversations, physics/beam challenges, real
   door transitions, recovery, package roundtrip and concrete editor gaps in
-  [the feature-test report](docs/reports/editor-0.12.0-relay-annex.md).
+  [the feature-test report](docs/reports/release-0.12.0.md#editor-0120-relay-annex).
 - Keep upper-storey items carryable by removing redundant flat-ceiling backing
   where a coplanar floor owns the structural plane. Use the selected map's
   manifest on project graphics-cache hits so quality changes work beyond the
@@ -59,7 +74,7 @@ and second-room ceiling z-fighting reports. Their causes/fixes remain open in
   reversible physical returns, three power circuits, gradual ambience shutdown,
   a concise completion state and reliable restart through project-local Luau.
   Record genuine native editor authoring, complete native acceptance and source
-  recovery. See [the authoring report](docs/reports/editor-0.12.0-closing-time.md).
+  recovery. See [the authoring report](docs/reports/release-0.12.0.md#editor-0120-closing-time).
 - Fit mounted surfaces outside the geometry checker’s coplanarity tolerance,
   protected by one tiny editor regression. Add bounded camera-only native
   acceptance controls for ordinary movement/pickup playthroughs.
@@ -79,7 +94,7 @@ and second-room ceiling z-fighting reports. Their causes/fixes remain open in
   export/recovery and honest migration checks in the native editor. Build+Play
   uses complete projects; selected-level loading stays lazy. Add shared same-package
   transitions and reset through existing actions and Luau. See
-  [stage 7 report](docs/reports/editor-0.12.0-task7.md).
+  [stage 7 report](docs/reports/release-0.12.0.md#editor-0120-task7).
 
 - Add sandboxed project-local Luau to the shared engine, with typed host calls
   into existing actions, bounded execution/memory/effect queues and fresh state
@@ -87,7 +102,7 @@ and second-room ceiling z-fighting reports. Their causes/fixes remain open in
 - Add native script editing, save/conflict protection, Check/Diagnostics and
   trigger handler linking in focused sheets. Selected-map Build/Play embeds
   source; stage 7 adds complete multi-level project packaging. See
-  [scripting contracts](docs/SCRIPTING.md) and [stage 6 evidence](docs/reports/editor-0.12.0-task6.md).
+  [scripting contracts](docs/SCRIPTING.md) and [stage 6 evidence](docs/reports/release-0.12.0.md#editor-0120-task6).
 
 - Add contextual geometry tools for signed ramps, recessed/raised regions,
   upper floors and snapped rectangular floor/ceiling openings, retaining raw
@@ -96,7 +111,7 @@ and second-room ceiling z-fighting reports. Their causes/fixes remain open in
 - Add bounded, locatable safety review for sampled drops/jump escapes, collision,
   coplanar architecture/model triangles and material/depth risks. Preview and
   individually remove only identical simple walls; retain artistic intersections,
-  unknown metadata and intentional decals. See [stage 4 evidence](docs/reports/editor-0.12.0-task4.md).
+  unknown metadata and intentional decals. See [stage 4 evidence](docs/reports/release-0.12.0.md#editor-0120-task4).
 
 - Add the separate native `places-editor` application: shared-renderer 3D
   viewport, picking/selection, transforms, snapping, built-in prop/material
@@ -105,7 +120,7 @@ and second-room ceiling z-fighting reports. Their causes/fixes remain open in
 - Complete save/build/play through structured compiler subprocess events, safe
   cancellation, bounded child lifetimes and isolated direct-player play profiles.
   Document [basic editor controls](docs/EDITOR.md) and
-  [native verification and deferred scope](docs/reports/editor-0.12.0-task3.md).
+  [native verification and deferred scope](docs/reports/release-0.12.0.md#editor-0120-task3).
 - Share explicit installation/user-path resolution across player and compiler:
   executable-relative immutable assets, platform data/settings/cache locations,
   authoritative overrides and isolated first-run projects/import folders. The
@@ -149,7 +164,7 @@ are attached; native acceptance covers macOS/Metal.
   arriving update, and retain paused/completed poses without repeated skinning.
 - Bound failed escape retries, stagger perception, reuse live door colliders and
   avoid duplicate fade/frame work. Preserve Office mannequin and roach behavior.
-  [Findings, focused regressions and native evidence](docs/reports/entity-navigation-0.11.0.md).
+  [Findings, focused regressions and native evidence](docs/reports/release-0.11.0.md#entity-navigation-0110).
 
 ### Settings and input correctness
 
@@ -162,7 +177,7 @@ are attached; native acceptance covers macOS/Metal.
 - Publish settings through synced owned temporaries, preserve successive invalid
   backups, and retain saved bloom-Off when a disabling launch switch is false.
 - Add three small CPU regressions and an explicit direct-binary acceptance tool.
-  [Findings, evidence and limits](docs/reports/settings-input-0.11.0.md).
+  [Findings, evidence and limits](docs/reports/release-0.11.0.md#settings-input-0110).
 
 ### Asset/map loading and resource ownership
 
@@ -180,7 +195,7 @@ are attached; native acceptance covers macOS/Metal.
   installed maps on failure and safely handling aliases of an installed file.
 - Add focused CPU boundary/import regressions and explicit native coverage for
   retained lighting after package replacement. See
-  [the loading/resource report](docs/reports/loading-0.11.0.md) for evidence and limits.
+  [the loading/resource report](docs/reports/release-0.11.0.md#loading-0110) for evidence and limits.
 
 ### Source-aware water caustics
 
@@ -188,7 +203,7 @@ are attached; native acceptance covers macOS/Metal.
   exclude fluorescent fixtures and moonlight independently of their RGB values.
 - Preserve individual source colours and visibility, expose bounded tint and motion
   controls, and carry the shared pattern across submerged floor decals.
-- [Native validation, performance and limits](docs/reports/caustics-0.11.0.md).
+- [Native validation, performance and limits](docs/reports/release-0.11.0.md#caustics-0110).
 
 ### Fixture housing and emission audit
 
@@ -198,7 +213,7 @@ are attached; native acceptance covers macOS/Metal.
   occlusion/receiver lighting, and align Home/blacklight sources with their lenses.
 - Restrict Home floor-lamp and cabinet-strip emission to their intended surfaces;
   open the strip's housing around its unchanged diffuser to remove coincident faces.
-- [Audit scope, native evidence and limits](docs/reports/fixture-leaks-0.11.0.md).
+- [Audit scope, native evidence and limits](docs/reports/release-0.11.0.md#fixture-leaks-0110).
 
 ### Sound engine and environment audio
 
@@ -208,7 +223,7 @@ are attached; native acceptance covers macOS/Metal.
   crossings, aggregate occupancy and cleanup-safe event backpressure.
 - Include 24 licensed cues, 63 WAV files, source hashes/import recipes and quiet
   Office, Pool, Home and Aero examples; add persisted Audio volume/mute controls.
-- [Architecture, acceptance and limits](docs/reports/sound-0.11.0.md);
+- [Architecture, acceptance and limits](docs/reports/release-0.11.0.md#sound-0110);
   [sound provenance and authoring](docs/assets/AUDIO.md).
 - The user listened to the native sound clip and accepted it. Physical output
   device unplug/replug remains untested.
@@ -223,8 +238,8 @@ are attached; native acceptance covers macOS/Metal.
 - Add model representation, third-person camera and session-local visual or
   dormant-physics copies through `/become`, including cups and Spooner-Man.
   Keep typed gameplay requests independent of text commands and player identity.
-- [Stage contract and verification](docs/reports/developer-console-0.11.0.md);
-  [complete pickup audit](docs/reports/console-pickup-audit-0.11.0.md).
+- [Stage contract and verification](docs/reports/release-0.11.0.md#developer-console-0110);
+  [complete pickup audit](docs/reports/release-0.11.0.md#console-pickup-audit-0110).
 
 ### Flashlight close-up correction
 
@@ -234,7 +249,7 @@ are attached; native acceptance covers macOS/Metal.
   freestanding cabinet and Arcade's dark bathroom stall partitions (#23).
 - Preserve beam shape, colour, intensity, range, geometry occlusion, source
   retraction, F/rebinding, mannequin response and moving/held-object lighting.
-  [Native evidence and investigation](docs/reports/flashlight-0.11.0.md).
+  [Native evidence and investigation](docs/reports/release-0.11.0.md#flashlight-0110).
 
 ### Rust automated-test retirement
 
@@ -276,7 +291,7 @@ Inline test/helper removal edits 134 surviving Rust files:
 Across Rust sources, 116,289 lines are removed (116,281 net).
 Tooling/policy/documentation edits are additional and are not counted as deleted
 source files. Full per-file accounting and acceptance are in
-[the removal report](docs/reports/rust-test-removal-0.11.0.md).
+[the removal report](docs/reports/release-0.11.0.md#rust-test-removal-0110).
 
 Removed files:
 
@@ -402,7 +417,7 @@ Rust-only JSON fixtures:
 - Use direct executable benchmark launches with child PID/RSS receipts. Verify
   pixel-identical matched native views, moving/held/thrown props and installed
   lighting transitions. Interleaved average FPS remains near 120 on both sides;
-  no measurable throughput gain is claimed. See [the shader report](docs/reports/shader-0.11.0.md)
+  no measurable throughput gain is claimed. See [the shader report](docs/reports/release-0.11.0.md#shader-0110)
   for pacing, transient presentation and platform limits. Tests were preserved
   for that stage and retired in the later cleanup above.
 
@@ -428,7 +443,7 @@ Rust-only JSON fixtures:
   Keep ambiguous layering and unsupported posed geometry for review.
 - Validate native Metal captures, moving/held props and repeated map/settings
   transitions. Record mixed matched FPS results and bounded resource/RSS
-  observations in [the renderer report](docs/reports/renderer-0.11.0.md).
+  observations in [the renderer report](docs/reports/release-0.11.0.md#renderer-0110).
 - Preserve existing Rust tests during the renderer stage; the later cleanup
   above retires them, including its tiny CPU regressions.
 
@@ -486,7 +501,7 @@ Consolidated documentation and duplicate artwork:
   `docs/assets/ENTITIES.md#concrete-mannequin`: retain current clip/maintenance
   facts and remove obsolete rig counts.
 - `docs/reports/completed-pool-office.md` →
-  `docs/reports/pool-office-winter-model-integration.md`: merge unique acceptance
+  `docs/reports/release-0.10.0.md#pool-office-winter-model-integration`: merge unique acceptance
   evidence into the final delivery report and remove completed queue advice.
 - `docs/reports/compiler-progress.md` → `docs/OFFLINE_TOOLING.md` and
   `docs/reports/compiler-pipeline-audit-20261003.md`: separate maintained
@@ -541,14 +556,14 @@ Consolidated documentation and duplicate artwork:
   with the existing handedness/depth conventions, SHA-2 0.11.1 digest formatting
   through the shared lowercase hex helper, and ZIP 9.0.3 without changing
   archive options or map/package contracts. Retain native backend feature limits.
-  See the [upgrade report](docs/reports/dependency-upgrade-0.11.0.md) for validation.
+  See the [upgrade report](docs/reports/release-0.11.0.md#dependency-upgrade-0110) for validation.
 
 ### Architecture reorganization totals
 
 Architecture commit `f762053` changes 361 files: 244 renames, 13 new files,
 84 modified files and 20 real deletions, with 12,902 added and
 18,422 removed text lines (Git rename detection enabled). Moves are not
-counted as deleted files. See the [stage report](docs/reports/repository-reorganization-0.11.0.md).
+counted as deleted files. See the [stage report](docs/reports/release-0.11.0.md#repository-reorganization-0110).
 Ignored local cleanup separately removed 394 redundant/regenerable files
 (20,001,488 bytes); unique art, editable sources and release evidence remain.
 

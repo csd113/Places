@@ -48,7 +48,7 @@ the bundle's `LSMinimumSystemVersion`. The October 18 native acceptance payload
 is **arm64, macOS 27.0 or newer** because its host SDL3 requires 27.0. An older
 OS needs a compatible SDL3 build before exporting; Rust's lower target alone
 does not make the payload compatible.
-See the [macOS distribution acceptance report](reports/macos-distribution-0.12.0.md)
+See the [macOS distribution acceptance report](reports/release-0.12.0.md#macos-distribution-0120)
 for the tested scope and remaining limits.
 
 The [0.12.0 release report](reports/release-0.12.0.md) describes the downloadable
@@ -85,7 +85,7 @@ profile. The exporter never changes the source binaries in `target/release`.
 The maintained environment distribution is `environments.placesmap`: Central
 Hub plus eight destinations, with only the hub exposed in Explore. Each
 destination has a physical return door. The former eight standalone environment
-packages are retired; [the retirement inventory](reports/environment-collection-0.12.0-retirement.md)
+packages are retired; [the retirement inventory](reports/release-0.12.0.md#environment-collection-0120-retirement)
 records their exact IDs. Closing Time, It Only Exists in the Beam and Relay Annex
 remain separate optional project packages.
 

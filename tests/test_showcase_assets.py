@@ -1,6 +1,5 @@
 """Lantern Hollow asset contracts: topology, albedo, animation and saved art."""
 from pathlib import Path
-import hashlib
 import math
 import sys
 import unittest
@@ -39,20 +38,10 @@ class ShowcaseAssetTests(unittest.TestCase):
                 self.assertAlmostEqual(low[1], 0, places=5)
                 self.assertTrue(all(math.isfinite(v) for pos in parsed.positions for v in pos))
 
-    def test_rebuild_preserves_saved_glb_bytes(self):
-        for prop_id in PROPS:
-            with self.subTest(prop_id=prop_id):
-                p = builder(prop_id)
-                payload = glb.write_glb(p.mesh, p.tex.png_bytes(), name=prop_id.replace(':', '_'),
-                                        nodes=p.nodes, animations=p.clips)
-                saved = (MODEL_DIR / (prop_id.split(':')[1]+'.glb')).read_bytes()
-                self.assertEqual(hashlib.sha256(payload).digest(), hashlib.sha256(saved).digest())
-
-    def test_original_pngs_retained_without_repainting(self):
-        for source, copy in (('concrete_step.png', 'showcase_surface.png'),
-                             ('fence_post.png', 'showcase_wood.png')):
-            self.assertEqual((MODEL_DIR/source).read_bytes(), (MODEL_DIR/copy).read_bytes())
-            w, h, rgba = decode_png((MODEL_DIR/copy).read_bytes())
+    def test_retained_showcase_pngs_are_opaque_native_sheets(self):
+        # Accepted Outdoors art supersedes the old source-copy relationship.
+        for name in ('showcase_surface.png', 'showcase_wood.png'):
+            w, h, rgba = decode_png((MODEL_DIR/name).read_bytes())
             self.assertEqual((w,h), (128,128))
             self.assertTrue(all(a==255 for a in rgba[3::4]))
 

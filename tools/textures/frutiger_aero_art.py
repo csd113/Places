@@ -3,8 +3,9 @@
 
 Normal texture builds load the committed files through ART; neither the player
 nor the normal build path paints replacement imagery. ``--author`` is the
-explicit offline export, while ``--check`` reproduces all outputs without
-writes. Square periodic surface masters are 1024px and derivatives 512px.
+explicit offline export, while ``--check`` verifies outputs without writes.
+The five accepted model-native atlases are owned by completed-models.json;
+verify their model identity and embedded PNG instead of restoring old artwork. Square periodic surface masters are 1024px and derivatives 512px.
 The hand-packed fitted model atlas has a 1024px master and 256px native PNG;
 every region retains its exact coordinates. Accent, kiosk and three banner faces
 additionally use dedicated 256px atlases with a 128x256 face and stock swatches.
@@ -15,6 +16,8 @@ margins. The 2048x1024 panorama repeats U, clamps V, and contains no landscape.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import math
 from pathlib import Path
 import sys
@@ -443,6 +446,24 @@ def main(argv=None):
     mode.add_argument("--check", action="store_true", help="verify every exact deterministic PNG without writes")
     args = parser.parse_args(argv)
     encoded = {path: write_png(im.width, im.height, im.tobytes()) for path, im in outputs().items()}
+    # Delivered model textures supersede the historical native resampling recipe.
+    # Keep exact ledger custody and standalone/embedded parity in both modes.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "props"))
+    from glb import read_glb
+
+    reviews = json.loads((ASSET_ROOT / "completed-models.json").read_text())
+    for name in FOCUS_ATLASES:
+        model = "display_kiosk" if name == "kiosk_atlas" else name.removesuffix("_atlas")
+        path = ROOT / f"props/{model}.glb"
+        review = reviews.get(path.relative_to(ASSET_ROOT).as_posix())
+        if review is None:
+            continue
+        if hashlib.sha256(path.read_bytes()).hexdigest() != review["sha256"]:
+            raise ValueError(f"accepted Aero model identity changed: {model}")
+        native = ROOT / f"props/{name}.png"
+        if read_glb(path.read_bytes()).texture_png != native.read_bytes():
+            raise ValueError(f"accepted Aero standalone/embedded PNG differs: {name}")
+        encoded[native] = native.read_bytes()
     if args.check:
         failed = [str(path.relative_to(ASSET_ROOT)) for path, png in encoded.items()
                   if not path.is_file() or path.read_bytes() != png]

@@ -12,7 +12,8 @@ The +Z-facing model is horizontally centred and its bind feet rest on y = 0.
     python3 tools/props/build_cockroach.py
     python3 tools/props/build_cockroach.py --check
 
-Both commands perform a small offline check of the written GLB. They do not
+The accepted delivered model supersedes the constructor. --check validates its
+ledger identity and GLB structure; rewriting that export is refused. These do not
 build maps, run the player, start Blender or invoke the Rust test suite.
 """
 
@@ -372,6 +373,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="inspect existing asset without writing")
     args = parser.parse_args()
+    reviews = json.loads((REPO_ROOT / "assets/completed-models.json").read_text())
+    review = reviews.get(MODEL_PATH.relative_to(REPO_ROOT / "assets").as_posix())
+    if review is not None:
+        if hashlib.sha256(MODEL_PATH.read_bytes()).hexdigest() != review["sha256"]:
+            raise ValueError("completed cockroach differs from accepted export")
+        if not args.check:
+            raise SystemExit("completed cockroach is immutable; use its retained editable source")
+        report = check_model(MODEL_PATH)
+        if report["problems"]:
+            raise ValueError(report["problems"])
+        print(json.dumps({"accepted_export": review, "structure": report}, indent=2))
+        return 0
     animal = build_geometry()
     if not args.check:
         write_model(MODEL_PATH, animal.skinned(), animal.rig, build_clips(animal),

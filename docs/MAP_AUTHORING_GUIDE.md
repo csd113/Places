@@ -1516,7 +1516,7 @@ An above-water flashlight can
 focus its existing shadowed beam only where its ray enters the water footprint;
 a submerged flashlight retains its ordinary beam. This is a bounded visual
 approximation, not refractive light transport. See the
-[caustics report](reports/caustics-0.11.0.md) for native evidence and costs.
+[caustics report](reports/release-0.11.0.md#caustics-0110) for native evidence and costs.
 
 How it behaves:
 
@@ -6972,7 +6972,7 @@ preserves image/material records, and verifies an empty second duplicate plan.
 Near planes, different materials, cross-instance overlaps and intentional layers
 remain review findings. The Office reception desk's explicit reviewed clipping
 recipe is separate from this generic duplicate rule. See the
-[0.11.0 renderer report](reports/renderer-0.11.0.md) for diagnosed content,
+[0.11.0 renderer report](reports/release-0.11.0.md#renderer-0110) for diagnosed content,
 preserved originals, native evidence and limitations. These are developer tools;
 no global per-frame pair scan or editor workflow is introduced.
 

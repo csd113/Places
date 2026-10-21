@@ -34,6 +34,6 @@ The complete approved Blender/GIMP sources, animation manifest,
 asset integration delivery under `Accepted/Mannequin-R2/`. Original pending-review
 language in immutable source documents is superseded by its approval note.
 `projects/mannequin-r2-review/` is the editable opt-in native fixture; no map bake
-is required by ordinary tests or CI. See `docs/reports/asset-integration-0.12.0.md`
+is required by ordinary tests or CI. See `docs/reports/release-0.12.0.md#asset-integration-0120`
 for native evidence and retained limits. Rejected V1 and Spoonerman candidates
 are excluded.

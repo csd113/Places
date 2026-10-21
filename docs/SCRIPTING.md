@@ -167,7 +167,7 @@ outside this stage.
 The sandbox follows the upstream [mlua API](https://docs.rs/mlua/0.12.2/mlua/struct.Lua.html)
 and [Luau embedding guidance](https://luau.org/sandbox/). Focused CPU regressions
 live under the owning engine/editor/compiler tests directories; native evidence
-and measured limitations belong in the [stage 6 report](reports/editor-0.12.0-task6.md).
+and measured limitations belong in the [stage 6 report](reports/release-0.12.0.md#editor-0120-task6).
 
 Actor queries use the previous rendered frame's beam observations and current
 simulation-tick collision visibility. `player_visible` checks static walls,

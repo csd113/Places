@@ -18,7 +18,7 @@ verification are recorded below.
 
 ## Play and reuse
 
-The source is [`levels/retro_arcade_demo.json`](../../levels/retro_arcade_demo.json),
+The source is [`projects/environments/levels/arcade.json`](../../projects/environments/levels/arcade.json),
 maintained by [`tools/levels/build_retro_arcade.py`](../../tools/levels/build_retro_arcade.py).
 The local compiled package is `assets/levels/retro_arcade_demo.placesmap`.
 Launch `target/release/places` and select **Cosmic Lanes & Arcade**. Use the
@@ -31,10 +31,10 @@ To rebuild through the normal pipeline:
 
 ```sh
 cargo build --locked --release --bins
-target/release/places-compile build levels/retro_arcade_demo.json \
+target/release/places-compile build projects/environments/levels/arcade.json \
   --out assets/levels/retro_arcade_demo.placesmap \
   --variants off,medium,full --workers 8
-target/release/places-compile verify levels/retro_arcade_demo.json \
+target/release/places-compile verify projects/environments/levels/arcade.json \
   --package assets/levels/retro_arcade_demo.placesmap --require-current
 ```
 

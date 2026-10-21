@@ -51,7 +51,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             (source / 'Cargo.toml').write_text('[package]\nversion = "0.9.0"\n')
             for name in ('README.md', 'THIRD_PARTY_LICENSES.txt'):
                 (source / name).write_text('fixture')
-            for name in ('shared', 'environments', 'entities', 'diagnostic', 'janitor_closet', 'levels', 'audio'):
+            for name in ('shared', 'environments', 'entities', 'diagnostic', 'janitor_closet', 'levels', 'audio', 'editor'):
                 (source / 'assets' / name).mkdir(parents=True)
             # Pool's catalog resources live outside environments/. Check their
             # byte custody in this tiny fixture instead of baking the collection.
@@ -70,6 +70,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
                              'fixture.wav': b'RIFF fixture bytes', 'credits.txt': b'CC0 source credit'}
             for name, data in audio_payload.items():
                 (source / 'assets/audio' / name).write_bytes(data)
+            (source / 'assets/editor/fixture.png').write_bytes(b'editor preview fixture')
             (source / 'assets/completed-models.json').write_text('{"authoring": "only"}')
             (source / 'assets/shared/branding').mkdir()
             (source / 'assets/shared/branding/places.png').write_bytes(b'source artwork')
@@ -118,6 +119,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
                 self.assertEqual(binary.read_bytes(), editor.read_bytes())
             for payload in (output / 'Places', output / 'Places.app/Contents/Resources'):
                 self.assertEqual((payload / 'docs/EDITOR.md').read_text(), 'editor fixture')
+                self.assertEqual((payload / 'assets/editor/fixture.png').read_bytes(), b'editor preview fixture')
             # Force the second publication rename to fail. Both previous
             # products must survive, not just unrelated export-root siblings.
             for product in ('Places', 'Places.app'):

@@ -24,4 +24,4 @@ textures and sounds remain installed assets rather than duplicated custom assets
 Do not bake this map as a Cargo test or automatic CI fixture.
 
 Authoring, manual source-edit reasons and validation:
-`docs/reports/editor-0.12.0-closing-time.md`.
+`docs/reports/release-0.12.0.md#editor-0120-closing-time`.

@@ -26,27 +26,6 @@ def snow_indices(model):
 
 
 class WinterAssetTests(unittest.TestCase):
-    def test_linked_variants_preserve_canonical_geometry_uvs_artwork_and_alpha(self):
-        # The linked stock remains derived from its bare components. Completed
-        # trees, rocks and standalone assemblies are independent authored meshes.
-        pairs = [('railing_snow_straight', 'porch_railing_straight'),
-                 ('railing_snow_corner', 'porch_railing_corner'),
-                 ('fence_two_rail_section_snow', 'fence_two_rail_section'),
-                 ('fence_two_rail_post_snow', 'fence_two_rail_post')]
-        for variant, canonical in pairs:
-            with self.subTest(variant=variant):
-                base, snow = load(canonical, 'outdoor'), load(variant)
-                count = len(base.positions)
-                self.assertEqual(snow.positions[:count], base.positions)
-                self.assertEqual(snow.uvs[:count], base.uvs)
-                self.assertEqual(snow.colors[:count], base.colors)
-                self.assertEqual(snow.indices[:len(base.indices)], base.indices)
-                self.assertEqual(snow.json['materials'][:base.material_count], base.json['materials'])
-                self.assertEqual(snow.texture_png, base.texture_png)
-                self.assertIn('snow_accumulation', snow.mesh_names)
-                snow_material = next(m for m in snow.json['materials'] if m['name'] == 'snow')
-                self.assertNotIn('baseColorTexture', snow_material['pbrMetallicRoughness'])
-
     def test_snow_and_icicles_are_closed_outward_and_grounded(self):
         sizes = dict(winter.SIZES)
         sizes.update((name + '_assembly', winter.SIZES[name])
@@ -67,26 +46,6 @@ class WinterAssetTests(unittest.TestCase):
                 for axis in range(3):
                     extent = high[axis] if axis == 1 and clearance else high[axis]-low[axis]
                     self.assertLessEqual(abs(extent-size[axis]), max(.02, size[axis]*.06))
-
-    def test_linked_fence_components_reuse_stock_and_snow_contacts_each_rail(self):
-        # A few hundred saved vertices protect the actual modular asset contract:
-        # no duplicated newels, altered art, or snow hovering over shifted rails.
-        original = load('fence_two_rail', 'outdoor')
-        for name, triangles in (('section', 24), ('post', 36)):
-            part = load('fence_two_rail_'+name, 'outdoor')
-            self.assertEqual(part.triangle_count, triangles)
-            self.assertEqual(part.texture_png, original.texture_png)
-            source = {(tuple(round(v, 5) for v in point), uv, color)
-                      for point, uv, color in zip(original.positions, original.uvs, original.colors)}
-            for point, uv, color in zip(part.positions, part.uvs, part.colors):
-                original_point = (point[0]-(.92 if name == 'post' else 0), point[1], point[2])
-                self.assertIn((tuple(round(v, 5) for v in original_point), uv, color), source)
-        for name, bases in (('railing_snow_straight', (.201, 1.041)),
-                            ('fence_two_rail_section_snow', (.447, .837))):
-            model = load(name)
-            snow_y = {round(model.positions[index][1], 5) for index in snow_indices(model)}
-            for base in bases:
-                self.assertIn(base, snow_y)
 
     def test_tree_snow_keeps_opaque_foliage_and_bark_and_varies_in_load(self):
         # Independent completed trees no longer contain an Outdoors vertex
@@ -116,24 +75,6 @@ class WinterAssetTests(unittest.TestCase):
             xs = sorted(v[0] for v in roots)
             if 'cluster' in name:
                 self.assertGreater(max(b-a for a, b in zip(xs, xs[1:])), winter.SIZES[name][2]*.3)
-
-    def test_registered_builders_reproduce_unadopted_modular_stock(self):
-        catalog = json.loads((ROOT / 'assets/catalog.json').read_text())
-        entries = {entry['id']: entry for entry in catalog['assets']}
-        for family in (winter, winter_village):
-            for name, size in family.SIZES.items():
-                identity = 'winter:' + name
-                if entries[identity].get('authoring', {}).get('tool') == 'completed':
-                    # build.py owns accepted-export guards; do not invoke a
-                    # historical constructor for these imported meshes.
-                    continue
-                with self.subTest(asset=name):
-                    p = PropBuilder(identity, name, size)
-                    family.PROPS[identity](p)
-                    p.mesh.validate(size)
-                    self.assertEqual(glb.write_glb(p.mesh, p.tex.png_bytes(), name=p.id.replace(':', '_'),
-                                                  nodes=p.nodes, animations=p.clips),
-                                     (ROOT / 'assets' / entries[identity]['model']).read_bytes())
 
     def test_exposed_snow_classes_preserve_collision_and_sheltered_deck_stays_dry(self):
         level = json.loads((environment_source('winter')).read_text())

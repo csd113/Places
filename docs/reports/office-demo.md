@@ -6,7 +6,7 @@ displaced furniture, then stained basement halls with dark gaps between lights.
 Two ramps and shared landings physically connect every floor. Existing Office
 concept art, materials and modular furniture supply the visual language.
 
-The source is [levels/office_demo.json](../../levels/office_demo.json), maintained
+The source is [projects/environments/levels/office.json](../../projects/environments/levels/office.json), maintained
 by [build_office.py](../../tools/levels/build_office.py). The normal compiler
 creates the ignored `assets/levels/office_demo.placesmap`; the curated lineup
 and generated model zoo register the map and new cockroach through existing

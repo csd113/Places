@@ -41,7 +41,7 @@ Only export again after editing the authoritative project:
   --out assets/levels/environments.placesmap --asset-root assets --workers 6
 ```
 
-The [retirement handoff](../../docs/reports/environment-collection-0.12.0-retirement.md)
+The [retirement handoff](../../docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
 records superseded standalone IDs, preserved material and deferred work.
 
 `local/environment-collection-0.12.0/` holds the stage's explicit developer

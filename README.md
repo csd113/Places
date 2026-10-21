@@ -71,7 +71,7 @@ what was checked and the remaining limitations.
 
 This release contains the nine-map Quiet Collection project and
 native editor. The eight standalone environment demos are superseded by this
-single package. See the [collection handoff](docs/reports/environment-collection-0.12.0-retirement.md)
+single package. See the [collection handoff](docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
 for the exact retirement inventory, validation and remaining work.
 
 To play an existing collection package with a matching player and asset library:

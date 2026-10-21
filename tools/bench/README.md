@@ -597,7 +597,7 @@ receipt diagnostic. `--entity-light-trace all --capture-frame 120 --warmup 0`
 retains actual lighting payloads plus an image; exclude captures and scripted
 settings transitions from steady timings. GPU elapsed is unioned pass-stage
 coverage, including scheduling stalls, and is not utilization or an additive
-per-pass cost. See `docs/reports/multicore-0.10.0.md` for this pass's evidence.
+per-pass cost. See `docs/reports/release-0.10.0.md#multicore-0100` for this pass's evidence.
 
 ## Pool caustics
 

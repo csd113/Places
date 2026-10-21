@@ -170,8 +170,9 @@ PLACES_SKIP_SMOKE=1 python3 -m unittest discover -s tests -p 'test_*.py'
 python3 tools/assets/validate.py
 ```
 
-The 0.11.0 cleanup removed the previous broad Rust test suite. Seven focused
-console/physics regressions now run with `cargo test --workspace`. New tests
+The 0.11.0 cleanup removed the previous broad Rust test suite. The essential CPU
+regression suite now runs with `cargo test --workspace`; the 0.13.0 final gate
+contains 245 tests. New tests
 must meet the essential regression-value, ownership/discovery and proportional
 cost requirements in `AGENTS.md`; ordinary CI never bakes full maps. Runtime
 validation, security checks and explicit native diagnostics remain active.
@@ -220,8 +221,8 @@ a previous campaign does not establish present currency. The
 
 Enable **Settings → Controls → Developer Console**, then press the **Console**
 binding (backtick by default) during play. Console, Interact and Flashlight can
-all be rebound on that page; Escape remains the pause/back key. See [console use and implementation](reports/developer-console-0.10.0.md)
-for historical context. The [0.11.0 console stage](reports/developer-console-0.11.0.md)
+all be rebound on that page; Escape remains the pause/back key. See [console use and implementation](reports/release-0.10.0.md#developer-console-0100)
+for historical context. The [0.11.0 console stage](reports/release-0.11.0.md#developer-console-0110)
 defines current commands, curated pickup eligibility, world clocks and `/become`.
 The opt-in `tools/bench/developer_console.py` acceptance tool reuses installed
 packages and exercises the normal SDL event path; it does not bake maps.

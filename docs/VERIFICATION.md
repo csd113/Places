@@ -41,10 +41,10 @@ rather than suppressing warnings.
 [GitHub CI](../.github/workflows/rust.yml) performs those stages in a temporary
 engine copy with optional map directories omitted, then runs maintained asset /
 generator checks and source Python tests. It rejects tracked compiled packages.
-Ordinary CI does not bake production maps or capture reflection probes. All
-project-owned Rust automated tests were removed in the 0.11.0 cleanup; retained
-Python contracts, production validation and developer diagnostics remain active.
-Future Rust tests require essential concrete regression value and proportional
+Ordinary CI does not bake production maps or capture reflection probes. The old
+broad Rust suite was removed in 0.11.0. The subsequent essential CPU regressions
+run with `cargo test --workspace` (245 at the 0.13.0 final gate); Python contracts,
+production validation and developer diagnostics remain active. Additional Rust tests require essential concrete regression value and proportional
 cost, live under the owning engine/game/editor/map_compiler tests folder, and
 must be wired into Rust discovery as described in `AGENTS.md`.
 

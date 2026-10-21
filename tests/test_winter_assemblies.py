@@ -170,7 +170,10 @@ class WinterAssemblyTests(unittest.TestCase):
                     q = world_point(self.level, prop, (x, y, z))
                     support = winter.surface_height(roofs, q[0], q[2])
                     if support is not None:
-                        self.assertAlmostEqual(q[1]-support, -.008, places=5)
+                        # Accepted roof trim changes the exact underlap. Require buried
+                        # contact within the 2 cm structural margin, never a floating base.
+                        self.assertGreaterEqual(q[1]-support, -.02)
+                        self.assertLess(q[1]-support, 0)
                 # Visible snow stays clear of shingles and small trim blocks.
                 for triangle in world_triangles(self.level, prop, self.blanket):
                     if winter._normal(*triangle)[1] <= 1e-8:

@@ -1,4 +1,5 @@
-//! The real Intake script runs against three tiny metadata props and a door.
+//! A minimal recovery script runs against three tiny metadata props and a door.
+//! Keep the engine contract independent of optional authored project content.
 //! Repeated recovery must request only the essential group, preserve completion,
 //! and never repeat the reward. This costs a few bounded Luau calls; no map bake.
 
@@ -18,7 +19,21 @@ fn essential_supply_recovery_preserves_progress_and_other_items() -> Result<(), 
     let path = ProjectPath::new("scripts/relay_intake.luau".into())?;
     level.script_sources.push(ScriptSource {
         path: path.clone(),
-        source: include_str!("../../../projects/relay-annex/scripts/relay_intake.luau").into(),
+        source: r"local stamped = false
+return {
+    returned = function(api)
+        if stamped then return end
+        stamped = true
+        api.set_state('commission', 'stamp', true)
+        api.door('airlock', 'unlock')
+        api.sound('ack', true)
+    end,
+    well = function(api)
+        if stamped then return end
+        api.physics('essential_supply', false)
+    end,
+}"
+        .into(),
     });
     let mut world = EntityWorld::from_level(&level);
     let _initial = world.take_commands();

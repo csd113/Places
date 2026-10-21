@@ -3,7 +3,7 @@
 //! Keep listing and execution on this same list. Asset names, categories, static
 //! solidity and the presence of a reusable physics profile never grant access.
 //! Physical tuning remains in `assets/gameplay.json`; visual assets are unchanged.
-//! See `docs/reports/console-pickup-audit-0.11.0.md` for the complete audit.
+//! See `docs/reports/release-0.11.0.md#console-pickup-audit-0110` for the complete audit.
 
 /// One stable catalog identity approved for developer-given pickup gameplay.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
