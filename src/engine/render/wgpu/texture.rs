@@ -1143,41 +1143,44 @@ impl TextureCache {
             plans.push(Plan::Miss(slot));
         }
 
-        let prepared = prepare_textures(&misses);
-        crate::engine::perf::startup_mark("textures: CPU prepare");
-
         let mut uploaded: Vec<(CacheOutcome, Arc<GpuTexture>)> = Vec::with_capacity(misses.len());
-        for (request, slot) in misses.iter().zip(prepared) {
-            // A worker that never filled its slot (only possible if it
-            // panicked, which `thread::scope` would have propagated) falls back
-            // to the identical serial preparation rather than failing.
-            let prepared_texture = slot.unwrap_or_else(|| {
-                PreparedTexture::prepare(
-                    request.image,
-                    request.key.level,
-                    request.key.class,
-                    request.key.semantic,
-                )
-            });
-            let texture = Arc::new(GpuTexture::upload_prepared(
-                device,
-                queue,
-                &self.layout,
-                &self.samplers,
-                &TextureUpload {
-                    key: &request.key,
-                    prepared: &prepared_texture,
-                    origin: request.origin,
-                    fallback: false,
-                },
-            ));
-            drop(
-                self.map_mut(request.origin)
-                    .insert(request.key.clone(), Arc::clone(&texture)),
-            );
-            uploaded.push((CacheOutcome::Uploaded, texture));
+        // Eight maximum-sized world sheets bound the prepared mip staging to
+        // about 43 MiB. Upload/drop each group before preparing the next; the
+        // request plan preserves duplicate/cache semantics across groups.
+        for group in misses.chunks(8) {
+            let prepared = prepare_textures(group);
+            for (request, slot) in group.iter().zip(prepared) {
+                // A worker that never filled its slot (only possible if it
+                // panicked, which `thread::scope` would have propagated) falls back
+                // to the identical serial preparation rather than failing.
+                let prepared_texture = slot.unwrap_or_else(|| {
+                    PreparedTexture::prepare(
+                        request.image,
+                        request.key.level,
+                        request.key.class,
+                        request.key.semantic,
+                    )
+                });
+                let texture = Arc::new(GpuTexture::upload_prepared(
+                    device,
+                    queue,
+                    &self.layout,
+                    &self.samplers,
+                    &TextureUpload {
+                        key: &request.key,
+                        prepared: &prepared_texture,
+                        origin: request.origin,
+                        fallback: false,
+                    },
+                ));
+                drop(
+                    self.map_mut(request.origin)
+                        .insert(request.key.clone(), Arc::clone(&texture)),
+                );
+                uploaded.push((CacheOutcome::Uploaded, texture));
+            }
         }
-        crate::engine::perf::startup_mark("textures: GPU upload");
+        crate::engine::perf::startup_mark("textures: CPU prepare/GPU upload");
 
         plans
             .into_iter()

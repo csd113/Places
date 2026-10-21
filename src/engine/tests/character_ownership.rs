@@ -27,6 +27,8 @@ fn actor(id: &str, asset: Arc<LoadedPropAsset>) -> Result<Character, String> {
         lighting_refresh_key: None,
         spatial_lighting: None,
         spatial_key: None,
+        static_rays: crate::engine::render::common::light_transport::EntityStaticRayCache::default(
+        ),
         lighting_local_centre: Vec3::ZERO,
         lighting_local_bounds: Aabb::default(),
         balloon_color: None,
@@ -155,5 +157,30 @@ fn actors_own_idle_movement_and_action_independently_of_the_player() -> Result<(
             .is_some(),
         "an authored stationary action still overrides automatic idle"
     );
+    Ok(())
+}
+
+// Exact single-weight normals use a per-joint inverse transpose. This tiny rig
+// protects rotated/nonuniform/reflected and singular poses against the existing
+// blended-weight oracle; no model decode, bake or GPU allocation is involved.
+#[test]
+fn cached_rigid_normals_follow_each_pose_and_preserve_blended_fallback() -> Result<(), String> {
+    let asset = tiny_rig();
+    let mut animator = CharacterAnimator::new(&asset.model).ok_or("missing rig")?;
+    for scale in [
+        Vec3::new(1.0, 2.0, 0.5),
+        Vec3::new(-1.0, 2.0, 1.0),
+        Vec3::ZERO,
+    ] {
+        *animator.node_globals.first_mut().ok_or("missing root")? =
+            Mat4::from_scale_rotation_translation(scale, Quat::from_rotation_z(0.7), Vec3::ZERO);
+        animator.compute_deltas();
+        let fast = animator.skin_normal([0; 4], [1.0, 0.0, 0.0, 0.0], [1.0, 2.0, 3.0]);
+        let oracle = animator.skin_normal([0; 4], [0.5, 0.5, 0.0, 0.0], [1.0, 2.0, 3.0]);
+        assert!(
+            (Vec3::from_array(fast) - Vec3::from_array(oracle)).length() < 1.0e-6,
+            "cached normals retain the exact inverse-transpose behavior under every pose"
+        );
+    }
     Ok(())
 }

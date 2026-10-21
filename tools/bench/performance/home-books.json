@@ -1,0 +1,112 @@
+[
+  {
+    "after": "ready:home",
+    "delay_ms": 100,
+    "action": {
+      "kind": "item_pose",
+      "id": "home_bedroom_books",
+      "position": [
+        1.9,
+        0.55,
+        10.9
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 100,
+    "action": {
+      "kind": "item_pose",
+      "id": "home_living_books",
+      "position": [
+        1.9,
+        0.55,
+        10.7
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ]
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 1250,
+    "action": {
+      "kind": "key",
+      "key": "SPACE",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 1300,
+    "action": {
+      "kind": "key",
+      "key": "SPACE",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 1600,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 3000,
+    "action": {
+      "kind": "key",
+      "key": "SPACE",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 3050,
+    "action": {
+      "kind": "key",
+      "key": "SPACE",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 4400,
+    "action": {
+      "kind": "key",
+      "key": "S",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 4900,
+    "action": {
+      "kind": "key",
+      "key": "S",
+      "pressed": false
+    }
+  }
+]

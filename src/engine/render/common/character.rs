@@ -1101,6 +1101,7 @@ pub struct Character {
     lighting_refresh_key: Option<super::dynamic::EntityLightingRefreshKey>,
     spatial_lighting: Option<Box<super::light_transport::EntitySpatialLighting>>,
     spatial_key: Option<super::light_transport::EntitySpatialKey>,
+    static_rays: super::light_transport::EntityStaticRayCache,
     lighting_local_centre: Vec3,
     lighting_local_bounds: Aabb,
     /// Applied latex tint; avoids repeating immutable albedo work each frame.
@@ -1588,6 +1589,7 @@ impl CharacterScene {
                 lighting_refresh_key: None,
                 spatial_lighting: None,
                 spatial_key: None,
+                static_rays: super::light_transport::EntityStaticRayCache::default(),
                 lighting_local_centre,
                 lighting_local_bounds,
                 balloon_color: None,
@@ -1716,6 +1718,7 @@ impl CharacterScene {
             lighting_refresh_key: None,
             spatial_lighting: None,
             spatial_key: None,
+            static_rays: super::light_transport::EntityStaticRayCache::default(),
             lighting_local_centre,
             lighting_local_bounds,
             balloon_color: None,
@@ -2016,13 +2019,15 @@ impl CharacterScene {
                 if character.spatial_key != spatial_key || refresh_key.is_some() {
                     character.spatial_lighting = (!character.lighting_local_bounds.is_empty())
                         .then(|| {
-                            super::light_transport::entity_spatial_lighting_with_visibility(
+                            super::light_transport::entity_spatial_lighting_cached(
                                 lighting,
                                 irradiance,
                                 character.lighting_local_bounds,
                                 transform,
                                 scene,
                                 context,
+                                lighting_revision
+                                    .map(|revision| (&mut character.static_rays, revision)),
                             )
                         })
                         .flatten();
@@ -2482,6 +2487,8 @@ pub struct CharacterAnimator {
     node_globals: Vec<Mat4>,
     /// Current model-space skinning delta per joint slot.
     deltas: Vec<Mat4>,
+    // Rigidly weighted vertices share this exact inverse transpose per posed joint.
+    normal_deltas: Vec<Option<Mat4>>,
     /// Crossfade scratch per node, only allocated for a rig with clips.
     clip_a: Vec<LocalTrs>,
     clip_b: Vec<LocalTrs>,
@@ -2736,6 +2743,7 @@ impl CharacterAnimator {
             morph_ranges,
             pose,
             node_globals,
+            normal_deltas: vec![Some(Mat4::IDENTITY); deltas.len()],
             deltas,
             clip_a,
             clip_b,
@@ -3066,6 +3074,18 @@ impl CharacterAnimator {
     /// orthogonality under joint rotation and non-uniform scale.
     #[must_use]
     pub fn skin_normal(&self, joints: [u16; 4], weights: [f32; 4], normal: [f32; 3]) -> [f32; 3] {
+        if weights.map(f32::to_bits) == [1.0_f32.to_bits(), 0, 0, 0]
+            && let Some(inverse) = self
+                .normal_deltas
+                .get(usize::from(joints.first().copied().unwrap_or(0)))
+        {
+            return inverse.map_or([0.0; 3], |matrix| {
+                matrix
+                    .transform_vector3(Vec3::from_array(normal))
+                    .normalize_or_zero()
+                    .to_array()
+            });
+        }
         let mut blended = Mat4::ZERO;
         let mut total = 0.0_f32;
         for (slot, weight) in joints.iter().zip(weights.iter()) {
@@ -3545,6 +3565,9 @@ impl CharacterAnimator {
             };
             if let Some(delta_slot) = self.deltas.get_mut(slot) {
                 *delta_slot = delta;
+            }
+            if let Some(normal_slot) = self.normal_deltas.get_mut(slot) {
+                *normal_slot = super::normal::inverse_transpose(delta);
             }
         }
     }

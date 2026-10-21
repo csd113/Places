@@ -1,0 +1,73 @@
+[
+  {
+    "after": "ready:home",
+    "delay_ms": 100,
+    "action": {
+      "kind": "aim_item",
+      "id": "home_requested_cushion"
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 800,
+    "action": {
+      "kind": "key",
+      "key": "E",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 850,
+    "action": {
+      "kind": "key",
+      "key": "E",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 1300,
+    "action": {
+      "kind": "view",
+      "yaw": 180,
+      "pitch": 0
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 1800,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 2600,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 3300,
+    "action": {
+      "kind": "key",
+      "key": "E",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:home",
+    "delay_ms": 3350,
+    "action": {
+      "kind": "key",
+      "key": "E",
+      "pressed": false
+    }
+  }
+]

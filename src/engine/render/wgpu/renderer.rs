@@ -1937,6 +1937,74 @@ impl WgpuRenderer {
 
     /// Spawns the level's dynamic demonstration objects and uploads them.
     ///
+    /// Releases map ownership while retaining the device, UI and drawable targets.
+    pub fn unload_level(&mut self) {
+        self.invalidate_frame();
+        self.prepared_install = None;
+        self.world = None;
+        self.world_props = None;
+        self.world_textures = None;
+        self.world_materials = None;
+        self.static_light_bank = None;
+        self.decals = None;
+        self.sky = None;
+        self.environment = None;
+        self.retained_build = None;
+        self.lightmap_cpu = None;
+        self.packaged_probes = None;
+        self.installed_level = None;
+        self.level_id = None;
+        self.dynamic_lighting = None;
+        self.dynamic_field = None;
+        self.dynamic_transport = None;
+        self.visibility_materials = None;
+        self.world_dynamic = None;
+        self.world_characters = None;
+        self.world_effects = None;
+        self.characters = CharacterScene::new();
+        self.dynamic = DynamicScene::new();
+        self.dynamic_visibility =
+            crate::engine::render::common::dynamic_visibility::DynamicVisibility::new();
+        self.dynamic_visibility_error = None;
+        self.effects = EffectScene::new();
+        self.prop_assets = crate::engine::props::PropAssets::load_default();
+        self.runtime_objects.clear();
+        self.door_sources.clear();
+        self.door_objects.clear();
+        self.switchable_lights.clear();
+        self.prop_light_bindings.clear();
+        self.fixture_sheets.clear();
+        self.material_animations = LevelEmissionAnimations::default();
+        self.flashlight = None;
+        self.flashlight_characters.borrow_mut().clear();
+        self.blacklights = crate::engine::render::common::blacklight::BlacklightSet::default();
+        self.textures.release_profile_textures();
+        self.caustics = super::caustics::Caustics::empty(&self.device, &self.textures);
+        // Decal bind groups retain caustics resources. Recreate them on next install.
+        self.decal_pipeline = None;
+        self.decal_reflection_pipeline = None;
+        self.decal_scene_pipeline = None;
+        self.lightmaps = LightmapAtlas::upload(&self.device, &self.queue, None);
+        self.lightmaps_resident = false;
+        self.reflection_targets = ReflectionTargets::default();
+        self.reflections.routing =
+            crate::engine::render::common::reflections::ReflectionRouting::default();
+        self.active_plane = None;
+        self.active_probe = 0;
+        self.probe_max_mip = 0;
+        self.reflection_passes = 0;
+        self.animation_seconds = 0.0;
+        self.entity_lighting_revision = self.entity_lighting_revision.wrapping_add(1);
+        self.level_stats = LevelBuildStats::default();
+        self.render_stats = RenderStats::default();
+        self.fog = LevelFog::global_only();
+        #[cfg(feature = "visual-diagnostics")]
+        {
+            self.probe_visualization = None;
+            self.trace_gpu_resources("unload");
+        }
+    }
+
     /// Creates one spinning washer drum in front of
     /// every placed machine. Returns how many objects spawned.
     pub fn set_dynamic_demo(&mut self, level: &crate::engine::level::LevelDef) -> usize {

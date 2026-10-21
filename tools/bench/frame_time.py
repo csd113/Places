@@ -104,6 +104,7 @@ def main() -> None:
     parser.add_argument("--texture-quality", choices=("low", "medium", "high"), default="high", help="independent texture residency for matched timing")
     parser.add_argument("--texture-filtering", choices=("low", "medium", "high"), default="high", help="independent sampler setting for matched timing")
     parser.add_argument("--frames", type=int, default=600)
+    parser.add_argument("--seconds", type=float, help="matched wall-clock ready interval (2..60 s), ending through a native quit action")
     parser.add_argument("--warmup", type=int, default=120)
     parser.add_argument("--motion", action="store_true", help="matched bathroom lateral trajectory")
     parser.add_argument("--move-script", default="", help="explicit held controls in simulation seconds")
@@ -127,6 +128,8 @@ def main() -> None:
     args = parser.parse_args()
     if not 1 <= args.frames <= 3600 or not 0 <= args.warmup <= 1200:
         parser.error("frames must be 1..3600; warmup must be 0..1200")
+    if args.seconds is not None and (not math.isfinite(args.seconds) or not 2 <= args.seconds <= 60 or args.capture_frame is not None):
+        parser.error("--seconds must be finite, 2..60 and cannot capture")
     if args.motion and args.move_script:
         parser.error("select --motion or --move-script")
     if args.motion and args.warmup != 120:
@@ -203,6 +206,15 @@ def main() -> None:
             dict(after=f"ready:{args.level}", delay_ms=10, action=dict(kind="text", text="/help", submit=True)),
         ]) + "\n")
         env["PLACES_BENCH_ACTIONS"] = str(actions_path)
+
+    if args.seconds is not None:
+        timed_actions = json.loads(args.actions.read_text()) if args.actions else []
+        if any(step["action"]["kind"] == "quit" for step in timed_actions):
+            parser.error("timed runs own their quit action")
+        timed_actions.append(dict(after=f"ready:{args.level}", delay_ms=math.ceil(args.seconds * 1000), action=dict(kind="quit")))
+        timed_path = out / "timed-actions.json"
+        timed_path.write_text(json.dumps(timed_actions, indent=2) + "\n")
+        env.update(PLACES_BENCH_FRAMES="0", PLACES_BENCH_ACTIONS=str(timed_path))
 
     if args.capture_frame is not None:
         if not 1 <= args.capture_frame <= 2400:
@@ -295,7 +307,7 @@ def main() -> None:
             raise RuntimeError("missing native capture")
         if not rows or int(rows[-1]["draw_calls"]) == 0:
             raise RuntimeError(f"native capture contains no submitted scene geometry; see {out / 'native.log'}")
-    elif len(rows) != args.frames or not all(int(row["draw_calls"]) > 0 for row in rows):
+    elif (args.seconds is None and len(rows) != args.frames) or not rows or not all(int(row["draw_calls"]) > 0 for row in rows):
         raise RuntimeError("missing measured frames or real scene submissions")
     gpu = {}
     for row in rows:
@@ -309,6 +321,7 @@ def main() -> None:
     }
     receipt = dict(
         kind="capture" if capture else "diagnostic" if (args.cpu_trace or args.gpu_trace or args.graphics_cycle or args.quality_cycle or args.lighting_sequence or args.physics_trace or args.actions) else "timing",
+        requested_ready_seconds=args.seconds, warmup_frames=args.warmup,
         started_utc=started_utc, elapsed_seconds=time.monotonic() - started,
         binary=str(binary), binary_sha256=binary_sha256, package=str(package), package_sha256=package_sha256,
         member_manifest_sha256=manifest_identity,

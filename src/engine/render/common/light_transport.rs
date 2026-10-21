@@ -446,6 +446,105 @@ impl EntitySpatialKey {
     }
 }
 
+// Each receiver admits at most 2,048 exact ray answers. On overflow it computes
+// normally; content, probe candidates and shadow taps are never reduced.
+#[derive(Debug, Default)]
+pub struct EntityStaticRayCache {
+    scope: Option<(Option<EntitySpatialKey>, [[u32; 3]; 2], u64)>,
+    rays: std::collections::HashMap<StaticRayKey, f32>,
+}
+
+impl EntityStaticRayCache {
+    fn prepare(
+        &mut self,
+        mut key: Option<EntitySpatialKey>,
+        bounds: crate::engine::spatial::Aabb,
+        revision: u64,
+    ) {
+        if let Some(identity) = &mut key {
+            identity.dynamic = 0;
+            identity.dynamic_revision = 0;
+            identity.receiver = None;
+        }
+        let scope = (
+            key,
+            [bounds.min.map(f32::to_bits), bounds.max.map(f32::to_bits)],
+            revision,
+        );
+        if self.scope.as_ref() != Some(&scope) {
+            self.rays.clear();
+            self.scope = Some(scope);
+        }
+    }
+}
+
+fn static_probe_visible(
+    cache: &std::cell::RefCell<Option<&mut EntityStaticRayCache>>,
+    lighting: &LevelLighting,
+    point: [f32; 3],
+    probe: [f32; 3],
+    label: i32,
+) -> bool {
+    static_ray(cache, 0, i64::from(label), point, probe, || {
+        f32::from(u8::from(
+            lighting.labelled_probe_visible_from(point, probe, label),
+        ))
+    }) > 0.0
+}
+
+fn static_segment_visible(
+    cache: &std::cell::RefCell<Option<&mut EntityStaticRayCache>>,
+    lighting: &LevelLighting,
+    scene: Option<&TransportScene>,
+    from: [f32; 3],
+    to: [f32; 3],
+) -> bool {
+    scene.map_or_else(
+        || {
+            static_ray(cache, 1, 0, from, to, || {
+                f32::from(u8::from(lighting.runtime_probe_segment_visible(from, to)))
+            }) > 0.0
+        },
+        |transport| static_ray(cache, 2, 0, from, to, || transport.transmittance(from, to)) > 0.0,
+    )
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct StaticRayKey {
+    kind: u8,
+    tag: i64,
+    from: [u32; 3],
+    to: [u32; 3],
+}
+
+fn static_ray(
+    cache: &std::cell::RefCell<Option<&mut EntityStaticRayCache>>,
+    kind: u8,
+    tag: i64,
+    from: [f32; 3],
+    to: [f32; 3],
+    compute: impl FnOnce() -> f32,
+) -> f32 {
+    let mut borrowed = cache.borrow_mut();
+    let Some(storage) = borrowed.as_deref_mut() else {
+        return compute();
+    };
+    let key = StaticRayKey {
+        kind,
+        tag,
+        from: from.map(f32::to_bits),
+        to: to.map(f32::to_bits),
+    };
+    if let Some(value) = storage.rays.get(&key) {
+        return *value;
+    }
+    let value = compute();
+    if storage.rays.len() < 2048 {
+        let _previous = storage.rays.insert(key, value);
+    }
+    value
+}
+
 /// Optional current movable geometry and the rigid receiver's self identity.
 #[derive(Clone, Copy, Default)]
 pub struct EntityVisibility<'a> {
@@ -547,15 +646,23 @@ pub fn entity_spatial_key_with_visibility(
     })
 }
 
+/// Reuses immutable ray answers while still evaluating every current movable caster.
 #[must_use]
-pub fn entity_spatial_lighting_with_visibility(
+pub fn entity_spatial_lighting_cached(
     lighting: &LevelLighting,
     field: Option<&crate::engine::lighting::probes::ProbeField>,
     bounds: crate::engine::spatial::Aabb,
     model: glam::Mat4,
     scene: Option<&TransportScene>,
     visibility: EntityVisibility<'_>,
+    storage: Option<(&mut EntityStaticRayCache, u64)>,
 ) -> Option<Box<EntitySpatialLighting>> {
+    let context_key = entity_spatial_key_with_visibility(lighting, field, model, scene, visibility);
+    let active_cache = storage.map(|(entry, revision)| {
+        entry.prepare(context_key, bounds, revision);
+        entry
+    });
+    let cache = std::cell::RefCell::new(active_cache);
     let prepared = field?;
     let _selected_direct = prepared.local_direct.as_ref()?;
     let positions = entity_anchor_positions(bounds, model)?;
@@ -565,7 +672,7 @@ pub fn entity_spatial_lighting_with_visibility(
             None,
             |index| probe_light_enabled(lighting, index),
             |probe, label| {
-                lighting.labelled_probe_visible_from(point, probe, label)
+                static_probe_visible(&cache, lighting, point, probe, label)
                     && visibility.transmittance(point, probe) > 0.0
             },
         )
@@ -579,7 +686,7 @@ pub fn entity_spatial_lighting_with_visibility(
                     point,
                     None,
                     |index| probe_light_enabled(lighting, index),
-                    |probe, label| lighting.labelled_probe_visible_from(point, probe, label),
+                    |probe, label| static_probe_visible(&cache, lighting, point, probe, label),
                 )
                 .is_some()
         };
@@ -593,10 +700,8 @@ pub fn entity_spatial_lighting_with_visibility(
         // not recover the stale authored ambient/direct fallback.
     }
     let connected = |from, to| {
-        scene.map_or_else(
-            || lighting.runtime_probe_segment_visible(from, to),
-            |transport| transport.transmittance(from, to) > 0.0,
-        ) && visibility.transmittance(from, to) > 0.0
+        static_segment_visible(&cache, lighting, scene, from, to)
+            && visibility.transmittance(from, to) > 0.0
     };
     let mut direct = [EntityDirectLight::ZERO; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS];
     let source_ids = runtime_entity_light_ids(prepared, scene);
@@ -623,8 +728,15 @@ pub fn entity_spatial_lighting_with_visibility(
             });
         let [red, green, blue] = texel.irradiance;
         let [x, y, z] = texel.direction;
-        let throughput =
-            spatial_anchor_visibility(lighting, &source_ids, scene, &direct, world, visibility);
+        let throughput = spatial_anchor_visibility(
+            lighting,
+            &source_ids,
+            scene,
+            &direct,
+            world,
+            visibility,
+            &cache,
+        );
         let [ar, ag, ab] = scene.map_or([1.0; 3], |transport| transport.attenuation_at(world));
         EntityLightingAnchor {
             irradiance: [
@@ -677,6 +789,7 @@ fn spatial_anchor_visibility(
     sources: &[EntityDirectLight; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS],
     world: [f32; 3],
     visibility: EntityVisibility<'_>,
+    cache: &std::cell::RefCell<Option<&mut EntityStaticRayCache>>,
 ) -> [[f32; 4]; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS] {
     std::array::from_fn(|slot| {
         let Some(index) = source_ids.get(slot).copied().flatten() else {
@@ -689,13 +802,26 @@ fn spatial_anchor_visibility(
             if weight > 0.0 {
                 scene.map_or_else(
                     || {
-                        f32::from(u8::from(lighting.runtime_light_visible(
-                            index,
+                        static_ray(
+                            cache,
+                            3,
+                            i64::try_from(index).unwrap_or(i64::MAX),
                             [x, y, z],
                             world,
-                        )))
+                            || {
+                                f32::from(u8::from(lighting.runtime_light_visible(
+                                    index,
+                                    [x, y, z],
+                                    world,
+                                )))
+                            },
+                        )
                     },
-                    |transport| transport.transmittance(world, [x, y, z]),
+                    |transport| {
+                        static_ray(cache, 2, 0, world, [x, y, z], || {
+                            transport.transmittance(world, [x, y, z])
+                        })
+                    },
                 ) * visibility.transmittance(world, [x, y, z])
             } else {
                 0.0
@@ -1359,3 +1485,7 @@ pub fn sample_texture(image: &RawImage, uv: [f32; 2]) -> [f32; 3] {
         _ => [1.0; 3],
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/static_ray_cache.rs"]
+mod static_ray_cache_tests;

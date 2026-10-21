@@ -116,6 +116,16 @@ fn open_physics_log() -> Option<std::fs::File> {
 }
 
 impl FrameLoop<'_> {
+    pub(super) fn unload_items(&mut self) {
+        self.items.world = crate::engine::physics::ItemWorld::default();
+        self.items.authored = Vec::new();
+        self.items.trigger_bodies = Vec::new();
+        self.items.carry = super::carry_runtime::CarryRuntime::default();
+        self.items.input.invalidate();
+        self.items.target = None;
+        self.items.release_blocked = false;
+    }
+
     pub(super) fn activate_item_group(&mut self, group: &str) {
         if self.carry_group_command_blocked(group) {
             return;

@@ -21,6 +21,10 @@ use crate::engine::quality::LightmapQuality;
 use crate::engine::render::{CharacterScene, LevelBuild};
 use crate::game::CollisionWorld;
 
+#[cfg(test)]
+#[path = "../tests/loader_maintenance.rs"]
+mod maintenance_tests;
+
 /// Where one preparation stands, for the loading screen and the load trace.
 ///
 /// `Reading` spans the level's own assets *and* its compiled variant: the two
@@ -171,10 +175,29 @@ pub struct PreparedLease {
 }
 
 impl PreparedLease {
+    pub fn lifetime_probe(&self) -> LifetimeProbe {
+        LifetimeProbe {
+            records: Arc::downgrade(&self.records),
+            build: Arc::downgrade(&self.records.build),
+        }
+    }
+
     /// CPU bytes retained by the active prepared records, including lazy diagnostics.
     #[must_use]
     pub fn retained_bytes(&self) -> usize {
         self.records.retained_bytes()
+    }
+}
+
+/// Weak evidence only: never keeps an inactive map alive.
+#[derive(Clone)]
+pub struct LifetimeProbe {
+    records: std::sync::Weak<PreparedRecords>,
+    build: std::sync::Weak<LevelBuild>,
+}
+impl LifetimeProbe {
+    pub fn snapshot(&self) -> serde_json::Value {
+        serde_json::json!({"prepared_record_owners":self.records.strong_count(), "prepared_build_owners":self.build.strong_count()})
     }
 }
 
@@ -258,11 +281,10 @@ impl<I: Send + 'static, O: Send + 'static> Worker<I, O> {
                             continue;
                         }
                     };
-                    let outcome = if job.control.cancelled.load(Ordering::Relaxed) {
-                        Ok(None)
-                    } else {
-                        work(job.input, &job.control)
-                    };
+                    // The callback processes cache retirement before checking
+                    // cancellation. Even an already canceled job must reach it:
+                    // the replacement request may itself have been canceled.
+                    let outcome = work(job.input, &job.control);
                     // At most one request is dispatched until its result is received.
                     // Closing the result receiver releases this send during shutdown.
                     if results
@@ -610,7 +632,8 @@ fn test_delay() -> Result<u64, String> {
 }
 
 pub struct Loader {
-    worker: Worker<Request, PreparedWorld>,
+    worker: Worker<Option<Request>, PreparedWorld>,
+    release_requested: Arc<AtomicBool>,
 }
 
 fn remember_build(
@@ -850,6 +873,21 @@ fn prepare_world(
     }))
 }
 
+fn clear_retained(
+    manager: &LevelManager,
+    assets: &mut PropAssets,
+    builds: &mut BuildCache,
+    identities: &mut std::collections::VecDeque<(PackageKey, std::sync::Weak<PreparedRecords>)>,
+) {
+    builds.entries.clear();
+    identities.clear();
+    manager.release_cached_images();
+    *assets = PropAssets::load_default();
+    crate::engine::logging::info(
+        "[map-lifetime] worker caches released: prepared=0 identities=0 images=0 models=0",
+    );
+}
+
 impl Loader {
     /// Transfers the existing manager (including decoded images) to one persistent worker.
     pub fn new(mut manager: LevelManager) -> Result<Self, String> {
@@ -863,24 +901,56 @@ impl Loader {
             PackageKey,
             std::sync::Weak<PreparedRecords>,
         )> = std::collections::VecDeque::new();
-        let worker = Worker::spawn(move |request: Request, control| {
-            prepare_world(
+        let release_requested = Arc::new(AtomicBool::new(false));
+        let release_worker = Arc::clone(&release_requested);
+        let worker = Worker::spawn(move |request: Option<Request>, control| {
+            if release_worker.swap(false, Ordering::AcqRel) {
+                clear_retained(&manager, &mut assets, &mut builds, &mut identities);
+            }
+            let Some(input) = request else {
+                return Ok(None);
+            };
+            let outcome = prepare_world(
                 &mut manager,
-                request,
+                input,
                 control,
                 &mut assets,
                 &mut builds,
                 &mut identities,
                 delay,
-            )
+            );
+            if release_worker.swap(false, Ordering::AcqRel) {
+                // A canceled decode must finish before cache retirement is acknowledged.
+                clear_retained(&manager, &mut assets, &mut builds, &mut identities);
+                if control.cancelled.load(Ordering::Relaxed) {
+                    return Ok(None);
+                }
+            }
+            outcome
         })?;
-        Ok(Self { worker })
+        Ok(Self {
+            worker,
+            release_requested,
+        })
     }
     pub fn request(&mut self, request: Request) -> Result<u64, String> {
-        self.worker.request(request)
+        self.worker.request(Some(request))
+    }
+    /// Serial maintenance on the existing worker; a later request cannot lose it.
+    pub fn release_retained(&mut self) -> Result<(), String> {
+        self.release_requested.store(true, Ordering::Release);
+        let _maintenance = self.worker.request(None)?;
+        Ok(())
     }
     pub fn cancel(&mut self) {
         self.worker.cancel();
+        if self.release_requested.load(Ordering::Acquire)
+            && let Err(error) = self.worker.request(None)
+        {
+            crate::engine::logging::warn(format!(
+                "[loading] could not schedule cache retirement: {error}"
+            ));
+        }
     }
     pub fn poll(&mut self) -> Option<(u64, Result<PreparedWorld, String>)> {
         self.worker.poll()

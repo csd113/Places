@@ -1,0 +1,158 @@
+[
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 1800,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 2500,
+    "action": {
+      "kind": "capture",
+      "name": "contacts_active"
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 3900,
+    "action": {
+      "kind": "view",
+      "yaw": 0,
+      "pitch": 0
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 4000,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 4800,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 5100,
+    "action": {
+      "kind": "capture",
+      "name": "contacts_reset"
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 5500,
+    "action": {
+      "kind": "player",
+      "position": [
+        9.6,
+        1.6,
+        0.5
+      ],
+      "yaw": 180,
+      "pitch": 0
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 5800,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 6500,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 7300,
+    "action": {
+      "kind": "capture",
+      "name": "visitor_1"
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 9500,
+    "action": {
+      "kind": "capture",
+      "name": "visitor_expired"
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 10000,
+    "action": {
+      "kind": "player",
+      "position": [
+        9.6,
+        1.6,
+        0.5
+      ],
+      "yaw": 180,
+      "pitch": 0
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 10200,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 10900,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 12000,
+    "action": {
+      "kind": "capture",
+      "name": "visitor_2"
+    }
+  },
+  {
+    "after": "ready:performance_lab",
+    "delay_ms": 15000,
+    "action": {
+      "kind": "quit"
+    }
+  }
+]

@@ -1,0 +1,13 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "performance_lab_project",
+  "name": "Performance Lab",
+  "entry_level": "performance_lab",
+  "levels": [
+    {
+      "id": "performance_lab",
+      "source": "levels/performance_lab.json"
+    }
+  ]
+}

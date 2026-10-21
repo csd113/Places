@@ -388,9 +388,12 @@ fn checked_storage_size(count: usize, width: usize, overhead: usize) -> Result<u
 fn write_vertex_storage(writer: &mut Writer, vertices: &[&Vertex]) -> Result<(), String> {
     let count = u32::try_from(vertices.len())
         .map_err(|error| format!("prop batch has too many vertices: {error}"))?;
-    if count == 0 || u64::from(count) > MAX_PROP_BATCH_VERTICES {
+    if count == 0
+        || usize::try_from(count).unwrap_or(usize::MAX) > crate::engine::spatial::MAX_INDEX_VERTICES
+    {
         return Err(format!(
-            "prop batch declares {count} vertices (limit {MAX_PROP_BATCH_VERTICES})"
+            "prop batch declares {count} vertices (16-bit address limit {})",
+            crate::engine::spatial::MAX_INDEX_VERTICES
         ));
     }
     let mut encoded = Writer::with_capacity(checked_storage_size(
@@ -582,9 +585,13 @@ fn read_batch_header(reader: &mut Reader<'_>) -> Result<BatchHeader, String> {
 
 fn read_vertex_count(reader: &mut Reader<'_>) -> Result<usize, String> {
     let vertex_count = u64::from(reader.u32()?);
-    if vertex_count == 0 || vertex_count > MAX_PROP_BATCH_VERTICES {
+    if vertex_count == 0
+        || vertex_count
+            > u64::try_from(crate::engine::spatial::MAX_INDEX_VERTICES).unwrap_or(u64::MAX)
+    {
         return Err(format!(
-            "prop batch declares {vertex_count} vertices (limit {MAX_PROP_BATCH_VERTICES})"
+            "prop batch declares {vertex_count} vertices (16-bit address limit {})",
+            crate::engine::spatial::MAX_INDEX_VERTICES
         ));
     }
     usize::try_from(vertex_count)
@@ -985,3 +992,7 @@ fn read_optional_slot(reader: &mut Reader<'_>) -> Result<Option<u32>, String> {
         other => Err(format!("invalid optional slot marker {other}")),
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/prop_batch_boundary.rs"]
+mod boundary_tests;

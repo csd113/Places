@@ -1010,11 +1010,13 @@ per-run load-window medians 390.7/379.4 ms before and 394.3/385.3 ms after;
 maxima stay approximately 3.23–3.27 s. Short Home initial loads are
 819.6→828.3 ms, Lantern 5,147.8→4,992.2 ms. These do not establish a load-time
 gain or material regression. Retained prepared CPU bytes are unchanged:
-Home 84,680,421 and Lantern 965,299,278. Lantern's transient native peak RSS
+Home 84,680,421 and Lantern 965,299,278. Lantern's observed native peak RSS
 increases **1,915,797,504→2,243,395,584 bytes** in the short capture pair;
 Home stays approximately 499 MB. The peak increase is a limitation for the
-performance pass, not a resident-memory saving. GPU allocations and RSS are
-not added to the decoded-record totals.
+performance pass, not a resident-memory saving. At world commit, RSS also
+remained higher: **1,896,677,376→2,227,077,120 bytes**. These short runs do not
+establish the increase's lifetime or cause. GPU allocations and RSS are not
+added to the decoded-record totals.
 
 Strict workspace/all-target/all-feature Clippy, workspace tests (**212 passed**),
 format, diff checks and locked all-feature workspace release build pass. Added
@@ -1042,3 +1044,261 @@ The next stage is engine/game performance, then the separately authorized
 additional engine optimization sweep, mannequin ragdolls, docs cleanup, editor,
 audio, menu/UI, styles and final validation.
 No main merge, release, force push, CI wait or `cargo clean` occurred.
+
+## First engine/game performance pass — 2026-10-21
+
+This pass implements measured CPU fixes and explicit inactive-world teardown for
+[#27](https://github.com/csd113/Places/issues/27) and
+[#28](https://github.com/csd113/Places/issues/28). It does not close either issue
+or replace the separately authorized fresh engine sweep. Baseline is
+`f38c638e7a7ba6fa93136636600b82e0ae4f8937`; the final player SHA-256 is
+`b0c07d737012ced1c6cbdf4b2a81cb506e664453a8aa21ce8ef5167c8755b216`.
+The commit containing this section binds that binary's source. Baseline and
+final executables, the 446,058,430-byte collection, lab packages, inputs and raw
+clips are preserved outside `target` under `local/performance-0.13.0/`.
+The collection's SHA-256 remains `8012dbb7…0cf0783`; no collection rebake ran.
+
+### Implemented causes and preserved behavior
+
+- Moving-caster revisions caused stationary receivers to repeat their static
+  probe/transport/room-light ray work. Each receiver now retains up to 2,048
+  exact directed endpoint/type/label answers. Model/bounds, field/scene,
+  lighting-state or resource-revision changes invalidate them. Every movable
+  transmittance query still runs; overflow computes normally. No shadow taps,
+  probes, sources, visibility support or quality are removed. This is separate
+  from the previous compiler pass's directional index; no isolated runtime FPS
+  claim is made for that older change.
+- Rigidly weighted skin normals reuse each joint's inverse transpose for its
+  current pose. Only exact `[1,0,0,0]` weights take this path. Blended weights
+  retain the previous blended-matrix inverse, including singular behavior.
+  Posed positions and whole-body visibility/bounds are unchanged.
+- Sequential AI work now loans one world-owned navigation scratch allocation to
+  each agent, preserving query order, replanning/visibility budgets and results.
+  The former three cell arrays could retain about 24 MiB per agent at the
+  2,097,152-cell limit, or about 3 GiB at 128 agents, before heap storage.
+  This removes that multiplication; it is not a claimed path-search speedup.
+- Missing GPU textures prepare/upload in eight-sheet chunks instead of staging
+  every miss together. Eight 1024-square RGBA mip chains require about 43 MiB
+  of prepared pixels; decoding/image caches and driver allocations are separate.
+  Upload order, duplicate plans, pixels, filtering and worker ceiling are kept.
+- Explicit Main Menu entry cancels CPU/GPU preparation, drops pending commits
+  and world audio, scripts/AI, physics/carry, map geometry/materials/textures,
+  atlas/probes, effects and map-owning GPU bindings. Worker-owned builds/images/
+  models retire serially. Two cancellation orderings have deterministic small
+  regressions, including maintenance replaced and then canceled after a running
+  job's last release check. Pause retains its world. Shared device/surface,
+  fonts/UI, drawable targets and the fixed flashlight target remain. The old
+  whole-map menu backdrop is intentionally gone; the later independent menu
+  scene is outside this pass. Maintenance owns no loading status UI.
+- Prop-batch readers and writers now agree on 65,536 addressable vertices;
+  65,537 is refused before vertex allocation. No cap was raised, and validation
+  of the existing full collection passes.
+
+### Benchmark and measurement contract
+
+`projects/performance-lab` is a 16×12 m ordinary editor project: fifteen
+bookshelves/forty-five book stacks; twenty-four dynamic cups and a pickup
+cushion with bounded activation/reset; twelve animated wandering mannequins;
+four room fixtures, fog and normal flashlight support; and explicit Luau
+per-frame actor queries plus enter/exit physics and three-second, one-active
+visitor spawn handlers. It supplements the real maps. It adds no runtime-only
+map construct, new visual asset, raised authoring limit or CI map bake.
+The existing editor's Save+Build, close/reopen and complete Project Export
+succeeded. A final-editor copy was also nudged 0.25 m, saved, closed, reopened,
+restored and exported through visible controls. Its only serialization
+normalization is explicit `rooms[0].floor_y=0`; all other authored values are
+preserved, and all fifteen non-project exported members are identical.
+`lab-editor/`, `lab-export/`, `editor-roundtrip-receipt.json` retain the evidence.
+The baseline level package is 7,686,490 bytes; both lighting variants build in
+about two minutes. Source/usage and repeatable inputs are in the project's
+README and `tools/bench/performance/`.
+
+All accepted FPS runs use the same M2 Pro 12/19-core, 16 GiB unified-memory
+Mac14,9, macOS 27.0.1/26A434, Metal, Rust 1.99.1 release profile
+(opt-level 3/LTO/one codegen unit). High textures/filtering/lighting, Full
+lightmaps/reflections, bloom and 60° FOV are held. Logs verify actual Immediate,
+V-Sync off, no frame limiter and zero missed ready surfaces. Throughput is not
+a refresh-rate plateau. Drawable sizes below are physical pixels: logical
+640×360 yields 1280×720; logical 1280×720 yields 2560×1440.
+
+The final lab ABBA set has 2,400 samples after 120 warmup frames per run,
+matched fixed 1/60 simulation work. Real interaction sets last twelve ready
+wall-clock seconds with normal delta; matching phases are selected from native
+ready/present timestamps, excluding startup. Recovery is 6–11.8 s, held work
+1.4–3.2 s, closet near 2.4–4 s, facing away 4.4–5.3 s and retreat 7–11.8 s.
+A fixed frame count with wall-clock actions was rejected for interaction claims.
+GPU timestamps are asynchronous pass spans including scheduling stalls, not
+utilization or a quantity to add to CPU time. Capture runs supply no timings.
+There are 26 primary comparison runs and 57 completed timing-related receipts
+including exploratory/diagnostic runs; these are not 57 independent replications.
+
+| Case / drawable | FPS before → final | Mean CPU update ms | Loop p99 ms before → final | Interpretation |
+| --- | --- | --- | --- | --- |
+| Lab / 1280×720, two runs/build | 377.22–381.73 → 412.36–412.63 | 2.00 → 1.80 | 3.51–5.97 → 3.57–4.71 | About 8.7% throughput and 10% CPU savings; tail ranges overlap. |
+| Home books recovery / 1280×720, two runs/build | 513.5–539.9 → 627.6–781.7 | 1.23–1.36 → 0.55–0.65 | 2.62–2.68 → 2.15–2.80 | About 54% less CPU update work; pacing varies. |
+| Arcade bowling post-drop / 1280×720, two runs/build | 94.9–115.9 → 135.0–149.5 | 7.32–9.27 → 5.20–6.11 | 13.53–13.59 → 9.02–9.48 | About 32% less CPU work; substantial residual cost remains. |
+| Home cushion post-drop / 1280×720, one pair | 573.0 → 643.4 | 1.11 → 0.50 | 2.56 → 2.60 | A CPU saving, not proof of resolving the reported persistent collapse. |
+| Pool closet near / 1280×720, one final pair | 627.4 → 375.0 | 0.196 → 0.234 | 3.04 → 17.52 | Regressed pacing run; cause unresolved, no gain claimed. Other repeats span 525–776 FPS. |
+| Busy Arcade / 2560×1440 | about 244 → 244.62 | 1.16 → 1.05 | 6.47 → 6.14 | Effectively unchanged throughput; GPU mean 4.44 ms and 308 scene draws remain. |
+| Arcade bathroom / 2560×1440, one pair | 366.64 → 364.90 | 1.14 → 1.02 | 6.60 → 6.84 | No reliable throughput gain; GPU mean 4.13 → 4.12 ms. |
+
+An initial lab pair of 176→413 FPS was superseded by alternating repeats;
+it is not the accepted gain. Pool's final near-phase GPU mean is 0.958→0.992 ms
+and p99 1.27→1.74 ms while the loop tail grows much more. Its broader scheduling/
+submission regression is a lead, not explained away as a physics fix. Quiet Retina Home is also unchanged (512.6→517.7 FPS, CPU 0.107→0.109 ms). Busy
+Arcade GPU p99 is 4.59→4.51 ms; bathroom is 4.97→4.97 ms. Books' sleeping
+physics takes about 0.007–0.008 ms/frame. Bowling recovery solver means are
+0.043–0.047→about 0.042 ms, with zero to 0.202 mean awake bodies across runs.
+Thus neither CPU saving is presented as a solver optimization. Real-time
+trajectories/drop positions vary slightly; the workload and input contract
+match, rather than identical physics states at every rendered frame.
+
+### Actual repros, scripts and visual correctness
+
+Home cushion idle→aim/pickup→moving carry→drop→sleep/recovery passes, with no
+player reset. Books placed on the bed, ordinary jump/landing and retreat pass;
+two bodies settle, an item-pair contact is observed, and the player recovers to
+the floor. The original severe persistent Home slowdowns remain unconfirmed
+and unresolved; stage 1 non-reproduction is not a fix. Pool approach/near/facing/
+retreat runs cover the closet at the recorded distances; the original severe
+case is not resolved. Arcade's busy/bathroom views and bowling held/contact
+case are measured separately above. The bowling residual and Pool pacing remain
+fresh-sweep leads. Final-binary folding-door blocking/open/traverse/close/reverse
+and Pool entry/dive/resurface/rim-exit/jump-entry checks pass, preserving stage 2
+collision/controller/prop and water behavior.
+
+The lab activates all 25 bodies, then returns all to dormant through its normal
+Luau reset. Observed peak solver-frame time is 0.165 ms. Visitor count is
+12→13→12→13 on spawn, expiry and reentry. Twelve host actor queries per update
+cost 0.078 ms mean, 0.105 ms p95 and 0.134 ms maximum across 64 diagnostic
+invocations, including native capability setup. A separate early visitor
+invocation costs 0.034 ms with one native call; creation is visible by the
+0.8-second capture and expired by four seconds. This is an input-to-observation
+bound including movement, not an isolated spawn-only speedup. Scripts were not
+rewritten to manufacture an FPS gain. A tiny normal project deliberately
+requests a 3 MiB Luau string under the existing 2 MiB VM cap: it fails closed,
+discards staged actions, remains playable, repeats after reload at the same
+467,256 VM bytes and releases to zero at menu. General host/driver OOM recovery
+is not demonstrated by that controlled VM failure.
+
+Matched frame-300 Home, Pool, Arcade and lab captures have **zero changed RGB
+channels**. Native moving/carry and animated-doorway views remain intact; no
+culling, source state, simulation accuracy or visual quality was reduced.
+The native editor round trip, all captured frame paths and the accepted input
+packages remain preserved, including failed/excluded harness attempts.
+
+### Inactive maps, active work and memory
+
+The heavy cycle is Lantern→Hub→Home→Lantern→Hub→Arcade→Lantern→Hub→menu.
+Every retired Lantern prepared-record/build weak probe reaches zero after
+leaving it. Hub/Home may retain passive prepared records in the existing bounded
+LRU. The final menu has zero active prepared bytes, scripts/VM bytes, AI,
+physics bodies, pending commit and map texture-cache entries; every retired
+probe is zero. Canceled Lantern cannot resurrect after menu; Home reload and a
+second menu release pass. Pause retains its world until explicit menu entry. A direct Lantern pause→resume→menu check additionally preserves all 965,299,278 prepared bytes during pause/resume, then releases its final record/build owners to zero; its menu cleanup callback takes 52.462 ms in one diagnostic event (`heavy-menu-results.json`).
+
+A final 319.3-second campaign completes 42 requests/commits, 28 graphics
+transitions, 29 drawable observations and seven menu returns while repeatedly
+activating/resetting physics and spawning/expiring visitors. Every menu has
+zero map ownership. Live menu GPU counts stay bounded at 16 textures and 23
+bind groups, with 29–35 buffers and 27–31 views depending on fixed/drawable and
+in-flight state. Prepared-cache pressure through Hub→Home→Beach→Aero→Hub
+releases evicted Hub/Home/Beach records; menu releases the remainder.
+Lantern active RSS snapshots are 2046.9/1922.2/1862.6 MiB; the heavy-cycle final
+menu is 794 MiB. Extended menu RSS varies 603.9–841.6 MiB and later falls again.
+RSS alone does not measure live old-map ownership: passive bounded caches and
+allocator/driver capacity are distinct. CPU weak ownership and live GPU objects
+are checked independently. Metal HAL byte counters are unavailable;
+engine texel accounting is partial, with sharing, and is never added to RSS as
+if M2 RAM and VRAM were independent pools.
+
+The user's prior-map-CPU hypothesis was tested with exactly the same Hub
+position (12,1.6,7), view (0,0,−1), settings and 39 scene draws. Fresh process
+2–10 s measures **582.6 FPS / 0.167 ms CPU update**. After one and two heavy
+cycles the same windows measure **625.2/635.9 FPS / 0.132/0.149 ms**, loop p99
+3.05→2.98/2.91 ms. Old script modules, AI agents and physics work are absent;
+the single prepare worker is idle after the completed result, with no pending
+commit. RSS at Hub commits is 354.5→1130.5→1617.9 MiB. Passive cache/capacity
+retention therefore does not establish active ticking, and no transition
+slowdown is supported in this tested case. This does not rule out memory-pressure
+or other-view effects generally. Menu retention was a real ownership defect;
+it has not been established as the cause of gameplay FPS drops.
+
+A separate no-capture heavy-transition run records a kernel native peak RSS of **2,679,783,424 bytes (2.50 GiB)**. Fresh Home/lab/Arcade run peaks are about 488/466–483/1,440 MB. One serial run's request-to-commit latencies are Lantern 4.80/4.72 s, Hub 0.405/0.298 s, Home 0.677 s and Arcade 8.21 s; these are observed operation costs, not a matched speedup claim. `transition-peak-results.json` retains exact identities, peaks and timings.
+
+The earlier approximately 312 MiB loading-peak increase remains a documented
+lead, not a proven transient or a solved resident-memory regression. The
+historical world-commit RSS increase is retained above. Lower active-map RAM
+was not pursued at the cost of speed or quality.
+
+### Resource-limit audit and limits of acceptance
+
+`local/performance-0.13.0/resource-audit.json` retains the full dated inventory:
+units, source/enforcement, producer/reader agreement, rationale, failure behavior
+and unbounded paths. MiB means 1,048,576 bytes. Counts/bytes/overflow, archives,
+temporary staging and in-flight ownership were inspected; caps are admission
+ceilings, not a promise that all maxima fit simultaneously.
+
+| Domain / source owner | Limits and failure contract audited |
+| --- | --- |
+| Package/archive readers and writers | Ordinary/project transport 1/2 GiB plus framing; 8,192 entries/8 MiB directory; validated project allowance; decoded aggregate 1/2 GiB; default member 256 MiB, mesh/props 512 MiB; smaller manifest/material/chart/lighting/collision/nav limits. Bounded decompression, checked counts/offsets, exact identity/hash and source recovery remain. |
+| Lossless prop storage | 16 MiB segments, 64 MiB recipe, 512 MiB reconstructed record, 1 GiB charged working set, bounded shuffle scratch; 65,536 batch vertices now enforced by writer and reader. Segment staging plus reconstructed output remains a peak lead. |
+| Authoring and models | 32 MiB level JSON, 24M estimated vertices, numeric extent/area/height and every per-feature count; GLB 64 MiB, depth/visits, 65,535 vertices, primitive/material/image/joint/clip/channel/morph limits and reviewed triangle exceptions; 4,096 static model identities/24M transformed vertices. Refusal/fallback preserves prior valid state. |
+| CPU image/material/prepared ownership | Decoded material table 1 GiB; PNG 32 MiB encoded and class-specific dimensions; prefetch 64 images/four workers; optional image cache 256 entries/256 MiB; prepared LRU three entries/192 MiB, oversized worlds uncached. One running/newest-pending preparation and bounded channels; menu serially clears caches. Prefetch and old/new install overlap are distinct from retained accounting. |
+| GPU images, atlases, uploads and frames | Optional texture retention 256 entries/256 MiB at level boundaries; eight-sheet staging and at most eight workers; one pending install, nominal 4 ms slice, two in-flight frames, device/drawable limits. KTX dimensions/mips/layers/512 MiB; atlas 384 MiB plus framing, page/switch caps; reflection encoded/runtime probe limits. One large upload can exceed its slice. |
+| Lighting/visibility/fog/effects | Field 262,144 probes/256 MiB/axis 64; direct/switch/blacklight/dynamic slots; 4,194,304 transport triangles, BVH/bounce/worker and spatial-grid bounds; new 2,048 fixed-size exact answers per receiver, lazily allocated and world-owned; fog/void/effect/particle/snow/shelter limits. Overflow never changes a cached ray's answer. |
+| Dynamic rendering and physics | 256 render objects, aggregate vertex/index admission, 128 characters; 128 physics bodies and 1,024 explicit fixed-prop placements (not all world collision shapes); 12×1/120 steps and 0.1 s delta bound; compound/hull/extent/position/recovery/impact caps. The 256 item-contact diagnostics and 1,024 onset history do not truncate Rapier solver contacts. |
+| AI/navigation | 2,097,152 cells/columns, class/portal/ID and 128 MiB nav limits, A* expansion cap, eight queries/tick, stimulus bound; one shared world scratch now. Failure/defer and query ordering remain unchanged. |
+| Entities/spawns/sequences/Luau | Binding/action/queue/drain/depth/timer/volume/item/path limits; templates/points/groups, 512 live spawns and 64 requests/tick subject to lower downstream caps; sequence count/steps/active/duration caps. Luau 16×64 KiB sources, 2 MiB VM/module, 64 calls/128 actions per frame, 256 native calls/32 actions per invocation, time/instruction/diagnostic caps. Staged failure/reset contracts remain. |
+| Audio/project/editor/diagnostics | Audio file/decode/voice/callback bounds; project manifest/256 levels/scripts/recovered source/thumbnail limits; editor history/serialized bytes, one oversized revision, script buffers and bounded job feedback; console/input/history/output, acceptance scripts, GPU timing slots, log and developer-object limits. Persistent installed packages/saves/editor outputs are not silently evicted. |
+
+Boundary coverage includes archive framing/decompression/aggregate validation,
+material admission before later decodes, dynamic overflow preservation, Luau
+host/frame budgets and the new four-byte prop boundary regression. Native
+oversized-cache bypass/eviction, canceled jobs, settings/resize retirement and
+controlled VM allocation failure are checked. No safety cap was blindly raised.
+
+Known policy gaps remain: no aggregate process/unified-memory admission budget;
+no aggregate decoded shared-model byte budget; process-global warning-key set
+and installed-package directory discovery lack aggregate count/byte caps;
+persistent user data and explicit unlimited diagnostic traces/recordings have no aggregate disk quota; editor serialized history accounting is
+not actual `Value` heap size; and most general host/driver allocations do not
+have recoverable OOM injection. On 16 GiB, measured scenes/transitions are the
+validated tier. Existing 192/256 MiB optional-cache ceilings are each a small
+fraction of 8/16 GiB, but shared accounting must not be summed or treated as a
+hardware guarantee. An 8 GiB or discrete-GPU tier, hours-long sessions, arbitrary
+custom content and a complete pressure/eviction policy require further work.
+The audit is an inventory with demonstrated fixes and explicit gaps, not a claim
+that issue #27's entire resource acceptance is closed.
+
+### Deliverables and handoff
+
+All raw receipts, `final-phase-results.json`, `hypothesis-results.json`,
+`lifetime-results.json`, `extended-results.json`, `resource-audit.json`, native
+logs/actions, baseline/final binaries and packages remain in
+`local/performance-0.13.0/`. The editable montage inputs and builder live in
+`montage/`; its seven matched cards include the regressed Pool run and unchanged
+Retina views. It is 56 seconds, 1920×1080 H.264/yuv420p/30 fps. Recordings are
+explicitly paced at 60 Hz; labels use separate uncapped measurements without
+capture. Retina footage is downsampled only for delivery. Raw clips are retained.
+Full decoding of all 1,680 frames succeeds; representative motion frames and readable labels are inspected. The confirmed video Library ID is `libfile_27a4369238608191bbab0aef74a21fe0` (`VIDEO-LIBRARY.json`).
+Three inspected in-game JPEGs are already in Library: dense models
+`libfile_ba6cc0561c408191b396e4882920e015`, physics/pickup
+`libfile_dddc2ce782fc81918eb2cfc7f5a6c593`, and animated AI/passages
+`libfile_c7039a69e1888191af367d02785ce297`.
+
+Format, strict all-target/all-feature workspace Clippy, locked all-feature
+workspace release build and all **217 tests** pass. The five added regressions
+use tiny scalar/channel/pose/header fixtures; no Cargo test or CI step bakes a
+map. Native final-editor/game checks above pass. The two unrelated untracked
+Python audit reports, old packages/receipts and `target` are preserved. No CI
+wait, force push, main merge, release or credential change occurs in this pass.
+The current pass now also includes the user's 27-item checklist, organized into
+five focused groups: rendering/GPU reuse/culling/batching; physics/spatial
+queries; AI/Luau scheduling/allocation; loading/memory copies/bounded reuse;
+then frame pacing/synchronization/scratch/duplicate work and release-PGO checks.
+The static-ray, rigid-normal, shared-nav-scratch, eight-sheet staging,
+vertex-boundary and menu/cancellation fixes above are validated checkpoint
+inputs. Group outcomes will extend this section without duplicating those
+fixes. The separate fresh engine sweep remains afterward, followed by mannequin
+ragdolls and the other queued stages.

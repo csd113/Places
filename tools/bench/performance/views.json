@@ -1,0 +1,50 @@
+[
+  {
+    "case": "home-carry",
+    "level": "home",
+    "spawn": "5.9,1.6,10.6,270",
+    "camera": "270,20",
+    "drawable": "1280x720",
+    "logical_size": "640x360"
+  },
+  {
+    "case": "home-books",
+    "level": "home",
+    "spawn": "1.9,1.6,11.8,0",
+    "camera": "0,-30",
+    "drawable": "1280x720",
+    "logical_size": "640x360"
+  },
+  {
+    "case": "pool-closet-near",
+    "level": "pool",
+    "spawn": "17,1.6,13,90",
+    "camera": "90,0",
+    "drawable": "1280x720",
+    "logical_size": "640x360"
+  },
+  {
+    "case": "arcade-bathroom",
+    "level": "arcade",
+    "spawn": "-1.6,1.6,2.8,270",
+    "camera": "270,0",
+    "drawable": "1280x720",
+    "logical_size": "640x360"
+  },
+  {
+    "case": "arcade-bowling",
+    "level": "arcade",
+    "spawn": "6.8,1.6,28,25",
+    "camera": "25,0",
+    "drawable": "1280x720",
+    "logical_size": "640x360"
+  },
+  {
+    "case": "lab-actors",
+    "level": "performance_lab",
+    "spawn": "14.5,1.6,11,315",
+    "camera": "315,0",
+    "drawable": "1280x720",
+    "logical_size": "640x360"
+  }
+]

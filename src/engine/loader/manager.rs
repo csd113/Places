@@ -115,6 +115,11 @@ impl LevelManager {
         image
     }
 
+    /// Drops optional decoded map-image ownership when returning to the menu.
+    pub(crate) fn release_cached_images(&self) {
+        *self.texture_cache.borrow_mut() = TextureCache::new();
+    }
+
     /// Refreshes authoring metadata before a new explicit disk load.
     pub(crate) fn refresh_catalog(&mut self) {
         self.prop_catalog = PropCatalog::load_default();

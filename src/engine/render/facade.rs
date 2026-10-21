@@ -56,6 +56,11 @@ impl Renderer {
         WgpuRenderer::new(window).map(|renderer| Self { renderer })
     }
 
+    /// Releases the inactive map while preserving the rendering device and UI.
+    pub fn unload_level(&mut self) {
+        self.renderer.unload_level();
+    }
+
     /// Sets the renderer-neutral handheld spotlight; invalid values are refused.
     pub fn set_flashlight(&mut self, light: Option<super::common::Flashlight>) -> bool {
         self.renderer.set_flashlight(light)

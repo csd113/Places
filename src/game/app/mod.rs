@@ -712,6 +712,7 @@ struct FrameLoop<'a> {
     pending_commit: Option<PendingCommit>,
     /// Active-world ownership is independent of the worker's bounded LRU.
     displayed_lease: Option<loading::PreparedLease>,
+    retired_worlds: std::collections::VecDeque<(String, loading::LifetimeProbe)>,
     load_source: Option<loading::Source>,
     load_generation: u64,
     /// Lightmap quality the in-flight preparation was requested with, so an
@@ -2831,7 +2832,62 @@ impl FrameLoop<'_> {
         if self.game.app_state() != state {
             self.ui_state.clear_status();
         }
+        if state == AppState::MainMenu
+            && matches!(
+                self.game.app_state(),
+                AppState::Playing | AppState::Paused | AppState::PauseSettings
+            )
+        {
+            self.unload_world_for_menu();
+        }
         self.game.set_app_state(state);
+    }
+
+    fn track_retired_world(&mut self) {
+        if !self.bench.enabled()
+            || std::env::var("PLACES_BENCH_RESOURCE_TRACE").as_deref() != Ok("1")
+        {
+            return;
+        }
+        if let (Some(loaded), Some(lease)) = (self.current_level.as_ref(), &self.displayed_lease) {
+            if self.retired_worlds.len() == 32 {
+                drop(self.retired_worlds.pop_front());
+            }
+            self.retired_worlds
+                .push_back((loaded.level.id.clone(), lease.lifetime_probe()));
+        }
+    }
+
+    fn unload_world_for_menu(&mut self) {
+        self.track_retired_world();
+        self.loader.cancel();
+        self.renderer.cancel_prepared_install();
+        self.pending_commit = None;
+        self.load_source = None;
+        self.load_intent = None;
+        self.load_phase = None;
+        self.failed_graphics = None;
+        self.presentation.pending_scene = None;
+        self.ui_state.loading_map = false;
+        self.ui_state.current_map = None;
+        self.audio.clear_world();
+        self.console_runtime = console::runtime::Runtime::default();
+        self.unload_items();
+        self.game
+            .reset_level(Vec3::ZERO, 0.0, game::CollisionWorld::default());
+        self.renderer.unload_level();
+        *self.current_level = None;
+        self.displayed_lease = None;
+        self.flashlight = flashlight::Power::Off;
+        self.outcome = None;
+        self.message = None;
+        self.ready_frames = 0;
+        self.ready_seconds = 0.0;
+        self.input_handler.clear_gameplay_inputs();
+        if let Err(error) = self.loader.release_retained() {
+            logging::warn(error);
+        }
+        self.trace_world("world_unloaded");
     }
 
     /// Main menu: open the level list, open settings, or quit.
@@ -3134,7 +3190,8 @@ impl FrameLoop<'_> {
                 self.commit_loaded_world();
             }
         }
-        let phase = self.loader.phase();
+        // Idle cache retirement uses the worker but owns no loading UI.
+        let phase = self.load_intent.and_then(|_| self.loader.phase());
         if phase != self.load_phase {
             self.load_phase = phase;
             if let Some(active_phase) = phase {
@@ -3271,6 +3328,21 @@ impl FrameLoop<'_> {
     }).collect::<Vec<_>>().into()));
     }
 
+    fn trace_map_ownership(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        if self.bench.enabled()
+            && std::env::var("PLACES_BENCH_RESOURCE_TRACE").as_deref() == Ok("1")
+        {
+            drop(fields.insert("map_ownership".into(), serde_json::json!({
+                    "active_prepared_bytes":self.displayed_lease.as_ref().map_or(0,loading::PreparedLease::retained_bytes),
+                    "retired": self.retired_worlds.iter().map(|(id,probe)|serde_json::json!({"level":id,"ownership":probe.snapshot()})).collect::<Vec<_>>(),
+                    "scripts":self.game.entities().script_resources(),
+                    "ai_agents":self.game.entities().ai().len(),
+                    "preparation_phase":self.loader.phase().map(|phase|format!("{phase:?}")),
+                    "pending_commit":self.pending_commit.is_some(),
+                })));
+        }
+    }
+
     fn trace_world(&mut self, event: &str) {
         let (renderer_level, renderer_quality, renderer_lightmaps) =
             self.renderer.installed_identity();
@@ -3306,6 +3378,7 @@ impl FrameLoop<'_> {
             "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
         });
         if let Some(fields) = state.as_object_mut() {
+            self.trace_map_ownership(fields);
             self.trace_moving_solids(fields);
             drop(fields.insert("crosshair_visible".into(), self.crosshair_visible().into()));
             drop(fields.insert(
@@ -3484,6 +3557,7 @@ impl FrameLoop<'_> {
         // newer selection). The state-driven reconciliation compares the
         // request with the renderer's real state and schedules what remains.
         log_prop_usage(self.renderer);
+        self.track_retired_world();
         *self.current_level = Some(loaded);
         self.displayed_lease = Some(lease);
         self.ui_state.current_map = self
@@ -4418,6 +4492,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         load_intent: None,
         pending_commit: None,
         displayed_lease: None,
+        retired_worlds: std::collections::VecDeque::new(),
         load_source: None,
         load_generation: 0,
         load_return_state: AppState::MainMenu,

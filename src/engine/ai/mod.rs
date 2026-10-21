@@ -744,6 +744,8 @@ pub struct AiWorld {
     stimuli_released: u64,
     catches_total: u64,
     next_tick_agent: usize,
+    // Queries execute serially: retain one full-grid workspace for the world.
+    scratch: NavScratch,
 }
 
 impl AiWorld {
@@ -782,6 +784,7 @@ impl AiWorld {
     /// Removes every agent.
     pub fn clear(&mut self) {
         self.agents.clear();
+        self.scratch = NavScratch::new();
         self.next_phase = 0;
         self.stimuli_released = 0;
         self.catches_total = 0;
@@ -1130,6 +1133,7 @@ impl AiWorld {
             if matches!(agent.state, AiState::Scripted) {
                 set_state(agent, AiState::Idle, out);
             }
+            std::mem::swap(&mut agent.scratch, &mut self.scratch);
             if !matches!(agent.state, AiState::Hidden) {
                 perceive(agent, ctx);
             }
@@ -1141,6 +1145,7 @@ impl AiWorld {
             advance(agent, ctx, out);
             out.cues_changed |= agent.speed_mps != previous_speed;
             noise = noise.saturating_add(release_noise(agent, out));
+            std::mem::swap(&mut agent.scratch, &mut self.scratch);
         }
         self.stimuli_released = self.stimuli_released.saturating_add(noise);
         // Apply catches after the iteration so the caught agent is frozen

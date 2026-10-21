@@ -3869,6 +3869,12 @@ impl EntityWorld {
         }
     }
 
+    /// Explicit lifetime evidence; ordinary ticks do not allocate this snapshot.
+    #[must_use]
+    pub fn script_resources(&self) -> serde_json::Value {
+        self.scripts.resource_snapshot()
+    }
+
     /// Bounded diagnostics for the current script run.
     #[must_use]
     pub fn script_diagnostics(&self) -> &[String] {

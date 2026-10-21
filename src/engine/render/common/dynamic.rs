@@ -546,6 +546,7 @@ pub struct DynamicObject {
     lighting_refresh_key: Option<EntityLightingRefreshKey>,
     spatial_lighting: Option<Box<super::light_transport::EntitySpatialLighting>>,
     spatial_key: Option<super::light_transport::EntitySpatialKey>,
+    static_rays: super::light_transport::EntityStaticRayCache,
     probe_position: [f32; 3],
     probe_valid: bool,
     /// Authored water-driven motion, for a floating prop. `None` for an
@@ -898,15 +899,15 @@ impl DynamicObject {
                 lighting, irradiance, transform, scene, context,
             );
             if self.spatial_key != spatial_key || refresh_key.is_some() {
-                self.spatial_lighting =
-                    super::light_transport::entity_spatial_lighting_with_visibility(
-                        lighting,
-                        irradiance,
-                        self.mesh.bounds,
-                        transform,
-                        scene,
-                        context,
-                    );
+                self.spatial_lighting = super::light_transport::entity_spatial_lighting_cached(
+                    lighting,
+                    irradiance,
+                    self.mesh.bounds,
+                    transform,
+                    scene,
+                    context,
+                    lighting_revision.map(|revision| (&mut self.static_rays, revision)),
+                );
                 self.spatial_key = spatial_key;
             }
         }
@@ -1297,6 +1298,7 @@ impl DynamicScene {
             lighting_refresh_key: None,
             spatial_lighting: None,
             spatial_key: None,
+            static_rays: super::light_transport::EntityStaticRayCache::default(),
             probe_position: [f32::NAN; 3],
             probe_valid: false,
             float: None,
@@ -1394,6 +1396,7 @@ impl DynamicScene {
             lighting_refresh_key: None,
             spatial_lighting: None,
             spatial_key: None,
+            static_rays: super::light_transport::EntityStaticRayCache::default(),
             probe_position: [f32::NAN; 3],
             probe_valid: false,
             float: None,

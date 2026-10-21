@@ -287,6 +287,22 @@ pub(crate) fn validate_package_sources(
     Ok(())
 }
 
+fn trace_invocation(path: &ProjectPath, handler: &str, elapsed: Duration, native_calls: usize) {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    static SAMPLES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let enabled = ENABLED.get_or_init(|| {
+        std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+            && std::env::var("PLACES_BENCH_SCRIPT_TRACE").as_deref() == Ok("1")
+    });
+    if *enabled && SAMPLES.fetch_add(1, std::sync::atomic::Ordering::Relaxed) < 64 {
+        crate::engine::logging::info(format!(
+            "[script-timing] path={} handler={handler} total_setup_vm_ms={:.6} native_calls={native_calls}",
+            path.as_str(),
+            elapsed.as_secs_f64() * 1000.0_f64
+        ));
+    }
+}
+
 fn diagnostic(path: &str, handler: &str, problem: &impl std::fmt::Display) -> String {
     // Error strings can contain script-controlled payloads; retain bounded,
     // printable diagnostics in the editor and native log.
@@ -446,7 +462,9 @@ impl ScriptRuntime {
             function.call::<()>((host, event))
         });
         module.lua.remove_interrupt();
-        self.elapsed = self.elapsed.saturating_add(started.elapsed());
+        let invocation_elapsed = started.elapsed();
+        self.elapsed = self.elapsed.saturating_add(invocation_elapsed);
+        trace_invocation(path, handler, invocation_elapsed, native_calls.get());
         if let Err(problem) = result {
             module.disabled = true;
             self.note(diagnostic(path.as_str(), handler, &problem));
@@ -460,6 +478,10 @@ impl ScriptRuntime {
         let actions = queue.into_inner().unwrap_or_default();
         self.actions = self.actions.saturating_add(actions.len());
         actions
+    }
+
+    pub(crate) fn resource_snapshot(&self) -> serde_json::Value {
+        serde_json::json!({"modules":self.modules.len(),"frame_calls":self.calls,"frame_actions":self.actions,"frame_ms":self.elapsed.as_secs_f64()*1000.0_f64,"vm_bytes":self.modules.iter().map(|module|module.lua.used_memory()).fold(0_usize,usize::saturating_add)})
     }
 
     /// Modules may export one optional on-demand guidance handler.
