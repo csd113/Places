@@ -131,7 +131,7 @@ or memory question is fixed.
 ### Distribution, delivery and remaining coverage
 
 Final package/archive identities and all current member checks are in
-`package-index.json`, `archive-receipt.json` and the final handoff. Candidates are
+`package-index.json`, `archive-final-receipt.json` and the final handoff. Candidates are
 created separately from preceding stage distributions. All fourteen curated
 members pass current-source verification and archive integrity. Exact declared
 source recovery passes for all four projects. Separate lab and workshop packages
@@ -145,13 +145,16 @@ The full collection export is explicit developer work, outside Cargo/CI; it took
 | relay-annex.placesmap (three levels) | 23,415,155 | `3858aa5de1def5c3cec5f0cd8aa199165dc186bdfdcbfad33ac84664d8f4d2d1` |
 | closing-time.placesmap | 33,957,286 | `7d303b20e0d1805cf145232aa6e587eb92040028587f378e3e8160fb92a39cbe` |
 | beam.placesmap | 6,235,122 | `ca43e27b7e38958ff4ea9fcd4926cd32a726fb7622e42a1069756bf39d1c04fa` |
-| macOS arm64 candidate ZIP | 706,492,842 | `73f6f7fe76c178d8461ca1cf7692c4f2212a86d5646e597b445586e673945a9e` |
+| macOS arm64 final candidate ZIP | 706,535,175 | `e3eddb31e66f77525e165eefef096334e345d3023496892b98a95483ff7cc153` |
 
 The ZIP is extracted into a path containing spaces and Unicode outside the
 checkout. Every extracted file hash matches, the app signature verifies, and all
 four campaign launchers run their expected world and controls. The extracted app
 also loads Pool's shared/map resources and completes its entry/contact return with
-no asset override. This is a local candidate, not a published or notarized release.
+no asset override. The final guide refresh preserves all 1,492 flat runtime files
+byte for byte, updates README/installation text to the actual bundled-menu policy,
+and repeats signature and extracted-file checks; the preceding ZIP remains intact.
+This is a local candidate, not a published or notarized release.
 
 Actual first-run/import
 acceptance passes all 27 checks: empty live menu, writable folder setup, override

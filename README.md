@@ -65,12 +65,13 @@ changed in Settings; Escape always pauses.
 
 ## About this version
 
-**Places 0.12.0** is a prerelease. Current native validation is on
-macOS arm64 with Metal. The [release summary](docs/reports/release-0.12.0.md) records
-what was checked and the remaining limitations.
+**Places 0.13.0** is a staging candidate. Current native validation is on
+macOS arm64 with Metal. The [release report](docs/reports/release-0.13.0.md) records
+integrated acceptance and remaining platform, performance and delivery limits.
+No 0.13.0 release or tag has been published.
 
-This release contains the nine-map Quiet Collection project and
-native editor. The eight standalone environment demos are superseded by this
+The candidate includes the native editor, an always-bundled live menu scene,
+and optional gameplay packages including the nine-map Quiet Collection. The eight standalone environment demos are superseded by this
 single package. See the [collection handoff](docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
 for the exact retirement inventory, validation and remaining work.
 
@@ -81,7 +82,7 @@ PLACES_ASSET_ROOT="$PWD/assets" ./target/release/places --import /absolute/path/
 PLACES_ASSET_ROOT="$PWD/assets" PLACES_LEVEL=hub ./target/release/places
 ```
 
-Choose **Places / The Quiet Collection** in Explore for normal menu entry.
+Choose **Places / The Quiet Collection** in Explore to enter the collection.
 Authors can open `projects/environments/` in the native editor; an explicit
 [collection export](levels/README.md) is only needed after changing its sources.
 
@@ -90,7 +91,8 @@ The images and walking footage above were captured from the native 0.9.0 game.
 [Documentation index](docs/README.md)
 
 [Installation, first launch and map imports](docs/INSTALLATION.md) documents the
-0.12.0 path foundations: optional maps, external resources and writable user data.
+current runtime policy: optional gameplay maps, bundled menu resources, external
+assets and separate writable user data.
 
 Places is open source under the [MIT license](LICENSE).
 [Third-party notices](THIRD_PARTY_LICENSES.txt).

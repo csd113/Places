@@ -51,9 +51,11 @@ does not make the payload compatible.
 See the [macOS distribution acceptance report](reports/release-0.12.0.md#macos-distribution-0120)
 for the tested scope and remaining limits.
 
-The [0.12.0 release report](reports/release-0.12.0.md) describes the downloadable
-macOS payload, separate campaign launchers and known gameplay defects. These
-defects remain open; successful installation is not exhaustive gameplay acceptance.
+The [0.12.0 release report](reports/release-0.12.0.md) preserves the earlier
+distribution evidence. The [0.13.0 staging report](reports/release-0.13.0.md) records
+the current candidate, repaired gameplay paths and remaining limitations. Native
+Windows/Linux, clean-OS installers and downloaded Gatekeeper trust remain open;
+successful installation is not exhaustive gameplay acceptance.
 
 ## macOS launch
 
@@ -61,7 +63,7 @@ Build and export from the checkout, retaining the existing verified collection:
 
 ```sh
 cargo build --locked --release --workspace --all-features
-sh tools/package.sh --with-editor --maps assets/levels "$HOME/Places Exports/0.12.0"
+sh tools/package.sh --with-editor --maps assets/levels "$HOME/Places Exports/0.13.0"
 ```
 
 Keep the entire `Places` directory together when moving it. Launch the direct
@@ -69,10 +71,10 @@ binary from Terminal; neither `cd` into the installation nor a resource override
 is needed. Quote paths containing spaces:
 
 ```sh
-"$HOME/Places Exports/0.12.0/Places/places"
-"$HOME/Places Exports/0.12.0/Places/places" --paths
-"$HOME/Places Exports/0.12.0/Places/places" --import "$HOME/Downloads/example.placesmap"
-"$HOME/Places Exports/0.12.0/Places/places-editor" "/absolute/path/my project"
+"$HOME/Places Exports/0.13.0/Places/places"
+"$HOME/Places Exports/0.13.0/Places/places" --paths
+"$HOME/Places Exports/0.13.0/Places/places" --import "$HOME/Downloads/example.placesmap"
+"$HOME/Places Exports/0.13.0/Places/places-editor" "/absolute/path/my project"
 ```
 
 The equivalent bundle binaries live at `Places.app/Contents/MacOS/`; its SDL3
@@ -131,14 +133,14 @@ Data owns `levels/` (installed maps), `import/` (drop-in inbox), `projects/`
 under the settings directory. Projects may live elsewhere: a project root is an
 explicit authoring folder, never an inference from the resource or data root.
 
-0.12.0 currently persists settings, installed packages and saved editor projects.
+The current player persists settings, installed packages and saved editor projects.
 Gameplay position, quest progress and moved objects are session-local; there is
 no gameplay save/load command or save format. `saves/` is reserved so future save
 data has a stable writable home, and first-run/relaunch never replace its files.
-The existing menu uses the first visible installed map as its background; with
-the collection-only export this is Central Hub. A map-free install still offers
-Explore/import and Settings. The dedicated menu scene and sound polish are
-deferred to 0.13.0.
+The 0.13.0 player uses a dedicated bundled live-menu scene, independent of
+optional gameplay maps. A map-free install offers the live menu, empty Explore
+with import guidance, Settings and Credits. The exporter always includes the
+menu scene and its dependencies.
 
 On first player launch, required directories are created and checked for write
 access. Existing files are preserved. A non-directory, inaccessible or unwritable
@@ -224,10 +226,10 @@ state beside the executable. Ordinary unit tests never launch this tool.
 The [native editor](EDITOR.md) provides source editing and save/build/play.
 Its compiler/player paths can be overridden independently; editor play uses an
 isolated profile below the shared user cache. Project-local Luau, complete project
-export/recovery and per-map menu artwork are implemented in 0.12.0 staging.
+export/recovery and per-map menu artwork are implemented.
 Custom runtime asset importing remains deferred. Historical packages with old
 schema or compiler identities require an explicit export from maintained sources;
-the collection handoff reuses its already verified final package.
+the final 0.13.0 candidate uses explicitly verified current-source exports.
 
 ## Stage 2 validation (2026-10-17)
 
