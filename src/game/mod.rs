@@ -879,6 +879,17 @@ impl Game {
             .update_entities(delta, &routes, Some(self.player_position));
     }
 
+    /// Advances a non-playable menu world through the normal scripts, AI and door runtime.
+    /// The fixed camera/player has no locomotion or gameplay input.
+    pub(crate) fn update_menu_world(&mut self) {
+        let feet = Vec3::new(
+            self.player_position.x,
+            self.feet_y(),
+            self.player_position.z,
+        );
+        self.update_world(feet);
+    }
+
     /// Samples triggers once after the native item step, then dispatches their actions.
     /// The frame loop must call this after each Playing movement update. A skipped
     /// update consumes no sweep, so paused frames never replay an earlier crossing.

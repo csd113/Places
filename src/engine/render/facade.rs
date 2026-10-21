@@ -260,6 +260,11 @@ impl Renderer {
         self.renderer.set_drawable_size(size)
     }
 
+    /// Live presentation styles leave graphics resource preferences untouched.
+    pub const fn set_visual_style(&mut self, style: f32, time: f32) {
+        self.renderer.set_visual_style(style, time);
+    }
+
     /// Selects the runtime quality level.
     ///
     /// Recording only: [`Self::apply_graphics`] re-fits the retained level's

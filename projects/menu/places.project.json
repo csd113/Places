@@ -1,0 +1,14 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "places-menu",
+  "name": "Places menu scene",
+  "description": "Exactly four composed layers: Office, Pool, Home, Arcade. Non-playable bundled application scene.",
+  "entry_level": "places_menu",
+  "levels": [
+    {
+      "id": "places_menu",
+      "source": "levels/menu.json"
+    }
+  ]
+}

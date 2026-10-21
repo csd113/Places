@@ -11,9 +11,9 @@ use crate::{
 };
 use std::hash::{Hash, Hasher};
 
-const TEXT: [f32; 3] = [0.88, 0.87, 0.80];
+const TEXT: [f32; 3] = [1.0, 0.95, 0.84];
 const MUTED: [f32; 3] = [0.65, 0.65, 0.59];
-const ACCENT: [f32; 3] = [0.96, 0.91, 0.44];
+const ACCENT: [f32; 3] = [1.0, 0.86, 0.25];
 const LEFT: f32 = 36.0;
 const RIGHT: f32 = 444.0;
 
@@ -43,6 +43,9 @@ pub enum MenuIntent {
     Scroll(i32),
     CancelRebind,
     CancelLoad,
+    Dismiss,
+    Page(i32),
+    Volume(u8),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -59,6 +62,7 @@ pub struct MenuRow {
     pub value: String,
     pub adjustable: bool,
     pub enabled: bool,
+    pub slider: bool,
 }
 
 #[derive(Debug, Default)]
@@ -67,6 +71,8 @@ pub struct MenuLayout {
     pub scroll: Option<(usize, usize, usize)>,
     pub rebinding: bool,
     pub loading: bool,
+    pub overlay: Option<bool>,
+    pub details: bool,
 }
 
 impl MenuLayout {
@@ -74,6 +80,16 @@ impl MenuLayout {
     /// have fixed generous bounds; text length never changes their hit region.
     #[must_use]
     pub fn hit_test(&self, point: [f32; 2]) -> Option<MenuHit> {
+        if let Some(error) = self.overlay {
+            let intent = if error && rect(36.0, 206.0, 444.0, 228.0).contains(point) {
+                MenuIntent::Page(if point[0] < 240.0 { -1 } else { 1 })
+            } else {
+                MenuIntent::Dismiss
+            };
+            return rect(20.0, 12.0, 460.0, 260.0)
+                .contains(point)
+                .then_some(MenuHit { index: 0, intent });
+        }
         if self.loading {
             return rect(LEFT, 172.0, RIGHT, 192.0)
                 .contains(point)
@@ -103,18 +119,31 @@ impl MenuLayout {
                 }
             }
         }
+        if self.details && rect(290.0, 66.0, 440.0, 214.0).contains(point) {
+            return Some(MenuHit {
+                index: 0,
+                intent: MenuIntent::Page(if point[1] < 82.0 { -1 } else { 1 }),
+            });
+        }
         self.rows
             .iter()
             .find(|row| row.bounds.contains(point))
             .map(|row| {
-                let intent =
-                    if row.adjustable && row.enabled && point[0] >= 300.0 && point[0] < 324.0 {
-                        MenuIntent::Adjust(-1)
-                    } else if row.adjustable && row.enabled && point[0] >= 420.0 {
-                        MenuIntent::Adjust(1)
-                    } else {
-                        MenuIntent::Activate
-                    };
+                let intent = if row.slider && point[0] >= 324.0 && point[0] <= 420.0 {
+                    let percent = format!(
+                        "{:.0}",
+                        ((point[0] - 324.0) / 96.0 * 100.0).clamp(0.0, 100.0)
+                    )
+                    .parse::<u8>()
+                    .unwrap_or(0);
+                    MenuIntent::Volume(percent)
+                } else if row.adjustable && row.enabled && point[0] >= 300.0 && point[0] < 324.0 {
+                    MenuIntent::Adjust(-1)
+                } else if row.adjustable && row.enabled && point[0] >= 420.0 {
+                    MenuIntent::Adjust(1)
+                } else {
+                    MenuIntent::Activate
+                };
                 MenuHit {
                     index: row.index,
                     intent,
@@ -158,6 +187,7 @@ fn row(index: usize, label: String, value: String, top: f32, height: f32) -> Men
         bounds: rect(LEFT, top, RIGHT, top + height),
         adjustable: false,
         enabled: true,
+        slider: false,
     }
 }
 
@@ -172,17 +202,40 @@ pub fn menu_layout(
     let mut layout = MenuLayout {
         rebinding: ui.rebinding_action.is_some(),
         loading: ui.loading_map,
+        details: state == AppState::LevelSelect && ui.level_select_idx < ui.level_entries.len(),
+        overlay: if ui.status_is_error {
+            Some(true)
+        } else if ui.credits.is_some() {
+            Some(false)
+        } else {
+            None
+        },
         ..MenuLayout::default()
     };
     match state {
         AppState::Playing => {}
-        AppState::MainMenu | AppState::Paused => {
-            let labels = if state == AppState::MainMenu {
-                ["Explore maps", "Settings", "Exit"]
-            } else {
-                ["Resume", "Settings", "Return to main menu"]
-            };
-            for (index, label) in labels.into_iter().enumerate() {
+        AppState::MainMenu => {
+            for (index, label) in ["Explore", "Settings", "Credits", "Exit"]
+                .into_iter()
+                .enumerate()
+            {
+                let mut entry = row(
+                    index,
+                    label.to_string(),
+                    String::new(),
+                    row_y(index, 19.0, 76.0),
+                    18.0,
+                );
+                entry.bounds.left = 24.0;
+                entry.bounds.right = 174.0;
+                layout.rows.push(entry);
+            }
+        }
+        AppState::Paused => {
+            for (index, label) in ["Resume", "Settings", "Return to main menu"]
+                .into_iter()
+                .enumerate()
+            {
                 layout.rows.push(row(
                     index,
                     label.to_string(),
@@ -194,46 +247,45 @@ pub fn menu_layout(
         }
         AppState::LevelSelect => {
             let total = ui.level_entries.len();
-            let offset = visible_offset(ui.level_scroll, ui.level_select_idx, total, 5);
-            for (visible, (index, label)) in ui
+            let offset = visible_offset(ui.level_scroll, ui.level_select_idx, total, 4);
+            for (position, (index, label)) in ui
                 .level_entries
                 .iter()
                 .enumerate()
                 .skip(offset)
-                .take(5)
+                .take(4)
                 .enumerate()
             {
-                layout.rows.push(row(
+                let col = f32::from(u8::try_from(position % 2).unwrap_or(0));
+                let line = f32::from(u8::try_from(position / 2).unwrap_or(0));
+                let mut entry = row(
                     index,
                     label.clone(),
                     String::new(),
-                    row_y(visible, 20.0, 70.0),
-                    18.0,
-                ));
+                    line.mul_add(74.0, 66.0),
+                    72.0,
+                );
+                entry.bounds.left = col.mul_add(126.0, 30.0);
+                entry.bounds.right = entry.bounds.left + 120.0;
+                layout.rows.push(entry);
             }
-            layout.rows.push(row(
-                total,
-                "Import levels".to_string(),
-                String::new(),
-                174.0,
-                18.0,
-            ));
-            layout.rows.push(row(
-                total.saturating_add(1),
-                "Open Import Folder".to_string(),
-                String::new(),
-                194.0,
-                18.0,
-            ));
-            layout.rows.push(row(
-                total.saturating_add(2),
-                "Back".to_string(),
-                String::new(),
-                214.0,
-                18.0,
-            ));
-            if total > 5 {
-                layout.scroll = Some((offset, 5, total));
+            for (position, label) in ["Import levels", "Import folder", "Back"]
+                .into_iter()
+                .enumerate()
+            {
+                let mut entry = row(
+                    total.saturating_add(position),
+                    label.to_string(),
+                    String::new(),
+                    218.0,
+                    18.0,
+                );
+                entry.bounds.left = row_y(position, 142.0, 30.0);
+                entry.bounds.right = entry.bounds.left + 134.0;
+                layout.rows.push(entry);
+            }
+            if total > 4 {
+                layout.scroll = Some((offset, 4, total));
             }
         }
         AppState::Settings | AppState::PauseSettings => {
@@ -279,6 +331,7 @@ fn settings_layout(
             height,
         );
         entry.adjustable = matches!(setting.kind, SettingsRowKind::Value(_));
+        entry.slider = setting.kind == SettingsRowKind::Value(SettingsValue::MasterVolume);
         entry.enabled = match setting.kind {
             SettingsRowKind::Value(SettingsValue::Reflections) => settings.lightmaps_enabled(),
             SettingsRowKind::Value(SettingsValue::Resolution) => {
@@ -312,7 +365,7 @@ const fn selected_index(state: AppState, ui: &UiState) -> usize {
 }
 
 fn panel(vertices: &mut Vec<Vertex>, title: &str, subtitle: &str, transparent: bool) {
-    let opacity = if transparent { 0.88 } else { 1.0 };
+    let opacity = if transparent { 0.0 } else { 0.94 };
     add_rect_rgba(
         vertices,
         20.0,
@@ -355,7 +408,7 @@ fn small_line(vertices: &mut Vec<Vertex>, text: &str, y: f32, color: [f32; 3]) {
 /// Menu icon placement shares visible-row scrolling and hit layout.
 #[must_use]
 pub fn level_icon_bounds(row: &MenuRow) -> [f32; 4] {
-    [48.0, row.bounds.top + 1.0, 28.444_445, 16.0]
+    [row.bounds.left + 4.0, row.bounds.top + 3.0, 96.0, 54.0]
 }
 
 fn draw_icon_fallback(vertices: &mut Vec<Vertex>, row: &MenuRow) {
@@ -368,7 +421,14 @@ fn draw_icon_fallback(vertices: &mut Vec<Vertex>, row: &MenuRow) {
         top + height,
         [0.12, 0.14, 0.16],
     );
-    draw_text(vertices, "P", left + 10.0, top + 4.0, 1.0, MUTED);
+    draw_text(
+        vertices,
+        "P",
+        width.mul_add(0.5, left) - 4.0,
+        height.mul_add(0.5, top) - 4.0,
+        1.0,
+        MUTED,
+    );
 }
 
 fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, ui: &UiState) {
@@ -377,13 +437,17 @@ fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, u
         let bounds = entry.bounds;
         let active = entry.index == selected;
         if active {
-            add_rect(
+            add_rect_rgba(
                 vertices,
                 bounds.left,
                 bounds.top,
                 bounds.right,
                 bounds.bottom,
-                [0.25, 0.23, 0.16],
+                if state == AppState::MainMenu {
+                    [0.035, 0.045, 0.05, 0.45]
+                } else {
+                    [0.25, 0.23, 0.16, 1.0]
+                },
             );
             add_rect(
                 vertices,
@@ -405,23 +469,54 @@ fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, u
         if has_icon {
             draw_icon_fallback(vertices, entry);
         }
-        let label_width = if has_icon {
-            326.0
-        } else if entry.value.is_empty() {
-            360.0
+        if has_icon {
+            // Image leaves room for the two-line title beneath it.
+            let [left, top, width, height] = level_icon_bounds(entry);
+            add_rect_rgba(
+                vertices,
+                left,
+                top + height,
+                left + width,
+                top + height + 15.0,
+                [0.025, 0.035, 0.04, 0.91],
+            );
+            let lines = wrap(&entry.label, 18);
+            for (line, text) in lines.iter().take(2).enumerate() {
+                draw_text(
+                    vertices,
+                    text,
+                    left + 3.0,
+                    row_y(line, 7.0, top + height + 2.0),
+                    0.75,
+                    color,
+                );
+            }
         } else {
-            236.0
-        };
-        draw_text(
-            vertices,
-            &fit_text(&entry.label, label_width, 1.0),
-            if has_icon { 82.0 } else { 48.0 },
-            bounds.top + 5.0,
-            1.0,
-            color,
-        );
+            let main = state == AppState::MainMenu;
+            let width = if main {
+                140.0
+            } else if state == AppState::LevelSelect {
+                126.0
+            } else if entry.value.is_empty() {
+                360.0
+            } else {
+                236.0
+            };
+            let scale = if main { 1.4 } else { 1.0 };
+            draw_text(
+                vertices,
+                &fit_text(&entry.label, width, scale),
+                bounds.left + 8.0,
+                bounds.top + 5.0,
+                scale,
+                color,
+            );
+        }
         draw_value(vertices, entry, ui, color);
     }
+    draw_scroll(vertices, layout, ui);
+}
+fn draw_scroll(vertices: &mut Vec<Vertex>, layout: &MenuLayout, ui: &UiState) {
     if let Some((offset, visible, total)) = layout.scroll {
         let first = offset.saturating_add(1);
         let last = offset.saturating_add(visible).min(total);
@@ -470,6 +565,39 @@ fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, u
 
 fn draw_value(vertices: &mut Vec<Vertex>, entry: &MenuRow, ui: &UiState, color: [f32; 3]) {
     let bounds = entry.bounds;
+    if entry.slider {
+        let amount = entry
+            .value
+            .trim_start_matches("< ")
+            .split('%')
+            .next()
+            .and_then(|text| text.parse::<f32>().ok())
+            .unwrap_or(0.0)
+            / 100.0;
+        let y = bounds.top + 10.0;
+        add_rect(vertices, 324.0, y, 420.0, y + 2.0, [0.3, 0.3, 0.27]);
+        add_rect(
+            vertices,
+            324.0,
+            y,
+            amount.mul_add(96.0, 324.0),
+            y + 2.0,
+            ACCENT,
+        );
+        let x = amount.mul_add(96.0, 324.0);
+        add_rect(vertices, x - 2.0, y - 3.0, x + 2.0, y + 5.0, TEXT);
+        draw_text(
+            vertices,
+            &format!("{:.0}%", amount * 100.0),
+            278.0,
+            bounds.top + 5.0,
+            0.75,
+            color,
+        );
+        draw_text(vertices, "<", 308.0, bounds.top + 5.0, 1.0, color);
+        draw_text(vertices, ">", 428.0, bounds.top + 5.0, 1.0, color);
+        return;
+    }
     if !entry.value.is_empty() {
         let clean = entry
             .value
@@ -565,6 +693,9 @@ fn description(
                 }
                 Some(SettingsRowKind::Advanced) => "Texture filtering and reflections.",
                 Some(SettingsRowKind::Value(value)) => match value {
+                    SettingsValue::VisualStyle => {
+                        "Standard, CRT, Legacy or VHS. Applies immediately; quality stays independent."
+                    }
                     SettingsValue::GraphicsQuality => {
                         "Texture detail. Lighting preferences stay independent."
                     }
@@ -623,13 +754,16 @@ pub(super) fn geometry(
         return Vec::new();
     }
     let mut vertices = Vec::new();
+    if state == AppState::MainMenu {
+        return main_geometry(ui, settings, version);
+    }
     let (title, subtitle) = match state {
         AppState::MainMenu => ("Places", "an experience"),
         AppState::Paused => (
             "PAUSED",
             ui.current_map.as_deref().unwrap_or("Your current visit"),
         ),
-        AppState::LevelSelect => ("EXPLORE", "Installed maps"),
+        AppState::LevelSelect => ("EXPLORE", "Choose a place. Tab: details."),
         AppState::Settings | AppState::PauseSettings => (
             ui.settings_page.title(),
             match ui.settings_page {
@@ -652,6 +786,9 @@ pub(super) fn geometry(
     let layout = menu_layout(state, ui, settings, display);
     draw_rows(&mut vertices, &layout, state, ui);
     draw_empty_state(&mut vertices, state, ui);
+    if state == AppState::LevelSelect && ui.level_select_idx < ui.level_entries.len() {
+        draw_description(&mut vertices, ui);
+    }
     let help_y = if state == AppState::LevelSelect {
         0.0
     } else {
@@ -666,7 +803,11 @@ pub(super) fn geometry(
         );
     }
     if let Some(message) = &ui.status_message {
-        draw_status(&mut vertices, message, ui.status_is_error);
+        if ui.status_is_error {
+            draw_error(&mut vertices, ui);
+        } else {
+            draw_status(&mut vertices, message, false);
+        }
     } else if state == AppState::MainMenu {
         small_line(&mut vertices, &format!("v{version}"), 238.0, MUTED);
     } else if ui.settings_page == SettingsPage::Graphics
@@ -690,6 +831,9 @@ pub(super) fn geometry(
         small_line(&mut vertices, legend, 250.0, MUTED);
     }
     draw_modals(&mut vertices, ui);
+    if ui.status_is_error {
+        draw_error(&mut vertices, ui);
+    }
 
     vertices
 }
@@ -815,7 +959,7 @@ impl UiState {
                 self.level_scroll,
                 self.level_select_idx,
                 self.level_entries.len(),
-                5,
+                4,
             );
         } else if matches!(state, AppState::Settings | AppState::PauseSettings)
             && self.settings_page == SettingsPage::Controls
@@ -829,14 +973,39 @@ impl UiState {
         }
     }
 
+    pub fn scroll_details(&mut self, direction: i32) {
+        if self.status_is_error {
+            let maximum = wrap(self.status_message.as_deref().unwrap_or(""), 56)
+                .len()
+                .div_ceil(12)
+                .saturating_sub(1);
+            self.status_page = if direction < 0_i32 {
+                self.status_page.saturating_sub(1)
+            } else {
+                self.status_page.saturating_add(1).min(maximum)
+            };
+        } else {
+            let maximum = super::description_pages(&self.level_description).saturating_sub(1);
+            self.description_page = if direction < 0_i32 {
+                self.description_page.saturating_sub(1)
+            } else {
+                self.description_page.saturating_add(1).min(maximum)
+            };
+        }
+    }
+
     pub fn scroll_menu(&mut self, state: AppState, direction: i32) {
+        if self.status_is_error {
+            self.scroll_details(direction);
+            return;
+        }
         self.keep_selection_visible(state);
         let (scroll, selection, total, visible) = if state == AppState::LevelSelect {
             (
                 &mut self.level_scroll,
                 &mut self.level_select_idx,
                 self.level_entries.len(),
-                5,
+                4,
             )
         } else if matches!(state, AppState::Settings | AppState::PauseSettings)
             && self.settings_page == SettingsPage::Controls
@@ -885,6 +1054,7 @@ impl UiState {
             self.level_scroll,
             self.settings_scroll,
             self.loading_map,
+            (self.credits, self.status_is_error),
             window,
             drawable,
             interactive,
@@ -893,3 +1063,220 @@ impl UiState {
         self.pointer.sync_context(hasher.finish());
     }
 }
+
+/// Character-boundary wrapping with preserved paragraph breaks.
+pub(super) fn wrap(text: &str, width: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+    for paragraph in text.split('\n') {
+        let mut line = String::new();
+        for word in paragraph.split_whitespace() {
+            if !line.is_empty()
+                && line
+                    .chars()
+                    .count()
+                    .saturating_add(word.chars().count())
+                    .saturating_add(1)
+                    > width
+            {
+                lines.push(std::mem::take(&mut line));
+            }
+            for character in word.chars() {
+                if line.chars().count() >= width {
+                    lines.push(std::mem::take(&mut line));
+                }
+                line.push(character);
+            }
+            line.push(' ');
+        }
+        lines.push(line.trim_end().to_string());
+    }
+    lines
+}
+fn draw_description(vertices: &mut Vec<Vertex>, ui: &UiState) {
+    draw_text(vertices, "ABOUT THIS PLACE", 292.0, 69.0, 0.75, ACCENT);
+    let lines = wrap(&ui.level_description, 24);
+    let page = ui.description_page.min(lines.len().saturating_sub(1) / 13);
+    for (line, text) in lines
+        .iter()
+        .skip(page.saturating_mul(13))
+        .take(13)
+        .enumerate()
+    {
+        draw_text(vertices, text, 292.0, row_y(line, 8.5, 86.0), 0.75, TEXT);
+    }
+    if lines.len() > 13 {
+        draw_text(
+            vertices,
+            &format!(
+                "Wheel / Tab: {}/{}",
+                page.saturating_add(1),
+                lines.len().div_ceil(13)
+            ),
+            292.0,
+            204.0,
+            0.75,
+            MUTED,
+        );
+    }
+}
+fn draw_error(vertices: &mut Vec<Vertex>, ui: &UiState) {
+    add_rect_rgba(
+        vertices,
+        20.0,
+        12.0,
+        460.0,
+        260.0,
+        [0.025, 0.035, 0.04, 0.99],
+    );
+    draw_text(
+        vertices,
+        "SOMETHING WENT WRONG",
+        36.0,
+        30.0,
+        1.5,
+        [1.0, 0.63, 0.45],
+    );
+    let lines = wrap(
+        ui.status_message.as_deref().unwrap_or("Please try again."),
+        56,
+    );
+    let pages = lines.len().div_ceil(12).max(1);
+    let page = ui.status_page.min(pages.saturating_sub(1));
+    for (line, text) in lines
+        .iter()
+        .skip(page.saturating_mul(12))
+        .take(12)
+        .enumerate()
+    {
+        draw_text(vertices, text, 36.0, row_y(line, 11.0, 63.0), 0.875, TEXT);
+    }
+    draw_text(
+        vertices,
+        &format!(
+            "Details {}/{}   Arrows / wheel: scroll",
+            page.saturating_add(1),
+            pages
+        ),
+        36.0,
+        212.0,
+        0.875,
+        MUTED,
+    );
+    add_rect(vertices, 36.0, 232.0, 444.0, 252.0, [0.22, 0.21, 0.15]);
+    draw_text(
+        vertices,
+        "Enter / Esc: dismiss and try again",
+        46.0,
+        238.0,
+        0.875,
+        ACCENT,
+    );
+}
+fn main_geometry(ui: &UiState, settings: &Settings, version: &str) -> Vec<Vertex> {
+    let mut vertices = Vec::new();
+    // A composed left scrim leaves the framed live scene unobscured.
+    for strip in 0_u8..16 {
+        let x = f32::from(strip) * 14.0;
+        add_rect_rgba(
+            &mut vertices,
+            x,
+            0.0,
+            x + 14.0,
+            272.0,
+            [0.018, 0.026, 0.032, 0.74 * (1.0 - f32::from(strip) / 16.0)],
+        );
+    }
+    let logo_start = vertices.len();
+    draw_text(&mut vertices, "Places", 23.0, 22.0, 5.0, TEXT);
+    // Keep the reference's tall, compact wordmark proportions with the committed atlas.
+    for vertex in vertices.iter_mut().skip(logo_start) {
+        if let Some(x) = vertex.pos.first_mut() {
+            *x = (*x - 23.0).mul_add(0.60, 23.0);
+        }
+    }
+
+    draw_text(
+        &mut vertices,
+        "Take a walk. Stay a while.",
+        25.0,
+        62.0,
+        0.8,
+        TEXT,
+    );
+    let layout = menu_layout(AppState::MainMenu, ui, settings, &DisplayStatus::default());
+    draw_rows(&mut vertices, &layout, AppState::MainMenu, ui);
+    draw_text(
+        &mut vertices,
+        "A FEW PLACES, ALL AT ONCE",
+        298.0,
+        16.0,
+        0.65,
+        TEXT,
+    );
+    draw_text(&mut vertices, "LIVE SCENE", 380.0, 26.0, 0.65, ACCENT);
+    draw_text(
+        &mut vertices,
+        "Enter: select   Arrows: move",
+        25.0,
+        244.0,
+        0.75,
+        MUTED,
+    );
+    draw_text(
+        &mut vertices,
+        &format!("v{version}"),
+        25.0,
+        257.0,
+        0.65,
+        MUTED,
+    );
+    if ui.credits.is_some() {
+        add_rect_rgba(
+            &mut vertices,
+            20.0,
+            12.0,
+            460.0,
+            260.0,
+            [0.025, 0.035, 0.04, 0.97],
+        );
+        draw_text(&mut vertices, "PLACES", 36.0, 32.0, 3.0, TEXT);
+        for (line, text) in [
+            "A small collection of places to be.",
+            "Created by Connor Dawkins",
+            "",
+            "Built with Rust, wgpu, SDL3, Luau and Kira.",
+            "Open source licenses accompany this installation.",
+            "",
+            "Take a walk. Stay a while.",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            draw_text(
+                &mut vertices,
+                text,
+                36.0,
+                row_y(line, 17.0, 84.0),
+                0.875,
+                TEXT,
+            );
+        }
+        draw_text(
+            &mut vertices,
+            "Enter / Esc / click: back",
+            36.0,
+            236.0,
+            1.0,
+            ACCENT,
+        );
+    }
+    if ui.status_is_error {
+        draw_error(&mut vertices, ui);
+    }
+    draw_modals(&mut vertices, ui);
+    vertices
+}
+
+#[cfg(test)]
+#[path = "../tests/menu.rs"]
+mod tests;

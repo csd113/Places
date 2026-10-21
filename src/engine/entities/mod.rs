@@ -138,6 +138,8 @@ pub enum WorldCommand {
     ActivatePhysicsGroup { group: String },
     /// Atomically claim the authored carry contract's exact held item.
     HandoffItem { target: String },
+    /// Return this actor's original carried item to physical simulation at its live socket.
+    ReleaseItem { target: String },
     /// Hide an accepted carry assembly only after whole-geometry occlusion.
     RetireHidden { target: String },
     /// Select one of the two prepared, map-authored weather configurations.
@@ -382,6 +384,7 @@ pub struct EntityWorld {
     routes: EntityRoutes,
     route_states: Vec<RouteState>,
     animation_overrides: Vec<(String, PoseCue)>,
+    scripted_poses: std::collections::BTreeSet<String>,
     entity_frames: Vec<EntityFrame>,
     timers: Timers,
     sequences: Sequences,
@@ -500,6 +503,7 @@ impl EntityWorld {
             routes: EntityRoutes::new(),
             route_states: Vec::new(),
             animation_overrides: Vec::new(),
+            scripted_poses: std::collections::BTreeSet::new(),
             entity_frames: Vec::new(),
             timers: Timers::new(),
             sequences: Sequences::new(),
@@ -566,7 +570,7 @@ impl EntityWorld {
         self.names.clear();
         self.components.clear();
         self.generation = self.store.generation();
-        self.animation_overrides.clear();
+        self.clear_scripted_poses();
         self.entity_frames.clear();
         self.sequence_runs.clear();
         self.events.clear();
@@ -744,7 +748,7 @@ impl EntityWorld {
         self.timers.reset();
         self.spawn_groups.reset();
         self.reset_bindings();
-        self.animation_overrides.clear();
+        self.clear_scripted_poses();
         self.events.clear();
         self.stimuli.clear();
         self.sim_time = 0.0;
@@ -779,6 +783,7 @@ impl EntityWorld {
             !matches!(
                 command,
                 WorldCommand::ShowMessage { title: _, lines: _ }
+                    | WorldCommand::ReleaseItem { target: _ }
                     | WorldCommand::HandoffItem { target: _ }
                     | WorldCommand::RetireHidden { target: _ }
                     | WorldCommand::ChangeLevel { level: _ }
@@ -2260,6 +2265,19 @@ impl EntityWorld {
                     report.unsupported = report.unsupported.saturating_add(1);
                 }
             }
+            ActionDef::ReleaseItem { target } => {
+                if self
+                    .handle_of(target)
+                    .is_some_and(|handle| self.components.carries.contains(handle))
+                {
+                    self.commands.push(WorldCommand::ReleaseItem {
+                        target: target.clone(),
+                    });
+                    report.actions_run = report.actions_run.saturating_add(1);
+                } else {
+                    report.unsupported = report.unsupported.saturating_add(1);
+                }
+            }
             ActionDef::HandoffItem { target } | ActionDef::RetireHidden { target } => {
                 if self
                     .handle_of(target)
@@ -2281,6 +2299,7 @@ impl EntityWorld {
                 }
             }
             ActionDef::Navigate { target, position } => {
+                let _released = self.scripted_poses.remove(target);
                 if self
                     .ai
                     .set_navigation_goal(target, Vec3::from_array(*position))
@@ -3108,7 +3127,20 @@ impl EntityWorld {
         changed
     }
 
+    fn clear_scripted_poses(&mut self) {
+        self.animation_overrides.clear();
+        self.scripted_poses.clear();
+    }
+
     fn set_animation_cue(&mut self, instance_id: &str, clip: &str, looped: bool, toggle: bool) {
+        if self
+            .ai
+            .agents()
+            .iter()
+            .any(|agent| agent.instance_id == instance_id)
+        {
+            let _owned = self.scripted_poses.insert(instance_id.to_string());
+        }
         if let Some(door) = self
             .animated_doors
             .iter_mut()
@@ -3699,6 +3731,7 @@ impl EntityWorld {
         let _release_status = self.spawn_groups.release(handle);
         let _removed_value = self.ai.remove(handle);
         if let Some(removed_id) = id {
+            let _released_pose = self.scripted_poses.remove(&removed_id);
             self.animation_overrides
                 .retain(|(candidate, _)| candidate != &removed_id);
             let _removed_value_2 = self.names.remove(&removed_id);
@@ -3854,6 +3887,16 @@ impl EntityWorld {
         {
             carry.item = Some(item.to_string());
             self.script_held_item = None;
+            self.rebuild_entity_frames();
+        }
+    }
+
+    /// Clears actor ownership only after the original physical body was restored.
+    pub fn confirm_item_release(&mut self, target: &str) {
+        if let Some(handle) = self.handle_of(target)
+            && let Some(carry) = self.components.carries.get_mut(handle)
+        {
+            carry.item = None;
             self.rebuild_entity_frames();
         }
     }
@@ -4015,7 +4058,16 @@ impl EntityWorld {
             height: ctx.body_height,
             caught: false,
         });
-        let scripted: Vec<EntityHandle> = self.sequence_runs.iter().map(|run| run.owner).collect();
+        let scripted: Vec<EntityHandle> = self
+            .sequence_runs
+            .iter()
+            .map(|run| run.owner)
+            .chain(
+                self.scripted_poses
+                    .iter()
+                    .filter_map(|id| self.handle_of(id)),
+            )
+            .collect();
         let stimuli: Vec<AiStimulus> = self.stimuli.iter().cloned().collect();
         let ai_ctx = AiTickContext {
             delta: ctx.delta_seconds,
@@ -4269,6 +4321,18 @@ impl EntityWorld {
     /// entity's `animation` component, so an `animation_complete` binding
     /// filtered by clip matches the live event.
     pub fn notify_animation_complete(&mut self, instance_id: &str, clip: &str) {
+        if self.animation_override(instance_id).is_some_and(|cue| {
+            matches!(
+                cue,
+                PoseCue::Clip {
+                    once: true,
+                    name: _,
+                    paused: _
+                }
+            )
+        }) {
+            let _released = self.scripted_poses.remove(instance_id);
+        }
         let Some(handle) = self.handle_of(instance_id) else {
             return;
         };
@@ -4598,14 +4662,20 @@ impl EntityWorld {
                 .filter(|carry| carry.item.is_some())
                 .map_or_else(
                     || cue.clone(),
-                    |carry| PoseCue::Clip {
-                        name: if matches!(cue, PoseCue::Walk { speed_mps: _ }) {
-                            carry.def.walk_clip.clone()
+                    |carry| {
+                        if self.scripted_poses.contains(&agent.instance_id) {
+                            cue.clone()
                         } else {
-                            carry.def.idle_clip.clone()
-                        },
-                        once: false,
-                        paused: false,
+                            PoseCue::Clip {
+                                name: if matches!(cue, PoseCue::Walk { speed_mps: _ }) {
+                                    carry.def.walk_clip.clone()
+                                } else {
+                                    carry.def.idle_clip.clone()
+                                },
+                                once: false,
+                                paused: false,
+                            }
+                        }
                     },
                 );
             let (opacity, glow) = self.frame_visuals(&agent.instance_id);

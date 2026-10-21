@@ -779,6 +779,8 @@ pub enum ActionDef {
     Navigate { target: String, position: [f32; 3] },
     /// Atomically accept the carry component's exact held item.
     HandoffItem { target: String },
+    /// Return this actor's original carried item to physical simulation at its live socket.
+    ReleaseItem { target: String },
     /// Request conservative whole-assembly occlusion before retirement.
     RetireHidden { target: String },
     /// End a run with concise feedback; the native player offers a fresh restart.
@@ -1070,6 +1072,7 @@ impl ActionDef {
                 position: _,
             } => "navigate",
             Self::HandoffItem { target: _ } => "handoff_item",
+            Self::ReleaseItem { target: _ } => "release_item",
             Self::RetireHidden { target: _ } => "retire_hidden",
             Self::EndRun {
                 won: _,
@@ -1209,6 +1212,7 @@ impl ActionDef {
                 target,
                 position: _,
             }
+            | Self::ReleaseItem { target }
             | Self::HandoffItem { target }
             | Self::RetireHidden { target } => Some(target),
             Self::ShowMessage { title: _, lines: _ }

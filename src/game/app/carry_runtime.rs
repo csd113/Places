@@ -299,6 +299,53 @@ impl FrameLoop<'_> {
         self.game.entities_mut().observe_held_item(identity);
     }
 
+    fn handoff_reachable(&mut self, target: &str, key: u64, menu_pickup: bool) -> bool {
+        if menu_pickup {
+            let Some(actor) = self
+                .game
+                .entity_frames()
+                .iter()
+                .find(|frame| frame.instance_id == target)
+                .and_then(|frame| frame.transform)
+                .map(|(position, _)| position)
+            else {
+                return false;
+            };
+            let mut nearby = false;
+            self.items.world.for_each_pose(|body, pose| {
+                if body == key {
+                    nearby = pose.position.distance(actor) < 1.7;
+                }
+            });
+            if !nearby {
+                return false;
+            }
+        } else {
+            if self.items.world.held() != Some(key) {
+                return false;
+            }
+            self.synchronize_physical_player();
+            let blocker = self.items.world.first_unheld_body_hit(
+                self.game.player_position,
+                self.game.view_direction(),
+                crate::engine::interact::MAX_INTERACTION_REACH_M,
+            );
+            if !self
+                .game
+                .carried_door_target(blocker.map(|(_, distance)| distance))
+                .is_some_and(|(index, _)| {
+                    self.game
+                        .interactables()
+                        .get(index)
+                        .is_some_and(|item| item.id == target)
+                })
+            {
+                return false;
+            }
+        }
+        true
+    }
+
     pub(super) fn handoff_item(&mut self, target: &str) {
         if self.items.carry.attachments.contains_key(target) {
             return;
@@ -322,27 +369,8 @@ impl FrameLoop<'_> {
         else {
             return;
         };
-        if self.items.world.held() != Some(key) {
-            return;
-        }
-        // The actor must be the ordinary reachable aimed target. Scripted
-        // polling cannot steal an item remotely or through a wall.
-        self.synchronize_physical_player();
-        let blocker = self.items.world.first_unheld_body_hit(
-            self.game.player_position,
-            self.game.view_direction(),
-            crate::engine::interact::MAX_INTERACTION_REACH_M,
-        );
-        if !self
-            .game
-            .carried_door_target(blocker.map(|(_, distance)| distance))
-            .is_some_and(|(index, _)| {
-                self.game
-                    .interactables()
-                    .get(index)
-                    .is_some_and(|item| item.id == target)
-            })
-        {
+        let menu_pickup = self.menu_world() && self.menu_active();
+        if !self.handoff_reachable(target, key, menu_pickup) {
             return;
         }
         if !self.carry_assets_ready(target, &def, key) {
@@ -356,7 +384,12 @@ impl FrameLoop<'_> {
             Quat::from_euler(EulerRot::XYZ, x, y, z),
             Vec3::from_array(def.offset),
         );
-        if !self.items.world.transfer_held(key) {
+        let transferred = if menu_pickup {
+            self.items.world.remove_movable(key)
+        } else {
+            self.items.world.transfer_held(key)
+        };
+        if !transferred {
             return;
         }
         let item = def.item;
@@ -381,6 +414,42 @@ impl FrameLoop<'_> {
         self.items.target = None;
         self.game.entities_mut().confirm_handoff(target, &item);
         self.trace_world("npc_item_handoff");
+    }
+
+    pub(super) fn release_carried_item(&mut self, target: &str) {
+        let Some(attachment) = self.items.carry.attachments.get(target) else {
+            return;
+        };
+        if attachment.retired {
+            return;
+        }
+        let Some(socket) = self
+            .renderer
+            .character_socket_transform(target, &attachment.socket)
+        else {
+            return;
+        };
+        let (_, rotation, position) = socket
+            .mul_mat4(&attachment.local)
+            .to_scale_rotation_translation();
+        let original = &attachment.reset;
+        if let Err(problem) = self.items.world.restore_transferred(
+            attachment.key,
+            &original.definition,
+            original.bounds,
+            original.pose,
+            crate::engine::physics::ItemPose { position, rotation },
+            original.scale,
+        ) {
+            self.ui_state.set_status(
+                format!("Could not put down the carried item: {problem}"),
+                true,
+            );
+            return;
+        }
+        drop(self.items.carry.attachments.remove(target));
+        self.game.entities_mut().confirm_item_release(target);
+        self.trace_world("npc_item_released");
     }
 
     pub(super) fn request_carry_retirement(&mut self, target: &str) {

@@ -59,9 +59,9 @@ impl SettingsPage {
             Self::Root => 6,
             Self::Graphics => {
                 if advanced_expanded {
-                    8
+                    9
                 } else {
-                    6
+                    7
                 }
             }
             Self::Display => 3,
@@ -107,6 +107,7 @@ pub enum SettingsRowKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsValue {
     GraphicsQuality,
+    VisualStyle,
     Bloom,
     Reflections,
     Lightmaps,
@@ -165,6 +166,13 @@ pub struct UiState {
     pub settings_scroll: usize,
     pub pointer: MenuPointer,
     pub loading_map: bool,
+    pub credits: Option<()>,
+    pub status_page: usize,
+    pub level_description: String,
+    pub description_page: usize,
+    pub description_index: Option<usize>,
+    pub volume_drag: Option<()>,
+    pub observed_menu_beat: Option<i64>,
 }
 
 impl UiState {
@@ -177,6 +185,7 @@ impl UiState {
     pub fn set_status(&mut self, message: impl Into<String>, is_error: bool) {
         self.status_message = Some(message.into());
         self.status_is_error = is_error;
+        self.status_page = 0;
     }
 
     /// Drops any status message (used on screen transitions and retry).
@@ -214,6 +223,11 @@ fn ui_signature(
     let mut hasher = DefaultHasher::new();
     app_state_tag(app_state).hash(&mut hasher);
     ui_state.main_menu_idx.hash(&mut hasher);
+    settings.visual_style.hash(&mut hasher);
+    ui_state.credits.hash(&mut hasher);
+    ui_state.status_page.hash(&mut hasher);
+    ui_state.level_description.hash(&mut hasher);
+    ui_state.description_page.hash(&mut hasher);
     ui_state.level_select_idx.hash(&mut hasher);
     ui_state.pause_menu_idx.hash(&mut hasher);
     ui_state.settings_idx.hash(&mut hasher);
@@ -672,6 +686,12 @@ fn graphics_rows(settings: &Settings, advanced_expanded: bool) -> Vec<SettingsRo
     let mut rows = Vec::with_capacity(SettingsPage::Graphics.item_count(advanced_expanded));
     push_row(
         &mut rows,
+        "Visual Style",
+        selector(settings.visual_style.label()),
+        SettingsRowKind::Value(SettingsValue::VisualStyle),
+    );
+    push_row(
+        &mut rows,
         "Graphics Quality",
         selector_with_override(
             settings.quality_level().label(),
@@ -976,6 +996,7 @@ fn adjust_value(
             ui_state.set_status(format!("Window mode: {}", mode.label()), false);
         }
         SettingsValue::Resolution => adjust_resolution(ui_state, settings, display, direction),
+        SettingsValue::VisualStyle => adjust_style(ui_state, settings, direction),
         SettingsValue::MasterVolume => {
             let next = step_volume(settings.master_volume, direction);
             let _changed = settings.set_master_volume(next);
@@ -1215,4 +1236,18 @@ pub(crate) fn guidance_navigation(
     } else {
         GuidanceNavigation::Ignored
     }
+}
+
+/// Count of fully readable description pages in Explore.
+#[must_use]
+pub fn description_pages(text: &str) -> usize {
+    menu::wrap(text, 24).len().div_ceil(13).max(1)
+}
+
+fn adjust_style(ui: &mut UiState, settings: &mut Settings, direction: i32) {
+    settings.visual_style = settings.visual_style.step(direction);
+    ui.set_status(
+        format!("{} style applied", settings.visual_style.label()),
+        false,
+    );
 }

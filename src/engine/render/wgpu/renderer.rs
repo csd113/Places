@@ -617,6 +617,8 @@ pub struct WgpuRenderer {
     /// Whether the player asked for bloom. The emissive/bloom pass gates on it;
     /// recorded here so `set_bloom_enabled` can be applied without a rebuild.
     bloom_requested: bool,
+    visual_style: f32,
+    visual_time: f32,
     #[cfg(feature = "visual-diagnostics")]
     visual_diagnostic: super::diagnostics::VisualDiagnosticMode,
     /// Whether the player asked for reflections. The probe and planar
@@ -1040,6 +1042,8 @@ impl WgpuRenderer {
             entity_lighting_revision: 0,
             fog: LevelFog::global_only(),
             bloom_requested: true,
+            visual_style: 0.0,
+            visual_time: 0.0,
             #[cfg(feature = "visual-diagnostics")]
             visual_diagnostic: super::diagnostics::VisualDiagnosticMode::Final,
             reflections_enabled: true,
@@ -4837,11 +4841,25 @@ impl WgpuRenderer {
         ready
     }
 
+    /// Changes presentation without rebuilding or reducing world quality.
+    pub const fn set_visual_style(&mut self, style: f32, time: f32) {
+        self.visual_style = style;
+        self.visual_time = time;
+    }
+
     fn presentation_settings(&self) -> PostSettings {
         if self.visual_diagnostic_active() {
             PostSettings::DIAGNOSTIC
         } else {
-            PostSettings::from_level(self.installed_level.as_ref()).with_bloom(self.bloom_requested)
+            let mut settings = PostSettings::from_level(self.installed_level.as_ref())
+                .with_bloom(self.bloom_requested);
+            settings.visual_style = self.visual_style;
+            settings.time = if self.visual_style > 0.0 {
+                self.visual_time % 600.0
+            } else {
+                0.0
+            };
+            settings
         }
     }
 

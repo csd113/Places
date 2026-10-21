@@ -130,11 +130,14 @@ fn emit_edges(
                     continue;
                 };
                 let mid = f32::midpoint(start, end);
+                // Equal slabs hide one another. At a drop, the higher slab's
+                // band is already part of the ordinary terrain transition skirt;
+                // retain only the lower slab's exposed structural edge.
                 let covered = edges.iter().any(|other| {
                     other.positive != edge.positive
                         && other.start <= mid
                         && other.end >= mid
-                        && (other.bottom - edge.bottom).abs() < 0.0001
+                        && other.bottom <= edge.bottom + 0.0001
                 });
                 if covered {
                     continue;

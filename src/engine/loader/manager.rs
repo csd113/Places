@@ -115,6 +115,41 @@ impl LevelManager {
         image
     }
 
+    /// Metadata only; reads no prepared world or texture records.
+    pub fn menu_description(&self, index: usize) -> String {
+        let Some(entry) = self.get_menu_entry(index) else {
+            return String::new();
+        };
+        let description = crate::engine::package::project::inspect(&entry.path)
+            .ok()
+            .flatten()
+            .and_then(|package| {
+                package.project.level(Some(&entry.id)).ok().map(|level| {
+                    if level.description.trim().is_empty()
+                        && entry.id == package.project.entry_level
+                    {
+                        package.project.description.clone()
+                    } else {
+                        level.description.clone()
+                    }
+                })
+            })
+            .unwrap_or_default();
+        if description.trim().is_empty() {
+            format!(
+                "{}\n\nA place to explore at your own pace.\n\nBy {}",
+                entry.name,
+                if entry.author.is_empty() {
+                    "an independent creator"
+                } else {
+                    &entry.author
+                }
+            )
+        } else {
+            format!("{}\n\n{}\n\nBy {}", entry.name, description, entry.author)
+        }
+    }
+
     /// Drops optional decoded map-image ownership when returning to the menu.
     pub(crate) fn release_cached_images(&self) {
         *self.texture_cache.borrow_mut() = TextureCache::new();

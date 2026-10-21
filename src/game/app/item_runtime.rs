@@ -697,7 +697,7 @@ impl FrameLoop<'_> {
     }
 
     pub(crate) fn update_physical_items(&mut self) {
-        let delta = if self.gameplay_active() {
+        let delta = if self.simulation_active() {
             self.items
                 .simulation_delta
                 .unwrap_or_else(|| self.visual_delta_seconds())

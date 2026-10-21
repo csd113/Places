@@ -28,8 +28,8 @@ struct PostParams {
     // The reference's `u_grade_contrast`.
     grade_contrast: f32,
     // Explicit tail padding; the struct is 32 bytes, 16-byte-aligned.
-    _padding0: f32,
-    _padding1: f32,
+    visual_style: f32,
+    time: f32,
     _padding2: f32,
 };
 
@@ -148,7 +148,19 @@ fn fs_blur(in: QuadOut) -> @location(0) vec4<f32> {
 // Exposure and the existing shoulder operate on linear HDR scene radiance.
 // The grade remains a presentation-space choice. It is never stored in lightmaps.
 fn resolve_color(in: QuadOut) -> vec3<f32> {
-    var color = textureSample(source_texture, source_sampler, in.uv).rgb;
+    var uv = in.uv;
+    let size = vec2<f32>(textureDimensions(source_texture));
+    if (post.visual_style > 2.5) {
+        // Tape time-base error, chroma bleed and head switching. World resolution stays intact.
+        let band = smoothstep(0.94, 1.0, uv.y);
+        uv.x += sin(uv.y * 210.0 + post.time * 2.1) * 0.0007 + band * sin(post.time * 11.0) * 0.004;
+    }
+    var color = textureSample(source_texture, source_sampler, clamp(uv, vec2<f32>(0.0), vec2<f32>(1.0))).rgb;
+    if (post.visual_style > 2.5) {
+        let shift = vec2<f32>(2.0 / size.x, 0.0);
+        color.r = textureSample(source_texture, source_sampler, uv + shift).r;
+        color.b = textureSample(source_texture, source_sampler, uv - shift).b;
+    }
     if (post.bloom_strength > 0.0) {
         color += textureSample(bloom_texture, bloom_sampler, in.uv).rgb * post.bloom_strength;
     }
@@ -162,7 +174,23 @@ fn resolve_color(in: QuadOut) -> vec3<f32> {
     color = linear_to_srgb(color);
     let luma = dot(color, vec3<f32>(0.2126, 0.7152, 0.0722));
     color = mix(vec3<f32>(luma), color, post.grade_saturation);
-    return clamp((color - 0.5) * post.grade_contrast + 0.5, vec3<f32>(0.0), vec3<f32>(1.0));
+    color = clamp((color - 0.5) * post.grade_contrast + 0.5, vec3<f32>(0.0), vec3<f32>(1.0));
+    if (post.visual_style > 0.5 && post.visual_style < 1.5) {
+        let scan = 0.92 + 0.08 * cos(in.uv.y * size.y * 3.14159265);
+        let mask = 0.96 + 0.04 * cos(in.uv.x * size.x * 2.0943951 + vec3<f32>(0.0, 2.0943951, 4.1887902));
+        let p = in.uv * 2.0 - 1.0;
+        color *= scan * mask * (1.0 - 0.16 * dot(p * p, p * p));
+    } else if (post.visual_style > 1.5 && post.visual_style < 2.5) {
+        // Original display aesthetic: flatter highlights, warm ambient and restrained colour.
+        let grey = dot(color, vec3<f32>(0.299, 0.587, 0.114));
+        color = mix(vec3<f32>(grey), color, 0.78) * vec3<f32>(1.04, 1.0, 0.91);
+        color = floor(clamp(color, vec3<f32>(0.0), vec3<f32>(1.0)) * 31.0 + 0.5) / 31.0;
+    } else if (post.visual_style > 2.5) {
+        let noise = fract(sin(dot(floor(in.uv * size), vec2<f32>(12.9898, 78.233)) + floor(post.time * 24.0)) * 43758.5453) - 0.5;
+        let grey = dot(color, vec3<f32>(0.299, 0.587, 0.114));
+        color = mix(vec3<f32>(grey), color, 0.68) * 0.94 + vec3<f32>(noise * 0.035);
+    }
+    return clamp(color, vec3<f32>(0.0), vec3<f32>(1.0));
 }
 
 @fragment

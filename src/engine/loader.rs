@@ -4151,7 +4151,9 @@ fn validate_action(
         ActionDef::ShowMessage { title, lines } => {
             crate::engine::level::validate_message(title, lines)?;
         }
-        ActionDef::HandoffItem { target } | ActionDef::RetireHidden { target } => {
+        ActionDef::HandoffItem { target }
+        | ActionDef::ReleaseItem { target }
+        | ActionDef::RetireHidden { target } => {
             check_action_target(
                 action_context,
                 Some(target),

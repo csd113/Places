@@ -49,6 +49,48 @@ pub const MIN_WINDOW_EDGE: u32 = 320;
 /// Largest window edge a persisted or selected size may specify.
 pub const MAX_WINDOW_EDGE: u32 = 16_384;
 
+/// Presentation choices never alter the saved quality or lighting preferences.
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum VisualStyle {
+    #[default]
+    Standard,
+    Crt,
+    Legacy,
+    Vhs,
+}
+impl VisualStyle {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Standard => "Standard",
+            Self::Crt => "CRT",
+            Self::Legacy => "Legacy",
+            Self::Vhs => "VHS",
+        }
+    }
+    #[must_use]
+    pub const fn step(self, direction: i32) -> Self {
+        match (self, direction < 0) {
+            (Self::Standard, false) | (Self::Legacy, true) => Self::Crt,
+            (Self::Crt, false) | (Self::Vhs, true) => Self::Legacy,
+            (Self::Legacy, false) | (Self::Standard, true) => Self::Vhs,
+            (Self::Vhs, false) | (Self::Crt, true) => Self::Standard,
+        }
+    }
+    #[must_use]
+    pub const fn shader_value(self) -> f32 {
+        match self {
+            Self::Standard => 0.0,
+            Self::Crt => 1.0,
+            Self::Legacy => 2.0,
+            Self::Vhs => 3.0,
+        }
+    }
+}
+
 /// Environment override selecting the quality level for one process.
 pub const QUALITY_OVERRIDE_ENV: &str = "PLACES_QUALITY";
 /// Environment override disabling the bloom stage for one process.
@@ -510,6 +552,9 @@ pub struct Settings {
     /// process.
     #[serde(default = "default_bloom")]
     pub bloom: bool,
+    /// Aesthetic presentation, independent of texture, lighting and hardware quality.
+    #[serde(default)]
+    pub visual_style: VisualStyle,
     /// Reflections quality: `"off"`, `"medium"` or `"full"`.
     ///
     /// Independent of texture quality. Static lighting suspends reflections
@@ -656,6 +701,7 @@ impl Default for Settings {
             texture_filtering: "high".to_string(),
             quality: default_quality(),
             bloom: default_bloom(),
+            visual_style: VisualStyle::Standard,
             reflections: ReflectionQuality::DEFAULT.name().to_string(),
             lightmaps: LightmapQuality::DEFAULT.name().to_string(),
             use_low_quality_lighting: false,

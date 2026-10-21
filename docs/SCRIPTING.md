@@ -268,3 +268,25 @@ retirement request/state and `whole_assembly_hidden`. Existing character
 animation diagnostics independently report actual actor mesh/shadow presence.
 The older `player_visible` torso query retains its existing perception meaning;
 it never decides carry retirement.
+
+### Explicit performances and physical putdown (0.13.0)
+
+`api.animate(id, clip, looped)` and `api.toggle_animation(id, clip)` stage the
+existing typed animation actions. The target must own an animation component.
+An AI actor yields locomotion to an explicit performance; one-shot completion,
+a new navigation goal, despawn or reset releases that ownership. A carried prop
+continues to follow its real posed hand while pickup/putdown clips play.
+
+`api.release_item(actor)` returns only that actor's original carried body at its
+current socket pose, retaining its render key, scale, physics profile and original
+authored reset destination. Repeats and actors without ownership do nothing.
+The map must coordinate the action with the actual contact phase of its clip;
+there is no runtime IK or inferred surface placement. Reset and unload cancel
+pending performance state. Newly compiled scripts require `script-animation-v1`.
+
+The non-playable bundled menu also permits an actor to collect its own requested
+movable item with `api.handoff(actor)` when the actual body is within 1.7 metres.
+This path is confined to the running application-owned menu world; gameplay
+retains the exact player-held item and aimed-target handoff contract above.
+`projects/menu/scripts/menu.luau` authors a single bounded delayed contact action
+between its five-second beats, without retaining the scoped host API.

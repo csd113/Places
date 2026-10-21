@@ -215,6 +215,20 @@ pub(super) fn host<'scope>(
         )?;
     }
     api.set(
+        "release_item",
+        capability(scope, calls, move |_, value: HostString| {
+            let id = entity(world, value)?;
+            if world
+                .handle_of(&id)
+                .and_then(|handle| world.components().carries.get(handle))
+                .is_none()
+            {
+                return Err(error("Item release requires a carry component"));
+            }
+            push(queue, limit, ActionDef::ReleaseItem { target: id })
+        })?,
+    )?;
+    api.set(
         "actor",
         capability(scope, calls, move |vm, value: HostString| {
             let id = entity(world, value)?;
@@ -249,6 +263,59 @@ pub(super) fn host<'scope>(
             result.set_readonly(true);
             Ok(result)
         })?,
+    )?;
+    api.set(
+        "toggle_animation",
+        capability(
+            scope,
+            calls,
+            move |_, (value, clip): (HostString, HostString)| {
+                let id = entity(world, value)?;
+                let name = text(clip, 96)?;
+                if world
+                    .handle_of(&id)
+                    .and_then(|handle| world.components().animations.get(handle))
+                    .is_none()
+                {
+                    return Err(error("Animation requires an animation component"));
+                }
+                push(
+                    queue,
+                    limit,
+                    ActionDef::ToggleAnimation {
+                        target: Some(id),
+                        clip: Some(name),
+                    },
+                )
+            },
+        )?,
+    )?;
+    api.set(
+        "animate",
+        capability(
+            scope,
+            calls,
+            move |_, (value, clip, looped): (HostString, HostString, Flag)| {
+                let id = entity(world, value)?;
+                let name = text(clip, 96)?;
+                if world
+                    .handle_of(&id)
+                    .and_then(|handle| world.components().animations.get(handle))
+                    .is_none()
+                {
+                    return Err(error("Animation requires an animation component"));
+                }
+                push(
+                    queue,
+                    limit,
+                    ActionDef::PlayAnimation {
+                        target: Some(id),
+                        clip: Some(name),
+                        looped: looped.0,
+                    },
+                )
+            },
+        )?,
     )?;
     api.set(
         "navigate",

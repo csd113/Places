@@ -157,7 +157,9 @@ struct PostParams {
     tone_knee: f32,
     grade_saturation: f32,
     grade_contrast: f32,
-    _padding: [f32; 3],
+    visual_style: f32,
+    time: f32,
+    _padding: f32,
 }
 
 impl PostParams {
@@ -168,7 +170,9 @@ impl PostParams {
             tone_knee: settings.tone_knee,
             grade_saturation: settings.grade_saturation,
             grade_contrast: settings.grade_contrast,
-            _padding: [0.0; 3],
+            visual_style: settings.visual_style,
+            time: settings.time,
+            _padding: 0.0,
         }
     }
 }

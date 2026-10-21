@@ -662,6 +662,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         })
     {
         required.push("carry-assemblies-v1".to_string());
+        if !level.script_sources.is_empty() {
+            required.push("script-animation-v1".to_string());
+        }
     }
     if blobs_have_shared_props(&entries) {
         required.push("props-shared-streams".to_string());

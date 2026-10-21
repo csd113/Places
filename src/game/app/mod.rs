@@ -43,8 +43,8 @@ const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// How often `PLACES_STATE_LOG` records the player state, in frames.
 const STATE_LOG_INTERVAL: u64 = 5;
 
-/// Items in the fixed main menu: Level Select, Settings, Exit.
-const MAIN_MENU_ITEM_COUNT: usize = 3;
+/// Items in the fixed main menu: Explore, Settings, Credits, Exit.
+const MAIN_MENU_ITEM_COUNT: usize = 4;
 
 /// Items in the fixed pause menu: Resume, Settings, Return to Main Menu.
 const PAUSE_MENU_ITEM_COUNT: usize = 3;
@@ -413,11 +413,32 @@ fn configure_vsync(renderer: &mut Renderer, bench: &mut Bench, settings: &Settin
 
 /// Display names of the installed levels, in discovery order.
 fn level_entry_names(level_manager: &loader::LevelManager) -> Vec<String> {
+    let mut projects = std::collections::BTreeMap::new();
     level_manager
         .menu_entries()
         .iter()
-        .map(|entry| entry.name.clone())
+        .map(|entry| {
+            let prefix = projects.entry(&entry.path).or_insert_with(|| {
+                crate::engine::package::project::inspect(&entry.path)
+                    .ok()
+                    .flatten()
+                    .map(|project| format!("{} / ", project.project.name))
+            });
+            prefix
+                .as_deref()
+                .and_then(|project_prefix| entry.name.strip_prefix(project_prefix))
+                .unwrap_or(&entry.name)
+                .to_string()
+        })
         .collect()
+}
+
+fn settings_save_problem(error: &std::io::Error) -> String {
+    let path =
+        Settings::default_path().map_or_else(|problem| problem, |path| path.display().to_string());
+    format!(
+        "Your preferences could not be saved.\nCheck that the settings file and its folder are writable, then try again.\n\nSettings file:\n{path}\n\nTechnical details:\n{error}"
+    )
 }
 
 /// UI state seeded with the installed level names.
@@ -842,7 +863,31 @@ impl FrameLoop<'_> {
             .record("shutdown_complete", self.load_generation, "");
     }
 
+    fn record_menu_beat(&mut self) {
+        if !self.trace.is_recording() || !self.menu_world() {
+            return;
+        }
+        let beat = self
+            .game
+            .entities()
+            .handle_of("guest")
+            .and_then(|handle| self.game.entities().components().states.get(handle))
+            .and_then(|state| state.get("beat"))
+            .and_then(|state| {
+                if let crate::engine::entities::components::StateValue::Int(value) = state {
+                    Some(*value)
+                } else {
+                    None
+                }
+            });
+        if beat != self.ui_state.observed_menu_beat {
+            self.ui_state.observed_menu_beat = beat;
+            self.trace_world("menu_beat");
+        }
+    }
+
     fn record_diagnostic_context(&mut self) {
+        self.record_menu_beat();
         if self.diagnostic_state != Some(self.game.app_state())
             || self.diagnostic_tick.elapsed() >= std::time::Duration::from_secs(15)
         {
@@ -946,15 +991,23 @@ impl FrameLoop<'_> {
         {
             self.game.set_benchmark_simulation_delta(delta);
         }
-        if !self.gameplay_active() {
+        if !self.simulation_active() {
             self.game.reset_timing();
         }
+        self.renderer.set_visual_style(
+            self.settings.visual_style.shader_value(),
+            self.ready_seconds,
+        );
         self.update_audio_mix();
         let _clock_updated = self
             .game
             .set_world_time_scale(self.items.world.simulation_state().time_scale);
         if !self.console.is_open() {
             self.update_player_input();
+        }
+        if self.menu_active() {
+            self.ready_seconds = (self.ready_seconds + self.game.sim_delta_seconds()).min(1.0e6);
+            self.game.update_menu_world();
         }
         self.reconcile_gameplay_reset();
         self.log_player_state();
@@ -1017,6 +1070,9 @@ impl FrameLoop<'_> {
         }
         if self.reconcile_audio_reset() {
             self.reset_carry_assemblies();
+            if self.menu_world() {
+                self.reset_menu_items();
+            }
             self.flashlight = flashlight::Power::Off;
             self.outcome = None;
             self.message = None;
@@ -1055,6 +1111,42 @@ impl FrameLoop<'_> {
         }
     }
 
+    fn reset_menu_items(&mut self) {
+        let groups = self
+            .current_level
+            .as_ref()
+            .map(|loaded| {
+                loaded
+                    .level
+                    .physics_reset_groups()
+                    .map(str::to_string)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        for group in groups {
+            self.reset_item_group(&group);
+        }
+    }
+
+    fn menu_world(&self) -> bool {
+        self.current_level
+            .as_ref()
+            .is_some_and(|world| world.level.id == "places_menu")
+    }
+    fn menu_active(&self) -> bool {
+        self.menu_world()
+            && self.startup == StartupPhase::Ready
+            && self.load_intent.is_none()
+            && self.window_focused
+            && matches!(
+                self.game.app_state(),
+                AppState::MainMenu | AppState::LevelSelect | AppState::Settings
+            )
+    }
+    fn simulation_active(&self) -> bool {
+        self.gameplay_active() || self.menu_active()
+    }
+
     /// The common clock/input gate; world scaling is applied only after this gate.
     fn gameplay_active(&self) -> bool {
         self.outcome.is_none()
@@ -1067,7 +1159,7 @@ impl FrameLoop<'_> {
 
     /// Advances weather controls only while the loaded world is playing.
     fn advance_weather(&mut self) {
-        let delta = if self.gameplay_active() {
+        let delta = if self.simulation_active() {
             self.game.world_delta_seconds()
         } else {
             0.0
@@ -1080,7 +1172,7 @@ impl FrameLoop<'_> {
 
     /// Advances controlled visual time only while the diagnostic world is playing.
     fn visual_delta_seconds(&self) -> f32 {
-        if !self.gameplay_active() {
+        if !self.simulation_active() {
             return 0.0;
         }
         self.bench
@@ -1228,6 +1320,9 @@ impl FrameLoop<'_> {
                 }
                 crate::engine::entities::WorldCommand::HandoffItem { target } => {
                     self.handoff_item(&target);
+                }
+                crate::engine::entities::WorldCommand::ReleaseItem { target } => {
+                    self.release_carried_item(&target);
                 }
                 crate::engine::entities::WorldCommand::RetireHidden { target } => {
                     self.request_carry_retirement(&target);
@@ -1410,6 +1505,10 @@ impl FrameLoop<'_> {
                 .set_status(format!("Could not change the window: {error}"), true);
         }
         if apply.audio {
+            self.renderer.set_visual_style(
+                self.settings.visual_style.shader_value(),
+                self.ready_seconds,
+            );
             self.update_audio_mix();
         }
         if apply.vsync {
@@ -2036,6 +2135,9 @@ impl FrameLoop<'_> {
                     y: _
                 }
             );
+            if !down {
+                self.ui_state.volume_drag = None;
+            }
             if let Some(clicked) = self.ui_state.pointer.button(down, hit) {
                 self.activate_menu_hit(clicked);
                 self.sync_menu_pointer();
@@ -2046,32 +2148,7 @@ impl FrameLoop<'_> {
         if self.game.app_state() == AppState::Playing {
             return false;
         }
-        if let Event::MouseMotion {
-            x,
-            y,
-            xrel,
-            yrel,
-            timestamp: _,
-            window_id: _,
-            which: _,
-            mousestate: _,
-        } = event
-        {
-            // SDL emits stationary/synthetic events when capture changes. They
-            // must not replace keyboard selection or hover on menu opening.
-            if self.window_focused && (xrel.abs() > 0.0 || yrel.abs() > 0.0) {
-                let hit = self.menu_hit(*x, *y);
-                if self.ui_state.pointer.motion([*x, *y], hit)
-                    && let Some(hovered) = hit
-                    && matches!(
-                        hovered.intent,
-                        ui::MenuIntent::Activate | ui::MenuIntent::Adjust(_)
-                    )
-                {
-                    self.ui_state
-                        .select_menu_index(self.game.app_state(), hovered.index);
-                }
-            }
+        if self.handle_menu_motion(event) {
             return true;
         }
         if let Event::MouseWheel {
@@ -2095,10 +2172,54 @@ impl FrameLoop<'_> {
                 && *y != 0.0
             {
                 let flipped = *direction == MouseWheelDirection::Flipped;
-                self.ui_state.scroll_menu(
-                    self.game.app_state(),
-                    if (*y > 0.0) == flipped { 1 } else { -1 },
-                );
+                let step = if (*y > 0.0) == flipped { 1_i32 } else { -1_i32 };
+                if self
+                    .menu_hit(*mouse_x, *mouse_y)
+                    .is_some_and(|hit| matches!(hit.intent, ui::MenuIntent::Page(_)))
+                {
+                    self.ui_state.scroll_details(step);
+                } else {
+                    self.ui_state.scroll_menu(self.game.app_state(), step);
+                }
+            }
+            return true;
+        }
+        false
+    }
+
+    fn handle_menu_motion(&mut self, event: &Event) -> bool {
+        if let Event::MouseMotion {
+            x,
+            y,
+            xrel,
+            yrel,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            mousestate: _,
+        } = event
+        {
+            // SDL emits stationary/synthetic events when capture changes. They
+            // must not replace keyboard selection or hover on menu opening.
+            if self.window_focused && (xrel.abs() > 0.0 || yrel.abs() > 0.0) {
+                let hit = self.menu_hit(*x, *y);
+                if self.ui_state.volume_drag.is_some()
+                    && let Some(slider) = hit
+                    && matches!(slider.intent, ui::MenuIntent::Volume(_))
+                {
+                    self.activate_menu_hit(slider);
+                    return true;
+                }
+                if self.ui_state.pointer.motion([*x, *y], hit)
+                    && let Some(hovered) = hit
+                    && matches!(
+                        hovered.intent,
+                        ui::MenuIntent::Activate | ui::MenuIntent::Adjust(_)
+                    )
+                {
+                    self.ui_state
+                        .select_menu_index(self.game.app_state(), hovered.index);
+                }
             }
             return true;
         }
@@ -2107,6 +2228,16 @@ impl FrameLoop<'_> {
 
     fn activate_menu_hit(&mut self, clicked: ui::MenuHit) {
         match clicked.intent {
+            ui::MenuIntent::Dismiss => {
+                self.ui_state.clear_status();
+                self.ui_state.credits = None;
+            }
+            ui::MenuIntent::Page(direction) => self.ui_state.scroll_details(direction),
+            ui::MenuIntent::Volume(percent) => {
+                self.ui_state.volume_drag = Some(());
+                let _changed = self.settings.set_master_volume(f32::from(percent) / 100.0);
+                self.save_settings();
+            }
             ui::MenuIntent::CancelRebind => self.ui_state.cancel_rebinding(),
             ui::MenuIntent::CancelLoad => self.cancel_loading(),
             ui::MenuIntent::Scroll(direction) => {
@@ -2336,6 +2467,7 @@ impl FrameLoop<'_> {
             }
             if matches!(win_event, WindowEvent::FocusLost) {
                 self.window_focused = false;
+                self.ui_state.volume_drag = None;
                 self.game.reset_timing();
                 self.close_console();
                 // A key released while another window had focus may never
@@ -2431,11 +2563,10 @@ impl FrameLoop<'_> {
             return true;
         }
 
-        if self.handle_graphics_key_release(event) {
-            return true;
-        }
-
-        if self.handle_console_event(event) {
+        if self.handle_graphics_key_release(event)
+            || self.handle_console_event(event)
+            || self.handle_menu_details_key(event)
+        {
             return true;
         }
 
@@ -2490,6 +2621,34 @@ impl FrameLoop<'_> {
         self.sync_menu_pointer();
         self.sync_mouse_capture();
         true
+    }
+
+    fn handle_menu_details_key(&mut self, event: &Event) -> bool {
+        if self.game.app_state() == AppState::LevelSelect
+            && matches!(
+                event,
+                Event::KeyDown {
+                    keycode: Some(Keycode::Tab),
+                    repeat: false,
+                    timestamp: _,
+                    window_id: _,
+                    scancode: _,
+                    keymod: _,
+                    which: _,
+                    raw: _
+                }
+            )
+        {
+            let pages = ui::description_pages(&self.ui_state.level_description);
+            self.ui_state.description_page = self
+                .ui_state
+                .description_page
+                .saturating_add(1)
+                .checked_rem(pages)
+                .unwrap_or(0);
+            return true;
+        }
+        false
     }
 
     fn handle_guidance_event(&mut self, event: &Event) -> bool {
@@ -2641,7 +2800,7 @@ impl FrameLoop<'_> {
                             .set_status(format!("Bound {label} to [{key_str}]"), false);
                         if let Err(error) = self.settings.save() {
                             self.ui_state
-                                .set_status(format!("Could not save settings: {error}"), true);
+                                .set_status(settings_save_problem(&error), true);
                         }
                     }
                     Err(err) => {
@@ -2655,11 +2814,53 @@ impl FrameLoop<'_> {
 
     /// Dispatches one menu navigation event for the current screen.
     fn handle_menu_nav(&mut self, nav: MenuNavEvent) {
+        if self.ui_state.status_is_error {
+            match nav {
+                MenuNavEvent::Activate | MenuNavEvent::Back => self.ui_state.clear_status(),
+                MenuNavEvent::Up | MenuNavEvent::Left => {
+                    self.ui_state.status_page = self.ui_state.status_page.saturating_sub(1);
+                }
+                MenuNavEvent::Down | MenuNavEvent::Right => {
+                    self.ui_state.scroll_details(1);
+                }
+            }
+            return;
+        }
+        if self.ui_state.credits.is_some() {
+            self.ui_state.credits = None;
+            return;
+        }
         match nav {
-            MenuNavEvent::Up => self.cycle_selection(true),
-            MenuNavEvent::Down => self.cycle_selection(false),
-            MenuNavEvent::Left => self.adjust_settings(-1),
-            MenuNavEvent::Right => self.adjust_settings(1),
+            MenuNavEvent::Up => {
+                self.cycle_selection(true);
+                if self.game.app_state() == AppState::LevelSelect
+                    && self.ui_state.level_select_idx < self.ui_state.level_entries.len()
+                {
+                    self.cycle_selection(true);
+                }
+            }
+            MenuNavEvent::Down => {
+                self.cycle_selection(false);
+                if self.game.app_state() == AppState::LevelSelect
+                    && self.ui_state.level_select_idx < self.ui_state.level_entries.len()
+                {
+                    self.cycle_selection(false);
+                }
+            }
+            MenuNavEvent::Left => {
+                if self.game.app_state() == AppState::LevelSelect {
+                    self.cycle_selection(true);
+                } else {
+                    self.adjust_settings(-1);
+                }
+            }
+            MenuNavEvent::Right => {
+                if self.game.app_state() == AppState::LevelSelect {
+                    self.cycle_selection(false);
+                } else {
+                    self.adjust_settings(1);
+                }
+            }
             MenuNavEvent::Activate => self.activate(),
             MenuNavEvent::Back => {
                 let in_settings = matches!(
@@ -2752,7 +2953,7 @@ impl FrameLoop<'_> {
     fn save_settings(&mut self) {
         if let Err(error) = self.settings.save() {
             self.ui_state
-                .set_status(format!("Could not save settings: {error}"), true);
+                .set_status(settings_save_problem(&error), true);
         }
     }
 
@@ -2846,6 +3047,12 @@ impl FrameLoop<'_> {
             )
         {
             self.unload_world_for_menu();
+            match menu_entry() {
+                Ok(entry) => {
+                    self.request_load(loading::Source::entry(entry), LoadIntent::Background);
+                }
+                Err(error) => self.ui_state.set_status(error, true),
+            }
         }
         self.game.set_app_state(state);
     }
@@ -2866,6 +3073,7 @@ impl FrameLoop<'_> {
     }
 
     fn unload_world_for_menu(&mut self) {
+        self.startup = StartupPhase::Preparing;
         self.track_retired_world();
         self.loader.cancel();
         self.renderer.cancel_prepared_install();
@@ -2914,13 +3122,15 @@ impl FrameLoop<'_> {
                 self.ui_state.advanced_expanded = false;
                 self.goto(AppState::Settings);
             }
-            2 => self.game.stop(),
+            2 => self.ui_state.credits = Some(()),
+            3 => self.game.stop(),
             _ => {}
         }
     }
 
     /// Refreshes the cached level names from the manager.
     fn refresh_level_entries(&mut self) {
+        self.ui_state.description_index = None;
         self.ui_state.level_entries = level_entry_names(self.level_manager);
         self.ui_state.level_select_idx = self
             .ui_state
@@ -2988,7 +3198,11 @@ impl FrameLoop<'_> {
         match self.loader.request(request) {
             Ok(id) => {
                 if self.load_intent.is_none() {
-                    self.load_return_state = self.game.app_state();
+                    self.load_return_state = if matches!(intent, LoadIntent::Background) {
+                        AppState::MainMenu
+                    } else {
+                        self.game.app_state()
+                    };
                 }
                 self.renderer.cancel_prepared_install();
                 self.pending_commit = None;
@@ -3431,6 +3645,11 @@ impl FrameLoop<'_> {
                 loaded.level.props.iter().zip(ids).filter(|(prop,_)| !prop.is_physics_movable()).map(|(prop,id)| serde_json::json!({"id":id,"model":prop.model,"entity_live":self.game.entities().handle_of(&id).is_some()})).collect::<Vec<_>>()
             }).unwrap_or_default();
             drop(fields.insert("fixed_instances".into(), fixed_instances.into()));
+            drop(fields.insert(
+                "menu_beat".into(),
+                serde_json::json!(self.ui_state.observed_menu_beat),
+            ));
+            drop(fields.insert("menu_ui".into(),serde_json::json!({"level_count":self.ui_state.level_entries.len(),"level_index":self.ui_state.level_select_idx,"scroll":self.ui_state.level_scroll,"description_page":self.ui_state.description_page,"status":self.ui_state.status_message,"status_is_error":self.ui_state.status_is_error,"status_page":self.ui_state.status_page,"credits":self.ui_state.credits.is_some()})));
             self.append_authoring_trace(fields);
             drop(fields.insert(
                 "physics_clock".into(),
@@ -3564,6 +3783,7 @@ impl FrameLoop<'_> {
                 self.game.set_app_state(AppState::Playing);
             }
             self.ready_frames = 0;
+            self.ready_seconds = 0.0;
         }
         // A commit or a graphics rebuild re-bakes the authored fixture states;
         // push the run's live switch states again so a rebuild can never
@@ -3586,9 +3806,15 @@ impl FrameLoop<'_> {
         // newer selection). The state-driven reconciliation compares the
         // request with the renderer's real state and schedules what remains.
         log_prop_usage(self.renderer);
+        let retiring_menu = self.menu_world() && matches!(intent, LoadIntent::Play);
         self.track_retired_world();
         *self.current_level = Some(loaded);
         self.displayed_lease = Some(lease);
+        // Gameplay keeps its active lease; the tiny menu has no reason to
+        // remain in the worker LRU once its simulation and GPU world retire.
+        if retiring_menu && let Err(error) = self.loader.release_retained() {
+            logging::warn(error);
+        }
         self.ui_state.current_map = self
             .current_level
             .as_ref()
@@ -3713,8 +3939,22 @@ impl FrameLoop<'_> {
     }
 
     fn sync_menu_images(&mut self) {
+        if self.game.app_state() == AppState::LevelSelect
+            && self.ui_state.description_index != Some(self.ui_state.level_select_idx)
+        {
+            self.ui_state.description_index = Some(self.ui_state.level_select_idx);
+            let description = self
+                .level_manager
+                .menu_description(self.ui_state.level_select_idx);
+            if description != self.ui_state.level_description {
+                self.ui_state.level_description = description;
+                self.ui_state.description_page = 0;
+            }
+        }
         let images = if self.game.app_state() == AppState::LevelSelect
             && !self.ui_state.loading_map
+            && !self.ui_state.status_is_error
+            && self.ui_state.credits.is_none()
             && self.startup == StartupPhase::Ready
         {
             ui::menu_layout(
@@ -3923,7 +4163,7 @@ impl FrameLoop<'_> {
                 "player_eye": player.to_array(),
                 "render_eye": eye,
                 "render_yaw_pitch_degrees": [yaw, pitch],
-                "fov_degrees": self.settings.fov_degrees,
+                "fov_degrees": self.frame_camera().vertical_fov_degrees,
                 "doors": doors,
                 "light_states": self.game.light_states(),
             })
@@ -4086,7 +4326,11 @@ impl FrameLoop<'_> {
             render_position,
             render_yaw,
             render_pitch,
-            self.settings.fov_degrees,
+            if self.menu_world() {
+                55.0
+            } else {
+                self.settings.fov_degrees
+            },
         )
     }
 
@@ -4278,7 +4522,7 @@ fn select_initial_level(
 ) -> (Option<loader::LevelEntry>, bool) {
     let normalized = requested.map(str::trim).filter(|value| !value.is_empty());
     normalized.map_or_else(
-        || (entries.first().cloned(), false),
+        || (None, false),
         |value| {
             let entry = entries
                 .iter()
@@ -4315,7 +4559,22 @@ fn initial_level(level_manager: &loader::LevelManager) -> (Option<loader::LevelE
             "Requested map is not installed. Open Explore to choose or import a .placesmap.",
         );
     }
-    selection
+    if selection.0.is_none() {
+        (menu_entry().ok(), false)
+    } else {
+        selection
+    }
+}
+
+/// The small non-playable scene is an application resource, outside gameplay discovery.
+fn menu_entry() -> Result<loader::LevelEntry, String> {
+    Ok(loader::LevelEntry {
+        id: "places_menu".to_string(),
+        name: "A few places, all at once".to_string(),
+        author: "Places".to_string(),
+        source_type: loader::LevelSourceType::Bundled,
+        path: crate::engine::paths::assets()?.join("shared/menu/scene.bin"),
+    })
 }
 
 /// Opens only the resolved import directory, without a shell or arbitrary command.

@@ -16,6 +16,8 @@ pub struct Recording {
     stride: u16,
     start: u64,
     source_frame: u64,
+    interval: Option<std::time::Duration>,
+    next_capture: std::time::Instant,
 }
 
 pub struct VideoFrame {
@@ -68,11 +70,22 @@ impl Recording {
             path,
             sink: None,
             size: (width, height),
-            remaining: bounded_env("PLACES_BENCH_VIDEO_FRAMES", 600, 1, 900)?,
+            remaining: bounded_env("PLACES_BENCH_VIDEO_FRAMES", 600, 1, 1800)?,
             captured: 0,
             stride: bounded_env("PLACES_BENCH_VIDEO_STRIDE", 2, 1, 4)?,
             start: u64::from(bounded_env("PLACES_BENCH_VIDEO_START_FRAME", 0, 0, 3600)?),
             source_frame: 0,
+            interval: if std::env::var_os("PLACES_BENCH_VIDEO_INTERVAL_MS").is_some() {
+                Some(std::time::Duration::from_millis(u64::from(bounded_env(
+                    "PLACES_BENCH_VIDEO_INTERVAL_MS",
+                    500,
+                    100,
+                    5000,
+                )?)))
+            } else {
+                None
+            },
+            next_capture: std::time::Instant::now(),
         })
     }
 
@@ -92,6 +105,15 @@ impl Recording {
                 .is_multiple_of(u64::from(self.stride))
         {
             return Ok(None);
+        }
+        if let Some(interval) = self.interval {
+            let now = std::time::Instant::now();
+            if now < self.next_capture {
+                return Ok(None);
+            }
+            self.next_capture = now
+                .checked_add(interval)
+                .ok_or("native video deadline overflow")?;
         }
         let image = read_frame()?;
         if (image.width, image.height) != self.size
@@ -171,9 +193,10 @@ impl crate::game::app::FrameLoop<'_> {
         // Only this explicit recorder paces ready frames to 60 Hz. The native
         // action clock and fixed 1/60 simulation then match the 30 fps stream
         // sampled every other frame, without inserting or duplicating frames.
+        let pace = recording.interval.is_none();
         let pause =
             std::time::Duration::from_nanos(16_666_667).saturating_sub(frame_begin.elapsed());
-        if !pause.is_zero() {
+        if pace && !pause.is_zero() {
             std::thread::sleep(pause);
         }
         match result {

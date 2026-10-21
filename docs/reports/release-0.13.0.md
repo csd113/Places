@@ -1971,3 +1971,128 @@ stage packages remain. Their SHA256 identities and exact release binaries are
 in the final handoff. The next menu owner can start at
 `src/game/settings.rs:1260` and `src/game/app/audio_runtime.rs` for the existing
 persistent master control/mix path.
+
+
+## Main menu, miniature and visual styles stage
+
+Both supplied PNGs were inspected as actual pixels. The UI original is the
+preserved local image from “Draft Places menu concept art”; the scene reference
+was materialized on this Mac through the Library download helper. The native
+menu uses the reference's cream/yellow restrained palette, compact pixel Places
+wordmark, slogan and left-side Explore, Settings, Credits and Exit. The wordmark
+is composed with the committed font atlas; three unsuccessful generated alpha
+cutouts remain local and are not shipped. There is no main-page level carousel.
+Explore has a separate four-card grid, actual package thumbnails, a font-atlas
+fallback, full paged descriptions, pinned import/back actions and keyboard
+navigation. Its metadata/image reads do not prepare the collection's worlds.
+
+The application owns an independent 8.02 MB prepared scene at
+`assets/shared/menu/scene.bin`, authored in `projects/menu`. Office, Pool, Home
+and Arcade are its four spatial depth layers. It uses the rebuilt catalog,
+a recessed flowing pool with caustics, practical fixtures, six mannequins,
+five pickup items, three reusable buoyant ducks and the real folding closet.
+The camera is fixed at `(0,1.6,3.5)` with a 55° vertical lens. The resource is
+packaged under shared assets and does not need any gameplay package or checkout.
+
+The Luau module contains 120 five-second cues across twelve vignettes: delivery,
+books, towels, a cushion/closet inspection, Arcade prizes, duck flotillas,
+greetings, coordinated crossings and closing rounds. These are 120 chronological
+beats, rather than 120 unrelated complete encounters. One pending contact action
+aligns a real pickup/putdown clip with transfer at 0.9 seconds. Carried objects
+use posed hand sockets; putdown restores the same key, mass, scale and authored
+reset position to the ordinary solver. The menu-only pickup rule cannot bypass
+normal gameplay's held-item and reach requirements. No script spawns entities
+or accumulates timers. Reset at 600 seconds cancels the VM's pending work and
+restores actors, item groups, closet, lamps, navigation and audio.
+
+Main/Explore/settings advance only the menu world; gameplay replaces its
+simulation and GPU resources and explicitly releases worker cache ownership.
+Pause/settings retain gameplay. Return unloads gameplay through the recent
+cleanup path and loads a fresh menu scene. Existing lighting invalidation is
+preserved. The basin review exposed overlapping upper structural bands and
+terrain skirts; correcting face ownership removes the duplicate without
+changing collision backing. Geometry revision is now 5. The menu geometry
+check reports zero errors and zero warnings. The first full native cycle caught
+an unreachable Pool starting position and an off-camera closet; final authoring
+clears the attendant, moves the Home alcove into view and separates the Office
+desk from actor traffic. The original full-cycle recording is preserved. Existing gameplay packages remain
+readable; final integration owns rebaking those sources against the revision.
+
+Standard, CRT, Legacy and VHS are separate persisted presentation styles. CRT
+adds scanline/mask/vignette treatment; Legacy supplies a warmer reduced display
+palette; VHS adds chroma/time-base/head-switch/noise treatment. They use the
+existing postprocessing path and leave quality, textures, lightmaps, reflections
+and bloom independently selected. Legacy is a display treatment, not a revival
+of an older lighting solver. Main and pause Audio pages share a draggable master
+slider and keyboard adjustment, routed through the already verified persistent
+Kira master gain. No competing audio volume path was added.
+
+Errors retain their complete message, wrap long path components and page with
+reachable dismissal controls. Native inspection includes an 858-character path
+at 480×270 logical / 960×540 physical pixels, both pages and dismissal. Other
+receipts cover zero maps, missing thumbnails, 64-member browsing to the final
+card, paged descriptions, resize, cancellation, Credits and two full menu →
+Explore → play → pause/settings → return round trips. Gameplay has zero menu
+script modules; paused settings keep the same gameplay world.
+
+Final acceptance ran for **611.004 seconds**, observed beats 1–120, reset at
+600.611 seconds from launch, and continued into the next cycle. The 1600×900
+recording contains **1,217 frames at a nominal 2 fps / 608.5 encoded seconds**;
+it samples the actual uncapped renderer every 500 ms and is not an FPS test.
+Chronological dense frame sheets cover the whole cycle, with separate full-size
+pickup/putdown, Home and final-reset views. All six actors move; all five carriers
+succeed. Receipts record 19 handoffs (including the next cycle), 14 physical
+putdowns, no script diagnostics, one module, at most eight physical bodies,
+567,360–649,160 sampled VM bytes and zero sampled item penetration. Peak sampled
+process RSS over the full trace is 474,120,192 bytes; this is not total GPU/system
+memory. No objects or script histories accumulate. The original two recordings
+remain alongside the final one.
+
+Final native checks repeat both gameplay round trips and confirm zero retired
+menu owners during gameplay and zero retired gameplay owners after returning.
+Pause/settings preserve the gameplay clock/world; native focus diagnostics stop
+and resume the menu clock. Main and pause Audio show the shared master slider;
+restart retains zero, with **260,096 float PCM samples all exactly zero** while
+effects/ambience remain 0.8/0.6. Style selection through the UI persists VHS and
+retains High quality and Full lighting. The final flat distribution runs from
+`/tmp/places-menu-ui-0130-shipping/Places/places`, cwd `/tmp`, with no asset-root
+override and zero gameplay maps. Flat/app distributions, compiler and editor are
+retained in `local/menu-ui-0.13.0/payload-shipping/`.
+
+The final separate 1,800-frame native cost sample uses actual Immediate
+presentation, swap interval 0, 1600×900 physical / 800×450 logical pixels,
+High quality/textures, Full lighting/reflections and bloom, with no limiter,
+recording or capture. It observes a 1.713 ms mean loop (583.74 frames/s),
+0.431 ms update, 1.120 ms CPU-side render submission/wait and 1.394 ms GPU pass
+span mean (1.370 ms median, 1.487 ms p95). This is a short tiny-scene sample,
+not an engine-wide result or comparison. Earlier otherwise matched samples
+plateaued near 120 Hz despite Immediate and are retained as inconclusive;
+the presentation change is not attributed to an engine improvement. GPU spans
+include scheduling stalls and are not active utilization.
+
+Final gates pass: `cargo fmt --all -- --check`, strict all-target/all-feature
+Clippy with `-D warnings`, `cargo test --workspace` (238 passing; 0.44 seconds of
+fixture execution, no shipped-map bake), and the locked release workspace build.
+The final menu package passes dependency integrity and `verify --require-current`;
+its fingerprint is `4b70a6f853575ad79cfdbd2238c47ffff053bc9250b565ae03c4f164dcab4a52`.
+
+Library saving failed at preparation in the required unchanged batch-helper
+workflow: **`library upload failed: prepare_uploads failed`**. The one ordered
+19-file batch included this stage's ten screenshots, cycle overview and complete
+video plus the seven preserved editor/stair files (their one authorized retry).
+No confirmed Library IDs were returned; no alternate transfer path or additional
+retry was used. The 43,959,967-byte local delivery set, exact request/result/log
+and delivery-status JSON remain under the stage evidence directory. This is the
+remaining delivery blocker. Other boundaries are the font-atlas reconstruction
+rather than a shipped raster logo cutout, nominal 2 fps diagnostic video,
+unvalidated Windows/Linux native behavior, and final integrated CI/collection
+rebakes reserved for the following queue stage.
+
+All evidence is under `local/menu-ui-0.13.0/`, outside target. Earlier failed
+runs, generated cutouts and previous stage packages remain. The two unrelated
+untracked Python audit reports retain their exact SHA256 identities. No CI wait,
+main merge, release, force push, credential change, ragdoll work or architecture
+project #31 was started. Ragdolls remain second to last, followed by documentation
+cleanup and final integrated checks. Exact commit, verified remote identity,
+binary/package hashes, confirmed Library IDs or delivery blockers and ownership
+release are recorded in the final on-disk handoff after publication.

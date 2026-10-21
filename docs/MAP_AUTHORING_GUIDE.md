@@ -8997,3 +8997,21 @@ cue distances in metres (`0 <= near < far <= 1000`). Omission preserves the cue;
 non-positional sources ignore distance. Editor Configure exposes Near/Far and
 Gain; trigger-started playback uses the same override. Kira, the 48-voice bound,
 category gains and persisted master gain remain shared by all game audio.
+
+### Non-playable menu composition and structural edge ownership (0.13.0)
+
+`projects/menu/` is the explicit offline source of the fixed application menu
+scene. It contains four depth layers, Office → Pool → Home → Arcade; the shallow
+closet alcove belongs to the Home layer. The application owns its separate
+`assets/shared/menu/scene.bin` prepared resource, outside gameplay discovery.
+Ordinary Cargo compilation and tests never bake it. Build/verify it explicitly
+with `places-compile build projects/menu --out <local-package>` and
+`places-compile verify projects/menu --package <local-package> --require-current`,
+then publish the validated bytes to that fixed resource path. It uses existing
+catalog models/PNGs, a real Full atlas and probes, and the ordinary Static variant.
+
+Geometry revision 5 removes structural backing bands already owned by a higher
+floor's real terrain skirt at a recess/step. Equal adjacent slab edges remain
+hidden; the lower slab retains its exposed lower edge. Physical backing and
+walking elevations are unchanged. Prior prepared geometry must be rebuilt for
+current-source verification; this does not relax collision or checker rules.

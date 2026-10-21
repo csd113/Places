@@ -1,0 +1,1249 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "places_menu",
+  "name": "A few places, all at once",
+  "author": "Places",
+  "spawn": {
+    "x": 0,
+    "z": 3.5,
+    "yaw_degrees": 0
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "environment": {
+    "presentation": {
+      "exposure": 1,
+      "tone_knee": 0.8,
+      "saturation": 1.01,
+      "contrast": 1.02
+    },
+    "fog": {
+      "color": [
+        0.14,
+        0.18,
+        0.2
+      ],
+      "density": 0.003,
+      "reference_y": 0,
+      "height_gain": 0
+    }
+  },
+  "rooms": [
+    {
+      "x": -3,
+      "z": 0,
+      "width": 6,
+      "depth": 5,
+      "height": 3.1,
+      "material": "core:carpet_beige_01",
+      "ceiling_material": "core:ceiling_panel_01"
+    },
+    {
+      "x": -3,
+      "z": -4,
+      "width": 6,
+      "depth": 4,
+      "height": 3.1,
+      "material": "core:pool_tile_deck_01",
+      "ceiling_material": "core:pool_ceiling_01"
+    },
+    {
+      "x": -1.8,
+      "z": -7.3,
+      "width": 4.8,
+      "depth": 3.3,
+      "height": 3.1,
+      "material": "home:hardwood_walnut_02",
+      "ceiling_material": "home:ceiling_plaster_01"
+    },
+    {
+      "x": -3,
+      "z": -10.5,
+      "width": 6,
+      "depth": 3.2,
+      "height": 3.1,
+      "material": "arcade:carpet_retro_swirl_01",
+      "ceiling_material": "arcade:ceiling_acoustic_01"
+    },
+    {
+      "x": -2.6,
+      "z": -6.64,
+      "width": 0.8,
+      "depth": 1.98,
+      "height": 3.1,
+      "material": "home:hardwood_walnut_02",
+      "ceiling_material": "home:ceiling_plaster_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": -3.2,
+      "z": 0,
+      "width": 0.2,
+      "depth": 5,
+      "height": 3.1,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 3,
+      "z": 0,
+      "width": 0.2,
+      "depth": 5,
+      "height": 3.1,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": -3,
+      "z": 0,
+      "width": 6,
+      "depth": 0.2,
+      "height": 3.1,
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 1.2,
+          "width": 3.6,
+          "height": 2.75,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": -3.2,
+      "z": -4,
+      "width": 0.2,
+      "depth": 4,
+      "height": 3.1,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": 3,
+      "z": -4,
+      "width": 0.2,
+      "depth": 4,
+      "height": 3.1,
+      "material": "core:pool_tile_wall_01"
+    },
+    {
+      "x": -3,
+      "z": -4,
+      "width": 6,
+      "depth": 0.2,
+      "height": 3.1,
+      "material": "core:pool_tile_wall_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 1.5,
+          "width": 3,
+          "height": 2.75,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": -2.0,
+      "z": -7.3,
+      "width": 0.2,
+      "depth": 3.3,
+      "height": 3.1,
+      "material": "home:wall_paint_offwhite_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 0.67,
+          "width": 1.96,
+          "height": 2.18,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": 3,
+      "z": -7.3,
+      "width": 0.2,
+      "depth": 3.3,
+      "height": 3.1,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": -3,
+      "z": -7.3,
+      "width": 6,
+      "depth": 0.2,
+      "height": 3.1,
+      "material": "home:wall_paint_offwhite_01",
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 1.5,
+          "width": 3,
+          "height": 2.75,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": -3.2,
+      "z": -10.5,
+      "width": 0.2,
+      "depth": 3.2,
+      "height": 3.1,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": 3,
+      "z": -10.5,
+      "width": 0.2,
+      "depth": 3.2,
+      "height": 3.1,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": -3,
+      "z": 5,
+      "width": 6,
+      "depth": 0.2,
+      "height": 3.1,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": -3,
+      "z": -10.7,
+      "width": 6,
+      "depth": 0.2,
+      "height": 3.1,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": -2.5999999999999996,
+      "z": -6.84,
+      "width": 0.6,
+      "depth": 0.2,
+      "height": 3.1,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": -2.5999999999999996,
+      "z": -4.66,
+      "width": 0.6,
+      "depth": 0.2,
+      "height": 3.1,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": -2.8,
+      "z": -6.64,
+      "width": 0.2,
+      "depth": 1.98,
+      "height": 3.1,
+      "material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "props": [
+    {
+      "id": "desk",
+      "model": "core:desk",
+      "x": 2.45,
+      "y": 0,
+      "z": 1.55,
+      "rotation_degrees": 270,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true
+    },
+    {
+      "id": "office_chair",
+      "model": "core:chair",
+      "x": 2.45,
+      "y": 0,
+      "z": 2.3,
+      "rotation_degrees": 180,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true
+    },
+    {
+      "id": "office_books",
+      "model": "home:book_stack",
+      "x": 2.45,
+      "y": 0.755,
+      "z": 1.55,
+      "rotation_degrees": 0,
+      "size": [
+        0.262,
+        0.057,
+        0.197
+      ],
+      "solid": false
+    },
+    {
+      "id": "office_mug",
+      "model": "home:mug",
+      "x": 2.25,
+      "y": 0.755,
+      "z": 1.15,
+      "rotation_degrees": 0,
+      "size": [
+        0.117,
+        0.09,
+        0.078
+      ],
+      "solid": false
+    },
+    {
+      "id": "pool_bench",
+      "model": "core:pool_chair",
+      "x": 2.52,
+      "y": 0,
+      "z": -3.55,
+      "rotation_degrees": 270,
+      "size": [
+        0.52,
+        0.85,
+        0.55
+      ],
+      "solid": true
+    },
+    {
+      "id": "pool_sign",
+      "model": "janitor:wet_floor_sign",
+      "x": 2.12,
+      "y": 0,
+      "z": -0.1,
+      "rotation_degrees": 0,
+      "size": [
+        0.305001,
+        0.61041,
+        0.34629
+      ],
+      "solid": false
+    },
+    {
+      "id": "home_chair",
+      "model": "home:armchair",
+      "x": 2,
+      "y": 0,
+      "z": -5.8,
+      "rotation_degrees": 270,
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "solid": true
+    },
+    {
+      "id": "home_table",
+      "model": "home:coffee_table",
+      "x": 1.8,
+      "y": 0,
+      "z": -4.8,
+      "rotation_degrees": 0,
+      "size": [
+        1.4,
+        0.46,
+        0.8
+      ],
+      "solid": true
+    },
+    {
+      "id": "home_books",
+      "model": "home:book_stack",
+      "x": 1.8,
+      "y": 0.465,
+      "z": -4.8,
+      "rotation_degrees": 0,
+      "size": [
+        0.262,
+        0.057,
+        0.197
+      ],
+      "solid": false
+    },
+    {
+      "id": "arcade_left",
+      "model": "arcade:cabinet_scifi",
+      "x": -1.95,
+      "y": 0,
+      "z": -9.6,
+      "rotation_degrees": 0,
+      "size": [
+        0.802486,
+        2.04,
+        0.942
+      ],
+      "solid": true
+    },
+    {
+      "id": "arcade_right",
+      "model": "arcade:cabinet_racing",
+      "x": 1.95,
+      "y": 0,
+      "z": -9.6,
+      "rotation_degrees": 0,
+      "size": [
+        0.822486,
+        2.04,
+        1.056388
+      ],
+      "solid": true
+    },
+    {
+      "id": "menu_closet",
+      "model": "home:closet_folding_door",
+      "display_name": "Folding Closet",
+      "x": -1.68,
+      "y": 0,
+      "z": -5.65,
+      "rotation_degrees": 90,
+      "size": [
+        1.96,
+        2.18,
+        0.224
+      ],
+      "solid": false,
+      "occludes": false,
+      "animated_door": {
+        "clip": "fold_open",
+        "boxes": [
+          {
+            "node": "Pivot_L_Jamb",
+            "center": [
+              0.218,
+              1.05,
+              0.003
+            ],
+            "size": [
+              0.424,
+              2.056,
+              0.036
+            ]
+          },
+          {
+            "node": "Pivot_L_Fold",
+            "center": [
+              0.218,
+              1.05,
+              0.033
+            ],
+            "size": [
+              0.424,
+              2.056,
+              0.036
+            ]
+          },
+          {
+            "node": "Pivot_R_Jamb",
+            "center": [
+              -0.218,
+              1.05,
+              0.003
+            ],
+            "size": [
+              0.424,
+              2.056,
+              0.036
+            ]
+          },
+          {
+            "node": "Pivot_R_Fold",
+            "center": [
+              -0.218,
+              1.05,
+              0.033
+            ],
+            "size": [
+              0.424,
+              2.056,
+              0.036
+            ]
+          },
+          {
+            "node": "Pivot_L_Fold",
+            "center": [
+              0.344,
+              1.045,
+              0.0735
+            ],
+            "size": [
+              0.044,
+              0.04,
+              0.047
+            ]
+          },
+          {
+            "node": "Pivot_R_Fold",
+            "center": [
+              -0.344,
+              1.045,
+              0.0735
+            ],
+            "size": [
+              0.044,
+              0.04,
+              0.047
+            ]
+          },
+          {
+            "node": "Frame_Track_Fixed",
+            "center": [
+              -0.94,
+              1.09,
+              0
+            ],
+            "size": [
+              0.08,
+              2.18,
+              0.224
+            ]
+          },
+          {
+            "node": "Frame_Track_Fixed",
+            "center": [
+              0.94,
+              1.09,
+              0
+            ],
+            "size": [
+              0.08,
+              2.18,
+              0.224
+            ]
+          },
+          {
+            "node": "Frame_Track_Fixed",
+            "center": [
+              0,
+              2.13,
+              0
+            ],
+            "size": [
+              1.96,
+              0.1,
+              0.224
+            ]
+          }
+        ]
+      },
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Open / close closet",
+          "reach": 2.5
+        },
+        {
+          "component": "animation",
+          "clip": "fold_open",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "fold_open"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "parcel",
+      "model": "core:cardboard_box",
+      "x": -2.3,
+      "y": 0,
+      "z": 1.05,
+      "rotation_degrees": 0,
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "mass_kg": 2,
+        "pickup": true,
+        "reset_group": "parcel"
+      },
+      "scale": 0.55
+    },
+    {
+      "id": "porter",
+      "model": "mannequin",
+      "x": -2.3,
+      "y": 0,
+      "z": 0.65,
+      "rotation_degrees": 0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 0.65,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.65,
+          "run_speed": 0.65,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        },
+        {
+          "component": "carry",
+          "item": "parcel",
+          "socket": "hand.R",
+          "offset": [
+            -0.06,
+            0,
+            0
+          ],
+          "rotation_degrees": [
+            0,
+            0,
+            0
+          ],
+          "idle_clip": "carry_idle",
+          "walk_clip": "carry_walk"
+        }
+      ]
+    },
+    {
+      "id": "book",
+      "model": "home:book_stack",
+      "x": 1.1,
+      "y": 0,
+      "z": 2.1,
+      "rotation_degrees": 0,
+      "size": [
+        0.262,
+        0.057,
+        0.197
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.2,
+        "pickup": true,
+        "reset_group": "book"
+      }
+    },
+    {
+      "id": "reader",
+      "model": "mannequin",
+      "x": 1.1,
+      "y": 0,
+      "z": 0.75,
+      "rotation_degrees": 0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 0.65,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.65,
+          "run_speed": 0.65,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        },
+        {
+          "component": "carry",
+          "item": "book",
+          "socket": "hand.R",
+          "offset": [
+            -0.06,
+            0,
+            0
+          ],
+          "rotation_degrees": [
+            0,
+            0,
+            0
+          ],
+          "idle_clip": "carry_idle",
+          "walk_clip": "carry_walk"
+        }
+      ]
+    },
+    {
+      "id": "towel",
+      "model": "janitor:folded_towel_blue",
+      "x": 0.05,
+      "y": 0,
+      "z": -3.5,
+      "rotation_degrees": 0,
+      "size": [
+        0.360001,
+        0.057001,
+        0.276
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.2,
+        "pickup": true,
+        "reset_group": "towel"
+      }
+    },
+    {
+      "id": "attendant",
+      "model": "mannequin",
+      "x": 1.4,
+      "y": 0,
+      "z": -3.5,
+      "rotation_degrees": 0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 0.65,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.65,
+          "run_speed": 0.65,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        },
+        {
+          "component": "carry",
+          "item": "towel",
+          "socket": "hand.R",
+          "offset": [
+            -0.06,
+            0,
+            0
+          ],
+          "rotation_degrees": [
+            0,
+            0,
+            0
+          ],
+          "idle_clip": "carry_idle",
+          "walk_clip": "carry_walk"
+        }
+      ]
+    },
+    {
+      "id": "cushion",
+      "model": "home:cushion",
+      "x": -0.11,
+      "y": 0,
+      "z": -5.51,
+      "rotation_degrees": 0,
+      "size": [
+        0.33,
+        0.32,
+        0.115
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.2,
+        "pickup": true,
+        "reset_group": "cushion"
+      }
+    },
+    {
+      "id": "caretaker",
+      "model": "mannequin",
+      "x": -0.65,
+      "y": 0,
+      "z": -5.4,
+      "rotation_degrees": 0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 0.65,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.65,
+          "run_speed": 0.65,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        },
+        {
+          "component": "carry",
+          "item": "cushion",
+          "socket": "hand.R",
+          "offset": [
+            -0.06,
+            0,
+            0
+          ],
+          "rotation_degrees": [
+            0,
+            0,
+            0
+          ],
+          "idle_clip": "carry_idle",
+          "walk_clip": "carry_walk"
+        }
+      ]
+    },
+    {
+      "id": "guest",
+      "model": "mannequin",
+      "x": 0.85,
+      "y": 0,
+      "z": -6.7,
+      "rotation_degrees": 0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 0.65,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.65,
+          "run_speed": 0.65,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        },
+        {
+          "component": "state",
+          "name": "beat",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "gift",
+      "model": "arcade:party_gift_stars",
+      "x": 0,
+      "y": 0,
+      "z": -8.049999999999999,
+      "rotation_degrees": 0,
+      "size": [
+        0.304,
+        0.3748,
+        0.304
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.7,
+        "pickup": true,
+        "reset_group": "gift"
+      }
+    },
+    {
+      "id": "player",
+      "model": "mannequin",
+      "x": 0,
+      "y": 0,
+      "z": -8.45,
+      "rotation_degrees": 0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 0.65,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.65,
+          "run_speed": 0.65,
+          "sight_range": 0,
+          "hearing_range": 0
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        },
+        {
+          "component": "carry",
+          "item": "gift",
+          "socket": "hand.R",
+          "offset": [
+            -0.06,
+            0,
+            0
+          ],
+          "rotation_degrees": [
+            0,
+            0,
+            0
+          ],
+          "idle_clip": "carry_idle",
+          "walk_clip": "carry_walk"
+        }
+      ]
+    },
+    {
+      "id": "duck_0",
+      "model": "core:rubber_duck",
+      "x": -2.35,
+      "z": -1.1,
+      "y": 0.54,
+      "scale": 1.0,
+      "rotation_degrees": 90,
+      "size": [
+        0.1,
+        0.12,
+        0.145
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.05,
+            0.06,
+            0.0725
+          ]
+        },
+        "mass_kg": 0.065,
+        "friction": 0.6,
+        "restitution": 0.08,
+        "linear_damping": 0.05,
+        "angular_damping": 0.15,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 0.00065,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        },
+        "reset_group": "duck_0"
+      }
+    },
+    {
+      "id": "duck_1",
+      "model": "core:rubber_duck",
+      "x": -2.35,
+      "z": -1.6,
+      "y": 0.54,
+      "scale": 1.0,
+      "rotation_degrees": 90,
+      "size": [
+        0.1,
+        0.12,
+        0.145
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.05,
+            0.06,
+            0.0725
+          ]
+        },
+        "mass_kg": 0.065,
+        "friction": 0.6,
+        "restitution": 0.08,
+        "linear_damping": 0.05,
+        "angular_damping": 0.15,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 0.00065,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        },
+        "reset_group": "duck_1"
+      }
+    },
+    {
+      "id": "duck_2",
+      "model": "core:rubber_duck",
+      "x": -2.35,
+      "z": -2.1,
+      "y": 0.54,
+      "scale": 1.0,
+      "rotation_degrees": 90,
+      "size": [
+        0.1,
+        0.12,
+        0.145
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "shape": {
+          "kind": "cuboid",
+          "half_extents": [
+            0.05,
+            0.06,
+            0.0725
+          ]
+        },
+        "mass_kg": 0.065,
+        "friction": 0.6,
+        "restitution": 0.08,
+        "linear_damping": 0.05,
+        "angular_damping": 0.15,
+        "pickup": true,
+        "water": {
+          "displaced_volume_m3": 0.00065,
+          "linear_drag": 4.0,
+          "angular_drag": 2.5
+        },
+        "reset_group": "duck_2"
+      }
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "id": "office_lamp",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0,
+      "z": 0.65,
+      "y": 3.085,
+      "brightness": 0.65,
+      "emission": 0.8,
+      "range": 5,
+      "color": [
+        1,
+        0.91,
+        0.66
+      ],
+      "switchable": false,
+      "align": "none"
+    },
+    {
+      "id": "pool_lamp",
+      "fixture": "core:pool_light_round",
+      "x": 0,
+      "z": -1.8,
+      "y": 3.085,
+      "brightness": 0.95,
+      "emission": 0.8,
+      "range": 5,
+      "color": [
+        0.74,
+        0.9,
+        1
+      ],
+      "switchable": false
+    },
+    {
+      "id": "pool_side",
+      "fixture": "core:pool_light_round",
+      "x": 2,
+      "z": -2,
+      "y": 3.085,
+      "brightness": 0.7,
+      "emission": 0.8,
+      "range": 5,
+      "color": [
+        0.8,
+        0.94,
+        1
+      ],
+      "switchable": false
+    },
+    {
+      "id": "home_lamp",
+      "fixture": "home:ceiling_light_round",
+      "x": 0,
+      "z": -5.5,
+      "y": 3.085,
+      "brightness": 0.85,
+      "emission": 0.8,
+      "range": 5,
+      "color": [
+        1,
+        0.8,
+        0.52
+      ],
+      "switchable": false
+    },
+    {
+      "id": "arcade_lamp",
+      "fixture": "core:pool_light_round",
+      "x": 0,
+      "z": -8.8,
+      "y": 3.085,
+      "brightness": 0.65,
+      "emission": 0.8,
+      "range": 5,
+      "color": [
+        0.42,
+        0.63,
+        1
+      ],
+      "switchable": false
+    },
+    {
+      "id": "arcade_left_lamp",
+      "fixture": "core:pool_light_round",
+      "x": -1.6,
+      "z": -9,
+      "y": 3.085,
+      "brightness": 0.6,
+      "emission": 0.8,
+      "range": 5,
+      "color": [
+        0.8,
+        0.36,
+        1
+      ],
+      "switchable": true
+    }
+  ],
+  "scripts": [
+    "scripts/menu.luau"
+  ],
+  "crosshair": false,
+  "floor_regions": [
+    {
+      "x": -2.6,
+      "z": -3.05,
+      "width": 5.2,
+      "depth": 2.6,
+      "offset_y": -0.65,
+      "material": "core:pool_tile_basin_01",
+      "edge_material": "core:pool_tile_wall_01"
+    }
+  ],
+  "water": [
+    {
+      "x": -2.6,
+      "z": -3.05,
+      "width": 5.2,
+      "depth": 2.6,
+      "surface_y": -0.12,
+      "bottom_y": -0.65,
+      "material": "core:water_pool_01",
+      "opacity": 0.55,
+      "motion": {
+        "speed": 0.8,
+        "strength": 0.25,
+        "flow_speed": 0.32,
+        "direction_degrees": 90
+      },
+      "caustics": {
+        "tint": [
+          0.75,
+          0.92,
+          1
+        ],
+        "speed": 0.7,
+        "strength": 0.35
+      }
+    }
+  ],
+  "sound_emitters": [
+    {
+      "id": "menu_water",
+      "x": 0,
+      "y": 0.1,
+      "z": -1.5,
+      "sound": "ambience_water",
+      "spatial": true,
+      "looped": true,
+      "playing": true,
+      "gain": 0.2,
+      "min_distance": 1,
+      "max_distance": 12
+    }
+  ]
+}

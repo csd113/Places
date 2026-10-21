@@ -26,6 +26,10 @@ pub struct PostSettings {
     pub grade_saturation: f32,
     /// Contrast multiplier around mid grey (1.0 leaves contrast alone).
     pub grade_contrast: f32,
+    /// Player presentation style: standard, CRT, legacy, VHS.
+    pub visual_style: f32,
+    /// Bounded visual clock for analog presentation artifacts.
+    pub time: f32,
 }
 
 /// Bloom strength a blooming frame adds.
@@ -46,6 +50,8 @@ impl PostSettings {
             bloom_strength: 0.0,
             grade_saturation: 1.03,
             grade_contrast: 1.02,
+            visual_style: 0.0,
+            time: 0.0,
         }
     }
 
@@ -56,6 +62,8 @@ impl PostSettings {
         bloom_strength: 0.0,
         grade_saturation: 1.0,
         grade_contrast: 1.0,
+        visual_style: 0.0,
+        time: 0.0,
     };
 
     /// Validated level controls reach all static and entity draw families once.
@@ -71,6 +79,8 @@ impl PostSettings {
             bloom_strength: 0.0,
             grade_saturation: authored.saturation,
             grade_contrast: authored.contrast,
+            visual_style: 0.0,
+            time: 0.0,
         }
     }
 
@@ -92,7 +102,8 @@ impl PostSettings {
         reason = "these are authored constants, not measurements"
     )] // these are authored constants, not measurements
     pub fn is_identity(self) -> bool {
-        self.bloom_strength == 0.0
+        self.visual_style == 0.0
+            && self.bloom_strength == 0.0
             && self.exposure == 1.0
             && self.tone_knee >= 1.0
             && self.grade_saturation == 1.0

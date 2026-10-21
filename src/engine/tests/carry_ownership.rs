@@ -156,3 +156,115 @@ fn move_caretaker(world: &mut EntityWorld, floor: &WalkableFloor) {
         });
     }
 }
+
+// Repeated pickup/putdown must reuse one key and reset to the original source
+// location, not the last socket. One small sphere, no renderer or map bake.
+#[test]
+fn released_npc_item_keeps_original_reset_pose_and_single_key() -> Result<(), String> {
+    use crate::engine::physics::ItemPose;
+    let level=LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"release","name":"Release","spawn":{"x":8,"z":8}}"#).map_err(|error|error.to_string())?;
+    let mut physics = ItemWorld::from_level(&level, &[]);
+    let definition = PhysicsDef {
+        motion: BodyMotion::Dynamic,
+        pickup: true,
+        reset_group: Some("parcel".into()),
+        shape: Some(ShapeDef::Sphere { radius: 0.1 }),
+        ..PhysicsDef::default()
+    };
+    let bounds = (Vec3::splat(-0.1), Vec3::splat(0.1));
+    let authored = ItemPose {
+        position: Vec3::new(0.0, 1.0, 0.0),
+        rotation: glam::Quat::IDENTITY,
+    };
+    let live = ItemPose {
+        position: Vec3::new(2.0, 1.0, 0.0),
+        ..authored
+    };
+    physics.restore_transferred(7, &definition, bounds, authored, live, 1.0)?;
+    assert_eq!(
+        physics.snapshots().len(),
+        1,
+        "one original key, one solver body"
+    );
+    assert!(
+        physics
+            .restore_transferred(7, &definition, bounds, authored, live, 1.0)
+            .is_err(),
+        "duplicate release cannot replace live ownership"
+    );
+    let report = physics.reset_group("parcel")?;
+    assert_eq!(report.reset_count, 1);
+    let body = physics
+        .snapshots()
+        .into_iter()
+        .next()
+        .ok_or("missing released body")?;
+    assert!(
+        body.pose.position.distance(authored.position) < 0.001,
+        "reset retains original source placement"
+    );
+    Ok(())
+}
+
+// Explicit actor poses previously disappeared behind the idle AI cue. One
+// asset-free actor protects pose ownership, completion, navigation and reset;
+// no nav bake or renderer is needed, and two ticks cost milliseconds.
+#[test]
+fn explicit_actor_pose_releases_to_locomotion_and_reset() -> Result<(), String> {
+    let level=LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"pose","name":"Pose","spawn":{"x":4,"z":4},"rooms":[{"width":5,"depth":5}],"props":[{"id":"actor","model":"mannequin","x":1,"z":1,"solid":false,"components":[{"component":"animation","clip":"pose_stand"},{"component":"nav_agent","radius":0.2,"speed_mps":1},{"component":"ai","behavior":"idler"}]}]}"#).map_err(|error|error.to_string())?;
+    let mut world = EntityWorld::from_level(&level);
+    let index = CollisionIndex::empty();
+    let floor = WalkableFloor::from_level(&level);
+    let context = WorldContext {
+        delta_seconds: 0.01,
+        feet_from: Vec3::new(4.0, 0.0, 4.0),
+        feet: Vec3::new(4.0, 0.0, 4.0),
+        eye: Vec3::new(4.0, 1.6, 4.0),
+        body_height: 1.8,
+        walls: &[],
+        index: &index,
+        floor: &floor,
+        nav: None,
+    };
+    let action = ActionDef::PlayAnimation {
+        target: Some("actor".into()),
+        clip: Some("pick_up_floor".into()),
+        looped: false,
+    };
+    let _performed = world.dispatch_actions(std::slice::from_ref(&action), None);
+    let _first = world.tick(&context);
+    assert!(
+        world
+            .ai()
+            .agents()
+            .iter()
+            .any(crate::engine::ai::AiAgent::frozen),
+        "explicit pose owns the actor"
+    );
+    world.notify_animation_complete("actor", "pick_up_floor");
+    let _complete = world.tick(&context);
+    assert!(
+        world.ai().agents().iter().all(|agent| !agent.frozen()),
+        "finished one-shot releases locomotion"
+    );
+    let _performed_again = world.dispatch_actions(&[action], None);
+    let _second_pose = world.tick(&context);
+    let _navigation = world.dispatch_actions(
+        &[ActionDef::Navigate {
+            target: "actor".into(),
+            position: [2.0, 0.0, 1.0],
+        }],
+        None,
+    );
+    let _resumed = world.tick(&context);
+    assert!(
+        world.ai().agents().iter().all(|agent| !agent.frozen()),
+        "navigation releases an authored pose"
+    );
+    world.reset_runtime();
+    assert!(
+        world.animation_override("actor").is_none(),
+        "reset cancels pose ownership"
+    );
+    Ok(())
+}

@@ -150,3 +150,26 @@ fn measured_surfaces_survive_reports_without_leaking_from_suppressed_warnings() 
     );
     Ok(())
 }
+
+// The menu's basin exposed duplicated structural bands over ordinary terrain
+// skirts. Two 4 m² recesses protect deep and shallow steps without assets,
+// transport solving, GPU work or a full shipped-map bake (milliseconds).
+#[test]
+fn recessed_floor_skirt_owns_the_upper_structural_band() -> Result<(), String> {
+    for offset in [-0.65_f32, -0.08_f32] {
+        let level:LevelDef=serde_json::from_value(serde_json::json!({
+            "schema":"places-level","format_version":1_u32,"id":"recess_band","name":"Recess band",
+            "spawn":{"x":0.25_f32,"z":0.25_f32},"rooms":[{"width":2.0_f32,"depth":2.0_f32}],
+            "floor_regions":[{"x":0.5_f32,"z":0.5_f32,"width":1.0_f32,"depth":1.0_f32,"offset_y":offset}]
+        })).map_err(|error|error.to_string())?;
+        let report = super::check_level(&level, "in-memory recess", true);
+        assert!(
+            !report
+                .findings
+                .iter()
+                .any(|entry| entry.check == "duplicate-surface"),
+            "terrain and backing must have one face owner at offset {offset}"
+        );
+    }
+    Ok(())
+}

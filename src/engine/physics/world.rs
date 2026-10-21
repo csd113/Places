@@ -1007,6 +1007,34 @@ impl ItemWorld {
         })
     }
 
+    /// Reintroduces an NPC-owned original body at its visible pose, preserving
+    /// the original authored reset destination and key. No prop is cloned.
+    /// # Errors
+    /// Returns admission/pose errors; a failed live placement removes the new body.
+    pub fn restore_transferred(
+        &mut self,
+        key: u64,
+        definition: &PhysicsDef,
+        bounds: (Vec3, Vec3),
+        authored: ItemPose,
+        live: ItemPose,
+        scale: f32,
+    ) -> Result<(), String> {
+        self.spawn_authored_oriented(
+            key,
+            definition,
+            bounds,
+            authored.position,
+            authored.rotation,
+            scale,
+        )?;
+        if !self.set_dynamic_pose(key, live) {
+            let _removed = self.remove(key);
+            return Err("Cannot restore transferred item at its live pose".into());
+        }
+        Ok(())
+    }
+
     /// Prescribes a kinematic body's next model-origin pose. Dynamic and fixed
     /// bodies cannot be teleported through this external-motion seam.
     pub fn set_kinematic_pose(&mut self, key: u64, target: ItemPose) -> bool {
@@ -1048,6 +1076,10 @@ impl ItemWorld {
     /// tooling. Normal gameplay uses contacts, carrying and release instead.
     /// Invalid transforms and held/fixed/kinematic bodies are rejected.
     pub fn set_fixture_pose(&mut self, key: u64, target: ItemPose) -> bool {
+        self.set_dynamic_pose(key, target)
+    }
+
+    fn set_dynamic_pose(&mut self, key: u64, target: ItemPose) -> bool {
         let quaternion_length = target.rotation.length_squared();
         if !target.position.is_finite()
             || target.position.abs().max_element() > 100_000.0

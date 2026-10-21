@@ -177,3 +177,37 @@ fn repaired_bindings_preserve_valid_owners_and_native_names()
     );
     Ok(())
 }
+
+// One tiny disk roundtrip per style uniquely protects aesthetic/quality separation,
+// backward-compatible defaults and master-zero persistence. No native audio/bake.
+#[test]
+fn styles_preserve_independent_quality_and_master_zero() -> Result<(), Box<dyn std::error::Error>> {
+    use crate::game::settings::VisualStyle;
+    let directory = SettingsDirectory::new()?;
+    let path = directory.0.join("style.json");
+    let mut settings = Settings::default();
+    let _master_changed = settings.set_master_volume(0.0);
+    let _quality_changed = settings.set_quality(QualityLevel::High);
+    let _lighting_changed = settings.set_lightmap_quality(LightmapQuality::Full);
+    let _filtering_changed = settings.set_texture_filtering("high");
+    let quality = settings.graphics_spec();
+    for style in [
+        VisualStyle::Standard,
+        VisualStyle::Crt,
+        VisualStyle::Legacy,
+        VisualStyle::Vhs,
+    ] {
+        settings.visual_style = style;
+        settings.save_to_path(&path)?;
+        let loaded = Settings::load_or_default_from_path(&path);
+        assert_eq!(loaded.visual_style, style);
+        assert_eq!(loaded.graphics_spec(), quality);
+        assert!(
+            loaded.master_volume.abs() < f32::EPSILON,
+            "zero stays muted after restart"
+        );
+    }
+    let old: Settings = serde_json::from_str("{}")?;
+    assert_eq!(old.visual_style, VisualStyle::Standard);
+    Ok(())
+}

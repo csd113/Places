@@ -76,7 +76,7 @@ impl FrameLoop<'_> {
                 forward: self.game.view_direction(),
                 up: Vec3::Y,
             },
-            !self.gameplay_active(),
+            !self.simulation_active(),
             self.items.world.simulation_state().time_scale,
             AudioSettings {
                 master_volume: self.settings.master_volume,
