@@ -6,6 +6,202 @@ stage; earlier next-stage statements are historical handoffs. Raw local receipts
 and direct binaries remain outside `target` in their original stage directories.
 No main merge or release is implied by this staging report.
 
+## Final staging acceptance — 2026-10-21
+
+The approved queue is complete in staging, subject to the explicit platform,
+delivery and GUI coverage limits below. This stage consolidates reports, corrects
+source-check ownership and native acceptance tooling, updates Cargo/lock/changelog
+to 0.13.0, and validates integrated candidates. It adds no gameplay architecture,
+map artwork or enhancement backlog. No release, tag, main merge or deployment is
+authorized or performed. Exact commits, remote verification, terminal CI, candidate
+hashes and cleanup are recorded in `local/final-validation-0.13.0/FINAL-HANDOFF.json`.
+
+### Reports and final source checks
+
+There is one canonical release report for 0.9.0, 0.10.0, 0.11.0, 0.12.0 and
+0.13.0, listed in the [report index](README.md). Fifty former feature/stage reports
+were integrated: thirteen into 0.10.0, fourteen into 0.11.0 and twenty-three into
+0.12.0. Unique substantive implementation, measurements, limitations and evidence
+references remain; superseded queue instructions are retrospective. Technical and
+authoring guides, distinct historical audits, raw checklists, images and original
+local evidence remain. The two unrelated untracked Python audits are unchanged.
+`report-mapping.json` and `reports-before/` retain the exact consolidation inventory
+and original bytes outside target. All local Markdown paths and anchors pass.
+
+The baseline CI failure on `b7459119` was an engine test including optional
+`projects/relay-annex/scripts/relay_intake.luau`, while CI deliberately excludes
+projects. The existing recovery test now uses a minimal local Luau fixture and
+keeps its progress/reward/group-isolation assertions. Its scope is the shared host
+contract; production project checking and native play cover the authored script.
+No Rust tests were added and no map bake was added to Cargo or CI.
+
+The first source Python run found obsolete constructor goldens after accepted
+model/art adoption. Six redundant tests tied to superseded byte layouts were
+removed; useful source-geometry, topology, contact, asset and clip checks remain.
+The delivered ghost cat no longer satisfies its historical COLOR_0 construction
+heuristics. Accepted Aero native atlases now require exact ledger model identity
+and standalone/embedded PNG parity; the accepted cockroach verifies its ledger
+identity and GLB structure and refuses constructor overwrites. No GLB or PNG bytes
+were changed. The packaging fixture now includes the required editor preview
+folder. Native installation tooling waits for actual ready-world wall-clock input,
+capture and quit, and expects the current actionable missing-dependency refusal.
+Earlier failed attempts and their evidence are preserved.
+
+| Gate | Final result |
+| --- | --- |
+| Formatting and locked all-target/all-feature source check | Passed |
+| Strict workspace/all-target/all-feature debug and release Clippy | Passed with `-D warnings`, no lint policy reductions |
+| Essential Rust suite | 245 passing, no failed/ignored cases or shipped-map bake |
+| Locked release workspace/all-feature build | Passed; initial build 194.702 s; final incremental gate passed and preserved executable hashes match |
+| Source Python | 366 passing, three explicit optional skips, 120.547 s |
+| Asset catalog and maintained generators | 621 assets, zero warnings; generator checks passed |
+| Production Luau | Eleven bounded refusals and four finished-project checks passed, no map bake |
+| Native integrated assertions | 36 core plus 22 additional native/package assertions passing on the final production executables |
+| Hosted CI | Source checkpoint `5fcb8514` passed [run 39614334703](https://github.com/csd113/Places/actions/runs/39614334703); final tooling checkpoint `a7a5b2d4` passed [run 39620501057](https://github.com/csd113/Places/actions/runs/39620501057). The final documentation commit and terminal CI receipt are recorded in the handoff |
+
+This Mac uses the documented `RUSTC_WRAPPER=` override because its restricted
+sccache cannot start; Rust/Cargo are 1.99.1. The native host is Mac14,9 / Apple
+M2 Pro / 16 GB / macOS 27.0.1 (26A434), arm64, Metal. Hosted source CI on macOS
+does not establish Windows/Linux execution or physical GPU acceptance.
+
+### Integrated native acceptance
+
+The final editor/browser campaign verifies bounded actual-asset thumbnails,
+pagination/search/no-match and material controls. A copied two-member project
+reports Workshop as metadata-refresh while Second stays current, refreshes only
+Workshop using verified prepared geometry/light/probe/collision reuse, then
+reports both current. A later chair edit marks only Workshop for baking. Build
+and checker cancellation preserve the last published package SHA-256
+`b393520e4264af618377854dcf5644d868898887d398794a4921e5e30f17757d`.
+
+The ordinary W/S stair route reaches eye Y4.95 on the 3.35 m upper landing and
+returns to Y1.6 with zero void resets and noclip off. Structural-side captures and
+current package checks retain the solid backing/landing geometry. Annex source
+is unchanged in finalization: the current checker has **zero errors and 29
+heuristic warnings** (14 missing-wall, 12 reversed-face, three room-leak), with no
+suppressions. The editor stage's zero errors/48 warnings remain its historical
+result. The intervening shared structural-edge fix removed duplicate upper slab
+bands; the remaining warnings are not an exhaustive containment proof.
+
+Final collection replays assert the runtime member-manifest SHA against the new
+package, rather than only a matching level name. Home pickup/release preserves the
+real cushion identity. Pool traversal covers submersion, resurface, rim exit and
+reentry with zero void resets; moving-door/contact entry returns to the starting
+corridor. A tiny authored current fixture moves the player east with actual fluid
+velocity 0.8 m/s, then walks its sloped bank to dry floor without a water-jump or
+reset. Relay Discharge swim/ramp exit produces finite audio and releases voices.
+The original Annex upper-ramp trigger now reaches eye Y11.2 on solid support with
+zero resets. Earlier probes that accidentally selected the older bundled collection
+are preserved and explicitly excluded from final acceptance.
+
+Final native ragdoll contact cases sleep all fifteen bodies for wall, stair and
+table trials, with fourteen joints and zero sampled settled penetration. Carry
+release preserves item identity and removes its socket attachment; explicit reset
+releases joints and bone caches. Eight rigs own 122 solver bodies/112 joints,
+paused bone positions remain exact, and single-step advances once. Real unload
+records zero bodies/colliders/joints/ragdolls/caches, zero active prepared bytes,
+zero scripts/VM bytes and zero retired prepared owners. Menu return contains no
+ragdolls; reload restores the authored world. The previous independent long
+settle/performance and 24-activation/reset campaigns remain applicable to the
+unchanged production code. Explicit reset is not automatic stand-up; the recorded
+9.25 cm transient grip overlap remains an explicit limitation.
+
+The live-menu campaign completes two Explore → gameplay → pause/settings → return
+round trips, empty Explore and small-window layouts, credits and style selection.
+The displayed version is 0.13.0. Master zero persists while effects/ambience remain
+0.8/0.6; restart captures 266,240 PCM samples exactly zero. Shutdown has no live or
+queued voices or audio errors. The unchanged scene.bin hash preserves the prior
+611-second/120-beat reset, five successful carriers, nineteen handoffs, fourteen
+putdowns and bounded ownership evidence; a new full ten-minute recording was not
+needed. The committed font-atlas wordmark and diagnostic-video limitations remain.
+
+All new integration runs are functional diagnostics, often concurrent with the
+explicit compiler export. Their frame summaries are not FPS comparisons. The
+accepted performance campaigns remain the separate capture-free, V-Sync/limiter-off
+runs with actual Immediate mode, physical drawable and pacing qualification. The
+Pool CPU cause was unrelated moving doors/props globally refreshing water lighting:
+accepted door update cost fell about 16.9 → 1.7 ms and entry/contact about
+11.6–11.7 → 1.2–1.7 ms with exact visual parity. macOS presentation pacing remains
+separate and unresolved. Historical +312 MiB residency remains unexplained even
+though map-owned systems release. Editor Pool UI upload blocking fell 1595 → 79 ms;
+total readiness stayed about 2.83 → 2.86 s. These limits and flat/regressed
+measurements remain explicit; final acceptance does not claim every performance
+or memory question is fixed.
+
+### Distribution, delivery and remaining coverage
+
+Final package/archive identities and all current member checks are in
+`package-index.json`, `archive-receipt.json` and the final handoff. Candidates are
+created separately from preceding stage distributions. All fourteen curated
+members pass current-source verification and archive integrity. Exact declared
+source recovery passes for all four projects. Separate lab and workshop packages
+also pass; the 29 export/validate/current gates are in `package-gates-final.json`.
+The full collection export is explicit developer work, outside Cargo/CI; it took
+4,139.116 s on this Mac and establishes no before/after throughput claim.
+
+| Candidate | Bytes | SHA-256 |
+| --- | ---: | --- |
+| environments.placesmap (nine levels) | 455,058,040 | `b798141bce7b4c682dba71cd44b35f76dd20d54ea1437745195f0628e0c86c6a` |
+| relay-annex.placesmap (three levels) | 23,415,155 | `3858aa5de1def5c3cec5f0cd8aa199165dc186bdfdcbfad33ac84664d8f4d2d1` |
+| closing-time.placesmap | 33,957,286 | `7d303b20e0d1805cf145232aa6e587eb92040028587f378e3e8160fb92a39cbe` |
+| beam.placesmap | 6,235,122 | `ca43e27b7e38958ff4ea9fcd4926cd32a726fb7622e42a1069756bf39d1c04fa` |
+| macOS arm64 candidate ZIP | 706,492,842 | `73f6f7fe76c178d8461ca1cf7692c4f2212a86d5646e597b445586e673945a9e` |
+
+The ZIP is extracted into a path containing spaces and Unicode outside the
+checkout. Every extracted file hash matches, the app signature verifies, and all
+four campaign launchers run their expected world and controls. The extracted app
+also loads Pool's shared/map resources and completes its entry/contact return with
+no asset override. This is a local candidate, not a published or notarized release.
+
+Actual first-run/import
+acceptance passes all 27 checks: empty live menu, writable folder setup, override
+precedence, inbox import, duplicate/corrupt/conflicting packages, missing resources,
+restart from another cwd, read-only installation, unavailable storage, Unicode
+paths and exact settings/save custody. The historical task-1 fixture is preserved;
+only a private copy's comment-only placeholder was adapted to the current empty
+Luau-module contract.
+
+A copied final editor runs from `/tmp/places-final-0130-5fcb8514/Places`, cwd `/tmp`,
+with no asset-root override: edit → save → exit → reopen → build → sibling-player
+import/play → return → export → exact JSON/Luau recovery all pass. The copied
+map-free player presents the live menu and empty Explore from that installation.
+Flat and .app metadata are 0.13.0; strict ad-hoc signatures and relocated SDL3
+checks pass. The bundled menu scene is **8,022,170 bytes**, SHA-256
+`e582c5e5cef1f360fcc1a61fae09847c0df78f93554aa51c599443b2fb3eb954`, and does
+not depend on gameplay maps. Current acceptance supplies functional startup and
+component size; it does not claim an isolated before/after startup-latency gain.
+
+Windows/Direct3D 12 and Linux/Vulkan native build/runtime, Linux VM installation
+and display-session checks, physical GPU coverage, clean-OS installers,
+Developer ID/notarization and downloaded Gatekeeper trust remain unverified. The
+repository exposes macOS source CI and no connected Windows/Linux runner/device.
+Issues #17 and #21 stay open with these gaps. Cross-compilation or static checks
+are not substituted for native execution.
+
+The standalone final compiler GUI launcher executed, but its native UI
+control/read tool timed out after 1375 seconds. The parent reported an approval
+request; its resolution was not confirmed. No GUI bake/control action was sent,
+no uncertain operation was retried and no approval/denial was bypassed. CLI builds,
+installed compiler workflows and native editor build/reuse/cancel paths pass;
+interactive standalone GUI coverage on this final candidate remains unverified.
+
+`deliverable-index.json` preserves 35 earlier requested files / 102,340,418 bytes,
+including editor screenshots/stair video, complete menu evidence and ragdoll clip
+and editable export, with exact local paths/hashes. Final candidates and binaries
+are indexed separately. The prior Library preparations repeatedly failed with
+`prepare_uploads failed` and returned no confirmed IDs. Current supported tools
+still require the same prepared route; no materially different legitimate recovery
+was available and no identical retry was made. These local files are preserved,
+not represented as delivered attachments or invented download links.
+
+All evidence, source recovery, requested media, executables and candidates remain
+outside target. Authorized cleanup follows completed Rust/build/native/package
+work, terminal final-commit CI and a no-target-users check. `cleanup.json` and the
+final handoff record the actual cargo-clean result and post-clean preserved launch.
+Unfinished platform/delivery coverage does not authorize the deferred architecture
+#31, player-model/multiplayer 0.14 work or game modes #25/#26.
+
+
 ## Stage 1 — baseline and reproduction
 
 Completed 2026-10-20 on `0.13.0-staging`, baseline source `02120c79`.
