@@ -460,7 +460,9 @@ fn install_joints(
             .contacts_enabled(false)
             // Damped joint compliance prevents hard angular-limit
             // rows pumping tiny table-contact corrections back into the island.
-            .softness(SpringCoefficients::new(120.0, 2.0));
+            // Opposing wall/floor contacts need overdamped feedback even on
+            // small distal bodies; sleep thresholds and real contacts stay intact.
+            .softness(SpringCoefficients::new(120.0, 4.0));
         for (index, (axis, limit)) in [JointAxis::AngX, JointAxis::AngY, JointAxis::AngZ]
             .into_iter()
             .zip(segment.limits)

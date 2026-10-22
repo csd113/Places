@@ -8,7 +8,198 @@ No main merge or release is implied by this staging report.
 
 The [final verification and cleanup entry](#final-verification-and-cleanup--2026-10-22)
 records the completed macOS checks, final local packages, media and cleanup.
-Presented FPS gains remain inconclusive; Windows/Linux remain unverified.
+Presented macOS FPS gains remain inconclusive. The Windows entry below records
+native Razer acceptance and its remaining limits; Linux remains unverified.
+
+
+## Native Windows Razer validation - 2026-10-22
+
+This is focused native Windows acceptance, not a full replay of the macOS
+campaign or an authorization to release. The clean Windows checkout was safely
+advanced from `main` to the authorized `0.13.0-staging` remote head
+`c4a59a3af9453d09d65983a33193bd7779487a8a`, following
+`536ee0faf7ed5f54524b1a1ce4f58db866dea85b`. No unrelated changes were present.
+Origin is `https://github.com/csd113/Places.git`; remote staging was checked
+again before preparing this change. No CI was queried or awaited.
+
+All Windows paths below are relative to
+`C:\Users\Connor Dawkins\Documents\Places\local\windows-validation-0.13.0`.
+The one canonical report remains this file; JSON/logs are raw local receipts.
+
+### Host and actual rendering device
+
+- Razer Blade 14 RZ09-0370, Ryzen 9 5900HX, 8 cores/16 threads, 16 GB RAM;
+  Windows 10 Home 19045; Rust/Cargo 1.99.1; SDL3 3.4.18.
+- AMD Radeon integrated graphics driver `31.0.21924.61` drives the recorded
+  2560x1440, 165 Hz display. NVIDIA RTX 3070 Laptop GPU has 8192 MiB VRAM,
+  driver 617.14. Installed hardware and display attachment do not establish
+  the rendering adapter.
+- The original app selected **AMD / IntegratedGpu / DX12**. Its first launch
+  hit the FXC shader compilation failure. An AMD DXC preflight rendered the
+  native menu. This is not an AMD throughput benchmark.
+- Candidate application requests HighPerformance from wgpu on Windows;
+  actual `[renderer]` logs confirm **NVIDIA / DiscreteGpu / DX12** for every
+  timing below. No system graphics settings, power profiles, security settings,
+  driver installs or OS dependencies were changed.
+
+### Repairs and quality gates
+
+Windows release compilation exposed unsupported-platform dead code and Clippy
+failures. Platform-specific GPU/RSS samplers now compile only where supported;
+Windows retains explicit N/A counters instead of invented measurements. Native
+and offline Windows renderers use matching sibling `dxcompiler.dll` and
+`dxil.dll`, with an actionable missing-payload error rather than FXC fallback.
+The existing SDK pair 1.8.2502.11 was used; Windows dependencies are documented
+in `docs/DEVELOPMENT.md`. The application adapter preference also covers offline
+rendering, without changing other platforms' default preference.
+
+Real editor export exposed a Windows filesystem difference: its existing spool
+**directory** at `<output>.partial` made exclusive file creation return
+AccessDenied, whereas Unix returned AlreadyExists. Temporary creation now skips
+occupied entries without changing permissions or discarding them; exclusive
+creation still protects races. One tiny regression preserves both an occupied
+spool directory and interrupted-file sentinel.
+
+The raised-arms wall-contact ragdoll regression reproducibly failed to sleep
+on Windows. Increasing joint damping from 2 to 4 fixes that feedback without
+relaxing sleep thresholds or disabling contacts. All six existing ragdoll
+regressions and native collapse/reset acceptance passed.
+
+Benchmark helpers now tolerate missing Unix resource/load/RSS APIs and copy
+isolated packages on Windows without requiring symlink privileges. Item tests
+now set VSync **off**. Uncapped throw direction assertions read the real
+`item_thrown` launch snapshots: delayed wall-time screenshots can already show
+later collisions under fixed-step simulation. Continuous contact, floor,
+identity and angular-motion assertions remain in force. The original failing
+receipt and its re-audit are retained; a fresh corrected native run passed.
+
+| Gate | Actual Windows result |
+| --- | --- |
+| Locked release workspace/all-features build | Pass; final rebuild 6m50s, `release-build-export-fixed.log` |
+| Strict workspace/all-targets/all-features Clippy, `-D warnings` | Pass; `clippy-export-fixed.log` |
+| Rust tests | **270 passed, 0 failed, 0 ignored**; `rust-tests-export-fixed.log` |
+| Focused Python tests | 15 benchmark-metric + 7 environment validation tests passed |
+| Assets | 622 assets, 389 placeable, 9 themes; zero warnings |
+| Source formatting / diff / changed Python compilation | Pass |
+| Entire Python suite, Windows installer, Linux native | Not run |
+
+### Native acceptance and package custody
+
+| Check | Result and practical limits |
+| --- | --- |
+| Menu and left-edge backdrop | Native 1280x720, 1200x900 and fullscreen 2560x1440 screenshots visually inspected; title/navigation and full-height left coverage pass. Capture runs are excluded from timing. |
+| Explore | Current project entry, actual authored Hub thumbnail and description render correctly; `explore-native-state/view.png`. |
+| Real editor pickers | Existing prop picker selects `core:chair`, query/theme/no-match cases and cold/warm thumbnails; floor material picker visually inspected. Scratch project only. |
+| Editor persistence / compiler / Play | Save/reopen retains six props; native Build, real Build+Play child and return to editing pass. Final project export is 3,010,409 bytes. Native editable recovery preserves all three declared JSON/Luau files byte-for-byte. `editor-export-fixed-evidence/`, `editor-recovery-byte-check.json`. |
+| Portable player/editor/compiler | Pass from an unrelated working directory with `PLACES_ASSET_ROOT` unset; native menu, editor reopen and compiler package validation use sibling assets. `portable-*` receipts. |
+| Import/path handling | Unicode file/state paths, first/repeated import, duplicate-ID rejection, corrupt rejection and restart discovery outside checkout pass. Settings, save sentinel and installed bytes remain unchanged; no partial import remains. `import-path-acceptance/acceptance.json`. |
+| Missing DXC | Native startup exits 1 with a precise sibling-DLL payload error and no panic; `missing-dxc-native/`. |
+| Real pickup / mouse throw | Existing tiny Full fixture: **168 pickup checks, 293 throw checks passed**. Four launch snapshots preserve the original body; launch direction, angular response and floor/contact checks pass. `item-pickup/`, `item-throw-fixed/`. |
+| Pool prop throw / water | Native Full Pool pickup, closet-door interaction, held movement and left-click release preserve original box key `9223372036854775862`. Full water/lighting captures visually inspected. This is a diagnostic-position setup, not a complete walking-route claim. |
+| Animated NPC / ragdoll | Animation, fall/contact, 15/15 sleeping bodies, reset, repeated fall/sleep/reset pass with empty script diagnostics; `ragdoll-demo-state/`. |
+| Furniture movement / crouch / stairs | Static-only current source: real held movement crosses the low closet crouched at 0.8 m eye height; climbs 18 stairs to 3.5 m feet height and descends to 0 m. Zero recovery resets. Diagnostic starting positions are explicit; `furniture-traversal-state/`. |
+| Pool favor / saved progress | Real talk, duck pickup, release and four-second upright buoyancy objective complete. Native success image and actual campaign save retained. Restart remembers the favor; real return portal loads Hub and ledger reports **1/8**. No save flags were injected. `pool-quest-native-state/complete.png`, `saves/`, `pool-saved-transition/`. |
+| Reward gating | At 0/8 and 1/8 the actual furnished Hub reward door is locked/closed. Full eight-favor unlock and host interaction remain **not run on Windows**. |
+| Retained work | Menu -> Full Pool -> menu returns prepared bytes to 105,567,345 and solver resources to 19 bodies / 202 colliders / 0 joints / 0 ragdolls. All retired build/record/transport owners are zero. Dynamic menu actors differ by event; RSS is unavailable on Windows, so this does not prove driver/total-RAM reclamation. `native-acceptance-audit.json`, `retention-native/`. |
+
+No exported maps existed in the initial Windows checkout. Native compiler builds
+produced Full tiny item/ragdoll fixtures, Pool and Hub. Standalone Pool correctly
+refuses installation because its transitions require the intact project. The
+nine-map project was therefore exported with its fast Static variant, then an
+explicit diagnostic mixed project retained those sources and replaced **only**
+Pool/Hub record maps with byte-identical native compiler Static+Full records.
+All records remain content addressed. Official compiler validation and
+`verify --require-current` for Pool and furniture passed.
+`mixed-project-provenance.json` records all original and resulting hashes.
+
+The current source project includes the eight quests and furnished reward room.
+`projects/untitled-1792640069720/places.project.json` also exists here, with ten
+main spaces across two storeys, 204 props and 37 fixtures. The Mac polished
+package was not present. A full furniture bake was deliberately stopped after
+199.5 s to keep validation practical; its owned-process identity, partial/cache
+files and cancellation receipt were preserved. Its 2,335,145-byte Static export
+is accepted for mechanics only, not polished Full lighting. No full showcase
+rebake was spent on this Windows pass.
+
+The first Pool walking route hit an obstruction and did not reach the duck; that
+route is **not accepted**. The later successful objective uses labeled player
+positioning plus real interaction/carry/buoyancy. Initial scripted attempts also
+used an actor-only camera command for authored props, which the app correctly
+rejected; corrected camera-only `view_at` inputs passed. These input failures are
+retained and are not counted as game-engine fixes or accepted traversal.
+
+### Capture-free performance and pacing
+
+Every run has VSync off, no frame limiter, real wall-clock delta, 240 warmup
+frames, the same final player SHA-256 below, actual 1920x1080 drawable and
+**NVIDIA RTX 3070 Laptop GPU / DX12 / Immediate** diagnostics. Textures and
+filtering are High. Menu/Pool use High lighting, Full lightmaps/reflections and
+bloom. Arcade/furniture are deliberately labeled **Static**: the runtime reports
+Low lighting, lightmaps off and reflections off for this supported variant.
+Those two are not Full-quality performance acceptance.
+
+| Native scene | Average presented FPS | Mean loop ms | p95 loop ms | Worst loop ms | Ready presents / missed |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Menu, High / Full | 144.61 | 6.915 | 14.191 | 15.930 | 1441 / 0 |
+| Pool, High / Full | 179.96 | 5.557 | 11.469 | 14.205 | 1797 / 0 |
+| Dense Arcade, Static only | 174.16 | 5.742 | 9.680 | 12.757 | 1733 / 0 |
+| Furniture, Static only | 155.04 | 6.450 | 8.961 | 11.051 | 1560 / 0 |
+
+The window initially configures Fifo, then the actual applied mode is Immediate;
+raw logs retain both. A **separate presentation-only** menu control reaches
+317.87 FPS (3.146 ms mean loop), above the 165 Hz display refresh, with 3134 ready
+presents and zero misses. It is not normal gameplay FPS. Pool/Arcade also exceed
+165 Hz, while varied per-frame distributions retain presentation/GPU scheduling
+cost. This establishes that the requested path is not simply pinned to refresh;
+it does not prove exclusive display ownership or eliminate all hybrid-GPU/
+compositor effects. No Mac-vs-Windows, AMD-vs-NVIDIA, before/after speedup,
+percentage saving, or universal performance claim is made from these short runs.
+Raw metrics live in `timing-*-state/receipt.json` for menu and `timing-*/receipt.json`
+for maps; captures and the short media run are separate.
+
+### Deliverables, remaining acceptance and transport limits
+
+The complete tested map-free developer payload is `Places-Windows-0.13.0/`
+(three native executables, SDL3/DXC runtime DLLs, sibling runtime/editor assets,
+docs/licenses; 1,491 files, 285,036,498 bytes before any added local notes).
+All eight release executables plus DLLs also remain in `preserved-executables/`;
+older comparison executables remain in `preserved-initial/` and
+`preserved-before-export-fix/`. Unique exports, editable projects, saves and raw
+receipts live outside `target`.
+
+Final player SHA-256:
+`f0f4ea6fad9e3691fff64ffc4e69b288e051a57dd0d82dad85adeff76a277525`.
+Final editor SHA-256:
+`aed6ae9c1516dae33f8d8f7c4224ce6070befd47ab328fee7faae277494146b7`.
+Final compiler SHA-256:
+`5313c367e743c0a4eb3eddd7dd2b304d6576fb12b38352f6ef7c4b6777198f06`.
+
+`media/windows-candidate-pool-throw-sampled-10fps.avi` is a 33-frame native
+candidate-only MJPEG AVI, 1280x720, sampled at requested 100 ms intervals. Capture
+overhead affects pacing; it is excluded from timing. It was encoded using
+already installed Pillow, with no extra encoder installation. Exact source
+frame hashes and requested timestamps are in `media/clip-provenance.json`.
+There is no valid native Windows before baseline for the requested savings
+montage; the original app did not render with FXC. No baseline or savings was
+fabricated. Continuous native video FIFO support is Unix-only; ffmpeg/ffprobe
+were not installed. The sampled AVI is not presented as continuous recording.
+
+Library download helper could not materialize the prior Mac furniture package:
+`Library prepare_materialize is not available`. A later upload probe for the
+Windows executable was **denied before execution by automatic approval review**:
+external transfer of that executable to Library lacked explicit payload and
+destination authorization. Nothing uploaded, no new Library ID is confirmed,
+and the rejected operation was not retried or bypassed. Parent/user approval
+is needed before that external executable delivery. Local deliverables remain
+usable and preserved.
+
+Remaining Windows acceptance is explicit: all eight quests/reward unlock, full
+lighting dense Arcade/furniture/polished package, the obstructed complete Pool
+walking route, long-duration/driver-RSS retention, continuous before/after
+montage and an installer. No Linux result follows from this Windows pass.
+The native focused gates above passed; this is not an unqualified full-release
+sign-off. Cleanup and final branch publication are recorded in the local final
+receipt after artifact preservation.
 
 ## Pool, menu and shared dependency follow-up — 2026-10-21
 

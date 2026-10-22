@@ -57,6 +57,15 @@ Install SDL3 and `pkg-config` before building. macOS is the verified host:
 Linux needs SDL3 development headers, `pkg-config`, the Vulkan loader and a
 native driver. Windows needs SDL3, a C/C++ build toolchain and Direct3D 12.
 The [verification matrix](VERIFICATION.md) records actual platform acceptance.
+On Windows, retain `SDL3.dll`, `dxcompiler.dll` and `dxil.dll` beside each
+runtime executable. Use the x64 SDL3 development package and matching DXC
+1.8.2502-or-newer runtime DLLs from the installed Windows SDK or an official
+DirectX Shader Compiler distribution. The world shader requires DXC; legacy FXC
+cannot compile its uniform-array loops. The renderer reports an actionable
+missing-payload error and prefers the discrete GPU on hybrid Windows laptops.
+`PKG_CONFIG_PATH` must point to SDL3's `lib/pkgconfig` for Cargo builds. Refresh
+the process PATH after installing tools; no security-policy change is required.
+
 Python 3 with Pillow and NumPy supports offline asset/image tooling; the player
 and map compiler do not load those Python dependencies.
 

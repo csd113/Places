@@ -58,6 +58,7 @@ fn overlay_text(
         |pct| format!("CPU system {pct:.0}%"),
     );
     let gpu_text = match gpu {
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
         GpuUtilization::Measured(pct) => format!("GPU device {pct:.0}%"),
         GpuUtilization::Unavailable(_) => "GPU device N/A".to_string(),
     };
@@ -71,9 +72,13 @@ fn overlay_text(
         |bytes| format!("Game RAM RSS {}MiB", resident_mebibytes(bytes)),
     );
     let mut text = format!("{cpu_text}  {gpu_text}\n{work_text}  {ram_text}  FPS {fps}");
-    if let GpuUtilization::Unavailable(reason) = gpu {
-        text.push_str("\nGPU device: ");
-        text.push_str(reason);
+    match gpu {
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        GpuUtilization::Measured(_) => {}
+        GpuUtilization::Unavailable(reason) => {
+            text.push_str("\nGPU device: ");
+            text.push_str(reason);
+        }
     }
     if let GpuTiming::Unavailable(reason) = timing {
         text.push_str("\nGPU elapsed: ");

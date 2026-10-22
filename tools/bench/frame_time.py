@@ -17,6 +17,7 @@ import math
 import os
 from pathlib import Path
 import re
+import shutil
 import statistics
 import subprocess
 import sys
@@ -24,6 +25,14 @@ import time
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def system_load_average() -> tuple[float, float, float] | None:
+    """Unix load averages have no Windows equivalent; unavailable is not zero."""
+    try:
+        return os.getloadavg()
+    except (AttributeError, OSError):
+        return None
 
 
 def statistics_for(values: list[float]) -> dict | None:
@@ -166,7 +175,13 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=False)
     if args.package:
         (out / "levels").mkdir()
-        (out / "levels" / package.name).symlink_to(package)
+        installed_package = out / "levels" / package.name
+        if os.name == "nt":
+            # File symlinks require a Windows privilege; keep isolated custody
+            # without changing system settings or requesting that privilege.
+            shutil.copy2(package, installed_package)
+        else:
+            installed_package.symlink_to(package)
     settings = json.loads((ROOT / "tests/fixtures/native/retro-arcade-manifest.json").read_text())["settings"]
     settings.update(
         window_width=width, window_height=height,
@@ -241,7 +256,7 @@ def main() -> None:
                    PLACES_BENCH_FRAMES="3600")
     started_utc = datetime.now(timezone.utc).isoformat()
     started = time.monotonic()
-    load_before = os.getloadavg()
+    load_before = system_load_average()
     binary_sha256, package_sha256 = digest(binary), digest(package)
     command = [str(binary)]
     native_out = out / "native"
@@ -267,6 +282,10 @@ def main() -> None:
                     break
             elif child.poll() is not None:
                 break
+            if os.name == "nt":
+                rss_error = "per-process RSS sampling is unavailable on Windows"
+                time.sleep(1)
+                continue
             try:
                 sample = subprocess.run(["ps", "-o", "rss=", "-p", str(child.pid)],
                                         capture_output=True, text=True, check=False)
@@ -348,7 +367,7 @@ def main() -> None:
         asset_root=str(asset_root), settings=settings, spawn=args.spawn, camera=args.camera,
         expected_drawable=expected_drawable,
         environment={key: value for key, value in env.items() if key.startswith("PLACES_")},
-        load_before=load_before, load_after=os.getloadavg(), presented_ready=presented, missed_ready=missed,
+        load_before=load_before, load_after=system_load_average(), presented_ready=presented, missed_ready=missed,
         native_identity=[line for line in log.splitlines()
                          if line.startswith(("[renderer]", "[window]", "[settings]", "[wgpu] GPU timing", "[wgpu] present mode"))],
         metrics=metrics, gpu_elapsed_ms=None if capture else statistics_for(list(gpu.values())),

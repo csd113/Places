@@ -606,3 +606,32 @@ fn menu_icons_are_bounded_associated_and_independent_of_world_payloads() -> Resu
     );
     Ok(())
 }
+
+/// Protects Windows project export's directory/file temporary-name collision.
+/// Existing archive coverage did not reserve the spool directory first. This
+/// adds two tiny sentinels and one exclusive file; no map preparation or GPU.
+#[test]
+fn archive_temporary_preserves_occupied_spool_directory_and_file() -> Result<(), String> {
+    let fixture = fixture()?;
+    let output = fixture.root.join("distribution.placesmap");
+    let spool = archive::create_temporary_directory(&output)?;
+    let sentinel = spool.join("spooled-record");
+    fs::write(&sentinel, b"preserve directory data").map_err(|error| error.to_string())?;
+    let occupied_file = fixture.root.join("distribution.placesmap.partial-1");
+    fs::write(&occupied_file, b"preserve interrupted file").map_err(|error| error.to_string())?;
+    let (temporary, file) = archive::create_temporary(&output)?;
+    drop(file);
+    assert_ne!(temporary, spool);
+    assert_ne!(temporary, occupied_file);
+    assert_eq!(temporary.parent(), output.parent());
+    assert_eq!(
+        fs::read(&sentinel).map_err(|error| error.to_string())?,
+        b"preserve directory data"
+    );
+    assert_eq!(
+        fs::read(&occupied_file).map_err(|error| error.to_string())?,
+        b"preserve interrupted file"
+    );
+    assert!(temporary.is_file());
+    Ok(())
+}

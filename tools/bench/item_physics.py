@@ -43,7 +43,10 @@ import math
 import os
 from pathlib import Path
 import re
-import resource
+try:
+    import resource
+except ImportError:
+    resource = None  # Unix child-resource counters are unavailable on Windows.
 import shutil
 import statistics
 import struct
@@ -1433,12 +1436,6 @@ def check_samples(mode: str, samples: dict, checks: list[dict], sim_delta: float
                     and cup_up_y(body(f"throw-{name}-ready")) >= 0.98)
         for name in ("flat", "up", "down"):
             require(f"{name}: native left click throws", held(f"throw-{name}-launched") is None)
-        flat = vector(body("throw-flat-launched")["linear_velocity"], 3)
-        up = vector(body("throw-up-launched")["linear_velocity"], 3)
-        down = vector(body("throw-down-launched")["linear_velocity"], 3)
-        require("flat throw follows the forward view", flat[2] < -2 and abs(flat[0]) < 1)
-        require("upward aim gives an upward forward throw", up[2] < -2 and up[1] > 1)
-        require("downward east aim gives a downward east throw", down[0] > 2 and down[1] < -0.5)
         require("close-wall throw has a valid ownership result", held("throw-wall-launched") in (None, cup_key))
         for name in ("throw-wall-ready", "throw-wall-launched", "throw-wall-flight", "throw-rest"):
             require(f"{name}: cup never passes through close wall", cup_bounds(body(name))[1][0] <= 3.01)
@@ -2060,12 +2057,23 @@ def audit_throw_frames(events: list[dict], samples: dict, checks: list[dict]) ->
     frames = [json.loads(event["detail"]) for event in events if event["event"] == "physics_frame"]
     bodies = [body for frame in frames for body in frame["bodies"] if body["key"] == key and not body["held"]]
     checks.append(dict(name="aimed throws have continuous native solver evidence", passed=len(bodies) >= 20))
+    # Screenshot delays use wall time; uncapped fixed-step physics may already
+    # have bounced by that capture. Inspect the real dispatcher launch snapshot.
+    launches = [json.loads(event["detail"]) for event in events if event["event"] == "item_thrown"]
+    velocities = [vector(next(body for body in sample["physics"]["bodies"] if body["key"] == key)["linear_velocity"], 3)
+                  for sample in launches]
+    checks.append(dict(name="three aimed throws retain original body identity at launch", passed=len(velocities) >= 3))
+    if len(velocities) >= 3:
+        flat, up, down = velocities[:3]
+        checks.append(dict(name="flat throw follows the forward view", passed=flat[2] < -2 and abs(flat[0]) < 1))
+        checks.append(dict(name="upward aim gives an upward forward throw", passed=up[2] < -2 and up[1] > 1))
+        checks.append(dict(name="downward east aim gives a downward east throw", passed=down[0] > 2 and down[1] < -0.5))
     if not bodies:
         return dict(samples=0)
     angular = [distance(vector(body["angular_velocity"], 3), [0, 0, 0]) for body in bodies]
     linear = [distance(vector(body["linear_velocity"], 3), [0, 0, 0]) for body in bodies]
     gaps = [cup_bounds(body)[0][1] for body in bodies]
-    report = dict(samples=len(bodies), key=key, max_angular_speed=max(angular), max_linear_speed=max(linear),
+    report = dict(samples=len(bodies), key=key, launch_velocities=velocities, max_angular_speed=max(angular), max_linear_speed=max(linear),
                   minimum_floor_gap=min(gaps), final_linear_speed=linear[-1], final_sleeping=bodies[-1]["sleeping"])
     checks.append(dict(name="native mouse throw supplies real launch velocity", passed=max(linear) > 4))
     checks.append(dict(name="thrown cup develops actual angular motion at contact", passed=max(angular) > 0.1))
@@ -2579,7 +2587,7 @@ def native_run(args: argparse.Namespace, out: Path) -> None:
     settings = json.loads((ROOT / "tests/fixtures/native/retro-arcade-manifest.json").read_text())["settings"]
     width, height = map(int, args.size.split("x"))
     settings.update(window_width=width, window_height=height,
-                    window_mode="fullscreen" if args.fullscreen else "windowed", vsync=True,
+                    window_mode="fullscreen" if args.fullscreen else "windowed", vsync=False,
                     developer_console=False, quality="high", texture_filtering="high",
                     lightmaps="full", reflections="full", bloom=True, fov_degrees=60,
                     use_low_quality_lighting=False)
@@ -2625,7 +2633,7 @@ def native_run(args: argparse.Namespace, out: Path) -> None:
         print(json.dumps(dict(out=str(out), status="planned", actions=len(steps))))
         return
     started = time.monotonic()
-    receipt.update(started_utc=datetime.now(timezone.utc).isoformat(), load_before=os.getloadavg())
+    receipt.update(started_utc=datetime.now(timezone.utc).isoformat(), load_before=os.getloadavg() if hasattr(os, "getloadavg") else None)
     encoder = None
     encoder_log = None
     try:
@@ -2635,18 +2643,18 @@ def native_run(args: argparse.Namespace, out: Path) -> None:
             encoder_log = (out / "video-encoder.log").open("wb")
             encoder = subprocess.Popen(video_command, cwd=ROOT, stdin=subprocess.DEVNULL, stdout=encoder_log, stderr=subprocess.STDOUT)
         result = subprocess.run([str(binary)], cwd=ROOT, env=env, capture_output=True, text=True, timeout=120)
-        peak_rss = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+        peak_rss = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss if resource else None
         if encoder is None:
-            receipt["peak_native_rss_bytes"] = int(peak_rss) * (1 if sys.platform == "darwin" else 1024)
+            receipt["peak_native_rss_bytes"] = int(peak_rss) * (1 if sys.platform == "darwin" else 1024) if peak_rss is not None else None
         else:
             encoder_exit = encoder.wait(timeout=30)
-            peak_rss = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-            receipt["peak_child_rss_bytes"] = int(peak_rss) * (1 if sys.platform == "darwin" else 1024)
+            peak_rss = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss if resource else None
+            receipt["peak_child_rss_bytes"] = int(peak_rss) * (1 if sys.platform == "darwin" else 1024) if peak_rss is not None else None
             receipt["video"]["encoder_exit_code"] = encoder_exit
         log = result.stdout + result.stderr
         (out / "native.log").write_text(log)
         receipt.update(exit_code=result.returncode, elapsed_seconds=time.monotonic() - started,
-                       load_after=os.getloadavg())
+                       load_after=os.getloadavg() if hasattr(os, "getloadavg") else None)
         checks = receipt["checks"]
         if encoder is not None:
             checks.append(dict(name="continuous native video encoder exits successfully", passed=receipt["video"]["encoder_exit_code"] == 0))

@@ -882,6 +882,19 @@ fn temporary_path(path: &Path, attempt: u8) -> PathBuf {
 pub(crate) fn create_temporary(path: &Path) -> Result<(PathBuf, std::fs::File), String> {
     for attempt in 0_u8..16 {
         let temporary = temporary_path(path, attempt);
+        // Project export already owns a same-named spool directory. Windows
+        // reports AccessDenied for CreateNew on a directory, not AlreadyExists.
+        // Preserve every occupied entry; exclusive creation still handles races.
+        match std::fs::symlink_metadata(&temporary) {
+            Ok(_) => continue,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => {
+                return Err(format!(
+                    "could not inspect {}: {error}",
+                    temporary.display()
+                ));
+            }
+        }
         match std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)

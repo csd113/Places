@@ -75,6 +75,39 @@ pub const fn native_backend_label() -> &'static str {
     }
 }
 
+/// Prefer the discrete adapter on hybrid Windows laptops; other hosts retain
+/// wgpu's default adapter policy. This does not change any OS GPU setting.
+pub const fn native_power_preference() -> wgpu::PowerPreference {
+    if cfg!(target_os = "windows") {
+        wgpu::PowerPreference::HighPerformance
+    } else {
+        wgpu::PowerPreference::None
+    }
+}
+
+/// FXC cannot compile the world's bounded uniform-array loops. Require the
+/// matching local DXC runtime instead of silently falling back and panicking.
+#[cfg(target_os = "windows")]
+pub fn configure_dx12_compiler(descriptor: &mut wgpu::InstanceDescriptor) -> Result<(), String> {
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    let compiler = executable.with_file_name("dxcompiler.dll");
+    let validator = executable.with_file_name("dxil.dll");
+    if !compiler.is_file() || !validator.is_file() {
+        return Err("Windows rendering requires matching dxcompiler.dll (DXC 1.8.2502 or newer) and dxil.dll beside the executable; restore the complete Places runtime payload".into());
+    }
+    descriptor.backend_options.dx12.shader_compiler = wgpu::Dx12Compiler::DynamicDxc {
+        dxc_path: compiler
+            .to_str()
+            .ok_or("DXC runtime path is not valid UTF-8")?
+            .to_string(),
+    };
+    crate::engine::logging::info(format!(
+        "[wgpu] Windows shader compiler: DXC ({})",
+        compiler.display()
+    ));
+    Ok(())
+}
+
 /// Creates the surface for a created SDL3 window.
 ///
 /// # Safety

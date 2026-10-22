@@ -512,6 +512,12 @@ pub fn sample_gpu_from_paths(
 }
 
 /// Low-frequency crash context uses the same current-process RSS counter as HUD.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub(crate) fn process_resident_bytes() -> Option<u64> {
+    platform::resident_bytes()
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+pub(crate) const fn process_resident_bytes() -> Option<u64> {
     platform::resident_bytes()
 }

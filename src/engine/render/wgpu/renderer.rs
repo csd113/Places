@@ -810,10 +810,18 @@ impl WgpuRenderer {
             ));
         }
 
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        let descriptor = wgpu::InstanceDescriptor {
             backends: surface::native_backends(),
             ..wgpu::InstanceDescriptor::new_without_display_handle()
-        });
+        };
+        #[cfg(target_os = "windows")]
+        let instance = {
+            let mut windows_descriptor = descriptor;
+            surface::configure_dx12_compiler(&mut windows_descriptor)?;
+            wgpu::Instance::new(windows_descriptor)
+        };
+        #[cfg(not(target_os = "windows"))]
+        let instance = wgpu::Instance::new(descriptor);
 
         let retained_window = window.clone();
         // SAFETY: the clone owns the same SDL handles. It is retained by the
@@ -901,12 +909,20 @@ impl WgpuRenderer {
                 wgpu::Instance::enabled_backend_features()
             ));
         }
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        let descriptor = wgpu::InstanceDescriptor {
             backends: surface::native_backends(),
             ..wgpu::InstanceDescriptor::new_without_display_handle()
-        });
+        };
+        #[cfg(target_os = "windows")]
+        let instance = {
+            let mut windows_descriptor = descriptor;
+            surface::configure_dx12_compiler(&mut windows_descriptor)?;
+            wgpu::Instance::new(windows_descriptor)
+        };
+        #[cfg(not(target_os = "windows"))]
+        let instance = wgpu::Instance::new(descriptor);
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::default(),
+            power_preference: surface::native_power_preference(),
             force_fallback_adapter: false,
             compatible_surface: None,
             apply_limit_buckets: false,
@@ -1132,7 +1148,7 @@ impl WgpuRenderer {
         surface: &wgpu::Surface<'_>,
     ) -> Result<wgpu::Adapter, String> {
         let options = wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::default(),
+            power_preference: surface::native_power_preference(),
             force_fallback_adapter: false,
             compatible_surface: Some(surface),
             apply_limit_buckets: false,
@@ -6861,6 +6877,10 @@ impl WgpuRenderer {
                     .collect(),
             )
         };
+        #[cfg(target_os = "macos")]
+        let metal_layer = self.metal_layer_diagnostics();
+        #[cfg(not(target_os = "macos"))]
+        let metal_layer: Option<serde_json::Value> = None;
         let receipt = serde_json::json!({
             "event": event, "frame": frame, "level": self.level_id,
             "backend": surface::native_backend_label(),
@@ -6874,7 +6894,7 @@ impl WgpuRenderer {
             "surface_present_mode": surface::present_mode_label(self.config.present_mode),
             "surface_desired_frame_latency": self.config.desired_maximum_frame_latency,
             "surface_format": format!("{:?}", self.config.format),
-            "metal_layer": self.metal_layer_diagnostics(),
+            "metal_layer": metal_layer,
             "window_native_focus": self.window.as_ref().map(Window::has_input_focus),
             "window_native_flags": self.window.as_ref().map(|window| format!("{:?}", window.window_flags())),
             "staging": self.prepared_install.is_some(), "fatal": self.fatal,
@@ -6898,11 +6918,6 @@ impl WgpuRenderer {
         });
         drop(layer);
         Some(state)
-    }
-
-    #[cfg(all(feature = "visual-diagnostics", not(target_os = "macos")))]
-    fn metal_layer_diagnostics(&self) -> Option<serde_json::Value> {
-        None
     }
 
     /// Reports and records a device loss, once.

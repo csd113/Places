@@ -2,7 +2,9 @@
 
 /// Device-wide activity, distinct from this game's timestamped render work.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(not(any(target_os = "macos", target_os = "linux")), derive(Eq))]
 pub enum GpuUtilization {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
     Measured(f32),
     Unavailable(&'static str),
 }
@@ -41,32 +43,33 @@ impl Default for DeviceSampler {
 }
 
 impl DeviceSampler {
+    #[cfg(target_os = "macos")]
     pub(crate) fn sample_gpu(&mut self) -> GpuUtilization {
-        #[cfg(target_os = "macos")]
-        {
-            self.macos.sample()
-        }
-        #[cfg(target_os = "linux")]
-        {
-            super::sample_gpu_from_paths(
-                std::path::Path::new(self.devfreq_root),
-                std::path::Path::new(self.drm_root),
-                std::path::Path::new(self.debugfs_root),
-            )
-            .map_or(
-                GpuUtilization::Unavailable("device counter unavailable"),
-                GpuUtilization::Measured,
-            )
-        }
-        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-        {
-            GpuUtilization::Unavailable(self.unavailable_reason)
-        }
+        self.macos.sample()
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn sample_gpu(&self) -> GpuUtilization {
+        super::sample_gpu_from_paths(
+            std::path::Path::new(self.devfreq_root),
+            std::path::Path::new(self.drm_root),
+            std::path::Path::new(self.debugfs_root),
+        )
+        .map_or(
+            GpuUtilization::Unavailable("device counter unavailable"),
+            GpuUtilization::Measured,
+        )
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    pub(crate) const fn sample_gpu(&self) -> GpuUtilization {
+        GpuUtilization::Unavailable(self.unavailable_reason)
     }
 }
 
 /// Current process resident bytes; excludes virtual address space and does not
 /// attempt to add driver-owned GPU allocations to unified-memory accounting.
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 pub(super) fn resident_bytes() -> Option<u64> {
     #[cfg(target_os = "macos")]
     {
@@ -78,10 +81,11 @@ pub(super) fn resident_bytes() -> Option<u64> {
             .ok()
             .and_then(|status| parse_linux_rss(&status))
     }
-    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-    {
-        None
-    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+pub(super) const fn resident_bytes() -> Option<u64> {
+    None
 }
 
 #[cfg(target_os = "linux")]
