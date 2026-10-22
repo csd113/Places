@@ -162,9 +162,11 @@ impl App {
             GameplayChoice::CharacterAppearance => [
                 "Original mannequin",
                 "Black tint",
-                "Man / teal shirt",
-                "Woman / plum jacket",
-                "Zombie / weathered jacket",
+                "Man",
+                "Woman",
+                "Zombie",
+                "Robot",
+                "Scientist / lab coat",
             ]
             .map(str::to_string)
             .to_vec(),

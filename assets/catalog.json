@@ -11441,6 +11441,24 @@
       "model": "entities/mannequin/textures/zombie-skin.png"
     },
     {
+      "id": "core:mannequin_skin_robot",
+      "display_name": "Mannequin / Robot",
+      "asset_class": "entity",
+      "asset_type": "texture",
+      "source": "file",
+      "description": "Opaque fitted mannequin albedo; canonical R2 UV, shared model/rig/animations.",
+      "model": "entities/mannequin/textures/robot-skin.png"
+    },
+    {
+      "id": "core:mannequin_skin_scientist",
+      "display_name": "Mannequin / Scientist",
+      "asset_class": "entity",
+      "asset_type": "texture",
+      "source": "file",
+      "description": "Opaque fitted mannequin albedo; canonical R2 UV, shared model/rig/animations.",
+      "model": "entities/mannequin/textures/scientist-skin.png"
+    },
+    {
       "id": "core:celestial_sun",
       "display_name": "Celestial / Sun",
       "asset_class": "environment",

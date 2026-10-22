@@ -172,8 +172,8 @@
       "id": "skin_original",
       "model": "mannequin",
       "display_name": "Original",
-      "x": 9.5,
-      "z": 4,
+      "x": 3,
+      "z": 8.5,
       "solid": false,
       "components": [
         {
@@ -209,8 +209,8 @@
       "id": "skin_black",
       "model": "core:mannequin_black",
       "display_name": "Black",
-      "x": 12.0,
-      "z": 4,
+      "x": 11,
+      "z": 8.5,
       "solid": false,
       "components": [
         {
@@ -236,6 +236,82 @@
           ]
         }
       ],
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ]
+    },
+    {
+      "id": "skin_robot",
+      "model": "mannequin",
+      "display_name": "Robot",
+      "x": 9.5,
+      "z": 4,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ragdoll robot",
+          "reach": 2.2
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.4,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                0,
+                0,
+                0.6
+              ]
+            }
+          ]
+        }
+      ],
+      "character_texture": "core:mannequin_skin_robot",
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ]
+    },
+    {
+      "id": "skin_scientist",
+      "model": "mannequin",
+      "display_name": "Scientist",
+      "x": 12,
+      "z": 4,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ragdoll scientist",
+          "reach": 2.2
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.4,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                0,
+                0,
+                0.6
+              ]
+            }
+          ]
+        }
+      ],
+      "character_texture": "core:mannequin_skin_scientist",
       "size": [
         0.578539,
         1.723035,
@@ -274,6 +350,16 @@
             {
               "action": "ragdoll",
               "target": "skin_zombie",
+              "enabled": false
+            },
+            {
+              "action": "ragdoll",
+              "target": "skin_robot",
+              "enabled": false
+            },
+            {
+              "action": "ragdoll",
+              "target": "skin_scientist",
               "enabled": false
             }
           ]
@@ -344,7 +430,7 @@
       "steps": [
         {
           "step": "play",
-          "clip": "pose_arms_up",
+          "clip": "walk",
           "seconds": 30,
           "loop": true
         }
@@ -369,6 +455,30 @@
         {
           "step": "play",
           "clip": "pose_arms_forward",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "skin_robot",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "walk",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "skin_scientist",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "run",
           "seconds": 30,
           "loop": true
         }
@@ -421,7 +531,7 @@
     {
       "id": "guest_template",
       "model": "mannequin",
-      "character_texture": "core:mannequin_skin_woman",
+      "character_texture": "core:mannequin_skin_scientist",
       "scale": 1,
       "components": [
         {
@@ -429,6 +539,18 @@
           "clip": "walk",
           "looped": true,
           "playing": true
+        }
+      ],
+      "bindings": [
+        {
+          "on": "spawn",
+          "actions": [
+            {
+              "action": "play_animation",
+              "clip": "walk",
+              "loop": true
+            }
+          ]
         }
       ]
     }

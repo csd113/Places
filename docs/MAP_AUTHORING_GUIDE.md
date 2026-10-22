@@ -3157,12 +3157,14 @@ Preserve the selected kit's floor-reference origin and contact lengths.
 
 A canonical `mannequin` or `core:mannequin_black` placement or spawn template may
 author `"character_texture": "core:mannequin_skin_man"` (also `_woman`, `_zombie`,
+`_robot`, `_scientist`,
 or another installed fitted texture ID). It replaces only the skin's albedo; the
 original UV layout, opaque material, joint grooves, geometry, rig and clips stay
 shared. Supply an opaque 1024x1024 PNG fitted to the accepted R2 UVs. A random
 image cannot change the silhouette or invent a new UV layout. Missing/invalid
 images are errors during compilation. The editor's Gameplay > Appearance chooser
-provides Original, Black tint, Man, Woman and Zombie for placements and templates.
+provides Original, Black tint, Man, Woman, Zombie, Robot and lab-coat Scientist
+for placements and templates.
 Original and Black retain their existing behavior when no texture is authored.
 
 Packages require `character-textures-v1`; texture bytes participate in dependency

@@ -2580,7 +2580,9 @@ The accepted R2 mannequin supports optional catalog PNG albedo sheets through
 `character_texture`, on placements and spawn templates. These are fitted opaque
 1024x1024 sheets with the exact existing GLB UV layout and orientation. Do not
 repack, rotate, change silhouettes, or duplicate GLBs/rigs/animation exports.
-Man, Woman and non-graphic Zombie sheets live under `entities/mannequin/textures/`.
+Man, Woman, non-graphic Zombie, Robot and lab-coat Scientist sheets live under
+`entities/mannequin/textures/`. The approved GIMP replacements preserve exact
+opaque RGBA8 pixels and their fitted layout; layered sources remain in Library.
 The original sheet and Black tint are preserved. Albedo replacement affects the
 first skin submesh only; recessed joint grooves retain the original material.
 Source prompts are retained in `assets/references/entities/mannequin-skins/`.

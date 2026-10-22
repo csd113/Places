@@ -21,6 +21,8 @@ impl Document {
             2 => Some("core:mannequin_skin_man"),
             3 => Some("core:mannequin_skin_woman"),
             4 => Some("core:mannequin_skin_zombie"),
+            5 => Some("core:mannequin_skin_robot"),
+            6 => Some("core:mannequin_skin_scientist"),
             _ => return Err("Choose a mannequin appearance".into()),
         };
         let mut raw = self.raw().clone();

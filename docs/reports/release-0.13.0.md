@@ -4403,3 +4403,84 @@ replacement imagery or partial catalog entries were introduced. Existing skins,
 shared GLB, rig and clips remain intact. Integration and its required native
 five-appearance persistence/animation/ragdoll validation await a supported local
 materialization path; no appearance integration commit is claimed.
+
+
+## Approved GIMP mannequin appearances
+
+The five approved GIMP sheets are integrated through the existing shared R2
+appearance path. Man, Woman and Zombie retain their original catalog IDs;
+`core:mannequin_skin_robot` and `core:mannequin_skin_scientist` add the Robot
+and lab-coat Scientist choices. Original and Black tint remain available.
+Both placement and spawn-template choosers expose all seven options, and
+`character_texture` persists through save/reopen and project export/import.
+The catalog additions retain the existing entity / texture / file record shape.
+
+### Approved transfer and exact asset ownership
+
+The earlier Windows Library helper and unauthenticated browser failures remain
+preserved as historical attempts. Explicit user approval enabled an asset-only
+GitHub transfer. Commit a41f6d3cb22b81ce66d5bb8177547a098e75e166 is a direct
+child of movement commit 1a32eb48023f80d19ae291f2fa10886d583508e0 and changes
+exactly five PNG paths. It was fetched and fast-forwarded only after local
+cleanliness, exact parent and path-set checks; cloud writer ownership was
+released before native integration resumed. No concurrent repository writers,
+Library-original changes, metadata removal or helper bypass were used.
+
+The parent verified GitHub reads against original approved GIMP bytes. Native
+validation independently checked each local Git blob against that exact asset
+commit, its PNG IHDR, dimensions, mode and fully opaque alpha. All five remain
+1024x1024 RGBA8 with the original fitted UV layout and orientation:
+
+| Sheet | PNG bytes | SHA-256 |
+| --- | ---: | --- |
+| Man | 733028 | 2b21bdb35cb8a9dad7d608f235846990f866dae769dcd4ac84e03e7b375b2ab0 |
+| Woman | 747274 | b9f194d29919e9bf95bf511d9e74abb946dc9ed1cb6e2c04666e9ebf2137502d |
+| Zombie | 716037 | 65d185d2db72b5666d14f5d756fcc7761a05686f730249ca0dbdb10e7f2b89ad |
+| Robot | 709979 | a2f9ed3f93a626ce7002ea6bff8cddd8be948fffffeb93360f4291698b9a7151 |
+| Scientist | 720779 | 2f4c57c7fd90ee80ace5e58a337c74180b23c731cbe687156d2171a902696a14 |
+
+The unchanged shared GLB SHA-256 is 6627807d4cddf7331cc7f96b03adb43f3686af71366bc8dc257f881b6ddf1156.
+No model, geometry, UV, rig, joint material or animation file is duplicated or
+re-authored. The accepted 37-joint / 19-clip R2 remains the owner of animation;
+the first skin submesh receives the selected albedo and recessed joints keep
+their existing material. Layered GIMP sources remain in Library
+libfile_d00b41d9bb3c81918519fcc8f476d1e8; no XCF enters the runtime package.
+
+### Focused Windows acceptance
+
+The opt-in `projects/mannequin-appearances` review now contains all five
+approved skins with independent walk/run playback, plus Original and Black.
+Two additional actors and reset targets extend the existing review fixture;
+it remains outside ordinary Rust tests and CI map baking.
+
+Native editor input cycles every appearance for both a placement and a spawn
+template. Checkpoints verify exact IDs, removal of the optional texture for
+Original/Black, and the unchanged Black preset model. The saved document
+matches a fresh editor reopen. Export/import source files are byte-identical,
+and the recovered project opens in the native editor. Native player captures
+show each of the five skins animated, then independently entering a 15-body /
+14-joint ragdoll; concurrent counts progress 1 through 5 and reset to zero.
+Original and Black receive separate native views. A Scientist spawn template
+creates an additional actor whose animation continues independently. The review
+template explicitly starts its walk loop with the supported `spawn` binding
+and `play_animation` action, rather than assuming animation component metadata
+automatically starts renderer playback. The initial standing-spawn capture is
+preserved separately; no engine behavior is changed to set up this fixture.
+No script error or player recovery reset is observed in the acceptance runs.
+
+The final tree passes strict all-target/all-feature workspace Clippy, all 277
+workspace tests with zero ignored, the locked all-feature release build,
+format/diff checks, and the 629-entry asset validator with zero warnings.
+No redundant Rust test is added for two new catalog/match choices; the focused
+native checks directly cover the UI, serialization and actual renderer paths.
+VSync is off with no application limiter during native runs; renderer/window
+receipts retain the applied presentation mode and drawable size. These visual
+captures are not used to claim a throughput or FPS improvement.
+
+Evidence and scripts are retained outside target beneath
+`local/windows-validation-0.13.0/skin-integration/`: approved-asset-provenance.json,
+native-final-audit.json, editor/native captures, export/import artifacts and
+build logs. The registration/report commit follows the approved PNG-only
+commit separately. Exact publication identity and writer release are recorded
+in ownership-handoff.json after push. Target and the queue-owned SYSTEM-only
+keep-awake helper remain available; no next game mode starts in this task.
