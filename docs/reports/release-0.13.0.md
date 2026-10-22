@@ -3312,3 +3312,63 @@ delivery and the remaining permission/acceptance status. No new montage is
 justified before native acceptance; previous media is preserved. Unrelated audit
 drafts and shared target are retained. No main merge, force push, release,
 version bump, CI wait, pass-2 work or pass-3 work is included.
+
+## Grouped performance sweep 2: render preparation — 2026-10-22
+
+Baseline `ee24c126ce418b6cd662963c120fbdb1ec3adc9a`, branch
+`0.13.0-staging`. Existing menu/carry/ragdoll, stress-map and dense-furniture
+profiles were reused before editing. The selected stress traces include
+**1.13–1.35 ms** character skin/upload spans; these diagnostic samples are not
+all-frame timing evidence. Earlier inverse-normal reuse and exact unchanged
+idle-pose detection remain baseline work.
+
+| Coverage | Result |
+| --- | --- |
+| Vertex preparation | Retain each character's existing CPU target in both serial and worker paths. Initialize UVs, tangents, lightmap and fixed classification fields once; update only position, normal and live albedo/caustics albedo per changed pose. Exact position and normal arithmetic is unchanged. Remove the redundant largest-model serial scratch allocation. |
+| Invisible characters | When both explicit mesh and flashlight-shadow presence are disabled, skip pose preparation, queue writes and environment/receiver preparation. Retain stale dependencies until restoration, then publish the latest pose and bounds before drawing. Animation clocks, callbacks, socket evaluation and gameplay bounds continue normally. |
+| Idle, sleeping, fading and shadow-only actors | Existing settled-pose and sleeping-ragdoll revision gates remain. Shadow-only actors still prepare; opacity zero is not used as a suspension signal. Fades, playback/crossfades, ragdoll wake and lighting changes keep their existing independent updates. Camera/frustum culling is not used to stop animation or shadow/reflection work. |
+| Mesh/texture/buffer lifetime | Steady-state character/static/dynamic paths retain resident resources. Visible changed poses still upload the complete original vertex format; unchanged poses upload none. Runtime roster changes still rebuild character resources at their existing generation boundary; no unmeasured resource cache or GPU rewrite was introduced. |
+| Allocations, clones, formatting and hashing | Pose updates retain allocation and capacity; no new hot allocation or asset hashing. Texture identities/material construction remain in admission/upload paths. Existing source copies, event-result ownership and attached-light key work were inspected; no further measured bottleneck justified changing their contracts. |
+
+Optimized CPU operation probes compile the source-extracted old/final uploader
+kernels against the unchanged baseline animator and existing real rigs. Eight
+alternating samples per case exclude setup/decode and all GPU/presentation work.
+Every compared GPU vertex byte and exact pose bound agrees. Single-rig medians
+are for **2,000 preparations**; crowd medians compare the old shared scratch
+against separate retained targets for **120 frames**, cycling the same five rigs.
+
+| CPU workload | Before → after | Less elapsed time |
+| --- | ---: | ---: |
+| Mannequin, 4,340 vertices | 159.455 → 130.829 ms | 18.0% |
+| Skeleton, 9,598 vertices | 368.108 → 288.073 ms | 21.7% |
+| Cockroach, 2,376 vertices | 85.784 → 65.298 ms | 23.9% |
+| Sheet ghost, 3,810 vertices | 178.592 → 155.959 ms | 12.7% |
+| Spooner-Man, 15,364 vertices | 785.818 → 647.649 ms | 17.6% |
+| 12 mixed characters | 226.496 → 181.818 ms | 19.7% |
+| 96 mixed characters | 1,841.385 → 1,496.080 ms | 18.8% |
+
+These are **CPU kernel gains only**. No overall CPU, GPU or FPS gain is claimed.
+Two asset-free six-vertex regressions protect all wire bytes/bounds across pose,
+tint/fallback and singular-scale changes, allocation retention, hidden clock
+progress, restoration and unchanged-pose suppression. Existing animation,
+ragdoll sleep/wake, lighting and ownership regressions also pass. Formatting,
+strict workspace/all-target/all-feature Clippy and **263 Rust tests** pass;
+the locked release workspace/all-feature build passes in **3m44s**.
+No map bake or native campaign was added to Cargo/CI.
+
+**Native acceptance remains pending:** the rebuilt supported
+`local/native-validation/Places Validation.app` (`io.github.csd113.places.validation`)
+requires the user's macOS Documents-folder approval before initialization.
+The previous launch was canceled before startup; approval is pending, not denied.
+This pass made no native launch attempt and used only CPU tools without a window,
+rendering surface or TCC change. After approval, run matched uncapped/V-sync-OFF
+menu/ragdoll, stress, Pool/Arcade and After Hours timing, native lifecycle checks
+and fixed-frame comparisons through that same supported launcher. Record actual
+presentation mode, physical drawable and separate CPU/GPU/presentation spans.
+Native image parity, candidate timings and new montage footage remain unperformed;
+existing media and pass-1 acceptance debt are preserved.
+
+Evidence, source snapshots, executables and operation probes are outside target:
+`local/render-preparation-pass2-0.13.0/{summary.json,vertex-results.json,crowd-results.json,FINAL-HANDOFF.json}`.
+Unrelated audit drafts, maps/assets and shared target are preserved. Pass 3 and
+subsequent queue items were not started.
