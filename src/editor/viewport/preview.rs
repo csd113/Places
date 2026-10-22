@@ -244,3 +244,32 @@ fn prepare(
         characters,
     })
 }
+
+/// Explicit CPU probe; never runs in the editor loop or automatic tests.
+pub(in crate::editor) fn profile(level: &LevelDef) -> Result<Vec<serde_json::Value>, String> {
+    use serde_json::json;
+    use sha2::{Digest as _, Sha256};
+    use std::time::Instant;
+    let catalog_props = PropCatalog::load_default();
+    let mut assets = PropAssets::load_default();
+    let mut textures = TextureCache::default();
+    let mut previews = Vec::new();
+    for environment in [false, false, true] {
+        let started = Instant::now();
+        let preview = prepare(
+            level.clone(),
+            environment,
+            &catalog_props,
+            &mut assets,
+            &mut textures,
+        )?;
+        let ms = started.elapsed().as_secs_f64() * 1_000.0_f64;
+        let mut mesh = Sha256::new();
+        for range in &preview.build.mesh.ranges {
+            mesh.update(format!("{:?}", range.vertices).as_bytes());
+            mesh.update(bytemuck::cast_slice(&range.indices));
+        }
+        previews.push(json!({"environment":environment,"ms":ms,"metrics":preview.metrics,"mesh_sha256":crate::engine::package::hash::digest_hex(&mesh.finalize()),"objects":preview.objects.len()}));
+    }
+    Ok(previews)
+}

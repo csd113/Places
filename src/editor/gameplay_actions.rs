@@ -6,7 +6,6 @@ use super::App;
 use super::actions::Popup;
 use super::document::{GameplaySetting, ObjectId, ObjectKind};
 use super::ui::Action;
-use crate::engine::assets::AssetType;
 use crate::engine::level::LevelSurfaces;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -147,25 +146,17 @@ impl App {
         Ok(true)
     }
 
-    pub(super) fn gameplay_choices(&self, choice: GameplayChoice) -> Vec<String> {
+    pub(super) fn gameplay_choices(&self, choice: GameplayChoice) -> std::rc::Rc<[String]> {
         let Some(doc) = self.document.as_ref() else {
-            return Vec::new();
+            return Vec::new().into();
         };
         match choice {
-            GameplayChoice::Fixture => self
-                .catalog
-                .entries()
-                .into_iter()
-                .filter(|e| e.asset_type.as_str() == AssetType::LIGHT && self.browser_matches(e))
-                .map(|e| e.id.clone())
-                .collect(),
-            GameplayChoice::EntityModel => self
-                .catalog
-                .entries()
-                .into_iter()
-                .filter(|e| e.asset_type.as_str() == AssetType::ENTITY && self.browser_matches(e))
-                .map(|e| e.id.clone())
-                .collect(),
+            GameplayChoice::Fixture => {
+                return self.browser.choices(super::browser::ChoiceKind::Fixtures);
+            }
+            GameplayChoice::EntityModel => {
+                return self.browser.choices(super::browser::ChoiceKind::Entities);
+            }
             GameplayChoice::Sound => self.sound_cues.clone(),
             GameplayChoice::EntityBehavior => [
                 "Decorative / no AI",
@@ -228,6 +219,7 @@ impl App {
                 result
             }
         }
+        .into()
     }
 
     fn choose_gameplay(&mut self, choice: GameplayChoice, index: usize) -> Result<(), String> {

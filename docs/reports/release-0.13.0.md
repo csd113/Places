@@ -3372,3 +3372,72 @@ Evidence, source snapshots, executables and operation probes are outside target:
 `local/render-preparation-pass2-0.13.0/{summary.json,vertex-results.json,crowd-results.json,FINAL-HANDOFF.json}`.
 Unrelated audit drafts, maps/assets and shared target are preserved. Pass 3 and
 subsequent queue items were not started.
+
+## Grouped performance sweep 3: editor responsiveness — 2026-10-22
+
+This pass starts at remote-verified `6e548fb2` on `0.13.0-staging`. The existing
+editor probe, bounded thumbnail implementation, preview worker and earlier editor
+evidence were reused. Explicit CPU profiling opens an unchanged safe copy of
+After Hours: **311 selectable objects, 200 props, 37 fixtures**, with the real
+621-entry catalog. Three before/after process trials use warm OS caches; each
+query/type repeats 2,000 calls. The baseline probe extracts the original
+sort/filter algorithm with the same shared-slice return type as the candidate.
+These are operation timings, without a window, GPU upload or map bake.
+
+The measured repeated work was catalog sorting, lowercase search allocation and
+ID copying during picker drawing, hit construction and thumbnail lookup. One
+catalog-owned search index now retains the exact ID order and Unicode lowercase
+search text; one result is reused only for the same picker type, theme and query.
+A replacement catalog constructs a fresh browser. Visible tiles borrow their
+eight-ID slice. Theme filtering, variants, keyboard selection and grid layout
+retain their existing behavior; thumbnail pixels and renderer code are unchanged.
+
+| CPU operation, median | Before | After |
+| --- | ---: | ---: |
+| Warm all-model list, 388 IDs | 81.49 µs | <0.01 µs |
+| Warm material / fixture / entity lists | 33.12 / 17.96 / 19.30 µs | Each <0.01 µs |
+| Changed model search, `chair` | 90.29 µs | 9.54 µs |
+| Browser construction plus first all-model list | 287.08 µs | 266.54 µs |
+| Fresh safety scan | 218.43 ms | 217.12 ms |
+| Warm Inspect / Environment CPU preview | 394.80 / 394.18 ms | 389.43 / 388.61 ms |
+| Transform → undo → redo → undo | 2.875 ms | 2.872 ms |
+
+The extra index costs about **0.13 ms once**; first-use latency has no established
+gain. Only the repeated picker work is an optimization result. Safety, previews,
+history and cold thumbnail differences are not claimed as gains. Existing safety
+results remain reused until a document change; preview requests remain coalesced
+and generation-checked. Unchanged frames already request neither full operation.
+Actual edits still validate and rebuild. Content/integrity hashing, asset reload,
+project switching, transforms and bake-state invalidation retain their existing
+paths; no timestamp shortcut or extra world/preview cache was introduced.
+
+All **176** real-catalog type/theme/query comparisons match the uncached filter.
+Before/after ordered-choice and architecture vertex/index digests match; warmed
+previews retain eight image decodes rather than decoding again. Every trial
+restores exact raw source through ten transform/history cycles. One four-entry,
+asset-free regression protects dependency transitions, variant order, Unicode
+search, allocation reuse and replacement-catalog metadata. Formatting, strict
+workspace/all-target/all-feature Clippy, **264 tests** (0 failed/ignored, 0.48 s)
+and the locked release workspace/all-feature build pass. An executor disconnect
+interrupted the first build; after confirming no surviving build, the same gate
+passed with one Cargo job in 7m19s. No quality or feature settings were reduced.
+
+Native acceptance remains **unperformed**. The existing
+`local/furniture-store-0.13.0/Places Native Editor.app`
+(`io.github.csd113.places.native-editor`) stalled before initialization in a
+protected-file `__open`; TCC records an AllFiles preflight without a grant.
+This establishes unresolved access, not a confirmed separate Documents prompt or
+user denial. Its waiting launch was canceled, the original launcher restored and
+no process remains. The inherited Places Validation.app Documents approval is
+still pending. No security settings, signing or alternate native identity changed.
+Native cold/warm UI latency, selection/history visuals, project switching,
+reload/preview lifecycle and bake-panel acceptance, FPS and new montage footage
+remain unperformed. Original media and both earlier passes' native debt remain.
+
+Evidence, source snapshots, direct binaries and raw trials are outside target in
+`local/editor-responsiveness-pass3-0.13.0/`, especially `summary.json`,
+`source-custody.json`, `before-*.json`, `after-*.json`, native access receipts and
+`FINAL-HANDOFF.json`. Original project/export, safe copy, launcher and unrelated
+audit drafts are unchanged. The cumbersome inherited per-prop idle-AI clearing
+remains a separate authoring UX issue. No later queue item was started; no CI wait,
+main merge, release/version bump, force push or cargo clean occurred.

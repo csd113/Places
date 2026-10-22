@@ -7,3 +7,5 @@ mod gameplay;
 mod scripting;
 
 mod components;
+
+mod browser;

@@ -406,6 +406,12 @@ For explicit CPU latency checks, run `editor-profile PATH_TO_ISOLATED_PROJECT`.
 It reports document operations and performs reversible in-memory transform/history
 work. Native `--verify-script` recipes retain per-action handler and idle-wait
 milliseconds in `timings.jsonl`. Neither is an FPS benchmark or a CI map bake.
+`editor-profile --responsiveness PATH_TO_ISOLATED_PROJECT` additionally measures
+cold/warm picker and thumbnail operations, safety scans, Inspect/Environment CPU
+preparation and exact transform/history restoration against the real project.
+It checks picker results against the uncached filter across themes, types and
+queries. It opens no window, saves no source and performs no map bake; preview
+CPU time does not include GPU upload or input-to-present latency.
 
 ### 0.13.0 selection, structure and bake review
 

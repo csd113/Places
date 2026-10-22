@@ -3,7 +3,6 @@
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::engine::assets::AssetType;
 use crate::engine::paths;
 use sdl3::video::Window;
 
@@ -303,23 +302,12 @@ impl App {
         }
     }
 
-    pub(super) fn library(&self, materials: bool) -> Vec<String> {
-        self.catalog
-            .entries()
-            .into_iter()
-            .filter(|entry| {
-                if materials {
-                    entry.asset_type.as_str() == AssetType::MATERIAL
-                } else {
-                    matches!(
-                        entry.asset_type.as_str(),
-                        AssetType::PROP | AssetType::ENTITY
-                    )
-                }
-            })
-            .filter(|entry| self.browser_matches(entry))
-            .map(|entry| entry.id.clone())
-            .collect()
+    pub(super) fn library(&self, materials: bool) -> std::rc::Rc<[String]> {
+        self.browser.choices(if materials {
+            super::browser::ChoiceKind::Materials
+        } else {
+            super::browser::ChoiceKind::Models
+        })
     }
 
     fn confirm_action(&mut self, action: Action, window: &Window) -> Result<(), String> {

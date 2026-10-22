@@ -1,10 +1,45 @@
 //! Committed catalog artwork, decoded one visible tile per frame, never baked
 //! or rendered continuously. Twenty-four 160x120 tiles cost at most 1.76 MiB.
+use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use super::{App, actions::Popup, gameplay_actions::GameplayChoice, ui::Action};
-use crate::engine::{assets::AssetEntry, materials::RawImage, render::UiImage};
+use crate::engine::{assets::AssetType, materials::RawImage, render::UiImage};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum ChoiceKind {
+    Models,
+    Materials,
+    Fixtures,
+    Entities,
+}
+
+impl ChoiceKind {
+    fn accepts(self, asset_type: &str) -> bool {
+        match self {
+            Self::Models => matches!(asset_type, AssetType::PROP | AssetType::ENTITY),
+            Self::Materials => asset_type == AssetType::MATERIAL,
+            Self::Fixtures => asset_type == AssetType::LIGHT,
+            Self::Entities => asset_type == AssetType::ENTITY,
+        }
+    }
+}
+
+struct SearchEntry {
+    id: String,
+    asset_type: AssetType,
+    theme: String,
+    text: String,
+}
+
+struct Choices {
+    kind: ChoiceKind,
+    theme: usize,
+    query: String,
+    ids: Rc<[String]>,
+}
 
 pub(super) const DOOR_PREVIEWS: [&str; 3] = [
     "editor:door_interior",
@@ -20,11 +55,41 @@ pub(super) struct Browser {
     pub material_ceiling: bool,
     pub theme: usize,
     themes: Vec<String>,
+    // Owned by this immutable catalog's browser. Replacing/reloading the catalog
+    // constructs a new browser, including its search index and image cache.
+    search: Vec<SearchEntry>,
+    choices: RefCell<Option<Choices>>,
     index: Option<serde_json::Value>,
     tiles: BTreeMap<String, Result<Arc<RawImage>, String>>,
 }
 
 impl Browser {
+    pub fn choices(&self, kind: ChoiceKind) -> Rc<[String]> {
+        if let Some(cached) = &*self.choices.borrow()
+            && cached.kind == kind
+            && cached.theme == self.theme
+            && cached.query == self.query
+        {
+            return Rc::clone(&cached.ids);
+        }
+        let query = self.query.to_lowercase();
+        let theme = self.themes.get(self.theme);
+        let ids: Rc<[String]> = self
+            .search
+            .iter()
+            .filter(|entry| kind.accepts(entry.asset_type.as_str()))
+            .filter(|entry| self.theme == 0 || theme == Some(&entry.theme))
+            .filter(|entry| entry.text.contains(&query))
+            .map(|entry| entry.id.clone())
+            .collect();
+        *self.choices.borrow_mut() = Some(Choices {
+            kind,
+            theme: self.theme,
+            query: self.query.clone(),
+            ids: Rc::clone(&ids),
+        });
+        ids
+    }
     pub fn new(catalog: &crate::engine::assets::AssetCatalog) -> Self {
         let mut themes = vec!["All themes".into()];
         let unique = catalog
@@ -40,6 +105,20 @@ impl Browser {
         themes.extend(unique);
         Self {
             themes,
+            search: catalog
+                .entries()
+                .into_iter()
+                .map(|entry| SearchEntry {
+                    id: entry.id.clone(),
+                    asset_type: entry.asset_type.clone(),
+                    theme: entry
+                        .theme
+                        .as_ref()
+                        .map_or("Shared", |theme| theme.as_str())
+                        .to_owned(),
+                    text: format!("{} {}", entry.id, entry.display_name).to_lowercase(),
+                })
+                .collect(),
             ..Self::default()
         }
     }
@@ -60,7 +139,7 @@ impl Browser {
         }
     }
 
-    fn prepare_one(&mut self, visible: &[String]) {
+    pub(super) fn prepare_one(&mut self, visible: &[String]) {
         if self.tiles.len() >= 24 {
             self.tiles.retain(|id, _| visible.contains(id));
         }
@@ -104,7 +183,7 @@ pub(super) fn tile_bounds(offset: usize) -> [f32; 4] {
 }
 
 impl App {
-    pub(super) fn browser_page(&self) -> Option<(Vec<String>, usize)> {
+    pub(super) fn browser_page(&self) -> Option<(Rc<[String]>, usize)> {
         match self.popup {
             Some(Popup::DoorAssets) => Some((self.door_choices(), 0)),
             Some(Popup::Library { materials, page }) => Some((self.library(materials), page)),
@@ -116,7 +195,7 @@ impl App {
         }
     }
 
-    pub(super) fn door_choices(&self) -> Vec<String> {
+    pub(super) fn door_choices(&self) -> Rc<[String]> {
         DOOR_PREVIEWS
             .into_iter()
             .filter(|id| {
@@ -132,30 +211,15 @@ impl App {
         &self.browser.themes
     }
 
-    pub(super) fn browser_matches(&self, entry: &AssetEntry) -> bool {
-        let theme = self.browser.themes.get(self.browser.theme);
-        (self.browser.theme == 0
-            || theme.is_some_and(|t| {
-                t == entry
-                    .theme
-                    .as_ref()
-                    .map_or("Shared", |value| value.as_str())
-            }))
-            && format!("{} {}", entry.id, entry.display_name)
-                .to_lowercase()
-                .contains(&self.browser.query.to_lowercase())
-    }
-
     pub(super) fn browser_images(&mut self) -> Vec<UiImage> {
         let Some((ids, page)) = self.browser_page() else {
             return Vec::new();
         };
-        let visible: Vec<_> = ids
-            .into_iter()
-            .skip(page.saturating_mul(PAGE_SIZE))
-            .take(PAGE_SIZE)
-            .collect();
-        self.browser.prepare_one(&visible);
+        let remaining = ids
+            .get(page.saturating_mul(PAGE_SIZE)..)
+            .unwrap_or_default();
+        let (visible, _) = remaining.split_at(remaining.len().min(PAGE_SIZE));
+        self.browser.prepare_one(visible);
         visible
             .iter()
             .enumerate()

@@ -3,7 +3,7 @@
 mod camera;
 mod overlay;
 mod picking;
-mod preview;
+pub(super) mod preview;
 
 use std::time::Instant;
 

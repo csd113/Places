@@ -14,6 +14,8 @@ mod geometry_actions;
 mod input;
 mod navigation;
 pub mod process;
+#[doc(hidden)]
+pub mod profiling;
 mod projects;
 pub mod safety;
 mod safety_actions;
