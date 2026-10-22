@@ -1,0 +1,15 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "room_1792640069720",
+  "name": "After Hours - Rooms Beyond",
+  "entry_level": "room_1792640069720",
+  "menu_entry_only": true,
+  "levels": [
+    {
+      "id": "room_1792640069720",
+      "source": "levels/room_1792640069720.json",
+      "display_name": "After Hours - Rooms Beyond"
+    }
+  ]
+}

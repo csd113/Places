@@ -3066,3 +3066,170 @@ media remains unchanged. Preserve `target` and executables for the queued real
 editor furniture-store task. That task, later polish and showcase quests were
 not started. Hosted CI was not queried or awaited; no main merge, force push,
 tag, release, version bump or `cargo clean` was performed.
+
+
+## Furniture-store construction checkpoint — native UI access blocked
+
+The authorized large multi-storey furniture-store stage was attempted after
+`b88729e75c0d` on `0.13.0-staging`. Construction is **not complete** and the
+separate polish stage must not treat this checkpoint as a finished map.
+
+The unchanged `target/release/places-editor` was launched in the local standard
+macOS bundle `local/furniture-store-0.13.0/Places Native Editor.app`. The native
+editor's New folder chooser and keyboard workflow created
+`projects/untitled-1792640069720/places.project.json` and its
+`levels/room_1792640069720.json`. This is only the unmodified 6×6 m starter
+floor/ceiling and `editor_light`, with no walls or furniture. A menu-entry toggle
+changed during pointer-target diagnosis. No source JSON was generated externally.
+
+The screen tool attached to the actual “Places - Editor” window, but mouse
+activation did not correspond consistently to its displayed controls. Later
+native state refreshes returned `Computer Use server error -10005:
+timeoutReached`; input returned that Computer Use was inactive for this app and
+required a fresh app state. Refreshing that state also timed out. The parent
+reported an approval request delivered to the user at 03:04 UTC; this subthread
+has no explicit approval response or denial details. That pending request was
+not replaced or bypassed. This is an unresolved desktop-tool access blocker;
+no claim is made that an essential editor authoring feature is missing.
+
+`local/furniture-store-0.13.0/CHECKPOINT.json` records exact paths, progress,
+errors and the proposed **After Hours — Rooms Beyond** journey: credible sales
+floor/bedrooms → wardrobe gallery and required physical closet passage → crouch
+service link → separate normal-sized 2×/0.5× furniture rooms → straight upper
+storey stairs → squeezed low room → dense high-ceiling bed/lamp archive → final
+excessive bedroom and exit. The route and all essential design requirements
+remain construction work, not polish opportunities.
+
+Save/reopen acceptance, Build/Play, export/import, native route traversal,
+uncapped dense-spot timing and representative map screenshots have **not** been
+performed. No map package or Library attachment is claimed. Existing assets,
+engine code, unrelated audit drafts, `target` and release binaries are retained.
+Resume by resolving the existing approval/access state and verifying input in
+the same native editor before authoring. Do not substitute external map JSON.
+
+## After Hours — Rooms Beyond: native construction follow-up
+
+**Construction acceptance is complete.** The original editable project is
+`projects/untitled-1792640069720`, titled **After Hours - Rooms Beyond**. All map
+construction and corrections used the real native editor: keyboard navigation,
+complete-pose forms, the existing model/material library, duplication, numeric
+transforms and the connected-floor stair wizard. No external map generation or
+source JSON import was used. Existing assets only; no engine code, model pack,
+texture, version bump or later queue item was introduced.
+
+The native connection was recovered without privacy/security changes. The
+copied local app exited with status 1 because it lacked bundled assets or an
+explicit asset root. Its local launcher now supplies existing repository
+asset/tool paths while preserving app identity. Normal launch restored the
+actual editor screen. Keyboard input works; custom-canvas pointer activation
+remains unreliable. The editor retains the original saved project for polish.
+
+There are **ten main rooms across two storeys**, counting the two early bedrooms
+separately and the stair hall once; corridors and the closet passage are extra.
+The saved source contains 18 floor/carrier records after the stair split,
+56 wall slabs, one 18-riser flight climbing 3.5 m, **200 furniture props and
+37 light fixtures**. The main route advances along the ground floor and returns
+along the upper floor. It is linear, with short bedroom side visits.
+
+| Requirement | Authored result / native acceptance |
+| --- | --- |
+| Good early rooms | Furnished showroom and two bedrooms: beds, paired lamps, rugs, seating, tables, cabinets, storage, plants and tabletop dressing. |
+| Increasing excess | Archive and finale repeat beds, lamps, shelves and seating; selected beds are sideways, steeply tilted or partly embedded. |
+| Physical closet route | Open closet-door banks lead directly into the mandatory passage; no teleport. Native traversal passed. |
+| Crouch connections | 1.6 × 4 × 1.15 m service passage and 4 × 8 × 1.35 m squeezed upper bedroom; both passed crouched. |
+| Interior windows | Opposed bedroom apertures look across the central corridor into the other bedroom. |
+| Extreme room size | 9 m-high archive contrasts with the low, tightly furnished upper bedroom. |
+| Separate scale rooms | Two 8 × 8 m normal rooms: oversized furniture (mostly 2×; shelf 1.65×) and miniature furniture (0.5×). |
+| Solid traversable architecture | Existing backed floor/ceiling geometry, thick wall slabs and actual stair tool. Final route passed without jumping or a reset. |
+
+Inventory: 35 beds, 49 floor lamps, 29 bookshelves, eight closet-door assemblies,
+seven rugs, 14 sofas, 16 coffee tables, 15 cabinets, ten armchairs, eight plants,
+six book stacks and three pictures. Density was preserved during acceptance.
+
+All 200 accidentally inherited idle AI presets were removed through the native
+Decorative / no AI picker; saved-source inspection confirms zero AI/nav-agent
+components. The current single-selection editor has no batch behavior control.
+Three doorway headers were raised 0.02 m into ceiling backing, removing all
+12 duplicate-surface errors. Safety last showed 56 bounded review entries:
+stair/drop edges, open thresholds/carrier perimeters and a summary of 43
+model-base support contacts. No ignores were saved; this is not a zero-finding
+safety claim. Native inspection also found and corrected an oversized bed/table
+pinch, four tilted beds intruding into lower ceilings, an opening above the
+closet tunnel and dark stair treads. Corrections were saved before final export.
+The corrected route passed from the original spawn through closet/crouch,
+oversized and miniature rooms, stairs (eye 1.6 → 5.1 m), low upper bedroom,
+archive and finale **without jumping**. Final position was approximately
+(6.709, 5.1, 19.956); the validation player then quit normally with exit 0.
+Route evidence: `local/furniture-store-0.13.0/native-walk-final/route.csv`.
+
+Native save/reopen and Build/Play succeeded. The final native **Export all levels
++ sources** is
+`projects/untitled-1792640069720/after-hours-rooms-beyond.placesmap`
+(**47,212,635 bytes**, SHA-256
+`69604a9a2a13ec5c6579b036a64183fbbb6b8af32b58decd0465077020fc2afc`).
+Compiler verification reports current=true, integrity_valid=true, no differences,
+no bake required; preparer fingerprint
+`c4f002badebaf160e74bffe781543b277fddd56e05b0770244e7503e43fbb0b3`.
+Native **Recover editable project** opened
+`local/furniture-store-0.13.0/recovered-project`: manifest, level and Luau file
+were byte-identical to all three originals. The original project was restored
+afterward. The native-created unused Luau template is preserved and has no
+trigger/entity event link. Older intermediate packages remain local historical
+evidence; use the named final package above.
+
+Strict workspace/all-target/all-feature Clippy and the locked release
+workspace/all-feature build passed with `RUSTC_WRAPPER=` because optional
+sccache was blocked by the shell sandbox. Asset validation passed with zero
+warnings; read-only `check-project` validates every source. No Rust tests or
+engine changes were added. These checks reuse the completed build, not a CI wait.
+
+Two capture-free native baselines used Apple M2 Pro/Metal, Full lightmaps and
+reflections, bloom, high textures/filtering, **VSync off and no frame limiter**.
+Logs confirm actual Immediate presentation after initial surface setup,
+**1280 × 720 logical / 2560 × 1440 physical drawable**, and a 120 Hz display.
+Each view has 120 warmup + 600 measured frames and zero missed ready surfaces.
+Both rates exceed display refresh and have many sub-refresh frames; acquisition
+and presentation scheduling still affect the tails. These are observed baselines,
+not an engine speedup or a claim that macOS presentation overhead is eliminated.
+
+| Dense view | Observed FPS | Mean / p95 loop ms | Mean CPU update ms | Draws / triangles | Whole-process peak RSS |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Archive | 240.01 | 4.167 / 8.447 | 0.089 | 133 / 119,196 | 612.7 MiB |
+| Finale | 241.63 | 4.139 / 8.069 | 0.090 | 35 / 46,234 | 608.0 MiB |
+
+Receipts, frames and logs are under
+`local/furniture-store-0.13.0/bench/{archive,finale}`. Both loaded the final
+package/member identity with player binary SHA-256
+`5862f079a3350fb05d88f185f4c175418b19324c2de22d9b33a9ac1097627355`.
+Nine separate native framebuffer capture runs were visually inspected; capture
+cost is excluded from the timings. The squeezed-room image uses a fixed crouched
+render eye; actual physical crouch traversal was separately completed.
+
+The nine screenshots and final package were saved to Library after explicit user
+approval. Local image copies are under `local/furniture-store-0.13.0/screenshots`.
+
+| Library file | Confirmed Library ID |
+| --- | --- |
+| `after-hours-early-bedroom.png` | `libfile_504caa43481881918c37398270dd243d` |
+| `after-hours-bedroom-window.png` | `libfile_5942c6d0412c8191948624ee5c46667e` |
+| `after-hours-closet.png` | `libfile_f2dd414c1cfc8191a635df8f23a5ad63` |
+| `after-hours-oversized.png` | `libfile_2e53ef2fe04081918bd46a3c849fbb32` |
+| `after-hours-miniature.png` | `libfile_e2f283bab6888191b9b5df895af72b67` |
+| `after-hours-stairs.png` | `libfile_c2083f4b802c8191a05181ae92219830` |
+| `after-hours-squeezed.png` | `libfile_507711289a048191951d61dbc691009c` |
+| `after-hours-archive.png` | `libfile_0de0b6c376148191ad398e99149ed8e2` |
+| `after-hours-finale.png` | `libfile_54b5b9ef29a48191966df76cf76f090b` |
+| `after-hours-rooms-beyond.placesmap` | `libfile_7f6439fc0fdc8191b451c07eaa87040f` |
+
+Every Library item is version 0; exact file IDs, paths and returned metadata are
+retained in `local/furniture-store-0.13.0/library-result.json`. Earlier native
+editor overview: `libfile_720a24605fb481918f42596213a15317`.
+
+The separate polish pass should refine lighting rhythm, bedroom composition,
+trim and sightlines while retaining the furniture density, scale contrasts,
+physical closet route and validated clearances. No known route blocker is
+being handed to polish. For the later editor responsiveness pass, record the
+missing batch behavior edit, unreliable custom-canvas pointer targeting and
+mixed local/world height wording; do not conflate those with map geometry.
+Unrelated audit drafts and prior report content are preserved, target remains
+available, and no subsequent performance sweep, NPC work or menu fix started.
