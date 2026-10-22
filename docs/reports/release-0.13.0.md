@@ -12,6 +12,81 @@ Presented macOS FPS gains remain inconclusive. The Windows entry below records
 native Razer acceptance and its remaining limits; Linux remains unverified.
 
 
+## Cosmic Lanes miniatures and shared appearances - native Windows, 2026-10-22
+
+The subtle switch beside lane one's ball return now changes its ten pins into
+quarter-scale mannequins. Real bowling-ball contact replaces each standing body
+with the existing 15-body/14-joint ragdoll, preserving impact velocity once.
+The normal reset restores the original pins, and the blue-ball ten-pin favor
+still completes and saves through ordinary interactions. The secret mode has
+its own NPC guidance and cannot accidentally complete that favor.
+
+Man, Woman and non-graphic Zombie appearances use three fitted opaque 1024-square
+PNG sheets with the unchanged canonical mannequin GLB (37 joints, 19 clips).
+Original and Black remain available. The editor's Gameplay > Appearance choice
+works for placed actors and spawn templates. Immutable mesh, rig and compiled
+clip data are shared; each actor retains independent animation state and a
+cached appearance binding. No model/animation copies or GPU skinning were added.
+Texture references participate in validation, dependency hashes and catalog
+closure; required package capabilities reject unsupported readers by name.
+
+Native evidence is under `mannequin-additions/` in the Windows validation root
+above. `native-feature-audit.json` passes the actual functional assertions:
+
+| Check | Native result |
+| --- | --- |
+| Moving appearances | Man walks while Woman runs and Zombie holds a separate pose; all three fitted textures and Original/Black visually inspected on the model. Seven actors share two mesh resources (the mannequin and the switch model). |
+| Skin physics | Real interactions create three independent ragdolls (45 bones/42 joints); reset removes them. Textured spawned guest animates independently. |
+| Editor round trip | Visible five-choice picker, save/reopen, Build, real Play child, export/import and editable recovery pass. Recovered JSON files are byte-identical. Recovered Zombie and runtime Black templates both visibly correct. |
+| Miniature impacts | Ball contacts produce up to ten real rigs: 150 bones/140 joints. Standing proxies are removed before bone insertion; aliases retire on reset/unload. Mass scales with volume. |
+| Settling repair | Quarter-scale rigs exposed persistent contact chatter. Scale-aware angular damping/contact padding fix it without relaxing sleep thresholds or forcing sleep. The old deterministic ten-rig regression fails; the corrected one passes in under one second. Native after capture reaches **150/150 naturally sleeping**, versus 105/120 in the distinct earlier eight-strike capture. |
+| Repeated reset/toggle | Normal reset and three toggle cycles restore exactly 106 bodies/374 colliders/zero joints or ragdolls and 24 original characters; restored rack visually inspected. |
+| Ordinary quest | Ten original pins fall from a real blue-ball throw; ordinary NPC completion writes exactly `arcade` into a fresh save and repeat dialogue is idempotent. Existing all-eight campaign acceptance remains recorded below. |
+| Unload | Ten live rigs then return to menu restores 19 bodies/202 colliders/zero joints or ragdolls, with no retired Arcade prepared owners retained. Menu vignette actors vary; total process RSS/VRAM return is not claimed. |
+
+Locked release workspace/all-features build, strict all-targets/all-features
+Clippy and formatting/diff checks pass. Rust tests: **271 passed, zero failed or
+ignored**. Asset gate: 625 assets, 389 placeable, nine themes, zero warnings.
+Texture and prop gates pass with existing advisories. Final cached production
+build was reconfirmed before preserving all eight executables outside `target`.
+
+All timing uses the actual NVIDIA RTX 3070 Laptop / DX12 renderer, VSync OFF,
+applied **Immediate**, 1920x1080, High textures/filtering, Static Arcade lighting
+(runtime Low, lightmaps/reflections off), no fixed delta/limiter/captures and no
+competing compiler. The ready interval is seconds 40-55, using actual loop time:
+
+| Run | Actual struck miniatures | Mean FPS | Mean loop / update | Loop p95 |
+| --- | --- | --- | --- | --- |
+| Before settling correction | 10 | 161.68 | 6.185 / 1.825 ms | 6.914 ms |
+| After, first physical roll | 9 | 162.60 | 6.150 / 1.807 ms | 6.772 ms |
+| After, repeated physical roll | 9 | 167.57 | 5.967 / 1.692 ms | 9.181 ms |
+
+These are **not matched throughput gains**: physical strike counts differ and
+presentation pacing remains material (the first two runs cluster near 165 Hz;
+the repeat has more short frames and a wider tail). No percentage saving or
+cross-Mac speedup is claimed. The ten-rig native settling capture is separate
+from timing. Raw CSV/identity/receipts preserve the imperfect rolls rather than
+silently selecting a favorable comparison.
+
+The requested local montage is
+`mannequin-additions/media/miniature-settling-before-after-sampled.avi`
+(11.4 seconds, MJPEG AVI). It compares genuine before/after screenshot samples;
+the 31-second wait is omitted, nominal sampling is 280 ms and playback samples
+are 300 ms. Contact-count differences and timing exclusion are visible on the
+video. SHA-256: `f3ce3ce2de78c841b9f792d9d9b822d5331acd325c8802cce7e378437b365d56`.
+It is a settling comparison, not a fabricated original-release FPS baseline.
+
+Current packages: `packages/environments-miniatures-native-mixed-2.placesmap`
+(nine maps, SHA-256 `5172d05c3152bf40842bf68f15ed0f4aba52f9902d7586ae68ee142e4b0e6f2a`)
+and `packages/mannequin-appearances-current.placesmap`. Only Arcade was rebuilt
+as Static; eight existing members were preserved. Pool/Hub retain their Full
+payloads; full-showcase lighting was not rebaked. Production assets and exact
+built-in ImageGen prompts are under `assets/entities/mannequin/textures/` and
+`assets/references/entities/mannequin-skins/`. Useful native tooling, screenshots
+and all candidate executables are retained outside `target`. No Library upload,
+CI wait, release, version bump or main merge occurred. Build outputs remain for
+the approved sun/moon and subsequent queue work.
+
 ## Native Windows Razer validation - 2026-10-22
 
 This is focused native Windows acceptance, not a full replay of the macOS

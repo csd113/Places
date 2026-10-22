@@ -232,6 +232,7 @@ fn collection_bowling_requires_a_witnessed_blue_ball_launch_and_fallen_pins() ->
     ];
     let mut props = pins.iter().map(|id| actor(id)).collect::<Vec<_>>();
     props.extend([actor("arcade_attendant"), actor("rack_0_ball_2")]);
+    props.push(json!({"id":"lane_1_secret_switch","model":"mannequin","x":0_i32,"z":0_i32,"components":[{"component":"state","name":"miniatures","value":false}]}));
     let mut arcade = Fixture::fresh("arcade", &props)?;
     let upright = pins
         .iter()

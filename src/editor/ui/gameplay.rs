@@ -232,6 +232,7 @@ pub(in crate::editor) fn choices_popup(
             C::Sound => "BUILT-IN SOUND CUES",
             C::EntityModel => "BUILT-IN ENTITY MODELS",
             C::EntityBehavior => "ENTITY / shared runtime behavior",
+            C::CharacterAppearance => "MANNEQUIN / shared model appearance",
             C::SpawnTemplate => "SPAWN POINT / reusable template",
             C::SoundAction => "PLAY SOUND / choose an emitter",
             C::DoorAction => "OPEN DOOR / choose a leaf",

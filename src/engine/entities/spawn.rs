@@ -39,6 +39,10 @@ pub struct SpawnTemplateDef {
     pub id: String,
     /// Registry model id or catalogue model path the instance draws.
     pub model: String,
+    /// Optional fitted opaque albedo texture from the catalog. Uses the canonical
+    /// mannequin UV layout; rig, geometry and animations remain shared.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub character_texture: Option<String>,
     /// Uniform scale; defaults to `1.0`.
     #[serde(default = "default_spawn_scale")]
     pub scale: f32,

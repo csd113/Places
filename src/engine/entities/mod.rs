@@ -135,6 +135,11 @@ pub enum WorldCommand {
     ChangeLevel { level: String },
     /// Restore one authored physics group's starting poses and clear momentum.
     ResetPhysicsGroup { group: String },
+    MannequinPins {
+        group: String,
+        enabled: Option<bool>,
+        target: String,
+    },
     /// Activate dormant members of an authored physical group.
     ActivatePhysicsGroup { group: String },
     Ragdoll {
@@ -166,6 +171,7 @@ pub enum WorldCommand {
         entity: u64,
         /// Catalogue model id.
         model: String,
+        character_texture: Option<String>,
         /// World position of the base.
         position: Vec3,
         /// Yaw in degrees.
@@ -2405,6 +2411,18 @@ impl EntityWorld {
                     report.unsupported = report.unsupported.saturating_add(1);
                 }
             }
+            ActionDef::MannequinPins {
+                group,
+                enabled,
+                target,
+            } => {
+                self.commands.push(WorldCommand::MannequinPins {
+                    group: group.clone(),
+                    enabled: *enabled,
+                    target: target.clone(),
+                });
+                report.actions_run = report.actions_run.saturating_add(1);
+            }
             ActionDef::ResetToStart => {
                 report.actions_run = report.actions_run.saturating_add(1);
                 report.player_reset = true;
@@ -3688,6 +3706,7 @@ impl EntityWorld {
         self.commands.push(WorldCommand::SpawnDynamic {
             entity: key,
             model: spawn_template.model.clone(),
+            character_texture: spawn_template.character_texture.clone(),
             position: Vec3::new(authored_point.x, base_y, authored_point.z),
             yaw_degrees: authored_point.yaw_degrees,
             scale: spawn_template.scale,

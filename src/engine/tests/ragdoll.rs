@@ -252,10 +252,29 @@ fn ragdoll_unsupported_rigs_and_shared_budget_fail_without_partial_ownership() -
         "invalid mapping must allocate nothing"
     );
     input.skin = skin;
+    input.placement = Mat4::from_scale(Vec3::splat(0.25));
+    input.previous_placement = input.placement;
     for index in 0..MAX_RAGDOLLS {
         world.start_ragdoll(&format!("actor{index}"), &input, Vec3::ZERO)?;
     }
+    world.alias_ragdoll_contacts("actor0", 999);
     let runtime = world.runtime.as_ref().ok_or("runtime missing")?;
+    let total_mass: f32 = runtime
+        .world
+        .bodies
+        .iter()
+        .filter(|(_, body)| body.is_dynamic())
+        .map(|(_, body)| body.mass())
+        .sum();
+    assert!(
+        (total_mass - 10.625).abs() < 0.001,
+        "ten quarter-scale skeletons must retain density, measured {total_mass} kg"
+    );
+    assert_eq!(
+        runtime.contact_aliases.len(),
+        15,
+        "all converted bone contacts retain their source pin identity"
+    );
     let counts = (
         runtime.world.bodies.len(),
         runtime.world.colliders.len(),
@@ -263,7 +282,7 @@ fn ragdoll_unsupported_rigs_and_shared_budget_fail_without_partial_ownership() -
     );
     assert!(
         world.start_ragdoll("overflow", &input, Vec3::ZERO).is_err(),
-        "ninth ragdoll must be refused"
+        "eleventh ragdoll must be refused"
     );
     assert!(
         world.start_ragdoll("actor0", &input, Vec3::ZERO).is_err(),
@@ -279,34 +298,16 @@ fn ragdoll_unsupported_rigs_and_shared_budget_fail_without_partial_ownership() -
         counts,
         "refusals cannot leave partial bodies/joints"
     );
-    for key in 0_u64..8 {
-        world.spawn(
-            key,
-            &super::PhysicsDef {
-                motion: super::BodyMotion::Dynamic,
-                ..super::PhysicsDef::default()
-            },
-            (Vec3::splat(-0.1), Vec3::splat(0.1)),
-            Vec3::ZERO,
-            0.0,
-            1.0,
-        )?;
-    }
+    fill_item_budget(&mut world)?;
+    assert!(world.remove_ragdoll("actor0"));
     assert!(
         world
-            .spawn(
-                9,
-                &super::PhysicsDef {
-                    motion: super::BodyMotion::Dynamic,
-                    ..super::PhysicsDef::default()
-                },
-                (Vec3::splat(-0.1), Vec3::splat(0.1)),
-                Vec3::ZERO,
-                0.0,
-                1.0
-            )
-            .is_err(),
-        "ordinary item spawning must share the 128-body cap with bone bodies"
+            .runtime
+            .as_ref()
+            .ok_or("runtime missing")?
+            .contact_aliases
+            .is_empty(),
+        "reset must retire every pin contact alias"
     );
     Ok(())
 }
@@ -455,5 +456,98 @@ fn ragdoll_raised_arms_wall_contact_reaches_sleep() -> Result<(), String> {
     );
     assert!(snapshot.max_anchor_error_m < 0.006);
     assert!(snapshot.max_penetration_m < 0.01);
+    Ok(())
+}
+
+fn fill_item_budget(world: &mut ItemWorld) -> Result<(), String> {
+    for key in 0_u64..128 {
+        world.spawn(
+            key,
+            &super::PhysicsDef {
+                motion: super::BodyMotion::Dynamic,
+                ..super::PhysicsDef::default()
+            },
+            (Vec3::splat(-0.1), Vec3::splat(0.1)),
+            Vec3::ZERO,
+            0.0,
+            1.0,
+        )?;
+    }
+    assert!(
+        world
+            .spawn(
+                129,
+                &super::PhysicsDef {
+                    motion: super::BodyMotion::Dynamic,
+                    ..super::PhysicsDef::default()
+                },
+                (Vec3::splat(-0.1), Vec3::splat(0.1)),
+                Vec3::ZERO,
+                0.0,
+                1.0
+            )
+            .is_err(),
+        "ordinary item allocation remains bounded while ten articulated rigs have their own bounded reservation"
+    );
+    Ok(())
+}
+
+// Protects the native ten-miniature pile that retained contact chatter after
+// twenty-two seconds. One analytic floor and the existing rig, no map/GPU/bake.
+// 150 bodies for thirty simulated seconds is the narrow supported rack workload.
+#[test]
+fn miniature_rack_contacts_settle_without_forcing_sleep() -> Result<(), String> {
+    let asset = model()?;
+    let animator = CharacterAnimator::new(&asset).ok_or("animator missing")?;
+    let current = globals(&asset, &animator)?;
+    let level = room()?;
+    let mut world = ItemWorld::from_level(&level, &level.collision_aabbs());
+    for row in 0_u8..4 {
+        for column in 0_u8..=row {
+            let position = Vec3::new(
+                f32::from(row).mul_add(-0.5, f32::from(column)) * 0.21,
+                0.0,
+                -f32::from(row) * 0.19,
+            );
+            let placement = Mat4::from_scale_rotation_translation(
+                Vec3::splat(0.25),
+                glam::Quat::IDENTITY,
+                position,
+            );
+            let input = RagdollInput {
+                skin: asset.skin.as_ref().ok_or("skin missing")?,
+                globals: &current,
+                previous: &current,
+                placement,
+                previous_placement: placement,
+                delta: FIXED_STEP,
+            };
+            world.start_ragdoll(
+                &format!("mini-{row}-{column}"),
+                &input,
+                Vec3::new(0.0, 0.0, -0.5),
+            )?;
+        }
+    }
+    for _ in 0_u16..3600 {
+        world.step(FIXED_STEP, player(), &[]);
+    }
+    let snapshots = world.ragdoll_snapshots();
+    assert_eq!(snapshots.len(), 10);
+    for state in snapshots {
+        assert_eq!(
+            state.sleeping, 15,
+            "{} must settle naturally: {} m/s / {} rad/s",
+            state.id, state.max_speed_mps, state.max_angular_speed_rps
+        );
+        assert!(
+            state.max_anchor_error_m < 0.004,
+            "miniature joints cannot detach"
+        );
+        assert!(
+            state.max_penetration_m < 0.004,
+            "miniature contacts retain separation"
+        );
+    }
     Ok(())
 }

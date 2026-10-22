@@ -2764,12 +2764,8 @@ impl WgpuRenderer {
                     .to_string(),
             );
         };
-        // The catalogue maps a registry id to its model path; a string the
-        // catalogue does not know is tried as a model path directly, exactly
-        // like `spawn_runtime_model`.
-        let entry = self.prop_catalog.get(model);
-        let path = entry.model.filter(|path| !path.is_empty());
-        let resolved_path = path.as_deref().unwrap_or(model);
+        // CharacterScene resolves the catalog ID once. Retain that ID here so
+        // runtime Black presets keep their tint as well as the shared model.
         self.characters.spawn_runtime_character(
             level,
             &self.prop_catalog,
@@ -2777,11 +2773,31 @@ impl WgpuRenderer {
             lighting,
             self.dynamic_field.as_deref(),
             instance_id,
-            resolved_path,
+            model,
             glam::Vec3::from(position),
             yaw_degrees,
             scale,
         )
+    }
+
+    /// Resolves a fitted appearance separately from character geometry.
+    /// # Errors
+    /// Rejects missing actors, invalid assets or exhausted runtime budgets.
+    pub fn set_runtime_character_texture(
+        &mut self,
+        id: &str,
+        texture: Option<&str>,
+    ) -> Result<(), String> {
+        let image = texture
+            .map(|texture_id| {
+                self.prop_assets
+                    .character_texture(self.prop_catalog.assets(), texture_id)
+            })
+            .transpose()?;
+        if !self.characters.set_runtime_character_texture(id, image) {
+            return Err(format!("Unknown runtime character `{id}`"));
+        }
+        Ok(())
     }
 
     /// Removes a runtime actor; true when one existed.
@@ -2880,6 +2896,17 @@ impl WgpuRenderer {
     ) -> Result<(), String> {
         self.characters.start_ragdoll(id, world, velocity)
     }
+    /// # Errors
+    /// Rejects missing actors, invalid assets or exhausted runtime budgets.
+    pub fn start_ragdoll_from_body(
+        &mut self,
+        id: &str,
+        world: &mut crate::engine::physics::ItemWorld,
+        velocity: glam::Vec3,
+    ) -> Result<(), String> {
+        self.characters.start_ragdoll_from_body(id, world, velocity)
+    }
+
     pub fn cancel_ragdoll(&mut self, id: &str, world: &mut crate::engine::physics::ItemWorld) {
         self.characters.cancel_ragdoll(id, world);
     }

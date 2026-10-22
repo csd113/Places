@@ -2584,6 +2584,17 @@ fn validate_static_prop_options(
     prop: &crate::engine::level::PropDef,
 ) -> Result<f32, String> {
     let mut slices = 0.0_f32;
+    if prop.character_texture.is_some()
+        && (!matches!(prop.model.as_str(), "mannequin" | "core:mannequin_black")
+            || prop.physics.is_some()
+            || prop.float.is_some()
+            || prop.span.is_some()
+            || !prop.material_overrides.is_empty())
+    {
+        return Err(format!(
+            "Prop {i} character_texture requires a canonical animated mannequin without rigid physics, float, span or material overrides"
+        ));
+    }
     if prop.shadow_only
         && (prop.float.is_some()
             || prop.physics.is_some()
@@ -4182,6 +4193,24 @@ fn validate_action(
             let speed = glam::Vec3::from_array(*velocity);
             if !speed.is_finite() || speed.length() > 15.0 {
                 return Err("ragdoll velocity must be finite and at most 15 m/s".into());
+            }
+        }
+        ActionDef::MannequinPins {
+            group,
+            enabled: _,
+            target,
+        } => {
+            crate::engine::physics::config::validate_reset_group(group)?;
+            check_action_target(
+                action_context,
+                Some(target),
+                implicit,
+                index,
+                "a declared miniatures state",
+                |facts| facts.state_names.contains("miniatures"),
+            )?;
+            if !index.physics_reset_groups.contains(group.as_str()) {
+                return Err(format!("Unknown mannequin pin group `{group}`"));
             }
         }
         ActionDef::ResetToStart => {}

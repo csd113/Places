@@ -1029,6 +1029,14 @@ pub enum ActionDef {
         /// Group id declared by one or more authored movable physics props.
         group: String,
     },
+    /// Transform a bowling group's ten pins into miniature articulated characters.
+    MannequinPins {
+        group: String,
+        #[serde(default)]
+        enabled: Option<bool>,
+        /// Entity declaring the Boolean `miniatures` state for quest integration.
+        target: String,
+    },
     /// Transfer a supported skeleton to physics, or reset its authored behavior.
     Ragdoll {
         #[serde(default)]
@@ -1111,6 +1119,11 @@ impl ActionDef {
                 enabled: _,
                 velocity: _,
             } => "ragdoll",
+            Self::MannequinPins {
+                group: _,
+                enabled: _,
+                target: _,
+            } => "mannequin_pins",
             Self::ResetPhysicsGroup { group: _ } => "reset_physics_group",
             Self::ActivatePhysicsGroup { group: _ } => "activate_physics_group",
             Self::SetWeatherStrength {
@@ -1240,7 +1253,12 @@ impl ActionDef {
             }
             | Self::ReleaseItem { target }
             | Self::HandoffItem { target }
-            | Self::RetireHidden { target } => Some(target),
+            | Self::RetireHidden { target }
+            | Self::MannequinPins {
+                target,
+                group: _,
+                enabled: _,
+            } => Some(target),
             Self::ShowMessage { title: _, lines: _ }
             | Self::EndRun {
                 won: _,
@@ -6322,6 +6340,10 @@ pub struct PropDef {
     pub display_name: Option<String>,
     /// Registry identifier, e.g. "core:couch". Resolved through the prop catalog.
     pub model: String,
+    /// Optional fitted opaque albedo texture from the catalog. Uses the canonical
+    /// mannequin UV layout; rig, geometry and animations remain shared.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub character_texture: Option<String>,
     #[serde(default)]
     pub x: f32,
     /// Vertical offset of the prop's base above the local walkable floor (the
@@ -6514,6 +6536,34 @@ pub struct PropLightControl {
 }
 
 impl LevelDef {
+    /// Fitted textures are independent of model identity and require explicit host support.
+    #[must_use]
+    pub fn has_character_textures(&self) -> bool {
+        self.props
+            .iter()
+            .any(|prop| prop.character_texture.is_some())
+            || self
+                .spawn_templates
+                .iter()
+                .any(|template| template.character_texture.is_some())
+    }
+
+    /// True when any binding or sequence requests miniature lane physics.
+    #[must_use]
+    pub fn has_mannequin_pins(&self) -> bool {
+        self.all_bindings()
+            .into_iter()
+            .flatten()
+            .flat_map(|binding| &binding.actions)
+            .any(|action| action.kind() == "mannequin_pins")
+            || self
+                .sequences
+                .iter()
+                .flat_map(|sequence| &sequence.steps)
+                .flat_map(crate::engine::entities::sequences::SequenceStepDef::actions)
+                .any(|action| action.kind() == "mannequin_pins")
+    }
+
     /// True when source semantics require hidden models with real flashlight shadows.
     #[must_use]
     pub fn has_shadow_only_entities(&self) -> bool {

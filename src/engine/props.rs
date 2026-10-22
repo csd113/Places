@@ -178,6 +178,7 @@ pub struct PropAssetStats {
 #[derive(Debug, Default, Clone)]
 pub struct PropAssets {
     inputs: HashMap<String, ModelInput>,
+    character_textures: HashMap<String, Arc<crate::engine::loader::RawImage>>,
     model_identities: HashMap<String, String>,
     root: Option<PathBuf>,
     models: HashMap<String, Result<Arc<LoadedPropAsset>, String>>,
@@ -217,6 +218,7 @@ impl PropAssets {
             models: HashMap::new(),
             textures: HashMap::new(),
             inputs: HashMap::new(),
+            character_textures: HashMap::new(),
             model_identities: HashMap::new(),
             reported_failures: Vec::new(),
             reported_budget_warnings: Vec::new(),
@@ -230,10 +232,56 @@ impl PropAssets {
             models: HashMap::new(),
             textures: HashMap::new(),
             inputs: HashMap::new(),
+            character_textures: HashMap::new(),
             model_identities: HashMap::new(),
             reported_failures: Vec::new(),
             reported_budget_warnings: Vec::new(),
         }
+    }
+
+    /// Resolves one fitted character albedo without copying the model or rig.
+    ///
+    /// # Errors
+    /// Rejects missing, oversized or non-opaque fitted textures.
+    pub fn character_texture(
+        &mut self,
+        catalog: &crate::engine::assets::AssetCatalog,
+        id: &str,
+    ) -> Result<Arc<crate::engine::loader::RawImage>, String> {
+        if let Some(image) = self.character_textures.get(id) {
+            return Ok(Arc::clone(image));
+        }
+        let path = catalog
+            .texture_path(id)
+            .ok_or_else(|| format!("Unknown character texture `{id}`"))?;
+        let root = self
+            .root
+            .as_deref()
+            .ok_or("Character texture requires the installed assets")?;
+        let decoded = crate::engine::materials::load_png_relative(root, path)?;
+        if decoded.width != 1024
+            || decoded.height != 1024
+            || decoded
+                .rgba
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .any(|pixel| pixel.get(3) != Some(&255))
+        {
+            return Err(format!(
+                "Character texture `{id}` must be an opaque fitted 1024x1024 PNG"
+            ));
+        }
+        if self.character_textures.len() >= 128 {
+            return Err("Character texture budget exceeded (128 distinct appearances)".into());
+        }
+        let mut image = Arc::new(decoded);
+        self.intern_texture(&mut image);
+        drop(
+            self.character_textures
+                .insert(id.to_string(), Arc::clone(&image)),
+        );
+        Ok(image)
     }
 
     /// Resolved asset root, if one exists on disk.
@@ -254,6 +302,7 @@ impl PropAssets {
             .filter(|dependency| dependency.kind == crate::engine::package::DependencyKind::Model)
             .map(|dependency| (dependency.path.clone(), dependency.sha256.clone()))
             .collect();
+        self.character_textures.clear();
         self.models.retain(|path, cached| {
             cached.is_ok()
                 && self.model_identities.get(path).is_some_and(|previous| {

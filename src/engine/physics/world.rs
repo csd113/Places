@@ -284,6 +284,7 @@ pub(super) struct Runtime {
     floor_contacts: FloorContactHooks,
     pub entries: BTreeMap<u64, BodyEntry>,
     pub ragdolls: BTreeMap<String, super::ragdoll::Ragdoll>,
+    pub contact_aliases: std::collections::HashMap<ColliderHandle, u64>,
     pub held: Option<HeldItem>,
     pub player: RigidBodyHandle,
     pub player_collider: ColliderHandle,
@@ -525,6 +526,7 @@ impl ItemWorld {
                 floor_contacts,
                 entries: BTreeMap::new(),
                 ragdolls: BTreeMap::new(),
+                contact_aliases: std::collections::HashMap::new(),
                 held: None,
                 player,
                 player_collider,
@@ -618,11 +620,10 @@ impl ItemWorld {
         {
             return Err("physics key already exists".into());
         }
-        if self
-            .runtime
-            .as_ref()
-            .is_some_and(|runtime| runtime.owned_body_count() >= MAX_BODIES)
-        {
+        if self.runtime.as_ref().is_some_and(|runtime| {
+            runtime.entries.len() >= MAX_BODIES
+                || runtime.owned_body_count() >= super::MAX_SOLVER_BODIES
+        }) {
             return Err("physics body limit reached (128)".into());
         }
         let (shape, center, radius) = model_shape(def, bounds, scale)?;
@@ -1308,6 +1309,19 @@ impl ItemWorld {
         }
     }
 
+    /// One physical model pose and actual solver velocity, without allocating snapshots.
+    #[must_use]
+    pub fn body_pose_velocity(&self, key: u64) -> Option<(ItemPose, Vec3)> {
+        let runtime = self.runtime.as_ref()?;
+        let entry = runtime.entries.get(&key)?;
+        let body = runtime.world.bodies.get(entry.body)?;
+        let alpha = (self.accumulator / FIXED_STEP).clamp(0.0, 1.0);
+        Some((
+            entry.render_pose(alpha, self.held() == Some(key)),
+            point(body.linvel()),
+        ))
+    }
+
     /// Emits interpolated model-origin poses in stable key order.
     pub fn for_each_pose(&self, mut visit: impl FnMut(u64, ItemPose)) {
         let Some(runtime) = self.runtime.as_ref() else {
@@ -1974,7 +1988,8 @@ impl Runtime {
             let second = self.key_for_collider(contact.collider2);
             let impulse = contact.total_impulse_magnitude();
             let item_pair = first
-                .zip(second)
+                .or_else(|| self.contact_aliases.get(&contact.collider1).copied())
+                .zip(second.or_else(|| self.contact_aliases.get(&contact.collider2).copied()))
                 .filter(|(a, b)| a != b)
                 .map(|(a, b)| [a.min(b), a.max(b)]);
             if let Some(pair) = item_pair {

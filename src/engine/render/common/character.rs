@@ -227,7 +227,7 @@ fn character_claim_plan(
         if !asset.model.is_animatable() {
             continue;
         }
-        let Some(animator) = CharacterAnimator::new(&asset.model) else {
+        let Some(animator) = CharacterAnimator::new_shared(&asset) else {
             continue;
         };
         if prop
@@ -713,8 +713,9 @@ struct Clip {
 }
 
 /// Clip playback state: which clip each state plays and the crossfade.
+#[derive(Clone)]
 struct ClipPlayer {
-    clips: Vec<Clip>,
+    clips: Arc<Vec<Clip>>,
     /// The clip each locomotion state plays; every entry is valid.
     state_clip: [usize; STATE_COUNT],
     active: usize,
@@ -812,7 +813,7 @@ impl ClipPlayer {
             *entry = state_clip.get(slot).copied().flatten().unwrap_or(fallback);
         }
         Some(Self {
-            clips,
+            clips: Arc::new(clips),
             state_clip: resolved,
             active: resolved.get(IDLE).copied().unwrap_or(0),
             previous: None,
@@ -1198,6 +1199,7 @@ impl InfluenceBounds {
 
 pub struct Character {
     asset: Arc<LoadedPropAsset>,
+    texture: Option<Arc<crate::engine::loader::RawImage>>,
     transform: Mat4,
     animator: CharacterAnimator,
     /// Model-space material albedo, parallel
@@ -1255,6 +1257,12 @@ impl Character {
     #[must_use]
     pub const fn asset(&self) -> &Arc<LoadedPropAsset> {
         &self.asset
+    }
+
+    /// Optional fitted albedo binding, independent of the shared model.
+    #[must_use]
+    pub const fn texture(&self) -> Option<&Arc<crate::engine::loader::RawImage>> {
+        self.texture.as_ref()
     }
 
     /// The character's current opacity, in `0..=1`.
@@ -1601,6 +1609,25 @@ impl CharacterScene {
         Ok(())
     }
 
+    /// A rigid proxy already contains the contact impulse. Inherit that velocity
+    /// exactly once rather than adding the renderer's previous-frame displacement.
+    /// # Errors
+    /// Rejects missing actors, invalid assets or exhausted runtime budgets.
+    pub fn start_ragdoll_from_body(
+        &mut self,
+        id: &str,
+        world: &mut crate::engine::physics::ItemWorld,
+        velocity: Vec3,
+    ) -> Result<(), String> {
+        let actor = self
+            .runtime_character_mut(id)
+            .ok_or("Runtime character missing")?;
+        actor.previous_transform = actor.transform;
+        actor.pose_delta = 0.0;
+        actor.pose_history.clone_from(&actor.animator.node_globals);
+        self.start_ragdoll(id, world, velocity)
+    }
+
     /// Rolls back an uncommitted handoff without changing the displayed animation.
     pub fn cancel_ragdoll(&mut self, id: &str, world: &mut crate::engine::physics::ItemWorld) {
         let _removed = world.remove_ragdoll(id);
@@ -1632,7 +1659,7 @@ impl CharacterScene {
         if !character.ragdoll_owned {
             return false;
         }
-        let Some(animator) = CharacterAnimator::new(&character.asset.model) else {
+        let Some(animator) = CharacterAnimator::new_shared(&character.asset) else {
             return false;
         };
         let _removed = world.remove_ragdoll(id);
@@ -1836,6 +1863,15 @@ impl CharacterScene {
             let transform = prop_instance_matrix(prop, base_y);
             let tint = catalog.tint(&prop.model).unwrap_or([1.0; 3]);
             let albedo = tinted_albedo(&asset, tint);
+            let texture = prop.character_texture.as_deref().and_then(|id| {
+                match assets.character_texture(catalog.assets(), id) {
+                    Ok(image) => Some(image),
+                    Err(error) => {
+                        crate::engine::logging::warn(format_args!("[characters] {error}"));
+                        None
+                    }
+                }
+            });
             let entity_lighting = sample_character_light(&asset, &transform, lighting, irradiance);
             let lighting_local_centre = model_lighting_centre(&asset);
             let world_bounds = character_bounds(&asset, &transform);
@@ -1847,6 +1883,7 @@ impl CharacterScene {
             let lighting_local_bounds = asset_bounds(&asset);
             characters.push(Character {
                 asset,
+                texture,
                 transform,
                 animator,
                 albedo,
@@ -1969,7 +2006,7 @@ impl CharacterScene {
                 "the runtime model `{path}` carries no skin or animation; it cannot be posed"
             ));
         }
-        let Some(animator) = CharacterAnimator::new(&asset.model) else {
+        let Some(animator) = CharacterAnimator::new_shared(&asset) else {
             return Err(format!("the runtime model `{path}` has no poseable rig"));
         };
         let base_y = LevelSurfaces::new(level)
@@ -1983,6 +2020,7 @@ impl CharacterScene {
         let lighting_local_bounds = asset_bounds(&asset);
         let character = Character {
             asset,
+            texture: None,
             transform,
             animator,
             albedo,
@@ -2023,6 +2061,20 @@ impl CharacterScene {
         }
         self.runtime_generation = self.runtime_generation.wrapping_add(1);
         Ok(())
+    }
+
+    /// Selects an albedo binding while retaining the actor's independent pose.
+    pub fn set_runtime_character_texture(
+        &mut self,
+        id: &str,
+        texture: Option<Arc<crate::engine::loader::RawImage>>,
+    ) -> bool {
+        let Some(actor) = self.runtime_character_mut(id) else {
+            return false;
+        };
+        actor.texture = texture;
+        self.runtime_generation = self.runtime_generation.wrapping_add(1);
+        true
     }
 
     /// Removes a runtime character; true when one was removed.
@@ -2755,9 +2807,33 @@ fn character_bounds(asset: &LoadedPropAsset, transform: &Mat4) -> Aabb {
     transform_bounds(&local, transform)
 }
 
+/// Immutable per-model rig and compiled channel arrays. Playback state is
+/// copied independently; the large skeleton and clip payloads are shared.
+struct AnimatorDefinition {
+    rig: Arc<Rig>,
+    rigid: bool,
+    clips: Option<ClipPlayer>,
+}
+
+impl AnimatorDefinition {
+    fn new(model: &crate::engine::gltf::PropModel) -> Option<Self> {
+        let (rig, rigid) = match model.skin.as_ref() {
+            Some(skin) => (Rig::new(skin)?, false),
+            None => (Rig::new_rigid(&model.nodes)?, true),
+        };
+        let clips = ClipPlayer::new(&model.animations, rig.nodes.len());
+        Some(Self {
+            rig: Arc::new(rig),
+            rigid,
+            clips,
+        })
+    }
+}
+
 /// Frame-rate-independent playback and skinning for one skinned model.
 pub struct CharacterAnimator {
-    rig: Rig,
+    rig: Arc<Rig>,
+    _definition: Arc<AnimatorDefinition>,
     /// True for a clips-only model posed through the node hierarchy (a rigid
     /// prop). A rigid animator ignores the locomotion snapshot: with no pose
     /// cue it holds its current pose.
@@ -2980,13 +3056,45 @@ impl CharacterAnimator {
     /// non-locomotion clip.
     #[must_use]
     pub fn new(model: &crate::engine::gltf::PropModel) -> Option<Self> {
-        let (rig, rigid) = match model.skin.as_ref() {
-            Some(skin) => (Rig::new(skin)?, false),
-            None => (Rig::new_rigid(&model.nodes)?, true),
-        };
+        Some(Self::from_definition(
+            model,
+            Arc::new(AnimatorDefinition::new(model)?),
+        ))
+    }
+
+    /// Keeps the parsed asset's identity across fitted appearances. Weak cache
+    /// entries expire with the last actor, so replaced assets cannot reuse stale clips.
+    fn new_shared(asset: &Arc<LoadedPropAsset>) -> Option<Self> {
+        type Definitions = std::collections::HashMap<usize, std::sync::Weak<AnimatorDefinition>>;
+        static CACHE: std::sync::OnceLock<std::sync::Mutex<Definitions>> =
+            std::sync::OnceLock::new();
+        let mut cache = CACHE
+            .get_or_init(|| std::sync::Mutex::new(Definitions::new()))
+            .lock()
+            .ok()?;
+        cache.retain(|_, entry| entry.strong_count() > 0);
+        let key = Arc::as_ptr(asset).addr();
+        let definition =
+            if let Some(definition) = cache.get(&key).and_then(std::sync::Weak::upgrade) {
+                definition
+            } else {
+                let definition = Arc::new(AnimatorDefinition::new(&asset.model)?);
+                drop(cache.insert(key, Arc::downgrade(&definition)));
+                definition
+            };
+        drop(cache);
+        Some(Self::from_definition(&asset.model, definition))
+    }
+
+    fn from_definition(
+        model: &crate::engine::gltf::PropModel,
+        definition: Arc<AnimatorDefinition>,
+    ) -> Self {
+        let rig = Arc::clone(&definition.rig);
+        let rigid = definition.rigid;
         let node_count = rig.nodes.len();
         let balloon_rig = BalloonRig::new(model, &rig);
-        let clips = ClipPlayer::new(&model.animations, node_count);
+        let clips = definition.clips.clone();
         let mut pose: Vec<LocalTrs> = Vec::with_capacity(node_count);
         for node in &rig.nodes {
             pose.push(LocalTrs::from_node(node));
@@ -3048,8 +3156,9 @@ impl CharacterAnimator {
         // attached light must find a named socket's bind-pose transform even
         // before the first pose pass.
         let node_globals = rig.rest_global.clone();
-        Some(Self {
+        Self {
             rig,
+            _definition: definition,
             rigid,
             balloon_rig,
             weights,
@@ -3076,7 +3185,7 @@ impl CharacterAnimator {
             morph_a: vec![0.0; morph_count],
             morph_b: vec![0.0; morph_count],
             revision: 0,
-        })
+        }
     }
 
     /// Advances the pose by `delta_seconds` and returns whether the pose
@@ -3294,7 +3403,7 @@ impl CharacterAnimator {
 
     /// Number of joints the model's skin declares.
     #[must_use]
-    pub const fn joint_count(&self) -> usize {
+    pub fn joint_count(&self) -> usize {
         self.rig.joint_nodes.len()
     }
 

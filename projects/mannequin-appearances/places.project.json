@@ -1,0 +1,14 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "mannequin_appearances_project",
+  "name": "Shared mannequin appearances",
+  "description": "Opt-in native appearance, animation, ragdoll and spawn-template review; no map baking in CI.",
+  "entry_level": "mannequin_appearances",
+  "levels": [
+    {
+      "id": "mannequin_appearances",
+      "source": "levels/mannequin_appearances.json"
+    }
+  ]
+}

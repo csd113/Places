@@ -84937,8 +84937,10 @@
               "clip": "toggle"
             },
             {
-              "action": "reset_physics_group",
-              "group": "arcade_lane_1"
+              "action": "mannequin_pins",
+              "group": "arcade_lane_1",
+              "enabled": false,
+              "target": "lane_1_secret_switch"
             },
             {
               "action": "run_script",
@@ -90872,6 +90874,63 @@
         1.723035,
         0.316965
       ]
+    },
+    {
+      "id": "lane_1_secret_switch",
+      "model": "home:wall_switch",
+      "x": 11.313,
+      "y": 0.22,
+      "z": 22.18,
+      "rotation_degrees": 270,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Curious switch",
+          "reach": 1.8
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        },
+        {
+          "component": "state",
+          "name": "miniatures",
+          "value": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.3,
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "mannequin_pins",
+              "group": "arcade_lane_1",
+              "target": "lane_1_secret_switch"
+            },
+            {
+              "action": "run_script",
+              "script": "scripts/arcade.luau",
+              "handler": "secret"
+            }
+          ]
+        }
+      ],
+      "display_name": "A curious little switch",
+      "scale": 0.65
     }
   ],
   "decals": [

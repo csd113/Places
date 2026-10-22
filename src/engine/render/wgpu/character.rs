@@ -138,6 +138,8 @@ impl CharacterKey {
 
 /// One live character's GPU state.
 struct CharacterGpu {
+    /// Cached appearance binding; index geometry is shared across all skins.
+    texture: Option<Arc<GpuTexture>>,
     /// Slot into [`WgpuCharacters::meshes`].
     mesh: usize,
     /// The neutral-scene character this entry draws. `upload` may skip a
@@ -427,7 +429,9 @@ impl WgpuCharacters {
             ctx.queue
                 .write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&pose.vertices));
             let world_bounds = posed_world_bounds(&pose.bounds, &character.transform());
+            let texture = Self::upload_appearance(ctx, &mut value, character);
             value.characters.push(CharacterGpu {
+                texture,
                 mesh: mesh_index,
                 key,
                 vertex_buffer,
@@ -449,6 +453,35 @@ impl WgpuCharacters {
         }
         value.finish_stats();
         value
+    }
+
+    fn upload_appearance(
+        ctx: &mut CharacterUploadContext<'_>,
+        value: &mut Self,
+        character: &Character,
+    ) -> Option<Arc<GpuTexture>> {
+        character.texture().map(|image| {
+            let logical = super::texture::model_image_key(image);
+            let (outcome, texture) = ctx.cache.get_or_upload_fitted(
+                ctx.device,
+                ctx.queue,
+                &logical,
+                image,
+                TextureClass::Prop,
+                TextureOrigin::Catalog,
+                ctx.level,
+            );
+            match outcome {
+                CacheOutcome::Uploaded => {
+                    value.stats.texture_uploads = value.stats.texture_uploads.saturating_add(1);
+                }
+                CacheOutcome::Reused => {
+                    value.stats.texture_cache_hits =
+                        value.stats.texture_cache_hits.saturating_add(1);
+                }
+            }
+            texture
+        })
     }
 
     /// Uploads one model's shared index buffer, textures, materials and
@@ -986,6 +1019,11 @@ impl WgpuCharacters {
         let entry = self.characters.get(character)?;
         let mesh = self.meshes.get(entry.mesh)?;
         let mesh_part = mesh.submeshes.get(submesh)?;
+        if submesh == 0
+            && let Some(texture) = entry.texture.as_deref()
+        {
+            return Some(texture);
+        }
         mesh_part
             .texture
             .and_then(|index| mesh.textures.get(index).map(Arc::as_ref))

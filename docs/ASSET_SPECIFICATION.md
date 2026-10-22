@@ -2573,3 +2573,14 @@ unchanged. New fitted Beach atlases are separate `beach_nature_fitted.png` and
 Native acceptance and installed deduplicated memory accounting belong in the
 single 0.13.0 release report. No global art, draw, texture or importer budget is
 raised by this adoption.
+
+## Shared mannequin appearance atlases
+
+The accepted R2 mannequin supports optional catalog PNG albedo sheets through
+`character_texture`, on placements and spawn templates. These are fitted opaque
+1024x1024 sheets with the exact existing GLB UV layout and orientation. Do not
+repack, rotate, change silhouettes, or duplicate GLBs/rigs/animation exports.
+Man, Woman and non-graphic Zombie sheets live under `entities/mannequin/textures/`.
+The original sheet and Black tint are preserved. Albedo replacement affects the
+first skin submesh only; recessed joint grooves retain the original material.
+Source prompts are retained in `assets/references/entities/mannequin-skins/`.

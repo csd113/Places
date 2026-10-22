@@ -3153,6 +3153,24 @@ Preserve the selected kit's floor-reference origin and contact lengths.
 | Collision | `solid: true` creates continuous quarter-metre-or-shorter barrier slices along that baseline, extending 25 mm below it. At most 32,768 span slices per level. |
 | Static ownership | Spans and material overrides require scenery without physics, floating motion, components or bindings. Use separate upright post props at grounded endpoints. |
 
+### Shared mannequin appearances
+
+A canonical `mannequin` or `core:mannequin_black` placement or spawn template may
+author `"character_texture": "core:mannequin_skin_man"` (also `_woman`, `_zombie`,
+or another installed fitted texture ID). It replaces only the skin's albedo; the
+original UV layout, opaque material, joint grooves, geometry, rig and clips stay
+shared. Supply an opaque 1024x1024 PNG fitted to the accepted R2 UVs. A random
+image cannot change the silhouette or invent a new UV layout. Missing/invalid
+images are errors during compilation. The editor's Gameplay > Appearance chooser
+provides Original, Black tint, Man, Woman and Zombie for placements and templates.
+Original and Black retain their existing behavior when no texture is authored.
+
+Packages require `character-textures-v1`; texture bytes participate in dependency
+identity. Save/reopen, project export and editable recovery retain the source
+reference. Each actor owns playback and physics state; appearances share model
+and immutable rig/compiled clips and use cached separate GPU image bindings.
+`projects/mannequin-appearances` is the explicit native review fixture.
+
 `material_overrides` maps numeric **glTF material slots** (`"0"` through `"15"`)
 to opaque catalog material ids on opaque source slots. Only those slots replace
 their albedo image, base tint, normal/sheen, emission and ultraviolet response; omitted slots
@@ -3245,8 +3263,19 @@ world reset and map reload also retire articulated ownership.
 Developer console uses `/ragdoll <instance-id> on [vx vy vz]` and
 `/ragdoll <instance-id> reset`. Luau uses
 `api.ragdoll(id, enabled, vx?, vy?, vz?)`. Unsupported or duplicate requests show
-status/log diagnostics. At most eight mannequins and 128 shared item/bone bodies
+status/log diagnostics. At most ten mannequins and 128 ordinary item bodies (278 total item/bone bodies)
 may exist; a refused activation allocates no partial skeleton.
+
+`mannequin_pins` takes `group`, a state-owning `target`, and optional `enabled`
+(omitted toggles; false restores ordinary bowling). The group must contain ten
+`arcade:bowling_pin` placements and the target declares Boolean `miniatures`.
+The secret switch in Cosmic Lanes uses this opt-in action; the ordinary reset
+returns original pins and quest behavior. Quarter-scale actors use fitted
+standing proxies until a real ball/converted-pin contact impulse; then each
+proxy transfers to 15 bodies/14 joints in the same solver. Mass scales with
+volume (1.0625 kg at quarter scale). Reset removes actors, bones, joints and
+contact aliases before restoring original authored bodies. No lighting solve or
+permanent script is introduced by toggling. Packages require `miniature-pins-v1`.
 
 Pelvis/chest use boxes, the head/limbs/hands/feet use fitted capsules. Segment
 masses total 68 kg; CCD, zero restitution, friction, body damping and additional

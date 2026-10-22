@@ -82,6 +82,13 @@ for module in (
         MANIFEST[texture_id] = entry
 
 
+# Fitted image-generation deliverables are validated here, never repainted by
+# the historical procedural authoring commands. Their UV contract requires 1024.
+REVIEWED_EXTERNAL = {
+    f"core:mannequin_skin_{name}": {"preferred_dimensions": (1024, 1024)}
+    for name in ("man", "woman", "zombie")
+}
+
 # ---------------------------------------------------------------- validation
 
 
@@ -168,7 +175,7 @@ def validate_textures(
             errors.append(f"{texture_id}: sky must be 2:1 with power-of-two edges")
         # Fitted hero plates have a documented source aspect/resolution; this
         # advisory follows their owning offline manifest, not a square default.
-        preferred_width, preferred_height = MANIFEST.get(texture_id, {}).get(
+        preferred_width, preferred_height = MANIFEST.get(texture_id, REVIEWED_EXTERNAL.get(texture_id, {})).get(
             "preferred_dimensions", (PREFERRED_DIMENSION, PREFERRED_DIMENSION)
         )
         if width > preferred_width or height > preferred_height:
@@ -180,7 +187,7 @@ def validate_textures(
         report.append(f"OK {texture_id}: {model} {width}x{height}")
 
     catalog_set = set(catalog_ids)
-    manifest_set = set(MANIFEST)
+    manifest_set = set(MANIFEST) | set(REVIEWED_EXTERNAL)
     for texture_id in sorted(catalog_set - manifest_set):
         warnings.append(f"manifest: '{texture_id}' is in the catalog but not in tools/textures/")
     for texture_id in sorted(manifest_set - catalog_set):

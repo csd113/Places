@@ -31,6 +31,8 @@ pub const GRAVITY: f32 = 9.8;
 pub const FIXED_STEP: f32 = 1.0 / 120.0;
 /// Body allocation and per-frame query bound, shared by authored and given items.
 pub const MAX_BODIES: usize = 128;
+/// Ordinary items plus ten supported articulated skeletons (15 bones each).
+pub const MAX_SOLVER_BODIES: usize = MAX_BODIES + ragdoll::MAX_RAGDOLLS * 15;
 /// Maximum distance to the first physical surface of a pickable body.
 pub const PICKUP_REACH: f32 = 2.2;
 /// Forward hand target for ordinary small bodies, in metres from the eye.

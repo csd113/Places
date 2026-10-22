@@ -1133,6 +1133,7 @@ fn write_prop_instance_manifest(
             "owner": owner,
             "model": root.join(model),
             "matrix": prop.placement_matrix(base_y).to_cols_array(),
+            "character_texture": prop.character_texture,
             "material_overrides": prop.material_overrides,
         }));
     }
@@ -2811,6 +2812,7 @@ impl Checker<'_> {
                         && (a.scale - b.scale).abs() <= 1.0e-3
                         && a.span == b.span
                         && a.size == b.size
+                        && a.character_texture == b.character_texture
                         && a.material_overrides == b.material_overrides
                         && a.emission_overrides == b.emission_overrides;
                     if same {

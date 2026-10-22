@@ -11412,6 +11412,33 @@
         "tool": "completed",
         "source": "completed-models.json"
       }
+    },
+    {
+      "id": "core:mannequin_skin_man",
+      "display_name": "Mannequin / Man",
+      "asset_class": "entity",
+      "asset_type": "texture",
+      "source": "file",
+      "description": "Opaque fitted mannequin albedo; canonical R2 UV, shared model/rig/animations.",
+      "model": "entities/mannequin/textures/man-skin.png"
+    },
+    {
+      "id": "core:mannequin_skin_woman",
+      "display_name": "Mannequin / Woman",
+      "asset_class": "entity",
+      "asset_type": "texture",
+      "source": "file",
+      "description": "Opaque fitted mannequin albedo; canonical R2 UV, shared model/rig/animations.",
+      "model": "entities/mannequin/textures/woman-skin.png"
+    },
+    {
+      "id": "core:mannequin_skin_zombie",
+      "display_name": "Mannequin / Zombie",
+      "asset_class": "entity",
+      "asset_type": "texture",
+      "source": "file",
+      "description": "Opaque fitted mannequin albedo; canonical R2 UV, shared model/rig/animations.",
+      "model": "entities/mannequin/textures/zombie-skin.png"
     }
   ]
 }

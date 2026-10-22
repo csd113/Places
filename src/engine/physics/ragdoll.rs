@@ -11,7 +11,7 @@ use super::collision::{add, point, pose, quaternion, scaled, subtract, vector};
 use super::world::{ItemWorld, Runtime};
 use crate::engine::gltf::PropSkin;
 
-pub const MAX_RAGDOLLS: usize = 8;
+pub const MAX_RAGDOLLS: usize = 10;
 
 /// Immutable current/previous displayed poses; captured only at handoff.
 pub struct RagdollInput<'a> {
@@ -381,15 +381,18 @@ fn install_bodies(
                 .linvel(vector(linear))
                 .angvel(vector(angular.clamp_length_max(12.0)))
                 .linear_damping(0.35)
-                .angular_damping(2.0)
+                // Miniature distal capsules need proportional contact padding
+                // and stronger angular drag to dissipate pile corrections.
+                // Adult behavior and natural sleep thresholds remain unchanged.
+                .angular_damping(2.0 / scale.x.min(1.0))
                 .ccd_enabled(true)
                 .additional_solver_iterations(8)
                 .can_sleep(true),
             collider
-                .mass(segment.mass)
+                .mass(segment.mass * scale.x.powi(3))
                 .friction(0.65)
                 .restitution(0.0)
-                .contact_skin(0.001)
+                .contact_skin(0.001 * scale.x.min(1.0))
                 .collision_groups(groups),
         );
         if let Some(installed) = runtime.world.bodies.get_mut(body) {
@@ -514,7 +517,7 @@ impl ItemWorld {
                 || runtime
                     .owned_body_count()
                     .saturating_add(profile.segments.len())
-                    > super::MAX_BODIES
+                    > super::MAX_SOLVER_BODIES
         }) {
             return Err("ragdoll already active or shared body/ragdoll budget exhausted".into());
         }
@@ -524,7 +527,7 @@ impl ItemWorld {
             #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
             serial_solver_pool,
         );
-        let slot = (8_u32..16)
+        let slot = (8_u32..18)
             .find(|candidate| {
                 runtime
                     .ragdolls
@@ -567,6 +570,23 @@ impl ItemWorld {
         Ok(())
     }
 
+    /// Reuses a former item identity for physical contact reporting only.
+    pub fn alias_ragdoll_contacts(&mut self, id: &str, key: u64) {
+        let Some(runtime) = self.runtime.as_mut() else {
+            return;
+        };
+        let Some(ragdoll) = runtime.ragdolls.get(id) else {
+            return;
+        };
+        for bone in &ragdoll.bodies {
+            if let Some(body) = runtime.world.bodies.get(bone.body) {
+                for collider in body.colliders() {
+                    let _old = runtime.contact_aliases.insert(*collider, key);
+                }
+            }
+        }
+    }
+
     /// Removes all articulated bodies; Rapier retires their joints/colliders too.
     pub fn remove_ragdoll(&mut self, id: &str) -> bool {
         let Some(runtime) = self.runtime.as_mut() else {
@@ -576,6 +596,11 @@ impl ItemWorld {
             return false;
         };
         for bone in ragdoll.bodies {
+            if let Some(body) = runtime.world.bodies.get(bone.body) {
+                for collider in body.colliders() {
+                    let _old = runtime.contact_aliases.remove(collider);
+                }
+            }
             let _removed = runtime.world.remove_body(bone.body);
         }
         true

@@ -714,6 +714,12 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     if !level.transitions.is_empty() {
         required.push("project-transitions-v1".into());
     }
+    if level.has_character_textures() {
+        required.push("character-textures-v1".into());
+    }
+    if level.has_mannequin_pins() {
+        required.push("miniature-pins-v1".into());
+    }
     if level.has_shadow_only_entities() {
         required.push("shadow-only-v1".into());
     }
@@ -1927,6 +1933,25 @@ fn collect_dependencies(
         if let Some(model) = catalog.get(model_id).model {
             add(DependencyKind::Model, &model)?;
         }
+    }
+    let mut character_assets = crate::engine::props::PropAssets::with_root(asset_root);
+    for texture in level
+        .props
+        .iter()
+        .filter_map(|prop| prop.character_texture.as_deref())
+        .chain(
+            level
+                .spawn_templates
+                .iter()
+                .filter_map(|template| template.character_texture.as_deref()),
+        )
+    {
+        let _validated_image = character_assets.character_texture(catalog.assets(), texture)?;
+        let path = catalog
+            .assets()
+            .texture_path(texture)
+            .ok_or_else(|| format!("Unknown character texture `{texture}`"))?;
+        add(DependencyKind::Texture, path)?;
     }
     let mut material_ids = crate::engine::materials::referenced_material_ids(level);
     material_ids.sort();

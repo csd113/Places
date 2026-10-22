@@ -46,6 +46,18 @@ impl CatalogInputs {
         pending.extend(level.props.iter().map(|prop| prop.model.clone()));
         pending.extend(
             level
+                .props
+                .iter()
+                .filter_map(|prop| prop.character_texture.clone())
+                .chain(
+                    level
+                        .spawn_templates
+                        .iter()
+                        .filter_map(|template| template.character_texture.clone()),
+                ),
+        );
+        pending.extend(
+            level
                 .spawn_templates
                 .iter()
                 .map(|template| template.model.clone()),

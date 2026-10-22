@@ -658,6 +658,16 @@ impl Renderer {
 
     /// Sets a runtime character's full rigid pose while keeping its own rig.
     /// Invalid positions and zero/non-finite rotations are refused.
+    /// # Errors
+    /// Rejects missing actors, invalid assets or exhausted runtime budgets.
+    pub fn set_runtime_character_texture(
+        &mut self,
+        id: &str,
+        texture: Option<&str>,
+    ) -> Result<(), String> {
+        self.renderer.set_runtime_character_texture(id, texture)
+    }
+
     pub fn set_runtime_character_pose(
         &mut self,
         instance_id: &str,
@@ -725,6 +735,17 @@ impl Renderer {
     ) -> Result<(), String> {
         self.renderer.start_ragdoll(id, world, velocity)
     }
+    /// # Errors
+    /// Rejects missing actors, invalid assets or exhausted runtime budgets.
+    pub fn start_ragdoll_from_body(
+        &mut self,
+        id: &str,
+        world: &mut crate::engine::physics::ItemWorld,
+        velocity: glam::Vec3,
+    ) -> Result<(), String> {
+        self.renderer.start_ragdoll_from_body(id, world, velocity)
+    }
+
     pub fn cancel_ragdoll(&mut self, id: &str, world: &mut crate::engine::physics::ItemWorld) {
         self.renderer.cancel_ragdoll(id, world);
     }

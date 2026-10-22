@@ -100,6 +100,29 @@ pub fn validate_level_assets(level: &LevelDef, catalog: &AssetCatalog) -> Result
             id: sky.texture.clone(),
         });
     }
+    for (model, selected_texture) in level
+        .props
+        .iter()
+        .map(|prop| (&prop.model, &prop.character_texture))
+        .chain(
+            level
+                .spawn_templates
+                .iter()
+                .map(|template| (&template.model, &template.character_texture)),
+        )
+    {
+        if let Some(texture) = selected_texture {
+            if !matches!(model.as_str(), "mannequin" | "core:mannequin_black") {
+                return Err(format!(
+                    "Character texture requires the canonical mannequin, got `{model}`"
+                ));
+            }
+            references.push(BuiltinAssetRef {
+                kind: BuiltinAssetKind::Texture,
+                id: texture.clone(),
+            });
+        }
+    }
     for reference in references {
         reference.validate(catalog, None)?;
     }

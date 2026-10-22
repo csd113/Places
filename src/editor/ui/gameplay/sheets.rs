@@ -142,6 +142,14 @@ pub(super) fn spawn_sheet(
     button(
         vertices,
         hits,
+        [263.0, 155.0, 117.0, 11.0],
+        "Appearance >",
+        Action::GamePick(C::CharacterAppearance),
+        true,
+    );
+    button(
+        vertices,
+        hits,
         [263.0, 95.0, 117.0, 11.0],
         &format!(
             "Behavior: {} >",
@@ -355,6 +363,14 @@ pub(super) fn prop_sheet(
         [140.0, 83.0, 240.0, 10.0],
         prop.map_or("Entity model >", |record| record.model.as_str()),
         Action::Assets,
+        true,
+    );
+    button(
+        vertices,
+        hits,
+        [263.0, 119.0, 117.0, 11.0],
+        "Appearance >",
+        Action::GamePick(C::CharacterAppearance),
         true,
     );
     for (row, right, label, setting) in [

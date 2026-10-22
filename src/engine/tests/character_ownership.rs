@@ -12,8 +12,9 @@ use glam::{Mat4, Quat, Vec3};
 use std::sync::Arc;
 
 fn actor(id: &str, asset: Arc<LoadedPropAsset>) -> Result<Character, String> {
-    let animator = CharacterAnimator::new(&asset.model).ok_or("invalid tiny rig")?;
+    let animator = CharacterAnimator::new_shared(&asset).ok_or("invalid tiny rig")?;
     Ok(Character {
+        texture: None,
         ragdoll_owned: false,
         ragdoll_bounds: None,
         authored_transform: Mat4::IDENTITY,
@@ -154,6 +155,21 @@ fn actors_own_idle_movement_and_action_independently_of_the_player() -> Result<(
     let asset = tiny_rig();
     let npc = actor("npc", Arc::clone(&asset))?;
     let mut player = actor("player", asset)?;
+    assert!(Arc::ptr_eq(&npc.asset, &player.asset));
+    assert!(
+        Arc::ptr_eq(&npc.animator.rig, &player.animator.rig),
+        "appearance-independent actors share immutable rig data"
+    );
+    let npc_clips = npc.animator.clips.as_ref().ok_or("NPC clips missing")?;
+    let player_clips = player
+        .animator
+        .clips
+        .as_ref()
+        .ok_or("Player clips missing")?;
+    assert!(
+        Arc::ptr_eq(&npc_clips.clips, &player_clips.clips),
+        "compiled channels are shared while playback stays independent"
+    );
     player.runtime_locomotion = Some(LocomotionSnapshot {
         state: LocomotionState::Walking,
         speed: 3.0,

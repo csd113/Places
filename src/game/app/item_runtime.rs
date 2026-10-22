@@ -43,6 +43,7 @@ const fn interaction_hand_visible(target: Option<InteractionTarget>, held: Optio
 pub struct Items {
     pub world: crate::engine::physics::ItemWorld,
     pub authored: Vec<(u64, String, String)>,
+    pub(super) miniatures: Option<super::mannequin_bowling::Rack>,
     trigger_bodies: Vec<crate::engine::physics::ItemTriggerBody>,
     pub input: crate::game::app::item_input::CarryInput,
     pub target: Option<InteractionTarget>,
@@ -66,6 +67,7 @@ impl Items {
         Self {
             world: crate::engine::physics::ItemWorld::default(),
             authored: Vec::new(),
+            miniatures: None,
             trigger_bodies: Vec::with_capacity(crate::engine::physics::MAX_BODIES),
             input: crate::game::app::item_input::CarryInput::default(),
             target: None,
@@ -119,6 +121,7 @@ impl FrameLoop<'_> {
     pub(super) fn unload_items(&mut self) {
         self.items.world = crate::engine::physics::ItemWorld::default();
         self.items.authored = Vec::new();
+        self.items.miniatures = None;
         self.items.trigger_bodies = Vec::new();
         self.items.carry = super::carry_runtime::CarryRuntime::default();
         self.items.input.invalidate();
@@ -567,6 +570,7 @@ impl FrameLoop<'_> {
         self.apply_world_commands();
         self.apply_bench_lighting_actions();
         self.update_physical_items();
+        self.update_mannequin_pins();
         self.update_item_triggers(false);
         self.reconcile_gameplay_reset();
         self.apply_world_commands();
@@ -586,6 +590,7 @@ impl FrameLoop<'_> {
             materials,
         );
         self.items.authored.clear();
+        self.items.miniatures = None;
         self.items.carry = super::carry_runtime::CarryRuntime::from_level(level, materials);
         self.items.target = None;
         self.items.release_blocked = false;

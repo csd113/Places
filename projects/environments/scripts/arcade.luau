@@ -5,6 +5,10 @@ local pins = { "lane_1_pin_0_0", "lane_1_pin_1_0", "lane_1_pin_1_1",
     "lane_1_pin_3_0", "lane_1_pin_3_1", "lane_1_pin_3_2", "lane_1_pin_3_3" }
 local fallen, ball_held, launched = 0, false, false
 local function talk(api)
+    if api.state("lane_1_secret_switch", "miniatures") then
+        api.message("THE LANE ATTENDANT", {"You found our smallest regulars. Enjoy the secret rack!", "Use the normal reset switch for the blue-ball favor."})
+        return
+    end
     if done then
         api.message("THE LANE ATTENDANT", {"Ten down. Your name belongs among the stars.", "The lanes are yours for as long as you like."})
         return
@@ -34,6 +38,7 @@ return {
     start = function(api) done = api.completed("arcade") end,
     talk = talk,
     hint = function(api) api.message("COSMIC LANES", { "Speak to the lane attendant near the seating end.", "Use the blue ball and stay behind lane one's foul line." }) end,
+    secret = function(_api) active, settled, fallen = false, 0, 0 end,
     restart = function(api)
         if done then return end
         active, settled, fallen = false, 0, 0

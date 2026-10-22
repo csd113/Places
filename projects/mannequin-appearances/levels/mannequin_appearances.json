@@ -1,0 +1,450 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "mannequin_appearances",
+  "name": "Mannequin appearances / shared rig",
+  "author": "Places",
+  "spawn": {
+    "x": 7,
+    "z": 9,
+    "yaw_degrees": 0
+  },
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "home:tile_home_01",
+    "ceiling": "home:ceiling_plaster_01"
+  },
+  "rooms": [
+    {
+      "x": 0,
+      "z": 0,
+      "width": 14,
+      "depth": 11,
+      "height": 3
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.2,
+      "z": -0.2,
+      "width": 14.4,
+      "depth": 0.2,
+      "height": 3
+    },
+    {
+      "x": -0.2,
+      "z": 11,
+      "width": 14.4,
+      "depth": 0.2,
+      "height": 3
+    },
+    {
+      "x": -0.2,
+      "z": 0,
+      "width": 0.2,
+      "depth": 11,
+      "height": 3
+    },
+    {
+      "x": 14,
+      "z": 0,
+      "width": 0.2,
+      "depth": 11,
+      "height": 3
+    }
+  ],
+  "props": [
+    {
+      "id": "skin_man",
+      "model": "mannequin",
+      "display_name": "Man",
+      "x": 2.0,
+      "z": 4,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ragdoll man",
+          "reach": 2.2
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.4,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                0,
+                0,
+                0.6
+              ]
+            }
+          ]
+        }
+      ],
+      "character_texture": "core:mannequin_skin_man",
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ]
+    },
+    {
+      "id": "skin_woman",
+      "model": "mannequin",
+      "display_name": "Woman",
+      "x": 4.5,
+      "z": 4,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ragdoll woman",
+          "reach": 2.2
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.4,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                0,
+                0,
+                0.6
+              ]
+            }
+          ]
+        }
+      ],
+      "character_texture": "core:mannequin_skin_woman",
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ]
+    },
+    {
+      "id": "skin_zombie",
+      "model": "mannequin",
+      "display_name": "Zombie",
+      "x": 7.0,
+      "z": 4,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ragdoll zombie",
+          "reach": 2.2
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.4,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                0,
+                0,
+                0.6
+              ]
+            }
+          ]
+        }
+      ],
+      "character_texture": "core:mannequin_skin_zombie",
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ]
+    },
+    {
+      "id": "skin_original",
+      "model": "mannequin",
+      "display_name": "Original",
+      "x": 9.5,
+      "z": 4,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ragdoll original",
+          "reach": 2.2
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.4,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                0,
+                0,
+                0.6
+              ]
+            }
+          ]
+        }
+      ],
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ]
+    },
+    {
+      "id": "skin_black",
+      "model": "core:mannequin_black",
+      "display_name": "Black",
+      "x": 12.0,
+      "z": 4,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ragdoll black",
+          "reach": 2.2
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.4,
+          "actions": [
+            {
+              "action": "ragdoll",
+              "enabled": true,
+              "velocity": [
+                0,
+                0,
+                0.6
+              ]
+            }
+          ]
+        }
+      ],
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ]
+    },
+    {
+      "id": "skin_reset",
+      "model": "home:wall_switch",
+      "x": 7,
+      "z": 8,
+      "y": 0.9,
+      "scale": 1,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Restore all appearances",
+          "reach": 2.2
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "ragdoll",
+              "target": "skin_man",
+              "enabled": false
+            },
+            {
+              "action": "ragdoll",
+              "target": "skin_woman",
+              "enabled": false
+            },
+            {
+              "action": "ragdoll",
+              "target": "skin_zombie",
+              "enabled": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "guest_spawn_switch",
+      "model": "home:wall_switch",
+      "x": 8,
+      "z": 8,
+      "y": 0.9,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Invite textured guest",
+          "reach": 2.2
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "despawn_entity",
+              "target": "guest_group"
+            },
+            {
+              "action": "spawn_entity",
+              "point": "guest_point",
+              "group": "guest_group",
+              "name": "textured_guest"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "skin_man",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "walk",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "skin_woman",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "run",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "skin_zombie",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_arms_up",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "skin_original",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_stand",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    },
+    {
+      "id": "skin_black",
+      "loop": true,
+      "steps": [
+        {
+          "step": "play",
+          "clip": "pose_arms_forward",
+          "seconds": 30,
+          "loop": true
+        }
+      ]
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3.5,
+      "z": 3.5,
+      "y": 2.998,
+      "align": "none",
+      "brightness": 0.6,
+      "range": 8,
+      "emission": 0.4
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 10.5,
+      "z": 3.5,
+      "y": 2.998,
+      "align": "none",
+      "brightness": 0.6,
+      "range": 8,
+      "emission": 0.4
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3.5,
+      "z": 8,
+      "y": 2.998,
+      "align": "none",
+      "brightness": 0.6,
+      "range": 8,
+      "emission": 0.4
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 10.5,
+      "z": 8,
+      "y": 2.998,
+      "align": "none",
+      "brightness": 0.6,
+      "range": 8,
+      "emission": 0.4
+    }
+  ],
+  "spawn_templates": [
+    {
+      "id": "guest_template",
+      "model": "mannequin",
+      "character_texture": "core:mannequin_skin_woman",
+      "scale": 1,
+      "components": [
+        {
+          "component": "animation",
+          "clip": "walk",
+          "looped": true,
+          "playing": true
+        }
+      ]
+    }
+  ],
+  "spawn_points": [
+    {
+      "id": "guest_point",
+      "x": 7,
+      "z": 1.8,
+      "template": "guest_template"
+    }
+  ],
+  "spawn_groups": [
+    {
+      "id": "guest_group",
+      "at_most_one_active": true
+    }
+  ]
+}

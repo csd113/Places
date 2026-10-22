@@ -6,6 +6,74 @@ use super::super::objects::{array_mut, object_mut};
 use super::super::{Document, ObjectId, objects};
 
 impl Document {
+    /// Selects fitted mannequin artwork without duplicating geometry or clips.
+    ///
+    /// # Errors
+    /// Rejects incompatible objects and expired catalog entries atomically.
+    pub fn set_character_appearance(
+        &mut self,
+        id: ObjectId,
+        index: usize,
+        catalog: &crate::engine::assets::AssetCatalog,
+    ) -> Result<(), String> {
+        let selected_texture = match index {
+            0 | 1 => None,
+            2 => Some("core:mannequin_skin_man"),
+            3 => Some("core:mannequin_skin_woman"),
+            4 => Some("core:mannequin_skin_zombie"),
+            _ => return Err("Choose a mannequin appearance".into()),
+        };
+        let mut raw = self.raw().clone();
+        let object = if let ObjectId::SpawnPoint(point_slot) = id {
+            let template = &self
+                .level()
+                .spawn_points
+                .get(point_slot)
+                .ok_or("Missing spawn point")?
+                .template;
+            let slot = self
+                .level()
+                .spawn_templates
+                .iter()
+                .position(|entry| &entry.id == template)
+                .ok_or("Missing template")?;
+            array_mut(&mut raw, "spawn_templates")?
+                .get_mut(slot)
+                .and_then(Value::as_object_mut)
+                .ok_or("Invalid template")?
+        } else if matches!(id, ObjectId::Prop(_)) {
+            object_mut(&mut raw, id)?
+        } else {
+            return Err("Choose a mannequin or spawn point".into());
+        };
+        if !matches!(
+            object.get("model").and_then(Value::as_str),
+            Some("mannequin" | "core:mannequin_black")
+        ) {
+            return Err("Appearance requires the canonical mannequin model".into());
+        }
+        if let Some(texture) = selected_texture {
+            if catalog.texture_path(texture).is_none() {
+                return Err("Appearance texture is missing".into());
+            }
+            drop(object.insert("character_texture".into(), texture.into()));
+        } else {
+            drop(object.remove("character_texture"));
+        }
+        drop(
+            object.insert(
+                "model".into(),
+                if index == 1 {
+                    "core:mannequin_black"
+                } else {
+                    "mannequin"
+                }
+                .into(),
+            ),
+        );
+        self.accept_edit(raw)
+    }
+
     /// Assigns a reusable typed behavior to a placed entity or spawn template.
     /// Other components and bindings survive. The shared navigation bake owns
     /// movement; this does not embed map or entity behavior in the editor.

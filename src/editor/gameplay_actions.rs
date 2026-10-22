@@ -14,6 +14,7 @@ pub(super) enum GameplayChoice {
     Sound,
     EntityModel,
     EntityBehavior,
+    CharacterAppearance,
     SpawnTemplate,
     Filter,
     SoundAction,
@@ -158,6 +159,15 @@ impl App {
                 return self.browser.choices(super::browser::ChoiceKind::Entities);
             }
             GameplayChoice::Sound => self.sound_cues.clone(),
+            GameplayChoice::CharacterAppearance => [
+                "Original mannequin",
+                "Black tint",
+                "Man / teal shirt",
+                "Woman / plum jacket",
+                "Zombie / weathered jacket",
+            ]
+            .map(str::to_string)
+            .to_vec(),
             GameplayChoice::EntityBehavior => [
                 "Decorative / no AI",
                 "Idle and observe",
@@ -239,6 +249,9 @@ impl App {
         match choice {
             GameplayChoice::Fixture | GameplayChoice::Sound | GameplayChoice::EntityModel => {
                 doc.set_gameplay_asset(id, &value, &self.catalog)?;
+            }
+            GameplayChoice::CharacterAppearance => {
+                doc.set_character_appearance(id, index, &self.catalog)?;
             }
             GameplayChoice::EntityBehavior => doc.set_entity_behavior(id, index, &self.catalog)?,
             GameplayChoice::SpawnTemplate => doc.set_spawn_template(id, &value)?,

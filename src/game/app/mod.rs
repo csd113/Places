@@ -9,6 +9,7 @@ mod flashlight;
 mod item_input;
 mod item_runtime;
 mod loading;
+mod mannequin_bowling;
 mod ragdoll_runtime;
 mod video;
 
@@ -1087,6 +1088,7 @@ impl FrameLoop<'_> {
             self.items.target = None;
         }
         if self.reconcile_audio_reset() {
+            self.clear_mannequin_pins();
             self.reset_carry_assemblies();
             if self.menu_world() {
                 self.reset_menu_items();
@@ -1412,6 +1414,17 @@ impl FrameLoop<'_> {
                 } => {
                     self.apply_ragdoll(&target, enabled, Vec3::from_array(velocity));
                 }
+                crate::engine::entities::WorldCommand::MannequinPins {
+                    group,
+                    enabled,
+                    target,
+                } => {
+                    if let Err(error) = self.set_mannequin_pins(&group, enabled, &target) {
+                        self.ui_state
+                            .set_status(format!("Miniature pins: {error}"), true);
+                        crate::engine::logging::warn(format!("[miniature-pins] {error}"));
+                    }
+                }
                 crate::engine::entities::WorldCommand::ActivatePhysicsGroup { group } => {
                     self.activate_item_group(&group);
                 }
@@ -1435,6 +1448,7 @@ impl FrameLoop<'_> {
                 crate::engine::entities::WorldCommand::SpawnDynamic {
                     entity,
                     model,
+                    character_texture,
                     position,
                     yaw_degrees,
                     scale,
@@ -1457,7 +1471,17 @@ impl FrameLoop<'_> {
                             yaw_degrees,
                             scale,
                         ) {
-                            Ok(()) => spawned_character = true,
+                            Ok(()) => {
+                                spawned_character = true;
+                                if let Err(error) = self.renderer.set_runtime_character_texture(
+                                    character_id,
+                                    character_texture.as_deref(),
+                                ) {
+                                    crate::engine::logging::warn(format_args!(
+                                        "[characters] {error}"
+                                    ));
+                                }
+                            }
                             Err(reason) => {
                                 crate::engine::logging::info(format_args!(
                                     "[characters] `{model}` spawns through the dynamic path: \

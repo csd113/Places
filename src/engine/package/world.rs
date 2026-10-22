@@ -231,6 +231,19 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
     {
         return Err("Animated solid mechanisms require animated-door-v1 capability".into());
     }
+    for (required, capability) in [
+        (level.has_character_textures(), "character-textures-v1"),
+        (level.has_mannequin_pins(), "miniature-pins-v1"),
+    ] {
+        if required
+            && !manifest
+                .required_capabilities
+                .iter()
+                .any(|entry| entry == capability)
+        {
+            return Err(format!("Map requires {capability}"));
+        }
+    }
     validate_shadow_only(level, manifest)?;
     validate_item_receipts(level, manifest)?;
     validate_lighting_requirement(level, manifest)?;

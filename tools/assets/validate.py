@@ -130,6 +130,7 @@ ACTION_TAGS = (
     "despawn_entity",
     "reset_to_start",
     "ragdoll",
+    "mannequin_pins",
     "reset_physics_group",
     "activate_physics_group",
 )
@@ -2402,7 +2403,7 @@ def _validate_actions(
                     or len(velocity) != 3 or not all(is_finite_number(v) for v in velocity)
                     or sum(v * v for v in velocity) > 225):
                 errors.append(f"{entry}: ragdoll needs boolean enabled and finite velocity at most 15 m/s")
-        elif tag in ("reset_physics_group", "activate_physics_group"):
+        elif tag in ("reset_physics_group", "activate_physics_group", "mannequin_pins"):
             group = action.get("group")
             if not _is_reset_group(group) or group not in index["physics_reset_groups"]:
                 errors.append(f"{entry}: {tag} requires a declared movable physics group")
