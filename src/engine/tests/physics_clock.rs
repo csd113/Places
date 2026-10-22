@@ -242,7 +242,7 @@ fn stopped_world_blocks_player_capsule_in_all_axes_without_a_held_item() -> Resu
         };
         let constrained = world.constrain_player_eye(crossing);
         assert!(
-            constrained.x > 0.5 && constrained.x < 0.61,
+            (constrained.x - (0.9 - crate::engine::collision::PLAYER_RADIUS)).abs() < 0.01,
             "an empty hand must not let the player cross a frozen dynamic body"
         );
         let above = PlayerContext {
@@ -389,8 +389,16 @@ fn dormant_activation_waits_until_player_has_left_its_solid_volume() -> Result<(
         "rejected activation must retain the authored pose"
     );
     let touching = PlayerContext {
-        eye: Vec3::new(0.4, initial.eye.y, 0.0),
-        feet: Vec3::new(0.4, initial.feet.y, 0.0),
+        eye: Vec3::new(
+            crate::engine::collision::PLAYER_RADIUS + 0.1,
+            initial.eye.y,
+            0.0,
+        ),
+        feet: Vec3::new(
+            crate::engine::collision::PLAYER_RADIUS + 0.1,
+            initial.feet.y,
+            0.0,
+        ),
         ..initial
     };
     world.sync_context(touching, &[]);

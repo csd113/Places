@@ -118,7 +118,11 @@ fn plunge_preserves_momentum_and_rise_resurfaces_without_a_pose_snap() -> Result
     let level = basin()?;
     let mut game = placed(&level, 6.0, -1.1, 6.0, 0.0);
     game.vertical_velocity = -6.0;
-    tick(&mut game, &InputState::default(), 1.0 / 120.0);
+    tick(
+        &mut game,
+        &InputState::default(),
+        crate::game::VERTICAL_SUBSTEP,
+    );
     assert!(
         game.vertical_velocity < -5.5 && game.vertical_velocity > -6.0,
         "entry must dissipate plunge momentum through drag instead of clamping it to a swim cap"
@@ -149,7 +153,7 @@ fn plunge_preserves_momentum_and_rise_resurfaces_without_a_pose_snap() -> Result
 fn ramp_and_checked_ledge_exit_use_real_support_without_reentry_or_reset() -> Result<(), String> {
     let level = basin()?;
     let forward = controls(&[Control::MoveForward]);
-    let mut ramp = placed(&level, 9.0, -3.0, 10.0, std::f32::consts::PI);
+    let mut ramp = placed(&level, 9.0, -3.0, 9.6, std::f32::consts::PI);
     ramp.grounded = true;
     for _ in 0_u16..180 {
         tick(&mut ramp, &forward, 1.0 / 120.0);
@@ -205,7 +209,7 @@ fn ramp_and_checked_ledge_exit_use_real_support_without_reentry_or_reset() -> Re
     room["ceiling"] = serde_json::json!({"kind":"flat"});
     let covered_level: LevelDef =
         serde_json::from_value(roof_source).map_err(|error| error.to_string())?;
-    let mut covered = placed(&covered_level, 6.0, -1.1, 11.69, std::f32::consts::PI);
+    let mut covered = placed(&covered_level, 6.0, -1.1, 11.59, std::f32::consts::PI);
     for _ in 0_u16..120 {
         tick(&mut covered, &rising, 1.0 / 120.0);
         assert!(
@@ -214,7 +218,7 @@ fn ramp_and_checked_ledge_exit_use_real_support_without_reentry_or_reset() -> Re
         );
     }
     assert!(
-        covered.player_position.z < 11.71 && covered.feet_y + covered.body_height() <= 1.001,
+        covered.player_position.z < 11.61 && covered.feet_y + covered.body_height() <= 1.001,
         "a refused exit must preserve the actual rim and head contacts"
     );
     Ok(())
@@ -244,6 +248,9 @@ fn sideways_current_cannot_turn_a_walkable_bank_into_a_water_jump() -> Result<()
                 game.water_exit.is_none(),
                 "current-driven side contact must never start a forward water jump"
             );
+            if game.player_position.z > 13.5 {
+                break;
+            }
         }
         assert!(
             game.player_position.z > 13.5 && game.grounded && game.reset_count() == 0,
@@ -261,7 +268,7 @@ fn maximum_authored_rim_remains_reachable_by_a_standing_swimmer() -> Result<(), 
     let room = source.pointer_mut("/rooms/0").ok_or("missing room")?;
     room["floor_y"] = serde_json::json!(0.35_f32);
     let level: LevelDef = serde_json::from_value(source).map_err(|error| error.to_string())?;
-    let mut game = placed(&level, 6.0, -1.1, 11.69, std::f32::consts::PI);
+    let mut game = placed(&level, 6.0, -1.1, 11.59, std::f32::consts::PI);
     let input = controls(&[Control::MoveForward, Control::Jump]);
     for _ in 0_u16..240 {
         tick(&mut game, &input, 1.0 / 120.0);

@@ -216,58 +216,155 @@ pub fn door_segment_blocked(
     })
 }
 
-/// Bounded horizontal recovery is distinct from incoming sweep contacts.
-/// A residual multi-solid overlap is refused instead of escaping across a wall.
-fn recover_start(world: &HorizontalWorld<'_>, from: Vec2, body: (f32, f32, f32)) -> Option<Vec2> {
-    let (feet, height, radius) = body;
-    let recovered = super::resolve_airborne_player_collision_with_doors(
-        world.index,
-        (from, from),
+// Swept separating-axis intervals for an axis-aligned player box against an
+// oriented rectangle. The four face axes give the exact Minkowski obstacle;
+// rotating the camera never rotates the player's hull.
+fn square_cast(
+    from: Vec2,
+    motion: Vec2,
+    radius: f32,
+    center: Vec2,
+    half: Vec2,
+    direction: Vec2,
+) -> Option<SweepHit> {
+    let cross = Vec2::new(-direction.y, direction.x);
+    let offset = Vec2::new(from.x - center.x, from.y - center.y);
+    let mut enter = f32::NEG_INFINITY;
+    let mut leave = f32::INFINITY;
+    let mut normal = Vec2::ZERO;
+    for axis in [Vec2::X, Vec2::Y, direction, cross] {
+        let extent = half.y.mul_add(
+            cross.dot(axis).abs(),
+            half.x.mul_add(
+                direction.dot(axis).abs(),
+                radius * (axis.x.abs() + axis.y.abs()),
+            ),
+        );
+        let point = offset.dot(axis);
+        let speed = motion.dot(axis);
+        if speed.abs() < GRAZING_EPS {
+            if point.abs() >= extent {
+                return None;
+            }
+            continue;
+        }
+        let first = (-extent - point) / speed;
+        let last = (extent - point) / speed;
+        let near = first.min(last);
+        if near > enter {
+            enter = near;
+            normal = if speed > 0.0 {
+                Vec2::new(-axis.x, -axis.y)
+            } else {
+                axis
+            };
+        }
+        leave = leave.min(first.max(last));
+        if enter > leave {
+            return None;
+        }
+    }
+    ((-GRAZING_EPS..=1.0).contains(&enter) && leave >= 0.0).then_some(SweepHit {
+        fraction: enter.max(0.0),
+        normal,
+    })
+}
+
+fn square_wall(from: Vec2, motion: Vec2, radius: f32, wall: &WallAabb) -> Option<SweepHit> {
+    square_cast(
+        from,
+        motion,
         radius,
-        feet,
-        height,
-        world.walls,
-        world.doors,
+        Vec2::new(
+            f32::midpoint(wall.min_x, wall.max_x),
+            f32::midpoint(wall.min_z, wall.max_z),
+        ),
+        Vec2::new(
+            (wall.max_x - wall.min_x) * 0.5,
+            (wall.max_z - wall.min_z) * 0.5,
+        ),
+        Vec2::X,
+    )
+}
+
+fn square_door(from: Vec2, motion: Vec2, radius: f32, door: &DoorCollider) -> Option<SweepHit> {
+    square_cast(
+        from,
+        motion,
+        radius,
+        Vec2::new(
+            door.dir_x.mul_add(door.width * 0.5, door.hinge_x),
+            door.dir_z.mul_add(door.width * 0.5, door.hinge_z),
+        ),
+        Vec2::new(door.width * 0.5, door.thickness * 0.5),
+        Vec2::new(door.dir_x, door.dir_z),
+    )
+}
+
+pub fn square_overlaps_wall(point: Vec2, radius: f32, wall: &WallAabb) -> bool {
+    point.x + radius > wall.min_x
+        && point.x - radius < wall.max_x
+        && point.y + radius > wall.min_z
+        && point.y - radius < wall.max_z
+}
+
+pub fn square_overlaps_door(point: Vec2, radius: f32, door: &DoorCollider) -> bool {
+    let direction = Vec2::new(door.dir_x, door.dir_z);
+    let cross = Vec2::new(-direction.y, direction.x);
+    let center = Vec2::new(
+        door.dir_x.mul_add(door.width * 0.5, door.hinge_x),
+        door.dir_z.mul_add(door.width * 0.5, door.hinge_z),
     );
+    let offset = Vec2::new(point.x - center.x, point.y - center.y);
+    [Vec2::X, Vec2::Y, direction, cross]
+        .into_iter()
+        .all(|axis| {
+            offset.dot(axis).abs()
+                < (door.thickness * 0.5).mul_add(
+                    cross.dot(axis).abs(),
+                    (door.width * 0.5).mul_add(
+                        direction.dot(axis).abs(),
+                        radius * (axis.x.abs() + axis.y.abs()),
+                    ),
+                )
+        })
+}
+
+fn square_start_clear(world: &HorizontalWorld<'_>, point: Vec2, body: (f32, f32, f32)) -> bool {
+    let (feet, height, radius) = body;
     let mut clear = true;
     world.index.for_each_disc(
-        recovered.x,
-        recovered.y,
-        radius - CONTACT_EPS,
+        point.x,
+        point.y,
+        radius * std::f32::consts::SQRT_2,
         world.walls,
         |wall| {
             if wall.max_y > feet + CONTACT_EPS
                 && wall.min_y < feet + height - CONTACT_EPS
-                && wall.overlaps_disc(recovered.x, recovered.y, radius - CONTACT_EPS)
+                && square_overlaps_wall(point, radius - CONTACT_EPS, wall)
             {
                 clear = false;
             }
         },
     );
-    clear &= !world.doors.iter().any(|door| {
-        door.overlaps_body_y(feet, height)
-            && door.overlaps_disc(recovered.x, recovered.y, radius - CONTACT_EPS)
-    });
-    if recovered.distance(from) > radius + CONTACT_EPS || !clear {
-        if world.debug {
-            crate::engine::logging::warn(
-                "[movement] recovery_rejected reason=bound_or_residual_overlap",
-            );
-        }
-        return None;
-    }
-    if world.debug && recovered.distance_squared(from) > MOTION_EPS_SQUARED {
-        crate::engine::logging::warn(format_args!(
-            "[movement] small_depenetration initial={from:?} final={recovered:?} vector={:?}",
-            Vec2::new(recovered.x - from.x, recovered.y - from.y)
-        ));
-    }
-    Some(recovered)
+    clear
+        && !world.doors.iter().any(|door| {
+            door.overlaps_body_y(feet, height)
+                && square_overlaps_door(point, radius - CONTACT_EPS, door)
+        })
 }
 
-/// Sweep and slide through boxes and oriented doors. Each new segment is
-/// swept again, so a corner cannot resolve one wall by entering another.
-pub fn sweep_horizontal(
+/// Exact fixed-orientation player hull; the disc API remains available to AI.
+pub fn sweep_player_hull(
+    world: &HorizontalWorld<'_>,
+    path: (Vec2, Vec2),
+    body: (f32, f32, f32),
+    allow_steps: bool,
+) -> Vec2 {
+    sweep_shape(world, path, body, allow_steps)
+}
+
+fn sweep_shape(
     world: &HorizontalWorld<'_>,
     path: (Vec2, Vec2),
     body: (f32, f32, f32),
@@ -284,18 +381,21 @@ pub fn sweep_horizontal(
     let (from, to) = path;
     let (feet, height, radius) = body;
     let mut remaining = Vec2::new(to.x - from.x, to.y - from.y);
-    let Some(mut position) = recover_start(world, from, body) else {
+    let cast_wall = square_wall;
+    let cast_leaf = square_door;
+    if !square_start_clear(world, from, body) {
         return from;
-    };
+    }
+    let mut position = from;
     for _ in 0..CONTACT_ITERATIONS {
         if remaining.length_squared() <= MOTION_EPS_SQUARED {
             break;
         }
         let mut best = None;
-        index.for_each_swept_disc(position, point_on_path(position, remaining, 1.0), radius, walls, |wall| {
+        index.for_each_swept_disc(position, point_on_path(position, remaining, 1.0), radius * std::f32::consts::SQRT_2, walls, |wall| {
             if wall.max_y <= feet + CONTACT_EPS
                 || wall.min_y >= feet + height - CONTACT_EPS { return; }
-            if let Some(hit) = cast_disc(position, remaining, radius, wall) {
+            if let Some(hit) = cast_wall(position, remaining, radius, wall) {
                 if *debug { crate::engine::logging::warn(format_args!("[movement] candidate collider=box identity={:?} bounds={wall:?} hit_time={} normal={:?}", walls.iter().position(|candidate| std::ptr::eq(candidate,wall)), hit.fraction,hit.normal)); }
                 nearer(&mut best, hit, remaining);
             }
@@ -304,17 +404,17 @@ pub fn sweep_horizontal(
             if !door.overlaps_body_y(feet, height) {
                 continue;
             }
-            if let Some(hit) = cast_door(position, remaining, radius, door) {
+            if let Some(hit) = cast_leaf(position, remaining, radius, door) {
                 nearer(&mut best, hit, remaining);
             }
         }
         ceiling.for_each_body_barrier(feet, height, |wall| {
-            if let Some(hit) = cast_disc(position, remaining, radius, wall) {
+            if let Some(hit) = cast_wall(position, remaining, radius, wall) {
                 nearer(&mut best, hit, remaining);
             }
         });
         floor.for_each_boundary(|wall, surface| {
-            let Some(hit) = cast_disc(position, remaining, radius, wall) else {
+            let Some(hit) = cast_wall(position, remaining, radius, wall) else {
                 return;
             };
             let contact = point_on_path(position, remaining, hit.fraction);
@@ -340,7 +440,7 @@ pub fn sweep_horizontal(
                 0.0
             },
             |wall, outward| {
-                if let Some(hit) = cast_disc(position, remaining, radius, wall)
+                if let Some(hit) = cast_wall(position, remaining, radius, wall)
                     && hit.normal.dot(outward) > GRAZING_EPS
                 {
                     // Terrain faces block entry from outside. A body following
@@ -373,26 +473,4 @@ pub fn sweep_horizontal(
         remaining = point_on_path(remaining, hit.normal, -incoming);
     }
     position
-}
-
-/// A top contacting any part of the feet disc is a real upward support.
-/// Centre-only tests allowed the edge of a falling cylinder through solids.
-pub fn body_support_top(
-    index: &CollisionIndex,
-    point: Vec2,
-    radius: f32,
-    max_top: f32,
-    rim_max_top: f32,
-    walls: &[WallAabb],
-) -> Option<f32> {
-    let mut highest: Option<f32> = None;
-    index.for_each_disc(point.x, point.y, radius, walls, |wall| {
-        if wall.max_y <= max_top
-            && (wall.step_up <= 0.0 || wall.max_y <= rim_max_top)
-            && wall.overlaps_disc(point.x, point.y, radius)
-        {
-            highest = Some(highest.map_or(wall.max_y, |height| height.max(wall.max_y)));
-        }
-    });
-    highest
 }

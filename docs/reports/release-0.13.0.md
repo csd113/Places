@@ -4222,3 +4222,184 @@ All validation and owned native/build processes finished before cleanup. Eight r
 `post-clean-native-smoke/` successfully launches the restored player against the final showcase hash, reaches the actual Hub renderer, preserves the real eight-entry save, reports no script diagnostics, and shuts down normally. `cleanup.json` records preservation, idle-process checks, clean output, restored hashes and this launch. `Play-showcase-fresh.command` and `Play-showcase-completed.command` in the evidence directory provide isolated, VSync-off launches at the original executable path. The completed helper's save is a byte-exact copy of the real accepted Arcade completion save; no completion flags are manufactured. Both original/polished furniture packages, recovered editable projects, prior baseline/candidate executables, unique captures and both delivered montages remain outside `target`. The unrelated Python audit drafts remain untouched.
 
 Exact source/report commits, remote confirmation and released repository/target ownership are recorded in `local/final-verification-0.13.0/FINAL-HANDOFF.json`. No version bump, release, main merge or force push is performed. GitHub CI is neither queried nor awaited; its separately authorized final-version/pre-bump gate remains deferred. No access action is required for the verified native workflows. The historical unused Validation.app approval remains unknown/untouched. Windows/Linux, uncapped presented throughput and the historical **+312 MiB total-residency observation** remain open limitations; the scoped owner-unload checks do not establish a return to baseline process/GPU residency.
+
+
+## Portal 1-style keyboard and mouse movement
+
+Implemented independently on Windows from the frozen staging baseline
+31cb5e5415f7f054a631bea6c98305d382f0ff8e. The reference is Portal 1, replacing
+the earlier Half-Life 2 wording. Keyboard and mouse controls remain the only
+input scope. No portal gun/mechanics or gamepad support is introduced.
+
+### Reference provenance and parity limits
+
+The bounded read-only check found one registered Steam library. Its Portal
+directory contains remnants but no executable; app 400 has no installed
+manifest. No game was bought, downloaded or installed, and Steam/account
+settings were not changed. Consequently there is no current-retail build,
+platform/tick/cvar/plugin measurement to claim.
+
+The pinned [SPT predictor declarations](https://github.com/OutOfBoundsOffice/SourcePauseTool/blob/d25c0edede1ad8db938874877180282350c169bc/spt/features/tas.cpp#L88-L103)
+manually select air acceleration 15, a directional wish cap of 60 and retained
+surface friction for Portal. These are predictor overrides, not verified retail
+defaults. The [archived build-5135 fixture](https://github.com/OutOfBoundsOffice/SourcePauseTool/blob/d25c0edede1ad8db938874877180282350c169bc/Tests/portal%20-%205135/test/04_test.td)
+and [input script](https://github.com/OutOfBoundsOffice/SourcePauseTool/blob/d25c0edede1ad8db938874877180282350c169bc/Tests/portal%20-%205135/test/04_test.srctas)
+supply the 22.5-unit initial ground increment, seven 15 ms vertical velocity
+landmarks (151 through 97, decreasing by nine), and an observed 75-unit forward
+jump increment. They are archived harness evidence, not a clean modern retail
+capture. The focused tests compare these velocity landmarks; no unavailable
+retail position trajectory is invented.
+
+No Valve SDK movement implementation or Valve-attributed SPT jumpboost hook is
+incorporated. Portal-specific high-speed AirMove restrictions remain unresolved.
+The isolated 15/60 projection model is provisional outside the documented
+landmarks; it is not presented as complete Portal AirMove, unrestricted HL2
+parity, a verified Portal 2 cutoff, or exact 1:1 retail movement. Contact ties,
+stairs/view smoothing and detailed retail duck timing still need measured
+reference comparison.
+
+### Controller and authoring contract
+
+One uniform scale is 0.025 metres per Source unit. The selected profile uses:
+
+| Quantity | Source units/profile | Places |
+| --- | --- | --- |
+| Fixed command | 15 ms | 66.667 commands/s |
+| Default land / crouched wish speed | 150 / 50 | 3.75 / 1.25 m/s |
+| Ground acceleration / friction / stop speed | 10 / 4 / 100 | same rates, stop 2.5 m/s |
+| Air acceleration / directional wish cap | 15 / 60 | same rate, cap 1.5 m/s |
+| Player gravity / jump impulse | 600 / 160 | 15 m/s² / 4 m/s |
+| Step | 18 | 0.45 m |
+| Fixed square hull | 32×32×72 / 32×32×36 | 0.8×0.8×1.8 / 0.8×0.8×0.9 m |
+| Standing / duck eye | 64 / 28 | 1.6 / 0.7 m |
+| Ground duck / unduck eye transition | 0.4 / 0.2 s | same |
+
+The existing adjustable walking preference remains available; comparisons here
+request 3.75 m/s in both players to isolate controller behavior. Acceleration
+limits velocity projected onto wish direction, retaining perpendicular and
+overspeed momentum. A fresh ground-command jump precedes friction. Airborne
+presses are consumed and held Jump does not auto-hop. The facing-relative
+jump budget preserves the archived forward increment and backwards overspeed
+behavior without a universal walking-speed clamp.
+
+Crouch is now held. Ground transitions anchor feet; air duck raises feet by
+0.9 m while retaining hull top and eye. Expansion checks the full static and
+live-body hull and retries when clear. Collision and stance checks run on
+fixed commands, including rigid/frozen bodies; blocked momentum is spent rather
+than retained until a render frame or obstacle release. World boxes, oriented
+doors, overheads and gabled ceilings use the square footprint. Slide and raised
+step routes compare actual planar progress. Walking uses real treads; terrain
+contact cannot select an unrelated lower floor as permission to enter a ramp.
+A bounded downward probe retains contact without upward teleportation.
+Steep slopes with upward normal below 0.7 clip/slip rather than becoming
+grounded jump surfaces.
+
+Standing feet reach approximately 0.533 m; air crouch extends feet reach to
+approximately 1.433 m. Editor boundary diagnostics and the map authoring guide
+use that reach. Existing authored Relay and Home geometry is unchanged.
+The new opt-in editable projects/movement-gym/ uses ordinary editor geometry
+and existing PNG-backed materials. The explicit places-movement-check tool
+writes 17 command trajectories distinguishing feet, eye, hull top and velocity.
+Neither map baking nor the developer replay is added to ordinary tests/CI.
+
+Water retains its compatible controller and 9.8 m/s² checked-exit gravity,
+independent of land gravity. Its default standing swim cap remains 2.4 m/s.
+This is water compatibility, not Portal swimming parity.
+
+### Original reproduction, regression value and native acceptance
+
+Before controller edits, the frozen executable reproduced the Relay stair
+jump falling below the flight and recovering to the start (one recorded reset).
+The matched 960x540 comparison recording later completed that old route with
+zero resets; the original failure is cadence-dependent and is preserved as a
+separate 1280x720 reproduction. Original Home evidence confirms switch targeting, folding-door progress 1.0,
+mug pickup, carry and set-down. All frozen manifests, packages, binaries and
+captures remain intact. Local diagnostic project copies remove only outbound
+transitions/change-level bindings; geometry, relevant props and interactions
+remain the authored originals. Failed setup attempts are retained and excluded.
+
+Five focused CPU regressions add concrete coverage beyond the prior 272 tests:
+fixed-command scheduling and timed keyboard/mouse replay; archived jump/air
+momentum and debounce; hull/eye duck ownership and short presses; fast/corner/
+overhead and live-constraint collision; and the actual Relay jump/contact/
+recovery path. Tiny metadata fixtures require no assets, renderer or map bake.
+Existing water fixtures account for the new hull clearance and command interval,
+and stop at their real bank acceptance point before the faster land speed
+leaves the small fixture. Existing physical contact assertions derive their
+bounds from hull width. No regression is ignored or hidden behind a feature.
+
+The complete controller passes strict workspace Clippy, all 277 workspace tests
+(zero ignored), and the locked all-feature release build on Rust/Cargo 1.99.1.
+The release executables used for native evidence are preserved outside target.
+A final developer-only replay spawn correction starts outside the low slab,
+instead of recovering onto it; it changes no controller behavior. The final
+tree passed the same gates again (clippy-probe-final.log, tests-probe-final.log,
+release-probe-final.log). Command replays from that tree are preserved separately
+from the earlier traces. The new gym's diagnostic floor alone extends west to
+X=-8 so both mirrored paths stay within the fixture; the earlier left path
+ran off its boundary. Published traces match mirrored endpoints and the
+0.44/0.46 m step threshold. Prior gym packages used for comparison video are
+retained with their own identities. No existing authored level is changed.
+Native acceptance is detailed in native-final-audit.json: Relay stairs/ramp jump and land on authored supports without reset; Home switch, complete folding-door travel, mug carry/set-down and untouched dormant props pass; void recovery resets once; noclip exit falls and lands; both Pool exits reach dry ground; low slab blocks unduck after release; editor opens the gym. The unchanged After Hours 1.15 m passage is traversable crouched, refuses expansion inside and stands after exit with zero resets.
+The exact final rebuilt player also repeats Relay stairs/ramp and Home smoke
+checks successfully; its SHA-256 and receipts are in
+published-build-comparison.json and native-final-audit.json. The final gym
+compiles and opens in the published native editor.
+No accepted eight-quest/bowling/sun-moon implementation campaign is repeated.
+
+### Comparison video and timing scope
+
+The requested comparison is saved as
+local/windows-validation-0.13.0/portal1-movement/Places-Portal1-style-movement-comparison.mp4
+and Library libfile_77c7435eee4c8191a1d6f38283da705a. It is H.264/YUV420P, 1280×528 at
+30 FPS playback, 1,461,753 bytes, SHA-256 dc4f301f0c235be29340abaf6ac845140e9f83f3ab7a2265aa213bc6551cdf85.
+Five matched input schedules show acceleration/stopping/reversal, air strafes
+and hop/held-jump timing, air crouch reach, low clearance, and unchanged Relay
+stairs. It labels old Places versus Portal 1-style Places; no actual Portal
+footage is represented. Native frame sources, identities, timestamps and encoder
+receipts are retained. Playback samples follow captured real elapsed time;
+there is no time acceleration. Recording FPS is separate from measured game
+FPS, and every recording run is excluded from throughput measurements.
+
+Capture-free matched timing uses VSync Off, no application limiter, verified
+applied presentation mode and physical drawable size; matched-timing.json and
+per-run stdout/frames.csv retain actual values. All four tiny-gym runs applied
+Immediate mode at physical/logical 1280x720 on NVIDIA RTX 3070 Laptop / DX12.
+They ran above display refresh, with no pacing plateau. After 120 warmup rows,
+360 rows per run gave mean complete-loop times of 1.234 / 1.318 ms for the old
+player and 1.162 / 1.269 ms for the new player, in old/new/new/old order. Mean
+update times were 0.0208 / 0.0179 ms old and 0.0168 / 0.0181 ms new. These are
+short controls on a tiny scene; this work makes no overall FPS gain claim.
+Refresh-capped earlier presentation evidence is not reused as throughput proof.
+The earlier transient executor disconnect is recorded separately from
+build state; resumed validation checked existing processes before continuing.
+Two owned failed-load capture processes were closed using their saved pending
+receipts, preserving all evidence.
+
+All evidence for this section is beneath
+local/windows-validation-0.13.0/portal1-movement/. No executable bundle is
+uploaded to Library, no target clean occurs, and there is no version bump,
+main merge, release or force push. Keep-awake ownership remains with the
+approved queue. Exact commit/remote identity and handoff are recorded locally
+after publication.
+
+Library confirmed the MP4 save and version 0. Its returned metadata is retained
+in comparison-library-identity.json; applying local extended attributes failed
+because Windows Python has no os.setxattr. This does not undo the confirmed
+Library save and no duplicate upload was made.
+
+### Approved appearance follow-up transport blocker
+
+The approved five-skin ZIP is Library libfile_db44efe245d8819180bdb9b202869d42,
+version 0, 3,621,259 bytes, expected SHA-256
+48d3998ab303e3a4e3c55c1b7b6af15c2c267f4aba8ba738c7af00d47c87ad8a.
+Library preparation succeeded. The supported current transfer helper then
+downloaded into its temporary staging flow but failed at os.setxattr, which is
+unavailable on Windows Python, and left no materialized ZIP. This is a helper
+compatibility failure, not an access denial. The initial sandbox network failure
+and subsequent authorized-network metadata error are retained in task-2's
+skin-materialize logs. No unsupported transport, invented cloud filesystem path,
+replacement imagery or partial catalog entries were introduced. Existing skins,
+shared GLB, rig and clips remain intact. Integration and its required native
+five-appearance persistence/animation/ragdoll validation await a supported local
+materialization path; no appearance integration commit is claimed.

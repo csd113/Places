@@ -145,7 +145,7 @@ fn edge(
         } else {
             edge.base + surfaces.walkable_offset_at(inside_x, inside_z)
         };
-        let apex = feet + crate::game::JUMP_APEX_M;
+        let apex = feet + crate::game::CROUCH_JUMP_APEX_M;
         // A low rim may block walking and still allow a crouched jump. This
         // tests the actual authored collider's vertical rule, not its artwork.
         if collision.iter().any(|wall| {
@@ -197,7 +197,7 @@ fn edge(
         category: if void { SafetyCategory::Void } else { SafetyCategory::Collision },
         severity: SafetySeverity::Warning,
         title: format!("{}: jump / drop review", edge.label),
-        risk: format!("{risk} {count}/{SAMPLES} samples have no crouched-body barrier at the {:.2} m jump apex; low side walls may be cleared. Doors use their authored starting pose and exact oriented collider; opening them may expose another route. Each floor retains its storey ownership. Sampled risk, not a trajectory proof: check ceiling, approach, water, ladders and intended openings in Play. No wall is added automatically.", crate::game::JUMP_APEX_M),
+        risk: format!("{risk} {count}/{SAMPLES} samples have no crouched-body barrier at the {:.2} m jump apex; low side walls may be cleared. Doors use their authored starting pose and exact oriented collider; opening them may expose another route. Each floor retains its storey ownership. Sampled risk, not a trajectory proof: check ceiling, approach, water, ladders and intended openings in Play. No wall is added automatically.", crate::game::CROUCH_JUMP_APEX_M),
         position: bounds_center(evidence),
         bounds: evidence,
         objects: vec![edge.object],
@@ -234,7 +234,7 @@ fn regions(level: &LevelDef, report: &mut SafetyReport) {
                 report,
             );
         }
-        if region.offset() < -(crate::game::JUMP_APEX_M + PLAYER_STEP_HEIGHT) {
+        if region.offset() < -(crate::game::CROUCH_JUMP_APEX_M + PLAYER_STEP_HEIGHT) {
             push_region(
                 level,
                 index,

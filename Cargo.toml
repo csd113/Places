@@ -185,3 +185,8 @@ path = "tools/rust/environment-import-audit/main.rs"
 [[bin]]
 name = "collection-quest-check"
 path = "tools/rust/collection-quest-check/main.rs"
+
+# Explicit CPU command replay; never bakes a map during tests or CI.
+[[bin]]
+name = "places-movement-check"
+path = "tools/rust/movement-check/main.rs"

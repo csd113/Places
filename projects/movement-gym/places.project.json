@@ -1,0 +1,13 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "movement_gym",
+  "name": "Movement Gym",
+  "entry_level": "movement_gym",
+  "levels": [
+    {
+      "id": "movement_gym",
+      "source": "levels/movement_gym.json"
+    }
+  ]
+}

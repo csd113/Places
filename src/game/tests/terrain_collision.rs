@@ -99,3 +99,53 @@ fn falling_at_stair_tread_and_side_edges_retains_real_support() -> Result<(), St
     }
     Ok(())
 }
+
+// The original native Relay stair jump lost contact, fell through the flight
+// and reset. Unlike the earlier vertical-contact tests, this drives ordinary
+// held input, jump debounce, horizontal sweeps and recovery together.
+#[test]
+fn relay_stair_and_elevated_ramp_jump_keep_real_terrain_contact() -> Result<(), String> {
+    use crate::game::input::{Control, InputState, ScriptedHold};
+    use crate::game::{AppState, Settings, VERTICAL_SUBSTEP};
+    let level=LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"relay_contact","name":"Relay contact","spawn":{"x":1.25,"z":3},"rooms":[{"x":0,"z":0,"width":9,"depth":12,"height":14,"ceiling":{"kind":"open"}}],"stairs":[{"x":0,"z":2,"width":2.5,"depth":6,"rise":3.2,"steps":16}],"ramps":[{"x":4,"z":2,"width":2.5,"depth":6,"offset_y":6.4,"rise":3.2}]}"#).map_err(|error|error.to_string())?;
+    for (x, eye) in [(1.25_f32, 2.2_f32), (5.25, 8.6)] {
+        let mut game = Game::new(
+            Vec3::new(x, eye, 3.0),
+            std::f32::consts::PI,
+            CollisionWorld::from_level(&level),
+        );
+        game.set_app_state(AppState::Playing);
+        let script = [
+            ScriptedHold {
+                control: Control::MoveForward,
+                first_seconds: 0.1,
+                last_seconds: 1.7,
+            },
+            ScriptedHold {
+                control: Control::Jump,
+                first_seconds: 0.45,
+                last_seconds: 0.5,
+            },
+        ];
+        let mut command = InputState::default();
+        for tick in 0_u16..145 {
+            command.apply_move_script(&script, f32::from(tick) * VERTICAL_SUBSTEP);
+            game.set_benchmark_simulation_delta(VERTICAL_SUBSTEP);
+            game.update_player_movement(&mut command, &Settings::default());
+            let surface = game
+                .floor
+                .height_at(game.player_position.x, game.player_position.z)
+                .ok_or("missing fixture terrain")?;
+            assert!(
+                game.feet_y() + 0.001 >= surface,
+                "ordinary Relay jump must not fall into its terrain: x={x} tick={tick} feet={} surface={surface}",
+                game.feet_y()
+            );
+        }
+        assert!(
+            game.player_position.z > 5.0 && game.reset_count() == 0,
+            "the jump must progress up the unchanged flight/ramp without recovery"
+        );
+    }
+    Ok(())
+}

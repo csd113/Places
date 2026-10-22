@@ -3,14 +3,16 @@
 //! Land acceleration, air control and stance ownership stay in `game`.
 use super::input::Control;
 use super::{
-    CONTACT_EPS, GRAVITY, Game, HorizontalMode, InputState, PLAYER_RADIUS, PLAYER_STEP_HEIGHT,
-    STEP_EPS, Settings, WATER_EXIT_EYE_CLEARANCE_M, WATER_EXIT_STEP_M, WaterExit, WaterSample,
+    CONTACT_EPS, Game, HorizontalMode, InputState, PLAYER_RADIUS, PLAYER_STEP_HEIGHT, STEP_EPS,
+    Settings, WATER_EXIT_EYE_CLEARANCE_M, WATER_EXIT_STEP_M, WaterExit, WaterSample,
 };
+use crate::engine::physics::GRAVITY;
 use glam::{Vec2, Vec3};
 
 const WATER_FRICTION: f32 = 4.0;
 const WATER_ACCELERATION: f32 = 10.0;
-const WATER_SPEED_FACTOR: f32 = 0.8;
+// Retain the existing 2.4 m/s swim cap with the new 3.75 m/s land default.
+const WATER_SPEED_FACTOR: f32 = 0.64;
 // Scale Source's 72-unit standing hull to Places' 1.8 m body.
 const SOURCE_METRES: f32 = 1.8 / 72.0;
 const IDLE_SINK_SPEED: f32 = 60.0 * SOURCE_METRES;
@@ -229,7 +231,7 @@ impl Game {
                 surface_y: exit.surface_y,
             },
         );
-        let _step = self.integrate_vertical_substep(delta);
+        let _step = self.integrate_vertical_with_gravity(delta, GRAVITY);
         exit.remaining -= delta;
         if self.grounded
             || self.ceiling_contact_this_frame

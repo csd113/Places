@@ -27,7 +27,7 @@ pub enum Control {
     LookRight,
     /// Jump, and swim upwards while in deep water.
     Jump,
-    /// Toggle the crouched stance (press to change, not hold).
+    /// Hold the crouched stance; release requests a clear standing expansion.
     Crouch,
     /// Act on the object the player is looking at (press once, not hold).
     Interact,
@@ -269,6 +269,12 @@ impl InputState {
     /// including a press released before that frame began.
     pub(crate) const fn was_pressed(self, control: Control) -> bool {
         self.pressed & control.bit() != 0
+    }
+
+    /// Retain short edges until the next fixed movement command.
+    pub(crate) const fn merge_frame(&mut self, frame: &Self) {
+        self.held = frame.held;
+        self.pressed |= frame.pressed;
     }
 
     pub(crate) const fn clear_presses(&mut self) {

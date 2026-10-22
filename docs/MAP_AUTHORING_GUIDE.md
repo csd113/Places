@@ -121,7 +121,7 @@ Authoritative paths:
 | --- | --- |
 | Rectangular rooms, per-room `floor_y`, `height`, flat/gable ceiling | Implemented |
 | Rectangular walls, per-face materials, doors/windows/passages/vents | Implemented |
-| `floor_patches` (material-only), `floor_regions` (recess/raise), 0.4 m step rule | Implemented |
+| `floor_patches` (material-only), `floor_regions` (recess/raise), 0.45 m step rule | Implemented |
 | Baked lightmaps for static world geometry (floors, ceilings, walls, reveals, skirts), with the baked-vertex path as the exact fallback | Implemented |
 | Baked vertex lighting, 3 fixture families, per-light colour/intensity/range/falloff, partitions, vertical isolation | Implemented |
 | Static props occlude baked light (contact darkening, blocked pools), derived from the placed model's own triangles | Implemented |
@@ -190,7 +190,7 @@ steps 14–17.
 3. **Plan the layout.** Sketch the rooms as rectangles with world coordinates: where
    the player spawns, the route, which rooms share walls, where elevations change.
 4. **Choose elevations and ceiling heights.** `floor_y` per room, `height` per room,
-   `floor_regions` for stairs/platforms/recesses. Remember the 0.4 m walkable step.
+   `floor_regions` for stairs/platforms/recesses. Remember the 0.45 m walkable step.
 5. **Plan openings and connections.** Decide each door/window/passage/vent, its wall,
    offset, width, height, sill. Remember: rooms do **not** generate walls; shell every
    room the player can enter.
@@ -211,7 +211,7 @@ steps 14–17.
 13. **Add lights.** Choose fixture types per intended look; place enough fixtures to
     light the route; use colour/intensity for mood. Wall fixtures need `mount`+`y`.
 14. **Check collision.** `solid` props, door headers, window sills, unwalkable rims.
-    Walk the route in-game mentally against the 0.4 m step rule.
+    Walk the route in-game mentally against the 0.45 m step rule.
 15. **Inspect for overlapping/coplanar geometry.** No duplicated floors or walls;
     doorway thresholds owned once; no wall ends buried in other walls.
 16. **Validate assets.** Run the catalog, texture and prop checks
@@ -257,7 +257,7 @@ three.
 | Origin | World origin is arbitrary; floors are commonly authored at `y = 0.0`. A room's `floor_y` sets its own floor elevation. |
 | Yaw | Degrees. **0° faces −Z (north); +90° faces +X (east); +180° faces +Z; +270° faces −X.** Forward vector is `(sin yaw, 0, −cos yaw)`, so yaw increases turning right (clockwise seen from above with north up). |
 | Spawn | `{ "x": …, "z": …, "yaw_degrees": … }`. There is **no spawn `y`**; the eye is placed at the walkable floor under `(x,z)` plus 1.6 m. |
-| Player | radius 0.3 m, height 1.8 m, eye 1.6 m; **walkable step = 0.4 m**. |
+| Player | fixed square hull 0.8 x 0.8 x 1.8 m; crouched height 0.9 m; eyes 1.6/0.7 m; **walkable step = 0.45 m**. |
 | Room tolerance | A point within **0.01 m** of a room's footprint edge counts as inside it. |
 
 ```text
@@ -1338,17 +1338,17 @@ This is a contact-material approximation, not a separate friction force or a
 change to the body's velocity. Real ramp, stair, recess and room-height geometry
 still supplies its original slopes, risers and backing.
 
-Ice approaches requested walk velocity at 4.5/s, coasts with 1.6/s drag and
-retains ordinary maximum walk speed. Direction changes and braking take time;
-normal terrain immediately resumes ordinary input-driven walking. Ice takeoff
-retains planar momentum in air with restrained steering (1.2/s), and landing
-uses the contacted surface. Jump height, gravity, step reach, head clearance,
-rim and swept collision are unchanged. Reset and ladder attachment clear ice
-momentum. Blocked movement spends blocked momentum.
+Ice uses 0.2 surface friction for the Portal-style player controller, reducing
+both ground acceleration and braking. Takeoff retains that surface coefficient
+until ground contact categorizes a new material. Ordinary terrain uses 1.0.
+Momentum and directional air acceleration follow the controller profile below;
+there is no separate immediate-input walking path or universal speed clamp.
+Reset and ladder attachment clear momentum. Blocked movement spends blocked
+momentum.
 
 For a winter variant of a pond, remove its `water[]` volume and author a solid
 `floor_regions[]` ice floor at the former waterline, with an offset relative to
-the containing room. Keep shoreline rises within the 0.4 m step allowance or
+the containing room. Keep shoreline rises within the 0.45 m step allowance or
 provide a snow ramp. Merely setting `swimming: false` leaves a non-solid water
 surface and does not freeze it. Never leave a liquid swim volume intersecting
 an ice floor. Non-winter sources retain their water volumes and swimming.
@@ -1362,25 +1362,25 @@ validated source/materials at world load, preserving the collision binary format
 
 ### The walkable step rule
 
-**A rise of more than 0.4 m is refused; a drop of any size is walked off and
+**A rise of more than 0.45 m is refused; a drop of any size is walked off and
 becomes a real fall** — ledges, pool decks and floor holes all lose support, so
 treat every rill and drop-off as one the player can fall into. Staircases are
-chains of floor regions whose consecutive offsets differ by ≤ 0.4 m (Places Demo
+chains of floor regions whose consecutive offsets differ by ≤ 0.45 m (Places Demo
 stair: 1.5 → 1.2 → 0.9 → 0.6 → 0.3 risers), and each rise is climbed instantly.
 The rim's blocking face sits on the region boundary; its finite collider backing
-extends 0.01 m under the higher floor. The radius-bounded horizontal sweep stops
+extends 0.01 m under the higher floor. The square-hull horizontal sweep stops
 tunnelling without filling narrow ramp lanes with hidden side boxes. The player
 is supported by the walkable floor or a solid prop's top. Outside every authored
 room there is no synthetic world floor; walking off the last surface starts a
 real fall. Only empty-floor diagnostic worlds retain the legacy Y=0 plane.
 
 While grounded, a rim **only blocks a change the player could not otherwise take**:
-it carries the walkable step as headroom, so a player already within 0.4 m of the rim's top
+it carries the walkable step as headroom, so a player already within 0.45 m of the rim's top
 (on a ramp or a staircase arriving beside the platform) walks past it. Its height
 is sampled in short segments along the boundary, so a slope beside a rim is read at
 its real local height instead of the cell's average. A rim never walls a landing
 off. Airborne movement uses the physical body band: a jump must clear the
-rim's actual top before crossing it. A trailing disc already overlapping a
+rim's actual top before crossing it. A trailing hull already overlapping a
 walkable rim may move away from it during a fall without a forward push.
 
 Places Demo: the lowered pool basin (room `floor_y` is −1.5):
@@ -1405,7 +1405,7 @@ The same room's walk-in step, one 0.35 m rise above the basin floor:
 * **Partial elevation** uses `floor_regions`; a recess is a negative `offset_y`, a
   platform is positive. A pool basin is a deep negative region in a room whose floor
   is already lowered.
-* **Transitions** are either ≤ 0.4 m risers (walkable up and down) or solid
+* **Transitions** are either ≤ 0.45 m risers (walkable up and down) or solid
   rims that can be walked off from above and fallen from; the drop below a rim
   is not an invisible floor. There are no ramps or sloped regions outside
   `ramps[]`.
@@ -1547,7 +1547,7 @@ How it behaves:
   Source SDK 2013 **singleplayer** commit `77567eb4bce8d7b6b7f73e929fcde3a331c0216e`.
   Feet-only water retains land movement. Waist-deep water uses swimming even
   when the bottom is standable; eye immersion selects the underwater state.
-  Crouch retains Places' existing toggle, upright collision shape and eased eye.
+  Hold Crouch to shrink the upright square hull; release requests a clear expansion. Ground eye transitions take 0.4/0.2 seconds. Air duck raises the feet by 0.9 m while retaining hull top and eye; blocked expansion remains crouched.
 * **Swimming** uses view-directed forward/back input and horizontal strafing.
   Look down and move forward to dive; look up and move forward to rise, with the
   reference's amplified upward wish. Hold Jump to rise. With no movement input
@@ -1663,7 +1663,7 @@ array has no climbable geometry, exactly as before.
 
 How it behaves:
 
-* **Attachment needs movement intent.** The player's cylinder must overlap the
+* **Attachment needs movement intent.** The player's hull must overlap the
   footprint, be behind the ladder's centre along `facing` (the approach side),
   and be pressing movement whose direction points along `facing`. There is no
   climb key: walking into the climbable face is the input. Contact from the exit
@@ -1733,7 +1733,7 @@ answers with their real height, and they draw with the level's own materials.
 | `x`, `z`, `width`, `depth` | number | **yes** | — | Footprint; the flight climbs along the longer axis (ties → X). |
 | `offset_y` | number | no | `0.0` | Walking-surface offset at the **foot** of the flight. |
 | `rise` | number | **yes** | — | Total climb, `> 0`, at most 50 m. |
-| `steps` | integer | **yes** | — | Risers *and* treads; at least 2. The riser is `rise / steps` (must be ≤ 0.4 m, the walkable step) and the tread is `length / steps` (must be ≥ 0.15 m). |
+| `steps` | integer | **yes** | — | Risers *and* treads; at least 2. The riser is `rise / steps` (must be ≤ 0.45 m, the walkable step) and the tread is `length / steps` (must be ≥ 0.15 m). |
 | `material`, `shine` | string / number | no | room floor | The treads. |
 | `riser_material`, `riser_shine` | string / number | no | the tread material | The risers. |
 | `side_material`, `side_shine` | string / number | no | the riser material | The closed stringer sides. |
@@ -1743,14 +1743,14 @@ How the two behave:
 * **They are walking surfaces.** A ramp's height is linear along its run and a
   staircase's is one riser per tread, both measured from the containing room's
   `floor_y`. The player controller steps or slopes over them with the ordinary
-  0.4 m rule, and `PLACES_CAPTURE`-style inspection shows exactly what the
+  0.45 m rule, and `PLACES_CAPTURE`-style inspection shows exactly what the
   player stands on.
-* **The step rule runs per movement sub-step**, and a sub-step is at most 0.15 m,
-  so the full legal range is walkable at every supported frame rate: at the
-  steepest legal ramp (2 m of rise per metre of run) a sub-step rises at most
-  0.3 m, and an exact-limit riser (0.4 m) is climbed even on a floor whose
-  height is metres above zero.
-* **Their walking surface owns collision.** A step of more than 0.4 m at the
+* **Movement uses fixed 15 ms commands** with bounded spatial segments and
+  swept hull collision. Steps up to 0.45 m compare the raised route with the
+  sliding route. Authorable ramp rise/run may reach 2, but a slope whose upward
+  normal is below 0.7 is too steep to ground the player; it slides instead.
+  Use a shallower ramp for an ordinary walking route.
+* **Their walking surface owns collision.** A step of more than 0.45 m at the
   piece's edge refuses the player, exactly like a floor-region rim. Ramp
   and staircase perimeter sweeps additionally clip the actual side/end faces
   against the live feet and step plane. Stair flights also sweep their real
@@ -1758,8 +1758,8 @@ How the two behave:
   closed terrain while inside exits, the low end and legal climb stay open.
   An airborne horizontal sweep also closes the ramp interior at the live feet
   plane, preventing entry when the slope overtakes a jump. Falling ramp support
-  samples the highest slope point within the actual circular feet disc.
-  Falling disc support includes internal ramp edges and staircase treads.
+  samples the highest slope point within the fixed square hull footprint.
+  Falling hull support includes internal ramp edges and staircase treads.
   A ramp or flight that lands flush on a raised
   platform is closed by that platform's own skirt, and the platform's rim does
   not wall the landing off (the rim rule samples the walking surface on either
@@ -4982,7 +4982,7 @@ clamped away by the local ceiling, are accepted but produce no cut — check the
 **Symptom:** an unwalkable cliff at a doorway, a rim you did not intend, or a hole
 under a wall.
 
-**Cause:** two rooms meeting at an opening have floors differing by more than 0.4 m,
+**Cause:** two rooms meeting at an opening have floors differing by more than 0.45 m,
 or the wall `y`/sill does not match either floor.
 
 **Authoring rule:** decide the walking surface first; set room `floor_y`, wall `y` and
@@ -9172,3 +9172,31 @@ floor's real terrain skirt at a recess/step. Equal adjacent slab edges remain
 hidden; the lower slab retains its exposed lower edge. Physical backing and
 walking elevations are unchanged. Prior prepared geometry must be rebuilt for
 current-source verification; this does not relax collision or checker rules.
+
+
+### Portal-style player movement (0.13.0)
+
+The keyboard/mouse controller uses fixed 15 ms commands and one uniform scale
+of 0.025 metres per Source unit. The player hull is a fixed world-axis
+0.8 x 0.8 m square, 1.8 m standing or 0.9 m crouched; camera yaw does not rotate
+it. Eyes are 1.6/0.7 m above feet. Hold Crouch; release stands only where the
+whole hull fits. Air duck lifts feet by 0.9 m while preserving the hull top and
+eye, so authored passages must admit the actual crouched hull. Ground eye
+transitions use 0.4 s duck and 0.2 s unduck. Keep headroom for expansion.
+
+Default land wish speed is 3.75 m/s, crouched 1.25 m/s. Acceleration and friction
+retain momentum, and a fresh landing-command jump precedes friction; held Jump
+does not repeat. Player gravity is 15 m/s² and launch speed 4 m/s. Standing feet
+rise about 0.533 m; air crouch raises their reach to about 1.433 m. Normal item
+physics and compatible water exits retain their existing gravity and the
+standing swim cap remains 2.4 m/s. Do not infer Portal swimming parity.
+
+Ground steps are bounded at 0.45 m and compare planar slide/raised-route
+progress. Walking uses actual treads rather than a synthetic staircase pitch
+line; floor support includes the square footprint. Slopes with upward normal
+below 0.7 do not count as grounded jump surfaces. Do not fix controller faults
+by moving authored stairs/ramps. The opt-in editable projects/movement-gym/
+and places-movement-check developer tool exercise the controller without
+adding map baking to ordinary tests/CI. Research provenance, native acceptance
+and remaining Portal-specific high-speed AirMove uncertainty are owned by
+docs/reports/release-0.13.0.md.

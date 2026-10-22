@@ -4,10 +4,12 @@ use crate::engine::package::binary::{Reader, Writer};
 
 mod movement;
 pub(crate) use movement::{
-    HorizontalWorld, body_support_top, disc_segment_blocked, door_segment_blocked, sweep_horizontal,
+    HorizontalWorld, disc_segment_blocked, door_segment_blocked, square_overlaps_door,
+    square_overlaps_wall, sweep_player_hull,
 };
 
-pub const PLAYER_RADIUS: f32 = 0.30;
+/// Half width of the fixed 32-unit square player hull (0.025 m/unit).
+pub const PLAYER_RADIUS: f32 = 0.4;
 pub const PLAYER_HEIGHT: f32 = 1.8;
 
 /// Crouched body height: exactly half the standing height.
@@ -30,7 +32,7 @@ pub const CONTACT_EPS: f32 = 1e-4;
 /// Larger drops and unsupported edges become gravity-driven
 /// falls. Larger rises are refused; floor regions also emit a solid rim so
 /// their rendered transition face and collision agree.
-pub const PLAYER_STEP_HEIGHT: f32 = 0.4;
+pub const PLAYER_STEP_HEIGHT: f32 = 0.45;
 
 /// Vertical tolerance within which two floor heights count as the same
 /// surface, in metres.

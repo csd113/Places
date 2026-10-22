@@ -607,7 +607,7 @@ const fn default_look_speed_v() -> f32 {
     60.0
 }
 const fn default_walk_speed() -> f32 {
-    3.0
+    super::portal_movement::WALK_SPEED
 }
 const fn default_fov() -> f32 {
     60.0

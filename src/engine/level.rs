@@ -9638,37 +9638,6 @@ impl WalkableRamp {
     fn height_at(&self, x: f32, z: f32) -> f32 {
         self.floor_y + self.surface.offset_at(x, z)
     }
-
-    /// Highest point of the slope touched by an upright feet disc. The
-    /// transverse distance limits the available run to the circle's chord,
-    /// rather than inventing support at the corner of its enclosing square.
-    fn disc_height(&self, point: glam::Vec2, radius: f32) -> Option<f32> {
-        let (x0, x1, z0, z1) = self.surface.bounds();
-        let (run, across, low, high, across_low, across_high) = match self.surface.axis() {
-            WallAxis::X => (point.x, point.y, x0, x1, z0, z1),
-            WallAxis::Z => (point.y, point.x, z0, z1, x0, x1),
-        };
-        let transverse = across.clamp(across_low, across_high);
-        let offset = across - transverse;
-        let chord_squared = radius.mul_add(radius, -(offset * offset));
-        if chord_squared <= 0.0 {
-            return None;
-        }
-        let reach = chord_squared.sqrt();
-        if run + reach < low || run - reach > high {
-            return None;
-        }
-        let extreme = self
-            .surface
-            .rise()
-            .signum()
-            .mul_add(reach, run)
-            .clamp(low, high);
-        Some(match self.surface.axis() {
-            WallAxis::X => self.height_at(extreme, transverse),
-            WallAxis::Z => self.height_at(transverse, extreme),
-        })
-    }
 }
 
 /// One staircase resolved into the walkable surface model.
@@ -10034,38 +10003,77 @@ impl WalkableFloor {
             .max_by(f32::total_cmp)
     }
 
-    /// Falling disc support additionally catches internal staircase edges.
-    /// Grounded walking uses [`Self::height_below_disc`] to preserve its
-    /// centre-sampled pitch line instead of raising toes before the first riser.
-    pub(crate) fn landing_height_below_disc(
+    /// Highest support touched by a fixed square hull. Explicit ramps and
+    /// treads are clipped to its whole rectangular footprint; room samples
+    /// retain the existing ordered floor-region ownership.
+    pub(crate) fn hull_support(
         &self,
         point: glam::Vec2,
-        radius: f32,
+        half: f32,
         max_y: f32,
-    ) -> Option<f32> {
-        let floor = self.height_below_disc(point, radius, max_y);
-        let ramps = self.rooms.iter().flat_map(|room| {
-            room.ramps.iter().filter_map(move |ramp| {
-                ramp.disc_height(point, radius)
-                    .filter(|height| *height <= max_y)
-            })
-        });
-        let stairs = self.rooms.iter().flat_map(|room| {
-            room.stairs.iter().filter_map(move |stair| {
+    ) -> Option<(f32, glam::Vec3)> {
+        let mut best: Option<(f32, glam::Vec3)> = None;
+        let mut offer = |height: f32, normal: glam::Vec3| {
+            if height <= max_y && best.is_none_or(|current| height >= current.0) {
+                best = Some((height, normal));
+            }
+        };
+        for room in &self.rooms {
+            let low_x = (point.x - half).max(room.x0);
+            let high_x = (point.x + half).min(room.x1);
+            let low_z = (point.y - half).max(room.z0);
+            let high_z = (point.y + half).min(room.z1);
+            if low_x >= high_x || low_z >= high_z {
+                continue;
+            }
+            for x in [low_x, point.x.clamp(low_x, high_x), high_x] {
+                for z in [low_z, point.y.clamp(low_z, high_z), high_z] {
+                    if let Some(height) = Self::room_height_at(room, x, z, StairSampling::Stepped) {
+                        offer(height, glam::Vec3::Y);
+                    }
+                }
+            }
+            for ramp in &room.ramps {
+                let (x0, x1, z0, z1) = ramp.surface.bounds();
+                let a = (point.x - half).max(x0);
+                let b = (point.x + half).min(x1);
+                let c = (point.y - half).max(z0);
+                let d = (point.y + half).min(z1);
+                if a >= b || c >= d {
+                    continue;
+                }
+                let top = [ramp.height_at(a, c), ramp.height_at(b, d)]
+                    .into_iter()
+                    .max_by(f32::total_cmp);
+                let gradient = ramp.surface.rise()
+                    / match ramp.surface.axis() {
+                        WallAxis::X => x1 - x0,
+                        WallAxis::Z => z1 - z0,
+                    };
+                let normal = match ramp.surface.axis() {
+                    WallAxis::X => glam::Vec3::new(-gradient, 1.0, 0.0),
+                    WallAxis::Z => glam::Vec3::new(0.0, 1.0, -gradient),
+                }
+                .normalize();
+                if let Some(height) = top {
+                    offer(height, normal);
+                }
+            }
+            for stair in &room.stairs {
                 let (x0, x1, z0, z1) = stair.surface.bounds();
-                let stair_x = point.x.clamp(x0, x1);
-                let stair_z = point.y.clamp(z0, z1);
-                let height = stair.height_at(stair_x, stair_z);
-                (point.distance_squared(glam::Vec2::new(stair_x, stair_z)) < radius * radius
-                    && height <= max_y)
-                    .then_some(height)
-            })
-        });
-        floor
-            .into_iter()
-            .chain(ramps)
-            .chain(stairs)
-            .max_by(f32::total_cmp)
+                let a = (point.x - half).max(x0);
+                let b = (point.x + half).min(x1);
+                let c = (point.y - half).max(z0);
+                let d = (point.y + half).min(z1);
+                if a < b && c < d {
+                    offer(
+                        stair.height_at(a, c).max(stair.height_at(b, d)),
+                        glam::Vec3::Y,
+                    );
+                }
+            }
+        }
+        best
     }
 
     /// Exposed ramp/flight perimeters and stair risers in the live body band.
@@ -10173,6 +10181,36 @@ impl WalkableFloor {
                 let x = point.x.clamp(room.x0, room.x1);
                 let z = point.y.clamp(room.z0, room.z1);
                 if point.distance_squared(glam::Vec2::new(x, z)) >= radius * radius {
+                    return None;
+                }
+                Self::room_height_at(room, x, z, StairSampling::Stepped)
+                    .map(|top| {
+                        let ramp_low = room
+                            .ramps
+                            .iter()
+                            .find(|r| r.surface.contains(x, z))
+                            .map_or(top, |r| r.floor_y + r.surface.low_offset());
+                        top.min(room.floor_y).min(ramp_low) - MIN_STRUCTURE_M
+                    })
+                    .filter(|height| *height > feet + crate::engine::collision::CONTACT_EPS)
+            })
+            .min_by(f32::total_cmp)
+    }
+
+    /// Same authored surfaces queried by the fixed square player hull.
+    pub(crate) fn lowest_room_underside_hull(
+        &self,
+        point: glam::Vec2,
+        radius: f32,
+        feet: f32,
+    ) -> Option<f32> {
+        self.rooms
+            .iter()
+            .filter(|room| room.floor_y > feet + crate::engine::collision::CONTACT_EPS)
+            .filter_map(|room| {
+                let x = point.x.clamp(room.x0, room.x1);
+                let z = point.y.clamp(room.z0, room.z1);
+                if (point.x - x).abs() >= radius || (point.y - z).abs() >= radius {
                     return None;
                 }
                 Self::room_height_at(room, x, z, StairSampling::Stepped)
@@ -10589,20 +10627,40 @@ impl WalkableCeilingRoom {
 
     /// Exact height extrema where a disc meets this flat or gabled patch.
     fn disc_height_range(&self, point: glam::Vec2, radius: f32) -> Option<[f32; 2]> {
+        self.shape_height_range(point, radius, false)
+    }
+
+    fn hull_height_range(&self, point: glam::Vec2, radius: f32) -> Option<[f32; 2]> {
+        self.shape_height_range(point, radius, true)
+    }
+
+    fn shape_height_range(&self, point: glam::Vec2, radius: f32, square: bool) -> Option<[f32; 2]> {
         let (x0, x1, z0, z1) = self.bounds;
         let x = point.x.clamp(x0, x1);
         let z = point.y.clamp(z0, z1);
         let dx = point.x - x;
         let dz = point.y - z;
-        if dx.mul_add(dx, dz * dz) >= radius * radius {
+        if if square {
+            dx.abs() >= radius || dz.abs() >= radius
+        } else {
+            dx.mul_add(dx, dz * dz) >= radius * radius
+        } {
             return None;
         }
         if self.profile == CeilingProfileDef::Flat {
             let height = self.floor_y + self.height;
             return Some([height, height]);
         }
-        let reach_x = (radius.mul_add(radius, -(dz * dz))).max(0.0).sqrt();
-        let reach_z = (radius.mul_add(radius, -(dx * dx))).max(0.0).sqrt();
+        let reach_x = if square {
+            radius
+        } else {
+            (radius.mul_add(radius, -(dz * dz))).max(0.0).sqrt()
+        };
+        let reach_z = if square {
+            radius
+        } else {
+            (radius.mul_add(radius, -(dx * dx))).max(0.0).sqrt()
+        };
         let lo_x = (point.x - reach_x).clamp(x0, x1);
         let hi_x = (point.x + reach_x).clamp(x0, x1);
         let lo_z = (point.y - reach_z).clamp(z0, z1);
@@ -10705,6 +10763,17 @@ impl WalkableCeiling {
             .min_by(f32::total_cmp)
     }
 
+    /// Same authored surfaces queried by the fixed square player hull.
+    pub(crate) fn ceiling_above_hull(&self, x: f32, z: f32, radius: f32, feet: f32) -> Option<f32> {
+        self.rooms
+            .iter()
+            .filter_map(|room| {
+                let [height, _] = room.hull_height_range(glam::Vec2::new(x, z), radius)?;
+                (height > feet + crate::engine::collision::CONTACT_EPS).then_some(height)
+            })
+            .min_by(f32::total_cmp)
+    }
+
     /// Highest emitted ceiling plane beneath a descending player's disc.
     ///
     /// A ceiling is also a solid platform from above; selecting it as an
@@ -10714,6 +10783,20 @@ impl WalkableCeiling {
         self.rooms
             .iter()
             .filter_map(|room| room.disc_height_range(point, radius).map(|[_, high]| high))
+            .filter(|height| *height <= max_y)
+            .max_by(f32::total_cmp)
+    }
+
+    /// Same authored surfaces queried by the fixed square player hull.
+    pub(crate) fn surface_below_hull(
+        &self,
+        point: glam::Vec2,
+        radius: f32,
+        max_y: f32,
+    ) -> Option<f32> {
+        self.rooms
+            .iter()
+            .filter_map(|room| room.hull_height_range(point, radius).map(|[_, high]| high))
             .filter(|height| *height <= max_y)
             .max_by(f32::total_cmp)
     }
@@ -10729,6 +10812,25 @@ impl WalkableCeiling {
     ) {
         for room in &self.rooms {
             if let Some([low, high]) = room.disc_height_range(point, radius)
+                && low < feet + height - crate::engine::collision::CONTACT_EPS
+                && high > feet + crate::engine::collision::CONTACT_EPS
+            {
+                visit([low, high]);
+            }
+        }
+    }
+
+    /// Same authored surfaces queried by the fixed square player hull.
+    pub(crate) fn for_each_hull_contact(
+        &self,
+        point: glam::Vec2,
+        radius: f32,
+        feet: f32,
+        height: f32,
+        mut visit: impl FnMut([f32; 2]),
+    ) {
+        for room in &self.rooms {
+            if let Some([low, high]) = room.hull_height_range(point, radius)
                 && low < feet + height - crate::engine::collision::CONTACT_EPS
                 && high > feet + crate::engine::collision::CONTACT_EPS
             {

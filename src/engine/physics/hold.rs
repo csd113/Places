@@ -113,8 +113,7 @@ impl ItemWorld {
         let Some(runtime) = self.runtime.as_ref() else {
             return true;
         };
-        let capsule =
-            SharedShape::capsule_y(player.height.mul_add(0.5, -PLAYER_RADIUS), PLAYER_RADIUS);
+        let capsule = SharedShape::cuboid(PLAYER_RADIUS, player.height * 0.5, PLAYER_RADIUS);
         let center = Vec3::new(
             player.feet.x,
             player.height.mul_add(0.5, player.feet.y),
@@ -197,8 +196,7 @@ impl ItemWorld {
             Quat::IDENTITY,
         );
         let motion = subtract(player.feet, start_feet);
-        let capsule =
-            SharedShape::capsule_y(player.height.mul_add(0.5, -PLAYER_RADIUS), PLAYER_RADIUS);
+        let capsule = SharedShape::cuboid(PLAYER_RADIUS, player.height * 0.5, PLAYER_RADIUS);
         let blocking_items = |handle, collider: &rapier3d::prelude::Collider| {
             collider.is_enabled()
                 && runtime.key_for_collider(handle).is_some_and(|key| {

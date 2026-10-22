@@ -519,7 +519,7 @@ impl ItemWorld {
             let (player, player_collider) = world.insert(
                 RigidBodyBuilder::kinematic_position_based()
                     .translation(Vector::new(0.0, -1000.0, 0.0)),
-                ColliderBuilder::capsule_y(0.6, PLAYER_RADIUS).friction(0.7),
+                ColliderBuilder::cuboid(PLAYER_RADIUS, 0.9, PLAYER_RADIUS).friction(0.7),
             );
             let mut initialized = Runtime {
                 world,
@@ -1905,8 +1905,9 @@ impl Runtime {
         }
         if (player.height - self.player_height).abs() > 1.0e-4 {
             if let Some(collider) = self.world.colliders.get_mut(self.player_collider) {
-                collider.set_shape(SharedShape::capsule_y(
-                    player.height.mul_add(0.5, -PLAYER_RADIUS),
+                collider.set_shape(SharedShape::cuboid(
+                    PLAYER_RADIUS,
+                    player.height * 0.5,
                     PLAYER_RADIUS,
                 ));
             }
