@@ -98,7 +98,7 @@ receipt and its re-audit are retained; a fresh corrected native run passed.
 | Pool prop throw / water | Native Full Pool pickup, closet-door interaction, held movement and left-click release preserve original box key `9223372036854775862`. Full water/lighting captures visually inspected. This is a diagnostic-position setup, not a complete walking-route claim. |
 | Animated NPC / ragdoll | Animation, fall/contact, 15/15 sleeping bodies, reset, repeated fall/sleep/reset pass with empty script diagnostics; `ragdoll-demo-state/`. |
 | Furniture movement / crouch / stairs | Static-only current source: real held movement crosses the low closet crouched at 0.8 m eye height; climbs 18 stairs to 3.5 m feet height and descends to 0 m. Zero recovery resets. Diagnostic starting positions are explicit; `furniture-traversal-state/`. |
-| Pool favor / saved progress | Real talk, duck pickup, release and four-second upright buoyancy objective complete. Native success image and actual campaign save retained. Restart remembers the favor; real return portal loads Hub and ledger reports **1/8**. No save flags were injected. `pool-quest-native-state/complete.png`, `saves/`, `pool-saved-transition/`. |
+| Pool favor / saved progress | Follow-up ordinary walk from the authored spawn now passes bench/door/deck traversal, real talk, duck pickup, release and four-second upright buoyancy objective. Native success image and actual campaign save retained. Restart remembers the favor; real return portal loads Hub and ledger reports **1/8**. No save flags were injected. `pool-route-reviewed-state/quest-complete.png`, `pool-route-reviewed-state/saves/`, `pool-saved-transition/`. |
 | Reward gating | At 0/8 and 1/8 the actual furnished Hub reward door is locked/closed. Full eight-favor unlock and host interaction remain **not run on Windows**. |
 | Retained work | Menu -> Full Pool -> menu returns prepared bytes to 105,567,345 and solver resources to 19 bodies / 202 colliders / 0 joints / 0 ragdolls. All retired build/record/transport owners are zero. Dynamic menu actors differ by event; RSS is unavailable on Windows, so this does not prove driver/total-RAM reclamation. `native-acceptance-audit.json`, `retention-native/`. |
 
@@ -121,12 +121,37 @@ files and cancellation receipt were preserved. Its 2,335,145-byte Static export
 is accepted for mechanics only, not polished Full lighting. No full showcase
 rebake was spent on this Windows pass.
 
-The first Pool walking route hit an obstruction and did not reach the duck; that
-route is **not accepted**. The later successful objective uses labeled player
-positioning plus real interaction/carry/buoyancy. Initial scripted attempts also
-used an actor-only camera command for authored props, which the app correctly
-rejected; corrected camera-only `view_at` inputs passed. These input failures are
-retained and are not counted as game-engine fixes or accepted traversal.
+The original Pool walking recipe clipped `pool_imported_17`, the fixed perimeter
+bench at (2.0, 9.7), and stopped forward at z=9.21. It then tried turning east
+before clearing the partition at z=10.85..11.15. The open doorway spans
+x=2.18..3.62; player capsule clearance stopped the eastward move at x=3.32,
+z=10.9329. The door was already fully open (-90 degrees). This was an invalid
+open-loop test route, not a demonstrated gameplay collision defect.
+
+**Pool route follow-up passed:** the unchanged preserved executable now walks
+from the actual authored spawn using only ordinary controls: pass the bench at
+x=3.5, approach the opening at (2.9, 10.35), open the door, clear the partition to
+z=12.6, cross the dry deck, pick up the real duck, carry and release it into the
+water, and complete the four-second upright objective. All 51 actions execute,
+all captures have zero player recovery resets and empty script diagnostics,
+and the fresh native campaign save contains exactly `completed:["pool"]`.
+There is no player/item pose injection, map change, engine change, rebake or
+rebuild. `pool-route-review.json`, `pool-route-reviewed/` and
+`pool-route-reviewed-state/` retain the input, positions, screenshots and save.
+The runtime SHA remains the one recorded below; `target` remains absent.
+
+The initial diagnostic-position objective remains historical evidence. Earlier
+actor-only camera commands for authored props were correctly rejected and then
+replaced with camera-only `view_at` inputs; those input errors remain preserved.
+
+The full eight-favor Windows campaign stopped at focused representative coverage
+after native build/runtime/export repairs, one real quest, saved progress and
+Hub gating. It was not stopped by a demonstrated quest defect or a known export
+barrier. The intact nine-map mixed package contains all quest scripts and
+Static variants for all members, so further mechanics acceptance can use it.
+Missing Full exports for the other seven members limit Full lighting/visual
+and performance sign-off, not ordinary quest testing. The remaining seven
+favors and final reward unlock are still **not run on Windows**.
 
 ### Capture-free performance and pacing
 
@@ -194,8 +219,8 @@ is needed before that external executable delivery. Local deliverables remain
 usable and preserved.
 
 Remaining Windows acceptance is explicit: all eight quests/reward unlock, full
-lighting dense Arcade/furniture/polished package, the obstructed complete Pool
-walking route, long-duration/driver-RSS retention, continuous before/after
+lighting dense Arcade/furniture/polished package, long-duration/driver-RSS
+retention, continuous before/after
 montage and an installer. No Linux result follows from this Windows pass.
 The native focused gates above passed; this is not an unqualified full-release
 sign-off. Cleanup and final branch publication are recorded in the local final
