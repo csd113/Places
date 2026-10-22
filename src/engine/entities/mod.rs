@@ -4019,23 +4019,33 @@ impl EntityWorld {
         let mut tick = WorldTick::default();
         self.script_player = ctx.feet;
         self.script_visible.clear();
-        for agent in self.ai.agents() {
-            let torso = Vec3::new(
-                agent.position.x,
-                agent.profile.height.mul_add(0.6, agent.position.y),
-                agent.position.z,
-            );
-            if crate::engine::ai::sight_clear(ctx.index, ctx.walls, &self.doors, ctx.eye, torso)
-                && !self.navigation_obstacles.iter().any(|wall| {
+        // No host capability can observe visibility without an enabled VM.
+        if self.scripts.has_enabled_modules() && !self.ai.is_empty() {
+            // The observation boundary is one pre-script snapshot. Resolve hinged
+            // leaves once, rather than rebuilding/allocating them for every actor.
+            let script_leaves = self.doors.colliders();
+            for agent in self.ai.agents() {
+                let torso = Vec3::new(
+                    agent.position.x,
+                    agent.profile.height.mul_add(0.6, agent.position.y),
+                    agent.position.z,
+                );
+                if crate::engine::ai::perception::sight_clear_with_leaves(
+                    ctx.index,
+                    ctx.walls,
+                    &script_leaves,
+                    ctx.eye,
+                    torso,
+                ) && !self.navigation_obstacles.iter().any(|wall| {
                     crate::engine::collision::segment_overlaps_aabb(
                         ctx.eye,
                         torso,
                         [wall.min_x, wall.min_y, wall.min_z],
                         [wall.max_x, wall.max_y, wall.max_z],
                     )
-                })
-            {
-                let _added = self.script_visible.insert(agent.handle);
+                }) {
+                    let _added = self.script_visible.insert(agent.handle);
+                }
             }
         }
         self.spawns_this_tick = 0;

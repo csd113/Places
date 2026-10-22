@@ -611,5 +611,35 @@ fn script_actor_sight_uses_collision_and_navigation_keeps_its_goal() -> Result<(
             )),
         "removing the wall updates the next invocation's observation"
     );
+    // Extend this one-actor fixture across door changes and reset: batched
+    // leaves must retain pre-script timing and never survive into the next tick.
+    level.doors.push(
+        serde_json::from_str(
+            r#"{"id":"leaf","x":2,"z":1.25,"rotation_degrees":90,"width":0.5,"height":2.5}"#,
+        )
+        .map_err(|problem| problem.to_string())?,
+    );
+    let mut door_world = EntityWorld::from_level(&level);
+    for open in [false, true, false] {
+        if open {
+            let _opened = door_world.dispatch_on("leaf", &[ActionDef::Open { target: None }]);
+            context.delta_seconds = 0.25;
+            for _ in 0..8_u8 {
+                let _moved = door_world.update_doors(&context);
+            }
+        } else {
+            door_world.reset_runtime();
+        }
+        context.delta_seconds = 0.016;
+        let _observed = door_world.tick(&context);
+        assert!(
+            door_world
+                .handle_of("actor")
+                .and_then(|actor| door_world.components().states.get(actor))
+                .and_then(|state| state.get("clear"))
+                .is_some_and(|value| matches!(value, crate::engine::entities::components::StateValue::Bool(visible) if *visible == open)),
+            "script sight follows the current hinged leaf after open/reset: open={open}, door={:?}, diagnostics={:?}", door_world.doors().get(0).map(|leaf| (leaf.angle(), leaf.phase())), door_world.script_diagnostics()
+        );
+    }
     Ok(())
 }

@@ -352,6 +352,7 @@ impl CollisionIndex {
         // this crate only inspects the box it is handed.
         let mut scratch = self.scratch.borrow_mut();
         scratch.clear();
+        let mut previous_range = None;
         for index in 0..=sample_count {
             #[expect(
                 clippy::as_conversions,
@@ -362,6 +363,12 @@ impl CollisionIndex {
             let point_x = direction.x.mul_add(t, origin.x);
             let point_z = direction.z.mul_add(t, origin.z);
             let range = grid.range(point_x, point_x, point_z, point_z);
+            // Consecutive samples often occupy the same cell. Their candidate
+            // neighbourhood is identical; the first sample already stamped it.
+            if previous_range == Some(range) {
+                continue;
+            }
+            previous_range = Some(range);
             self.collect_cells(
                 (
                     range.0.saturating_sub(1),

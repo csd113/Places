@@ -391,6 +391,12 @@ impl ScriptRuntime {
         self.modules.is_empty()
     }
 
+    /// Disabled modules cannot invoke host queries until an explicit reload.
+    #[must_use]
+    pub(crate) fn has_enabled_modules(&self) -> bool {
+        self.modules.iter().any(|module| !module.disabled)
+    }
+
     #[must_use]
     pub fn diagnostics(&self) -> &[String] {
         &self.diagnostics

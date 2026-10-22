@@ -3233,3 +3233,82 @@ missing batch behavior edit, unreliable custom-canvas pointer targeting and
 mixed local/world height wording; do not conflate those with map geometry.
 Unrelated audit drafts and prior report content are preserved, target remains
 available, and no subsequent performance sweep, NPC work or menu fix started.
+
+## Grouped performance sweep 1: shared engine work — 2026-10-22
+
+Baseline `cf0138febe9f01969d35071b75fb989a04bc72b5`, branch
+`0.13.0-staging`. Implementation and deterministic checks are complete; final
+candidate native acceptance is **blocked by a pending macOS permission**, as
+described below. Passes 2/3, maps, density, art, assets, quality, update intervals,
+physics thresholds and script budgets are unchanged. Earlier lighting, placement,
+water-dependency, loading/hash and GPU-visibility fixes were retained.
+
+| Coverage | Disposition |
+| --- | --- |
+| Transforms and bounds | Existing exact-pose placement sharing remains the provider for visibility, receivers and drawing. No additional cache or repeated fix. |
+| Spatial queries and raycasts | Consecutive ray samples in the same indexed cell now collect its identical candidate neighborhood once. The query still samples the same points, stamps/sorts the same candidates and preserves source order and fallback behavior. Applies to interaction occlusion and AI/script sight. |
+| Script visibility, allocations and door transforms | Resolve hinged door colliders once before the actor loop, preserving the original pre-script observation boundary and hinged-only leaf set. Previously every actor rebuilt and allocated that same list. No snapshot survives the tick. |
+| Idle Luau | Absent or entirely disabled VMs no longer prepare actor visibility. Any enabled module retains the full observation snapshot and original callbacks; reset/reload immediately re-enables observation. No arbitrary throttling or callback inference. |
+| Idle physics and AI | Existing all-dormant solver bypass, unchanged solver-pose checks, sleeping/dormant/disabled buoyancy rejection and caught/scripted-agent perception bypass remain. Contact/flow wake checks, safety/trigger bookkeeping, clocks and enabled scripts remain necessary work. Unload still drops old script/AI/physics owners; the preceding lifetime evidence is not reinterpreted as zero total process residency. |
+| Water, room/support and nearby-object queries | Pool moving props/water and dense furniture baseline profiles were inspected alongside the existing regional dependency fixes. No new measured room/water cache target justified extra invalidation or ownership. |
+| Cloning, formatting and asset hashing | Door-list allocation/construction is reduced in the measured visibility path. Existing automatic-handler tokens avoid path search/allocation; model admission/hash work stays at load/admission. Remaining dominant skin/upload preparation belongs to pass 2. No speculative string/asset cache. |
+
+Two small optimized operation probes are retained under
+`local/shared-engine-pass1-0.13.0/`; neither supplies application FPS. Seven
+alternating runs of 20,000 indexed rays produced identical ordered candidate
+digests at every size:
+
+| Collision boxes | Median before → after | Cell visits before → after |
+| --- | ---: | ---: |
+| 256 | 35.154 → 30.381 ms | 1,226,000 → 797,600 |
+| 4,096 | 130.907 → 109.585 ms | 4,657,600 → 2,768,900 |
+| 19,600 | 295.959 → 251.060 ms | 10,060,000 → 6,133,100 |
+
+This is **13.6–16.3% less kernel elapsed time** and **34.9–40.6% fewer cell
+visits**. The separate 16-door probe, 1,000 batches per case, preserves every
+sight result: 12 actors **2.059 → 1.045 ms**, 96 actors **15.694 → 7.909 ms**,
+512 actors **80.125 → 39.606 ms**. A nonempty door list now allocates once per
+batch instead of once per actor. Zero actors allocate no list. These absolute
+savings are small at ordinary actor counts.
+
+Capture-free baseline native runs used the supported validation app, Apple M2
+Pro/Metal, V-sync OFF, resolved **Immediate**, **2560×1440 physical / 1280×720
+logical**, High textures/filtering/lighting, Full lightmaps/reflections and bloom,
+with no engine frame limiter. After Hours, Pool moving props, Arcade, the existing
+Luau stress map, and seeded roach/ragdoll/carry menu events are preserved in
+`*-before-timing-1/`. Median CPU update was respectively **0.098, 1.1225, 1.212,
+2.020, 0.666, 0.8745 and 0.813 ms**. Observed cadence ranged **167–254 FPS**;
+GPU elapsed and presentation spans are recorded separately. No reciprocal CPU
+time is called FPS. Separate bounded profiles retain substantial drawable wait
+and stress-map skin/upload spans around 1.13–1.35 ms, a clear pass-2 follow-up.
+Two diagnostic profiles exhausted the existing Luau deadline under profiling
+load; the capture-free baseline runs did not. Those profiles are not timing
+evidence, and no script budget was relaxed.
+
+**Native blocker:** the final rebuilt `Places Validation.app`
+(`io.github.csd113.places.validation`) requests Documents-folder access before
+application initialization. macOS TCC reports that the new executable does not
+match its previous code requirement and records `AUTHREQ_PROMPTING` for
+`kTCCServiceSystemPolicyDocumentsFolder`. The candidate launch has produced no
+scene, frames or application log. The waiting test launch was canceled and its
+process exit verified. The grant remains unapproved; no application regression
+or permission denial was established. Approval was requested; no permission, signing,
+TCC database or security setting was changed. Candidate timing, native lifecycle
+acceptance and four planned fixed-frame visual comparisons remain unperformed.
+**No overall CPU/GPU/FPS gain or native visual parity is claimed.**
+
+Final source passes formatting, strict workspace/all-target/all-feature Clippy,
+**261 Rust tests** (0 failed/ignored, about 0.50 s execution), and the locked
+release workspace/all-feature build (3m43s). One new asset-free 64-box regression
+protects conservative ray hits, stable order, cell boundaries, reverse/vertical/
+outside-grid rays and long-ray fallback. The existing one-actor script-sight
+test adds opening/reset coverage; existing disabled-module, replay and callback
+schedule regressions pass. No shipped-map bake or native campaign enters CI.
+
+Raw probes, exact source snapshots, baseline/final executables, launch diagnostics
+and resumable native action/capture plans are outside `target` in
+`local/shared-engine-pass1-0.13.0/`. `CHECKPOINT.json`/`FINAL-HANDOFF.json` record
+delivery and the remaining permission/acceptance status. No new montage is
+justified before native acceptance; previous media is preserved. Unrelated audit
+drafts and shared target are retained. No main merge, force push, release,
+version bump, CI wait, pass-2 work or pass-3 work is included.
