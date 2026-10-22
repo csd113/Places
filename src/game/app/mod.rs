@@ -1112,7 +1112,6 @@ impl FrameLoop<'_> {
         );
         self.console_runtime
             .sync_visuals(self.renderer, &self.items.world);
-        let _update_stats = self.renderer.update_dynamic(visual_delta);
         self.advance_weather();
         // Each actor owns its pose. Completed one-shot cues feed back to
         // entity sequences and animation_complete bindings.
@@ -1124,9 +1123,13 @@ impl FrameLoop<'_> {
         }
         let characters = self
             .renderer
-            .update_characters(visual_delta, self.game.entity_frames());
+            .advance_characters(visual_delta, self.game.entity_frames());
         self.update_carry_contacts(visual_delta);
         self.update_carry_attachments(visual_delta);
+        // Publish every final pose once. Water, props and characters observe
+        // the same visibility, including this frame's socket attachments.
+        let _update_stats = self.renderer.update_dynamic(visual_delta);
+        self.renderer.sync_characters();
         for instance_id in &characters.finished {
             self.game
                 .entities_mut()

@@ -2951,3 +2951,118 @@ subsequent queue instruction supersedes cleanup for this stage: **retain
 shared-calculation audit, followed by furniture-store work. No `cargo clean` is
 performed here; ownership is released only after commit/push verification and
 confirmation that no owned native/build job remains.
+
+
+## Lighting-trigger and shared-calculation pass — 2026-10-22
+
+Authorized items 1 and 3 only, on `0.13.0-staging`, from pushed baseline
+`d114077008d2d108dd157b4f40ddcea2c859a302`. Earlier regional dependencies,
+separated caster bounds, immutable-ray retention, sleeping ragdoll caching,
+unchanged-pose fixes and water invalidation remain in use. No maps, assets,
+quality settings, update intervals, solver thresholds or cache budgets changed.
+
+### Trigger audit and shared ownership
+
+| Trigger | Required invalidation and final disposition |
+| --- | --- |
+| Rigid movement, rotation and scale; doors | Exact pose bits invalidate the object's shared placement. Visibility consumes the final pose; existing regional/ray dependencies select affected lighting receivers. Repeated identical solver or door poses retain the placement. |
+| Ordinary animation, tint, opacity and emission appearance | Pose revisions drive skinning. Environmental lighting depends on placement and receiver envelope, not the skin/albedo revision. Balloon and ragdoll envelope changes still refresh lighting immediately. Emission appearance does not invent a baked light source; attached lights retain their separate live path. |
+| Physics, sleeping and waking | Solver/interpolated pose changes use the same placement writer. Sleep alone does not invalidate lighting. Ordinary contact wake publishes changed poses; sampling follows those current poses before drawing. |
+| Light switches | Actual energy changes advance the existing lighting revision; immutable rays remain retained. No-op switches retain results. Active-source masks/direct descriptors are prepared once for each dirty receiver batch. |
+| Water | Surface phase/tint/speed/strength remain independent controls. Source energy and changed caster visibility retain their existing water dependencies. Water and rigid/character receivers now consume the same final movable-visibility snapshot after carry attachments resolve. |
+| Creation, suspension, removal and reset | Admission/removal and visibility changes reach the shared provider immediately. Suspended characters now skip environmental refresh, retaining their old keys until restoration; restoration samples current source, pose and visibility state before rendering. Scene reset drops placement/payload ownership. |
+| Level and graphics transitions | Installed lighting/field/transport revisions still invalidate receiver payloads. Batch source data borrows the installed snapshot only until workers join; it cannot survive a transition. |
+
+`DynamicObject` now owns one lazy matrix/center/world-bounds result between exact
+pose mutations. All private pose writers use `set_placement`; physics, floats,
+spins, visibility, receiver lighting and rendering share its result. It preserves
+the original yaw constructor and matrix multiplication order. Appearance edits
+leave this placement intact.
+
+Rigid and character batches prepare each receiver's center/spatial refresh
+plan once before dispatch. Workers consume that plan instead of repeating the
+regional dependency query. Even unchanged payloads consume observed visibility
+revisions, preserving conservative missed-history fallback. A lazy, immutable
+batch context shares source selection, active masks and direct descriptors;
+receiver-specific occlusion and the full anchor/tap calculations remain separate.
+No cross-frame source cache or general telemetry framework was introduced.
+
+The frame loop previously refreshed rigid lighting/water, animated characters,
+then refreshed rigid lighting/water again after socket-attached props moved.
+It now advances poses, resolves carry sockets, refreshes dynamic visibility and
+rigid/water lighting once, then publishes character lighting/skinning against
+that same final snapshot. This preserves same-frame correctness, including
+carried props affecting other receivers. A late active-carry trace confirms
+**16 dynamic passes for 8 character frames → 9 passes for 9 frames (2 → 1/frame)**.
+
+### Measured savings and limits
+
+A focused nine-triangle/eight-probe operation probe over 120 moving frames,
+including the ordinary visibility, lighting and render-access paths, counted:
+
+| Calculation | Before | After |
+| --- | ---: | ---: |
+| Matrix compositions | 11,760 | 120 |
+| World-bounds calculations | 3,000 | 120 |
+| Receiver dependency checks | 1,920 | 960 |
+| Source selections | 2,880 | 120 |
+
+Temporary operation counters were removed from production sources after the
+comparison. Their source/fixture snapshots and raw results are preserved in
+`local/lighting-sharing-0.13.0/`; instrumented fixture elapsed times are not
+native performance evidence.
+
+Native measurements used the Apple M2 Pro/Metal adapter, a physical **1280×720**
+drawable (640×360 logical), High quality/textures/filtering/lighting, Full
+lightmaps/reflections and bloom, V-sync OFF, resolved Immediate mode and no frame
+limiter. Timing runs had no screenshots, video, full-recalculation checks or CPU
+trace logging. Separate diagnostic runs recorded CPU stages and Metal acquisition
+wait; GPU samples retain the existing renderer timestamp definition.
+
+Two runs per build of the seeded carried-prop menu event reduced median CPU
+update time **1.3415 → 1.0595 ms**, saving **0.2820 ms / 21.0%**. Mean update time
+was **1.2532 → 1.0289 ms**. A bounded active-carry trace separately measured
+combined dynamic lighting/upload work at about **0.487 → 0.453 ms/frame**.
+Observed presentation remained **123.99 → 123.62 FPS**, with about **5.8–6.0 ms**
+median drawable-acquisition wait in the separate carry profiles. This is a CPU
+saving, not an established FPS-throughput gain.
+
+The other initial matched blocks did not establish a general CPU/GPU/FPS gain:
+Pool median update **1.0245 → 1.0493 ms**, Arcade **1.1475 → 1.2560 ms**, the
+existing editor-supported stress map **2.0433 → 2.0308 ms**, and the seeded roach
+menu **0.5935 → 0.6387 ms**. Presentation/GPU scheduling varied substantially
+between blocks. An additional adjacent Arcade baseline/candidate control gave
+**1.1625 → 1.1490 ms** CPU update, **2.399 → 2.273 ms** GPU elapsed and
+**184.06 → 182.96 FPS**. Raw blocks and the control remain preserved; no general
+FPS multiplier or GPU improvement is claimed. There is no new memory-leak claim
+and no reinterpretation of the historical +312 MiB observation.
+
+### Correctness, gates and handoff
+
+- **1,282 native entity full-recalculation comparisons, zero mismatches**, across
+  Pool moving/rotating props and water, stress-map animation/scripts/physics,
+  carried props, menu events, ragdoll motion, sleep/contact wake/reset, light
+  switches, removal, quality changes and unload/reload. These checks execute
+  only on explicitly selected diagnostic captures. Existing exact water
+  full-refresh regressions also pass.
+- Three fixed-simulation native views, Pool/Arcade/stress map, are **pixel-identical**
+  to the baseline. Native contact acceptance records 15 sleeping ragdoll bones,
+  ordinary gameplay contact waking all 15, then explicit reset removing the rig.
+- **34 native assertions** pass. The real native editor opens the existing tiny
+  two-map fixture, Builds, Plays, returns, exports and imports; recovered JSON
+  and Luau are exact. No full shipped-map bake is added to tests or CI.
+- Formatting, strict `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+  **260 Rust tests** (0 failed/ignored; about 0.47 s execution), and
+  `cargo build --locked --release --workspace --all-features` pass. The production
+  build completed in 3m23s. Two new small source-only regressions protect batch
+  lifetime/lifecycle correctness and suspended-character restoration.
+
+Only this canonical report was updated. Raw comparison data, diagnostic images,
+source recovery and game/editor/compiler binaries are outside `target` under
+`local/lighting-sharing-0.13.0/`; `FINAL-HANDOFF.json` records the final commit,
+remote verification and ownership release. No new before/after video is useful:
+the images are identical and the measured benefit is CPU work; previous Library
+media remains unchanged. Preserve `target` and executables for the queued real
+editor furniture-store task. That task, later polish and showcase quests were
+not started. Hosted CI was not queried or awaited; no main merge, force push,
+tag, release, version bump or `cargo clean` was performed.

@@ -591,18 +591,20 @@ impl Renderer {
         self.renderer.weather_state()
     }
 
-    /// Advances every animated character's pose and re-uploads the ones that
-    /// moved.
-    ///
-    /// Each actor follows its own action, movement or idle state. The caller
-    /// owns the frame list; the player representation supplies its locomotion
-    /// separately. Returns how many characters moved and were re-skinned.
-    pub fn update_characters(
+    /// Advances each actor's pose before socket-attached props resolve.
+    /// Publish lighting and GPU data with [`Self::sync_characters`] after the
+    /// frame's final dynamic update. Returns motion and completed cues.
+    pub fn advance_characters(
         &mut self,
         delta_seconds: f32,
         frames: &[EntityFrame],
     ) -> crate::engine::render::CharacterUpdate {
-        self.renderer.update_characters(delta_seconds, frames)
+        self.renderer.advance_characters(delta_seconds, frames)
+    }
+
+    /// Publishes characters against the final shared movable visibility.
+    pub fn sync_characters(&mut self) {
+        self.renderer.sync_characters();
     }
 
     /// Spawns an animatable runtime actor through the character path.
@@ -612,7 +614,7 @@ impl Renderer {
     /// lit by the installed level's baked lighting and irradiance field and
     /// animates through the ordinary clip path, driven by an [`EntityFrame`]
     /// addressed to `instance_id`. Spawning a live instance id replaces that
-    /// actor. The actor becomes visible on the next [`Self::update_characters`]
+    /// actor. The actor becomes visible on the next [`Self::sync_characters`]
     /// sync.
     ///
     /// # Errors
@@ -635,7 +637,7 @@ impl Renderer {
 
     /// Removes a runtime actor; true when one existed.
     ///
-    /// The GPU side is rebuilt by the next [`Self::update_characters`].
+    /// The GPU side is rebuilt by the next [`Self::sync_characters`].
     pub fn despawn_runtime_character(&mut self, instance_id: &str) -> bool {
         self.renderer.despawn_runtime_character(instance_id)
     }
@@ -643,7 +645,7 @@ impl Renderer {
     /// Moves a live runtime actor; true when one existed.
     ///
     /// The actor keeps its model, scale and playback; the write reaches the
-    /// GPU through the next [`Self::update_characters`] sync.
+    /// GPU through the next [`Self::sync_characters`] sync.
     pub fn set_runtime_character_transform(
         &mut self,
         instance_id: &str,

@@ -1206,6 +1206,7 @@ pub struct Character {
     entity_lighting: super::light_transport::EntityLighting,
     center_light_key: Option<super::dynamic::EntityCenterLightKey>,
     lighting_refresh_key: Option<super::dynamic::EntityLightingRefreshKey>,
+    lighting_refresh_plan: super::dynamic::EntityLightingRefreshPlan,
     spatial_lighting: Option<Box<super::light_transport::EntitySpatialLighting>>,
     spatial_key: Option<super::light_transport::EntitySpatialKey>,
     static_rays: super::light_transport::EntityStaticRayCache,
@@ -1244,6 +1245,12 @@ pub struct Character {
 }
 
 impl Character {
+    /// Original local receiver envelope for explicit full-recalculation checks.
+    #[cfg(feature = "visual-diagnostics")]
+    pub(in crate::engine::render) const fn lighting_bounds(&self) -> Aabb {
+        self.lighting_local_bounds
+    }
+
     /// The shared decoded model.
     #[must_use]
     pub const fn asset(&self) -> &Arc<LoadedPropAsset> {
@@ -1846,6 +1853,7 @@ impl CharacterScene {
                 entity_lighting,
                 center_light_key: None,
                 lighting_refresh_key: None,
+                lighting_refresh_plan: super::dynamic::EntityLightingRefreshPlan::default(),
                 spatial_lighting: None,
                 spatial_key: None,
                 static_rays: super::light_transport::EntityStaticRayCache::default(),
@@ -1981,6 +1989,7 @@ impl CharacterScene {
             entity_lighting,
             center_light_key: None,
             lighting_refresh_key: None,
+            lighting_refresh_plan: super::dynamic::EntityLightingRefreshPlan::default(),
             spatial_lighting: None,
             spatial_key: None,
             static_rays: super::light_transport::EntityStaticRayCache::default(),
@@ -2254,10 +2263,9 @@ impl CharacterScene {
         lighting_revision: Option<u64>,
     ) {
         const PARALLEL_LIGHTING_MIN_RECEIVERS: usize = 8;
-        let context = super::light_transport::EntityVisibility {
-            dynamic: visibility,
-            receiver: None,
-        };
+        let spatial = super::light_transport::EntitySpatialLightingContext::new(
+            lighting, irradiance, scene, visibility,
+        );
         let refresh_context = super::dynamic::EntityLightingRefreshContext::new(
             lighting,
             irradiance,
@@ -2265,57 +2273,35 @@ impl CharacterScene {
             visibility,
             lighting_revision,
         );
-        let dirty = |character: &Character| {
-            refresh_context
-                .key(
-                    character.transform(),
-                    character.lighting_local_bounds,
-                    character.lighting_sample_position(),
-                    None,
-                    character.lighting_refresh_key,
-                    Some(&character.static_rays),
-                )
-                .is_none_or(|key| character.lighting_refresh_key != Some(key))
-        };
         let refresh = |character: &mut Character| {
-            if !dirty(character) {
+            let plan = std::mem::take(&mut character.lighting_refresh_plan);
+            if !plan.needed() {
                 return;
             }
             #[cfg(feature = "visual-diagnostics")]
             let refresh_started = std::time::Instant::now();
-            let position = character.lighting_sample_position();
-            let transform = character.transform();
-            let refresh_key = refresh_context.key(
-                transform,
-                character.lighting_local_bounds,
-                position,
-                None,
-                character.lighting_refresh_key,
-                Some(&character.static_rays),
-            );
-            let center_key = lighting_revision.map(|revision| {
-                super::dynamic::EntityCenterLightKey::new(revision, lighting, irradiance, position)
-            });
-            let center_changed = character.center_light_key != center_key;
-            if center_key.is_none() || center_changed {
-                character.entity_lighting =
-                    super::light_transport::entity_lighting(lighting, irradiance, position);
-                character.center_light_key = center_key;
-            }
-            if refresh_key.is_none_or(|key| key.spatial_changed(character.lighting_refresh_key)) {
-                let spatial_key = super::light_transport::entity_spatial_key_with_visibility(
-                    lighting, irradiance, transform, scene, context,
+            if plan.center {
+                character.entity_lighting = super::light_transport::entity_lighting(
+                    lighting,
+                    irradiance,
+                    character.lighting_sample_position(),
                 );
-                if character.spatial_key != spatial_key || refresh_key.is_some() {
+                character.center_light_key = character
+                    .lighting_refresh_key
+                    .map(super::dynamic::EntityLightingRefreshKey::center_key);
+            }
+            if plan.spatial {
+                let transform = character.transform();
+                let spatial_key = spatial.key(transform, None);
+                if character.spatial_key != spatial_key || character.lighting_refresh_key.is_some()
+                {
                     character.spatial_lighting = (!character.lighting_local_bounds.is_empty())
                         .then(|| {
-                            super::light_transport::entity_spatial_lighting_cached(
-                                lighting,
-                                irradiance,
+                            spatial.sample(
                                 character.lighting_local_bounds,
                                 transform,
-                                scene,
-                                context,
+                                None,
+                                spatial_key,
                                 lighting_revision
                                     .map(|revision| (&mut character.static_rays, revision)),
                             )
@@ -2324,17 +2310,37 @@ impl CharacterScene {
                     character.spatial_key = spatial_key;
                 }
             }
-            character.lighting_refresh_key = refresh_key;
             #[cfg(feature = "visual-diagnostics")]
             character.static_rays.record_refresh(refresh_started);
         };
         // Each receiver owns its output; field/transport/visibility are shared
         // immutable snapshots. Join before the backend observes these samples.
         for receivers in [&mut self.characters, &mut self.runtime] {
-            let dirty_count = receivers
-                .iter()
-                .filter(|character| dirty(character))
-                .count();
+            let mut dirty_count = 0usize;
+            for character in &mut *receivers {
+                character.lighting_refresh_plan =
+                    super::dynamic::EntityLightingRefreshPlan::default();
+                if !character.runtime_visible {
+                    continue;
+                }
+                let key = refresh_context.key(
+                    character.transform(),
+                    character.lighting_local_bounds,
+                    character.lighting_sample_position(),
+                    None,
+                    character.lighting_refresh_key,
+                    Some(&character.static_rays),
+                );
+                character.lighting_refresh_plan = super::dynamic::EntityLightingRefreshPlan::new(
+                    key,
+                    character.lighting_refresh_key,
+                    character.center_light_key,
+                );
+                character.lighting_refresh_key = key;
+                if character.lighting_refresh_plan.needed() {
+                    dirty_count = dirty_count.saturating_add(1);
+                }
+            }
             if dirty_count == 0 {
                 continue;
             }

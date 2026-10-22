@@ -761,7 +761,6 @@ impl FrameLoop<'_> {
             self.game.entities_mut().confirm_carry_retired(&actor);
             self.trace_world("npc_retired_hidden");
         }
-        let _updated = self.renderer.update_dynamic(0.0);
     }
 }
 

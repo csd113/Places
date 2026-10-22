@@ -752,14 +752,14 @@ pub struct WgpuRenderer {
     /// The neutral character scene: every placed skinned prop, its animator
     /// and its baked per-vertex albedo, plus the gameplay's runtime-spawned
     /// actors. Rebuilt on level install and graphics changes; advanced by
-    /// `update_characters`.
+    /// `sync_characters`.
     characters: CharacterScene,
     /// The GPU side of the character scene: shared index buffers, one mutable
     /// skinned vertex buffer per character and one environment per character.
     world_characters: Option<WgpuCharacters>,
     /// The `CharacterScene::runtime_generation` the GPU side was last built
     /// from. A runtime spawn or despawn bumps the scene's generation;
-    /// `update_characters` rebuilds `world_characters` when this differs, so
+    /// `sync_characters` rebuilds `world_characters` when this differs, so
     /// the change is visible on the frame it happens.
     character_runtime_generation: u64,
     /// The level's CPU bake, kept for the dynamic objects' light probes. The
@@ -2644,16 +2644,10 @@ impl WgpuRenderer {
         self.world_dynamic = Some(WgpuDynamic::upload(&mut ctx, &self.dynamic));
     }
 
-    /// Advances every character's pose and uploads the characters that moved.
-    ///
-    /// The neutral scene evaluates the blend weights, gait phase and clip
-    /// crossfade; the GPU side re-skins only the characters whose pose
-    /// revision changed and writes their vertex buffers and live transforms.
-    /// A still character writes nothing. A runtime spawn or despawn since the
-    /// last pass bumps the scene's runtime generation, and the GPU side is
-    /// rebuilt before it syncs, so the change is visible on the same frame.
-    /// Returns how many characters moved this pass.
-    pub fn update_characters(
+    /// Advances poses before callers resolve socket-attached props. Lighting
+    /// and GPU publication follow through [`Self::sync_characters`] after the
+    /// final movable visibility snapshot is available.
+    pub fn advance_characters(
         &mut self,
         delta_seconds: f32,
         frames: &[EntityFrame],
@@ -2664,6 +2658,17 @@ impl WgpuRenderer {
         let animation_started = cpu_trace_start(self.animation_seconds);
         let update = self.characters.update(delta_seconds, frames);
         cpu_trace_finish("character_animation", animation_started);
+        update
+    }
+
+    /// Publishes character lighting and skinning from the same final visibility
+    /// snapshot used by rigid receivers and water this frame. Unchanged actors
+    /// write nothing; runtime admission/removal is visible immediately.
+    pub fn sync_characters(&mut self) {
+        if self.check_device_lost() {
+            return;
+        }
+
         let lighting_started = cpu_trace_start(self.animation_seconds);
         if let Some(lighting) = self.dynamic_lighting.as_ref() {
             self.characters
@@ -2704,7 +2709,6 @@ impl WgpuRenderer {
             );
         }
         cpu_trace_finish("character_skin_upload", upload_started);
-        update
     }
 
     /// Spawns an animatable runtime actor through the character path.
@@ -2715,7 +2719,7 @@ impl WgpuRenderer {
     /// through the ordinary character/clip path: an [`EntityFrame`] addressed
     /// to `instance_id` drives its transform and pose cue. Spawning a live
     /// instance id replaces that actor. The GPU side is rebuilt by the next
-    /// [`Self::update_characters`], which is where a frame loop already syncs
+    /// [`Self::sync_characters`], which is where a frame loop already syncs
     /// characters.
     ///
     /// # Errors
@@ -2766,7 +2770,7 @@ impl WgpuRenderer {
 
     /// Removes a runtime actor; true when one existed.
     ///
-    /// The GPU side is rebuilt by the next [`Self::update_characters`].
+    /// The GPU side is rebuilt by the next [`Self::sync_characters`].
     pub fn despawn_runtime_character(&mut self, instance_id: &str) -> bool {
         if self.check_device_lost() {
             return false;
@@ -2778,7 +2782,7 @@ impl WgpuRenderer {
     ///
     /// The actor keeps its model, scale and playback; the write lands in the
     /// neutral scene and reaches the GPU through the next
-    /// [`Self::update_characters`] sync.
+    /// [`Self::sync_characters`] sync.
     pub fn set_runtime_character_transform(
         &mut self,
         instance_id: &str,
@@ -6180,6 +6184,16 @@ impl WgpuRenderer {
                 .world_dynamic
                 .as_ref()
                 .and_then(|gpu| gpu.diagnostic_uniform(slot));
+            #[cfg(feature = "visual-diagnostics")]
+            if object.visible() {
+                self.trace_spatial_verification(
+                    &name,
+                    object.mesh().bounds,
+                    object.transform(),
+                    Some(object.id()),
+                    object.spatial_lighting(),
+                );
+            }
             self.trace_lighting_sample(
                 &name,
                 &format!("dynamic:{}", object.mesh().model_path),
@@ -6209,6 +6223,16 @@ impl WgpuRenderer {
                 .world_characters
                 .as_ref()
                 .and_then(|gpu| gpu.diagnostic_uniform(name, slot));
+            #[cfg(feature = "visual-diagnostics")]
+            if character.casts_flashlight_shadow() {
+                self.trace_spatial_verification(
+                    name,
+                    character.lighting_bounds(),
+                    character.transform(),
+                    None,
+                    character.spatial_lighting(),
+                );
+            }
             self.trace_lighting_sample(
                 name,
                 &format!("character:{}", character.asset().model_path),
@@ -6217,6 +6241,41 @@ impl WgpuRenderer {
                 uniform,
             );
         }
+    }
+
+    /// Capture-only verification; ordinary timing and rendering never invoke it.
+    #[cfg(feature = "visual-diagnostics")]
+    fn trace_spatial_verification(
+        &self,
+        name: &str,
+        bounds: crate::engine::spatial::Aabb,
+        model: glam::Mat4,
+        receiver: Option<crate::engine::render::common::dynamic::DynamicId>,
+        cached: Option<&crate::engine::render::common::light_transport::EntitySpatialLighting>,
+    ) {
+        let Some(lighting) = self.dynamic_lighting.as_ref() else {
+            return;
+        };
+        let full = crate::engine::render::common::light_transport::entity_spatial_lighting_cached(
+            lighting,
+            self.dynamic_field.as_deref(),
+            bounds,
+            model,
+            self.dynamic_transport.as_deref(),
+            crate::engine::render::common::light_transport::EntityVisibility {
+                dynamic: self
+                    .dynamic_transport
+                    .as_ref()
+                    .filter(|_| self.dynamic_visibility_error.is_none())
+                    .map(|_| &self.dynamic_visibility),
+                receiver,
+            },
+            None,
+        );
+        logging::info(format!(
+            "[entity-light-verify] {name} matches={}",
+            cached == full.as_deref()
+        ));
     }
 
     fn trace_lighting_sample(

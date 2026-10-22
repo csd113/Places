@@ -696,46 +696,106 @@ fn probe_light_enabled(lighting: &LevelLighting, index: u32) -> bool {
         .is_some_and(crate::engine::lighting::BakedLight::is_active)
 }
 
-#[must_use]
-pub fn entity_spatial_key_with_visibility(
-    lighting: &LevelLighting,
-    field: Option<&crate::engine::lighting::probes::ProbeField>,
-    model: glam::Mat4,
-    scene: Option<&TransportScene>,
-    visibility: EntityVisibility<'_>,
-) -> Option<EntitySpatialKey> {
-    let prepared = field?;
-    let _selected_direct = prepared.local_direct.as_ref()?;
-    let mut enabled = 0_u64;
-    for (slot, index) in runtime_entity_light_ids(prepared, scene).iter().enumerate() {
-        let active = index
-            .and_then(|id| lighting.lights().get(id))
-            .is_some_and(crate::engine::lighting::BakedLight::is_active);
-        if active {
-            enabled |= 1_u64.checked_shl(u32::try_from(slot).ok()?).unwrap_or(0);
+/// One synchronous receiver batch borrows a complete lighting/visibility
+/// snapshot. Source selection and direct payloads initialize only when a dirty
+/// receiver needs spatial samples, then all workers borrow the same result.
+/// Joining the batch ends this lifetime; no cross-frame or cross-map cache.
+pub(super) struct EntitySpatialLightingContext<'a> {
+    lighting: &'a LevelLighting,
+    field: Option<&'a crate::engine::lighting::probes::ProbeField>,
+    scene: Option<&'a TransportScene>,
+    dynamic: Option<&'a super::dynamic_visibility::DynamicVisibility>,
+    sources: std::sync::OnceLock<Option<EntitySpatialSources>>,
+}
+
+struct EntitySpatialSources {
+    ids: [Option<usize>; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS],
+    direct: [EntityDirectLight; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS],
+    enabled: u64,
+}
+
+impl<'a> EntitySpatialLightingContext<'a> {
+    pub(super) const fn new(
+        lighting: &'a LevelLighting,
+        field: Option<&'a crate::engine::lighting::probes::ProbeField>,
+        scene: Option<&'a TransportScene>,
+        dynamic: Option<&'a super::dynamic_visibility::DynamicVisibility>,
+    ) -> Self {
+        Self {
+            lighting,
+            field,
+            scene,
+            dynamic,
+            sources: std::sync::OnceLock::new(),
         }
     }
-    for (group, plane) in prepared.switchable_indirect.iter().enumerate() {
-        if probe_light_enabled(lighting, plane.light_index) {
-            let bit = group.saturating_add(super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS);
-            enabled |= 1_u64.checked_shl(u32::try_from(bit).ok()?).unwrap_or(0);
-        }
+
+    fn sources(&self) -> Option<&EntitySpatialSources> {
+        self.sources
+            .get_or_init(|| {
+                let lighting = self.lighting;
+                let prepared = self.field?;
+                let _selected_direct = prepared.local_direct.as_ref()?;
+                let ids = runtime_entity_light_ids(prepared, self.scene);
+                let mut enabled = 0_u64;
+                for (slot, index) in ids.iter().enumerate() {
+                    let active = index
+                        .and_then(|id| lighting.lights().get(id))
+                        .is_some_and(crate::engine::lighting::BakedLight::is_active);
+                    if active {
+                        enabled |= 1_u64.checked_shl(u32::try_from(slot).ok()?).unwrap_or(0);
+                    }
+                }
+                for (group, plane) in prepared.switchable_indirect.iter().enumerate() {
+                    if probe_light_enabled(lighting, plane.light_index) {
+                        let bit =
+                            group.saturating_add(super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS);
+                        enabled |= 1_u64.checked_shl(u32::try_from(bit).ok()?).unwrap_or(0);
+                    }
+                }
+                let mut direct =
+                    [EntityDirectLight::ZERO; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS];
+                for (slot, index) in direct.iter_mut().zip(ids) {
+                    if let Some(light) = index.and_then(|id| lighting.lights().get(id))
+                        && light.is_active()
+                    {
+                        *slot = EntityDirectLight::from_baked(light);
+                    }
+                }
+                Some(EntitySpatialSources {
+                    ids,
+                    direct,
+                    enabled,
+                })
+            })
+            .as_ref()
     }
-    Some(EntitySpatialKey {
-        field: std::ptr::from_ref(prepared).addr(),
-        scene: scene.map_or(0, |value| std::ptr::from_ref(value).addr()),
-        model: model
-            .to_cols_array_2d()
-            .map(|column| column.map(f32::to_bits)),
-        enabled,
-        dynamic: visibility
-            .dynamic
-            .map_or(0, |value| std::ptr::from_ref(value).addr()),
-        dynamic_revision: visibility
-            .dynamic
-            .map_or(0, super::dynamic_visibility::DynamicVisibility::revision),
-        receiver: visibility.receiver,
-    })
+
+    pub(super) fn key(
+        &self,
+        model: glam::Mat4,
+        receiver: Option<super::dynamic::DynamicId>,
+    ) -> Option<EntitySpatialKey> {
+        Some(EntitySpatialKey {
+            field: self
+                .field
+                .map_or(0, |field| std::ptr::from_ref(field).addr()),
+            scene: self
+                .scene
+                .map_or(0, |scene| std::ptr::from_ref(scene).addr()),
+            model: model
+                .to_cols_array_2d()
+                .map(|column| column.map(f32::to_bits)),
+            enabled: self.sources()?.enabled,
+            dynamic: self
+                .dynamic
+                .map_or(0, |dynamic| std::ptr::from_ref(dynamic).addr()),
+            dynamic_revision: self
+                .dynamic
+                .map_or(0, super::dynamic_visibility::DynamicVisibility::revision),
+            receiver,
+        })
+    }
 }
 
 fn sample_receiver_irradiance(
@@ -760,6 +820,7 @@ fn sample_receiver_irradiance(
 }
 
 /// Reuses immutable ray answers while still evaluating every current movable caster.
+#[cfg(any(test, feature = "visual-diagnostics"))]
 #[must_use]
 pub fn entity_spatial_lighting_cached(
     lighting: &LevelLighting,
@@ -770,98 +831,107 @@ pub fn entity_spatial_lighting_cached(
     visibility: EntityVisibility<'_>,
     storage: Option<(&mut EntityStaticRayCache, u64)>,
 ) -> Option<Box<EntitySpatialLighting>> {
-    let context_key = entity_spatial_key_with_visibility(lighting, field, model, scene, visibility);
-    let active_cache = storage.map(|(entry, revision)| {
-        entry.prepare(context_key, bounds, revision);
-        entry
-    });
-    let cache = std::cell::RefCell::new(active_cache);
-    let prepared = field?;
-    let _selected_direct = prepared.local_direct.as_ref()?;
-    let positions = entity_anchor_positions(bounds, model)?;
-    let sample = |point| sample_receiver_irradiance(prepared, lighting, visibility, &cache, point);
-    let samples = positions.world.map(|world| (world, sample(world)));
-    let centre_sample = sample(positions.centre);
-    if centre_sample.is_none() && samples.iter().all(|(_, value)| value.is_none()) {
-        let has_static_support = |point| {
-            prepared
-                .sample_nonlocal_with_switchable_indirect(
-                    point,
-                    None,
-                    |index| probe_light_enabled(lighting, index),
-                    |probe, label| static_probe_visible(&cache, lighting, point, probe, label),
-                )
-                .is_some()
+    let context = EntitySpatialLightingContext::new(lighting, field, scene, visibility.dynamic);
+    let key = context.key(model, visibility.receiver);
+    context.sample(bounds, model, visibility.receiver, key, storage)
+}
+
+impl EntitySpatialLightingContext<'_> {
+    pub(super) fn sample(
+        &self,
+        bounds: crate::engine::spatial::Aabb,
+        model: glam::Mat4,
+        receiver: Option<super::dynamic::DynamicId>,
+        context_key: Option<EntitySpatialKey>,
+        storage: Option<(&mut EntityStaticRayCache, u64)>,
+    ) -> Option<Box<EntitySpatialLighting>> {
+        let lighting = self.lighting;
+        let field = self.field;
+        let scene = self.scene;
+        let visibility = EntityVisibility {
+            dynamic: self.dynamic,
+            receiver,
         };
-        if visibility.dynamic.is_none()
-            || !(has_static_support(positions.centre)
-                || positions.world.into_iter().any(has_static_support))
-        {
-            return None;
+        let active_cache = storage.map(|(entry, revision)| {
+            entry.prepare(context_key, bounds, revision);
+            entry
+        });
+        let cache = std::cell::RefCell::new(active_cache);
+        let prepared = field?;
+        let _selected_direct = prepared.local_direct.as_ref()?;
+        let positions = entity_anchor_positions(bounds, model)?;
+        let sample =
+            |point| sample_receiver_irradiance(prepared, lighting, visibility, &cache, point);
+        let samples = positions.world.map(|world| (world, sample(world)));
+        let centre_sample = sample(positions.centre);
+        if centre_sample.is_none() && samples.iter().all(|(_, value)| value.is_none()) {
+            let has_static_support = |point| {
+                prepared
+                    .sample_nonlocal_with_switchable_indirect(
+                        point,
+                        None,
+                        |index| probe_light_enabled(lighting, index),
+                        |probe, label| static_probe_visible(&cache, lighting, point, probe, label),
+                    )
+                    .is_some()
+            };
+            if visibility.dynamic.is_none()
+                || !(has_static_support(positions.centre)
+                    || positions.world.into_iter().any(has_static_support))
+            {
+                return None;
+            }
+            // A current opaque caster blocking all otherwise-valid support must
+            // not recover the stale authored ambient/direct fallback.
         }
-        // A current opaque caster blocking all otherwise-valid support must
-        // not recover the stale authored ambient/direct fallback.
-    }
-    let connected = |from, to| {
-        static_segment_visible(&cache, lighting, scene, from, to)
-            && visibility.transmittance(from, to) > 0.0
-    };
-    let mut direct = [EntityDirectLight::ZERO; super::dynamic_lights::MAX_ENTITY_DIRECT_LIGHTS];
-    let source_ids = runtime_entity_light_ids(prepared, scene);
-    for (slot, index) in direct.iter_mut().zip(source_ids) {
-        let Some(light) = index.and_then(|id| lighting.lights().get(id)) else {
-            continue;
+        let connected = |from, to| {
+            static_segment_visible(&cache, lighting, scene, from, to)
+                && visibility.transmittance(from, to) > 0.0
         };
-        if light.is_active() {
-            *slot = EntityDirectLight::from_baked(light);
-        }
+        let sources = self.sources()?;
+        let mut direct = sources.direct;
+        let source_ids = &sources.ids;
+        let anchors = samples.map(|(world, exact_sample)| {
+            let texel = exact_sample
+                .or_else(|| centre_sample.filter(|_| connected(world, positions.centre)))
+                .or_else(|| {
+                    samples
+                        .iter()
+                        .find_map(|(position, value)| value.filter(|_| connected(world, *position)))
+                })
+                .unwrap_or(crate::engine::lighting::lightmap::LightmapTexel {
+                    irradiance: [0.0; 3],
+                    direction: [0.0; 3],
+                    axis: [0.5; 2],
+                });
+            let [red, green, blue] = texel.irradiance;
+            let [x, y, z] = texel.direction;
+            let throughput = spatial_anchor_visibility(
+                lighting, source_ids, scene, &direct, world, visibility, &cache,
+            );
+            let [ar, ag, ab] = scene.map_or([1.0; 3], |transport| transport.attenuation_at(world));
+            EntityLightingAnchor {
+                irradiance: [
+                    red,
+                    green,
+                    blue,
+                    if exact_sample.is_some() { 1.0 } else { 0.0 },
+                ],
+                moment: [x, y, z, 0.0],
+                visibility: throughput,
+                attenuation: [ar, ag, ab, 0.0],
+            }
+        });
+        disable_fully_occluded_entity_lights(&mut direct, &anchors);
+        let [x, y, z] = positions.minimum.to_array();
+        let [dx, dy, dz] = positions.extent.to_array();
+        Some(Box::new(EntitySpatialLighting {
+            bounds_min: [x, y, z, 1.0],
+            bounds_extent: [dx, dy, dz, 0.0],
+            anchors,
+            direct,
+        }))
     }
-    let anchors = samples.map(|(world, exact_sample)| {
-        let texel = exact_sample
-            .or_else(|| centre_sample.filter(|_| connected(world, positions.centre)))
-            .or_else(|| {
-                samples
-                    .iter()
-                    .find_map(|(position, value)| value.filter(|_| connected(world, *position)))
-            })
-            .unwrap_or(crate::engine::lighting::lightmap::LightmapTexel {
-                irradiance: [0.0; 3],
-                direction: [0.0; 3],
-                axis: [0.5; 2],
-            });
-        let [red, green, blue] = texel.irradiance;
-        let [x, y, z] = texel.direction;
-        let throughput = spatial_anchor_visibility(
-            lighting,
-            &source_ids,
-            scene,
-            &direct,
-            world,
-            visibility,
-            &cache,
-        );
-        let [ar, ag, ab] = scene.map_or([1.0; 3], |transport| transport.attenuation_at(world));
-        EntityLightingAnchor {
-            irradiance: [
-                red,
-                green,
-                blue,
-                if exact_sample.is_some() { 1.0 } else { 0.0 },
-            ],
-            moment: [x, y, z, 0.0],
-            visibility: throughput,
-            attenuation: [ar, ag, ab, 0.0],
-        }
-    });
-    disable_fully_occluded_entity_lights(&mut direct, &anchors);
-    let [x, y, z] = positions.minimum.to_array();
-    let [dx, dy, dz] = positions.extent.to_array();
-    Some(Box::new(EntitySpatialLighting {
-        bounds_min: [x, y, z, 1.0],
-        bounds_extent: [dx, dy, dz, 0.0],
-        anchors,
-        direct,
-    }))
 }
 
 fn disable_fully_occluded_entity_lights(

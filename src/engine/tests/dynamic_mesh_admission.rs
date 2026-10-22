@@ -348,3 +348,228 @@ fn ultraviolet_receiver_dependencies_preserve_full_refresh_visibility() -> Resul
     );
     Ok(())
 }
+
+fn batch_lighting_fixture() -> Result<
+    (
+        crate::engine::level::LevelDef,
+        crate::engine::lighting::LevelLighting,
+        crate::engine::lighting::probes::ProbeField,
+    ),
+    String,
+> {
+    use crate::engine::{
+        level::LevelDef,
+        lighting::{
+            LevelLighting,
+            lightmap::LightmapTexel,
+            probes::{ProbeDirectField, ProbeField, ProbeSample},
+        },
+    };
+    let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"batch","name":"Batch","spawn":{"x":0,"z":0},"rooms":[{"x":-4,"z":-4,"width":8,"depth":8,"height":4}],"water":[{"x":-2,"z":-2,"width":4,"depth":4,"surface_y":0.5,"bottom_y":0,"material":"core:water_pool_01"}],"ceiling_lights":[{"id":"lamp","fixture":"core:pool_light_round","x":0,"z":0,"y":3,"switchable":true}]}"#).map_err(|error| error.to_string())?;
+    let lighting = LevelLighting::bake(&level);
+    let field = ProbeField {
+        min: [-2.0, 0.0, -2.0],
+        cell_m: 2.0,
+        dims: [2; 3],
+        probes: vec![
+            ProbeSample {
+                irradiance: [0.3; 3],
+                direction: [0.0; 3],
+                axis: [0.5; 2],
+                room: 0
+            };
+            8
+        ],
+        local_direct: Some(ProbeDirectField {
+            light_indices: vec![0],
+            probes: vec![LightmapTexel::default(); 8],
+        }),
+        switchable_indirect: Vec::new(),
+    };
+    Ok((level, lighting, field))
+}
+
+fn assert_live_placement(object: &super::DynamicObject) {
+    use glam::{Mat4, Vec3};
+    let spin = super::spin_matrix(Vec3::from(object.spin_axis()), object.spin_degrees());
+    let expected = Mat4::from_translation(Vec3::from(object.translation()))
+        .mul_mat4(&Mat4::from_quat(object.base_rotation()).mul_mat4(&spin))
+        .mul_mat4(&Mat4::from_scale(Vec3::splat(object.scale())));
+    assert_eq!(
+        object.transform().to_cols_array().map(f32::to_bits),
+        expected.to_cols_array().map(f32::to_bits),
+        "pose mutation must immediately replace the shared placement"
+    );
+    assert_eq!(
+        object.world_bounds(),
+        crate::engine::render::common::props::transform_bounds(&object.mesh().bounds, &expected),
+        "visibility bounds follow the same current placement"
+    );
+    assert_eq!(
+        object.centre(),
+        expected.transform_point3(Vec3::from(object.mesh().centre)),
+        "receiver center follows the same current placement"
+    );
+}
+
+fn apply_batch_lifecycle_step(
+    scene: &mut DynamicScene,
+    lighting: &mut crate::engine::lighting::LevelLighting,
+    visibility: &mut crate::engine::render::common::dynamic_visibility::DynamicVisibility,
+    primary: super::DynamicId,
+    removed: super::DynamicId,
+    mut revision: u64,
+    step: u8,
+) -> Result<u64, String> {
+    match step {
+        1 => {
+            assert!(scene.set_transform(primary, [0.2, 0.4, 0.1], 37.0, 0.3));
+        }
+        2 => {
+            assert!(scene.set_albedo_tint(primary, [0.5; 3]));
+            assert!(scene.set_emission_scale(primary, 0.5));
+        }
+        3 => {
+            assert!(scene.set_visible(primary, false));
+        }
+        4 => {
+            assert!(scene.set_visible(primary, true));
+            assert!(scene.set_pose(
+                primary,
+                [0.3, 0.2, -0.1],
+                glam::Quat::from_rotation_z(0.4).to_array()
+            ));
+        }
+        5 => {
+            assert!(lighting.set_light_enabled(0, false));
+            scene.retain_static_visibility_on_source_change(revision, revision.saturating_add(1));
+            revision = revision.saturating_add(1);
+        }
+        6 => {
+            assert!(scene.set_transform(removed, [10.0, 0.0, 0.0], 0.0, 0.2));
+            assert!(visibility.sync(scene)?);
+            assert!(scene.set_transform(removed, [-10.0, 0.0, 0.0], 0.0, 0.2));
+            assert!(visibility.sync(scene)?);
+            assert!(scene.despawn(removed));
+        }
+        7 => {
+            scene
+                .objects
+                .iter_mut()
+                .find(|object| object.id() == primary)
+                .ok_or("missing primary")?
+                .spin_degrees_per_second = 30.0;
+        }
+        8 => {
+            scene
+                .objects
+                .iter_mut()
+                .find(|object| object.id() == primary)
+                .ok_or("missing primary")?
+                .float = Some(super::FloatMotion {
+                anchor: glam::Vec3::ZERO,
+                dry_y: 0.4,
+                draft: 0.1,
+                bob_amplitude: 0.1,
+                bob_rate: 0.3,
+                heel_amplitude: 10.0,
+                heel_rate: 0.5,
+                phase: 0.4,
+            });
+            let _moved = scene.update_floats(1.5);
+        }
+        9 => {
+            assert!(lighting.set_light_enabled(0, true));
+            scene.retain_static_visibility_on_source_change(revision, revision.saturating_add(1));
+            revision = revision.saturating_add(1);
+        }
+        _ => {}
+    }
+    Ok(revision)
+}
+
+// Protects batch preparation against stale poses, visual-only edits, switches,
+// suspension, missed history and removal. Nine single triangles and eight
+// probes exercise worker sharing and compare every HDR anchor with a full
+// recalculation; no assets, GPU or map bake, under 100 KiB of fixture data.
+#[test]
+fn shared_lighting_batch_matches_full_refresh_through_lifecycle() -> Result<(), String> {
+    use crate::engine::render::common::{
+        dynamic_visibility::DynamicVisibility,
+        light_transport::{EntityVisibility, entity_spatial_lighting_cached},
+    };
+    let (level, mut lighting, field) = batch_lighting_fixture()?;
+    let mut scene = DynamicScene::new();
+    let mesh = scene
+        .register_model("batch-triangle", &triangle(), Vec::new(), &[])
+        .ok_or("mesh refused")?;
+    let mut ids = Vec::new();
+    for index in 0..9u16 {
+        ids.push(
+            scene
+                .spawn_registered(
+                    mesh,
+                    [f32::from(index).mul_add(0.1, -0.5), 0.3, 0.0],
+                    SpawnOrientation::YAW_ONLY,
+                    0.0,
+                    0.2,
+                )
+                .ok_or("receiver refused")?,
+        );
+    }
+    let primary = *ids.first().ok_or("missing primary")?;
+    let removed = *ids.get(1).ok_or("missing removable")?;
+    scene.water = super::WaterVolumes::from_level(&level);
+    let mut visibility = DynamicVisibility::default();
+    let mut revision = 1u64;
+    for step in 0_u8..10 {
+        revision = apply_batch_lifecycle_step(
+            &mut scene,
+            &mut lighting,
+            &mut visibility,
+            primary,
+            removed,
+            revision,
+            step,
+        )?;
+        let _update = scene.update_with_visibility_and_lighting_revision(
+            1.0 / 60.0,
+            Some(&lighting),
+            Some(&field),
+            None,
+            Some(&mut visibility),
+            revision,
+        )?;
+        for object in scene.objects().iter().filter(|object| object.visible()) {
+            assert_live_placement(object);
+            let full = entity_spatial_lighting_cached(
+                &lighting,
+                Some(&field),
+                object.mesh().bounds,
+                object.transform(),
+                None,
+                EntityVisibility {
+                    dynamic: Some(&visibility),
+                    receiver: Some(object.id()),
+                },
+                None,
+            );
+            assert_eq!(
+                object.spatial_lighting(),
+                full.as_deref(),
+                "step {step}: shared batch must match uncached anchors"
+            );
+        }
+    }
+    scene.clear();
+    let _update = scene.update_with_visibility_and_lighting_revision(
+        0.0,
+        Some(&lighting),
+        Some(&field),
+        None,
+        Some(&mut visibility),
+        revision,
+    )?;
+    assert_eq!(visibility.stats().casters, 0, "reset releases every caster");
+    Ok(())
+}

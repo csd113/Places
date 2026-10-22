@@ -162,6 +162,10 @@ pub(super) struct EntityLightingRefreshKey {
 }
 
 impl EntityLightingRefreshKey {
+    pub(super) const fn center_key(self) -> EntityCenterLightKey {
+        self.center
+    }
+
     /// A moving center diagnostic can stay inside unchanged spatial bounds.
     /// Only resources, bounds, placement and source visibility invalidate the
     /// anchor payload; the center position has its independent sample key.
@@ -177,6 +181,32 @@ impl EntityLightingRefreshKey {
                 || self.dynamic_revision != cached.dynamic_revision
                 || self.receiver != cached.receiver
         })
+    }
+}
+
+/// Prepared once before worker dispatch, consumed by the same synchronous batch.
+/// The receiver publishes its dependency key in preparation; only these two
+/// independent payload updates remain for its worker.
+#[derive(Debug, Default)]
+pub(super) struct EntityLightingRefreshPlan {
+    pub(super) center: bool,
+    pub(super) spatial: bool,
+}
+
+impl EntityLightingRefreshPlan {
+    pub(super) fn new(
+        key: Option<EntityLightingRefreshKey>,
+        previous: Option<EntityLightingRefreshKey>,
+        center: Option<EntityCenterLightKey>,
+    ) -> Self {
+        Self {
+            center: key.is_none_or(|current| Some(current.center) != center),
+            spatial: key.is_none_or(|current| current.spatial_changed(previous)),
+        }
+    }
+
+    pub(super) const fn needed(&self) -> bool {
+        self.center || self.spatial
     }
 }
 
@@ -604,6 +634,8 @@ pub struct DynamicObject {
     visible: bool,
     mesh_index: usize,
     mesh: Arc<DynamicMesh>,
+    /// Shared by visibility, lighting and rendering until the next pose mutation.
+    placement: std::sync::OnceLock<DynamicPlacement>,
     translation: Vec3,
     /// Orientation applied before the spin; identity for yaw-only objects.
     base_rotation: Quat,
@@ -624,6 +656,7 @@ pub struct DynamicObject {
     entity_lighting: Option<super::light_transport::EntityLighting>,
     center_light_key: Option<EntityCenterLightKey>,
     lighting_refresh_key: Option<EntityLightingRefreshKey>,
+    lighting_refresh_plan: EntityLightingRefreshPlan,
     spatial_lighting: Option<Box<super::light_transport::EntitySpatialLighting>>,
     spatial_key: Option<super::light_transport::EntitySpatialKey>,
     static_rays: super::light_transport::EntityStaticRayCache,
@@ -632,6 +665,13 @@ pub struct DynamicObject {
     /// Authored water-driven motion, for a floating prop. `None` for an
     /// ordinary spinning object.
     float: Option<FloatMotion>,
+}
+
+#[derive(Debug)]
+struct DynamicPlacement {
+    model: Mat4,
+    centre: Vec3,
+    bounds: Aabb,
 }
 
 /// One floating object's authored motion, resolved from the level once.
@@ -716,11 +756,39 @@ impl DynamicObject {
     /// Y axis and the dedicated `from_rotation_y` construction.
     #[must_use]
     pub fn transform(&self) -> Mat4 {
-        let spin = spin_matrix(self.spin_axis, self.spin_degrees);
-        let rotation = Mat4::from_quat(self.base_rotation).mul_mat4(&spin);
-        let scale = Mat4::from_scale(Vec3::splat(self.scale));
-        let translation = Mat4::from_translation(self.translation);
-        translation.mul_mat4(&rotation).mul_mat4(&scale)
+        self.placement().model
+    }
+
+    fn placement(&self) -> &DynamicPlacement {
+        self.placement.get_or_init(|| {
+            let spin = spin_matrix(self.spin_axis, self.spin_degrees);
+            let rotation = Mat4::from_quat(self.base_rotation).mul_mat4(&spin);
+            let scale = Mat4::from_scale(Vec3::splat(self.scale));
+            let translation = Mat4::from_translation(self.translation);
+            let model = translation.mul_mat4(&rotation).mul_mat4(&scale);
+            DynamicPlacement {
+                centre: model.transform_point3(Vec3::from(self.mesh.centre)),
+                bounds: super::props::transform_bounds(&self.mesh.bounds, &model),
+                model,
+            }
+        })
+    }
+
+    /// All pose writers pass here. Exact input bits keep even sub-epsilon
+    /// motion correct while repeated solver/door poses retain shared results.
+    fn set_placement(&mut self, translation: Vec3, rotation: Quat, spin_degrees: f32, scale: f32) {
+        if self.translation.to_array().map(f32::to_bits) != translation.to_array().map(f32::to_bits)
+            || self.base_rotation.to_array().map(f32::to_bits)
+                != rotation.to_array().map(f32::to_bits)
+            || self.spin_degrees.to_bits() != spin_degrees.to_bits()
+            || self.scale.to_bits() != scale.to_bits()
+        {
+            let _previous = self.placement.take();
+        }
+        self.translation = translation;
+        self.base_rotation = rotation;
+        self.spin_degrees = spin_degrees;
+        self.scale = scale;
     }
 
     /// The transform's translation.
@@ -912,14 +980,13 @@ impl DynamicObject {
     /// World-space centre of the object's bounds: its probe point.
     #[must_use]
     pub fn centre(&self) -> Vec3 {
-        self.transform()
-            .transform_point3(Vec3::from(self.mesh.centre))
+        self.placement().centre
     }
 
     /// World-space AABB of the object's mesh, for frustum culling and tests.
     #[must_use]
     pub fn world_bounds(&self) -> Aabb {
-        super::props::transform_bounds(&self.mesh.bounds, &self.transform())
+        self.placement().bounds
     }
 
     /// Random access to one object's own mesh-space vertices, for tests.
@@ -934,74 +1001,41 @@ impl DynamicObject {
         &mut self,
         lighting: &LevelLighting,
         irradiance: Option<&crate::engine::lighting::probes::ProbeField>,
-        scene: Option<&crate::engine::lighting::transport::TransportScene>,
-        visibility: Option<&super::dynamic_visibility::DynamicVisibility>,
+        spatial: &super::light_transport::EntitySpatialLightingContext<'_>,
         lighting_revision: Option<u64>,
     ) -> bool {
-        if !self.visible {
-            return false;
-        }
-        let probe = self.centre().to_array();
-        if !probe.iter().all(|value| value.is_finite()) {
-            return false;
-        }
-        let transform = self.transform();
-        let refresh_key = EntityLightingRefreshContext::new(
-            lighting,
-            irradiance,
-            scene,
-            visibility,
-            lighting_revision,
-        )
-        .key(
-            transform,
-            self.mesh.bounds,
-            probe,
-            Some(self.id),
-            self.lighting_refresh_key,
-            Some(&self.static_rays),
-        );
-        if refresh_key.is_some() && self.lighting_refresh_key == refresh_key {
+        let plan = std::mem::take(&mut self.lighting_refresh_plan);
+        if !plan.needed() {
             return false;
         }
         #[cfg(feature = "visual-diagnostics")]
         let refresh_started = std::time::Instant::now();
-        let center_key = lighting_revision
-            .map(|revision| EntityCenterLightKey::new(revision, lighting, irradiance, probe));
-        let center_changed = self.center_light_key != center_key;
+        let probe = self.centre().to_array();
         let mut changed = false;
-        if center_key.is_none() || center_changed {
+        if plan.center {
             let sample = super::light_transport::entity_lighting(lighting, irradiance, probe);
             changed = self.entity_lighting != Some(sample)
                 || self.probe_position.map(f32::to_bits) != probe.map(f32::to_bits);
             self.light_scale = sample.display;
             self.entity_lighting = Some(sample);
-            self.center_light_key = center_key;
+            self.center_light_key = self.lighting_refresh_key.map(|key| key.center);
             self.probe_position = probe;
             self.probe_valid = true;
         }
-        let context = super::light_transport::EntityVisibility {
-            dynamic: visibility,
-            receiver: Some(self.id),
-        };
-        if refresh_key.is_none_or(|key| key.spatial_changed(self.lighting_refresh_key)) {
-            let spatial_key = super::light_transport::entity_spatial_key_with_visibility(
-                lighting, irradiance, transform, scene, context,
-            );
-            if self.spatial_key != spatial_key || refresh_key.is_some() {
-                self.spatial_lighting = super::light_transport::entity_spatial_lighting_cached(
-                    lighting,
-                    irradiance,
+        if plan.spatial {
+            let transform = self.transform();
+            let spatial_key = spatial.key(transform, Some(self.id));
+            if self.spatial_key != spatial_key || self.lighting_refresh_key.is_some() {
+                self.spatial_lighting = spatial.sample(
                     self.mesh.bounds,
                     transform,
-                    scene,
-                    context,
+                    Some(self.id),
+                    spatial_key,
                     lighting_revision.map(|revision| (&mut self.static_rays, revision)),
                 );
                 self.spatial_key = spatial_key;
             }
         }
-        self.lighting_refresh_key = refresh_key;
         #[cfg(feature = "visual-diagnostics")]
         self.static_rays.record_refresh(refresh_started);
         changed
@@ -1246,8 +1280,7 @@ impl DynamicScene {
                 || (object.translation.y - translation.y).abs() > f32::EPSILON
                 || (object.translation.z - translation.z).abs() > f32::EPSILON
                 || (object.spin_degrees - heel).abs() > f32::EPSILON;
-            object.translation = translation;
-            object.spin_degrees = heel;
+            object.set_placement(translation, object.base_rotation, heel, object.scale);
             if changed {
                 moved = moved.saturating_add(1);
             }
@@ -1375,6 +1408,7 @@ impl DynamicScene {
             visible: true,
             mesh_index,
             mesh,
+            placement: std::sync::OnceLock::new(),
             translation: Vec3::from(translation),
             base_rotation: orientation.base_rotation,
             spin_axis: axis.normalize(),
@@ -1388,6 +1422,7 @@ impl DynamicScene {
             entity_lighting: None,
             center_light_key: None,
             lighting_refresh_key: None,
+            lighting_refresh_plan: EntityLightingRefreshPlan::default(),
             spatial_lighting: None,
             spatial_key: None,
             static_rays: super::light_transport::EntityStaticRayCache::default(),
@@ -1473,6 +1508,7 @@ impl DynamicScene {
             visible: true,
             mesh_index,
             mesh,
+            placement: std::sync::OnceLock::new(),
             translation: Vec3::from(translation),
             base_rotation,
             spin_axis: axis.normalize(),
@@ -1486,6 +1522,7 @@ impl DynamicScene {
             entity_lighting: None,
             center_light_key: None,
             lighting_refresh_key: None,
+            lighting_refresh_plan: EntityLightingRefreshPlan::default(),
             spatial_lighting: None,
             spatial_key: None,
             static_rays: super::light_transport::EntityStaticRayCache::default(),
@@ -1566,9 +1603,12 @@ impl DynamicScene {
         let Some(object) = self.objects.iter_mut().find(|object| object.id == id) else {
             return false;
         };
-        object.translation = Vec3::from(translation);
-        object.spin_degrees = spin_degrees;
-        object.scale = scale;
+        object.set_placement(
+            Vec3::from(translation),
+            object.base_rotation,
+            spin_degrees,
+            scale,
+        );
         true
     }
 
@@ -1595,9 +1635,7 @@ impl DynamicScene {
         let Some(object) = self.objects.iter_mut().find(|object| object.id == id) else {
             return false;
         };
-        object.translation = Vec3::from(translation);
-        object.base_rotation = rotation;
-        object.spin_degrees = 0.0;
+        object.set_placement(Vec3::from(translation), rotation, 0.0, object.scale);
         object.spin_degrees_per_second = 0.0;
         object.float = None;
         true
@@ -1775,7 +1813,13 @@ impl DynamicScene {
         for object in &mut self.objects {
             if object.spin_degrees_per_second != 0.0 && step > 0.0 {
                 let advanced = step * object.spin_degrees_per_second;
-                object.spin_degrees = (object.spin_degrees + advanced).rem_euclid(360.0);
+                let spin_degrees = (object.spin_degrees + advanced).rem_euclid(360.0);
+                object.set_placement(
+                    object.translation,
+                    object.base_rotation,
+                    spin_degrees,
+                    object.scale,
+                );
                 moved = moved.saturating_add(1);
             }
         }
@@ -1811,25 +1855,31 @@ impl DynamicScene {
         );
         let mut dirty_count = 0_usize;
         for object in &mut self.objects {
+            object.lighting_refresh_plan = EntityLightingRefreshPlan::default();
             if !object.visible {
+                continue;
+            }
+            let probe = object.centre().to_array();
+            if !probe.iter().all(|value| value.is_finite()) {
                 continue;
             }
             let key = context.key(
                 object.transform(),
                 object.mesh.bounds,
-                object.centre().to_array(),
+                probe,
                 Some(object.id),
                 object.lighting_refresh_key,
                 Some(&object.static_rays),
             );
-            if let (Some(current), Some(previous)) = (key, object.lighting_refresh_key)
-                && current.center == previous.center
-                && !current.spatial_changed(Some(previous))
-            {
-                // Reuse still consumes this observed revision. Cache hits must
-                // not inflate the worker threshold or become missed history.
-                object.lighting_refresh_key = Some(current);
-            } else {
+            object.lighting_refresh_plan = EntityLightingRefreshPlan::new(
+                key,
+                object.lighting_refresh_key,
+                object.center_light_key,
+            );
+            // Consume observed visibility revisions even when all payloads stay
+            // unchanged, so a later frame does not unnecessarily miss history.
+            object.lighting_refresh_key = key;
+            if object.lighting_refresh_plan.needed() {
                 dirty_count = dirty_count.saturating_add(1);
             }
         }
@@ -1841,15 +1891,15 @@ impl DynamicScene {
         } else {
             usize::MAX
         };
+        let spatial = super::light_transport::EntitySpatialLightingContext::new(
+            level_lighting,
+            irradiance,
+            scene,
+            visibility,
+        );
         let refreshed = std::sync::atomic::AtomicUsize::new(0);
         crate::engine::runtime_work::for_each_mut(&mut self.objects, min_receivers, |object| {
-            if object.refresh_lighting(
-                level_lighting,
-                irradiance,
-                scene,
-                visibility,
-                lighting_revision,
-            ) {
+            if object.refresh_lighting(level_lighting, irradiance, &spatial, lighting_revision) {
                 let _previous_count = refreshed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             }
         });

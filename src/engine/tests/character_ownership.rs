@@ -31,6 +31,8 @@ fn actor(id: &str, asset: Arc<LoadedPropAsset>) -> Result<Character, String> {
         },
         center_light_key: None,
         lighting_refresh_key: None,
+        lighting_refresh_plan:
+            crate::engine::render::common::dynamic::EntityLightingRefreshPlan::default(),
         spatial_lighting: None,
         spatial_key: None,
         static_rays: crate::engine::render::common::light_transport::EntityStaticRayCache::default(
@@ -287,5 +289,80 @@ fn adjacent_blended_normals_preserve_exact_results_and_pose_lifetime() -> Result
             }
         }
     }
+    Ok(())
+}
+
+// Suspension must avoid work and retain stale dependency keys until wake, while
+// pose animation and opacity alone must not invalidate environmental samples.
+// One synthetic actor and one authored light need no assets, bake, or GPU.
+#[test]
+fn suspended_character_defers_lighting_and_refreshes_immediately_on_restore() -> Result<(), String>
+{
+    use crate::engine::{level::LevelDef, lighting::LevelLighting};
+    let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"suspension","name":"Suspension","spawn":{"x":0,"z":0},"rooms":[{"x":-4,"z":-4,"width":8,"depth":8,"height":4}],"ceiling_lights":[{"id":"lamp","fixture":"core:pool_light_round","x":0,"z":0,"y":3,"switchable":true}]}"#).map_err(|error| error.to_string())?;
+    let mut lighting = LevelLighting::bake(&level);
+    let mut scene = CharacterScene::new();
+    scene.runtime.push(actor("suspended", tiny_rig())?);
+    scene.refresh_lighting_with_visibility_and_revision(&lighting, None, None, None, 1);
+    let original = scene
+        .runtime
+        .first()
+        .ok_or("missing actor")?
+        .lighting_refresh_key;
+    let character = scene.runtime.first_mut().ok_or("missing actor")?;
+    character.set_opacity(0.5);
+    character.animator.revision = character.animator.revision.wrapping_add(1);
+    scene.refresh_lighting_with_visibility_and_revision(&lighting, None, None, None, 1);
+    assert_eq!(
+        scene
+            .runtime
+            .first()
+            .ok_or("missing actor")?
+            .lighting_refresh_key,
+        original,
+        "visual-only revisions retain lighting dependencies"
+    );
+    assert!(
+        scene.set_runtime_character_visible("suspended", false),
+        "suspend actor"
+    );
+    assert!(
+        lighting.set_light_enabled(0, false),
+        "change actual source energy"
+    );
+    scene
+        .runtime
+        .first_mut()
+        .ok_or("missing actor")?
+        .set_pose(Vec3::new(0.2, 0.1, 0.3), 0.4);
+    scene.refresh_lighting_with_visibility_and_revision(&lighting, None, None, None, 2);
+    assert_eq!(
+        scene
+            .runtime
+            .first()
+            .ok_or("missing actor")?
+            .lighting_refresh_key,
+        original,
+        "suspended actors retain their unsampled dependencies"
+    );
+    assert!(
+        scene.set_runtime_character_visible("suspended", true),
+        "restore actor"
+    );
+    scene.refresh_lighting_with_visibility_and_revision(&lighting, None, None, None, 2);
+    let restored = scene.runtime.first().ok_or("missing actor")?;
+    assert_ne!(
+        restored.lighting_refresh_key, original,
+        "restoration refreshes before rendering"
+    );
+    assert_eq!(
+        restored.entity_lighting,
+        crate::engine::render::common::light_transport::entity_lighting(
+            &lighting,
+            None,
+            restored.lighting_sample_position()
+        ),
+        "restoration matches full lighting at the current pose and source state"
+    );
     Ok(())
 }
