@@ -119,6 +119,7 @@ def main() -> None:
     parser.add_argument("--capture-frame", type=int, help="capture instead of measuring performance")
     parser.add_argument("--gpu-trace", action="store_true", help="three labelled raw GPU samples; diagnostic run")
     parser.add_argument("--no-caustics", action="store_true", help="same-build disabled-effect control")
+    parser.add_argument("--no-occlusion", action="store_true", help="diagnostic only: retain frustum culling but disable conservative solid-triangle occlusion")
     parser.add_argument("--no-gpu-timing", action="store_true", help="same-build instrumentation control")
     parser.add_argument("--no-present", action="store_true", help="diagnostic only: render and discard acquired frames; no presented-FPS claim")
     parser.add_argument("--no-render", action="store_true", help="diagnostic only: cycle the native surface without scene/UI work")
@@ -201,6 +202,7 @@ def main() -> None:
         "PLACES_BENCH_QUALITY_CYCLE": args.quality_cycle,
         "PLACES_BENCH_LIGHTING_SEQUENCE": str(args.lighting_sequence.resolve(strict=True)) if args.lighting_sequence else "",
         "PLACES_BENCH_ACTIONS": str(args.actions.resolve(strict=True)) if args.actions else "",
+        "PLACES_BENCH_OCCLUSION": "off" if args.no_occlusion else "",
         "PLACES_BENCH_GPU_TRACE": "1" if args.gpu_trace else "",
         "PLACES_BENCH_GPU_TIMING": "off" if args.no_gpu_timing else "",
         "PLACES_BENCH_NOSWAP": "1" if args.no_present else "",
@@ -336,7 +338,7 @@ def main() -> None:
         for key in ("loop_ms", "frame_ms", "update_ms", "render_ms", "swap_ms")
     }
     receipt = dict(
-        kind="capture" if capture else "diagnostic" if (args.cpu_trace or args.render_trace or args.surface_trace or args.hide_models or args.no_present or args.no_render or args.finish or args.gpu_trace or args.graphics_cycle or args.window_cycle or args.quality_cycle or args.lighting_sequence or args.physics_trace or args.actions) else "timing",
+        kind="capture" if capture else "diagnostic" if (args.cpu_trace or args.render_trace or args.surface_trace or args.hide_models or args.no_present or args.no_render or args.no_occlusion or args.finish or args.gpu_trace or args.graphics_cycle or args.window_cycle or args.quality_cycle or args.lighting_sequence or args.physics_trace or args.actions) else "timing",
         requested_ready_seconds=args.seconds, warmup_frames=args.warmup,
         started_utc=started_utc, elapsed_seconds=time.monotonic() - started,
         binary=str(binary), binary_sha256=binary_sha256, package=str(package), package_sha256=package_sha256,

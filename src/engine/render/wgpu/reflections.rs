@@ -167,6 +167,19 @@ pub struct CaptureFrame {
 }
 
 impl CaptureFrame {
+    /// Reflect both camera spaces together before preparing visibility.
+    #[must_use]
+    pub fn planar(frame: &super::world::WorldFrame, plane: &ReflectionPlane) -> Self {
+        Self::new(
+            planar_view_projection(frame.view_projection, plane),
+            glam::Vec3::from_array(crate::engine::render::common::reflections::mirror_point(
+                plane.normal,
+                plane.offset,
+                frame.eye.to_array(),
+            )),
+        )
+    }
+
     /// Builds a capture frame from a wgpu-clip view-projection and eye.
     #[must_use]
     pub fn new(view_projection: glam::Mat4, eye: glam::Vec3) -> Self {
@@ -185,6 +198,7 @@ impl CaptureFrame {
             view_projection: self.view_projection,
             frustum: self.frustum,
             eye: self.eye,
+            occlusion: crate::engine::render::common::occlusion::OcclusionView::EMPTY,
         }
     }
 }

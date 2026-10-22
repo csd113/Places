@@ -28,6 +28,7 @@ pub mod light_transport;
 pub mod materials;
 pub mod mesh;
 pub mod normal;
+pub mod occlusion;
 pub mod postprocess;
 pub mod probe_filter;
 pub mod props;

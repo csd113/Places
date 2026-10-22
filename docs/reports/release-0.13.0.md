@@ -2670,3 +2670,146 @@ No CI wait, force push, release, main merge or credential change was performed.
 The final on-disk handoff records the exact staging commit, verified remote,
 artifact paths, delivery blocker and explicit ownership release; final docs and
 integrated validation are the next stage.
+
+## GPU rendering and visibility pass — 2026-10-22
+
+This is the first newly authorized sequential performance pass. Loading/memory
+work follows separately. Baseline is pushed `307f9d2efcb8a6c72ca03ea4725384bfd3c53e1b`
+on `0.13.0-staging`. The preserved baseline executable is SHA-256
+`16c07cb27ce5452aba5a749737b511a0488c7c6ed0593d6ef70cb1c4fad4f0ec`;
+the verified candidate is
+`7ef8477e0eb23adfef3f284930051d6eecec80d4f9e28c3e17ffd7811ca29925`.
+Inputs, executable copies, exact commands, receipts, traces, frame CSVs and media
+are retained under `local/gpu-visibility-0.13.0/`, outside `target`.
+
+### Shared change and correctness boundary
+
+The renderer now rejects wholly hidden draw bounds using existing **opaque
+architectural triangles**. Upload retains at most 512 large triangles, with
+bounded temporary storage; each current camera prepares at most 24 triangle
+cones in fixed storage. All of a box must lie strictly behind one actual solid
+triangle and inside its three eye-to-edge planes. A coordinate-scaled margin
+keeps uncertain cases visible. Triangles are never joined across openings.
+This removes submitted geometry behind walls without inferring rooms or portals.
+
+Static world, prop, current movable/door, posed character and decal bounds use
+this filter after frustum acceptance. Scene and emission share the camera's
+cones; planar captures prepare their own reflected view. Fully hidden reflective
+bounds no longer request a planar capture. Planar mirror surfaces are excluded
+as occluders because the active mirror is absent from its own capture. Cutout,
+blended, moving and character geometry never supply occluders. Near-clipped,
+invalid, coplanar, edge-touching and intersecting geometry survives. Simulation,
+lighting preparation, light sources, transparency order and effects are unchanged.
+Spotlight shadows and offline probe captures retain their original visibility;
+o stale camera/pose answer or dirty-light cache was introduced.
+
+At matched frame 180, base-scene submission changes as follows. Counts include
+accounted geometry and decals/effects, excluding reflection/emission duplicates,
+post-processing and UI; they establish submitted work, not GPU pixel visibility.
+
+| View | Draws before → after | Submitted indices before → after |
+| --- | ---: | ---: |
+| Busy Arcade | 308 → 198 (−35.7%) | 407,502 → 313,374 (−23.1%) |
+| Arcade bathroom | 28 → 28 | 20,148 → 20,148 |
+| Pool closet approach | 90 → 53 | 61,944 → 28,152 |
+| Stress lab / actors | 62 → 37 | 198,402 → 177,294 |
+| Home | 33 → 32 | 17,160 → 16,848 |
+
+All five native before/after images have **zero changed RGB channels**, including
+Arcade at 2560×1440 and the other views at 1280×720. Thirty-five additional native
+captures exercise stress-lab contacts/reset and visitor lifetime, Pool underwater/
+waterline/rim transitions, Home folding-door traversal and reversal, and eight
+ragdolls with pause/step/resume, Medium/High graphics, menu return and reload.
+Selected captures were visually inspected. Underwater state is confirmed; door
+progress runs 0→1, reverses midtravel and returns to 1; ragdoll count returns
+8→0 at menu and remains zero on authored reload. These are focused native checks,
+not exhaustive certification of arbitrary future maps or every lighting state.
+
+### Matched timing and pass evidence
+
+Twenty capture-free Release trials use an ABBA order, 240 warmup frames and
+2,400 measured frames per run. Hardware is Apple M2 Pro, macOS 27.0.1 / Metal.
+High quality/filtering, Full lightmaps/reflections, bloom, 60° FOV, VSync **off**
+and engine limiters off remain fixed. Receipts confirm actual Immediate and the
+physical drawable. Arcade uses 2560×1440; other cases use 1280×720. No build,
+recording or second native run overlaps these trials. Reused collection, editable
+stress-lab and shared menu assets retain their hashes; no map was rebaked.
+
+Fixed gameplay setups are Arcade `(6.8,1.6,28; yaw25,pitch0)`, bathroom
+`(-1.6,1.6,2.8;270,0)`, Pool `(13,1.6,13;90,0)` and lab
+`(14.5,1.6,11;315,0)`. Menu uses its authored live camera and simulation.
+Each pair below lists both trial values, without dropping the slow repeat.
+GPU values are medians of deduplicated completion IDs, measuring the **union of
+GPU stage timestamp spans**, including scheduling stalls, rather than active
+execution/utilization. `results.json` retains means, tails, worst frames and counts.
+
+| View | Presented frames/s before → after | Median GPU span ms before → after | Mean CPU update ms before → after |
+| --- | --- | --- | --- |
+| Busy Arcade | 243.77 / 244.40 → 222.59 / 249.39 | 4.491 / 4.487 → 4.399 / 4.395 | 1.036 / 1.054 → 1.000 / 1.049 |
+| Bathroom | 582.33 / 581.69 → 580.00 / 581.75 | 1.104 / 1.098 → 1.101 / 1.094 | 0.955 / 0.954 → 0.941 / 0.938 |
+| Pool closet | 790.76 / 726.94 → 399.42 / 724.36 | 0.850 / 0.869 → 0.960 / 0.885 | 0.112 / 0.115 → 0.131 / 0.112 |
+| Stress lab | 434.62 / 434.43 → 441.83 / 442.39 | 1.461 / 1.483 → 1.448 / 1.468 | 1.711 / 1.713 → 1.702 / 1.708 |
+| Live menu | 647.24 / 612.35 → 608.62 / 607.34 | 1.071 / 1.064 → 1.055 / 1.062 | 0.434 / 0.432 → 0.437 / 0.435 |
+
+Arcade's median GPU span is about **0.092 ms / 2% lower** in these trials, alongside
+substantially fewer submissions. The lab's observed rate rises about 1.8%, with
+overlapping GPU spans. Bathroom is effectively flat; Pool is mixed/slower, and
+menu rates are lower across the recorded repeats.
+**No engine-wide FPS gain is claimed.** Rates exceed the recorded 120 Hz refresh,
+but actual Immediate alone does not eliminate drawable-acquisition pacing.
+Arcade's slow after repeat has loop p99 10.626 ms versus 6.371–6.787 before;
+Pool's slow after repeat has p99 16.384 ms versus 3.612–3.763 before. These are
+retained limitations, not renderer savings or a proven fix for the original
+location-specific Pool slowdown.
+
+Same-candidate filter-off/on diagnostics retain frustum culling and use new bounded
+per-pass submitted-draw fields in raw GPU traces. Arcade submits planar **300→265**,
+scene **308→200**, emission **38→35** at the sampled live frames. The deterministic
+frame-180 scene count is 198 because current moving content can change bounds.
+Pool samples submit scene **90→53**, emission **2→1**. In the fog/flashlight lab,
+scene draws are **62→37**, emission stays **1**, and spotlight visibility stays
+**29→29**: offscreen shadow casters are preserved. Bloom/resolve/UI/surface-copy
+passes remain present. Arcade's captured environment has **zero fog regions and
+zero global fog density**, ruling fog out as its current busy-view cause; lab
+mist and Pool global fog retain their original shader and quality.
+
+Three-sample diagnostic GPU pass spans are deliberately not treated as isolated
+execution costs: Arcade planar medians are 1.208→1.256 ms, scene 4.169→4.755 ms and
+emission 3.796→3.758 ms; Pool scene is 0.839→0.684 ms; lab spotlight is
+0.117→0.113 ms. Metal stage intervals overlap and include stalls, so these values
+cannot be added or substituted for the longer capture-free trial medians.
+
+Bounded CPU stage traces separate acquisition from encoding. Arcade filter-off/on
+reported medians are preparation **0.345→0.355 ms**, acquisition **3.524→3.474 ms**,
+encoding **0.458→0.387 ms**, submission **0.152→0.138 ms**. Additional eight-second
+Pool controls report preparation **0.005→0.013 ms**, acquisition **3.976→3.926 ms**,
+encoding **0.263→0.218 ms**, submission **0.069→0.068 ms**. Both Pool controls contain
+roughly 19–20 ms acquisition tails. These bounded traces preferentially retain
+slow frames (96 maximum); they are diagnostic spans, not whole-run percentiles
+or presented-FPS comparisons. The visibility preparation adds small CPU work while
+reducing encoded work; independent native presentation cost remains open.
+
+### Gates, media and sequential handoff
+
+`cargo fmt --all --check`, strict workspace/all-target/all-feature Clippy,
+`cargo test --workspace --all-features` (**257 passed**, zero failed/ignored), and
+`cargo build --locked --release --workspace --all-features` all pass. The three new
+triangle/box regression fixtures protect false-positive culling at openings,
+near/coplanar/invalid boundaries and changed/reflected cameras or moving bounds.
+They add no assets, map bake or GPU and execute below the test timer's 0.01 s
+resolution. Python benchmark syntax validation passes. No hosted CI was awaited.
+
+Eight separate six-second 1280×720 clips retain 60 Hz capture pacing and **30 FPS**
+output, covering before/after Arcade, Pool, actors and live menu. They supply no
+timing numbers. The inspected 27-second, 30 FPS side-by-side montage is
+`local/gpu-visibility-0.13.0/montage/Places-0.13.0-GPU-visibility-before-after.mp4`;
+its captions show separate measured results and explicitly retain mixed/slower
+cases. Raw clips and encoder receipts remain available for the final two-pass
+montage. No 2 FPS footage was used.
+
+Only the current authorized staging branch is committed/pushed. No version bump,
+tag, release, main merge, force push, map rebake, texture change, GPU-skinning,
+compression, job-system or presentation rewrite is included. The unrelated Python
+audit files are preserved. The final local handoff records the remote commit and
+process custody. `target` is retained, with no `cargo clean`, for the parent's
+subsequent loading/memory pass; all deliverable copies are already outside it.

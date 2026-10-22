@@ -185,5 +185,6 @@ pub fn flashlight_frame(light: Flashlight) -> WorldFrame {
         view_projection: super::world::clip_correction() * matrix,
         frustum: Frustum::from_view_projection(&matrix, DepthRange::NegativeOneToOne),
         eye: light.position,
+        occlusion: crate::engine::render::common::occlusion::OcclusionView::EMPTY,
     }
 }

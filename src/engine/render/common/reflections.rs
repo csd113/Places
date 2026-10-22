@@ -482,11 +482,12 @@ pub fn nearest_visible_reflection_plane(
     routing: &ReflectionRouting,
     camera: [f32; 3],
     frustum: &Frustum,
+    occlusion: &super::occlusion::OcclusionView,
 ) -> Option<usize> {
     let eye = glam::Vec3::from_array(camera);
     let mut best: Option<(f32, usize)> = None;
     for (index, plane) in routing.planes.iter().enumerate() {
-        if !frustum.intersects_aabb(&plane.bounds) {
+        if !frustum.intersects_aabb(&plane.bounds) || occlusion.hides(&plane.bounds) {
             continue;
         }
         let closest = eye.clamp(

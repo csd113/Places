@@ -275,6 +275,28 @@ pub struct WorldFrame {
     /// Eye position in world metres, for the translucent pass's back-to-front
     /// sort (the reference sorts by squared distance from the body camera).
     pub eye: glam::Vec3,
+    pub occlusion: crate::engine::render::common::occlusion::OcclusionView,
+}
+
+impl WorldFrame {
+    pub fn with_occlusion(mut self, world: Option<&WgpuWorldGeometry>, enabled: bool) -> Self {
+        static DISABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        let diagnostic_disabled = *DISABLED.get_or_init(|| {
+            std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+                && std::env::var("PLACES_BENCH_OCCLUSION").as_deref() == Ok("off")
+        });
+        if enabled
+            && !diagnostic_disabled
+            && let Some(geometry) = world
+        {
+            self.occlusion = geometry.occluders.view(self.eye, self.view_projection);
+        }
+        self
+    }
+
+    pub fn visible(&self, bounds: &Aabb) -> bool {
+        self.frustum.intersects_aabb(bounds) && !self.occlusion.hides(bounds)
+    }
 }
 
 /// Prepares the frame's matrices from the shared Places camera.
@@ -296,6 +318,7 @@ pub fn prepare_world_frame(camera: RenderCamera, render_size: DrawableSize) -> W
         view_projection: corrected,
         frustum,
         eye: camera.position,
+        occlusion: crate::engine::render::common::occlusion::OcclusionView::EMPTY,
     }
 }
 
@@ -1326,6 +1349,7 @@ pub struct WgpuWorldGeometry {
     chunks: Vec<WorldChunk>,
     draws: Vec<WorldDraw>,
     pass_indices: WorldPassIndices,
+    pub occluders: crate::engine::render::common::occlusion::Occluders,
     stats: WorldGeometryStats,
 }
 
@@ -1423,11 +1447,42 @@ impl WgpuWorldGeometry {
                 .saturating_mul(usize::try_from(WORLD_VERTEX_STRIDE).unwrap_or(usize::MAX)),
             index_bytes: uploaded_indices.saturating_mul(std::mem::size_of::<u16>()),
         };
+        let occluders = crate::engine::render::common::occlusion::Occluders::new(
+            mesh.ranges
+                .iter()
+                .filter(|range| {
+                    matches!(
+                        range.key.kind,
+                        SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
+                    ) && range_pass(range, materials) == BatchPass::Opaque
+                        // The active mirror is absent from its own capture.
+                        // It cannot prove coverage shared with reflected views.
+                        && !materials
+                            .reflections
+                            .get(usize::try_from(range.key.material).unwrap_or(usize::MAX))
+                            .is_some_and(|reflection| reflection.mode.is_planar())
+                })
+                .flat_map(|range| {
+                    range
+                        .indices
+                        .as_chunks::<3>()
+                        .0
+                        .iter()
+                        .filter_map(|&[a, b, c]| {
+                            Some([
+                                range.vertices.get(usize::from(a))?.pos,
+                                range.vertices.get(usize::from(b))?.pos,
+                                range.vertices.get(usize::from(c))?.pos,
+                            ])
+                        })
+                }),
+        );
         let pass_indices = WorldPassIndices::new(&draws);
         Self {
             chunks,
             draws,
             pass_indices,
+            occluders,
             stats,
         }
     }
@@ -2725,8 +2780,7 @@ impl WorldPipeline {
                 .ok()
                 .and_then(|slot| inputs.geometry.draws.get(slot))
                 .filter(|draw| {
-                    draw.index_count > 0
-                        && (!inputs.cull || inputs.frame.frustum.intersects_aabb(&draw.bounds))
+                    draw.index_count > 0 && (!inputs.cull || inputs.frame.visible(&draw.bounds))
                 })
             {
                 push(TransparentItem::World(*index), draw.bounds.centre());
@@ -2736,7 +2790,7 @@ impl WorldPipeline {
             for (index, draw) in props.draws().iter().enumerate().filter(|(_, draw)| {
                 draw.pass == BatchPass::Translucent
                     && draw.index_count > 0
-                    && (!inputs.cull || inputs.frame.frustum.intersects_aabb(&draw.bounds))
+                    && (!inputs.cull || inputs.frame.visible(&draw.bounds))
             }) {
                 push(TransparentItem::Prop(index), draw.bounds.centre());
             }
@@ -2746,7 +2800,7 @@ impl WorldPipeline {
                 if (0..dynamic.submesh_count(index)).any(|submesh| {
                     dynamic.submesh_pass(index, submesh) == Some(BatchPass::Translucent)
                 }) && let Some(bounds) = dynamic.world_bounds(index)
-                    && (!inputs.cull || inputs.frame.frustum.intersects_aabb(&bounds))
+                    && (!inputs.cull || inputs.frame.visible(&bounds))
                 {
                     push(TransparentItem::Dynamic(index), bounds.centre());
                 }
@@ -2757,7 +2811,7 @@ impl WorldPipeline {
                 .filter(|index| characters.has_submesh_pass(*index, BatchPass::Translucent))
             {
                 if let Some(bounds) = characters.world_bounds(index)
-                    && (!inputs.cull || inputs.frame.frustum.intersects_aabb(&bounds))
+                    && (!inputs.cull || inputs.frame.visible(&bounds))
                 {
                     push(TransparentItem::Character(index), bounds.centre());
                 }
@@ -2826,7 +2880,7 @@ impl WorldPipeline {
             let Some(bounds) = dynamic.world_bounds(object) else {
                 continue;
             };
-            if inputs.cull && !inputs.frame.frustum.intersects_aabb(&bounds) {
+            if inputs.cull && !inputs.frame.visible(&bounds) {
                 continue;
             }
             let Some(environment) = dynamic.environment(object) else {
@@ -2963,7 +3017,7 @@ impl WorldPipeline {
         let Some(bounds) = characters.world_bounds(character) else {
             return totals;
         };
-        if inputs.cull && !inputs.frame.frustum.intersects_aabb(&bounds) {
+        if inputs.cull && !inputs.frame.visible(&bounds) {
             return totals;
         }
         let Some(environment) = characters.environment(character) else {
@@ -3109,7 +3163,7 @@ impl WorldPipeline {
             if emission_only && wanted != BatchPass::Translucent && !draw.emissive {
                 continue;
             }
-            if inputs.cull && !inputs.frame.frustum.intersects_aabb(&draw.bounds) {
+            if inputs.cull && !inputs.frame.visible(&draw.bounds) {
                 continue;
             }
             if bound_pipeline != Some(draw.pass) {
@@ -3200,7 +3254,10 @@ impl WorldPipeline {
             if draw.index_count == 0 {
                 continue;
             }
-            if inputs.cull && !frustum.intersects_aabb(&draw.bounds) {
+            if inputs.cull
+                && (!frustum.intersects_aabb(&draw.bounds)
+                    || inputs.frame.occlusion.hides(&draw.bounds))
+            {
                 continue;
             }
             let Some(material_slot) = materials.slot_for_draw(vertex_index) else {

@@ -810,7 +810,7 @@ impl WgpuDecals {
             if draw.index_count == 0 {
                 continue;
             }
-            if inputs.cull && !inputs.frame.frustum.intersects_aabb(&draw.bounds) {
+            if inputs.cull && !inputs.frame.visible(&draw.bounds) {
                 continue;
             }
             if bound_pipeline != Some(draw.blend) {

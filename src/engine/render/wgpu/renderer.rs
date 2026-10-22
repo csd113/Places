@@ -85,7 +85,7 @@ use crate::engine::render::common::effects::EffectScene;
 use crate::engine::render::common::materials::MaterialRenderState;
 use crate::engine::render::common::postprocess::PostSettings;
 use crate::engine::render::common::reflections::{
-    Reflections, mirror_point, nearest_visible_reflection_plane, routing_from_mesh,
+    Reflections, nearest_visible_reflection_plane, routing_from_mesh,
 };
 use crate::engine::render::common::stats::{GpuTiming, LevelBuildStats, RenderStats};
 use crate::engine::render::common::view::DrawableSize;
@@ -4648,7 +4648,8 @@ impl WgpuRenderer {
         if let Some(props) = self.world_props.as_mut() {
             props.update_animations(&self.queue, self.animation_seconds);
         }
-        let frame = prepare_world_frame(camera, self.drawable_size);
+        let frame = prepare_world_frame(camera, self.drawable_size)
+            .with_occlusion(self.world.as_ref(), self.culling);
         // The planar target follows the render size; a recreate invalidates the
         // environment binding that references it.
         if self.reflections.planar_wanted()
@@ -4665,6 +4666,7 @@ impl WgpuRenderer {
                 &self.reflections.routing,
                 frame.eye.into(),
                 &frame.frustum,
+                &frame.occlusion,
             )
         } else {
             None
@@ -5773,13 +5775,7 @@ impl WgpuRenderer {
         else {
             return false;
         };
-        let mirrored_matrix = planar_view_projection(frame.view_projection, plane);
-        let mirrored_eye = glam::Vec3::from_array(mirror_point(
-            plane.normal,
-            plane.offset,
-            frame.eye.to_array(),
-        ));
-        let capture = CaptureFrame::new(mirrored_matrix, mirrored_eye);
+        let capture = CaptureFrame::planar(frame, plane);
         // The mirror must not sample the image it is writing.
         materials.update_reflection_modes(&self.queue, None, false, false, true);
         pipeline.upload_camera(&self.queue, capture.view_projection, capture.eye);
@@ -5793,7 +5789,9 @@ impl WgpuRenderer {
         ) else {
             return false;
         };
-        let capture_frame = capture.world_frame();
+        let capture_frame = capture
+            .world_frame()
+            .with_occlusion(Some(world), self.culling);
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {

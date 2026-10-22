@@ -31,6 +31,7 @@ struct FrameQueries {
     frame: u64,
     empty_pairs: u32,
     labels: [&'static str; MAX_PASS_LABELS],
+    draws: [Option<usize>; MAX_PASS_LABELS],
 }
 
 struct PendingReadback {
@@ -90,6 +91,7 @@ pub struct GpuTimer {
     used_queries: Cell<u32>,
     empty_pairs: Cell<u32>,
     pass_labels: Cell<[&'static str; MAX_PASS_LABELS]>,
+    pass_draws: Cell<[Option<usize>; MAX_PASS_LABELS]>,
     period_ns: f32,
     frame: u64,
     samples: u64,
@@ -132,6 +134,7 @@ impl GpuTimer {
             used_queries: Cell::new(0),
             empty_pairs: Cell::new(0),
             pass_labels: Cell::new([""; MAX_PASS_LABELS]),
+            pass_draws: Cell::new([None; MAX_PASS_LABELS]),
             period_ns,
             frame: 0,
             samples: 0,
@@ -169,6 +172,7 @@ impl GpuTimer {
         self.used_queries.set(0);
         self.empty_pairs.set(0);
         self.pass_labels.set([""; MAX_PASS_LABELS]);
+        self.pass_draws.set([None; MAX_PASS_LABELS]);
         // A failed sample says nothing about adapter support. A loading pass
         // may execute no vertex/fragment stages, so keep sampling supported
         // hardware and let a later complete result recover the meter.
@@ -186,6 +190,16 @@ impl GpuTimer {
     /// Excludes only an authoritatively empty pass, never malformed data from
     /// a pass that rendered. Query indices remain unique even when excluded.
     pub fn record_pass_draws(&self, beginning: u32, draws: usize) {
+        if self.used_queries.get() == beginning.saturating_add(2) {
+            let mut counts = self.pass_draws.get();
+            if let Some(slot) = usize::try_from(beginning / 2)
+                .ok()
+                .and_then(|index| counts.get_mut(index))
+            {
+                *slot = Some(draws);
+                self.pass_draws.set(counts);
+            }
+        }
         if draws == 0
             && self.used_queries.get() == beginning.saturating_add(2)
             && let Some(bit) = 1_u32.checked_shl(beginning / 2)
@@ -243,6 +257,7 @@ impl GpuTimer {
                     frame: self.frame,
                     empty_pairs,
                     labels: self.pass_labels.get(),
+                    draws: self.pass_draws.get(),
                 },
             })
         });
@@ -389,6 +404,7 @@ fn trace_raw_sample(bytes: &[u8], frame: &FrameQueries, period_ns: f32) {
                 "end_ticks": end,
                 "duration_ms": duration_ms,
                 "excluded_empty": empty,
+                "submitted_draws": frame.draws.get(index).copied().flatten(),
             })
         })
         .collect();
