@@ -35,6 +35,7 @@ fn item<'a>(key: u64, from: f32, to: f32) -> TriggerItem<'a> {
         held: true,
         path: None,
         sleeping: false,
+        up_y: 1.0,
         centre_path: None,
     }
 }

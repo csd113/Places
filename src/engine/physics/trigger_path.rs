@@ -22,6 +22,7 @@ pub struct ItemTriggerBody {
     pub held: bool,
     /// True only for a sleeping dynamic solver body, never a dormant item.
     pub sleeping: bool,
+    pub up_y: f32,
     path: [Vec3; MAX_TRIGGER_PATH_POINTS],
     centre_path: [Vec3; MAX_TRIGGER_PATH_POINTS],
     path_len: u8,
@@ -148,6 +149,7 @@ impl TriggerPath {
             half_extents,
             held: false,
             sleeping: false,
+            up_y: current.rotation.mul_vec3(Vec3::Y).y,
             path,
             centre_path,
             path_len,

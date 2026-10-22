@@ -676,6 +676,7 @@ struct PresentationState {
 }
 
 struct FrameLoop<'a> {
+    campaign: crate::game::campaign::CampaignSave,
     diagnostic_tick: Instant,
     diagnostic_state: Option<AppState>,
     window: &'a mut Window,
@@ -1345,6 +1346,13 @@ impl FrameLoop<'_> {
         reason = "one command dispatcher, one arm per command"
     )] // one command dispatcher, one arm per command
     fn apply_world_commands(&mut self) {
+        if self
+            .current_level
+            .as_ref()
+            .is_some_and(|loaded| !loaded.level.script_sources.is_empty())
+        {
+            self.campaign.flush();
+        }
         let commands = self.game.entities_mut().take_commands();
         for command in commands {
             match command {
@@ -3894,6 +3902,9 @@ impl FrameLoop<'_> {
             *self.spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
             self.game
                 .reset_level(*self.spawn_pos, *self.spawn_yaw, collision);
+            self.game
+                .entities_mut()
+                .attach_campaign(self.campaign.attach(&loaded.entry.path));
             install_timer.step("game-reset");
             self.install_physical_items(&loaded.level, &loaded.materials);
             install_timer.step("physical-items");
@@ -4867,8 +4878,9 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let capture_at_frame = capture_frame_from_env();
     let capture_at_seconds = capture_time_from_env();
 
-    let initial_lightmaps = settings.lightmap_quality();
     let mut frame_loop = FrameLoop {
+        campaign: crate::game::campaign::CampaignSave::default(),
+        load_lightmaps: settings.lightmap_quality(),
         diagnostic_tick: Instant::now(),
         diagnostic_state: None,
         window: &mut window,
@@ -4916,7 +4928,6 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         load_generation: 0,
         load_return_state: AppState::MainMenu,
         load_phase: None,
-        load_lightmaps: initial_lightmaps,
         startup: StartupPhase::Preparing,
         launch_overrides: true,
         ready_frames: 0,

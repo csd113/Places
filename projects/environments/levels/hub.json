@@ -85,6 +85,15 @@
       "depth": 3,
       "height": 3.8,
       "material": "frutiger_aero:white_floor_01"
+    },
+    {
+      "x": 24,
+      "z": 3.0,
+      "width": 10,
+      "depth": 8,
+      "height": 3.8,
+      "material": "home:hardwood_walnut_02",
+      "comment": "Room of Small Kindnesses; shared threshold in the existing east wall."
     }
   ],
   "walls": [
@@ -100,7 +109,15 @@
       "z": 0,
       "width": 0.24,
       "depth": 14,
-      "height": 3.8
+      "height": 3.8,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 6.17,
+          "width": 1.66,
+          "height": 2.4
+        }
+      ]
     },
     {
       "x": 0,
@@ -277,6 +294,30 @@
       "depth": 2.76,
       "height": 3.8,
       "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 24.24,
+      "z": 2.76,
+      "width": 9.76,
+      "depth": 0.24,
+      "height": 3.8,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 24.24,
+      "z": 11,
+      "width": 9.76,
+      "depth": 0.24,
+      "height": 3.8,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 34,
+      "z": 2.76,
+      "width": 0.24,
+      "depth": 8.48,
+      "height": 3.8,
+      "material": "home:wall_paint_offwhite_01"
     }
   ],
   "props": [
@@ -385,6 +426,407 @@
         0.5,
         0.8,
         0.5
+      ]
+    },
+    {
+      "id": "collection_ledger",
+      "model": "core:office_noticeboard",
+      "x": 23.998,
+      "y": 1.25,
+      "z": 5.0,
+      "rotation_degrees": 270,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Read the collection ledger",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/hub.luau",
+              "handler": "ledger"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kindness_host",
+      "model": "mannequin",
+      "x": 31.5,
+      "y": 0,
+      "z": 7,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Speak to the keeper of small things",
+          "reach": 2.5
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": true
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/hub.luau",
+              "handler": "host"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kindness_table_0",
+      "model": "home:dining_table",
+      "x": 28.3,
+      "y": 0,
+      "z": 4.0,
+      "solid": true,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ]
+    },
+    {
+      "id": "kindness_table_1",
+      "model": "home:dining_table",
+      "x": 28.3,
+      "y": 0,
+      "z": 10.0,
+      "solid": true,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ]
+    },
+    {
+      "id": "kindness_keepsake_0",
+      "model": "home:cushion",
+      "x": 27.9,
+      "y": 0.76,
+      "z": 4,
+      "scale": 0.25,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "A keepsake of Home",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "show_message",
+              "title": "HOME / A SOFT LANDING",
+              "lines": [
+                "Someone remembered where a small thing belonged."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kindness_keepsake_1",
+      "model": "core:rubber_duck",
+      "x": 28.6,
+      "y": 0.76,
+      "z": 4,
+      "scale": 1,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "A keepsake of Pool",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "show_message",
+              "title": "POOL / MAIDEN VOYAGE",
+              "lines": [
+                "A very small captain, a very large sea."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kindness_keepsake_2",
+      "model": "arcade:litter_paper",
+      "x": 29.6,
+      "y": 0.76,
+      "z": 4,
+      "scale": 1,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "A keepsake of Office",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "show_message",
+              "title": "OFFICE / CLOSING THE FILE",
+              "lines": [
+                "A page put away; a little weight lifted."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kindness_keepsake_3",
+      "model": "arcade:bowling_pin",
+      "x": 30.3,
+      "y": 0.76,
+      "z": 4,
+      "scale": 1,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "A keepsake of Cosmic Lanes",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "show_message",
+              "title": "ARCADE / FALLEN STARS",
+              "lines": [
+                "The stars came down for you."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kindness_keepsake_4",
+      "model": "outdoor:showcase_stump_seat",
+      "x": 27.9,
+      "y": 0.76,
+      "z": 10,
+      "scale": 0.25,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "A keepsake of Lantern Hollow",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "show_message",
+              "title": "HOLLOW / SEVEN SEATS",
+              "lines": [
+                "There is always room for one more friend."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kindness_keepsake_5",
+      "model": "winter:ice_fragment",
+      "x": 28.6,
+      "y": 0.76,
+      "z": 10,
+      "scale": 0.25,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "A keepsake of Winter",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "show_message",
+              "title": "WINTER / A BRAVE FIGURE",
+              "lines": [
+                "A figure drawn, then safely home."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kindness_keepsake_6",
+      "model": "beach:crab",
+      "x": 29.6,
+      "y": 0.76,
+      "z": 10,
+      "scale": 0.5,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "A keepsake of Beach",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "show_message",
+              "title": "BEACH / A LITTLE SHADE",
+              "lines": [
+                "The smallest shelter can matter."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kindness_keepsake_7",
+      "model": "frutiger_aero:accent_panel",
+      "x": 30.3,
+      "y": 0.76,
+      "z": 10,
+      "scale": 0.25,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "A keepsake of Aero",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "show_message",
+              "title": "AERO / BREATHING AGAIN",
+              "lines": [
+                "A garden found its breath."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kindness_chair_0",
+      "model": "home:armchair",
+      "x": 26.8,
+      "y": 0,
+      "z": 7,
+      "rotation_degrees": 90,
+      "solid": true,
+      "size": [
+        0.9,
+        0.45,
+        0.9
+      ]
+    },
+    {
+      "id": "kindness_chair_1",
+      "model": "home:armchair",
+      "x": 30,
+      "y": 0,
+      "z": 8.2,
+      "rotation_degrees": 0,
+      "solid": true,
+      "size": [
+        0.9,
+        0.45,
+        0.9
+      ]
+    },
+    {
+      "id": "kindness_plant",
+      "model": "core:plant",
+      "x": 33,
+      "y": 0,
+      "z": 10,
+      "solid": true,
+      "size": [
+        0.4,
+        1.0,
+        0.4
+      ]
+    },
+    {
+      "id": "kindness_table_extra_0",
+      "model": "home:dining_table",
+      "x": 30.0,
+      "z": 4.0,
+      "solid": true,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ]
+    },
+    {
+      "id": "kindness_table_extra_1",
+      "model": "home:dining_table",
+      "x": 30.0,
+      "z": 10.0,
+      "solid": true,
+      "size": [
+        1.4,
+        0.75,
+        0.8
       ]
     }
   ],
@@ -664,6 +1106,30 @@
         0.97,
         1
       ]
+    },
+    {
+      "id": "kindness_warm_1",
+      "x": 28,
+      "z": 5,
+      "fixture": "home:ceiling_light_round",
+      "brightness": 0.65,
+      "color": [
+        1,
+        0.88,
+        0.7
+      ]
+    },
+    {
+      "id": "kindness_warm_2",
+      "x": 31,
+      "z": 9,
+      "fixture": "home:ceiling_light_round",
+      "brightness": 0.65,
+      "color": [
+        1,
+        0.88,
+        0.7
+      ]
     }
   ],
   "doors": [
@@ -890,6 +1356,38 @@
           ]
         }
       ]
+    },
+    {
+      "id": "kindness_door",
+      "x": 24.12,
+      "z": 7.8,
+      "width": 1.6,
+      "height": 2.35,
+      "rotation_degrees": 90,
+      "thickness": 0.055,
+      "initial_state": "closed",
+      "locked": true,
+      "material": "home:door_white_01",
+      "frame_material": "home:baseboard_white_01",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Room of Small Kindnesses / eight favors",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/hub.luau",
+              "handler": "door"
+            }
+          ]
+        }
+      ]
     }
   ],
   "transitions": [
@@ -901,5 +1399,19 @@
     "winter",
     "beach",
     "aero"
+  ],
+  "scripts": [
+    "scripts/hub.luau"
+  ],
+  "sound_emitters": [
+    {
+      "id": "kindness_music",
+      "x": 30,
+      "y": 1,
+      "z": 7,
+      "sound": "ambience_outdoors",
+      "looped": true,
+      "playing": false
+    }
   ]
 }

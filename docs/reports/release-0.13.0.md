@@ -3441,3 +3441,155 @@ Evidence, source snapshots, direct binaries and raw trials are outside target in
 audit drafts are unchanged. The cumbersome inherited per-prop idle-AI clearing
 remains a separate authoring UX issue. No later queue item was started; no CI wait,
 main merge, release/version bump, force push or cargo clean occurred.
+
+## Collection destination quests (0.13.0)
+
+Implemented on `0.13.0-staging`, starting from remote-verified `50c74238`.
+The editable authority remains `projects/environments`; the deliverable is
+`assets/levels/environments.placesmap`. This task does not edit the furniture
+project, the menu overlay, or the later polish/cleanup work. **Native acceptance
+remains pending**, as described below; CPU simulation is not a native walkthrough.
+
+| Destination / character | Favor and visible result | Recovery and admission |
+| --- | --- | --- |
+| Home / caretaker | Return the actual checked cushion. The existing hand attachment, corridor walk and whole-assembly hidden retirement remain; completion follows retirement confirmation. | Wrong held items are rejected. Hall reset/reentry restores an unfinished attempt. Completed visits acknowledge the remembered favor. |
+| Pool / attendant | Launch the yellow duck in the second pool. Four continuous seconds of released, upright flotation away from the banks wins the regatta; the duck remains physically afloat and the attendant celebrates. | Requires the exact physical duck, water-height band and upright pose. Holding it or landing on a dry table cannot count. Existing water-demo restore recovers it. |
+| Office / night archivist | Drop three loose desk pages into the open waste crate at upstairs reception. The pages remain visibly in its real open interior; the archivist acknowledges the completed cleanup. | Exact identities, released bodies and actual solver sleep below the rim are required. A fitted bottom and four side collision slabs support the crate. Its restore button resets all three pages and the local count; mugs/books cannot substitute. |
+| Cosmic Lanes / lane attendant | Start with ten upright pins, launch the actual blue ball and knock down all ten lane-one pins. Fallen orientation is read from physical bodies; the attendant celebrates with a bell. | No completion from a reset switch or fallen pins alone. Held pins and crossing the foul line stop scoring. Existing lane reset remains and re-arms the challenge through the attendant. Multiple honest throws are allowed. |
+| Lantern Hollow / campfire circle and Jun | Six friends occupy seven original stumps. Find Jun behind the conifer northeast of the fire; Jun walks the viable route back, faces the fire and backs into the empty seat through a sit clip. Completion waits for the settled seated state. | No teleport or alternate lantern puzzle. Reentry/reset restarts an unfinished search. A completed revisit remembers the favor and Jun walks back again; only one friend and one completion exist. Clear physical obstructions to let the same route resume. |
+| Winter / ice coach | Trace the near-left, far-right, far-left lantern course on the frozen pond, then return to the coach. The coach recognizes the completed figure. | Wrong-order proximity does not advance. Leaving the ice during the figure discards the attempt; the coach restarts it. No timer, inventory or light-toggle completion. |
+| Beach / shade keeper and crab | Speak to the sun-stranded crab and accompany its actual walk to the striped parasol. It stops if crowded or left behind, and settles visibly in the shade. | Keep one to six metres away. The fitted 0.43 m navigation radius clears the palm and lounge chairs. No pickup or cross-level inventory; reentry restores the local scene while retaining completion. |
+| Frutiger Aero / glass gardener | Balance the blue/white/lime air handles (1/2/4 measures) to exactly five, then speak to the gardener. Mist, an authored water emitter and one animated fish restore the fountain scene. | All handles on gives seven and cannot win. A wrong setting remains freely reversible. The single-live spawn group prevents repeated fish rewards; completed revisits restore the payoff once. |
+
+F1 supplies local discovery/help; dialogue remains dismissible through the shared
+message UI. Original physics, weather, lights, routes, ambient interactions,
+bowling reset and destination return doors are retained. Added stationary NPCs
+use animation/interaction without idle AI crowds. Only Jun and the quest crab add
+navigation bodies; Home retains its original caretaker body. Quests do not issue
+per-frame light updates or rebake lighting. New physical observation scratch is
+retained/reused only when enabled scripts can read it, preserving absent-VM work.
+
+### Completion and the room
+
+`api.completed(destination)` reads a bounded package-session set;
+`api.complete()` can mark only the running level. Publication is transactional:
+a failed Luau call publishes neither completion nor its queued actions. The
+set admits at most 64 printable destination identities; repeated completion is
+idempotent. Fresh map VMs, local resets and graphics changes retain the attached
+set. The player saves changed completion to a small atomically replaced JSON in
+its ordinary `saves/` directory, keyed by SHA-256 of the installed package path.
+Rebuilding that package at the same path preserves progress; a different package
+path is isolated. Reads are capped at 16 KiB and validate identities/counts.
+A failed write retains session progress and logs the failure; a real level
+boundary retries it. No script filesystem or arbitrary persistent state API was
+introduced. New scripted exports negotiate `campaign-progress-v1` explicitly.
+
+On the next hub load, the **actual eight destination IDs** must all be complete.
+The authored `kindness_door` is physically locked and closed by default; seven
+completions cannot open it. All eight unlock and open it, announce the return,
+and start the host's welcome scene. The Room of Small Kindnesses is a real
+10 × 8 m extension at x=24..34, z=3..11, height 3.8 m, through one opening in the
+existing east wall. It has non-overlapping floors, four keepsake tables, eight
+inspectable mementos, two chairs, a plant, fixed warm fixtures and a keeper who
+connects the eight favors in dialogue. The ledger beside the door reports the
+remembered count. Objects remain local; no destination item is transported to
+unlock the room.
+
+The original skeleton has only three held poses. Jun therefore uses the separate
+`collection:skeleton_friend` derivative, authored by
+`tools/props/build_collection_skeleton.py`. Its source SHA is guarded; the
+original BIN prefix, nodes, skin, geometry, UVs, materials, PNG and all three
+pose clips are preserved. Only walk, sit-down and seated continuation data are
+appended. The existing 4,650-triangle/256-pixel reviewed geometry allowance is
+pinned to the derivative's exact hash in `completed-models.json`; no global
+budget is raised. No new texture is generated or resized. `--check` reproduces
+the saved GLB, and explicit loop/sit-endpoint checks verify continuity. Native
+motion/contact appearance is still an acceptance debt.
+
+### Verification and remaining acceptance
+
+Focused Rust fixtures exercise the real quest modules without assets or map
+baking: released-versus-held flotation, exact and settled recycling, a witnessed
+blue-ball launch versus unearned fallen pins, ice order/bank recovery/coach
+return, wrong Home hand-ins and retirement timing, exact Aero pressure plus the
+real reward spawn, transactional rollback, forward/reverse completion orders,
+fresh VMs, resets, repeats, and the real hub script's gate after every step.
+One small disk fixture adds unique coverage for save round-trip/replacement,
+idempotence and malformed/oversized admission. These checks use a few dozen
+bounded ticks and one tiny temporary JSON, rather than full-map tests. The first
+full workspace run overlapped the heavy bake: 269 passed and one script reached
+its cooperative wall deadline. The idle final run passed all **270 tests**, zero failed/ignored, in 0.49 s.
+No VM deadline, warning level or test ignore was added to accommodate that run.
+
+The explicit `collection-quest-check` developer binary independently bakes only
+navigation and simulates the **actual edited** Home, Hollow and Beach collision
+worlds with live door rules. It is never run by Cargo tests or ordinary CI and
+does not bake lighting. Home reaches the existing retirement corridor; Jun
+walks and the authored seated state completes; the crab reaches shade and
+completes. This check caught an initial crab/palm overlap; the start, route and
+body envelope were corrected before delivery. A stationary-character clearance
+review also moved the archivist out of an upstairs partition into the clear
+reception aisle before final export. Final authoring review gives the new
+reward furniture explicit standable collision dimensions, seats the course
+lanterns relative to the real ice floor and fits the ledger flush to the east
+wall using its measured back plane. The resumed export includes those final corrections; the small hub was
+rebuilt and the completed Home, Pool and Office bakes were reused. It does not prove Home's rendered
+socket contact or opaque occlusion guard, which still require the native player.
+
+Source/handler/schema validation and catalog validation pass with zero catalog
+warnings. Prop checks, existing entity clip checks, derivative byte/rig/texture
+preservation and derivative loop/sit continuation checks pass. The texture check
+passes with its 96 existing generator-manifest warnings. The hub's production
+geometry check reports **zero errors** and 13 warnings for the existing open
+display-bay joins; there is no reward-room finding and no new suppression.
+Formatting, strict Clippy, final workspace tests/build, exported integrity,
+current fingerprints and byte-identical editable recovery receipts are recorded
+in `local/collection-quests-0.13.0/FINAL-HANDOFF.json`.
+
+The sandbox initially exposed no Metal adapter for offline reflection capture.
+Host graphics access permitted the ordinary compiler capture path; quality,
+reflection probes, lightmap density and prepared variants were not reduced.
+A temporary export was canceled before publication when the final compiler
+identity changed. Final export uses frozen sources and normal provenance checks;
+no fingerprint was patched by hand. A later Mac-offline event ended that
+exporter during Arcade preparation. Process absence was confirmed before any
+resume. The published package and original partial directory were preserved.
+Untouched manifests and SHA-verified spool records restored a private cache;
+native verification proved Home, Pool and Office current/integrity-valid. Hub
+retained its original records and the planned small collision repair. The retained
+Arcade ZIP was an old seed, so its interrupted, unpublished lighting was not
+claimed as recovered. A detached native export resumes from the verified cache,
+reusing completed current members and building unfinished members. No manifest
+fingerprint or prepared-light record was altered to claim a cache hit.
+Final export exited 0. The verified package is **460,016,429 bytes**, SHA-256
+`d4b720092f9842395aab23eeb3c1e8b416b890fe6f6f25b961d25eb9e3be7d7d`.
+Native integrity validation passes, and `verify --require-current` passes for all
+nine members. Every member retains a failure-free Full/full preparation with
+lightmaps and its authored reflection-probe sets. Import recovers all **20
+declared editable files byte-identically**: manifest, nine levels, nine Luau
+modules and thumbnail. The ancillary repository README is outside the existing
+declared-file snapshot contract. Receipts retain the verified fingerprints,
+variant metadata, source hashes and original-package backup. Generated
+`.placesmap` outputs retain the repository's existing ignored-file policy; source
+and the new model are tracked.
+
+**Native blocker, inherited and still pending:** interaction walkthroughs,
+Home held-item/hand attachment timing, Jun's walking/seating appearance, door
+clearance, reward-room appearance, all-eight native hub return and new screenshots
+have not been accepted.
+`local/native-validation/Places Validation.app`
+(`io.github.csd113.places.validation`) needs the user's macOS Documents approval;
+its previous prompt was canceled before initialization, not denied. The original
+`local/furniture-store-0.13.0/Places Native Editor.app`
+(`io.github.csd113.places.native-editor`) also retains unresolved protected-file
+preflight; no separate denial or new prompt is established. The user must approve
+access for the existing app before these routes can run. No app identity,
+signing, protected-data location, permission database or security setting was
+changed. No ChatGPT UI was used. This task does not discharge passes 1–3's native
+acceptance debt, claim the entire queue validated, or make an FPS claim.
+
+Only the authorized staging branch is committed/pushed; the final handoff records
+HEAD and its verified remote ref. The two unrelated Python audit drafts remain
+untouched. No CI wait, main merge, force push, release/version bump or target
+cleanup is part of this task. Menu edge work, furniture polish second-last and
+final verification/cleanup remain subsequent work.

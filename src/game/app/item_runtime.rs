@@ -850,6 +850,7 @@ fn trigger_items<'a>(
             half_extents: body.half_extents,
             held: body.held,
             sleeping: body.sleeping,
+            up_y: body.up_y,
             centre_path: Some(body.centre_path()),
         })
     })
@@ -921,6 +922,7 @@ impl Items {
             half_extents: body.half_extents,
             held: body.held,
             sleeping: body.sleeping,
+            up_y: body.up_y,
             path: Some(body.path()),
             centre_path: Some(body.centre_path()),
         };

@@ -84939,6 +84939,11 @@
             {
               "action": "reset_physics_group",
               "group": "arcade_lane_1"
+            },
+            {
+              "action": "run_script",
+              "script": "scripts/arcade.luau",
+              "handler": "restart"
             }
           ]
         }
@@ -90828,6 +90833,40 @@
           ]
         }
       ]
+    },
+    {
+      "id": "arcade_attendant",
+      "model": "mannequin",
+      "x": 8.1,
+      "y": 0,
+      "z": 25.4,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Take the lane attendant challenge",
+          "reach": 2.5
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": true
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/arcade.luau",
+              "handler": "talk"
+            }
+          ]
+        }
+      ]
     }
   ],
   "decals": [
@@ -92152,5 +92191,19 @@
   ],
   "transitions": [
     "hub"
+  ],
+  "scripts": [
+    "scripts/arcade.luau"
+  ],
+  "sound_emitters": [
+    {
+      "id": "arcade_quest_cheer",
+      "x": 8.1,
+      "y": 1,
+      "z": 25.4,
+      "sound": "prop_bell",
+      "looped": false,
+      "playing": false
+    }
   ]
 }

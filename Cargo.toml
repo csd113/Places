@@ -180,3 +180,8 @@ path = "tools/rust/editor-profile/main.rs"
 [[bin]]
 name = "environment-import-audit"
 path = "tools/rust/environment-import-audit/main.rs"
+
+# Explicit collection route acceptance; no lighting bake, no automatic CI run.
+[[bin]]
+name = "collection-quest-check"
+path = "tools/rust/collection-quest-check/main.rs"

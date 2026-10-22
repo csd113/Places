@@ -26,6 +26,7 @@ fn read_only_host_queries_have_a_hard_count_budget() -> Result<(), String> {
     let points = BTreeSet::new();
     let groups = BTreeSet::new();
     let calls = Cell::new(0usize);
+    let completion = Cell::new(false);
     // Isolate the hard count boundary from cooperative wall deadlines: an
     // overloaded CI worker must still exercise the native guard itself.
     let result = module.lua.scope(|scope| {
@@ -38,6 +39,7 @@ fn read_only_host_queries_have_a_hard_count_budget() -> Result<(), String> {
             &points,
             &groups,
             &calls,
+            &completion,
             32,
         )?;
         let navigate: mlua::Function = host.raw_get("navigate")?;
@@ -173,6 +175,7 @@ fn named_runtime_lifecycle_refuses_authored_deletion_and_queries_live_items() ->
         half_extents: Vec3::splat(0.1),
         held: false,
         sleeping: false,
+        up_y: 1.0,
         path: None,
         centre_path: None,
     }));
@@ -187,6 +190,7 @@ fn named_runtime_lifecycle_refuses_authored_deletion_and_queries_live_items() ->
     let groups = BTreeSet::new();
     for cycle in 0_u8..2 {
         let calls = Cell::new(0usize);
+        let completion = Cell::new(false);
         module
             .lua
             .scope(|scope| {
@@ -199,6 +203,7 @@ fn named_runtime_lifecycle_refuses_authored_deletion_and_queries_live_items() ->
                     &points,
                     &groups,
                     &calls,
+                    &completion,
                     8,
                 )?;
                 let actor: mlua::Function = host.raw_get("actor")?;
@@ -232,6 +237,7 @@ fn named_runtime_lifecycle_refuses_authored_deletion_and_queries_live_items() ->
                     &points,
                     &groups,
                     &calls,
+                    &completion,
                     8,
                 )?;
                 let despawn: mlua::Function = host.raw_get("despawn")?;

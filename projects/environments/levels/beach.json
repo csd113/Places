@@ -9042,6 +9042,91 @@
           ]
         }
       ]
+    },
+    {
+      "id": "beach_keeper",
+      "model": "mannequin",
+      "x": 4.3,
+      "y": 0,
+      "z": 4.8,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Speak to the shade keeper",
+          "reach": 2.5
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": true
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/beach.luau",
+              "handler": "talk"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "beach_quest_crab",
+      "model": "beach:crab",
+      "x": 3.4,
+      "y": 0,
+      "z": 4.0,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Speak to the sun-stranded crab",
+          "reach": 2.2
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": true
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.43,
+          "height": 0.4,
+          "speed_mps": 0.160624564,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.160624564,
+          "run_speed": 0.160624564,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": true
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/beach.luau",
+              "handler": "crab"
+            }
+          ]
+        }
+      ]
     }
   ],
   "water": [
@@ -12314,5 +12399,8 @@
       "material": "collection:sign_hub",
       "surface": "wall_south"
     }
+  ],
+  "scripts": [
+    "scripts/beach.luau"
   ]
 }

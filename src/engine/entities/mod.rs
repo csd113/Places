@@ -378,6 +378,9 @@ pub struct EntityWorld {
     script_event: Option<EventRecord>,
     pub(crate) script_player: Vec3,
     pub(crate) script_held_item: Option<String>,
+    pub(crate) campaign: crate::engine::scripting::SharedCampaign,
+    pub(crate) campaign_level: String,
+    pub(crate) script_physical: Vec<(EntityHandle, f32, bool, bool)>,
     pub(crate) script_visible: std::collections::BTreeSet<EntityHandle>,
     generation: u64,
     store: EntityStore,
@@ -499,6 +502,9 @@ impl EntityWorld {
             script_event: None,
             script_player: Vec3::ZERO,
             script_held_item: None,
+            campaign: crate::engine::scripting::SharedCampaign::default(),
+            campaign_level: String::new(),
+            script_physical: Vec::new(),
             script_visible: std::collections::BTreeSet::new(),
             generation: 0,
             store: EntityStore::new(),
@@ -575,6 +581,7 @@ impl EntityWorld {
     pub fn resolve(&mut self, level: &LevelDef) {
         self.transition_targets = level.transitions.iter().cloned().collect();
         self.scripts = crate::engine::scripting::ScriptRuntime::new(level);
+        self.campaign_level.clone_from(&level.id);
         self.script_event = None;
         self.store.clear();
         self.names.clear();
@@ -3939,13 +3946,24 @@ impl EntityWorld {
     /// Physical query transforms follow the solver, rather than stale placement
     /// coordinates. This reuses the bounded trigger snapshot and creates no poses.
     pub fn observe_physical_items<'a>(&mut self, items: impl Iterator<Item = TriggerItem<'a>>) {
+        let observing = self.scripts.has_enabled_modules();
+        self.script_physical.clear();
         for item in items {
             if let Some(handle) = self.handle_of(item.instance)
                 && let Some(transform) = self.components.transforms.get_mut(handle)
             {
                 transform.position = item.to;
+                if observing {
+                    self.script_physical
+                        .push((handle, item.up_y, item.held, item.sleeping));
+                }
             }
         }
+    }
+
+    /// Attaches the application's package-scoped save before the first script tick.
+    pub fn attach_campaign(&mut self, campaign: crate::engine::scripting::SharedCampaign) {
+        self.campaign = campaign;
     }
 
     /// Publishes a bounded owned identity snapshot before script invocation.

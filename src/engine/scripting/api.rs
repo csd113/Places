@@ -130,9 +130,29 @@ pub(super) fn host<'scope>(
     points: &'scope BTreeSet<String>,
     groups: &'scope BTreeSet<String>,
     calls: &'scope Cell<usize>,
+    completion: &'scope Cell<bool>,
     limit: usize,
 ) -> mlua::Result<Table> {
     let api = lua.create_table()?;
+    api.set(
+        "completed",
+        capability(scope, calls, move |_, value: HostString| {
+            let id = text(value, 96)?;
+            world
+                .campaign
+                .lock()
+                .map(|progress| progress.completed(&id))
+                .map_err(|_problem| error("Campaign state unavailable"))
+        })?,
+    )?;
+    api.set(
+        "complete",
+        capability(scope, calls, move |_, ()| {
+            super::campaign::validate_id(&world.campaign_level).map_err(error)?;
+            completion.set(true);
+            Ok(())
+        })?,
+    )?;
     api.set(
         "message",
         capability(
@@ -243,6 +263,17 @@ pub(super) fn host<'scope>(
             result.set("x", pose.position.x)?;
             result.set("y", pose.position.y)?;
             result.set("z", pose.position.z)?;
+            let physical = world
+                .script_physical
+                .iter()
+                .find(|(physical_handle, _, _, _)| *physical_handle == handle);
+            result.set("physical", physical.is_some())?;
+            result.set("up_y", physical.map(|(_, up_y, _, _)| *up_y))?;
+            result.set("held", physical.is_some_and(|(_, _, held, _)| *held))?;
+            result.set(
+                "sleeping",
+                physical.is_some_and(|(_, _, _, sleeping)| *sleeping),
+            )?;
             result.set("illuminated", response.is_some_and(|r| r.active))?;
             result.set("intensity", response.map_or(0.0, |r| r.intensity))?;
             result.set("player_visible", world.script_visible.contains(&handle))?;
@@ -399,6 +430,25 @@ pub(super) fn host<'scope>(
         capability(scope, calls, move |_, value: HostString| {
             Ok(world.handle_of(&text(value, 96)?).is_some())
         })?,
+    )?;
+    api.set(
+        "enable",
+        capability(
+            scope,
+            calls,
+            move |_, (value, enabled): (HostString, Flag)| {
+                let id = entity(world, value)?;
+                push(
+                    queue,
+                    limit,
+                    if enabled.0 {
+                        ActionDef::Enable { target: Some(id) }
+                    } else {
+                        ActionDef::Disable { target: Some(id) }
+                    },
+                )
+            },
+        )?,
     )?;
     api.set(
         "door",

@@ -12,7 +12,10 @@ compile_error!(
 );
 
 mod api;
+mod campaign;
 mod standard;
+
+pub use campaign::{CampaignProgress, SharedCampaign};
 
 use std::cell::Cell;
 use std::collections::BTreeSet;
@@ -453,6 +456,7 @@ impl ScriptRuntime {
         let started = Instant::now();
         let queue = Mutex::new(Vec::new());
         let notices = Mutex::new(Vec::new());
+        let completion = Cell::new(false);
         let native_calls = Cell::new(0usize);
         let remaining = MAX_ACTIONS.saturating_sub(self.actions).min(32);
         let result = module.lua.scope(|scope| {
@@ -465,6 +469,7 @@ impl ScriptRuntime {
                 &self.points,
                 &self.groups,
                 &native_calls,
+                &completion,
                 remaining,
             )?;
             let event = module.lua.create_table()?;
@@ -511,6 +516,14 @@ impl ScriptRuntime {
             let message = diagnostic(module.path.as_str(), handler, &problem);
             self.note(message);
             return Vec::new();
+        }
+        if completion.get() {
+            let committed = campaign::commit(world);
+            if let Err(problem) = committed {
+                module.disabled = true;
+                self.note(problem);
+                return Vec::new();
+            }
         }
         if let Ok(messages) = notices.into_inner() {
             for message in messages {

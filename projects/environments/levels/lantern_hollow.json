@@ -6542,7 +6542,26 @@
       "x": -15.4292,
       "z": -33.6115,
       "rotation_degrees": -98.5944,
-      "occludes": false
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ask the campfire circle about the empty seat",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/lantern_hollow.luau",
+              "handler": "group"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "campfire_seat_1",
@@ -6562,7 +6581,26 @@
       "x": -16.7009,
       "z": -31.7478,
       "rotation_degrees": -150.0229,
-      "occludes": false
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ask the campfire circle about the empty seat",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/lantern_hollow.luau",
+              "handler": "group"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "campfire_seat_2",
@@ -6582,7 +6620,26 @@
       "x": -18.9509,
       "z": -31.5801,
       "rotation_degrees": 158.5485,
-      "occludes": false
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ask the campfire circle about the empty seat",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/lantern_hollow.luau",
+              "handler": "group"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "campfire_seat_3",
@@ -6602,7 +6659,26 @@
       "x": -20.4848,
       "z": -33.2346,
       "rotation_degrees": 107.1199,
-      "occludes": false
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ask the campfire circle about the empty seat",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/lantern_hollow.luau",
+              "handler": "group"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "campfire_seat_4",
@@ -6622,7 +6698,26 @@
       "x": -20.1476,
       "z": -35.4655,
       "rotation_degrees": 55.6913,
-      "occludes": false
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ask the campfire circle about the empty seat",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/lantern_hollow.luau",
+              "handler": "group"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "campfire_seat_5",
@@ -6642,7 +6737,26 @@
       "x": -18.1933,
       "z": -36.5928,
       "rotation_degrees": 4.2628,
-      "occludes": false
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ask the campfire circle about the empty seat",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/lantern_hollow.luau",
+              "handler": "group"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "campfire_seat_6",
@@ -6655,14 +6769,6 @@
         0.45,
         0.6
       ]
-    },
-    {
-      "id": "campfire_skeleton_6",
-      "model": "skeleton",
-      "x": -16.0934,
-      "z": -35.7677,
-      "rotation_degrees": -47.1658,
-      "occludes": false
     },
     {
       "id": "clearing_rock_0",
@@ -16932,6 +17038,86 @@
           ]
         }
       ]
+    },
+    {
+      "id": "hollow_missing_friend",
+      "model": "collection:skeleton_friend",
+      "x": -10.3,
+      "y": 0,
+      "z": -38.7,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Found Jun / speak",
+          "reach": 2.5
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": true
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.25,
+          "height": 1.8,
+          "speed_mps": 0.65,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 0.65,
+          "run_speed": 0.65,
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": true
+        },
+        {
+          "component": "state",
+          "name": "seating",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "seated",
+          "value": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/lantern_hollow.luau",
+              "handler": "friend"
+            }
+          ]
+        },
+        {
+          "on": "object_state",
+          "key": "seating",
+          "when": [
+            {
+              "check": "state",
+              "target": "hollow_missing_friend",
+              "name": "seating",
+              "equals": true
+            }
+          ],
+          "once": true,
+          "actions": [
+            {
+              "action": "start_sequence",
+              "sequence": "jun_sits"
+            }
+          ]
+        }
+      ]
     }
   ],
   "ceiling_lights": [
@@ -17271,18 +17457,6 @@
     },
     {
       "id": "campfire_skeleton_5",
-      "loop": true,
-      "steps": [
-        {
-          "step": "play",
-          "clip": "pose_sit_chair",
-          "seconds": 3600,
-          "loop": true
-        }
-      ]
-    },
-    {
-      "id": "campfire_skeleton_6",
       "loop": true,
       "steps": [
         {
@@ -17851,5 +18025,44 @@
   "void_walls": [],
   "transitions": [
     "hub"
+  ],
+  "scripts": [
+    "scripts/lantern_hollow.luau"
+  ],
+  "sequences": [
+    {
+      "id": "jun_sits",
+      "looped": false,
+      "steps": [
+        {
+          "step": "face",
+          "yaw_degrees": -47.1658
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "play_animation",
+            "clip": "sit_down"
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 1.65
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "play_animation",
+            "clip": "quest_seated",
+            "loop": true
+          }
+        },
+        {
+          "step": "set_state",
+          "name": "seated",
+          "value": true
+        }
+      ]
+    }
   ]
 }

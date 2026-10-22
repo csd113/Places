@@ -11084,6 +11084,169 @@
       "solid": true,
       "occludes": false,
       "comment": "Buried carrier; separate structural collision inside visible stock."
+    },
+    {
+      "id": "aero_gardener",
+      "model": "mannequin",
+      "x": 8.4,
+      "y": 0,
+      "z": 6.9,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Speak to the glass gardener",
+          "reach": 2.5
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": true
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/aero.luau",
+              "handler": "talk"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "aero_valve_blue",
+      "model": "home:wall_switch",
+      "x": 3.3,
+      "y": 0.55,
+      "z": 9.4347,
+      "rotation_degrees": 180,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Blue fountain valve / 1 measures",
+          "reach": 2.5
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/aero.luau",
+              "handler": "valve"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "aero_valve_stand_blue",
+      "model": "frutiger_aero:accent_panel",
+      "x": 3.3,
+      "y": 0,
+      "z": 9.45,
+      "scale": 0.38,
+      "solid": false
+    },
+    {
+      "id": "aero_valve_white",
+      "model": "home:wall_switch",
+      "x": 4.3,
+      "y": 0.55,
+      "z": 9.4347,
+      "rotation_degrees": 180,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "White fountain valve / 2 measures",
+          "reach": 2.5
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/aero.luau",
+              "handler": "valve"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "aero_valve_stand_white",
+      "model": "frutiger_aero:accent_panel",
+      "x": 4.3,
+      "y": 0,
+      "z": 9.45,
+      "scale": 0.38,
+      "solid": false
+    },
+    {
+      "id": "aero_valve_lime",
+      "model": "home:wall_switch",
+      "x": 5.3,
+      "y": 0.55,
+      "z": 9.4347,
+      "rotation_degrees": 180,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Lime fountain valve / 4 measures",
+          "reach": 2.5
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/aero.luau",
+              "handler": "valve"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "aero_valve_stand_lime",
+      "model": "frutiger_aero:accent_panel",
+      "x": 5.3,
+      "y": 0,
+      "z": 9.45,
+      "scale": 0.38,
+      "solid": false
     }
   ],
   "water": [
@@ -11444,6 +11607,68 @@
           ]
         }
       ]
+    }
+  ],
+  "scripts": [
+    "scripts/aero.luau"
+  ],
+  "effects": [
+    {
+      "id": "aero_fountain_mist",
+      "x": 6,
+      "y": 0.42,
+      "z": 6,
+      "width": 0.45,
+      "height": 0.9,
+      "depth": 0.45,
+      "enabled": false,
+      "kind": "steam",
+      "count": 16,
+      "size": 0.15,
+      "lifetime_seconds": 1.5
+    }
+  ],
+  "sound_emitters": [
+    {
+      "id": "aero_fountain_song",
+      "x": 6,
+      "y": 0.4,
+      "z": 6,
+      "sound": "water_emitter",
+      "looped": true,
+      "playing": false
+    }
+  ],
+  "spawn_templates": [
+    {
+      "id": "aero_fish",
+      "model": "beach:fish",
+      "solid": false,
+      "components": [
+        {
+          "component": "animation",
+          "clip": "swim",
+          "looped": true,
+          "playing": true
+        }
+      ],
+      "scale": 0.5
+    }
+  ],
+  "spawn_groups": [
+    {
+      "id": "aero_fish_group",
+      "at_most_one_active": true
+    }
+  ],
+  "spawn_points": [
+    {
+      "id": "aero_fish_point",
+      "x": 6,
+      "y": 0.2,
+      "z": 6,
+      "template": "aero_fish",
+      "group": "aero_fish_group"
     }
   ]
 }

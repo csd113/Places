@@ -16,7 +16,15 @@ local function navigate(api)
 end
 
 return {
+    start = function(api)
+        if api.completed("home") then phase = "complete" end
+    end,
+
     talk = function(api)
+        if phase == "complete" then
+            api.message("THE CARETAKER", { "The cushion is safe. I remember your help.", "The Hub remembers it, too." })
+            return
+        end
         if phase == "departing" or phase == "hidden_wait" then
             api.message("THE CARETAKER", { "Thank you. That is the one.", "I will put it away." })
             return
@@ -81,6 +89,8 @@ return {
             end
         elseif phase == "hidden_wait" and actor.retired then
             phase = "complete"
+            api.complete()
+            api.message("THE CARETAKER", {"All put away. Thank you for your help.", "Home favor complete. The Hub will remember."})
             api.notice("Caretaker and carried cushion retired only after whole-model occlusion")
         end
     end,

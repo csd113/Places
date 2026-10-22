@@ -6765,5 +6765,23 @@
       0.8500000238418579,
       0.30000001192092896
     ]
+  },
+  "entities/skeleton/model/collection_skeleton.glb": {
+    "sha256": "6b2fbf90c18bc4cfd96888e071090cc1b8e1f620d979c2780e31827ba2a68511",
+    "triangles": 4650,
+    "texture_edge": 256,
+    "identities": [
+      "collection:skeleton_friend"
+    ],
+    "bounds_min": [
+      -0.20747728645801544,
+      7.003545521300225e-10,
+      -0.13340778648853302
+    ],
+    "bounds_max": [
+      0.20327600836753845,
+      1.7226518392562866,
+      0.14933210611343384
+    ]
   }
 }

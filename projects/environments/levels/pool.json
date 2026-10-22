@@ -3063,6 +3063,40 @@
           ]
         }
       ]
+    },
+    {
+      "id": "pool_attendant",
+      "model": "mannequin",
+      "x": 2.8,
+      "y": 0,
+      "z": 8.2,
+      "solid": false,
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Ask the pool attendant about the regatta",
+          "reach": 2.5
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "looped": true,
+          "playing": true
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/pool.luau",
+              "handler": "talk"
+            }
+          ]
+        }
+      ]
     }
   ],
   "water": [
@@ -3443,5 +3477,8 @@
       "material": "core:pool_tile_basin_01",
       "edge_material": "core:pool_tile_wall_01"
     }
+  ],
+  "scripts": [
+    "scripts/pool.luau"
   ]
 }

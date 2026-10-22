@@ -11390,6 +11390,28 @@
         "tool": "completed",
         "source": "completed-models.json"
       }
+    },
+    {
+      "id": "collection:skeleton_friend",
+      "display_name": "Jun / walking skeleton",
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/skeleton/model/collection_skeleton.glb",
+      "size": [
+        0.414955,
+        1.722652,
+        0.298664
+      ],
+      "color": "#d8d2b8",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Append-only walk and sit derivative of the accepted skeleton. Original skin, geometry, UVs, PNG and pose clips unchanged.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     }
   ]
 }

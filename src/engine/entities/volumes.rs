@@ -33,6 +33,8 @@ pub struct TriggerItem<'a> {
     pub held: bool,
     /// Actual dynamic solver sleep; false for dormant, held or kinematic bodies.
     pub sleeping: bool,
+    /// Actual rigid-body local +Y projected on world +Y, for physical games.
+    pub up_y: f32,
     /// Optional solver path; omitted preserves the endpoint-segment API.
     pub path: Option<&'a [Vec3]>,
     /// Physical shape-centre path; omitted uses the ordinary path/endpoints.
