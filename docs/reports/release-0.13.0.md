@@ -99,7 +99,7 @@ receipt and its re-audit are retained; a fresh corrected native run passed.
 | Animated NPC / ragdoll | Animation, fall/contact, 15/15 sleeping bodies, reset, repeated fall/sleep/reset pass with empty script diagnostics; `ragdoll-demo-state/`. |
 | Furniture movement / crouch / stairs | Static-only current source: real held movement crosses the low closet crouched at 0.8 m eye height; climbs 18 stairs to 3.5 m feet height and descends to 0 m. Zero recovery resets. Diagnostic starting positions are explicit; `furniture-traversal-state/`. |
 | Pool favor / saved progress | Follow-up ordinary walk from the authored spawn now passes bench/door/deck traversal, real talk, duck pickup, release and four-second upright buoyancy objective. Native success image and actual campaign save retained. Restart remembers the favor; real return portal loads Hub and ledger reports **1/8**. No save flags were injected. `pool-route-reviewed-state/quest-complete.png`, `pool-route-reviewed-state/saves/`, `pool-saved-transition/`. |
-| Reward gating | At 0/8 and 1/8 the actual furnished Hub reward door is locked/closed. Full eight-favor unlock and host interaction remain **not run on Windows**. |
+| Reward gating / room | Locked at 0/8 and 1/8; genuine 8/8 save unlocks and opens the door. Ordinary Arcade return and Hub walk enter the actual room, converse with its host and interact with all eight keepsakes. Full Hub restart and byte-identical repeat saves pass. `eight-quest-native-audit.json`, `campaign-eight-return-3/`, `campaign-eight-restart-2/`. |
 | Retained work | Menu -> Full Pool -> menu returns prepared bytes to 105,567,345 and solver resources to 19 bodies / 202 colliders / 0 joints / 0 ragdolls. All retired build/record/transport owners are zero. Dynamic menu actors differ by event; RSS is unavailable on Windows, so this does not prove driver/total-RAM reclamation. `native-acceptance-audit.json`, `retention-native/`. |
 
 No exported maps existed in the initial Windows checkout. Native compiler builds
@@ -144,14 +144,63 @@ The initial diagnostic-position objective remains historical evidence. Earlier
 actor-only camera commands for authored props were correctly rejected and then
 replaced with camera-only `view_at` inputs; those input errors remain preserved.
 
-The full eight-favor Windows campaign stopped at focused representative coverage
-after native build/runtime/export repairs, one real quest, saved progress and
-Hub gating. It was not stopped by a demonstrated quest defect or a known export
-barrier. The intact nine-map mixed package contains all quest scripts and
-Static variants for all members, so further mechanics acceptance can use it.
-Missing Full exports for the other seven members limit Full lighting/visual
-and performance sign-off, not ordinary quest testing. The remaining seven
-favors and final reward unlock are still **not run on Windows**.
+### Completed eight-favor native Windows campaign
+
+The initial representative-only checkpoint is superseded: all eight favors now
+complete natively on Windows with the preserved final player and the same
+installed nine-map package/save identity. No completion flags are generated,
+inserted or transplanted. Real save bytes progress from Pool to the other seven
+favors, followed by an authored Arcade return to Hub and actual reward-room
+entry. `eight-quest-native-audit.json` checks each native state and save change.
+
+| Favor | Native completion evidence |
+| --- | --- |
+| Pool | `pool-route-reviewed`: ordinary authored-spawn route, talk, pickup, carry, release and upright buoyancy; original real Pool save seeds this same campaign. |
+| Aero | `campaign-aero-1`: ordinary spawn walk, blue + lime pressure five, gardener reward and repeated completed dialogue. |
+| Home | `campaign-home-2`: ordinary spawn pickup and carried route, actual NPC handoff, then physically leave its sight into the entry hall. The whole actor/cushion assembly is hidden before retirement and completion; only the expected authored informational notice is present. |
+| Lantern Hollow | `campaign-jun-1`: normal talk, real collision-aware return navigation, `quest_seated` animation, completion and repeat seated interaction. |
+| Beach | `campaign-beach-4`: normal keeper/crab talk and real escort with one-to-six-metre companion clearance; actual crab reaches the parasol and completes. |
+| Winter | `campaign-winter-2`: ordinary spawn approach, continuous slippery movement across all three marks, three-lantern acknowledgement, coach return and repeat dialogue. |
+| Office | `campaign-office-1`: three real pickups and collision-constrained carried returns, flat releases into the real open crate. All three pages sleep within the objective volume, at Y approximately 7.2592 / 7.2372 / 7.2624 m. |
+| Arcade | `campaign-arcade-2`: normal attendant task, required blue ball pickup and mouse throw from Z=20.4, ten physically fallen pins, saved completion and repeated completed dialogue. The earlier nine-pin attempt remains incomplete evidence. |
+
+Pool uses Full lighting. The other seven favors use their supported Static
+variant (runtime Low lighting, lightmaps/reflections off); this is gameplay
+acceptance and does not imply their Full lighting acceptance. Home, Aero,
+Winter, Pool and Arcade use ordinary authored-spawn movement. Jun and Beach
+use explicitly labeled player-only initial setup near the task; Office uses
+player-only top-floor/station setup while empty-handed. Every pickup, carried
+return, throw, drop, NPC handoff, NPC walk/seating and objective is real. There
+are no item/NPC pose or velocity injections, script activation shortcuts,
+console completion commands or invented progress. Complete outer-map approach
+walks for those diagnostic setups are not claimed.
+
+`campaign-eight-return-3` follows the normal Arcade return portal with the
+actual eight-entry save, sees the Hub welcome and door unlock/open to 90 degrees,
+walks around the real open leaf, enters at approximately (30.99, 1.60, 7.00),
+speaks to the host and receives all eight distinct keepsake messages. This
+transition uses Static lighting. `campaign-eight-restart-2` is a separate native
+**Full-quality Hub** restart: automatic welcome, ordinary room entry and repeated
+host dialogue pass again. `campaign-reward-final-visible/` retains visually
+reviewed Full native images of both furnished keepsake tables.
+
+Fresh native revisits to Home, Pool, Office, Winter, Aero, Beach and Jun return
+completed dialogue twice, preserving byte-identical eight-entry saves. Jun
+restores the seated animation; repeated Aero talk leaves the reward dynamic-object
+count unchanged. Together with the normal Arcade repeat and Full Hub restart,
+this verifies persistence, restoration and idempotence. The same campaign key
+is retained across every session and transition. All accepted captures have
+zero player recovery resets and no script errors; Home's explicit retirement
+notice is recorded as informational.
+
+Earlier Beach approaches collided with the stilt-house/boardwalk footprint;
+an initial Winter path missed ice marks; an early reward approach hit the
+correctly solid open door leaf. These test inputs were corrected and were not
+counted as passes. A Full request for Static-only Arcade was correctly refused;
+that positively identified owned test child was stopped, its logs retained,
+and the next run used supported variants. No game or map regression was found
+in this follow-up, and no rebake or rebuild was needed. The earlier cleanup
+remains valid; subsequent approved feature work may recreate build output.
 
 ### Capture-free performance and pacing
 
@@ -218,9 +267,8 @@ and the rejected operation was not retried or bypassed. Parent/user approval
 is needed before that external executable delivery. Local deliverables remain
 usable and preserved.
 
-Remaining Windows acceptance is explicit: all eight quests/reward unlock, full
-lighting dense Arcade/furniture/polished package, long-duration/driver-RSS
-retention, continuous before/after
+Remaining Windows acceptance is explicit: full lighting dense
+Arcade/furniture/polished package, long-duration/driver-RSS retention, continuous before/after
 montage and an installer. No Linux result follows from this Windows pass.
 The native focused gates above passed; this is not an unqualified full-release
 sign-off. Cleanup and final branch publication are recorded in the local final
