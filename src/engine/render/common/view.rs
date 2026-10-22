@@ -81,6 +81,26 @@ impl DrawableSize {
         }
     }
 
+    /// Physical drawable edges in reference UI coordinates. Content keeps the
+    /// aspect-fit viewport's scale/origin; backdrops may extend into its margins.
+    #[must_use]
+    pub fn ui_bounds(self) -> [f32; 4] {
+        if self.is_empty() {
+            return [0.0, 0.0, 480.0, 272.0];
+        }
+        let viewport = self.ui_viewport();
+        let x = dimension_f32(u32::try_from(viewport.x).unwrap_or(0));
+        let y = dimension_f32(u32::try_from(viewport.y).unwrap_or(0));
+        let width = dimension_f32(u32::try_from(viewport.width).unwrap_or(1));
+        let height = dimension_f32(u32::try_from(viewport.height).unwrap_or(1));
+        [
+            -x * 480.0 / width,
+            -y * 272.0 / height,
+            (dimension_f32(self.width) - x) * 480.0 / width,
+            (dimension_f32(self.height) - y) * 272.0 / height,
+        ]
+    }
+
     /// Exact drawable centre in UI coordinates, including an odd letterbox
     /// remainder. A reference-space centre alone can be half a pixel off.
     #[must_use]

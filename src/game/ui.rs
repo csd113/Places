@@ -2,7 +2,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use crate::engine::font::{get_char_uv, get_white_uv};
-use crate::engine::render::Vertex;
+use crate::engine::render::{DrawableSize, Vertex};
 use crate::game::AppState;
 use crate::game::display::{DisplayStatus, resolution_label, step_resolution};
 use crate::game::settings::{KeyBindings, Settings, WindowMode};
@@ -292,6 +292,7 @@ pub struct UiGeometryCache {
     vertices: Vec<Vertex>,
     signature: u64,
     initialized: bool,
+    drawable: Option<DrawableSize>,
 }
 
 impl UiGeometryCache {
@@ -309,12 +310,15 @@ impl UiGeometryCache {
         settings: &Settings,
         display: &DisplayStatus,
         version: &str,
+        drawable: DrawableSize,
     ) -> &[Vertex] {
         let signature = ui_signature(app_state, ui_state, settings, display, version);
-        if !self.initialized || signature != self.signature {
-            self.vertices = build_ui_geometry(app_state, ui_state, settings, display, version);
+        if !self.initialized || signature != self.signature || self.drawable != Some(drawable) {
+            self.vertices =
+                build_ui_geometry(app_state, ui_state, settings, display, version, drawable);
             self.signature = signature;
             self.initialized = true;
+            self.drawable = Some(drawable);
         }
         &self.vertices
     }
@@ -542,8 +546,9 @@ pub fn build_ui_geometry(
     settings: &Settings,
     display: &DisplayStatus,
     version: &str,
+    drawable: DrawableSize,
 ) -> Vec<Vertex> {
-    menu::geometry(app_state, ui_state, settings, display, version)
+    menu::geometry(app_state, ui_state, settings, display, version, drawable)
 }
 
 /// Startup preparation uses the same heading and status treatment as menus.

@@ -4,7 +4,7 @@ use super::{
     fit_text, row_y, settings_rows, text_width,
 };
 use crate::{
-    engine::render::Vertex,
+    engine::render::{DrawableSize, Vertex},
     game::AppState,
     game::display::DisplayStatus,
     game::settings::{Settings, WindowMode},
@@ -749,13 +749,14 @@ pub(super) fn geometry(
     settings: &Settings,
     display: &DisplayStatus,
     version: &str,
+    drawable: DrawableSize,
 ) -> Vec<Vertex> {
     if state == AppState::Playing {
         return Vec::new();
     }
     let mut vertices = Vec::new();
     if state == AppState::MainMenu {
-        return main_geometry(ui, settings, version);
+        return main_geometry(ui, settings, version, drawable);
     }
     let (title, subtitle) = match state {
         AppState::MainMenu => ("Places", "an experience"),
@@ -1172,19 +1173,38 @@ fn draw_error(vertices: &mut Vec<Vertex>, ui: &UiState) {
         ACCENT,
     );
 }
-fn main_geometry(ui: &UiState, settings: &Settings, version: &str) -> Vec<Vertex> {
+fn main_geometry(
+    ui: &UiState,
+    settings: &Settings,
+    version: &str,
+    drawable: DrawableSize,
+) -> Vec<Vertex> {
     let mut vertices = Vec::new();
+    let [left, top, _, bottom] = drawable.ui_bounds();
+    // Keep the existing fade at x=0..224; fill the aspect-fit margin at its
+    // left-edge opacity so the scene cannot show through at full brightness.
+    if left < 0.0 {
+        add_rect_rgba(
+            &mut vertices,
+            left,
+            top,
+            0.0,
+            bottom,
+            [0.018, 0.026, 0.032, 0.74],
+        );
+    }
+    let fade_start = vertices.len();
     // Interpolate alpha across one quad. Separate constant-alpha strips made
     // visible vertical bands over the otherwise continuous scene lighting.
     add_rect_rgba(
         &mut vertices,
         0.0,
-        0.0,
+        top,
         224.0,
-        272.0,
+        bottom,
         [0.018, 0.026, 0.032, 0.74],
     );
-    for vertex in &mut vertices {
+    for vertex in vertices.iter_mut().skip(fade_start) {
         vertex.color[3] = (1.0 - vertex.pos[0] / 224.0) * 0.74;
     }
     let logo_start = vertices.len();

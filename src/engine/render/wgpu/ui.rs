@@ -1,7 +1,7 @@
 //! Renderer-owned UI: the 480x272 HUD pass.
 //!
 //! The HUD uses a 480x272 reference space, shared world vertex layout,
-//! font atlas, centred uniform-scale viewport, straight-alpha blend
+//! font atlas, centred aspect-fit content, straight-alpha blend
 //! and no depth test.
 //!
 //! A dedicated pipeline keeps the HUD's neutral material state independent
@@ -13,8 +13,8 @@
 //! converted to the shared [`WorldVertex`] here, so the HUD is quantised and
 //! laid out exactly like a scene vertex.
 //!
-//! Nothing is regenerated per frame: the pipeline, the bind groups, the camera
-//! uniform and the font atlas are construction-time work, and the vertex
+//! The pipeline, bind groups and font atlas are construction-time work. The
+//! camera projection updates only when drawable dimensions change, and the vertex
 //! buffer is recreated only when a submission outgrows it.
 
 use glam::{Mat4, Vec3};
@@ -27,9 +27,11 @@ use super::world::{
 };
 use crate::engine::font::{font_atlas_dimensions, generate_font_atlas};
 use crate::engine::render::common::mesh::Vertex;
-use crate::engine::render::common::view::{
-    DrawableSize, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, dimension_f32,
-};
+use crate::engine::render::common::view::{DrawableSize, dimension_f32};
+
+#[cfg(test)]
+#[path = "../../tests/menu_edges.rs"]
+mod tests;
 
 /// Whether this UI pass is followed by a surface copy or completes the frame.
 pub enum UiTiming<'a> {
@@ -87,13 +89,16 @@ const UI_BLEND: wgpu::BlendState = wgpu::BlendState {
     },
 };
 
-/// The UI projection: the reference's exact ortho, with the world path's one
-/// clip-space correction.
+/// The reference UI ortho expanded to the drawable edges, with the world
+/// path's one clip-space correction. The aspect-fit scale/origin are preserved
+/// without clipping extended backdrops at the inner viewport boundary.
 ///
 /// The reference calls
 /// `glam::camera::rh::proj::directx::orthographic(0.0, 480.0, 272.0, 0.0, -1.0, 1.0)`, so UI
-/// (0, 0) maps to NDC `(-1, +1)` and UI (480, 272) to `(1, -1)`: the reference
-/// space has a top-left origin and +y points down. WebGPU's NDC is +y up and
+/// (0, 0) maps to the aspect-fit region's top-left and (480, 272) to its
+/// bottom-right: the reference space has a top-left origin and +y points down.
+/// On a reference-aspect drawable these are NDC `(-1, +1)` and `(1, -1)`.
+/// WebGPU's NDC is +y up and
 /// its framebuffer Y flip is the viewport transform's job, exactly like
 /// OpenGL's, so the same projection maps 1:1 — negating y here would mirror the
 /// HUD.
@@ -110,18 +115,12 @@ const UI_BLEND: wgpu::BlendState = wgpu::BlendState {
     clippy::arithmetic_side_effects,
     reason = "glam matrix multiplication uses floating point components without integer overflow or a panic path."
 )]
-pub fn ui_view_projection() -> Mat4 {
+pub fn ui_view_projection(drawable: DrawableSize) -> Mat4 {
     // `glam` matrix products are per-element `f32` arithmetic with no overflow
     // or panic path.
+    let [left, top, right, bottom] = drawable.ui_bounds();
     clip_correction()
-        * glam::camera::rh::proj::directx::orthographic(
-            0.0,
-            dimension_f32(UI_REFERENCE_WIDTH),
-            dimension_f32(UI_REFERENCE_HEIGHT),
-            0.0,
-            -1.0,
-            1.0,
-        )
+        * glam::camera::rh::proj::directx::orthographic(left, right, bottom, top, -1.0, 1.0)
 }
 
 /// True when a submission of `vertex_count` vertices into `drawable` can draw.
@@ -133,16 +132,6 @@ pub fn ui_view_projection() -> Mat4 {
 #[must_use]
 pub const fn ui_is_drawable(drawable: DrawableSize, vertex_count: usize) -> bool {
     !drawable.is_empty() && vertex_count > 0
-}
-
-/// One integer viewport field as the `f32` `RenderPass::set_viewport` takes.
-///
-/// The fields come from [`DrawableSize::ui_viewport`], whose values are
-/// non-negative and clamped to the drawable, so the conversion is exact for
-/// every real window; a value outside that range clamps to zero rather than
-/// wrapping.
-fn viewport_f32(value: i32) -> f32 {
-    dimension_f32(u32::try_from(value).unwrap_or(0))
 }
 
 /// What one UI submission did, for the neutral `RenderStats` and the benchmark
@@ -160,7 +149,7 @@ pub struct UiStats {
 /// Built once per colour target format and kept: a changed surface format
 /// (a recreated surface) rebuilds only this resource, exactly like
 /// [`super::world::WorldPipeline`]. The camera uniform holds the UI ortho and
-/// is written once at construction; the font atlas is uploaded once and bound
+/// updates on resize; the font atlas is uploaded once and bound
 /// through a dedicated group, so no frame touches a pipeline, a bind group or
 /// a texture.
 struct Picture {
@@ -171,9 +160,10 @@ struct Picture {
 pub struct UiRenderer {
     pictures: Vec<Picture>,
     pipeline: wgpu::RenderPipeline,
-    /// The construction-time UI ortho binding; the buffer it binds is owned by
-    /// the bind group.
+    /// Persistent UI ortho binding; its buffer updates on drawable resize.
     camera_bind_group: wgpu::BindGroup,
+    camera_buffer: wgpu::Buffer,
+    camera_drawable: DrawableSize,
     /// The generated font atlas's binding; the texture and view are owned by
     /// the bind group.
     font_bind_group: wgpu::BindGroup,
@@ -195,7 +185,7 @@ impl UiRenderer {
     /// atlas.
     ///
     /// All of the GPU work here is construction-time: the shader module, the
-    /// pipeline, the camera uniform (the UI ortho, written once), the font
+    /// pipeline, the camera uniform (the UI ortho, updated on resize), the font
     /// texture and sampler, and the two bind groups. Nothing here runs per
     /// frame.
     #[must_use]
@@ -207,7 +197,8 @@ impl UiRenderer {
     ) -> Self {
         let font_view = upload_font_atlas(device, queue, editor);
 
-        let (camera_bind_group, camera_layout) = create_camera_binding(device, queue);
+        let (camera_bind_group, camera_layout, camera_buffer) =
+            create_camera_binding(device, queue);
         let (font_bind_group, font_layout) = create_font_binding(device, &font_view, editor);
         let pipeline = create_pipeline(device, format, &camera_layout, &font_layout);
 
@@ -215,6 +206,8 @@ impl UiRenderer {
             pictures: Vec::new(),
             pipeline,
             camera_bind_group,
+            camera_buffer,
+            camera_drawable: DrawableSize::new(480, 272),
             font_bind_group,
             format,
             vertex_buffer: None,
@@ -259,14 +252,14 @@ impl UiRenderer {
     /// `target` is the surface texture view the scene pass presented into, so
     /// the pass only loads and blends over it: it clears nothing and draws its
     /// triangles only, exactly like the reference's HUD draw after the scene
-    /// resolve. `drawable` selects the viewport through the renderer-neutral
-    /// [`DrawableSize::ui_viewport`] (the centred uniform-scale 480x272
-    /// region); an empty drawable or an empty vertex list encodes nothing and
+    /// resolve. `drawable` selects the projection through the renderer-neutral
+    /// [`DrawableSize::ui_bounds`], preserving the centred aspect-fit 480x272
+    /// region; an empty drawable or an empty vertex list encodes nothing and
     /// reports no draws.
     ///
     /// The vertex buffer is created on the first non-empty submission and
-    /// recreated only when a later list outgrows it; the pipeline, bind groups,
-    /// camera uniform and font texture are never touched here.
+    /// recreated only when a later list outgrows it. The camera uniform updates
+    /// on resize; the pipeline, bind groups and font texture remain unchanged.
     pub fn render(
         &mut self,
         device: &wgpu::Device,
@@ -279,7 +272,11 @@ impl UiRenderer {
         if !ui_is_drawable(drawable, vertices.len()) {
             return UiStats::default();
         }
-        let viewport = drawable.ui_viewport();
+        if self.camera_drawable != drawable {
+            let uniform = CameraUniform::new(ui_view_projection(drawable), Vec3::ZERO);
+            queue.write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&uniform));
+            self.camera_drawable = drawable;
+        }
 
         self.scratch.clear();
         self.scratch.extend(vertices.iter().map(WorldVertex::from));
@@ -317,14 +314,13 @@ impl UiRenderer {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            // The region is centred, so the bottom-left origin the neutral
-            // viewport maths reports is numerically the top-left origin
-            // WebGPU's `set_viewport` takes.
+            // Projection retains the inner UI scale/origin while the full
+            // drawable viewport lets extended backdrops reach the screen edge.
             pass.set_viewport(
-                viewport_f32(viewport.x),
-                viewport_f32(viewport.y),
-                viewport_f32(viewport.width),
-                viewport_f32(viewport.height),
+                0.0,
+                0.0,
+                dimension_f32(drawable.width),
+                dimension_f32(drawable.height),
                 0.0,
                 1.0,
             );
@@ -467,12 +463,11 @@ fn upload_ui_image(
     font_view
 }
 
-/// Creates the camera layout, the uniform holding the UI ortho (written once
-/// here) and their bind group.
+/// Creates the camera layout, resizeable UI ortho uniform and their bind group.
 fn create_camera_binding(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
-) -> (wgpu::BindGroup, wgpu::BindGroupLayout) {
+) -> (wgpu::BindGroup, wgpu::BindGroupLayout, wgpu::Buffer) {
     let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("places-wgpu-ui-camera-layout"),
         entries: &[wgpu::BindGroupLayoutEntry {
@@ -488,7 +483,7 @@ fn create_camera_binding(
             count: None,
         }],
     });
-    let uniform = CameraUniform::new(ui_view_projection(), Vec3::ZERO);
+    let uniform = CameraUniform::new(ui_view_projection(DrawableSize::new(480, 272)), Vec3::ZERO);
     let buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("places-wgpu-ui-camera"),
         size: CAMERA_UNIFORM_SIZE,
@@ -504,7 +499,7 @@ fn create_camera_binding(
             resource: buffer.as_entire_binding(),
         }],
     });
-    (bind_group, layout)
+    (bind_group, layout, buffer)
 }
 
 /// Creates the font layout (texture + sampler) and binds the uploaded atlas.

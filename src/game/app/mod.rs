@@ -850,6 +850,7 @@ impl FrameLoop<'_> {
                 self.settings,
                 self.display_status,
                 APP_VERSION,
+                DrawableSize::new(width, height),
             );
             self.renderer.render_ui(vertices);
             let _present_status = self.renderer.present(self.window);
@@ -4228,6 +4229,7 @@ impl FrameLoop<'_> {
             self.settings,
             self.display_status,
             APP_VERSION,
+            drawable,
         );
         // Labels are only appended while actually playing, never in a menu or a
         // pause; the overlay is appended on demand.

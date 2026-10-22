@@ -3593,3 +3593,38 @@ HEAD and its verified remote ref. The two unrelated Python audit drafts remain
 untouched. No CI wait, main merge, force push, release/version bump or target
 cleanup is part of this task. Menu edge work, furniture polish second-last and
 final verification/cleanup remain subsequent work.
+
+## Main-menu left-edge overlay correction
+
+The dark title/navigation backdrop began at x=0 of the centred 480×272 UI
+region, rather than the physical drawable. Even 1280×720 leaves a four-pixel
+left margin; wider aspect ratios expose more background. Moving geometry left
+alone could not fix it because the UI projection clipped at that inner region.
+The UI pass now covers the drawable using an expanded orthographic projection
+that preserves the existing content scale and origin. The menu fills the left
+margin at its original 0.74 opacity and extends its backdrop through vertical
+margins, retaining the original x=0..224 fade, title, selections, colors and text.
+Both the projection and cached backdrop update when physical drawable size
+changes, including Retina scaling and window/fullscreen transitions.
+
+One asset-free regression checks the actual menu geometry, resize cache and
+renderer projection across all five offered resolutions, reference, ultrawide,
+portrait, odd-sized and Retina drawables. It also checks unchanged content,
+left-edge opacity, full-height coverage, zero-size safety and logical-pointer
+alignment in both window modes. It uses small vertex lists, no GPU, assets or map
+baking; these code checks do not establish native visual acceptance.
+
+Formatting, strict workspace/all-target/all-feature Clippy, **271 workspace tests**
+(zero failed/ignored, 0.48 s) and
+`cargo build --locked --release --workspace --all-features` pass. The release
+build finished in 7m32s with one Cargo job. `RUSTC_WRAPPER` was unset because the
+sandbox could not start the configured `sccache` wrapper. No lint was suppressed.
+
+Native acceptance and screenshots remain **pending**, not denied: the existing
+`local/native-validation/Places Validation.app`
+(`io.github.csd113.places.validation`) still requires macOS Documents approval;
+its previous prompt was canceled before initialization. No new launch or
+permission bypass was attempted, and no screenshot Library ID was created.
+Existing projects, map packages and unrelated audit drafts are untouched. No
+map was rebaked; the renderer source participates in the compiler preparation
+identity, so subsequent package-currentness checks must use the new build.
