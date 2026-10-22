@@ -216,6 +216,11 @@ impl App {
                         page: _
                     } | Popup::Number { field: _, value: _ }
                         | Popup::ProjectText { field: _, value: _ }
+                        | Popup::ComponentText {
+                            field: _,
+                            value: _,
+                            page: _
+                        }
                         | Popup::ScriptEdit {
                             path: _,
                             cursor: _,

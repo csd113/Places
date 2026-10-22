@@ -3628,3 +3628,91 @@ permission bypass was attempted, and no screenshot Library ID was created.
 Existing projects, map packages and unrelated audit drafts are untouched. No
 map was rebaked; the renderer source participates in the compiler preparation
 identity, so subsequent package-currentness checks must use the new build.
+
+## Furniture-store map polish — 2026-10-22
+
+Completed native authoring and native player acceptance for **After Hours - Rooms
+Beyond**, preserving the ten main spaces and two-storey linear route. All rooms,
+walls, stairs and original 200 props remain. Twenty-four early-bedroom transforms
+now compose bedside storage, separate sideboards, facing seating, reading corners,
+lamps and wall art. Four archive beds have less regular yaw. Four existing closet
+assemblies were duplicated to deep side walls: **204 props, 37 fixtures, 315 editor
+objects**. Fourteen fixtures distinguish warm bedrooms, a cool tall archive, a
+subdued squeezed room and a green-tinted finale. No furniture was removed, no AI
+components were introduced, and no model or texture assets were added. Existing
+tilted/embedded beds, oversized/miniature rooms, bedroom windows, mandatory closet
+passage and low connections remain. The spawn position is unchanged; its facing
+is now 180 degrees toward the journey. Crosshair is explicitly On, matching its
+previous default.
+
+Every map change was authored through the real native editor's complete-pose,
+Configure, duplicate, Map Settings and Save controls. Map Settings exposed a real
+input defect: `Popup::ComponentText` was absent from `update_window`'s native
+text-input activation match. Cmd+A cleared its input, but typed/pasted digits
+produced no characters. The five-line repair activates the existing SDL text
+input for that existing modal. Native reproduction after rebuilding accepted
+`180`, applied it, saved it and exported it. No map JSON was generated externally.
+
+Formatting, strict workspace/all-target/all-feature Clippy (17.61 s), 23 existing
+editor tests (0 failed/ignored; 0.16 s) and the locked release workspace/all-feature
+build (7m47s) pass. No new tests or lint suppressions were added. Asset validation
+passes: 622 assets, zero warnings. Project schema/source validation passes.
+Geometry review reports zero errors and 44 pre-existing warnings at open
+connections, stair carriers and unused carrier margins; these were retained as
+findings, not suppressed or represented as a warning-free shell.
+
+Native Project export completed with the current compiler, including Static and
+Full lighting. `verify --require-current` passes with valid integrity, no source
+or preparation differences, and no required bake. The new package is
+`projects/untitled-1792640069720/after-hours-rooms-beyond-polished.placesmap`
+(47,347,610 bytes; SHA-256
+`261e52e5928e0065d819bd80281cc8649dd16482c7ab5c6611eb8dcbedb68537`).
+The preserved construction package remains unchanged. Native **Recover editable
+project** opened the final export with 315 objects; its manifest, level and Luau
+script are byte-identical to the saved source. Recovery lives at
+`local/furniture-polish-0.13.0/recovered-project/`.
+
+A direct native Full/high player walk used ordinary walk, turn and crouch inputs
+from the saved spawn, through the closet's 1.15 m connection, oversized/miniature
+rooms, staircase, upper low room and archive to the finale. It used no jump,
+noclip, teleport or pose-setting action. The eye dropped to 0.8 m in the closet,
+rose to 5.1 m after the stairs and dropped to 4.3 m in the upper low room, ending
+at (6.95, 5.10, 19.95). All 2,399 ready frames presented, zero missed. Native
+captures and player/physics logs accompany the walk; no route trap was observed.
+Nine final-package fixed-view captures also passed and were visually reviewed,
+including the early furnished bedrooms, interior window, closet, tall archive,
+finale, added side-wall closets and corrected spawn view. Representative PNGs:
+`local/furniture-polish-0.13.0/captures/early-bedroom-final/view.png`,
+`captures/archive-final/view.png`, `captures/finale-final/view.png` beneath that
+same evidence directory. All captures are separate from timings and outside
+`target`; no new Library upload was performed.
+
+Two capture-free dense-view measurements used Full lightmaps, High textures and
+filtering, Full reflections, bloom On, VSync Off and observed Immediate mode,
+with matching 1280×720 logical / **2560×1440 physical** drawable. Each completed
+120 warmup plus 600 measured frames with zero misses. Archive: 119.92 observed
+FPS, mean loop 8.339 ms, p95 11.587 ms. Finale: 119.96 observed FPS, mean loop
+8.336 ms, p95 10.588 ms. Both plateau near the display's 120 Hz pacing despite
+Immediate and no requested limiter, so **uncapped throughput and speedup are
+inconclusive**. Density was retained; no performance gain is claimed.
+
+Successful native validation uses current `target/release/places` directly via
+`tools/bench/frame_time.py`, explicit repository asset root and isolated state,
+as required by `tools/bench/README.md`. It initialized, rendered and exited
+normally without an observed Documents prompt. The historical Validation.app
+Documents request was neither used, relaunched nor resolved. Existing editor
+bundle `io.github.csd113.places.native-editor` and its unchanged `Contents/MacOS/
+launch` wrapper worked for all polish authoring/export/recovery without identity,
+signing, privacy or protected-data relocation changes. A save/quit/reopen before
+the final facing edit passed. A later cold launch after final recovery stalled
+before initialization in `__private_getcwd > __getcwd > open$NOCANCEL`; CUA screen
+binding timed out. Those task-owned idle launches were cancelled, with no unsaved
+edits loaded. No denial or visible permission prompt was confirmed; its permission
+outcome is unknown. Do not infer a pending approval or retry a bundle gate from
+these successful direct player results. Final editable recovery and direct player
+acceptance are complete; the cold editor launch remains a separate access issue.
+
+Receipts, hashes, route controls, original backups and findings are in
+`local/furniture-polish-0.13.0/acceptance-final.json` and `CHECKPOINT.json`.
+The scoped changes leave unrelated audit drafts and target intact. No CI wait,
+main merge, release, version bump or final cleanup was performed.

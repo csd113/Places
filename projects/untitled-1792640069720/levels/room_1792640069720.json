@@ -41,7 +41,12 @@
     },
     {
       "align": "none",
-      "brightness": 1.0,
+      "brightness": 0.699999988079071,
+      "color": [
+        1.0,
+        0.8700000047683716,
+        0.7300000190734863
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_3",
       "mount": "ceiling",
@@ -52,7 +57,12 @@
     },
     {
       "align": "none",
-      "brightness": 1.0,
+      "brightness": 0.800000011920929,
+      "color": [
+        1.0,
+        0.8700000047683716,
+        0.7300000190734863
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_4",
       "mount": "ceiling",
@@ -63,7 +73,12 @@
     },
     {
       "align": "none",
-      "brightness": 1.0,
+      "brightness": 0.699999988079071,
+      "color": [
+        1.0,
+        0.8700000047683716,
+        0.7300000190734863
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_5",
       "mount": "ceiling",
@@ -74,7 +89,12 @@
     },
     {
       "align": "none",
-      "brightness": 1.0,
+      "brightness": 0.800000011920929,
+      "color": [
+        1.0,
+        0.8700000047683716,
+        0.7300000190734863
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_6",
       "mount": "ceiling",
@@ -272,7 +292,12 @@
     },
     {
       "align": "none",
-      "brightness": 1.0,
+      "brightness": 0.47999998927116394,
+      "color": [
+        0.7599999904632568,
+        0.8399999737739563,
+        1.0
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_24",
       "mount": "ceiling",
@@ -283,7 +308,12 @@
     },
     {
       "align": "none",
-      "brightness": 1.0,
+      "brightness": 0.47999998927116394,
+      "color": [
+        0.7599999904632568,
+        0.8399999737739563,
+        1.0
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_25",
       "mount": "ceiling",
@@ -294,7 +324,12 @@
     },
     {
       "align": "none",
-      "brightness": 1.0,
+      "brightness": 0.3799999952316284,
+      "color": [
+        0.7599999904632568,
+        0.8999999761581421,
+        0.7200000286102295
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_26",
       "mount": "ceiling",
@@ -305,7 +340,12 @@
     },
     {
       "align": "none",
-      "brightness": 1.0,
+      "brightness": 0.3799999952316284,
+      "color": [
+        0.7599999904632568,
+        0.8999999761581421,
+        0.7200000286102295
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_27",
       "mount": "ceiling",
@@ -316,7 +356,12 @@
     },
     {
       "align": "none",
-      "brightness": 1.0,
+      "brightness": 0.5,
+      "color": [
+        0.7599999904632568,
+        0.8999999761581421,
+        0.7200000286102295
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_28",
       "mount": "ceiling",
@@ -327,7 +372,12 @@
     },
     {
       "align": "none",
-      "brightness": 1.0,
+      "brightness": 0.5,
+      "color": [
+        0.7599999904632568,
+        0.8999999761581421,
+        0.7200000286102295
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_29",
       "mount": "ceiling",
@@ -338,7 +388,12 @@
     },
     {
       "align": "none",
-      "brightness": 2.0,
+      "brightness": 0.6000000238418579,
+      "color": [
+        0.7200000286102295,
+        0.8399999737739563,
+        1.0
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_30",
       "mount": "ceiling",
@@ -350,7 +405,12 @@
     },
     {
       "align": "none",
-      "brightness": 2.0,
+      "brightness": 0.6000000238418579,
+      "color": [
+        0.7200000286102295,
+        0.8399999737739563,
+        1.0
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_31",
       "mount": "ceiling",
@@ -362,7 +422,12 @@
     },
     {
       "align": "none",
-      "brightness": 2.0,
+      "brightness": 0.800000011920929,
+      "color": [
+        0.7200000286102295,
+        0.8399999737739563,
+        1.0
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_32",
       "mount": "ceiling",
@@ -374,7 +439,12 @@
     },
     {
       "align": "none",
-      "brightness": 2.0,
+      "brightness": 0.800000011920929,
+      "color": [
+        0.7200000286102295,
+        0.8399999737739563,
+        1.0
+      ],
       "fixture": "home:ceiling_light_round",
       "id": "editor_copy_33",
       "mount": "ceiling",
@@ -409,6 +479,7 @@
       "z": 54.0
     }
   ],
+  "crosshair": true,
   "format_version": 1,
   "id": "room_1792640069720",
   "name": "untitled-1792640069720",
@@ -635,7 +706,7 @@
       "model": "core:bed",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
-      "rotation_degrees": 0.0,
+      "rotation_degrees": 12.0,
       "scale": 1.0,
       "size": [
         1.399999976158142,
@@ -653,7 +724,7 @@
       "model": "core:bed",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
-      "rotation_degrees": 180.0,
+      "rotation_degrees": 168.0,
       "scale": 1.0,
       "size": [
         1.399999976158142,
@@ -671,7 +742,7 @@
       "model": "core:bed",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
-      "rotation_degrees": 0.0,
+      "rotation_degrees": 346.0,
       "scale": 1.0,
       "size": [
         1.399999976158142,
@@ -689,7 +760,7 @@
       "model": "core:bed",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
-      "rotation_degrees": 180.0,
+      "rotation_degrees": 192.0,
       "scale": 1.0,
       "size": [
         1.399999976158142,
@@ -1057,9 +1128,9 @@
         0.3499999940395355
       ],
       "solid": false,
-      "x": 1.7000000476837158,
+      "x": 0.8500000238418579,
       "y": 0.0,
-      "z": 17.700000762939453
+      "z": 18.600000381469727
     },
     {
       "components": [],
@@ -1075,9 +1146,9 @@
         0.3499999940395355
       ],
       "solid": false,
-      "x": 3.9000000953674316,
+      "x": 4.75,
       "y": 0.0,
-      "z": 17.700000762939453
+      "z": 18.600000381469727
     },
     {
       "components": [],
@@ -1093,9 +1164,9 @@
         0.3499999940395355
       ],
       "solid": false,
-      "x": 10.100000381469727,
+      "x": 9.25,
       "y": 0.0,
-      "z": 17.700000762939453
+      "z": 18.600000381469727
     },
     {
       "components": [],
@@ -1111,9 +1182,9 @@
         0.3499999940395355
       ],
       "solid": false,
-      "x": 12.300000190734863,
+      "x": 13.149999618530273,
       "y": 0.0,
-      "z": 17.700000762939453
+      "z": 18.600000381469727
     },
     {
       "components": [],
@@ -2047,9 +2118,9 @@
         0.3499999940395355
       ],
       "solid": true,
-      "x": 1.0,
+      "x": 0.6000000238418579,
       "y": 0.0,
-      "z": 14.5
+      "z": 16.200000762939453
     },
     {
       "components": [],
@@ -2065,9 +2136,9 @@
         0.3499999940395355
       ],
       "solid": true,
-      "x": 13.0,
+      "x": 13.399999618530273,
       "y": 0.0,
-      "z": 14.5
+      "z": 16.200000762939453
     },
     {
       "components": [],
@@ -2749,9 +2820,9 @@
         0.8999999761581421
       ],
       "solid": true,
-      "x": 2.0,
+      "x": 1.25,
       "y": 0.0,
-      "z": 13.5
+      "z": 14.0
     },
     {
       "components": [],
@@ -2767,9 +2838,9 @@
         0.8999999761581421
       ],
       "solid": true,
-      "x": 12.0,
+      "x": 12.75,
       "y": 0.0,
-      "z": 13.5
+      "z": 14.0
     },
     {
       "components": [],
@@ -3003,7 +3074,7 @@
       "solid": true,
       "x": 2.799999952316284,
       "y": 0.0,
-      "z": 14.800000190734863
+      "z": 14.0
     },
     {
       "components": [],
@@ -3021,7 +3092,7 @@
       "solid": true,
       "x": 11.199999809265137,
       "y": 0.0,
-      "z": 14.800000190734863
+      "z": 14.0
     },
     {
       "components": [],
@@ -3271,9 +3342,9 @@
         0.6000000238418579
       ],
       "solid": true,
-      "x": 1.5,
+      "x": 1.5499999523162842,
       "y": 0.0,
-      "z": 19.399999618530273
+      "z": 18.700000762939453
     },
     {
       "components": [],
@@ -3289,9 +3360,9 @@
         0.6000000238418579
       ],
       "solid": true,
-      "x": 2.5,
+      "x": 4.050000190734863,
       "y": 0.0,
-      "z": 19.399999618530273
+      "z": 18.700000762939453
     },
     {
       "components": [],
@@ -3299,7 +3370,7 @@
       "model": "home:cabinet_base",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
-      "rotation_degrees": 180.0,
+      "rotation_degrees": 90.0,
       "scale": 1.0,
       "size": [
         0.6000000238418579,
@@ -3307,9 +3378,9 @@
         0.6000000238418579
       ],
       "solid": true,
-      "x": 3.5,
+      "x": 0.550000011920929,
       "y": 0.0,
-      "z": 19.399999618530273
+      "z": 12.300000190734863
     },
     {
       "components": [],
@@ -3317,7 +3388,7 @@
       "model": "home:cabinet_base",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
-      "rotation_degrees": 180.0,
+      "rotation_degrees": 90.0,
       "scale": 1.0,
       "size": [
         0.6000000238418579,
@@ -3325,9 +3396,9 @@
         0.6000000238418579
       ],
       "solid": true,
-      "x": 4.5,
+      "x": 0.550000011920929,
       "y": 0.0,
-      "z": 19.399999618530273
+      "z": 12.920000076293945
     },
     {
       "components": [],
@@ -3343,9 +3414,9 @@
         0.6000000238418579
       ],
       "solid": true,
-      "x": 9.5,
+      "x": 9.949999809265137,
       "y": 0.0,
-      "z": 19.399999618530273
+      "z": 18.700000762939453
     },
     {
       "components": [],
@@ -3361,9 +3432,9 @@
         0.6000000238418579
       ],
       "solid": true,
-      "x": 10.5,
+      "x": 12.449999809265137,
       "y": 0.0,
-      "z": 19.399999618530273
+      "z": 18.700000762939453
     },
     {
       "components": [],
@@ -3371,7 +3442,7 @@
       "model": "home:cabinet_base",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
-      "rotation_degrees": 180.0,
+      "rotation_degrees": 270.0,
       "scale": 1.0,
       "size": [
         0.6000000238418579,
@@ -3379,9 +3450,9 @@
         0.6000000238418579
       ],
       "solid": true,
-      "x": 11.5,
+      "x": 13.449999809265137,
       "y": 0.0,
-      "z": 19.399999618530273
+      "z": 12.300000190734863
     },
     {
       "components": [],
@@ -3389,7 +3460,7 @@
       "model": "home:cabinet_base",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
-      "rotation_degrees": 180.0,
+      "rotation_degrees": 270.0,
       "scale": 1.0,
       "size": [
         0.6000000238418579,
@@ -3397,9 +3468,9 @@
         0.6000000238418579
       ],
       "solid": true,
-      "x": 12.5,
+      "x": 13.449999809265137,
       "y": 0.0,
-      "z": 19.399999618530273
+      "z": 12.920000076293945
     },
     {
       "components": [],
@@ -3587,7 +3658,7 @@
       "model": "home:armchair",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
-      "rotation_degrees": 180.0,
+      "rotation_degrees": 270.0,
       "scale": 1.0,
       "size": [
         0.8999999761581421,
@@ -3597,7 +3668,7 @@
       "solid": true,
       "x": 4.5,
       "y": 0.0,
-      "z": 12.0
+      "z": 14.0
     },
     {
       "components": [],
@@ -3605,7 +3676,7 @@
       "model": "home:armchair",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
-      "rotation_degrees": 180.0,
+      "rotation_degrees": 90.0,
       "scale": 1.0,
       "size": [
         0.8999999761581421,
@@ -3615,7 +3686,7 @@
       "solid": true,
       "x": 9.5,
       "y": 0.0,
-      "z": 12.0
+      "z": 14.0
     },
     {
       "components": [],
@@ -3867,7 +3938,7 @@
       "solid": false,
       "x": 2.799999952316284,
       "y": 0.46000000834465027,
-      "z": 14.800000190734863
+      "z": 14.0
     },
     {
       "components": [],
@@ -3885,7 +3956,7 @@
       "solid": false,
       "x": 11.199999809265137,
       "y": 0.46000000834465027,
-      "z": 14.800000190734863
+      "z": 14.0
     },
     {
       "components": [],
@@ -3966,7 +4037,7 @@
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 180.0,
-      "scale": 1.0,
+      "scale": 1.5,
       "size": [
         0.44999998807907104,
         0.5,
@@ -3974,7 +4045,7 @@
       ],
       "solid": false,
       "x": 2.799999952316284,
-      "y": 1.5,
+      "y": 1.5499999523162842,
       "z": 19.790000915527344
     },
     {
@@ -3984,7 +4055,7 @@
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 180.0,
-      "scale": 1.0,
+      "scale": 1.5,
       "size": [
         0.44999998807907104,
         0.5,
@@ -3992,7 +4063,7 @@
       ],
       "solid": false,
       "x": 11.199999809265137,
-      "y": 1.5,
+      "y": 1.5499999523162842,
       "z": 19.790000915527344
     },
     {
@@ -4012,6 +4083,78 @@
       "x": 4.0,
       "y": 1.5,
       "z": 0.029999999329447746
+    },
+    {
+      "components": [],
+      "id": "editor_prop_201",
+      "model": "home:closet_folding_door",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        1.9600000381469727,
+        2.180000066757202,
+        0.2240000069141388
+      ],
+      "solid": false,
+      "x": 0.5,
+      "y": 0.0,
+      "z": 37.5
+    },
+    {
+      "components": [],
+      "id": "editor_prop_202",
+      "model": "home:closet_folding_door",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        1.9600000381469727,
+        2.180000066757202,
+        0.2240000069141388
+      ],
+      "solid": false,
+      "x": 13.5,
+      "y": 0.0,
+      "z": 37.5
+    },
+    {
+      "components": [],
+      "id": "editor_prop_203",
+      "model": "home:closet_folding_door",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        1.9600000381469727,
+        2.180000066757202,
+        0.2240000069141388
+      ],
+      "solid": false,
+      "x": 0.5,
+      "y": 3.5,
+      "z": 22.5
+    },
+    {
+      "components": [],
+      "id": "editor_prop_204",
+      "model": "home:closet_folding_door",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        1.9600000381469727,
+        2.180000066757202,
+        0.2240000069141388
+      ],
+      "solid": false,
+      "x": 13.5,
+      "y": 3.5,
+      "z": 22.5
     }
   ],
   "rooms": [
@@ -4166,7 +4309,7 @@
   ],
   "spawn": {
     "x": 3.0,
-    "yaw_degrees": 0.0,
+    "yaw_degrees": 180.0,
     "z": 4.5
   },
   "stairs": [
