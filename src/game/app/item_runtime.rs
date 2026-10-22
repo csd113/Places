@@ -627,6 +627,7 @@ impl FrameLoop<'_> {
         }
         let prop_instance_ids = level.prop_instance_ids();
         self.restore_carry_visibility(level);
+        let mut render_spawns = Vec::new();
         for (index, prop) in level.props.iter().enumerate() {
             let Some(def) = prop.physics.as_ref().filter(|def| def.motion.is_movable()) else {
                 continue;
@@ -659,23 +660,22 @@ impl FrameLoop<'_> {
                 self.game.stop();
                 return;
             }
-            if !self
-                .renderer
-                .spawn_runtime_prop(key, prop, position.to_array())
-            {
-                let _removed = self.items.world.remove(key);
-                self.fatal_error = Some(format!(
-                    "Renderer refused physical prop `{}` within its resource budget",
-                    prop.model
-                ));
-                self.game.stop();
-                return;
-            }
+            render_spawns.push((key, prop, position.to_array()));
             self.items.authored.push((
                 key,
                 prop_instance_ids.get(index).cloned().unwrap_or_default(),
                 prop.model.clone(),
             ));
+        }
+        if let Err(index) = self.renderer.spawn_runtime_props(&render_spawns)
+            && let Some((key, prop, _)) = render_spawns.get(index)
+        {
+            let _removed = self.items.world.remove(*key);
+            self.fatal_error = Some(format!(
+                "Renderer refused physical prop `{}` within its resource budget",
+                prop.model
+            ));
+            self.game.stop();
         }
     }
 

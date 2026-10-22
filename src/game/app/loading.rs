@@ -41,7 +41,8 @@ pub enum Phase {
     Lightmaps = 3,
     Collision = 4,
     Characters = 5,
-    Ready = 6,
+    Visibility = 6,
+    Ready = 7,
 }
 impl Phase {
     const fn as_byte(self) -> u8 {
@@ -52,7 +53,8 @@ impl Phase {
             Self::Lightmaps => 3,
             Self::Collision => 4,
             Self::Characters => 5,
-            Self::Ready => 6,
+            Self::Visibility => 6,
+            Self::Ready => 7,
         }
     }
 
@@ -63,7 +65,8 @@ impl Phase {
             3 => Self::Lightmaps,
             4 => Self::Collision,
             5 => Self::Characters,
-            6 => Self::Ready,
+            6 => Self::Visibility,
+            7 => Self::Ready,
             _ => Self::Queued,
         }
     }
@@ -172,6 +175,7 @@ pub struct Request {
 #[derive(Clone)]
 pub struct PreparedLease {
     records: Arc<PreparedRecords>,
+    transport: Option<std::sync::Weak<crate::engine::lighting::transport::TransportScene>>,
 }
 
 impl PreparedLease {
@@ -179,6 +183,7 @@ impl PreparedLease {
         LifetimeProbe {
             records: Arc::downgrade(&self.records),
             build: Arc::downgrade(&self.records.build),
+            transport: self.transport.clone(),
         }
     }
 
@@ -194,16 +199,18 @@ impl PreparedLease {
 pub struct LifetimeProbe {
     records: std::sync::Weak<PreparedRecords>,
     build: std::sync::Weak<LevelBuild>,
+    transport: Option<std::sync::Weak<crate::engine::lighting::transport::TransportScene>>,
 }
 impl LifetimeProbe {
     pub fn snapshot(&self) -> serde_json::Value {
-        serde_json::json!({"prepared_record_owners":self.records.strong_count(), "prepared_build_owners":self.build.strong_count()})
+        serde_json::json!({"prepared_record_owners":self.records.strong_count(), "prepared_build_owners":self.build.strong_count(), "transport_owners":self.transport.as_ref().map_or(0,std::sync::Weak::strong_count)})
     }
 }
 
 /// One internally compatible decoded world. The caller installs this only while
 /// its generation is current.
 pub struct PreparedWorld {
+    pub transport: Option<Arc<crate::engine::lighting::transport::TransportScene>>,
     pub preparation_millis: f64,
     pub cache_hit: bool,
     pub loaded: LoadedLevel,
@@ -865,10 +872,18 @@ fn prepare_world(
         &records.build.lighting,
         records.build.probes.as_deref(),
     );
+    if !control.checkpoint(Phase::Visibility) {
+        return Ok(None);
+    }
+    let mut timer = crate::engine::perf::loading::StageTimer::new("prepare");
+    let transport = crate::engine::render::prepare_runtime_transport(&loaded, &records.build);
+    timer.step("runtime-visibility");
     if !control.checkpoint(Phase::Ready) {
         return Ok(None);
     }
+    let transport_probe = transport.as_ref().map(Arc::downgrade);
     Ok(Some(PreparedWorld {
+        transport,
         preparation_millis: started.elapsed().as_secs_f64() * 1000.0,
         cache_hit,
         loaded,
@@ -878,7 +893,10 @@ fn prepare_world(
         assets: assets.clone(),
         lightmaps: request.lightmaps,
         probes: records.probes.clone(),
-        lease: PreparedLease { records },
+        lease: PreparedLease {
+            records,
+            transport: transport_probe,
+        },
     }))
 }
 

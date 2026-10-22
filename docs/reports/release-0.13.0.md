@@ -2813,3 +2813,141 @@ compression, job-system or presentation rewrite is included. The unrelated Pytho
 audit files are preserved. The final local handoff records the remote commit and
 process custody. `target` is retained, with no `cargo clean`, for the parent's
 subsequent loading/memory pass; all deliverable copies are already outside it.
+
+## Large-map loading and memory pass — 2026-10-22
+
+This is the second authorized sequential performance pass, starting at
+`c1a20f0df0d6a762950d4afe1cb29974fe9416e3`. The preceding GPU draw/index reductions
+and GPU timings remain that stage's results. No new codec, package revision,
+streaming/job-system rewrite, GPU skinning, authored scene change, release, tag,
+version bump or main merge is included here. Evidence and preserved production
+executables are in `local/loading-memory-0.13.0/`, outside `target`.
+
+### Shared loading changes
+
+Fresh measurements reproduced the historical symptoms: Arcade reached its first
+usable scene in 8.14 seconds and Lantern in 4.74/4.76 seconds. The symbolized
+Arcade diagnostic located repeated whole dynamic-scene GPU uploads and PNG
+identity hashing during each authored physical-prop spawn. The release stage
+trace measured 5.82 seconds in physical-item installation. Authored groups now
+publish one dynamic upload after their ordinary keyed spawns, material tints and
+oriented poses. Individual runtime spawn/replacement behavior is retained.
+
+Immutable runtime receiver visibility is prepared on the existing loading
+worker, with its own progress phase and cancellation checkpoints. Its existing
+triangle/material/alpha/light calculations are unchanged. This removes Lantern's
+roughly 1.57-second visibility construction from the final upload callback.
+Editor/tool installs retain an inline preparation path. Weak lifetime probes now
+also observe the transport scene, without keeping an inactive map alive.
+
+Framed, budget-checked literal and palette prop vertex runs reserve their exact
+validated count. The former 4,096-slot initial reserve geometrically grew and
+retained substantial unused storage. Lantern's prepared-record charge falls
+**965,299,582 → 730,359,898 bytes (24.3%)**. This charge is not total process memory:
+it excludes renderer visibility, other gameplay allocations and driver storage.
+One essential synthetic 4,097-vertex regression exercises both encodings with
+under 1 MiB, protecting this observed allocation defect without a map or GPU.
+
+Moving visibility earlier initially increased Lantern peak RSS by about 8%,
+despite the lower owned record charge. That rejected intermediate candidate is
+preserved. Upload completion alone only partly reduced the overlap. The accepted
+path allocates the atlas once and copies one complete page pair per step, using
+nonblocking queue completion between upload families/bounded prop batches.
+Lantern's former 224 MiB atlas staging burst becomes one 16 MiB pair at a time.
+The complete world is published only after its uploads finish; cancellation drops
+pending ownership, and completion callbacks own only a flag. Compiler/tool
+callers still have an immediate complete-atlas upload entry point. Immutable
+resident-atlas reuse, package hashes, bounds, fallback and cache policies remain.
+
+### Matched native measurements
+
+`FINAL-RESULTS.json` retains every capture-free ABBA run, executable identity,
+trace and process measurement. These are fresh processes with empty application
+state and **warmed disk/OS/GPU caches left untouched**, not cold-storage tests.
+The host is the same M2 Pro/macOS 27.0.1/Metal system, release/all features,
+High textures/filtering/lighting, Full lightmaps/reflections, bloom and FOV60.
+The physical drawable is **1280×720**, VSync/caps off, actual Immediate. No FPS
+or uncapped-throughput gain is claimed from these loading runs.
+
+| Median of two matched runs | Before | After | Interpretation |
+| --- | ---: | ---: | --- |
+| Arcade request → first usable scene | 8.063 s | 2.456 s | 69.5% less waiting |
+| Lantern request → first usable scene | 4.726 s | 4.336 s | 8.3% less waiting |
+| Small lab request → first usable scene | 0.302 s | 0.339 s | 37.4 ms slower from bounded installation |
+| Arcade process peak RSS | 1370.9 MiB | 1117.6 MiB | 18.5% lower |
+| Lantern process peak RSS | 2105.5 MiB | 2093.9 MiB | Effectively flat; no robust peak-RAM gain claimed |
+| Small lab process peak RSS | 451.9 MiB | 429.9 MiB | Lower in these runs |
+| Lantern longest upload callback | 1571.8 ms | 116.5 ms | Large main-thread callback removed |
+| Arcade longest loading event-pump gap | 6077.1 ms | 381.3 ms | Remaining install hitch remains explicit |
+| Lantern longest loading event-pump gap | 2232.3 ms | 276.8 ms | Improved, still not hitch-free |
+
+Worker traces separately expose mesh read/parse, shared-prop decompression and
+reconstruction, prop parse/textures, lighting/collision/navigation, lightmaps,
+irradiance, reflection captures and visibility preparation. Lantern still spends
+roughly 0.9 seconds reconstructing props and 0.7 seconds reading/decoding its
+lightmaps; no replacement storage project is hidden in this pass. The small-map
+latency regression and flat Lantern process peak are acceptance tradeoffs.
+
+### Lifetime, correctness and delivery
+
+The final 119-second ownership campaign visits Lantern and Arcade three times
+each, the small lab twice and Hub, then returns to the live menu. All ten retired
+prepared-record/build/transport probes reach **zero owners** after the existing
+serial cache-retirement work. At the unload seam, old prepared bytes, script
+modules/VM bytes, AI agents and physics bodies are zero. The new menu legitimately
+owns 105,567,345 prepared bytes, one script module and its own actors; it is not an
+empty application. Oversized gameplay records remain outside the existing LRU;
+the small lab's second load still exercises a cache hit. No old-map ticking or
+live large-map accumulation was found, and the baseline already retired those
+owners. The new transport probe extends that evidence rather than inventing a
+previous leak.
+
+Fresh-menu and returned-menu `heap` inspections report **308,859,073 and
+321,398,993 live malloc bytes**. The corresponding `vmmap` snapshots show
+109.3 MiB versus roughly **1 GiB of empty large-allocation regions**, and
+25.3 versus 311.5 MiB of zone fragmentation. This is concrete allocator
+high-water/fragmentation evidence in the present run, distinct from live map
+ownership. The captured/heap-inspected transition campaign peaks at 3021.3 MiB
+sampled RSS while old/new rollback resources can overlap; it is not the
+capture-free fresh-load comparison. Exact attribution of the historical
+**+312 MiB** observation remains unproved. Metal driver byte counters remain
+unavailable; texture/view counts are not VRAM. Final menu samples have the same
+60 textures, 135 views and 468 bind groups as a fresh menu; small buffer/encoder
+count variations remain visible.
+
+Five final frame-180 Arcade/Lantern/lab/Home/Pool comparisons have **zero changed
+RGB channels**. Eighteen native assertions pass, including 25-body activation and
+reset, the scripted visitor's 12→13→12→13 lifecycle, graphics restoration,
+decode cancellation/retry, cancellation during staged GPU upload with no stale
+Lantern commit, and bounded Lua allocation-failure recovery. The actual native
+editor opens the existing tiny fixture, builds, plays and returns; the current
+compiler exports/imports both fixture members with exact JSON/Luau recovery.
+Only this explicit tiny developer fixture is prepared; no shipped map is rebaked
+and no map preparation enters Cargo tests or CI.
+
+Final formatting, strict workspace/all-target/all-feature Clippy with
+`-D warnings`, **258 Rust tests** (0.50 seconds, none failed/ignored), and the
+locked release workspace/all-feature build (3m 15s) pass. The one added Rust
+fixture has the concrete memory-regression purpose described above. Native
+acceptance is macOS/Metal only; Windows/Linux, broad hardware memory pressure and
+GPU-device-loss injection were not newly certified. Hosted CI was not queried or
+awaited under the standing instruction.
+
+The existing 27-second GPU montage was saved early as
+**`libfile_d745f447ea1c819196020a856099a6b1`**. The final combined montage is
+**`libfile_259ae60e0de881919dd167a21a53422d`**, H.264/yuv420p, 1280×720, 30 FPS,
+**41 seconds / 1,428,979 bytes / 1,230 fully decoded frames**. Its first 810
+compressed frame payloads exactly preserve the prior GPU clip without
+re-encoding. New clips are actual separately paced ready-scene captures; the
+loading UI itself is not recorded and no smoother-loading-video or FPS claim is
+made. Labels use the independent capture-free measurements and retain the small
+control regression. Sampled full-resolution QA frames are readable.
+
+`FINAL-HANDOFF.json`, exact executable hashes, native/heap traces, raw media,
+intermediate candidates and the source patch preserve recovery evidence outside
+`target`. The two unrelated Python audit files remain unchanged. The user's
+subsequent queue instruction supersedes cleanup for this stage: **retain
+`target` and editor/game executables** for the parent-owned lighting-trigger and
+shared-calculation audit, followed by furniture-store work. No `cargo clean` is
+performed here; ownership is released only after commit/push verification and
+confirmation that no owned native/build job remains.

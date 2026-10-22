@@ -258,7 +258,7 @@ pub fn upload_stats(lightmaps: Option<&LevelLightmaps>) -> LightmapUploadStats {
 pub struct LightmapAtlas {
     /// The resident page array, kept alive for its view; `None` on the
     /// vertex-lit path.
-    _pages: Option<wgpu::Texture>,
+    pages: Option<wgpu::Texture>,
     /// The page array's view, `None` when no atlas is resident.
     view: Option<wgpu::TextureView>,
     /// The 1x1 fallback pair, kept alive for its view.
@@ -269,7 +269,7 @@ pub struct LightmapAtlas {
 }
 
 impl LightmapAtlas {
-    /// Uploads a prepared atlas as one array of layer pairs, or the fallback
+    /// Allocates a prepared atlas as one array of layer pairs, or the fallback
     /// for the vertex-lit path.
     ///
     /// A page set that cannot be one array ([`upload_stats`] rejects a page
@@ -278,7 +278,7 @@ impl LightmapAtlas {
     /// the renderer's `needs_upload_fallback` rule then rebuilds the level
     /// vertex-lit, so a rejected set is a named fallback, never a dropped page.
     #[must_use]
-    pub fn upload(
+    pub fn begin_upload(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         lightmaps: Option<&LevelLightmaps>,
@@ -303,7 +303,7 @@ impl LightmapAtlas {
         let mut page_array = None;
         let mut view = None;
         if stats.pages > 0 {
-            let (texture, array_view) = Self::upload_page_array(device, queue, lightmaps, &stats);
+            let (texture, array_view) = Self::create_page_array(device, lightmaps, &stats);
             page_array = Some(texture);
             view = Some(array_view);
             crate::engine::logging::info(format!(
@@ -316,12 +316,76 @@ impl LightmapAtlas {
             ));
         }
         Self {
-            _pages: page_array,
+            pages: page_array,
             view,
             _fallback: fallback,
             fallback_view,
             stats,
         }
+    }
+
+    /// Uploads all pages immediately for compiler/tool callers.
+    #[must_use]
+    pub fn upload(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        lightmaps: Option<&LevelLightmaps>,
+    ) -> Self {
+        let atlas = Self::begin_upload(device, queue, lightmaps);
+        let mut cursor = 0;
+        while atlas.upload_next_page(queue, lightmaps, &mut cursor) {}
+        atlas
+    }
+
+    /// Copies one complete page pair. A pending renderer install publishes the
+    /// atlas only after this cursor reaches the end and its queue work completes.
+    pub fn upload_next_page(
+        &self,
+        queue: &wgpu::Queue,
+        lightmaps: Option<&LevelLightmaps>,
+        cursor: &mut usize,
+    ) -> bool {
+        let Some(texture) = &self.pages else {
+            return false;
+        };
+        let Some(page) = lightmaps.and_then(|maps| {
+            maps.pages
+                .iter()
+                .chain(maps.switchable.iter().flat_map(|group| &group.pages))
+                .nth(*cursor)
+        }) else {
+            return false;
+        };
+        let bytes = page_rgba16f(page);
+        let edge = self.stats.page_edge;
+        let layer = u32::try_from(*cursor)
+            .unwrap_or(u32::MAX)
+            .saturating_mul(LAYERS_PER_PAGE);
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d {
+                    x: 0,
+                    y: 0,
+                    z: layer,
+                },
+                aspect: wgpu::TextureAspect::All,
+            },
+            &bytes,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(edge.saturating_mul(8)),
+                rows_per_image: Some(edge),
+            },
+            wgpu::Extent3d {
+                width: edge,
+                height: edge,
+                depth_or_array_layers: LAYERS_PER_PAGE,
+            },
+        );
+        *cursor = cursor.saturating_add(1);
+        true
     }
 
     /// Creates a `layers`-deep array of `edge`-texel fallback layers: white
@@ -377,9 +441,8 @@ impl LightmapAtlas {
     /// The walk order is the contract the shader's addressing mirrors: the base
     /// group's pages first (irradiance at even layers), then each switchable
     /// contribution in turn, all on [`LevelLightmaps::layer_count`] layers.
-    fn upload_page_array(
+    fn create_page_array(
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
         lightmaps: Option<&LevelLightmaps>,
         stats: &LightmapUploadStats,
     ) -> (wgpu::Texture, wgpu::TextureView) {
@@ -400,40 +463,6 @@ impl LightmapAtlas {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
-        if let Some(level_lightmaps) = lightmaps {
-            let mut layer = 0u32;
-            for group in core::iter::once(&level_lightmaps.pages)
-                .chain(level_lightmaps.switchable.iter().map(|entry| &entry.pages))
-            {
-                for page in group {
-                    let bytes = page_rgba16f(page);
-                    queue.write_texture(
-                        wgpu::TexelCopyTextureInfo {
-                            texture: &texture,
-                            mip_level: 0,
-                            origin: wgpu::Origin3d {
-                                x: 0,
-                                y: 0,
-                                z: layer,
-                            },
-                            aspect: wgpu::TextureAspect::All,
-                        },
-                        &bytes,
-                        wgpu::TexelCopyBufferLayout {
-                            offset: 0,
-                            bytes_per_row: Some(edge.saturating_mul(8)),
-                            rows_per_image: Some(edge),
-                        },
-                        wgpu::Extent3d {
-                            width: edge,
-                            height: edge,
-                            depth_or_array_layers: LAYERS_PER_PAGE,
-                        },
-                    );
-                    layer = layer.saturating_add(LAYERS_PER_PAGE);
-                }
-            }
-        }
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         (texture, view)
     }

@@ -656,17 +656,23 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     assets: &mut crate::engine::props::PropAssets,
     manifest: Option<&Manifest>,
 ) -> Result<LoadedVariant, String> {
+    let mut timer = crate::engine::perf::loading::StageTimer::new("variant");
     let mesh_bytes = reader.read_blob(&variant.entries.mesh, MAX_BINARY_BYTES)?;
+    timer.step("mesh-read");
     let mesh = read_mesh(&mesh_bytes)?;
+    timer.step("mesh-parse");
     drop(mesh_bytes);
     let props_bytes = super::shared_props::read_record(reader, &variant.entries.props)?;
+    timer.step("props-read-reconstruct");
     let mut props = read_props(&props_bytes)?;
+    timer.step("props-parse");
     drop(props_bytes);
     let variant_textures = manifest.map_or_else(
         || Ok(std::collections::HashMap::new()),
         |package_manifest| material_variant_textures(reader, package_manifest, assets, &props),
     )?;
     attach_prop_textures(&mut props, assets, &variant_textures);
+    timer.step("prop-textures");
     let lighting_bytes = reader.read_blob(&variant.entries.lighting, MAX_LIGHTING_BYTES)?;
     let lighting = read_lighting(&lighting_bytes)?;
     drop(lighting_bytes);
@@ -703,6 +709,7 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     let navigation_bytes = reader.read_blob(&variant.entries.navigation, MAX_NAVIGATION_BYTES)?;
     let navigation = crate::engine::package::navigation::read_navigation(&navigation_bytes)?;
     drop(navigation_bytes);
+    timer.step("lighting-collision-nav");
     let lightmaps = match (&variant.entries.lightmaps, &variant.entries.lightmaps_meta) {
         (Some(pages), Some(meta)) => {
             let page_bytes = reader.read_blob(pages, MAX_LIGHTMAP_ATLAS_BYTES)?;
@@ -711,6 +718,7 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
         }
         _ => None,
     };
+    timer.step("lightmaps");
     let irradiance = match &variant.entries.irradiance {
         Some(entry) => {
             let bytes = reader.read_blob(entry, MAX_ENTRY_BYTES)?;
@@ -720,7 +728,9 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
         }
         None => None,
     };
+    timer.step("irradiance");
     let probes = read_probes(reader, variant)?;
+    timer.step("reflection-probes");
     Ok(LoadedVariant {
         static_light_off,
         lightmap_quality: quality,

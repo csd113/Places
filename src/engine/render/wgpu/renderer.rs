@@ -290,7 +290,10 @@ struct PreparedInstall {
     materials: MaterialRenderState,
     blacklights: crate::engine::render::common::blacklight::BlacklightSet,
     uv_transport: Option<Arc<crate::engine::lighting::transport::TransportScene>>,
+    transport_prepared: bool,
+    upload_complete: Option<Arc<std::sync::atomic::AtomicBool>>,
     atlas: Option<LightmapAtlas>,
+    atlas_cursor: Option<usize>,
     fixture_sheets: Vec<Arc<super::texture::GpuTexture>>,
     world: Option<WgpuWorldGeometry>,
     world_textures: Option<WorldTextures>,
@@ -303,6 +306,16 @@ struct PreparedInstall {
     /// True when `probes` must be uploaded instead of baking captures.
     precompiled_probes: bool,
     prepared_caustics: Option<super::caustics::PreparedCaustics>,
+}
+
+impl PreparedInstall {
+    fn prepare_transport(&mut self) {
+        if !self.transport_prepared {
+            self.uv_transport =
+                crate::engine::render::prepare_runtime_transport(&self.loaded, &self.build);
+            self.transport_prepared = true;
+        }
+    }
 }
 
 /// Texture/filtering/reflection changes cannot alter immutable atlas data.
@@ -320,6 +333,7 @@ fn resident_atlas_matches(
 
 #[derive(Clone, Copy)]
 enum UploadPhase {
+    Transport,
     Atlas,
     World,
     Textures,
@@ -1749,6 +1763,18 @@ impl WgpuRenderer {
         yaw_degrees: f32,
         scale: f32,
     ) -> bool {
+        self.spawn_runtime_model_inner(key, model, position, yaw_degrees, scale, true)
+    }
+
+    fn spawn_runtime_model_inner(
+        &mut self,
+        key: u64,
+        model: &str,
+        position: [f32; 3],
+        yaw_degrees: f32,
+        scale: f32,
+        upload: bool,
+    ) -> bool {
         if self.check_device_lost() {
             return false;
         }
@@ -1772,7 +1798,7 @@ impl WgpuRenderer {
             Ok(asset) => asset,
             Err(error) => {
                 self.prop_assets.report_failure(resolved_path, &error);
-                if replaced {
+                if replaced && upload {
                     self.upload_dynamic();
                 }
                 return false;
@@ -1782,7 +1808,7 @@ impl WgpuRenderer {
             .dynamic
             .spawn(&asset, position, yaw_degrees, scale, 0.0)
         else {
-            if replaced {
+            if replaced && upload {
                 self.upload_dynamic();
             }
             return false;
@@ -1791,7 +1817,9 @@ impl WgpuRenderer {
         if let Some(tint) = self.prop_catalog.tint(model) {
             let _tint_applied = self.dynamic.set_albedo_tint(id, tint);
         }
-        self.upload_dynamic();
+        if upload {
+            self.upload_dynamic();
+        }
         true
     }
 
@@ -1817,6 +1845,36 @@ impl WgpuRenderer {
             return false;
         }
         self.set_runtime_model_pose(key, position, prop.orientation().to_array())
+    }
+
+    /// Installs an authored group before publishing its dynamic GPU snapshot.
+    /// A failed member still publishes earlier changes, matching individual spawns.
+    pub fn spawn_runtime_props(
+        &mut self,
+        props: &[(u64, &crate::engine::level::PropDef, [f32; 3])],
+    ) -> Result<(), usize> {
+        let outcome = props
+            .iter()
+            .enumerate()
+            .try_for_each(|(index, (key, prop, position))| {
+                if self.spawn_runtime_model_inner(
+                    *key,
+                    &prop.model,
+                    *position,
+                    prop.rotation_degrees,
+                    prop.scale,
+                    false,
+                ) && self.set_runtime_model_pose(*key, *position, prop.orientation().to_array())
+                {
+                    Ok(())
+                } else {
+                    Err(index)
+                }
+            });
+        if !props.is_empty() {
+            self.upload_dynamic();
+        }
+        outcome
     }
 
     /// Despawns the runtime object a key spawned, if it is still live.
@@ -3110,19 +3168,6 @@ impl WgpuRenderer {
             &loaded.level,
             &build.lighting,
         );
-        let uv_transport = if blacklights.is_empty() {
-            None
-        } else {
-            crate::engine::render::common::light_transport::build_transport_scene(
-                &loaded.level,
-                &build.mesh,
-                &build.batches,
-                &loaded.materials,
-                &build.lighting,
-                &[],
-            )
-            .map(|(scene, _)| Arc::new(scene))
-        };
         self.prepared_install = Some(PreparedInstall {
             loaded: loaded.clone(),
             build,
@@ -3133,21 +3178,34 @@ impl WgpuRenderer {
             graphics: self.graphics_requested,
             materials: MaterialRenderState::from_table(&loaded.materials),
             blacklights,
-            uv_transport,
+            uv_transport: None,
+            transport_prepared: false,
+            upload_complete: None,
             atlas: None,
+            atlas_cursor: None,
             fixture_sheets: Vec::new(),
             world: None,
             world_textures: None,
             world_materials: None,
             props: None,
             prop_cursor: 0,
-            phase: UploadPhase::Atlas,
+            phase: UploadPhase::Transport,
             probes: crate::engine::package::world::ProbeCaptures::default(),
             precompiled_probes: false,
             prepared_caustics: None,
         });
         #[cfg(feature = "visual-diagnostics")]
         self.trace_gpu_resources("install-started");
+    }
+
+    pub fn set_prepared_transport(
+        &mut self,
+        transport: Option<Arc<crate::engine::lighting::transport::TransportScene>>,
+    ) {
+        if let Some(pending) = &mut self.prepared_install {
+            pending.uv_transport = transport;
+            pending.transport_prepared = true;
+        }
     }
 
     pub fn set_prepared_caustics(&mut self, prepared: Option<super::caustics::PreparedCaustics>) {
@@ -3191,26 +3249,52 @@ impl WgpuRenderer {
         let Some(mut pending) = self.prepared_install.take() else {
             return false;
         };
+        if let Some(complete) = &pending.upload_complete {
+            if let Err(error) = self.device.poll(wgpu::PollType::Poll) {
+                self.mark_fatal(format!("Cannot complete prepared uploads: {error}"));
+                return false;
+            }
+            if !complete.load(std::sync::atomic::Ordering::Acquire) {
+                self.prepared_install = Some(pending);
+                return false;
+            }
+            pending.upload_complete = None;
+        }
+        if matches!(pending.phase, UploadPhase::Props)
+            && pending.prop_cursor >= pending.build.batches.len()
+        {
+            return self.commit_prepared_install(pending);
+        }
+        let uploaded = !matches!(pending.phase, UploadPhase::Transport);
+        self.upload_prepared_step(&mut pending);
+        if uploaded {
+            // Flush this bounded family/batch before admitting another. The
+            // callback owns only a flag, so cancellation never retains a map.
+            let complete = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let completed = Arc::clone(&complete);
+            let _submission = self.queue.submit([]);
+            self.queue.on_submitted_work_done(move || {
+                completed.store(true, std::sync::atomic::Ordering::Release);
+            });
+            pending.upload_complete = Some(complete);
+        }
+        self.prepared_install = Some(pending);
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resources("install-upload");
+        false
+    }
+
+    fn upload_prepared_step(&self, pending: &mut PreparedInstall) {
         match pending.phase {
+            UploadPhase::Transport => {
+                pending.prepare_transport();
+                pending.phase = UploadPhase::Atlas;
+            }
             UploadPhase::Atlas => {
-                pending.atlas = Some(self.prepare_atlas(&pending.build));
-                pending.phase = UploadPhase::World;
+                self.upload_atlas_step(pending);
             }
             UploadPhase::World => {
-                pending.world = Some(WgpuWorldGeometry::upload_with_blacklight(
-                    &self.device,
-                    &self.queue,
-                    &pending.build.mesh,
-                    &pending.materials,
-                    pending.uv_transport.as_deref().map(|scene| {
-                        crate::engine::render::common::blacklight::BlacklightVisibility {
-                            sources: &pending.blacklights,
-                            scene,
-                            dynamic: None,
-                        }
-                    }),
-                    Some((&pending.loaded.level, &pending.loaded.materials)),
-                ));
+                pending.world = Some(self.upload_prepared_world(pending));
                 pending.phase = UploadPhase::Textures;
             }
             UploadPhase::Textures => {
@@ -3273,20 +3357,47 @@ impl WgpuRenderer {
                 pending.phase = UploadPhase::Props;
             }
             UploadPhase::Props => {
-                self.upload_prop_step(&mut pending);
-                if pending.prop_cursor >= pending.build.batches.len() {
-                    return self.commit_prepared_install(pending);
-                }
+                self.upload_prop_step(pending);
             }
         }
-        self.prepared_install = Some(pending);
-        #[cfg(feature = "visual-diagnostics")]
-        self.trace_gpu_resources("install-upload");
-        false
+    }
+
+    fn upload_prepared_world(&self, pending: &PreparedInstall) -> WgpuWorldGeometry {
+        WgpuWorldGeometry::upload_with_blacklight(
+            &self.device,
+            &self.queue,
+            &pending.build.mesh,
+            &pending.materials,
+            pending.uv_transport.as_deref().map(|scene| {
+                crate::engine::render::common::blacklight::BlacklightVisibility {
+                    sources: &pending.blacklights,
+                    scene,
+                    dynamic: None,
+                }
+            }),
+            Some((&pending.loaded.level, &pending.loaded.materials)),
+        )
     }
 
     /// Share resident handles only for the exact immutable prepared atlas.
-    fn prepare_atlas(&self, build: &LevelBuild) -> LightmapAtlas {
+    fn upload_atlas_step(&self, pending: &mut PreparedInstall) {
+        if pending.atlas.is_none() {
+            let (atlas, upload) = self.prepare_atlas(&pending.build);
+            pending.atlas = Some(atlas);
+            pending.atlas_cursor = upload.then_some(0);
+        }
+        let copied = match (&pending.atlas, &mut pending.atlas_cursor) {
+            (Some(atlas), Some(cursor)) => {
+                atlas.upload_next_page(&self.queue, pending.build.lightmaps.as_deref(), cursor)
+            }
+            _ => false,
+        };
+        if !copied {
+            pending.phase = UploadPhase::World;
+        }
+    }
+
+    fn prepare_atlas(&self, build: &LevelBuild) -> (LightmapAtlas, bool) {
         if resident_atlas_matches(
             self.lightmaps.is_resident(),
             self.lightmap_cpu.as_ref(),
@@ -3296,9 +3407,12 @@ impl WgpuRenderer {
                 "[lightmaps] reuse resident immutable atlas: {} bytes; no upload",
                 self.lightmaps.stats().resident_bytes
             ));
-            self.lightmaps.clone()
+            (self.lightmaps.clone(), false)
         } else {
-            LightmapAtlas::upload(&self.device, &self.queue, build.lightmaps.as_deref())
+            (
+                LightmapAtlas::begin_upload(&self.device, &self.queue, build.lightmaps.as_deref()),
+                true,
+            )
         }
     }
 
@@ -3338,6 +3452,7 @@ impl WgpuRenderer {
             textures,
             graphics,
             atlas,
+            atlas_cursor: _,
             fixture_sheets,
             world,
             world_textures,
@@ -3349,6 +3464,8 @@ impl WgpuRenderer {
             materials: _,
             blacklights,
             uv_transport,
+            transport_prepared: _,
+            upload_complete: _,
             prop_cursor: _,
             phase: _,
         } = pending;
@@ -3501,10 +3618,10 @@ impl WgpuRenderer {
             &loaded.level,
             &build.lighting,
         );
-        let uv_transport = if blacklights.is_empty() {
-            None
-        } else if preuploaded {
+        let uv_transport = if preuploaded {
             self.dynamic_transport.clone()
+        } else if blacklights.is_empty() {
+            None
         } else {
             crate::engine::render::common::light_transport::build_transport_scene(
                 &loaded.level,
@@ -3662,6 +3779,9 @@ impl WgpuRenderer {
         self.entity_lighting_revision = self.entity_lighting_revision.wrapping_add(1);
         self.dynamic_field.clone_from(&build.probes);
         self.dynamic_transport = uv_transport.or_else(|| {
+            if preuploaded {
+                return None;
+            }
             build.probes.as_ref().and_then(|field| {
                 let _selected_direct = field.local_direct.as_ref()?;
                 crate::engine::render::common::light_transport::build_transport_scene(

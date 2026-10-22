@@ -213,6 +213,14 @@ impl Renderer {
         );
     }
 
+    /// Supplies worker-prepared immutable visibility before staged GPU upload.
+    pub fn set_prepared_transport(
+        &mut self,
+        transport: Option<std::sync::Arc<crate::engine::lighting::transport::TransportScene>>,
+    ) {
+        self.renderer.set_prepared_transport(transport);
+    }
+
     /// Advances bounded GPU preparation; true only once the whole world is installed.
     pub fn advance_prepared_install(&mut self) -> bool {
         self.renderer.advance_prepared_install()
@@ -404,6 +412,17 @@ impl Renderer {
         position: [f32; 3],
     ) -> bool {
         self.renderer.spawn_runtime_prop(key, prop, position)
+    }
+
+    /// Publishes one GPU snapshot for an authored group instead of per prop.
+    ///
+    /// # Errors
+    /// Returns the index of the first refused member, preserving earlier spawns.
+    pub fn spawn_runtime_props(
+        &mut self,
+        props: &[(u64, &crate::engine::level::PropDef, [f32; 3])],
+    ) -> Result<(), usize> {
+        self.renderer.spawn_runtime_props(props)
     }
 
     /// Despawns the runtime object a key spawned; returns whether it was live.

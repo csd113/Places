@@ -86,6 +86,33 @@ impl SurfaceAttributes {
     }
 }
 
+/// Immutable receiver visibility used by dynamic lighting after a prepared install.
+/// This does not solve lighting or change the compiler's prepared values.
+pub fn prepare_runtime_transport(
+    loaded: &crate::engine::loader::LoadedLevel,
+    build: &crate::engine::render::LevelBuild,
+) -> Option<std::sync::Arc<TransportScene>> {
+    let blacklights = super::blacklight::BlacklightSet::from_level(&loaded.level, &build.lighting);
+    if blacklights.is_empty()
+        && build
+            .probes
+            .as_ref()
+            .and_then(|field| field.local_direct.as_ref())
+            .is_none()
+    {
+        return None;
+    }
+    build_transport_scene(
+        &loaded.level,
+        &build.mesh,
+        &build.batches,
+        &loaded.materials,
+        &build.lighting,
+        &[],
+    )
+    .map(|(scene, _)| std::sync::Arc::new(scene))
+}
+
 /// Builds the transport scene for one prepared build.
 ///
 /// `charts` is the finished lightmap plan's chart list. It is needed here so

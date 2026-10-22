@@ -780,7 +780,9 @@ fn read_literal_vertices(
     let stride = serialized_vertex_bytes();
     let byte_count = checked_storage_size(vertex_count, stride, 0)?;
     let bytes = reader.bytes(byte_count)?;
-    let mut vertices = Vec::with_capacity(vertex_count.min(4096));
+    // Framing and the logical budget already bound this complete run. Reserving
+    // its exact size avoids geometric growth and retained spare vertex storage.
+    let mut vertices = Vec::with_capacity(vertex_count);
     for key in bytes.chunks_exact(stride) {
         vertices.push(read_vertex(&mut Reader::new(key))?);
     }
@@ -818,7 +820,9 @@ fn read_palette_vertices(
     for frame in frames {
         validate_frame(frame)?;
     }
-    let mut vertices = Vec::with_capacity(vertex_count.min(4096));
+    // Framing and the logical budget already bound this complete run. Reserving
+    // its exact size avoids geometric growth and retained spare vertex storage.
+    let mut vertices = Vec::with_capacity(vertex_count);
     for _ in 0..vertex_count {
         let literal = reader.bytes(vertex_literal_bytes())?;
         let frame_index = width.read(reader)?;

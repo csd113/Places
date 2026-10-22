@@ -3462,6 +3462,7 @@ impl FrameLoop<'_> {
                         "retained_bytes": prepared.lease.retained_bytes(),
                     }).to_string());
                     let loading::PreparedWorld {
+                        transport,
                         loaded,
                         build,
                         collision,
@@ -3485,6 +3486,7 @@ impl FrameLoop<'_> {
                         matches!(intent, LoadIntent::Graphics),
                         probes,
                     );
+                    self.renderer.set_prepared_transport(transport);
                     self.pending_commit = Some(PendingCommit {
                         id,
                         loaded,
@@ -3523,6 +3525,7 @@ impl FrameLoop<'_> {
                     loading::Phase::Lightmaps => "Decoding lightmaps",
                     loading::Phase::Collision => "Decoding collision",
                     loading::Phase::Characters => "Preparing characters",
+                    loading::Phase::Visibility => "Preparing visibility",
                     loading::Phase::Ready => "Uploading level",
                 };
                 self.ui_state
@@ -3874,6 +3877,7 @@ impl FrameLoop<'_> {
                 .clear_given_props(self.renderer, &mut self.items.world);
         }
         self.close_console();
+        let mut install_timer = perf::loading::StageTimer::new("game-install");
         self.trace.record("gpu_ready", id, &loaded.level.id);
         logging::info(format!("[loading] committed {}", loaded.level.id));
         self.failed_graphics = None;
@@ -3882,11 +3886,14 @@ impl FrameLoop<'_> {
             self.game.set_app_state(self.load_return_state);
         } else {
             spawn_level_demonstration(self.renderer, &loaded);
+            install_timer.step("dynamic-content");
             *self.spawn_pos = game::spawn_position(&loaded.level);
             *self.spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
             self.game
                 .reset_level(*self.spawn_pos, *self.spawn_yaw, collision);
+            install_timer.step("game-reset");
             self.install_physical_items(&loaded.level, &loaded.materials);
+            install_timer.step("physical-items");
             self.update_item_triggers(true);
             if matches!(intent, LoadIntent::Play) {
                 self.game.set_app_state(AppState::Playing);
@@ -3950,6 +3957,7 @@ impl FrameLoop<'_> {
             }
             apply_screen_request(self.game, self.ui_state);
         }
+        install_timer.step("finalize");
         self.trace_world("world_committed");
         self.trace.record("ready", id, "");
         self.write_nav_debug(true);
