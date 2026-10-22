@@ -306,10 +306,30 @@ pub fn load_png_relative(root: &Path, relative: &str) -> Result<RawImage, String
     decode_png(&bytes).map_err(|error| format!("`{}`: {error}", path.display()))
 }
 
-/// Loads a sky with its separate bounded panorama contract.
+/// Loads a fitted celestial disc with real transparent coverage.
 ///
 /// # Errors
 /// Returns a message if the file cannot be read or fails sky PNG validation.
+pub fn load_celestial_png_relative(root: &Path, relative: &str) -> Result<RawImage, String> {
+    let image = load_png_relative(root, relative)?;
+    if image.width != image.height
+        || !image
+            .rgba
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .any(|p| p.get(3) == Some(&0))
+    {
+        return Err(format!(
+            "Celestial texture `{relative}` needs a square PNG with transparent coverage"
+        ));
+    }
+    Ok(image)
+}
+
+/// Loads the existing 2:1 panorama class.
+/// # Errors
+/// Returns a named path/image contract error.
 pub fn load_sky_png_relative(root: &Path, relative: &str) -> Result<RawImage, String> {
     let path = root.join(relative);
     let bytes = read_asset_bytes(&path, MAX_ENCODED_PNG_BYTES)

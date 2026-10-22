@@ -100,6 +100,16 @@ pub fn validate_level_assets(level: &LevelDef, catalog: &AssetCatalog) -> Result
             id: sky.texture.clone(),
         });
     }
+    references.extend(
+        level
+            .global_illuminators
+            .iter()
+            .filter_map(crate::engine::level::GlobalIlluminatorDef::visual_texture)
+            .map(|id| BuiltinAssetRef {
+                kind: BuiltinAssetKind::Texture,
+                id: id.into(),
+            }),
+    );
     for (model, selected_texture) in level
         .props
         .iter()

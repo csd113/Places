@@ -36,3 +36,5 @@ mod water_motion;
 mod collision_queries;
 
 mod collection_quests;
+
+mod celestial_sources;

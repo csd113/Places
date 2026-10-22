@@ -71,6 +71,13 @@ impl CatalogInputs {
         if let Some(sky) = &level.sky {
             let _added = pending.insert(sky.texture.trim().into());
         }
+        pending.extend(
+            level
+                .global_illuminators
+                .iter()
+                .filter_map(crate::engine::level::GlobalIlluminatorDef::visual_texture)
+                .map(str::to_owned),
+        );
         let mut entries = BTreeMap::new();
         while let Some(id) = pending.pop_first() {
             if entries.contains_key(&id) {

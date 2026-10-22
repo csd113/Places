@@ -26,7 +26,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use glam::Mat4;
+use glam::{Mat4, Vec3};
 
 use super::surface::DEPTH_FORMAT;
 use super::texture::{CacheOutcome, GpuTexture, TextureCache, TextureFiltering, TextureWrap};
@@ -45,19 +45,65 @@ pub const SKY_FRAGMENT_ENTRY: &str = "fs_main";
 /// The raw (non-sRGB) scene-target fragment entry point.
 pub const SKY_FRAGMENT_ENTRY_RAW: &str = "fs_main_raw";
 
-/// The sky uniform, 96 bytes: a 4x4 matrix and two parameter slots.
+/// One cached source projection. Zero diameter disables the slot.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct CelestialUniform {
+    pub source: [f32; 4],
+    pub right: [f32; 4],
+    pub up: [f32; 4],
+}
+
+impl CelestialUniform {
+    fn active_count(celestial: &[Self; 8]) -> u8 {
+        celestial
+            .iter()
+            .rposition(|slot| slot.source[3] > 0.0)
+            .and_then(|index| u8::try_from(index.saturating_add(1)).ok())
+            .unwrap_or(0)
+    }
+
+    fn new(
+        light: &crate::engine::level::GlobalIlluminatorDef,
+        visual: &crate::engine::level::CelestialVisualDef,
+        is_moon: bool,
+    ) -> Self {
+        let source = Vec3::from_array(light.source_direction());
+        let pole = if source.y.abs() > 0.99 {
+            Vec3::Z
+        } else {
+            Vec3::Y
+        };
+        let right = source.cross(pole).normalize_or_zero();
+        let up = right.cross(source).normalize_or_zero();
+        let projected_source = source
+            .extend(0.5 / (0.5 * visual.angular_size_degrees.to_radians()).tan())
+            .to_array();
+        let projected_right = right.extend(visual.brightness).to_array();
+        let projected_up = up.extend(f32::from(is_moon)).to_array();
+        Self {
+            source: projected_source,
+            right: projected_right,
+            up: projected_up,
+        }
+    }
+}
+
+/// Bounded background uniform, with at most eight source projections.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct SkyUniform {
     /// Inverse clip-space view-projection, for the view-ray reconstruction.
     pub inverse_view_projection: [[f32; 4]; 4],
-    /// `x` is the brightness multiplier; `yzw` are reserved and zero.
+    /// `x` is panorama brightness; `y` enables the authored panorama.
     pub params: [f32; 4],
     pub storm: [f32; 4],
+    pub clear_color: [f32; 4],
+    pub celestial: [CelestialUniform; 8],
 }
 
 /// Size of [`SkyUniform`] in bytes.
-pub const SKY_UNIFORM_SIZE: u64 = 96;
+pub const SKY_UNIFORM_SIZE: u64 = 496;
 
 impl SkyUniform {
     /// The uniform for one frame.
@@ -67,6 +113,19 @@ impl SkyUniform {
             inverse_view_projection: view_projection.inverse().to_cols_array_2d(),
             params: [brightness, 0.0, 0.0, 0.0],
             storm: [0.0; 4],
+            clear_color: glam::DVec4::new(
+                super::surface::CLEAR_COLOR.r,
+                super::surface::CLEAR_COLOR.g,
+                super::surface::CLEAR_COLOR.b,
+                1.0,
+            )
+            .as_vec4()
+            .to_array(),
+            celestial: [CelestialUniform {
+                source: [0.0; 4],
+                right: [0.0; 4],
+                up: [0.0; 4],
+            }; 8],
         }
     }
 }
@@ -119,7 +178,12 @@ impl SkyPipeline {
         });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("places-wgpu-sky-pipeline-layout"),
-            bind_group_layouts: &[Some(&camera_layout), Some(texture_layout)],
+            bind_group_layouts: &[
+                Some(&camera_layout),
+                Some(texture_layout),
+                Some(texture_layout),
+                Some(texture_layout),
+            ],
             immediate_size: 0,
         });
         let build = |format: wgpu::TextureFormat, entry: &'static str| {
@@ -206,10 +270,13 @@ impl SkyPipeline {
         &mut self,
         queue: &wgpu::Queue,
         view_projection: Mat4,
-        brightness: f32,
+        sky: &WgpuSky,
         storm: [f32; 4],
     ) {
-        let mut uniform = SkyUniform::new(view_projection, brightness);
+        let mut uniform = SkyUniform::new(view_projection, sky.brightness());
+        uniform.params[1] = f32::from(sky.panorama);
+        uniform.params[2] = f32::from(sky.celestial_count);
+        uniform.celestial = sky.celestial;
         uniform.storm = storm;
         if self.uploaded == Some(uniform) {
             return;
@@ -248,6 +315,8 @@ impl SkyPipeline {
     ) {
         pass.set_bind_group(0, &self.bind_group, &[]);
         pass.set_bind_group(1, sky.texture.bind_group(filtering), &[]);
+        pass.set_bind_group(2, sky.sun.bind_group(filtering), &[]);
+        pass.set_bind_group(3, sky.moon.bind_group(filtering), &[]);
         pass.draw(0..3, 0..1);
     }
 }
@@ -258,12 +327,17 @@ pub struct WgpuSky {
     texture: Arc<GpuTexture>,
     /// The authored brightness multiplier.
     brightness: f32,
+    panorama: bool,
+    sun: Arc<GpuTexture>,
+    moon: Arc<GpuTexture>,
+    celestial: [CelestialUniform; 8],
+    celestial_count: u8,
 }
 
 impl WgpuSky {
     /// Resolves, fits and uploads one level's sky.
     ///
-    /// Returns `None` when the level declares no sky, the catalog does not
+    /// Returns `None` when the level declares neither panorama nor celestial visual, the catalog does not
     /// declare the named texture as a file PNG, or the asset root is missing;
     /// each of those is a one-line warning and the level keeps the clear-colour
     /// background. A broken image is never a load failure.
@@ -277,8 +351,18 @@ impl WgpuSky {
         level: &LevelDef,
         quality: QualityLevel,
     ) -> Option<Self> {
-        let sky = level.sky.as_ref()?;
-        let id = sky.texture.trim();
+        if level.sky.is_none()
+            && !level
+                .global_illuminators
+                .iter()
+                .any(|light| light.visual.is_some())
+        {
+            return None;
+        }
+        let id = level
+            .sky
+            .as_ref()
+            .map_or("core:tex_white_fallback_01", |sky| sky.texture.trim());
         let Some(path) = catalog.texture_path(id).map(str::to_string) else {
             crate::engine::logging::warn_once(
                 format!("sky:{id}"),
@@ -293,7 +377,12 @@ impl WgpuSky {
             );
             return None;
         };
-        let image = match crate::engine::materials::load_sky_png_relative(root, &path) {
+        let decoded = if level.sky.is_some() {
+            crate::engine::materials::load_sky_png_relative(root, &path)
+        } else {
+            crate::engine::materials::load_png_relative(root, &path)
+        };
+        let image = match decoded {
             Ok(image) => image,
             Err(error) => {
                 crate::engine::logging::warn_once(
@@ -319,10 +408,79 @@ impl WgpuSky {
                 meta.width, meta.height
             ));
         }
+        let mut celestial = [CelestialUniform {
+            source: [0.0; 4],
+            right: [0.0; 4],
+            up: [0.0; 4],
+        }; 8];
+        let mut sun = Arc::clone(&texture);
+        let mut moon = Arc::clone(&texture);
+        let mut uploaded_sun = false;
+        let mut uploaded_moon = false;
+        for (slot, light) in celestial.iter_mut().zip(level.global_illuminators.iter()) {
+            let Some(visual) = &light.visual else {
+                continue;
+            };
+            if !light.enabled || !light.bake || light.intensity == 0.0 || visual.brightness == 0.0 {
+                continue;
+            }
+            let visual_id = light.visual_texture()?;
+            let is_moon = light.kind == crate::engine::level::GlobalIlluminatorKind::Moon;
+            if !(if is_moon { uploaded_moon } else { uploaded_sun }) {
+                let uploaded =
+                    Self::upload_disc(device, queue, cache, catalog, root, visual_id, quality)?;
+                if is_moon {
+                    moon = uploaded;
+                    uploaded_moon = true;
+                } else {
+                    sun = uploaded;
+                    uploaded_sun = true;
+                }
+            }
+            *slot = CelestialUniform::new(light, visual, is_moon);
+        }
+        let celestial_count = CelestialUniform::active_count(&celestial);
         Some(Self {
             texture,
-            brightness: sky.brightness,
+            sun,
+            moon,
+            celestial,
+            celestial_count,
+            panorama: level.sky.is_some(),
+            brightness: level.sky.as_ref().map_or(1.0, |sky| sky.brightness),
         })
+    }
+
+    fn upload_disc(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        cache: &mut TextureCache,
+        catalog: &AssetCatalog,
+        root: &Path,
+        id: &str,
+        quality: QualityLevel,
+    ) -> Option<Arc<GpuTexture>> {
+        let path = catalog.texture_path(id)?;
+        let image = match crate::engine::materials::load_celestial_png_relative(root, path) {
+            Ok(image) => image,
+            Err(error) => {
+                crate::engine::logging::warn_once(
+                    format!("celestial:{id}"),
+                    format!("[sky] {error}"),
+                );
+                return None;
+            }
+        };
+        let key = super::texture::TextureKey {
+            logical: format!("celestial:{id}"),
+            semantic: super::texture::TextureSemantic::BaseColorDisplay,
+            class: TextureClass::DecalSheet,
+            level: quality,
+            wrap: TextureWrap::Clamp,
+        };
+        let (_, texture) =
+            cache.get_or_upload_with_key(device, queue, key, &image, TextureOrigin::Catalog);
+        Some(texture)
     }
 
     /// The authored brightness multiplier.

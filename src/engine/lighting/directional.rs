@@ -18,24 +18,12 @@ pub struct DirectionalLight {
 
 impl DirectionalLight {
     #[must_use]
-    #[expect(
-        clippy::as_conversions,
-        clippy::cast_possible_truncation,
-        reason = "normalized f64 components are finite in [-1, 1]; f32 is the stored representation"
-    )] // normalized f64 components are finite in [-1, 1]; f32 is the stored representation
     pub fn from_definition(def: &GlobalIlluminatorDef) -> Option<Self> {
         if def.validate().is_err() || !def.enabled || !def.bake || def.intensity == 0.0 {
             return None;
         }
-        // f64 normalization accepts every finite f32 direction without overflow.
-        let length = def
-            .direction
-            .iter()
-            .map(|v| f64::from(*v).powi(2))
-            .sum::<f64>()
-            .sqrt();
         Some(Self {
-            incoming: def.direction.map(|v| (-f64::from(v) / length) as f32),
+            incoming: def.source_direction(),
             color: def.color,
             intensity: def.intensity,
             cast_shadows: def.cast_shadows,

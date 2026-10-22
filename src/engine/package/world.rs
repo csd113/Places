@@ -232,6 +232,13 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
         return Err("Animated solid mechanisms require animated-door-v1 capability".into());
     }
     for (required, capability) in [
+        (
+            level
+                .global_illuminators
+                .iter()
+                .any(|light| light.visual.is_some()),
+            "celestial-visuals-v1",
+        ),
         (level.has_character_textures(), "character-textures-v1"),
         (level.has_mannequin_pins(), "miniature-pins-v1"),
     ] {

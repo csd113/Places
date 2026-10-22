@@ -89,6 +89,8 @@ REVIEWED_EXTERNAL = {
     for name in ("man", "woman", "zombie")
 }
 
+REVIEWED_EXTERNAL.update({f"core:celestial_{name}": {"preferred_dimensions": (512, 512)} for name in ("sun", "moon")})
+
 # ---------------------------------------------------------------- validation
 
 

@@ -11439,6 +11439,26 @@
       "source": "file",
       "description": "Opaque fitted mannequin albedo; canonical R2 UV, shared model/rig/animations.",
       "model": "entities/mannequin/textures/zombie-skin.png"
+    },
+    {
+      "id": "core:celestial_sun",
+      "display_name": "Celestial / Sun",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "theme": "outdoor",
+      "description": "Fitted square transparent celestial disc; placement follows the owning directional source.",
+      "model": "environments/outdoor/textures/celestial/sun.png"
+    },
+    {
+      "id": "core:celestial_moon",
+      "display_name": "Celestial / Moon",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "theme": "outdoor",
+      "description": "Fitted square transparent celestial disc; placement follows the owning directional source.",
+      "model": "environments/outdoor/textures/celestial/moon.png"
     }
   ]
 }

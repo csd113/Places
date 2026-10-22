@@ -12,6 +12,81 @@ Presented macOS FPS gains remain inconclusive. The Windows entry below records
 native Razer acceptance and its remaining limits; Linux remains unverified.
 
 
+## Configurable Sun and Moon - native Windows, 2026-10-22
+
+Outdoor scenes can opt into fitted Sun/Moon PNGs on their existing directional
+sources. The visible position and the baked incoming light use **one shared
+negative normalized direction**, so image placement cannot drift away from
+illumination or shadows. The existing editor form exposes bearing/elevation,
+show texture, visual diameter and brightness alongside source energy/color,
+shadow softness and enable/bake controls. Old scenes omit `visual` and retain
+their authored behavior; imports do not add a sun or moon automatically.
+
+The two real transparent 512-square PNGs are
+`assets/environments/outdoor/textures/celestial/{sun,moon}.png`, produced with the
+built-in ImageGen tool and uniformly resized with alpha preserved. Exact prompts
+and provenance are under `assets/references/environments/celestial/`. The new
+asset contract is documented in `ASSET_SPECIFICATION.md`. No shader/runtime
+texture painting, copied lighting system or dynamic day/night simulation was added.
+
+Evidence below is relative to `celestial-additions/` in the Windows validation
+root. `native-celestial-completed-audit.json` passes all five final native cases:
+
+| Check | Actual result |
+| --- | --- |
+| West/east Sun, Moon | Full native lighting, visible textured discs, correct reversed pillar shadows, ordinary panorama and no-panorama clear-background case pass. |
+| Occlusion | Opaque canopy fully covers both celestial discs; source remains visible in the open view. Preliminary edge-framing samples remain preserved separately. |
+| Real editor placement | Visible form changes Sun to 315-degree bearing / 50-degree elevation, 12-degree visual diameter / 0.85 brightness. Preview leaves source untouched; Apply/save/reopen retains the settings. |
+| Build / Play / export / recovery | Ordinary editor Build and real Play child pass. Export/import recovers all four project files byte-for-byte. A final-compiler export of that exact recovery renders the larger disc and corresponding diagonal shadows natively. |
+| Visual-only cache reuse | Diameter/brightness edits refresh package semantics while reusing every solved geometry/lightmap/probe/collision record. Replacing background-only image bytes is detected by package identity and also reuses solved records. A native launch of the actual reused-lighting package shows the larger/dimmer disc with unchanged source shadows. |
+| Real bake invalidation | Moving the directional source makes the old package stale and produces different compiled lighting. If the celestial PNG is also sampled by a world material, changing it invalidates and rebuilds lighting. Production imagery is untouched by these isolated substitution tests. |
+| Portable payload | Player renders Sun then returns to the normal menu; real editor preview and compiler package validation pass outside the checkout with asset-root overrides unset and **only Windows system directories in PATH**. Sibling assets/SDL3/DXC are sufficient. |
+
+Every final capture confirms the actual **NVIDIA RTX 3070 Laptop / DX12** adapter,
+1280x720, High/Full settings, VSync OFF and applied Immediate presentation. These
+capture runs are excluded from FPS measurements. No new celestial throughput
+percentage is claimed; the uncapped dense-scene evidence and its pacing limits
+remain below.
+
+A final cache review found and corrected unnecessary visual-only rebakes before
+completion. Celestial appearance is excluded from the existing prepared-lighting
+stage using its actual remaining material/model dependencies and catalog closure.
+Real light properties remain in that key. The existing source-contract regression
+also protects visual/light sign, old defaults, serialization and this separation.
+The explicit native cache fixture is small and is never baked by Rust tests or CI.
+
+Strict workspace/all-targets/all-features Clippy passes. Rust tests: **272 passed,
+zero failed or ignored**, 1.01 seconds test execution. The final locked release
+workspace/all-features build passes; logs are in `quality/`. Asset validation:
+627 assets, 389 placeable, nine themes, zero warnings. Texture validation passes
+with the same 96 existing advisories; source formatting/diff checks pass.
+
+The existing sky pass caches both image bindings and source projections once per
+level, bounds the source list at eight, executes no celestial loop for old skies
+without visuals, and skips identical still-camera uniform uploads. No per-frame
+lighting solve or automatic rebake is introduced. Backgrounds retain the existing
+sky/reflection-capture contract. The small explicit review project is
+`projects/celestial-placement`; no full showcase rebake was performed.
+
+Current small exports are `packages/celestial-placement-cache-corrected.placesmap`,
+`packages/celestial-editor-recovered-cache-corrected.placesmap` and
+`packages/mannequin-appearances-cache-corrected.placesmap`; their SHA-256 values
+are in the completed audit. Final eight executable hashes and earlier candidates
+remain outside `target`. The usable player/editor/compiler payload is
+`Places-Windows-0.13.0-additions/`, with a local
+`Places-0.13.0-Windows-additions.zip` bundle containing the current nine-map
+collection, small fixtures, editable sources, selected native captures and the
+honestly labeled miniature before/after montage. Earlier baseline folders,
+archives, settings and measurement receipts remain intact for the next sole writer.
+
+The Balanced power plan is unchanged. Temporary **system-required only** helper
+PID 18136 remains active for the approved following queue, on AC at 100% battery
+at handoff. Its owner must clear the request with the recorded stop file after
+queued work or cancellation; the 24-hour safety expiry and low-battery guard
+remain in force. Build outputs are retained for Portal 1 movement/controller work and later
+stages. No CI wait, Library executable upload, release, version bump or main merge
+occurred. Native Linux remains unverified.
+
 ## Cosmic Lanes miniatures and shared appearances - native Windows, 2026-10-22
 
 The subtle switch beside lane one's ball return now changes its ten pins into

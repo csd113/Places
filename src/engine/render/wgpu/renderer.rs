@@ -4958,12 +4958,7 @@ impl WgpuRenderer {
                 [0.0; 4],
                 crate::engine::render::common::snow::SnowScene::sky_storm,
             );
-            pipeline.upload_camera_with_storm(
-                &self.queue,
-                frame.view_projection,
-                sky.brightness(),
-                storm,
-            );
+            pipeline.upload_camera_with_storm(&self.queue, frame.view_projection, sky, storm);
         }
         if let Some(pipeline) = self.effects_pipeline.as_mut() {
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);

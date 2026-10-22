@@ -3636,6 +3636,43 @@ diffuse dome contribution on escaping gather rays, not a directional source.
 Lantern Hollow's generator authors the example moon above without increasing
 its sky ambient; its star sheet contains no visible moon.
 
+#### Optional Sun and Moon textures
+
+Add `"visual": {"angular_size_degrees": 6, "brightness": 1}` to a Sun or Moon
+source to draw its fitted transparent PNG at infinity. Omitted `visual` preserves
+existing artwork and lighting exactly; imports never opt in automatically. Generic
+directional sources cannot have a disc. The visible source must participate in
+the bake; disabling the source or setting intensity/visual brightness to zero
+hides it. Source color/intensity still control illumination; visual brightness is
+only the image exposure. Visual square diameter accepts 0.1..30 degrees and
+brightness 0..4; the light's existing angular size still controls shadow softness.
+
+In the editor's Space and Environment > Directional light form, **Bearing degrees**
+is clockwise from -Z (0=-Z, 90=+X, 180=+Z, 270=-X); **Elevation** is degrees above
+the horizon. These controls write the source's existing `direction` vector. The
+texture center is its negative normalized direction, identical to the baked
+incoming source. There is no independent visual position that could drift away
+from shadows. Show sun/moon texture, diameter and brightness are on the same
+form. Apply, save and Build to regenerate directional illumination after moving
+the source; Preview changes the editor view, not the saved project.
+
+The visuals work with an optional panorama or the established clear background,
+and solid ceilings/geometry occlude them. Existing panoramas with a painted sun
+or moon keep that artwork; choose a neutral panorama when adding a separate disc.
+The supplied star panorama has no painted celestial body. Source JSON, catalog
+texture IDs and PNG hashes participate in existing package/build identities;
+changed placement or imagery invalidates cached packages. Visual-only diameter,
+brightness or image changes reuse solved geometry/lightmaps/probes; real source
+direction/energy/softness edits still invalidate lighting. An image also used by
+world materials remains a bake dependency. Export/import and source
+recovery preserve these settings. Packages require `celestial-visuals-v1`.
+
+The bounded sky pass reuses cached image bindings and source projections loaded
+once per level. Still-camera uniforms are not uploaded repeatedly. No dynamic
+day/night clock, per-frame lighting solve or automatic rebake is introduced.
+`projects/celestial-placement` is a small explicit native review project with west
+and east sunlight, matching shadows, moonlight and a no-panorama case.
+
 ### Sampling quality and diagnostics
 
 Static uses vertex lighting. Full uses 16 intervals/m for architecture, three

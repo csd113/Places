@@ -232,9 +232,15 @@ impl Tool {
             Self::Sun => vec![
                 text("/id", "Source ID", "editor_moon"),
                 text("/kind", "directional / sun / moon", "moon"),
-                number("/direction/0", "Direction X", "0.2"),
-                number("/direction/1", "Direction Y", "-1"),
-                number("/direction/2", "Direction Z", "0.3"),
+                number("/azimuth_degrees", "Bearing degrees (0 = -Z)", "135"),
+                number("/elevation_degrees", "Elevation above horizon", "45"),
+                flag("/show_disc", "Show sun/moon texture", "true"),
+                number(
+                    "/visual/angular_size_degrees",
+                    "Visual diameter degrees",
+                    "6",
+                ),
+                number("/visual/brightness", "Visual brightness", "1"),
                 number("/intensity", "Intensity", "0.2"),
                 number("/color/0", "Red", "0.7"),
                 number("/color/1", "Green", "0.8"),
@@ -308,8 +314,27 @@ impl Draft {
         } else {
             tool.fields()
         };
+        let original_light = original.as_ref().and_then(|value| {
+            serde_json::from_value::<crate::engine::level::GlobalIlluminatorDef>(value.clone()).ok()
+        });
         let mut fields = Vec::new();
         for field in definitions {
+            let derived = if tool == Tool::Sun {
+                match field.path.as_ref() {
+                    "/azimuth_degrees" => original_light
+                        .as_ref()
+                        .map(|light| Value::from(light.celestial_angles()[0])),
+                    "/elevation_degrees" => original_light
+                        .as_ref()
+                        .map(|light| Value::from(light.celestial_angles()[1])),
+                    "/show_disc" => original.as_ref().map(|value| {
+                        Value::Bool(value.get("visual").is_some_and(|visual| !visual.is_null()))
+                    }),
+                    _ => None,
+                }
+            } else {
+                None
+            };
             let source_value = if tool == Tool::LocalFloor && field.path.as_ref() == "/offset_y" {
                 None
             } else {
@@ -317,7 +342,7 @@ impl Draft {
                     .as_ref()
                     .and_then(|record| record.pointer(&field.path))
             };
-            let content = source_value.map_or_else(
+            let content = derived.as_ref().or(source_value).map_or_else(
                 || field.default.into(),
                 |value| {
                     value
@@ -373,6 +398,28 @@ impl Draft {
                 })
             };
             set_path(&mut record, &field.path, value)?;
+        }
+        if self.tool == Tool::Sun {
+            let object = record.as_object_mut().ok_or("Invalid directional source")?;
+            let azimuth = serde_json::from_value::<f32>(
+                object
+                    .remove("azimuth_degrees")
+                    .ok_or("Enter bearing degrees")?,
+            )
+            .map_err(|error| error.to_string())?;
+            let elevation = serde_json::from_value::<f32>(
+                object
+                    .remove("elevation_degrees")
+                    .ok_or("Enter elevation degrees")?,
+            )
+            .map_err(|error| error.to_string())?;
+            let direction = crate::engine::level::GlobalIlluminatorDef::direction_from_angles(
+                azimuth, elevation,
+            )?;
+            drop(object.insert("direction".into(), serde_json::json!(direction)));
+            if object.remove("show_disc").and_then(|value| value.as_bool()) != Some(true) {
+                drop(object.remove("visual"));
+            }
         }
         Ok(record)
     }

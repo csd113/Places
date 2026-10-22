@@ -1,3 +1,5 @@
+mod celestial;
+pub use celestial::CelestialVisualDef;
 mod ground;
 pub use ground::GroundSurfaces;
 mod balloon;
@@ -6779,9 +6781,10 @@ pub const MAX_SKY_AMBIENT: f32 = 1.0;
 /// Bounded authoring budget for map-wide directional sources.
 pub const MAX_GLOBAL_ILLUMINATORS: usize = 8;
 
-/// A static source at infinity. Direction is the direction light travels,
-/// so a moon above the map has a negative Y component. It is independent of
-/// the sky artwork and diffuse environment fill.
+/// A static source at infinity, optionally sharing its direction with artwork.
+///
+/// Direction is light travel: negative Y means a source above the map.
+/// Diffuse environment fill remains independent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalIlluminatorDef {
     pub id: String,
@@ -6804,6 +6807,9 @@ pub struct GlobalIlluminatorDef {
     /// Sun defaults on; generic directional sources opt in; moon never focuses.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub caustics: Option<bool>,
+    /// Opt-in fitted sun/moon image, located by this source's light direction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visual: Option<CelestialVisualDef>,
 }
 
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -6841,6 +6847,15 @@ impl GlobalIlluminatorDef {
                 "global illuminator `{}` is a moon and cannot enable caustics",
                 self.id
             ));
+        }
+        if let Some(visual) = &self.visual {
+            visual.validate()?;
+            if self.kind == GlobalIlluminatorKind::Directional || !self.bake {
+                return Err(format!(
+                    "global illuminator `{}` visual requires kind sun/moon and bake enabled",
+                    self.id
+                ));
+            }
         }
         let valid_direction = self.direction.iter().all(|v| v.is_finite())
             && self

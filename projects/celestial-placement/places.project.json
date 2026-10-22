@@ -1,0 +1,22 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "celestial_placement_project",
+  "name": "Celestial placement / one source direction",
+  "description": "Small outdoor review: west/east sunlight, moonlight, matching shadows and optional panorama. Not baked by tests or CI.",
+  "entry_level": "sun_west",
+  "levels": [
+    {
+      "id": "sun_west",
+      "source": "levels/sun_west.json"
+    },
+    {
+      "id": "sun_east",
+      "source": "levels/sun_east.json"
+    },
+    {
+      "id": "moon",
+      "source": "levels/moon.json"
+    }
+  ]
+}

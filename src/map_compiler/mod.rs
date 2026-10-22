@@ -359,10 +359,15 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     // preparation reads, with display metadata, navigation/AI components and
     // final presentation excluded. Those edits refresh semantics, navigation,
     // input provenance and atlas metadata without solving stored light again.
-    let lighting_fingerprint = fingerprint_with_build_inputs(
-        &lighting_fingerprint(&level, &request.variants, &dependencies)?,
+    let lighting_fingerprint = lighting_stage_fingerprint(
+        &level,
+        &request.variants,
+        &dependencies,
         &build_inputs,
-    );
+        &catalog,
+        &catalog_path,
+        &request.asset_root,
+    )?;
     record_phase(&mut phases, "fingerprints", phase_started);
     let integrity_started = Instant::now();
     progress::stage("checking current package integrity");
@@ -713,6 +718,13 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     }
     if !level.transitions.is_empty() {
         required.push("project-transitions-v1".into());
+    }
+    if level
+        .global_illuminators
+        .iter()
+        .any(|light| light.visual.is_some())
+    {
+        required.push("celestial-visuals-v1".into());
     }
     if level.has_character_textures() {
         required.push("character-textures-v1".into());
@@ -1882,6 +1894,46 @@ fn insert_blob(
     name
 }
 
+fn appearance_texture_paths(
+    level: &LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    asset_root: &Path,
+) -> Result<Vec<String>, String> {
+    let mut paths = Vec::new();
+    let mut character_assets = crate::engine::props::PropAssets::with_root(asset_root);
+    for texture in level
+        .props
+        .iter()
+        .filter_map(|prop| prop.character_texture.as_deref())
+        .chain(
+            level
+                .spawn_templates
+                .iter()
+                .filter_map(|template| template.character_texture.as_deref()),
+        )
+    {
+        let _validated_image = character_assets.character_texture(catalog.assets(), texture)?;
+        let path = catalog
+            .assets()
+            .texture_path(texture)
+            .ok_or_else(|| format!("Unknown character texture `{texture}`"))?;
+        paths.push(path.to_owned());
+    }
+    for id in level
+        .global_illuminators
+        .iter()
+        .filter_map(crate::engine::level::GlobalIlluminatorDef::visual_texture)
+    {
+        let path = catalog
+            .assets()
+            .texture_path(id)
+            .ok_or_else(|| format!("Missing celestial texture `{id}`"))?;
+        let _image = crate::engine::materials::load_celestial_png_relative(asset_root, path)?;
+        paths.push(path.to_owned());
+    }
+    Ok(paths)
+}
+
 fn collect_dependencies(
     level: &LevelDef,
     catalog: &crate::engine::loader::PropCatalog,
@@ -1934,24 +1986,8 @@ fn collect_dependencies(
             add(DependencyKind::Model, &model)?;
         }
     }
-    let mut character_assets = crate::engine::props::PropAssets::with_root(asset_root);
-    for texture in level
-        .props
-        .iter()
-        .filter_map(|prop| prop.character_texture.as_deref())
-        .chain(
-            level
-                .spawn_templates
-                .iter()
-                .filter_map(|template| template.character_texture.as_deref()),
-        )
-    {
-        let _validated_image = character_assets.character_texture(catalog.assets(), texture)?;
-        let path = catalog
-            .assets()
-            .texture_path(texture)
-            .ok_or_else(|| format!("Unknown character texture `{texture}`"))?;
-        add(DependencyKind::Texture, path)?;
+    for path in appearance_texture_paths(level, catalog, asset_root)? {
+        add(DependencyKind::Texture, &path)?;
     }
     let mut material_ids = crate::engine::materials::referenced_material_ids(level);
     material_ids.sort();
@@ -2300,6 +2336,46 @@ fn fingerprint_with_build_inputs(input: &str, inputs: &BuildInputs) -> String {
     )
 }
 
+/// Celestial discs are background-only: their presence, image bindings and
+/// exposure never enter captured probes or the illumination solve. Keep every
+/// real source property and any image also referenced by world materials.
+fn lighting_stage_fingerprint(
+    level: &LevelDef,
+    variants: &[LightmapQuality],
+    dependencies: &[PackageDependency],
+    inputs: &BuildInputs,
+    catalog: &crate::engine::loader::PropCatalog,
+    catalog_path: &Path,
+    asset_root: &Path,
+) -> Result<String, String> {
+    if !level
+        .global_illuminators
+        .iter()
+        .any(|light| light.visual.is_some())
+    {
+        return Ok(fingerprint_with_build_inputs(
+            &lighting_fingerprint(level, variants, dependencies)?,
+            inputs,
+        ));
+    }
+    let mut lighting_level = level.clone();
+    for light in &mut lighting_level.global_illuminators {
+        light.visual = None;
+    }
+    let mut lighting_inputs = inputs.clone();
+    lighting_inputs.catalog_inputs = Some(catalog_inputs(&lighting_level, catalog_path)?);
+    // The complete dependency pass already reports fallback warnings. Resolve
+    // the same subset normally so a disc image reused by a wall remains a real
+    // bake dependency rather than filtering its filename speculatively.
+    let mut subset_warnings = Vec::new();
+    let lighting_dependencies =
+        collect_dependencies(&lighting_level, catalog, asset_root, &mut subset_warnings)?;
+    Ok(fingerprint_with_build_inputs(
+        &lighting_fingerprint(&lighting_level, variants, &lighting_dependencies)?,
+        &lighting_inputs,
+    ))
+}
+
 /// The illumination/geometry stage fingerprint.
 ///
 /// It folds everything the prepared static world depends on — the level with
@@ -2342,6 +2418,9 @@ pub(crate) fn lighting_fingerprint_with_revision(
     stripped.name.clear();
     stripped.author.clear();
     stripped.requires_full_lighting = false;
+    for light in &mut stripped.global_illuminators {
+        light.visual = None;
+    }
     // Luau runs only after load; these bytes cannot change prepared geometry,
     // lighting, collision or probes. They remain in the full package identity.
     stripped.scripts.clear();

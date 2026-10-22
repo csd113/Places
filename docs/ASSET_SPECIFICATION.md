@@ -2584,3 +2584,18 @@ Man, Woman and non-graphic Zombie sheets live under `entities/mannequin/textures
 The original sheet and Black tint are preserved. Albedo replacement affects the
 first skin submesh only; recessed joint grooves retain the original material.
 Source prompts are retained in `assets/references/entities/mannequin-skins/`.
+
+## Celestial source discs
+
+Opt-in Sun/Moon visuals use separate file-backed RGBA PNGs at
+`assets/environments/outdoor/textures/celestial/{sun,moon}.png`, catalog IDs
+`core:celestial_sun` and `core:celestial_moon`. Both are **1:1**, preferred
+512x512, with the centered circular body fitting inside a transparent margin.
+Alpha is real coverage (including a restrained solar halo), not a painted
+background. Image top stays celestial north; no tiling, U/V clamp. The renderer
+projects each fitted square at infinity around the negative normalized direction
+of its owning Sun/Moon illuminator, and composites straight-alpha linear color
+before world geometry. The authored visual angular diameter controls the fitted
+square, independently of the light's shadow softness. Pixels and alpha are loaded
+from the committed files; shaders do not synthesize a sun, moon or halo. These
+are not 2:1 sky panoramas. Existing panoramas retain their original contract.
