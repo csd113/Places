@@ -102,6 +102,11 @@ pub enum Action {
         #[serde(default)]
         recapture: bool,
     },
+    /// Resource/ownership witness without GPU readback. Its named anchor can
+    /// sequence long developer campaigns within the existing per-step bounds.
+    Checkpoint {
+        name: String,
+    },
     Capture {
         name: String,
     },
@@ -275,6 +280,9 @@ fn validate_caustics_action(action: &Action) -> Result<(), String> {
 
 fn valid_anchor(anchor: &str) -> bool {
     anchor == "start"
+        || anchor
+            .strip_prefix("checkpoint:")
+            .is_some_and(valid_capture_name)
         || ["request:", "upload:", "ready:", "failed:"]
             .iter()
             .any(|prefix| {
@@ -351,7 +359,7 @@ fn validate_action(action: &Action) -> Result<(), String> {
         } if button != "left" => {
             return Err("Native item mouse action supports the left button".to_string());
         }
-        Action::Capture { name } if !valid_capture_name(name) => {
+        Action::Capture { name } | Action::Checkpoint { name } if !valid_capture_name(name) => {
             return Err("Capture name must be a short filename stem".to_string());
         }
         Action::ConsoleEnabled { enabled: _ }
@@ -404,6 +412,7 @@ fn validate_action(action: &Action) -> Result<(), String> {
             recapture: _,
         }
         | Action::Capture { name: _ }
+        | Action::Checkpoint { name: _ }
         | Action::Load { level: _ }
         | Action::Escape {}
         | Action::Resize {
@@ -624,6 +633,17 @@ impl crate::game::app::FrameLoop<'_> {
         self.settings.developer_console = enabled;
         self.reconcile_console();
         self.sync_mouse_capture();
+    }
+
+    pub(super) fn scripted_checkpoint(&mut self, name: &str) {
+        let anchor = format!("checkpoint:{name}");
+        self.record_world_snapshot(&anchor);
+        if let Some(actions) = &self.actions
+            && let Err(error) = actions.notify(&anchor)
+        {
+            self.fatal_error = Some(error);
+            self.game.stop();
+        }
     }
 
     pub fn resize_scripted_window(&mut self, width: u32, height: u32) {

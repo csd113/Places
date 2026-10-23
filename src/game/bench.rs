@@ -109,6 +109,8 @@ const BENCH_NORENDER_ENV: &str = "PLACES_BENCH_NORENDER";
 const BENCH_NOSWAP_ENV: &str = "PLACES_BENCH_NOSWAP";
 /// `1` submits every batch, so the same build can measure what culling is worth.
 const BENCH_NOCULL_ENV: &str = "PLACES_BENCH_NOCULL";
+/// Stream bounded CSV without retaining a second copy during resource campaigns.
+const BENCH_STREAM_ENV: &str = "PLACES_BENCH_STREAM_ONLY";
 
 /// Per-frame timings, all in milliseconds.
 #[derive(Clone, Copy, Debug, Default)]
@@ -137,6 +139,8 @@ impl BenchSwitches {
     pub const SKIP_SWAP: Self = Self(1 << 2);
     /// Submit every batch regardless of the frustum, to measure culling's worth.
     pub const NO_CULL: Self = Self(1 << 3);
+    /// Keep the bounded CSV stream, omitting its in-memory summary copy.
+    pub const STREAM_ONLY: Self = Self(1 << 4);
 
     /// True when every switch in `other` is set.
     #[must_use]
@@ -150,7 +154,7 @@ impl BenchSwitches {
     }
 }
 
-/// Hard cap on retained frame records for an unbounded benchmark session.
+/// Hard cap on recorded rows and retained records in a benchmark session.
 ///
 /// `PLACES_BENCH_FRAMES` normally ends a run; this only bounds the case where
 /// the harness is left enabled for a whole interactive session. At 60 fps the
@@ -202,6 +206,7 @@ impl BenchConfig {
             (BENCH_NORENDER_ENV, BenchSwitches::SKIP_RENDER),
             (BENCH_NOSWAP_ENV, BenchSwitches::SKIP_SWAP),
             (BENCH_NOCULL_ENV, BenchSwitches::NO_CULL),
+            (BENCH_STREAM_ENV, BenchSwitches::STREAM_ONLY),
         ] {
             if env_flag(name) {
                 switches.insert(switch);
@@ -643,6 +648,21 @@ impl Bench {
         self.config.enabled
     }
 
+    /// Diagnostic-only allocation facts; never an estimate of game resources.
+    #[must_use]
+    pub fn diagnostic_retention(&self) -> serde_json::Value {
+        serde_json::json!({
+            "recorded":self.recorded,
+            "retained_records":self.frames.len(),
+            "capacity":self.frames.capacity(),
+            "record_bytes":std::mem::size_of::<FrameRecord>(),
+            "retained_bytes":self.frames.capacity().saturating_mul(std::mem::size_of::<FrameRecord>()),
+            "record_limit":MAX_RECORDED_FRAMES,
+            "stream_only_requested":self.config.switches.contains(BenchSwitches::STREAM_ONLY),
+            "csv_active":self.csv.is_some(),
+        })
+    }
+
     /// Camera override (`yaw_degrees`, `pitch_degrees`) for repeatable shots.
     #[must_use]
     pub const fn camera_override(&self) -> Option<(f32, f32)> {
@@ -757,7 +777,9 @@ impl Bench {
         // An unbounded run (`PLACES_BENCH=1` with no `PLACES_BENCH_FRAMES`)
         // keeps statistics for the whole session; stop retaining records once
         // the cap is reached so a long-running session cannot grow forever.
-        if self.frames.len() >= MAX_RECORDED_FRAMES {
+        if self.recorded >= u64::try_from(MAX_RECORDED_FRAMES).unwrap_or(u64::MAX) {
+            // The data cap must not strand an intentionally longer finite run.
+            self.limit_remaining = self.limit_remaining.map(|left| left.saturating_sub(1));
             return;
         }
         // The gap between adjacent loop starts, captured by `begin_frame`, is
@@ -835,11 +857,15 @@ impl Bench {
             // Stop retrying a failed stream on every benchmark frame.
             self.csv = None;
         }
-        self.frames.push(FrameRecord {
-            timings,
-            stats,
-            gpu_timing: self.gpu_timing,
-        });
+        // Preserve the ordinary summary fallback if the CSV could not open or
+        // failed. A successful resource campaign retains its evidence on disk.
+        if !self.config.switches.contains(BenchSwitches::STREAM_ONLY) || self.csv.is_none() {
+            self.frames.push(FrameRecord {
+                timings,
+                stats,
+                gpu_timing: self.gpu_timing,
+            });
+        }
     }
 
     /// Supplies the latest asynchronous hardware sample without associating
@@ -862,6 +888,16 @@ impl Bench {
         reason = "The benchmark harness consumes this machine-readable stdout record."
     )]
     pub fn finish(&mut self) {
+        if self.config.enabled
+            && self.frames.is_empty()
+            && self.config.switches.contains(BenchSwitches::STREAM_ONLY)
+        {
+            println!(
+                "BENCH_SUMMARY {{\"frames\":{},\"stream_only\":true,\"summary_available\":false}}",
+                self.recorded
+            );
+            return;
+        }
         if !self.config.enabled || self.frames.is_empty() {
             println!("BENCH_SUMMARY {{\"frames\":0}}");
             return;
@@ -971,3 +1007,7 @@ fn millis(duration: std::time::Duration) -> f32 {
     let millis = duration.as_secs_f64() as f32 * 1000.0;
     millis
 }
+
+#[cfg(test)]
+#[path = "tests/bench_stream.rs"]
+mod recording_tests;

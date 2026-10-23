@@ -2456,6 +2456,7 @@ impl FrameLoop<'_> {
                 pressed: _,
                 recapture: _,
             } => {}
+            actions::Action::Checkpoint { name } => self.scripted_checkpoint(&name),
             actions::Action::Capture { name } => {
                 self.items.captures.push_back(name);
             }
@@ -3726,6 +3727,7 @@ impl FrameLoop<'_> {
         {
             drop(fields.insert("map_ownership".into(), serde_json::json!({
                     "active_prepared_bytes":self.displayed_lease.as_ref().map_or(0,loading::PreparedLease::retained_bytes),
+                    "benchmark_records":self.bench.diagnostic_retention(),
                     "retired": self.retired_worlds.iter().map(|(id,probe)|serde_json::json!({"level":id,"ownership":probe.snapshot()})).collect::<Vec<_>>(),
                     "scripts":self.game.entities().script_resources(),
                     "ai_agents":self.game.entities().ai().len(),

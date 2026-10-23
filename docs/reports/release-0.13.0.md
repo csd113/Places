@@ -5534,3 +5534,253 @@ No CI wait, main merge, release or version bump. The final commit, exact remote 
 clean status and writer release are recorded in `ownership-handoff.json`. SYSTEM-only
 awake helper PID 18136 and all build/unique evidence artifacts are retained; the queue
 stop file is not created.
+
+## Combined performance and regression sweep — 23 October 2026
+
+This pass starts from clean, remote-verified `00f4966ba46beb583ab9558638be7a38c203f7c9`
+on `0.13.0-staging`. It retains a measured editor history improvement and better
+bounded resource instrumentation. Two engine experiments were rejected after matched
+measurements: combining compute deformation with the first view encoder, and dispatching
+small, expensive character-lighting batches through the existing worker pool. Production
+renderer submission and character scheduling are restored exactly to the starting source.
+No general FPS improvement or universal tail-regression fix is claimed by this pass.
+
+Canonical receipts and the final commit/remote/ownership identities are under
+`local/windows-validation-0.13.0/performance-regression/`. The original complete working
+evidence remains in `C:\Users\Connor Dawkins\Documents\Codex\2026-10-23\task-2\sweep-evidence`.
+The evidence index identifies retained package inputs, original locations and copied
+receipts; failed setups, rejected sources and executable cohorts remain available.
+
+### Measurement contract and profiling decisions
+
+The same Razer Blade 14 / Ryzen 9 5900HX / 16 GB / RTX 3070 Laptop host runs Windows 10
+build 19045 and DX12. Native throughput runs are uncapped, VSync off, actual **Immediate**
+presentation and **1280x720** drawable verified from renderer/HAL observations, with no
+missed ready presentations. Fast cases exceed the 165 Hz desktop reference. Five-second
+steady windows use **actual ready-presentation timestamps**, aligned one-to-one with CSV
+records; startup/install cadence is not summed into a second startup charge. GPU hardware
+samples are deduplicated by sample id. Pass elapsed spans include scheduling gaps and
+are not GPU utilization. CPU update, render submission, presentation and GPU spans are
+reported separately. Builds, bakes, capture and encoding do not run during throughput
+windows. Captured action runs and videos make no throughput claim.
+
+Seven detailed scene profiles, five one-worker controls, fifteen baseline timing repeats,
+42 same-build compute-submission controls, 36 scheduling controls, twelve two/four-worker
+controls and six final scheduling repeats precede the decisions. The real editor-supported
+12-mannequin/Luau lab, Full lab, Home, Pool closet, blood, menu events/ragdolls, Full Arcade,
+mirror, fog overlap/clear and six-guest scenarios supply representative content.
+
+The receiver-plan/key calculation itself measures approximately **0.001 ms** in the Full
+lab and **0.03 ms** in the ragdoll menu. Rewriting that cache check is not justified. Actual
+moving-rig spatial resampling is the meaningful work. One worker slows the lab and Pool
+CPU paths. Neither observation supports a replacement job system or room/portal architecture.
+
+The combined-encoder experiment is rejected: among other inconsistent means, median p95
+menu time changes **5.283 -> 5.590 ms** and blood **2.409 -> 3.086 ms**. The separate submission
+control is in the same executable. The experiment's source and binary are preserved;
+`renderer.rs` has no retained change. There is no blood-specific fallback exception.
+
+The scheduling probe uses prior exact visibility-query counts only as a cost hint, retaining
+all samples and cache validation. Seven moving menu rigs each perform roughly 300 queries
+while the existing count-only rule stays inline below eight dirty receivers. This reduces
+CPU update, but the final repeated end-to-end result does not justify shipping it:
+
+| Final same-build menu control, median of three runs | Existing policy | Cost-aware probe |
+| --- | ---: | ---: |
+| CPU update mean | 2.046 ms | 1.558 ms |
+| CPU render submission mean | 0.915 ms | 0.959 ms |
+| Presentation mean | 0.562 ms | 1.012 ms |
+| Complete loop mean | 3.660 ms | 3.709 ms |
+| Complete loop p95 | 5.818 ms | 6.249 ms |
+| Complete loop p99 | 7.851 ms | 7.681 ms |
+
+An independent earlier set also worsens p95 **5.471 -> 5.777 ms**, despite improving CPU
+update **2.036 -> 1.510 ms**. Two workers increase menu CPU update **1.536 -> 1.810 ms** and
+p99 **7.163 -> 7.610 ms**. GPU/presentation costs shift as CPU work changes; these results
+do not establish a driver-level cause. The cost-aware source/accessor are removed and
+all probe evidence retained. This is the last tail-tuning repetition in this pass.
+
+Fresh unchanged-baseline repeats put the historical single-run differences in context:
+
+| Case | Loop mean, median | p95, median | p95 range across three runs | p99, median |
+| --- | ---: | ---: | ---: | ---: |
+| Menu ragdolls | 3.748 ms | 6.084 ms | 5.556–6.183 ms | 7.985 ms |
+| Blood | 1.706 ms | 2.510 ms | 2.420–2.526 ms | 3.573 ms |
+| Full mannequin lab | 3.732 ms | 5.910 ms | 5.684–6.176 ms | 6.591 ms |
+| Static mannequin lab | 3.365 ms | 5.789 ms | 4.968–5.822 ms | 6.372 ms |
+| Pool closet | 2.241 ms | 3.949 ms | 3.931–4.268 ms | 4.455 ms |
+
+These are current baselines, not improvements attributed to this commit. The former blood
+tail increase is not reproduced consistently here; smaller lab/Pool differences are noisy.
+The historical GPU-phase tail concern remains an uncertainty rather than a falsely closed
+regression. Current evidence rejects the two proposed changes and preserves existing quality.
+
+### Retained improvement: immutable editor history accounting
+
+Every retained JSON history revision is immutable. Previously, each admission traversed
+every retained tree to estimate heap use. A revision now caches its owned heap charge
+after the actual move/clone. Admission sums those small records and also charges deque
+capacity. Undo/redo still clones and charges the allocation actually retained; no stale
+charge is transferred between differently sized allocations.
+
+Three alternating before/after probes perform 64 edits and exact undo/redo on identical
+isolated source inputs. Medians of mean latency for the final sixteen edits are:
+
+| Project / objects | Before | Retained fix | Reduction |
+| --- | ---: | ---: | ---: |
+| Performance lab / 117 | 0.862 ms | 0.432 ms | 49.8% |
+| Collection entry / 85 | 6.374 ms | 5.498 ms | 13.7% |
+| Lantern Hollow / 1,270 | 60.332 ms | 48.035 ms | 20.4% |
+
+First-eight latency is essentially unchanged; the saved work grows with retained history.
+Full undo/redo cost is broadly unchanged. All 64 admitted revisions survive and exact source
+restoration passes. Existing **64 revisions / 32 MiB per stack** and **256 MiB aggregate
+document admission** remain; unsaved work and needed histories are preserved. The focused
+80-tiny-revision regression verifies retained charges through trimming, clone capacity,
+undo/redo and redo invalidation, using under 64 KiB and no assets, GPU or map bake.
+
+Native small/large editor sessions exercise twelve environment-preview toggles, twelve
+rapid edits/undos that cancel or supersede obsolete work, exact restore, Safety and source
+preservation. Model/image caches settle to the same content counts rather than growing
+with toggles: **5/4** in the lab and **63/19** in Lantern. Native peak RSS changes
+**444.9 -> 446.3 MiB** for the lab and **1,839.9 -> 1,844.3 MiB** for Lantern; private
+peaks are **593.5 -> 602.2 MiB** and **3,353.4 -> 3,363.9 MiB**, respectively. These
+short-session peaks establish no memory saving. Large preview preparation still takes seconds; one observed upload handler
+is about 139 ms. This pass does not claim a preview preparation or upload-latency win.
+Those remain measured responsiveness leads, distinct from the retained history fix.
+
+The real authoring workflow also previews/cancels/applies/undoes an open ceiling, edits a
+local floor offset, saves/reopens, exports/validates Static and playtests the edited Luau
+lab. A separate isolated intentional duplicate-wall counterpart exercises scoped ignore,
+exact undo, redo, save/reopen, export/reimport and byte-exact indexed source recovery.
+The ignore changes no geometry. Production map sources/assets remain untouched. Setup
+failures involving popup selection and absent eligible warnings are preserved; successful
+reviewed runs use explicit controls and an eligible placement finding.
+
+### Independent Home, Relay and cross-feature preservation
+
+Home cushion carry is tested separately from books/bed contact and the earlier Pool
+props/water fix. Three uncaptured repeats per cohort cover idle, held/placed, interaction
+and recovery phases. These probe-build observations do not establish a Home optimization:
+
+| Scenario / phase | Baseline loop mean | Probe loop mean | Baseline/probe CPU update |
+| --- | ---: | ---: | ---: |
+| Cushion idle | 2.206 ms | 2.192 ms | 0.355 / 0.356 ms |
+| Cushion held | 2.274 ms | 2.266 ms | 0.456 / 0.440 ms |
+| Cushion moving | 1.319 ms | 1.318 ms | 0.404 / 0.406 ms |
+| Cushion recovered | 1.292 ms | 1.299 ms | 0.325 / 0.331 ms |
+| Two books, idle | 2.602 ms | 2.651 ms | 0.376 / 0.384 ms |
+| Two books, placed | 2.638 ms | 2.676 ms | 0.437 / 0.416 ms |
+| Bed contact/jumps | 2.124 ms | 2.161 ms | 0.436 / 0.437 ms |
+| Stepped off/recovered | 1.731 ms | 1.757 ms | 0.375 / 0.367 ms |
+
+Full mean/tail CPU/GPU component tables are retained in `home-interactions-summary.json`.
+Cushion capture states prove sustained hold and ordinary drop, with at most one active
+body. Books/bed runs activate two bodies and show grounded contact on the bed, ordinary
+jumps and stepping off, with zero player resets. A first books setup crossed the room
+boundary and reset before interaction; it is excluded. A side approach jumps about
+**0.533 m**, below the **0.55 m** bed surface. The accepted contact fixture explicitly starts
+above the bed before normal physics/jumps/separation; it does not claim an ordinary
+floor-to-bed jump. Existing Portal-style movement and jump height are unchanged. That
+approach sensitivity remains a movement/usability lead.
+
+An independent native first-contact case proves the original dormant cushion activates
+when the player lands on it and permits ordinary separation without reset; permanent fixed
+instances remain unchanged. The severe reported Home slowdown is not reproduced on this
+host. No special-case performance branch or reduced collision/visual quality is added.
+
+Relay stairs and ramp jump checks and the crouch passage have zero resets/fall-through.
+All **17 deterministic movement replays are byte-identical** to the published controller
+baseline. The integrated scenes pass **1,181 lighting checks** and **34 GPU skinning oracles**
+with position/normal error below 0.0001. Luau visitor counts return **13 -> 12 -> 13 -> 12**,
+with one active script module and empty diagnostics. Six guests settle at nine characters;
+Home pickup/drop, Pool closet door, water/reflections/flashlight, menu events, Arcade,
+mirror and overlapping/clear fog remain correct. Production-build smoke checks repeat the
+shared paths after restoring scheduling. Pressure refusal, cancellation/reload and unload
+checks preserve the displayed old world until safe replacement and retire old ownership.
+
+### Extended resource ownership and measurement attribution
+
+The original 40-install baseline increases as new maps prime renderer/allocator caches.
+The 100-transition, 101-install campaign then repeats the same ten maps per group:
+Pool, Arcade, Lantern Hollow, performance lab, Office, Winter, Beach, Aero, Hub and Home.
+Named capture-free checkpoints preserve the existing **128-action / 64 KiB script /
+60,000 ms per-step** bounds while sequencing a longer campaign.
+
+The first 100-transition run has sampled peaks of **1,905,860,608 RSS / 2,918,371,328 private bytes**.
+Same-Home private memory changes from about **1,819 MiB** after the first group to
+**1,882 MiB**, with the last forty transitions within about **7 MiB**. RSS still increases
+approximately **8 MiB** over those last forty transitions. Handles remain roughly 573–583;
+the active script count is one, with sub-MiB VM bytes fluctuating with collection. Active
+prepared Home CPU charge stays **17,981,910 bytes**. Retired weak probes are bounded to 32;
+evicted prepared/record/transport owners disappear, with at most the two permitted recent
+cache entries retaining ownership. This supports bounded live ownership, not proof that
+all allocator or driver allocations have been attributed.
+
+Benchmarking itself retained up to **120,000 frame records** in addition to CSV. The new
+opt-in `PLACES_BENCH_STREAM_ONLY=1` retains the bounded raw CSV on disk without that
+duplicate summary vector, exposes exact record count/capacity/record-size/bytes, and keeps
+the ordinary fallback if CSV cannot open or fails. Both CSV and record count retain the
+same cap. A finite request longer than the cap now reaches its endpoint instead of hanging
+after retention stops. The two-row seeded-boundary regression covers that behavior without
+a long run. Normal gameplay benchmarking remains disabled and allocates no such records.
+
+The retained production build completes another **100 transitions / 101 installs in 598.1 s** with streamed telemetry. Sampled peaks are **1,894,899,712 RSS / 2,898,374,656 private bytes**.
+
+| Same-Home checkpoint | RSS MiB | Private MiB | Handles | Luau VM bytes |
+| --- | ---: | ---: | ---: | ---: |
+| group-0 | 894.3 | 1821.2 | 581 | 583,296 |
+| group-4 | 925.7 | 1853.8 | 575 | 583,296 |
+| group-5 | 927.1 | 1856.6 | 577 | 566,936 |
+| group-9 | 931.9 | 1858.8 | 575 | 583,296 |
+| settled | 931.9 | 1858.8 | 575 | 599,656 |
+
+Across the last forty transitions plus settling, private memory spans **1854.5–1858.8 MiB**; RSS changes **+4.8 MiB**. Every checkpoint reports **zero retained benchmark records/bytes**, a **168-byte record size**, the unchanged **120,000-row cap**, and an active CSV stream. The last recorded count is 120,000; resource/ownership traces continue after that data cap.
+
+Final Home HAL observations are **291 buffers / 103,874,560 reported buffer bytes**, **240 textures / 345,505,792 reported texture bytes**, **56 render pipelines**, and **217 persistent texture-cache entries**. These are partial resource facts, not driver allocation totals or exact VRAM. Active Home prepared CPU bytes, one current script module, bounded retired probes and retired ownership checks remain unchanged. The retained-record copy therefore does not explain all process residency; remaining page/allocator/driver attribution is unresolved. The observed late trend is reported without claiming an unlimited-session proof or normal-game RAM saving.
+
+A 67-second preliminary streamed run was closed cleanly when the scheduling probe was rejected; it is retained as partial evidence and excluded from this final campaign. No build, bake, video capture or encoder overlaps the accepted resource process.
+
+
+RSS/private memory and partial HAL buffer/texture byte counts are distinct. They are never
+summed as independent physical pools or relabeled exact VRAM. GPU/driver reservations,
+allocator high-water reuse and remaining uninstrumented ownership are not proven away by
+successful cleanup checks. No live resources, unsaved work or history are discarded to
+make a graph lower. Startup-to-usable remains mixed as already reported; this pass does
+not claim every map loads faster or change the full lighting bake algorithm.
+
+### Issue reconciliation, gates, media and remaining scope
+
+| Issue group | Evidence and disposition |
+| --- | --- |
+| #27 repeated work, scheduling, tails, lifetimes | History accounting fixed; receiver-plan rewrite has no measured value; compute/scheduling probes rejected; live ownership and bounded diagnostic retention measured. Historical tail uncertainty and complete hardware-adaptive limit inventory remain open. |
+| #27 Home/frozen props and Relay collision | Independent Home/contact and zero-reset Relay checks above; published movement replays preserved. Floor-to-bed approach limitation is explicit. Earlier Pool/contact/controller fixes remain intact. |
+| #28 script/AI/spawn/menu/transition work | Real Luau expiry, guests, menu events, ownership retirement and refusal/cancellation validated. Earlier actor animation ownership, essential-supply well recovery, release/feedback, audio authoring/control/lifecycle and packaged live-menu work retain their canonical acceptance; these are prior completions, not new fixes here. Further general polish stays in its later phase. |
+| #29 editor churn/author intent | Measured history fix, small/large native churn/cancel/undo, scoped ignore/recovery and ceiling/floor workflows pass. Prior structural floor/Annex-ceiling safeguards, colored XYZ labels and reversible axis dragging retain their earlier canonical completion evidence. Current Windows Relay checks reuse the preserved diagnostic movement package; a new complete Annex export campaign is not claimed. Large preview preparation/upload latency remains a measured lead. |
+| #30 compiler/storage residuals | Prior actual-record codec, packing, installed allocation and ownership evidence remains authoritative. The missing historical Lantern peak and exhaustive per-stage copy/allocation attribution are still unavailable; native editor export/playtest is extended here without a fresh full-map bake campaign. |
+| #31 larger projects | Existing Windows GPU skinning, conservative visibility, granular admission/loading and packing work retained. No new room/portal architecture or job system is justified. Codec adoption remains deferred until explicit decoder-window bounds and compatibility are resolved. |
+
+Final retained-code `cargo fmt --all --check`, strict workspace/all-target/all-feature Clippy, `cargo test --workspace` (**292 passed**, suite runtime **0.91 s**), locked all-feature workspace release (**14.42 min**, one compile job), asset validation (zero warnings), prop checks, texture checks (140 textures, 100 existing catalog/manifest warnings), fifteen benchmark-accounting regressions and `git diff --check` pass. A parallel test compile initially hit Windows paging/commit error 1455; the metadata remained valid and the one-job retry passed. No paging/security setting or build artifact was changed or removed.
+
+The final audit covers **18 integrated/production native runs**, **1,914 lighting oracles**, **58 skinning oracles**, four native editor sessions, seventeen exact movement replays and both complete resource campaigns. Final identities and logs use `production-*`, `*-production-final.log` and `*-production-retry.log`; earlier candidate gates remain preserved under their original names. Only the small history and benchmark-cap regressions are added; neither invokes a map bake.
+
+Four short before/after videos and the concise timestamped montage are kept outside
+`target/`, with decode verification and SHA-256 receipts. Final footage uses the retained
+production build; captions disclose the rejected scheduler and the measured editor saving.
+The final montage is `evidence/media-final/Places-performance-regression-montage.mp4`: **23.5 s**, 1280x720 H.264/YUV420P at eight native timestamped samples per second, **1,478,110 bytes**, SHA-256 `41dd4a4eaba7b6b1b260a32ed00bcdcfb0e7a331768354f32e66010a26865a0b`. Four individual clips and all raw samples remain alongside it. Library item **libfile_2d93ff14dc5c8191959ff1a3a16fc267**, version **1**, preserves the original saved file identity. Transfer and failed local-metadata receipts are retained; no executable bundle is uploaded.
+
+The original encoder path in an older task was inaccessible. A standard task-local
+imageio-ffmpeg dependency ran through the normal execution approval path; no security/ACL
+changes, access workaround or executable upload occurred. The supported Library save
+succeeds; its metadata helper cannot call `os.setxattr` on this Windows runtime, so local
+Library identity is retained in the transfer receipt instead of falsely claiming xattrs.
+
+Metal/Vulkan GPU-skinning acceptance, exact VRAM, lower-memory/unified-memory calibration,
+the complete cross-boundary limit inventory, residual preview latency and historical tail
+uncertainty remain genuine limits. General polish, the dedicated full map-compiler lighting
+algorithm review (CPU parallelism/GPU bake feasibility/redundant bounces and rays), The Shape
+of an Exit second last, and final validation/report/issues/cleanup remain the later queue.
+No later phase, main merge, release, version bump or CI wait occurs here. Build artifacts,
+all unique evidence and SYSTEM-only awake helper PID 18136 are preserved; the queue stop
+file is not created. Final clean remote verification and writer release are recorded in
+the ownership handoff.

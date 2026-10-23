@@ -423,6 +423,7 @@ impl FrameLoop<'_> {
                 yaw_offset_degrees: _,
             }
             | crate::game::app::actions::Action::Capture { name: _ }
+            | crate::game::app::actions::Action::Checkpoint { name: _ }
             | crate::game::app::actions::Action::Resize {
                 width: _,
                 height: _,
