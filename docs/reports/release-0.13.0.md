@@ -6827,3 +6827,204 @@ Raw audit, before/after metadata and lockfile, registry evidence and logs are in
 `C:\Users\Connor Dawkins\Documents\Codex\2026-10-23\task-8\dependency-evidence`,
 outside `target`. The canonical report remains this file; no separate release
 report is introduced.
+
+
+### Largest-file reconciliation and authorized focused refactors
+
+The earlier read-only assessment at `44b6c07` covered 447 project-owned Rust
+files. It is retained rather than repeated. Pass A added seven Rust files before
+this phase. Rechecking the affected boundaries confirms the recommendations;
+this phase adds nine files net, for **463 project-owned Rust files** after the
+extractions and the one new regression test. File counts are context, not targets.
+
+The user's later instruction authorizes automatically queuing appropriate
+behavior-preserving refactors. The following two are implemented separately from
+the dependency commit:
+
+| Boundary | Before | Final responsibility |
+| --- | --- | --- |
+| `engine/loader.rs` | 6,565 lines: catalogs, fixture loading, source admission and many domain checks | 426 lines for the public compatibility paths, catalog and fixture loading; `loader/validation/mod.rs` retains the original ordered `validate_level` body. Six private domain modules own environment/budgets, geometry, lighting, props/rigid authoring, motion/doors and entities. |
+| `engine/level.rs` | 11,787 lines: authoring definitions, borrowed geometry and owned runtime collision/codecs | 9,645 lines for authoring and borrowed surfaces; `level/runtime_collision.rs` owns the unchanged 2,141-line runtime models/codecs plus explicit imports and module documentation (2,156 lines total). Public floor, ceiling, water and ladder paths are reexported. |
+| `level/physics.rs` | Private access to owned floor/ceiling details | Moved unchanged under `runtime_collision/physics.rs`; fields stay private rather than widening them for a sibling module. |
+
+The ordered facade preserves every call and early return, messages and first-error
+ordering. `LevelIndex` and its capability facts stay inside the private validation
+family; only the sequence-owner handoff is visible to its facade. Historical
+`loader::validate_level`, lifetime constant, rigid-prop validator, script-call
+enumerator and compiler wall-query paths remain available at their existing
+visibility. Compilation caught the compiler's wall-query import and private-module
+visibility requirements; these were fixed through reexports, without suppressions.
+
+The source oracle checks **99 validator/type bodies**, the ordered facade, every
+runtime collision token and the private physics implementation. Function bodies,
+arithmetic, codec field order, bounds and diagnostics are unchanged. One tiny
+metadata-only test uniquely protects the cross-domain first-error contract with
+simultaneous schema/transition/room/prop failures and exact error text. It uses no
+assets, renderer, physics simulation or map bake. Its first setup mistakenly fed
+an invalid schema to the earlier JSON decoder; that retained failed attempt is
+corrected by mutating a successfully decoded fixture in memory. The final suite
+has **302 passes, zero failures/ignored**, with about one second of test execution;
+the longer gate time is compilation. No full-map test or automatic bake is added.
+
+**Queued for phase 3:** extract the approximately 1,200-line repair planner from
+`map_compiler/geometry_check.rs` as a private submodule alongside the next compiler
+work. The file remains **4,931 lines**, unchanged here. Preserve the shared issue
+classification, mandatory post-repair safety check, JSON diagnostics and exit
+contracts together; validate a narrow repair/refusal fixture matrix. Moving it
+now would add compiler coordination before the related work, without avoiding a
+demonstrated duplicate edit. Its disposition is an explicit queue item, not a
+forgotten recommendation or an implemented claim.
+
+The prior renderer/app/entity-orchestration recommendations remain limited:
+do not broadly rewrite those large stateful owners; transport and glTF remain
+cohesive. The entity validation graph remains one domain because the shared index,
+capabilities, actions, bindings and sequence/cycle checks are coupled. This change
+improves ownership and review boundaries; it establishes **no FPS or compile-time
+speedup**. Later measured compiler/storage, memory and game-frame passes remain
+separate.
+
+
+### Final phase-2 gates and native acceptance
+
+The final frozen source passes formatting, strict
+`cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+`cargo test --workspace` (**302 passed, zero failed/ignored**) and
+`cargo build --locked --release --workspace --all-features` (**exit 0**, 1,026.3 s).
+All **478 source/build-input hashes** and **21 frozen executable/DLL/symbol files**
+are rechecked. The nine current workspace executables, their symbols and required
+SDL/DXC/DXIL payloads are preserved outside `target`; obsolete retained tools are
+not represented as newly built workspace outputs. Assets pass **629 / zero warnings**,
+props **389**, textures **140 / the 100 existing advisories**, and all **21** relevant
+Python tests. The broad suite remains **366 tests, 8 failures, 9 errors, 16 skips**;
+its exact 17 failure/error headers match the preserved `d5a0628` Windows baseline,
+with no new header. It is not described as green.
+
+All **13 sequential acceptance stages pass** after the release command exits;
+no build/bake/capture overlaps an FPS timing window. Native coverage includes:
+
+- **Movement and formats:** all 17 ordinary controller command trajectories are
+  byte-exact against the preserved pre-upgrade executable, covering **4,080 ticks**.
+  Independent forced small `test_room` and `water_transmission` Static/Full bakes
+  retain all **29 non-provenance archive entries** exactly, including semantics,
+  geometry, lighting, collision, navigation, lightmaps and probe records as present.
+  Each original compiler verifies its own package current; the final reader validates
+  both generations. Only compiler-code/tool provenance and the verified corresponding
+  manifest fingerprints and provenance-entry digest differ. No stored fingerprint
+  or record was edited to obtain equality. The prior expensive full-map solver
+  evidence remains preserved; no shipped-map Cargo/CI bake was introduced.
+- **Editor/compiler:** native Lantern preview, room edit, Inspect/Environment changes
+  and undo preserve the source and restore the document exactly. The current capture
+  run observes roughly **1.36 s** room-edit preparation, **1.35 s** return-to-Inspect
+  and **14.52 s** Environment preparation, consistent with the retained distinction
+  between reusable Inspect work and real Environment recomputation; these capture
+  controls are not matched new latency benchmarks. Native Shape export/reimport
+  preserves manifest, level and Luau source bytes exactly, passes integrity/currentness,
+  saves the old unsaved document while superseding its preview, then completes both
+  genuinely cold recovered Build+Play and cached Play. The native child is captured.
+  The actual named bake-progress display is visually reviewed, including its honest
+  indeterminate state. The earlier uncertain attempt remains preserved separately.
+- **Games and shared systems:** both Shape of an Exit and One Guest Too Many complete
+  their ordinary win/Enter-restart routes. Diagnostic shared controls cover carry,
+  Pool water/doors/reflections, lab quality/reload, blood, five animated skins with
+  ragdolls and reset/original-black restoration, and native stair/ramp/crouch movement.
+  Game-output audio is finite and nonzero, **48 kHz stereo float**, with **880,320**
+  captured frames; it is not microphone audio. These diagnostics do not substitute
+  for the outstanding ordinary Home/Pool favor and reward campaigns.
+- **Prepared lighting and staged loading:** all three on/off/restored captures are
+  pixel-identical to the frozen Pass A controls; off visibly differs from on.
+  Capture-free Arcade loading records a **54.82 ms** worst upload handler and
+  **5.69 ms p95**, preserving the prior responsiveness range. The soft budget,
+  remaining whole resource calls and roughly 198 ms historical physics-item
+  activation limit remain; this phase claims no new latency or FPS speedup.
+
+The final current-only sanity windows use NVIDIA RTX 3070 Laptop **DX12**, physical
+**1280x720**, High texture/filtering, VSync **off**, actual post-settings presentation
+**Immediate**, and no frame limiter. Startup device logs initially say Fifo; the
+later actual mode change and physical window line are retained. The active hybrid
+display is **2560x1440 at 165 Hz**. Observed ready presentations and loop rates
+exceed that refresh rate, with no ready misses or refresh-rate plateau. Thus these
+are uncapped engine-throughput sanity observations, not a before/after improvement
+claim or the later dedicated optimization baseline. Capture-heavy controls and
+editor Fifo views are excluded. Functional cold-child capture uses its own normal
+play window; it is not represented as a 720p FPS run.
+
+| Case | FPS | Mean / p95 loop ms | Timed samples | Ready presentations / misses |
+| --- | --- | --- | --- | --- |
+| home | 550.2 | 1.818 / 3.132 | 2712 | 5424 / 0 |
+| pool | 472.4 | 2.117 / 4.003 | 2346 | 4691 / 0 |
+| lab | 294.4 | 3.396 / 5.527 | 1446 | 2891 / 0 |
+
+This is **Windows acceptance only**. Registry/platform resolution and static Unix
+libc API inspection do not establish Linux/Vulkan or macOS/Metal execution.
+
+The crates.io index was rechecked for all **198 names at 23:12 UTC**: no newer
+stable release appeared during validation. All 18 direct crates are current;
+**32 older versions across 29 transitive names** remain only under the exact
+upstream constraints listed above. The newest published Rust Luau source package
+still carries 0.740, with the separately documented upstream 0.743 packaging gap.
+
+The disk-full attempt and the first new-test setup failure remain in the evidence.
+During validation, reversible NTFS compression of generated debug outputs and
+retained CSV/JSONL/log evidence recovered headroom without deleting unique data;
+sampled before/after hashes match. Existing package/capture/source bytes and the
+release executables were unchanged. Log-file filters left evidence directories
+uncompressed. This was not exported-map compression or a package-size optimization.
+
+**The user's confirmed between-run cleanup instruction supersedes the earlier
+blanket deferral until the entire queue ends.** At this completed phase boundary,
+all build and native processes had exited. The **21 current executable/DLL/symbol
+files** and **two legacy probe files** were preserved and hash-verified outside
+`target`, with media, recovery projects, comparison packages and source evidence.
+Only verified disposable task-owned staging links were removed: **17 hardlinks**,
+each checked against its still-existing original package and recorded SHA-256.
+An additional 94 conservatively copied Cargo build-script/proc-macro files were
+classified from package metadata as reproducible cache and removed as well.
+No unrelated system-temp sweep occurred; no newly created `rustc*`/`places-*`
+system-temp candidates were found in the ownership check.
+
+`cargo clean --target-dir C:\Users\Connor Dawkins\Documents\Places\target`
+then exited **0** and removed `target`. The observed volume-free-space increase
+from Cargo cleanup was **17.44 GiB actual**
+(**18,725,871,616 bytes**), distinct from Cargo's
+**30.8 GiB logical / 22,133 files** report. The disposable cache-copy cleanup
+recovered another **113,758,208 actual bytes**. Free space afterward is about
+**25.51 GiB**. Frozen `places-compile --version` still runs successfully
+after cleanup, and preserved binaries are hash-checked again. The next Rust phase
+must rebuild Cargo output; validated baseline executables are in
+`task-8/dependency-evidence/final-bin/`, not in the removed `target/release`.
+
+The scoped pre-clean inventory identifies these largest retained queue consumers:
+October 23 **Task 2: 17.25 GiB**, **Task 4: 9.38 GiB**, **Task 5: 7.69 GiB**;
+Places GPU-rendering evidence **7.28 GiB**, storage/compiler evidence **6.89 GiB**
+and loading/memory evidence **4.43 GiB**. `target/debug` reported about **12.18 GiB**
+of deduplicated compressed-file storage in that snapshot, **28.93 GiB logical**.
+These per-folder storage estimates are not additive across hardlinked folders;
+actual reclamation above is measured using volume free space. Task 5 includes two
+**3.05 GiB raw RGBA videos**, retained as prior unique media/comparison evidence.
+The audit covers Places and the October 22/23 queue workspaces, not unrelated disk
+contents. Earlier evidence ownership is respected rather than assuming every large
+file is disposable. Detailed paths, file identities and allocation estimates are
+in `disk-before-clean.json`; the cleanup receipts list every removed staging link.
+
+**Phase 2 is complete; the whole queue is not.** Home's old ordinary timed cushion
+pickup/favor replay still has an unresolved failure. Pool favor/throw, reward unlock
+and restart, resource pressure and final integrated performance remain pending.
+Next is phase 3: CPU lighting/compiler kernels, then calculation/storage/redundancy
+and bounded worthwhile compression/packing review, with the queued repair-planner
+extraction; then Lantern steady/transient RAM, game frame tails, and final combined
+verification/issue reconciliation. No later optimization phase began here.
+
+The standing rule for **every subsequent completed Rust phase/run** is: preserve
+needed outputs outside `target`, verify preservation and no active target users,
+then run `cargo clean` and remove only proven task-owned disposable temporaries.
+Keep source, unique data, recovery/comparison evidence and artifacts needed by
+unfinished work. Do not sweep unrelated system temp or clean during active builds.
+
+The sole-writer handoff and evidence index are saved under
+`local/windows-validation-0.13.0/dependency-phase2/` and the canonical
+`final/ownership-handoff.json`. Final commit/remote/clean verification is recorded
+there. The existing temporary SYSTEM-required-only awake helper **PID 34744** stays
+active under next-writer custody, with its original stop mechanism and expiry
+**2026-10-24 17:57:20 UTC**. Stopping it still waits until the whole queue finishes.
+No stop file, permanent power/security change, CI wait, main merge, release, force
+push, version bump or executable Library upload occurs. All unique evidence remains.

@@ -40,3 +40,4 @@ mod collection_quests;
 mod celestial_sources;
 
 mod compact_lightmap_planes;
+mod validation_order;
