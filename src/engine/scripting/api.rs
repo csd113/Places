@@ -263,6 +263,9 @@ pub(super) fn host<'scope>(
             result.set("x", pose.position.x)?;
             result.set("y", pose.position.y)?;
             result.set("z", pose.position.z)?;
+            let body = world.components().nav_agents.get(handle);
+            result.set("radius", body.map(|agent| agent.radius))?;
+            result.set("height", body.map(|agent| agent.height))?;
             let physical = world
                 .script_physical
                 .iter()
@@ -445,6 +448,49 @@ pub(super) fn host<'scope>(
                         ActionDef::Enable { target: Some(id) }
                     } else {
                         ActionDef::Disable { target: Some(id) }
+                    },
+                )
+            },
+        )?,
+    )?;
+    api.set(
+        "door_status",
+        capability(scope, calls, move |vm, value: HostString| {
+            let id = entity(world, value)?;
+            let door = world
+                .doors()
+                .index_of(&id)
+                .and_then(|index| world.doors().get(index))
+                .ok_or_else(|| error("Target is not a hinged door"))?;
+            let result = vm.create_table()?;
+            result.set("phase", door.phase().name())?;
+            result.set("locked", door.is_locked())?;
+            result.set("obstructed", door.obstructed)?;
+            result.set("angle", door.angle())?;
+            result.set_readonly(true);
+            Ok(result)
+        })?,
+    )?;
+    api.set(
+        "prompt",
+        capability(
+            scope,
+            calls,
+            move |_, (value, prompt): (HostString, HostString)| {
+                let id = entity(world, value)?;
+                if world
+                    .handle_of(&id)
+                    .and_then(|handle| world.components().interactables.get(handle))
+                    .is_none()
+                {
+                    return Err(error("Prompt requires an interactable entity"));
+                }
+                push(
+                    queue,
+                    limit,
+                    ActionDef::SetPrompt {
+                        target: Some(id),
+                        prompt: text(prompt, 96)?,
                     },
                 )
             },

@@ -2512,7 +2512,11 @@ impl CharacterScene {
                     self.dynamic_lights
                         .get(&format!("{GLOW_KEY_PREFIX}{light_id}"))
                 });
+                // Explicit native trace only: inspect every posed vertex so
+                // acceptance can audit full-body containment, not a root point.
+                let posed = character.posed_bounds();
                 serde_json::json!({"id":instance_id, "cue":cue, "revision":animator.revision,
+                    "posed_bounds":{"min":posed.min,"max":posed.max},
                     "ragdoll_owned":character.ragdoll_owned,
                     "lighting": {"ray_cache":character.static_rays.diagnostic_snapshot(),
                         "bounds_min":character.lighting_local_bounds.min,

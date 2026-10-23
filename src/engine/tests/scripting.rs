@@ -643,3 +643,70 @@ fn script_actor_sight_uses_collision_and_navigation_keeps_its_goal() -> Result<(
     }
     Ok(())
 }
+
+// A two-entity metadata fixture protects the distinction between requested and
+// settled door state, immutable observations and replay. It adds no bake/assets
+// or native device and runs four bounded VM calls in milliseconds.
+#[test]
+fn observations_report_live_door_state_and_replay_atomically() -> Result<(), String> {
+    let mut level = fixture(
+        r"return {entered=function(api)
+        local d=api.door_status('door')
+        if d.phase ~= 'closed' or d.obstructed or d.angle ~= 0 then error('bad leaf') end
+        local a=api.actor('item')
+        if math.abs(a.radius-0.55)>0.000001 or math.abs(a.height-1.9)>0.000001 then error('bad body') end
+        api.door('door','lock')
+        api.prompt('item','Release latch')
+        api.set_state('item','count', d.locked and 2 or 1)
+    end}",
+    )?;
+    let item = level.props.first_mut().ok_or("Missing fixture item")?;
+    for source in [
+        r#"{"component":"nav_agent","radius":0.55,"height":1.9,"speed_mps":1}"#,
+        r#"{"component":"interactable","prompt":"Latch"}"#,
+    ] {
+        item.components
+            .push(serde_json::from_str(source).map_err(|problem| problem.to_string())?);
+    }
+    let mut world = EntityWorld::from_level(&level);
+    let _initial = world.take_commands();
+    let _first = invoke(&mut world)?;
+    assert_eq!(
+        count(&world)?,
+        1,
+        "query retains invocation-start state after a queued lock"
+    );
+    assert_eq!(
+        world.doors().is_locked("door"),
+        Some(true),
+        "shared lock action is published"
+    );
+    let _second = invoke(&mut world)?;
+    assert_eq!(count(&world)?, 2, "next invocation sees actual lock state");
+    world.reset_runtime();
+    let _replayed = invoke(&mut world)?;
+    assert_eq!(
+        count(&world)?,
+        1,
+        "replay restores the authored leaf before new queries"
+    );
+    assert!(
+        world.script_diagnostics().is_empty(),
+        "valid observation calls stay enabled"
+    );
+    level.script_sources.first_mut().ok_or("Missing source")?.source =
+        "return {entered=function(api) api.door('door','lock'); local d=api.door_status('door'); d.locked=true end}".into();
+    let mut refused = EntityWorld::from_level(&level);
+    let _refusal = invoke(&mut refused)?;
+    assert_eq!(
+        refused.doors().is_locked("door"),
+        Some(false),
+        "mutating a read-only observation discards queued effects"
+    );
+    assert_eq!(
+        refused.script_diagnostics().len(),
+        1,
+        "failure disables the module once"
+    );
+    Ok(())
+}

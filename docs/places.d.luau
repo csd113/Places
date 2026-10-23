@@ -7,7 +7,7 @@ export type Event = {
 }
 export type DoorOperation = "open" | "close" | "toggle" | "lock" | "unlock"
 export type Position = { x: number, y: number, z: number }
-export type Actor = { x: number, y: number, z: number, illuminated: boolean, intensity: number, player_visible: boolean, shadow_only: boolean, carried_item: string?, retired: boolean }
+export type Actor = { x: number, y: number, z: number, illuminated: boolean, intensity: number, player_visible: boolean, shadow_only: boolean, carried_item: string?, retired: boolean, radius: number?, height: number? }
 export type Api = {
     player: () -> Position,
     actor: (id: string) -> Actor,
@@ -24,6 +24,8 @@ export type Api = {
     change_level: (id: string) -> (),
     exists: (id: string) -> boolean,
     door: (id: string, operation: DoorOperation) -> (),
+    door_status: (id: string) -> {phase: string, locked: boolean, obstructed: boolean, angle: number},
+    prompt: (id: string, prompt: string) -> (),
     light: (id: string, on: boolean) -> (),
     sound: (id: string, playing: boolean) -> (),
     physics: (group: string, activate: boolean) -> (),

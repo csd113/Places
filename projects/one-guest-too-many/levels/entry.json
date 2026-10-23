@@ -1,0 +1,1519 @@
+{
+  "author": "Places",
+  "ceiling_lights": [
+    {
+      "align": "none",
+      "brightness": 0.550000011920929,
+      "color": [
+        1.0,
+        0.7799999713897705,
+        0.6100000143051147
+      ],
+      "emission": 0.550000011920929,
+      "fixture": "arcade:fluorescent_panel_01",
+      "id": "party_light",
+      "mount": "ceiling",
+      "range": 7.0,
+      "rotation_degrees": 0.0,
+      "switchable": true,
+      "x": 2.299999952316284,
+      "y": 2.997999906539917,
+      "z": 3.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.3499999940395355,
+      "color": [
+        0.800000011920929,
+        0.6000000238418579,
+        1.0
+      ],
+      "emission": 0.550000011920929,
+      "fixture": "arcade:fluorescent_panel_01",
+      "id": "party_lilac",
+      "mount": "ceiling",
+      "range": 7.0,
+      "rotation_degrees": 0.0,
+      "x": 4.800000190734863,
+      "y": 2.997999906539917,
+      "z": 6.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.4000000059604645,
+      "color": [
+        0.550000011920929,
+        0.699999988079071,
+        1.0
+      ],
+      "emission": 0.550000011920929,
+      "fixture": "arcade:fluorescent_panel_01",
+      "id": "arcade_north",
+      "mount": "ceiling",
+      "range": 7.0,
+      "rotation_degrees": 0.0,
+      "x": 9.0,
+      "y": 2.997999906539917,
+      "z": 4.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.3499999940395355,
+      "color": [
+        0.550000011920929,
+        0.75,
+        1.0
+      ],
+      "emission": 0.550000011920929,
+      "fixture": "arcade:fluorescent_panel_01",
+      "id": "arcade_south",
+      "mount": "ceiling",
+      "range": 7.0,
+      "rotation_degrees": 0.0,
+      "x": 11.0,
+      "y": 2.997999906539917,
+      "z": 10.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.3499999940395355,
+      "color": [
+        1.0,
+        0.75,
+        0.5
+      ],
+      "emission": 0.550000011920929,
+      "fixture": "arcade:fluorescent_panel_01",
+      "id": "foyer_light",
+      "mount": "ceiling",
+      "range": 7.0,
+      "rotation_degrees": 0.0,
+      "x": 3.0,
+      "y": 2.997999906539917,
+      "z": 9.399999618530273
+    },
+    {
+      "align": "none",
+      "brightness": 0.4000000059604645,
+      "color": [
+        0.6499999761581421,
+        0.800000011920929,
+        0.800000011920929
+      ],
+      "emission": 0.550000011920929,
+      "fixture": "arcade:fluorescent_panel_01",
+      "id": "store_light",
+      "mount": "ceiling",
+      "range": 7.0,
+      "rotation_degrees": 0.0,
+      "x": 3.0,
+      "y": 2.997999906539917,
+      "z": 13.399999618530273
+    }
+  ],
+  "defaults": {
+    "ceiling": "arcade:ceiling_acoustic_01",
+    "floor": "arcade:carpet_arcade_grid_01",
+    "wall": "arcade:wall_party_purple_01"
+  },
+  "doors": [
+    {
+      "bidirectional": true,
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "handle",
+              "script": "scripts/one_guest.luau"
+            }
+          ],
+          "cooldown_seconds": 0.25,
+          "on": "interact"
+        }
+      ],
+      "close_speed_degrees": 180,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Open / close waiting room",
+          "reach": 2.2
+        }
+      ],
+      "display_name": "Waiting room",
+      "frame_center": 0,
+      "frame_depth": 0.2,
+      "height": 2.3499999046325684,
+      "id": "store_door",
+      "initial_state": "closed",
+      "obstruction": "stop",
+      "open_speed_degrees": 150,
+      "rotation_degrees": 0.0,
+      "thickness": 0.05000000074505806,
+      "width": 2.0,
+      "x": 2.0,
+      "y": 0.0,
+      "z": 10.899999618530273
+    }
+  ],
+  "floor_regions": [
+    {
+      "depth": 8.0,
+      "material": "arcade:carpet_neon_confetti_01",
+      "offset_y": 0.0,
+      "width": 7.0,
+      "x": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 3.0,
+      "material": "arcade:carpet_retro_swirl_01",
+      "offset_y": 0.0,
+      "width": 7.0,
+      "x": 0.0,
+      "z": 8.0
+    },
+    {
+      "depth": 5.0,
+      "material": "arcade:restroom_tile_01",
+      "offset_y": 0.0,
+      "width": 5.599999904632568,
+      "x": 0.0,
+      "z": 11.0
+    }
+  ],
+  "format_version": 1,
+  "id": "one_guest_too_many",
+  "name": "One Guest Too Many",
+  "props": [
+    {
+      "id": "editor_prop_1",
+      "model": "arcade:party_table_rect",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        2.0999999046325684,
+        0.75,
+        0.8500000238418579
+      ],
+      "solid": true,
+      "x": 2.299999952316284,
+      "y": 0.0,
+      "z": 3.0
+    },
+    {
+      "id": "editor_prop_2",
+      "model": "arcade:party_cloth_rect_confetti",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        2.2471799850463867,
+        0.25126001238822937,
+        0.9893199801445007
+      ],
+      "solid": false,
+      "x": 2.299999952316284,
+      "y": 0.49873998761177063,
+      "z": 3.0
+    },
+    {
+      "id": "editor_prop_3",
+      "model": "arcade:party_table_round",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.2000000476837158,
+        0.7528700232505798,
+        1.2000000476837158
+      ],
+      "solid": true,
+      "x": 4.599999904632568,
+      "y": 0.0,
+      "z": 5.699999809265137
+    },
+    {
+      "id": "editor_prop_4",
+      "model": "arcade:party_cloth_round_stars",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.2819900512695312,
+        0.23017999529838562,
+        1.2819900512695312
+      ],
+      "solid": false,
+      "x": 4.599999904632568,
+      "y": 0.5226899981498718,
+      "z": 5.699999809265137
+    },
+    {
+      "id": "editor_prop_5",
+      "model": "arcade:fixed_chair_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 1.0,
+      "y": 0.0,
+      "z": 3.0
+    },
+    {
+      "id": "editor_prop_6",
+      "model": "arcade:fixed_chair_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 3.5999999046325684,
+      "y": 0.0,
+      "z": 3.0
+    },
+    {
+      "id": "editor_prop_7",
+      "model": "arcade:fixed_chair_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 2.299999952316284,
+      "y": 0.0,
+      "z": 1.899999976158142
+    },
+    {
+      "id": "editor_prop_8",
+      "model": "arcade:fixed_chair_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 2.299999952316284,
+      "y": 0.0,
+      "z": 4.150000095367432
+    },
+    {
+      "id": "editor_prop_9",
+      "model": "arcade:fixed_chair_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 4.599999904632568,
+      "y": 0.0,
+      "z": 4.349999904632568
+    },
+    {
+      "id": "editor_prop_10",
+      "model": "arcade:fixed_chair_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 4.599999904632568,
+      "y": 0.0,
+      "z": 7.0
+    },
+    {
+      "id": "editor_prop_11",
+      "model": "arcade:fixed_chair_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 5.699999809265137,
+      "y": 0.0,
+      "z": 1.0
+    },
+    {
+      "id": "editor_prop_12",
+      "model": "arcade:fixed_chair_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 3.25,
+      "y": 0.0,
+      "z": 5.699999809265137
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "finish",
+              "script": "scripts/one_guest.luau"
+            }
+          ],
+          "cooldown_seconds": 0.25,
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Birthday cake - waiting for guests",
+          "reach": 2.2
+        },
+        {
+          "component": "state",
+          "name": "arrivals",
+          "value": 0
+        },
+        {
+          "component": "state",
+          "name": "contained",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "pursuit",
+          "value": "quiet"
+        }
+      ],
+      "display_name": "Birthday cake",
+      "id": "party_cake",
+      "model": "arcade:party_cake_lit",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.36000001430511475,
+        0.23600000143051147,
+        0.36000001430511475
+      ],
+      "solid": false,
+      "x": 2.299999952316284,
+      "y": 0.7599999904632568,
+      "z": 3.0
+    },
+    {
+      "id": "editor_prop_14",
+      "model": "arcade:party_plate_confetti",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2199999988079071,
+        0.01600000075995922,
+        0.2199999988079071
+      ],
+      "solid": false,
+      "x": 1.649999976158142,
+      "y": 0.7599999904632568,
+      "z": 3.0
+    },
+    {
+      "id": "editor_prop_15",
+      "model": "arcade:party_cup_confetti",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.08500000089406967,
+        0.12200000137090683,
+        0.08500000089406967
+      ],
+      "solid": false,
+      "x": 2.9000000953674316,
+      "y": 0.7599999904632568,
+      "z": 3.200000047683716
+    },
+    {
+      "id": "editor_prop_16",
+      "model": "arcade:party_hat_stars",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.15000000596046448,
+        0.2199999988079071,
+        0.15000000596046448
+      ],
+      "solid": false,
+      "x": 2.950000047683716,
+      "y": 0.7599999904632568,
+      "z": 2.700000047683716
+    },
+    {
+      "id": "editor_prop_17",
+      "model": "arcade:party_gift_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 15.0,
+      "scale": 1.0,
+      "size": [
+        0.30399999022483826,
+        0.3747999966144562,
+        0.30399999022483826
+      ],
+      "solid": false,
+      "x": 4.599999904632568,
+      "y": 0.7599999904632568,
+      "z": 5.699999809265137
+    },
+    {
+      "id": "editor_prop_18",
+      "model": "arcade:party_gift_stars",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": -15.0,
+      "scale": 1.0,
+      "size": [
+        0.30399999022483826,
+        0.3747999966144562,
+        0.30399999022483826
+      ],
+      "solid": false,
+      "x": 4.900000095367432,
+      "y": 0.7599999904632568,
+      "z": 5.449999809265137
+    },
+    {
+      "id": "editor_prop_19",
+      "model": "arcade:party_cup_stars",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.08500000089406967,
+        0.12200000137090683,
+        0.08500000089406967
+      ],
+      "solid": false,
+      "x": 4.199999809265137,
+      "y": 0.7599999904632568,
+      "z": 5.650000095367432
+    },
+    {
+      "id": "editor_prop_20",
+      "model": "arcade:party_plate_stars",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2199999988079071,
+        0.01600000075995922,
+        0.2199999988079071
+      ],
+      "solid": false,
+      "x": 4.599999904632568,
+      "y": 0.7599999904632568,
+      "z": 6.050000190734863
+    },
+    {
+      "id": "editor_prop_21",
+      "model": "arcade:party_gift_green",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.30399999022483826,
+        0.3747999966144562,
+        0.30399999022483826
+      ],
+      "solid": false,
+      "x": 0.800000011920929,
+      "y": 0.0,
+      "z": 0.8500000238418579
+    },
+    {
+      "id": "editor_prop_22",
+      "model": "arcade:party_gift_confetti",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 15.0,
+      "scale": 1.0,
+      "size": [
+        0.30399999022483826,
+        0.3747999966144562,
+        0.30399999022483826
+      ],
+      "solid": false,
+      "x": 1.25,
+      "y": 0.0,
+      "z": 0.8500000238418579
+    },
+    {
+      "id": "editor_prop_23",
+      "model": "arcade:party_balloon_weight",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.07000000029802322,
+        0.054420001804828644,
+        0.07000000029802322
+      ],
+      "solid": false,
+      "x": 0.800000011920929,
+      "y": 0.0,
+      "z": 6.5
+    },
+    {
+      "id": "editor_prop_24",
+      "model": "arcade:party_streamer_pink",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.03364799916744232,
+        0.7001199722290039,
+        0.03357600048184395
+      ],
+      "solid": false,
+      "x": 1.7000000476837158,
+      "y": 2.1500000953674316,
+      "z": 0.25
+    },
+    {
+      "id": "editor_prop_25",
+      "model": "arcade:party_streamer_yellow",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.03364799916744232,
+        0.7001199722290039,
+        0.03357600048184395
+      ],
+      "solid": false,
+      "x": 3.4000000953674316,
+      "y": 2.1500000953674316,
+      "z": 0.25
+    },
+    {
+      "id": "editor_prop_26",
+      "model": "arcade:party_streamer_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.03364799916744232,
+        0.7001199722290039,
+        0.03357600048184395
+      ],
+      "solid": false,
+      "x": 5.099999904632568,
+      "y": 2.1500000953674316,
+      "z": 0.25
+    },
+    {
+      "id": "editor_prop_27",
+      "model": "arcade:cabinet_racing",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.8224859833717346,
+        2.0399999618530273,
+        1.056388020515442
+      ],
+      "solid": true,
+      "x": 8.100000381469727,
+      "y": 0.0,
+      "z": 1.100000023841858
+    },
+    {
+      "id": "editor_prop_28",
+      "model": "arcade:cabinet_action",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.7824860215187073,
+        2.0399999618530273,
+        0.9020010232925415
+      ],
+      "solid": true,
+      "x": 9.600000381469727,
+      "y": 0.0,
+      "z": 1.100000023841858
+    },
+    {
+      "id": "editor_prop_29",
+      "model": "arcade:cabinet_fighting",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.9424859881401062,
+        2.0399999618530273,
+        0.9520009756088257
+      ],
+      "solid": true,
+      "x": 11.199999809265137,
+      "y": 0.0,
+      "z": 1.100000023841858
+    },
+    {
+      "id": "editor_prop_30",
+      "model": "arcade:cabinet_scifi",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.802486002445221,
+        2.0399999618530273,
+        0.9419999718666077
+      ],
+      "solid": true,
+      "x": 12.899999618530273,
+      "y": 0.0,
+      "z": 3.200000047683716
+    },
+    {
+      "id": "editor_prop_31",
+      "model": "arcade:pinball_cosmic",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.7400000095367432,
+        1.940000057220459,
+        1.4199999570846558
+      ],
+      "solid": true,
+      "x": 12.800000190734863,
+      "y": 0.0,
+      "z": 5.800000190734863
+    },
+    {
+      "id": "editor_prop_32",
+      "model": "arcade:pinball_comet",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.7400000095367432,
+        1.940000057220459,
+        1.4199999570846558
+      ],
+      "solid": true,
+      "x": 12.800000190734863,
+      "y": 0.0,
+      "z": 9.100000381469727
+    },
+    {
+      "id": "editor_prop_33",
+      "model": "arcade:vending_machine",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.9599999785423279,
+        2.0299999713897705,
+        0.8600000143051147
+      ],
+      "solid": true,
+      "x": 12.800000190734863,
+      "y": 0.0,
+      "z": 12.699999809265137
+    },
+    {
+      "id": "editor_prop_34",
+      "model": "arcade:change_machine",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5199999809265137,
+        1.4600000381469727,
+        0.47999998927116394
+      ],
+      "solid": true,
+      "x": 8.199999809265137,
+      "y": 0.0,
+      "z": 12.800000190734863
+    },
+    {
+      "id": "editor_prop_35",
+      "model": "arcade:bench_three_seat_blue_red_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.9800000190734863,
+        0.9907220005989075,
+        0.6054999828338623
+      ],
+      "solid": true,
+      "x": 10.199999809265137,
+      "y": 0.0,
+      "z": 15.0
+    },
+    {
+      "id": "editor_prop_36",
+      "model": "arcade:pedestal_table",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.8999999761581421,
+        0.7200000286102295,
+        0.8999999761581421
+      ],
+      "solid": true,
+      "x": 9.800000190734863,
+      "y": 0.0,
+      "z": 11.199999809265137
+    },
+    {
+      "id": "editor_prop_37",
+      "model": "arcade:soda_bottle",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.0949999988079071,
+        0.2800000011920929,
+        0.0949999988079071
+      ],
+      "solid": false,
+      "x": 9.800000190734863,
+      "y": 0.7300000190734863,
+      "z": 11.199999809265137
+    },
+    {
+      "id": "editor_prop_38",
+      "model": "arcade:bench_three_seat_red_blue_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        1.9800000190734863,
+        0.9907220005989075,
+        0.6054999828338623
+      ],
+      "solid": true,
+      "x": 8.5,
+      "y": 0.0,
+      "z": 7.599999904632568
+    },
+    {
+      "id": "editor_prop_39",
+      "model": "core:cardboard_box",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": false,
+      "x": 1.0,
+      "y": 0.0,
+      "z": 14.800000190734863
+    },
+    {
+      "id": "editor_prop_40",
+      "model": "core:cardboard_box",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": false,
+      "x": 1.899999976158142,
+      "y": 0.0,
+      "z": 14.800000190734863
+    },
+    {
+      "id": "editor_prop_41",
+      "model": "arcade:fixed_chair_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 4.5,
+      "y": 0.0,
+      "z": 14.800000190734863
+    },
+    {
+      "id": "editor_prop_42",
+      "model": "core:bookshelf",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        1.0,
+        1.7999999523162842,
+        0.3499999940395355
+      ],
+      "solid": true,
+      "x": 0.699999988079071,
+      "y": 0.0,
+      "z": 12.800000190734863
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "run_script",
+              "handler": "latch",
+              "script": "scripts/one_guest.luau"
+            }
+          ],
+          "cooldown_seconds": 0.3,
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Close and lock waiting room",
+          "reach": 2.5
+        },
+        {
+          "clip": "toggle",
+          "component": "animation",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "display_name": "Waiting room lock",
+      "id": "store_latch",
+      "model": "home:wall_switch",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.0860000029206276,
+        0.11999999731779099,
+        0.032999999821186066
+      ],
+      "solid": false,
+      "x": 4.550000190734863,
+      "y": 1.25,
+      "z": 10.748000144958496
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "run_script",
+              "handler": "restart",
+              "script": "scripts/one_guest.luau"
+            }
+          ],
+          "cooldown_seconds": 0.3,
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Restart party",
+          "reach": 2.5
+        },
+        {
+          "clip": "toggle",
+          "component": "animation",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "display_name": "Party reset",
+      "id": "party_restart",
+      "model": "home:wall_switch",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.0860000029206276,
+        0.11999999731779099,
+        0.032999999821186066
+      ],
+      "solid": false,
+      "x": 0.2549999952316284,
+      "y": 1.2000000476837158,
+      "z": 9.399999618530273
+    },
+    {
+      "id": "editor_prop_45",
+      "model": "arcade:party_table_rect",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        2.0999999046325684,
+        0.75,
+        0.8500000238418579
+      ],
+      "solid": true,
+      "x": 1.5,
+      "y": 0.0,
+      "z": 9.5
+    },
+    {
+      "id": "editor_prop_46",
+      "model": "arcade:party_gift_arcade",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.30399999022483826,
+        0.3747999966144562,
+        0.30399999022483826
+      ],
+      "solid": false,
+      "x": 1.5,
+      "y": 0.7599999904632568,
+      "z": 9.5
+    }
+  ],
+  "rooms": [
+    {
+      "depth": 16.0,
+      "floor_y": 0.0,
+      "height": 3.0,
+      "material": "arcade:carpet_arcade_grid_01",
+      "width": 14.0,
+      "x": 0.0,
+      "z": 0.0
+    }
+  ],
+  "schema": "places-level",
+  "scripts": [
+    "scripts/one_guest.luau"
+  ],
+  "spawn": {
+    "x": 2.6,
+    "yaw_degrees": 0,
+    "z": 9.6
+  },
+  "spawn_groups": [
+    {
+      "at_most_one_active": true,
+      "id": "editor_spawn_group_1"
+    },
+    {
+      "at_most_one_active": true,
+      "id": "editor_spawn_group_2"
+    },
+    {
+      "at_most_one_active": true,
+      "id": "editor_spawn_group_3"
+    },
+    {
+      "at_most_one_active": true,
+      "id": "editor_spawn_group_4"
+    },
+    {
+      "at_most_one_active": true,
+      "id": "editor_spawn_group_5"
+    },
+    {
+      "at_most_one_active": true,
+      "id": "editor_spawn_group_6"
+    }
+  ],
+  "spawn_points": [
+    {
+      "group": "editor_spawn_group_1",
+      "id": "guest_1",
+      "template": "editor_template_1",
+      "x": 1.100000023841858,
+      "y": 0.0,
+      "yaw_degrees": 0.0,
+      "z": 1.850000023841858
+    },
+    {
+      "group": "editor_spawn_group_2",
+      "id": "guest_2",
+      "template": "editor_template_2",
+      "x": 4.199999809265137,
+      "y": 0.0,
+      "yaw_degrees": 0.0,
+      "z": 1.5
+    },
+    {
+      "group": "editor_spawn_group_3",
+      "id": "guest_3",
+      "template": "editor_template_3",
+      "x": 5.599999904632568,
+      "y": 0.0,
+      "yaw_degrees": 0.0,
+      "z": 3.0
+    },
+    {
+      "group": "editor_spawn_group_4",
+      "id": "guest_4",
+      "template": "editor_template_4",
+      "x": 5.900000095367432,
+      "y": 0.0,
+      "yaw_degrees": 0.0,
+      "z": 7.0
+    },
+    {
+      "group": "editor_spawn_group_5",
+      "id": "guest_5",
+      "template": "editor_template_5",
+      "x": 3.5,
+      "y": 0.0,
+      "yaw_degrees": 0.0,
+      "z": 6.900000095367432
+    },
+    {
+      "group": "editor_spawn_group_6",
+      "id": "guest_6",
+      "template": "editor_template_6",
+      "x": 1.100000023841858,
+      "y": 0.0,
+      "yaw_degrees": 0.0,
+      "z": 5.400000095367432
+    }
+  ],
+  "spawn_templates": [
+    {
+      "components": [
+        {
+          "component": "nav_agent",
+          "height": 1.9,
+          "radius": 0.4,
+          "speed_mps": 1.25
+        },
+        {
+          "behavior": "idler",
+          "can_open_doors": false,
+          "component": "ai",
+          "hearing_range": 0,
+          "idle_clip": "pose_stand",
+          "move_clip": "walk",
+          "reacts_to": [],
+          "run_speed": 1.25,
+          "sight_fov_degrees": 360,
+          "sight_range": 12,
+          "walk_speed": 1.25
+        }
+      ],
+      "id": "editor_template_1",
+      "model": "mannequin",
+      "scale": 1.0
+    },
+    {
+      "components": [
+        {
+          "component": "nav_agent",
+          "height": 1.9,
+          "radius": 0.4,
+          "speed_mps": 1.25
+        },
+        {
+          "behavior": "idler",
+          "can_open_doors": false,
+          "component": "ai",
+          "hearing_range": 0,
+          "idle_clip": "pose_stand",
+          "move_clip": "walk",
+          "reacts_to": [],
+          "run_speed": 1.25,
+          "sight_fov_degrees": 360,
+          "sight_range": 12,
+          "walk_speed": 1.25
+        }
+      ],
+      "id": "editor_template_2",
+      "model": "mannequin",
+      "scale": 1.0
+    },
+    {
+      "components": [
+        {
+          "component": "nav_agent",
+          "height": 1.9,
+          "radius": 0.4,
+          "speed_mps": 1.25
+        },
+        {
+          "behavior": "idler",
+          "can_open_doors": false,
+          "component": "ai",
+          "hearing_range": 0,
+          "idle_clip": "pose_stand",
+          "move_clip": "walk",
+          "reacts_to": [],
+          "run_speed": 1.25,
+          "sight_fov_degrees": 360,
+          "sight_range": 12,
+          "walk_speed": 1.25
+        }
+      ],
+      "id": "editor_template_3",
+      "model": "mannequin",
+      "scale": 1.0
+    },
+    {
+      "components": [
+        {
+          "component": "nav_agent",
+          "height": 1.9,
+          "radius": 0.4,
+          "speed_mps": 1.25
+        },
+        {
+          "behavior": "idler",
+          "can_open_doors": false,
+          "component": "ai",
+          "hearing_range": 0,
+          "idle_clip": "pose_stand",
+          "move_clip": "walk",
+          "reacts_to": [],
+          "run_speed": 1.25,
+          "sight_fov_degrees": 360,
+          "sight_range": 12,
+          "walk_speed": 1.25
+        }
+      ],
+      "id": "editor_template_4",
+      "model": "mannequin",
+      "scale": 1.0
+    },
+    {
+      "components": [
+        {
+          "component": "nav_agent",
+          "height": 1.9,
+          "radius": 0.4,
+          "speed_mps": 1.25
+        },
+        {
+          "behavior": "idler",
+          "can_open_doors": false,
+          "component": "ai",
+          "hearing_range": 0,
+          "idle_clip": "pose_stand",
+          "move_clip": "walk",
+          "reacts_to": [],
+          "run_speed": 1.25,
+          "sight_fov_degrees": 360,
+          "sight_range": 12,
+          "walk_speed": 1.25
+        }
+      ],
+      "id": "editor_template_5",
+      "model": "mannequin",
+      "scale": 1.0
+    },
+    {
+      "components": [
+        {
+          "component": "nav_agent",
+          "height": 1.9,
+          "radius": 0.4,
+          "speed_mps": 1.25
+        },
+        {
+          "behavior": "idler",
+          "can_open_doors": false,
+          "component": "ai",
+          "hearing_range": 0,
+          "idle_clip": "pose_stand",
+          "move_clip": "walk",
+          "reacts_to": [],
+          "run_speed": 1.25,
+          "sight_fov_degrees": 360,
+          "sight_range": 12,
+          "walk_speed": 1.25
+        }
+      ],
+      "id": "editor_template_6",
+      "model": "mannequin",
+      "scale": 1.0
+    }
+  ],
+  "volumes": [
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "arcade",
+              "script": "scripts/one_guest.luau"
+            }
+          ],
+          "cooldown_seconds": 0.25,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": 0.0,
+      "depth": 1.399999976158142,
+      "filter": {
+        "kind": "player"
+      },
+      "id": "arcade_return_loop",
+      "top_y": 2.0,
+      "width": 3.200000047683716,
+      "x": 8.0,
+      "z": 9.399999618530273
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "returned",
+              "script": "scripts/one_guest.luau"
+            }
+          ],
+          "cooldown_seconds": 0.25,
+          "on": "enter_volume"
+        }
+      ],
+      "bottom_y": 0.0,
+      "depth": 0.699999988079071,
+      "filter": {
+        "kind": "player"
+      },
+      "id": "party_return",
+      "top_y": 2.0,
+      "width": 2.200000047683716,
+      "x": 1.5,
+      "z": 6.699999809265137
+    }
+  ],
+  "walls": [
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.0,
+      "material": "arcade:wall_party_purple_01",
+      "width": 14.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 15.600000381469727,
+      "height": 3.0,
+      "material": "arcade:wall_party_purple_01",
+      "width": 0.20000000298023224,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.20000000298023224
+    },
+    {
+      "depth": 15.600000381469727,
+      "height": 3.0,
+      "material": "arcade:wall_navy_01",
+      "width": 0.20000000298023224,
+      "x": 13.800000190734863,
+      "y": 0.0,
+      "z": 0.20000000298023224
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.0,
+      "material": "arcade:wall_party_purple_01",
+      "width": 14.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 15.800000190734863
+    },
+    {
+      "depth": 4.400000095367432,
+      "height": 3.0,
+      "material": "arcade:wall_navy_01",
+      "width": 0.20000000298023224,
+      "x": 6.800000190734863,
+      "y": 0.0,
+      "z": 0.20000000298023224
+    },
+    {
+      "depth": 1.0,
+      "height": 3.0,
+      "material": "arcade:wall_navy_01",
+      "width": 0.20000000298023224,
+      "x": 6.800000190734863,
+      "y": 0.0,
+      "z": 6.800000190734863
+    },
+    {
+      "depth": 2.200000047683716,
+      "height": 0.6000000238418579,
+      "material": "arcade:wall_navy_01",
+      "width": 0.20000000298023224,
+      "x": 6.800000190734863,
+      "y": 2.4000000953674316,
+      "z": 4.599999904632568
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.0,
+      "material": "arcade:wall_party_purple_01",
+      "width": 1.2999999523162842,
+      "x": 0.20000000298023224,
+      "y": 0.0,
+      "z": 7.800000190734863
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.0,
+      "material": "arcade:wall_party_purple_01",
+      "width": 3.299999952316284,
+      "x": 3.700000047683716,
+      "y": 0.0,
+      "z": 7.800000190734863
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 0.6000000238418579,
+      "material": "arcade:wall_party_purple_01",
+      "width": 2.200000047683716,
+      "x": 1.5,
+      "y": 2.4000000953674316,
+      "z": 7.800000190734863
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.0,
+      "material": "arcade:wall_party_purple_01",
+      "width": 1.7999999523162842,
+      "x": 0.20000000298023224,
+      "y": 0.0,
+      "z": 10.800000190734863
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.0,
+      "material": "arcade:wall_party_purple_01",
+      "width": 1.600000023841858,
+      "x": 4.0,
+      "y": 0.0,
+      "z": 10.800000190734863
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 0.6499999761581421,
+      "material": "arcade:wall_party_purple_01",
+      "width": 2.0,
+      "x": 2.0,
+      "y": 2.3499999046325684,
+      "z": 10.800000190734863
+    },
+    {
+      "depth": 4.800000190734863,
+      "height": 3.0,
+      "material": "arcade:wall_party_purple_01",
+      "width": 0.20000000298023224,
+      "x": 5.400000095367432,
+      "y": 0.0,
+      "z": 11.0
+    },
+    {
+      "depth": 0.25,
+      "height": 3.0,
+      "material": "arcade:wall_navy_01",
+      "width": 1.2999999523162842,
+      "x": 9.0,
+      "y": 0.0,
+      "z": 8.5
+    }
+  ]
+}

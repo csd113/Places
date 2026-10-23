@@ -641,6 +641,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     if !level.script_sources.is_empty() {
         required.push("luau-v1".to_string());
         required.push("campaign-progress-v1".to_string());
+        required.push("world-observations-v1".to_string());
     }
     // New host calls and reveal-only semantics must not silently disappear
     // in an older player which understands the original Luau snapshot format.

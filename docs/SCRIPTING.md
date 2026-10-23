@@ -84,6 +84,8 @@ that the editor performs Luau typechecking.
 | `api.message(title,lines)` | Dismissible guidance: printable title ≤80 bytes, dense plain array of 1–6 lines ≤72 bytes each; Enter/Esc continues without a world reset |
 | `api.finish(won,title,detail)` | Ends the run with printable title/detail ≤80/160 bytes; Enter restarts world/VM/player and authored grouped items, Escape returns to menu |
 | `api.exists(id: string): boolean` | Tests a currently live entity identity |
+| `api.door_status(id)` | Read-only invocation-start hinged-leaf snapshot: actual `phase`, `locked`, `obstructed` and signed `angle`; a pending close/lock request is not proof of closure |
+| `api.prompt(id,text)` | Queues the existing interaction-prompt action; printable nonempty text at most 96 bytes; requires a live interactable |
 | `api.door(id, "open" / "close" / "toggle" / "lock" / "unlock")` | Uses shared door actions; trigger origin retains away-facing two-way opening |
 | `api.light(id, on: boolean)` | Requires a switchable light; ordinary prepared lighting limits apply |
 | `api.sound(id, playing: boolean)` | Starts/stops an existing emitter using its authored cue and loop policy |
@@ -168,6 +170,12 @@ The sandbox follows the upstream [mlua API](https://docs.rs/mlua/0.12.2/mlua/str
 and [Luau embedding guidance](https://luau.org/sandbox/). Focused CPU regressions
 live under the owning engine/editor/compiler tests directories; native evidence
 and measured limitations belong in the [stage 6 report](reports/release-0.12.0.md#editor-0120-task6).
+
+Actor queries also expose the authored navigation body's `radius` and `height`,
+or nil without a navigation body. These are physical clearance dimensions, not
+posed-mesh bounds; authors must add a conservative allowance for animated limbs
+when proving whole-body room containment. New script exports declare
+`world-observations-v1`, so older hosts reject them before play.
 
 Actor queries use the previous rendered frame's beam observations and current
 simulation-tick collision visibility. `player_visible` checks static walls,

@@ -1,0 +1,16 @@
+{
+  "entry_level": "one_guest_too_many",
+  "id": "one_guest_too_many",
+  "levels": [
+    {
+      "id": "one_guest_too_many",
+      "source": "levels/entry.json",
+      "display_name": "One Guest Too Many"
+    }
+  ],
+  "name": "One Guest Too Many",
+  "project_format": 1,
+  "schema": "places-project",
+  "author": "Places",
+  "description": "A deserted birthday party and a small arcade. Six chairs fill, one guest follows, and the waiting room has a lock."
+}

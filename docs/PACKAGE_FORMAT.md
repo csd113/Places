@@ -125,7 +125,7 @@ never triggers procedural geometry generation.
   `irradiance-probes`,
   `probes-hdr`, `collision` and
   `navigation`, `light-circuits-v1`, `static-light-state-v1`, `luau-v1`,
-  `scene-actions-v1`, `project-transitions-v1`, `full-lighting-v1` and
+  `scene-actions-v1`, `world-observations-v1`, `project-transitions-v1`, `full-lighting-v1` and
   `item-receipts-v1`. A package
   requiring anything else is rejected by name.
 * Semantic `requires_full_lighting: true` requires `full-lighting-v1` and a

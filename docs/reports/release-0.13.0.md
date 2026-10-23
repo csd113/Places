@@ -4484,3 +4484,134 @@ build logs. The registration/report commit follows the approved PNG-only
 commit separately. Exact publication identity and writer release are recorded
 in ownership-handoff.json after push. Target and the queue-owned SYSTEM-only
 keep-awake helper remain available; no next game mode starts in this task.
+
+## One Guest Too Many (#26)
+
+The approved single-player birthday-party mode is complete in the editable
+`projects/one-guest-too-many` project. The 14 x 16 m room contains a birthday
+table, six chairs, gifts, balloons/streamers, a furnished arcade return route,
+entrance hall and lockable waiting room. All geometry, 46 existing Arcade/Home
+props, six lights, door, spawn markers and two trigger volumes were created
+through the real native editor controls (80 scene objects). Supported source
+components, bindings and the Luau module supply behavior. No new texture,
+model, rig or renderer-specific gameplay path was introduced.
+
+The first party entry and each completed arcade return admit one mannequin,
+capped at six. The third arrival is the same hidden follower on every replay;
+all use Original appearance, so movement and doorway following provide the
+clue. Five guests remain harmless. Collision-based sight is sampled at 10 Hz
+within 12 m, with 360-degree awareness and no hearing. Losing sight searches
+the last seen position for four seconds, then stops; a new sighting resumes
+navigation. Existing navigation and swept collision carry the follower around
+furniture and through actual doorways. A visible 2.5-second room-survey pause
+gives the player time to leave and operate the external latch.
+
+Containment requires the actual settled, unobstructed, locked leaf, the player
+safely outside and a conservative full body envelope inside the waiting room.
+The 0.4 m radius / 1.9 m navigation body receives an additional 0.4 m horizontal
+containment margin for the shared stand/walk poses. The cake checks this proof
+again when used after all six arrivals. An obstructed leaf, empty room or
+harmless guest cannot win. The outside latch cancels/reopens a pending or
+locked door; an inside player can release the handle. Premature cake use has
+only an in-world light response. There are no tutorial/hint panels or quips.
+
+Restart, Enter replay, menu reentry and application reload restore arrivals,
+identity, AI memory, doors, locks and progression. The hall switch resets a run
+at any time. This mode writes neither campaign completion nor an in-progress
+save. Its README documents the deliberate deterministic identity and volatile
+save contract. No random appearance or unexplained identity change affects a
+run. Existing eight-favor content, menu events, sun/moon, skins, movement,
+physics and water source/assets remain intact.
+
+### Shared capabilities and native acceptance
+
+Luau gains read-only `door_status` (actual phase, lock, obstruction and angle),
+navigation-body dimensions on `actor`, and a typed, budgeted `prompt` action.
+Scripted packages declare `world-observations-v1`. These use existing world
+state and deferred atomic actions. The only renderer change adds current posed
+vertex bounds to explicit native trace diagnostics for containment auditing.
+No ordinary renderer path changes. The essential metadata-only regression
+`observations_report_live_door_state_and_replay_atomically` distinguishes a
+queued lock from settled state, checks immutable observations/atomic refusal
+and restores authored state on reset. It needs no GPU, assets or map bake.
+
+| Native case | Verified result |
+| --- | --- |
+| Final Full ordinary-input run | Authored spawn, six real return crossings, pursuit, lure, real external lock, cake victory; no player/actor pose, navigation-goal or direct-activation diagnostics. |
+| Repeated visits and reset | Six extra return loops stay at six AI / nine total render actors; reset leaves zero AI / three baseline render actors; three fresh arrivals recreate `guest_3#3`. |
+| Lose/reacquire | Occluded player behind waiting-room walls is not tracked. Follower stops at last observed location, then resumes after a visible reappearance. |
+| Wrong guest / reopen | Harmless guest physically navigates into the room in a labeled edge setup; locking does not win, cake refuses, reopening releases the guest. |
+| Door obstruction / player escape | Real follower at the threshold stalls closure at -20.204 degrees, obstructed and unlocked. Cancel/reopen recovers. Locked leaf stops the player sweep; inside lock request refuses, inside handle and hall reset remain usable. |
+| Whole body / final proof | Final posed bounds X 2.859..3.291, Y -0.00014..1.723, Z 13.323..13.805 lie inside the room tolerance; leaf is closed at 0 degrees, locked, unobstructed; player Z 9.791 is safely outside. |
+| Replay / same-profile application reload | Enter replay and reload after victory recreate zero spawned AI, three baseline characters, closed unlocked door and no outcome. |
+| Preserved carry workload (#28) | Existing Home fixture uses real pickup/animated carry sockets and visible item geometry. Combined body/prop bounds remain visible until the entire assembly is hidden; retirement then removes the prop. Existing exposed-limb/prop regression remains passing. |
+
+Labeled edge setups use diagnostics only to reach unusual wrong-guest and
+obstruction conditions; they are separate from the ordinary-input victory.
+Accepted cases contain no disabled Luau VM or unrequested player recovery.
+Spawn count is bounded at six, there is one mode VM, callbacks are fixed and
+the highest observed VM allocation in accepted snapshots is 682,968 bytes.
+Independent actor/carry animation and whole-body bounds are retained in traces.
+These are observed/resource and configured bounds, not a system-RSS claim.
+
+Native editor Save+Build, actual Build+Play child, export, editable import and
+reopen all pass. Recovered manifest, level and Luau bytes exactly match source.
+Static/off and Full variants are present. Geometry validation reports zero
+errors and warnings. A first verification wait expired during a normal Full
+bake; staged progress waits completed the same small map without changing
+security/permission controls. The large showcase was not rebaked.
+
+### Matched Windows workload counters
+
+Final executable/package, NVIDIA RTX 3070 Laptop on DX12, Ryzen 9 5900HX / 16 GB,
+physical drawable 1280 x 720, high texture/filter settings, Full lighting and
+reflections off. VSync is off, no frame limiter or fixed delta is active, and
+every sampled resource receipt reports actual `Immediate` presentation. Samples
+are above the 165 Hz display rate. Builds, baking and capture/recording are
+stopped during timing. Each row uses the last 1,200 frames after settling;
+ABBA ordering compares zero versus six admitted guests from the same foyer
+camera. Only a subset is visible. This measures added workload, not a claimed
+FPS optimization or an all-guests-visible worst case.
+
+| ABBA run | FPS | Mean loop ms | p95 ms | Update ms | Render submission ms | GPU timestamp ms | Draws / vertices / binds |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Empty A | 408.03 | 2.451 | 4.588 | 0.103 | 0.548 | 1.442 | 43 / 32136 / 34 |
+| Six A | 335.13 | 2.984 | 5.376 | 0.189 | 0.601 | 2.447 | 51 / 49496 / 42 |
+| Six B | 323.45 | 3.092 | 5.605 | 0.189 | 0.613 | 2.594 | 51 / 49496 / 42 |
+| Empty B | 367.96 | 2.718 | 5.097 | 0.113 | 0.565 | 2.096 | 43 / 32136 / 34 |
+
+Both empty runs retain 211 HAL buffers / 52,494,336 buffer bytes, 74 textures /
+174,915,584 texture bytes and 488 bind groups. Both six-guest runs retain 227
+buffers / 57,278,464 bytes, 75 textures / 180,551,680 bytes and 509 bind groups.
+HAL totals exclude driver overhead; Windows RSS sampling is unavailable.
+Run-to-run timing variation is retained. No cross-platform or integrated
+showcase performance claim follows from this focused Windows workload.
+
+### Gates, artifacts and handoff
+
+The final code passes `cargo clippy --workspace --all-targets --all-features --
+-D warnings`, `cargo build --locked --release --workspace --all-features`, and
+all 278 workspace tests with zero failed/ignored. Format/diff checks pass; the
+629-entry asset validator has zero warnings, and package dependencies validate.
+No broad CI/full-map test dependency or additional report file is introduced.
+
+Raw evidence remains outside target under
+`local/windows-validation-0.13.0/one-guest/`: native-acceptance-audit.json,
+matched-performance.json, final-evidence.json, native/editor scripts, snapshots,
+traces, logs, recovered editable project and final executable hashes.
+`OneGuestTooMany.placesmap` is the 15,498,636-byte normal editor export;
+SHA-256 `2ef957413cdf73b804db1351a1520194c618b5554be9bfddb4a661f46b27116a`.
+`OneGuestTooMany-native-gameplay.mp4` is a short 1280 x 720 native pursuit/lock
+clip, H.264, silent, 15 fps, 388,075 bytes; SHA-256
+`d9101a983ee47dd81f7de63a492a8700b756bf571f49f53d62107a39eed82651`.
+The two distinct snippets preserve actual capture elapsed time; diagnostic
+setup is omitted between them. The ordinary full victory is separately traced.
+Video timing is excluded from performance samples. Initial unsuccessful timing
+and setup attempts remain preserved and are not counted as acceptance passes.
+
+No functional blocker remains in this Windows scope. Other platforms are not
+rerun. Exact publication identity, clean local/remote state and writer release
+are recorded in ownership-handoff.json after push. Build artifacts and the
+temporary SYSTEM-only keep-awake helper are retained for the queue. Dynamic
+blood is next; Shape of an Exit remains second-to-last, before final verification.
+No next task, issue closure, main merge, release or version bump occurs here.

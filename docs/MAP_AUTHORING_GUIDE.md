@@ -9202,3 +9202,23 @@ and places-movement-check developer tool exercise the controller without
 adding map baking to ordinary tests/CI. Research provenance, native acceptance
 and remaining Portal-specific high-speed AirMove uncertainty are owned by
 docs/reports/release-0.13.0.md.
+
+
+### Script observations and One Guest authoring (0.13.0)
+
+`api.door_status(id)` snapshots a hinged leaf's actual `phase`, `angle`,
+`locked` and `obstructed` state. It never predicts queued actions. `api.actor`
+also returns optional navigation `radius`/`height`; these describe physical
+clearance, not posed-mesh bounds. Add a conservative animation allowance when
+authoring whole-body containment. `api.prompt(id,text)` queues the existing
+interaction-prompt action. These calls retain invocation-start snapshots,
+atomic action publication and all sandbox budgets; newly exported script
+packages require `world-observations-v1`. See `SCRIPTING.md` for exact bounds.
+
+`projects/one-guest-too-many` is an explicit standalone native-editor project.
+Its saved rooms, regions, walls, furnishings, lights, door, spawn markers and
+volumes were placed through visible native editor controls. Supported source
+components/bindings and project-local Luau then orchestrate the six bounded
+arrivals, observable pursuit, real lock proof and party finish. The editor
+remains able to reopen, modify, build, play, export and recover this project;
+no alternate map format or game-specific renderer path exists.
