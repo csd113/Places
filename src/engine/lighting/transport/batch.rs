@@ -6,7 +6,7 @@ use super::{
     LightmapPatch, MAX_BOUNCE_RAYS, RadianceCache, SolveOptions, StageAudit, SurfaceCacheTarget,
     TransportReceiver, TransportScene, TransportSolution, TransportSolve, accumulate_surface_lobe,
     add, add_scaled, append_switchable_probe_field, attenuate, coverage, dot, hemisphere_sample,
-    lattice_cell, next_pair, parallel_map, ray_seed, record_gather, scale,
+    lattice_cell, parallel_map, record_gather, scale,
 };
 
 impl TransportScene {
@@ -15,7 +15,7 @@ impl TransportScene {
         charts: &[(LightmapPatch, Chart)],
         base_emitters: &[usize],
         light_index: usize,
-        emitter: usize,
+        emitter: &[usize],
         options: SolveOptions,
         cancel: Option<&AtomicBool>,
         bake_probes: bool,
@@ -30,10 +30,7 @@ impl TransportScene {
         let mut direct_rays = 0usize;
         let mut direct_ms = [0.0_f64; 2];
         let mut layers = Vec::with_capacity(2);
-        for (channel, emitters) in [base_emitters, std::slice::from_ref(&emitter)]
-            .into_iter()
-            .enumerate()
-        {
+        for (channel, emitters) in [base_emitters, emitter].into_iter().enumerate() {
             let direct_started = std::time::Instant::now();
             let (direct, rays) = coverage::direct_pass(
                 self,
@@ -139,9 +136,16 @@ impl TransportScene {
             return Ok((combined, 0, 0));
         }
         crate::engine::progress::stage("building shared diffuse radiance cache");
+        let cache_started = std::time::Instant::now();
         let cache = RadianceCache::build(receivers);
         let mut previous = combined.clone();
+        crate::engine::logging::info(format_args!(
+            "[transport-cache] receivers={} build_ms={:.3}",
+            receivers.len(),
+            cache_started.elapsed().as_secs_f64() * 1_000.0_f64
+        ));
         for order in 0..options.bounces {
+            let order_started = std::time::Instant::now();
             crate::engine::logging::info(format_args!(
                 "[transport-progress] shared_layers=2 diffuse_order={}/{} receivers={} samples={} workers={}",
                 order.saturating_add(1),
@@ -159,6 +163,8 @@ impl TransportScene {
                 active,
                 cancel,
             )?;
+            let gather_ms = order_started.elapsed().as_secs_f64() * 1_000.0_f64;
+            let accumulation_started = std::time::Instant::now();
             for channel in 0..2 {
                 if !active[channel] {
                     continue;
@@ -179,6 +185,10 @@ impl TransportScene {
                     return Err(LightmapFailure::FillNonFinite);
                 }
             }
+            crate::engine::logging::info(format_args!(
+                "[transport-order] shared_layers=2 order={order} gather_ms={gather_ms:.3} accumulation_ms={:.3}",
+                accumulation_started.elapsed().as_secs_f64() * 1_000.0_f64
+            ));
         }
         let geometric_samples = receivers
             .len()
@@ -214,6 +224,7 @@ impl TransportScene {
             order.saturating_add(1),
             options.bounces
         ));
+        let directions = super::hemisphere_sequence(count, order);
         let sampled = parallel_map(receivers.len(), options.workers, cancel, |index| {
             let receiver = &receivers[index];
             let geometric_normal = self
@@ -221,10 +232,8 @@ impl TransportScene {
                 .get(usize::try_from(receiver.surface).unwrap_or(usize::MAX))
                 .map_or(receiver.normal, |triangle| triangle.normal);
             let mut result = [Accumulator::default(); 2];
-            let mut state = ray_seed(0, order);
-            for _ in 0..count {
-                let (u1, u2) = next_pair(&mut state);
-                let direction = hemisphere_sample(receiver.normal, u1, u2);
+            for local in &directions {
+                let direction = hemisphere_sample(receiver.normal, *local);
                 if dot(direction, geometric_normal) <= 0.0 {
                     record_gather(audit.as_ref(), GatherEvent::Horizon);
                     continue;

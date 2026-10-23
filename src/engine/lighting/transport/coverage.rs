@@ -254,7 +254,13 @@ pub(super) fn direct_pass(
         global,
         taps,
     };
-    let refined = parallel_map(receivers.len(), workers, cancel, |index| pass.refine(index))?;
+    let refined = super::parallel_map_init(
+        receivers.len(),
+        workers,
+        cancel,
+        || Vec::with_capacity(8),
+        |intervals, index| pass.refine(index, intervals),
+    )?;
     let rays = refined
         .iter()
         .fold(0_usize, |sum, sample| sum.saturating_add(sample.rays));
@@ -361,7 +367,7 @@ impl FootprintPass<'_> {
         (result, visibility_edge)
     }
 
-    fn refine(&self, index: usize) -> DirectSample {
+    fn refine(&self, index: usize, intervals: &mut Vec<(f32, f32)>) -> DirectSample {
         let Some(receiver) = self.receivers.get(index) else {
             return DirectSample::default();
         };
@@ -384,16 +390,15 @@ impl FootprintPass<'_> {
             .patch
             .point_at(texel_axis(column, width), texel_axis(row, height));
         let axis = if self.taps >= 3 { 4_u16 } else { 2_u16 };
-        let mut intervals = Vec::with_capacity(8);
         // Equal centre/corner silhouettes do not prove uniform coverage:
         // thin openings and model details can leave lit interior samples.
         // Retain the complete bounded base stencil. Full refines only a real
         // visibility difference found within that stencil, integrating the
         // same physical footprint more accurately without changing density,
         // filtering direct light or altering uniformly lit/shadowed interiors.
-        let (base, visibility_edge) = self.stencil(domain, receiver, point, axis, &mut intervals);
+        let (base, visibility_edge) = self.stencil(domain, receiver, point, axis, intervals);
         if self.taps >= 3 && visibility_edge {
-            let (fine, _) = self.stencil(domain, receiver, point, 8, &mut intervals);
+            let (fine, _) = self.stencil(domain, receiver, point, 8, intervals);
             // Centred 4x4 and 8x8 quadrature positions are not nested. The
             // combined 80-position rule retains every already-detected thin
             // opening/caster, weighting each position equally. Replacing the

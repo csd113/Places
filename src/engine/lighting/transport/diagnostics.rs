@@ -664,3 +664,80 @@ fn stage_semantics(stage: &str) -> Result<&'static str, String> {
         _ => Err("unknown or unsafe lighting diagnostic stage name".to_string()),
     }
 }
+
+/// Bounded geometry-only ray experiment. MASK/BLEND and water faces are
+/// excluded explicitly; their transport contract still requires the CPU path.
+pub(super) fn dump_gpu_probe(
+    scene: &TransportScene,
+    charts: &[(LightmapPatch, Chart)],
+) -> Result<(), String> {
+    let Some(path) = std::env::var_os("PLACES_SOLVER_GPU_PROBE") else {
+        return Ok(());
+    };
+    let triangles: Vec<_> = scene
+        .triangles
+        .iter()
+        .enumerate()
+        .filter_map(|(index, triangle)| {
+            let alpha = scene.surface_alpha.get(index).and_then(Option::as_ref);
+            (!triangle.transmissive
+                && alpha.as_ref().is_none_or(|surface| {
+                    surface.alpha.mode == crate::engine::materials::AlphaMode::Opaque
+                }))
+            .then_some(*triangle)
+        })
+        .collect();
+    let excluded = scene.triangles.len().saturating_sub(triangles.len());
+    let probe = TransportScene::new(triangles, Vec::new()).ok_or("invalid probe geometry")?;
+    let receivers = scene
+        .receivers(charts)
+        .map_err(|error| error.name().to_string())?;
+    let count = receivers.len().min(16_384);
+    let rays: Vec<_> = (0..count)
+        .filter_map(|index| {
+            let receiver = receivers.get(
+                index
+                    .saturating_mul(receivers.len())
+                    .checked_div(count.max(1))?,
+            )?;
+            let local = super::hemisphere_sequence(1, u8::try_from(index % 3).ok()?)
+                .first()
+                .copied()?;
+            let (direction, limit) = if index.is_multiple_of(2) && !scene.emitters.is_empty() {
+                let light = scene
+                    .emitters
+                    .get(index.checked_rem(scene.emitters.len())?)?;
+                let delta = super::sub(light.position, receiver.ray_origin);
+                let distance = length(delta);
+                if distance <= 0.0 {
+                    return None;
+                }
+                (scale(delta, 1.0 / distance), distance)
+            } else {
+                (super::hemisphere_sample(receiver.normal, local), 100_000.0)
+            };
+            Some((receiver.ray_origin, direction, limit))
+        })
+        .collect();
+    let started = std::time::Instant::now();
+    let expected = super::parallel_map(rays.len(), 12, None, |index| {
+        rays.get(index).map_or(0, |(origin, direction, limit)| {
+            u32::from(probe.any_hit(*origin, *direction, *limit))
+        })
+    })
+    .map_err(|error| error.name().to_string())?;
+    let cpu_ms = started.elapsed().as_secs_f64() * 1_000.0_f64;
+    let nodes: Vec<_> = probe.ray_nodes.iter().map(|node| serde_json::json!({"min":node.min,"max":node.max,"first":node.first,"count":node.count,"right":node.right})).collect();
+    let packed_triangles: Vec<_> = probe
+        .ray_triangles
+        .iter()
+        .map(|triangle| triangle.corners)
+        .collect();
+    write_json(
+        &PathBuf::from(path),
+        "snapshot.json",
+        &serde_json::json!({"triangles":packed_triangles,"nodes":nodes,"rays":rays,"expected":expected,"cpu_12_workers_ms":cpu_ms,"excluded_nonopaque_triangles":excluded}),
+    )?;
+    crate::engine::logging::info("[solver-probe] bounded real-scene snapshot complete");
+    Ok(())
+}

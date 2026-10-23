@@ -176,6 +176,7 @@ impl<'a> SurfaceFilter<'a> {
         row: usize,
         di: i32,
         dj: i32,
+        intervals: &mut Vec<(f32, f32)>,
     ) -> Option<(Accumulator, [f32; 3])> {
         let (patch, chart) = self.charts.get(chart_index)?;
         let width = usize::try_from(chart.width).ok()?;
@@ -196,13 +197,7 @@ impl<'a> SurfaceFilter<'a> {
                     scale(bitangent, f32::from(i16::try_from(dj).ok()?) * pitch),
                 ),
             );
-            let supported = coverage::supported_point(
-                self.scene,
-                centre,
-                point,
-                target,
-                &mut Vec::with_capacity(8),
-            );
+            let supported = coverage::supported_point(self.scene, centre, point, target, intervals);
             let magnitude = target
                 .iter()
                 .fold(1.0_f32, |current, coordinate| current.max(coordinate.abs()));
@@ -242,72 +237,77 @@ pub(super) fn filter_accumulators(
     receivers: &[TransportReceiver],
     values: &[Accumulator],
     direct: &[Accumulator],
+    workers: usize,
+    cancel: Option<&super::AtomicBool>,
 ) -> Result<Vec<LightmapTexel>, LightmapFailure> {
     let field = SurfaceFilter::new(scene, charts, receivers, values);
-    let mut out = Vec::with_capacity(values.len());
-    for (chart_index, (_, chart)) in charts.iter().enumerate() {
-        let width = usize::try_from(chart.width).unwrap_or(0);
-        let height = usize::try_from(chart.height).unwrap_or(0);
-        let first = *field
-            .starts
-            .get(chart_index)
-            .ok_or(LightmapFailure::FillSize)?;
-        for row in 0..height {
-            for column in 0..width {
-                let index = first
-                    .saturating_add(row.saturating_mul(width))
-                    .saturating_add(column);
-                let centre = values.get(index).ok_or(LightmapFailure::FillSize)?;
-                let receiver = receivers.get(index).ok_or(LightmapFailure::FillSize)?;
-                let mut weight_sum = 1.0;
-                let mut total = *centre;
-                for (di, dj) in [
-                    (-1_i32, 0_i32),
-                    (1_i32, 0_i32),
-                    (0_i32, -1_i32),
-                    (0_i32, 1_i32),
-                ] {
-                    let Some((source, origin)) = field.neighbour(chart_index, column, row, di, dj)
-                    else {
-                        continue;
-                    };
-                    // The stencil connects physical sample positions. A chart
-                    // boundary inset can put identical edge samples on opposite
-                    // sides of an adjoining hard surface and change visibility.
-                    if scene.occluded(receiver.position, origin) {
-                        continue;
-                    }
-                    let diff = (channel_luminance(source.irradiance)
-                        - channel_luminance(centre.irradiance))
-                    .abs();
-                    let weight = 1.0 / (1.0 + 8.0 * diff);
-                    weight_sum += weight;
-                    add_scaled(&mut total, &source, weight);
+    let out = super::parallel_map_init(
+        values.len(),
+        workers,
+        cancel,
+        || Vec::with_capacity(8),
+        |intervals, index| {
+            let chart_index = field
+                .starts
+                .partition_point(|first| *first <= index)
+                .saturating_sub(1);
+            let (_, chart) = charts.get(chart_index).ok_or(LightmapFailure::FillSize)?;
+            let width = usize::try_from(chart.width).unwrap_or(0).max(1);
+            let first = *field
+                .starts
+                .get(chart_index)
+                .ok_or(LightmapFailure::FillSize)?;
+            let local = index.saturating_sub(first);
+            let column = local.checked_rem(width).ok_or(LightmapFailure::FillSize)?;
+            let row = local.checked_div(width).ok_or(LightmapFailure::FillSize)?;
+            let centre = values.get(index).ok_or(LightmapFailure::FillSize)?;
+            let receiver = receivers.get(index).ok_or(LightmapFailure::FillSize)?;
+            let mut weight_sum = 1.0;
+            let mut total = *centre;
+            for (di, dj) in [
+                (-1_i32, 0_i32),
+                (1_i32, 0_i32),
+                (0_i32, -1_i32),
+                (0_i32, 1_i32),
+            ] {
+                let Some((source, origin)) =
+                    field.neighbour(chart_index, column, row, di, dj, intervals)
+                else {
+                    continue;
+                };
+                // The stencil connects physical sample positions. A chart
+                // boundary inset can put identical edge samples on opposite
+                // sides of an adjoining hard surface and change visibility.
+                if scene.occluded(receiver.position, origin) {
+                    continue;
                 }
-                let mut averaged = Accumulator::default();
-                add_scaled(&mut averaged, &total, 1.0 / weight_sum);
-                add_scaled(
-                    &mut averaged,
-                    direct.get(index).ok_or(LightmapFailure::FillSize)?,
-                    1.0,
-                );
-                let texel = compress_surface(&averaged, receiver.normal);
-                if !surface_energy_matches(texel, receiver.normal, averaged.surface_light) {
-                    crate::engine::logging::warn(format_args!(
-                        "[transport-energy] chart={chart_index} receiver={index} position={:?} normal={:?} expected={:?} reconstructed={:?}",
-                        receiver.position,
-                        receiver.normal,
-                        averaged.surface_light,
-                        texel.light_at(receiver.normal)
-                    ));
-                    return Err(LightmapFailure::TransportEnergy);
-                }
-                out.push(texel);
+                let diff = (channel_luminance(source.irradiance)
+                    - channel_luminance(centre.irradiance))
+                .abs();
+                let weight = 1.0 / (1.0 + 8.0 * diff);
+                weight_sum += weight;
+                add_scaled(&mut total, &source, weight);
             }
-        }
-    }
-    if out.len() != values.len() {
-        return Err(LightmapFailure::FillSize);
-    }
-    Ok(out)
+            let mut averaged = Accumulator::default();
+            add_scaled(&mut averaged, &total, 1.0 / weight_sum);
+            add_scaled(
+                &mut averaged,
+                direct.get(index).ok_or(LightmapFailure::FillSize)?,
+                1.0,
+            );
+            let texel = compress_surface(&averaged, receiver.normal);
+            if !surface_energy_matches(texel, receiver.normal, averaged.surface_light) {
+                crate::engine::logging::warn(format_args!(
+                    "[transport-energy] chart={chart_index} receiver={index} position={:?} normal={:?} expected={:?} reconstructed={:?}",
+                    receiver.position,
+                    receiver.normal,
+                    averaged.surface_light,
+                    texel.light_at(receiver.normal)
+                ));
+                return Err(LightmapFailure::TransportEnergy);
+            }
+            Ok(texel)
+        },
+    )?;
+    out.into_iter().collect()
 }

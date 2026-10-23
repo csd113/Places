@@ -5924,3 +5924,268 @@ cleanup. No CI wait, main merge, release, version bump or target cleanup occurs.
 Awake helper PID **18136** and its queue ownership are retained; the stop file is
 not created. Final remote/clean verification and writer release are in the new
 ownership handoff.
+
+## Full lighting solver review - native Windows, 2026-10-23
+
+The dedicated solver review starts at clean, remote-verified
+`d5a062866136b9ccc203d2c038d011b6583cca6e` on `0.13.0-staging`.
+It retains lossless CPU changes with actual complete-bake reductions on three
+unchanged shipped maps. No density, atlas resolution, samples, bounce count,
+precision, source material, light contribution or convergence threshold changes.
+The solver revision remains **1**; compiler/tool provenance still changes and
+invalidates packages normally. No cache identity is patched to force reuse.
+
+### Complete bakes and stage attribution
+
+The same Ryzen 9 5900HX (8 cores / 16 threads), 16 GiB Windows laptop, RTX 3070
+Laptop GPU, Rust/Cargo 1.99.1 and **12 CPU workers** run both frozen executable
+cohorts. Full uses **3 taps per axis, 2 bounce orders, 64 gather samples**.
+Each timed run uses a fresh process, isolated application state, fresh output and
+`--force`; OS/driver caches are not purged. Two runs per cohort/map, including a
+reverse-order repeat, complete without build, bake, game or capture contention.
+These are forced complete application bakes, not cached repacks or OS-cold claims.
+Whole-process wall time includes validation, geometry, solving, reflection capture
+where authored, compression and publication. Medians of the two runs are:
+
+| Real map | Before wall (s) | After wall (s) | Wall reduction | Before CPU (s) | After CPU (s) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Home: rooms, props, switched lighting | 100.337 | 89.568 | **10.7%** | 1010.961 | 1011.492 |
+| Pool: grouped lights, interior, water | 344.893 | 228.453 | **33.8%** | 3591.836 | 2499.305 |
+| Beach: exterior, props, different geometry, water | 342.038 | 288.303 | **15.7%** | 3115.742 | 3107.211 |
+
+The actual before/after pairs are Home **100.013/100.660 -> 89.328/89.808 s**,
+Pool **344.606/345.179 -> 228.071/228.835 s**, and Beach
+**345.098/338.977 -> 288.513/288.092 s**. Home and Beach mainly improve wall
+time through parallelism; they do not demonstrate a comparable reduction in CPU
+work. Pool also removes repeated geometric work, reducing CPU work about **30.4%**.
+Process CPU sums all threads; CPU/wall implies roughly **10.08 -> 11.29** effective
+cores for Home, **10.41 -> 10.94** for Pool and **9.11 -> 10.78** for Beach.
+
+Representative first-pair internal wall timers below sum the relevant base and
+switch passes. They are not separate complete-bake speedups or additive to the
+whole-bake table; indirect includes its nested cache/order work.
+
+| Solver stage (s), before -> after | Home | Pool | Beach |
+| --- | ---: | ---: | ---: |
+| Receivers / coverage | 1.687 -> 1.680 | 7.889 -> 3.910 | 6.037 -> 6.110 |
+| Direct illumination + visibility/transmission | 37.318 -> 37.020 | 114.196 -> 113.027 | 68.941 -> 68.450 |
+| Indirect bounce traversal and gathering | 46.208 -> 45.616 | 184.769 -> 91.484 | 189.011 -> 184.043 |
+| Indirect filtering, direct recombination | 11.786 -> 2.008 | 22.056 -> 3.857 | 61.358 -> 10.343 |
+
+The full pipeline was traced through source/dependency validation and invalidation,
+semantics/navigation/collision, legacy lighting, architecture/prop geometry and
+charts, transport canonical hierarchy and ray BVH, receiver coverage, direct light,
+opaque/alpha/water visibility, diffuse cache, each bounce gather and accumulation,
+probe evaluation, surface filtering, authored fill, atlas encoding, reflection
+capture and archive publication. Direct emitter integration and ray visibility are
+fused in the production loop: its timer does not establish their separate CPU
+shares. The isolated GPU probe below measures only an opaque any-hit kernel.
+
+Geometry/chart construction and legacy lighting are subsecond here. Transport scene
+and target preparation ranges about **0.2-1.6 s**; Beach navigation is **3.46 s**.
+Candidate canonical plus ray hierarchy construction is about **12.7 ms** on Home
+and **17.9 ms** on Beach. Diffuse spatial-cache builds take about **64-273 ms**;
+per-order accumulation is about **35 ms** on Home and **119-229 ms** on Beach.
+Probe evaluation is roughly **0.12-0.31 s**, authored fill **0.39-1.65 s**, atlas
+assembly **0.07-0.22 s**, archive publication **0.28-0.52 s**. Beach's reflection
+capture takes about **9 s** and is included in its complete bake. These small
+stages do not justify a new large persistent cache or GPU transfer mechanism.
+
+Native process counters distinguish peak working set, peak commit and sampled
+private bytes. Home peak RSS is about **547 MiB** and commit **641 MiB** both ways;
+Beach is about **2,280-2,287 MiB RSS / 2,924 MiB commit**. Pool before RSS spans
+**698.5-828.9 MiB** and commit **1124.5-1254.1 MiB**; after RSS spans
+**838.8-841.5 MiB**, commit **1253.6-1254.3 MiB**. The initial Pool pair alone
+would misleadingly suggest a consistent 129 MiB commit increase: its baseline
+repeat reaches the same commit peak. No consistent whole-process RAM improvement
+is established. Worker/result storage can raise residency; this is not a RAM
+optimization claim. Raw 250 ms CPU/private-memory samples carry delivered progress
+stage labels; pipe/scheduling delay limits their stage attribution. Worker active
+wall is not CPU time, sampled private peaks can miss transients, and neither is an
+exact live-heap or GPU-VRAM breakdown.
+
+### Retained work and scheduling findings
+
+- The visibility-aware four-neighbour indirect filter was sequential. Receivers
+  now use the existing bounded parallel executor with unchanged neighbour order,
+  weights, arithmetic, direct recombination and indexed output order. All immutable
+  field/cache data is shared. Per-worker interval scratch replaces repeated
+  allocations in filtering and coverage refinement.
+- The existing exact two-layer solver already shared geometry for a base plus one
+  single-emitter circuit. It now accepts **all emitters of the first circuit**,
+  including grouped emitters and maps with later circuits. Later circuits retain
+  independent solves; live accumulator layers stay bounded at the existing two.
+  Pool's three grouped emitters previously missed this path. Its nominal geometric
+  gather slots halve **323,219,200 -> 161,609,600** while logical lighting-layer
+  gather slots remain **323,219,200**. These are slots before geometric-horizon
+  rejection, not a measured count of actual traced rays. Every contributing light
+  and every authored bounce remains evaluated against its own layer values.
+- The identical seeded local hemisphere sequence is computed once per bounce
+  order instead of repeating random-number/trigonometric work per receiver.
+  Transform/accumulation arithmetic remains identical. After a successful opaque
+  visibility query, an immutable empty BLEND hierarchy proves unit transmission
+  and avoids redundant normalization; water/alpha paths remain active otherwise.
+- Existing workers dynamically claim contiguous chunks (normally 2048 for these
+  large maps), with atomic job admission and indexed batch assembly. No nested
+  solver scheduling or global per-ray accumulator lock was found. For Pool's long
+  direct stage, worker active wall spans about **98.2-99.25 s** with 42-65 jobs and
+  86k-133k outputs: variable work is balanced, rather than one worker owning a long
+  fixed partition. Hoisting complete visibility or bounce results across changed
+  material/light/geometry identities would be incorrect; no such cache is added.
+- Full Home worker trials are **149.056 s / 579.188 CPU s** at 4 workers,
+  **95.073 / 720.000** at 8, and **89.328-89.808 / 1008.625-1014.359** at 12.
+  SMT gives diminishing wall returns while increasing CPU work. Two single 12-worker
+  chunk trials, 256 and 1024, take **88.599 / 88.629 s**; this subsecond difference
+  does not establish a broadly better default. Existing worker/chunk defaults stay.
+
+Opt-in `PLACES_SOLVER_PROFILE` logs per-worker jobs/outputs/active wall and accepts
+a bounded experimental chunk size **32-2048**; ordinary operation keeps its prior
+chunk formula. New stage timers and the opt-in bounded real-scene ray snapshot make
+the evidence reproducible. Ordered result buffers still require allocation/copying,
+and gather data locality/pointer-heavy traversal remain possible leads. Wide SIMD
+ray packets, a transfer matrix, all-circuit batching, a persistent thread pool and
+cross-bake transport caches are unmeasured proposals, not shipped gains. No SIMD
+precision relaxation, zero-energy threshold or approximate early convergence is
+introduced. Runtime mesh transport scenes are already cached per mesh; they are
+not a newly discovered every-frame rebuild. The editor's expensive geometry/CPU
+preparation and separate upload blocking remain measured leads, without a preview
+latency improvement claim from these solver changes.
+
+### Measured GPU candidate, rejected for production
+
+A standalone, bounded **wgpu 30.0.1 / WGSL** opaque any-hit BVH prototype runs on the
+actual RTX 3070 Laptop through DX12. It uses **16,384 evenly distributed actual
+receiver rays per map**, the real opaque geometry/hierarchy, half finite
+receiver-to-emitter queries and half long hemisphere queries. MASK/BLEND/water faces
+are explicitly excluded (Pool excludes 56 faces); this is not a complete lighting
+solver or a water/alpha acceleration claim. Snapshots, Rust/WGSL source, lockfile,
+binary, limits, transfer sizes and every mismatch are retained outside `target`.
+
+| Opaque ray microbatch | CPU, 12 workers (ms) | Standalone device setup (ms) | Pack/upload/pipeline (ms) | First dispatch/copy/sync (ms) | Warm dispatch/copy/sync (ms) | Predicate mismatches |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Home | 1.545 | 2282.925 | 70.747 | 12.058 | 0.42-0.47 | 0 |
+| Pool | 1.905 | 1028.750 | 30.311 | 11.322 | 0.59-0.66 | 151 |
+| Beach | 1.127 | 1002.228 | 30.298 | 9.987 | 0.42-0.51 | 0 |
+
+Warm GPU dispatch is faster for this kernel, but neither setup nor first readback
+amortizes over one batch. A future implementation could share the compiler's
+existing capture device; these standalone setup costs must not be treated as an
+unavoidable cost of every possible GPU design. Pool has **118 false blockers and
+33 missed blockers** against the current CPU primitive. Of 151 mismatches, 150 are
+finite **unpadded endpoint** primitive queries and one is a hemisphere query;
+these stress the raw any-hit API, not the production shadow-padding policy. They
+are not 151 demonstrated full-bake lighting errors, and no GPU bake image is
+produced. Exhaustive triangle precision controls reproduce **55** cases where
+GPU agrees with the f32 oracle and CPU agrees with f64; other cases are not fully
+attributed to precision alone. The current candidate fails exact primitive
+equivalence, so its warm speed is insufficient for native solver acceptance.
+
+The tested adapter does not expose `SHADER_F64`; the pinned wgpu feature documents
+native f64 support for Vulkan, not DX12/Metal. A portable exact-predicate strategy,
+canonical tie handling, alpha/transmission evaluation, device limits, transfer
+residency and synchronization still require work and matched quality validation.
+No proprietary end-user profiler/tool or GPU-only requirement is added. CPU solving
+remains the safe path on every platform, including Mac; actual Metal/Vulkan/Mac
+hardware and integrated/low-memory device limits are not validated here. This
+rejects the measured prototype, not GPU acceleration in principle.
+
+### Exactness, invalidation and native acceptance
+
+All twelve representative force bakes retain identical decoded geometry, lightmaps,
+probes, switch layers and other payload records. Source/settings/assets and tool
+cohorts have recorded hashes. The comparator permits only the compiler-code and
+tool hashes inside build-input provenance, and their verified manifest/fingerprint
+references, to differ. Every other record is byte-exact, original package integrity
+is verified, and tool hashes match the frozen binaries. No stored fingerprint or
+package record is altered to pass the comparison. Smaller test_room,
+material_transport, water_transmission and lighting_quality fixtures also match
+exactly for both supported authoring variants, Static and Full. Legacy Medium
+reading remains unchanged; no Medium authoring is reintroduced.
+
+The isolated Static/Full incremental fixture has exact cold/warm output
+(**11.066 / 11.072 s**). No-op, metadata, presentation and unrelated-note controls
+take about **0.25 s**; metadata/presentation refresh only reusable prepared data.
+Geometry, light, prop and material edits trigger fresh required work and each
+matches an independent forced-clean archive. Real Home/Pool/Beach no-ops take
+about **0.254 / 0.253 / 0.506 s**, `rebuilt=false`, preserving archive bytes.
+These cached controls are not included as cold solver improvements. Cooperative
+direct-stage cancellation returns **130**, preserves original source and old
+published package exactly, removes owned staging and restarts to exact clean output.
+
+The real Windows compiler validates complete nine-member project containers with
+the selected Home/Pool/Beach measured records preserved unchanged. Every selected
+member passes `verify --require-current` against its corresponding frozen compiler.
+Other members are preserved dependencies and are not claimed newly baked/current.
+Eight final native before/after view pairs match frame number, simulation time and
+camera, and **every RGBA pixel is identical**: Home bedroom on/off and wall joins,
+Pool service room on/off and actual water/transmission, Beach shoreline and
+prop/geometry shadows. Full-frame originals are retained. No new smudges, seam
+change, leaks or brightness shift are observed; this is equivalence to the current
+baseline, not a claim to remove pre-existing visual artifacts. The old d5a player
+also reads the new complete Pool package. Native capture is fixed-step visual
+verification at 1280x720 with VSync off and no frame limiter; it is not an FPS
+throughput comparison and supplies no new runtime FPS claim.
+
+The actual native editor saves, exports, editable-reimports with byte-identical
+manifest/source, launches Build+Play and returns to editing. The exported package
+passes integrity/currentness and loads in the native player. A separate Save+Build
+and **Check saved** capture shows **valid / reuse prepared lighting**, matching
+dependency hashes and integrity. Original project/map sources stay unchanged.
+
+### Gates, evidence and custody
+
+Final formatting, strict `cargo clippy --workspace --all-targets --all-features --
+-D warnings`, **294 passing Rust tests** (zero failed/ignored, **0.94 s** initial
+suite execution), and `cargo build --locked --release --workspace --all-features`
+pass. The full production rebuild takes about **14m23s**, one compile job; final
+cached complete-source gates also pass. Two new small deterministic CPU tests have
+concrete value beyond package coverage: grouped/multiple-circuit equivalence against
+independent solves, exact serial/parallel filter/probe output through a hard divider
+and tinted water, and cancellation without partial publication. Their 100-receiver
+fixture uses under 1 MiB and milliseconds, no map assets/GPU/full shipped bake.
+No full map bake enters default tests or CI. The relevant compiler/lightmap Python
+suite passes **18 tests**; assets pass **629 / zero warnings**, props **389**,
+textures **140 / 100 existing warnings**, and `git diff --check` passes.
+
+The additional broad Python sweep is explicitly **not green**: 366 tests report
+8 failures, 9 errors and 16 skips. A detached clean d5a checkout with frozen baseline
+executables reproduces the **exact same 17 failure/error headers** and exit code.
+They concern CRLF/historical hashes, stale Lantern counts, Unix-path/shell execution
+expectations on Windows and a visual-CLI fixture. No relevant tools/tests/assets or
+projects changed from that baseline. Both complete logs and the comparison are kept;
+this review neither conceals the failures nor starts unrelated final-queue cleanup.
+
+`local/windows-validation-0.13.0/lighting-solver/evidence-index.json` indexes all
+source/binary/input identities, raw timings, CPU/memory samples, payload comparisons,
+GPU source/results, invalidation/cancellation, native captures and gate logs in
+`C:\Users\Connor Dawkins\Documents\Codex\2026-10-23\task-4\solver-evidence`.
+All build and unique validation artifacts stay outside `target`; target is not
+cleaned. The clean detached baseline at `...\task-4\baseline-source` is retained
+for the parent's later cleanup; it is not another writer on staging.
+
+Excluded setup attempts are retained: a standalone transition-bearing showcase
+package opened the menu until complete project composition supplied its dependencies;
+that owned menu process was closed. Initial native captures at adjacent simulation
+frames are superseded by the eight exact pinned pairs. A strict package comparison
+initially flagged only legitimate provenance changes; the verified provenance-aware
+comparison resolves them. An unsupported Medium authoring request, a cancellation
+observer on the wrong stream, missing asset-root validation and a nested-JSON editor
+postprocessor are harness issues, with corrected accepted runs recorded separately.
+
+The reviewed comparison is **Places-0.13.0-Lighting-review.png**, 1280x3180,
+**1,320,181 bytes**, SHA-256
+`d922caf01dc46724b10c5d80ed7b571c32d18b6186239bae0d0b682974f7ce26`, saved through
+supported Library media upload as **libfile_173b7c26e24c81919ea181f2cd62c282**,
+version **0**. Windows Python lacks local `os.setxattr`; the successful save receipt
+and exact Library identity are retained instead. No executable bundle is uploaded.
+
+The prior storage change's Arcade **7.660 -> 6.640 s REPACK** remains a packaging
+result, not a solve gain. Zstd9 remains deferred pending decoder-window bounds;
+historical Lantern peak memory remains missing. Exact per-function CPU/live heap,
+GPU VRAM, broader platform/hardware calibration and residual direct/gather traversal
+are remaining limits. No power/security setting is changed. SYSTEM-only awake helper
+**PID 18136**, bounded expiry **2026-10-23 19:49:06 UTC**, and its queue custody are
+preserved; no stop file is created. Final clean remote verification and writer
+release are in the precise ownership handoff. The Shape of an Exit is second last,
+then final verification/report/issues/cleanup; neither phase starts here. No CI wait,
+main merge, release or version bump occurs.

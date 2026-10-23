@@ -1493,6 +1493,7 @@ impl TransportScene {
         {
             return None;
         }
+        let hierarchy_started = std::time::Instant::now();
         let count = triangles.len();
         let mut order: Vec<u32> = (0..count)
             .map(|index| u32::try_from(index).unwrap_or(u32::MAX))
@@ -1530,8 +1531,14 @@ impl TransportScene {
                 .collect::<Option<Vec<_>>>()
         };
         let legacy_ray_triangles = pack(&order)?;
+        let canonical_ms = hierarchy_started.elapsed().as_secs_f64() * 1_000.0_f64;
+        let ray_started = std::time::Instant::now();
         let (ray_nodes, ray_order) = bvh::build(&triangles, &centroids);
         let ray_triangles = pack(&ray_order)?;
+        crate::engine::logging::info(format_args!(
+            "[transport-structure] triangles={count} canonical_bvh_ms={canonical_ms:.3} ray_bvh_ms={:.3}",
+            ray_started.elapsed().as_secs_f64() * 1_000.0_f64
+        ));
         Some(Self {
             triangles,
             surface_alpha: Vec::new(),
@@ -2476,6 +2483,9 @@ impl TransportScene {
         {
             return Err(LightmapFailure::FillSize);
         }
+        if let Err(error) = diagnostics::dump_gpu_probe(self, charts) {
+            crate::engine::logging::warn(format_args!("[solver-probe] {error}"));
+        }
         let workers = options.workers.clamp(1, MAX_TRANSPORT_WORKERS);
         let taps = options.taps_per_axis.clamp(1, 3);
         let bounces = options.bounces.min(3);
@@ -2488,23 +2498,44 @@ impl TransportScene {
             .map(|(index, _)| index)
             .collect();
         let switchable_emitters = self.switchable_emitter_groups();
-        if let [(light_index, emitter)] = switchable_emitters.as_slice() {
-            if let [single] = emitter.as_slice() {
-                return self.solve_pair(
+        if let Some((light_index, emitter)) = switchable_emitters.first() {
+            let mut paired = self.solve_pair(
+                charts,
+                &base_emitters,
+                *light_index,
+                emitter,
+                SolveOptions {
+                    taps_per_axis: taps,
+                    bounces,
+                    gather_samples: bounce_samples,
+                    workers,
+                },
+                cancel,
+                bake_probes,
+            )?;
+            // Later circuits retain their independent pass. Pairing only
+            // the base and first circuit bounds live accumulator storage
+            // to the existing two-layer solver, regardless of map size.
+            for (remaining_light, emitters) in switchable_emitters.iter().skip(1) {
+                let mut probes = None;
+                let solved = self.solve_pass(
                     charts,
-                    &base_emitters,
-                    *light_index,
-                    *single,
-                    SolveOptions {
-                        taps_per_axis: taps,
-                        bounces,
-                        gather_samples: bounce_samples,
-                        workers,
-                    },
+                    emitters,
+                    false,
+                    taps,
+                    bounces,
+                    bounce_samples,
+                    workers,
                     cancel,
-                    bake_probes,
-                );
+                    &mut paired.solution.direct_rays,
+                    &mut paired.solution.bounce_rays,
+                    &mut paired.solution.cache_cells,
+                    bake_probes.then_some(&mut probes),
+                )?;
+                append_switchable_probe_field(&mut paired.probes, *remaining_light, probes)?;
+                paired.solution.switchable.push((*remaining_light, solved));
             }
+            return Ok(paired);
         }
         let mut direct_rays = 0usize;
         let mut bounce_rays = 0usize;
@@ -2524,34 +2555,10 @@ impl TransportScene {
             &mut cache_cells,
             if bake_probes { Some(&mut probes) } else { None },
         )?;
-        let mut switchable = Vec::with_capacity(switchable_emitters.len());
-        for (light_index, emitter) in &switchable_emitters {
-            let mut switched_probes = None;
-            let solved = self.solve_pass(
-                charts,
-                emitter,
-                false,
-                taps,
-                bounces,
-                bounce_samples,
-                workers,
-                cancel,
-                &mut direct_rays,
-                &mut bounce_rays,
-                &mut cache_cells,
-                if bake_probes {
-                    Some(&mut switched_probes)
-                } else {
-                    None
-                },
-            )?;
-            append_switchable_probe_field(&mut probes, *light_index, switched_probes)?;
-            switchable.push((*light_index, solved));
-        }
         Ok(TransportSolve {
             solution: TransportSolution {
                 charts: base,
-                switchable,
+                switchable: Vec::new(),
                 direct_rays,
                 bounce_rays,
                 cache_cells,
@@ -2704,7 +2711,9 @@ impl TransportScene {
             self.audit_indirect(charts, receivers, &indirect, taps);
         }
         crate::engine::progress::stage("filtering indirect light");
-        let mut filtered = filter::filter_accumulators(self, charts, receivers, &indirect, direct)?;
+        let mut filtered = filter::filter_accumulators(
+            self, charts, receivers, &indirect, direct, workers, cancel,
+        )?;
         audit.texels("filtered", filtered.iter().copied());
         let filter_ms = filter_started.elapsed().as_secs_f64() * 1_000.0_f64;
         let fill_started = std::time::Instant::now();
@@ -2760,10 +2769,17 @@ impl TransportScene {
         // not move between passes; only the solved values it is read
         // against change. Build it once for every bounce pass.
         crate::engine::progress::stage("building diffuse radiance cache");
+        let cache_started = std::time::Instant::now();
         let cache = RadianceCache::build(receivers);
         let cache_cells = cache.occupied_cells();
+        crate::engine::logging::info(format_args!(
+            "[transport-cache] receivers={} build_ms={:.3}",
+            receivers.len(),
+            cache_started.elapsed().as_secs_f64() * 1_000.0_f64
+        ));
         let mut previous_order = accumulators.clone();
         for pass_index in 0..options.bounces {
+            let order_started = std::time::Instant::now();
             crate::engine::logging::info(format_args!(
                 "[transport-progress] diffuse_order={}/{} receivers={} samples={} workers={}",
                 pass_index.saturating_add(1),
@@ -2793,6 +2809,8 @@ impl TransportScene {
                     .len()
                     .saturating_mul(options.gather_samples.clamp(1, MAX_BOUNCE_RAYS)),
             );
+            let gather_ms = order_started.elapsed().as_secs_f64() * 1_000.0_f64;
+            let accumulation_started = std::time::Instant::now();
             for (slot, value) in accumulators.iter_mut().zip(&gained) {
                 add_scaled(slot, value, 1.0);
             }
@@ -2804,6 +2822,10 @@ impl TransportScene {
                 return Err(LightmapFailure::FillNonFinite);
             }
             previous_order = gained;
+            crate::engine::logging::info(format_args!(
+                "[transport-order] shared_layers=1 order={pass_index} gather_ms={gather_ms:.3} accumulation_ms={:.3}",
+                accumulation_started.elapsed().as_secs_f64() * 1_000.0_f64
+            ));
         }
         Ok((accumulators, bounce_count, cache_cells))
     }
@@ -3011,6 +3033,7 @@ impl TransportScene {
             if include_sky { "base" } else { "switched" },
             pass_index.saturating_add(1)
         ));
+        let directions = hemisphere_sequence(count, pass_index);
         let gathered = parallel_map(receivers.len(), workers, cancel, |index| {
             let Some(receiver) = receivers.get(index) else {
                 return Accumulator::default();
@@ -3022,10 +3045,8 @@ impl TransportScene {
             let mut accumulator = Accumulator::default();
             // A shared sequence makes the estimator depend on geometry, not
             // chart ordering or how many texels another chart happened to add.
-            let mut state = ray_seed(0, pass_index);
-            for _ in 0..count {
-                let (u1, u2) = next_pair(&mut state);
-                let direction = hemisphere_sample(receiver.normal, u1, u2);
+            for local in &directions {
+                let direction = hemisphere_sample(receiver.normal, *local);
                 // Smooth shading normals can tilt below the actual face. Such
                 // directions have no visible geometric hemisphere and must not
                 // hit this face's back and recycle its own illumination.
@@ -4418,7 +4439,7 @@ fn next_unit(state: &mut u64) -> f32 {
 /// The Duff et al. branchless orthonormal basis keeps the sampling frame
 /// continuous across the normal's sign changes, so a chart boundary cannot
 /// produce a visible seam from the ray directions alone.
-fn hemisphere_sample(normal: [f32; 3], u1: f32, u2: f32) -> [f32; 3] {
+fn hemisphere_sample(normal: [f32; 3], local: [f32; 3]) -> [f32; 3] {
     let sign = if normal[2] >= 0.0 { 1.0 } else { -1.0 };
     let a = -1.0 / (sign + normal[2]);
     let b = normal[0] * normal[1] * a;
@@ -4428,12 +4449,36 @@ fn hemisphere_sample(normal: [f32; 3], u1: f32, u2: f32) -> [f32; 3] {
         -sign * normal[0],
     ];
     let t2 = [b, sign + normal[1] * normal[1] * a, -normal[1]];
+    hemisphere_from_local(normal, t1, t2, local)
+}
+
+fn hemisphere_sequence(count: usize, pass: u8) -> Vec<[f32; 3]> {
+    let mut state = ray_seed(0, pass);
+    (0..count)
+        .map(|_| {
+            let (u1, u2) = next_pair(&mut state);
+            hemisphere_local(u1, u2)
+        })
+        .collect()
+}
+
+fn hemisphere_local(u1: f32, u2: f32) -> [f32; 3] {
     let phi = 2.0 * std::f32::consts::PI * u1;
     let cos_theta = u2.clamp(0.0, 1.0);
     let sin_theta = (1.0 - cos_theta * cos_theta).max(0.0).sqrt();
     let (sin_phi, cos_phi) = phi.sin_cos();
     let x = sin_theta * cos_phi;
     let y = sin_theta * sin_phi;
+    [x, y, cos_theta]
+}
+
+fn hemisphere_from_local(
+    normal: [f32; 3],
+    t1: [f32; 3],
+    t2: [f32; 3],
+    local: [f32; 3],
+) -> [f32; 3] {
+    let [x, y, cos_theta] = local;
     [
         t1[0] * x + t2[0] * y + normal[0] * cos_theta,
         t1[1] * x + t2[1] * y + normal[1] * cos_theta,
@@ -4874,14 +4919,27 @@ fn parallel_map<T: Send>(
     cancel: Option<&AtomicBool>,
     task: impl Fn(usize) -> T + Sync,
 ) -> Result<Vec<T>, LightmapFailure> {
+    parallel_map_init(count, workers, cancel, || (), |_scratch, index| task(index))
+}
+
+/// Worker-local bounded scratch survives jobs, never receiver or scene changes.
+/// The initializer also runs once in the deterministic serial reference path.
+fn parallel_map_init<T: Send, S>(
+    count: usize,
+    workers: usize,
+    cancel: Option<&AtomicBool>,
+    init: impl Fn() -> S + Sync,
+    task: impl Fn(&mut S, usize) -> T + Sync,
+) -> Result<Vec<T>, LightmapFailure> {
     let work = crate::engine::progress::Work::current(count);
     if workers <= 1 || count <= 1 {
         let mut out = Vec::with_capacity(count);
+        let mut scratch = init();
         for index in 0..count {
             if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
                 return Err(LightmapFailure::FillSize);
             }
-            out.push(task(index));
+            out.push(task(&mut scratch, index));
             if index.saturating_add(1).is_multiple_of(64) {
                 work.advance(64);
             }
@@ -4890,14 +4948,13 @@ fn parallel_map<T: Send>(
         work.finish();
         return Ok(out);
     }
+    let profile = std::env::var_os("PLACES_SOLVER_PROFILE").is_some();
     let bounded_workers = workers.min(MAX_TRANSPORT_WORKERS).min(count);
     // Large, contiguous jobs balance heterogeneous scenes without scattering
     // every worker's reads across the receiver array. Keep optional slots per
     // batch, rather than per texel: millions of large accumulator copies and
     // Option tags were otherwise retained during result assembly.
-    let batch = count
-        .div_ceil(bounded_workers.saturating_mul(8))
-        .clamp(32, 2048);
+    let batch = transport_batch(count, bounded_workers);
     let jobs = count.div_ceil(batch);
     let job_workers = bounded_workers.min(jobs);
     let next = std::sync::atomic::AtomicUsize::new(0);
@@ -4907,11 +4964,14 @@ fn parallel_map<T: Send>(
         let mut handles = Vec::new();
         for worker in 0..job_workers {
             let worker_task = &task;
+            let worker_init = &init;
             let next_job = &next;
             let worker_progress = &work;
             let handle = std::thread::Builder::new()
                 .name(format!("transport-solve-{worker}"))
                 .spawn_scoped(scope, move || {
+                    let started = std::time::Instant::now();
+                    let mut scratch = worker_init();
                     let mut completed = Vec::new();
                     loop {
                         let job = next_job.fetch_add(1, Ordering::Relaxed);
@@ -4925,7 +4985,7 @@ fn parallel_map<T: Send>(
                             if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
                                 break;
                             }
-                            values.push(worker_task(index));
+                            values.push(worker_task(&mut scratch, index));
                             if values.len().is_multiple_of(64) {
                                 worker_progress.advance(64);
                             }
@@ -4933,7 +4993,7 @@ fn parallel_map<T: Send>(
                         worker_progress.advance(values.len() % 64);
                         completed.push((job, values));
                     }
-                    completed
+                    (completed, started.elapsed())
                 });
             match handle {
                 Ok(worker_handle) => handles.push(worker_handle),
@@ -4945,7 +5005,10 @@ fn parallel_map<T: Send>(
         }
         for handle in handles {
             match handle.join() {
-                Ok(completed) => {
+                Ok((completed, elapsed)) => {
+                    if profile {
+                        report_worker(count, batch, &completed, elapsed);
+                    }
                     for (job, values) in completed {
                         slots[job] = Some(values);
                     }
@@ -4962,6 +5025,43 @@ fn parallel_map<T: Send>(
     if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
         return Err(LightmapFailure::FillSize);
     }
+    let out = collect_batches(slots, count, batch)?;
+    work.finish();
+    Ok(out)
+}
+
+fn report_worker<T>(
+    count: usize,
+    batch: usize,
+    completed: &[(usize, Vec<T>)],
+    elapsed: std::time::Duration,
+) {
+    let outputs = completed
+        .iter()
+        .fold(0_usize, |sum, (_, values)| sum.saturating_add(values.len()));
+    crate::engine::logging::info(format_args!(
+        "[transport-worker] count={count} batch={batch} jobs={} outputs={outputs} active_wall_ms={:.3}",
+        completed.len(),
+        elapsed.as_secs_f64() * 1_000.0_f64
+    ));
+}
+
+/// The optional profiler accepts a bounded batch size for explicit scheduling
+/// experiments. Ordinary compilation keeps the established contiguous jobs.
+fn transport_batch(count: usize, workers: usize) -> usize {
+    let default = count.div_ceil(workers.saturating_mul(8)).clamp(32, 2048);
+    std::env::var("PLACES_SOLVER_PROFILE")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|batch| (32..=2048).contains(batch))
+        .unwrap_or(default)
+}
+
+fn collect_batches<T>(
+    slots: Vec<Option<Vec<T>>>,
+    count: usize,
+    batch: usize,
+) -> Result<Vec<T>, LightmapFailure> {
     let mut out = Vec::with_capacity(count);
     for (job, slot) in slots.into_iter().enumerate() {
         let Some(mut values) = slot else {
@@ -4974,7 +5074,6 @@ fn parallel_map<T: Send>(
         }
         out.append(&mut values);
     }
-    work.finish();
     Ok(out)
 }
 
@@ -5031,3 +5130,7 @@ mod batch;
 mod coverage;
 pub mod diagnostics;
 mod filter;
+
+#[cfg(test)]
+#[path = "../tests/transport_solver.rs"]
+mod tests;

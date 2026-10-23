@@ -218,6 +218,9 @@ impl TransportScene {
         if self.occluded(a, b) {
             return 0.0;
         }
+        if !self.blend_nodes.first().copied().unwrap_or(false) {
+            return 1.0;
+        }
         let delta = super::sub(b, a);
         let distance = super::length(delta);
         if !distance.is_finite() || distance <= 0.0 {
