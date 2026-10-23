@@ -6,10 +6,11 @@ stage; earlier next-stage statements are historical handoffs. Raw local receipts
 and direct binaries remain outside `target` in their original stage directories.
 No main merge or release is implied by this staging report.
 
-The [final verification and cleanup entry](#final-verification-and-cleanup--2026-10-22)
-records the completed macOS checks, final local packages, media and cleanup.
-Presented macOS FPS gains remain inconclusive. The Windows entry below records
-native Razer acceptance and its remaining limits; Linux remains unverified.
+The [latest bake-progress handoff](#editor-bake-progress-and-queue-handoff) records
+the real editor bar, targeted Windows acceptance and the revised sequential queue.
+Final combined verification and cleanup follow the newly approved passes. Earlier
+final/next-stage statements remain historical cohort records; macOS FPS gains
+remain inconclusive and Linux remains unverified.
 
 
 ## Configurable Sun and Moon - native Windows, 2026-10-22
@@ -6317,3 +6318,150 @@ protection settings remain unchanged; the queue's global stop file remains absen
 Final commit/remote/clean verification and writer release are in the ownership handoff.
 Default-lineup/collection reconciliation and the final verification/report/issues/cleanup
 phase are not started here. No CI wait, main merge, release or version bump occurs.
+
+
+## Editor bake progress and queue handoff
+
+Native Windows acceptance, 23 October 2026, from clean staging commit
+`e731cea2e17985547f3b36dc8d2f9c7851b53eef`. This completes the authorized
+**bake-progress phase**, not the final combined release gate. The user subsequently
+queued four more sequential optimization passes and moved final verification and
+cleanup after them. No later pass starts in this phase.
+
+### Implemented progress and targeted acceptance
+
+The editor footer draws a real **current-pass** bar from compiler work counters,
+with the exact completed/total/unit, source, lighting variant and stage. Uncounted
+stages use an animated track explicitly labelled **Indeterminate / uncounted stage**.
+No whole-bake/export percentage or ETA is invented. A full pass track does not
+finish the job: success still requires the compiler's publication report and
+successful exit. Existing nonblocking polling, safe cancellation, atomic output
+and save/recovery behavior are retained.
+
+Scope is frozen when the job starts. Selected-level and stale-row builds say
+**Current level: ID / other level outputs kept**; complete-project export,
+validation and source recovery have distinct labels. Feedback stays above popups.
+The normal toolbar Cancel is the only Cancel tab stop; a footer Cancel appears
+when a popup clears toolbar hits. A duplicate-focus conflict was found and fixed
+before the accepted native runs. No unrelated UI redesign is included.
+
+The actual final release editor bakes real Home Static/Full data in an isolated
+copy of the nine-member environment project. **23 counted native samples** cover
+base/switched direct visibility, both shared bounce passes and indirect filtering.
+The screenshots show the live counter and proportional track; they are not mocked
+or replayed feedback. Grid/framing, Tab focus and a non-mutating search popup work
+while baking. Ordinary/popup views each expose exactly one Cancel control.
+In-flight cancellation preserves the previous package byte-for-byte. Retrying
+from Home's stale row publishes only Home; all other sources and the preserved
+Pool output remain exact. A real compiler error from an invalid unselected source
+in this disposable project is reported, the source is restored exactly, and the
+normal cached retry succeeds.
+
+A transition-bearing per-level output is a prepared project member. Standalone
+`validate` correctly refuses it without complete-project transition context; this
+is retained as an expected scope refusal, not concealed as a pass or corruption.
+The member verifies current. A complete nine-member diagnostic container replaces
+only Home with these actual compiler records, preserving other dependencies.
+Its integrity and Home currentness pass. Matching Full mesh, lighting, lightmap,
+irradiance, collision and navigation records are byte-exact against the preserved
+solver control. The control is Full-only; the editor also emits Static and shared
+prop recipes. No identical archive/record-set or unverified prop-reconstruction
+claim is made.
+
+Native Shape export and editable recovery preserve manifest, level and Luau bytes
+exactly. The export validates and verifies current. An initial cold recovered Play
+process ended without a terminal receipt; no editor/compiler/player remained when
+inspected. Its partial staging is retained and is **not** claimed passing. The
+unfinished Play check is resumed through the normal cache path using the exact
+completed export; cached Build+Play succeeds with an actual native child capture.
+No source data, dependency hash or cache key is changed to obtain reuse.
+
+The reviewed **Places-0.13.0-editor-bake-progress.png** is an unmodified native
+1280x720 Full-bounce frame: **200,243 bytes**, SHA-256
+`cb61c4ec89b176e18eb524185c572553efdd3cde088b3e5e2a1e8e65524f42ec`.
+Library save is confirmed as **libfile_6f4a92e05d108191ac51f172e55ede4c**, version **0**,
+file **file_00000000557481fb91d55ff1c9757bd1**. Raw frames/checkpoints stay outside `target`.
+Windows Python lacks `os.setxattr`; local metadata application fails explicitly,
+while the successful save receipt, exact IDs and hashes retain custody. There is
+no duplicate upload and no executable upload.
+
+### Gates and additional combined observations
+
+Rust/Cargo **1.99.1**, formatting, strict
+`cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+`cargo test --workspace` (**298 passed**, zero failed/ignored), and
+`cargo build --locked --release --workspace --all-features` pass for the frozen
+implementation. Relevant Python checks pass **21 tests**; assets pass **629 / zero
+warnings**, props **389**, textures **140 / 100 existing warnings**. No new Rust test,
+full-map Cargo/CI bake or lint suppression is added. Engine, game, compiler/solver,
+assets and authored project sources are unchanged from the preceding handoff;
+456 source/build-input identities are frozen and rechecked.
+
+The broad Python rerun is **not green**: **366 tests, 8 failures, 9 errors, 16 skips**.
+Its exact 17 failure/error headers match the preserved clean d5a baseline, with
+no new headers. Six errors need the unavailable Unix shell, two need symlink
+privileges, and one uses unsupported subprocess SIGINT. Failures cover two CRLF
+capacity fixtures, a historical hash, two Unix-path expectations, two stale Lantern
+counts and the visual CLI fixture. Detached baseline evidence remains intact.
+
+The extra combined work completed before the queue changed includes full ordinary
+Shape and One Guest routes, win/Enter restart, diagnostic shared-feature captures,
+five animated skin/ragdoll checks, all seven existing menu events (maximum **14**
+characters under the **15** cap), finite nonzero native game-output audio and the
+movement checks/replays. Diagnostic pose/activation setups are labelled; they are
+not represented as ordinary full gameplay. Audio is 48 kHz stereo float game output,
+not a microphone recording. These captured controls carry no new FPS/speedup claim.
+
+The extra old timed **Home favor replay fails its completion check**. The native
+process exits 0, every action runs, script diagnostics are empty and resets are
+zero. At the named cushion-held checkpoint the player is approximately
+**(6.5500, 1.6000, 10.5337)** with **no held item**; the caretaker still asks for the
+cushion at the later handoff checkpoint. No completion/save is produced. Root cause
+is not established: recalibrate/reproduce the old route before attributing a game
+regression. The independent diagnostic carry smoke is separate evidence and does
+not turn this failed ordinary replay into a pass.
+
+Pool quest/throw replays, eight-favor reward restart, the planned new lifecycle/
+pressure campaign and final uncapped timing windows were **not run** after that
+failure/queue change. Historical completed campaigns and uncapped measurements
+retain their original dated scope; no missing number is invented. Shape's earlier
+dispatch polish cost and variable-clock caveat remain as recorded. Windows DX12
+acceptance does not establish Linux, Vulkan, Metal or hardware-tier calibration.
+The preserved One Guest archive passes integrity but `verify --require-current`
+exits **1**, reporting only **compiler preparation code changed**. It remains a
+valid preserved functional control, not a falsely current package.
+
+### Reconciliation and next sole writer
+
+| Issue | Evidence-based disposition for parent updates |
+| --- | --- |
+| #25 | Functionality complete: prior full edge/recovery matrix plus final ordinary win/restart and editor export/recovery acceptance qualify for closure. |
+| #26 | Already closed by parent; final ordinary win/restart passes. |
+| #24 | Original 144 exports adopted; ordinary sheet ghost and six rail/fence reviews remain open. |
+| #27 | Partial: measured engine/resource work retained; complete capacity/hardware/allocator/VRAM audit remains open. |
+| #28 | Partial: menu, AI/scripts, transitions and prior bounded ownership evidence retained; tails, sustained attribution and the failed Home replay remain explicit. |
+| #29 | Bake bar and targeted acceptance complete; large preview preparation and residual indivisible upload/UI-thread stalls remain open. |
+| #30 | Prior exact solver/storage/invalidation retained; historical Lantern peak is still missing, exhaustive copy/allocation accounting and remaining kernel/cancellation attribution remain open. |
+| #31 | Partial: Windows skinning/pose reuse, conservative visibility, granular loading and existing lossless packing retained. New portal/job-system/sparse-format work is not declared complete; codec adoption remains deferred. |
+| #17 / #18 / #21 | Platform/editor/distribution gates stay open. Windows development binaries do not prove v1, Linux editor or installer/Linux distribution acceptance. |
+| #14 / #15 | Target 0.14, outside this phase. |
+
+The explicit user-approved next order is **A)** incremental editor preview plus
+splitting remaining indivisible GPU-install/UI-thread operations, building on the
+existing chunked uploads/scheduling; **B)** targeted remaining CPU direct/indirect
+bake kernels; **C)** whole-record temporary decode/repack memory overlaps; **D)**
+game frame tails/render passes at the actual target resolution/backend; then final
+combined verification/report/cleanup. **No Zstd/codec adoption** is approved. These
+are later sequential tasks, not concurrent-writer permission.
+
+`local/windows-validation-0.13.0/final/evidence-index.json` indexes raw evidence,
+accepted binaries, current source identities, successful/failed/interrupted
+controls, media receipts and machine-readable issue dispositions in `C:\Users\Connor Dawkins\Documents\Codex\2026-10-23\task-6\final-evidence`.
+All unique attempts, partial staging, recovery material, detached baseline evidence
+and earlier media are preserved. **23 executable/DLL/symbol files** are frozen in
+`accepted-bin/` outside `target`. The original target is also **retained** for the
+new queue: **cargo clean is not run**, and awake helper **PID 34744** remains under
+queue custody, SYSTEM-required-only, expiry **2026-10-24 17:57:20 UTC**. No supported
+stop file is created and no permanent power/security setting is changed. Final
+commit/remote/clean status and writer release are recorded in the ownership handoff.
+No later pass, CI wait, main merge, release, force push or version bump occurs here.

@@ -104,6 +104,8 @@ pub struct CompileJob {
     progress: Option<Progress>,
     diagnostics: String,
     finished: bool,
+    scope: String,
+    started: std::time::Instant,
 }
 
 impl CompileJob {
@@ -133,6 +135,14 @@ impl CompileJob {
             progress: None,
             diagnostics: String::new(),
             finished: false,
+            scope: match operation {
+                "export-project" => "Complete project export / each level in turn",
+                "import-project" => "Complete project source recovery",
+                "check-project" => "Complete project validation",
+                _ => "Compiler operation",
+            }
+            .into(),
+            started: std::time::Instant::now(),
         })
     }
     /// Starts one build from already saved project documents. The caller owns
@@ -176,7 +186,19 @@ impl CompileJob {
             progress: None,
             diagnostics: String::new(),
             finished: false,
+            scope: format!("Current level: {level} / other level outputs kept"),
+            started: std::time::Instant::now(),
         })
+    }
+
+    #[must_use]
+    pub fn scope(&self) -> &str {
+        &self.scope
+    }
+
+    #[must_use]
+    pub fn elapsed(&self) -> std::time::Duration {
+        self.started.elapsed()
     }
 
     #[must_use]

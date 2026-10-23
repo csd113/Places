@@ -53,9 +53,22 @@ sources; an I/O failure may leave an already saved subset, each atomically.
 
 Save+Build saves all dirty levels and compiles the selected source to its sibling
 `.placesmap`. One job runs at a time. Save is unavailable during compilation;
-further edits remain in memory. Progress reports actual current-pass work,
-indeterminate when uncounted. Cancel requests safe cooperative shutdown with a
-bounded kill/reap fallback. Failure/cancellation retains the last usable package.
+further edits remain in memory. The footer shows a real **current-pass** progress
+bar, current source, lighting variant and stage. The exact completed/total count
+and unit belong to that pass; a full pass bar does not mean the whole bake or
+export is complete. Uncounted stages use an animated track explicitly labelled
+indeterminate. No whole-job percentage or ETA is estimated. Success appears only
+after the compiler confirms publication and exits successfully.
+
+The scope line distinguishes the selected level (including a stale-row build,
+which keeps other level outputs) from complete-project export, validation and
+source recovery. Complete-project operations identify each current member in the
+stage line. Feedback and Cancel remain visible above editor popups. Cancel requests
+safe cooperative shutdown with a bounded kill/reap fallback; the job stays active
+until the compiler is reaped. Failure/cancellation retains the last usable package.
+A selected-level output with project transitions is a prepared member, not a
+standalone runnable distribution. Validate/play it in the complete project through
+Export or Build+Play; other member outputs need not be rebuilt for a stale-row bake.
 Finish/cancel builds or stop play before switching levels/projects or closing.
 
 Build+Play saves and exports the complete project, imports through the direct game executable and launches

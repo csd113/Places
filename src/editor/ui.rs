@@ -6,6 +6,7 @@ use crate::engine::render::Vertex;
 use super::App;
 use super::document::{ObjectId, ObjectKind};
 
+mod bake_progress;
 pub(super) mod components;
 mod gameplay;
 mod geometry;
@@ -278,6 +279,7 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
     if let Some(popup) = &app.popup {
         popup.draw(app, &mut v, &mut hits);
     }
+    bake_progress::draw(app, &mut v, &mut hits);
     if let Some(hit) = hits.iter().find(|hit| Some(hit.action) == app.ui_focus) {
         let [left, top, width, height] = hit.rect;
         for bounds in [

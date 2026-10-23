@@ -288,6 +288,9 @@ impl Verification {
             "dirty": app.document.as_ref().is_some_and(super::Document::is_dirty),
             "selected": app.selected.map(|selected| format!("{selected:?}")),
             "status": app.status, "compile": app.compile.is_some(), "play": app.play.is_some(),
+            "compile_feedback": app.compile.as_ref().map(|job| serde_json::json!({
+                "scope":job.scope(), "cancelling":job.cancelling(), "progress":job.progress()
+            })),
             "preparing": app.viewport.is_preparing(), "window": window.size(),
             "viewport_objects": app.viewport.object_count(),
             "environment_preview": app.viewport.environment_preview(),
