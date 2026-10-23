@@ -82,3 +82,5 @@ pub struct UiImage {
     pub bounds: [f32; 4],
     pub image: std::sync::Arc<crate::engine::materials::RawImage>,
 }
+
+pub(crate) use common::api::build_authoring_preview_reusing;

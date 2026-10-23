@@ -255,7 +255,7 @@ fn intern_vertices(batch: &PropMeshBatch) -> Result<InternedVertices<'_>, String
     // lighting/frame field, without relying on Rust struct padding or float Eq.
     let mut encoded =
         Writer::with_capacity(batch.vertices.len().saturating_mul(SERIALIZED_VERTEX_BYTES));
-    for vertex in &batch.vertices {
+    for vertex in batch.vertices.iter() {
         write_vertex(&mut encoded, vertex);
     }
     let (keys, remainder) = encoded.as_slice().as_chunks::<SERIALIZED_VERTEX_BYTES>();
@@ -274,7 +274,7 @@ fn intern_vertices(batch: &PropMeshBatch) -> Result<InternedVertices<'_>, String
         remap.push(slot);
     }
     let mut indices = Vec::with_capacity(batch.indices.len());
-    for index in &batch.indices {
+    for index in batch.indices.iter() {
         let slot = remap
             .get(usize::from(*index))
             .ok_or_else(|| "prop batch has an index outside its vertex list".to_string())?;
@@ -510,8 +510,8 @@ fn read_batch(
         pending_probe_lighting: false,
         textures: Vec::<Arc<crate::engine::loader::RawImage>>::new(),
         submeshes: header.submeshes,
-        vertices,
-        indices,
+        vertices: vertices.into(),
+        indices: indices.into(),
         bounds: header.bounds,
     })
 }

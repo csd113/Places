@@ -33,6 +33,7 @@ use crate::engine::scene::LocomotionSnapshot;
 /// ownership can be cancelled before any part is installed in the renderer.
 pub struct PreparedGeometry {
     pub(super) upload: super::wgpu::world::WorldUpload,
+    alternate: Option<super::wgpu::world::WorldUpload>,
 }
 impl PreparedGeometry {
     /// Packs immutable geometry and occlusion while the UI continues presenting.
@@ -43,12 +44,22 @@ impl PreparedGeometry {
             build
                 .mesh
                 .vertex_count
+                .saturating_add(
+                    build
+                        .static_light_off
+                        .as_ref()
+                        .map_or(0, |state| state.mesh.vertex_count),
+                )
                 .saturating_mul(std::mem::size_of::<super::Vertex>())
                 .saturating_mul(2),
         )?;
         let materials = super::MaterialRenderState::from_table(&loaded.materials);
         let prepared = Self {
             upload: super::wgpu::world::WorldUpload::new(&build.mesh, &materials),
+            alternate: build
+                .static_light_off
+                .as_ref()
+                .map(|state| super::wgpu::world::WorldUpload::new(&state.mesh, &materials)),
         };
         crate::engine::resources::checkpoint()?;
         Ok(prepared)
@@ -255,7 +266,8 @@ impl Renderer {
 
     /// Supplies the worker-packed CPU plan before the first GPU step.
     pub fn set_prepared_geometry(&mut self, geometry: PreparedGeometry) {
-        self.renderer.set_prepared_geometry(geometry.upload);
+        self.renderer
+            .set_prepared_geometry(geometry.upload, geometry.alternate);
     }
 
     /// Supplies worker-prepared immutable visibility before staged GPU upload.

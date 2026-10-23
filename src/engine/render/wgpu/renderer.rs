@@ -298,6 +298,11 @@ struct PreparedInstall {
     world: Option<WgpuWorldGeometry>,
     world_upload: Option<super::world::WorldUpload>,
     texture_cursor: usize,
+    texture_job: Option<super::texture::TextureJob>,
+    texture_ready: std::collections::VecDeque<super::texture::PreparedImage>,
+    texture_batch_end: usize,
+    upload_error: Option<String>,
+    auxiliary_sources: Option<std::collections::VecDeque<super::texture::TextureSource>>,
     world_textures: Option<WorldTextures>,
     world_materials: Option<WorldMaterials>,
     props: Option<PropUpload>,
@@ -308,6 +313,11 @@ struct PreparedInstall {
     /// True when `probes` must be uploaded instead of baking captures.
     precompiled_probes: bool,
     prepared_caustics: Option<super::caustics::PreparedCaustics>,
+    uploaded_caustics: Option<super::caustics::Caustics>,
+    uploaded_decals: Option<WgpuDecals>,
+    static_upload: Option<StaticBankUpload>,
+    static_geometry: Option<super::world::WorldUpload>,
+    uploaded_static_bank: Option<StaticLightBank>,
 }
 
 impl PreparedInstall {
@@ -340,7 +350,16 @@ enum UploadPhase {
     World,
     Textures,
     Materials,
+    Auxiliary,
     Props,
+    StaticWorld,
+    StaticTextures,
+    StaticMaterials,
+    StaticProps,
+    StaticDecals,
+    Caustics,
+    Decals,
+    Commit,
 }
 
 struct UploadedLevel {
@@ -350,6 +369,9 @@ struct UploadedLevel {
     world_textures: WorldTextures,
     world_materials: WorldMaterials,
     props: WgpuProps,
+    caustics: Option<super::caustics::Caustics>,
+    decals: Option<WgpuDecals>,
+    static_bank: Option<StaticLightBank>,
 }
 
 /// The inactive exact Static state; toggling swaps these already-uploaded banks.
@@ -764,6 +786,8 @@ pub struct WgpuRenderer {
     /// The GPU side of the character scene: shared index buffers, one mutable
     /// skinned vertex buffer per character and one environment per character.
     world_characters: Option<WgpuCharacters>,
+    character_skin_pipeline: Option<super::skinning::SkinPipeline>,
+    character_skin_job: Option<std::sync::mpsc::Receiver<super::skinning::SkinPipeline>>,
     /// The `CharacterScene::runtime_generation` the GPU side was last built
     /// from. A runtime spawn or despawn bumps the scene's generation;
     /// `sync_characters` rebuilds `world_characters` when this differs, so
@@ -1136,6 +1160,8 @@ impl WgpuRenderer {
             world_dynamic: None,
             characters: CharacterScene::new(),
             world_characters: None,
+            character_skin_pipeline: None,
+            character_skin_job: None,
             character_runtime_generation: 0,
             dynamic_lighting: None,
             dynamic_field: None,
@@ -3080,7 +3106,12 @@ impl WgpuRenderer {
             &mut ctx,
             &self.characters,
             self.world_characters.as_ref(),
+            self.character_skin_pipeline.clone(),
         ));
+        self.character_skin_pipeline = self
+            .world_characters
+            .as_ref()
+            .and_then(WgpuCharacters::prepared_pipeline);
         if let Some(characters) = self.world_characters.as_ref() {
             let stats = characters.stats();
             logging::info(format!(
@@ -3377,6 +3408,11 @@ impl WgpuRenderer {
             world: None,
             world_upload: None,
             texture_cursor: 0,
+            texture_job: None,
+            texture_ready: std::collections::VecDeque::new(),
+            texture_batch_end: 0,
+            upload_error: None,
+            auxiliary_sources: None,
             world_textures: None,
             world_materials: None,
             props: None,
@@ -3385,6 +3421,11 @@ impl WgpuRenderer {
             probes: crate::engine::package::world::ProbeCaptures::default(),
             precompiled_probes: false,
             prepared_caustics: None,
+            uploaded_caustics: None,
+            uploaded_decals: None,
+            static_upload: None,
+            static_geometry: None,
+            uploaded_static_bank: None,
         });
         #[cfg(feature = "visual-diagnostics")]
         self.trace_gpu_resources("install-started");
@@ -3393,9 +3434,11 @@ impl WgpuRenderer {
     pub(in crate::engine::render) fn set_prepared_geometry(
         &mut self,
         geometry: super::world::WorldUpload,
+        alternate: Option<super::world::WorldUpload>,
     ) {
         if let Some(pending) = &mut self.prepared_install {
             pending.world_upload = Some(geometry);
+            pending.static_geometry = alternate;
         }
     }
 
@@ -3461,9 +3504,7 @@ impl WgpuRenderer {
             }
             pending.upload_complete = None;
         }
-        if matches!(pending.phase, UploadPhase::Props)
-            && pending.prop_cursor >= pending.build.batches.len()
-        {
+        if matches!(pending.phase, UploadPhase::Commit) {
             return self.commit_prepared_install(pending);
         }
         let uploaded = !matches!(pending.phase, UploadPhase::Transport);
@@ -3471,6 +3512,10 @@ impl WgpuRenderer {
             std::env::var_os("PLACES_LOAD_TRACE").map(|_| std::time::Instant::now());
         let phase = pending.phase;
         self.upload_prepared_step(&mut pending);
+        if let Some(error) = pending.upload_error.take() {
+            self.mark_fatal(error);
+            return false;
+        }
         if let Some(started) = upload_started {
             logging::info(format!(
                 "[loading-upload] phase={phase:?} ms={:.3}",
@@ -3494,7 +3539,7 @@ impl WgpuRenderer {
         false
     }
 
-    fn upload_prepared_step(&self, pending: &mut PreparedInstall) {
+    fn upload_prepared_step(&mut self, pending: &mut PreparedInstall) {
         match pending.phase {
             UploadPhase::Transport => {
                 pending.prepare_transport();
@@ -3540,11 +3585,49 @@ impl WgpuRenderer {
                     pending.graphics.quality,
                     pending.graphics.lighting_quality,
                 ));
-                pending.phase = UploadPhase::Props;
+                pending.phase = UploadPhase::Auxiliary;
             }
+            UploadPhase::Auxiliary => self.upload_auxiliary_step(pending),
             UploadPhase::Props => {
                 self.upload_prop_step(pending);
             }
+            UploadPhase::StaticWorld => self.upload_static_world_step(pending),
+            UploadPhase::StaticTextures => self.upload_static_textures_step(pending),
+            UploadPhase::StaticMaterials => self.upload_static_materials_step(pending),
+            UploadPhase::StaticProps => self.upload_static_props_step(pending),
+            UploadPhase::StaticDecals => self.upload_static_decals_step(pending),
+            UploadPhase::Caustics => {
+                pending.uploaded_caustics = Some(super::caustics::Caustics::upload_prepared(
+                    &self.device,
+                    &self.queue,
+                    &mut pending.textures,
+                    &pending.loaded.level,
+                    &pending.build.lighting,
+                    pending.graphics.quality,
+                    pending.prepared_caustics.take(),
+                ));
+                pending.phase = UploadPhase::Decals;
+            }
+            UploadPhase::Decals => {
+                if let Some(pipeline) = &self.decal_pipeline {
+                    let root = crate::engine::assets::resolve_asset_root();
+                    pending.uploaded_decals = Some(WgpuDecals::upload(
+                        &self.device,
+                        &self.queue,
+                        pipeline.sheet_layout(),
+                        &pending.textures,
+                        super::decals::DecalUploadInputs {
+                            mesh: &pending.build.mesh,
+                            level: &pending.loaded.level,
+                            catalog: pending.loaded.catalog.assets(),
+                            asset_root: root.as_deref(),
+                        },
+                        pending.graphics.quality,
+                    ));
+                }
+                pending.phase = UploadPhase::Commit;
+            }
+            UploadPhase::Commit => {}
         }
     }
 
@@ -3579,7 +3662,34 @@ impl WgpuRenderer {
         }
     }
 
+    fn advance_texture_job(&self, pending: &mut PreparedInstall) -> bool {
+        if let Some(image) = pending.texture_ready.pop_front() {
+            pending
+                .textures
+                .install_prepared_image(&self.device, &self.queue, image);
+            if pending.texture_ready.is_empty() && matches!(pending.phase, UploadPhase::Textures) {
+                pending.texture_cursor = pending.texture_batch_end;
+            }
+            return true;
+        }
+        if let Some(job) = &pending.texture_job {
+            match job.poll() {
+                Ok(Some(images)) => {
+                    pending.texture_ready = images.into();
+                    pending.texture_job = None;
+                }
+                Ok(None) => {}
+                Err(error) => pending.upload_error = Some(error),
+            }
+            return true;
+        }
+        false
+    }
+
     fn upload_texture_step(&self, pending: &mut PreparedInstall) {
+        if self.advance_texture_job(pending) {
+            return;
+        }
         let table = &pending.loaded.materials;
         let end = pending
             .texture_cursor
@@ -3590,8 +3700,8 @@ impl WgpuRenderer {
             .get(pending.texture_cursor..end)
             .filter(|sources| !sources.is_empty())
         {
-            // Preserve the existing parallel mip preparation, bounded to four
-            // source images / eight semantic requests (at most 43 MiB scratch).
+            // Prepare at most four source images / eight semantic requests
+            // off the UI thread (at most 43 MiB fitted mip scratch).
             let mut requests = Vec::with_capacity(8);
             for (offset, texture) in sources.iter().enumerate() {
                 let slot = u32::try_from(pending.texture_cursor.saturating_add(offset))
@@ -3614,25 +3724,41 @@ impl WgpuRenderer {
                         }
                     };
                     if used {
-                        requests.push(super::texture::TextureUploadRequest {
+                        requests.push(super::texture::TextureSource {
                             key: super::texture::TextureKey::new(
                                 texture,
                                 semantic,
                                 pending.graphics.quality,
                             ),
-                            image: &texture.image,
+                            image: Arc::clone(&texture.image),
                             origin: texture.origin,
                         });
                     }
                 }
             }
-            let _uploaded =
-                pending
+            requests.retain(|request| {
+                !pending
                     .textures
-                    .get_or_upload_batch(&self.device, &self.queue, &requests);
-            pending.texture_cursor = end;
+                    .upload_is_cached(&request.key, request.origin)
+            });
+            if requests.is_empty() {
+                pending.texture_cursor = end;
+                return;
+            }
+            match super::texture::TextureJob::start(requests) {
+                Ok(Some(job)) => {
+                    pending.texture_job = Some(job);
+                    pending.texture_batch_end = end;
+                }
+                Ok(None) => {}
+                Err(error) => pending.upload_error = Some(error),
+            }
             return;
         }
+        self.upload_fixture_texture_step(pending);
+    }
+
+    fn upload_fixture_texture_step(&self, pending: &mut PreparedInstall) {
         let sheet_cursor = pending
             .texture_cursor
             .saturating_sub(pending.loaded.materials.textures().len());
@@ -3732,6 +3858,17 @@ impl WgpuRenderer {
                 break;
             }
         }
+        if pending.prop_cursor >= pending.build.batches.len() {
+            pending.phase = UploadPhase::StaticWorld;
+        }
+    }
+
+    fn publish_prepared_graphics(&mut self, build: Arc<LevelBuild>, graphics: GraphicsConfig) {
+        self.retained_build = Some(build);
+        self.installed_lightmaps = graphics.lightmaps;
+        self.graphics_applied = graphics;
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resources("install-committed");
     }
 
     fn commit_prepared_install(&mut self, pending: PreparedInstall) -> bool {
@@ -3744,24 +3881,34 @@ impl WgpuRenderer {
             textures,
             graphics,
             atlas,
-            atlas_cursor: _,
             fixture_sheets,
             world,
-            world_upload: _,
-            texture_cursor: _,
             world_textures,
             world_materials,
             props,
             probes,
             precompiled_probes,
             prepared_caustics,
-            materials: _,
+            uploaded_caustics,
+            uploaded_decals,
+            uploaded_static_bank,
             blacklights,
             uv_transport,
+            materials: _,
             transport_prepared: _,
             upload_complete: _,
+            atlas_cursor: _,
+            world_upload: _,
+            texture_cursor: _,
+            texture_job: _,
+            texture_ready: _,
+            texture_batch_end: _,
+            upload_error: _,
+            auxiliary_sources: _,
             prop_cursor: _,
             phase: _,
+            static_upload: _,
+            static_geometry: _,
         } = pending;
         let (
             Some(prepared_atlas),
@@ -3802,6 +3949,9 @@ impl WgpuRenderer {
             world_textures: prepared_textures,
             world_materials: prepared_materials,
             props: prepared_props.finish(),
+            caustics: uploaded_caustics,
+            decals: uploaded_decals,
+            static_bank: uploaded_static_bank,
         };
         self.blacklights = blacklights;
         self.dynamic_transport = uv_transport;
@@ -3820,11 +3970,7 @@ impl WgpuRenderer {
         if inherit_playback {
             self.animation_seconds = animation_seconds;
         }
-        self.retained_build = Some(installed_build);
-        self.installed_lightmaps = graphics.lightmaps;
-        self.graphics_applied = graphics;
-        #[cfg(feature = "visual-diagnostics")]
-        self.trace_gpu_resources("install-committed");
+        self.publish_prepared_graphics(installed_build, graphics);
         true
     }
 
@@ -3849,12 +3995,26 @@ impl WgpuRenderer {
         precompiled_probes: Option<crate::engine::package::world::ProbeCaptures>,
         prepared_caustics: Option<super::caustics::PreparedCaustics>,
     ) -> Arc<LevelBuild> {
+        let trace_install = std::env::var_os("PLACES_LOAD_TRACE").is_some();
+        let mut install_step = std::time::Instant::now();
+        let mut mark = |name: &str| {
+            if trace_install {
+                logging::info(format!(
+                    "[loading-commit] stage={name} ms={:.3}",
+                    install_step.elapsed().as_secs_f64() * 1_000.0_f64
+                ));
+                install_step = std::time::Instant::now();
+            }
+        };
         self.invalidate_frame();
         let (characters, uploaded) = prepared.map_or((None, None), |(characters, uploaded)| {
             (Some(characters), Some(uploaded))
         });
 
         let preuploaded = uploaded.is_some();
+        let mut uploaded_caustics = None;
+        let mut uploaded_decals = None;
+        let mut uploaded_static_bank = None;
         let (
             uploaded_atlas,
             uploaded_sheets,
@@ -3863,6 +4023,9 @@ impl WgpuRenderer {
             uploaded_materials,
             uploaded_props,
         ) = uploaded.map_or((None, None, None, None, None, None), |uploaded_level| {
+            uploaded_caustics = uploaded_level.caustics;
+            uploaded_decals = uploaded_level.decals;
+            uploaded_static_bank = uploaded_level.static_bank;
             (
                 Some(uploaded_level.atlas),
                 Some(uploaded_level.fixture_sheets),
@@ -3943,6 +4106,7 @@ impl WgpuRenderer {
                 dynamic: None,
             }
         });
+        mark("transport");
         let materials = MaterialRenderState::from_table(&loaded.materials);
         let fixture_sheets = uploaded_sheets.unwrap_or_else(|| self.upload_fixture_sheets(loaded));
         let world = uploaded_world.unwrap_or_else(|| {
@@ -4002,6 +4166,7 @@ impl WgpuRenderer {
                 },
             )
         });
+        mark("world");
         self.log_level_resolution(&world, &world_textures, &world_materials);
         // Claim every placed skinned prop for the character path before the
         // static prop upload: the GPU prop batches of a claimed model are
@@ -4128,6 +4293,7 @@ impl WgpuRenderer {
             // dropped at the next level change.
             self.effects = EffectScene::build(&loaded.level, &loaded.materials);
         }
+        mark("dynamic-sources");
         self.spawn_doors();
         let _update_stats = self.refresh_dynamic_lighting(0.0);
         if let Some(lighting) = self.dynamic_lighting.as_ref() {
@@ -4141,6 +4307,7 @@ impl WgpuRenderer {
                     .map(|_| &self.dynamic_visibility),
             );
         }
+        mark("dynamic-lighting");
         self.world_dynamic = None;
         // The previous level's (or previous quality's) character GPU state is
         // dropped before the probe bake so the bake cannot draw stale
@@ -4167,26 +4334,29 @@ impl WgpuRenderer {
                 .first()
                 .map(|probe| probe.face_size),
         );
-        let mut caustics = if let Some(cpu) = prepared_caustics {
-            super::caustics::Caustics::upload_prepared(
-                &self.device,
-                &self.queue,
-                &mut self.textures,
-                &loaded.level,
-                &build.lighting,
-                self.quality,
-                Some(cpu),
-            )
-        } else {
-            super::caustics::Caustics::upload(
-                &self.device,
-                &self.queue,
-                &mut self.textures,
-                &loaded.level,
-                &build.lighting,
-                self.quality,
-            )
-        };
+        mark("fog");
+        let mut caustics = uploaded_caustics.unwrap_or_else(|| {
+            if let Some(cpu) = prepared_caustics {
+                super::caustics::Caustics::upload_prepared(
+                    &self.device,
+                    &self.queue,
+                    &mut self.textures,
+                    &loaded.level,
+                    &build.lighting,
+                    self.quality,
+                    Some(cpu),
+                )
+            } else {
+                super::caustics::Caustics::upload(
+                    &self.device,
+                    &self.queue,
+                    &mut self.textures,
+                    &loaded.level,
+                    &build.lighting,
+                    self.quality,
+                )
+            }
+        });
         if !level_changed {
             caustics.inherit_runtime_state(&self.caustics, &self.queue);
         }
@@ -4196,6 +4366,7 @@ impl WgpuRenderer {
             self.animation_seconds,
             self.flashlight.is_some(),
         );
+        mark("caustics");
         self.environment = Some(self.create_environment());
         self.world = Some(world);
         self.world_props = Some(world_props);
@@ -4208,14 +4379,28 @@ impl WgpuRenderer {
         self.prepare_switchable_lights(&loaded.level);
         // The decal pass runs inside the scene body, so its pipeline (and the
         // reflection-format one) must exist before any probe bake.
+        mark("bindings");
         self.ensure_world_pipeline();
-        self.upload_decals(&build.mesh, &loaded.level);
-        self.prepare_static_light_bank(&build, loaded);
+        mark("pipelines");
+        if let Some(decals) = uploaded_decals {
+            self.bind_decal_caustics();
+            self.decals = Some(decals);
+        } else {
+            self.upload_decals(&build.mesh, &loaded.level);
+        }
+        mark("decals");
+        if preuploaded {
+            self.static_light_bank = uploaded_static_bank;
+        } else {
+            self.prepare_static_light_bank(&build, loaded);
+        }
+        mark("static-bank");
         self.upload_sky(&loaded.level);
         // Reflection probes are already captured for a compiled world; a
         // developer-tool install (the offline compiler itself) bakes them here,
         // when the world, its textures, its materials and its decals are all
         // resident.
+        mark("sky");
         if let Some(probes) = precompiled_probes {
             self.upload_packaged_probes(&probes);
             self.packaged_probes = Some(probes);
@@ -4228,15 +4413,19 @@ impl WgpuRenderer {
         // and binding those while they are being captured is a validation
         // error. A quality rebuild keeps the neutral character scene; the GPU
         // side is re-uploaded against the new level resources.
+        mark("probes");
         self.upload_characters_gpu();
         // A quality rebuild keeps the neutral dynamic scene; re-upload it
         // against the new level resources so no draw references a stale
         // resource.
+        mark("characters");
         self.upload_dynamic();
         // The effect scene rides the same lifecycle: its GPU buffers and
         // sheets are rebuilt against the resources just installed, while the
         // neutral emitters survive a quality rebuild of the same level.
+        mark("dynamic");
         self.upload_effects();
+        mark("effects");
         self.installed_quality = self.quality;
         #[cfg(feature = "visual-diagnostics")]
         self.refresh_probe_visualization();
@@ -4390,12 +4579,7 @@ impl WgpuRenderer {
         }
     }
 
-    /// Uploads the level's decal batches against the current pipelines.
-    fn upload_decals(
-        &mut self,
-        mesh: &crate::engine::render::common::mesh::LevelMesh,
-        level: &crate::engine::level::LevelDef,
-    ) {
+    fn bind_decal_caustics(&mut self) {
         for pipeline in [
             &mut self.decal_pipeline,
             &mut self.decal_reflection_pipeline,
@@ -4406,6 +4590,15 @@ impl WgpuRenderer {
         {
             pipeline.bind_caustics(&self.device, &self.caustics, &self.textures);
         }
+    }
+
+    /// Uploads the level's decal batches against the current pipelines.
+    fn upload_decals(
+        &mut self,
+        mesh: &crate::engine::render::common::mesh::LevelMesh,
+        level: &crate::engine::level::LevelDef,
+    ) {
+        self.bind_decal_caustics();
         let Some(pipeline) = self.decal_pipeline.as_ref() else {
             return;
         };
@@ -7339,4 +7532,343 @@ fn upload_probe_chain(
         }
     }
     u32::try_from(chain.len()).map_err(|error| format!("probe chain is too long: {error}"))
+}
+
+/// The immutable alternate bank shares images and yields between upload families.
+struct StaticBankUpload {
+    state: Arc<crate::engine::render::common::api::StaticLightState>,
+    geometry: Option<super::world::WorldUpload>,
+    world: Option<WgpuWorldGeometry>,
+    textures: Option<WorldTextures>,
+    materials: Option<WorldMaterials>,
+    props: Option<PropUpload>,
+    prop_cursor: usize,
+}
+
+impl WgpuRenderer {
+    fn upload_static_world_step(&self, pending: &mut PreparedInstall) {
+        if pending.static_upload.is_none() {
+            let Some(state) = pending.build.static_light_off.as_ref() else {
+                pending.phase = UploadPhase::Caustics;
+                return;
+            };
+            pending.static_upload = Some(StaticBankUpload {
+                state: Arc::clone(state),
+                geometry: pending.static_geometry.take(),
+                world: None,
+                textures: None,
+                materials: None,
+                props: None,
+                prop_cursor: 0,
+            });
+        }
+        let Some(bank) = pending.static_upload.as_mut() else {
+            return;
+        };
+        if bank.geometry.is_none() {
+            bank.geometry = Some(super::world::WorldUpload::new(
+                &bank.state.mesh,
+                &pending.materials,
+            ));
+            return;
+        }
+        let visibility = pending.uv_transport.as_deref().map(|scene| {
+            crate::engine::render::common::blacklight::BlacklightVisibility {
+                sources: &pending.blacklights,
+                scene,
+                dynamic: None,
+            }
+        });
+        if bank.geometry.as_mut().is_some_and(|geometry| {
+            geometry.advance(
+                &self.device,
+                &self.queue,
+                visibility,
+                Some((&pending.loaded.level, &pending.loaded.materials)),
+            )
+        }) {
+            bank.world = bank.geometry.take().map(super::world::WorldUpload::finish);
+            pending.phase = UploadPhase::StaticTextures;
+        }
+    }
+
+    fn upload_static_textures_step(&self, pending: &mut PreparedInstall) {
+        if let Some(bank) = &mut pending.static_upload
+            && let Some(world) = &bank.world
+        {
+            bank.textures = Some(WorldTextures::resolve(
+                &mut pending.textures,
+                &self.device,
+                &self.queue,
+                world.draws(),
+                &pending.materials,
+                &pending.loaded.materials,
+                &pending.fixture_sheets,
+                pending.graphics.quality,
+            ));
+        }
+        pending.phase = UploadPhase::StaticMaterials;
+    }
+
+    fn upload_static_materials_step(&self, pending: &mut PreparedInstall) {
+        let animations = Self::resolve_animations(&pending.loaded.level, &pending.loaded.materials);
+        let reflections: Vec<_> = pending
+            .loaded
+            .materials
+            .entries()
+            .iter()
+            .map(|entry| entry.reflection)
+            .collect();
+        let routing = routing_from_mesh(&pending.build.mesh, &reflections, reflections.len());
+        if let Some(bank) = &mut pending.static_upload
+            && let Some(world) = &bank.world
+        {
+            bank.materials = Some(WorldMaterials::resolve(
+                &self.device,
+                &self.queue,
+                &mut pending.textures,
+                &self.material_layout,
+                WorldMaterialInputs {
+                    draws: world.draws(),
+                    materials: &pending.materials,
+                    table: &pending.loaded.materials,
+                    level: pending.graphics.quality,
+                    lighting: pending.graphics.lighting_quality,
+                    animations: &animations.materials,
+                    fixture_animations: &animations.fixtures,
+                    routing: &routing,
+                },
+            ));
+            bank.props = Some(PropUpload::new(
+                pending.characters.claimed_models(),
+                pending.graphics.quality,
+                pending.graphics.lighting_quality,
+            ));
+        }
+        pending.phase = UploadPhase::StaticProps;
+    }
+
+    fn upload_static_props_step(&self, pending: &mut PreparedInstall) {
+        let Some(bank) = &mut pending.static_upload else {
+            return;
+        };
+        let began = std::time::Instant::now();
+        while let Some(batch) = bank.state.batches.get(bank.prop_cursor) {
+            if let Some(props) = &mut bank.props {
+                let visibility = pending.uv_transport.as_deref().map(|scene| {
+                    crate::engine::render::common::blacklight::BlacklightVisibility {
+                        sources: &pending.blacklights,
+                        scene,
+                        dynamic: None,
+                    }
+                });
+                props.push_batch_with_blacklight(
+                    &self.device,
+                    &self.queue,
+                    &mut pending.textures,
+                    &self.material_layout,
+                    batch,
+                    visibility,
+                );
+            }
+            bank.prop_cursor = bank.prop_cursor.saturating_add(1);
+            if began.elapsed() >= std::time::Duration::from_millis(4) {
+                break;
+            }
+        }
+        if bank.prop_cursor >= bank.state.batches.len() {
+            pending.phase = UploadPhase::StaticDecals;
+        }
+    }
+
+    fn upload_static_decals_step(&self, pending: &mut PreparedInstall) {
+        let Some(bank) = pending.static_upload.take() else {
+            return;
+        };
+        let decals = self.decal_pipeline.as_ref().map(|pipeline| {
+            let root = crate::engine::assets::resolve_asset_root();
+            WgpuDecals::upload(
+                &self.device,
+                &self.queue,
+                pipeline.sheet_layout(),
+                &pending.textures,
+                super::decals::DecalUploadInputs {
+                    mesh: &bank.state.mesh,
+                    level: &pending.loaded.level,
+                    catalog: pending.loaded.catalog.assets(),
+                    asset_root: root.as_deref(),
+                },
+                pending.graphics.quality,
+            )
+        });
+        let (Some(world), Some(textures), Some(materials), Some(props)) =
+            (bank.world, bank.textures, bank.materials, bank.props)
+        else {
+            pending.upload_error = Some("Incomplete alternate Static GPU preparation".into());
+            return;
+        };
+        pending.uploaded_static_bank = Some(StaticLightBank {
+            fixtures: bank.state.fixtures.clone(),
+            off_active: false,
+            world: Some(world),
+            props: Some(props.finish()),
+            textures: Some(textures),
+            materials: Some(materials),
+            decals,
+        });
+        pending.phase = UploadPhase::Caustics;
+    }
+}
+
+impl WgpuRenderer {
+    /// A device-global immutable shader survives level supersession. At most one
+    /// compilation worker exists for this renderer and owns no map or SDL state.
+    fn poll_character_pipeline(&mut self) -> Result<bool, String> {
+        if self.character_skin_pipeline.is_some() {
+            return Ok(true);
+        }
+        if let Some(pipeline) = self
+            .world_characters
+            .as_ref()
+            .and_then(WgpuCharacters::prepared_pipeline)
+        {
+            self.character_skin_pipeline = Some(pipeline);
+            return Ok(true);
+        }
+        if let Some(job) = &self.character_skin_job {
+            return match job.try_recv() {
+                Ok(pipeline) => {
+                    self.character_skin_pipeline = Some(pipeline);
+                    self.character_skin_job = None;
+                    Ok(true)
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => Ok(false),
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    Err("Character pipeline preparation stopped".into())
+                }
+            };
+        }
+        let device = self.device.clone();
+        let (send, receive) = std::sync::mpsc::channel();
+        let _worker = std::thread::Builder::new()
+            .name("places-character-pipeline".into())
+            .spawn(move || {
+                let started = std::time::Instant::now();
+                let pipeline = super::skinning::SkinPipeline::new(&device);
+                if std::env::var_os("PLACES_LOAD_TRACE").is_some() {
+                    logging::info(format!(
+                        "[loading-shader-worker] skin_pipeline_ms={:.3}",
+                        started.elapsed().as_secs_f64() * 1_000.0_f64
+                    ));
+                }
+                let _delivered = send.send(pipeline);
+            })
+            .map_err(|error| format!("Cannot prepare character pipeline: {error}"))?;
+        self.character_skin_job = Some(receive);
+        Ok(false)
+    }
+
+    fn auxiliary_texture_sources(
+        pending: &PreparedInstall,
+    ) -> std::collections::VecDeque<super::texture::TextureSource> {
+        use super::texture::{TextureKey, TextureSemantic, TextureSource, TextureWrap};
+        let mut seen = std::collections::HashSet::new();
+        let mut sources = std::collections::VecDeque::new();
+        let mut add = |image: &Arc<crate::engine::loader::RawImage>| {
+            if seen.insert(Arc::as_ptr(image)) {
+                sources.push_back(TextureSource {
+                    key: TextureKey {
+                        logical: super::texture::model_image_key(image),
+                        semantic: TextureSemantic::BaseColorDisplay,
+                        class: TextureClass::Prop,
+                        level: pending.graphics.quality,
+                        wrap: TextureWrap::Clamp,
+                    },
+                    image: Arc::clone(image),
+                    origin: crate::engine::materials::TextureOrigin::Catalog,
+                });
+            }
+        };
+        for character in pending
+            .characters
+            .characters()
+            .iter()
+            .chain(pending.characters.runtime_characters())
+        {
+            let model = &character.asset().model;
+            for (index, image) in model.textures.iter().enumerate() {
+                if !super::material::ultraviolet_only_texture(
+                    index,
+                    model.submeshes.iter().map(|part| {
+                        (
+                            part.texture,
+                            part.emission.mask,
+                            part.response.fluorescence.mask,
+                        )
+                    }),
+                ) {
+                    add(image);
+                }
+            }
+            if let Some(image) = character.texture() {
+                add(image);
+            }
+        }
+        for def in &pending.loaded.level.doors {
+            if let Some(models) = crate::engine::render::common::doors::build_door_models(
+                def,
+                &pending.loaded.materials,
+                pending.loaded.level.door_frame(def),
+            ) {
+                for image in &models.textures {
+                    add(image);
+                }
+            }
+        }
+        sources
+    }
+
+    fn upload_auxiliary_step(&mut self, pending: &mut PreparedInstall) {
+        if pending.auxiliary_sources.is_none() {
+            pending.auxiliary_sources = Some(Self::auxiliary_texture_sources(pending));
+            return;
+        }
+        if self.advance_texture_job(pending) {
+            return;
+        }
+        let Some(sources) = pending.auxiliary_sources.as_mut() else {
+            return;
+        };
+        while sources.front().is_some_and(|source| {
+            pending
+                .textures
+                .upload_is_cached(&source.key, source.origin)
+        }) {
+            drop(sources.pop_front());
+        }
+        if sources.is_empty() {
+            let ready = if pending.characters.is_empty() {
+                Ok(true)
+            } else {
+                self.poll_character_pipeline()
+            };
+            match ready {
+                Ok(true) => pending.phase = UploadPhase::Props,
+                Ok(false) => {}
+                Err(error) => pending.upload_error = Some(error),
+            }
+            return;
+        }
+        let batch = sources.iter().take(4).cloned().collect();
+        match super::texture::TextureJob::start(batch) {
+            Ok(Some(job)) => {
+                pending.texture_job = Some(job);
+                for _ in 0_usize..4 {
+                    drop(sources.pop_front());
+                }
+            }
+            Ok(None) => {}
+            Err(error) => pending.upload_error = Some(error),
+        }
+    }
 }

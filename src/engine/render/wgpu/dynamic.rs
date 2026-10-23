@@ -157,6 +157,7 @@ impl WgpuDynamic {
         if scene.is_empty() {
             return value;
         }
+        let mut image_keys = std::collections::HashMap::new();
         for mesh in scene.meshes() {
             let mut textures: Vec<Arc<GpuTexture>> = Vec::with_capacity(mesh.textures.len());
             for (index, image) in mesh.textures.iter().enumerate() {
@@ -173,11 +174,13 @@ impl WgpuDynamic {
                     textures.push(ctx.cache.fallback());
                     continue;
                 }
-                let logical = super::texture::model_image_key(image);
+                let logical = image_keys
+                    .entry(Arc::as_ptr(image))
+                    .or_insert_with(|| super::texture::model_image_key(image));
                 let (outcome, texture) = ctx.cache.get_or_upload_fitted(
                     ctx.device,
                     ctx.queue,
-                    &logical,
+                    logical,
                     image.as_ref(),
                     TextureClass::Prop,
                     TextureOrigin::Catalog,

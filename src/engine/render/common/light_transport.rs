@@ -1320,8 +1320,8 @@ pub(super) fn dynamic_mesh_visibility_scene(
                 index_count: submesh.index_count,
             })
             .collect(),
-        vertices: mesh.vertices.clone(),
-        indices: mesh.indices.clone(),
+        vertices: (mesh.vertices.clone()).into(),
+        indices: (mesh.indices.clone()).into(),
         bounds: mesh.bounds,
     };
     let mut triangles = Vec::new();
@@ -1345,7 +1345,7 @@ pub(in crate::engine::render) fn character_visibility_scene(
     textures: &[std::sync::Arc<RawImage>],
 ) -> Option<TransportScene> {
     let model = &character.asset().model;
-    let vertices = model
+    let vertices: Vec<_> = model
         .vertices
         .iter()
         .enumerate()
@@ -1387,8 +1387,8 @@ pub(in crate::engine::render) fn character_visibility_scene(
                 }
             })
             .collect(),
-        vertices,
-        indices: model.indices.clone(),
+        vertices: vertices.into(),
+        indices: (model.indices.clone()).into(),
         bounds: character.world_bounds(),
     };
     let mut triangles = Vec::new();

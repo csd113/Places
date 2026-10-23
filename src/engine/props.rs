@@ -337,8 +337,10 @@ impl PropAssets {
         // to the new preview. Old scenes keep their own handles until commit.
         self.character_textures
             .retain(|id, _| appearances.contains(id.as_str()));
-        self.models.retain(|path, _| paths.contains(path));
-        self.inputs.retain(|path, _| paths.contains(path));
+        self.models
+            .retain(|path, asset| paths.contains(path) && asset.is_ok());
+        self.inputs
+            .retain(|path, input| paths.contains(path) && input.is_ok());
         self.model_identities.retain(|path, _| paths.contains(path));
         self.reported_failures.retain(|path| paths.contains(path));
         self.reported_budget_warnings
@@ -366,7 +368,11 @@ impl PropAssets {
         {
             self.report_budget_warning(model_path, &warning);
         }
-        drop(self.models.insert(model_path.to_string(), result.clone()));
+        // A parse interrupted after the initial checkpoint is retryable too.
+        // Derived lighting owns a clone of this cache across editor requests.
+        if crate::engine::progress::check_cancelled().is_ok() {
+            drop(self.models.insert(model_path.to_string(), result.clone()));
+        }
         result
     }
 

@@ -52,12 +52,18 @@ fn active() -> Option<Arc<dyn Reporter>> {
 
 pub(crate) fn cancellation_flag() -> Arc<AtomicBool> {
     active().map_or_else(
-        || Arc::new(AtomicBool::new(false)),
+        || {
+            crate::engine::resources::current().map_or_else(
+                || Arc::new(AtomicBool::new(false)),
+                |budget| Arc::clone(&budget.cancelled),
+            )
+        },
         |reporter| reporter.cancellation_flag(),
     )
 }
 
 pub(crate) fn check_cancelled() -> Result<(), String> {
+    crate::engine::resources::checkpoint()?;
     if active().is_some_and(|reporter| reporter.cancellation_flag().load(Ordering::Relaxed)) {
         Err("build interrupted".into())
     } else {

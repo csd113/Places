@@ -322,6 +322,11 @@ impl LevelBuild {
                     .saturating_add(allocation_bytes(&range.indices));
             }
             for batch in &state.batches {
+                bytes = bytes.saturating_add(
+                    std::mem::size_of::<Vec<super::Vertex>>()
+                        .saturating_mul(2)
+                        .saturating_add(std::mem::size_of::<usize>().saturating_mul(4)),
+                );
                 bytes = bytes
                     .saturating_add(batch.model.capacity())
                     .saturating_add(allocation_bytes(&batch.vertices))
@@ -332,6 +337,11 @@ impl LevelBuild {
             }
         }
         for batch in &self.batches {
+            bytes = bytes.saturating_add(
+                std::mem::size_of::<Vec<super::Vertex>>()
+                    .saturating_mul(2)
+                    .saturating_add(std::mem::size_of::<usize>().saturating_mul(4)),
+            );
             bytes = bytes
                 .saturating_add(batch.model.capacity())
                 .saturating_add(allocation_bytes(&batch.vertices))
@@ -448,8 +458,58 @@ fn authoring_preview(
     materials: &MaterialTable,
     neutral: bool,
 ) -> LevelBuild {
-    let (mut mesh, mut batches, lighting, timings) =
-        build_level_geometry_timed(level, catalog, assets, materials);
+    authoring_preview_parts(level, catalog, assets, materials, neutral, false, None).0
+}
+
+/// Reuses unchanged Inspect prop batches and avoids lighting overwritten RGB.
+pub fn build_authoring_preview_reusing(
+    level: &LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    materials: &MaterialTable,
+    neutral: bool,
+    batches: Option<&[PropMeshBatch]>,
+) -> (LevelBuild, bool) {
+    authoring_preview_parts(level, catalog, assets, materials, neutral, true, batches)
+}
+
+fn authoring_preview_parts(
+    level: &LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    materials: &MaterialTable,
+    neutral: bool,
+    optimize: bool,
+    reused: Option<&[PropMeshBatch]>,
+) -> (LevelBuild, bool) {
+    let started = std::time::Instant::now();
+    let lighting = LevelLighting::bake(level);
+    let lighting_millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
+    let surfaces = LevelSurfaces::new(level);
+    let props_started = std::time::Instant::now();
+    let (mut batches, fallbacks) = reused.map_or_else(
+        || {
+            if neutral && optimize {
+                super::props::resolve_prop_instances_preview(
+                    level, catalog, assets, &lighting, &surfaces, materials,
+                )
+            } else {
+                resolve_prop_instances(level, catalog, assets, &lighting, &surfaces, materials)
+            }
+        },
+        |previous| (previous.to_vec(), Vec::new()),
+    );
+    let complete_props = fallbacks.is_empty();
+    let props_millis = props_started.elapsed().as_secs_f64() * 1_000.0_f64;
+    let surfaces_started = std::time::Instant::now();
+    let mut mesh = build_level_geometry_mesh_with_fixture_models(
+        level, catalog, &fallbacks, &lighting, materials, None, &batches,
+    );
+    let timings = BuildTimings {
+        lighting_millis,
+        props_millis,
+        surfaces_millis: surfaces_started.elapsed().as_secs_f64() * 1_000.0,
+    };
     // A cutaway inspection view retains roof ownership for walls and fixtures,
     // while omitting only the ceiling draw ranges from the editor's GPU copy.
     mesh.ranges
@@ -461,24 +521,29 @@ fn authoring_preview(
         for range in &mut mesh.ranges {
             illuminate_preview_vertices(&mut range.vertices);
         }
-        for batch in &mut batches {
-            illuminate_preview_vertices(&mut batch.vertices);
+        if reused.is_none() {
+            for batch in &mut batches {
+                illuminate_preview_vertices(Arc::make_mut(&mut batch.vertices).as_mut_slice());
+            }
         }
     }
-    LevelBuild {
-        mesh,
-        batches,
-        static_light_off: None,
-        lighting,
-        timings,
-        lightmaps: None,
-        probes: None,
-        lightmap_failure: None,
-        lightmap_millis: 0.0,
-    }
+    (
+        LevelBuild {
+            mesh,
+            batches,
+            static_light_off: None,
+            lighting,
+            timings,
+            lightmaps: None,
+            probes: None,
+            lightmap_failure: None,
+            lightmap_millis: 0.0,
+        },
+        complete_props,
+    )
 }
 
-fn illuminate_preview_vertices(vertices: &mut [super::Vertex]) {
+pub(super) fn illuminate_preview_vertices(vertices: &mut [super::Vertex]) {
     let direction = glam::Vec3::new(-0.35, 0.8, 0.45).normalize();
     for vertex in vertices {
         let shade = 0.4_f32.mul_add(

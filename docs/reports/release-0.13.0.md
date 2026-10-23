@@ -6,8 +6,9 @@ stage; earlier next-stage statements are historical handoffs. Raw local receipts
 and direct binaries remain outside `target` in their original stage directories.
 No main merge or release is implied by this staging report.
 
-The [latest bake-progress handoff](#editor-bake-progress-and-queue-handoff) records
-the real editor bar, targeted Windows acceptance and the revised sequential queue.
+The [latest pass A handoff](#editor-preview-and-install-pass-a---windows-2026-10-23) records
+preview reuse, staged installation and matched Windows evidence. The real editor
+bake-progress bar is retained.
 Final combined verification and cleanup follow the newly approved passes. Earlier
 final/next-stage statements remain historical cohort records; macOS FPS gains
 remain inconclusive and Linux remains unverified.
@@ -6465,3 +6466,228 @@ queue custody, SYSTEM-required-only, expiry **2026-10-24 17:57:20 UTC**. No supp
 stop file is created and no permanent power/security setting is changed. Final
 commit/remote/clean status and writer release are recorded in the ownership handoff.
 No later pass, CI wait, main merge, release, force push or version bump occurs here.
+
+## Editor preview and install pass A - Windows, 2026-10-23
+
+Pass A starts from clean, remote-verified
+`44b6c07dfd6090447a614360e8a41d303d172de8` on `0.13.0-staging`.
+The 1,270-object Lantern Hollow source and the previously preserved Arcade package
+were reused. Original fixtures, earlier failures, native receipts and binaries
+remain intact. New evidence is outside `target` at
+`C:\Users\Connor Dawkins\Documents\Codex\2026-10-23\task-7\pass-a-evidence`;
+the validation root's `optimization-pass-a/` index points to it.
+
+Inspect used about 4.75–4.87 seconds lighting prop vertices whose RGB the same
+preview immediately overwrote with studio shading. The new path keeps the exact
+geometry, normals, UVs, alpha, source albedo, tint and final studio RGB while
+skipping those discarded light samples. Environment keeps its authored lighting.
+One previous complete build can be shared for unchanged geometry/metadata;
+unaffected Inspect prop buffers can be shared across architecture edits. The
+optional owner is limited to a quarter of the existing CPU admission budget,
+capped at 512 MiB; this is one prior scene, with no history. Mutable lighting
+uses copy-on-write buffers. Larger builds reuse only a weak reference to an already live display or queued
+result, so an abandoned scene can be collected without a cache owner.
+
+Reuse keys include source geometry, supports, fixture/model identities, material
+metadata and resolved texture identities. Model GLB and character appearance PNG
+bytes are checked on each request. Failed and cancelled loads retry, and cancelled
+model/occluder preparation cannot publish a partial reusable owner. A changed
+lighting/material/geometry input invalidates the relevant prepared result.
+Picking bounds publish with the installed scene; viewport picking waits during
+preparation while the scene list and inspector remain available.
+
+The existing texture stage now runs the identical CPU mip algorithm in one
+bounded process-wide batch, then installs one ready sheet per handler. The same
+path prewarms character/door sheets. A device-only character compute pipeline is
+prepared once off the UI thread and retained for that renderer. The alternate
+Static-light bank now yields through world slices, textures/materials, prop
+batches and decals, using worker-packed geometry. Caustics and primary decals
+also prepare before the final commit. Superseding a request drops its pending
+ownership, preserves the displayed scene and uses the existing upload fence;
+cancelled mip jobs finish at most their current bounded sheet without a UI join.
+The existing coalescing, generation checks, unchanged-frame suppression,
+256-vertex slices, soft 4 ms quantum and texture admission were retained.
+
+Matched native editor runs use the same 1440x816 drawable and ordinary editor
+Fifo presentation. These are latency measurements, **not FPS comparisons**.
+No build, bake or screenshot capture overlaps either timing run. Each cell below
+is **preparation wall / worker-thread CPU seconds; request-to-ready seconds;
+upload-handler p95 / worst milliseconds**. Readiness includes queue/response wait,
+UI scheduling, installation and the upload fence; it is not GPU execution time.
+
+| Native operation | Baseline | Pass A |
+| --- | --- | --- |
+| Initial Inspect | 5.995 / 5.953; 8.259; 29.96 / 103.02 | 1.554 / 1.531; 4.569; 7.38 / 25.53 |
+| Room move in Inspect | 5.796 / 5.781; 7.773; 14.77 / 123.12 | 1.374 / 1.375; 3.432; 14.87 / 56.38 |
+| Environment after edit | 14.495 / 14.469; 16.410; 6.51 / 156.66 | 14.266 / 14.250; 16.222; 7.29 / 86.62 |
+| Return to Inspect | 5.826 / 5.812; 7.724; 6.91 / 125.49 | 1.379 / 1.375; 3.373; 13.61 / 57.72 |
+| Undo room move | 5.811 / 5.812; 7.694; 6.26 / 131.15 | 1.376 / 1.375; 3.324; 7.74 / 64.23 |
+
+The developer-only CPU oracle compares complete legacy mesh and prop binary
+records: large: 12 exact cases, small: 12 exact cases.
+It covers no-op/metadata, wall, undo, Environment, light, material, return-to-Inspect
+and prop edits. The reference column below times the preserved legacy builder
+alone; the candidate includes input preparation, bounds/characters and packing,
+so the two CPU scopes are deliberately stated separately. Short Windows CPU
+samples are subject to accounting quantization. These are explicit
+campaigns, never full-map bakes or automatic Rust tests.
+
+| Fixture / operation | Legacy build wall s | Pass A complete wall / thread CPU s | Full / prop reuse |
+| --- | --- | --- | --- |
+| large / cold | 5.365 | 1.604 / 1.547 | False / False |
+| large / noop | 5.344 | 0.117 / 0.125 | True / True |
+| large / wall | 5.376 | 1.000 / 1.000 | False / True |
+| large / metadata | 5.327 | 0.117 / 0.109 | True / True |
+| large / noop-environment | 14.037 | 0.125 / 0.125 | True / True |
+| large / light | 14.063 | 14.225 / 14.219 | False / False |
+| large / material | 14.183 | 14.512 / 14.469 | False / False |
+| small / cold | 0.050 | 0.190 / 0.172 | False / False |
+| small / noop | 0.042 | 0.019 / 0.016 | True / True |
+| small / wall | 0.044 | 0.025 / 0.016 | False / True |
+| small / metadata | 0.044 | 0.019 / 0.031 | True / True |
+| small / noop-environment | 0.041 | 0.019 / 0.000 | True / True |
+| small / light | 0.042 | 0.060 / 0.062 | False / False |
+| small / material | 0.044 | 0.080 / 0.062 | False / False |
+
+Arcade's frozen baseline reproduced a 501.05 ms upload handler. The first candidate
+reduced p95 but left a 426.61 ms commit: alternate Static bank 212 ms, character
+upload/pipeline 75 ms and dynamic doors 135 ms. The final result follows. Both
+game runs confirm NVIDIA RTX 3070 Laptop / DX12, physical 1280x720, High textures,
+Static lighting, VSync OFF, Immediate presentation and no frame limiter. The
+existing Static selector maps to `lighting=low`, `lightmaps=off` and reflections
+off in internal diagnostics; texture quality/filtering remain High in both. They
+measure loading latency, with no screenshot/build/bake contention, and make no
+throughput claim. Active-handler p95 excludes calls at or below 0.1 ms so added
+polls cannot alone explain the improvement. Event-pump gaps also include drawing,
+driver work and the final game commit, beyond the measured upload handler.
+
+| Arcade | Handler p95 / worst ms (count) | Active-handler p95 ms | Post-CPU-ready pump p95 / worst ms | Request to ready s |
+| --- | --- | --- | --- | --- |
+| baseline | 49.07 / 501.05 (88) | 51.64 | 49.83 / 897.72 | 3.840 |
+| final | 5.50 / 54.88 (629) | 18.66 | 6.56 / 356.19 | 4.270 |
+
+The repeated control measured 496.41 ms
+before and 54.20 ms after, with p95
+47.07 / 6.18 ms.
+These gains concern responsiveness: first-run total readiness increased from
+3.840 to 4.270 seconds.
+The editor's warmed handler p95 also did not consistently improve. Peak memory
+is roughly flat; no general loading-throughput or memory-reduction claim follows.
+
+Cold renderer/device/pipeline initialization before staged installation remains
+visible separately in `measured-outcomes.json`; the all-loading pump maximum is
+2146.8 ms before and
+2392.0 ms after. Shader
+worker elapsed time and each final-commit family are logged. Worker CPU, queue
+wait, UI response wait, upload-handler time and total readiness are separate
+receipts. No GPU timestamp-duration claim is made. The 4 ms budget remains soft:
+individual device/upload calls and remaining resource families can exceed it.
+The residual longest GPU-stage handlers are whole prop batches (about 54 ms),
+with primary/alternate decals about 28 ms. Final commit families measure Static
+bank 0.004 ms, characters 6.739 ms and dynamics 7.669 ms. Outside that renderer
+commit, game physics-item activation remains 197.728 ms on the UI thread.
+Instrumented pump gaps also include expensive developer world snapshots and the
+first presented frame; they are not pure GPU or ordinary uninstrumented UI time.
+These remaining blocks are explicit limits of the pass.
+
+Windows process lifetime peak working set/private commit was sampled at 20 Hz.
+The figures include renderer/driver allocations and are neither a live heap nor
+VRAM totals. Process CPU is for the entire matched run, including background
+preparation and rendering; it is separate from the submitting worker's CPU time.
+
+| Run | Before peak RSS / private GiB | After peak RSS / private GiB | Whole-process CPU s before / after |
+| --- | --- | --- | --- |
+| Editor | 1.877 / 3.637 | 1.867 / 3.624 | 51.36 / 31.56 |
+| Arcade | 0.818 / 1.230 | 0.816 / 1.229 | 7.56 / 8.83 |
+
+Native controls pass twelve rapid prop edits, selection/inspector use, eight
+material-theme changes/search, exact undo/redo restoration, rapid preview-mode
+changes and switching levels. Source files remain byte-identical in that run.
+Another native run starts large Environment preparation, recovers a different
+project through the normal import/open path, and confirms the old unsaved document
+was saved exactly. Export/reimport preserves all three declared Shape of an Exit
+source files byte-for-byte; package integrity and require-current verification
+pass. With no package in the recovered project, ordinary Build+Play bakes, launches
+the native game, captures its scene and reaches terminal success; cached Build+Play
+also succeeds. The prior handoff's uncertain cold attempt remains preserved;
+its original root cause has not been established by this successful reproduction.
+
+The staged Static bank is exercised natively with its four prepared fixtures
+off and on again plus a door open/close. Captures show a visible off/on change;
+baseline/final comparison receipts are in `static-native-comparison.json`
+(3/3 captures exactly identical;
+per-channel differences retained for each). These capture runs are excluded from
+timings. The real bake-progress implementation is unchanged and is visible during
+the new ordinary export/Build+Play validation.
+
+Final formatting, strict workspace/all-targets/all-features Clippy, workspace
+Rust tests (**301 passed, zero failed/ignored**) and locked release
+workspace/all-features build pass. Asset checks pass: 629 assets, 389 props,
+140 textures with the 100 existing texture advisories, and the 21 relevant Python
+tests. The broad Python suite's 17 reproduced baseline failures/errors remain an
+explicit limitation. Tiny new Rust regressions protect neutral output, precise
+reuse/cancellation and cold occluder retry without shipped assets, GPU or map bakes.
+
+Native Library media (sampled screens with truthful two-second holds; timing
+overlays come from separate capture-free runs):
+
+- [Places-pass-A-before-after.mp4](https://chatgpt.com/api/library/files/libfile_ee06614a82588191ae6f4e1e47a640bb/download) — `libfile_ee06614a82588191ae6f4e1e47a640bb`.
+- [Places-pass-A-native-editor.png](https://chatgpt.com/api/library/files/libfile_1b19d61237e48191af1e57daca1b0f98/download) — `libfile_1b19d61237e48191af1e57daca1b0f98`.
+- [Places-pass-A-real-bake-progress.png](https://chatgpt.com/api/library/files/libfile_aff638f8e6288191a737f2baa4944e5f/download) — `libfile_aff638f8e6288191a737f2baa4944e5f`.
+- [Places-pass-A-cold-recovered-play.png](https://chatgpt.com/api/library/files/libfile_78392b25f2b88191b177237b9cb94b34/download) — `libfile_78392b25f2b88191b177237b9cb94b34`.
+
+Library confirms all four saved files. Its local metadata helper cannot apply
+extended attributes on this Windows Python runtime (`os.setxattr` unavailable);
+the returned IDs, original hashes and exact failed metadata receipts remain in
+`media/`. This does not affect the confirmed Library saves; no upload was retried.
+
+**Final combined acceptance remains incomplete.** Home's previously failed timed
+cushion pickup/replay remains for final gameplay validation; its cause remains
+unresolved, and this pass does not edit pickup/favor logic. Pool favor/throw replay, reward restart, the new resource
+pressure campaign and final uncapped windows remain pending. Real Environment
+recomputation still performs its lighting work. The authoritative remaining sequence is: (2) upgrade all Rust workspace
+dependencies to newest stable and assess the largest project-owned Rust files;
+validate migrations before new optimization baselines; (3) one lighting/compiler
+pass, first CPU direct/indirect kernels, then calculation/storage redundancy and
+worthwhile bounded compression/format/packing for exported map size, with separate
+attributable substeps; (4) major steady runtime RAM reduction and transient
+load/decode/repack overlap, using Lantern Hollow and the new representation;
+(5) game frame tails/render passes on the final dependency/data foundation;
+(6) final integrated validation and issue reconciliation, this one canonical
+report, preserved deliverables, then cargo clean and awake-helper shutdown only
+after ALL work completes. Parent coordinates sequential handoffs; no concurrent
+tasks or later passes were started in this checkout.
+
+The dependency task must inspect every manifest/lockfile dependency class and
+transitive constraints against actual stable registries, migrate major versions,
+identify genuine blockers and validate wgpu/SDL/Rapier/Luau/platform integration.
+Cargo update alone is insufficient; prereleases are not the default. The
+largest-file task is an assessment of responsibilities, duplication, coupling,
+hotspots and compile/maintenance cost, with justified extraction recommendations,
+risks/tests and cohesive large files best left intact. It authorizes no blanket
+rewrite or arbitrary line-count target.
+
+The user's later update supersedes the earlier Zstd exclusion; no codec change
+is part of A. The lighting/storage step compares single/multi-level exports,
+compressed/uncompressed record and lighting components, per-light/circuit/state
+redundancy, duplicate/empty/constant regions, formats, precision, packing and shared
+data. Prior Full Arcade occupancy is 93.60%; prior Zstd9 savings are 6.65%, with
+decoder-window limits unresolved. Default to lossless output-equivalent wins,
+explicit hostile-input bounds and backward compatibility; measure full-bake time,
+package bytes, load/decode time and peak memory. Quality-changing proposals must
+be explicit and separate.
+
+The RAM task must reproduce the user's near-2 GB Lantern Hollow report without
+treating it as a verified breakdown. Separate process private/commit and working
+set from GPU dedicated/shared memory; distinguish startup, peak, settled and
+unloaded ownership. Attribute lightmaps, textures, duplicate meshes, collision/nav,
+lighting transport, caches/scripts and allocator/driver retention; prefer general
+engine fixes. Protect quality, physics, light switches, water, FPS, load time and
+repeated-transition cleanup. Smaller package files and lower resident RAM are
+distinct outcomes. Carry unresolved Home replay and recheck recovered Play after
+the later representation/dependency changes. No CI wait, main merge, release or version bump occurred.
+
+Temporary SYSTEM-required-only helper PID 34744 remains under parent/next-writer
+custody until the queue completes, expiring `2026-10-24T17:57:20.8514205Z`. Its
+original `2026-10-22/task/keep_awake.ps1` and `keep-awake.stop` mechanism remain
+unchanged; the stop file is absent. No permanent power/security setting changed.

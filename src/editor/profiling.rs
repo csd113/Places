@@ -149,3 +149,12 @@ pub fn responsiveness(path: &Path) -> Result<Value, String> {
         json!({"kind":"editor_cpu_operations_ms","project":path,"objects":document.objects().len(),"catalog_entries":catalog.len(),"index_ms":index_ms,"choices":choices,"choice_sha256":crate::engine::package::hash::digest_hex(&identity.finalize()),"choice_parity_cases":parity_cases,"thumbnail_one_cold_ms":tiles_cold_ms,"thumbnail_warm_ms":tiles_warm_ms,"thumbnail_tiles":tiles,"safety_scan_ms":scans_ms,"previews":previews,"transform_undo_redo_undo_ms":edit_history_ms,"history_exact":document.raw()==&raw}),
     )
 }
+
+/// Explicit preview source/edit parity and OS worker-CPU audit.
+/// # Errors
+/// Reports source admission or any byte-level prepared-output mismatch.
+pub fn preview_audit(path: &Path, level: &str) -> Result<Value, String> {
+    let mut document = Document::open(path)?;
+    document.select_level(level)?;
+    super::viewport::preview::audit::run(document.level())
+}

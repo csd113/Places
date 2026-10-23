@@ -1471,3 +1471,6 @@ fn create_bind_group(
         ],
     })
 }
+
+mod worker;
+pub use worker::{PreparedImage, TextureJob, TextureSource};

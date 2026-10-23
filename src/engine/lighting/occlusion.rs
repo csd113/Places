@@ -709,7 +709,11 @@ impl PropOcclusionCache {
             }
         };
         let shared_occlusion = Arc::new(occlusion);
-        drop(self.models.insert(key, Arc::clone(&shared_occlusion)));
+        // Cancellation can interrupt model decoding or box rasterization. A
+        // placeholder/partial result must never become a reusable derived owner.
+        if crate::engine::progress::check_cancelled().is_ok() {
+            drop(self.models.insert(key, Arc::clone(&shared_occlusion)));
+        }
         shared_occlusion
     }
 }
@@ -916,3 +920,7 @@ fn push_instance_occluders(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/occlusion_retry.rs"]
+mod retry_tests;

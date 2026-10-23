@@ -89,10 +89,10 @@ pub struct PropMeshBatch {
     /// The historical Low path retains source indexing. Surface-lightmapped
     /// static models retain split triangle corners and source normal frames;
     /// supported coplanar pairs share only their illumination atlas domain.
-    pub vertices: Vec<Vertex>,
+    pub vertices: Arc<Vec<Vertex>>,
     /// `GL_UNSIGNED_SHORT` indices into `vertices`, offset per instance and
     /// grouped so each submesh's range is contiguous.
-    pub indices: Vec<u16>,
+    pub indices: Arc<Vec<u16>>,
     /// World-space bounds of every instance in this batch, used for frustum
     /// culling. One batch covers one model inside one spatial cell, so a prop
     /// field spread over a level becomes several cullable ranges of the same
@@ -192,9 +192,9 @@ impl BatchBuilder {
         lighting: &LevelLighting,
         plan: Option<&mut crate::engine::lighting::lightmap::LightmapPlan>,
         bounds: &crate::engine::spatial::Aabb,
-        options: (bool, Option<[f32; 3]>),
+        options: (bool, bool, Option<[f32; 3]>),
     ) {
-        let (defer_static_lighting, tint) = options;
+        let (defer_static_lighting, neutral, tint) = options;
         let probe_lit = plan.is_some()
             && !asset.model.is_animatable()
             && dense_large_model(&asset.model, bounds);
@@ -211,7 +211,7 @@ impl BatchBuilder {
                 transform,
                 asset,
                 lighting,
-                (defer_static_lighting || probe_lit) && !asset.model.is_animatable(),
+                neutral || ((defer_static_lighting || probe_lit) && !asset.model.is_animatable()),
             );
         }
         self.tint_instance(first_vertex, tint);
@@ -436,8 +436,8 @@ impl BatchBuilder {
             textures: self.textures,
             submeshes,
             source_primitives,
-            vertices: self.vertices,
-            indices,
+            vertices: self.vertices.into(),
+            indices: indices.into(),
             bounds: self.bounds,
         }
     }
@@ -677,6 +677,27 @@ pub fn resolve_prop_instances<'a>(
     )
 }
 
+/// Inspect overwrites every resulting RGB; preserve topology, source albedo,
+/// normal frames, batching and fallback admission.
+pub fn resolve_prop_instances_preview<'a>(
+    level: &'a LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    lighting: &LevelLighting,
+    surfaces: &LevelSurfaces<'_>,
+    materials: &crate::engine::materials::MaterialTable,
+) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
+    resolve_prop_instances_inner(
+        level,
+        catalog,
+        assets,
+        lighting,
+        surfaces,
+        materials,
+        PropLightingMode::Preview,
+    )
+}
+
 /// Preserve historical model/batch budgets and fallback discovery without
 /// evaluating lighting that a successful static lightmap plan replaces.
 /// Animated models still receive their normal vertex lighting.
@@ -723,6 +744,7 @@ pub fn resolve_prop_instances_lightmapped<'a>(
 
 enum PropLightingMode<'a> {
     Vertex,
+    Preview,
     Deferred,
     Lightmap(&'a mut crate::engine::lighting::lightmap::LightmapPlan),
 }
@@ -733,11 +755,13 @@ impl<'a> PropLightingMode<'a> {
     ) -> (
         Option<&'a mut crate::engine::lighting::lightmap::LightmapPlan>,
         bool,
+        bool,
     ) {
         match self {
-            Self::Vertex => (None, false),
-            Self::Deferred => (None, true),
-            Self::Lightmap(plan) => (Some(plan), false),
+            Self::Vertex => (None, false, false),
+            Self::Preview => (None, false, true),
+            Self::Deferred => (None, true, false),
+            Self::Lightmap(plan) => (Some(plan), false, false),
         }
     }
 }
@@ -760,7 +784,7 @@ fn resolve_prop_instances_inner<'a>(
 ) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
     use std::collections::{HashMap, HashSet};
 
-    let (mut plan, defer_static_lighting) = mode.into_options();
+    let (mut plan, defer_static_lighting, neutral) = mode.into_options();
     let grid = spatial_cell_grid(level);
     let claimed = super::character::claimed_character_models(level, catalog, assets);
     let mut builders: Vec<BatchBuilder> = Vec::new();
@@ -860,7 +884,7 @@ fn resolve_prop_instances_inner<'a>(
             lighting,
             plan.as_deref_mut(),
             &instance_bounds,
-            (defer_static_lighting, catalog.tint(&prop.model)),
+            (defer_static_lighting, neutral, catalog.tint(&prop.model)),
         );
         busy_vertices =
             busy_vertices.saturating_add(instance_vertex_count(&asset.model, lightmapped));
@@ -873,7 +897,7 @@ fn resolve_prop_instances_inner<'a>(
         assets,
         lighting,
         plan,
-        defer_static_lighting,
+        defer_static_lighting || neutral,
         (busy_vertices, models_seen),
     ));
     (batches, fallbacks)
@@ -906,8 +930,7 @@ pub fn relight_probe_props(
         .iter_mut()
         .filter(|batch| batch.pending_probe_lighting)
     {
-        for vertex in batch
-            .vertices
+        for vertex in Arc::make_mut(&mut batch.vertices)
             .iter_mut()
             .filter(|vertex| vertex.lightmap_page == super::LIGHTMAP_NONE)
         {
@@ -1403,3 +1426,7 @@ fn report_fixture_budget(model_path: &str) {
         ),
     );
 }
+
+#[cfg(test)]
+#[path = "../../tests/preview_neutral.rs"]
+mod preview_neutral_tests;

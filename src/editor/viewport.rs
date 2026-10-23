@@ -40,6 +40,8 @@ pub(super) struct Viewport {
     worker: PreviewWorker,
     camera: Camera,
     objects: Vec<PickObject>,
+    pending_objects: Option<Vec<PickObject>>,
+    upload_samples: Vec<f64>,
     volume_guides: Vec<overlay::VolumeGuide>,
     navigation_coverage: Vec<super::navigation::Coverage>,
     navigation_route: Vec<Vec3>,
@@ -77,6 +79,8 @@ impl Viewport {
             worker: PreviewWorker::new()?,
             camera: Camera::default(),
             objects: Vec::new(),
+            pending_objects: None,
+            upload_samples: Vec::new(),
             volume_guides: Vec::new(),
             navigation_coverage: Vec::new(),
             navigation_route: Vec::new(),
@@ -106,6 +110,7 @@ impl Viewport {
     pub fn rebuild(&mut self, level: &LevelDef) {
         self.renderer.cancel_prepared_install();
         self.uploading = false;
+        self.pending_objects = None;
         self.requested = Some(Instant::now());
         self.volume_guides = overlay::volumes(level);
         self.worker.request(level, self.environment_preview());
@@ -238,6 +243,9 @@ impl Viewport {
     }
 
     pub fn pick(&self, point: [f32; 2]) -> Option<ObjectId> {
+        if self.is_preparing() {
+            return None;
+        }
         let (origin, direction) = self.camera.ray(point, self.size)?;
         self.objects
             .iter()
@@ -274,56 +282,63 @@ impl Viewport {
         &self.preview_metrics
     }
 
+    fn start_preview(&mut self, preview: preview::PreparedPreview) -> bool {
+        let admission_started = Instant::now();
+        if let Err(error) = self.renderer.admit_prepared(
+            &preview.loaded,
+            &preview.build,
+            &preview.assets,
+            &preview.geometry,
+        ) {
+            if let Some(metrics) = self.preview_metrics.as_object_mut() {
+                drop(metrics.insert("admission_error".into(), serde_json::json!(error)));
+            }
+            self.uploading = false;
+            return false;
+        }
+        let admission_ms = admission_started.elapsed().as_secs_f64() * 1_000.0_f64;
+        self.preview_metrics = preview.metrics;
+        let setup_started = Instant::now();
+        self.pending_objects = Some(preview.objects);
+        self.upload_samples.clear();
+        self.renderer.install_prepared_precompiled(
+            &preview.loaded,
+            preview.build,
+            preview.assets,
+            preview.characters,
+            false,
+            crate::engine::package::world::ProbeCaptures::default(),
+        );
+        self.renderer.set_prepared_geometry(preview.geometry);
+        self.renderer.set_prepared_caustics(preview.caustics);
+        if let Some(metrics) = self.preview_metrics.as_object_mut() {
+            drop(metrics.insert("admission_ms".into(), serde_json::json!(admission_ms)));
+            drop(metrics.insert(
+                "install_setup_ms".into(),
+                serde_json::json!(setup_started.elapsed().as_secs_f64() * 1_000.0_f64),
+            ));
+        }
+        self.uploading = true;
+        true
+    }
+
     pub fn draw(&mut self, window: &Window, ui: &[Vertex]) -> bool {
         let (width, height) = window.size_in_pixels();
         self.size = DrawableSize::new(width, height);
         self.window_size = window.size();
         let _resized = self.renderer.set_drawable_size(self.size);
-        if let Some(preview) = self.worker.poll() {
-            let admission_started = Instant::now();
-            if let Err(error) = self.renderer.admit_prepared(
-                &preview.loaded,
-                &preview.build,
-                &preview.assets,
-                &preview.geometry,
-            ) {
-                if let Some(metrics) = self.preview_metrics.as_object_mut() {
-                    drop(metrics.insert("admission_error".into(), serde_json::json!(error)));
-                }
-                self.uploading = false;
-                return false;
-            }
-            let admission_ms = admission_started.elapsed().as_secs_f64() * 1_000.0_f64;
-            self.preview_metrics = preview.metrics;
-            let setup_started = Instant::now();
-            self.objects = preview.objects;
-            if self.frame_next {
-                self.frame_next = false;
-                self.frame_all();
-            }
-            self.renderer.install_prepared_precompiled(
-                &preview.loaded,
-                preview.build,
-                preview.assets,
-                preview.characters,
-                false,
-                crate::engine::package::world::ProbeCaptures::default(),
-            );
-            self.renderer.set_prepared_geometry(preview.geometry);
-            self.renderer.set_prepared_caustics(preview.caustics);
-            if let Some(metrics) = self.preview_metrics.as_object_mut() {
-                drop(metrics.insert("admission_ms".into(), serde_json::json!(admission_ms)));
-                drop(metrics.insert(
-                    "install_setup_ms".into(),
-                    serde_json::json!(setup_started.elapsed().as_secs_f64() * 1_000.0_f64),
-                ));
-            }
-            self.uploading = true;
+        if let Some(preview) = self.worker.poll()
+            && !self.start_preview(preview)
+        {
+            return false;
         }
         if self.uploading {
             let upload_started = Instant::now();
             let finished = self.renderer.advance_prepared_install();
             let blocked_ms = upload_started.elapsed().as_secs_f64() * 1_000.0_f64;
+            if self.upload_samples.len() < 4096 {
+                self.upload_samples.push(blocked_ms);
+            }
             let old = self
                 .preview_metrics
                 .get("max_upload_handler_ms")
@@ -337,6 +352,30 @@ impl Viewport {
             }
             if finished {
                 self.uploading = false;
+                if let Some(objects) = self.pending_objects.take() {
+                    self.objects = objects;
+                }
+                if self.frame_next {
+                    self.frame_next = false;
+                    self.frame_all();
+                }
+                self.upload_samples.sort_by(f64::total_cmp);
+                if let Some(metrics) = self.preview_metrics.as_object_mut() {
+                    let index = self
+                        .upload_samples
+                        .len()
+                        .saturating_sub(1)
+                        .saturating_mul(95)
+                        / 100;
+                    drop(metrics.insert(
+                        "p95_upload_handler_ms".into(),
+                        serde_json::json!(self.upload_samples.get(index)),
+                    ));
+                    drop(metrics.insert(
+                        "upload_handler_samples".into(),
+                        serde_json::json!(self.upload_samples.len()),
+                    ));
+                }
                 if let Some(requested) = self.requested.take()
                     && let Some(metrics) = self.preview_metrics.as_object_mut()
                 {

@@ -33,15 +33,16 @@ fn triangle(color: [f32; 4]) -> PropMeshBatch {
             first_index: 0,
             index_count: 3,
         }],
-        vertices: [[0.0, -0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+        vertices: ([[0.0, -0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
             .map(|pos| Vertex {
                 pos,
                 color,
                 uv: [pos[0], pos[1]],
                 ..Vertex::UNLIT
             })
-            .to_vec(),
-        indices: vec![0, 1, 2],
+            .to_vec())
+        .into(),
+        indices: (vec![0, 1, 2]).into(),
         bounds: Aabb {
             min: [0.0; 3],
             max: [1.0, 1.0, 0.0],

@@ -124,8 +124,8 @@ fn static_model_neutral_rgb_is_independent_of_excluded_baked_rgb_and_roundtrips(
             first_index: 0,
             index_count: 3,
         }],
-        vertices: red,
-        indices: vec![0, 1, 2],
+        vertices: (red).into(),
+        indices: (vec![0, 1, 2]).into(),
         bounds,
     };
     let props_encoded = props::write_props(std::slice::from_ref(&batch))?;

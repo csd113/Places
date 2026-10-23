@@ -393,6 +393,10 @@ fn node_hierarchy_culling_safe(nodes: &[crate::engine::gltf::PropNode]) -> bool 
 }
 
 impl WgpuCharacters {
+    pub(super) fn prepared_pipeline(&self) -> Option<SkinPipeline> {
+        self.skin_pipeline.clone()
+    }
+
     /// The exact uniform last sent for a placed or runtime entity id.
     pub fn diagnostic_uniform(
         &self,
@@ -417,10 +421,11 @@ impl WgpuCharacters {
     /// graphics change and whenever a runtime spawn or despawn changes the
     /// scene. An empty scene produces an empty value.
     #[must_use]
-    pub fn upload(
+    pub(super) fn upload(
         ctx: &mut CharacterUploadContext<'_>,
         scene: &CharacterScene,
         previous: Option<&Self>,
+        pipeline: Option<SkinPipeline>,
     ) -> Self {
         let mut value = Self::default();
         if scene.is_empty() {
@@ -430,8 +435,8 @@ impl WgpuCharacters {
         // Runtime admission rebuilds character bindings on the same device.
         // Retain its compiled deformation pipeline across those rebuilds.
         value.skin_pipeline = Some(
-            previous
-                .and_then(|old| old.skin_pipeline.clone())
+            pipeline
+                .or_else(|| previous.and_then(|old| old.skin_pipeline.clone()))
                 .unwrap_or_else(|| SkinPipeline::new(ctx.device)),
         );
         let mut mesh_index_by_path: HashMap<String, usize> = HashMap::new();
