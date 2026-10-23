@@ -407,19 +407,18 @@ fn write_lightmaps_encoded(
         }
     }
     let ktx2 = if compact {
-        let planes: Vec<u8> = layers.into_iter().flatten().collect();
         let encoded_started = std::time::Instant::now();
-        let (encoded, storage_stats) = super::compact_lightmaps::encode_with_stats(
+        let (encoded, storage_stats) = super::compact_lightmaps::encode_layers_with_stats(
             edge,
             u32::try_from(lightmaps.pages.len())
                 .map_err(|error| format!("lightmap page count is too large: {error}"))?,
             u32::try_from(lightmaps.switchable.len().saturating_add(1))
                 .map_err(|error| format!("lightmap group count is too large: {error}"))?,
-            &planes,
+            &layers,
         )?;
         crate::engine::logging::info(format_args!(
             "[lightmap-storage] raw_half_bytes={} stored_bytes={} compact_tiles={} exact_tiles={} encode_ms={:.3}",
-            planes.len(),
+            layers.iter().map(Vec::len).sum::<usize>(),
             encoded.len(),
             storage_stats.compact_blocks,
             storage_stats.exact_blocks,

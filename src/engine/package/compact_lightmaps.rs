@@ -187,22 +187,77 @@ pub fn encode_with_stats(
     if rgba16f_planes.len() != shape.expanded_bytes {
         return Err("compact lightmap input plane length does not match its shape".to_string());
     }
+    encode_plane_pairs(shape, |pair| {
+        let start = shape.pair_start(pair)?;
+        let middle = start
+            .checked_add(shape.plane_bytes)
+            .ok_or("lightmap plane offset overflows")?;
+        let end = middle
+            .checked_add(shape.plane_bytes)
+            .ok_or("lightmap plane offset overflows")?;
+        Ok((
+            rgba16f_planes
+                .get(start..middle)
+                .ok_or("missing irradiance plane")?,
+            rgba16f_planes
+                .get(middle..end)
+                .ok_or("missing moment plane")?,
+        ))
+    })
+}
+
+/// Encode separate planes without materializing a second contiguous atlas.
+/// Every plane and the aggregate shape are checked before encoding any tile.
+pub(crate) fn encode_layers_with_stats(
+    edge: u32,
+    pages: u32,
+    groups: u32,
+    layers: &[Vec<u8>],
+) -> Result<(Vec<u8>, CompactLightmapStats), String> {
+    let shape = Shape::new(edge, pages, groups)?;
+    if layers.len() != shape.pairs.saturating_mul(2)
+        || layers.iter().any(|plane| plane.len() != shape.plane_bytes)
+    {
+        return Err("compact lightmap input plane length does not match its shape".into());
+    }
+    encode_plane_pairs(shape, |pair| {
+        let first = pair
+            .checked_mul(2)
+            .ok_or("lightmap plane index overflows")?;
+        Ok((
+            layers
+                .get(first)
+                .ok_or("missing irradiance plane")?
+                .as_slice(),
+            layers
+                .get(first.saturating_add(1))
+                .ok_or("missing moment plane")?
+                .as_slice(),
+        ))
+    })
+}
+
+fn encode_plane_pairs<'a>(
+    shape: Shape,
+    planes: impl Fn(usize) -> Result<(&'a [u8], &'a [u8]), String>,
+) -> Result<(Vec<u8>, CompactLightmapStats), String> {
     let mut out = Vec::new();
     out.extend_from_slice(&MAGIC);
     out.extend_from_slice(&VERSION.to_le_bytes());
     out.extend_from_slice(&u16::try_from(TILE_EDGE).unwrap_or(u16::MAX).to_le_bytes());
-    for value in [edge, page_count, group_count, 0] {
+    for value in [shape.edge, shape.pages, shape.groups, 0] {
         out.extend_from_slice(&value.to_le_bytes());
     }
     let mut stats = CompactLightmapStats::default();
     for pair in 0..shape.pairs {
-        let pair_start = shape.pair_start(pair)?;
-        for tile_y in (0..edge).step_by(16) {
-            for tile_x in (0..edge).step_by(16) {
+        crate::engine::progress::check_cancelled()?;
+        let pair_planes = planes(pair)?;
+        for tile_y in (0..shape.edge).step_by(16) {
+            for tile_x in (0..shape.edge).step_by(16) {
                 let offsets = shape.tile_offsets(tile_x, tile_y)?;
                 let mut texels = Vec::with_capacity(offsets.len());
                 for offset in offsets {
-                    let bits = read_texel(rgba16f_planes, shape, pair_start, offset)?;
+                    let bits = read_texel(pair_planes, offset)?;
                     validate_texel(bits.map(f16_bits_to_f32))?;
                     texels.push(bits);
                 }
@@ -254,20 +309,9 @@ fn read_rgb(bytes: &[u8], offset: usize) -> Result<([u16; 3], u16), String> {
     ))
 }
 
-fn read_texel(
-    bytes: &[u8],
-    shape: Shape,
-    pair_start: usize,
-    offset: usize,
-) -> Result<[u16; 6], String> {
-    let mean_offset = pair_start
-        .checked_add(offset)
-        .ok_or_else(|| "compact lightmap source offset overflows".to_string())?;
-    let moment_offset = mean_offset
-        .checked_add(shape.plane_bytes)
-        .ok_or_else(|| "compact lightmap source moment offset overflows".to_string())?;
-    let ([red, green, blue], mean_alpha) = read_rgb(bytes, mean_offset)?;
-    let ([moment_x, moment_y, moment_z], moment_alpha) = read_rgb(bytes, moment_offset)?;
+fn read_texel(planes: (&[u8], &[u8]), offset: usize) -> Result<[u16; 6], String> {
+    let ([red, green, blue], mean_alpha) = read_rgb(planes.0, offset)?;
+    let ([moment_x, moment_y, moment_z], moment_alpha) = read_rgb(planes.1, offset)?;
     if mean_alpha != RESERVED_ALPHA || moment_alpha != RESERVED_ALPHA {
         return Err("compact lightmap source alpha is not the reserved 0.5".to_string());
     }

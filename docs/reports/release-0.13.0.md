@@ -5294,3 +5294,243 @@ Final commit/remote/clean status and writer release are recorded in
 `ownership-handoff.json`; no CI wait, main merge, release or version bump.
 SYSTEM-only awake helper PID 18136 is preserved and the queue stop file is absent.
 All build and unique validation artifacts are retained.
+
+
+## Coordinated storage, compression and compiler data handling — October 23
+
+This focused Windows phase starts from remote-verified `fc497a6c44b6926fd642aa9e1a88bf39dca2675b`
+on `0.13.0-staging`. It follows the loading/memory handoff and reviews the remaining
+storage/compiler portions of #27–31. Existing content addressing, dependency-based reuse,
+project spooling, exact prop factoring, compact lightmaps and counting-sink compression
+selection were inspected and retained. Their earlier gains are not new results here.
+Only this release report is updated among documentation files.
+
+Evidence is under `local/windows-validation-0.13.0/storage-compiler/`, outside `target`.
+Raw commands, binary hashes, process wall/CPU/working-set/private samples, delivered
+progress boundaries, phase reports, input/output packages, native actions and PNGs remain
+available. `frozen-source-final.json`, `codec-summary.json`, `largest-entry-seek.json`,
+`stage-profile.json`, `byte-accounting.json`, `prepared-payload-parity.json` and
+`native-acceptance.json` identify the actual comparisons. Tools and executable cohorts
+are retained locally. Razer Blade 14, Ryzen 9 5900HX (8 cores / 16 logical processors),
+16 GB RAM, Windows 10 build 19045, RTX 3070 Laptop / DX12; Rust 1.99.1 release builds.
+Compiler runs use 12 workers. Samples are serialized with no concurrent build, bake or
+capture during authoritative timings. “Cold” below means fresh process/output, with
+no package reuse; OS file cache was not flushed. These are small matched campaigns,
+not confidence intervals or supported-hardware calibration.
+
+### Codec comparison and decision
+
+The isolated Rust probe decodes **actual records**, then recompresses each independent
+ZIP entry: Full stress lab (31,376,942 logical bytes), Full Arcade, and the complete
+nine-level rendering collection (741,657,224 logical bytes). It does not compress an
+existing ZIP as one opaque stream. All nine settings preserve identical decoded SHA-256
+streams. Full reads, reverse-directory every-seventh-entry access, and an independent
+seek to the largest atlas entry are measured. The latter avoids mistaking metadata-only
+seeks for large-record access. Entries remain independently accessible; no solid archive
+or cross-entry dictionary is introduced.
+
+| Collection codec / level | Archive bytes | Encode s | Decode s | Largest-entry seek/decode s | Encode/decode peak RSS MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| deflate 1 | 266,987,035 | 2.662 | 1.239 | 0.425 | 261.6 / 4.3 |
+| deflate 3 | 224,953,624 | 4.762 | 1.232 | 0.431 | 261.6 / 4.3 |
+| deflate 6 | 220,007,574 | 6.171 | 1.206 | 0.422 | 261.6 / 4.3 |
+| deflate 9 | 217,699,563 | 17.049 | 1.265 | 0.447 | 261.6 / 4.3 |
+| zstd 1 | 215,997,499 | 1.355 | 0.992 | 0.313 | 261.3 / 4.9 |
+| zstd 3 | 212,247,940 | 3.023 | 1.022 | 0.319 | 262.0 / 6.4 |
+| zstd 9 | 203,232,514 | 8.741 | 0.998 | 0.309 | 271.2 / 8.4 |
+| bzip2 6 | 245,411,476 | 40.341 | 15.110 | 5.099 | 261.4 / 6.2 |
+| xz 3 | 180,235,286 | 51.089 | 8.498 | 3.175 | 278.1 / 8.0 |
+
+Encoder peaks include a whole decoded input record and process/allocator state; decoder
+peaks use a 64 KiB output buffer. They are not isolated codec heap measurements. Detailed
+CPU/private peaks and every single-level/stress result remain in the raw results. For
+Full Arcade, Deflate 6/9 use 86,602,818/85,305,472 bytes and 2.315/7.080 s encoding;
+Zstd 3/9 use 86,033,066/83,323,330 bytes and 1.226/3.171 s. For the Full stress map,
+Deflate 6/9 use 7,345,807/7,211,461 bytes; Zstd 3/9 use 7,340,960/7,072,219 bytes.
+Bzip2 is larger and slower on these inputs. XZ 3 saves substantially more distribution
+bytes, but collection decoding rises to 8.498 s and encoding to 51.089 s.
+
+**Retain the current Deflate defaults and migration level 9 in this phase.** Zstd 9
+is a useful future candidate: collection size is 6.65% below Deflate 9 with about half
+the encoding time, but full decode saves only 0.267 s in this probe, and no end-to-end
+native load gain is established. The inspected zip 9.0.3 Zstd adapter constructs
+`zstd::Decoder::with_buffer` without an explicit window-memory limit. Merely enabling
+that feature would add decoder scratch outside the present reservation policy.
+An output-byte cap does not bound an attacker-declared codec window. Adoption needs an
+explicit window/scratch budget, hostile-frame tests, capability/version handling and
+cross-platform acceptance. That work is deferred rather than shipping a feature-only
+change or claiming an unmeasured loading gain. No project dependency or package format
+changes here. The tested integrated alternatives use zip 9.0.3, zstd 0.14.3 /
+Zstandard 1.5.7, bzip2 0.6.1 with libbz2-rs, and lzma-rust2 0.21.0. They require no
+separate end-user executable. Only Windows was exercised. See the primary
+[ZIP crate documentation](https://docs.rs/zip/9.0.3/zip/),
+[Zstd stream decoder](https://docs.rs/zstd/0.14.3/zstd/stream/read/struct.Decoder.html),
+and [LZMA Rust implementation](https://docs.rs/lzma-rust2/0.21.0/lzma_rust2/).
+
+### Accepted lossless lifetime and packing changes
+
+- Validation retires raw mesh/props/collision/navigation bytes after their typed checks.
+  It retains only the model-name set required to validate the Static off state, instead
+  of keeping all decoded main-state prop vertices while parsing that state and the atlas.
+  Every original typed check still runs; this does not skip validation or remove states.
+- Storage migration retires its runtime-admission world before allocating factoring
+  buffers. Ordinary publication now streams owned, digest-pinned spool files through
+  the existing bounded 64 KiB copy path instead of loading every spool into a new vector.
+  Project publication retains its existing independent validation and larger limit.
+- Compact lightmap packing borrows the already prepared irradiance/moment planes,
+  eliminating a second full-atlas flattening allocation. The existing tile loop, precision
+  bounds/exact fallback, alpha convention, atlas coordinates and state order remain
+  identical. A cooperative check exists between plane pairs. There is no solver,
+  resolution, sample, bounce, density or lighting-precision reduction.
+
+| Matched operation | Process wall s, before -> final | CPU s, before -> final | Peak RSS MiB, before -> final | Sampled peak private MiB, before -> final |
+| --- | ---: | ---: | ---: | ---: |
+| Nine-level typed validation | 9.910 -> 10.006 | 9.719 -> 9.859 | 806.9 -> 768.9 | 802.2 -> 741.2 |
+| Full stress typed validation | 0.296 -> 0.298 | 0.266 -> 0.281 | 84.8 -> 67.2 | 79.1 -> 61.5 |
+| Nine-level storage migration | 60.073 -> 60.231 | 59.656 -> 59.781 | 806.9 -> 768.9 | 806.5 -> 756.0 |
+| Standalone Full stress migration | 1.270 -> 1.323 | 1.203 -> 1.281 | 85.0 -> 66.3 | 79.1 -> 60.5 |
+| New forced Lantern Static build | 38.209 -> 38.314 | 38.625 -> 38.625 | 1122.6 -> 1121.5 | 1433.8 -> 1434.4 |
+
+Three fresh-process Arcade Full repacking pairs retain the **same 253,482,600-byte
+encoded atlas** in every run. Median process wall is **7.660 -> 6.640 s** (13.3% lower)
+and CPU **7.406 -> 6.594 s** (11.0% lower). Sampled peak private is about
+**2,082 -> 1,954 MiB**, while peak RSS rises from about **1,820 -> 1,844 MiB**.
+This is a private-commit/copy and operation-latency improvement, not a general RSS win.
+The process operation includes archive read/decode and writing its output; it is not
+a new lighting solve or a claim that the whole compiler is 13.3% faster. The small
+Full stress packing pair is 0.595 -> 0.532 s with effectively unchanged peak memory.
+Packed-page float materialization and other whole-record overlaps still dominate parts
+of this operation. The repeated values and all six run identities are preserved.
+
+The fresh Lantern pair remains essentially flat: no historical Lantern peak is
+reconstructed or substituted. Its new phase wall times are navigation/collision
+8.923 -> 8.753 s, prepare/encode Static 16.304 -> 16.561 s, prop sharing
+10.373 -> 10.352 s, and final archive publication 2.225 -> 2.258 s. Prop sharing still
+compares both exact layouts with the real compression writer and may reconstruct the
+winning established candidate again to avoid holding both candidates simultaneously.
+That measured CPU/memory trade-off remains. It is separate from ray/bounce calculations.
+
+| Static pipeline / state | Cold force s | Warm force s | No-op s | Unrelated file s | Relevant light edit s | Observed cancelled run s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Home | 0.818 -> 0.842 | 0.820 -> 0.820 | 0.106 -> 0.106 | 0.106 -> 0.106 | 0.840 -> 0.842 | 0.635 -> 0.630 |
+| Two-level Janitor project | 0.631 -> 0.629 | 0.652 -> 0.633 | 0.106 -> 0.116 | 0.106 -> 0.112 | 0.566 -> 0.551 | 0.438 -> 0.434 |
+| Performance lab | 0.631 -> 0.617 | 0.631 -> 0.631 | 0.086 -> 0.085 | 0.084 -> 0.085 | 0.631 -> 0.631 | 0.432 -> 0.430 |
+
+These complete paths are effectively flat. No-op and unrelated-note edits preserve
+verified package reuse; relevant edits rebuild. All prepared and semantic records for
+the paired Home, Janitor, stress and Lantern builds match exactly, excluding only changed
+compiler provenance. Progress-boundary process CPU/live-memory samples accompany precise
+BuildReport phase wall times; delivered-line sampling is not exact per-function CPU or
+heap attribution. Preserved Full GPU-phase bakes were reused, avoiding another Full
+collection/stress lighting campaign.
+
+Cancellation preserves the prior usable package and source; owned staging is removed.
+The CLI standalone cancel/restart and all three incremental restarts pass, and a small
+writer fixture covers cancellation during the streamed copy followed by successful
+publication. Large migration cancellation remains coarse: total run is about 35.6 s,
+with roughly 21 s after requesting cancellation during Lantern factoring before its
+next boundary. That responsiveness limitation is retained explicitly. Normal and disk-
+sampled migration repeats produce identical archives; no unowned artifacts are removed.
+
+### Bytes, packing utilization and resource boundaries
+
+The original complete rendering collection is **217,618,551 archive bytes**, with
+**741,657,224 unique logical ZIP-record bytes** and **20 indexed recovery sources**.
+The pre-existing optimizer yields **217,543,084 archive bytes** and **742,244,970 logical
+record bytes** with both baseline and final code: the entire resulting archives are
+byte-identical. Its 75,467-byte archive saving and raw-record increase are an existing
+storage-selection trade-off, not a new saving from this change. Standalone migration
+archives and the Full stress/Arcade re-encoded payloads are also byte-identical.
+Metadata/scripts/source records retain their identities; disposable preview/history
+state is not added to export. Removing the exact recovery sources merely because they
+resemble normalized semantics would lose reimport fidelity and is rejected.
+
+The Full Arcade atlas retains eight 1024-square pages and three groups (base plus two
+independent circuits): **402,653,184 decoded half-plane bytes**. Its 71,766 existing
+charts consume 7,852,086 / 8,388,608 texels including the actual per-kind gutters
+(**93.60%**); props use their established one-texel gutter, not the metadata's two-texel
+architectural gutter. The stress atlas retains two pages / one group and about 82.5%
+gutter-inclusive occupancy. Existing MAXRECTS architecture packing plus disjoint prop
+holes/coalescing already address substantial packing waste. No page reorder, sparse
+switch format or chart rewrite is justified as a low-risk addition here; all original
+switch contributions and precision guarantees remain intact.
+
+Sampled temporary logical disk peaks are **959,788,054 bytes before and after** for
+project migration; owned staging is empty afterwards. This is not installed storage.
+For the isolated Home/Pool native states, installed archive logical length is
+134,910,682 and NTFS allocation 134,914,048 bytes; cache is **zero files / zero bytes**
+for both cohorts. The Full stress installed archive is 7,345,807 logical /
+7,348,224 allocated bytes. The original Full collection itself occupies 217,620,480
+allocated bytes. `GetFileInformationByHandleEx(FileStandardInfo)` measures allocation;
+logical ZIP records, temporary spools, installed archive allocation, decoded RAM and
+GPU charges are kept separate.
+
+Native active prepared CPU charges are unchanged: Home **17,981,910**, Pool
+**130,322,623**, Full stress **53,285,922 bytes**. Optional resource telemetry was absent
+from the dedicated switch snapshots and is recorded as missing. Actual process peaks
+remain in the run receipts. These are not exact VRAM measurements; no CPU/GPU allocation
+sum or long-session residency improvement is inferred.
+
+Touched constraints remain unchanged: standalone/project logical aggregate 1/2 GiB,
+8,192 entries, 512 MiB binary records, 384 MiB plus header allowance for an atlas,
+64 MiB metadata, 64 pages and four switch contributions, plus shape/count/overflow
+checks and digest/CRC validation. Ordinary streaming retains the smaller aggregate
+ceiling. Its metadata-only regression exceeds that aggregate with individually legal
+records and fails before opening payload files. This is a touched-boundary review,
+not completion of #27's whole-engine inventory or hardware-adaptive memory calibration.
+
+### Native preservation, gates and ownership
+
+Final code loads old packages, and both old/new compilers and native players accept
+the newly editor-exported two-level project in Static and Full. Native Home picks up
+key `9223372036854775856`, carries and drops it; Pool door/prop/water/reflection and
+flashlight views pass; the Full performance lab remains correct. Static and Full
+Arcade each exercise all four circuit combinations and restored states. Light-state
+arrays match both cohorts, and twelve matched Arcade captures have **zero changed
+RGB channels**. Animated Home/stress/water captures have small timing-dependent pixel
+differences (Pool mean absolute channel difference below 0.003/255), with no visible
+quality change. Actual presentation reaches **Immediate**, VSync and frame caps are off,
+drawable **1280x720**. Captured action runs make no FPS-throughput gain claim. Startup-to-
+usable remains mixed (Home 5.047 -> 4.053 s, Pool 6.055 -> 6.190 s, Full stress
+3.812 -> 3.655 s); no general loading speedup is claimed.
+
+The native editor exports/reimports the real two-level Janitor project and reopens it;
+all three indexed source files match exactly. The original unindexed README remains
+untouched in the source folder; it was never part of the recovery index. Initial setup
+probes correctly refused a baseline executable missing its runtime DLL payload and a
+Static request against a Full-only derived Arcade member. Identical retained DLLs were
+restored locally and each variant was then tested using its corresponding preserved
+package. A recovery audit initially included that unindexed README and was corrected to
+the authoritative source index; no successful product operation was repeated to hide it.
+All unsuccessful setup/audit logs remain with the accepted evidence.
+
+`cargo fmt --all --check`, strict all-target/all-feature workspace Clippy,
+`cargo test --workspace` (**290 passed**, suite runtime 0.94 s), locked all-feature
+release build (**6m 33s**), asset validator (zero warnings), texture source checks
+(100 existing catalog/manifest warnings), prop checks and `git diff --check` pass.
+Two narrow regressions add essential coverage: exact borrowed-plane bytes across tile
+and switch boundaries with malformed-plane rejection; and ordinary streamed publication
+aggregate bounds, corruption, cancellation and successful retry. They use under 20 KiB
+and 128 KiB fixtures, with no assets, GPU or shipped-map bake in routine tests.
+Final logs use `*-final-strong-bound.log`, `*-final.log`, `final-checks-verified.log`,
+`native-audit-verified.log`, `restart-verified.log` and `preservation-parity.log`.
+
+A useful Pool acceptance PNG is saved to Library as `water-reflections.png`
+(`libfile_ef909bded5c4819180b2b376c857b4b6`, version 0). Its local identity is retained in
+`library-transfer.json`: the supported metadata helper cannot call `os.setxattr` on
+this Windows Python runtime. The Library save succeeded; no access/security workaround
+or executable upload occurred. All raw media and build artifacts remain local.
+
+Deferred: bounded-window/versioned codec adoption; streaming typed shared-prop decoding
+(segment + reconstructed-record + typed-output overlap remains); broader sparse/switch
+layout changes; exact per-function allocation attribution and other hardware/backends.
+The earlier worsened mannequin/menu-ragdoll tails and 30-transition memory drift remain
+unresolved. The dedicated full lighting-calculation review still follows general polish
+and covers lighting math, CPU parallelism, GPU bake feasibility and redundant rays/
+bounces/calculations. This phase does not start it. After ownership release, the next
+queue item is combined performance/regression, then general polish, that lighting review,
+The Shape of an Exit second last, and final verification/report/issues/cleanup.
+No CI wait, main merge, release or version bump. The final commit, exact remote SHA,
+clean status and writer release are recorded in `ownership-handoff.json`. SYSTEM-only
+awake helper PID 18136 and all build/unique evidence artifacts are retained; the queue
+stop file is not created.

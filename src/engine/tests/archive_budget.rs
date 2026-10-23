@@ -513,3 +513,80 @@ fn streamed_project_refuses_a_symbolic_spool_input() -> Result<(), String> {
     );
     Ok(())
 }
+
+// Standalone migration now streams owned files. This 128 KiB check uniquely
+// protects its smaller aggregate cap plus digest/cancel atomicity; no bake.
+#[test]
+fn streamed_ordinary_migration_keeps_bounds_integrity_and_atomicity() -> Result<(), String> {
+    let root = Directory::new()?;
+    let output = root.0.join("ordinary.placesmap");
+    fs::write(&output, b"accepted").map_err(|error| error.to_string())?;
+    let entries = vec![Entry {
+        name: "payload.bin".into(),
+        bytes: vec![b'P'; 131_071],
+        declared: 131_071,
+    }];
+    for failure in 0_u8..3 {
+        let mut spool = root.spool(&entries)?;
+        let first = spool.first_mut().ok_or("Missing ordinary spool")?;
+        match failure {
+            0 => {
+                first.bytes = crate::engine::package::MAX_BINARY_BYTES;
+                // Metadata-only aggregate overflow: each record is individually
+                // legal, and admission must fail before opening these files.
+                let extra = |name: &str| SpoolEntry {
+                    name: name.into(),
+                    path: root.0.join("must-not-open"),
+                    bytes: crate::engine::package::MAX_BINARY_BYTES,
+                    sha256: hash::sha256_hex(&[]),
+                };
+                spool.extend([extra("extra-a.bin"), extra("extra-b.bin")]);
+            }
+            1 => {
+                fs::write(&first.path, vec![b'Q'; 131_071]).map_err(|error| error.to_string())?;
+            }
+            2 => {}
+            _ => return Err("Unknown ordinary spool failure".into()),
+        }
+        let checks = Cell::new(0_u32);
+        assert!(
+            archive::write_archive_files_with_level_guarded(
+                &output,
+                spool,
+                || {
+                    checks.set(checks.get().saturating_add(1));
+                    if failure == 2 && checks.get() >= 3 {
+                        Err("cancelled".into())
+                    } else {
+                        Ok(())
+                    }
+                },
+                || Ok(()),
+                9
+            )
+            .is_err(),
+            "ordinary stream must reject failure {failure}"
+        );
+        assert_eq!(
+            fs::read(&output).map_err(|error| error.to_string())?,
+            b"accepted",
+            "failure preserves accepted output"
+        );
+    }
+    archive::write_archive_files_with_level_guarded(
+        &output,
+        root.spool(&entries)?,
+        || Ok(()),
+        || Ok(()),
+        9,
+    )?;
+    let mut reader =
+        PackageReader::new(fs::File::open(&output).map_err(|error| error.to_string())?)
+            .map_err(|error| error.to_string())?;
+    assert_eq!(
+        reader.read_entry("payload.bin", 131_071)?,
+        vec![b'P'; 131_071],
+        "streamed ordinary archive preserves bytes across the copy boundary"
+    );
+    Ok(())
+}

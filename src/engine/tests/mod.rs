@@ -38,3 +38,5 @@ mod collision_queries;
 mod collection_quests;
 
 mod celestial_sources;
+
+mod compact_lightmap_planes;

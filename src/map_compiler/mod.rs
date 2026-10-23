@@ -1354,26 +1354,39 @@ fn validate_variant<R: std::io::Read + std::io::Seek>(
         &variant.entries.mesh,
         crate::engine::package::MAX_BINARY_BYTES,
     )?;
-    let _ = crate::engine::package::mesh::read_mesh(&mesh_bytes)?;
+    drop(crate::engine::package::mesh::read_mesh(&mesh_bytes)?);
+    drop(mesh_bytes);
     let props_bytes =
         crate::engine::package::shared_props::read_record(reader, &variant.entries.props)?;
-    let main_props = crate::engine::package::props::read_props(&props_bytes)?;
+    let main_models: std::collections::BTreeSet<String> =
+        crate::engine::package::props::read_props(&props_bytes)?
+            .into_iter()
+            .map(|batch| batch.model)
+            .collect();
+    drop(props_bytes);
     let lighting_bytes = reader.read_blob(
         &variant.entries.lighting,
         crate::engine::package::MAX_LIGHTING_BYTES,
     )?;
     let lighting = crate::engine::package::lighting::read_lighting(&lighting_bytes)?;
-    validate_static_light_off(reader, variant, &lighting, &main_props)?;
+    drop(lighting_bytes);
+    validate_static_light_off(reader, variant, &lighting, &main_models)?;
     let collision_bytes = reader.read_blob(
         &variant.entries.collision,
         crate::engine::package::MAX_COLLISION_BYTES,
     )?;
-    let _ = crate::engine::package::collision::read_collision(&collision_bytes)?;
+    drop(crate::engine::package::collision::read_collision(
+        &collision_bytes,
+    )?);
+    drop(collision_bytes);
     let navigation_bytes = reader.read_blob(
         &variant.entries.navigation,
         crate::engine::package::MAX_NAVIGATION_BYTES,
     )?;
-    let _ = crate::engine::package::navigation::read_navigation(&navigation_bytes)?;
+    drop(crate::engine::package::navigation::read_navigation(
+        &navigation_bytes,
+    )?);
+    drop(navigation_bytes);
     if let (Some(pages), Some(meta)) = (&variant.entries.lightmaps, &variant.entries.lightmaps_meta)
     {
         let page_bytes =
@@ -1409,7 +1422,7 @@ fn validate_static_light_off<R: std::io::Read + std::io::Seek>(
     reader: &mut crate::engine::package::PackageReader<R>,
     variant: &Variant,
     lighting: &crate::engine::lighting::LevelLighting,
-    main_props: &[crate::engine::render::PropMeshBatch],
+    main_models: &std::collections::BTreeSet<String>,
 ) -> Result<(), String> {
     let Some(state) = &variant.entries.static_light_off else {
         return Ok(());
@@ -1422,12 +1435,13 @@ fn validate_static_light_off<R: std::io::Read + std::io::Seek>(
         return Err("static light state references a missing fixture".to_string());
     }
     let mesh_bytes = reader.read_blob(&state.mesh, crate::engine::package::MAX_BINARY_BYTES)?;
-    let _mesh = crate::engine::package::mesh::read_mesh(&mesh_bytes)?;
+    drop(crate::engine::package::mesh::read_mesh(&mesh_bytes)?);
+    drop(mesh_bytes);
     let props_bytes = crate::engine::package::shared_props::read_record(reader, &state.props)?;
     let props = crate::engine::package::props::read_props(&props_bytes)?;
     if props
         .iter()
-        .any(|batch| !main_props.iter().any(|main| main.model == batch.model))
+        .any(|batch| !main_models.contains(&batch.model))
     {
         return Err("static light state references an unexpected model".to_string());
     }
@@ -2580,7 +2594,8 @@ fn reuse_prepared_lighting(
             let props = crate::engine::package::props::read_props(
                 &crate::engine::package::shared_props::read_record(&mut reader, &entries.props)?,
             )?;
-            validate_static_light_off(&mut reader, variant, &lighting, &props)?;
+            let models = props.into_iter().map(|batch| batch.model).collect();
+            validate_static_light_off(&mut reader, variant, &lighting, &models)?;
         }
         needed.extend([
             entries.mesh.as_str(),

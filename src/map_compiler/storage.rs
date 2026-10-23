@@ -110,11 +110,15 @@ fn publish_ordinary(
             let entry = lookup
                 .get(&physical)
                 .ok_or("Storage spool record disappeared")?;
-            let bytes = std::fs::read(&entry.path).map_err(|e| e.to_string())?;
-            Ok(archive::PendingEntry { name, bytes })
+            Ok(archive::SpoolEntry {
+                name,
+                path: entry.path.clone(),
+                bytes: entry.bytes,
+                sha256: entry.sha256.clone(),
+            })
         })
         .collect::<Result<Vec<_>, String>>()?;
-    archive::write_archive_with_level_guarded(
+    archive::write_archive_files_with_level_guarded(
         &request.out,
         ordinary,
         super::progress::check_cancelled,
@@ -141,7 +145,12 @@ fn optimize_member(
         .map_err(|e| e.to_string())?;
     project::select(&mut selected, id)?;
     let mut manifest = super::read_manifest(&mut selected)?;
-    let _runtime_valid = crate::engine::package::world::open_level(source, &manifest.id)?;
+    // Runtime admission is required, but its decoded world is not an input to
+    // exact record factoring. Retire it before allocating migration buffers.
+    drop(crate::engine::package::world::open_level(
+        source,
+        &manifest.id,
+    )?);
     super::progress::stage(format!("lossless prop storage migration: {}", manifest.id));
     let mut blobs = super::BlobMap::new();
     let names: BTreeSet<String> = manifest

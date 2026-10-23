@@ -662,7 +662,7 @@ pub(crate) fn write_project_archive_files_guarded(
 
 pub(crate) fn write_project_archive_files_with_level_guarded(
     path: &Path,
-    mut entries: Vec<SpoolEntry>,
+    entries: Vec<SpoolEntry>,
     check: impl Fn() -> Result<(), String>,
     publish_check: impl Fn() -> Result<(), String>,
     compression: i64,
@@ -670,16 +670,42 @@ pub(crate) fn write_project_archive_files_with_level_guarded(
     if !(1..=9).contains(&compression) {
         return Err("Invalid archive compression level".into());
     }
+    write_archive_files(path, entries, check, publish_check, compression, true)
+}
+
+pub(crate) fn write_archive_files_with_level_guarded(
+    path: &Path,
+    entries: Vec<SpoolEntry>,
+    check: impl Fn() -> Result<(), String>,
+    publish_check: impl Fn() -> Result<(), String>,
+    compression: i64,
+) -> Result<(), String> {
+    write_archive_files(path, entries, check, publish_check, compression, false)
+}
+
+fn write_archive_files(
+    path: &Path,
+    mut entries: Vec<SpoolEntry>,
+    check: impl Fn() -> Result<(), String>,
+    publish_check: impl Fn() -> Result<(), String>,
+    compression: i64,
+    is_project: bool,
+) -> Result<(), String> {
+    if !(1..=9).contains(&compression) {
+        return Err("Invalid archive compression level".into());
+    }
     check()?;
     entries.sort_by(|left, right| left.name.cmp(&right.name));
-    validate_spool_entries(&entries)?;
+    validate_spool_entries(&entries, is_project)?;
     let (temporary, file) = create_temporary(path)?;
     let result = write_project_archive_to(file, &entries, &check, compression)
         .and_then(|()| check())
         .and_then(|()| {
             let mut reader =
                 PackageReader::new(open_file(&temporary)?).map_err(|error| error.to_string())?;
-            let _index = project::read_index(&mut reader)?.ok_or("Missing project index")?;
+            if is_project {
+                let _index = project::read_index(&mut reader)?.ok_or("Missing project index")?;
+            }
             Ok(())
         })
         .and_then(|()| check())
@@ -695,7 +721,7 @@ pub(crate) fn write_project_archive_files_with_level_guarded(
     })
 }
 
-fn validate_spool_entries(entries: &[SpoolEntry]) -> Result<(), String> {
+fn validate_spool_entries(entries: &[SpoolEntry], is_project: bool) -> Result<(), String> {
     if entries.len() > MAX_ENTRIES {
         return Err(format!(
             "package has {} entries (limit {MAX_ENTRIES})",
@@ -724,17 +750,24 @@ fn validate_spool_entries(entries: &[SpoolEntry]) -> Result<(), String> {
                 return Err("Project index exceeds manifest limit".into());
             }
         } else if entry.bytes > super::MAX_BINARY_BYTES
-            || hash::sha256_from_blob_name(&entry.name).as_deref() != Some(entry.sha256.as_str())
+            || (is_project
+                && hash::sha256_from_blob_name(&entry.name).as_deref()
+                    != Some(entry.sha256.as_str()))
         {
             return Err(format!("Invalid project spool record '{}'", entry.name));
         }
     }
-    if !has_index {
+    if is_project && !has_index {
         return Err("Project archive requires project.json".into());
     }
-    if total > MAX_PROJECT_TOTAL_BYTES {
+    let limit = if is_project {
+        MAX_PROJECT_TOTAL_BYTES
+    } else {
+        MAX_TOTAL_BYTES
+    };
+    if total > limit {
         return Err(format!(
-            "package would hold {total} uncompressed bytes (limit {MAX_PROJECT_TOTAL_BYTES})"
+            "package would hold {total} uncompressed bytes (limit {limit})"
         ));
     }
     Ok(())
