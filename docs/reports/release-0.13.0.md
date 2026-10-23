@@ -6691,3 +6691,139 @@ Temporary SYSTEM-required-only helper PID 34744 remains under parent/next-writer
 custody until the queue completes, expiring `2026-10-24T17:57:20.8514205Z`. Its
 original `2026-10-22/task/keep_awake.ps1` and `keep-awake.stop` mechanism remain
 unchanged; the stop file is absent. No permanent power/security setting changed.
+
+
+## Dependency foundation, phase 2 — Windows, 2026-10-23
+
+This phase starts from clean, remote-verified `410da225603054c1f0a3c42bcd0154af1c6a45e5`
+on `0.13.0-staging`. The sole workspace member has one `Cargo.toml` and one
+`Cargo.lock`: **18 unique direct dependencies, 22 declarations**, including the
+build-time SHA-256 dependency, Unix libc, non-WASM audio/executor dependencies and
+the Linux Vulkan/macOS Metal/Windows DX12 feature selections. There are no direct
+dev dependencies, git pins, alternate registries, patches or vendored Rust forks.
+All **198 registry crate names / 206 locked registry packages** were checked against
+the live crates.io sparse index, selecting non-yanked stable releases, with URL,
+retrieval time, index hash, exact release records and parent requirements retained.
+This is an audit beyond the manifest's existing semver ranges, not merely a
+`cargo update` claim. At this checkpoint the core major versions were already
+the newest published stable releases; no newer-major API migration was necessary.
+
+### Direct requirements and compatible lockfile updates
+
+The manifest now raises ZIP and Unix libc to the verified newest stable releases.
+All direct declarations resolve to their newest stable version. Features remain
+unchanged, including Luau vendoring/send without JIT, serde JSON float round-trip,
+ZIP's existing deflate backend, WAV/PCM audio and the target-specific graphics backends.
+
+| Direct crate | Previous declaration | Verified final stable |
+| --- | --- | --- |
+| bytemuck | 1.25.2 | 1.25.2 |
+| ctrlc | 3.5.2 | 3.5.2 |
+| glam | 0.34.1 | 0.34.1 |
+| kira | 0.12.5 | 0.12.5 |
+| libc | 0.2.190 | 0.2.191 |
+| mlua | 0.12.2 | 0.12.2 |
+| png | 0.18.1 | 0.18.1 |
+| pollster | 1.0.1 | 1.0.1 |
+| rapier3d | 0.36.1 | 0.36.1 |
+| rayon | 1.12.0 | 1.12.0 |
+| rtrb | 0.4.0 | 0.4.0 |
+| sdl3 | 0.20.0 | 0.20.0 |
+| serde | 1.0.229 | 1.0.229 |
+| serde_json | 1.0.154 | 1.0.154 |
+| sha2 | 0.11.1 | 0.11.1 |
+| terminal_size | 0.4.4 | 0.4.4 |
+| wgpu | 30.0.1 | 30.0.1 |
+| zip | 9.0.3 | 9.0.5 |
+
+Eight lockfile packages change; every other selected version is unchanged:
+
+| Package | Before | After |
+| --- | --- | --- |
+| cc | 1.8.0 | 1.10.0 |
+| crc32fast | 1.5.2 | 1.5.3 |
+| find-msvc-tools | 0.1.14 | 0.1.15 |
+| libc | 0.2.190 | 0.2.191 |
+| smallvec | 1.16.3 | 1.16.4 |
+| tokio | 1.53.3 | 1.54.1 |
+| typed-path | 0.12.3 | 0.12.4 |
+| zip | 9.0.3 | 9.0.5 |
+
+The repository Rust/Cargo **1.99.1** pin and `rust-version = "1.99"` remain
+unchanged; all selected declared Rust requirements fit that policy. ZIP 9.0.4's
+verbatim-component separator rejection and 9.0.5's platform/raw-copy fixes are
+included. No decoder bound, package limit, feature or useful dependency was removed.
+Checksums remain in the lockfile; no prerelease or yanked release is selected.
+
+### Upstream constraints, duplicates and native sources
+
+The following retained versions have a newer stable release outside their
+parents' published requirements. Parent chains are recorded in
+`dependency-summary.json` and the individual registry records, including each
+platform predicate and dependency kind. The table lists the actual incoming
+requirements; a parent can itself be held by a higher parent. These are upstream
+constraints, not project pins that were left unexamined. No major-version override
+or local fork is used to misrepresent them as compatible upgrades.
+
+| Crate | Retained older version(s) | Newest stable | Incoming upstream constraints |
+| --- | --- | --- | --- |
+| allocator-api2 | 0.2.21 | 0.4.0 | hashbrown ^0.2.9 |
+| bit-set | 0.10.0 | 0.11.1 | naga ^0.10; wgpu-core ^0.10; wgpu-hal ^0.10 |
+| bit-vec | 0.9.1 | 0.10.1 | bit-set ^0.9.1; wgpu-core ^0.9.1 |
+| extended | 0.1.0 | 0.2.0 | symphonia-format-riff ^0.1.0 |
+| glam | 0.30.10, 0.31.1, 0.32.1, 0.33.12 | 0.34.1 | glamx ^0.33.7; kira ^0.33.0; nalgebra ^0.30; nalgebra ^0.31; nalgebra ^0.32; nalgebra ^0.33 |
+| hash32 | 0.3.1 | 1.0.0 | heapless ^0.3.0 |
+| hashbrown | 0.16.1 | 0.17.1 | gpu-allocator ^0.16.0; spade ^0.16.1 |
+| heapless | 0.8.0 | 0.9.3 | rstar ^0.8 |
+| libloading | 0.8.9 | 0.9.0 | ash ^0.8; wgpu-hal ^0.8 |
+| lock_api | 0.4.14 | 0.5.0 | parking_lot ^0.4.14 |
+| miniz_oxide | 0.8.9 | 0.9.1 | png ^0.8 |
+| num-bigint | 0.4.8 | 0.5.1 | num-rational ^0.4.0 |
+| parking_lot | 0.12.5 | 0.13.0 | mlua ^0.12; wgpu-core ^0.12.3; wgpu-hal ^0.12.3 |
+| parking_lot_core | 0.9.12 | 0.10.0 | parking_lot ^0.9.12 |
+| r-efi | 6.0.0 | 7.1.0 | getrandom ^6 |
+| redox_syscall | 0.5.18 | 0.9.5 |  |
+| rustc-hash | 1.1.0 | 2.1.3 | naga ^1.1; naga-types ^1.1; wgpu-core ^1.1 |
+| syn | 2.0.119 | 3.0.9 | nalgebra-macros ^2.0; profiling-procmacros ^2.0; windows-implement ^2.0; windows-interface ^2.0; zerocopy-derive ^2.0.46 |
+| typed-path | 0.12.4 | 0.13.0 | zip ^0.12 |
+| windows-collections | 0.3.2 | 0.100.0 | windows ^0.3.2 |
+| windows-core | 0.62.2 | 0.100.0 | wgpu-hal ^0.62; windows ^0.62.2; windows-collections ^0.62.2; windows-future ^0.62.2; windows-numerics ^0.62.2 |
+| windows-future | 0.3.2 | 0.100.0 | windows ^0.3.2 |
+| windows-implement | 0.60.2 | 0.100.0 | windows-core ^0.60.2 |
+| windows-interface | 0.59.3 | 0.100.0 | windows-core ^0.59.3 |
+| windows-link | 0.2.1 | 0.100.0 | libloading ^0.2; parking_lot_core ^0.2.0; windows-core ^0.2.1; windows-future ^0.2.1; windows-numerics ^0.2.1; windows-result ^0.2.1; windows-strings ^0.2.1; windows-sys ^0.2.1; windows-threading ^0.2.1 |
+| windows-numerics | 0.3.1 | 0.100.0 | windows ^0.3.1 |
+| windows-result | 0.4.1 | 0.100.0 | windows-core ^0.4.1 |
+| windows-strings | 0.5.1 | 0.100.0 | windows-core ^0.5.1 |
+| windows-threading | 0.2.1 | 0.100.0 | windows-future ^0.2.1 |
+
+The lockfile also preserves optional cross-version nalgebra conversions and
+platform dependencies. Windows `cargo tree --duplicates` does not show every
+all-target lock entry; both views are retained. The apparent repeated SDL sys
+entry is its build/normal use, not two different SDL versions. In particular,
+Rapier/glamx/Kira's glam 0.33 cannot be forced to the application's glam 0.34,
+and wgpu's Windows 0.62 family cannot be replaced with 0.100 behind its back.
+
+[SDL's latest stable release](https://github.com/libsdl-org/SDL/releases/tag/release-3.4.18)
+is **3.4.18**, matching sdl3-sys `0.7.2+SDL-3.4.18`, installed x64 headers/libs
+and the retained runtime DLL (SHA-256 `2b4b128d8d510cc2d442693cf848c050d700d43dc667afe9e5fd82b0570d667e`).
+The latest published `luau0-src` is **0.22.0+luau740**, required by latest
+mlua-sys 0.13 / mlua 0.12.2. Upstream [Luau 0.743](https://github.com/luau-lang/luau/releases/tag/0.743)
+is newer than that published Rust source package; updating beyond its supported
+published binding/source pair would require independent vendoring and is not
+claimed done. DXC/DXIL 1.8.2502.11 are retained and hashed. Linux/macOS dependency
+resolution is audited; no Linux/Vulkan/Metal hardware execution is claimed.
+
+Formatting and strict workspace/all-target/all-feature Clippy pass on the
+dependency-only checkpoint. Its Rust test compilation stops after 502.9 seconds
+with **no space on device**, before tests run. The failed attempt is retained;
+reversible NTFS compression of generated debug artifacts recovers space without
+deleting accepted binaries, unique evidence or running `cargo clean`. The
+following focused structure commit and the final combined Rust/release/native
+gates are recorded below; this checkpoint alone makes no test-suite or final
+integrated acceptance claim.
+
+Raw audit, before/after metadata and lockfile, registry evidence and logs are in
+`C:\Users\Connor Dawkins\Documents\Codex\2026-10-23\task-8\dependency-evidence`,
+outside `target`. The canonical report remains this file; no separate release
+report is introduced.

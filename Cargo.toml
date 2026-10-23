@@ -59,7 +59,7 @@ sha2 = "0.11.1"
 # stay off; `render::wgpu` never falls back to GL. `wgsl` is the shader
 # language the world, decal, post and UI pipelines use.
 wgpu = { version = "30.0.1", default-features = false, features = ["std", "wgsl"] }
-zip = { version = "9.0.3", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 # Shared sandboxed Luau, statically built; no JIT, FFI or module loader.
 mlua = { version = "0.12.2", default-features = false, features = ["luau", "vendored", "send"] }
 
@@ -79,7 +79,7 @@ rtrb = "0.4.0"
 
 [target.'cfg(unix)'.dependencies]
 # Atomic directory recovery must refuse a destination created by another process.
-libc = "0.2.190"
+libc = "0.2.191"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 wgpu = { version = "30.0.1", default-features = false, features = ["vulkan", "wgsl"] }
