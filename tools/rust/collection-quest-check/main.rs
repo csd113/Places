@@ -35,6 +35,8 @@ fn tick(
         feet: player,
         eye: Vec3::new(player.x, player.y + 1.6, player.z),
         body_height: 1.8,
+        body_half: places::engine::collision::PLAYER_RADIUS,
+        form_model: None,
         walls: &collision.walls,
         index,
         floor: &collision.floor,

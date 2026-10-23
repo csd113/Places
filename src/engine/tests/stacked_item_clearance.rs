@@ -24,6 +24,7 @@ fn shared_storey_plane_keeps_upper_items_carryable_and_unshared_ceiling_solid() 
     .map_err(|error| error.to_string())?;
     let mut world = ItemWorld::from_level(&level, &[]);
     let player = PlayerContext {
+        half: crate::engine::collision::PLAYER_RADIUS,
         eye: Vec3::new(1.0, 4.8, 3.5),
         feet: Vec3::new(1.0, 3.2, 3.5),
         height: 1.8,

@@ -4214,6 +4214,18 @@ fn validate_action(
                 return Err(format!("Unknown mannequin pin group `{group}`"));
             }
         }
+        ActionDef::PlayerForm { model, scale } => {
+            if !scale.is_finite()
+                || !(0.1..=4.0).contains(scale)
+                || model
+                    .as_ref()
+                    .is_some_and(|id| !crate::game::representation::is_eligible(id))
+            {
+                return Err(
+                    "player_form requires an eligible model and finite scale 0.1..=4".into(),
+                );
+            }
+        }
         ActionDef::ResetToStart => {}
         ActionDef::ResetPhysicsGroup { group } | ActionDef::ActivatePhysicsGroup { group } => {
             crate::engine::physics::config::validate_reset_group(group)?;

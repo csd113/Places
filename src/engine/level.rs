@@ -1026,6 +1026,12 @@ pub enum ActionDef {
     },
     /// Return the player to the level's authored spawn and re-arm triggers.
     ResetToStart,
+    /// Select a measured prop form; null restores the human body after clearance.
+    PlayerForm {
+        model: Option<String>,
+        #[serde(default = "default_form_scale")]
+        scale: f32,
+    },
     /// Restore authored movable bodies in one reusable physics reset group.
     ResetPhysicsGroup {
         /// Group id declared by one or more authored movable physics props.
@@ -1089,9 +1095,17 @@ pub fn validate_run_feedback(title: &str, detail: &str) -> Result<(), String> {
     Ok(())
 }
 
+const fn default_form_scale() -> f32 {
+    1.0
+}
+
 impl ActionDef {
     /// The serialized tag of this action, for diagnostics.
     #[must_use]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Exhaustive diagnostic tag table; one branch per serialized action preserves compiler coverage."
+    )]
     pub const fn kind(&self) -> &'static str {
         match self {
             Self::ShowMessage { title: _, lines: _ } => "show_message",
@@ -1192,6 +1206,7 @@ impl ActionDef {
             } => "spawn_entity",
             Self::DespawnEntity { target: _ } => "despawn_entity",
             Self::ResetToStart => "reset_to_start",
+            Self::PlayerForm { model: _, scale: _ } => "player_form",
         }
     }
 
@@ -1285,6 +1300,7 @@ impl ActionDef {
             }
             | Self::DespawnEntity { target: _ }
             | Self::Blood { emission: _ }
+            | Self::PlayerForm { model: _, scale: _ }
             | Self::ResetToStart
             | Self::ResetPhysicsGroup { group: _ }
             | Self::ActivatePhysicsGroup { group: _ }

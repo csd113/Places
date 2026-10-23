@@ -152,7 +152,7 @@ pub const REGISTRY: &[CommandSpec] = &[
         usage: "/become <model> | place | phys on|off | reset",
         description: "Select a model and enter third person.",
         help: &[
-            "/become list shows curated pickup models and supported characters; party_cup and spooner_man are aliases. Player collision/control retains the normal body.",
+            "/become list shows curated pickup models and supported characters; party_cup and spooner_man are aliases. Portable props use their measured collision body; characters retain human proportions. R returns human; V switches form view.",
             "Place duplicates only the selected visual transform at your feet/yaw. Placements are session-local and share the 16-prop limit.",
             "Phys defaults off. /become phys on makes future placements physical and frozen until interaction/contact or activation. Move clear before enabling them.",
             "Reset restores first person. Selection/reset safely drops held items; a blocked release refuses the action.",

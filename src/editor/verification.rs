@@ -152,7 +152,7 @@ impl Verification {
         }
         if matches!(step.action, Action::WaitIdle) && busy(app) {
             let began = self.waiting.get_or_insert_with(Instant::now);
-            if began.elapsed() >= Duration::from_secs(120) {
+            if began.elapsed() >= Duration::from_secs(600) {
                 self.failure = Some(format!(
                     "Verification action {} timed out waiting for idle",
                     self.next

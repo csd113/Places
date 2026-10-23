@@ -6189,3 +6189,131 @@ preserved; no stop file is created. Final clean remote verification and writer
 release are in the precise ownership handoff. The Shape of an Exit is second last,
 then final verification/report/issues/cleanup; neither phase starts here. No CI wait,
 main merge, release or version bump occurs.
+
+## The Shape of an Exit: Windows acceptance (October 23)
+
+The queued second-last phase implements [issue 25](https://github.com/csd113/Places/issues/25) in
+`projects/shape-of-an-exit/`. One map links a low shutter, an elevated power switch,
+a cabinet weight plate and a closing exit door to an enclosed exit vestibule.
+Forty existing props, eight fixtures, stained office surfaces, filing storage,
+noticeboards, desks, books and litter give each bay a purpose. The exit sign,
+physical openings and interactable props carry the puzzle. No tutorial, hint
+popup or authored guidance message is used; completion uses the normal win screen.
+
+`player_form` and Luau `api.become(model?, scale?)` reuse shared gameplay actions.
+Eligible props receive measured, bottom-anchored bodies with a square envelope
+that contains every yaw. Static geometry, ceilings, floors, live doors and physical
+items must clear before the visual and body commit. Held items prevent a shape
+change until dropped. R returns to the ordinary human body after the same checks;
+V changes the form view so large furniture cannot obscure a switch. Character
+representations retain their existing human body contract. Ordinary human traction,
+air control, jump, step and crouch parameters are unchanged. The physics proxy,
+carrying clearance and door obstruction queries all receive the actual body width
+and height; no map-specific collision exception was added.
+
+Native paced recording exposed a rare general sweep defect: a start accepted
+within the existing 100-micron contact tolerance could produce a negative SAT
+entry, admit an inward step and then freeze later motion. The shared sweep now
+blocks incoming contact-band motion and permits ordinary separating motion.
+One small CPU regression covers three body widths at three door angles and keeps
+deep invalid starts blocked. Together with the measured-envelope, low-header/atomic
+return and live-item proxy regressions, four essential tests protect behavior
+absent from the previous human-only coverage. No test or automatic CI bakes a map.
+
+All geometry and final placement were saved through real native editor controls,
+including the away-opening exit leaf, clear reset bays, floor/landing edges and a
+finish volume overlapping the raised floor by 4 cm. Native export, editable reimport
+and Build + Play pass. Manifest, level and Luau source bytes round-trip exactly.
+The complete project package validates and verifies current against the final
+compiler and asset root. It is `C:\Users\Connor Dawkins\Documents\Codex\2026-10-23\task-5\exit-evidence\contact-final-office.placesmap`; its hash and tool identities
+are indexed locally. All **16 prepared lighting, prop, mesh, collision, probe and
+navigation records** are byte-identical to the same polished map before the contact
+fix. The prior solver and water/prop/ragdoll lighting optimization sources are kept.
+
+The final ordinary route reaches the win screen and Enter restarts with human
+body, locked records door, closed doors, cleared held state and restored mug.
+It uses W/A/D, E, R, V and Space through normal handlers, plus native aim-only view
+actions. Its action file contains no actor/item pose, direct actor dispatch,
+console, fixture or outcome injection. Native focus, no noclip, no guidance,
+body bounds and zero unintended resets are asserted. A second complete run is the
+recorded video. Eight additional final native cases pass: human/crouch shutter
+refusal and cup retreat; repeated return attempts and jumping under the header;
+held pickup/drop and shape refusal; 12 chair/cup/human cycles; wrong-form and human
+jump switch attempts; same-level reload followed by the cup route; cup/human ramp
+and landing traversal with broad-body narrow-room refusal and R recovery; closing
+doors stopping for human/cup/cabinet; all four wall resets; and rear-release/return-cup
+reverse recovery. Focused cases label their diagnostic starting poses/direct dispatch
+explicitly; those are not represented as the ordinary completion route.
+
+The map's first throughput pass preceded final furnishing and visual polish.
+Final capture-free runs used Full/high at **1280x720 physical drawable**, VSync off,
+swap interval **0**, and actual **Immediate** presentation on DX12. Display refresh
+is 165 Hz, while all medians exceed it. No build, bake, recording or other game ran
+alongside these measurements. Recording's explicit pacing is excluded from FPS evidence.
+
+| View | Before polish median FPS | Final median FPS | Final loop p99 ms |
+| --- | ---: | ---: | ---: |
+| reception | 572.64 | 545.94 | 5.724 |
+| records | 597.51 | 567.63 | 4.657 |
+| dispatch | 577.80 | 352.44 | 4.804 |
+| exit | 452.63 | 444.27 | 6.008 |
+
+No throughput gain is claimed. Dispatch was investigated in a separate repeated
+campaign with the same pre-contact-fix binary and 1 Hz read-only GPU telemetry:
+before-polish medians 576.34/565.36, polished 369.07/391.97 FPS, with 44 draws and
+18,828 indices in both. GPU medians rose from 1.645/1.859 to 2.290/2.380 ms and clocks
+varied substantially under the laptop's existing governor. This records the observed
+render cost; it does not isolate a general engine regression or establish matched-clock
+savings. No driver/power tuning or speculative renderer change was made.
+
+Final strict Clippy, formatting, `cargo test --workspace` (**298 passed / zero failed /
+zero ignored**) and locked release workspace/all-features build pass. Relevant Python
+checks pass **21 tests** (the previous 18 compiler/lightmap tests plus three existing
+native-regression-map tests). Assets pass **629 / zero warnings**, props **389**,
+textures **140 / 100 existing warnings**. The broad Python suite is **not claimed
+green**: the preceding clean-d5a comparison reproduced 17 failures/errors. That known
+baseline is carried; this phase did not rerun the broad sweep or change Python sources.
+
+The verified MP4 is **32.53 s**, 1280x720 H.264/AAC,
+**887 native frames**, with all 887 decoded, actual game-output audio and zero audio
+tap drops during the route. Its cadence follows measured capture wall time without
+inserting frames. The original RGBA stream, PCM, per-frame timestamps and screenshots
+remain outside `target`. All four small media files are confirmed in Library:
+
+| Media | Confirmed Library ID | Version | Bytes |
+| --- | --- | ---: | ---: |
+| The-Shape-of-an-Exit-Gameplay.mp4 | `libfile_fcb6216ad6fc8191a8511f414b341b8c` | 0 | 7,949,469 |
+| The-Shape-of-an-Exit-Cup.png | `libfile_8f6502a672b481919f61f23056d6cdb6` | 0 | 593,476 |
+| The-Shape-of-an-Exit-Door.png | `libfile_b6faaba856dc8191b352e4ed7d815edf` | 0 | 753,835 |
+| The-Shape-of-an-Exit-Office.png | `libfile_0eea136a8f5481919f6044d356ba6825` | 0 | 937,505 |
+
+The prepared-upload Python helper could not discover its endpoint here; no helper
+write began. Supported direct host-upload Library calls succeeded. Windows Python
+lacks `os.setxattr`; exact successful receipts and local file hashes retain custody.
+No executable bundle was uploaded. Retained excluded attempts include initial route
+aim/timing corrections, a too-exact finish-volume floor boundary, one invalid terrain
+fixture start, occupied evidence-directory names and an outcome-tuple postprocessor
+mistake. The failed paced recording led to the shared contact fix; the final paced
+recording and all native cases pass after it.
+
+`local/windows-validation-0.13.0/shape-of-an-exit/evidence-index.json` indexes final
+identities, gates, native controls/captures, raw performance/GPU logs and media in
+`C:\Users\Connor Dawkins\Documents\Codex\2026-10-23\task-5\exit-evidence`. No unique evidence or build artifact was deleted and `target` was not cleaned.
+Other platforms, matched GPU clocks, precise live heap/VRAM and the known broad
+Python baseline remain outside this acceptance.
+
+The new user request for a **real editor bake progress bar is explicitly pending**
+for the final editor-fix phase. Existing compiler source/variant/stage/work events
+currently reach footer text, not a bar. The exact inspection findings, relevant
+files, truthful counted/indeterminate scope and cancellation/error/retry/publication
+acceptance are in `local/windows-validation-0.13.0/shape-of-an-exit/bake-progress-handoff.json`.
+It was deferred under the parent's explicit option to preserve this map's acceptance;
+it is not reported as implemented or visibly validated.
+
+The same bounded keep-awake mechanism was renewed: **PID 34744**, expiry
+**2026-10-24 17:57:20 UTC**. The old helper was retired only after the replacement
+confirmed its SYSTEM-required-only request. Display-required, power-plan and battery
+protection settings remain unchanged; the queue's global stop file remains absent.
+Final commit/remote/clean verification and writer release are in the ownership handoff.
+Default-lineup/collection reconciliation and the final verification/report/issues/cleanup
+phase are not started here. No CI wait, main merge, release or version bump occurs.

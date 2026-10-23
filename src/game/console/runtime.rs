@@ -60,7 +60,10 @@ impl Runtime {
             Ok(Command::BecomeList) => {
                 console
                     .write("Eligible representations: all /give list IDs, plus these characters:");
-                for id in crate::game::representation::CHARACTER_MODELS {
+                for id in crate::game::representation::CHARACTER_MODELS
+                    .iter()
+                    .chain(crate::game::representation::PROP_FORM_MODELS)
+                {
                     console.write(id);
                 }
                 console.write(

@@ -84,7 +84,7 @@ impl Game {
     }
 
     fn clear_standing_feet(&self, feet: Vec3) -> bool {
-        feet.is_finite() && self.body_fits_with_height(feet, PLAYER_HEIGHT)
+        feet.is_finite() && self.body_fits_for(feet, PLAYER_HEIGHT, PLAYER_RADIUS)
     }
 
     /// Validates the respawn destination before the native loop releases a

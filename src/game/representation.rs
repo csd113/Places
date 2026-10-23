@@ -1,7 +1,7 @@
-//! Player visuals and a following camera, independent of movement/identity.
+//! Player visuals and a following camera, retaining player identity.
 //!
-//! Selecting a model never changes the player's collider, feet, controls,
-//! interactions or save identity. All transforms use measured model bounds;
+//! Shared gameplay actions validate and commit a measured prop body alongside
+//! these visuals. All transforms use measured model bounds;
 //! models face +Z while the player's zero yaw faces -Z.
 
 use std::f32::consts::PI;
@@ -27,6 +27,9 @@ pub const CHARACTER_MODELS: &[&str] = &[
     "beach:fish",
     "entity:cockroach",
 ];
+
+/// Portable furniture admitted as forms without granting developer pickup access.
+pub const PROP_FORM_MODELS: &[&str] = &["core:chair", "core:cabinet"];
 
 /// Separate from the console's bounded `u64::MAX..u64::MAX-255` prop namespace.
 const REPRESENTATION_KEY_A: u64 = u64::MAX - 1024;
@@ -133,12 +136,24 @@ impl SelectedModel {
 #[derive(Default)]
 pub struct PlayerRepresentation {
     selected: Option<SelectedModel>,
+    first_person: bool,
 }
 
 impl PlayerRepresentation {
     #[must_use]
     pub const fn is_active(&self) -> bool {
         self.selected.is_some()
+    }
+
+    #[must_use]
+    pub const fn is_third_person(&self) -> bool {
+        self.selected.is_some() && !self.first_person
+    }
+
+    #[must_use]
+    pub const fn toggle_view(&mut self) -> bool {
+        self.first_person = !self.first_person;
+        self.first_person
     }
 
     #[must_use]
@@ -158,7 +173,7 @@ impl PlayerRepresentation {
         feet: Vec3,
         player_yaw: f32,
     ) -> Result<String, String> {
-        self.select_with_commit(renderer, id, feet, player_yaw, || Ok(()))
+        self.select_with_commit(renderer, id, feet, player_yaw, 1.0, || Ok(()))
     }
 
     /// Allocates the complete new visual before committing gameplay effects.
@@ -172,8 +187,12 @@ impl PlayerRepresentation {
         id: &str,
         feet: Vec3,
         player_yaw: f32,
+        requested_scale: f32,
         commit: impl FnOnce() -> Result<(), String>,
     ) -> Result<String, String> {
+        if !requested_scale.is_finite() || !(0.1..=4.0).contains(&requested_scale) {
+            return Err("Form scale must be finite within 0.1..=4.".into());
+        }
         let canonical = canonical_model_id(id);
         if !is_eligible(canonical) {
             return Err(format!(
@@ -190,7 +209,7 @@ impl PlayerRepresentation {
         let model = SelectedModel {
             id: canonical.to_string(),
             info,
-            scale: (MAX_REPRESENTATION_EXTENT_M / largest_extent).min(1.0),
+            scale: (MAX_REPRESENTATION_EXTENT_M / largest_extent).min(1.0) * requested_scale,
             slot_b: self
                 .selected
                 .as_ref()
@@ -237,6 +256,7 @@ impl PlayerRepresentation {
 
     /// Removes the selected visual and immediately restores first person.
     pub fn reset(&mut self, renderer: &mut Renderer) {
+        self.first_person = false;
         if let Some(previous) = self.selected.take() {
             previous.despawn(renderer);
         }
@@ -260,6 +280,8 @@ impl PlayerRepresentation {
         }
         let (position, orientation, _model_yaw) = model.pose(feet, player_yaw);
         if model.info.animated {
+            let _visibility =
+                renderer.set_runtime_character_visible(model.instance_id(), !self.first_person);
             let moved = renderer.set_runtime_character_pose(
                 model.instance_id(),
                 position.to_array(),
@@ -270,6 +292,7 @@ impl PlayerRepresentation {
                 && posed
                 && moved
         } else {
+            let _visibility = renderer.set_runtime_model_visible(model.key(), !self.first_person);
             renderer.set_runtime_model_pose(
                 model.key(),
                 position.to_array(),
@@ -302,15 +325,19 @@ impl PlayerRepresentation {
         yaw: f32,
         pitch: f32,
         fov_degrees: f32,
+        eye_offset: f32,
         mut resolve: impl FnMut(Vec3, Vec3, f32) -> Vec3,
     ) -> Option<RenderCamera> {
+        if self.first_person {
+            return None;
+        }
         let model = self.selected.as_ref()?;
         if !feet.is_finite() || !yaw.is_finite() || !pitch.is_finite() {
             return None;
         }
         let dimensions = model.dimensions();
         let height = dimensions.y;
-        let target = Vec3::new(feet.x, feet.y + (height * 0.55).max(0.18), feet.z);
+        let target = Vec3::new(feet.x, feet.y + eye_offset, feet.z);
         let distance = (dimensions.length() * 1.5).max(CAMERA_MIN_DISTANCE_M);
         let bounded_pitch = pitch.clamp(-CAMERA_MAX_PITCH_RAD, CAMERA_MAX_PITCH_RAD);
         let forward = crate::engine::interact::view_direction(yaw, bounded_pitch);
@@ -319,7 +346,11 @@ impl PlayerRepresentation {
             forward.y.mul_add(-distance, target.y),
             forward.z.mul_add(-distance, target.z),
         );
-        let resolved = resolve(target, desired, CAMERA_RADIUS_M);
+        let resolved = resolve(
+            target,
+            desired,
+            (height * 0.25).clamp(0.01, CAMERA_RADIUS_M),
+        );
         let position = if resolved.is_finite() {
             resolved
         } else {
@@ -362,5 +393,7 @@ pub fn canonical_model_id(id: &str) -> &str {
 #[must_use]
 pub fn is_eligible(id: &str) -> bool {
     let canonical = canonical_model_id(id);
-    super::pickup_catalog::find(canonical).is_some() || CHARACTER_MODELS.contains(&canonical)
+    super::pickup_catalog::find(canonical).is_some()
+        || CHARACTER_MODELS.contains(&canonical)
+        || PROP_FORM_MODELS.contains(&canonical)
 }

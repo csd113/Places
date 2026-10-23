@@ -113,6 +113,8 @@ fn authored_physics_deletion_resolves_ids_and_survives_pending_events_and_reset(
         feet: Vec3::ZERO,
         eye: Vec3::new(0.0, 1.6, 0.0),
         body_height: 1.8,
+        body_half: crate::engine::collision::PLAYER_RADIUS,
+        form_model: None,
         walls: &[],
         index: &index,
         floor: &floor,

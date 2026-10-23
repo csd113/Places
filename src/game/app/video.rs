@@ -65,10 +65,10 @@ impl Recording {
         if !path.is_absolute() || !path.starts_with(&crate::engine::paths::user()?.data) {
             return Err("native video FIFO must be inside the explicit state directory".into());
         }
-        validate_fifo(&path)?;
+        let sink = recording_sink(&path)?;
         Ok(Self {
             path,
-            sink: None,
+            sink,
             size: (width, height),
             remaining: bounded_env("PLACES_BENCH_VIDEO_FRAMES", 600, 1, 1800)?,
             captured: 0,
@@ -164,6 +164,32 @@ fn bounded_env(name: &str, default: u16, minimum: u16, maximum: u16) -> Result<u
         return Err(format!("{name} must be {minimum}..={maximum}"));
     }
     Ok(value)
+}
+
+/// Unix retains the existing caller-owned FIFO; Windows records an exclusively
+/// created bounded RGBA stream under the explicit state root for offline encoding.
+fn recording_sink(path: &std::path::Path) -> Result<Option<File>, String> {
+    #[cfg(unix)]
+    {
+        validate_fifo(path)?;
+        Ok(None)
+    }
+    #[cfg(not(unix))]
+    {
+        let root = std::fs::canonicalize(&crate::engine::paths::user()?.data)
+            .map_err(|error| error.to_string())?;
+        let parent = std::fs::canonicalize(path.parent().ok_or("Recording needs a parent")?)
+            .map_err(|error| error.to_string())?;
+        if !parent.starts_with(&root) {
+            return Err("Recording parent escapes the state root".into());
+        }
+        OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)
+            .map(Some)
+            .map_err(|error| format!("Cannot create exclusive native recording: {error}"))
+    }
 }
 
 #[cfg(unix)]

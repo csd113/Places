@@ -8,6 +8,7 @@ use crate::engine::physics::{
 
 fn player() -> PlayerContext {
     PlayerContext {
+        half: crate::engine::collision::PLAYER_RADIUS,
         eye: Vec3::new(0.0, 2.0, 0.0),
         feet: Vec3::new(0.0, 0.2, 0.0),
         height: 1.8,

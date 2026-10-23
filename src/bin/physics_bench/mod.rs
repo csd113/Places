@@ -339,6 +339,7 @@ mod native {
     ) -> Result<Measurement, String> {
         let mut world = world(scenario, count, pool)?;
         let player = PlayerContext {
+            half: places::engine::collision::PLAYER_RADIUS,
             eye: Vec3::new(8.0, 1.6, 8.0),
             feet: Vec3::new(8.0, 0.0, 8.0),
             height: 1.8,

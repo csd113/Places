@@ -35,6 +35,8 @@ fn tick(world: &mut EntityWorld, seconds: f32, floor: &WalkableFloor) -> WorldTi
         feet: Vec3::new(3.0, 0.0, 3.0),
         eye: Vec3::new(3.0, 1.6, 3.0),
         body_height: 1.8,
+        body_half: crate::engine::collision::PLAYER_RADIUS,
+        form_model: None,
         walls: &[],
         index: &index,
         floor,

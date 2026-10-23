@@ -133,7 +133,7 @@ impl Game {
             || self.water.sample(feet.x, feet.z, feet.y).is_some();
         self.recovery_spawn = (has_support
             && !self.player_is_out_of_map()
-            && self.body_fits_with_height(feet, PLAYER_HEIGHT))
+            && self.body_fits_for(feet, PLAYER_HEIGHT, PLAYER_RADIUS))
         .then_some(RecoveryDestination {
             eye: Vec3::new(feet.x, feet.y + EYE_HEIGHT, feet.z),
             yaw: self.spawn_yaw,
@@ -154,7 +154,7 @@ impl Game {
         (destination.eye.is_finite()
             && destination.yaw.is_finite()
             && has_support
-            && self.body_fits_with_height(feet, PLAYER_HEIGHT))
+            && self.body_fits_for(feet, PLAYER_HEIGHT, PLAYER_RADIUS))
         .then_some(destination)
     }
 

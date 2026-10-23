@@ -24,6 +24,7 @@ fn resting_contact_allows_release_but_player_penetration_retains_ownership() -> 
         1.0,
     )?;
     let player = PlayerContext {
+        half: crate::engine::collision::PLAYER_RADIUS,
         eye: Vec3::new(0.0, 1.6, 0.0),
         feet: Vec3::ZERO,
         height: 1.8,

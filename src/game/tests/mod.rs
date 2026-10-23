@@ -7,5 +7,6 @@ mod terrain_collision;
 mod crosshair;
 mod guidance;
 
+mod player_shape;
 mod portal_movement;
 mod water;

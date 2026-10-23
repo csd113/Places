@@ -185,6 +185,8 @@ fn tick(world: &mut EntityWorld, delta: f32) {
         feet: point(),
         eye: point(),
         body_height: 1.8,
+        body_half: crate::engine::collision::PLAYER_RADIUS,
+        form_model: None,
         walls: &walls,
         index: &index,
         floor: &floor,
@@ -657,6 +659,7 @@ fn rotating_receipt_body() -> Result<crate::engine::physics::ItemTriggerBody, St
     physics.step(
         FIXED_STEP * 4.0,
         PlayerContext {
+            half: crate::engine::collision::PLAYER_RADIUS,
             eye: point(),
             feet: point(),
             height: 1.8,

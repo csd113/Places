@@ -1,0 +1,1402 @@
+{
+  "author": "Places",
+  "ceiling_lights": [
+    {
+      "align": "none",
+      "brightness": 0.65,
+      "color": [
+        0.9,
+        0.93,
+        1.0
+      ],
+      "emission": 0.6,
+      "enabled": true,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "office_lamp_0",
+      "range": 6.0,
+      "rotation_degrees": 0.0,
+      "switchable": false,
+      "x": 2.5,
+      "y": 3.5980000495910645,
+      "z": 3.5
+    },
+    {
+      "align": "none",
+      "brightness": 0.42,
+      "color": [
+        0.9,
+        0.93,
+        1.0
+      ],
+      "emission": 0.6,
+      "enabled": true,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "office_lamp_1",
+      "range": 6.0,
+      "rotation_degrees": 0.0,
+      "switchable": false,
+      "x": 4.5,
+      "y": 3.5980000495910645,
+      "z": 5.5
+    },
+    {
+      "align": "none",
+      "brightness": 0.6,
+      "color": [
+        0.9,
+        0.93,
+        1.0
+      ],
+      "emission": 0.6,
+      "enabled": true,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "office_lamp_2",
+      "range": 6.0,
+      "rotation_degrees": 0.0,
+      "switchable": false,
+      "x": 8.5,
+      "y": 3.5980000495910645,
+      "z": 3.5
+    },
+    {
+      "align": "none",
+      "brightness": 0.4,
+      "color": [
+        0.9,
+        0.93,
+        1.0
+      ],
+      "emission": 0.6,
+      "enabled": true,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "office_lamp_3",
+      "range": 6.0,
+      "rotation_degrees": 0.0,
+      "switchable": false,
+      "x": 10.800000190734863,
+      "y": 3.5980000495910645,
+      "z": 5.599999904632568
+    },
+    {
+      "align": "none",
+      "brightness": 0.65,
+      "color": [
+        0.9,
+        0.93,
+        1.0
+      ],
+      "emission": 0.6,
+      "enabled": true,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "office_lamp_4",
+      "range": 6.0,
+      "rotation_degrees": 0.0,
+      "switchable": false,
+      "x": 14.5,
+      "y": 3.5980000495910645,
+      "z": 3.5
+    },
+    {
+      "align": "none",
+      "brightness": 0.45,
+      "color": [
+        0.9,
+        0.93,
+        1.0
+      ],
+      "emission": 0.6,
+      "enabled": true,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "office_lamp_5",
+      "range": 6.0,
+      "rotation_degrees": 0.0,
+      "switchable": false,
+      "x": 16.700000762939453,
+      "y": 3.5980000495910645,
+      "z": 5.5
+    },
+    {
+      "align": "none",
+      "brightness": 0.55,
+      "color": [
+        0.9,
+        0.93,
+        1.0
+      ],
+      "emission": 0.6,
+      "enabled": true,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "office_lamp_6",
+      "range": 6.0,
+      "rotation_degrees": 0.0,
+      "switchable": false,
+      "x": 20.299999237060547,
+      "y": 3.5980000495910645,
+      "z": 3.5
+    },
+    {
+      "align": "none",
+      "brightness": 0.7,
+      "color": [
+        0.9,
+        0.93,
+        1.0
+      ],
+      "emission": 0.6,
+      "enabled": false,
+      "fixture": "core:fluorescent_panel_01",
+      "id": "exit_lamp",
+      "range": 6.0,
+      "rotation_degrees": 0.0,
+      "switchable": true,
+      "x": 22.700000762939453,
+      "y": 3.5980000495910645,
+      "z": 3.5
+    }
+  ],
+  "crosshair": true,
+  "defaults": {
+    "ceiling": "core:ceiling_stained_01",
+    "floor": "core:carpet_damp_01",
+    "wall": "core:wallpaper_stained_01"
+  },
+  "doors": [
+    {
+      "close_speed_degrees": 55,
+      "height": 3,
+      "id": "records_door",
+      "locked": true,
+      "material": "core:metal_brushed_01",
+      "obstruction": "stop",
+      "open_direction": "right",
+      "open_speed_degrees": 110,
+      "rotation_degrees": 90,
+      "swing_degrees": 90,
+      "thickness": 0.075,
+      "width": 2.1,
+      "x": 12.12,
+      "y": 0,
+      "z": 4.55
+    },
+    {
+      "close_speed_degrees": 55,
+      "height": 3.0,
+      "id": "exit_door",
+      "locked": false,
+      "material": "core:metal_brushed_01",
+      "obstruction": "stop",
+      "open_direction": "right",
+      "open_speed_degrees": 110,
+      "rotation_degrees": 90.0,
+      "swing_degrees": 90,
+      "thickness": 0.07500000298023224,
+      "width": 2.9000000953674316,
+      "x": 18.1200008392334,
+      "y": 0.0,
+      "z": 4.949999809265137
+    }
+  ],
+  "floor_regions": [
+    {
+      "depth": 1.8,
+      "offset_y": 0.24,
+      "width": 1.95,
+      "x": 22,
+      "z": 2.6
+    },
+    {
+      "depth": 2.6,
+      "edge_material": "core:metal_brushed_01",
+      "material": "core:metal_brushed_01",
+      "offset_y": 0.04,
+      "width": 1.65,
+      "x": 15.5,
+      "z": 2.2
+    }
+  ],
+  "format_version": 1,
+  "id": "shape_of_an_exit",
+  "name": "The Shape of an Exit",
+  "props": [
+    {
+      "bindings": [],
+      "components": [],
+      "id": "reception_counter",
+      "model": "core:office_reception_desk",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        2.4,
+        0.98,
+        0.95
+      ],
+      "solid": true,
+      "x": 2.0,
+      "y": 0.0,
+      "z": 1.0499999523162842
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "reception_chair",
+      "model": "core:chair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 20.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true,
+      "x": 1.899999976158142,
+      "y": 0.0,
+      "z": 0.6200000047683716
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "reception_plant",
+      "model": "core:plant",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.2000000476837158,
+      "size": [
+        0.4,
+        1.0,
+        0.4
+      ],
+      "solid": false,
+      "x": 0.6499999761581421,
+      "y": 0.0,
+      "z": 6.300000190734863
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "reception_vending",
+      "model": "core:office_snack_machine",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.0075,
+        1.9,
+        0.871
+      ],
+      "solid": true,
+      "x": 4.800000190734863,
+      "y": 0.0,
+      "z": 0.6499999761581421
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "reception_cooler",
+      "model": "core:water_cooler",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.35,
+        1.1,
+        0.35
+      ],
+      "solid": true,
+      "x": 0.6499999761581421,
+      "y": 0.0,
+      "z": 1.0
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "reception_boxes",
+      "model": "core:cardboard_box",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 12.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": true,
+      "x": 1.0499999523162842,
+      "y": 0.0,
+      "z": 5.900000095367432
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "cup_table",
+      "model": "core:desk",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true,
+      "x": 4.550000190734863,
+      "y": 0.0,
+      "z": 5.800000190734863
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "cup",
+              "script": "scripts/exit.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Become cup / R: return / V: view",
+          "reach": 1.8
+        }
+      ],
+      "id": "cup_sample",
+      "model": "home:mug",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 2.0,
+      "size": [
+        0.117,
+        0.09,
+        0.078
+      ],
+      "solid": false,
+      "x": 4.550000190734863,
+      "y": 0.7519999742507935,
+      "z": 5.599999904632568
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "cup",
+              "script": "scripts/exit.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Become cup / R: return / V: view",
+          "reach": 1.8
+        }
+      ],
+      "id": "cup_return",
+      "model": "home:mug",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 2.0,
+      "size": [
+        0.117,
+        0.09,
+        0.078
+      ],
+      "solid": false,
+      "x": 7.050000190734863,
+      "y": 0.0,
+      "z": 4.0
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "chair",
+              "script": "scripts/exit.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Become chair / R: return / V: view",
+          "reach": 2.0
+        }
+      ],
+      "id": "chair_sample",
+      "model": "core:chair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 2.4000000953674316,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true,
+      "x": 9.100000381469727,
+      "y": 0.0,
+      "z": 5.599999904632568
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "power",
+              "script": "scripts/exit.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Switch",
+          "reach": 0.9200000166893005
+        },
+        {
+          "component": "state",
+          "name": "powered",
+          "value": false
+        }
+      ],
+      "id": "power_switch",
+      "model": "home:wall_switch",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "x": 11.760000228881836,
+      "y": 3.140000104904175,
+      "z": 3.5
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "records_cabinet_0",
+      "model": "core:office_filing_cabinet_tall",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ],
+      "solid": true,
+      "x": 7.199999809265137,
+      "y": 0.0,
+      "z": 1.0
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "records_cabinet_1",
+      "model": "core:office_filing_cabinet_tall",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ],
+      "solid": true,
+      "x": 8.0,
+      "y": 0.0,
+      "z": 1.0
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "records_cabinet_2",
+      "model": "core:office_filing_cabinet_tall",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ],
+      "solid": true,
+      "x": 8.800000190734863,
+      "y": 0.0,
+      "z": 1.0
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "records_cabinet_3",
+      "model": "core:office_filing_cabinet_tall",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ],
+      "solid": true,
+      "x": 10.899999618530273,
+      "y": 0.0,
+      "z": 0.800000011920929
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "records_desk",
+      "model": "core:desk",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true,
+      "x": 10.5,
+      "y": 0.0,
+      "z": 6.400000095367432
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "records_box",
+      "model": "core:cardboard_box",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.2999999523162842,
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": true,
+      "x": 7.099999904632568,
+      "y": 0.0,
+      "z": 6.099999904632568
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "cabinet",
+              "script": "scripts/exit.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Become cabinet / R: return / V: view",
+          "reach": 2.0
+        }
+      ],
+      "id": "cabinet_sample",
+      "model": "core:cabinet",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 2.0,
+      "size": [
+        0.9,
+        0.85,
+        0.45
+      ],
+      "solid": true,
+      "x": 15.600000381469727,
+      "y": 0.0,
+      "z": 5.900000095367432
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "dispatch_desk",
+      "model": "core:desk",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ],
+      "solid": true,
+      "x": 14.199999809265137,
+      "y": 0.0,
+      "z": 0.800000011920929
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "dispatch_chair",
+      "model": "core:chair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true,
+      "x": 14.199999809265137,
+      "y": 0.0,
+      "z": 1.600000023841858
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "dispatch_cabinet",
+      "model": "core:office_filing_cabinet_tall",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ],
+      "solid": true,
+      "x": 16.600000381469727,
+      "y": 0.0,
+      "z": 0.6499999761581421
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "dispatch_boxes_a",
+      "model": "core:cardboard_box",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 20.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": true,
+      "x": 13.199999809265137,
+      "y": 0.0,
+      "z": 6.199999809265137
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "dispatch_boxes_b",
+      "model": "core:cardboard_box",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 0.800000011920929,
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": true,
+      "x": 13.25,
+      "y": 0.5049999952316284,
+      "z": 6.150000095367432
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "exit_sign",
+      "model": "core:exit_sign",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.5,
+      "size": [
+        0.45,
+        0.57,
+        0.08
+      ],
+      "solid": false,
+      "x": 23.8799991607666,
+      "y": 2.5,
+      "z": 4.5
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "exit_plant",
+      "model": "core:plant",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.4,
+        1.0,
+        0.4
+      ],
+      "solid": false,
+      "x": 23.100000381469727,
+      "y": 0.0,
+      "z": 6.199999809265137
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "exit_bench_a",
+      "model": "core:chair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true,
+      "x": 21.0,
+      "y": 0.0,
+      "z": 0.699999988079071
+    },
+    {
+      "bindings": [],
+      "components": [],
+      "id": "exit_bench_b",
+      "model": "core:chair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "solid": true,
+      "x": 21.799999237060547,
+      "y": 0.0,
+      "z": 0.699999988079071
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "reset",
+              "script": "scripts/exit.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Reset office",
+          "reach": 1.5
+        }
+      ],
+      "id": "reset_0",
+      "model": "home:wall_switch",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "x": 3.799999952316284,
+      "y": 1.2000000476837158,
+      "z": 0.05999999865889549
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "reset",
+              "script": "scripts/exit.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Reset office",
+          "reach": 1.5
+        }
+      ],
+      "id": "reset_1",
+      "model": "home:wall_switch",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "x": 10.0,
+      "y": 1.2000000476837158,
+      "z": 0.05999999865889549
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "reset",
+              "script": "scripts/exit.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Reset office",
+          "reach": 1.5
+        }
+      ],
+      "id": "reset_2",
+      "model": "home:wall_switch",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "x": 15.399999618530273,
+      "y": 1.2000000476837158,
+      "z": 0.05999999865889549
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "reset",
+              "script": "scripts/exit.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Reset office",
+          "reach": 1.5
+        }
+      ],
+      "id": "reset_3",
+      "model": "home:wall_switch",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "solid": false,
+      "x": 20.0,
+      "y": 1.2000000476837158,
+      "z": 0.05999999865889549
+    },
+    {
+      "id": "desk_mug",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.2,
+        "friction": 0.6,
+        "linear_damping": 0.05,
+        "mass_kg": 0.32,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "office",
+        "restitution": 0.05,
+        "shape": {
+          "half_extents": [
+            0.0585,
+            0.045,
+            0.039
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 30.0,
+      "scale": 1.0,
+      "size": [
+        0.117,
+        0.09,
+        0.078
+      ],
+      "solid": true,
+      "x": 2.799999952316284,
+      "y": 0.9819999933242798,
+      "z": 1.149999976158142
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "return_door",
+              "script": "scripts/exit.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Door release",
+          "reach": 1.5
+        }
+      ],
+      "id": "door_release",
+      "model": "home:wall_switch",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.18,
+        0.18,
+        0.1
+      ],
+      "solid": false,
+      "x": 19.100000381469727,
+      "y": 1.2000000476837158,
+      "z": 0.05999999865889549
+    },
+    {
+      "id": "reception_board",
+      "model": "core:office_noticeboard",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.5,
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "solid": false,
+      "x": 3.5999999046325684,
+      "y": 1.899999976158142,
+      "z": 0.02500000037252903
+    },
+    {
+      "id": "records_board",
+      "model": "core:office_noticeboard",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.2000000476837158,
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "solid": false,
+      "x": 9.800000190734863,
+      "y": 1.899999976158142,
+      "z": 0.02500000037252903
+    },
+    {
+      "id": "dispatch_board",
+      "model": "core:office_noticeboard",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.2000000476837158,
+      "size": [
+        1.0,
+        0.7,
+        0.0485
+      ],
+      "solid": false,
+      "x": 14.800000190734863,
+      "y": 1.899999976158142,
+      "z": 0.02500000037252903
+    },
+    {
+      "id": "reception_books",
+      "model": "home:book_stack",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 15.0,
+      "scale": 1.0,
+      "size": [
+        0.262,
+        0.057,
+        0.197
+      ],
+      "solid": false,
+      "x": 2.0,
+      "y": 0.9819999933242798,
+      "z": 1.149999976158142
+    },
+    {
+      "id": "records_books",
+      "model": "home:book_stack",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": -8.0,
+      "scale": 1.0,
+      "size": [
+        0.262,
+        0.057,
+        0.197
+      ],
+      "solid": false,
+      "x": 10.699999809265137,
+      "y": 0.7519999742507935,
+      "z": 6.400000095367432
+    },
+    {
+      "id": "reception_paper",
+      "model": "arcade:litter_paper",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 14.0,
+      "scale": 1.2999999523162842,
+      "size": [
+        0.21,
+        0.012,
+        0.148
+      ],
+      "solid": false,
+      "x": 3.0,
+      "y": 0.003000000026077032,
+      "z": 5.599999904632568
+    },
+    {
+      "id": "records_paper",
+      "model": "arcade:litter_paper",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": -20.0,
+      "scale": 1.100000023841858,
+      "size": [
+        0.21,
+        0.012,
+        0.148
+      ],
+      "solid": false,
+      "x": 8.199999809265137,
+      "y": 0.003000000026077032,
+      "z": 6.300000190734863
+    }
+  ],
+  "ramps": [
+    {
+      "depth": 1.8,
+      "offset_y": 0,
+      "rise": 0.24,
+      "width": 2,
+      "x": 20,
+      "z": 2.6
+    }
+  ],
+  "requires_full_lighting": true,
+  "rooms": [
+    {
+      "depth": 7.0,
+      "floor_y": 0.0,
+      "height": 3.5999999046325684,
+      "width": 24.0,
+      "x": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 1.7999999523162842,
+      "floor_y": 0.23999999463558197,
+      "height": 3.359999895095825,
+      "width": 3.0,
+      "x": 24.0,
+      "z": 2.5999999046325684
+    }
+  ],
+  "schema": "places-level",
+  "scripts": [
+    "scripts/exit.luau"
+  ],
+  "spawn": {
+    "x": 2.8,
+    "yaw_degrees": 90,
+    "z": 3.6
+  },
+  "timers": [
+    {
+      "autostart": true,
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "pressure",
+              "script": "scripts/exit.luau"
+            }
+          ],
+          "on": "timer"
+        }
+      ],
+      "id": "pressure_tick",
+      "repeat": true,
+      "seconds": 0.1
+    }
+  ],
+  "volumes": [
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "finish",
+              "script": "scripts/exit.luau"
+            }
+          ],
+          "on": "enter_volume",
+          "once": true
+        }
+      ],
+      "bottom_y": 0.20000000298023224,
+      "depth": 1.7999999523162842,
+      "height": 3.5,
+      "id": "exit_complete",
+      "top_y": 3.240000009536743,
+      "width": 1.0,
+      "x": 25.5,
+      "y": 0,
+      "z": 2.5999999046325684
+    }
+  ],
+  "walls": [
+    {
+      "depth": 0.25,
+      "height": 3.5999999046325684,
+      "material": "core:wallpaper_stained_01",
+      "width": 24.5,
+      "x": -0.25,
+      "y": 0.0,
+      "z": -0.25
+    },
+    {
+      "depth": 0.25,
+      "height": 3.5999999046325684,
+      "material": "core:wallpaper_stained_01",
+      "width": 24.5,
+      "x": -0.25,
+      "y": 0.0,
+      "z": 7.0
+    },
+    {
+      "depth": 7.0,
+      "height": 3.5999999046325684,
+      "material": "core:wallpaper_stained_01",
+      "width": 0.25,
+      "x": -0.25,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 2.549999952316284,
+      "height": 3.5999999046325684,
+      "material": "core:wallpaper_stained_01",
+      "width": 0.25,
+      "x": 24.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 2.799999952316284,
+      "height": 3.5999999046325684,
+      "material": "core:wallpaper_stained_01",
+      "width": 0.3199999928474426,
+      "x": 6.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 2.4000000953674316,
+      "height": 3.5999999046325684,
+      "material": "core:wallpaper_stained_01",
+      "width": 0.3199999928474426,
+      "x": 6.0,
+      "y": 0.0,
+      "z": 4.599999904632568
+    },
+    {
+      "depth": 1.7999999523162842,
+      "height": 3.3499999046325684,
+      "material": "core:metal_brushed_01",
+      "width": 0.3199999928474426,
+      "x": 6.0,
+      "y": 0.25,
+      "z": 2.799999952316284
+    },
+    {
+      "depth": 2.4000000953674316,
+      "height": 3.5999999046325684,
+      "material": "core:wallpaper_stained_01",
+      "width": 0.25,
+      "x": 12.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 2.4000000953674316,
+      "height": 3.5999999046325684,
+      "material": "core:wallpaper_stained_01",
+      "width": 0.25,
+      "x": 12.0,
+      "y": 0.0,
+      "z": 4.599999904632568
+    },
+    {
+      "depth": 2.200000047683716,
+      "height": 0.550000011920929,
+      "material": "core:wallpaper_stained_01",
+      "width": 0.25,
+      "x": 12.0,
+      "y": 3.049999952316284,
+      "z": 2.4000000953674316
+    },
+    {
+      "depth": 2.0,
+      "height": 3.5999999046325684,
+      "material": "core:wallpaper_stained_01",
+      "width": 0.25,
+      "x": 18.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 2.0,
+      "height": 3.5999999046325684,
+      "material": "core:wallpaper_stained_01",
+      "width": 0.25,
+      "x": 18.0,
+      "y": 0.0,
+      "z": 5.0
+    },
+    {
+      "depth": 3.0,
+      "height": 0.550000011920929,
+      "material": "core:wallpaper_stained_01",
+      "width": 0.25,
+      "x": 18.0,
+      "y": 3.049999952316284,
+      "z": 2.0
+    },
+    {
+      "depth": 2.549999952316284,
+      "height": 3.5999999046325684,
+      "width": 0.25,
+      "x": 24.0,
+      "y": 0.0,
+      "z": 4.449999809265137
+    },
+    {
+      "depth": 1.899999976158142,
+      "height": 0.550000011920929,
+      "width": 0.25,
+      "x": 24.0,
+      "y": 3.049999952316284,
+      "z": 2.549999952316284
+    },
+    {
+      "depth": 0.25,
+      "height": 3.359999895095825,
+      "width": 2.75,
+      "x": 24.25,
+      "y": 0.23999999463558197,
+      "z": 2.3499999046325684
+    },
+    {
+      "depth": 0.25,
+      "height": 3.359999895095825,
+      "width": 2.75,
+      "x": 24.25,
+      "y": 0.23999999463558197,
+      "z": 4.400000095367432
+    },
+    {
+      "depth": 2.299999952316284,
+      "height": 3.359999895095825,
+      "width": 0.25,
+      "x": 27.0,
+      "y": 0.23999999463558197,
+      "z": 2.3499999046325684
+    }
+  ]
+}

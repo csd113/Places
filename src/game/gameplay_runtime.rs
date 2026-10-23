@@ -47,6 +47,7 @@ pub struct Runtime {
 
 fn player_context(game: &Game) -> PlayerContext {
     PlayerContext {
+        half: game.body_half(),
         eye: game.player_position,
         feet: Vec3::new(
             game.player_position.x,
@@ -101,6 +102,7 @@ impl Runtime {
                     .game
                     .set_noclip_with_clearance(enabled, |eye| {
                         context.physics.player_pose_clear(PlayerContext {
+ half: crate::engine::collision::PLAYER_RADIUS,
                             eye,
                             feet: Vec3::new(eye.x, eye.y - crate::game::EYE_HEIGHT, eye.z),
                             height: crate::engine::collision::PLAYER_HEIGHT,
@@ -116,6 +118,7 @@ impl Runtime {
                 let mut destination_context = player_context(context.game);
                 destination_context.eye = destination;
                 destination_context.height = crate::engine::collision::PLAYER_HEIGHT;
+                destination_context.half = crate::engine::collision::PLAYER_RADIUS;
                 destination_context.active = true;
                 destination_context.feet = Vec3::new(
                     destination.x,
@@ -339,6 +342,71 @@ impl Runtime {
         ))
     }
 
+    fn check_form(
+        shape: crate::game::player_shape::PlayerShape,
+        context: &GameplayContext<'_>,
+    ) -> Result<(), String> {
+        if context.physics.held().is_some() {
+            return Err("Drop the held item before changing form.".into());
+        }
+        let current = player_context(context.game);
+        let proposed = PlayerContext {
+            height: shape.height,
+            half: shape.half,
+            eye: Vec3::new(current.feet.x, current.feet.y + shape.eye, current.feet.z),
+            ..current
+        };
+        if context.game.noclip_enabled()
+            || !context.game.form_fits(shape)
+            || !context.physics.player_pose_clear(proposed)
+        {
+            return Err("Not enough clear space for that body. Move clear and retry.".into());
+        }
+        Ok(())
+    }
+
+    fn select_form(
+        &mut self,
+        id: &str,
+        scale: f32,
+        context: &mut GameplayContext<'_>,
+    ) -> Result<String, String> {
+        let canonical = crate::game::representation::canonical_model_id(id);
+        if !crate::game::representation::is_eligible(canonical)
+            || !scale.is_finite()
+            || !(0.1..=4.0).contains(&scale)
+        {
+            return Err("Unsupported form or scale.".into());
+        }
+        let info = context.renderer.runtime_model_info(canonical)?;
+        let size = Vec3::new(
+            info.bounds.1[0] - info.bounds.0[0],
+            info.bounds.1[1] - info.bounds.0[1],
+            info.bounds.1[2] - info.bounds.0[2],
+        );
+        let fitted_scale = (2.0 / size.max_element()).min(1.0) * scale;
+        let shape = if crate::game::representation::CHARACTER_MODELS.contains(&canonical) {
+            crate::game::player_shape::PlayerShape::human()
+        } else {
+            crate::game::player_shape::PlayerShape::from_bounds(info.bounds, fitted_scale)?
+        };
+        Self::check_form(shape, context)?;
+        let feet = player_context(context.game).feet;
+        self.representation
+            .select_with_commit(
+                context.renderer,
+                canonical,
+                feet,
+                context.game.player_yaw,
+                scale,
+                || {
+                    context.game.commit_form(Some(canonical.to_string()), shape);
+                    Ok(())
+                },
+            )
+            .map(|model| format!("Became `{model}`."))
+    }
+
     fn become_action(
         &mut self,
         request: &RepresentationAction,
@@ -350,20 +418,28 @@ impl Runtime {
             context.game.player_position.z,
         );
         match request {
-            RepresentationAction::Select(id) => self
-                .representation
-                .select_with_commit(context.renderer, id, feet, context.game.player_yaw, || {
-                    release_held(context.physics)
-                })
-                .map(|model| {
-                    format!(
-                        "Became `{model}`; third person. Normal player collision/control retained."
-                    )
-                }),
+            RepresentationAction::Select(id) => self.select_form(id, 1.0, context),
+            RepresentationAction::SelectScaled { model, scale } => {
+                self.select_form(model, *scale, context)
+            }
             RepresentationAction::Reset => {
-                release_held(context.physics)?;
+                let shape = crate::game::player_shape::PlayerShape::human();
+                Self::check_form(shape, context)?;
+                context.game.commit_form(None, shape);
                 self.representation.reset(context.renderer);
                 Ok("Normal player representation restored; first person.".into())
+            }
+            RepresentationAction::ToggleView => {
+                if !self.representation.is_active() {
+                    return Err("Select a form before changing its view.".into());
+                }
+                let first = self.representation.toggle_view();
+                Ok(if first {
+                    "First person form view."
+                } else {
+                    "Third person form view."
+                }
+                .into())
             }
             RepresentationAction::PlacementPhysics(enabled) => {
                 self.placement_physics = *enabled;
@@ -449,6 +525,7 @@ impl Runtime {
         if self.last_reset_count != game.reset_count() {
             let _released = physics.release_held_for_reset();
             self.last_reset_count = game.reset_count();
+            self.representation.reset(renderer);
         }
         if self.last_world_reset_count != game.world_reset_count() {
             self.clear_given_props(renderer, physics);
@@ -458,11 +535,15 @@ impl Runtime {
     }
 
     pub fn clear_given_props(&mut self, renderer: &mut Renderer, physics: &mut ItemWorld) {
+        self.representation.reset(renderer);
+        self.clear_session_props(renderer, physics);
+    }
+
+    pub(crate) fn clear_session_props(&mut self, renderer: &mut Renderer, physics: &mut ItemWorld) {
         for prop in self.given.drain(..) {
             let _removed = physics.remove(prop.key);
             despawn_visual(&prop, renderer);
         }
-        self.representation.reset(renderer);
         self.trigger_labels = false;
         self.placement_physics = false;
         self.next_key = 0;
@@ -472,7 +553,7 @@ impl Runtime {
 
     #[must_use]
     pub fn snapshot(&self) -> serde_json::Value {
-        serde_json::json!({"props":self.given.iter().map(|prop|serde_json::json!({"key":prop.key,"model":prop.model,"physical":prop.physical,"character":prop.character})).collect::<Vec<_>>(), "placement_physics":self.placement_physics,"trigger_labels":self.trigger_labels})
+        serde_json::json!({"props":self.given.iter().map(|prop|serde_json::json!({"key":prop.key,"model":prop.model,"physical":prop.physical,"character":prop.character})).collect::<Vec<_>>(), "form": self.representation.selected_id(), "placement_physics":self.placement_physics,"trigger_labels":self.trigger_labels})
     }
 
     pub fn hide_suspended_visual(&self, key: u64, renderer: &mut Renderer) {

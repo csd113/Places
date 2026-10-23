@@ -1,0 +1,14 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "shape_of_an_exit",
+  "name": "The Shape of an Exit",
+  "description": "A single-player abandoned office puzzle.",
+  "entry_level": "shape_of_an_exit",
+  "levels": [
+    {
+      "id": "shape_of_an_exit",
+      "source": "levels/shape_of_an_exit.json"
+    }
+  ]
+}

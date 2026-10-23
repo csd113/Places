@@ -10,7 +10,7 @@ impl Game {
         if !start.is_finite() || !end.is_finite() || !radius.is_finite() {
             return start;
         }
-        let bounded_radius = radius.clamp(0.1, 0.5);
+        let bounded_radius = radius.clamp(0.01, 0.5);
         let direction = Vec3::new(end.x - start.x, end.y - start.y, end.z - start.z);
         let distance = direction.length().min(8.0);
         let unit = direction.normalize_or_zero();

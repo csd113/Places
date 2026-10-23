@@ -91,6 +91,7 @@ fn relative_fluid_drag_moves_floating_and_dense_objects_without_changing_density
             )?;
         }
         let player = PlayerContext {
+            half: crate::engine::collision::PLAYER_RADIUS,
             eye: Vec3::new(0.0, 1.6, 0.0),
             feet: Vec3::ZERO,
             height: 1.8,

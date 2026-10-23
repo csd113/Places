@@ -1070,7 +1070,6 @@ impl FrameLoop<'_> {
             && self.outcome.is_none()
             && self.message.is_none()
             && !self.console.is_open()
-            && !self.console_runtime.representation.is_active()
             && self.current_level.as_ref().is_some_and(|loaded| {
                 self.console_runtime
                     .crosshair_enabled(loaded.level.crosshair)
@@ -1412,6 +1411,9 @@ impl FrameLoop<'_> {
                 crate::engine::entities::WorldCommand::Blood { emission } => {
                     self.renderer.set_blood_enabled(self.settings.blood);
                     self.renderer.emit_blood(emission);
+                }
+                crate::engine::entities::WorldCommand::PlayerForm { model, scale } => {
+                    self.apply_player_form(model, scale);
                 }
                 crate::engine::entities::WorldCommand::Ragdoll {
                     target,
@@ -3684,6 +3686,7 @@ impl FrameLoop<'_> {
     fn trace_player_body(&self) -> serde_json::Value {
         serde_json::json!({
             "feet_y": self.game.feet_y(), "body_height": self.game.body_height(),
+            "half_width": self.game.body_half(), "form": self.game.form_model(),
             "eye_height": self.game.player_position.y - self.game.feet_y(),
             "grounded": self.game.grounded, "crouched": self.game.is_crouched(),
             "swimming": self.game.is_swimming(), "underwater": self.game.is_underwater(),
@@ -3828,7 +3831,7 @@ impl FrameLoop<'_> {
                 "physics_clock".into(),
                 serde_json::json!(self.items.world.simulation_state()),
             ));
-            drop(fields.insert("representation".into(), serde_json::json!({"model":self.console_runtime.representation.selected_id(), "third_person":self.console_runtime.representation.is_active()})));
+            drop(fields.insert("representation".into(), serde_json::json!({"model":self.console_runtime.representation.selected_id(), "third_person":self.console_runtime.representation.is_third_person()})));
             drop(fields.insert(
                 "trigger_labels".into(),
                 serde_json::json!(
@@ -4486,6 +4489,7 @@ impl FrameLoop<'_> {
             self.game.player_yaw,
             self.game.player_pitch,
             self.settings.fov_degrees,
+            self.game.eye_offset(),
             |start, end, radius| {
                 let static_end = self.game.camera_sweep(start, end, radius);
                 self.items

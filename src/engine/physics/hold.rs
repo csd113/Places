@@ -9,8 +9,6 @@ use rapier3d::prelude::{
     ColliderHandle, Pose, QueryFilter, QueryFilterFlags, Ray, RigidBodyType, SharedShape, Vector,
 };
 
-use crate::engine::collision::PLAYER_RADIUS;
-
 use super::collision::{add, point, pose, quaternion, query_filter, scaled, subtract, vector};
 use super::world::{ItemWorld, PlayerContext, Runtime};
 use super::{FIXED_STEP, HOLD_DISTANCE, PICKUP_REACH};
@@ -64,7 +62,7 @@ fn carry_waypoint(
     let outward = radial
         .try_normalize()
         .unwrap_or_else(|| view_rotation(player.yaw).mul_vec3(Vec3::X));
-    let clearance = PLAYER_RADIUS + radius + 0.12;
+    let clearance = player.half + radius + 0.12;
     match route {
         CarryRoute::Above => {
             let above = 2.0_f32.mul_add(SWEEP_MARGIN, player.feet.y + player.height + radius);
@@ -113,7 +111,7 @@ impl ItemWorld {
         let Some(runtime) = self.runtime.as_ref() else {
             return true;
         };
-        let capsule = SharedShape::cuboid(PLAYER_RADIUS, player.height * 0.5, PLAYER_RADIUS);
+        let capsule = SharedShape::cuboid(player.half, player.height * 0.5, player.half);
         let center = Vec3::new(
             player.feet.x,
             player.height.mul_add(0.5, player.feet.y),
@@ -196,7 +194,7 @@ impl ItemWorld {
             Quat::IDENTITY,
         );
         let motion = subtract(player.feet, start_feet);
-        let capsule = SharedShape::cuboid(PLAYER_RADIUS, player.height * 0.5, PLAYER_RADIUS);
+        let capsule = SharedShape::cuboid(player.half, player.height * 0.5, player.half);
         let blocking_items = |handle, collider: &rapier3d::prelude::Collider| {
             collider.is_enabled()
                 && runtime.key_for_collider(handle).is_some_and(|key| {
@@ -757,7 +755,7 @@ impl Runtime {
             return clipped;
         }
         let right = view_rotation(player.yaw).mul_vec3(Vec3::X);
-        let span = PLAYER_RADIUS + entry.radius + 0.1;
+        let span = player.half + entry.radius + 0.1;
         // World clipping can put the hand goal inside the player's capsule.
         // Search the nearest clear shoulder offset while retaining the clipped
         // forward distance, so the route has an attainable end near a wall.
@@ -947,7 +945,7 @@ impl Runtime {
         direction: Vec3,
     ) -> Option<Pose> {
         let center = point(start.translation);
-        let clearance = entry.radius + PLAYER_RADIUS + 0.12;
+        let clearance = entry.radius + player.half + 0.12;
         let retreat = scaled(direction, -0.04);
         let alternatives = [
             desired,

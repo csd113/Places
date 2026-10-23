@@ -89,6 +89,8 @@ impl Fixture {
             feet: self.player,
             eye: Vec3::new(self.player.x, self.player.y + 1.6, self.player.z),
             body_height: 1.8,
+            body_half: crate::engine::collision::PLAYER_RADIUS,
+            form_model: None,
             walls: &[],
             index: &index,
             floor: &floor,

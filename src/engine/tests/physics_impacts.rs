@@ -27,6 +27,7 @@ fn level() -> Result<LevelDef, String> {
 
 fn player() -> PlayerContext {
     PlayerContext {
+        half: crate::engine::collision::PLAYER_RADIUS,
         eye: Vec3::new(4.0, 1.8, 4.0),
         feet: Vec3::new(4.0, 0.0, 4.0),
         height: 1.8,

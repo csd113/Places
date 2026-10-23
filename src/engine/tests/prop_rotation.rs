@@ -76,6 +76,7 @@ fn sideways_embedded_prop_retains_full_rotation_and_collision_bounds() -> Result
     physics.step(
         crate::engine::physics::FIXED_STEP,
         crate::engine::physics::PlayerContext {
+            half: crate::engine::collision::PLAYER_RADIUS,
             eye: Vec3::new(20.0, 1.8, 20.0),
             feet: Vec3::new(20.0, 0.0, 20.0),
             height: 1.8,

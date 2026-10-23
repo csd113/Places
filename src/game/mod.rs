@@ -10,6 +10,7 @@ pub mod gameplay_runtime;
 pub mod input;
 pub mod perf_overlay;
 pub mod pickup_catalog;
+pub mod player_shape;
 pub mod representation;
 mod representation_camera;
 pub mod settings;
@@ -436,6 +437,8 @@ pub struct Game {
     water_exit_probes: Vec<Vec2>,
     /// The current stance (standing or crouched).
     stance: Stance,
+    player_shape: Option<player_shape::PlayerShape>,
+    form_model: Option<String>,
     /// Index into [`Game::ladders`] while attached to a ladder.
     climbing: Option<usize>,
     /// Set on the first frame Jump is held and cleared on release: one press is
@@ -581,6 +584,8 @@ impl Game {
             pressed_exit_support: None,
             water_exit_probes: Vec::with_capacity(8),
             stance: Stance::Standing,
+            player_shape: None,
+            form_model: None,
             climbing: None,
             jump_latched: false,
             interact_latched: false,
@@ -764,6 +769,8 @@ impl Game {
     fn clear_run_state(&mut self, spawn_pos: Vec3, spawn_yaw: f32, suppress_held: bool) {
         self.trigger_sweep = None;
         self.noclip = None;
+        self.player_shape = None;
+        self.form_model = None;
         self.player_floor_y = spawn_pos.y - EYE_HEIGHT;
         self.player_position = spawn_pos;
         self.feet_y = spawn_pos.y - EYE_HEIGHT;
@@ -838,6 +845,8 @@ impl Game {
             feet,
             eye: self.player_position,
             body_height: self.body_height(),
+            body_half: self.body_half(),
+            form_model: self.form_model.as_deref(),
             walls: &self.walls,
             index: &self.collision_index,
             floor: &self.floor,
@@ -1060,7 +1069,10 @@ impl Game {
     /// the hull immediately while retaining its top and rendered eye.
     #[must_use]
     pub const fn body_height(&self) -> f32 {
-        self.stance.height()
+        match self.player_shape {
+            Some(shape) => shape.height,
+            None => self.stance.height(),
+        }
     }
 
     /// The animated eye offset above the feet, in metres.
@@ -1094,6 +1106,11 @@ impl Game {
     /// Feet anchor the stance in water as well as on land: a crouch eases the
     /// camera without moving the supporting body or fabricating a volume entry.
     fn advance_eye_offset(&mut self, _delta: f32) {
+        if let Some(shape) = self.player_shape {
+            self.eye_offset_current = shape.eye;
+            self.sync_eye();
+            return;
+        }
         let blend =
             self.duck_fraction * self.duck_fraction * 2.0_f32.mul_add(-self.duck_fraction, 3.0);
         self.eye_offset_current = (CROUCH_EYE_HEIGHT - EYE_HEIGHT).mul_add(blend, EYE_HEIGHT);
@@ -1152,7 +1169,7 @@ impl Game {
                 "[movement] frame_start feet={:?} body_height={} radius={} input={frame_input:?} velocity_y={} grounded={} delta={}",
                 Vec3::new(self.player_position.x, self.feet_y, self.player_position.z),
                 self.body_height(),
-                PLAYER_RADIUS,
+                self.body_half(),
                 self.vertical_velocity,
                 self.grounded,
                 self.sim_delta_seconds
@@ -1577,6 +1594,9 @@ impl Game {
     /// Hold to duck. Air duck/unduck preserve the hull top and world eye;
     /// ground transitions anchor feet. Expansion requires full-body clearance.
     fn update_crouch(&mut self, input: &InputState) {
+        if self.player_shape.is_some() {
+            return;
+        }
         let requested = input.is_held(Control::Crouch) || input.was_pressed(Control::Crouch);
         if requested {
             if !self.grounded && !self.swimming {
@@ -1839,6 +1859,8 @@ impl Game {
             feet,
             eye: self.player_position,
             body_height: self.body_height(),
+            body_half: self.body_half(),
+            form_model: self.form_model.as_deref(),
             nav: self.navigation.as_ref(),
             walls: &self.walls,
             index: &self.collision_index,
@@ -1869,22 +1891,26 @@ impl Game {
 
     /// Samples overhead clearance at a candidate before committing a step.
     fn head_limit_at(&self, x: f32, z: f32, feet: f32) -> Option<f32> {
+        self.head_limit_for(x, z, feet, self.body_half())
+    }
+
+    fn head_limit_for(&self, x: f32, z: f32, feet: f32, half: f32) -> Option<f32> {
         let ceiling = self
             .ceiling
-            .ceiling_above_hull(x, z, PLAYER_RADIUS - CONTACT_EPS, feet);
+            .ceiling_above_hull(x, z, half - CONTACT_EPS, feet);
         // A tangent side wall is contact, not an overhead obstruction.
         let point = Vec2::new(x, z);
         let mut underside: Option<f32> = None;
         self.collision_index.for_each_disc(
             x,
             z,
-            PLAYER_RADIUS * std::f32::consts::SQRT_2,
+            half * std::f32::consts::SQRT_2,
             &self.walls,
             |wall| {
                 if wall.min_y > feet + CONTACT_EPS
                     && crate::engine::collision::square_overlaps_wall(
                         point,
-                        PLAYER_RADIUS - CONTACT_EPS,
+                        half - CONTACT_EPS,
                         wall,
                     )
                 {
@@ -1900,7 +1926,7 @@ impl Game {
                 door.hinge_y > feet + CONTACT_EPS
                     && crate::engine::collision::square_overlaps_door(
                         point,
-                        PLAYER_RADIUS - CONTACT_EPS,
+                        half - CONTACT_EPS,
                         door,
                     )
             })
@@ -1915,7 +1941,7 @@ impl Game {
         };
         let floor_underside = self.floor.lowest_room_underside_hull(
             Vec2::new(x, z),
-            PLAYER_RADIUS - CONTACT_EPS,
+            half - CONTACT_EPS,
             floor_reference,
         );
         [ceiling, underside, door_underside, floor_underside]
@@ -1950,13 +1976,13 @@ impl Game {
             .floor
             .hull_support(
                 Vec2::new(x, z),
-                PLAYER_RADIUS - CONTACT_EPS,
+                self.body_half() - CONTACT_EPS,
                 max_top + CONTACT_EPS,
             )
             .map(|support| support.0);
         let ceiling_top = self.ceiling.surface_below_hull(
             Vec2::new(x, z),
-            PLAYER_RADIUS - CONTACT_EPS,
+            self.body_half() - CONTACT_EPS,
             max_top + CONTACT_EPS,
         );
         let support_floor = match (floor, ceiling_top) {
@@ -1968,7 +1994,7 @@ impl Game {
         let mut top = player_support_top(
             &self.collision_index,
             Vec2::new(x, z),
-            PLAYER_RADIUS - CONTACT_EPS,
+            self.body_half() - CONTACT_EPS,
             max_top + CONTACT_EPS,
             max_top + CONTACT_EPS,
             &self.walls,
@@ -1976,7 +2002,7 @@ impl Game {
         for door in self.world.door_colliders() {
             let height = door.hinge_y + door.height;
             if height <= max_top + CONTACT_EPS
-                && door.overlaps_disc(x, z, PLAYER_RADIUS - CONTACT_EPS)
+                && door.overlaps_disc(x, z, self.body_half() - CONTACT_EPS)
             {
                 top = Some(top.map_or(height, |current| current.max(height)));
             }
@@ -2015,11 +2041,15 @@ impl Game {
         let floor_ceiling = current_surface + PLAYER_STEP_HEIGHT + STEP_EPS;
         let floor = self
             .floor
-            .hull_support(Vec2::new(x, z), PLAYER_RADIUS - CONTACT_EPS, floor_ceiling)
+            .hull_support(
+                Vec2::new(x, z),
+                self.body_half() - CONTACT_EPS,
+                floor_ceiling,
+            )
             .map(|support| support.0);
         let ceiling_top = self.ceiling.surface_below_hull(
             Vec2::new(x, z),
-            PLAYER_RADIUS - CONTACT_EPS,
+            self.body_half() - CONTACT_EPS,
             floor_ceiling,
         );
         let support_floor = match (floor, ceiling_top) {
@@ -2029,7 +2059,7 @@ impl Game {
         let top = player_support_top(
             &self.collision_index,
             Vec2::new(x, z),
-            PLAYER_RADIUS - CONTACT_EPS,
+            self.body_half() - CONTACT_EPS,
             floor_ceiling,
             current_surface + CONTACT_EPS,
             &self.walls,
@@ -2081,7 +2111,7 @@ impl Game {
                 self.feet_y, self.vertical_velocity
             ));
         }
-        let max_step = PLAYER_RADIUS * 0.5;
+        let max_step = self.body_half() * 0.5;
         let (steps, step_count) = horizontal_step_counts(total_dist, max_step);
         let step_delta = Vec3::from_array(
             total_delta
@@ -2129,7 +2159,7 @@ impl Game {
             // A depenetration deeper than the body radius is a teleport (the
             // centre was inside a box, or several boxes pushed at once): refuse
             // the step instead of snapping the player across the opening.
-            if candidate.distance(raw) > PLAYER_RADIUS + CONTACT_EPS {
+            if candidate.distance(raw) > self.body_half() + CONTACT_EPS {
                 break;
             }
             let outcome = match sweep_mode {
@@ -2224,7 +2254,7 @@ impl Game {
         crate::engine::collision::sweep_player_hull(
             &self.horizontal_world(),
             (from, to),
-            (foot_y, height, PLAYER_RADIUS),
+            (foot_y, height, self.body_half()),
             mode == HorizontalMode::Walk,
         )
     }
@@ -2254,7 +2284,7 @@ impl Game {
         let horizontal = crate::engine::collision::resolve_airborne_player_collision_with_doors(
             &self.collision_index,
             (Vec2::new(origin.x, origin.z), Vec2::new(origin.x, origin.z)),
-            PLAYER_RADIUS,
+            self.body_half(),
             origin.y,
             self.body_height(),
             &self.walls,
@@ -2264,7 +2294,7 @@ impl Game {
         for door in self.world.door_colliders() {
             if door.overlaps_body_y(origin.y, self.body_height())
                 && let Some((x, z)) =
-                    door.depenetrate(origin.x, origin.z, PLAYER_RADIUS + CONTACT_EPS)
+                    door.depenetrate(origin.x, origin.z, self.body_half() + CONTACT_EPS)
             {
                 candidates.push(Vec3::new(x, origin.y, z));
             }
@@ -2272,19 +2302,19 @@ impl Game {
         for wall in &self.walls {
             if wall.max_y <= origin.y + CONTACT_EPS
                 || wall.min_y >= origin.y + self.body_height() - CONTACT_EPS
-                || !wall.overlaps_disc(origin.x, origin.z, PLAYER_RADIUS - CONTACT_EPS)
+                || !wall.overlaps_disc(origin.x, origin.z, self.body_half() - CONTACT_EPS)
             {
                 continue;
             }
             for x in [
-                wall.min_x - PLAYER_RADIUS - CONTACT_EPS,
-                wall.max_x + PLAYER_RADIUS + CONTACT_EPS,
+                wall.min_x - self.body_half() - CONTACT_EPS,
+                wall.max_x + self.body_half() + CONTACT_EPS,
             ] {
                 candidates.push(Vec3::new(x, origin.y, origin.z));
             }
             for z in [
-                wall.min_z - PLAYER_RADIUS - CONTACT_EPS,
-                wall.max_z + PLAYER_RADIUS + CONTACT_EPS,
+                wall.min_z - self.body_half() - CONTACT_EPS,
+                wall.max_z + self.body_half() + CONTACT_EPS,
             ] {
                 candidates.push(Vec3::new(origin.x, origin.y, z));
             }
@@ -2329,7 +2359,7 @@ impl Game {
             .floor
             .hull_support(
                 Vec2::new(origin.x, origin.z),
-                PLAYER_RADIUS - CONTACT_EPS,
+                self.body_half() - CONTACT_EPS,
                 origin.y + self.body_height(),
             )
             .map(|support| support.0)
@@ -2345,7 +2375,7 @@ impl Game {
         }
         self.ceiling.for_each_hull_contact(
             Vec2::new(origin.x, origin.z),
-            PLAYER_RADIUS - CONTACT_EPS,
+            self.body_half() - CONTACT_EPS,
             origin.y,
             self.body_height(),
             |[low, high]| {
@@ -2364,10 +2394,14 @@ impl Game {
     }
 
     fn body_fits_with_height(&self, feet: Vec3, height: f32) -> bool {
+        self.body_fits_for(feet, height, self.body_half())
+    }
+
+    fn body_fits_for(&self, feet: Vec3, height: f32, half: f32) -> bool {
         let mut clear = true;
         self.ceiling.for_each_hull_contact(
             Vec2::new(feet.x, feet.z),
-            PLAYER_RADIUS - CONTACT_EPS,
+            half - CONTACT_EPS,
             feet.y,
             height,
             |_| clear = false,
@@ -2375,14 +2409,14 @@ impl Game {
         self.collision_index.for_each_disc(
             feet.x,
             feet.z,
-            PLAYER_RADIUS * std::f32::consts::SQRT_2,
+            half * std::f32::consts::SQRT_2,
             &self.walls,
             |wall| {
                 if wall.max_y > feet.y + CONTACT_EPS
                     && wall.min_y < feet.y + height - CONTACT_EPS
                     && crate::engine::collision::square_overlaps_wall(
                         Vec2::new(feet.x, feet.z),
-                        PLAYER_RADIUS - CONTACT_EPS,
+                        half - CONTACT_EPS,
                         wall,
                     )
                 {
@@ -2395,18 +2429,18 @@ impl Game {
                 door.overlaps_body_y(feet.y, height)
                     && crate::engine::collision::square_overlaps_door(
                         Vec2::new(feet.x, feet.z),
-                        PLAYER_RADIUS - CONTACT_EPS,
+                        half - CONTACT_EPS,
                         door,
                     )
             })
             && self
-                .head_limit_at(feet.x, feet.z, feet.y)
+                .head_limit_for(feet.x, feet.z, feet.y, half)
                 .is_none_or(|ceiling| ceiling >= feet.y + height - CONTACT_EPS)
             && self
                 .floor
                 .hull_support(
                     Vec2::new(feet.x, feet.z),
-                    PLAYER_RADIUS - CONTACT_EPS,
+                    half - CONTACT_EPS,
                     feet.y + height - CONTACT_EPS,
                 )
                 .is_none_or(|floor| floor.0 <= feet.y + CONTACT_EPS)
@@ -2419,8 +2453,8 @@ impl Game {
         let mut top: Option<f32> = None;
         let mut too_tall = false;
         self.collision_index
-            .for_each_disc(to.x, to.y, PLAYER_RADIUS, &self.walls, |wall| {
-                if !wall.overlaps_disc(to.x, to.y, PLAYER_RADIUS)
+            .for_each_disc(to.x, to.y, self.body_half(), &self.walls, |wall| {
+                if !wall.overlaps_disc(to.x, to.y, self.body_half())
                     || wall.max_y <= feet + CONTACT_EPS
                     || wall.min_y >= feet + self.body_height() - CONTACT_EPS
                 {
@@ -2448,7 +2482,7 @@ impl Game {
         let resolved = crate::engine::collision::sweep_player_hull(
             &self.horizontal_world(),
             (from, to),
-            (step_top, self.body_height(), PLAYER_RADIUS),
+            (step_top, self.body_height(), self.body_half()),
             false,
         );
         let accepted = resolved.distance_squared(to) <= 1e-10;
@@ -2692,13 +2726,13 @@ impl Game {
             self.collision_index.for_each_disc(
                 position.x,
                 position.y,
-                PLAYER_RADIUS,
+                self.body_half(),
                 &self.walls,
                 |wall| {
                     if vertical_clear(wall.min_y, wall.max_y) {
                         return;
                     }
-                    if let Some(next) = push_disc_out(position, PLAYER_RADIUS, wall) {
+                    if let Some(next) = push_disc_out(position, self.body_half(), wall) {
                         position = next;
                         collided = true;
                     }
@@ -2708,7 +2742,7 @@ impl Game {
                 if vertical_clear(door.hinge_y, door.hinge_y + door.height) {
                     continue;
                 }
-                if let Some((x, z)) = door.depenetrate(position.x, position.y, PLAYER_RADIUS) {
+                if let Some((x, z)) = door.depenetrate(position.x, position.y, self.body_half()) {
                     position = Vec2::new(x, z);
                     collided = true;
                 }
@@ -2824,7 +2858,7 @@ impl Game {
                 .floor
                 .hull_support(
                     Vec2::new(self.player_position.x, self.player_position.z),
-                    PLAYER_RADIUS - CONTACT_EPS,
+                    self.body_half() - CONTACT_EPS,
                     support + CONTACT_EPS,
                 )
                 .filter(|surface| (surface.0 - support).abs() <= CONTACT_EPS)
@@ -2881,7 +2915,7 @@ impl Game {
             .floor
             .hull_support(
                 Vec2::new(x, z),
-                PLAYER_RADIUS - CONTACT_EPS,
+                self.body_half() - CONTACT_EPS,
                 self.feet_y + CONTACT_EPS,
             )
             .filter(|surface| (surface.0 - self.feet_y).abs() <= 0.05)
@@ -2946,7 +2980,7 @@ impl Game {
                 self.vertical_accumulator = 0.0;
                 return false;
             }
-            if !ladder.overlaps_disc(x, z, PLAYER_RADIUS)
+            if !ladder.overlaps_disc(x, z, self.body_half())
                 || !ladder.overlaps_body_y(self.player_position.y, height)
             {
                 self.climbing = None;
@@ -2965,7 +2999,7 @@ impl Game {
         if move_dir.length_squared() <= 0.0 {
             return false;
         }
-        let Some(index) = self.ladders.overlapping(x, z, PLAYER_RADIUS) else {
+        let Some(index) = self.ladders.overlapping(x, z, self.body_half()) else {
             return false;
         };
         let Some(ladder) = self.ladders.get(index).copied() else {

@@ -232,6 +232,8 @@ fn square_cast(
     let mut enter = f32::NEG_INFINITY;
     let mut leave = f32::INFINITY;
     let mut normal = Vec2::ZERO;
+    let mut contact_depth = f32::INFINITY;
+    let mut contact_normal = Vec2::ZERO;
     for axis in [Vec2::X, Vec2::Y, direction, cross] {
         let extent = half.y.mul_add(
             cross.dot(axis).abs(),
@@ -241,6 +243,18 @@ fn square_cast(
             ),
         );
         let point = offset.dot(axis);
+        // Match the radius tolerance in square_start_clear. A hull accepted
+        // inside that contact band must still block incoming motion; treating
+        // its negative entry time as a miss can bury it on the next substep.
+        let depth = (extent - point.abs()) / (axis.x.abs() + axis.y.abs());
+        if depth < contact_depth {
+            contact_depth = depth;
+            contact_normal = if point >= 0.0 {
+                axis
+            } else {
+                Vec2::new(-axis.x, -axis.y)
+            };
+        }
         let speed = motion.dot(axis);
         if speed.abs() < GRAZING_EPS {
             if point.abs() >= extent {
@@ -263,6 +277,12 @@ fn square_cast(
         if enter > leave {
             return None;
         }
+    }
+    if (0.0..=CONTACT_EPS).contains(&contact_depth) {
+        return (motion.dot(contact_normal) < -GRAZING_EPS).then_some(SweepHit {
+            fraction: 0.0,
+            normal: contact_normal,
+        });
     }
     ((-GRAZING_EPS..=1.0).contains(&enter) && leave >= 0.0).then_some(SweepHit {
         fraction: enter.max(0.0),

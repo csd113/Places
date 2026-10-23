@@ -66,3 +66,71 @@ fn ray_neighbourhood_reuse_preserves_exact_hits_and_candidate_order() {
         }
     }
 }
+
+// Value: native paced door playback found that the accepted 100-micron start
+// band became a negative SAT entry, allowing an inward step and then freezing
+// every later input. Nine door/body combinations protect incoming refusal and
+// ordinary separating motion; a deep invalid start still cannot teleport out.
+// One empty room, no assets or baking; tens of sweeps and negligible storage.
+#[test]
+fn shallow_hull_contact_blocks_incoming_motion_without_freezing_separation() -> Result<(), String> {
+    use crate::engine::collision::{CONTACT_EPS, DoorCollider, HorizontalWorld, sweep_player_hull};
+    use crate::engine::level::{LevelDef, WalkableCeiling, WalkableFloor};
+    use glam::Vec2;
+    let translated = |p: Vec2, d: Vec2, t: f32| Vec2::new(d.x.mul_add(t, p.x), d.y.mul_add(t, p.y));
+    let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"contact_band","name":"Contact band","spawn":{"x":0,"z":0},"rooms":[{"x":-4,"z":-4,"width":8,"depth":8,"height":4}]}"#).map_err(|error|error.to_string())?;
+    let floor = WalkableFloor::from_level(&level);
+    let ceiling = WalkableCeiling::from_level(&level);
+    let index = CollisionIndex::build(&[]);
+    for half in [0.07_f32, 0.4, 1.006] {
+        for degrees in [0.0_f32, 43.35, 90.0] {
+            let angle = degrees.to_radians();
+            let direction = Vec2::new(angle.cos(), angle.sin());
+            let normal = Vec2::new(-direction.y, direction.x);
+            let hinge = translated(Vec2::ZERO, direction, -1.45);
+            let doors = [DoorCollider::from_pose(
+                [hinge.x, 0.0, hinge.y],
+                direction.into(),
+                2.9,
+                0.075,
+                3.0,
+            )];
+            let world = HorizontalWorld {
+                index: &index,
+                walls: &[],
+                doors: &doors,
+                ceiling: &ceiling,
+                floor: &floor,
+                debug: false,
+            };
+            let support = half * (normal.x.abs() + normal.y.abs());
+            let from = translated(
+                Vec2::ZERO,
+                normal,
+                CONTACT_EPS.mul_add(-0.5, support + 0.0375),
+            );
+            let incoming = sweep_player_hull(
+                &world,
+                (from, translated(from, normal, -0.05)),
+                (0.0, 1.8, half),
+                true,
+            );
+            assert!(
+                incoming.distance(from) < 0.00001,
+                "contact band must not admit an inward step: {half}, {degrees}, {incoming:?}"
+            );
+            let target = translated(from, normal, 0.05);
+            let separating = sweep_player_hull(&world, (from, target), (0.0, 1.8, half), true);
+            assert!(
+                separating.distance(target) < 0.00001,
+                "ordinary outward input must escape contact: {half}, {degrees}, {separating:?}"
+            );
+            let deep = translated(Vec2::ZERO, normal, 0.0375);
+            assert_eq!(
+                sweep_player_hull(&world, (deep, target), (0.0, 1.8, half), true),
+                deep
+            );
+        }
+    }
+    Ok(())
+}

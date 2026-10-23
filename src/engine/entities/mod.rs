@@ -97,6 +97,8 @@ pub struct WorldContext<'a> {
     pub eye: Vec3,
     /// The player's collision body height.
     pub body_height: f32,
+    pub body_half: f32,
+    pub form_model: Option<&'a str>,
     /// The static collision boxes.
     pub walls: &'a [WallAabb],
     /// The spatial index over `walls`.
@@ -123,8 +125,15 @@ pub struct LightResponseObservation<'a> {
 /// One renderer/audio command produced by the world.
 #[derive(Clone, Debug, PartialEq)]
 pub enum WorldCommand {
+    PlayerForm {
+        model: Option<String>,
+        scale: f32,
+    },
     /// Bounded explanation which the player can dismiss without resetting.
-    ShowMessage { title: String, lines: Vec<String> },
+    ShowMessage {
+        title: String,
+        lines: Vec<String>,
+    },
     /// Concise authored win/death feedback, consumed by the native player.
     EndRun {
         won: bool,
@@ -132,31 +141,43 @@ pub enum WorldCommand {
         detail: String,
     },
     /// Request a same-package destination; the player owns asynchronous loading.
-    ChangeLevel { level: String },
+    ChangeLevel {
+        level: String,
+    },
     /// Presentation-only impact; never changes collision, lights or gameplay.
     Blood {
         emission: crate::engine::render::BloodEmission,
     },
     /// Restore one authored physics group's starting poses and clear momentum.
-    ResetPhysicsGroup { group: String },
+    ResetPhysicsGroup {
+        group: String,
+    },
     MannequinPins {
         group: String,
         enabled: Option<bool>,
         target: String,
     },
     /// Activate dormant members of an authored physical group.
-    ActivatePhysicsGroup { group: String },
+    ActivatePhysicsGroup {
+        group: String,
+    },
     Ragdoll {
         target: String,
         enabled: bool,
         velocity: [f32; 3],
     },
     /// Atomically claim the authored carry contract's exact held item.
-    HandoffItem { target: String },
+    HandoffItem {
+        target: String,
+    },
     /// Return this actor's original carried item to physical simulation at its live socket.
-    ReleaseItem { target: String },
+    ReleaseItem {
+        target: String,
+    },
     /// Hide an accepted carry assembly only after whole-geometry occlusion.
-    RetireHidden { target: String },
+    RetireHidden {
+        target: String,
+    },
     /// Select one of the two prepared, map-authored weather configurations.
     SetWeatherAlternate {
         /// True selects `weather_alternate`; false restores `weather`.
@@ -168,7 +189,9 @@ pub enum WorldCommand {
         transition_seconds: f32,
     },
     /// Resume or stop the level's optional authored cycle.
-    SetWeatherCycle { enabled: bool },
+    SetWeatherCycle {
+        enabled: bool,
+    },
     /// Spawn a runtime dynamic object for `entity` (its runtime key).
     SpawnDynamic {
         /// The entity's runtime render key.
@@ -387,6 +410,7 @@ pub struct EntityWorld {
     scripts: crate::engine::scripting::ScriptRuntime,
     script_event: Option<EventRecord>,
     pub(crate) script_player: Vec3,
+    pub(crate) script_form: Option<String>,
     pub(crate) script_held_item: Option<String>,
     pub(crate) campaign: crate::engine::scripting::SharedCampaign,
     pub(crate) campaign_level: String,
@@ -511,6 +535,7 @@ impl EntityWorld {
             scripts: crate::engine::scripting::ScriptRuntime::default(),
             script_event: None,
             script_player: Vec3::ZERO,
+            script_form: None,
             script_held_item: None,
             campaign: crate::engine::scripting::SharedCampaign::default(),
             campaign_level: String::new(),
@@ -813,7 +838,8 @@ impl EntityWorld {
         self.commands.retain(|command| {
             !matches!(
                 command,
-                WorldCommand::Blood { emission: _ }
+                WorldCommand::PlayerForm { model: _, scale: _ }
+                    | WorldCommand::Blood { emission: _ }
                     | WorldCommand::ShowMessage { title: _, lines: _ }
                     | WorldCommand::Ragdoll {
                         target: _,
@@ -2443,6 +2469,13 @@ impl EntityWorld {
                     group: group.clone(),
                     enabled: *enabled,
                     target: target.clone(),
+                });
+                report.actions_run = report.actions_run.saturating_add(1);
+            }
+            ActionDef::PlayerForm { model, scale } => {
+                self.commands.push(WorldCommand::PlayerForm {
+                    model: model.clone(),
+                    scale: *scale,
                 });
                 report.actions_run = report.actions_run.saturating_add(1);
             }
@@ -4078,6 +4111,9 @@ impl EntityWorld {
     pub fn tick(&mut self, ctx: &WorldContext<'_>) -> WorldTick {
         let mut tick = WorldTick::default();
         self.script_player = ctx.feet;
+        if self.script_form.as_deref() != ctx.form_model {
+            self.script_form = ctx.form_model.map(str::to_string);
+        }
         self.script_visible.clear();
         // No host capability can observe visibility without an enabled VM.
         if self.scripts.has_enabled_modules() && !self.ai.is_empty() {
@@ -4197,7 +4233,7 @@ impl EntityWorld {
             role: Some("player".to_string()),
             behavior: crate::engine::ai::AiBehavior::Idler,
             position: ctx.feet,
-            radius: crate::engine::collision::PLAYER_RADIUS,
+            radius: ctx.body_half,
             height: ctx.body_height,
             caught: false,
         });
@@ -4391,7 +4427,7 @@ impl EntityWorld {
         let agents = self.ai.agents();
         let obstacles = &self.navigation_obstacles;
         let mut moved = self.doors.advance(ctx.delta_seconds, |_, candidate| {
-            door_pose_hits_player(candidate, player, body)
+            door_pose_hits_player(candidate, player, body, ctx.body_half)
                 || door_pose_hits_static(index, walls, candidate)
                 || agents.iter().any(|agent| {
                     !matches!(agent.state, crate::engine::ai::AiState::Hidden)
@@ -4430,7 +4466,7 @@ impl EntityWorld {
                 continue;
             };
             if door.advance(ctx.delta_seconds, |candidate| {
-                door_pose_hits_player(candidate, player, body)
+                door_pose_hits_player(candidate, player, body, ctx.body_half)
                     || walls.iter().any(|wall| door_pose_hits_box(candidate, wall))
                     || obstacles
                         .iter()
@@ -5156,12 +5192,17 @@ fn warn_once(key: &str, message: String) {
 }
 
 /// True when a candidate door pose would overlap the player's body.
-fn door_pose_hits_player(candidate: &DoorCollider, player_feet: Vec3, body_height: f32) -> bool {
+fn door_pose_hits_player(
+    candidate: &DoorCollider,
+    player_feet: Vec3,
+    body_height: f32,
+    half: f32,
+) -> bool {
     candidate.overlaps_body_y(player_feet.y, body_height)
-        && candidate.overlaps_disc(
-            player_feet.x,
-            player_feet.z,
-            crate::engine::collision::PLAYER_RADIUS,
+        && crate::engine::collision::square_overlaps_door(
+            glam::Vec2::new(player_feet.x, player_feet.z),
+            half,
+            candidate,
         )
 }
 

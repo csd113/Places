@@ -78,7 +78,7 @@ impl FrameLoop<'_> {
                 self.ui_state.set_status(error, true);
             } else {
                 self.console_runtime
-                    .clear_given_props(self.renderer, &mut self.items.world);
+                    .clear_session_props(self.renderer, &mut self.items.world);
                 self.close_console();
             }
         }
@@ -92,6 +92,9 @@ impl FrameLoop<'_> {
 
     pub(crate) fn handle_console_event(&mut self, event: &Event) -> bool {
         self.reconcile_console();
+        if self.handle_form_event(event) {
+            return true;
+        }
         if console::toggle_key(event, &self.settings.bindings.console) {
             if self.settings.developer_console
                 && self.game.app_state() == AppState::Playing
@@ -131,5 +134,67 @@ impl FrameLoop<'_> {
             self.trace_world("console_command");
         }
         true
+    }
+}
+
+impl FrameLoop<'_> {
+    pub(super) fn apply_player_form(&mut self, model: Option<String>, scale: f32) {
+        use crate::game::gameplay_actions::{GameplayAction, RepresentationAction};
+        let request = model.map_or(RepresentationAction::Reset, |id| {
+            RepresentationAction::SelectScaled { model: id, scale }
+        });
+        let result = self.console_runtime.apply_action(
+            &GameplayAction::Become(request),
+            &mut crate::game::gameplay_runtime::GameplayContext {
+                game: self.game,
+                renderer: self.renderer,
+                physics: &mut self.items.world,
+                authored: &mut self.items.authored,
+            },
+        );
+        if let Err(error) = result {
+            self.ui_state.set_status(error, true);
+        }
+        self.items.input.invalidate();
+        self.items.target = None;
+        self.trace_world("player_form");
+    }
+    pub(super) fn handle_form_event(&mut self, event: &Event) -> bool {
+        if let Event::KeyDown {
+            keycode: Some(key @ (Keycode::R | Keycode::V)),
+            repeat: false,
+            timestamp: _,
+            window_id: _,
+            scancode: _,
+            keymod: _,
+            which: _,
+            raw: _,
+        } = event
+            && self.game.app_state() == AppState::Playing
+            && !self.console.is_open()
+            && self.console_runtime.representation.is_active()
+        {
+            let request = if *key == Keycode::R {
+                crate::game::gameplay_actions::RepresentationAction::Reset
+            } else {
+                crate::game::gameplay_actions::RepresentationAction::ToggleView
+            };
+            let result = self.console_runtime.apply_action(
+                &crate::game::gameplay_actions::GameplayAction::Become(request),
+                &mut crate::game::gameplay_runtime::GameplayContext {
+                    game: self.game,
+                    renderer: self.renderer,
+                    physics: &mut self.items.world,
+                    authored: &mut self.items.authored,
+                },
+            );
+            if let Err(error) = result {
+                self.ui_state.set_status(error, true);
+            }
+            self.trace_world("return_form");
+            return true;
+        }
+
+        false
     }
 }

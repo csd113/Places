@@ -29,6 +29,7 @@ fn release_hint_clears_after_contact_ends_without_releasing_item() -> Result<(),
         1.0,
     )?;
     let clear = PlayerContext {
+        half: crate::engine::collision::PLAYER_RADIUS,
         eye: Vec3::new(0.0, 1.5, 0.0),
         feet: Vec3::ZERO,
         height: 1.8,

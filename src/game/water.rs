@@ -3,8 +3,8 @@
 //! Land acceleration, air control and stance ownership stay in `game`.
 use super::input::Control;
 use super::{
-    CONTACT_EPS, Game, HorizontalMode, InputState, PLAYER_RADIUS, PLAYER_STEP_HEIGHT, STEP_EPS,
-    Settings, WATER_EXIT_EYE_CLEARANCE_M, WATER_EXIT_STEP_M, WaterExit, WaterSample,
+    CONTACT_EPS, Game, HorizontalMode, InputState, PLAYER_STEP_HEIGHT, STEP_EPS, Settings,
+    WATER_EXIT_EYE_CLEARANCE_M, WATER_EXIT_STEP_M, WaterExit, WaterSample,
 };
 use crate::engine::physics::GRAVITY;
 use glam::{Vec2, Vec3};
@@ -54,10 +54,10 @@ impl Game {
         let mut flow = Vec2::ZERO;
         for (dx, dz) in [
             (0.0, 0.0),
-            (PLAYER_RADIUS, 0.0),
-            (-PLAYER_RADIUS, 0.0),
-            (0.0, PLAYER_RADIUS),
-            (0.0, -PLAYER_RADIUS),
+            (self.body_half(), 0.0),
+            (-self.body_half(), 0.0),
+            (0.0, self.body_half()),
+            (0.0, -self.body_half()),
         ] {
             if let Some(water) = self
                 .water

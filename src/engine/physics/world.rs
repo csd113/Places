@@ -119,6 +119,7 @@ pub struct PlayerContext {
     pub eye: Vec3,
     pub feet: Vec3,
     pub height: f32,
+    pub half: f32,
     pub view: Vec3,
     pub yaw: f32,
     /// False for a noclip player; rigid items continue simulating.
@@ -289,6 +290,7 @@ pub(super) struct Runtime {
     pub player: RigidBodyHandle,
     pub player_collider: ColliderHandle,
     player_height: f32,
+    player_half: f32,
     doors: Vec<RigidBodyHandle>,
     pub player_velocity: Vec3,
     previous_player: Option<Vec3>,
@@ -531,6 +533,7 @@ impl ItemWorld {
                 player,
                 player_collider,
                 player_height: 1.8,
+                player_half: PLAYER_RADIUS,
                 doors: Vec::new(),
                 player_velocity: Vec3::ZERO,
                 previous_player: None,
@@ -1563,7 +1566,10 @@ impl PlayerContext {
             && self.view.is_finite()
             && self.yaw.is_finite()
             && self.height.is_finite()
-            && self.height > PLAYER_RADIUS * 2.0
+            && self.height >= 0.06
+            && self.height <= 4.0
+            && self.half.is_finite()
+            && (0.03..=3.0).contains(&self.half)
     }
 }
 
@@ -1903,15 +1909,18 @@ impl Runtime {
         if let Some(collider) = self.world.colliders.get_mut(self.player_collider) {
             collider.set_enabled(player.active);
         }
-        if (player.height - self.player_height).abs() > 1.0e-4 {
+        if (player.height - self.player_height).abs() > 1.0e-4
+            || (player.half - self.player_half).abs() > 1.0e-4
+        {
             if let Some(collider) = self.world.colliders.get_mut(self.player_collider) {
                 collider.set_shape(SharedShape::cuboid(
-                    PLAYER_RADIUS,
+                    player.half,
                     player.height * 0.5,
-                    PLAYER_RADIUS,
+                    player.half,
                 ));
             }
             self.player_height = player.height;
+            self.player_half = player.half;
         }
         if let Some(body) = self.world.bodies.get_mut(self.player) {
             let center = Vec3::new(

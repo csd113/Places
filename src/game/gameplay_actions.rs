@@ -16,11 +16,13 @@ pub enum PhysicsAction {
     Step,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum RepresentationAction {
     Select(String),
+    SelectScaled { model: String, scale: f32 },
     Place,
     PlacementPhysics(bool),
+    ToggleView,
     Reset,
 }
 

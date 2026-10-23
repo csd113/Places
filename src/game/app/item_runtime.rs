@@ -174,6 +174,7 @@ impl Items {
 
 fn player_context(game: &crate::game::Game) -> PlayerContext {
     PlayerContext {
+        half: game.body_half(),
         eye: game.player_position,
         feet: Vec3::new(
             game.player_position.x,
@@ -725,6 +726,7 @@ impl FrameLoop<'_> {
         };
         let started = Instant::now();
         let context = PlayerContext {
+            half: self.game.body_half(),
             eye: self.game.player_position,
             feet: Vec3::new(
                 self.game.player_position.x,

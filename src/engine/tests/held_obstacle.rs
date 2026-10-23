@@ -22,6 +22,7 @@ fn held_obstacle_tracks_actual_body_while_solver_is_paused() -> Result<(), Strin
         1.0,
     )?;
     let player = PlayerContext {
+        half: crate::engine::collision::PLAYER_RADIUS,
         eye: Vec3::new(0.0, 1.5, 0.0),
         feet: Vec3::ZERO,
         height: 1.8,

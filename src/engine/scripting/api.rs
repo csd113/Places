@@ -235,6 +235,7 @@ pub(super) fn host<'scope>(
             result.set("x", world.script_player.x)?;
             result.set("y", world.script_player.y)?;
             result.set("z", world.script_player.z)?;
+            result.set("form", world.script_form.clone())?;
             result.set_readonly(true);
             Ok(result)
         })?,
@@ -627,6 +628,25 @@ pub(super) fn host<'scope>(
                 };
                 emission.validate().map_err(error)?;
                 push(queue, limit, ActionDef::Blood { emission })
+            },
+        )?,
+    )?;
+    api.set(
+        "become",
+        capability(
+            scope,
+            calls,
+            move |_, (raw_model, raw_scale): (Option<HostString>, Option<Coordinate>)| {
+                let model = raw_model.map(|value| text(value, 96)).transpose()?;
+                let scale = raw_scale.map_or(1.0, |value| value.0);
+                if !(0.1..=4.0).contains(&scale)
+                    || model
+                        .as_ref()
+                        .is_some_and(|id| !crate::game::representation::is_eligible(id))
+                {
+                    return Err(error("Form requires an eligible model and scale 0.1..=4"));
+                }
+                push(queue, limit, ActionDef::PlayerForm { model, scale })
             },
         )?,
     )?;

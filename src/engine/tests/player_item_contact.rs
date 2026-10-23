@@ -32,6 +32,7 @@ fn player_contact_activates_dormant_movable_bodies_but_preserves_fixed_bodies() 
             1.0,
         )?;
         let player = PlayerContext {
+            half: crate::engine::collision::PLAYER_RADIUS,
             eye: Vec3::new(0.0, 1.6, 0.0),
             feet: Vec3::ZERO,
             height: 1.8,
@@ -94,6 +95,7 @@ fn walking_and_stepping_contact_reach_a_genuinely_sleeping_movable_prop() -> Res
             1.0,
         )?;
         let away = PlayerContext {
+            half: crate::engine::collision::PLAYER_RADIUS,
             eye: Vec3::new(2.0, 1.6, 2.0),
             feet: Vec3::new(2.0, 0.0, 2.0),
             height: 1.8,
@@ -134,5 +136,57 @@ fn walking_and_stepping_contact_reach_a_genuinely_sleeping_movable_prop() -> Res
             "walking into or stepping atop a sleeping movable prop must wake its physics"
         );
     }
+    Ok(())
+}
+
+// Value: the old physics proxy rejected short bodies and retained human width.
+// One dormant cube and two contexts protect tiny-form clearance and a wide-form
+// refusal independently of static-world movement; two syncs, no assets or bake.
+#[test]
+fn prop_body_dimensions_control_live_item_clearance_and_sweeps() -> Result<(), String> {
+    let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"form_proxy","name":"Form proxy","spawn":{"x":0,"z":0}}"#).map_err(|error|error.to_string())?;
+    let mut world = ItemWorld::from_level(&level, &[]);
+    world.spawn_authored(
+        1,
+        &PhysicsDef {
+            motion: BodyMotion::Dynamic,
+            shape: Some(ShapeDef::Cuboid {
+                half_extents: [0.1, 0.5, 0.5],
+            }),
+            ..PhysicsDef::default()
+        },
+        (Vec3::new(-0.1, 0.0, -0.5), Vec3::new(0.1, 1.0, 0.5)),
+        Vec3::new(0.3, 0.0, 0.0),
+        0.0,
+        1.0,
+    )?;
+    let tiny = PlayerContext {
+        eye: Vec3::new(0.0, 0.08, 0.0),
+        feet: Vec3::ZERO,
+        height: 0.09,
+        half: 0.07,
+        view: Vec3::X,
+        yaw: 0.0,
+        active: true,
+    };
+    assert!(world.player_pose_clear(tiny));
+    let human = PlayerContext {
+        eye: Vec3::new(0.0, 1.6, 0.0),
+        height: 1.8,
+        half: 0.4,
+        ..tiny
+    };
+    assert!(!world.player_pose_clear(human));
+    world.sync_context(tiny, &[]);
+    let desired = PlayerContext {
+        feet: Vec3::new(1.0, 0.0, 0.0),
+        eye: Vec3::new(1.0, 0.08, 0.0),
+        ..tiny
+    };
+    let resolved = world.constrain_player_eye(desired);
+    assert!(
+        resolved.x > 0.0 && resolved.x < 0.14,
+        "tiny body must sweep to the real cube face"
+    );
     Ok(())
 }
