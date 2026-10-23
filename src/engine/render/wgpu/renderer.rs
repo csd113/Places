@@ -741,6 +741,10 @@ pub struct WgpuRenderer {
     /// from the level and its resolved material table; dropped when the level
     /// changes.
     effects: EffectScene,
+    blood: crate::engine::render::common::blood::BloodScene,
+    blood_gpu: Option<super::effects::WgpuBlood>,
+    blood_delta: f32,
+    blood_surfaces: Option<Arc<crate::engine::lighting::transport::TransportScene>>,
     /// The GPU side of the effect scene: buffers sized to the level budget and
     /// one uploaded sheet per distinct effect material. Dropped with the
     /// level.
@@ -1111,6 +1115,10 @@ impl WgpuRenderer {
             dynamic: DynamicScene::new(),
             runtime_objects: HashMap::new(),
             effects: EffectScene::new(),
+            blood: crate::engine::render::common::blood::BloodScene::default(),
+            blood_gpu: None,
+            blood_delta: 0.0,
+            blood_surfaces: None,
             world_effects: None,
             effects_pipeline: None,
             effects_scene_pipeline: None,
@@ -1315,8 +1323,57 @@ impl WgpuRenderer {
         self.last_ui.clear();
     }
 
-    /// The current dynamic scene (empty until `set_dynamic_demo` spawns
-    /// objects; the static world is uploaded separately).
+    /// Applies the player presentation preference and releases disabled resources.
+    pub fn set_blood_enabled(&mut self, enabled: bool) {
+        self.blood.set_enabled(enabled);
+        if !enabled {
+            self.blood_gpu = None;
+            self.blood_surfaces = None;
+        }
+    }
+    pub fn clear_blood(&mut self) {
+        self.blood.clear();
+        self.blood_gpu = None;
+        self.blood_surfaces = None;
+    }
+    pub fn emit_blood(&mut self, request: crate::engine::render::common::blood::BloodEmission) {
+        self.blood.emit(request);
+        if self.blood.has_pending() && self.blood_surfaces.is_none() {
+            if let (Some(level), Some(build), Some(materials)) = (
+                &self.installed_level,
+                &self.retained_build,
+                &self.visibility_materials,
+            ) {
+                self.blood_surfaces =
+                    crate::engine::render::common::light_transport::build_surface_scene(
+                        level,
+                        &build.mesh,
+                        &build.batches,
+                        materials,
+                    );
+            }
+            if self.blood_surfaces.is_none() {
+                logging::warn_once(
+                    "blood-surfaces",
+                    "[blood] Static surface index unavailable within the triangle budget",
+                );
+            }
+        }
+    }
+    #[must_use]
+    pub fn blood_diagnostics(&self) -> serde_json::Value {
+        let mut result = self.blood.diagnostics();
+        if let Some(fields) = result.as_object_mut() {
+            drop(
+                fields.insert(
+                    "attachments".into(),
+                    self.blood
+                        .attachment_diagnostics(&self.characters, &self.dynamic),
+                ),
+            );
+        }
+        result
+    }
     #[must_use]
     pub const fn dynamic_scene(&self) -> &DynamicScene {
         &self.dynamic
@@ -1343,6 +1400,7 @@ impl WgpuRenderer {
         // emitters advanced. Their billboards are synced in `render_scene`,
         // where the frame's camera exists.
         let _update_stats_2 = self.effects.update(self.animation_seconds);
+        self.blood_delta = delta_seconds;
         let lighting_started = cpu_trace_start(self.animation_seconds);
         let update = self.refresh_dynamic_lighting(delta_seconds);
         cpu_trace_finish("dynamic_receivers", lighting_started);
@@ -2086,6 +2144,7 @@ impl WgpuRenderer {
         self.dynamic_lighting = None;
         self.dynamic_field = None;
         self.dynamic_transport = None;
+        self.clear_blood();
         self.visibility_materials = None;
         self.world_dynamic = None;
         self.world_characters = None;
@@ -3847,6 +3906,7 @@ impl WgpuRenderer {
         // objects, while a reload starts from the newly installed definition,
         // including when its id matches the previous version.
         if level_changed {
+            self.clear_blood();
             self.dynamic.clear_all();
             self.dynamic_visibility =
                 crate::engine::render::common::dynamic_visibility::DynamicVisibility::new();
@@ -4980,6 +5040,24 @@ impl WgpuRenderer {
                 self.quality,
             );
         }
+        self.blood.update(
+            std::mem::take(&mut self.blood_delta),
+            &self.characters,
+            &self.dynamic,
+            self.blood_surfaces.as_deref(),
+        );
+        if self.blood_gpu.is_none() && self.blood.has_geometry() {
+            self.blood_gpu = Some(super::effects::WgpuBlood::new(&self.device, &self.textures));
+        }
+        if let Some(gpu) = self.blood_gpu.as_mut() {
+            gpu.sync(
+                &self.queue,
+                &self.blood,
+                &self.characters,
+                &self.dynamic,
+                frame.eye,
+            );
+        }
         let _ensure_post_targets_status = self.ensure_post_targets();
         self.last_frame = Some(frame);
         // A frame whose present was skipped (`PLACES_BENCH_NOSWAP`) must not
@@ -5273,6 +5351,14 @@ impl WgpuRenderer {
     ) {
         if self.visual_diagnostic_active() {
             return;
+        }
+        if let (Some(blood), Some(blood_pipeline)) = (self.blood_gpu.as_ref(), pipeline) {
+            blood.encode(pass, blood_pipeline, self.filtering);
+            if blood.vertex_count() > 0 {
+                totals.draw_calls = totals.draw_calls.saturating_add(1);
+                totals.visible_vertices =
+                    totals.visible_vertices.saturating_add(blood.vertex_count());
+            }
         }
         let (Some(effects), Some(effects_pipeline)) = (self.world_effects.as_ref(), pipeline)
         else {

@@ -1047,6 +1047,10 @@ pub enum ActionDef {
         #[serde(default)]
         velocity: [f32; 3],
     },
+    /// Presentation-only finite impact ray and bounded secondary droplets.
+    Blood {
+        emission: crate::engine::render::BloodEmission,
+    },
     /// Activate dormant movable bodies in one authored physics group.
     ActivatePhysicsGroup {
         /// Group id declared by authored movable physics props.
@@ -1121,6 +1125,7 @@ impl ActionDef {
                 enabled: _,
                 velocity: _,
             } => "ragdoll",
+            Self::Blood { emission: _ } => "blood",
             Self::MannequinPins {
                 group: _,
                 enabled: _,
@@ -1279,6 +1284,7 @@ impl ActionDef {
                 name: _,
             }
             | Self::DespawnEntity { target: _ }
+            | Self::Blood { emission: _ }
             | Self::ResetToStart
             | Self::ResetPhysicsGroup { group: _ }
             | Self::ActivatePhysicsGroup { group: _ }

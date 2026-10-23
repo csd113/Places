@@ -612,6 +612,60 @@ impl WgpuEffects {
     }
 }
 
+/// One lazy fixed-size triangle buffer for dynamic surface marks and droplets.
+pub struct WgpuBlood {
+    buffer: wgpu::Buffer,
+    texture: Arc<GpuTexture>,
+    vertices: Vec<EffectVertex>,
+}
+impl WgpuBlood {
+    pub fn new(device: &wgpu::Device, cache: &TextureCache) -> Self {
+        Self {
+            buffer: device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("places-blood-geometry"),
+                size: u64::try_from(crate::engine::render::common::blood::MAX_VERTICES)
+                    .unwrap_or(8192)
+                    .saturating_mul(EFFECT_VERTEX_STRIDE),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }),
+            texture: cache.fallback(),
+            vertices: Vec::with_capacity(crate::engine::render::common::blood::MAX_VERTICES),
+        }
+    }
+    pub fn sync(
+        &mut self,
+        queue: &wgpu::Queue,
+        scene: &crate::engine::render::common::blood::BloodScene,
+        characters: &crate::engine::render::common::character::CharacterScene,
+        dynamic: &crate::engine::render::common::dynamic::DynamicScene,
+        eye: glam::Vec3,
+    ) {
+        scene.vertices(characters, dynamic, eye, &mut self.vertices);
+        if !self.vertices.is_empty() {
+            queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&self.vertices));
+        }
+    }
+    pub fn encode<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        pipeline: &'a EffectsPipeline,
+        filtering: TextureFiltering,
+    ) {
+        if self.vertices.is_empty() {
+            return;
+        }
+        pass.set_pipeline(&pipeline.pipeline);
+        pass.set_bind_group(0, &pipeline.bind_group, &[]);
+        pass.set_bind_group(1, self.texture.bind_group(filtering), &[]);
+        pass.set_vertex_buffer(0, self.buffer.slice(..));
+        pass.draw(0..u32::try_from(self.vertices.len()).unwrap_or(0), 0..1);
+    }
+    pub const fn vertex_count(&self) -> usize {
+        self.vertices.len()
+    }
+}
+
 /// Optional bounded-run diagnostics. No trace file or timer in ordinary play.
 fn weather_trace(enabled: bool) -> Option<std::fs::File> {
     use std::io::Write as _;

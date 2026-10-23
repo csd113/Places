@@ -555,6 +555,9 @@ pub struct Settings {
     /// Aesthetic presentation, independent of texture, lighting and hardware quality.
     #[serde(default)]
     pub visual_style: VisualStyle,
+    /// Presentation-only dynamic blood marks and droplets. Disabling clears them.
+    #[serde(default = "default_bloom")]
+    pub blood: bool,
     /// Reflections quality: `"off"`, `"medium"` or `"full"`.
     ///
     /// Independent of texture quality. Static lighting suspends reflections
@@ -702,6 +705,7 @@ impl Default for Settings {
             quality: default_quality(),
             bloom: default_bloom(),
             visual_style: VisualStyle::Standard,
+            blood: true,
             reflections: ReflectionQuality::DEFAULT.name().to_string(),
             lightmaps: LightmapQuality::DEFAULT.name().to_string(),
             use_low_quality_lighting: false,

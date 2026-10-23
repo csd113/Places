@@ -710,3 +710,66 @@ fn observations_report_live_door_state_and_replay_atomically() -> Result<(), Str
     );
     Ok(())
 }
+
+// Real Luau boundary, a tiny existing fixture and three invocations. Protects
+// transactional refusal and reset cancellation, beyond pure geometry tests.
+#[test]
+fn script_blood_is_validated_atomic_and_cleared_on_reset() -> Result<(), String> {
+    let level = fixture("return {entered=function(api) api.blood(0,1,0,0,-2,0,12) end}")?;
+    let mut world = EntityWorld::from_level(&level);
+    let _initial = world.take_commands();
+    let _report = invoke(&mut world)?;
+    assert!(
+        world.take_commands().iter().any(
+            |command| matches!(command,WorldCommand::Blood{emission} if emission.droplets==12)
+        ),
+        "Validated script burst reaches native scene command"
+    );
+    let _reset_report = invoke(&mut world)?;
+    world.reset_runtime();
+    assert!(
+        !world
+            .take_commands()
+            .iter()
+            .any(|command| matches!(command, WorldCommand::Blood { emission: _ })),
+        "Reset cancels pending blood commands"
+    );
+    let bad = fixture(
+        "return {entered=function(api) api.blood(0,1,0,0,-2,0,12); api.blood(0,1,0,0,0,0,12) end}",
+    )?;
+    let mut rejected = EntityWorld::from_level(&bad);
+    let _bad_initial = rejected.take_commands();
+    let _bad_report = invoke(&mut rejected)?;
+    assert!(
+        !rejected
+            .take_commands()
+            .iter()
+            .any(|command| matches!(command, WorldCommand::Blood { emission: _ })),
+        "A malformed later call rolls back the whole handler"
+    );
+    let coerced = fixture("return {entered=function(api) api.blood(0,1,0,0,-2,0,'12') end}")?;
+    let mut numeric_only = EntityWorld::from_level(&coerced);
+    let _coerced_initial = numeric_only.take_commands();
+    let _coerced_report = invoke(&mut numeric_only)?;
+    assert!(
+        !numeric_only
+            .take_commands()
+            .iter()
+            .any(|command| matches!(command, WorldCommand::Blood { emission: _ })),
+        "String count coercion must be refused before native parsing"
+    );
+
+    let fractional =
+        fixture("return {entered=function(api) api.blood(0,1,0,0,-2,0,1.00000000001) end}")?;
+    let mut exact_counts = EntityWorld::from_level(&fractional);
+    let _fraction_initial = exact_counts.take_commands();
+    let _fraction_report = invoke(&mut exact_counts)?;
+    assert!(
+        !exact_counts
+            .take_commands()
+            .iter()
+            .any(|command| matches!(command, WorldCommand::Blood { emission: _ })),
+        "Near-integer fractions must not round through coordinate precision"
+    );
+    Ok(())
+}

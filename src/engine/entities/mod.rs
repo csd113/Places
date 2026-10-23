@@ -133,6 +133,10 @@ pub enum WorldCommand {
     },
     /// Request a same-package destination; the player owns asynchronous loading.
     ChangeLevel { level: String },
+    /// Presentation-only impact; never changes collision, lights or gameplay.
+    Blood {
+        emission: crate::engine::render::BloodEmission,
+    },
     /// Restore one authored physics group's starting poses and clear momentum.
     ResetPhysicsGroup { group: String },
     MannequinPins {
@@ -809,7 +813,8 @@ impl EntityWorld {
         self.commands.retain(|command| {
             !matches!(
                 command,
-                WorldCommand::ShowMessage { title: _, lines: _ }
+                WorldCommand::Blood { emission: _ }
+                    | WorldCommand::ShowMessage { title: _, lines: _ }
                     | WorldCommand::Ragdoll {
                         target: _,
                         enabled: _,
@@ -2394,6 +2399,24 @@ impl EntityWorld {
                         level: level.clone(),
                     });
                     report.actions_run = report.actions_run.saturating_add(1);
+                }
+            }
+            ActionDef::Blood { emission } => {
+                if emission.validate().is_ok() {
+                    if self
+                        .commands
+                        .iter()
+                        .filter(|c| matches!(c, WorldCommand::Blood { emission: _ }))
+                        .count()
+                        < crate::engine::render::MAX_BLOOD_REQUESTS
+                    {
+                        self.commands.push(WorldCommand::Blood {
+                            emission: *emission,
+                        });
+                        report.actions_run = report.actions_run.saturating_add(1);
+                    }
+                } else {
+                    report.unsupported = report.unsupported.saturating_add(1);
                 }
             }
             ActionDef::Ragdoll {

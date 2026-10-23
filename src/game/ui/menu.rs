@@ -699,6 +699,9 @@ fn description(
                     SettingsValue::GraphicsQuality => {
                         "Texture detail. Lighting preferences stay independent."
                     }
+                    SettingsValue::Blood => {
+                        "Dynamic blood marks and droplets. Turning off clears all existing effects."
+                    }
                     SettingsValue::Bloom => "A soft glow around bright surfaces.",
                     SettingsValue::Vsync => "Match frame presentation to your display.",
                     SettingsValue::Filtering => {

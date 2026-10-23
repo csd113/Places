@@ -59,9 +59,9 @@ impl SettingsPage {
             Self::Root => 6,
             Self::Graphics => {
                 if advanced_expanded {
-                    9
+                    10
                 } else {
-                    7
+                    8
                 }
             }
             Self::Display => 3,
@@ -109,6 +109,7 @@ pub enum SettingsValue {
     GraphicsQuality,
     VisualStyle,
     Bloom,
+    Blood,
     Reflections,
     Lightmaps,
     Vsync,
@@ -224,6 +225,7 @@ fn ui_signature(
     app_state_tag(app_state).hash(&mut hasher);
     ui_state.main_menu_idx.hash(&mut hasher);
     settings.visual_style.hash(&mut hasher);
+    settings.blood.hash(&mut hasher);
     ui_state.credits.hash(&mut hasher);
     ui_state.status_page.hash(&mut hasher);
     ui_state.level_description.hash(&mut hasher);
@@ -706,6 +708,12 @@ fn graphics_rows(settings: &Settings, advanced_expanded: bool) -> Vec<SettingsRo
     );
     push_row(
         &mut rows,
+        "Blood Effects",
+        selector(on_off(settings.blood)),
+        SettingsRowKind::Value(SettingsValue::Blood),
+    );
+    push_row(
+        &mut rows,
         "Bloom",
         selector_with_override(
             on_off(settings.bloom_enabled()),
@@ -965,6 +973,7 @@ fn adjust_value(
             }
             ui_state.set_status(format!("Graphics quality: {}", next.label()), false);
         }
+        SettingsValue::Blood => adjust_blood(ui_state, settings),
         SettingsValue::Bloom => {
             let next = settings.toggle_bloom();
             ui_state.set_status(format!("Bloom {}", on_off(next).to_lowercase()), false);
@@ -1056,6 +1065,11 @@ fn adjust_value(
             ui_state.set_status("Field of view updated", false);
         }
     }
+}
+
+fn adjust_blood(ui_state: &mut UiState, settings: &mut Settings) {
+    settings.blood = !settings.blood;
+    ui_state.set_status(format!("Blood effects {}", on_off(settings.blood)), false);
 }
 
 /// Selects the lighting path without changing texture preferences.

@@ -113,6 +113,42 @@ pub fn prepare_runtime_transport(
     .map(|(scene, _)| std::sync::Arc::new(scene))
 }
 
+/// Immutable presentation collision only: no lights, probes, targets or solve.
+/// Built lazily for blood when a Static package has no lighting transport index.
+/// Claimed character bind poses remain excluded; their live skin owns collision.
+#[must_use]
+pub fn build_surface_scene(
+    level: &LevelDef,
+    mesh: &LevelMesh,
+    batches: &[PropMeshBatch],
+    materials: &MaterialTable,
+) -> Option<std::sync::Arc<TransportScene>> {
+    let mut triangles = Vec::new();
+    let mut surfaces = SurfaceAttributes::default();
+    let mut stats = TransportSceneStats::default();
+    let mut owners = Vec::new();
+    let water = WaterVolumes::from_level(level);
+    append_architecture_triangles(
+        mesh,
+        materials,
+        &water,
+        &mut triangles,
+        &mut surfaces,
+        &mut stats,
+        &mut owners,
+    );
+    append_prop_triangles(
+        batches,
+        &mut triangles,
+        &mut surfaces,
+        &mut stats,
+        &mut owners,
+    );
+    TransportScene::new(triangles, Vec::new())?
+        .with_surface_alpha(surfaces.alpha)
+        .map(std::sync::Arc::new)
+}
+
 /// Builds the transport scene for one prepared build.
 ///
 /// `charts` is the finished lightmap plan's chart list. It is needed here so

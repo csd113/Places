@@ -2037,6 +2037,12 @@ impl TransportScene {
         }
     }
 
+    /// Exact immutable triangle selected by the alpha-aware runtime ray query.
+    #[must_use]
+    pub fn hit_triangle(&self, index: usize) -> Option<&TransportTriangle> {
+        self.triangles.get(index)
+    }
+
     fn intersect_tree<const FIND_TIES: bool>(
         nodes: &[BvhNode],
         triangles: &[RayTriangle],

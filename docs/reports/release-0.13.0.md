@@ -4615,3 +4615,157 @@ are recorded in ownership-handoff.json after push. Build artifacts and the
 temporary SYSTEM-only keep-awake helper are retained for the queue. Dynamic
 blood is next; Shape of an Exit remains second-to-last, before final verification.
 No next task, issue closure, main merge, release or version bump occurs here.
+
+
+## Dynamic blood effects: engine, Luau and native acceptance
+
+October 23, 2026. Approved queue item after One Guest Too Many, starting from
+remote-verified `0.13.0-staging` commit
+`5b7ed98e9198ca522b137452e21b54e8a1eea5ff`. This adds a reusable presentation
+capability. No shipped map script, map gameplay, weapon/health system, wave
+shooter, version, or release is changed.
+
+### Implemented contract
+
+`api.blood(x, y, z, dx, dy, dz, droplets?)` traces a finite impact segment;
+the direction is an offset in metres, rather than a normalized direction.
+Origins must lie within +/-100000 m; segment length is 0.001..12 m.
+`droplets` is an actual numeric integer in 0..12, default 8. Strings,
+non-finite values, invalid rays and fractional/out-of-range counts are refused.
+The existing scoped Luau call/action budgets and transactional handler rollback
+apply. The corresponding generic authored action is
+`{"action":"blood","emission":{"origin":[0,1,0],"direction":[0,-2,0],"droplets":8}}`.
+Emission is opt-in; it does not assign damage rules to existing maps.
+
+The nearest struck displayed triangle receives a small asymmetric faceted
+mark. Clipping stores barycentric coordinates on that triangle, so its corners
+follow the same posed vertices as the character upload during animation and
+ragdoll ownership. Stable birth identities prevent a reused script id inheriting
+another actor's marks; compatible graphics rebuilds retain the identity.
+Rigid props retain their live object id and local triangle indices. Ordinary
+depth testing supplies body/world occlusion; the geometric normal offset is
+0.8 mm. No camera-facing surface decal can hover across a silhouette or joint.
+
+Ballistic droplets sweep their displacement against the current static and
+posed/rigid geometry. Static-quality packages receive a lazy immutable surface
+BVH from retained geometry, independently of lighting transport availability.
+The index excludes claimed character bind poses and uses the existing static
+alpha-aware ray machinery. It builds once on demand, with no lights, probes,
+receiver targets or solve. Each impact/mark update leaves lighting revisions,
+lightmaps, shadow casters and the prepared world untouched.
+
+Hard caps are 8 queued requests, 96 live droplets and 256 live marks, with
+oldest-first eviction. In active simulation time, droplets live at most 2 seconds;
+marks live 30 seconds and fade over their last 5 seconds. Pause freezes that clock.
+Long suspended frames discard droplets
+instead of tracing a large catch-up jump. The existing effect pipeline and
+committed white PNG draw geometry-only dark-red pigment: no raster artwork is
+generated and no asset/UV contract changes. A lazy fixed 8192-vertex buffer is
+294912 bytes; at most one additional draw submits the effect geometry.
+Empty buffers may remain cached after fade; disable/reset/unload release GPU
+and surface-index ownership. Scene queues and logical effects clear as well.
+
+Graphics / **Blood Effects** is a saved On/Off preference, default On for old
+settings. Off immediately clears existing effects, releases their GPU/index
+resources and suppresses later emissions. Reset, same-map reload and menu unload
+clear pending emissions and all live effects. A texture-quality rebuild keeps
+valid attached marks and never needs a lightmap bake for them.
+
+### Native validation and gates
+
+Final binary SHA-256: `1587d482f5399c157ba31400ea3e3037d9e2c885cb514c6f4c290f6a4622ad28`.
+All 22 acceptance checks in
+`local/windows-validation-0.13.0/blood/native-acceptance-audit-ship.json` pass.
+Timestamped native framebuffer PNGs and live-triangle/identity observations
+verify walking attachment, physical ragdoll attachment, floor/wall impacts,
+secondary droplets landing, translating/rotating table attachment, Low quality
+rebuild preservation, fade, reset, reload, unload with active marks, live Off and
+persisted disabled launch. The stress run reaches exactly 256 marks and 96
+droplets, then expires to zero. Real opaque-wall comparison retains live marks
+while the wall hides them, then reveals them again. Camera/control diagnostic
+setup is disclosed in each actions.json; this is not a shipped gameplay mode.
+
+The initial `native-smoke` exposed a Static-quality world-index omission. It is
+preserved, fixed, and covered by a three-vertex no-lighting-field regression.
+An early outside-room occlusion view fell too low; the explicit final wall
+comparison replaces that view as evidence. Earlier candidate binaries and
+receipts remain separate from the final `*-ship` runs.
+
+Strict `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+passes. `cargo test --workspace` passes all **282** tests, zero failed/ignored;
+execution is 1.02 s. Four focused blood regressions protect clipping/swept hits,
+bounded lifecycle, Static-quality collision, and the real transactional Luau
+boundary including strict numeric count input. Fixtures contain only tiny
+geometry/metadata and introduce no automatic map-baking requirement.
+`cargo build --locked --release --workspace --all-features` passes (6m 35s).
+Format and diff checks pass; the 629-entry asset audit has zero warnings.
+The isolated existing-asset fixture compiles in Static only and validates with
+intact dependencies. No expensive lightmap bake or full-map campaign ran.
+
+### Matched uncapped performance
+
+Windows, NVIDIA GeForce RTX 3070 Laptop GPU, DX12, physical drawable 1280x720,
+165 Hz desktop. Every timing run records actual **Immediate** presentation and
+swap interval 0, VSync Off, no limiter. Build/compiler/encoder/recording processes
+were stopped before timing. Each matched control uses the same binary, package,
+camera, actions and settings. The first four runs compare Blood Off with a settled 256-mark ring, ABBA order.
+Their 7..13 second samples follow setup/emission and particle settling. The last
+pair samples the same window during continuous capped emission (eight requests
+of twelve droplets every 200 ms). Throughput exceeds display refresh;
+this is not a refresh-rate plateau.
+
+| Run | FPS from mean loop time | Mean loop ms | p95 loop ms |
+| --- | ---: | ---: | ---: |
+| perf-off-a | 665.38 | 1.503 | 1.682 |
+| perf-on-a | 646.59 | 1.547 | 1.794 |
+| perf-on-b | 626.76 | 1.596 | 1.871 |
+| perf-off-b | 627.59 | 1.593 | 1.846 |
+| perf-stream-off | 664.45 | 1.505 | 1.667 |
+| perf-stream-on | 643.05 | 1.555 | 1.939 |
+
+For settled marks, Off mean loop time is 1.548 ms; On is
+1.571 ms, difference +0.023 ms
+(+1.48%). These are measured workload costs with run noise,
+not an optimization-gain claim; between-run variation is larger than that small
+aggregate difference. The continuous-emission pair measures
+1.505 ms Off versus
+1.555 ms On,
++0.050 ms
+(+3.33%). It is one matched pair.
+Raw CSVs and actual presentation/resource receipts are retained in
+`matched-performance.json` and the six perf folders.
+HAL-reported bytes exclude driver overhead; no Windows RSS or whole-game memory
+claim is made. This small fixture does not establish performance for every map.
+
+### Media and exact limits
+
+`Places-dynamic-blood-native.mp4` is 838233 bytes, 1280x720, silent H.264,
+8 fps and about 11.88 seconds. It uses timestamped native framebuffer
+samples at their actual elapsed times, with disclosed diagnostic camera cuts;
+it is not a 60 fps recording. Decode verification passes. SHA-256:
+`a3f6fc1744c48bbfbf0458937bb0ff73aab5333ff554abfbe6d37aa0be338675`. The local recording, source frames,
+video receipt, native/audit tools, isolated source project, packages and final
+executables are retained outside target under the blood evidence directory.
+Video capture and encoding are excluded from FPS measurements. No executable
+bundle is uploaded. The video is saved to Library; its authenticated reference
+is retained in the handoff and library-transfer.json. Windows cannot persist the
+helper's local extended attribute, so that receipt preserves the identity mapping.
+
+Marks stay on one struck triangle: they clip at mesh seams/corners instead of
+spreading across connected topology. They are flat pigment in the effect pass,
+without lightmap/BRDF relighting, reflections, fluid pooling or flow. Opaque
+geometry supplies depth occlusion; blood is not sorted or attenuated through
+blended glazing. Moving model receivers support opaque primitives; transparent/cutout moving primitives
+are excluded. Static rays sample existing alpha at the hit, while the polygon
+is clipped to geometry, not a per-pixel alpha stencil. Emissive fixture faces
+and transmissive water are not blood receivers. Particle sweeps use the current
+posed scene, not continuous moving-mesh collision between poses; fast objects
+crossing a droplet between frames can be missed. The immutable surface index
+uses the existing transport triangle budget and has a first-emission setup cost.
+Native execution is **Windows/DX12 only**; macOS, Linux and browser behavior is
+not claimed. Remaining queue-wide performance/platform work stays deferred.
+
+Exact commit, remote verification, clean state, keep-awake custody and writer
+release are recorded after push in `blood/ownership-handoff.json`. Build
+artifacts and SYSTEM-only helper PID 18136 are retained. No CI wait, main merge,
+release, version bump, security change or next queue task occurs here.

@@ -27,6 +27,40 @@ impl mlua::FromLua for Flag {
     }
 }
 
+// Counts keep Luau's original integer precision instead of coordinate f32 rounding.
+struct BloodCount(u8);
+impl mlua::FromLua for BloodCount {
+    fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
+        let count = match value {
+            Value::Integer(number) => u8::try_from(number).ok(),
+            Value::Number(number)
+                if number.is_finite()
+                    && (0.0_f64..=12.0_f64).contains(&number)
+                    && number.fract() == 0.0_f64 =>
+            {
+                number.abs().to_string().parse::<u8>().ok()
+            }
+            Value::Nil
+            | Value::Boolean(_)
+            | Value::LightUserData(_)
+            | Value::Number(_)
+            | Value::String(_)
+            | Value::Table(_)
+            | Value::Function(_)
+            | Value::Thread(_)
+            | Value::UserData(_)
+            | Value::Vector(_)
+            | Value::Buffer(_)
+            | Value::Error(_)
+            | Value::Other(_) => None,
+        };
+        count
+            .filter(|bounded| *bounded <= 12)
+            .map(Self)
+            .ok_or_else(|| error("Blood droplets require an actual numeric integer in 0..12"))
+    }
+}
+
 struct Coordinate(f32);
 impl mlua::FromLua for Coordinate {
     fn from_lua(value: Value, _: &Lua) -> mlua::Result<Self> {
@@ -568,6 +602,31 @@ pub(super) fn host<'scope>(
                         ActionDef::StopSound { target: Some(id) }
                     },
                 )
+            },
+        )?,
+    )?;
+    api.set(
+        "blood",
+        capability(
+            scope,
+            calls,
+            move |_,
+                  (x, y, z, dx, dy, dz, droplets): (
+                Coordinate,
+                Coordinate,
+                Coordinate,
+                Coordinate,
+                Coordinate,
+                Coordinate,
+                Option<BloodCount>,
+            )| {
+                let emission = crate::engine::render::BloodEmission {
+                    origin: [x.0, y.0, z.0],
+                    direction: [dx.0, dy.0, dz.0],
+                    droplets: droplets.map_or(8, |count| count.0),
+                };
+                emission.validate().map_err(error)?;
+                push(queue, limit, ActionDef::Blood { emission })
             },
         )?,
     )?;

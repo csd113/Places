@@ -4185,6 +4185,7 @@ fn validate_action(
         } => {
             crate::engine::level::validate_run_feedback(title, detail)?;
         }
+        ActionDef::Blood { emission } => emission.validate()?,
         ActionDef::Ragdoll {
             target: _,
             enabled: _,

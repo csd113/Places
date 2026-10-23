@@ -34,6 +34,7 @@ pub(crate) use common::api::{
     set_fill_workers,
 };
 pub use common::blacklight::MAX_BLACKLIGHTS;
+pub use common::blood::{BloodEmission, MAX_REQUESTS as MAX_BLOOD_REQUESTS};
 pub use common::camera::RenderCamera;
 pub use common::dynamic_lights::Flashlight;
 pub(crate) use common::light_transport::prepare_runtime_transport;

@@ -14,6 +14,7 @@ use std::sync::Arc;
 fn actor(id: &str, asset: Arc<LoadedPropAsset>) -> Result<Character, String> {
     let animator = CharacterAnimator::new_shared(&asset).ok_or("invalid tiny rig")?;
     Ok(Character {
+        blood_identity: super::next_blood_identity(),
         texture: None,
         ragdoll_owned: false,
         ragdoll_bounds: None,

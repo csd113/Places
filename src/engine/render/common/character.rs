@@ -155,6 +155,11 @@ impl<'a> SkinNormalCache<'a> {
     }
 }
 
+fn next_blood_identity() -> u64 {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+}
+
 struct PlacedCharacter {
     prop_index: usize,
     asset: Arc<LoadedPropAsset>,
@@ -1198,6 +1203,7 @@ impl InfluenceBounds {
 }
 
 pub struct Character {
+    blood_identity: u64,
     asset: Arc<LoadedPropAsset>,
     texture: Option<Arc<crate::engine::loader::RawImage>>,
     transform: Mat4,
@@ -1247,6 +1253,26 @@ pub struct Character {
 }
 
 impl Character {
+    /// Stable birth identity; a despawn/reused script id cannot inherit marks.
+    #[must_use]
+    pub const fn blood_identity(&self) -> u64 {
+        self.blood_identity
+    }
+
+    /// Exactly the position uploaded by the skinning path.
+    #[must_use]
+    pub fn posed_vertex(&self, index: u16) -> Option<Vec3> {
+        let slot = usize::from(index);
+        let model = &self.asset.model;
+        let vertex = model.vertices.get(slot)?;
+        let local = self.animator.skin_position(
+            model.joints.get(slot).copied().unwrap_or([0; 4]),
+            model.weights.get(slot).copied().unwrap_or([0.0; 4]),
+            vertex.pos,
+        );
+        Some(self.transform.transform_point3(Vec3::from_array(local)))
+    }
+
     /// Original local receiver envelope for explicit full-recalculation checks.
     #[cfg(feature = "visual-diagnostics")]
     pub(in crate::engine::render) const fn lighting_bounds(&self) -> Aabb {
@@ -1802,6 +1828,7 @@ impl CharacterScene {
             }) else {
                 continue;
             };
+            character.blood_identity = old.blood_identity;
             std::mem::swap(&mut character.animator, &mut old.animator);
             character.transform = old.transform;
             character.world_bounds = old.world_bounds;
@@ -1882,6 +1909,7 @@ impl CharacterScene {
                 .map(str::to_string);
             let lighting_local_bounds = asset_bounds(&asset);
             characters.push(Character {
+                blood_identity: next_blood_identity(),
                 asset,
                 texture,
                 transform,
@@ -2019,6 +2047,7 @@ impl CharacterScene {
         let world_bounds = character_bounds(&asset, &transform);
         let lighting_local_bounds = asset_bounds(&asset);
         let character = Character {
+            blood_identity: next_blood_identity(),
             asset,
             texture: None,
             transform,

@@ -1088,6 +1088,7 @@ impl FrameLoop<'_> {
             self.items.target = None;
         }
         if self.reconcile_audio_reset() {
+            self.renderer.clear_blood();
             self.clear_mannequin_pins();
             self.reset_carry_assemblies();
             if self.menu_world() {
@@ -1406,6 +1407,10 @@ impl FrameLoop<'_> {
                 }
                 crate::engine::entities::WorldCommand::RetireHidden { target } => {
                     self.request_carry_retirement(&target);
+                }
+                crate::engine::entities::WorldCommand::Blood { emission } => {
+                    self.renderer.set_blood_enabled(self.settings.blood);
+                    self.renderer.emit_blood(emission);
                 }
                 crate::engine::entities::WorldCommand::Ragdoll {
                     target,
@@ -3805,8 +3810,8 @@ impl FrameLoop<'_> {
                             .collect::<Vec<_>>()
                     ),
             ));
-            drop(fields.insert("flashlight_on".to_string(), self.flashlight.is_on().into()));
 
+            drop(fields.insert("blood".into(), self.renderer.blood_diagnostics()));
             self.append_character_trace(fields);
         }
         self.trace
@@ -3814,6 +3819,7 @@ impl FrameLoop<'_> {
     }
 
     fn trace_native_window(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        drop(fields.insert("flashlight_on".to_string(), self.flashlight.is_on().into()));
         drop(fields.insert(
             "window_native_focus".into(),
             self.window.has_input_focus().into(),
@@ -4529,6 +4535,7 @@ impl FrameLoop<'_> {
         let skip_render = self.bench.skip_render();
         if !skip_render {
             let camera = self.prepare_flashlight(render_position, render_yaw, render_pitch);
+            self.renderer.set_blood_enabled(self.settings.blood);
             self.renderer.render_scene(camera);
         }
         let frame_render_done = Instant::now();

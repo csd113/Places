@@ -794,7 +794,20 @@ impl Renderer {
         self.renderer.character_animation_diagnostics(frames)
     }
 
-    /// The current dynamic scene, for the developer log.
+    /// Applies the player presentation preference without rebuilding lighting.
+    pub fn set_blood_enabled(&mut self, enabled: bool) {
+        self.renderer.set_blood_enabled(enabled);
+    }
+    pub fn clear_blood(&mut self) {
+        self.renderer.clear_blood();
+    }
+    pub fn emit_blood(&mut self, request: super::BloodEmission) {
+        self.renderer.emit_blood(request);
+    }
+    #[must_use]
+    pub fn blood_diagnostics(&self) -> serde_json::Value {
+        self.renderer.blood_diagnostics()
+    }
     #[must_use]
     pub const fn dynamic_scene(&self) -> &DynamicScene {
         self.renderer.dynamic_scene()
