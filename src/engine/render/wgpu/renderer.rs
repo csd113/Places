@@ -3096,7 +3096,11 @@ impl WgpuRenderer {
             level: self.quality,
             lighting_level: self.lighting_quality,
         };
-        self.world_characters = Some(WgpuCharacters::upload(&mut ctx, &self.characters));
+        self.world_characters = Some(WgpuCharacters::upload(
+            &mut ctx,
+            &self.characters,
+            self.world_characters.as_ref(),
+        ));
         if let Some(characters) = self.world_characters.as_ref() {
             let stats = characters.stats();
             logging::info(format!(
@@ -4867,6 +4871,18 @@ impl WgpuRenderer {
         #[cfg(feature = "visual-diagnostics")]
         self.trace_gpu_resource_frame();
         self.gpu_timer.begin_frame(&self.queue);
+        if let Some(characters) = self.world_characters.as_mut()
+            && characters.deformation_pending()
+        {
+            let mut encoder = self
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("places-character-deformation"),
+                });
+            let _encoded = characters
+                .encode_deformation(&mut encoder, self.gpu_timer.compute_writes("deformation"));
+            let _submission = self.queue.submit([encoder.finish()]);
+        }
         // Animated emissions are level data; advancing them is a handful of
         // uniform writes, and a still material writes nothing.
         if let Some(materials) = self.world_materials.as_mut() {
@@ -6489,7 +6505,21 @@ impl WgpuRenderer {
         validate_drawable(
             self.drawable_size,
             self.device.limits().max_texture_dimension_2d,
-        )
+        )?;
+        #[cfg(feature = "visual-diagnostics")]
+        self.audit_character_deformation()?;
+        Ok(())
+    }
+
+    #[cfg(feature = "visual-diagnostics")]
+    fn audit_character_deformation(&self) -> Result<(), String> {
+        if std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+            && std::env::var("PLACES_BENCH_SKIN_AUDIT").as_deref() == Ok("1")
+            && let Some(characters) = &self.world_characters
+        {
+            characters.audit_deformation(&self.device, &self.queue, &self.characters)?;
+        }
+        Ok(())
     }
 
     /// Reads back the last rendered frame as a top-down RGBA8 image.

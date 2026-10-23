@@ -151,7 +151,7 @@ pub const WORLD_ATTRIB_UV_VISIBILITY: u32 = 8;
 /// `LIGHTMAP_NONE`) exactly as the un-normalized `GL_UNSIGNED_BYTE` attribute
 /// reached the reference shader.
 ///
-/// `#[repr(C)]` + `Pod` make the 100-byte GPU stride explicit. Visibility is
+/// `#[repr(C)]` + `Pod` make the 104-byte GPU stride explicit. Visibility is
 /// appended here, leaving the prepared neutral vertex format unchanged;
 /// the unit tests pin every offset and the vertex-buffer layout.
 #[repr(C)]

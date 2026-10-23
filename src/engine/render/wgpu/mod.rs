@@ -16,7 +16,7 @@
 //!   ([`environment`]);
 //! * props/GLB models ([`props`]), dynamic objects with their per-object
 //!   baked-light probes ([`dynamic`]) and skinned characters with
-//!   per-character CPU-skinned vertex buffers ([`character`]);
+//!   per-character deformed vertex buffers ([`character`]);
 //! * fixture geometry and emission through the world draw set;
 //! * the offscreen scene target, emissive bloom pass, two separable blurs and
 //!   the resolve grade plus the plain present copy ([`postprocess`]);
@@ -75,6 +75,7 @@ pub mod props;
 mod readback;
 pub mod reflections;
 pub mod renderer;
+mod skinning;
 pub mod sky;
 pub mod surface;
 pub mod texture;

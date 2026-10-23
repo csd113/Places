@@ -229,6 +229,20 @@ impl GpuTimer {
         })
     }
 
+    /// Same pass-boundary query pair for compute deformation; no feature beyond
+    /// `TIMESTAMP_QUERY` is needed on supported native backends.
+    pub fn compute_writes(
+        &self,
+        label: &'static str,
+    ) -> Option<wgpu::ComputePassTimestampWrites<'_>> {
+        self.pass_writes(label)
+            .map(|writes| wgpu::ComputePassTimestampWrites {
+                query_set: writes.query_set,
+                beginning_of_pass_write_index: writes.beginning_of_pass_write_index,
+                end_of_pass_write_index: writes.end_of_pass_write_index,
+            })
+    }
+
     /// Registers completion after submission of the frame's final render pass.
     /// Metal stage-counter data is only reliable after GPU completion; even a
     /// resolve in the same command buffer can observe an unfinished boundary.

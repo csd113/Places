@@ -4,7 +4,7 @@
 //! transforms and the pose evaluation; this module owns the GPU side:
 //!
 //! * one **shared index buffer per distinct model** (indices never change);
-//! * one **mutable vertex buffer per character**, written by CPU skinning
+//! * one **mutable vertex buffer per character**, written by compute deformation or CPU fallback
 //!   only on the frames the animator's pose revision changes;
 //! * one group-3 environment per character carrying the placement model
 //!   matrix and the character's current opacity; the vertices are skinned in
@@ -28,6 +28,7 @@ use glam::Mat4;
 use super::environment::EnvironmentBindings;
 use super::lightmap::LightmapAtlas;
 use super::material::{EmissionRecord, GpuMaterial};
+use super::skinning::{GpuPose, SkinPipeline, SkinSource};
 use super::texture::{CacheOutcome, GpuTexture, TextureCache};
 use super::world::{EnvironmentUniform, WORLD_VERTEX_STRIDE, WorldVertex};
 use crate::engine::materials::TextureOrigin;
@@ -41,6 +42,7 @@ use crate::engine::spatial::Aabb;
 
 /// One distinct model uploaded in model space.
 struct CharacterMeshGpu {
+    skin_source: Option<SkinSource>,
     /// Triangle indices, shared by every character of this model.
     index_buffer: wgpu::Buffer,
     index_count: u32,
@@ -138,6 +140,7 @@ impl CharacterKey {
 
 /// One live character's GPU state.
 struct CharacterGpu {
+    shared_pose: Option<usize>,
     /// Cached appearance binding; index geometry is shared across all skins.
     texture: Option<Arc<GpuTexture>>,
     /// Slot into [`WgpuCharacters::meshes`].
@@ -146,7 +149,7 @@ struct CharacterGpu {
     /// character whose mesh cannot be uploaded, so the GPU list is not always
     /// a 1:1 copy of the scene's.
     key: CharacterKey,
-    /// This character's mutable, CPU-skinned vertex buffer.
+    /// This character's mutable deformed vertex buffer.
     vertex_buffer: wgpu::Buffer,
     /// This character's environment binding: placement and current irradiance.
     environment: EnvironmentBindings,
@@ -167,7 +170,9 @@ struct CharacterGpu {
 /// One model's invariant vertex fields survive pose updates. This state belongs
 /// to one character, so equal vertex counts in different models cannot alias it.
 struct CharacterVertexState {
+    gpu: Option<GpuPose>,
     revision: Option<u64>,
+    albedo_revision: u64,
     bounds: Aabb,
     vertices: Vec<WorldVertex>,
     pending_upload: bool,
@@ -176,11 +181,43 @@ struct CharacterVertexState {
 impl CharacterVertexState {
     fn new(model: &crate::engine::gltf::PropModel) -> Self {
         Self {
+            gpu: None,
             revision: None,
+            albedo_revision: 0,
             bounds: Aabb::EMPTY,
             vertices: Vec::with_capacity(model.vertices.len()),
             pending_upload: false,
         }
+    }
+
+    fn uploaded(
+        ctx: &CharacterUploadContext<'_>,
+        mesh: &CharacterMeshGpu,
+        pipeline: Option<&SkinPipeline>,
+        character: &Character,
+        output: &wgpu::Buffer,
+    ) -> Self {
+        let mut pose = Self::new(&character.asset().model);
+        let _prepared = pose.prepare(
+            &character.asset().model,
+            character.animator(),
+            character.albedo(),
+            character.albedo_revision(),
+            true,
+        );
+        ctx.queue
+            .write_buffer(output, 0, bytemuck::cast_slice(&pose.vertices));
+        if let (Some(source), Some(compute)) = (&mesh.skin_source, pipeline) {
+            pose.gpu = GpuPose::new(
+                ctx.device,
+                source,
+                output,
+                compute,
+                &character.asset().model,
+                character.animator(),
+            );
+        }
+        pose
     }
 
     fn needs_pose(&self, revision: u64, present: bool) -> bool {
@@ -192,9 +229,29 @@ impl CharacterVertexState {
         model: &crate::engine::gltf::PropModel,
         animator: &CharacterAnimator,
         albedo: &[[f32; 4]],
+        albedo_revision: u64,
         present: bool,
     ) -> bool {
-        self.pending_upload = self.needs_pose(animator.revision(), present);
+        // Colour changes (for example latex tint) need one full refresh. The
+        // following pose can return to compute without rescanning colours per frame.
+        let colour_changed = present && self.albedo_revision != albedo_revision;
+        if colour_changed {
+            self.albedo_revision = albedo_revision;
+            if let Some(gpu) = &mut self.gpu {
+                gpu.active = false;
+                gpu.pending = false;
+            }
+        }
+        if !colour_changed
+            && self.needs_pose(animator.revision(), present)
+            && let Some(bounds) = self.gpu.as_mut().and_then(|gpu| gpu.prepare(animator))
+        {
+            self.bounds = bounds;
+            self.revision = Some(animator.revision());
+            self.pending_upload = false;
+            return true;
+        }
+        self.pending_upload = colour_changed || self.needs_pose(animator.revision(), present);
         if self.pending_upload {
             self.bounds =
                 WgpuCharacters::fill_posed_vertices(model, animator, albedo, &mut self.vertices);
@@ -228,6 +285,7 @@ pub struct CharacterGpuStats {
 /// Every character the level draws.
 #[derive(Default)]
 pub struct WgpuCharacters {
+    skin_pipeline: Option<SkinPipeline>,
     meshes: Vec<CharacterMeshGpu>,
     characters: Vec<CharacterGpu>,
     materials: Vec<GpuMaterial>,
@@ -359,12 +417,23 @@ impl WgpuCharacters {
     /// graphics change and whenever a runtime spawn or despawn changes the
     /// scene. An empty scene produces an empty value.
     #[must_use]
-    pub fn upload(ctx: &mut CharacterUploadContext<'_>, scene: &CharacterScene) -> Self {
+    pub fn upload(
+        ctx: &mut CharacterUploadContext<'_>,
+        scene: &CharacterScene,
+        previous: Option<&Self>,
+    ) -> Self {
         let mut value = Self::default();
         if scene.is_empty() {
             return value;
         }
         value.fallback = Some(ctx.cache.fallback());
+        // Runtime admission rebuilds character bindings on the same device.
+        // Retain its compiled deformation pipeline across those rebuilds.
+        value.skin_pipeline = Some(
+            previous
+                .and_then(|old| old.skin_pipeline.clone())
+                .unwrap_or_else(|| SkinPipeline::new(ctx.device)),
+        );
         let mut mesh_index_by_path: HashMap<String, usize> = HashMap::new();
         let entries = scene
             .characters()
@@ -397,7 +466,10 @@ impl WgpuCharacters {
                 size: u64::from(mesh.vertex_count)
                     .saturating_mul(WORLD_VERTEX_STRIDE)
                     .max(4),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                usage: wgpu::BufferUsages::VERTEX
+                    | wgpu::BufferUsages::COPY_DST
+                    | wgpu::BufferUsages::COPY_SRC
+                    | wgpu::BufferUsages::STORAGE,
                 mapped_at_creation: false,
             });
             let pending_environment = ctx
@@ -419,18 +491,17 @@ impl WgpuCharacters {
                 ctx.caustics,
                 &pending_environment,
             );
-            let mut pose = CharacterVertexState::new(&character.asset().model);
-            let _prepared = pose.prepare(
-                &character.asset().model,
-                character.animator(),
-                character.albedo(),
-                true,
+            let pose = CharacterVertexState::uploaded(
+                ctx,
+                mesh,
+                value.skin_pipeline.as_ref(),
+                character,
+                &vertex_buffer,
             );
-            ctx.queue
-                .write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&pose.vertices));
             let world_bounds = posed_world_bounds(&pose.bounds, &character.transform());
             let texture = Self::upload_appearance(ctx, &mut value, character);
             value.characters.push(CharacterGpu {
+                shared_pose: None,
                 texture,
                 mesh: mesh_index,
                 key,
@@ -552,6 +623,7 @@ impl WgpuCharacters {
             "places-wgpu-character-indices",
         );
         Some(CharacterMeshGpu {
+            skin_source: SkinSource::new(ctx.device, ctx.queue, model),
             index_buffer,
             index_count: u32::try_from(model.indices.len()).unwrap_or(u32::MAX),
             vertex_count: u32::try_from(model.vertices.len()).unwrap_or(u32::MAX),
@@ -710,7 +782,7 @@ impl WgpuCharacters {
             .sum();
     }
 
-    /// Re-skins and re-uploads every character whose pose revision changed,
+    /// Prepares GPU palettes or CPU fallback vertices when a pose revision changes,
     /// and rewrites the environment matrix of every character whose route
     /// moved it.
     ///
@@ -737,6 +809,11 @@ impl WgpuCharacters {
             .characters
             .iter()
             .filter_map(|gpu| {
+                // Only the CPU fallback has enough per-vertex work to justify
+                // worker dispatch. Palette/bounds preparation stays inline.
+                if gpu.pose.gpu.as_ref().is_some_and(|skin| skin.active) {
+                    return None;
+                }
                 let character = gpu.key.resolve(scene)?;
                 gpu.pose
                     .needs_pose(
@@ -763,6 +840,7 @@ impl WgpuCharacters {
                 &character.asset().model,
                 character.animator(),
                 character.albedo(),
+                character.albedo_revision(),
                 present,
             );
             if !present {
@@ -797,6 +875,9 @@ impl WgpuCharacters {
             // A fade is a per-frame environment write, so the comparison also
             // covers opacity: a still, settled pose writes nothing, while a
             // fading ghost rewrites only its own uniform.
+            if let Some(skin) = &gpu.pose.gpu {
+                skin.upload(queue);
+            }
             if gpu.pose.pending_upload {
                 queue.write_buffer(
                     &gpu.vertex_buffer,
@@ -809,6 +890,7 @@ impl WgpuCharacters {
             let _update_stats = gpu.environment.update(queue, &gpu.pending_environment);
             gpu.uploaded_transform = scene_character.transform();
         }
+        self.share_exact_poses(scene);
         uploaded
     }
 
@@ -834,6 +916,7 @@ impl WgpuCharacters {
                 &character.asset().model,
                 character.animator(),
                 character.albedo(),
+                character.albedo_revision(),
                 present,
             );
             // Keep the prepared revision, transform and receiver keys stale
@@ -842,7 +925,10 @@ impl WgpuCharacters {
             if !present {
                 continue;
             }
-            if pose_changed {
+            if let Some(skin) = &gpu.pose.gpu {
+                skin.upload(queue);
+            }
+            if gpu.pose.pending_upload {
                 queue.write_buffer(
                     &gpu.vertex_buffer,
                     0,
@@ -867,7 +953,92 @@ impl WgpuCharacters {
                 gpu.world_bounds = posed_world_bounds(&gpu.pose.bounds, &gpu.uploaded_transform);
             }
         }
+        self.share_exact_poses(scene);
         uploaded
+    }
+
+    /// Reuse only the same model, bit-identical joint palette and albedo. Placement,
+    /// lighting, opacity and appearance bindings remain owned by each instance.
+    fn share_exact_poses(&mut self, scene: &CharacterScene) {
+        for index in 0..self.characters.len() {
+            let (earlier, tail) = self.characters.split_at_mut(index);
+            let Some(entry) = tail.first_mut() else {
+                continue;
+            };
+            if entry.shared_pose.take().is_some()
+                && let Some(gpu) = &mut entry.pose.gpu
+            {
+                // Losing a previous alias must restore this instance's own output
+                // even when its animator revision did not change this frame.
+                gpu.pending = gpu.active;
+            }
+            if !(entry.visible || entry.casts_flashlight_shadow) {
+                continue;
+            }
+            let (Some(gpu), Some(character)) = (&entry.pose.gpu, entry.key.resolve(scene)) else {
+                continue;
+            };
+            for (slot, previous) in earlier.iter().enumerate() {
+                if previous.mesh != entry.mesh
+                    || previous.shared_pose.is_some()
+                    || !(previous.visible || previous.casts_flashlight_shadow)
+                {
+                    continue;
+                }
+                let (Some(pose), Some(owner)) = (&previous.pose.gpu, previous.key.resolve(scene))
+                else {
+                    continue;
+                };
+                if gpu.same_pose(pose)
+                    && bytemuck::cast_slice::<[f32; 4], u8>(character.albedo())
+                        == bytemuck::cast_slice::<[f32; 4], u8>(owner.albedo())
+                {
+                    entry.shared_pose = Some(slot);
+                    if let Some(shared) = &mut entry.pose.gpu {
+                        shared.pending = false;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Submit deformation before any shadow, reflection or surface uses the buffer.
+    pub fn encode_deformation(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        timing: Option<wgpu::ComputePassTimestampWrites<'_>>,
+    ) -> bool {
+        let Some(pipeline) = &self.skin_pipeline else {
+            return false;
+        };
+        if !self
+            .characters
+            .iter()
+            .any(|c| c.pose.gpu.as_ref().is_some_and(|g| g.active && g.pending))
+        {
+            return false;
+        }
+        let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+            label: Some("places-character-deformation"),
+            timestamp_writes: timing,
+        });
+        for character in &mut self.characters {
+            if let Some(gpu) = &mut character.pose.gpu
+                && gpu.active
+                && gpu.pending
+            {
+                pipeline.encode(&mut pass, gpu);
+                gpu.pending = false;
+            }
+        }
+        true
+    }
+
+    pub fn deformation_pending(&self) -> bool {
+        self.characters
+            .iter()
+            .any(|c| c.pose.gpu.as_ref().is_some_and(|g| g.active && g.pending))
     }
 
     /// The upload and frame counters.
@@ -926,7 +1097,10 @@ impl WgpuCharacters {
         let mesh = self.meshes.get(entry.mesh)?;
         let mesh_part = mesh.submeshes.get(submesh)?;
         Some((
-            &entry.vertex_buffer,
+            &self
+                .characters
+                .get(entry.shared_pose.unwrap_or(character))?
+                .vertex_buffer,
             &mesh.index_buffer,
             mesh_part.first_index,
             mesh_part.index_count,
@@ -1041,6 +1215,10 @@ impl WgpuCharacters {
             })
     }
 }
+
+#[cfg(feature = "visual-diagnostics")]
+#[path = "character_audit.rs"]
+mod audit;
 
 #[cfg(test)]
 #[path = "../../tests/character_preparation.rs"]

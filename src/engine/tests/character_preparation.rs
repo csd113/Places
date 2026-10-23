@@ -116,7 +116,7 @@ fn retained_character_vertices_match_rebuild_bytes_bounds_and_tint() -> Result<(
             "sample authored pose"
         );
         assert!(
-            state.prepare(&model, &animator, &albedo, true),
+            state.prepare(&model, &animator, &albedo, 0, true),
             "publish pose"
         );
         let (expected, bounds) = rebuild(&model, &animator, &albedo);
@@ -138,6 +138,15 @@ fn retained_character_vertices_match_rebuild_bytes_bounds_and_tint() -> Result<(
         );
         albedo.clear(); // Missing albedo must restore the original white fallback.
     }
+    // Arcade latex can change tint without changing its joint palette. This
+    // extends the same six-vertex regression, with no extra fixture or GPU cost.
+    albedo.resize(model.vertices.len(), [0.1, 0.8, 0.2, 0.9]);
+    assert!(!state.prepare(&model, &animator, &albedo, 1, false));
+    assert!(state.prepare(&model, &animator, &albedo, 1, true));
+    let (expected, _) = rebuild(&model, &animator, &albedo);
+    assert_eq!(state.vertices, expected, "tint catches up on restoration");
+    assert!(!state.prepare(&model, &animator, &albedo, 1, true));
+
     Ok(())
 }
 
@@ -147,7 +156,7 @@ fn absent_character_keeps_pending_pose_until_restore_and_settled_pose_writes_not
     let model = model();
     let mut animator = CharacterAnimator::new(&model).ok_or("missing tiny rig")?;
     let mut state = CharacterVertexState::new(&model);
-    assert!(state.prepare(&model, &animator, &[], true));
+    assert!(state.prepare(&model, &animator, &[], 0, true));
     let revision = state.revision;
     let vertices = state.vertices.clone();
     let bounds = state.bounds;
@@ -156,7 +165,7 @@ fn absent_character_keeps_pending_pose_until_restore_and_settled_pose_writes_not
             animator.sample_fraction("pose", fraction),
             "hidden clock still advances"
         );
-        assert!(!state.prepare(&model, &animator, &[], false));
+        assert!(!state.prepare(&model, &animator, &[], 0, false));
         assert!(!state.pending_upload, "no hidden GPU upload");
         assert_eq!(
             state.revision, revision,
@@ -166,7 +175,7 @@ fn absent_character_keeps_pending_pose_until_restore_and_settled_pose_writes_not
         assert_eq!(state.bounds, bounds, "hidden bounds remain unprepared");
     }
     assert!(
-        state.prepare(&model, &animator, &[], true),
+        state.prepare(&model, &animator, &[], 0, true),
         "restore latest pose before drawing, including shadow-only presence"
     );
     let (expected, restored_bounds) = rebuild(&model, &animator, &[]);
@@ -177,9 +186,73 @@ fn absent_character_keeps_pending_pose_until_restore_and_settled_pose_writes_not
     assert_eq!(state.bounds, restored_bounds);
     assert_eq!(state.revision, Some(animator.revision()));
     assert!(
-        !state.prepare(&model, &animator, &[], true),
+        !state.prepare(&model, &animator, &[], 0, true),
         "settled/unchanged ragdoll pose needs no upload"
     );
     assert!(!state.pending_upload);
     Ok(())
+}
+
+// Protects crowd contamination when two animators have equal revision counters.
+// Every palette bit and its full length matter. Two tiny stack fixtures, no GPU,
+// assets, map bake or timers; distinct from the retained CPU wire-field tests.
+#[test]
+fn shared_pose_requires_the_complete_bit_identical_palette() {
+    use crate::engine::render::wgpu::skinning::exact_palette;
+    let first = [
+        Mat4::IDENTITY.to_cols_array(),
+        Mat4::IDENTITY.to_cols_array(),
+    ];
+    let mut other = first;
+    assert!(
+        exact_palette(&first, &other),
+        "identical palettes can share"
+    );
+    if let Some(value) = other.last_mut().and_then(|matrix| matrix.last_mut()) {
+        *value = 0.5;
+    }
+    assert!(
+        !exact_palette(&first, &other),
+        "equal revisions must not hide a different final joint"
+    );
+    assert!(
+        !exact_palette(&first, first.get(..1).unwrap_or(&[])),
+        "a prefix is not a complete pose"
+    );
+    let signed_zero = [
+        Mat4::from_translation(glam::Vec3::new(-0.0, 0.0, 0.0)).to_cols_array(),
+        first.first().copied().unwrap_or([0.0; 16]),
+    ];
+    assert!(
+        !exact_palette(&first, &signed_zero),
+        "sharing is bit exact, including signed zero"
+    );
+}
+
+// A five-matrix CPU fixture protects the actual GPU fallback decision from
+// subnormal flushing and singular normal transforms, while retaining reflection
+// and ordinary nonuniform-scale support. No GPU, assets or bake; sub-ms work.
+#[test]
+fn gpu_palette_preserves_scaled_normals_with_numeric_fallback() {
+    use crate::engine::render::wgpu::skinning::gpu_palette_matrix;
+    assert!(
+        gpu_palette_matrix(Mat4::IDENTITY),
+        "ordinary joints use compute"
+    );
+    assert!(
+        gpu_palette_matrix(Mat4::from_scale(glam::Vec3::new(-2.0, 3.0, 0.5))),
+        "reflected nonuniform scale remains supported"
+    );
+    assert!(
+        !gpu_palette_matrix(Mat4::from_scale(glam::Vec3::splat(1.0e-30))),
+        "tiny units require defensive CPU normal arithmetic"
+    );
+    assert!(
+        !gpu_palette_matrix(Mat4::from_scale(glam::Vec3::new(0.0, 1.0, 1.0))),
+        "singular joints retain CPU fallback"
+    );
+    assert!(
+        !gpu_palette_matrix(Mat4::from_scale(glam::Vec3::new(1.0e-12, 1.0, 1.0))),
+        "severely anisotropic joints retain CPU fallback"
+    );
 }

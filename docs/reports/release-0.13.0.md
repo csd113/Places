@@ -4769,3 +4769,243 @@ Exact commit, remote verification, clean state, keep-awake custody and writer
 release are recorded after push in `blood/ownership-handoff.json`. Build
 artifacts and SYSTEM-only helper PID 18136 are retained. No CI wait, main merge,
 release, version bump, security change or next queue task occurs here.
+
+## GPU deformation and exact pose reuse — Windows acceptance, 2026-10-23
+
+This phase moves eligible skeletal vertex deformation to a compute pass while
+retaining CPU animation, sockets, blood/geometry queries and collision. It folds
+the rendering residuals of [#27](https://github.com/csd113/Places/issues/27) and
+[#31](https://github.com/csd113/Places/issues/31) into the approved queue.
+The preserved baseline is staging commit
+`4790ecf6ec14f994f0cb3bdab541eaaefac6451b`, player SHA-256
+`1587d482f5399c157ba31400ea3e3037d9e2c885cb514c6f4c290f6a4622ad28`.
+Accepted player SHA-256: `568f0de8c4aefbc9a0eaaf46c89351255733fb336756ffb4b8bfb5645f458f29`.
+The final commit and clean remote verification are in the ownership handoff.
+All evidence below is under `local/windows-validation-0.13.0/gpu-rendering/`.
+
+### Implementation and bounded scope
+
+- One immutable bind-data buffer per model and a retained per-actor joint palette
+  feed compute deformation into the existing world vertex buffer. One result is
+  consumed by scene, shadow and reflection passes, before any view draws it.
+  The shader derives the actual 104-byte vertex stride from Rust and changes only
+  position and inverse-transpose normal fields. Per-instance lighting, placement,
+  opacity, appearance, indices and material bindings retain their ownership.
+- Exact reuse requires the same model, full bit-identical matrix palette and
+  albedo bytes. Revision counters alone never establish equality. Actors keep
+  independent animation clocks and buffers; alias splits restore their own
+  output before drawing. No pose quantization, cadence reduction or animation LOD.
+- Existing conservative joint-influence bounds replace the per-vertex render
+  bounds scan. Animation, sockets, held items, ragdolls and collision continue to
+  use current CPU poses. Hidden actors catch up before returning onscreen;
+  pending compute survives skipped presentation. Existing culling is retained.
+- Small meshes (<1024 vertices), morph targets, translucent sorting, UV-reactive
+  meshes, tiny weights and unsafe/extreme/non-affine/ill-conditioned transforms
+  retain CPU deformation. Ordinary reflection and nonuniform scale are accepted.
+  Buffer-binding/workgroup limits gate eligibility. Existing bounded CPU worker
+  dispatch remains for fallback; no job-system rewrite.
+- Mutable vertex-color revisions trigger a full refresh, then return to compute
+  on the next changed pose. Full Arcade's balloon tint exposed this dependency
+  in the new readback oracle. An earlier hardcoded 100-byte stride also failed
+  visual review. Both failed candidates and evidence are retained; neither is
+  included in final measurements. The existing tiny wire-field regression now
+  also protects tint changes with an unchanged palette and offscreen restoration.
+- Runtime character admissions reuse the deformation pipeline on the same device.
+  No texture, map source, package format, compiler algorithm, quality or version
+  changes. The final source includes only renderer/character ownership, two small
+  numeric/equality regressions, the existing fixture extension and diagnostics.
+
+For the twelve 4340-vertex mannequins, a changed frame's nominal position/normal
+upload path falls from 5,416,320 full vertex bytes to 28,416 palette bytes
+(12 × 37 × 64), before exact-output reuse. Shared immutable bind input is
+277,760 bytes/model. These are logical payload calculations, not measured VRAM
+or RSS savings: per-actor output buffers and CPU fallback data remain resident.
+
+### Matched uncapped throughput
+
+Native Windows/DX12, NVIDIA GeForce RTX 3070 Laptop GPU, driver 617.14,
+physical drawable 1280×720, windowed, standard style, High textures/filtering,
+bloom on, FOV 60, Blood on. Static and Full lighting are separate cases;
+Static intentionally disables the engine's Full surface-response/reflection
+features in both builds. Requested Full reflections are otherwise retained.
+Rust/Cargo 1.99.1; `--locked --release --workspace --all-features`, opt-level 3,
+LTO, one codegen unit, unwind. No debug-build comparison.
+
+All 52 final runs use VSync Off, no limiter, real delta and isolated state.
+Actual HAL frame receipts verify **Immediate** presentation and 1280×720 in
+every run; benchmark receipts verify swap interval 0 and no missed ready
+presentations. Fast cases run well above the 165 Hz desktop reference, excluding
+a global refresh plateau. Any individual slow/near-refresh view is interpreted
+with its frame-time spread and GPU cost, not assumed to prove a gain.
+Optional WMI CPU/OS/display inventory returned Access denied; it was not retried
+or bypassed. Exact CPU model/OS build inventory is unavailable. Native
+action-result telemetry independently records a 2560x1440, 165 Hz display and
+the 1280x720 drawable.
+
+Each case uses ABBA order (baseline, candidate, candidate, baseline), identical
+package hashes/settings/camera/actions. Ordinary runs last ten ready seconds;
+the 4..9 second steady window excludes startup and warmup. CSV rows align
+one-to-one with actual ready presentation trace timestamps, anchored to ready.
+The initial provisional CSV-cadence accumulator could count initial loading
+twice; its JSON/video is retained under provisional-clock and superseded here.
+No runs were repeated for this analysis correction. Six-guest runs last
+39.33 seconds and sample 20..35 seconds after actual admissions. FPS is
+1000 divided by the mean of the two per-run mean loop times. Tails below average
+the two run percentiles; raw per-run p95/p99, sample counts, GPU observations,
+presentation receipts and settings are in `matched-performance-final.json`.
+Builds, bakes, framebuffer capture, GPU oracle readback and encoding are stopped
+before these measurements; `timing-preflight.json` records that boundary.
+No loading improvement is claimed.
+
+| Workload | FPS before / after | Mean loop ms before / after | p95 loop ms before / after | Frame-time reduction |
+| --- | ---: | ---: | ---: | ---: |
+| 12 mannequins + Luau, Static | 255.04 / 297.45 | 3.921 / 3.362 | 4.844 / 5.169 | +14.26% |
+| 12 mannequins + Luau, Full | 234.32 / 266.68 | 4.268 / 3.750 | 5.241 / 6.031 | +12.13% |
+| Home idle, Static | 458.41 / 456.52 | 2.181 / 2.190 | 4.182 / 4.205 | -0.41% |
+| Pool closet, Full | 425.78 / 419.22 | 2.349 / 2.385 | 4.237 / 4.409 | -1.57% |
+| Arcade bowling, Static | 256.99 / 291.86 | 3.891 / 3.426 | 7.304 / 5.092 | +11.95% |
+| Arcade bowling, Full | 160.44 / 190.97 | 6.233 / 5.236 | 8.120 / 6.164 | +15.99% |
+| Arcade mirror, Full | 195.47 / 197.51 | 5.116 / 5.063 | 7.107 / 6.078 | +1.03% |
+| Overlapping fog fixture, Full | 531.44 / 527.64 | 1.882 / 1.895 | 3.814 / 3.833 | -0.72% |
+| Non-overlap fog fixture, Full | 514.29 / 510.91 | 1.944 / 1.957 | 4.243 / 4.269 | -0.66% |
+| Seeded menu NPC event | 245.13 / 243.33 | 4.079 / 4.110 | 7.851 / 7.986 | -0.74% |
+| Forced menu ragdoll event | 226.14 / 245.88 | 4.422 / 4.067 | 5.801 / 7.521 | +8.03% |
+| Animated/ragdoll blood fixture | 540.52 / 519.83 | 1.850 / 1.924 | 2.681 / 3.791 | -3.98% |
+| One Guest Too Many, six guests | 309.92 / 313.64 | 3.227 / 3.188 | 6.390 / 5.736 | +1.19% |
+
+CPU update includes simulation and render preparation; CPU render measures
+submission. GPU values are deduplicated asynchronous hardware pass elapsed
+coverage, including scheduling gaps. They are neither utilization nor additive
+to the CPU columns; the candidate includes deformation in that coverage.
+
+| Workload | CPU update ms before / after | CPU submit ms before / after | GPU mean ms before / after | GPU p95 ms before / after |
+| --- | ---: | ---: | ---: | ---: |
+| 12 mannequins + Luau, Static | 2.494 / 1.326 | 0.913 / 0.734 | 1.197 / 1.653 | 2.477 / 2.265 |
+| 12 mannequins + Luau, Full | 2.839 / 1.833 | 0.870 / 0.844 | 1.445 / 1.958 | 3.127 / 3.056 |
+| Home idle, Static | 0.134 / 0.134 | 0.578 / 0.577 | 1.224 / 1.204 | 2.745 / 2.748 |
+| Pool closet, Full | 0.211 / 0.221 | 0.480 / 0.504 | 1.437 / 1.500 | 2.519 / 2.812 |
+| Arcade bowling, Static | 1.482 / 0.985 | 1.049 / 1.130 | 1.778 / 2.227 | 3.891 / 3.738 |
+| Arcade bowling, Full | 1.331 / 0.966 | 1.753 / 1.757 | 4.894 / 4.711 | 6.573 / 5.254 |
+| Arcade mirror, Full | 1.311 / 0.963 | 1.291 / 1.410 | 3.722 / 4.754 | 5.258 / 5.719 |
+| Overlapping fog fixture, Full | 0.029 / 0.026 | 0.501 / 0.472 | 1.107 / 1.140 | 1.784 / 1.720 |
+| Non-overlap fog fixture, Full | 0.025 / 0.023 | 0.495 / 0.455 | 1.017 / 1.063 | 2.260 / 2.351 |
+| Seeded menu NPC event | 0.844 / 0.700 | 0.788 / 0.865 | 2.768 / 3.193 | 4.556 / 4.790 |
+| Forced menu ragdoll event | 2.807 / 2.103 | 0.992 / 0.930 | 1.409 / 2.095 | 3.090 / 4.640 |
+| Animated/ragdoll blood fixture | 0.275 / 0.173 | 0.586 / 0.655 | 0.774 / 0.932 | 0.964 / 1.963 |
+| One Guest Too Many, six guests | 0.213 / 0.221 | 0.645 / 0.637 | 2.652 / 2.648 | 3.809 / 3.224 |
+
+The Static mannequin mean loop changes from 3.921
+to 3.362 ms,
+while its averaged p95 changes from 4.844
+to 5.169 ms. The increased GPU work and
+any worse tails are explicit tradeoffs of this CPU offload, retained for the
+integrated performance/regression phase. This is not a blanket GPU-time reduction
+or an all-scenes speedup claim.
+
+The baseline/candidate blood comparison is retained as a regression, without
+attributing its cause from two runs. A focused final-binary CPU/GPU ABBA repeat
+(`blood-same-build-controls.json`, separate from capture/build/encoding) measures
+1.652 ms / 1.646 ms,
+605.31 / 607.58 FPS. That near-flat repeat
+does not establish a consistent small-scene offload penalty or a universal gain;
+campaign-to-campaign variation is material. No map-specific exception or
+speculative scheduler rewrite is introduced to fit one result.
+
+The accompanying raw runs expose repeat variation; small signed differences in
+unchanged/single-actor cases are controls, not universal optimization claims.
+CPU-stage trace profiles separately identify skin/upload preparation and animation
+evaluation. They use diagnostic capture and are excluded from authoritative FPS.
+
+### Visibility, interiors and fog findings
+
+The earlier accepted conservative occlusion work (308 to 198 calls in its
+documented matched case) already supplies #31's visibility mechanism. This phase
+preserves it and checks live doors, offscreen return, carried geometry and Full
+reflection views. A new room/portal architecture has no demonstrated incremental
+benefit here and is not implemented. Draw/visible-vertex/reflection counts remain
+available per final run, with conservative deformation bounds allowed to submit
+extra safe work instead of risking missing geometry.
+
+Full Arcade and its bathroom mirror, Full Pool water and the existing two-volume
+fog fixture are profiled at matched quality. Arcade has no authored global or
+regional fog; its historical slow views must not be attributed to overlap fog.
+The current fog shader already bypasses empty fog and rejects rays outside each
+region before four fixed quadrature samples, preserving strongest-volume overlap
+and tie order. Fog sampling, lighting, shadows, mirrors and postprocessing are
+unchanged. Distinct overlap/clear viewpoints characterize whole views; they are
+not an isolated causal fog-on/off measurement and do not justify a fog-rewrite
+or claimed fog-specific saving. No samples/effects are removed for throughput.
+
+### Correctness, gates and limits
+
+The final `color` binary cohort passes all 26 core native checks:
+Luau visitor spawn/despawn and reload; twelve offscreen/onscreen animation clocks;
+actual Home cushion pickup/carry/drop; Pool closet door opening and return;
+Full water/flashlight; six One Guest Too Many admissions (nine total actors);
+seeded and forced ragdoll/ghost menu events; animated/ragdoll blood triangles,
+moving rigid-prop attachments, quality rebuild, fade/expiry/reset/reload/unload.
+The separate Full Arcade/mirror/lab/fog captures pass the GPU oracle as well.
+The oracle reads actual GPU output, including shared leaders, compares CPU
+positions/normals, every invariant wire byte and conservative bounds. Core max
+position error is 0.000000238; max normal error is
+0.000000238; up to 4 shared outputs
+were observed. Diagnostic readback deliberately waits and never runs in timings.
+Existing tiny equality/numeric tests protect tail matrices, signed zero,
+palette length and unsafe-transform fallback without GPU/assets/map bakes.
+
+`cargo fmt --all --check`, strict workspace/all-target/all-feature Clippy,
+`cargo test --workspace` (284 passed),
+`cargo build --locked --release --workspace --all-features`, `git diff --check`
+and the asset validator pass. Final gate logs are `clippy-color-fixed.log`,
+`tests-color-fixed.log`, `workspace-color-fixed.log` and `assets-final.log`.
+All build executables/DLLs are retained in `accepted-color-bin/` and target.
+Earlier Windows replacement of the actively baking compiler was denied by its
+file lock; no force/security bypass occurred. After the bake exited, the required
+workspace build succeeded. There is no remaining permission/tool blocker.
+
+Existing-asset Full Arcade/Lab and the tiny fog fixture were explicitly baked for
+native acceptance, outside Rust tests/CI. A standalone Arcade member correctly
+failed transition validation because it needs its complete project. The existing
+lossless diagnostic composition workflow retained all complete-project members
+and replaced only Arcade with byte-identical Full records; complete project,
+Lab and fog packages then validate with intact dependencies and zero warnings.
+Composition receipt and all unique bake/log/package evidence are retained.
+Arcade's 5,294,172-receiver and Lab's 758,457-receiver preparation logs are useful
+for the later compiler review, but overlapped builds/captures and are not clean
+compiler-performance baselines. No compiler speedup is claimed.
+
+Native execution is Windows/DX12 only. Metal/Vulkan, low-memory hardware,
+arbitrary imported extreme rigs, extended residency and full queue-wide
+regression/capacity claims remain unverified here. The mirror view exercises
+the real reflection pass; it does not prove a moving NPC visible only inside a
+mirror frustum. CPU sockets/collision retain their established paths; exact GPU
+vertex checks add geometry confidence without replacing those platform tests.
+Blood's previously documented flat pigment/reflection/transparency limits remain.
+Quality/load cycles check stale data and validation errors, not a long-session
+memory leak claim. HAL allocations are partial, not exact whole-process VRAM.
+
+### Media and queue handoff
+
+`Places-GPU-rendering-montage.mp4` combines preserved baseline lab samples,
+accepted GPU lab samples and walking/ragdoll blood validation, with independently
+measured lab savings in captions. 1339819 bytes, 23.625 seconds,
+silent H.264, 1280×720, 8 fps timestamped native samples; decode verified.
+SHA-256 `c301e1e5b693e23c26fe70508a95076a220f06eedb49a7eee9dbedffb8958d81`. The separate before clip, all original frames,
+raw timing CSVs, traces, scripts and receipts remain outside target. Capture and
+encoding are separate from final timing; these are short sampled videos, not
+high-framerate recordings. Both clips are saved to Library; identities are in
+`library-transfer.json`. Windows lacks the helper's local extended-attribute
+API, so the sidecar retains the returned version mapping. No executable bundle
+is uploaded.
+
+Writer release, final commit/remote SHA, clean status and retained artifacts are
+recorded in `gpu-rendering/ownership-handoff.json`. The next phase is
+loading/memory/storage/compiler efficiency, followed by integrated performance /
+regression, general polish, the dedicated full map-compiler and lighting review,
+The Shape of an Exit second-to-last, then final verification/report/reconciliation.
+The dedicated review must inspect parallel worker utilization, GPU bake
+feasibility, redundant bounces/rays/repeated calculations, caching,
+allocations/copies and synchronization, with preserved quality and matched
+per-stage timings. This phase does not start those items. SYSTEM-only awake
+helper PID 18136 remains; the queue stop file is not created. No CI wait, release,
+main merge, security change or version bump.

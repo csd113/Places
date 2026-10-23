@@ -2,13 +2,14 @@
 //!
 //! A character is a placeable prop whose model carries a glTF skin
 //! ([`crate::engine::gltf::PropSkin`]). It renders through the ordinary level
-//! placement transform, but its vertices are re-posed on the CPU every frame
-//! instead of being baked into a static batch:
+//! placement transform, but retains a live CPU joint pose instead of being
+//! baked into a static batch. The renderer computes eligible vertex deformation
+//! on the GPU and retains CPU skinning for fallback, sockets and geometry queries:
 //!
 //! ```text
 //! static prop                          character (this module)
 //! -----------                          -----------------------
-//! baked into PropMeshBatch at load     CPU-skinned every frame
+//! baked into PropMeshBatch at load     deformed on each changed pose
 //! bind pose only                       pose follows LocomotionSnapshot
 //! one draw per model and cell          one draw per character per primitive
 //! part of the lightmap bake            spatial irradiance and direct lights
@@ -75,8 +76,8 @@ pub use crate::engine::entity::{EntityFrame, PoseCue};
 /// Most characters one level may spawn.
 ///
 /// The draw path is one draw per character per primitive and the pose is
-/// evaluated on the CPU, so the cap bounds per-frame skinning work rather than
-/// GPU memory: each character owns only its own vertex buffer, and its mesh,
+/// evaluated on the CPU, so the cap bounds pose evaluation and fallback skinning.
+/// Each character owns a vertex buffer and optional GPU palette, and its mesh,
 /// textures and materials are shared. The historical cap of 8 could not place
 /// the required Model Zoo demonstrations (three mannequin poses, three skeleton
 /// poses, two rat routes, two Spooner-Man routes, and several wall switches).
@@ -1158,13 +1159,16 @@ fn tinted_albedo(asset: &LoadedPropAsset, tint: [f32; 3]) -> Vec<[f32; 4]> {
 /// A weighted vertex lies inside the union of its transformed joint endpoints.
 /// Retain bind-space influence boxes once, so physics never adds a second full
 /// vertex-skinning pass merely to update visibility/lighting bounds.
-struct InfluenceBounds {
+pub(in crate::engine::render) struct InfluenceBounds {
     joints: Vec<Aabb>,
     unweighted: Aabb,
 }
 
 impl InfluenceBounds {
-    fn new(model: &crate::engine::gltf::PropModel, joint_count: usize) -> Self {
+    pub(in crate::engine::render) fn new(
+        model: &crate::engine::gltf::PropModel,
+        joint_count: usize,
+    ) -> Self {
         let mut joints = vec![Aabb::EMPTY; joint_count];
         let mut unweighted = Aabb::EMPTY;
         for (index, vertex) in model.vertices.iter().enumerate() {
@@ -1186,7 +1190,11 @@ impl InfluenceBounds {
         Self { joints, unweighted }
     }
 
-    fn posed(&self, animator: &CharacterAnimator, placement: Mat4) -> Aabb {
+    pub(in crate::engine::render) fn posed(
+        &self,
+        animator: &CharacterAnimator,
+        placement: Mat4,
+    ) -> Aabb {
         let mut bounds = self.unweighted;
         for (slot, influence) in self
             .joints
@@ -1211,6 +1219,7 @@ pub struct Character {
     /// Model-space material albedo, parallel
     /// to the model's `vertices`.
     albedo: Vec<[f32; 4]>,
+    albedo_revision: u64,
     entity_lighting: super::light_transport::EntityLighting,
     center_light_key: Option<super::dynamic::EntityCenterLightKey>,
     lighting_refresh_key: Option<super::dynamic::EntityLightingRefreshKey>,
@@ -1484,6 +1493,7 @@ impl Character {
                 }
             }
             self.balloon_color = Some(pose.color);
+            self.albedo_revision = self.albedo_revision.wrapping_add(1);
         }
         let moved = self.animator.pose_balloon(pose);
         if tint_changed && !moved {
@@ -1496,6 +1506,12 @@ impl Character {
     #[must_use]
     pub fn albedo(&self) -> &[[f32; 4]] {
         &self.albedo
+    }
+
+    /// Names changes to mutable vertex colour independently of the joint palette.
+    #[must_use]
+    pub const fn albedo_revision(&self) -> u64 {
+        self.albedo_revision
     }
 
     /// Stable world-space lighting anchor: transformed bind-pose bounds centre.
@@ -1915,6 +1931,7 @@ impl CharacterScene {
                 transform,
                 animator,
                 albedo,
+                albedo_revision: 0,
                 entity_lighting,
                 center_light_key: None,
                 lighting_refresh_key: None,
@@ -2053,6 +2070,7 @@ impl CharacterScene {
             transform,
             animator,
             albedo,
+            albedo_revision: 0,
             entity_lighting,
             center_light_key: None,
             lighting_refresh_key: None,

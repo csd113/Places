@@ -608,3 +608,20 @@ above/below water, both lighting modes and independent texture quality.
 `frame_time.py --no-caustics` is a same-build disabled-effect benchmark control;
 it only applies under the explicit benchmark environment. Neither campaign
 bakes a map or changes production map sources.
+
+### Character deformation controls
+
+The normal renderer computes eligible large character meshes into the ordinary
+world vertex buffers; tiny, translucent, UV-reactive, morph-bearing or numerically unsuitable
+models retain CPU skinning. Simulation poses, sockets and collision remain CPU
+owned. Mutable vertex-colour revisions force a full refresh before returning to compute.
+Exact joint-palette and albedo bits permit sharing only within one model.
+`PLACES_BENCH=1 PLACES_BENCH_SKINNING=cpu` is an explicit same-build fallback
+control. It is not a graphics-quality setting.
+
+On a `visual-diagnostics` build, `PLACES_BENCH=1 PLACES_BENCH_SKIN_AUDIT=1`
+checks actual GPU vertices against CPU positions, inverse-transpose normals,
+invariant wire bytes and conservative bounds during each explicit framebuffer
+capture. `[skin-audit]` records counts and maximum errors; a discrepancy fails
+the capture. This intentionally waits for readback and is excluded from timings.
+The timestamp trace includes the `deformation` compute pass in GPU elapsed spans.
