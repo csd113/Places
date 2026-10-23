@@ -280,6 +280,7 @@ impl Viewport {
         self.window_size = window.size();
         let _resized = self.renderer.set_drawable_size(self.size);
         if let Some(preview) = self.worker.poll() {
+            let admission_started = Instant::now();
             if let Err(error) = self.renderer.admit_prepared(
                 &preview.loaded,
                 &preview.build,
@@ -292,7 +293,9 @@ impl Viewport {
                 self.uploading = false;
                 return false;
             }
+            let admission_ms = admission_started.elapsed().as_secs_f64() * 1_000.0_f64;
             self.preview_metrics = preview.metrics;
+            let setup_started = Instant::now();
             self.objects = preview.objects;
             if self.frame_next {
                 self.frame_next = false;
@@ -308,6 +311,13 @@ impl Viewport {
             );
             self.renderer.set_prepared_geometry(preview.geometry);
             self.renderer.set_prepared_caustics(preview.caustics);
+            if let Some(metrics) = self.preview_metrics.as_object_mut() {
+                drop(metrics.insert("admission_ms".into(), serde_json::json!(admission_ms)));
+                drop(metrics.insert(
+                    "install_setup_ms".into(),
+                    serde_json::json!(setup_started.elapsed().as_secs_f64() * 1_000.0_f64),
+                ));
+            }
             self.uploading = true;
         }
         if self.uploading {

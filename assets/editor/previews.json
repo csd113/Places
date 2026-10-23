@@ -793,6 +793,11 @@
     "sha256": "1344c21682c7cb3a09828a785062df6deddd93ca029554824f1c9561c6036e73",
     "source": "shared/decals/collection_winter.png"
   },
+  "collection:skeleton_friend": {
+    "path": "editor/previews/fdd1fdbd9ff398953fee9598.png",
+    "sha256": "6b2fbf90c18bc4cfd96888e071090cc1b8e1f620d979c2780e31827ba2a68511",
+    "source": "entities/skeleton/model/collection_skeleton.glb"
+  },
   "core:armchair": {
     "path": "editor/previews/2884170d5f35cc9e232fc8e9.png",
     "sha256": "957fa9cb1f4dad245b63b1f0f872162cfdc5400e31ea71374b549ec84f98606d",

@@ -1152,7 +1152,6 @@ pub fn append_run_feedback(vertices: &mut Vec<Vertex>, won: bool, title: &str, d
     };
     for (text, y, color) in [
         (title, 98.0, accent),
-        (detail, 127.0, [0.72, 0.75, 0.78]),
         ("ENTER - START AGAIN", 181.0, [0.8, 0.8, 0.8]),
         ("ESC - MENU", 204.0, [0.45, 0.48, 0.52]),
     ] {
@@ -1164,6 +1163,17 @@ pub fn append_run_feedback(vertices: &mut Vec<Vertex>, won: bool, title: &str, d
             y,
             1.0,
             color,
+        );
+    }
+    for (index, line) in menu::wrap(detail, 54).iter().take(4).enumerate() {
+        let y = f32::from(u8::try_from(index).unwrap_or(3)).mul_add(14.0, 127.0);
+        draw_text(
+            vertices,
+            line,
+            (480.0 - text_width(line, 1.0)) * 0.5,
+            y,
+            1.0,
+            [0.72, 0.75, 0.78],
         );
     }
 }

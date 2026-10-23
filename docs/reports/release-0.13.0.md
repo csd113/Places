@@ -5784,3 +5784,143 @@ No later phase, main merge, release, version bump or CI wait occurs here. Build 
 all unique evidence and SYSTEM-only awake helper PID 18136 are preserved; the queue stop
 file is not created. Final clean remote verification and writer release are recorded in
 the ownership handoff.
+
+
+## General polish - native Windows, 2026-10-23
+
+Completed the approved general polish pass from clean, remote-verified
+`c28fedbb0cfd0481bd51c77f98ebc7fd6faf54c6` on `0.13.0-staging`. Changes follow
+native inspection of the actual player and editor. Production map sources,
+existing artwork, renderer/scheduling and Portal-style movement remain unchanged.
+
+### Concrete fixes and preserved content
+
+- Unsaved editor edits no longer hide the existing **preparing view** indicator.
+  Native Lantern Hollow captures now show both states during an actual rebuild;
+  ready state, exact undo and source preservation pass. Preview diagnostics now
+  measure admission and installation setup separately from background preparation
+  and the existing maximum upload-handler timer.
+- The bake checker button reads **Check saved** without truncation. Empty catalog
+  search identifies the actual **Cmd/Ctrl A** clear command. Material, entity,
+  fixture and door previews/theme filtering were inspected in the native editor.
+- Jun's `collection:skeleton_friend` entity lacked a preview record. One opaque
+  **160x120 RGBA8** PNG is rendered from its unchanged shipped GLB with the canonical
+  offline preview builder. The native entity picker now displays Jun. All **525**
+  previous records remain exact; the index now contains **526** previews. No other
+  image or model is regenerated, and no runtime texture generation is introduced.
+- One Guest Too Many's actual ordinary-input victory exposed a truncated result
+  sentence (ending at `The bir...`). The existing result panel now wraps its detail
+  text. A final-production ordinary-input win displays the whole sentence, retains
+  six guests/nine render actors, and has zero resets or script diagnostics. No
+  mode script, follower identity, containment proof or input behavior changes.
+
+The existing menu is preserved after native standard/wide/portrait inspection and
+a **194-second, 96-capture** whole-bag review. All **seven** accepted complete events
+occur, below the approved **15-event cap**. Script diagnostics remain empty; the
+intentional ragdoll event reaches seven rigs, and the roach event reaches fourteen
+render characters including the six-character baseline. Inspected parcel frames
+retain palm contact and pickup timing. Edge-to-edge dark backing, continuous fade,
+removed slogans and sparse entry/action/exit remain accepted; no additional event
+or scene rebuild is warranted.
+
+After Hours - Rooms Beyond is visually reviewed using its preserved Static package.
+A native walk from the authored spawn goes around the showroom furniture, through
+the held-crouch closet, scaled rooms, staircase, upper low room and archive, reaching
+the authored finale at **(6.950, 5.100, 18.931)** with zero resets and no player/item/
+actor pose actions. View orientation controls are diagnostic. This extends movement
+review and preserves the earlier Full visual acceptance; it is not a new Full-lighting
+campaign. Original furniture/lighting sources and their completed packages are kept.
+
+### Home contact and current-source Relay coverage
+
+The standing Home floor jump still reaches about **0.533 m**, below the **0.55 m**
+bed. It stops at the edge without reset. Ordinary crouch jump from the floor reaches
+the mattress, stands, contacts two real book bodies, jumps, settles and steps off
+normally, with zero resets. Only the initial player placement is on the floor;
+the two books use explicitly labeled diagnostic placement. This closes the prior
+approach-coverage gap without raising jump height or changing the controller.
+Separate final native runs retain real cushion pickup/carry/drop, original dormant
+cushion activation on landing and ordinary separation. Two books wake and settle;
+the unrelated dormant/fixed content remains. Pool door/water/flashlight and the
+scripted mannequin/carry lab also pass. Captured runs make no throughput claim.
+
+Relay Annex is exported through the real editor from current source, recovered
+through its editable-import UI, and all manifest/level/Luau/thumbnail bytes match
+the original. All three members pass integrity and `verify --require-current`.
+The native bake checker shows **three valid / reuse prepared lighting** rows.
+Actual **Build+Play** imports, runs a real player child and returns to editing.
+The standard complete-export cache is a byte-identical copy of the completed
+export in the isolated recovery root, using the compiler's existing documented
+cache contract; no compiler code or lighting algorithm changes. Native current-
+package stair and ramp runs dismiss opening guidance, advance **5.517 / 4.654 m**,
+jump and land at the authored upper supports with zero resets. Corrected tower
+ceilings and solid support geometry are preserved. All **17** controller replays
+from the final production tools are byte-identical to the published baseline.
+
+### Preview latency remains a measured lead
+
+Serialized baseline/final native controls use the same 1,270-object level and
+ordinary editor presentation policy, with no overlapping build, bake, game or
+editor process. Both preserve source, cancel/supersede work and undo exactly.
+These phase observations are not uncapped FPS comparisons or a latency improvement
+claim. Final milliseconds are:
+
+| Native preview | Worker CPU | Admission | Install setup | Maximum upload handler | Request to ready |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Inspect after edit | 5892.0 | 0.091 | 5.88 | 145.4 | 7867.1 |
+| Authored environment | 14787.1 | 0.075 | 6.31 | 170.9 | 16663.2 |
+| Inspect restored | 5853.0 | 0.072 | 6.08 | 144.9 | 7717.3 |
+
+The earlier historical capture reaches **262.27 ms** in the upload handler and
+**15,011.98 ms** in worker preparation; the prior 139 ms statement was a representative
+sample, not an upper bound. Admission/setup timers cover their actual synchronous
+handlers, with setup including object/framing and renderer installation setup.
+They do not turn remaining request-to-ready time into claimed GPU utilization or
+attribute all frame blocking. Large preview preparation still takes seconds and
+an individual upload handler still blocks for roughly 145-171 ms in these controls.
+The displayed feedback is improved; the expensive work is not claimed optimized.
+
+### Gates, evidence and remaining limits
+
+Rust/Cargo **1.99.1**, final formatting, strict workspace/all-target/all-feature
+Clippy with `-D warnings`, **292 passing Rust tests** (zero failed/ignored, **0.91 s**
+suite execution), and the locked all-feature workspace release build pass. The
+production build takes **15m05s**, one compile job; a final complete-source gate
+rechecks the later result-text fix. The new preview also passes asset validation
+(**629 assets, zero warnings**), prop checks and texture checks (**140 textures,
+100 existing warnings**). No test is added and no map bake enters Cargo/CI.
+
+All unique attempts, source/binary/package identities, captures and receipts stay
+outside `target` in `C:\Users\Connor Dawkins\Documents\Codex\2026-10-23\task-3\polish-evidence`.
+`local/windows-validation-0.13.0/general-polish/evidence-index.json` locates the
+complete retained tree. Failed harness controls are preserved and excluded:
+legacy crouch taps, an incorrect requested guest speed, browser popup/undo
+assumptions, initial Annex guidance interception, and overlapping preview controls.
+The first cold recovered Build+Play exceeded its verification idle wait and was
+cooperatively canceled; the complete export/recovery already succeeded and the
+reviewed standard-cache Build+Play passes without rebaking. An isolated browser
+fixture stopped at unsaved confirmation after one undo reversed automatic light
+mounting; its complete raw document was captured before closing that owned process.
+No original project or unique user work was lost or saved over.
+
+The byte-exact native ending screenshot is saved as
+**Places-0.13.0-polish-ending.png**, Library **libfile_7ca458df0c108191ad6a7f6803cf2d0c**,
+version **0**, **7,291 bytes**, SHA-256
+`3fc1d82648f52d4b66e31dcf492c45f2d4a21fbb1347f85be7189577fe3251f9`.
+The supported save succeeds; Windows Python cannot attach local xattrs, so exact
+Library identity is retained in its receipt. The previously used encoder directory
+was not readable; a native PNG is delivered without an access workaround or
+executable upload. Windows command-line process inspection through WMI was also
+unavailable; stored launch identity and ordinary process name/start time identified
+the owned verification editor. No denied read is retried or security setting changed.
+
+Historical FPS-tail uncertainty, allocator/driver attribution, the **1854.5-1858.8 MiB**
+late private-memory range / **+4.8 MiB** late RSS observation, preview latency and
+Metal/Vulkan/hardware-calibration limits remain as previously recorded. Rejected
+compute, scheduling and worker-count probes are not reintroduced. No new FPS or
+RAM saving is claimed. The dedicated robust compiler/lighting review is next;
+The Shape of an Exit remains second last, then final verification/report/issues/
+cleanup. No CI wait, main merge, release, version bump or target cleanup occurs.
+Awake helper PID **18136** and its queue ownership are retained; the stop file is
+not created. Final remote/clean verification and writer release are in the new
+ownership handoff.

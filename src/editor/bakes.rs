@@ -342,7 +342,7 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         );
     }
     for (x, label, action) in [
-        (25.0, "Check saved levels", Action::BakeStatus),
+        (25.0, "Check saved", Action::BakeStatus),
         (175.0, "Cancel check", Action::BakeCancel),
         (385.0, "Close", Action::ClosePopup),
     ] {

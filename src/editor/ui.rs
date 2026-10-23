@@ -308,12 +308,11 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         || "Choose New or Open to begin".into(),
         |d| {
             format!(
-                "{} / {}{}",
+                "{} / {}{}{}",
                 d.project().manifest().name,
                 d.level_id(),
-                if d.is_dirty() {
-                    " * UNSAVED"
-                } else if app.viewport.is_preparing() {
+                if d.is_dirty() { " * UNSAVED" } else { "" },
+                if app.viewport.is_preparing() {
                     " / preparing view"
                 } else {
                     ""

@@ -110,7 +110,7 @@ pub(in crate::editor) fn draw_grid(
     if ids.is_empty() {
         text(
             v,
-            "No matches. Backspace clears the search.",
+            "No matches. Cmd/Ctrl A clears search.",
             130.0,
             110.0,
             INK,
