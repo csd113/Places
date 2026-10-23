@@ -56,6 +56,95 @@ pub struct Items {
     pub(super) carry: super::carry_runtime::CarryRuntime,
 }
 
+/// Prepared on the single loading worker. Cancellation drops this entire new
+/// physics world while the displayed world's simulation remains owned by Items.
+pub struct PreparedItems {
+    world: crate::engine::physics::ItemWorld,
+    authored: Vec<(u64, String, String)>,
+    carry: super::carry_runtime::CarryRuntime,
+    spawns: Vec<(u64, usize, [f32; 3])>,
+}
+impl PreparedItems {
+    pub fn prepare(
+        loaded: &crate::engine::loader::LoadedLevel,
+        walls: &[crate::engine::collision::WallAabb],
+        assets: &mut crate::engine::props::PropAssets,
+    ) -> Result<Self, String> {
+        let level = &loaded.level;
+        let mut prepared = Self {
+            world: crate::engine::physics::ItemWorld::from_level_with_materials(
+                level,
+                walls,
+                &loaded.materials,
+            ),
+            authored: Vec::new(),
+            carry: super::carry_runtime::CarryRuntime::from_level(level, &loaded.materials),
+            spawns: Vec::new(),
+        };
+        let surfaces = crate::engine::level::LevelSurfaces::new(level);
+        let ids = level.prop_instance_ids();
+        let fixed = level
+            .props
+            .iter()
+            .enumerate()
+            .filter(|(_, prop)| prop.has_fixed_physics_shape());
+        let movable = level.props.iter().enumerate().filter(|(_, prop)| {
+            prop.physics
+                .as_ref()
+                .is_some_and(|definition| definition.motion.is_movable())
+        });
+        // Preserve collider/body insertion order: fixed shapes preceded movable
+        // bodies before preparation moved off the UI thread.
+        for (index, prop) in fixed.chain(movable) {
+            crate::engine::resources::checkpoint()?;
+            let Some(def) = &prop.physics else {
+                continue;
+            };
+            if !prop.has_fixed_physics_shape() && !def.motion.is_movable() {
+                continue;
+            }
+            let (min, max) = crate::engine::props::rigid_model_bounds(
+                assets,
+                loaded.catalog.assets(),
+                &prop.model,
+            )?;
+            let position = Vec3::new(
+                prop.x,
+                surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y,
+                prop.z,
+            );
+            if prop.has_fixed_physics_shape() {
+                prepared.world.install_fixed_shape_oriented(
+                    def,
+                    (Vec3::from_array(min), Vec3::from_array(max)),
+                    position,
+                    prop.orientation(),
+                    prop.scale,
+                )?;
+            } else {
+                let key =
+                    AUTHORED_ITEM_KEY_BASE.saturating_add(u64::try_from(index).unwrap_or(u64::MAX));
+                prepared.world.spawn_authored_oriented(
+                    key,
+                    def,
+                    (Vec3::from_array(min), Vec3::from_array(max)),
+                    position,
+                    prop.orientation(),
+                    prop.scale,
+                )?;
+                prepared.spawns.push((key, index, position.to_array()));
+                prepared.authored.push((
+                    key,
+                    ids.get(index).cloned().unwrap_or_default(),
+                    prop.model.clone(),
+                ));
+            }
+        }
+        crate::engine::resources::checkpoint()?;
+        Ok(prepared)
+    }
+}
+
 impl Items {
     pub(crate) fn hand_visible(&self) -> bool {
         interaction_hand_visible(self.target, self.world.held())
@@ -579,99 +668,20 @@ impl FrameLoop<'_> {
     fn physical_player_context(&self) -> PlayerContext {
         player_context(self.game)
     }
-    pub(crate) fn install_physical_items(
-        &mut self,
-        level: &LevelDef,
-        materials: &crate::engine::materials::MaterialTable,
-    ) {
-        self.items.world = crate::engine::physics::ItemWorld::from_level_with_materials(
-            level,
-            self.game.walls(),
-            materials,
-        );
-        self.items.authored.clear();
+    pub(crate) fn install_physical_items(&mut self, level: &LevelDef, prepared: PreparedItems) {
+        self.items.world = prepared.world;
+        self.items.authored = prepared.authored;
         self.items.miniatures = None;
-        self.items.carry = super::carry_runtime::CarryRuntime::from_level(level, materials);
+        self.items.carry = prepared.carry;
         self.items.target = None;
         self.items.release_blocked = false;
         self.items.input = crate::game::app::item_input::CarryInput::default();
-        let surfaces = crate::engine::level::LevelSurfaces::new(level);
-        for prop in level
-            .props
-            .iter()
-            .filter(|prop| prop.has_fixed_physics_shape())
-        {
-            let Some(def) = prop.physics.as_ref() else {
-                continue;
-            };
-            let position = Vec3::new(
-                prop.x,
-                surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y,
-                prop.z,
-            );
-            let result = self
-                .renderer
-                .rigid_runtime_model_bounds(&prop.model)
-                .and_then(|(min, max)| {
-                    self.items.world.install_fixed_shape_oriented(
-                        def,
-                        (Vec3::from_array(min), Vec3::from_array(max)),
-                        position,
-                        prop.orientation(),
-                        prop.scale,
-                    )
-                });
-            if let Err(error) = result {
-                self.fatal_error = Some(format!(
-                    "Cannot install fixed physical prop `{}`: {error}",
-                    prop.model
-                ));
-                self.game.stop();
-                return;
-            }
-        }
-        let prop_instance_ids = level.prop_instance_ids();
         self.restore_carry_visibility(level);
-        let mut render_spawns = Vec::new();
-        for (index, prop) in level.props.iter().enumerate() {
-            let Some(def) = prop.physics.as_ref().filter(|def| def.motion.is_movable()) else {
-                continue;
-            };
-            let key =
-                AUTHORED_ITEM_KEY_BASE.saturating_add(u64::try_from(index).unwrap_or(u64::MAX));
-            let position = Vec3::new(
-                prop.x,
-                surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y,
-                prop.z,
-            );
-            let result = self
-                .renderer
-                .rigid_runtime_model_bounds(&prop.model)
-                .and_then(|(min, max)| {
-                    self.items.world.spawn_authored_oriented(
-                        key,
-                        def,
-                        (Vec3::from_array(min), Vec3::from_array(max)),
-                        position,
-                        prop.orientation(),
-                        prop.scale,
-                    )
-                });
-            if let Err(error) = result {
-                self.fatal_error = Some(format!(
-                    "Cannot install physical prop `{}`: {error}",
-                    prop.model
-                ));
-                self.game.stop();
-                return;
-            }
-            render_spawns.push((key, prop, position.to_array()));
-            self.items.authored.push((
-                key,
-                prop_instance_ids.get(index).cloned().unwrap_or_default(),
-                prop.model.clone(),
-            ));
-        }
+        let render_spawns: Vec<_> = prepared
+            .spawns
+            .iter()
+            .filter_map(|(key, index, position)| Some((*key, level.props.get(*index)?, *position)))
+            .collect();
         if let Err(index) = self.renderer.spawn_runtime_props(&render_spawns)
             && let Some((key, prop, _)) = render_spawns.get(index)
         {

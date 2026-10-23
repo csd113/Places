@@ -253,6 +253,11 @@ fn decode_png_with_sky_policy(bytes: &[u8], sky: bool) -> Result<RawImage, Strin
     let buf_size = reader
         .output_buffer_size()
         .ok_or_else(|| "failed to size the PNG output buffer".to_string())?;
+    let _reservation = crate::engine::resources::allocation(
+        rgba_byte_len(width, height)
+            .unwrap_or(usize::MAX)
+            .saturating_mul(2),
+    )?;
     let mut buf = vec![0; buf_size];
     let output_info = reader
         .next_frame(&mut buf)
@@ -382,9 +387,13 @@ impl TextureCache {
     }
 
     fn trim_retained(&mut self, max_entries: usize, max_bytes: usize) {
-        let mut bytes = self.images.values().fold(0_usize, |total, image| {
-            total.saturating_add(image.rgba.capacity())
-        });
+        let mut bytes = self
+            .images
+            .values()
+            .filter(|image| Arc::strong_count(image) == 1)
+            .fold(0_usize, |total, image| {
+                total.saturating_add(image.rgba.capacity())
+            });
         if self.images.len() <= max_entries && bytes <= max_bytes {
             return;
         }
@@ -392,6 +401,7 @@ impl TextureCache {
         let mut candidates: Vec<_> = self
             .images
             .iter()
+            .filter(|(_, image)| Arc::strong_count(image) == 1)
             .map(|(key, image)| (key.clone(), image.rgba.capacity()))
             .collect();
         candidates.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
@@ -411,6 +421,7 @@ impl TextureCache {
         let shared_image = Arc::new(image);
         drop(self.images.insert(key.into(), Arc::clone(&shared_image)));
         self.decodes = self.decodes.saturating_add(1);
+        self.begin_level();
         shared_image
     }
 
@@ -519,10 +530,13 @@ impl TextureCache {
         let chunk = jobs.len().div_ceil(workers);
         let mut decoded = HashMap::new();
         let images = &self.images;
+        let budget = crate::engine::resources::current();
         std::thread::scope(|scope| {
             let mut handles = Vec::new();
             for chunk_jobs in jobs.chunks(chunk) {
+                let task_budget = budget.clone();
                 handles.push(scope.spawn(move || {
+                    let _decode_scope = crate::engine::resources::enter(task_budget);
                     chunk_jobs
                         .iter()
                         .map(|(logical, relative)| {

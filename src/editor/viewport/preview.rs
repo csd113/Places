@@ -13,6 +13,7 @@ use crate::engine::render::{
 };
 
 pub(super) struct PreparedPreview {
+    pub geometry: crate::engine::render::PreparedGeometry,
     pub loaded: LoadedLevel,
     pub metrics: serde_json::Value,
     pub caustics: Option<crate::engine::render::PreparedCaustics>,
@@ -26,6 +27,7 @@ struct Request {
     generation: u64,
     level: LevelDef,
     environment: bool,
+    budget: Arc<crate::engine::resources::DecodeBudget>,
 }
 
 struct Response {
@@ -39,6 +41,7 @@ pub(super) struct PreviewWorker {
     thread: Option<JoinHandle<()>>,
     generation: u64,
     pending: Option<(LevelDef, bool)>,
+    budget: Option<Arc<crate::engine::resources::DecodeBudget>>,
     busy: bool,
     error: Option<String>,
 }
@@ -54,6 +57,7 @@ impl PreviewWorker {
                 let mut assets = PropAssets::load_default();
                 let mut textures = TextureCache::default();
                 while let Ok(Some(request)) = request_rx.recv() {
+                    let _decode_scope = crate::engine::resources::enter(Some(request.budget));
                     let result = prepare(
                         request.level,
                         request.environment,
@@ -79,12 +83,21 @@ impl PreviewWorker {
             thread: Some(handle),
             generation: 0,
             pending: None,
+            budget: None,
             busy: false,
             error: None,
         })
     }
 
     pub fn request(&mut self, level: &LevelDef, environment: bool) {
+        if let Some(budget) = self.budget.take() {
+            budget
+                .cancelled
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+        self.budget = Some(crate::engine::resources::DecodeBudget::new(Arc::new(
+            std::sync::atomic::AtomicBool::new(false),
+        )));
         self.generation = self.generation.wrapping_add(1);
         self.pending = Some((level.clone(), environment));
         self.error = None;
@@ -118,6 +131,14 @@ impl PreviewWorker {
                     generation: self.generation,
                     level,
                     environment,
+                    budget: self.budget.as_ref().map_or_else(
+                        || {
+                            crate::engine::resources::DecodeBudget::new(Arc::new(
+                                std::sync::atomic::AtomicBool::new(false),
+                            ))
+                        },
+                        Arc::clone,
+                    ),
                 }))
                 .is_ok()
             {
@@ -140,6 +161,11 @@ impl PreviewWorker {
 
 impl Drop for PreviewWorker {
     fn drop(&mut self) {
+        if let Some(budget) = &self.budget {
+            budget
+                .cancelled
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        }
         // At most one CPU request is active. No GPU work or child process is
         // owned by this worker; joining releases its decoded asset cache.
         if self.request.send(None).is_err() {
@@ -198,7 +224,18 @@ fn prepare(
         )
         .filter_map(|id| catalog.get(id).model)
         .collect();
-    assets.retain_preview_models(&paths);
+    let appearances = level
+        .props
+        .iter()
+        .filter_map(|prop| prop.character_texture.as_deref())
+        .chain(
+            level
+                .spawn_templates
+                .iter()
+                .filter_map(|template| template.character_texture.as_deref()),
+        )
+        .collect();
+    assets.retain_preview_models(&paths, &appearances);
     let materials = resolve_materials(&level, catalog.assets(), None, Some(&root), textures)?;
     let light_sheets = crate::engine::loader::resolve_fixture_sheets(
         &level,
@@ -207,11 +244,13 @@ fn prepare(
         textures,
         &materials,
     )?;
+    crate::engine::resources::checkpoint()?;
     let build = Arc::new(if environment {
         build_authoring_environment_preview(&level, catalog, assets, &materials)
     } else {
         build_authoring_preview(&level, catalog, assets, &materials)
     });
+    crate::engine::resources::checkpoint()?;
     let caustics_started = std::time::Instant::now();
     let caustics = crate::engine::render::PreparedCaustics::prepare(&level, &build.lighting);
     let caustics_ms = caustics_started.elapsed().as_secs_f64() * 1_000.0_f64;
@@ -232,9 +271,12 @@ fn prepare(
         light_sheets,
         entry,
     };
+    textures.begin_level();
+    let geometry = crate::engine::render::PreparedGeometry::new(&loaded, &build)?;
     let stats = assets.stats();
     let metrics = serde_json::json!({"cpu_prepare_ms":started.elapsed().as_secs_f64()*1_000.0_f64,"caustics_prepare_ms":caustics_ms,"cached_models":stats.models_loaded,"model_texture_bytes":stats.texture_bytes,"cached_images":textures.len(),"image_decodes":textures.decoded_count()});
     Ok(PreparedPreview {
+        geometry,
         metrics,
         caustics,
         loaded,

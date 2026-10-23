@@ -1010,6 +1010,23 @@ impl TextureCache {
         self.level.clear();
     }
 
+    /// Cache-owned texel allocations, deduplicated by shared handle. Active
+    /// draws can also retain these allocations; admission charges overlap
+    /// conservatively instead of treating a cache reference as free memory.
+    pub fn retained_texel_bytes(&self) -> u64 {
+        let mut seen = std::collections::HashSet::new();
+        self.persistent
+            .values()
+            .chain(self.level.values())
+            .fold(0_u64, |bytes, texture| {
+                if seen.insert(Arc::as_ptr(texture)) {
+                    bytes.saturating_add(texture.meta().resident_bytes)
+                } else {
+                    bytes
+                }
+            })
+    }
+
     /// Cache-owned references only: active/pending draws can retain additional
     /// sheets, and a cloned cache can share the same underlying allocations.
     #[cfg(feature = "visual-diagnostics")]

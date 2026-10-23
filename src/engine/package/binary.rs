@@ -202,6 +202,7 @@ impl<'a> Reader<'a> {
         minimum_width: usize,
         what: &str,
     ) -> Result<(), String> {
+        crate::engine::resources::checkpoint()?;
         let minimum_bytes = count
             .checked_mul(minimum_width)
             .ok_or_else(|| format!("{what} encoded size overflows"))?;
@@ -220,6 +221,9 @@ impl<'a> Reader<'a> {
     /// # Errors
     /// Returns an error when the input is malformed, out of bounds or unsupported.
     pub fn bytes(&mut self, length: usize) -> Result<&'a [u8], String> {
+        if self.cursor / 65_536 != self.cursor.saturating_add(length) / 65_536 {
+            crate::engine::resources::checkpoint()?;
+        }
         let end = self
             .cursor
             .checked_add(length)

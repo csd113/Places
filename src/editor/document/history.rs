@@ -12,6 +12,15 @@ pub(super) struct History {
 }
 
 impl History {
+    pub(super) fn heap_charge(&self) -> usize {
+        self.undo
+            .iter()
+            .chain(&self.redo)
+            .fold(0_usize, |bytes, (value, _)| {
+                bytes.saturating_add(value_heap_charge(value))
+            })
+    }
+
     pub(super) fn usage(&self) -> (usize, usize) {
         self.undo
             .iter()
@@ -66,5 +75,32 @@ fn trim(revisions: &mut VecDeque<(Value, usize)>) {
         if let Some((_, bytes)) = revisions.pop_front() {
             total = total.saturating_sub(bytes);
         }
+    }
+}
+
+/// Conservative owned JSON heap estimate, including strings, array capacity and
+/// map-node overhead. Serialized text length alone misses heavily fragmented JSON.
+pub(super) fn value_heap_charge(value: &Value) -> usize {
+    match value {
+        Value::String(text) => text.capacity(),
+        Value::Array(values) => values
+            .capacity()
+            .saturating_mul(std::mem::size_of::<Value>())
+            .saturating_add(
+                values
+                    .iter()
+                    .map(value_heap_charge)
+                    .fold(0_usize, usize::saturating_add),
+            ),
+        Value::Object(values) => values.iter().fold(0_usize, |bytes, (key, member)| {
+            bytes
+                .saturating_add(key.capacity())
+                .saturating_add(value_heap_charge(member))
+                .saturating_add(
+                    std::mem::size_of::<(String, Value)>()
+                        .saturating_add(4_usize.saturating_mul(std::mem::size_of::<usize>())),
+                )
+        }),
+        Value::Null | Value::Bool(_) | Value::Number(_) => 0,
     }
 }

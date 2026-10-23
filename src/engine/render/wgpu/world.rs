@@ -1353,6 +1353,166 @@ pub struct WgpuWorldGeometry {
     stats: WorldGeometryStats,
 }
 
+/// Private staging owns at most one converted 16-bit chunk. Conversion yields
+/// after 256 vertices or four milliseconds; no partial world is ever published.
+pub(in crate::engine::render) struct WorldUpload {
+    packer: MeshPacker,
+    world: WgpuWorldGeometry,
+    cursor: usize,
+    vertices: Vec<WorldVertex>,
+}
+impl WorldUpload {
+    pub fn new(mesh: &LevelMesh, materials: &MaterialRenderState) -> Self {
+        let (packer, draws) = pack_world_ranges(mesh, materials);
+        crate::engine::perf::startup_mark("world geometry: pack");
+
+        let chunks = Vec::new();
+        let uploaded_vertices: usize = packer.chunks.iter().map(|chunk| chunk.vertices.len()).sum();
+        let uploaded_indices: usize = packer.chunks.iter().map(|chunk| chunk.indices.len()).sum();
+        let stats = WorldGeometryStats {
+            mesh_vertices: mesh.vertex_count,
+            mesh_indices: mesh.index_count,
+            mesh_ranges: mesh.ranges.len(),
+            uploaded_vertices,
+            uploaded_indices,
+            draws: draws.len(),
+            chunks: packer.chunks.len(),
+            vertex_bytes: uploaded_vertices
+                .saturating_mul(usize::try_from(WORLD_VERTEX_STRIDE).unwrap_or(usize::MAX)),
+            index_bytes: uploaded_indices.saturating_mul(std::mem::size_of::<u16>()),
+        };
+        let occluders = crate::engine::render::common::occlusion::Occluders::new(
+            mesh.ranges
+                .iter()
+                .filter(|range| {
+                    matches!(
+                        range.key.kind,
+                        SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
+                    ) && range_pass(range, materials) == BatchPass::Opaque
+                        // The active mirror is absent from its own capture.
+                        // It cannot prove coverage shared with reflected views.
+                        && !materials
+                            .reflections
+                            .get(usize::try_from(range.key.material).unwrap_or(usize::MAX))
+                            .is_some_and(|reflection| reflection.mode.is_planar())
+                })
+                .flat_map(|range| {
+                    range
+                        .indices
+                        .as_chunks::<3>()
+                        .0
+                        .iter()
+                        .filter_map(|&[a, b, c]| {
+                            Some([
+                                range.vertices.get(usize::from(a))?.pos,
+                                range.vertices.get(usize::from(b))?.pos,
+                                range.vertices.get(usize::from(c))?.pos,
+                            ])
+                        })
+                }),
+        );
+        let pass_indices = WorldPassIndices::new(&draws);
+        let world = WgpuWorldGeometry {
+            chunks,
+            draws,
+            pass_indices,
+            occluders,
+            stats,
+        };
+        Self {
+            packer,
+            world,
+            cursor: 0,
+            vertices: Vec::new(),
+        }
+    }
+    pub fn advance(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        water_source: Option<(&crate::engine::level::LevelDef, &MaterialTable)>,
+    ) -> bool {
+        let began = std::time::Instant::now();
+        let Some(chunk) = self.packer.chunks.get_mut(self.cursor) else {
+            return true;
+        };
+        while self.vertices.len() < chunk.vertices.len() {
+            let end = self
+                .vertices
+                .len()
+                .saturating_add(256)
+                .min(chunk.vertices.len());
+            for vertex in chunk
+                .vertices
+                .get(self.vertices.len()..end)
+                .unwrap_or_default()
+            {
+                let mut gpu = WorldVertex::from(vertex);
+                if let Some(context) = visibility {
+                    gpu.uv_visibility = context.vertex(vertex);
+                }
+                self.vertices.push(gpu);
+            }
+            if began.elapsed() >= std::time::Duration::from_millis(4) {
+                return false;
+            }
+        }
+        mark_water_surfaces(
+            &mut self.vertices,
+            chunk,
+            &self.world.draws,
+            self.cursor,
+            water_source,
+        );
+        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("places-wgpu-world-vertices"),
+            size: u64::try_from(self.vertices.len())
+                .unwrap_or(u64::MAX)
+                .saturating_mul(WORLD_VERTEX_STRIDE)
+                .max(4),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+        if !self.vertices.is_empty() {
+            queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&self.vertices));
+        }
+        let index_buffer = upload_index_buffer(device, &chunk.indices, "places-wgpu-world-indices");
+        self.world.chunks.push(WorldChunk {
+            vertex_buffer,
+            index_buffer,
+            vertex_count: u32::try_from(chunk.vertices.len()).unwrap_or(u32::MAX),
+            index_count: u32::try_from(chunk.indices.len()).unwrap_or(u32::MAX),
+        });
+        // Release each packed CPU chunk as soon as its queue write owns the data.
+        *chunk = MeshChunk::default();
+        self.vertices.clear();
+        self.cursor = self.cursor.saturating_add(1);
+        self.cursor >= self.packer.chunks.len()
+    }
+    pub const fn geometry_bytes(&self) -> usize {
+        self.world
+            .stats
+            .vertex_bytes
+            .saturating_add(self.world.stats.index_bytes)
+    }
+    pub fn finish(mut self) -> WgpuWorldGeometry {
+        self.world.stats.uploaded_vertices = self
+            .world
+            .chunks
+            .iter()
+            .map(|chunk| usize::try_from(chunk.vertex_count).unwrap_or(usize::MAX))
+            .sum();
+        self.world.stats.uploaded_indices = self
+            .world
+            .chunks
+            .iter()
+            .map(|chunk| usize::try_from(chunk.index_count).unwrap_or(usize::MAX))
+            .sum();
+        self.world
+    }
+}
+
 /// Immutable classification shared by scene, emission and visibility draws.
 /// Keep packed order within each class; only translucent submission sorts it.
 #[derive(Default)]
@@ -1410,81 +1570,9 @@ impl WgpuWorldGeometry {
             &crate::engine::materials::MaterialTable,
         )>,
     ) -> Self {
-        let (packer, draws) = pack_world_ranges(mesh, materials);
-        crate::engine::perf::startup_mark("world geometry: pack");
-
-        let mut chunks: Vec<WorldChunk> = Vec::with_capacity(packer.chunks.len());
-        for (chunk_index, chunk) in packer.chunks.iter().enumerate() {
-            chunks.push(upload_chunk(
-                device,
-                queue,
-                chunk,
-                visibility,
-                water_source,
-                &draws,
-                chunk_index,
-            ));
-        }
-        crate::engine::perf::startup_mark("world geometry: GPU upload");
-
-        let uploaded_vertices: usize = chunks
-            .iter()
-            .map(|chunk| usize::try_from(chunk.vertex_count).unwrap_or(usize::MAX))
-            .sum();
-        let uploaded_indices: usize = chunks
-            .iter()
-            .map(|chunk| usize::try_from(chunk.index_count).unwrap_or(usize::MAX))
-            .sum();
-        let stats = WorldGeometryStats {
-            mesh_vertices: mesh.vertex_count,
-            mesh_indices: mesh.index_count,
-            mesh_ranges: mesh.ranges.len(),
-            uploaded_vertices,
-            uploaded_indices,
-            draws: draws.len(),
-            chunks: chunks.len(),
-            vertex_bytes: uploaded_vertices
-                .saturating_mul(usize::try_from(WORLD_VERTEX_STRIDE).unwrap_or(usize::MAX)),
-            index_bytes: uploaded_indices.saturating_mul(std::mem::size_of::<u16>()),
-        };
-        let occluders = crate::engine::render::common::occlusion::Occluders::new(
-            mesh.ranges
-                .iter()
-                .filter(|range| {
-                    matches!(
-                        range.key.kind,
-                        SurfaceKind::Floor | SurfaceKind::Ceiling | SurfaceKind::Wall
-                    ) && range_pass(range, materials) == BatchPass::Opaque
-                        // The active mirror is absent from its own capture.
-                        // It cannot prove coverage shared with reflected views.
-                        && !materials
-                            .reflections
-                            .get(usize::try_from(range.key.material).unwrap_or(usize::MAX))
-                            .is_some_and(|reflection| reflection.mode.is_planar())
-                })
-                .flat_map(|range| {
-                    range
-                        .indices
-                        .as_chunks::<3>()
-                        .0
-                        .iter()
-                        .filter_map(|&[a, b, c]| {
-                            Some([
-                                range.vertices.get(usize::from(a))?.pos,
-                                range.vertices.get(usize::from(b))?.pos,
-                                range.vertices.get(usize::from(c))?.pos,
-                            ])
-                        })
-                }),
-        );
-        let pass_indices = WorldPassIndices::new(&draws);
-        Self {
-            chunks,
-            draws,
-            pass_indices,
-            occluders,
-            stats,
-        }
+        let mut upload = WorldUpload::new(mesh, materials);
+        while !upload.advance(device, queue, visibility, water_source) {}
+        upload.finish()
     }
 
     /// The uploaded draw ranges, in draw order.
@@ -1760,54 +1848,6 @@ pub(super) fn upload_index_buffer(
         contents: bytemuck::cast_slice(contents),
         usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
     })
-}
-
-/// Uploads one packed chunk as a vertex/index buffer pair.
-fn upload_chunk(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    chunk: &MeshChunk,
-    visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
-    water_source: Option<(
-        &crate::engine::level::LevelDef,
-        &crate::engine::materials::MaterialTable,
-    )>,
-    draws: &[WorldDraw],
-    chunk_index: usize,
-) -> WorldChunk {
-    let mut vertices: Vec<WorldVertex> = chunk
-        .vertices
-        .iter()
-        .map(|vertex| {
-            let mut gpu = WorldVertex::from(vertex);
-            if let Some(context) = visibility {
-                gpu.uv_visibility = context.vertex(vertex);
-            }
-            gpu
-        })
-        .collect();
-    mark_water_surfaces(&mut vertices, chunk, draws, chunk_index, water_source);
-    let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("places-wgpu-world-vertices"),
-        size: u64::try_from(vertices.len())
-            .unwrap_or(u64::MAX)
-            .saturating_mul(WORLD_VERTEX_STRIDE)
-            .max(4),
-        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    if !vertices.is_empty() {
-        queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&vertices));
-    }
-
-    let index_buffer = upload_index_buffer(device, &chunk.indices, "places-wgpu-world-indices");
-
-    WorldChunk {
-        vertex_buffer,
-        index_buffer,
-        vertex_count: u32::try_from(chunk.vertices.len()).unwrap_or(u32::MAX),
-        index_count: u32::try_from(chunk.indices.len()).unwrap_or(u32::MAX),
-    }
 }
 
 /// Classify once at upload using the floor draw's actual material and mean

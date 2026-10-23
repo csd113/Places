@@ -52,6 +52,14 @@ impl LevelDocument {
         self.objects = super::objects::enumerate(&self.level);
     }
 
+    pub(super) fn heap_charge(&self) -> usize {
+        super::history::value_heap_charge(&self.raw)
+            .saturating_add(super::history::value_heap_charge(&self.saved))
+            .saturating_add(self.disk_bytes.capacity())
+            .saturating_add(self.byte_count.saturating_mul(2))
+            .saturating_add(self.history.heap_charge())
+    }
+
     pub(super) const fn is_dirty(&self) -> bool {
         self.dirty
     }

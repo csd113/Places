@@ -45,7 +45,35 @@ pub struct Document {
     other_levels: BTreeMap<String, LevelDocument>,
 }
 
+const MAX_DOCUMENT_HEAP_CHARGE: usize = 256 * 1024 * 1024;
+
 impl Document {
+    fn heap_charge(&self) -> usize {
+        std::iter::once(&self.selected)
+            .chain(self.other_levels.values())
+            .map(LevelDocument::heap_charge)
+            .chain(
+                self.scripts
+                    .values()
+                    .map(scripts::ScriptDocument::heap_charge),
+            )
+            .fold(0_usize, usize::saturating_add)
+    }
+
+    fn admit_document_bytes(&mut self, additional: usize) -> Result<(), String> {
+        while self.heap_charge().saturating_add(additional) > MAX_DOCUMENT_HEAP_CHARGE {
+            let clean = self
+                .other_levels
+                .iter()
+                .find(|(_, document)| !document.is_dirty() && document.history.usage().0 == 0)
+                .map(|(id, _)| id.clone());
+            let Some(id) = clean else {
+                return Err("Editor document memory budget reached (256 MiB charged heap). Unsaved maps and undo/redo are preserved; save and reopen the project to release history before opening or editing more content.".into());
+            };
+            drop(self.other_levels.remove(&id));
+        }
+        Ok(())
+    }
     /// Opens the manifest or project folder using the shared confined API.
     ///
     /// # Errors
@@ -112,7 +140,18 @@ impl Document {
         let next = if let Some(cached) = self.other_levels.remove(id) {
             cached
         } else {
-            LevelDocument::open(&self.project, Some(id))?
+            let source = &self.project.manifest().level(Some(id))?.source;
+            let bytes = std::fs::metadata(self.project.resolve(source)?)
+                .map_err(|error| error.to_string())?
+                .len();
+            self.admit_document_bytes(
+                usize::try_from(bytes)
+                    .unwrap_or(usize::MAX)
+                    .saturating_mul(8),
+            )?;
+            let opened = LevelDocument::open(&self.project, Some(id))?;
+            self.admit_document_bytes(opened.heap_charge())?;
+            opened
         };
         let previous = std::mem::replace(&mut self.selected, next);
         drop(
@@ -136,7 +175,7 @@ impl Document {
                     )
                 },
             );
-        serde_json::json!({"documents":documents,"history_revisions":revisions,"history_serialized_bytes":history_bytes,"history_policy":"64 revisions / 32 MiB per undo or redo stack; current and saved documents retained"})
+        serde_json::json!({"documents":documents,"history_revisions":revisions,"history_serialized_bytes":history_bytes,"document_heap_charge":self.heap_charge(),"document_heap_budget":MAX_DOCUMENT_HEAP_CHARGE,"history_policy":"64 revisions / 32 MiB per stack; 256 MiB aggregate document admission; unsaved work and histories pinned"})
     }
 
     #[must_use]
@@ -350,6 +389,10 @@ impl Document {
         if edited == self.selected.raw {
             return Ok(());
         }
+        self.admit_document_bytes(
+            history::value_heap_charge(&edited)
+                .saturating_add(self.selected.byte_count.saturating_mul(2)),
+        )?;
         let (level, byte_count) = persistence::validate_raw(&edited, self.level_id())?;
         let old = std::mem::replace(&mut self.selected.raw, edited);
         self.selected.history.edit(old, self.selected.byte_count);
@@ -464,3 +507,7 @@ impl Document {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "tests/document_memory.rs"]
+mod memory_tests;

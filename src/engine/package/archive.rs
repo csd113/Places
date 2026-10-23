@@ -181,11 +181,41 @@ impl<R: Read + Seek> PackageReader<R> {
             ));
         }
         let capacity = usize::try_from(declared.min(limit)).unwrap_or(0);
-        let mut bytes = Vec::with_capacity(capacity);
-        let read = entry
-            .take(limit.saturating_add(1))
-            .read_to_end(&mut bytes)
-            .map_err(|error| format!("package entry '{name}' failed to decompress: {error}"))?;
+        let _reservation = crate::engine::resources::allocation(capacity)?;
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(capacity)
+            .map_err(|error| format!("package entry '{name}' allocation failed: {error}"))?;
+        let mut stream = entry.take(limit.saturating_add(1));
+        let mut block = vec![0_u8; 64 * 1024];
+        loop {
+            crate::engine::resources::checkpoint()?;
+            let count = stream
+                .read(&mut block)
+                .map_err(|error| format!("package entry '{name}' failed to decompress: {error}"))?;
+            if count == 0 {
+                break;
+            }
+            let next = bytes
+                .len()
+                .checked_add(count)
+                .ok_or("package entry length overflow")?;
+            if u64::try_from(next).unwrap_or(u64::MAX) > limit {
+                return Err(format!(
+                    "package entry '{name}' exceeds the {limit}-byte limit"
+                ));
+            }
+            bytes
+                .try_reserve(count)
+                .map_err(|error| format!("package entry '{name}' allocation failed: {error}"))?;
+            bytes.extend_from_slice(
+                block
+                    .get(..count)
+                    .ok_or("Decompressor returned an invalid block size")?,
+            );
+            crate::engine::resources::decoded(count);
+        }
+        let read = bytes.len();
         if u64::try_from(read).unwrap_or(u64::MAX) > limit {
             return Err(format!(
                 "package entry '{name}' exceeds the {limit}-byte limit"

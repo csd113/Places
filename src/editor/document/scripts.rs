@@ -15,6 +15,18 @@ pub(super) struct ScriptDocument {
     redo: Vec<String>,
 }
 impl ScriptDocument {
+    pub(super) fn heap_charge(&self) -> usize {
+        self.disk
+            .capacity()
+            .saturating_add(self.text.capacity())
+            .saturating_add(
+                self.undo
+                    .iter()
+                    .chain(&self.redo)
+                    .map(String::capacity)
+                    .fold(0_usize, usize::saturating_add),
+            )
+    }
     pub fn is_dirty(&self) -> bool {
         self.text.as_bytes() != self.disk
     }
@@ -97,6 +109,11 @@ impl Document {
                     .into(),
             );
         }
+        self.admit_document_bytes(
+            usize::try_from(MAX_SOURCE_BYTES)
+                .unwrap_or(usize::MAX)
+                .saturating_mul(2),
+        )?;
         let path = self.project.resolve(&ProjectPath::new(name.into())?)?;
         let disk = read_bounded_file(&path, MAX_SOURCE_BYTES)?;
         let text = String::from_utf8(disk.clone()).map_err(|e| e.to_string())?;
@@ -124,6 +141,7 @@ impl Document {
         if text.len() > usize::try_from(MAX_SOURCE_BYTES).unwrap_or(0) {
             return Err("Script exceeds 64 KiB".into());
         }
+        self.admit_document_bytes(text.capacity())?;
         let script = self.scripts.get_mut(name).ok_or("Open script first")?;
         if script.text != text {
             script

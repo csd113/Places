@@ -328,7 +328,15 @@ impl PropAssets {
 
     /// Editor previews retain only the current scene's model dependencies.
     /// The previous GPU scene owns its own Arcs until replacement completes.
-    pub(crate) fn retain_preview_models(&mut self, paths: &std::collections::BTreeSet<String>) {
+    pub(crate) fn retain_preview_models(
+        &mut self,
+        paths: &std::collections::BTreeSet<String>,
+        appearances: &std::collections::BTreeSet<&str>,
+    ) {
+        // A cloned renderer cache is not evidence that an appearance belongs
+        // to the new preview. Old scenes keep their own handles until commit.
+        self.character_textures
+            .retain(|id, _| appearances.contains(id.as_str()));
         self.models.retain(|path, _| paths.contains(path));
         self.inputs.retain(|path, _| paths.contains(path));
         self.model_identities.retain(|path, _| paths.contains(path));
@@ -348,6 +356,7 @@ impl PropAssets {
     /// Returns a message when the model file is missing, is not a valid GLB, or
     /// exceeds the prop engine ceilings.
     pub fn resolve(&mut self, model_path: &str) -> Result<Arc<LoadedPropAsset>, String> {
+        crate::engine::resources::checkpoint()?;
         if let Some(cached) = self.models.get(model_path) {
             return cached.clone();
         }
@@ -495,3 +504,43 @@ impl PropAssets {
 pub fn resolve_prop_root() -> Option<PathBuf> {
     crate::engine::assets::resolve_asset_root()
 }
+
+/// Shared catalog/model validation for rigid CPU physics and GPU presentation.
+pub(crate) fn rigid_model_bounds(
+    assets: &mut PropAssets,
+    catalog: &crate::engine::assets::AssetCatalog,
+    id: &str,
+) -> Result<([f32; 3], [f32; 3]), String> {
+    let entry = catalog
+        .get(id)
+        .ok_or_else(|| format!("Unknown catalog ID `{id}`."))?;
+    if !entry.is_placeable() {
+        return Err(format!("`{id}` is not a placeable prop."));
+    }
+    let path = entry
+        .model
+        .as_deref()
+        .ok_or_else(|| format!("`{id}` has no runtime model."))?;
+    let asset = assets.resolve(path)?;
+    if asset.model.is_animatable() || !asset.model.morph_targets.is_empty() {
+        return Err("Rigid items and /give previews need a model without skin, animation clips or morph targets; animated models require an entity template.".to_string());
+    }
+    let bounds = asset
+        .model
+        .bounds()
+        .ok_or_else(|| "Model has no usable bounds.".to_string())?;
+    let [x0, y0, z0] = bounds.0;
+    let [x1, y1, z1] = bounds.1;
+    let extent = glam::Vec3::new(x1 - x0, y1 - y0, z1 - z0);
+    if !extent.is_finite() || extent.min_element() <= 0.0 || extent.max_element() > 100.0 {
+        return Err(
+            "Rigid props must have positive finite bounds no larger than 100 m per axis."
+                .to_string(),
+        );
+    }
+    Ok(bounds)
+}
+
+#[cfg(test)]
+#[path = "tests/prop_cache_ownership.rs"]
+mod cache_ownership_tests;

@@ -654,6 +654,7 @@ struct PendingCommit {
     id: u64,
     loaded: loader::LoadedLevel,
     collision: CollisionWorld,
+    physical: Option<item_runtime::PreparedItems>,
     intent: LoadIntent,
     lease: loading::PreparedLease,
 }
@@ -3503,10 +3504,13 @@ impl FrameLoop<'_> {
                         "retained_bytes": prepared.lease.retained_bytes(),
                     }).to_string());
                     let loading::PreparedWorld {
+                        geometry,
+                        caustics,
                         transport,
                         loaded,
                         build,
                         collision,
+                        physical,
                         characters,
                         assets,
                         probes,
@@ -3519,6 +3523,13 @@ impl FrameLoop<'_> {
                     // while the player's selection remains intact. A fresh
                     // level must stage its records with that current selection.
                     self.request_renderer_graphics();
+                    if let Err(error) = self
+                        .renderer
+                        .admit_prepared(&loaded, &build, &assets, &geometry)
+                    {
+                        self.recover_from_preparation_failure(id, &error);
+                        return;
+                    }
                     self.renderer.install_prepared_precompiled(
                         &loaded,
                         build,
@@ -3527,11 +3538,14 @@ impl FrameLoop<'_> {
                         matches!(intent, LoadIntent::Graphics),
                         probes,
                     );
+                    self.renderer.set_prepared_geometry(geometry);
+                    self.renderer.set_prepared_caustics(caustics);
                     self.renderer.set_prepared_transport(transport);
                     self.pending_commit = Some(PendingCommit {
                         id,
                         loaded,
                         collision,
+                        physical,
                         intent,
                         lease,
                     });
@@ -3554,8 +3568,21 @@ impl FrameLoop<'_> {
                 self.commit_loaded_world();
             }
         }
+        self.update_loading_progress();
+    }
+
+    fn update_loading_progress(&mut self) {
         // Idle cache retirement uses the worker but owns no loading UI.
         let phase = self.load_intent.and_then(|_| self.loader.phase());
+        if phase == Some(loading::Phase::Reading) {
+            self.ui_state.set_status(
+                format!(
+                    "Reading map and assets: {} MiB decoded... Esc to cancel",
+                    self.loader.decoded_bytes() / (1024 * 1024)
+                ),
+                false,
+            );
+        }
         if phase != self.load_phase {
             self.load_phase = phase;
             if let Some(active_phase) = phase {
@@ -3903,6 +3930,7 @@ impl FrameLoop<'_> {
             id,
             loaded,
             collision,
+            physical,
             intent,
             lease,
         }) = self.pending_commit.take()
@@ -3937,7 +3965,9 @@ impl FrameLoop<'_> {
                 .entities_mut()
                 .attach_campaign(self.campaign.attach(&loaded.entry.path));
             install_timer.step("game-reset");
-            self.install_physical_items(&loaded.level, &loaded.materials);
+            if let Some(prepared_items) = physical {
+                self.install_physical_items(&loaded.level, prepared_items);
+            }
             install_timer.step("physical-items");
             self.update_item_triggers(true);
             if matches!(intent, LoadIntent::Play) {

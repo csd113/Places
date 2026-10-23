@@ -5009,3 +5009,288 @@ allocations/copies and synchronization, with preserved quality and matched
 per-stage timings. This phase does not start those items. SYSTEM-only awake
 helper PID 18136 remains; the queue stop file is not created. No CI wait, release,
 main merge, security change or version bump.
+
+## Loading and memory ownership pass — 23 October 2026
+
+This focused Windows pass implements incremental preparation/install work and
+real admission/eviction policy for #27–29 and the granular-loading item in #31.
+It does not complete the whole resource-limit audit, storage/compiler work or
+all acceptance criteria in those issues. The previous GPU work and its worsened
+frame-time tails remain as reported above. No quality reduction, map-specific
+exception, new map bake, package change or asset change was used here.
+
+### Provenance and measurement boundaries
+
+The matched baseline is clean, remote-verified staging commit
+`b960f83962606778ddd21085b4640cf46a2961ac`. Baseline player SHA-256 is
+`568f0de8c4aefbc9a0eaaf46c89351255733fb336756ffb4b8bfb5645f458f29`.
+The accepted measurement cohort uses player
+`30f500b91f4aea3d1a1fc384ddf2a481a9bd6d8449829f8504adf58a99a3bcd5`
+and editor `3ad8a6be7c7bb2341945916d505285c4767b295c3e81f117512ba696085ab7f9`.
+`frozen-source-accepted.json` records every changed source hash. These exact
+binaries are retained in `accepted-cohort-bin/`; the baseline executables/DLLs
+remain in `baseline-bin/`. A final cancellation-only amendment and its native
+checks are identified separately below; the broad cohort is not relabeled as
+measurements of that later binary.
+
+All evidence paths in this section are relative to
+`local/windows-validation-0.13.0/loading-memory/`. `matched-loading-memory.json`
+contains the consolidated raw-derived numbers; before/accepted directories
+retain original traces, action scripts, settings, process identities, CSVs,
+25 ms sampled RSS/private commit, screenshots and diagnostics. The rejected
+serial-texture candidate is retained as `after-*`, not mixed into acceptance.
+The failed `before-lantern-cold` pilot used an invalid level ID and is excluded;
+the measured map is `lantern_hollow`. Historical Arcade 8.063→2.456 s and Lantern
+4.726→4.336 s figures are not this pass's matched baseline.
+
+Native identity: Windows 10 build 19045, NVIDIA RTX 3070 Laptop GPU, DX12,
+driver 617.14, optimized release. Player runs use High textures, Static/off
+prepared lighting variant unless explicitly Full, Full reflections, 1280×720
+physical drawable, VSync off and no frame limiter. The final surface/resource
+logs confirm **Immediate**, after initial device creation logs FIFO; requested
+settings alone were not used as proof. Swap/loop traces vary below the refresh
+interval rather than plateauing at refresh. There is no FPS improvement claim
+from these loading/diagnostic runs. Editor operation checks use its actual
+1440×816 drawable/FIFO; they are not editor FPS comparisons.
+
+Cold means a fresh application state; warm is a new process reusing that state.
+Neither flushes OS or GPU caches. Within-process repeats are reported separately.
+Authoritative load timings ran without captures, builds or bakes. Behavioral
+captures and GPU audit runs are separate and supply no FPS result. The tiny
+sample count does not support a statistical confidence interval.
+
+### Implemented ownership and work scheduling
+
+The existing coalescing single loader, bounded prepared-record LRU, weak live
+identity reuse, page/prop upload staging and texture identities already solved
+parts of the problem; they were retained. The loader now prepares physical item
+worlds, world vertex packing/occlusion and the unchanged runtime water/caustic
+field on the worker. Shared rigid-model validation lives with engine assets.
+Fixed-before-movable collider insertion order is preserved. GPU calls remain on
+the window thread, and the current world remains usable until atomic commit.
+Graphics-only rebuilds reuse the resident physical world.
+
+Archive decompression checks cancellation and reports actual decoded bytes every
+64 KiB; typed binary reads check at crossed 64 KiB boundaries and collection
+admission. Allocation uses checked arithmetic and fallible archive reservation.
+One scoped CPU admission state is explicitly inherited by image/variant jobs.
+A sticky refusal prevents fallback asset loading from hiding a memory rejection
+and silently substituting lower-quality textures. Errors cancel/release pending
+work and leave the displayed scene, held item and script state available.
+
+World conversion advances in 256-vertex slices against a soft 4 ms quantum,
+then uploads one index-width-bounded chunk and releases its packed CPU copy.
+Textures use the existing parallel mip preparation in batches of four sources,
+at most eight used semantic requests (normally at most about 43 MiB scratch for
+High material sheets). Fixture faces follow individually; atlases and props
+retain their existing bounded upload stages. Completion fences prevent unlimited
+queued upload work. These are bounded work units, **not a hard 4 ms frame
+promise**: shader/device startup, one GPU upload, final material/scene commit and
+other format-capped CPU operations can still take longer. Arcade's largest
+renderer call remains about 490 ms. Initial device/UI preparation remains an
+approximately two-second startup component on this machine.
+
+The loading overlay displays decoded MiB and accepts Escape during reading,
+CPU preparation and GPU install. Superseded editor CPU requests share the same
+cancellation state; superseded GPU installation is discarded while retaining
+the previous displayed scene. No full-scene partial readiness is published:
+first usable means the new scene was actually presented with gameplay/collision
+ready.
+
+### Operating policy inventory for this ownership boundary
+
+These are operating charges/limits, separate from immutable format and hostile
+input limits. They are not an allocator replacement or cross-hardware optimal
+settings. Source names below are the source of truth.
+
+| Pool | Units, scope and enforcement | Policy / failure |
+|---|---|---|
+| Load CPU admission, `engine/resources.rs` | Windows process private commit plus shared in-flight reservations, checked before archive/typed/image allocations and again before readiness; Linux/macOS use available RSS telemetry | 4096 MiB default; `PLACES_LOAD_MEMORY_MIB` clamped 128–8192 MiB. Refusal is sticky and preserves current map. CPU and GPU measures are never added as independent physical pools. |
+| Map GPU admission, renderer `admit_prepared` | Old map + incoming map + deduplicated retained GPU texture handles; actual packed world/prop payloads, conservative alternate-state geometry, atlas bytes, 3× image charge and 128 MiB dynamic/staging reserve per world | 2048 MiB default; `PLACES_MAP_GPU_MIB` clamped 128–8192 MiB. Drop optional cache references first; refuse overlap if still too large. Live draw handles are never freed for admission. Shared old/new assets can be charged twice conservatively. |
+| Prepared map records, game loading LRU | Actual retained immutable record charge, 3 entries / 192 MiB; weak identity list 8 | Existing LRU retained. Oversized maps stay live only while used and are not cached. Pressure/cancel/failure clears optional owners; explicit unload maintenance clears cache ownership. Cached records have no running scripts, AI or lighting updates. |
+| Decoded catalog images, materials image cache | 256 optional images / 256 MiB, trim after resolution and insertion | Independently pinned images survive; their process memory remains charged. Content identity still shares equal assets. |
+| GPU texture reuse, wgpu texture cache | Existing 256 entries / 256 MiB old-cache trimming at level start; active/new sheets may exceed that optional retention threshold | Old cache references are evictable; active worlds keep their Arcs. Aggregate map admission charges retained bytes rather than treating cache references as free. |
+| Editor documents/scripts/history | Conservative owned JSON/string/typed-state charge summed across current, cached documents, saved copies and script histories; admission on open/edit | New 256 MiB aggregate charge. Only clean other documents with no history may be evicted. Unsaved work and undo/redo are pinned; refusal explains save/reopen recovery. Existing 64 revisions / 32 MiB per undo or redo stack retained. This is charged heap, not exact process RAM. |
+| Editor model/appearance/preview assets | Current preview model paths plus placed/template appearance IDs | Prune unused appearances by identity, not Arc count, because cloned preview caches otherwise pin each other. The old displayed preview retains its own live handles. |
+| Editor discovery/browser | Existing visible-row cache 8 and thumbnail cache 24 tiles (~1.76 MiB) | Already bounded; no duplicate rewrite. Native churn and deterministic discovery/mesh equality verified. |
+| Archive/typed safety | Existing package source constants and shape/integrity checks | 8192 entries, 256 MiB ordinary entry, 1 GiB ordinary-map aggregate, 2 GiB validated-project aggregate; typed atlas exception 384 MiB + 64 KiB and its codec/shape bounds remain. Count/overflow/hash/path checks unchanged. No caps raised. |
+
+The default 4 GiB CPU / 2 GiB GPU operating charges admit these representative
+loads and reserve room for observed old/new overlap; the pressure runs below
+prove enforcement. They are provisional Windows development defaults, not a
+calibrated adaptive policy for every hardware tier. Admission cannot guarantee
+recovery from every native/driver allocation or OS OOM. Missing/unreliable
+telemetry and low-memory/unified-memory hardware need further capacity work.
+
+### Matched loading and memory results
+
+| Map | Process start → first usable, cold before → accepted | Warm before → accepted | Request → first usable, cold before → accepted |
+|---|---:|---:|---:|
+| Arcade | 5.662 → 5.981 s | 5.223 → 5.318 s | 3.743 → 3.801 s |
+| Lantern Hollow | 4.799 → 5.053 s | 5.037 → 5.071 s | 3.507 → 3.691 s |
+| Performance lab | 3.631 → 3.583 s | 3.646 → 3.568 s | 2.258 → 2.259 s |
+
+Startup endpoints are mixed; this pass does **not** demonstrate a general load
+speedup. The additional scheduling/admission work has a cost. A serial texture
+experiment worsened the texture stage (Arcade 99.6→323.9 ms; Lantern
+164.5→593.9 ms; lab 87.7→176.1 ms), so it was rejected and the bounded parallel
+batch path restored. Its complete evidence is preserved.
+
+| Within-process transition | Request → usable before → accepted | Longest renderer install call before → accepted |
+|---|---:|---:|
+| First Pool | 2.935 → 3.059 s | 2.246 → 0.257 s |
+| Repeated Pool | 2.631 → 2.767 s | 2.175 → 0.202 s |
+| Repeated Arcade | 1.240 → 1.435 s | 0.286 → 0.286 s |
+| Repeated Home | 0.266 → 0.269 s | 0.074 → 0.069 s |
+| Repeated lab | 0.126 → 0.133 s | 0.017 → 0.016 s |
+
+Pool's existing roughly two-second runtime water preparation runs on the worker
+instead of monopolizing a renderer install call. This is a responsiveness gain
+with slightly slower total transitions in this cohort. It is not a lighting-bake
+algorithm change. Final event-pump/commit costs remain and should be considered
+in the later integrated regression pass.
+
+| Map, cold run | Peak RSS before → accepted, MiB | Peak private commit before → accepted, MiB | Live RSS / private at usable + 1 s, before → accepted, MiB |
+|---|---:|---:|---:|
+| Arcade | 829.6 → 828.1 | 1251.8 → 1251.3 | 817.8 / 1239.3 → 827.6 / 1250.9 |
+| Lantern Hollow | 1088.2 → 1074.6 | 1984.3 → 1966.2 | 1058.5 / 1984.1 → 1035.5 / 1966.1 |
+| Performance lab | 383.3 → 384.3 | 531.6 → 534.0 | 383.3 / 531.6 → 384.3 / 534.0 |
+
+Peaks are broadly unchanged. Live samples are taken while the scene is active;
+the final process samples occur after shutdown cleanup and must not be called
+steady live residency. HAL counters are partial GPU buffer/texture allocations,
+not exact VRAM. For example cold Arcade's final reported buffers/textures are
+262,406,144 / 172,949,504 bytes before and 262,995,968 / 184,352,768 after;
+Lantern is 759,693,312 / 132,644,864 before and 760,676,352 / 155,320,320 after.
+The retained texture working set grew in these runs, so no universal GPU-memory
+saving is claimed. These counters must not be added to RSS/private commit.
+
+The 30-transition accepted session lasts 183.39 s, including Home, Pool, Arcade,
+Lantern, lab, Office and Beach. Sampled peaks are 1775.09 MiB RSS / 2716.02 MiB
+private commit. Live lab after the first large-map cycle is 908.0 / 1838.3 MiB;
+final lab is 970.1 / 1900.1 MiB. Lantern repeats are 1388.9 / 2580.8,
+1394.5 / 2588.0, 1439.0 / 2625.6 and 1461.2 / 2649.0 MiB. This short campaign
+shows retained working-set/allocator growth, not a proven flat steady state or
+an unlimited-session leak-free result. Record/cache ownership is bounded and
+retired resources release, but longer same-map-set residency, driver allocator
+retention and integrated regressions remain work for combined verification.
+
+### Cancellation, pressure, unloading and editor correctness
+
+Three accepted cancel/reload flows cover archive reading, Arcade upload and Pool
+upload, followed by two lab commits, an unsupported Full-variant failure and
+successful Static recovery. Reading cancellation retires the worker in
+44,257 µs in the retained trace. The extra Pool CPU-preparation cancellation
+probe found a 1,409,919 µs drain after Escape. The final narrow amendment checks
+cancellation inside runtime caustic receiver/source preparation and discards the
+partial field before publication; it changes no noncancelled numerical work.
+Final player SHA-256 is `2bbf0beb8de53bec6d7c5be8727f23adf62d4621bf8d86eb88c69fcc400ab414`;
+editor is `59276c24dc196c59a453a507e4b73ee88f8647a7c1deb8f33662d61efe95db6e`. `frozen-source-final.json` proves the
+only product-source difference from the broad cohort is this receiver/source
+cancellation amendment. In `final-cancel-visibility/`, worker retirement is
+**7,186 µs**, down from 1,409,919 µs, with Home preserved and lab recovery
+successful. The separate final Pool native run completes with water/reflections,
+closet door and flashlight intact; 65,120 receiver samples / 209,420 factors,
+1,041,920 receiver bytes, 9 headers and no dropped sources match the accepted
+noncancelled field. `final-native-acceptance.json` records the assertions.
+Final screenshots were visually inspected; no bake algorithm was changed.
+
+At 1024 MiB CPU budget, preparation refused when process commit 1,042,247,680 +
+pending 33,554,432 + next allocation 4,614,598 exceeded 1,073,741,824 bytes.
+At 384 MiB GPU budget, displayed 353,910,052 + incoming 488,869,884 exceeded
+402,653,184 charged bytes. Both failures preserve Home and the actual held
+cushion key `9223372036854775856`; neither discards the live scene to fit a budget.
+At 850 MiB GPU budget, the same old/new pair fits 891,289,600 after optional cache
+references are cleared; `gpu_cache=0` and Arcade commits successfully. This proves
+admission/eviction behavior beyond recording resource numbers.
+
+Explicit unload clears active prepared bytes, physical bodies, AI and Luau
+modules/VM/frame calls to zero. Worker maintenance then drops the remaining
+cache-only Pool record. By menu commit, old Home/Pool prepared record, build and
+transport ownership counts are all zero. The new `places_menu` intentionally has
+its own one script VM and five AI agents; these must not be confused with the
+unloaded maps. Ordinary transitions retain only bounded immutable cached
+records and intentionally shared catalog/renderer resources. Old scene state
+continues only until the successful replacement commit, enabling rollback.
+
+Editor native acceptance alternates preview modes 12 times, makes rapid edits
+and undoes them, restoring the exact original document while leaving source
+files untouched. Four images/five models remain in the stress preview cache.
+Discovery digest and all three deterministic preview mesh digests match the
+baseline. Edited document/history charge is 523,623 bytes, one revision / 40,423
+serialized bytes; restored undo/redo history remains available (1,241,848 charged
+bytes). Peak editor RSS/private is 421.9/574.0 → 409.1/567.6 MiB. Warm preview
+11 request-to-ready is 201.8→234.7 ms, largest upload handler 14.1→14.0 ms; real
+93-object document open is 10.77→10.94 ms, edit/undo 10.35→12.73 ms, cached switch
+1.85→1.96 ms, clean save 212.46→209.94 ms. These include the additional admission
+accounting and are mixed rather than a universal editor latency win.
+
+Separate native Home pickup/carry/drop, Pool closet-door return/water/reflections/
+flashlight, stress-map Luau spawn/despawn and Full Arcade checks pass. GPU skin
+audits observe maximum position/normal error 0.000000238. No validation error,
+panic or lost-device event is observed in accepted runs. Native captures are
+retained with their action traces; no new speedup montage is claimed from mixed
+whole-load timings and no executable bundle is uploaded.
+
+### Disk distinction, final gates and precise next ownership
+
+The unchanged nine-map validation collection archive is 134,910,682 bytes,
+SHA-256 `5172d05c3152bf40842bf68f15ed0f4aba52f9902d7586ae68ee142e4b0e6f2a`;
+unique uncompressed ZIP records total 465,657,130 bytes. Each isolated installed
+state has the same 134,910,682 logical package bytes and zero files in its cache
+directory. Lab archive is 721,782 bytes, SHA-256
+`c77182184bd1ef3a33e23b08bbd16c1599f23adc771edac95042283a731b4b02`, with
+6,024,202 logical record bytes; installed bytes are 721,782, cache bytes zero.
+These are logical file lengths, not filesystem allocation/cluster measurements.
+They are also not decoded RAM, GPU bytes, the full production collection's
+footprint, or a new package-size reduction. Diagnostic logs are separate.
+
+Typed records still materialize whole vectors. Shared-prop reconstruction still
+holds segment bytes, reconstructed bytes and decoded output; other preparation
+units retain their format-capped scratch. The next **storage/compiler** ownership
+must profile and reduce these copies, compare codecs on actual records, review
+lightmap/switch packing, serialization/staging and installed/temporary disk use,
+while preserving every state, asset, source-recovery path and integrity limit.
+Reuse the earlier accepted storage/provenance improvements; do not repeat them
+or relabel their historical baseline as a fresh measurement. No compiler-stage
+copying/serialization or bake algorithm optimization is claimed in this pass.
+
+Final `cargo fmt --all --check`, strict
+`cargo clippy --workspace --all-targets --all-features -- -D warnings`,
+`cargo test --workspace` (288 passed),
+`cargo build --locked --release --workspace --all-features`, asset validator,
+texture/prop source checks and `git diff --check` pass. Logs are
+`clippy-cancel-final.log`, `tests-cancel-final.log`, `release-cancel-final.log`,
+`assets-cancel-final.log`, `textures-cancel-final.log`, `props-cancel-final.log`
+and `native-cancel-final.log`. Locked release completes in 6m 40s.
+The execution transport disconnected before the amendment command started;
+reconnection checks proved it had not run. The final native driver's initial
+empty-process precheck returned shell status 1 before launching anything; its
+log is preserved, the result handling corrected, and both checks then completed.
+There is no pending permission or tool blocker.
+Four new small tests have concrete regression value: shared reservation
+boundary/overflow/drop plus sticky refusal; cancellation without parser cursor
+advance; editor refusal preserving unsaved source/undo; and preview appearance
+ownership preventing cloned caches from pinning an unused image. They cost no
+GPU, asset discovery or shipped-map bake. The 288-test suite itself runs in
+0.95 s after compilation. Texture source checks retain 100 existing catalog/
+manifest warnings; the asset validator reports zero warnings. No lint level is
+lowered and no broad lint suppression is introduced.
+
+The full #27 data-limit inventory and adaptive supported-hardware policy remain
+incomplete; this table covers the touched loading/editor ownership boundary.
+Mac/Metal, Vulkan, low-memory machines, unified-memory calibration, controllable
+native allocator failures and long-session steady state are not verified here.
+The existing source shapes, package safety ceilings and collision/visual quality
+remain enforced. The separate **full lighting-bake algorithm review** stays after
+general polish: CPU parallelism, GPU feasibility, redundant rays/bounces/work,
+cache validity and quality-equivalent matched measurements. It is not absorbed
+by moving unchanged runtime caustic preparation to the loader.
+
+After storage/compiler: combined performance/regression, general polish, the
+dedicated compiler/light-calculation review, The Shape of an Exit second last,
+then final verification/report/issues/cleanup. No later phase starts here.
+Final commit/remote/clean status and writer release are recorded in
+`ownership-handoff.json`; no CI wait, main merge, release or version bump.
+SYSTEM-only awake helper PID 18136 is preserved and the queue stop file is absent.
+All build and unique validation artifacts are retained.

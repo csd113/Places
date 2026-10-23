@@ -104,6 +104,8 @@ impl Viewport {
     }
 
     pub fn rebuild(&mut self, level: &LevelDef) {
+        self.renderer.cancel_prepared_install();
+        self.uploading = false;
         self.requested = Some(Instant::now());
         self.volume_guides = overlay::volumes(level);
         self.worker.request(level, self.environment_preview());
@@ -171,7 +173,14 @@ impl Viewport {
     }
 
     pub fn status(&self) -> Option<&str> {
-        self.renderer.fatal_error().or_else(|| self.worker.error())
+        self.renderer
+            .fatal_error()
+            .or_else(|| self.worker.error())
+            .or_else(|| {
+                self.preview_metrics
+                    .get("admission_error")
+                    .and_then(serde_json::Value::as_str)
+            })
     }
 
     pub const fn is_preparing(&self) -> bool {
@@ -271,6 +280,18 @@ impl Viewport {
         self.window_size = window.size();
         let _resized = self.renderer.set_drawable_size(self.size);
         if let Some(preview) = self.worker.poll() {
+            if let Err(error) = self.renderer.admit_prepared(
+                &preview.loaded,
+                &preview.build,
+                &preview.assets,
+                &preview.geometry,
+            ) {
+                if let Some(metrics) = self.preview_metrics.as_object_mut() {
+                    drop(metrics.insert("admission_error".into(), serde_json::json!(error)));
+                }
+                self.uploading = false;
+                return false;
+            }
             self.preview_metrics = preview.metrics;
             self.objects = preview.objects;
             if self.frame_next {
@@ -285,6 +306,7 @@ impl Viewport {
                 false,
                 crate::engine::package::world::ProbeCaptures::default(),
             );
+            self.renderer.set_prepared_geometry(preview.geometry);
             self.renderer.set_prepared_caustics(preview.caustics);
             self.uploading = true;
         }

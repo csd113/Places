@@ -296,6 +296,8 @@ struct PreparedInstall {
     atlas_cursor: Option<usize>,
     fixture_sheets: Vec<Arc<super::texture::GpuTexture>>,
     world: Option<WgpuWorldGeometry>,
+    world_upload: Option<super::world::WorldUpload>,
+    texture_cursor: usize,
     world_textures: Option<WorldTextures>,
     world_materials: Option<WorldMaterials>,
     props: Option<PropUpload>,
@@ -331,7 +333,7 @@ fn resident_atlas_matches(
             .is_some_and(|(installed, prepared)| Arc::ptr_eq(installed, prepared))
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum UploadPhase {
     Transport,
     Atlas,
@@ -580,6 +582,7 @@ pub struct WgpuRenderer {
     /// Keeps the active CPU build available to the loader through its weak identity.
     retained_build: Option<Arc<LevelBuild>>,
     prepared_install: Option<PreparedInstall>,
+    map_gpu_charge: u64,
     /// The Lightmaps setting of the resident world.
     installed_lightmaps: LightmapQuality,
     /// Whether the loaded level's atlas uploaded and the shader should sample
@@ -1058,6 +1061,7 @@ impl WgpuRenderer {
             installed_quality: QualityLevel::default(),
             retained_build: None,
             prepared_install: None,
+            map_gpu_charge: 0,
             installed_lightmaps: LightmapQuality::default(),
             lightmaps_resident: false,
             lightmaps,
@@ -1742,36 +1746,11 @@ impl WgpuRenderer {
     /// Resolve a bounded rigid catalog prop through the existing asset cache.
     /// No file-path fallback, animated bind pose or morph model is accepted here.
     pub fn rigid_runtime_model_bounds(&mut self, id: &str) -> Result<([f32; 3], [f32; 3]), String> {
-        let entry = self
-            .prop_catalog
-            .assets()
-            .get(id)
-            .ok_or_else(|| format!("Unknown catalog ID `{id}`."))?;
-        if !entry.is_placeable() {
-            return Err(format!("`{id}` is not a placeable prop."));
-        }
-        let path = entry
-            .model
-            .as_deref()
-            .ok_or_else(|| format!("`{id}` has no runtime model."))?;
-        let asset = self.prop_assets.resolve(path)?;
-        if asset.model.is_animatable() || !asset.model.morph_targets.is_empty() {
-            return Err("Rigid items and /give previews need a model without skin, animation clips or morph targets; animated models require an entity template.".to_string());
-        }
-        let bounds = asset
-            .model
-            .bounds()
-            .ok_or_else(|| "Model has no usable bounds.".to_string())?;
-        let [x0, y0, z0] = bounds.0;
-        let [x1, y1, z1] = bounds.1;
-        let extent = glam::Vec3::new(x1 - x0, y1 - y0, z1 - z0);
-        if !extent.is_finite() || extent.min_element() <= 0.0 || extent.max_element() > 100.0 {
-            return Err(
-                "Rigid props must have positive finite bounds no larger than 100 m per axis."
-                    .to_string(),
-            );
-        }
-        Ok(bounds)
+        crate::engine::props::rigid_model_bounds(
+            &mut self.prop_assets,
+            self.prop_catalog.assets(),
+            id,
+        )
     }
 
     /// Shared decoded bounds and pose capability for catalog-based visuals.
@@ -2128,6 +2107,7 @@ impl WgpuRenderer {
     pub fn unload_level(&mut self) {
         self.invalidate_frame();
         self.prepared_install = None;
+        self.map_gpu_charge = 0;
         self.world = None;
         self.world_props = None;
         self.world_textures = None;
@@ -3257,6 +3237,106 @@ impl WgpuRenderer {
         true
     }
 
+    /// Conservative map GPU charge, including retained old/new overlap and
+    /// 128 MiB per world for dynamic, reflection, decal and staging resources.
+    /// Shared allocations may be charged twice during overlap, deliberately
+    /// preferring safe refusal to dropping live resources.
+    pub fn admit_prepared(
+        &mut self,
+        loaded: &LoadedLevel,
+        build: &Arc<LevelBuild>,
+        assets: &crate::engine::props::PropAssets,
+        world_bytes: usize,
+    ) -> Result<(), String> {
+        let next = Self::map_gpu_charge(loaded, build, assets, world_bytes);
+        let old = self.map_gpu_charge;
+        let limit = crate::engine::resources::gpu_budget();
+        let total = old.checked_add(next).ok_or("Map GPU charge overflow")?;
+        let cached = self.textures.retained_texel_bytes();
+        if total.saturating_add(cached) > limit {
+            // Retire optional cache ownership before admission. Live draw/bind
+            // handles remain valid and are covered by the displayed-map charge.
+            self.textures.release_profile_textures();
+        }
+        if total > limit {
+            // Release cache references only. Current draws retain their handles.
+            self.textures.release_profile_textures();
+            return Err(format!(
+                "Map GPU budget exceeded: displayed {old} + incoming {next} charged bytes, budget {limit}. The current map is preserved; return to the menu before retrying."
+            ));
+        }
+        logging::info(format!(
+            "[map-budget] gpu_displayed={old} gpu_incoming={next} gpu_cache={} gpu_limit={limit} cpu_process={:?} cpu_limit={}",
+            self.textures.retained_texel_bytes(),
+            crate::engine::resources::process_memory_bytes(),
+            crate::engine::resources::cpu_budget()
+        ));
+        Ok(())
+    }
+
+    fn map_gpu_charge(
+        loaded: &LoadedLevel,
+        build: &LevelBuild,
+        assets: &crate::engine::props::PropAssets,
+        world_bytes: usize,
+    ) -> u64 {
+        let mesh_bytes = |mesh: &crate::engine::render::LevelMesh| {
+            // Reactive architecture can expand its visibility grid; reserve
+            // four source vertex payloads while props use exact prepared counts.
+            mesh.vertex_count
+                .saturating_mul(
+                    usize::try_from(super::world::WORLD_VERTEX_STRIDE).unwrap_or(usize::MAX),
+                )
+                .saturating_mul(4)
+                .saturating_add(mesh.index_count.saturating_mul(8))
+        };
+        let prop_bytes = |batches: &[crate::engine::render::PropMeshBatch]| {
+            batches.iter().fold(0_usize, |bytes, batch| {
+                bytes
+                    .saturating_add(batch.vertices.len().saturating_mul(
+                        usize::try_from(super::world::WORLD_VERTEX_STRIDE).unwrap_or(usize::MAX),
+                    ))
+                    .saturating_add(batch.indices.len().saturating_mul(2))
+            })
+        };
+        let mut geometry = world_bytes.saturating_add(prop_bytes(&build.batches));
+        if let Some(state) = &build.static_light_off {
+            geometry = geometry
+                .saturating_add(mesh_bytes(&state.mesh))
+                .saturating_add(prop_bytes(&state.batches));
+        }
+        let atlas = build.lightmaps.as_ref().map_or(0, |maps| {
+            maps.pages.first().map_or(0, |page| {
+                usize::try_from(page.width)
+                    .unwrap_or(usize::MAX)
+                    .saturating_mul(usize::try_from(page.height).unwrap_or(usize::MAX))
+                    .saturating_mul(maps.layer_count())
+                    .saturating_mul(8)
+            })
+        });
+        let images = loaded
+            .materials
+            .textures()
+            .iter()
+            .map(|texture| texture.image.rgba.capacity())
+            .chain(
+                loaded
+                    .light_sheets
+                    .iter()
+                    .map(|sheet| sheet.image.rgba.capacity()),
+            )
+            .fold(0_usize, usize::saturating_add)
+            .saturating_add(assets.stats().texture_bytes);
+        // Three image payloads cover both semantic identities and mip chains.
+        u64::try_from(
+            geometry
+                .saturating_add(atlas)
+                .saturating_add(images.saturating_mul(3)),
+        )
+        .unwrap_or(u64::MAX)
+        .saturating_add(128 * 1024 * 1024)
+    }
+
     pub fn install_prepared(
         &mut self,
         loaded: &LoadedLevel,
@@ -3295,6 +3375,8 @@ impl WgpuRenderer {
             atlas_cursor: None,
             fixture_sheets: Vec::new(),
             world: None,
+            world_upload: None,
+            texture_cursor: 0,
             world_textures: None,
             world_materials: None,
             props: None,
@@ -3306,6 +3388,15 @@ impl WgpuRenderer {
         });
         #[cfg(feature = "visual-diagnostics")]
         self.trace_gpu_resources("install-started");
+    }
+
+    pub(in crate::engine::render) fn set_prepared_geometry(
+        &mut self,
+        geometry: super::world::WorldUpload,
+    ) {
+        if let Some(pending) = &mut self.prepared_install {
+            pending.world_upload = Some(geometry);
+        }
     }
 
     pub fn set_prepared_transport(
@@ -3376,7 +3467,16 @@ impl WgpuRenderer {
             return self.commit_prepared_install(pending);
         }
         let uploaded = !matches!(pending.phase, UploadPhase::Transport);
+        let upload_started =
+            std::env::var_os("PLACES_LOAD_TRACE").map(|_| std::time::Instant::now());
+        let phase = pending.phase;
         self.upload_prepared_step(&mut pending);
+        if let Some(started) = upload_started {
+            logging::info(format!(
+                "[loading-upload] phase={phase:?} ms={:.3}",
+                started.elapsed().as_secs_f64() * 1_000.0_f64
+            ));
+        }
         if uploaded {
             // Flush this bounded family/batch before admitting another. The
             // callback owns only a flag, so cancellation never retains a map.
@@ -3403,32 +3503,8 @@ impl WgpuRenderer {
             UploadPhase::Atlas => {
                 self.upload_atlas_step(pending);
             }
-            UploadPhase::World => {
-                pending.world = Some(self.upload_prepared_world(pending));
-                pending.phase = UploadPhase::Textures;
-            }
-            UploadPhase::Textures => {
-                pending.fixture_sheets = Self::fixture_sheets_with_cache(
-                    &self.device,
-                    &self.queue,
-                    &mut pending.textures,
-                    &pending.loaded,
-                    pending.graphics.quality,
-                );
-                if let Some(world) = &pending.world {
-                    pending.world_textures = Some(WorldTextures::resolve(
-                        &mut pending.textures,
-                        &self.device,
-                        &self.queue,
-                        world.draws(),
-                        &pending.materials,
-                        &pending.loaded.materials,
-                        &pending.fixture_sheets,
-                        pending.graphics.quality,
-                    ));
-                }
-                pending.phase = UploadPhase::Materials;
-            }
+            UploadPhase::World => self.upload_world_step(pending),
+            UploadPhase::Textures => self.upload_texture_step(pending),
             UploadPhase::Materials => {
                 let animations =
                     Self::resolve_animations(&pending.loaded.level, &pending.loaded.materials);
@@ -3472,21 +3548,127 @@ impl WgpuRenderer {
         }
     }
 
-    fn upload_prepared_world(&self, pending: &PreparedInstall) -> WgpuWorldGeometry {
-        WgpuWorldGeometry::upload_with_blacklight(
+    fn upload_world_step(&self, pending: &mut PreparedInstall) {
+        if pending.world_upload.is_none() {
+            pending.world_upload = Some(super::world::WorldUpload::new(
+                &pending.build.mesh,
+                &pending.materials,
+            ));
+            return;
+        }
+        let visibility = pending.uv_transport.as_deref().map(|scene| {
+            crate::engine::render::common::blacklight::BlacklightVisibility {
+                sources: &pending.blacklights,
+                scene,
+                dynamic: None,
+            }
+        });
+        if pending.world_upload.as_mut().is_some_and(|upload| {
+            upload.advance(
+                &self.device,
+                &self.queue,
+                visibility,
+                Some((&pending.loaded.level, &pending.loaded.materials)),
+            )
+        }) {
+            pending.world = pending
+                .world_upload
+                .take()
+                .map(super::world::WorldUpload::finish);
+            pending.phase = UploadPhase::Textures;
+        }
+    }
+
+    fn upload_texture_step(&self, pending: &mut PreparedInstall) {
+        let table = &pending.loaded.materials;
+        let end = pending
+            .texture_cursor
+            .saturating_add(4)
+            .min(table.textures().len());
+        if let Some(sources) = table
+            .textures()
+            .get(pending.texture_cursor..end)
+            .filter(|sources| !sources.is_empty())
+        {
+            // Preserve the existing parallel mip preparation, bounded to four
+            // source images / eight semantic requests (at most 43 MiB scratch).
+            let mut requests = Vec::with_capacity(8);
+            for (offset, texture) in sources.iter().enumerate() {
+                let slot = u32::try_from(pending.texture_cursor.saturating_add(offset))
+                    .unwrap_or(u32::MAX);
+                for semantic in [
+                    super::texture::TextureSemantic::BaseColorDisplay,
+                    super::texture::TextureSemantic::DataLinear,
+                ] {
+                    let used = match semantic {
+                        super::texture::TextureSemantic::BaseColorDisplay => table
+                            .entries()
+                            .iter()
+                            .any(|material| material.texture_index == slot),
+                        super::texture::TextureSemantic::DataLinear => {
+                            table.entries().iter().any(|material| {
+                                material.response.normal == Some(slot)
+                                    || material.emission.mask == Some(slot)
+                                    || material.response.fluorescence.mask == Some(slot)
+                            })
+                        }
+                    };
+                    if used {
+                        requests.push(super::texture::TextureUploadRequest {
+                            key: super::texture::TextureKey::new(
+                                texture,
+                                semantic,
+                                pending.graphics.quality,
+                            ),
+                            image: &texture.image,
+                            origin: texture.origin,
+                        });
+                    }
+                }
+            }
+            let _uploaded =
+                pending
+                    .textures
+                    .get_or_upload_batch(&self.device, &self.queue, &requests);
+            pending.texture_cursor = end;
+            return;
+        }
+        let sheet_cursor = pending
+            .texture_cursor
+            .saturating_sub(pending.loaded.materials.textures().len());
+        if let Some(sheet) = pending.loaded.light_sheets.get(sheet_cursor) {
+            let _uploaded = pending.textures.get_or_upload_fitted(
+                &self.device,
+                &self.queue,
+                &sheet.key,
+                &sheet.image,
+                TextureClass::FixtureFace,
+                sheet.origin,
+                pending.graphics.quality,
+            );
+            pending.texture_cursor = pending.texture_cursor.saturating_add(1);
+            return;
+        }
+        pending.fixture_sheets = Self::fixture_sheets_with_cache(
             &self.device,
             &self.queue,
-            &pending.build.mesh,
-            &pending.materials,
-            pending.uv_transport.as_deref().map(|scene| {
-                crate::engine::render::common::blacklight::BlacklightVisibility {
-                    sources: &pending.blacklights,
-                    scene,
-                    dynamic: None,
-                }
-            }),
-            Some((&pending.loaded.level, &pending.loaded.materials)),
-        )
+            &mut pending.textures,
+            &pending.loaded,
+            pending.graphics.quality,
+        );
+        if let Some(world) = &pending.world {
+            pending.world_textures = Some(WorldTextures::resolve(
+                &mut pending.textures,
+                &self.device,
+                &self.queue,
+                world.draws(),
+                &pending.materials,
+                &pending.loaded.materials,
+                &pending.fixture_sheets,
+                pending.graphics.quality,
+            ));
+        }
+        pending.phase = UploadPhase::Materials;
     }
 
     /// Share resident handles only for the exact immutable prepared atlas.
@@ -3565,6 +3747,8 @@ impl WgpuRenderer {
             atlas_cursor: _,
             fixture_sheets,
             world,
+            world_upload: _,
+            texture_cursor: _,
             world_textures,
             world_materials,
             props,
@@ -3596,6 +3780,15 @@ impl WgpuRenderer {
             characters.inherit_playback_from(&mut self.characters);
         }
         let animation_seconds = self.animation_seconds;
+        let geometry_stats = prepared_world.stats();
+        self.map_gpu_charge = Self::map_gpu_charge(
+            &loaded,
+            &build,
+            &assets,
+            geometry_stats
+                .vertex_bytes
+                .saturating_add(geometry_stats.index_bytes),
+        );
         self.prop_catalog = loaded.catalog.as_ref().clone();
         self.prop_assets = assets;
         self.textures = textures;
@@ -3860,7 +4053,7 @@ impl WgpuRenderer {
                     .indices
                     .saturating_mul(std::mem::size_of::<u16>()),
             ),
-            build_millis: started.elapsed().as_secs_f64() * 1000.0,
+            build_millis: started.elapsed().as_secs_f64() * 1_000.0_f64,
             lighting_millis: build.timings.lighting_millis,
             props_millis: build.timings.props_millis,
             surfaces_millis: build.timings.surfaces_millis,

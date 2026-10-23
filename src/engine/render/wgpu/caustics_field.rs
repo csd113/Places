@@ -580,6 +580,9 @@ fn source_basis(
         let entries =
             cells.get(grid.cell_offset..grid.cell_offset.saturating_add(grid.cell_count))?;
         for cell in entries {
+            if crate::engine::resources::checkpoint().is_err() {
+                return None;
+            }
             if cell.bounds.is_empty() {
                 continue;
             }
@@ -810,6 +813,9 @@ impl ReceiverField {
         );
         let mut factor_count = 0_usize;
         for source in &mut field.sources {
+            if crate::engine::resources::checkpoint().is_err() {
+                return Self::default();
+            }
             if !source.eligible {
                 continue;
             }
@@ -829,6 +835,11 @@ impl ReceiverField {
                 source.dynamic_cells = source_cells(&factors);
                 source.factors = factors;
             } else {
+                // The loading caller rejects this discarded field at its next
+                // checkpoint; cancellation must not look like a quality limit.
+                if crate::engine::resources::checkpoint().is_err() {
+                    return Self::default();
+                }
                 source.receiver_supported = false;
                 field.dropped_sources = field.dropped_sources.saturating_add(1);
             }

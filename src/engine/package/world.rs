@@ -679,12 +679,12 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     let mut timer = crate::engine::perf::loading::StageTimer::new("variant");
     let mesh_bytes = reader.read_blob(&variant.entries.mesh, MAX_BINARY_BYTES)?;
     timer.step("mesh-read");
-    let mesh = read_mesh(&mesh_bytes)?;
+    let mesh = crate::engine::resources::decode(&mesh_bytes, read_mesh)?;
     timer.step("mesh-parse");
     drop(mesh_bytes);
     let props_bytes = super::shared_props::read_record(reader, &variant.entries.props)?;
     timer.step("props-read-reconstruct");
-    let mut props = read_props(&props_bytes)?;
+    let mut props = crate::engine::resources::decode(&props_bytes, read_props)?;
     timer.step("props-parse");
     drop(props_bytes);
     let variant_textures = manifest.map_or_else(
@@ -724,7 +724,7 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
         None => None,
     };
     let collision_bytes = reader.read_blob(&variant.entries.collision, MAX_COLLISION_BYTES)?;
-    let collision = read_collision(&collision_bytes)?;
+    let collision = crate::engine::resources::decode(&collision_bytes, read_collision)?;
     drop(collision_bytes);
     let navigation_bytes = reader.read_blob(&variant.entries.navigation, MAX_NAVIGATION_BYTES)?;
     let navigation = crate::engine::package::navigation::read_navigation(&navigation_bytes)?;

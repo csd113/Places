@@ -35,6 +35,7 @@ pub mod project;
 pub mod props;
 pub mod quality;
 pub mod render;
+pub(crate) mod resources;
 pub mod runtime_work;
 pub mod scene;
 pub mod spatial;

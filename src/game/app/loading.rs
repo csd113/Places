@@ -210,12 +210,15 @@ impl LifetimeProbe {
 /// One internally compatible decoded world. The caller installs this only while
 /// its generation is current.
 pub struct PreparedWorld {
+    pub geometry: crate::engine::render::PreparedGeometry,
+    pub caustics: Option<crate::engine::render::PreparedCaustics>,
     pub transport: Option<Arc<crate::engine::lighting::transport::TransportScene>>,
     pub preparation_millis: f64,
     pub cache_hit: bool,
     pub loaded: LoadedLevel,
     pub build: Arc<LevelBuild>,
     pub collision: CollisionWorld,
+    pub physical: Option<super::item_runtime::PreparedItems>,
     pub characters: CharacterScene,
     pub assets: PropAssets,
     pub lightmaps: LightmapQuality,
@@ -227,11 +230,18 @@ pub struct PreparedWorld {
 struct Control {
     cancelled: Arc<AtomicBool>,
     phase: Arc<AtomicU8>,
+    budget: Arc<crate::engine::resources::DecodeBudget>,
+    created: std::time::Instant,
+    cancelled_micros: Arc<std::sync::atomic::AtomicU64>,
 }
 impl Control {
     fn new() -> Self {
+        let cancelled = Arc::new(AtomicBool::new(false));
         Self {
-            cancelled: Arc::new(AtomicBool::new(false)),
+            budget: crate::engine::resources::DecodeBudget::new(Arc::clone(&cancelled)),
+            created: std::time::Instant::now(),
+            cancelled_micros: Arc::new(std::sync::atomic::AtomicU64::new(u64::MAX)),
+            cancelled,
             phase: Arc::new(AtomicU8::new(Phase::Queued.as_byte())),
         }
     }
@@ -243,6 +253,13 @@ impl Control {
         true
     }
     fn cancel(&self) {
+        let elapsed = u64::try_from(self.created.elapsed().as_micros()).unwrap_or(u64::MAX);
+        let _first_cancellation = self.cancelled_micros.compare_exchange(
+            u64::MAX,
+            elapsed,
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+        );
         self.cancelled.store(true, Ordering::Relaxed);
     }
 }
@@ -703,7 +720,11 @@ fn prepare_world(
     identities: &mut std::collections::VecDeque<(PackageKey, std::sync::Weak<PreparedRecords>)>,
     delay: u64,
 ) -> Result<Option<PreparedWorld>, String> {
+    let _decode_scope = crate::engine::resources::enter(Some(Arc::clone(&control.budget)));
     let started = std::time::Instant::now();
+    // Retire optional prior owners before admitting new allocations. Displayed
+    // and pending worlds own independent Arcs and remain available for rollback.
+    builds.enforce_limits();
     if !control.checkpoint(Phase::Reading) {
         return Ok(None);
     }
@@ -719,6 +740,7 @@ fn prepare_world(
     let mut planned: Option<(PackageKey, Option<Arc<PreparedRecords>>)> = None;
     // The variant records, already read while the level's own assets resolved.
     let mut prefetched_variant: Option<crate::engine::package::world::LoadedVariant> = None;
+    let prepare_physical = matches!(&request.source, Source::Entry(_, _));
     let loaded = match request.source {
         Source::Entry(entry, _) => {
             manager.refresh_catalog();
@@ -739,8 +761,11 @@ fn prepare_world(
                 // pays the longer half instead of their sum. Phase::Reading
                 // spans both halves; the Geometry boundary follows the join.
                 let (loaded, variant) = std::thread::scope(|scope| {
-                    let reader =
-                        scope.spawn(|| load_variant(&entry.path, &manifest, key.quality, assets));
+                    let budget = crate::engine::resources::current();
+                    let reader = scope.spawn(|| {
+                        let _variant_scope = crate::engine::resources::enter(budget);
+                        load_variant(&entry.path, &manifest, key.quality, assets)
+                    });
                     let loaded = manager.load_opened_level(&entry, opened);
                     (loaded, reader.join())
                 });
@@ -862,6 +887,17 @@ fn prepare_world(
     let collision =
         CollisionWorld::from_compiled(&loaded.level, records.collision.clone(), Some(navigation))
             .with_ground_materials(&loaded.level, &loaded.materials);
+    let mut physical_timer = crate::engine::perf::loading::StageTimer::new("prepare");
+    let physical = if prepare_physical {
+        Some(super::item_runtime::PreparedItems::prepare(
+            &loaded,
+            &collision.walls,
+            assets,
+        )?)
+    } else {
+        None
+    };
+    physical_timer.step("physical-items");
     if !control.checkpoint(Phase::Characters) {
         return Ok(None);
     }
@@ -878,17 +914,27 @@ fn prepare_world(
     let mut timer = crate::engine::perf::loading::StageTimer::new("prepare");
     let transport = crate::engine::render::prepare_runtime_transport(&loaded, &records.build);
     timer.step("runtime-visibility");
+    let geometry = crate::engine::render::PreparedGeometry::new(&loaded, &records.build)?;
+    timer.step("world-pack-occlusion");
+    let caustics =
+        crate::engine::render::PreparedCaustics::prepare(&loaded.level, &records.build.lighting);
+    timer.step("caustics");
+    crate::engine::resources::checkpoint()?;
+    let _ready_admission = crate::engine::resources::allocation(0)?;
     if !control.checkpoint(Phase::Ready) {
         return Ok(None);
     }
     let transport_probe = transport.as_ref().map(Arc::downgrade);
     Ok(Some(PreparedWorld {
+        geometry,
+        caustics,
         transport,
         preparation_millis: started.elapsed().as_secs_f64() * 1000.0,
         cache_hit,
         loaded,
         build: Arc::clone(&records.build),
         collision,
+        physical,
         characters,
         assets: assets.clone(),
         lightmaps: request.lightmaps,
@@ -937,6 +983,12 @@ impl Loader {
             let Some(input) = request else {
                 return Ok(None);
             };
+            if crate::engine::resources::process_memory_bytes().is_some_and(|bytes| {
+                bytes > crate::engine::resources::cpu_budget().saturating_mul(3) / 4
+            }) {
+                builds.entries.clear();
+                manager.release_cached_images();
+            }
             let outcome = prepare_world(
                 &mut manager,
                 input,
@@ -946,6 +998,24 @@ impl Loader {
                 &mut identities,
                 delay,
             );
+            if control.cancelled.load(Ordering::Relaxed) || outcome.is_err() {
+                builds.entries.clear();
+                manager.release_cached_images();
+                assets = PropAssets::load_default();
+                identities.retain(|(_, records)| records.strong_count() != 0);
+                if control.cancelled.load(Ordering::Relaxed)
+                    && std::env::var_os("PLACES_LOAD_TRACE").is_some()
+                {
+                    let elapsed =
+                        u64::try_from(control.created.elapsed().as_micros()).unwrap_or(u64::MAX);
+                    let retirement_micros =
+                        elapsed.saturating_sub(control.cancelled_micros.load(Ordering::Relaxed));
+                    crate::engine::logging::info(format!(
+                        "[loading-cancel] worker_retired_us={retirement_micros} decoded_bytes={}",
+                        control.budget.decoded.load(Ordering::Relaxed)
+                    ));
+                }
+            }
             if release_worker.swap(false, Ordering::AcqRel) {
                 // A canceled decode must finish before cache retirement is acknowledged.
                 clear_retained(&manager, &mut assets, &mut builds, &mut identities);
@@ -958,6 +1028,11 @@ impl Loader {
         Ok(Self {
             worker,
             release_requested,
+        })
+    }
+    pub fn decoded_bytes(&self) -> u64 {
+        self.worker.running.as_ref().map_or(0, |(_, control)| {
+            control.budget.decoded.load(Ordering::Relaxed)
         })
     }
     pub fn request(&mut self, request: Request) -> Result<u64, String> {

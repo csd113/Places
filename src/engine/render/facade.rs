@@ -29,6 +29,32 @@ use crate::engine::props::PropAssetStats;
 use crate::engine::quality::{LightmapQuality, QualityLevel, ReflectionQuality};
 use crate::engine::scene::LocomotionSnapshot;
 
+/// CPU-only packed world plan. Construction creates no GPU resources; worker
+/// ownership can be cancelled before any part is installed in the renderer.
+pub struct PreparedGeometry {
+    pub(super) upload: super::wgpu::world::WorldUpload,
+}
+impl PreparedGeometry {
+    /// Packs immutable geometry and occlusion while the UI continues presenting.
+    /// # Errors
+    /// Refuses scratch allocation under pressure or a cancelled load.
+    pub fn new(loaded: &LoadedLevel, build: &super::LevelBuild) -> Result<Self, String> {
+        let _reservation = crate::engine::resources::allocation(
+            build
+                .mesh
+                .vertex_count
+                .saturating_mul(std::mem::size_of::<super::Vertex>())
+                .saturating_mul(2),
+        )?;
+        let materials = super::MaterialRenderState::from_table(&loaded.materials);
+        let prepared = Self {
+            upload: super::wgpu::world::WorldUpload::new(&build.mesh, &materials),
+        };
+        crate::engine::resources::checkpoint()?;
+        Ok(prepared)
+    }
+}
+
 /// The Places renderer: the wgpu implementation behind a narrow seam.
 pub struct Renderer {
     renderer: WgpuRenderer,
@@ -177,6 +203,20 @@ impl Renderer {
         self.renderer.abort_resource_request();
     }
 
+    /// Checks aggregate old/new map admission without mutating either live world.
+    /// # Errors
+    /// Refuses an overlap that exceeds the operating GPU budget.
+    pub fn admit_prepared(
+        &mut self,
+        loaded: &LoadedLevel,
+        build: &std::sync::Arc<super::LevelBuild>,
+        assets: &crate::engine::props::PropAssets,
+        geometry: &PreparedGeometry,
+    ) -> Result<(), String> {
+        self.renderer
+            .admit_prepared(loaded, build, assets, geometry.upload.geometry_bytes())
+    }
+
     /// Installs a complete CPU bundle prepared by the loading worker.
     pub fn install_prepared(
         &mut self,
@@ -211,6 +251,11 @@ impl Renderer {
             preserve_playback,
             probes,
         );
+    }
+
+    /// Supplies the worker-packed CPU plan before the first GPU step.
+    pub fn set_prepared_geometry(&mut self, geometry: PreparedGeometry) {
+        self.renderer.set_prepared_geometry(geometry.upload);
     }
 
     /// Supplies worker-prepared immutable visibility before staged GPU upload.
