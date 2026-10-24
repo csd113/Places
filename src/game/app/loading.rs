@@ -192,6 +192,46 @@ impl PreparedLease {
     pub fn retained_bytes(&self) -> usize {
         self.records.retained_bytes()
     }
+
+    pub fn image_breakdown(&self, loaded: &LoadedLevel) -> serde_json::Value {
+        let mut unique = std::collections::HashSet::new();
+        let mut bytes = 0_usize;
+        for image in loaded
+            .materials
+            .textures()
+            .iter()
+            .map(|texture| &texture.image)
+            .chain(loaded.light_sheets.iter().map(|sheet| &sheet.image))
+        {
+            if unique.insert(Arc::as_ptr(image)) {
+                bytes = bytes.saturating_add(image.rgba.capacity());
+            }
+        }
+        let loaded_bytes = bytes;
+        for image in self
+            .records
+            .build
+            .batches
+            .iter()
+            .chain(
+                self.records
+                    .build
+                    .static_light_off
+                    .iter()
+                    .flat_map(|state| &state.batches),
+            )
+            .flat_map(|batch| &batch.textures)
+        {
+            if unique.insert(Arc::as_ptr(image)) {
+                bytes = bytes.saturating_add(image.rgba.capacity());
+            }
+        }
+        serde_json::json!({"material_fixture_bytes":loaded_bytes,"material_fixture_prop_unique_bytes":bytes,"unique_images":unique.len(),"additional_bytes_beyond_loaded_materials":bytes.saturating_sub(loaded_bytes),"scope":"Unique source RGBA allocations across the loaded material table, fixture sheets and both prop banks. Model caches/other owners may share these same images; do not add their image counters again. GPU fitted mip chains are separate."})
+    }
+
+    pub fn memory_breakdown(&self) -> serde_json::Value {
+        serde_json::json!({"build":self.records.build.memory_breakdown(),"collision_record_bytes":self.records.collision.retained_heap_bytes(),"navigation_bytes":self.records.navigation.retained_heap_bytes()})
+    }
 }
 
 /// Weak evidence only: never keeps an inactive map alive.
@@ -687,6 +727,9 @@ fn reusable_records(
     identities: &mut std::collections::VecDeque<(PackageKey, std::sync::Weak<PreparedRecords>)>,
 ) -> Option<Arc<PreparedRecords>> {
     identities.retain(|(_, records)| records.strong_count() != 0);
+    builds
+        .entries
+        .retain(|(previous, _, _)| previous.package_sha256 == key.package_sha256);
     builds.get(key).or_else(|| {
         identities
             .iter()
@@ -952,13 +995,22 @@ fn clear_retained(
     builds: &mut BuildCache,
     identities: &mut std::collections::VecDeque<(PackageKey, std::sync::Weak<PreparedRecords>)>,
 ) {
+    let retired_bytes = builds
+        .entries
+        .iter()
+        .fold(0_usize, |bytes, (_, _, charge)| {
+            bytes.saturating_add(*charge)
+        });
     builds.entries.clear();
-    identities.clear();
+    // These identities own nothing. Keep the displayed/rollback world's weak
+    // lookup usable when a completed CPU preparation is canceled during upload.
+    identities.retain(|(_, records)| records.strong_count() != 0);
     manager.release_cached_images();
     *assets = PropAssets::load_default();
-    crate::engine::logging::info(
-        "[map-lifetime] worker caches released: prepared=0 identities=0 images=0 models=0",
-    );
+    crate::engine::logging::info(format!(
+        "[map-lifetime] worker caches released: prepared=0 retired_bytes={retired_bytes} weak_identities={} images=0 models=0",
+        identities.len()
+    ));
 }
 
 impl Loader {
@@ -977,6 +1029,13 @@ impl Loader {
         let release_requested = Arc::new(AtomicBool::new(false));
         let release_worker = Arc::clone(&release_requested);
         let worker = Worker::spawn(move |request: Option<Request>, control| {
+            #[cfg(feature = "visual-diagnostics")]
+            if std::env::var_os("PLACES_LOAD_TRACE").is_some() {
+                crate::engine::logging::info(format!(
+                    "[memory-stage] worker-images {}",
+                    manager.diagnostic_cached_images()
+                ));
+            }
             if release_worker.swap(false, Ordering::AcqRel) {
                 clear_retained(&manager, &mut assets, &mut builds, &mut identities);
             }
@@ -1059,6 +1118,9 @@ impl Loader {
     }
     pub fn phase(&self) -> Option<Phase> {
         self.worker.phase()
+    }
+    pub fn diagnostic_work(&self) -> serde_json::Value {
+        serde_json::json!({"running":self.worker.running.as_ref().map(|(id, control)| serde_json::json!({"id":id,"cancelled":control.cancelled.load(Ordering::Acquire),"phase":control.phase.load(Ordering::Acquire)})),"pending":self.worker.pending.as_ref().map(|job|job.id),"cache_release_requested":self.release_requested.load(Ordering::Acquire)})
     }
     pub fn shutdown(&mut self) {
         self.worker.shutdown();

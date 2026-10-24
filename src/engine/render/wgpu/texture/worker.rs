@@ -122,3 +122,8 @@ impl TextureCache {
         drop(self.map_mut(image.origin).insert(image.key, texture));
     }
 }
+
+#[cfg(feature = "visual-diagnostics")]
+pub fn is_preparing() -> bool {
+    PREPARING.load(Ordering::Acquire)
+}

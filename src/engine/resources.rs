@@ -188,3 +188,64 @@ impl DecodeBudget {
 #[cfg(test)]
 #[path = "tests/resource_admission.rs"]
 mod tests;
+
+/// Read-only Windows heap ownership/commit snapshot for explicit resource traces.
+/// This includes native/driver heaps, not only Rust, and excludes `VirtualAlloc`
+/// allocations outside those heaps. It never compacts or trims the allocator.
+#[cfg(target_os = "windows")]
+pub fn heap_diagnostics() -> Option<serde_json::Value> {
+    #[repr(C)]
+    #[derive(Default)]
+    struct Summary {
+        cb: u32,
+        allocated: usize,
+        committed: usize,
+        reserved: usize,
+        max_reserve: usize,
+    }
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn GetProcessHeaps(count: u32, heaps: *mut *mut std::ffi::c_void) -> u32;
+        fn HeapSummary(heap: *mut std::ffi::c_void, flags: u32, summary: *mut Summary) -> i32;
+    }
+    // SAFETY: A null buffer and zero count query only the current process's count.
+    let count = unsafe { GetProcessHeaps(0, std::ptr::null_mut()) };
+    if count == 0 || count > 1_024 {
+        return None;
+    }
+    let mut heaps = vec![std::ptr::null_mut(); usize::try_from(count).ok()?];
+    // SAFETY: The buffer holds count handles and is exclusively borrowed.
+    let copied = unsafe { GetProcessHeaps(count, heaps.as_mut_ptr()) };
+    if copied == 0 || copied > count {
+        return None;
+    }
+    let mut allocated = 0_usize;
+    let mut committed = 0_usize;
+    let mut reserved = 0_usize;
+    let mut reported = 0_u32;
+    for heap in heaps.iter().take(usize::try_from(copied).ok()?) {
+        let mut summary = Summary {
+            cb: u32::try_from(std::mem::size_of::<Summary>()).ok()?,
+            ..Summary::default()
+        };
+        // SAFETY: The handle was returned for this process. The initialized
+        // repr(C) structure has the exact cb size and is exclusively borrowed.
+        let success = unsafe { HeapSummary(*heap, 0, &raw mut summary) };
+        if success != 0_i32 {
+            allocated = allocated.saturating_add(summary.allocated);
+            committed = committed.saturating_add(summary.committed);
+            reserved = reserved.saturating_add(summary.reserved);
+            reported = reported.saturating_add(1);
+        }
+    }
+    if reported == 0 {
+        return None;
+    }
+    Some(
+        serde_json::json!({"heaps":copied,"reported":reported,"allocated_bytes":allocated,"committed_bytes":committed,"reserved_bytes":reserved,"scope":"All process heaps; native/driver allocations may be included. VirtualAlloc allocations outside heaps are excluded. Not added to process/GPU bytes."}),
+    )
+}
+#[cfg(not(target_os = "windows"))]
+pub fn heap_diagnostics() -> Option<serde_json::Value> {
+    None
+}

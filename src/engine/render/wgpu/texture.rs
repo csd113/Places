@@ -1010,6 +1010,29 @@ impl TextureCache {
         self.level.clear();
     }
 
+    /// Drop cache-only sheets after a replacement world commits. Every active
+    /// draw/bank owns its own Arc, and queue work retains native views/fences.
+    /// Count aliases across both indices before deciding whether a sheet is idle.
+    pub fn release_unreferenced(&mut self) {
+        let references = self.cache_references();
+        let active = |image: &Arc<GpuTexture>| {
+            Arc::strong_count(image) > references.get(&Arc::as_ptr(image)).copied().unwrap_or(0)
+        };
+        self.persistent.retain(|_, image| active(image));
+        self.level.retain(|_, image| active(image));
+    }
+
+    fn cache_references(&self) -> HashMap<*const GpuTexture, usize> {
+        self.persistent.values().chain(self.level.values()).fold(
+            HashMap::new(),
+            |mut entries, image| {
+                let count = entries.entry(Arc::as_ptr(image)).or_insert(0_usize);
+                *count = count.saturating_add(1);
+                entries
+            },
+        )
+    }
+
     /// Cache-owned texel allocations, deduplicated by shared handle. Active
     /// draws can also retain these allocations; admission charges overlap
     /// conservatively instead of treating a cache reference as free memory.
@@ -1031,17 +1054,33 @@ impl TextureCache {
     /// sheets, and a cloned cache can share the same underlying allocations.
     #[cfg(feature = "visual-diagnostics")]
     pub fn diagnostic_retention(&self) -> serde_json::Value {
-        let bytes = |entries: &HashMap<TextureKey, Arc<GpuTexture>>| {
-            entries.values().fold(0_u64, |total, image| {
-                total.saturating_add(image.meta().resident_bytes)
+        let references = self.cache_references();
+        let index_bytes = |entries: &HashMap<TextureKey, Arc<GpuTexture>>| {
+            let mut index_seen = std::collections::HashSet::new();
+            entries.values().fold(0_u64, |bytes, image| {
+                if index_seen.insert(Arc::as_ptr(image)) {
+                    bytes.saturating_add(image.meta().resident_bytes)
+                } else {
+                    bytes
+                }
             })
         };
-        serde_json::json!({
-            "persistent_entries": self.persistent.len(),
-            "persistent_texel_bytes": bytes(&self.persistent),
-            "level_entries": self.level.len(),
-            "level_texel_bytes": bytes(&self.level),
-        })
+        let mut seen = std::collections::HashSet::new();
+        let mut retained = 0_u64;
+        let mut idle = 0_u64;
+        let mut idle_entries = 0_usize;
+        for image in self.persistent.values().chain(self.level.values()) {
+            if seen.insert(Arc::as_ptr(image)) {
+                retained = retained.saturating_add(image.meta().resident_bytes);
+                if Arc::strong_count(image)
+                    <= references.get(&Arc::as_ptr(image)).copied().unwrap_or(0)
+                {
+                    idle = idle.saturating_add(image.meta().resident_bytes);
+                    idle_entries = idle_entries.saturating_add(1);
+                }
+            }
+        }
+        serde_json::json!({"persistent_entries":self.persistent.len(),"persistent_texel_bytes":index_bytes(&self.persistent),"level_entries":self.level.len(),"level_texel_bytes":index_bytes(&self.level),"unique_texel_bytes":retained,"idle_unique_texel_bytes":idle,"idle_unique_entries":idle_entries,"scope":"Unique cache sheet handles across both indices. Active draw owners overlap these bytes and are not added again."})
     }
 
     /// Returns the cached GPU texture for one resolved texture, uploading it
@@ -1474,3 +1513,6 @@ fn create_bind_group(
 
 mod worker;
 pub use worker::{PreparedImage, TextureJob, TextureSource};
+
+#[cfg(feature = "visual-diagnostics")]
+pub use worker::is_preparing;

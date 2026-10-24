@@ -3465,6 +3465,13 @@ impl FrameLoop<'_> {
         self.renderer.cancel_prepared_install();
         self.renderer.abort_graphics_request();
         self.pending_commit = None;
+        // CPU work may have completed before cancellation reached GPU upload.
+        // Retire its idle cache even when there is no running worker to cancel.
+        if let Err(error) = self.loader.release_retained() {
+            crate::engine::logging::warn(format!(
+                "[loading] could not retire canceled preparation: {error}"
+            ));
+        }
         self.trace
             .record("cancel_disposal_end", self.load_generation, "");
         // The player's graphics selection is never rewritten or saved here: an
@@ -3729,6 +3736,10 @@ impl FrameLoop<'_> {
             && std::env::var("PLACES_BENCH_RESOURCE_TRACE").as_deref() == Ok("1")
         {
             drop(fields.insert("map_ownership".into(), serde_json::json!({
+                    "scheduled_cpu_work":self.loader.diagnostic_work(),
+                    "cpu_images":self.displayed_lease.as_ref().zip(self.current_level.as_ref()).map(|(lease, loaded)|lease.image_breakdown(loaded)),
+                    "cpu_allocations":self.displayed_lease.as_ref().map(loading::PreparedLease::memory_breakdown),
+                    "process_heaps":crate::engine::resources::heap_diagnostics(),
                     "active_prepared_bytes":self.displayed_lease.as_ref().map_or(0,loading::PreparedLease::retained_bytes),
                     "benchmark_records":self.bench.diagnostic_retention(),
                     "retired": self.retired_worlds.iter().map(|(id,probe)|serde_json::json!({"level":id,"ownership":probe.snapshot()})).collect::<Vec<_>>(),

@@ -32,6 +32,7 @@ pub mod normal;
 pub mod occlusion;
 pub mod postprocess;
 pub mod probe_filter;
+pub mod prop_vertices;
 pub mod props;
 pub mod reflections;
 pub mod snow;

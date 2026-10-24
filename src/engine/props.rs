@@ -169,6 +169,10 @@ fn art_budget_warning(model_path: &str, model: &PropModel) -> Option<String> {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct PropAssetStats {
     pub models_loaded: usize,
+    /// Source model geometry plus per-vertex skin buffers, once per model.
+    pub geometry_and_skin_bytes: usize,
+    /// Retained verified GLB source bytes, shared by clones of this cache.
+    pub encoded_input_bytes: usize,
     pub models_failed: usize,
     pub triangles: usize,
     pub texture_bytes: usize,
@@ -487,11 +491,37 @@ impl PropAssets {
             match entry {
                 Ok(asset) => {
                     stats.models_loaded = stats.models_loaded.saturating_add(1);
+                    let model = &asset.model;
+                    let geometry = model
+                        .vertices
+                        .capacity()
+                        .saturating_mul(std::mem::size_of::<crate::engine::gltf::PropVertex>())
+                        .saturating_add(model.indices.capacity().saturating_mul(2))
+                        .saturating_add(
+                            model
+                                .joints
+                                .capacity()
+                                .saturating_mul(std::mem::size_of::<[u16; 4]>()),
+                        )
+                        .saturating_add(
+                            model
+                                .weights
+                                .capacity()
+                                .saturating_mul(std::mem::size_of::<[f32; 4]>()),
+                        );
+                    stats.geometry_and_skin_bytes =
+                        stats.geometry_and_skin_bytes.saturating_add(geometry);
                     stats.triangles = stats.triangles.saturating_add(asset.model.triangles);
                 }
                 Err(_) => stats.models_failed = stats.models_failed.saturating_add(1),
             }
         }
+        stats.encoded_input_bytes = self
+            .inputs
+            .values()
+            .filter_map(|input| input.as_ref().ok())
+            .map(|bytes| bytes.len())
+            .fold(0_usize, usize::saturating_add);
         stats.texture_bytes = self
             .textures
             .values()

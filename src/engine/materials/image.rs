@@ -371,6 +371,23 @@ impl TextureCache {
         Self::default()
     }
 
+    /// Cached source pixels; live material tables overlap the total.
+    #[cfg(feature = "visual-diagnostics")]
+    #[must_use]
+    pub fn diagnostic_retention(&self) -> serde_json::Value {
+        let bytes = self.images.values().fold(0_usize, |total, image| {
+            total.saturating_add(image.rgba.capacity())
+        });
+        let idle_bytes = self
+            .images
+            .values()
+            .filter(|image| Arc::strong_count(image) == 1)
+            .fold(0_usize, |total, image| {
+                total.saturating_add(image.rgba.capacity())
+            });
+        serde_json::json!({"entries":self.images.len(),"source_pixel_bytes":bytes,"cache_only_pixel_bytes":idle_bytes,"scope":"Worker source-image cache; active material owners overlap total bytes. Cache-only bytes have no material-table owner at this observation."})
+    }
+
     /// Bounds optional retention between level resolutions. Live worlds keep
     /// their own shared handles regardless of which cache entries are retired.
     pub fn begin_level(&mut self) {

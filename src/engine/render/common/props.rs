@@ -89,7 +89,7 @@ pub struct PropMeshBatch {
     /// The historical Low path retains source indexing. Surface-lightmapped
     /// static models retain split triangle corners and source normal frames;
     /// supported coplanar pairs share only their illumination atlas domain.
-    pub vertices: Arc<Vec<Vertex>>,
+    pub vertices: super::prop_vertices::PropVertices,
     /// `GL_UNSIGNED_SHORT` indices into `vertices`, offset per instance and
     /// grouped so each submesh's range is contiguous.
     pub indices: Arc<Vec<u16>>,
@@ -930,7 +930,9 @@ pub fn relight_probe_props(
         .iter_mut()
         .filter(|batch| batch.pending_probe_lighting)
     {
-        for vertex in Arc::make_mut(&mut batch.vertices)
+        for vertex in batch
+            .vertices
+            .make_mut()
             .iter_mut()
             .filter(|vertex| vertex.lightmap_page == super::LIGHTMAP_NONE)
         {

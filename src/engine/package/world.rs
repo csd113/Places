@@ -26,7 +26,7 @@ use crate::engine::package::lighting::read_lighting;
 use crate::engine::package::lightmaps::read_lightmaps_owned;
 use crate::engine::package::manifest::{Manifest, ProbePayload, Variant};
 use crate::engine::package::mesh::read_mesh;
-use crate::engine::package::props::read_props;
+use crate::engine::package::props::read_props_compact as read_props;
 use crate::engine::package::{
     MAX_BINARY_BYTES, MAX_COLLISION_BYTES, MAX_ENTRY_BYTES, MAX_LIGHTING_BYTES,
     MAX_LIGHTMAP_ATLAS_BYTES, MAX_LIGHTMAP_METADATA_BYTES, MAX_MATERIALS_BYTES,
@@ -686,6 +686,15 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     timer.step("props-read-reconstruct");
     let mut props = crate::engine::resources::decode(&props_bytes, read_props)?;
     timer.step("props-parse");
+    if std::env::var("PLACES_BENCH_RESOURCE_TRACE").as_deref() == Ok("1") {
+        crate::engine::logging::info(format!(
+            "[memory-stage] props-parsed encoded_record_bytes={} retained_vertex_bytes={} private_bytes={:?}",
+            props_bytes.capacity(),
+            props.iter().fold(0_usize, |bytes, batch| bytes
+                .saturating_add(batch.vertices.retained_bytes())),
+            crate::engine::resources::process_memory_bytes()
+        ));
+    }
     drop(props_bytes);
     let variant_textures = manifest.map_or_else(
         || Ok(std::collections::HashMap::new()),

@@ -182,7 +182,8 @@ pub fn write_props_with_stats(
         ..PropsEncodingStats::default()
     };
     for batch in batches {
-        let interned = intern_vertices(batch)?;
+        let decoded = batch.vertices.as_slice();
+        let interned = intern_vertices(&decoded, &batch.indices)?;
         let header_start = writer.len();
         write_batch_header(&mut writer, batch)?;
         // Palette bytes and mode tags do not reduce the expanded allocation
@@ -250,22 +251,24 @@ struct InternedVertices<'a> {
     indices: Vec<u16>,
 }
 
-fn intern_vertices(batch: &PropMeshBatch) -> Result<InternedVertices<'_>, String> {
+fn intern_vertices<'a>(
+    source: &'a [Vertex],
+    source_indices: &[u16],
+) -> Result<InternedVertices<'a>, String> {
     // Use the codec itself as the key: this includes signed zero and every
     // lighting/frame field, without relying on Rust struct padding or float Eq.
-    let mut encoded =
-        Writer::with_capacity(batch.vertices.len().saturating_mul(SERIALIZED_VERTEX_BYTES));
-    for vertex in batch.vertices.iter() {
+    let mut encoded = Writer::with_capacity(source.len().saturating_mul(SERIALIZED_VERTEX_BYTES));
+    for vertex in source {
         write_vertex(&mut encoded, vertex);
     }
     let (keys, remainder) = encoded.as_slice().as_chunks::<SERIALIZED_VERTEX_BYTES>();
-    if !remainder.is_empty() || keys.len() != batch.vertices.len() {
+    if !remainder.is_empty() || keys.len() != source.len() {
         return Err("prop vertex codec no longer writes 81-byte records".to_string());
     }
     let mut by_bytes = HashMap::<[u8; SERIALIZED_VERTEX_BYTES], usize>::new();
-    let mut vertices = Vec::with_capacity(batch.vertices.len());
-    let mut remap = Vec::with_capacity(batch.vertices.len());
-    for (vertex, key) in batch.vertices.iter().zip(keys) {
+    let mut vertices = Vec::with_capacity(source.len());
+    let mut remap = Vec::with_capacity(source.len());
+    for (vertex, key) in source.iter().zip(keys) {
         let slot = *by_bytes.entry(*key).or_insert_with(|| {
             let new_slot = vertices.len();
             vertices.push(vertex);
@@ -273,8 +276,8 @@ fn intern_vertices(batch: &PropMeshBatch) -> Result<InternedVertices<'_>, String
         });
         remap.push(slot);
     }
-    let mut indices = Vec::with_capacity(batch.indices.len());
-    for index in batch.indices.iter() {
+    let mut indices = Vec::with_capacity(source_indices.len());
+    for index in source_indices {
         let slot = remap
             .get(usize::from(*index))
             .ok_or_else(|| "prop batch has an index outside its vertex list".to_string())?;
@@ -453,6 +456,16 @@ fn write_palette_vertices(
 /// # Errors
 /// Returns an error when the input is malformed, out of bounds or unsupported.
 pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
+    read_props_with_storage(bytes, false)
+}
+
+/// The runtime shares exact immutable attribute palettes. Compiler tooling
+/// keeps the same validated parser and its editable per-batch encoding path.
+pub(crate) fn read_props_compact(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
+    read_props_with_storage(bytes, true)
+}
+
+fn read_props_with_storage(bytes: &[u8], compact: bool) -> Result<Vec<PropMeshBatch>, String> {
     check_encoded_size(bytes.len())?;
     let mut reader = Reader::new(bytes);
     if reader.bytes(4)? != PROPS_MAGIC {
@@ -475,7 +488,8 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
     let mut budget = LogicalPropsBudget::new();
     let mut batches = Vec::with_capacity(count);
     for _ in 0..count {
-        batches.push(read_batch(&mut reader, &mut budget)?);
+        crate::engine::resources::checkpoint()?;
+        batches.push(read_batch(&mut reader, &mut budget, compact)?);
     }
     if !reader.is_empty() {
         return Err(format!(
@@ -489,6 +503,7 @@ pub fn read_props(bytes: &[u8]) -> Result<Vec<PropMeshBatch>, String> {
 fn read_batch(
     reader: &mut Reader<'_>,
     budget: &mut LogicalPropsBudget,
+    compact: bool,
 ) -> Result<PropMeshBatch, String> {
     let header_start = reader.remaining();
     let header = read_batch_header(reader)?;
@@ -510,7 +525,11 @@ fn read_batch(
         pending_probe_lighting: false,
         textures: Vec::<Arc<crate::engine::loader::RawImage>>::new(),
         submeshes: header.submeshes,
-        vertices: vertices.into(),
+        vertices: if compact {
+            crate::engine::render::PropVertices::packed(vertices)?
+        } else {
+            vertices.into()
+        },
         indices: indices.into(),
         bounds: header.bounds,
     })

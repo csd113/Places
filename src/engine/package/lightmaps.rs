@@ -549,6 +549,7 @@ pub fn read_lightmaps_owned(
     if u64::try_from(image_bytes.len()).unwrap_or(u64::MAX) > super::MAX_LIGHTMAP_ATLAS_BYTES {
         return Err("lightmap atlas record exceeds the supported byte limit".to_string());
     }
+    let encoded_bytes = image_bytes.capacity();
     let meta: LightmapsMeta = serde_json::from_slice(meta_json)
         .map_err(|error| format!("lightmap record is not valid JSON: {error}"))?;
     if meta.record_version != LIGHTMAPS_RECORD_VERSION {
@@ -577,6 +578,14 @@ pub fn read_lightmaps_owned(
         .get_mut(range.clone())
         .ok_or_else(|| "lightmap image range is unavailable".to_string())?;
     canonicalize_planes(pixels, plane_bytes)?;
+    if std::env::var("PLACES_BENCH_RESOURCE_TRACE").as_deref() == Ok("1") {
+        crate::engine::logging::info(format!(
+            "[memory-stage] lightmaps-decoded encoded_record_bytes={encoded_bytes} expanded_plane_bytes={} metadata_json_bytes={} private_bytes={:?}",
+            image_bytes.capacity(),
+            meta_json.len(),
+            crate::engine::resources::process_memory_bytes()
+        ));
+    }
     let backing = std::sync::Arc::new(image_bytes);
     let count = usize::try_from(meta.page_count)
         .map_err(|error| format!("lightmap page count is too large: {error}"))?;

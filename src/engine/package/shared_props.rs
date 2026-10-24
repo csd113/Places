@@ -1085,7 +1085,19 @@ pub fn read_record<R: std::io::Read + std::io::Seek>(
         segments.push(payload);
     }
     let views: Vec<&[u8]> = segments.iter().map(Vec::as_slice).collect();
-    reconstruct_props(&recipe, &views)
+    let reconstructed = reconstruct_props(&recipe, &views)?;
+    if std::env::var("PLACES_BENCH_RESOURCE_TRACE").as_deref() == Ok("1") {
+        crate::engine::logging::info(format!(
+            "[memory-stage] props-reconstruct segments_bytes={} output_bytes={} private_bytes={:?}",
+            segments
+                .iter()
+                .fold(0_usize, |segment_total, segment| segment_total
+                    .saturating_add(segment.capacity())),
+            reconstructed.capacity(),
+            crate::engine::resources::process_memory_bytes()
+        ));
+    }
+    Ok(reconstructed)
 }
 
 #[cfg(test)]

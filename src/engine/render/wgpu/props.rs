@@ -221,7 +221,7 @@ fn pack_prop_vertices(
         .map(|(index, vertex)| {
             let mut gpu = WorldVertex::from(vertex);
             if receivers.get(index).copied().unwrap_or(false) {
-                gpu.uv_visibility = visibility(vertex);
+                gpu.uv_visibility = visibility(&vertex);
             }
             gpu
         })
@@ -612,6 +612,15 @@ impl WgpuProps {
             vertex_count: u32::try_from(batch.vertices.len()).unwrap_or(u32::MAX),
             index_count: u32::try_from(batch.indices.len()).unwrap_or(u32::MAX),
         }
+    }
+
+    #[cfg(feature = "visual-diagnostics")]
+    pub(crate) fn geometry_buffer_bytes(&self) -> u64 {
+        self.chunks.iter().fold(0_u64, |bytes, chunk| {
+            bytes
+                .saturating_add(chunk.vertex_buffer.size())
+                .saturating_add(chunk.index_buffer.size())
+        })
     }
 
     /// The uploaded draws, in draw order.

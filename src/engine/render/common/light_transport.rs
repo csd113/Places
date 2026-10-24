@@ -1258,7 +1258,7 @@ fn append_prop_triangles(
                 ) else {
                     continue;
                 };
-                let albedo = triangle_albedo([1.0; 3], va, vb, vc, image);
+                let albedo = triangle_albedo([1.0; 3], &va, &vb, &vc, image);
                 match TransportTriangle::new(va.pos, vb.pos, vc.pos, albedo) {
                     Some(triangle) => {
                         triangles
@@ -1271,7 +1271,7 @@ fn append_prop_triangles(
                                     .texture
                                     .and_then(|texture| batch.textures.get(usize::from(texture)))
                                     .cloned(),
-                                [va, vb, vc],
+                                [&va, &vb, &vc],
                                 TransportTextureAddress::Clamp,
                             ),
                         );

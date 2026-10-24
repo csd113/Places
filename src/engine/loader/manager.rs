@@ -150,6 +150,11 @@ impl LevelManager {
         }
     }
 
+    #[cfg(feature = "visual-diagnostics")]
+    pub(crate) fn diagnostic_cached_images(&self) -> serde_json::Value {
+        self.texture_cache.borrow().diagnostic_retention()
+    }
+
     /// Drops optional decoded map-image ownership when returning to the menu.
     pub(crate) fn release_cached_images(&self) {
         *self.texture_cache.borrow_mut() = TextureCache::new();

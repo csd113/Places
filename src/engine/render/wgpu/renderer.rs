@@ -877,6 +877,7 @@ impl WgpuRenderer {
             label: Some("places-wgpu"),
             required_limits: world_device_limits(),
             required_features: gpu_timing::required_features(adapter.features()),
+            memory_hints: device_memory_hints(),
             ..Default::default()
         }))
         .map_err(|error| {
@@ -886,6 +887,10 @@ impl WgpuRenderer {
                 surface::native_backend_label()
             )
         })?;
+        logging::info(format!(
+            "[wgpu] memory allocator policy: {:?}",
+            device_memory_hints()
+        ));
         // Explicit native shader acceptance probe. It uses this window's Metal
         // device and never allocates or waits in a normal game/benchmark run.
         #[cfg(feature = "visual-diagnostics")]
@@ -970,6 +975,7 @@ impl WgpuRenderer {
             label: Some("places-wgpu-compiler"),
             required_limits: world_device_limits(),
             required_features: gpu_timing::required_features(adapter.features()),
+            memory_hints: device_memory_hints(),
             ..Default::default()
         }))
         .map_err(|error| {
@@ -3865,6 +3871,9 @@ impl WgpuRenderer {
 
     fn publish_prepared_graphics(&mut self, build: Arc<LevelBuild>, graphics: GraphicsConfig) {
         self.retained_build = Some(build);
+        if !keep_idle_texture_cache() {
+            self.textures.release_unreferenced();
+        }
         self.installed_lightmaps = graphics.lightmaps;
         self.graphics_applied = graphics;
         #[cfg(feature = "visual-diagnostics")]
@@ -7405,15 +7414,22 @@ impl WgpuRenderer {
         let metal_layer = self.metal_layer_diagnostics();
         #[cfg(not(target_os = "macos"))]
         let metal_layer: Option<serde_json::Value> = None;
+        let allocator = allocation_report_for_event(&self.device, event, frame);
+        let model_stats = self.prop_assets.stats();
         let receipt = serde_json::json!({
+            "allocator": allocator,
+            "unix_time_us":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok().and_then(|duration|u64::try_from(duration.as_micros()).ok()),
             "event": event, "frame": frame, "level": self.level_id,
             "backend": surface::native_backend_label(),
             "live": describe(current), "observed_peak": describe(peak),
             "memory_scope": "HAL-reported bytes where supported; Metal HAL memory counters unavailable. Texel budgets below exclude driver overhead and are partial, not summed allocations; active/pending caches may share sheets.",
+            "model_cpu": {"geometry_and_skin_vertex_bytes":model_stats.geometry_and_skin_bytes,"encoded_glb_bytes":model_stats.encoded_input_bytes,"decoded_texture_bytes":model_stats.texture_bytes,"scope":"One shared model cache; decoded images overlap prop textures and are not added twice. Excludes animation metadata."},
             "texture_cache": self.textures.diagnostic_retention(),
             "pending_texture_cache": self.prepared_install.as_ref().map(|pending| pending.textures.diagnostic_retention()),
             "post_attachment_texel_bytes": self.post.as_ref().map_or(0, PostProcess::diagnostic_attachment_bytes),
             "atlas_texel_bytes": self.lightmaps.stats().resident_bytes,
+            "prop_geometry": self.world_props.as_ref().map(|props| serde_json::json!({"vertex_bytes":props.stats().vertices.saturating_mul(usize::try_from(super::world::WORLD_VERTEX_STRIDE).unwrap_or(usize::MAX)),"index_bytes":props.stats().indices.saturating_mul(2),"buffer_requested_bytes":props.geometry_buffer_bytes(),"buffers":props.stats().chunks.saturating_mul(2),"layout":"individual batch buffers"})),
+            "character_geometry": self.world_characters.as_ref().map(|characters|serde_json::json!({"vertex_bytes":characters.stats().vertex_bytes,"index_bytes":characters.stats().index_bytes,"characters":characters.stats().characters,"shared_models":characters.stats().meshes})),
             "drawable": [self.drawable_size.width, self.drawable_size.height],
             "surface_present_mode": surface::present_mode_label(self.config.present_mode),
             "surface_desired_frame_latency": self.config.desired_maximum_frame_latency,
@@ -7421,6 +7437,7 @@ impl WgpuRenderer {
             "metal_layer": metal_layer,
             "window_native_focus": self.window.as_ref().map(Window::has_input_focus),
             "window_native_flags": self.window.as_ref().map(|window| format!("{:?}", window.window_flags())),
+            "mip_cpu_worker_running":super::texture::is_preparing(),
             "staging": self.prepared_install.is_some(), "fatal": self.fatal,
         });
         logging::info(format!("[gpu-resources] {receipt}"));
@@ -7871,4 +7888,64 @@ impl WgpuRenderer {
             Err(error) => pending.upload_error = Some(error),
         }
     }
+}
+
+/// Smaller host/device blocks reduce retained idle capacity without reducing
+/// texture, lighting, geometry or animation data. Only developer cohorts may
+/// select the former performance-oriented policy as a comparison control.
+fn device_memory_hints() -> wgpu::MemoryHints {
+    #[cfg(feature = "visual-diagnostics")]
+    if std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+        && std::env::var("PLACES_BENCH_MEMORY_POLICY").as_deref() == Ok("performance")
+    {
+        return wgpu::MemoryHints::Performance;
+    }
+    wgpu::MemoryHints::MemoryUsage
+}
+
+#[cfg(feature = "visual-diagnostics")]
+fn allocation_report(device: &wgpu::Device) -> Option<serde_json::Value> {
+    let report = device.generate_allocator_report()?;
+    let mut labels = std::collections::BTreeMap::<&str, (usize, u64)>::new();
+    for allocation in &report.allocations {
+        let value = labels.entry(&allocation.name).or_default();
+        value.0 = value.0.saturating_add(1);
+        value.1 = value.1.saturating_add(allocation.size);
+    }
+    let label_rows: Vec<_> = labels.into_iter().map(|(name, (count, bytes))| serde_json::json!({"name":name,"allocations":count,"bytes":bytes})).collect();
+    let blocks: Vec<_> = report.blocks.iter().map(|block| {
+        let allocations = report.allocations.get(block.allocations.clone()).unwrap_or(&[]);
+        let allocated = allocations.iter().fold(0_u64,|bytes, allocation|bytes.saturating_add(allocation.size));
+        serde_json::json!({"reserved_bytes":block.size,"allocated_bytes":allocated,"allocations":allocations.len()})
+    }).collect();
+    Some(
+        serde_json::json!({"allocated_bytes":report.total_allocated_bytes,"reserved_bytes":report.total_reserved_bytes,"unused_block_capacity_bytes":report.total_reserved_bytes.saturating_sub(report.total_allocated_bytes),"blocks":blocks,"labels":label_rows,"scope":"Backend allocator host/device blocks together. Reserved capacity is not process RSS; do not add these overlapping counters to WDDM/process totals. Explicit attribution run, not FPS evidence."}),
+    )
+}
+
+#[cfg(feature = "visual-diagnostics")]
+fn allocation_report_for_event(
+    device: &wgpu::Device,
+    event: &str,
+    frame: u64,
+) -> Option<serde_json::Value> {
+    if std::env::var("PLACES_GPU_ALLOCATION_TRACE").as_deref() != Ok("1")
+        || !(matches!(
+            event,
+            "install-committed" | "level-unloaded" | "unloaded" | "unload"
+        ) || (event == "frame" && frame.is_multiple_of(300)))
+    {
+        return None;
+    }
+    allocation_report(device)
+}
+
+fn keep_idle_texture_cache() -> bool {
+    #[cfg(feature = "visual-diagnostics")]
+    if std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+        && std::env::var("PLACES_BENCH_KEEP_IDLE_TEXTURES").as_deref() == Ok("1")
+    {
+        return true;
+    }
+    false
 }

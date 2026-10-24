@@ -295,6 +295,67 @@ pub struct LevelBuild {
 }
 
 impl LevelBuild {
+    /// CPU allocation inventory; shared batch payloads are counted once here.
+    #[must_use]
+    pub fn memory_breakdown(&self) -> serde_json::Value {
+        let mut vertices = std::collections::HashSet::new();
+        let mut indices = std::collections::HashSet::new();
+        let mut images = std::collections::HashSet::new();
+        let mut prop_bytes = 0_usize;
+        let mut expanded = 0_usize;
+        let mut index_bytes = 0_usize;
+        let mut image_bytes = 0_usize;
+        for batch in self.batches.iter().chain(
+            self.static_light_off
+                .iter()
+                .flat_map(|state| &state.batches),
+        ) {
+            if vertices.insert(batch.vertices.identity()) {
+                prop_bytes = prop_bytes.saturating_add(batch.vertices.retained_bytes());
+                expanded = expanded.saturating_add(
+                    batch
+                        .vertices
+                        .len()
+                        .saturating_mul(std::mem::size_of::<super::Vertex>()),
+                );
+            }
+            if indices.insert(Arc::as_ptr(&batch.indices)) {
+                index_bytes = index_bytes.saturating_add(allocation_bytes(&batch.indices));
+            }
+            for image in &batch.textures {
+                if images.insert(Arc::as_ptr(image)) {
+                    image_bytes = image_bytes.saturating_add(image.rgba.capacity());
+                }
+            }
+        }
+        let architecture = std::iter::once(&self.mesh)
+            .chain(self.static_light_off.iter().map(|state| &state.mesh))
+            .flat_map(|mesh| &mesh.ranges)
+            .fold(0_usize, |bytes, range| {
+                bytes
+                    .saturating_add(allocation_bytes(&range.vertices))
+                    .saturating_add(allocation_bytes(&range.indices))
+            });
+        let mut atlas_bytes = 0_usize;
+        let mut materialized_pages = 0_usize;
+        let mut page_count = 0_usize;
+        let mut chart_bytes = 0_usize;
+        if let Some(maps) = &self.lightmaps {
+            chart_bytes = allocation_bytes(&maps.charts);
+            for page in maps
+                .pages
+                .iter()
+                .chain(maps.switchable.iter().flat_map(|group| &group.pages))
+            {
+                page_count = page_count.saturating_add(1);
+                atlas_bytes = atlas_bytes.saturating_add(page.retained_pixel_bytes());
+                materialized_pages =
+                    materialized_pages.saturating_add(usize::from(page.texels.is_materialized()));
+            }
+        }
+        serde_json::json!({"architecture_bytes":architecture,"prop_vertex_bytes":prop_bytes,"prop_expanded_equivalent_bytes":expanded,"prop_index_bytes":index_bytes,"prop_image_bytes":image_bytes,"lightmap_pixel_bytes":atlas_bytes,"lightmap_chart_bytes":chart_bytes,"lightmap_pages":page_count,"lightmap_materialized_pages":materialized_pages,"switchable_lightmap_groups":self.lightmaps.as_ref().map_or(0, |maps| maps.switchable.len()),"static_alternate":self.static_light_off.is_some(),"lighting_bytes":self.lighting.retained_heap_bytes(),"irradiance_bytes":self.probes.as_ref().map_or(0, |field| allocation_bytes(&field.probes).saturating_add(field.local_direct.as_ref().map_or(0, |direct| allocation_bytes(&direct.probes).saturating_add(allocation_bytes(&direct.light_indices)))).saturating_add(field.switchable_indirect.iter().fold(allocation_bytes(&field.switchable_indirect), |bytes, group| bytes.saturating_add(allocation_bytes(&group.probes))))),"scope":"Unique CPU batch allocations within this build. Images may also be shared with material/model owners; do not add those again. Excludes GPU and transient decoding."})
+    }
+
     /// Conservative retained data size. Shared images are counted once within
     /// this build; shared atlases across cache entries may be counted twice.
     #[must_use]
@@ -329,7 +390,7 @@ impl LevelBuild {
                 );
                 bytes = bytes
                     .saturating_add(batch.model.capacity())
-                    .saturating_add(allocation_bytes(&batch.vertices))
+                    .saturating_add(batch.vertices.retained_bytes())
                     .saturating_add(allocation_bytes(&batch.indices))
                     .saturating_add(allocation_bytes(&batch.submeshes))
                     .saturating_add(allocation_bytes(&batch.source_primitives))
@@ -344,7 +405,7 @@ impl LevelBuild {
             );
             bytes = bytes
                 .saturating_add(batch.model.capacity())
-                .saturating_add(allocation_bytes(&batch.vertices))
+                .saturating_add(batch.vertices.retained_bytes())
                 .saturating_add(allocation_bytes(&batch.indices))
                 .saturating_add(allocation_bytes(&batch.submeshes))
                 .saturating_add(allocation_bytes(&batch.source_primitives))
@@ -523,7 +584,7 @@ fn authoring_preview_parts(
         }
         if reused.is_none() {
             for batch in &mut batches {
-                illuminate_preview_vertices(Arc::make_mut(&mut batch.vertices).as_mut_slice());
+                illuminate_preview_vertices(batch.vertices.make_mut().as_mut_slice());
             }
         }
     }
