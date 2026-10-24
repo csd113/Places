@@ -14,10 +14,14 @@ import hashlib
 import json
 from pathlib import Path
 import zipfile
+import sys as _package_sys
+_package_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'levels'))
+from package_zip import PackageZip
+
 
 
 def compare(before: Path, after: Path, allow_stage_key=False, asset_root=None):
-    with zipfile.ZipFile(before) as left, zipfile.ZipFile(after) as right:
+    with PackageZip(before) as left, PackageZip(after) as right:
         left_names, right_names = set(left.namelist()), set(right.namelist())
         result = dict(before=str(before), after=str(after),
                       archive_byte_equal=before.read_bytes() == after.read_bytes(),

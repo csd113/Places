@@ -7,6 +7,10 @@ import json
 from pathlib import Path
 import subprocess
 import zipfile
+import sys as _package_sys
+_package_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'levels'))
+from package_zip import PackageZip
+
 
 from curated_maps import ROOT, level_views, lineup, project_manifest, source_levels, validate_lighting
 
@@ -46,7 +50,7 @@ def main() -> int:
             subprocess.run([compiler, 'verify', str(source), *selected, '--package', str(package),
                             '--asset-root', str(ROOT / 'assets'), '--require-current'], cwd=ROOT, check=True)
         subprocess.run([compiler, 'validate', str(package)], cwd=ROOT, check=True)
-        with zipfile.ZipFile(package) as archive:
+        with PackageZip(package) as archive:
             views = level_views(archive)
             if [identity for identity, _ in views] != [identity for identity, _ in source_levels(source)]:
                 raise ValueError(f'{package} does not contain every maintained level')

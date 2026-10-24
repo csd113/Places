@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 
 use sha2::{Digest as _, Sha256};
 
+mod bounded_zstd;
+
 use super::{MAX_ENTRIES, MAX_PROJECT_TOTAL_BYTES, MAX_TOTAL_BYTES, OpenError, hash, project};
 
 pub(crate) const MAX_TRANSPORT_BYTES: u64 = MAX_TOTAL_BYTES + 64 * 1024 * 1024;
@@ -112,6 +114,14 @@ impl<R: Read + Seek> PackageReader<R> {
         &self.names
     }
 
+    /// Selects one validated ordinary-map view from a project archive.
+    ///
+    /// # Errors
+    /// Rejects malformed project indexes and absent or ambiguous level IDs.
+    pub fn select_level(&mut self, id: Option<&str>) -> Result<(), String> {
+        project::select(self, id)
+    }
+
     pub(crate) fn select_view(
         &mut self,
         aliases: std::collections::BTreeMap<String, String>,
@@ -144,16 +154,20 @@ impl<R: Read + Seek> PackageReader<R> {
     ///
     /// # Errors
     /// Returns an error when the entry cannot be opened.
-    pub(crate) fn entry_size(&mut self, name: &str) -> Result<u64, String> {
+    pub(crate) fn entry_size(&self, name: &str) -> Result<u64, String> {
         let actual = self
             .view
             .as_ref()
             .and_then(|view| view.get(name))
             .map_or(name, String::as_str);
+        let index = self
+            .archive
+            .index_for_name(actual)
+            .ok_or_else(|| format!("package entry '{name}' is missing"))?;
         self.archive
-            .by_name(actual)
+            .by_index_data(index)
             .map(|entry| entry.size())
-            .map_err(|error| format!("package entry '{name}' is missing: {error}"))
+            .map_err(|error| format!("package entry '{name}' metadata: {error}"))
     }
 
     /// Reads one entry with a hard decompression cap.
@@ -170,11 +184,7 @@ impl<R: Read + Seek> PackageReader<R> {
             .as_ref()
             .and_then(|view| view.get(name))
             .map_or(name, String::as_str);
-        let entry = self
-            .archive
-            .by_name(actual)
-            .map_err(|error| format!("package entry '{name}' is missing: {error}"))?;
-        let declared = entry.size();
+        let (declared, entry) = bounded_zstd::open(&mut self.archive, actual, limit)?;
         if declared > limit {
             return Err(format!(
                 "package entry '{name}' declares {declared} bytes (limit {limit})"
@@ -186,7 +196,7 @@ impl<R: Read + Seek> PackageReader<R> {
         bytes
             .try_reserve_exact(capacity)
             .map_err(|error| format!("package entry '{name}' allocation failed: {error}"))?;
-        let mut stream = entry.take(limit.saturating_add(1));
+        let mut stream = entry.take(declared.saturating_add(1));
         let mut block = vec![0_u8; 64 * 1024];
         loop {
             crate::engine::resources::checkpoint()?;
@@ -246,11 +256,7 @@ impl<R: Read + Seek> PackageReader<R> {
             .as_ref()
             .and_then(|view| view.get(name))
             .map_or(name, String::as_str);
-        let entry = self
-            .archive
-            .by_name(actual)
-            .map_err(|error| format!("package entry '{name}' is missing: {error}"))?;
-        let declared = entry.size();
+        let (declared, entry) = bounded_zstd::open(&mut self.archive, actual, limit)?;
         let copied = copy_bounded(entry, writer, declared, limit, check)
             .map_err(|error| format!("package entry '{name}': {error}"))?;
         if hash::sha256_from_blob_name(actual).is_some_and(|expected| expected != copied.1) {
@@ -603,7 +609,7 @@ pub(crate) fn write_archive_with_level_guarded(
     publish_check: impl Fn() -> Result<(), String>,
     compression: i64,
 ) -> Result<(), String> {
-    if !(1..=9).contains(&compression) {
+    if !(1..=19).contains(&compression) {
         return Err("Invalid archive compression level".into());
     }
     check()?;
@@ -667,7 +673,7 @@ pub(crate) fn write_project_archive_files_with_level_guarded(
     publish_check: impl Fn() -> Result<(), String>,
     compression: i64,
 ) -> Result<(), String> {
-    if !(1..=9).contains(&compression) {
+    if !(1..=19).contains(&compression) {
         return Err("Invalid archive compression level".into());
     }
     write_archive_files(path, entries, check, publish_check, compression, true)
@@ -691,7 +697,7 @@ fn write_archive_files(
     compression: i64,
     is_project: bool,
 ) -> Result<(), String> {
-    if !(1..=9).contains(&compression) {
+    if !(1..=19).contains(&compression) {
         return Err("Invalid archive compression level".into());
     }
     check()?;
@@ -784,7 +790,7 @@ fn write_project_archive_to(
         check()?;
         let mut input = open_spool_file(entry)?;
         writer
-            .start_file(entry.name.as_str(), file_options(compression))
+            .start_file(entry.name.as_str(), file_options(&entry.name, compression))
             .map_err(|error| format!("could not start entry '{}': {error}", entry.name))?;
         let (_, digest) = copy_bounded(&mut input, &mut writer, entry.bytes, entry.bytes, check)
             .map_err(|error| format!("could not write entry '{}': {error}", entry.name))?;
@@ -898,19 +904,33 @@ fn write_archive_to(
     for entry in entries {
         check()?;
         writer
-            .start_file(entry.name.as_str(), file_options(compression))
+            .start_file(entry.name.as_str(), file_options(&entry.name, compression))
             .map_err(|error| format!("could not start entry '{}': {error}", entry.name))?;
-        writer
-            .write_all(&entry.bytes)
-            .map_err(|error| format!("could not write entry '{}': {error}", entry.name))?;
+        for block in entry.bytes.chunks(64 * 1024) {
+            check()?;
+            writer
+                .write_all(block)
+                .map_err(|error| format!("could not write entry '{}': {error}", entry.name))?;
+        }
     }
     finish_archive(writer)
 }
 
-fn file_options(compression: i64) -> zip::write::SimpleFileOptions {
+pub(crate) fn file_options(name: &str, compression: i64) -> zip::write::SimpleFileOptions {
+    let binary = name.starts_with("blobs/");
     zip::write::SimpleFileOptions::default()
-        .compression_method(zip::CompressionMethod::Deflated)
-        .compression_level(Some(compression))
+        .compression_method(if binary {
+            zip::CompressionMethod::Zstd
+        } else {
+            // Keep bootstrap metadata readable by older players so they can
+            // report the named required capability before touching new blobs.
+            zip::CompressionMethod::Deflated
+        })
+        .compression_level(Some(if binary {
+            compression
+        } else {
+            compression.min(9)
+        }))
         .last_modified_time(zip::DateTime::default())
         .unix_permissions(0o644)
 }

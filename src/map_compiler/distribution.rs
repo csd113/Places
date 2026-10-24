@@ -63,7 +63,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         let mut blobs = ProjectSpool::new(&temporary)?;
         let mut index = project::ProjectPackage {
             schema: "places-project-package".into(),
-            package_format: 1,
+            package_format: project::PROJECT_FORMAT_VERSION,
             project: folder.manifest().clone(),
             levels: Vec::new(),
             sources: BTreeMap::new(),

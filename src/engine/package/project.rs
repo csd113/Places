@@ -12,6 +12,9 @@ use super::{PackageReader, hash};
 use crate::engine::project::{MANIFEST_NAME, ProjectFolder, ProjectManifest, ProjectPath};
 
 pub const INDEX: &str = "project.json";
+/// Revision 2 permits window-bounded Zstandard records. Revision 1 projects
+/// remain readable; older readers reject this index before opening any blob.
+pub const PROJECT_FORMAT_VERSION: u32 = 2;
 pub const MAX_SOURCE_BYTES: u64 = 64 * 1024 * 1024;
 pub const MAX_THUMBNAIL_BYTES: u64 = 4 * 1024 * 1024;
 
@@ -46,7 +49,9 @@ pub fn read_index<R: Read + Seek>(
     let bytes = reader.read_entry(INDEX, super::MAX_MANIFEST_BYTES)?;
     crate::engine::project::check_editable_source(&bytes)?;
     let index: ProjectPackage = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-    if index.schema != "places-project-package" || index.package_format != super::FORMAT_VERSION {
+    if index.schema != "places-project-package"
+        || !matches!(index.package_format, 1 | PROJECT_FORMAT_VERSION)
+    {
         return Err(
             "Unsupported project package schema/version; no supported conversion exists".into(),
         );
@@ -113,7 +118,7 @@ pub fn read_index<R: Read + Seek>(
     Ok(Some(index))
 }
 
-fn check_record<R: Read + Seek>(reader: &mut PackageReader<R>, name: &str) -> Result<u64, String> {
+fn check_record<R: Read + Seek>(reader: &PackageReader<R>, name: &str) -> Result<u64, String> {
     if hash::sha256_from_blob_name(name).is_none() || !reader.contains(name) {
         return Err(format!("Invalid project blob: {name}"));
     }

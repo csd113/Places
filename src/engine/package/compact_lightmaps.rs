@@ -10,13 +10,15 @@ use super::ktx2::{f16_bits_to_f32, f32_to_f16_bits};
 
 const MAGIC: [u8; 4] = *b"PLC1";
 /// Compact payload revision; independent of the solved-light representation.
-pub const VERSION: u16 = 1;
+pub const VERSION: u16 = 2;
+const LEGACY_VERSION: u16 = 1;
 const TILE_EDGE: u32 = 16;
 const HEADER_BYTES: usize = 24;
 const BLOCK_HEADER_BYTES: usize = 4;
 const RANGE_BYTES: usize = 48;
 const MODE_COMPACT: u8 = 1;
 const MODE_EXACT: u8 = 2;
+const MODE_CONSTANT: u8 = 3;
 const RESERVED_ALPHA: u16 = 0x3800;
 const MAX_EXPANDED_BYTES: u64 = super::MAX_LIGHTMAP_ATLAS_BYTES.saturating_sub(64 * 1024);
 const MAX_CODES: [u16; 6] = [2047, 2047, 2047, 1023, 1023, 1023];
@@ -47,6 +49,8 @@ pub struct CompactLightmapStats {
     pub compact_blocks: usize,
     /// Tile pairs retaining the six source halves exactly.
     pub exact_blocks: usize,
+    /// Uniform tiles storing the exact six decoded halves once.
+    pub constant_blocks: usize,
 }
 
 /// Decoded plane pairs, directly usable by the existing linear atlas reader.
@@ -208,6 +212,7 @@ pub fn encode_with_stats(
 
 /// Encode separate planes without materializing a second contiguous atlas.
 /// Every plane and the aggregate shape are checked before encoding any tile.
+#[cfg(test)]
 pub(crate) fn encode_layers_with_stats(
     edge: u32,
     pages: u32,
@@ -237,9 +242,72 @@ pub(crate) fn encode_layers_with_stats(
     })
 }
 
+enum TileSource<'a> {
+    Planes(&'a [u8], &'a [u8]),
+    Pixels(&'a [crate::engine::lighting::lightmap::LightmapTexel]),
+}
+
+impl TileSource<'_> {
+    fn bits(&self, offset: usize) -> Result<[u16; 6], String> {
+        match self {
+            Self::Planes(mean, moment) => read_texel((mean, moment), offset),
+            Self::Pixels(pixels) => {
+                let index = offset
+                    .checked_div(8)
+                    .ok_or("lightmap texel offset is invalid")?;
+                let pixel = pixels.get(index).ok_or("lightmap pixel is missing")?;
+                let [red, green, blue] = pixel.irradiance;
+                let [x, y, z] = pixel.direction;
+                Ok([red, green, blue, x, y, z].map(f32_to_f16_bits))
+            }
+        }
+    }
+}
+
+/// Encode existing editable or packed pages without another full atlas.
+pub(crate) fn encode_pages_with_stats(
+    edge: u32,
+    pages: u32,
+    groups: u32,
+    source: &[&crate::engine::lighting::lightmap::LightmapPage],
+) -> Result<(Vec<u8>, CompactLightmapStats), String> {
+    let shape = Shape::new(edge, pages, groups)?;
+    if source.len() != shape.pairs
+        || source
+            .iter()
+            .any(|page| page.width != edge || page.height != edge || !page.is_consistent())
+    {
+        return Err("compact lightmap source pages do not match their shape".into());
+    }
+    encode_sources(shape, |pair| {
+        let page = source.get(pair).ok_or("lightmap source page is missing")?;
+        if let Some(planes) = page.rgba16f_planes() {
+            let mean = planes
+                .get(..shape.plane_bytes)
+                .ok_or("missing irradiance plane")?;
+            let moment = planes
+                .get(shape.plane_bytes..)
+                .ok_or("missing moment plane")?;
+            Ok(TileSource::Planes(mean, moment))
+        } else {
+            Ok(TileSource::Pixels(page.texels.as_slice()))
+        }
+    })
+}
+
 fn encode_plane_pairs<'a>(
     shape: Shape,
     planes: impl Fn(usize) -> Result<(&'a [u8], &'a [u8]), String>,
+) -> Result<(Vec<u8>, CompactLightmapStats), String> {
+    encode_sources(shape, |pair| {
+        let (mean, moment) = planes(pair)?;
+        Ok(TileSource::Planes(mean, moment))
+    })
+}
+
+fn encode_sources<'a>(
+    shape: Shape,
+    source: impl Fn(usize) -> Result<TileSource<'a>, String>,
 ) -> Result<(Vec<u8>, CompactLightmapStats), String> {
     let mut out = Vec::new();
     out.extend_from_slice(&MAGIC);
@@ -251,17 +319,42 @@ fn encode_plane_pairs<'a>(
     let mut stats = CompactLightmapStats::default();
     for pair in 0..shape.pairs {
         crate::engine::progress::check_cancelled()?;
-        let pair_planes = planes(pair)?;
+        let pair_source = source(pair)?;
         for tile_y in (0..shape.edge).step_by(16) {
             for tile_x in (0..shape.edge).step_by(16) {
                 let offsets = shape.tile_offsets(tile_x, tile_y)?;
                 let mut texels = Vec::with_capacity(offsets.len());
                 for offset in offsets {
-                    let bits = read_texel(pair_planes, offset)?;
+                    let bits = pair_source.bits(offset)?;
                     validate_texel(bits.map(f16_bits_to_f32))?;
                     texels.push(bits);
                 }
+                // A uniform tile's historical compact ranges have zero step.
+                // Retain their fused-add signed-zero behavior without running
+                // the range search and per-normal error oracle for every texel.
+                if let Some(first) = texels.first()
+                    && texels.iter().all(|bits| bits == first)
+                {
+                    out.extend_from_slice(&[MODE_CONSTANT, 0, 0, 0]);
+                    for bits in first {
+                        let value = 0.0_f32.mul_add(0.0, f16_bits_to_f32(*bits));
+                        out.extend_from_slice(&f32_to_f16_bits(value).to_le_bytes());
+                    }
+                    stats.constant_blocks = stats.constant_blocks.saturating_add(1);
+                    continue;
+                }
                 if let Some((ranges, words)) = compact_tile(&texels) {
+                    if words.iter().all(|word| *word == 0) {
+                        out.extend_from_slice(&[MODE_CONSTANT, 0, 0, 0]);
+                        for range in ranges {
+                            out.extend_from_slice(
+                                &f32_to_f16_bits(range.step.mul_add(0.0, range.minimum))
+                                    .to_le_bytes(),
+                            );
+                        }
+                        stats.constant_blocks = stats.constant_blocks.saturating_add(1);
+                        continue;
+                    }
                     out.extend_from_slice(&[MODE_COMPACT, 0, 0, 0]);
                     for range in ranges {
                         out.extend_from_slice(&range.minimum.to_le_bytes());
@@ -565,7 +658,7 @@ pub fn decode(bytes: &[u8]) -> Result<CompactLightmapImage, String> {
         return Err("compact lightmap magic is invalid".to_string());
     }
     let version = u16::from_le_bytes(reader.take()?);
-    if version != VERSION {
+    if version != VERSION && version != LEGACY_VERSION {
         return Err(format!(
             "compact lightmap version {version} is not supported"
         ));
@@ -580,16 +673,21 @@ pub fn decode(bytes: &[u8]) -> Result<CompactLightmapImage, String> {
         return Err("compact lightmap header reserved bits are nonzero".to_string());
     }
     let shape = Shape::new(edge, pages, groups)?;
-    validate_block_lengths(&mut reader, shape)?;
+    validate_block_lengths(&mut reader, shape, version)?;
     reader.position = HEADER_BYTES;
-    let mut planes = vec![0_u8; shape.expanded_bytes];
+    let _expanded_reservation = crate::engine::resources::allocation(shape.expanded_bytes)?;
+    let mut planes = Vec::new();
+    planes
+        .try_reserve_exact(shape.expanded_bytes)
+        .map_err(|error| format!("compact lightmap expansion allocation failed: {error}"))?;
+    planes.resize(shape.expanded_bytes, 0_u8);
     let mut stats = CompactLightmapStats::default();
     for pair in 0..shape.pairs {
         let start = shape.pair_start(pair)?;
         for tile_y in (0..edge).step_by(16) {
             for tile_x in (0..edge).step_by(16) {
                 let offsets = shape.tile_offsets(tile_x, tile_y)?;
-                let mode = block_mode(&mut reader)?;
+                let mode = block_mode(&mut reader, version)?;
                 let ranges = if mode == MODE_COMPACT {
                     stats.compact_blocks = stats.compact_blocks.saturating_add(1);
                     read_ranges(&mut reader)?
@@ -597,9 +695,24 @@ pub fn decode(bytes: &[u8]) -> Result<CompactLightmapImage, String> {
                     stats.exact_blocks = stats.exact_blocks.saturating_add(1);
                     [Range::default(); 6]
                 };
-                for offset in offsets {
-                    let bits = read_block_texel(&mut reader, mode, ranges)?;
+                let constant = if mode == MODE_CONSTANT {
+                    stats.exact_blocks = stats.exact_blocks.saturating_sub(1);
+                    stats.constant_blocks = stats.constant_blocks.saturating_add(1);
+                    let bits = read_block_texel(&mut reader, MODE_EXACT, ranges)?;
                     validate_texel(bits.map(f16_bits_to_f32))?;
+                    Some(bits)
+                } else {
+                    None
+                };
+                for offset in offsets {
+                    let bits = if let Some(value) = constant {
+                        value
+                    } else {
+                        read_block_texel(&mut reader, mode, ranges)?
+                    };
+                    if constant.is_none() {
+                        validate_texel(bits.map(f16_bits_to_f32))?;
+                    }
                     write_texel(&mut planes, shape, start, offset, bits)?;
                 }
             }
@@ -619,18 +732,23 @@ pub fn decode(bytes: &[u8]) -> Result<CompactLightmapImage, String> {
 
 // Validate the complete framing before allocating the expanded output. A tiny
 // attacker-controlled payload cannot request a large output from its header.
-fn validate_block_lengths(reader: &mut Reader<'_>, shape: Shape) -> Result<(), String> {
+fn validate_block_lengths(
+    reader: &mut Reader<'_>,
+    shape: Shape,
+    version: u16,
+) -> Result<(), String> {
     for _ in 0..shape.pairs {
         for tile_y in (0..shape.edge).step_by(16) {
             for tile_x in (0..shape.edge).step_by(16) {
-                let mode = block_mode(reader)?;
+                let mode = block_mode(reader, version)?;
                 let width = shape.edge.saturating_sub(tile_x).min(TILE_EDGE);
                 let height = shape.edge.saturating_sub(tile_y).min(TILE_EDGE);
                 let texels = usize::try_from(width)
                     .ok()
                     .and_then(|value| value.checked_mul(usize::try_from(height).ok()?))
                     .ok_or_else(|| "compact lightmap block size overflows".to_string())?;
-                let payload = texels
+                let stored_texels = if mode == MODE_CONSTANT { 1 } else { texels };
+                let payload = stored_texels
                     .checked_mul(if mode == MODE_COMPACT { 8 } else { 12 })
                     .and_then(|length| {
                         length.checked_add(if mode == MODE_COMPACT { RANGE_BYTES } else { 0 })
@@ -653,12 +771,13 @@ fn validate_block_lengths(reader: &mut Reader<'_>, shape: Shape) -> Result<(), S
     Ok(())
 }
 
-fn block_mode(reader: &mut Reader<'_>) -> Result<u8, String> {
+fn block_mode(reader: &mut Reader<'_>, version: u16) -> Result<u8, String> {
     let [mode, reserved_a, reserved_b, reserved_c] = reader.take::<BLOCK_HEADER_BYTES>()?;
     if reserved_a != 0 || reserved_b != 0 || reserved_c != 0 {
         return Err("compact lightmap block reserved bits are nonzero".to_string());
     }
-    if mode != MODE_COMPACT && mode != MODE_EXACT {
+    if mode != MODE_COMPACT && mode != MODE_EXACT && !(mode == MODE_CONSTANT && version == VERSION)
+    {
         return Err(format!(
             "compact lightmap block mode {mode} is not supported"
         ));
@@ -752,4 +871,108 @@ fn write_texel(
         }
     }
     Ok(())
+}
+
+/// Repack existing compact records without solving or re-quantizing light.
+///
+/// Every decoded half is validated; nonuniform tile bytes are copied exactly.
+/// Compaction uses the owned input allocation and at most one tile of scratch.
+///
+/// # Errors
+/// Rejects invalid framing, ranges or coefficients as the ordinary reader does.
+pub fn repack_constants(mut bytes: Vec<u8>) -> Result<Vec<u8>, String> {
+    if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > super::MAX_LIGHTMAP_ATLAS_BYTES {
+        return Err("compact lightmap encoded record exceeds the atlas byte bound".into());
+    }
+    let mut header = Reader {
+        bytes: &bytes,
+        position: 0,
+    };
+    if header.take::<4>()? != MAGIC {
+        return Err("compact lightmap magic is invalid".into());
+    }
+    let version = u16::from_le_bytes(header.take()?);
+    if version != LEGACY_VERSION && version != VERSION {
+        return Err("compact lightmap version is not supported".into());
+    }
+    if u32::from(u16::from_le_bytes(header.take()?)) != TILE_EDGE {
+        return Err("compact lightmap tile edge is not supported".into());
+    }
+    let shape = Shape::new(header.u32()?, header.u32()?, header.u32()?)?;
+    if header.u32()? != 0 {
+        return Err("compact lightmap header reserved bits are nonzero".into());
+    }
+    validate_block_lengths(&mut header, shape, version)?;
+    let mut source = HEADER_BYTES;
+    let mut destination = HEADER_BYTES;
+    for _ in 0..shape.pairs {
+        crate::engine::progress::check_cancelled()?;
+        for tile_y in (0..shape.edge).step_by(16) {
+            for tile_x in (0..shape.edge).step_by(16) {
+                let mut reader = Reader {
+                    bytes: &bytes,
+                    position: source,
+                };
+                let mode = block_mode(&mut reader, version)?;
+                let ranges = if mode == MODE_COMPACT {
+                    read_ranges(&mut reader)?
+                } else {
+                    [Range::default(); 6]
+                };
+                let count = if mode == MODE_CONSTANT {
+                    1
+                } else {
+                    shape.tile_offsets(tile_x, tile_y)?.len()
+                };
+                let mut first = None;
+                let mut uniform = true;
+                for _ in 0..count {
+                    let bits = read_block_texel(
+                        &mut reader,
+                        if mode == MODE_CONSTANT {
+                            MODE_EXACT
+                        } else {
+                            mode
+                        },
+                        ranges,
+                    )?;
+                    validate_texel(bits.map(f16_bits_to_f32))?;
+                    if let Some(prior) = first {
+                        uniform &= prior == bits;
+                    } else {
+                        first = Some(bits);
+                    }
+                }
+                let end = reader.position;
+                if uniform {
+                    let bits = first.ok_or("compact lightmap tile is empty")?;
+                    let mut block = Vec::with_capacity(16);
+                    block.extend_from_slice(&[MODE_CONSTANT, 0, 0, 0]);
+                    for value in bits {
+                        block.extend_from_slice(&value.to_le_bytes());
+                    }
+                    let next = destination
+                        .checked_add(block.len())
+                        .ok_or("tile offset overflows")?;
+                    bytes
+                        .get_mut(destination..next)
+                        .ok_or("tile output is truncated")?
+                        .copy_from_slice(&block);
+                    destination = next;
+                } else {
+                    bytes.copy_within(source..end, destination);
+                    destination = destination
+                        .checked_add(end.saturating_sub(source))
+                        .ok_or("tile offset overflows")?;
+                }
+                source = end;
+            }
+        }
+    }
+    bytes.truncate(destination);
+    bytes
+        .get_mut(4..6)
+        .ok_or("compact lightmap header is truncated")?
+        .copy_from_slice(&VERSION.to_le_bytes());
+    Ok(bytes)
 }

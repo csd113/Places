@@ -1,6 +1,7 @@
 //! Investigation-only, exact-payload ZIP repacker using the project's codec.
 //! Usage: cargo run --release --bin package-repack -- INPUT OUTPUT LEVEL
 //! Decode-only timing: package-repack --read-only INPUT
+//! Canonical decoded records: package-repack --oracle INPUT
 //! This does not rebuild a map or change any decoded record or manifest.
 
 use std::fs::File;
@@ -18,11 +19,15 @@ fn entry_limit(name: &str) -> u64 {
         places::engine::package::MAX_SEMANTICS_BYTES
     } else if name == "materials.json" {
         places::engine::package::MAX_MATERIALS_BYTES
-    } else if name.ends_with(".lightmaps.ktx2") {
+    } else if name.ends_with(".lightmaps.ktx2") || name.ends_with(".lightmaps.pllc") {
         MAX_LIGHTMAP_ATLAS_BYTES
     } else if Path::new(name).extension().is_some_and(|extension| {
         extension.eq_ignore_ascii_case("props") || extension.eq_ignore_ascii_case("mesh")
     }) {
+        places::engine::package::MAX_BINARY_BYTES
+    } else if name.ends_with(".record") {
+        // Project records use content-addressed physical names; typed limits
+        // are checked by the separate validator and selected-map oracle.
         places::engine::package::MAX_BINARY_BYTES
     } else if name.ends_with(".lightmaps.json") {
         places::engine::package::MAX_LIGHTMAP_METADATA_BYTES
@@ -70,6 +75,42 @@ fn execute() -> io::Result<()> {
     let input = arguments
         .next()
         .ok_or_else(|| io::Error::other("missing INPUT"))?;
+    if input == "--reencode-lightmaps" {
+        let source = arguments
+            .next()
+            .ok_or_else(|| io::Error::other("missing INPUT"))?;
+        let output = arguments
+            .next()
+            .ok_or_else(|| io::Error::other("missing OUTPUT"))?;
+        if arguments.next().is_some() {
+            return Err(io::Error::other("unexpected argument"));
+        }
+        return crate::oracle::reencode_lightmaps(Path::new(&source), Path::new(&output));
+    }
+    if input == "--manifest-identity" {
+        let source = arguments
+            .next()
+            .ok_or_else(|| io::Error::other("missing INPUT"))?;
+        let level = arguments
+            .next()
+            .ok_or_else(|| io::Error::other("missing LEVEL"))?;
+        if arguments.next().is_some() {
+            return Err(io::Error::other("unexpected argument"));
+        }
+        let id = level
+            .to_str()
+            .ok_or_else(|| io::Error::other("LEVEL is not UTF-8"))?;
+        return crate::oracle::manifest_identity(Path::new(&source), id);
+    }
+    if input == "--oracle" {
+        let path = arguments
+            .next()
+            .ok_or_else(|| io::Error::other("missing INPUT"))?;
+        if arguments.next().is_some() {
+            return Err(io::Error::other("unexpected argument"));
+        }
+        return crate::oracle::run(Path::new(&path));
+    }
     if input == "--read-only" {
         let path = arguments
             .next()

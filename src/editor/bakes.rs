@@ -208,7 +208,7 @@ fn package_size(path: &PathBuf) -> Vec<String> {
     let result = (|| {
         let file = std::fs::File::open(path).map_err(|error| error.to_string())?;
         let archive_bytes = file.metadata().map_err(|error| error.to_string())?.len();
-        let mut archive = zip::ZipArchive::new(file).map_err(|error| error.to_string())?;
+        let archive = zip::ZipArchive::new(file).map_err(|error| error.to_string())?;
         let entries = archive.decompressed_size().unwrap_or(0);
         // Project ZIPs deduplicate content into opaque .record blobs. Classify
         // each physical record once using its virtual member name, rather than
@@ -223,7 +223,9 @@ fn package_size(path: &PathBuf) -> Vec<String> {
         }
         let mut categories = std::collections::BTreeMap::<String, u64>::new();
         for index in 0..archive.len() {
-            let entry = archive.by_index(index).map_err(|error| error.to_string())?;
+            let entry = archive
+                .by_index_data(index)
+                .map_err(|error| error.to_string())?;
             let physical = entry.name().map_err(|error| error.to_string())?;
             let name = names
                 .get(physical.as_ref())

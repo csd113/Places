@@ -18,6 +18,10 @@ from pathlib import Path
 import struct
 import time
 import zipfile
+import sys as _package_sys
+_package_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'levels'))
+from package_zip import PackageZip
+
 import zlib
 
 MAX_TOTAL = 1024 * 1024 * 1024
@@ -26,7 +30,7 @@ MAX_META = 64 * 1024 * 1024
 
 
 def checked_archive(path):
-    archive = zipfile.ZipFile(path)
+    archive = PackageZip(path)
     entries = archive.infolist()
     names = [entry.filename for entry in entries]
     if 'project.json' in names:
@@ -61,7 +65,7 @@ def checked_archive(path):
             limit = 64 * 1024 * 1024
         if entry.file_size > limit:
             raise ValueError("entry exceeds existing typed limit")
-        if entry.compress_type not in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED):
+        if entry.compress_type not in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, 93):
             raise ValueError("unsupported codec for this inspection tool")
     manifest = json.loads(archive.read('manifest.json'))
     declared = {entry['name']: entry for entry in manifest['entries']}
@@ -332,7 +336,7 @@ def emit_shuffle(path, destination, block_bytes, kind):
     this input. It is a transform experiment, never a replacement .placesmap.
     """
     archive, manifest, declared = checked_archive(path)
-    with archive, zipfile.ZipFile(destination, 'x', compression=zipfile.ZIP_STORED) as output:
+    with archive, PackageZip(destination, 'x', compression=zipfile.ZIP_STORED) as output:
         for entry in archive.infolist():
             original = archive.read(entry)
             expected = declared.get(entry.filename, {}).get('sha256')
@@ -433,7 +437,7 @@ def emit_factor(path, destination):
         total = sum(entry.file_size for entry in unchanged) + sum(map(len, segments)) + len(recipe)
         if total > MAX_TOTAL or len(unchanged) + len(segments) + 1 > 512:
             raise ValueError('factoring prototype exceeds existing archive bounds')
-        with zipfile.ZipFile(destination, 'x', compression=zipfile.ZIP_STORED) as output:
+        with PackageZip(destination, 'x', compression=zipfile.ZIP_STORED) as output:
             for entry in unchanged:
                 output.writestr(entry.filename, archive.read(entry))
             output.writestr('prototype-recipes.json', recipe)

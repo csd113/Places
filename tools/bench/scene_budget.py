@@ -14,6 +14,10 @@ import math
 from pathlib import Path
 import re
 import zipfile
+import sys as _package_sys
+_package_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'levels'))
+from package_zip import PackageZip
+
 
 MAX_ATLAS_RECORD_BYTES = 320 * 1024 ** 2 + 64 * 1024
 
@@ -80,7 +84,7 @@ def warning_budgets(metrics, limits):
 
 
 def inspect(package, log, variant="full"):
-    with zipfile.ZipFile(package) as archive:
+    with PackageZip(package) as archive:
         manifest, members = validate_archive_bounds(archive)
         for name, entry in members.items():
             data = archive.read(name)
@@ -110,7 +114,7 @@ def inspect(package, log, variant="full"):
     if native["level"] != manifest["id"] or (capture and capture["level"] != manifest["id"]):
         raise ValueError("Native level differs from the inspected package")
     package_ids = re.findall(r"package identity level=\S+ variant=(\S+) sha256=(\w+)", text)
-    with zipfile.ZipFile(package) as archive:
+    with PackageZip(package) as archive:
         expected_identity = hashlib.sha256(archive.read("manifest.json")).hexdigest()
     if not package_ids or package_ids[-1] != (variant, expected_identity):
         raise ValueError("Native package identity or quality does not match")

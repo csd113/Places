@@ -364,6 +364,45 @@ pub fn write_lightmaps_precise(lightmaps: &LevelLightmaps) -> Result<(Vec<u8>, V
     write_lightmaps_encoded(lightmaps, false)
 }
 
+fn encode_lightmap_pages(
+    lightmaps: &LevelLightmaps,
+    edge: u32,
+    pages: &[&LightmapPage],
+    compact: bool,
+) -> Result<Vec<u8>, String> {
+    Ok(if compact {
+        let encoded_started = std::time::Instant::now();
+        let (encoded, storage_stats) = super::compact_lightmaps::encode_pages_with_stats(
+            edge,
+            u32::try_from(lightmaps.pages.len())
+                .map_err(|error| format!("lightmap page count is too large: {error}"))?,
+            u32::try_from(lightmaps.switchable.len().saturating_add(1))
+                .map_err(|error| format!("lightmap group count is too large: {error}"))?,
+            pages,
+        )?;
+        crate::engine::logging::info(format_args!(
+            "[lightmap-storage] raw_half_bytes={} stored_bytes={} compact_tiles={} exact_tiles={} constant_tiles={} encode_ms={:.3}",
+            pages
+                .len()
+                .saturating_mul(usize::try_from(edge).unwrap_or(usize::MAX))
+                .saturating_mul(usize::try_from(edge).unwrap_or(usize::MAX))
+                .saturating_mul(16),
+            encoded.len(),
+            storage_stats.compact_blocks,
+            storage_stats.exact_blocks,
+            storage_stats.constant_blocks,
+            encoded_started.elapsed().as_secs_f64() * 1_000.0_f64,
+        ));
+        encoded
+    } else {
+        let mut layers = Vec::with_capacity(lightmaps.layer_count());
+        for page in pages {
+            encode_page(page, &mut layers)?;
+        }
+        ktx2::write_rgba16f_2d_array(edge, &layers)?
+    })
+}
+
 fn write_lightmaps_encoded(
     lightmaps: &LevelLightmaps,
     compact: bool,
@@ -388,12 +427,17 @@ fn write_lightmaps_encoded(
             super::MAX_SWITCHABLE_LIGHTS
         ));
     }
-    let mut layers: Vec<Vec<u8>> = Vec::with_capacity(lightmaps.layer_count());
+    let mut pages = Vec::with_capacity(
+        lightmaps
+            .pages
+            .len()
+            .saturating_mul(lightmaps.switchable.len().saturating_add(1)),
+    );
     for page in &lightmaps.pages {
         if page.width != edge || page.height != edge || !page.is_consistent() {
             return Err("lightmap page does not match its declared edge".to_string());
         }
-        encode_page(page, &mut layers)?;
+        pages.push(page);
     }
     for contribution in &lightmaps.switchable {
         if contribution.pages.len() != lightmaps.pages.len() {
@@ -403,31 +447,10 @@ fn write_lightmaps_encoded(
             if page.width != edge || page.height != edge || !page.is_consistent() {
                 return Err("switchable lightmap page does not match its edge".to_string());
             }
-            encode_page(page, &mut layers)?;
+            pages.push(page);
         }
     }
-    let ktx2 = if compact {
-        let encoded_started = std::time::Instant::now();
-        let (encoded, storage_stats) = super::compact_lightmaps::encode_layers_with_stats(
-            edge,
-            u32::try_from(lightmaps.pages.len())
-                .map_err(|error| format!("lightmap page count is too large: {error}"))?,
-            u32::try_from(lightmaps.switchable.len().saturating_add(1))
-                .map_err(|error| format!("lightmap group count is too large: {error}"))?,
-            &layers,
-        )?;
-        crate::engine::logging::info(format_args!(
-            "[lightmap-storage] raw_half_bytes={} stored_bytes={} compact_tiles={} exact_tiles={} encode_ms={:.3}",
-            layers.iter().map(Vec::len).sum::<usize>(),
-            encoded.len(),
-            storage_stats.compact_blocks,
-            storage_stats.exact_blocks,
-            encoded_started.elapsed().as_secs_f64() * 1_000.0_f64,
-        ));
-        encoded
-    } else {
-        ktx2::write_rgba16f_2d_array(edge, &layers)?
-    };
+    let ktx2 = encode_lightmap_pages(lightmaps, edge, &pages, compact)?;
     if u64::try_from(ktx2.len()).unwrap_or(u64::MAX) > super::MAX_LIGHTMAP_ATLAS_BYTES {
         return Err(format!(
             "lightmap atlas record is {} bytes (limit {})",

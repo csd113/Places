@@ -64,9 +64,25 @@ def digest(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def package_manifest_identity(package: Path, level: str) -> str:
+def bounded_manifest_identity(package: Path, level: str, reader: Path | None) -> str:
+    """Use the production window/output checks on every Python version."""
+    reader = reader or ROOT / "target/release" / ("package-repack.exe" if os.name == "nt" else "package-repack")
+    result = subprocess.run([str(reader), "--manifest-identity", str(package), level],
+                            check=True, capture_output=True, text=True)
+    identity = result.stdout.strip()
+    if not re.fullmatch(r"[0-9a-f]{64}", identity):
+        raise ValueError("bounded package reader returned an invalid identity")
+    return identity
+
+
+def package_manifest_identity(package: Path, level: str, reader: Path | None = None) -> str:
     """Match the runtime's member-manifest identity, including project archives."""
     with zipfile.ZipFile(package) as archive:
+        # Native ZIP-Zstd support in newer Python is not our bounded decoder.
+        # Route method 93 (including a compressed project index) through Rust.
+        if any(entry.compress_type == 93 for entry in archive.infolist()):
+            return bounded_manifest_identity(package, level, reader)
+
         def metadata(name: str) -> bytes:
             if archive.getinfo(name).file_size > 2 * 1024 ** 2:
                 raise ValueError(f"package index/manifest exceeds the runtime bound: {name}")
@@ -79,7 +95,10 @@ def package_manifest_identity(package: Path, level: str) -> str:
             if len(members) != 1:
                 raise ValueError(f"expected one package member named {level}")
             name = members[0]["records"][name]
-        raw = metadata(name)
+        try:
+            raw = metadata(name)
+        except NotImplementedError:
+            return bounded_manifest_identity(package, level, reader)
         if json.loads(raw)["id"] != level:
             raise ValueError(f"package manifest does not describe {level}")
         return hashlib.sha256(raw).hexdigest()
@@ -170,7 +189,7 @@ def main() -> None:
     binary = args.binary.resolve(strict=True)
     asset_root = args.asset_root.resolve(strict=True)
     package = (args.package or asset_root / "assets/levels" / f"{args.level}.placesmap").resolve(strict=True)
-    manifest_identity = package_manifest_identity(package, args.level)
+    manifest_identity = package_manifest_identity(package, args.level, args.binary.resolve().parent / ("package-repack.exe" if os.name == "nt" else "package-repack"))
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
     if args.package:

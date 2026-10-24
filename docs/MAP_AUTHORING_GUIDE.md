@@ -8443,9 +8443,13 @@ in a directory, reporting per-source failures without blocking the others.
 
 Current packages require `schema: "places-map"`, package format 1 and authored
 `places-level` schema revision 1. Mesh `PMW1`, props `PMP1`, collision `PCL1`,
-lighting `PLT1`, irradiance `PPF1` and compact atlases `PLC1` accept binary
-revision 1; navigation `PNV2` uses revision 2. Shared prop recipes `PPS1` read
-revisions 1 and 2 and write revision 2, which shares exact position, colour, UV
+lighting `PLT1` and irradiance `PPF1` accept binary revision 1. Compact atlases
+`PLC1` read revisions 1 and 2 and write revision 2, preserving the prior decoded
+half values while storing uniform tiles once. Navigation `PNV2` uses revision 2.
+New compiled project indexes use transport revision 2 for bounded Zstandard;
+revision 1 indexes remain readable. Authored project/level schemas are unchanged.
+Shared prop recipes `PPS1` read revisions 1 through 4 and write revision 4,
+which shares exact position, colour, UV
 and tail bytes independently without changing the expanded prop record.
 Reflection-position
 and lightmap metadata revisions, geometry revision, atlas key revision and solver

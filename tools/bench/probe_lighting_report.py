@@ -13,6 +13,10 @@ import math
 from pathlib import Path
 import struct
 import zipfile
+import sys as _package_sys
+_package_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'levels'))
+from package_zip import PackageZip
+
 
 LIMIT = 256 * 1024 * 1024
 LUMA = (0.2126, 0.7152, 0.0722)
@@ -203,7 +207,7 @@ def declared_entry(archive, entry, limit=LIMIT):
 def report(package, locations, variant="full"):
     if len(locations) > 64:
         raise ValueError("at most 64 representative locations")
-    with zipfile.ZipFile(package) as archive:
+    with PackageZip(package) as archive:
         with archive.open("manifest.json") as stream:
             manifest = json.loads(stream.read(2 * 1024 * 1024 + 1))
         entries = {entry["name"]: entry for entry in manifest["entries"]}

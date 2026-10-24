@@ -632,6 +632,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     });
 
     let mut required = vec![
+        "zip-zstd-v1".to_string(),
         "geometry".to_string(),
         "props".to_string(),
         "lighting".to_string(),
@@ -691,6 +692,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     {
         required.push("lightmaps-hdr".to_string());
         required.push("lightmaps-compact-v1".to_string());
+        required.push("lightmaps-compact-v2".to_string());
     }
     if variants
         .iter()
@@ -889,7 +891,7 @@ pub fn validate(path: &Path) -> Result<ValidationReport, String> {
         let mut report = combined.ok_or("Project has no levels")?;
         report.id = index.project.id;
         report.name = index.project.name;
-        let mut physical = open_package(path)?;
+        let physical = open_package(path)?;
         report.entries = physical.names().len();
         report.bytes = 0;
         for name in physical.names().to_vec() {

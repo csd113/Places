@@ -59,7 +59,10 @@ sha2 = "0.11.1"
 # stay off; `render::wgpu` never falls back to GL. `wgsl` is the shader
 # language the world, decal, post and UI pipelines use.
 wgpu = { version = "30.0.1", default-features = false, features = ["std", "wgsl"] }
-zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs", "zstd"] }
+# Shared ZIP transport uses our window-bounded decoder, not ZIP's default adapter.
+zstd = { version = "0.14.3", default-features = false }
+crc32fast = "1.5.3"
 # Shared sandboxed Luau, statically built; no JIT, FFI or module loader.
 mlua = { version = "0.12.2", default-features = false, features = ["luau", "vendored", "send"] }
 

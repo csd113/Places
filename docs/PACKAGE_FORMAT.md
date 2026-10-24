@@ -45,6 +45,49 @@ inputs before exporting them. Packaging never compiles maps on the player's beha
 asset identities and the compiler version are unchanged; `--force` rebuilds.
 A failed build leaves the previous package untouched.
 
+## Transport and exact uniform tiles (0.13.0 compiler pass)
+
+New binary ZIP entries use Zstandard method 93 at the selected bounded level
+(ordinary publication 6, balanced storage migration 9, explicit compact migration 19).
+Top-level bootstrap JSON remains Deflate at level 9 or below.
+The shared compiler, player, import and editor reader opens method 93 through
+its own raw-entry decoder: maximum history **8 MiB**, conservative live codec
+reservation **16 MiB**, **64 KiB** input buffering, and expansion ceiling
+`compressed_bytes * 65,536 + 64 KiB`. Existing per-record and aggregate output
+limits still apply. Exact declared length, ZIP CRC and content-addressed SHA-256
+are checked. Truncation, excess output, excessive windows, concatenated frames
+and trailing bytes are rejected; a decoded-byte limit alone is insufficient.
+Zstandard is linked from the supported Rust crate and needs no runtime program.
+
+Explicit Python payload-inspection tools share `tools/levels/package_zip.py`.
+For method 93 it invokes this workspace's bounded `package-repack` tool once
+per opened archive, reads an exact-record temporary Deflate copy, and removes
+that copy at close. Original ZIP metadata remains the source of byte accounting;
+this compatibility repack is excluded from codec timing. Build the workspace
+tools, or set `PLACES_PACKAGE_REPACK` to a preserved matching `package-repack`
+executable after Cargo cleanup. Python tools that only read top-level bootstrap
+JSON keep their existing readers. These developer tools are independent of the
+game/editor/compiler runtime codec.
+
+Ordinary map format 1 requires `zip-zstd-v1`. New project indexes use project
+package transport revision **2** so old readers refuse before accessing new
+compressed records. The current reader also accepts revision 1 project indexes
+and existing Stored/Deflate records. Editable source `project_format`, application
+version and ordinary map major version are unchanged. `optimize-storage` writes
+a separate destination; it never replaces the valid source package.
+
+PLC1 revision **2** adds mode 3: one exact six-channel binary16 value for an
+entire uniform 16-square tile (including short edge tiles), with reserved alpha
+0.5 restored as before. The mode occupies 16 bytes including its block header.
+Modes 1/2 and revision 1 remain readable. Uniform detection preserves revision
+1's decoded half bits and fused-add signed-zero behavior. Nonuniform ranges,
+packed coefficient bits, exact fallback, quality, charts, coordinates, samples
+and bounce settings are unchanged. New compact maps require
+`lightmaps-compact-v2`; unsupported readers refuse rather than dropping detail.
+Migration validates and compacts the owned record in place, retaining every
+nonuniform tile's bytes and never solving or re-quantizing lighting. This reduces
+encoded record/output overlap; the expanded runtime atlas allocation is unchanged.
+
 ## 1. Archive layout
 
 ```text
@@ -475,7 +518,7 @@ old navigation. There is no runtime migration, geometry bake or repair path.
 ### 4.2.1 Exact shared prepared prop data
 
 The compiler factors repeated current PMP1 streams losslessly when the dictionary
-saves both raw bytes and Deflate-6 archive bytes, including a conservative
+saves both raw bytes and publication-codec archive bytes, including a conservative
 manifest allowance. Recipes exceeding the reader working-set budget remain
 literal. The compiler compares the actual publication codec cost of PPS1 versions 2 and 4,
 retaining the smaller valid representation. Both separate each vertex into exact 12-byte
@@ -889,10 +932,15 @@ capability before accepting a visual-only replacement for moving collision.
 `places-compile optimize-storage INPUT --out NEW.placesmap --asset-root assets`
 validates all input records, runtime catalog admission and installed dependencies,
 then re-encodes prepared prop storage without a geometry or lighting bake.
-This explicit archival operation uses Deflate-9; ordinary builds and exports
-retain Deflate-6 to keep iteration fast. It
-retains every variant/circuit state, exact PMP1 reconstruction identity, all
-non-prop payload bytes, source recovery and compiler provenance. The input is
+This explicit archival operation uses Zstandard-9; ordinary builds and exports
+use Zstandard-6 to keep iteration fast. Add `--compact` for Zstandard-19 final
+encoding with the same exact layout selection. It costs substantially more CPU
+time and some encoder scratch RAM; it does not change lighting quality or the
+8 MiB decoder history bound. Bootstrap JSON remains Deflate-9 or below.
+The migration retains every variant/circuit state, exact PMP1 reconstruction
+and decoded lightmap plane identity, other payload bytes, source recovery and
+compiler provenance. Exact constant-tile compaction may change the atlas wire
+bytes and blob references without changing its decoded values. The input is
 never overwritten; a changed input, cancellation or an appearing destination
 refuses publication. Project records are disk-spooled and deduplicated under the
 existing entry/aggregate caps. The bounded working set still includes one map's

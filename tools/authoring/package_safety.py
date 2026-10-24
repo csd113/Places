@@ -16,12 +16,16 @@ import subprocess
 import time
 import warnings
 import zipfile
+import sys as _package_sys
+_package_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'levels'))
+from package_zip import PackageZip
+
 
 
 def write_zip(path, records):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
-        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        with PackageZip(path, "w", zipfile.ZIP_DEFLATED) as archive:
             for name, data in records:
                 archive.writestr(name, data)
 
@@ -108,7 +112,7 @@ def main():
     for number, package in enumerate(packages):
         prefix = f"game-{number + 1}"
         validate(f"{prefix}-finished-valid", package, True)
-        with zipfile.ZipFile(package) as archive:
+        with PackageZip(package) as archive:
             records = {name: archive.read(name) for name in archive.namelist()}
         index = json.loads(records["project.json"])
         recovered = out / f"{prefix}-recovered"

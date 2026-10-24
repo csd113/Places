@@ -76,7 +76,7 @@ def level_views(archive: zipfile.ZipFile) -> list[tuple[str, dict[str, str]]]:
         manifest = json.loads(archive.read('manifest.json'))
         return [(manifest['id'], {name: name for name in names})]
     index = json.loads(archive.read('project.json'))
-    if index['schema'] != 'places-project-package' or index['package_format'] != 1:
+    if index['schema'] != 'places-project-package' or index['package_format'] not in (1, 2):
         raise ValueError('Unsupported project package index')
     expected = [level['id'] for level in index['project']['levels']]
     actual = [level['id'] for level in index['levels']]

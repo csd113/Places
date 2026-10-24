@@ -39,7 +39,7 @@ USAGE:
                        [--asset-root <dir>] [--variants static,full] [--workers N]
                        [--force] [--json] [--progress auto|plain|off]
   places-compile export-project <project> --out <project.placesmap> [build options]
-  places-compile optimize-storage <package> --out <NEW-package> [--asset-root <dir>] [--json|--events]
+  places-compile optimize-storage <package> --out <NEW-package> [--asset-root <dir>] [--compact] [--json|--events]
   places-compile import-project <project.placesmap> --out <NEW-project-folder> [--events]
   places-compile check-project <project> [--events] [--asset-root <dir>]
   places-compile migrate-project <project> [--asset-root <dir>]
@@ -65,6 +65,7 @@ OPTIONS:
                       (default: static,full).
   --out <path>        Build output package, or new export-lighting directory.
                       Build default: the source's sibling .placesmap.
+  --compact           optimize-storage only: spend more encoding time for a smaller lossless archive.
   --force             Rebuild even when the existing package is current.
   --json              Machine-readable result on stdout.
   --events            build/export/import/check/optimize: versioned NDJSON progress/result on stdout.
@@ -143,6 +144,11 @@ impl From<String> for CliError {
     }
 }
 
+enum StorageProfile {
+    Balanced,
+    Compact,
+}
+
 struct Options {
     level: Option<String>,
     asset_root: Option<PathBuf>,
@@ -151,6 +157,7 @@ struct Options {
     json: bool,
     events: bool,
     require_current: bool,
+    storage_profile: StorageProfile,
     progress: Mode,
 }
 
@@ -163,6 +170,7 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
         json: false,
         events: false,
         require_current: false,
+        storage_profile: StorageProfile::Balanced,
         progress: Mode::Auto,
     };
     let mut index = 0;
@@ -217,6 +225,10 @@ fn parse_options(args: &[String]) -> Result<Options, CliError> {
             }
             Some("--events") => {
                 options.events = true;
+                index = index.saturating_add(1);
+            }
+            Some("--compact") => {
+                options.storage_profile = StorageProfile::Compact;
                 index = index.saturating_add(1);
             }
             Some("--require-current") => {
@@ -319,7 +331,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
     while let Some(arg) = it.next() {
         if matches!(
             arg.as_str(),
-            "--json" | "--force" | "--require-current" | "--events"
+            "--json" | "--force" | "--require-current" | "--events" | "--compact"
         ) {
             option_args.push(arg.clone());
         } else if known_with_value.contains(&arg.as_str()) {
@@ -335,6 +347,11 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
         }
     }
     let options = parse_options(&option_args)?;
+    if matches!(options.storage_profile, StorageProfile::Compact) && command != "optimize-storage" {
+        return Err(CliError::Usage(
+            "--compact is only supported by optimize-storage".into(),
+        ));
+    }
     if options.events
         && (!matches!(
             command,
@@ -413,13 +430,15 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                 capture_probes: true,
             };
             if options.events {
-                let report =
-                    compiler::events::build(&request, command).map_err(
-                        |failure| match failure {
-                            compiler::events::Failure::Failed(error) => CliError::Failure(error),
-                            compiler::events::Failure::Cancelled => CliError::Interrupted,
-                        },
-                    )?;
+                let report = compiler::events::build(
+                    &request,
+                    command,
+                    matches!(options.storage_profile, StorageProfile::Compact),
+                )
+                .map_err(|failure| match failure {
+                    compiler::events::Failure::Failed(error) => CliError::Failure(error),
+                    compiler::events::Failure::Cancelled => CliError::Interrupted,
+                })?;
                 compiler::events::emit(&compiler::events::Event::Finished {
                     outcome: compiler::events::Outcome::Success,
                     report: Some(Box::new(report)),
@@ -430,6 +449,11 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
             let session = Session::start(options.progress)?;
             let result = match command {
                 "export-project" => compiler::distribution::export(&request),
+                "optimize-storage"
+                    if matches!(options.storage_profile, StorageProfile::Compact) =>
+                {
+                    super::storage::optimize_compact(&request)
+                }
                 "optimize-storage" => super::storage::optimize(&request),
                 "import-project" => compiler::distribution::recover(&request),
                 _ => compiler::build(&request),
@@ -491,13 +515,12 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                     force: false,
                     capture_probes: false,
                 };
-                let report =
-                    compiler::events::build(&request, "check-project").map_err(|failure| {
-                        match failure {
-                            compiler::events::Failure::Failed(error) => CliError::Failure(error),
-                            compiler::events::Failure::Cancelled => CliError::Interrupted,
-                        }
-                    })?;
+                let report = compiler::events::build(&request, "check-project", false).map_err(
+                    |failure| match failure {
+                        compiler::events::Failure::Failed(error) => CliError::Failure(error),
+                        compiler::events::Failure::Cancelled => CliError::Interrupted,
+                    },
+                )?;
                 compiler::events::emit(&compiler::events::Event::Finished {
                     outcome: compiler::events::Outcome::Success,
                     report: Some(Box::new(report)),

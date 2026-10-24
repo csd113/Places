@@ -477,11 +477,18 @@ fn project_index_and_cancellation_refuse_unsafe_or_partial_publication() -> Resu
             && !target.exists(),
         "cancellation must not publish source recovery"
     );
-    fixture.index.package_format = 2;
+    fixture.index.package_format = project::PROJECT_FORMAT_VERSION.saturating_add(1);
     let unsupported = fixture.write()?;
     assert!(
         project::inspect(&unsupported).is_err(),
         "unsupported versions require a real conversion, never a guessed upgrade"
+    );
+    // One tiny index write/read protects the newly supported transport revision.
+    fixture.index.package_format = project::PROJECT_FORMAT_VERSION;
+    let supported = fixture.write()?;
+    assert!(
+        project::inspect(&supported).is_ok(),
+        "the current transport revision is explicitly supported"
     );
     fixture.index.package_format = 1;
     let _unsafe_record = fixture

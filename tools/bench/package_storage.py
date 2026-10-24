@@ -13,6 +13,10 @@ import json
 from pathlib import Path
 import struct
 import zipfile
+import sys as _package_sys
+_package_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'levels'))
+from package_zip import PackageZip
+
 
 
 def strings(value):
@@ -27,7 +31,7 @@ def strings(value):
 
 
 def inspect(path):
-    with zipfile.ZipFile(path) as archive:
+    with PackageZip(path) as archive:
         infos = {entry.filename: entry for entry in archive.infolist()}
         if len(infos) != len(archive.infolist()):
             raise ValueError("duplicate archive names")

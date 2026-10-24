@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import unittest
 import zipfile
+from tools.levels.package_zip import PackageZip
 
 from tools.levels.curated_maps import level_views, lineup, project_manifest, source_levels
 
@@ -35,7 +36,7 @@ def package_files():
 
 def package_documents(path):
     """Read semantics through each project's virtual record view."""
-    with zipfile.ZipFile(path) as archive:
+    with PackageZip(path) as archive:
         for identity, records in level_views(archive):
             yield (identity, json.loads(archive.read(records['manifest.json'])),
                    json.loads(archive.read(records['semantics.json'])))
@@ -59,7 +60,7 @@ class BuiltMapTests(unittest.TestCase):
         sources = dict(selected_distributions())
         self.assertEqual(set(packages), set(sources), 'each curated distribution has exactly one package')
         for distribution_id, path in packages.items():
-            with self.subTest(distribution=distribution_id), zipfile.ZipFile(path) as archive:
+            with self.subTest(distribution=distribution_id), PackageZip(path) as archive:
                 names = archive.namelist()
                 verified = {}
                 views = level_views(archive)

@@ -10,12 +10,16 @@ import argparse
 import json
 from pathlib import Path
 import zipfile
+import sys as _package_sys
+_package_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'levels'))
+from package_zip import PackageZip
+
 
 
 def package_resources(package: Path) -> dict[str, dict]:
     """Expected bindings come from the real selected archive, including named fallback."""
     resources = {}
-    with zipfile.ZipFile(package) as archive:
+    with PackageZip(package) as archive:
         manifest = json.loads(archive.read("manifest.json"))
         for variant in manifest["variants"]:
             entries = variant["entries"]

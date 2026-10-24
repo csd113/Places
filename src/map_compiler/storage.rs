@@ -11,13 +11,32 @@ use crate::engine::package::manifest::Variant;
 /// semantics/source/provenance, and never prepares geometry or solves light.
 /// A new destination is required; cancellation cannot replace the usable input.
 pub(super) fn optimize(request: &super::BuildRequest) -> Result<super::BuildReport, String> {
+    optimize_with_level(request, 9)
+}
+
+/// Explicit slower lossless archive profile; preparation and layout selection
+/// stay identical to the balanced migration rather than repeating expensive
+/// searches with the high compression level.
+pub(super) fn optimize_compact(
+    request: &super::BuildRequest,
+) -> Result<super::BuildReport, String> {
+    optimize_with_level(request, 19)
+}
+
+fn optimize_with_level(
+    request: &super::BuildRequest,
+    compression: i64,
+) -> Result<super::BuildReport, String> {
     let scope = super::progress::BuildScope::start(&request.source, Some("storage migration"));
-    let result = optimize_inner(request);
+    let result = optimize_inner(request, compression);
     scope.finish(&result);
     result
 }
 
-fn optimize_inner(request: &super::BuildRequest) -> Result<super::BuildReport, String> {
+fn optimize_inner(
+    request: &super::BuildRequest,
+    compression: i64,
+) -> Result<super::BuildReport, String> {
     use crate::engine::package::{archive, project};
     let started = std::time::Instant::now();
     if request.out.symlink_metadata().is_ok() || request.out == request.source {
@@ -41,6 +60,7 @@ fn optimize_inner(request: &super::BuildRequest) -> Result<super::BuildReport, S
         let mut index = project::read_index(&mut reader)?;
         let mut spool = super::project_spool::ProjectSpool::new(&temporary)?;
         if let Some(project) = index.as_mut() {
+            project.package_format = project::PROJECT_FORMAT_VERSION;
             for source in project.sources.values_mut() {
                 *source =
                     spool.add_entry(&mut reader, source, &super::progress::check_cancelled)?;
@@ -67,18 +87,23 @@ fn optimize_inner(request: &super::BuildRequest) -> Result<super::BuildReport, S
                     .ok_or("Project member disappeared")?;
                 member.records = records;
             } else {
-                publish_ordinary(request, &original, records, spool)?;
+                publish_ordinary(request, &original, records, spool, compression)?;
                 return storage_report(request, started);
             }
         }
         let project = index.ok_or("Project index disappeared")?;
         let (entries, _) = super::distribution::package_entries(&project, spool, &temporary)?;
+        super::progress::stage(if compression == 19 {
+            "compressing compact archive"
+        } else {
+            "compressing archive"
+        });
         archive::write_project_archive_files_with_level_guarded(
             &request.out,
             entries,
             super::progress::check_cancelled,
             || check_unchanged(request, &original),
-            9,
+            compression,
         )?;
         storage_report(request, started)
     })();
@@ -97,6 +122,7 @@ fn publish_ordinary(
     original: &str,
     records: std::collections::BTreeMap<String, String>,
     spool: super::project_spool::ProjectSpool,
+    compression: i64,
 ) -> Result<(), String> {
     use crate::engine::package::archive;
     let entries = spool.into_entries();
@@ -118,12 +144,17 @@ fn publish_ordinary(
             })
         })
         .collect::<Result<Vec<_>, String>>()?;
+    super::progress::stage(if compression == 19 {
+        "compressing compact archive"
+    } else {
+        "compressing archive"
+    });
     archive::write_archive_files_with_level_guarded(
         &request.out,
         ordinary,
         super::progress::check_cancelled,
         || check_unchanged(request, original),
-        9,
+        compression,
     )?;
     Ok(())
 }
@@ -145,6 +176,13 @@ fn optimize_member(
         .map_err(|e| e.to_string())?;
     project::select(&mut selected, id)?;
     let mut manifest = super::read_manifest(&mut selected)?;
+    if !manifest
+        .required_capabilities
+        .iter()
+        .any(|capability| capability == "zip-zstd-v1")
+    {
+        manifest.required_capabilities.push("zip-zstd-v1".into());
+    }
     // Runtime admission is required, but its decoded world is not an input to
     // exact record factoring. Retire it before allocating migration buffers.
     drop(crate::engine::package::world::open_level(
@@ -180,11 +218,13 @@ fn optimize_member(
             }
         }
     }
+    let replaced_atlases = factor_lightmap_constants(&mut selected, &mut manifest, &mut blobs)?;
     factor_prepared_props_with_compression(&mut manifest.variants, &mut blobs, 9)?;
     let mut records = std::collections::BTreeMap::new();
-    manifest
-        .entries
-        .retain(|entry| !matches!(entry.role.as_str(), "props" | "props-shared"));
+    manifest.entries.retain(|entry| {
+        !matches!(entry.role.as_str(), "props" | "props-shared")
+            && !replaced_atlases.contains(&entry.name)
+    });
     for entry in &manifest.entries {
         let physical = spool.add_entry(
             &mut selected,
@@ -228,6 +268,47 @@ fn optimize_member(
         spool.add_bytes(&manifest.to_json()?)?,
     ));
     Ok((manifest, records))
+}
+
+/// Exact atlas wire compaction is independent from prepared prop factoring.
+fn factor_lightmap_constants(
+    selected: &mut crate::engine::package::PackageReader<std::fs::File>,
+    manifest: &mut crate::engine::package::Manifest,
+    blobs: &mut super::BlobMap,
+) -> Result<BTreeSet<String>, String> {
+    let atlas_names: BTreeSet<String> = manifest
+        .variants
+        .iter()
+        .filter_map(|variant| variant.entries.lightmaps.clone())
+        .collect();
+    let mut replaced_atlases = BTreeSet::new();
+    for name in atlas_names {
+        super::progress::check_cancelled()?;
+        let bytes = selected.read_blob(&name, crate::engine::package::MAX_LIGHTMAP_ATLAS_BYTES)?;
+        if !bytes.starts_with(b"PLC1") {
+            continue;
+        }
+        super::progress::stage(format!("exact constant lightmap storage: {}", manifest.id));
+        let repacked = crate::engine::package::compact_lightmaps::repack_constants(bytes)?;
+        let replacement = super::insert_blob(blobs, repacked, ".lightmaps.pllc", "lightmaps");
+        for variant in &mut manifest.variants {
+            if variant.entries.lightmaps.as_deref() == Some(name.as_str()) {
+                variant.entries.lightmaps = Some(replacement.clone());
+            }
+        }
+        let _replaced = replaced_atlases.insert(name);
+    }
+    if !replaced_atlases.is_empty()
+        && !manifest
+            .required_capabilities
+            .iter()
+            .any(|capability| capability == "lightmaps-compact-v2")
+    {
+        manifest
+            .required_capabilities
+            .push("lightmaps-compact-v2".into());
+    }
+    Ok(replaced_atlases)
 }
 
 fn check_unchanged(request: &super::BuildRequest, original: &str) -> Result<(), String> {
@@ -323,7 +404,7 @@ fn factor_prepared_props_with_compression(
     if stored_bytes >= original_bytes {
         return Ok(());
     }
-    let original_archive_bytes = deflated_entries_bytes(
+    let original_archive_bytes = compressed_entries_bytes(
         source_names
             .iter()
             .zip(&records)
@@ -398,7 +479,7 @@ fn prepared_props_archive_size(
                 .map(|bytes| blob_name(bytes, ".props.shared")),
         )
         .collect();
-    let shared = deflated_entries_bytes(
+    let shared = compressed_entries_bytes(
         shared_names
             .iter()
             .zip(factored.recipes.iter().chain(&factored.segments))
@@ -417,7 +498,7 @@ fn prepared_props_archive_size(
     Ok(proposed)
 }
 
-fn deflated_entries_bytes<'a>(
+fn compressed_entries_bytes<'a>(
     entries: impl IntoIterator<Item = (&'a str, &'a [u8])>,
     compression: i64,
 ) -> Result<u64, String> {
@@ -425,11 +506,7 @@ fn deflated_entries_bytes<'a>(
 
     let mut writer = zip::ZipWriter::new(ArchiveSizeCounter::default());
     for (name, bytes) in entries {
-        let options = zip::write::SimpleFileOptions::default()
-            .compression_method(zip::CompressionMethod::Deflated)
-            .compression_level(Some(compression))
-            .last_modified_time(zip::DateTime::default())
-            .unix_permissions(0o644);
+        let options = crate::engine::package::archive::file_options(name, compression);
         writer
             .start_file(name, options)
             .map_err(|error| format!("could not estimate prop entry '{name}': {error}"))?;

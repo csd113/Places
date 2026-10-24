@@ -96,7 +96,11 @@ pub(super) fn emit(event: &Event) -> Result<(), String> {
         .map_err(|error| format!("could not flush compiler event: {error}"))
 }
 
-pub(super) fn build(request: &BuildRequest, operation: &str) -> Result<BuildReport, Failure> {
+pub(super) fn build(
+    request: &BuildRequest,
+    operation: &str,
+    compact: bool,
+) -> Result<BuildReport, Failure> {
     emit(&Event::Started {
         protocol: PROTOCOL,
         source: request.source.display().to_string(),
@@ -135,6 +139,7 @@ pub(super) fn build(request: &BuildRequest, operation: &str) -> Result<BuildRepo
             "export-project" => super::distribution::export(request),
             "check-project" => super::distribution::check(request),
             "import-project" => super::distribution::recover(request),
+            "optimize-storage" if compact => super::storage::optimize_compact(request),
             "optimize-storage" => super::storage::optimize(request),
             _ => super::build(request),
         });
