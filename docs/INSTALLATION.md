@@ -1,4 +1,4 @@
-# Installation and paths (0.12.0 prerelease)
+# Installation and paths (0.13.0 staging)
 
 Ship the executable **and** its external `assets/` payload. Maps are optional:
 a complete installation starts with zero maps and opens Explore with import
@@ -40,7 +40,9 @@ stop the export before publication. Apple system frameworks remain OS-provided.
 The runtime license is found beside the installed SDL prefix; a nonstandard SDL
 installation can supply `PLACES_SDL_LICENSE=/absolute/path/LICENSE.txt`.
 This is a host-architecture export. Developer ID signing, notarization, native
-installers and Windows/Linux native acceptance remain deferred. Ad-hoc signing
+installers and Linux native acceptance remain deferred. Windows portable-player
+acceptance is documented below and does not establish clean-OS installer coverage.
+Ad-hoc signing
 does not grant Gatekeeper trust to downloaded software.
 The effective minimum macOS version is the highest deployment target declared
 by the executables and bundled SDL3; it is recorded in `MACOS_RUNTIME.json` and
@@ -54,8 +56,29 @@ for the tested scope and remaining limits.
 The [0.12.0 release report](reports/release-0.12.0.md) preserves the earlier
 distribution evidence. The [0.13.0 staging report](reports/release-0.13.0.md) records
 the current candidate, repaired gameplay paths and remaining limitations. Native
-Windows/Linux, clean-OS installers and downloaded Gatekeeper trust remain open;
+Linux, clean-OS installers and downloaded Gatekeeper trust remain open;
 successful installation is not exhaustive gameplay acceptance.
+
+## Windows portable game
+
+Extract the entire `Places-0.13.0-Windows.zip`, keep its `Places` folder together,
+and open `Places/places.exe`. The x64 player requires Windows and a Direct3D 12
+GPU. Rust, Python, the editor and the repository are not runtime dependencies.
+
+The game-only payload contains the EXE, `SDL3.dll`, `dxcompiler.dll`, `dxil.dll`,
+`msvcp140.dll`, `vcruntime140.dll`, `vcruntime140_1.dll`, runtime assets and six
+project packages: the nine-map Quiet Collection, Beam, Closing Time, Relay Annex,
+One Guest Too Many and The Shape of an Exit. Explore lists the project entries;
+the collection's doors reach its eight destinations. Leave **Lightmaps: Full**
+selected for this collection distribution. It does not supply a complete Static
+variant set; unsupported selections produce a named error rather than silently
+changing lighting quality.
+
+Writable data uses `%LOCALAPPDATA%\Places`; no writes belong in the extracted
+payload. The exact Windows validation scope, package hashes and remaining
+Mac/Linux and clean-OS gates are recorded in the
+[0.13.0 report](reports/release-0.13.0.md). This portable staging ZIP is separate
+from a native installer or a public release.
 
 ## macOS launch
 
@@ -128,15 +151,17 @@ Custom texture/model/sound importing is reserved, not implemented.
 | Linux/Unix | `${XDG_DATA_HOME:-~/.local/share}/places` | `${XDG_CONFIG_HOME:-~/.config}/places` | `${XDG_CACHE_HOME:-~/.cache}/places` |
 
 Data owns `levels/` (installed maps), `import/` (drop-in inbox), `projects/`
-(default authoring workspace), `saves/` (reserved persistent game data) and
+(default authoring workspace), `saves/` (collection completion receipts) and
 `diagnostics/`. Settings are `settings.json`
 under the settings directory. Projects may live elsewhere: a project root is an
 explicit authoring folder, never an inference from the resource or data root.
 
-The current player persists settings, installed packages and saved editor projects.
-Gameplay position, quest progress and moved objects are session-local; there is
-no gameplay save/load command or save format. `saves/` is reserved so future save
-data has a stable writable home, and first-run/relaunch never replace its files.
+The player persists settings, installed packages and saved editor projects.
+Quiet Collection favor completions also persist as small atomic JSON receipts
+under `saves/`, keyed to the installed package path. Rebuilding a package at the
+same path preserves those receipts. Player position and moved physics objects
+reset on a new visit; this is not a general world-state save/load system.
+First-run and relaunch preserve existing saves.
 The 0.13.0 player uses a dedicated bundled live-menu scene, independent of
 optional gameplay maps. A map-free install offers the live menu, empty Explore
 with import guidance, Settings and Credits. The exporter always includes the

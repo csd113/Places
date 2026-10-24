@@ -10,8 +10,9 @@ The [latest RAM handoff](#runtime-ram-phase-4---windows-2026-10-24) records
 substantial Lantern memory savings and the approved shared-geometry/automatic
 instancing stage before remaining runtime/editor work. The editor bake-progress
 bar and earlier accepted gains are retained. Earlier next-stage statements are
-historical cohort records; final combined acceptance is still pending, macOS FPS
-gains remain inconclusive and Linux remains unverified.
+historical cohort records. The [final combined Windows checkpoint](#final-combined-windows-validation-and-portable-package-2026-10-24)
+records the final portable-player checks and remaining performance limits.
+Mac/Metal validation of this final combination and Linux coverage remain open.
 
 
 ## Configurable Sun and Moon - native Windows, 2026-10-22
@@ -8300,3 +8301,194 @@ with clean extraction/user delivery are next, serialized after this writer relea
 Mac Metal remains a later user-mediated switch after Windows; no Mac/Linux native
 coverage is claimed. No main merge, release, version bump, CI wait, comparison video,
 four-sheet retry, public upload or friend outreach occurs in this phase.
+
+
+## Final combined Windows validation and portable package (2026-10-24)
+
+This sole-writer phase starts at remote-matching
+`d943bf6617fc4d7ac41812abe5670a0d7779cd9c` on `0.13.0-staging`.
+No production Rust, shader, map source, visual asset or menu event changed.
+All **485** Rust/shader file hashes match the accepted preceding phase. A fresh
+locked release rebuild supplies the final player SHA-256
+`a66d6ad4c266dfa161d3a7afa77ea461d068a5341cdb0d26b8044d48a4ec4fdb`; a rebuild is not claimed binary-identical to the earlier
+player. The final staging commit adds the installation/reconciliation report;
+exact local/remote identity is recorded in the local ownership handoff. The
+visible menu/Cargo version remains **0.12.0** pending the separately authorized
+final version bump; the 0.13.0 staging filename is not a public release tag.
+
+### Aggregate and native acceptance
+
+| Check | Final result |
+| --- | --- |
+| Format / strict Clippy / release | `cargo fmt --all --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo build --locked --release --workspace --all-features`: all exit 0. |
+| Rust | `cargo test --workspace`: **316 passed**, zero failed/ignored. No new tests or automatic map bakes. |
+| Assets | **629 assets / 389 placeable / 9 themes**, zero validator warnings; texture and prop checks pass with existing advisories retained. |
+| Targeted Python | Compiler benchmark, lightmap harness, native regression-map and package ZIP modules: **24 passed**. |
+| Broad Python | Not rerun in this phase. The accepted broader suite retains **8 failures + 9 errors = 17 baseline failures**, with 16 skips. No new broad-suite delta or full pass is asserted. |
+| Fresh Home favor | Ordinary keyboard movement, real cushion pickup/carry, caretaker hand.R attachment, whole-assembly occlusion retirement and completion save pass on the rebuilt player. |
+| Fresh Pool favor | Ordinary route, room door, actual duck pickup/release into water, upright flotation and completion save pass. Home then Pool produce the exact two completions in one real save. |
+| All-favors reward / restart | Real reward-room entry, Keeper dialog/repeat and restart retain the exact eight receipt bytes. This reuses the earlier eight ordinary native completions, rekeyed only by filename for the installed path; only Home/Pool were freshly earned here. No completion flags were inserted. |
+| Pressure / lifetime | CPU 1,024 MiB and GPU 768 MiB admission refusals preserve Home and the actual held cushion. These are policy-threshold tests, not physical-memory exhaustion or hardware calibration. |
+| Final extracted Full lifetime | CPU preparation cancel, GPU upload cancel, Office rollback/reuse, Full Lantern recovery, menu unload, reload from menu and final return pass. Noncurrent retired ownership, final retired ownership and pending work all reach zero. |
+| Package / play | All six project packages validate against staged assets. All **16** extracted levels reach Playing, render a native capture and accept ordinary movement input. Only exact authored Closing Time/Relay informational notices are allowed; no unexpected script diagnostics. Main menu opens Explore through normal keyboard input. |
+| Rendering controls | Final Full Lantern, normal versus separate-instance submissions: two image pairs exact. Five-bind-group fallback: campfire exact, street differs by one 8-bit step in two color channels of one pixel. Four pairs total at 1280x720 High/Full; not four bit-exact pairs. |
+
+Initial Home/Pool route misses and a wrong reward-dialog test expectation were
+corrected in the external acceptance harness, with failed receipts retained.
+The first 384 MiB GPU probe refused initial Home and was not a rollback test;
+the 768 MiB case exercised the intended refusal with an already-held cushion.
+The initial CPU action script exceeded the documented 60-second bound and did
+not exercise product behavior until corrected. A capture-only camera confused
+the spawn x/z/yaw syntax with xyz, and was corrected to the measured eye.
+An alpha-only image-bounds default was caught by the independent nonzero-channel
+count; final parity checks every RGBA channel. The two-channel one-step fallback
+difference is retained, not hidden as an exact match. An initial Python stdout
+decoder used the Windows code page for a Unicode path; explicit UTF-8 corrected
+the harness before game playback. These are not hidden passes.
+
+An **in-place Full Lantern reload** is refused by the unchanged default 2 GiB
+GPU admission policy: displayed **1,250,487,316** + incoming **1,215,073,300**
+charged bytes exceed **2,147,483,648**. The current scene remains usable and the
+message instructs return to menu before retrying. It is not a successful
+in-place reload. The first combined menu-input assertion after that modal also
+failed; a second attempt selected Settings because the pause selection correctly
+persists. Those receipts remain incomplete. The final ordinary-input script
+respects that retained selection. The final dedicated Full sequence
+uses the supported unload-to-menu/reload route and verifies ownership at both
+menu checkpoints. No budget/sheet bound was raised to force a pass.
+
+The exact staged EXE required interactive app approval. The first consent wait
+timed out without launching; after Connor confirmed approval, process/window
+checks established no prior instance and the one retry launched successfully.
+The desktop screenshot service then timed out; this attempt is not a visual
+pass. A normal targeted close succeeded. Native renderer captures, traces and
+ordinary-input playback supply the recorded visual/gameplay evidence.
+
+### Actual menu currency and retained optimizations
+
+The shipped menu remains **15,558,745 bytes**, SHA-256
+`bbb7cb766b5962d3c2f09b9cade186012500e4fe8213ca2ee0d71b665e3c660d`.
+Its typed LevelDef is identical to a current preparation after normalizing only
+the script's **252 CRLF** line endings to LF. Geometry, material/entity data and
+all seven event definitions match. The stale developer provenance flag is
+harmless metadata in this case, not evidence of stale menu content; no rebake
+or fingerprint patch is justified. The earlier exact decoded records and 19
+native image pairs remain accepted. The **8.61%** lossless saving is retained.
+
+Cold pipeline/input stalls remain about **2.4 s**. No bootstrap optimization was
+reopened. The accepted editor preview preparation of **0.560 s move, 0.544 s
+rotate and 1.435 s material** remains; cold Environment preparation remains about
+14.96 s. Accepted shared geometry/compatible instancing, bounded runtime uploads,
+two-sheet mip work, handoff protection and shader specialization are preserved.
+The historical Lantern **1,964 -> 865 MiB** settled-private and tree GPU-buffer
+**494.66 -> 81.55 MiB** measurements retain their original workload/cohort; they
+are not equated with a new Full-lighting load peak.
+
+### Representative uncapped performance, separate from latency
+
+Both binaries use the exact same completed Full package
+`cd86cf2920b929e6ff411d9d0a59558c5acba7a656fa9e4924c565384188d5a3` and assets on native Windows DX12 / RTX 3070 Laptop.
+Baseline player SHA is `caa80df645c3a994f701da5cc127fe5b78f353bbb75eda418e48c7a144b4584b`. These are final-cohort
+comparisons, not a new before/after isolation of every historical optimization.
+All runs confirm actual **Immediate**, VSync off, no frame limiter/fixed delta,
+no readback and **2560x1440 physical drawable**, with native focus true.
+Refresh is 165 Hz; timings vary away from refresh multiples, without a refresh
+plateau. The initial Lantern pair overlapped asset auditing/staging and is
+retained as exploratory warmup, excluded from the comparison below. The two
+remaining interleaved Lantern pairs use medians; other cases are single pairs.
+
+| View | Pairs | FPS before -> final | Loop p95 ms | GPU pass union mean ms | Request-to-ready seconds |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| lantern/fixed | 2 | 46.59 -> 47.36 | 25.759 -> 26.069 | 20.897 -> 20.395 | 12.678 -> 12.928 |
+| lantern/campfire | 2 | 71.21 -> 72.88 | 22.797 -> 22.459 | 12.071 -> 11.398 | 12.678 -> 12.928 |
+| arcade/fixed | 1 | 89.44 -> 89.93 | 12.367 -> 13.154 | 10.622 -> 10.529 | 7.453 -> 7.373 |
+| pool/fixed | 1 | 97.93 -> 97.64 | 18.747 -> 18.654 | 9.184 -> 9.179 | 7.565 -> 7.706 |
+| home/fixed | 1 | 76.06 -> 76.92 | 29.052 -> 28.969 | 10.716 -> 10.571 | 3.951 -> 4.104 |
+
+The small FPS differences and mixed tails/latency do not establish statistical
+significance or universal improvement. Lantern's larger Full workload differs
+from the historical Off-lighting cohort. Peak process commit (not settled RAM
+or GPU memory) is roughly **2,468 -> 2,456 MiB** for the retained Lantern pair
+medians, **1,862 -> 1,829 MiB** Arcade, **991.6 -> 991.8 MiB** Pool and
+**818.7 -> 815.3 MiB** Home. Request-to-first-scene, CPU update/render, swap,
+p95/p99, individual repeats and memory samples remain separate in the raw
+receipts. The strict zero-regression criterion is **not passed**: earlier
+Lantern readiness +77 ms, Pool +8 ms / +1.2 MiB and mixed campfire evidence remain
+dated residuals, and this final sample also has slower readiness in three views.
+No speculative optimization, quality reduction or four-sheet trial is added.
+
+### Portable Windows distribution
+
+The inspected diagnostic collection had no common lighting variant across all
+nine maps. Normal compiler exports added missing **Full** variants for Office,
+Lantern, Winter and Aero; the five existing Full members are retained. Prepared
+semantics match the original maps after script EOL normalization. Source
+snapshots, all compiler records, dependency identities and provenance survive;
+no stale fingerprint was made current by editing metadata. Full transport ran
+only for the missing distribution variants, outside tests/CI, not as a new
+compiler performance campaign. The composed archive validates with zero
+warnings; lossless storage parity is exact for every member. Collection bytes
+are **389,366,309 -> 376,847,263** through lossless storage. Comparing the new
+Full collection with the smaller mixed-quality diagnostic input is not a
+matched-content size comparison.
+
+`Places-0.13.0-Windows.zip` contains one game EXE, six app-local DLLs (SDL3,
+DXC/DXIL and the three required Microsoft VC runtime libraries), runtime assets,
+licenses and six projects: Quiet Collection (9), Beam (1), Closing Time (1),
+Relay Annex (3), One Guest Too Many (1), Shape of an Exit (1). **Lightmaps Full**
+is required across the collection; the package does not contain a complete
+Static variant set. This limitation is explicit in the README/installation
+instructions. No game mode, level, texture quality or approved event was removed.
+Explore has eight visible entries because all three Relay Annex sections are
+exposed by its existing project metadata; the collection exposes only Hub.
+
+The ordinary Deflate ZIP has **978 files**, unpacked
+logical size **714,834,103 bytes**, archive size
+**658,523,027 bytes**, SHA-256 `9e39f4be4d36c4f446054f19cd1a4e65e8204316ec89b24c3e30239d21b5c97c`.
+Every ZIP CRC and every extracted file hash matches. Extraction is outside the
+repository in a path containing spaces and a non-ASCII character. `--paths`
+resolves sibling assets and isolated normal user folders from an unrelated
+working directory; child PATH contains only Windows system directories. Native
+module enumeration confirms all six runtime DLLs load from the extracted
+folder. Rust, Python, compiler and editor are absent from the payload and child
+PATH; the external QA harness is not a runtime dependency. All payload hashes
+remain unchanged after play. Source artwork/masters, editor assets/tools,
+symbols, repository files, logs, scratch evidence and QA saves are excluded.
+
+Library delivery status: **blocked: supported prepared-upload helper reports prepare_uploads unavailable**. Private Library identity and
+delivery receipts stay in the local handoff, not this public repository report.
+No friend was contacted and no public release/upload was created.
+
+### Reconciliation, cleanup and remaining gates
+
+Issues #25 and #26 were already closed. #17, #18, #21, #24 and #27-#31 receive
+precise completed-Windows/remaining-scope reconciliation and stay open where
+their compound criteria remain incomplete. #24's ordinary sheet ghost and six
+review-only modular rail/fence paths remain pending. #31's requested video/
+montage criterion is removed following Connor's cancellation. #14/#15 retain
+their 0.14 scope untouched. No extra architecture or asset adoption was added
+to manufacture umbrella-issue closure.
+
+After native/build users of `target` end, final binaries, compiler/repacker,
+package and minimal useful evidence are preserved outside it and rehashed.
+With `target` absent, a final preserved/extracted Home launch, native capture
+and ordinary movement pass again using Windows-only PATH and sibling assets.
+The ZIP, extracted payload and preserved tool hashes match after cleanup.
+Cargo cleanup records **Removed 6224 files, 6.9GiB total**, with actual
+Cargo free-space change **6,968,594,432 bytes**.
+Checked task-owned redundant staging/helper removal and lossless evidence
+compression change free space by another **1,827,991,552 bytes**, for **8,796,585,984 bytes** total observed
+recovery. Detailed paths and per-file hashes are in `cleanup.json`. Existing
+recovery evidence and unrelated work remain. No comparison recordings, power
+changes, clock/charger/driver investigation or denied four-sheet retry occurs.
+
+Raw receipts are under
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-24/task-6/final-windows-evidence`;
+the local `windows-validation-0.13.0/final/ownership-handoff.json` records final
+commit/remote identity, payload/delivery hashes, cleanup and explicit writer
+release. Native clean-OS Windows/installer/download trust, long-session and
+hardware-budget calibration, unresolved strict resource/tail criteria, final
+combined **Mac/Metal**, and **Linux** remain open. This Windows staging push
+does not wait for CI, merge main, publish a release, bump the version or claim
+the final cross-platform version gate. The parent coordinates the later
+user-mediated Mac switch after Windows custody is safely released.
