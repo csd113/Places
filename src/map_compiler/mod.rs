@@ -1602,7 +1602,7 @@ fn build_variant(
                             .collect::<Vec<_>>(),
                     );
                     crate::engine::render::relight_blend_decals(
-                        &mut build.mesh,
+                        Arc::make_mut(&mut build.mesh),
                         level,
                         catalog.assets(),
                         &build.lighting,
@@ -1625,14 +1625,14 @@ fn build_variant(
                 // The runtime contract falls back to the vertex-lit build with
                 // the same baked lighting when an atlas cannot be produced.
                 lightmap_failure = Some(failure.name().to_string());
-                build.mesh = rebuild_vertex_lit_level(
+                build.mesh = Arc::new(rebuild_vertex_lit_level(
                     level,
                     catalog,
                     assets,
                     materials,
                     &build.lighting,
                     &mut build.batches,
-                );
+                ));
                 build.lightmaps = None;
                 build.lightmap_failure = Some(failure);
                 warnings.push(format!(
@@ -1753,8 +1753,7 @@ fn build_variant(
     // same variant directly into capture with its historical capture state;
     // at most one prepared variant is retained, and the atlas is never copied.
     if let Some(colours) = capture_colours {
-        for (vertex, colour) in build
-            .mesh
+        for (vertex, colour) in Arc::make_mut(&mut build.mesh)
             .ranges
             .iter_mut()
             .flat_map(|range| range.vertices.iter_mut())

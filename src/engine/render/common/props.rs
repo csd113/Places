@@ -153,11 +153,11 @@ impl BatchBuilder {
                     indices: Vec::new(),
                 })
                 .collect(),
-            vertices: Vec::with_capacity(model.vertices.len()),
+            vertices: Vec::new(),
             bounds: crate::engine::spatial::Aabb::EMPTY,
             index_count: 0,
             lighting_sources: lighting_sources(&model.vertices),
-            sampled_light: Vec::with_capacity(model.vertices.len()),
+            sampled_light: Vec::new(),
         }
     }
 
@@ -673,28 +673,7 @@ pub fn resolve_prop_instances<'a>(
         lighting,
         surfaces,
         materials,
-        PropLightingMode::Vertex,
-    )
-}
-
-/// Inspect overwrites every resulting RGB; preserve topology, source albedo,
-/// normal frames, batching and fallback admission.
-pub fn resolve_prop_instances_preview<'a>(
-    level: &'a LevelDef,
-    catalog: &crate::engine::loader::PropCatalog,
-    assets: &mut crate::engine::props::PropAssets,
-    lighting: &LevelLighting,
-    surfaces: &LevelSurfaces<'_>,
-    materials: &crate::engine::materials::MaterialTable,
-) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
-    resolve_prop_instances_inner(
-        level,
-        catalog,
-        assets,
-        lighting,
-        surfaces,
-        materials,
-        PropLightingMode::Preview,
+        (PropLightingMode::Vertex, None),
     )
 }
 
@@ -716,7 +695,7 @@ pub(super) fn resolve_prop_fallbacks<'a>(
         lighting,
         surfaces,
         materials,
-        PropLightingMode::Deferred,
+        (PropLightingMode::Deferred, None),
     )
 }
 
@@ -738,7 +717,114 @@ pub fn resolve_prop_instances_lightmapped<'a>(
         lighting,
         surfaces,
         materials,
-        PropLightingMode::Lightmap(plan),
+        (PropLightingMode::Lightmap(plan), None),
+    )
+}
+
+struct PlannedInstance {
+    model: glam::Mat4,
+    asset: Arc<crate::engine::props::LoadedPropAsset>,
+    bounds: crate::engine::spatial::Aabb,
+    tint: Option<[f32; 3]>,
+    identity: Option<serde_json::Value>,
+}
+struct PlannedBatch {
+    builder: BatchBuilder,
+    instances: Vec<PlannedInstance>,
+    vertex_count: usize,
+    deferred: bool,
+}
+impl PlannedBatch {
+    fn new(
+        builder: BatchBuilder,
+        model: &crate::engine::gltf::PropModel,
+        vertex_lit: bool,
+    ) -> Self {
+        Self {
+            builder,
+            instances: Vec::new(),
+            vertex_count: 0,
+            deferred: vertex_lit && model.vertices.iter().all(|vertex| vertex.normal.is_some()),
+        }
+    }
+    fn has_room_for(&self, model: &crate::engine::gltf::PropModel, lightmapped: bool) -> bool {
+        self.vertex_count
+            .saturating_add(instance_vertex_count(model, lightmapped))
+            <= crate::engine::spatial::MAX_INDEX_VERTICES
+    }
+}
+
+fn preview_instance_identity(
+    prop: &PropDef,
+    model: &glam::Mat4,
+    tint: Option<[f32; 3]>,
+    materials: &crate::engine::materials::MaterialTable,
+) -> Option<serde_json::Value> {
+    let mut overrides = Vec::new();
+    for id in prop.material_overrides.values() {
+        let mut material = materials.entry_of(id)?.clone();
+        let texture_keys: Vec<_> = std::iter::once(Some(material.texture_index))
+            .chain([
+                material.response.normal,
+                material.emission.mask,
+                material.response.fluorescence.mask,
+            ])
+            .flatten()
+            .map(|index| {
+                materials
+                    .textures()
+                    .get(usize::try_from(index).unwrap_or(usize::MAX))
+                    .map(|texture| &texture.key)
+            })
+            .collect();
+        material.image = None;
+        overrides
+            .push(serde_json::json!({"material":format!("{material:?}"),"textures":texture_keys}));
+    }
+    Some(
+        serde_json::json!({"prop":serde_json::to_value(prop).ok()?,"matrix":model.to_cols_array().map(f32::to_bits),"tint":tint.map(|value|value.map(f32::to_bits)),"materials":overrides}),
+    )
+}
+fn preview_batch_identity(batch: &PlannedBatch) -> String {
+    if !batch.deferred {
+        return String::new();
+    }
+    let Some(instances) = batch
+        .instances
+        .iter()
+        .map(|instance| instance.identity.as_ref())
+        .collect::<Option<Vec<_>>>()
+    else {
+        return String::new();
+    };
+    serde_json::to_string(&serde_json::json!({"model":batch.builder.model,"control":batch.builder.light_control,"casts":batch.builder.casts_static_lighting,"instances":instances})).unwrap_or_default()
+}
+
+pub(super) fn resolve_prop_instances_cached<'a>(
+    level: &'a LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    lighting: &LevelLighting,
+    surfaces: &LevelSurfaces<'_>,
+    materials: &crate::engine::materials::MaterialTable,
+    options: (bool, &mut super::preview_cache::PropReuse<'_>),
+) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
+    let (neutral, reuse) = options;
+    resolve_prop_instances_inner(
+        level,
+        catalog,
+        assets,
+        lighting,
+        surfaces,
+        materials,
+        (
+            if neutral {
+                PropLightingMode::Preview
+            } else {
+                PropLightingMode::Vertex
+            },
+            Some(reuse),
+        ),
     )
 }
 
@@ -780,14 +866,18 @@ fn resolve_prop_instances_inner<'a>(
     lighting: &LevelLighting,
     surfaces: &LevelSurfaces<'_>,
     materials: &crate::engine::materials::MaterialTable,
-    mode: PropLightingMode<'_>,
+    options: (
+        PropLightingMode<'_>,
+        Option<&mut super::preview_cache::PropReuse<'_>>,
+    ),
 ) -> (Vec<PropMeshBatch>, Vec<&'a PropDef>) {
     use std::collections::{HashMap, HashSet};
 
+    let (mode, reuse) = options;
     let (mut plan, defer_static_lighting, neutral) = mode.into_options();
     let grid = spatial_cell_grid(level);
     let claimed = super::character::claimed_character_models(level, catalog, assets);
-    let mut builders: Vec<BatchBuilder> = Vec::new();
+    let mut builders: Vec<PlannedBatch> = Vec::new();
     // Variants share decoded input images; each material combination is built
     // once during preparation and receives its own compatible draw ranges.
     let mut variants = PropVariantCache::new();
@@ -803,31 +893,17 @@ fn resolve_prop_instances_inner<'a>(
         if prop.shadow_only || prop.float.is_some() || prop.is_physics_movable() {
             continue;
         }
-        let Some(model_path) = catalog.get(&prop.model).model else {
+        let Some((model_path, variant_key, asset)) = resolve_admitted_prop(
+            prop,
+            catalog,
+            assets,
+            materials,
+            &mut variants,
+            (busy_vertices, &models_seen),
+        ) else {
             fallbacks.push(prop);
             continue;
         };
-        if busy_vertices >= crate::engine::level::MAX_LEVEL_PROP_VERTICES {
-            fallbacks.push(prop);
-            continue;
-        }
-        let variant_key = (model_path.clone(), prop.material_overrides.clone());
-        let asset = match resolve_placed_asset(prop, &variant_key, assets, materials, &mut variants)
-        {
-            Ok(asset) => asset,
-            Err(error) => {
-                assets.report_failure(&model_path, &error);
-                fallbacks.push(prop);
-                continue;
-            }
-        };
-        if !models_seen.contains(&model_path)
-            && models_seen.len() >= crate::engine::level::MAX_LEVEL_PROP_MODELS
-        {
-            fallbacks.push(prop);
-            continue;
-        }
-
         // A prop's authored `y` is an offset above the local walkable floor, so
         // a chair in an elevated room or a recessed region lands on the surface
         // it was placed against.
@@ -868,7 +944,7 @@ fn resolve_prop_instances_inner<'a>(
                     fallbacks.push(prop);
                     continue;
                 }
-                builders.push(builder);
+                builders.push(PlannedBatch::new(builder, &asset.model, plan.is_none()));
                 let index = builders.len().saturating_sub(1);
                 let _previous_value = index_by_batch.insert(key.clone(), index);
                 index
@@ -878,19 +954,25 @@ fn resolve_prop_instances_inner<'a>(
             fallbacks.push(prop);
             continue;
         };
-        builder.push_resolved_instance(
-            &model,
-            &asset,
-            lighting,
-            plan.as_deref_mut(),
-            &instance_bounds,
-            (defer_static_lighting, neutral, catalog.tint(&prop.model)),
-        );
         busy_vertices =
             busy_vertices.saturating_add(instance_vertex_count(&asset.model, lightmapped));
+        builder.append(
+            (prop, materials),
+            (model, asset, instance_bounds),
+            lighting,
+            plan.as_deref_mut(),
+            (defer_static_lighting, neutral, catalog.tint(&prop.model)),
+            reuse.is_some(),
+        );
     }
 
-    let mut batches: Vec<_> = builders.into_iter().map(BatchBuilder::finish).collect();
+    let mut batches = finish_planned_batches(
+        builders,
+        lighting,
+        plan.as_deref_mut(),
+        (defer_static_lighting, neutral),
+        reuse,
+    );
     batches.extend(resolve_fixture_model_instances(
         level,
         catalog,
@@ -1432,3 +1514,120 @@ fn report_fixture_budget(model_path: &str) {
 #[cfg(test)]
 #[path = "../../tests/preview_neutral.rs"]
 mod preview_neutral_tests;
+
+fn resolve_admitted_prop(
+    prop: &PropDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    materials: &crate::engine::materials::MaterialTable,
+    variants: &mut PropVariantCache,
+    budget: (usize, &std::collections::HashSet<String>),
+) -> Option<(
+    String,
+    PropVariantKey,
+    Arc<crate::engine::props::LoadedPropAsset>,
+)> {
+    let model_path = catalog.get(&prop.model).model?;
+    if budget.0 >= crate::engine::level::MAX_LEVEL_PROP_VERTICES {
+        return None;
+    }
+    let variant_key = (model_path.clone(), prop.material_overrides.clone());
+    let asset = match resolve_placed_asset(prop, &variant_key, assets, materials, variants) {
+        Ok(asset) => asset,
+        Err(error) => {
+            assets.report_failure(&model_path, &error);
+            return None;
+        }
+    };
+    if !budget.1.contains(&model_path)
+        && budget.1.len() >= crate::engine::level::MAX_LEVEL_PROP_MODELS
+    {
+        return None;
+    }
+
+    Some((model_path, variant_key, asset))
+}
+
+impl PlannedBatch {
+    fn append(
+        &mut self,
+        source: (&PropDef, &crate::engine::materials::MaterialTable),
+        placement: (
+            glam::Mat4,
+            Arc<crate::engine::props::LoadedPropAsset>,
+            crate::engine::spatial::Aabb,
+        ),
+        lighting: &LevelLighting,
+        plan: Option<&mut crate::engine::lighting::lightmap::LightmapPlan>,
+        options: (bool, bool, Option<[f32; 3]>),
+        cache: bool,
+    ) {
+        let (prop, materials) = source;
+        let (model, asset, instance_bounds) = placement;
+        let (defer_static_lighting, neutral, tint) = options;
+        let lightmapped = plan.is_some()
+            && !asset.model.is_animatable()
+            && !dense_large_model(&asset.model, &instance_bounds);
+        if self.deferred {
+            let identity = if cache {
+                preview_instance_identity(prop, &model, tint, materials)
+            } else {
+                None
+            };
+            self.vertex_count = self
+                .vertex_count
+                .saturating_add(instance_vertex_count(&asset.model, lightmapped));
+            self.instances.push(PlannedInstance {
+                model,
+                asset,
+                bounds: instance_bounds,
+                tint,
+                identity,
+            });
+        } else {
+            // Missing normals and lightmap slivers can emit fewer vertices than
+            // the source count. Preserve their original streaming admission and
+            // never infer a reusable layout from the upper-bound reservation.
+            self.builder.push_resolved_instance(
+                &model,
+                &asset,
+                lighting,
+                plan,
+                &instance_bounds,
+                (defer_static_lighting, neutral, tint),
+            );
+            self.vertex_count = self.builder.vertices.len();
+        }
+    }
+}
+
+fn finish_planned_batches(
+    builders: Vec<PlannedBatch>,
+    lighting: &LevelLighting,
+    mut plan: Option<&mut crate::engine::lighting::lightmap::LightmapPlan>,
+    options: (bool, bool),
+    mut reuse: Option<&mut super::preview_cache::PropReuse<'_>>,
+) -> Vec<PropMeshBatch> {
+    let (defer_static_lighting, neutral) = options;
+    let mut batches = Vec::with_capacity(builders.len());
+    for mut planned in builders {
+        let key = preview_batch_identity(&planned);
+        let reused = reuse.as_deref_mut().and_then(|cache| cache.batch(key));
+        if let Some(batch) = reused {
+            batches.push(batch);
+            continue;
+        }
+        for instance in planned.instances {
+            planned.builder.push_resolved_instance(
+                &instance.model,
+                &instance.asset,
+                lighting,
+                plan.as_deref_mut(),
+                &instance.bounds,
+                (defer_static_lighting, neutral, instance.tint),
+            );
+        }
+        batches.push(planned.builder.finish());
+    }
+    batches
+}

@@ -480,6 +480,7 @@ pub struct LevelMeshRange {
 /// time. `batches` still carries the per-material aggregate so tests, the
 /// lighting audit and the developer log keep asking "how much wall did this
 /// level generate" in the same units as before (indices, six per quad).
+#[derive(Clone)]
 pub struct LevelMesh {
     pub ranges: Vec<LevelMeshRange>,
     pub batches: LevelMeshBatches,

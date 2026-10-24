@@ -279,7 +279,7 @@ pub struct StaticLightState {
 /// asked for `Off` has both `None` and is the historical vertex-lit level,
 /// byte for byte.
 pub struct LevelBuild {
-    pub mesh: LevelMesh,
+    pub mesh: Arc<LevelMesh>,
     pub batches: Vec<PropMeshBatch>,
     pub static_light_off: Option<Arc<StaticLightState>>,
     pub lighting: LevelLighting,
@@ -335,7 +335,7 @@ impl LevelBuild {
                 }
             }
         }
-        let architecture = std::iter::once(&self.mesh)
+        let architecture = std::iter::once(self.mesh.as_ref())
             .chain(self.static_light_off.iter().map(|state| &state.mesh))
             .flat_map(|mesh| &mesh.ranges)
             .fold(0_usize, |bytes, range| {
@@ -368,6 +368,8 @@ impl LevelBuild {
     #[must_use]
     pub fn retained_bytes(&self) -> usize {
         let mut bytes = std::mem::size_of::<Self>()
+            .saturating_add(std::mem::size_of::<LevelMesh>())
+            .saturating_add(std::mem::size_of::<usize>().saturating_mul(2))
             .saturating_add(std::mem::size_of::<usize>().saturating_mul(2))
             .saturating_add(allocation_bytes(&self.mesh.ranges))
             .saturating_add(allocation_bytes(&self.batches))
@@ -526,19 +528,28 @@ fn authoring_preview(
     materials: &MaterialTable,
     neutral: bool,
 ) -> LevelBuild {
-    authoring_preview_parts(level, catalog, assets, materials, neutral, false, None).0
+    authoring_preview_parts(
+        level,
+        catalog,
+        assets,
+        materials,
+        neutral,
+        false,
+        super::preview_cache::PreviewReuse::default(),
+    )
+    .0
 }
 
-/// Reuses unchanged Inspect prop batches and avoids lighting overwritten RGB.
+/// Reuses immutable editor parts only after their exact dependencies match.
 pub fn build_authoring_preview_reusing(
     level: &LevelDef,
     catalog: &crate::engine::loader::PropCatalog,
     assets: &mut crate::engine::props::PropAssets,
     materials: &MaterialTable,
     neutral: bool,
-    batches: Option<&[PropMeshBatch]>,
-) -> (LevelBuild, bool) {
-    authoring_preview_parts(level, catalog, assets, materials, neutral, true, batches)
+    reuse: super::preview_cache::PreviewReuse<'_>,
+) -> (LevelBuild, bool, super::preview_cache::PreviewDependencies) {
+    authoring_preview_parts(level, catalog, assets, materials, neutral, true, reuse)
 }
 
 fn authoring_preview_parts(
@@ -548,18 +559,38 @@ fn authoring_preview_parts(
     materials: &MaterialTable,
     neutral: bool,
     optimize: bool,
-    reused: Option<&[PropMeshBatch]>,
-) -> (LevelBuild, bool) {
+    reuse: super::preview_cache::PreviewReuse<'_>,
+) -> (LevelBuild, bool, super::preview_cache::PreviewDependencies) {
     let started = std::time::Instant::now();
     let lighting = LevelLighting::bake(level);
     let lighting_millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
+    let mut lighting_record = crate::engine::package::binary::Writer::new();
+    let record_valid = lighting
+        .write_preview_identity(&mut lighting_record)
+        .is_ok();
+    let equivalent_lighting = record_valid
+        && reuse
+            .previous
+            .is_some_and(|(_, old)| old.lighting == lighting_record.as_slice());
+    let mut prop_reuse = super::preview_cache::PropReuse::new(
+        reuse
+            .previous
+            .filter(|_| neutral || equivalent_lighting)
+            .map(|(build, old)| (old.batches.as_slice(), build.batches.as_slice())),
+    );
     let surfaces = LevelSurfaces::new(level);
     let props_started = std::time::Instant::now();
-    let (mut batches, fallbacks) = reused.map_or_else(
+    let (mut batches, fallbacks) = reuse.inspect.map_or_else(
         || {
-            if neutral && optimize {
-                super::props::resolve_prop_instances_preview(
-                    level, catalog, assets, &lighting, &surfaces, materials,
+            if optimize {
+                super::props::resolve_prop_instances_cached(
+                    level,
+                    catalog,
+                    assets,
+                    &lighting,
+                    &surfaces,
+                    materials,
+                    (neutral, &mut prop_reuse),
                 )
             } else {
                 resolve_prop_instances(level, catalog, assets, &lighting, &surfaces, materials)
@@ -570,40 +601,41 @@ fn authoring_preview_parts(
     let complete_props = fallbacks.is_empty();
     let props_millis = props_started.elapsed().as_secs_f64() * 1_000.0_f64;
     let surfaces_started = std::time::Instant::now();
-    let mut mesh = build_level_geometry_mesh_with_fixture_models(
-        level, catalog, &fallbacks, &lighting, materials, None, &batches,
+    let reusable_mesh = reuse.previous.filter(|(build, _)| {
+        equivalent_lighting
+            && reuse.same_architecture
+            && complete_props
+            && fixture_model_identity(&batches, level.ceiling_lights.len())
+                == fixture_model_identity(&build.batches, level.ceiling_lights.len())
+    });
+    let reused_mesh = reusable_mesh.is_some();
+    let mut mesh = reusable_mesh.map_or_else(
+        || {
+            Arc::new(build_level_geometry_mesh_with_fixture_models(
+                level, catalog, &fallbacks, &lighting, materials, None, &batches,
+            ))
+        },
+        |(build, _)| Arc::clone(&build.mesh),
     );
     let timings = BuildTimings {
         lighting_millis,
         props_millis,
         surfaces_millis: surfaces_started.elapsed().as_secs_f64() * 1_000.0,
     };
-    // A cutaway inspection view retains roof ownership for walls and fixtures,
-    // while omitting only the ceiling draw ranges from the editor's GPU copy.
-    mesh.ranges
-        .retain(|range| range.key.kind != super::SurfaceKind::Ceiling);
-    mesh.vertex_count = mesh.ranges.iter().map(|range| range.vertices.len()).sum();
-    mesh.index_count = mesh.ranges.iter().map(|range| range.indices.len()).sum();
-    mesh.batches.ceiling_batch = super::BatchRange::default();
-    if neutral {
-        for range in &mut mesh.ranges {
-            illuminate_preview_vertices(&mut range.vertices);
-        }
-        if reused.is_none() {
-            for batch in &mut batches {
-                illuminate_preview_vertices(batch.vertices.make_mut().as_mut_slice());
-            }
-        }
-    }
-    if let Err(error) = super::canonical_props::share_canonical_props(
-        &mut batches,
+    finish_authoring_preview(
         level,
         catalog,
         assets,
         &lighting,
-    ) {
-        crate::engine::logging::info(format_args!("[props] preview sharing interrupted: {error}"));
-    }
+        &mut mesh,
+        &mut batches,
+        PreviewFinish {
+            neutral,
+            reused_mesh,
+            inspect_props: reuse.inspect.is_some(),
+            reused_indices: &prop_reuse.reused_indices,
+        },
+    );
     (
         LevelBuild {
             mesh,
@@ -617,7 +649,80 @@ fn authoring_preview_parts(
             lightmap_millis: 0.0,
         },
         complete_props,
+        super::preview_cache::finish_dependencies(
+            reuse,
+            record_valid.then(|| lighting_record.into_bytes()),
+            prop_reuse,
+            (reused_mesh, equivalent_lighting),
+        ),
     )
+}
+
+fn fixture_model_identity(batches: &[PropMeshBatch], count: usize) -> Vec<(&str, Option<u32>)> {
+    batches
+        .iter()
+        .filter(|batch| {
+            batch
+                .light_control
+                .is_some_and(|index| usize::try_from(index).is_ok_and(|ordinal| ordinal < count))
+        })
+        .map(|batch| (batch.model.as_str(), batch.light_control))
+        .collect()
+}
+
+#[derive(Clone, Copy)]
+struct PreviewFinish<'a> {
+    neutral: bool,
+    reused_mesh: bool,
+    inspect_props: bool,
+    reused_indices: &'a [usize],
+}
+fn finish_authoring_preview(
+    level: &LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    lighting: &LevelLighting,
+    mesh: &mut Arc<LevelMesh>,
+    batches: &mut [PropMeshBatch],
+    options: PreviewFinish<'_>,
+) {
+    // A cutaway inspection view retains roof ownership for walls and fixtures,
+    // while omitting only the ceiling draw ranges from the editor's GPU copy.
+    if !options.reused_mesh {
+        let editable_mesh = Arc::make_mut(mesh);
+        editable_mesh
+            .ranges
+            .retain(|range| range.key.kind != super::SurfaceKind::Ceiling);
+        editable_mesh.vertex_count = editable_mesh
+            .ranges
+            .iter()
+            .map(|range| range.vertices.len())
+            .sum();
+        editable_mesh.index_count = editable_mesh
+            .ranges
+            .iter()
+            .map(|range| range.indices.len())
+            .sum();
+        editable_mesh.batches.ceiling_batch = super::BatchRange::default();
+        if options.neutral {
+            for range in &mut editable_mesh.ranges {
+                illuminate_preview_vertices(&mut range.vertices);
+            }
+        }
+    }
+    if options.neutral && !options.inspect_props {
+        // Cached prop batches already contain their final studio colours.
+        for (index, batch) in batches.iter_mut().enumerate() {
+            if !options.reused_indices.contains(&index) {
+                illuminate_preview_vertices(batch.vertices.make_mut().as_mut_slice());
+            }
+        }
+    }
+    if let Err(error) =
+        super::canonical_props::share_canonical_props(batches, level, catalog, assets, lighting)
+    {
+        crate::engine::logging::info(format_args!("[props] preview sharing interrupted: {error}"));
+    }
 }
 
 pub(super) fn illuminate_preview_vertices(vertices: &mut [super::Vertex]) {
@@ -962,7 +1067,7 @@ pub fn prepare_level_geometry_with_lightmaps(
 
     let mut build = LevelBuild {
         static_light_off: None,
-        mesh,
+        mesh: Arc::new(mesh),
         batches,
         lighting,
         timings: BuildTimings {
@@ -1060,7 +1165,7 @@ pub fn prepare_level_geometry_with_lightmaps(
             &surfaces,
             materials,
         );
-        build.mesh = build_level_geometry_mesh_with_fixture_models(
+        build.mesh = Arc::new(build_level_geometry_mesh_with_fixture_models(
             level,
             catalog,
             &fallbacks,
@@ -1068,7 +1173,7 @@ pub fn prepare_level_geometry_with_lightmaps(
             materials,
             None,
             &build.batches,
-        );
+        ));
         build.timings.surfaces_millis += elapsed_millis(fallback_started);
     }
 
@@ -1186,7 +1291,7 @@ pub fn build_level_geometry_timed_with_lightmaps(
             // `relight_blend_decals`). Cut-out decals are untouched.
             if let Some(field) = probes.as_ref() {
                 crate::engine::render::relight_blend_decals(
-                    &mut build.mesh,
+                    Arc::make_mut(&mut build.mesh),
                     level,
                     catalog.assets(),
                     &build.lighting,
@@ -1207,7 +1312,7 @@ pub fn build_level_geometry_timed_with_lightmaps(
                 &mut build.batches,
             );
             build.timings.surfaces_millis += elapsed_millis(started);
-            build.mesh = mesh;
+            build.mesh = Arc::new(mesh);
         }
     }
     build

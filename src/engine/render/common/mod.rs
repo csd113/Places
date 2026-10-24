@@ -32,6 +32,7 @@ pub mod mesh;
 pub mod normal;
 pub mod occlusion;
 pub mod postprocess;
+pub mod preview_cache;
 pub mod probe_filter;
 pub mod prop_vertices;
 pub mod props;

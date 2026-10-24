@@ -86,3 +86,4 @@ pub struct UiImage {
 }
 
 pub(crate) use common::api::build_authoring_preview_reusing;
+pub(crate) use common::preview_cache::{PreviewDependencies, PreviewReuse};

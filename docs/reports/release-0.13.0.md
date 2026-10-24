@@ -7972,3 +7972,158 @@ payloads are removed with prior hashes recorded; accepted baseline payloads and
 unique native captures remain. At this checkpoint 77488578560 bytes are free.
 Awake PID 34744 remains active, existing expiry 2026-10-24 17:57:20 UTC; custody
 continues for the queue. No main merge, version bump, release or CI wait occurs.
+
+## Incremental authored Environment preview (Windows, 2026-10-24)
+
+**Result.** Normal nonoccluding prop edits now rebuild affected batches while
+sharing unchanged immutable prop storage and architecture. The real editor
+previously spent about 13.2-13.4 s resolving Lantern prop vertices after each
+change; fresh lighting cost about 0.10 s and architecture about 0.98 s. The new
+path still bakes the lighting field on changed requests. It compares its complete
+sampling record before sharing any Environment batch, rather than assuming that
+light bounces or geometry influence are local. Source/occluder/circuit changes
+conservatively invalidate lighting and rebuild all affected scene work.
+
+Each batch key includes its complete authored props, actual support-height
+transforms, tint, model variant, material metadata/content texture keys, light
+control and caster classification. Unsupported normals/lightmap/sliver layouts
+retain original streaming admission and chart order. Architecture reuse also
+requires equal source geometry/grid/material dependencies, complete resolved
+props and fixture-model presence. Trailing empty owner ranges alone are omitted
+from the ephemeral lighting identity: missing and empty ranges both query as
+None. The package writer still emits every original owner slot. Exact full
+lighting records are compared separately during parity audits.
+
+The previous build is a single optional owner, charged with its dependency keys
+against a quarter of the CPU budget, capped at 512 MiB; oversized displayed
+builds use weak ownership. Changing level discards the inactive entry. Architecture
+uses Arc ownership and compiler edits use copy-on-write. Existing automatic shared
+geometry/instancing, GPU upload bounds, full lighting and collision are preserved.
+Cancellation cannot publish an incomplete cache entry. No production maps, assets,
+shader behavior, compiler wire format, version or shipped menu package changed.
+
+**Observed native latency.** Matched old C10 versus final editor binaries used
+the same isolated Lantern edits and 1440x816 drawable. Worker wall time and
+request-to-ready are separate seconds:
+
+| Case | Worker preparation, before -> after (s) | Request-to-ready, before -> after (s) |
+| --- | ---: | ---: |
+| Move foliage prop | 14.872 -> 0.560 | 16.857 -> 2.539 |
+| Rotate foliage prop | 14.862 -> 0.544 | 16.807 -> 2.558 |
+| Room material | 15.013 -> 1.435 | 16.965 -> 3.457 |
+| Cold Environment | 14.753 -> 14.957 | 16.675 -> 16.956 |
+| Initial Inspect | 1.862 -> 1.899 | 8.936 -> 9.077 |
+
+Move/rotate reuse 411/412 prop batches plus architecture; material changes reuse
+412/412 batches and regenerate architecture. Scale/add/delete of nonoccluding
+foliage prepare in 0.525-0.570 s and become ready in 2.482-2.533 s. Undo/redo and
+12 rapid superseding edits restore the exact authored source and correct dirty
+indication. Occluding road and structural room edits intentionally reuse no
+Environment batches: approximately 15.00-15.10 s preparation and 17 s ready.
+Lighting/circuit changes also retain whole-work fallback. Smaller performance-lab
+prop/light/structural cases remain about 0.06-0.07 s preparation and 0.53-0.54 s
+ready; its material edit falls from 86.53 to 51.29 ms preparation, 607.13 to
+575.10 ms ready. This small single-pair campaign does not establish tiny timing
+differences as regressions or wins.
+
+The matched Lantern workflow peak working set changes from
+1167.64 to 1019.71 MiB; peak private commit from
+1815.53 to 1408.87 MiB. These are Windows process lifetime
+peaks including renderer/driver allocations, not live heap or VRAM. Run duration
+is 130.84 -> 47.67 s; total process CPU is 130.20 -> 36.78 s. Cached-edit upload
+handlers remain around 4.35 ms p95; maxima fall from about 23.8-25.7 to 17.0-18.4 ms
+in the three highlighted edits. The first cold Environment handler still peaks
+at 45.67 ms versus 42.83 ms. Ordinary action handlers remain approximately
+53.89 -> 53.42 ms p95 and 104.24 -> 104.07 ms maximum. Input stalls are not fixed.
+
+**Timing limits and cold work.** Native editor latency above is a descriptive
+single matched pair, with filesystem caches unspecified and focus snapshots
+retained (often false). The editor currently hard-codes Fifo and exposes no
+V-sync override. Therefore these ready timings do not establish the requested
+uncapped editor performance acceptance, and no FPS/GPU throughput claim is made.
+The independent CPU-only audits have no renderer, presentation pacing or GPU bake.
+Cold Environment is 204 ms slower in preparation and 281 ms slower to ready in
+this pair; initial Inspect is 38/141 ms slower. Cold/no-regression acceptance
+remains open. Initial Inspect still has about 2.95 s of UI response wait and
+9.08 s total ready latency despite 1.90 s worker preparation. This warrants the
+already queued conditional cold-bootstrap investigation; this phase does not
+attribute that gap to a specific pipeline or claim it fixed. Charger-limited GPU
+state is a known condition; no further clock investigation or system changes occur.
+
+**Correctness and required checks.** Final `editor-profile --preview-audit`
+compares 21 Lantern and 21 small-scene cases against forced fresh builders,
+including whole mesh, prop and full compiled lighting hashes: all 42 are exact.
+It covers move/rotate/scale/add/delete, materials, light/circuit changes,
+structural changes, metadata, Inspect/Environment switching and restoration.
+These explicit developer audits take 466.72 s and 3.91 s; they are outside default
+tests and CI, with no GPU or shipped-map bake.
+
+Native cached-versus-new-process Environment rendering is pixel exact in the
+981x539 viewport crop (0 differing channels); UI path/dirty text is excluded.
+All 16 Full/Static circuit state images match the preserved runtime baseline
+pixel for pixel at 1280x720 DX12. These fixed-delta correctness runs request V-sync
+off and log actual Immediate presentation; they are not FPS benchmarks. Visual
+inspection confirms rendered content rather than a blank equality. Native edits,
+undo/redo, rapid supersession, close during preparation and fresh reopen pass.
+World switching drops active model count 63 -> 17 -> 63, discards inactive reuse,
+and returns to exact Lantern source with zero reused old-world batches.
+
+Cold and cached real Build & Play pass on the small canonical fixture. Export
+validates and passes require-current provenance; nine content-addressed core
+mesh/lighting/collision/navigation/prop records match the prior compiled fixture
+exactly across both variants. Shipped maps were not rebaked. One functional
+script's final invisible ProjectSelect target failed after the edit checks;
+the corrected visible Next sequence passes in a separate run. A circuit harness
+trial omitted its bench flag, was stopped after checking the owned process, and
+was rerun successfully in fresh evidence directories. These rejected trials are
+retained and are not reported as product failures or successful measurements.
+
+Final strict workspace/all-target/all-feature Clippy with -D warnings, locked
+release workspace/all-feature build, formatting and all 316 Rust tests pass.
+Two added tiny owner tests protect immutable batch/COW edits and exact dependency
+fallback/inactive-owner release; they add essential cache regression coverage
+with millisecond execution and no shipped-map/GPU dependency. The 24 targeted
+Python checks and asset/texture/prop checks pass (629 assets, 389 placeable,
+9 themes; existing catalog advisories retained). The broader historical
+17 Python failures/errors were not rerun or fixed in this phase.
+
+**Evidence and cleanup.** Sole-writer work starts from remote-matching
+5e0724e04b8e4a2dc7e617eb0a15437821a0087a on 0.13.0-staging. Final source hashes
+verify 484 Rust/shader files against the measured build. All 21 selected
+EXE/DLL/PDB files are preserved and re-hash-checked outside target at
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-24/task-4/editor-preview-evidence/candidate8-bin`.
+`final-validation.json`, `measured-outcomes.json`, parity files, native receipts,
+captures and source/payload manifests are in that evidence root, indexed by
+`local/windows-validation-0.13.0/editor-preview-incremental/evidence-index.json`.
+The folder named candidate7-small-edits was launched with the final candidate8
+binary; its identity SHA is checked explicitly. Historical evidence is untouched.
+
+Cargo clean removes 7,811 files / 10.6 GiB logical. Disposable task-owned copies
+remove 426139577 bytes. Large traces compress from
+77196289 to 4251728 bytes, each decompressed SHA checked before removal.
+Free space after cleanup is 82028793856 bytes. Preserved binaries then pass a
+real editor/DLL/Environment smoke with target absent. Repository assets are still
+used; this is not validation of the queued portable ZIP. Exact commit/remote and
+final custody are recorded in ownership-handoff.json. Awake PID 53180 remains
+active with bounded SYSTEM-only expiry 2026-10-25 16:32:30 UTC, handed to the
+remaining queue without permanent power/security changes.
+
+**Remaining combined acceptance.** Prior runtime Lantern readiness +77 ms,
+Pool +8 ms and Pool peak private commit +1.2 MiB remain explicitly open, alongside
+the campfire instancing tradeoff, Home/Pool favor/reward/restart, pressure and
+final integrated FPS acceptance. Mac Metal/Linux native validation is still open;
+finish Windows before switching. The retained auxiliary upload pipeline remains
+two sheets; the denied four-sheet trial was never executed or retried.
+
+The user explicitly approved migrating the actual runtime
+`assets/shared/menu/scene.bin` before final Windows packaging. That next-stage
+handoff is authorized but not performed here: baseline 17,025,419 bytes, 19 Deflate
+entries, PLC1 revision 1, with 15,396,140 compressed lightmap bytes. Prefer supported
+lossless Zstandard/PLC1 revision 2 packing without a rebake, verify decoded
+lighting/geometry/scripts/events/provenance/native appearance and report actual
+bytes/revisions. PPS1 revision 2 already shares attributes; revision 4 is cost
+based. No menu size saving is claimed. Preserve separate shared assets. Then
+complete combined acceptance and the requested portable Windows game/modes/demo
+ZIP, validate clean extracted launch without Rust/Python/editor and exclude
+private/developer files. Delivery is to the user; no friend contact, video,
+public release, main merge, version bump or GitHub CI wait occurs.

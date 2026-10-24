@@ -3280,6 +3280,17 @@ impl LevelLighting {
     /// carries the built result rather than a level from which a player would
     /// have to bake it again.
     pub(crate) fn write_compiled(&self, writer: &mut Writer) -> Result<(), String> {
+        self.write_record(writer, false)
+    }
+
+    /// Exact sampling identity for ephemeral editor reuse. Missing owner ranges
+    /// and trailing empty ranges both resolve to `None` in `Occluders::prop_range`.
+    /// The ordinary package writer retains every original owner slot unchanged.
+    pub(crate) fn write_preview_identity(&self, writer: &mut Writer) -> Result<(), String> {
+        self.write_record(writer, true)
+    }
+
+    fn write_record(&self, writer: &mut Writer, preview_identity: bool) -> Result<(), String> {
         writer.bytes(&COMPILED_MAGIC);
         writer.u16(COMPILED_VERSION);
         write_rooms(writer, &self.rooms)?;
@@ -3292,7 +3303,11 @@ impl LevelLighting {
         write_color(writer, LightColor::from(self.sky_radiance));
         write_blends(writer, &self.blends)?;
         write_room_zones(writer, &self.room_zones)?;
-        self.visibility.write_compiled(writer)?;
+        if preview_identity {
+            self.visibility.write_preview_identity(writer)?;
+        } else {
+            self.visibility.write_compiled(writer)?;
+        }
         write_u32_lists(writer, &self.room_lights)?;
         write_u32_list(writer, &self.all_lights)?;
         write_fixture_lights(writer, &self.fixture_lights)?;

@@ -2610,6 +2610,25 @@ impl Visibility {
     /// so the exact built set travels in the package and every runtime light
     /// sample and switch refill tests the same solids the compiler did.
     pub(super) fn write_compiled(&self, writer: &mut Writer) -> Result<(), String> {
+        self.write_record(writer, &self.occluders.prop_ranges)
+    }
+
+    pub(super) fn write_preview_identity(&self, writer: &mut Writer) -> Result<(), String> {
+        // Empty ranges and missing slots have exactly the same query result;
+        // no occluder, visibility, light or bounce influence is approximated.
+        let used = self
+            .occluders
+            .prop_ranges
+            .iter()
+            .rposition(|(start, end)| end > start)
+            .map_or(0, |index| index.saturating_add(1));
+        self.write_record(
+            writer,
+            self.occluders.prop_ranges.get(..used).unwrap_or_default(),
+        )
+    }
+
+    fn write_record(&self, writer: &mut Writer, prop_ranges: &[(u32, u32)]) -> Result<(), String> {
         let walls = u32::try_from(self.occluders.walls.len())
             .map_err(|error| format!("visibility has too many walls: {error}"))?;
         writer.u32(walls);
@@ -2645,7 +2664,7 @@ impl Visibility {
             writer.f32(prop.cos);
         }
         write_point_grid(writer, &self.occluders.wall_grid)?;
-        write_u32_pairs(writer, &self.occluders.prop_ranges, "prop ranges")?;
+        write_u32_pairs(writer, prop_ranges, "prop ranges")?;
         let pool = u32::try_from(self.pool.len())
             .map_err(|error| format!("visibility pool is too large: {error}"))?;
         writer.u32(pool);

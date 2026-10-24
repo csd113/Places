@@ -897,7 +897,7 @@ fn prepare_world(
         }
         let build = Arc::new(LevelBuild {
             static_light_off: variant.static_light_off,
-            mesh: variant.mesh,
+            mesh: Arc::new(variant.mesh),
             batches: variant.props,
             lighting: variant.lighting,
             timings: crate::engine::render::BuildTimings::default(),
