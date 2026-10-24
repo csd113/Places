@@ -15,6 +15,8 @@
 
 use std::sync::Arc;
 
+mod staged;
+
 use super::material::{EmissionRecord, GpuMaterial};
 use super::texture::{CacheOutcome, GpuTexture, TextureCache};
 use super::world::{WORLD_VERTEX_STRIDE, WorldVertex};
@@ -159,6 +161,9 @@ impl PropMaterialIdentity {
 /// has been visited. Material identities persist across calls, so splitting the
 /// upload cannot change deduplication, ordering, or accounting.
 pub struct PropUpload {
+    cursor: Option<staged::BatchCursor>,
+    wrote: bool,
+    deadline: Option<std::time::Instant>,
     props: WgpuProps,
     identities: Vec<PropMaterialIdentity>,
     skip_models: Vec<String>,
@@ -298,15 +303,13 @@ impl PropUpload {
             level,
             lighting_level,
             shared_plans,
+            cursor: None,
+            wrote: false,
+            deadline: None,
         }
     }
 
-    /// Visits one batch, including skipped and empty batches. The caller may
-    /// stop between calls without exposing a partially installed world.
-    #[expect(
-        clippy::too_many_lines,
-        reason = "one batch shares sheet slots, material identities and counters"
-    )] // one batch shares sheet slots, material identities and counters
+    /// Immediate compiler/tool seam; runtime installation uses bounded advances.
     pub(crate) fn push_batch_with_blacklight(
         &mut self,
         device: &wgpu::Device,
@@ -316,228 +319,177 @@ impl PropUpload {
         batch: &PropMeshBatch,
         visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
     ) {
-        if batch.indices.is_empty()
-            || self.skip_models.iter().any(|model| model == &batch.model)
-            || super::diagnostic_model_hidden(&batch.model)
-        {
+        let mut ctx = staged::Context {
+            device,
+            queue,
+            cache,
+            material_layout,
+            visibility,
+            staged: false,
+        };
+        loop {
+            match self.advance_batch(&mut ctx, batch) {
+                Ok(true) => break,
+                Ok(false) => {}
+                Err(error) => {
+                    crate::engine::logging::warn(error);
+                    break;
+                }
+            }
+        }
+    }
+
+    fn append_part(
+        &mut self,
+        ctx: &mut staged::Context<'_>,
+        batch: &PropMeshBatch,
+        cursor: &staged::BatchCursor,
+        primitive_bounds: Aabb,
+        vertex_count: u32,
+    ) {
+        let part_slot = cursor.part;
+        let Some(submesh) = batch.submeshes.get(part_slot) else {
+            return;
+        };
+        let texture_slots = &cursor.texture_slots;
+        let chunk_index = cursor.chunk.unwrap_or(usize::MAX);
+        let instances = cursor.instances.clone();
+        let is_shared = self
+            .props
+            .chunks
+            .get(chunk_index)
+            .is_some_and(|chunk| chunk.shared.is_some());
+        let source_parts = is_shared
+            .then(|| batch.vertices.shared())
+            .flatten()
+            .map(|shared| &shared.asset.model.submeshes);
+        if submesh.index_count == 0 {
             return;
         }
+        let (texture, material, emissive) = self.part_material(ctx, batch, submesh, texture_slots);
+        let pass = BatchPass::of(submesh.alpha);
+        // Preserve the existing batch-centre transparent sorting contract.
+        let bounds = if pass == BatchPass::Translucent {
+            batch.bounds
+        } else {
+            primitive_bounds
+        };
+        let (index_start, index_count, draw_vertex_count) =
+            source_parts.and_then(|parts| parts.get(part_slot)).map_or(
+                (submesh.first_index, submesh.index_count, vertex_count),
+                |part| {
+                    (
+                        part.first_index,
+                        part.index_count,
+                        vertex_count
+                            .checked_div(instances.end.saturating_sub(instances.start))
+                            .unwrap_or(vertex_count),
+                    )
+                },
+            );
+        self.props.draws.push(PropDraw {
+            chunk: chunk_index,
+            instances,
+            index_start,
+            index_count,
+            vertex_count: draw_vertex_count,
+            bounds,
+            texture,
+            material,
+            pass,
+            emissive,
+        });
+    }
+
+    fn part_material(
+        &mut self,
+        ctx: &mut staged::Context<'_>,
+        batch: &PropMeshBatch,
+        submesh: &crate::engine::render::common::props::PropSubmeshBatch,
+        texture_slots: &[usize],
+    ) -> (usize, usize, bool) {
+        let device = ctx.device;
+        let queue = ctx.queue;
+        let cache = &mut *ctx.cache;
+        let material_layout = ctx.material_layout;
+        let level = self.level;
+        let lighting_level = self.lighting_level;
         let WgpuProps {
-            stats,
-            chunks,
-            draws,
+            stats: _,
+            chunks: _,
+            draws: _,
             materials,
             textures,
             emission_controls,
             animation_seconds: _,
         } = &mut self.props;
         let identities = &mut self.identities;
-        let level = self.level;
-        let lighting_level = self.lighting_level;
-        stats.batches = stats.batches.saturating_add(1);
-        // Slot zero is shared white for untextured primitives. A snow cap
-        // must not sample another primitive's foliage, bark or wood atlas.
-        if textures.is_empty() {
-            textures.push(cache.fallback());
-        }
-        // The model's sheets, once per texture list entry.
-        let mut texture_slots = Vec::with_capacity(batch.textures.len());
-        for (index, image) in batch.textures.iter().enumerate() {
-            if super::material::ultraviolet_only_texture(
-                index,
-                batch.submeshes.iter().map(|part| {
-                    (
-                        part.texture,
-                        part.emission.mask,
-                        part.response.fluorescence.mask,
-                    )
-                }),
-            ) {
-                texture_slots.push(0);
-                continue;
-            }
-            let identity = self
-                .image_keys
-                .entry((batch.model.clone(), index))
-                .or_insert_with(|| ImageIdentity {
-                    image: Arc::clone(image),
-                    key: super::texture::model_image_key(image),
-                });
-            if !Arc::ptr_eq(&identity.image, image) {
-                identity.image = Arc::clone(image);
-                identity.key = super::texture::model_image_key(image);
-            }
-            let logical = &identity.key;
-            let (outcome, texture) = cache.get_or_upload_fitted(
+        let identity = PropMaterialIdentity::new(
+            submesh,
+            texture_slots,
+            batch.textures.len(),
+            batch.light_control,
+        );
+        let texture = identity.texture;
+        let uv_mask = if let Some(image) = submesh.response.fluorescence.mask.and_then(|index| {
+            batch
+                .textures
+                .get(usize::try_from(index).unwrap_or(usize::MAX))
+        }) {
+            super::material::upload_uv_mask(
                 device,
                 queue,
-                logical,
-                image.as_ref(),
-                TextureClass::Prop,
-                TextureOrigin::Catalog,
+                cache,
+                &format!("prop:{}:uv", batch.model),
+                image,
                 level,
-            );
-            match outcome {
-                CacheOutcome::Uploaded => {
-                    stats.texture_uploads = stats.texture_uploads.saturating_add(1);
-                }
-                CacheOutcome::Reused => {
-                    stats.texture_cache_hits = stats.texture_cache_hits.saturating_add(1);
-                }
-            }
-            stats.resident_bytes = stats.resident_bytes.saturating_add(
-                usize::try_from(texture.meta().resident_bytes).unwrap_or(usize::MAX),
-            );
-            let slot = textures
-                .iter()
-                .position(|old| Arc::ptr_eq(old, &texture))
-                .unwrap_or_else(|| {
-                    let slot = textures.len();
-                    textures.push(texture);
-                    slot
-                });
-            texture_slots.push(slot);
-        }
-        let shared_plan = batch.vertices.shared().and_then(|shared| {
-            self.shared_plans
-                .get_mut(&super::prop_instances::identity(shared))
-                .filter(|plan| plan.admitted(device))
-                .map(|plan| (shared, plan))
-        });
-        let (chunk_index, instances, source_parts) = if let Some((shared, plan)) = shared_plan {
-            let index = if let Some(index) = plan.chunk {
-                index
-            } else {
-                let index = chunks.len();
-                chunks.push(plan.upload(device, shared));
-                plan.chunk = Some(index);
-                index
-            };
-            let instances = chunks
-                .get_mut(index)
-                .and_then(|chunk| chunk.shared.as_mut())
-                .map_or(0..0, |chunk| chunk.append(queue, batch, shared, visibility));
-            (index, instances, Some(&shared.asset.model.submeshes))
+            )
         } else {
-            let chunk = WgpuProps::upload_batch(device, queue, batch, visibility);
-            let index = chunks.len();
-            chunks.push(chunk);
-            (index, 0..1, None)
+            cache.fallback()
         };
-        stats.vertices = stats.vertices.saturating_add(batch.vertices.len());
-        stats.indices = stats.indices.saturating_add(batch.indices.len());
-        for (part_slot, submesh) in batch.submeshes.iter().enumerate() {
-            if submesh.index_count == 0 {
-                continue;
-            }
-            let identity = PropMaterialIdentity::new(
-                submesh,
-                &texture_slots,
-                batch.textures.len(),
-                batch.light_control,
-            );
-            let texture = identity.texture;
-            let uv_mask = if let Some(image) =
-                submesh.response.fluorescence.mask.and_then(|index| {
-                    batch
-                        .textures
-                        .get(usize::try_from(index).unwrap_or(usize::MAX))
-                }) {
-                super::material::upload_uv_mask(
+        let record = identity.emission;
+        // The cutoff is part of the material identity: two primitives that
+        // share a sheet and emission but discard at different alpha levels
+        // need different uniforms.
+        let controller = identity.controller;
+        let material = identities
+            .iter()
+            .position(|existing| *existing == identity)
+            .unwrap_or_else(|| {
+                let mask_texture = identity
+                    .emission_mask
+                    .and_then(|index| textures.get(index).cloned())
+                    .unwrap_or_else(|| cache.fallback());
+                let gpu = GpuMaterial::model_with_fluorescence(
                     device,
                     queue,
+                    material_layout,
                     cache,
-                    &format!("prop:{}:uv", batch.model),
-                    image,
-                    level,
-                )
-            } else {
-                cache.fallback()
-            };
-            let record = identity.emission;
-            // The cutoff is part of the material identity: two primitives that
-            // share a sheet and emission but discard at different alpha levels
-            // need different uniforms.
-            let controller = identity.controller;
-            let material = identities
-                .iter()
-                .position(|existing| *existing == identity)
-                .unwrap_or_else(|| {
-                    let mask_texture = identity
-                        .emission_mask
-                        .and_then(|index| textures.get(index).cloned())
-                        .unwrap_or_else(|| cache.fallback());
-                    let gpu = GpuMaterial::model_with_fluorescence(
-                        device,
-                        queue,
-                        material_layout,
-                        cache,
-                        &mask_texture,
-                        &uv_mask,
-                        super::material::ModelMaterial {
-                            albedo_tint: [1.0; 3],
-                            emission: record,
-                            alpha: submesh.alpha,
-                            response: submesh.response,
-                            response_enabled: lighting_level.draws_surface_response(),
-                        },
-                    );
-                    materials.push(gpu);
-                    if let Some(owner) = controller {
-                        emission_controls.push(PropEmissionControl {
-                            controller: owner,
-                            material: materials.len().saturating_sub(1),
-                            enabled: true,
-                            scale: 1.0,
-                            animation: None,
-                            applied: 1.0,
-                        });
-                    }
-                    identities.push(identity);
-                    materials.len().saturating_sub(1)
-                });
-            let pass = BatchPass::of(submesh.alpha);
-            let (primitive_bounds, vertex_count) =
-                prop_draw_geometry(batch, submesh.first_index, submesh.index_count).unwrap_or_else(
-                    || {
-                        (
-                            batch.bounds,
-                            u32::try_from(batch.vertices.len()).unwrap_or(u32::MAX),
-                        )
+                    &mask_texture,
+                    &uv_mask,
+                    super::material::ModelMaterial {
+                        albedo_tint: [1.0; 3],
+                        emission: record,
+                        alpha: submesh.alpha,
+                        response: submesh.response,
+                        response_enabled: lighting_level.draws_surface_response(),
                     },
                 );
-            // Preserve the existing batch-centre transparent sorting contract.
-            let bounds = if pass == BatchPass::Translucent {
-                batch.bounds
-            } else {
-                primitive_bounds
-            };
-            let (index_start, index_count, draw_vertex_count) =
-                source_parts.and_then(|parts| parts.get(part_slot)).map_or(
-                    (submesh.first_index, submesh.index_count, vertex_count),
-                    |part| {
-                        (
-                            part.first_index,
-                            part.index_count,
-                            vertex_count
-                                .checked_div(instances.end.saturating_sub(instances.start))
-                                .unwrap_or(vertex_count),
-                        )
-                    },
-                );
-            draws.push(PropDraw {
-                chunk: chunk_index,
-                instances: instances.clone(),
-                index_start,
-                index_count,
-                vertex_count: draw_vertex_count,
-                bounds,
-                texture,
-                material,
-                pass,
-                emissive: record.is_emissive(),
+                materials.push(gpu);
+                if let Some(owner) = controller {
+                    emission_controls.push(PropEmissionControl {
+                        controller: owner,
+                        material: materials.len().saturating_sub(1),
+                        enabled: true,
+                        scale: 1.0,
+                        animation: None,
+                        applied: 1.0,
+                    });
+                }
+                identities.push(identity);
+                materials.len().saturating_sub(1)
             });
-        }
+        (texture, material, record.is_emissive())
     }
 
     /// Consumes the completed accumulator; no GPU submission or wait occurs here.
@@ -738,38 +690,6 @@ impl WgpuProps {
             );
         }
         upload.finish()
-    }
-
-    /// Uploads one batch's vertices and indices.
-    fn upload_batch(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        batch: &PropMeshBatch,
-        visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
-    ) -> PropChunk {
-        let vertices = pack_prop_vertices(batch, |vertex| {
-            visibility.map_or([0.0; 4], |context| context.vertex(vertex))
-        });
-        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("places-wgpu-prop-vertices"),
-            size: u64::try_from(vertices.len())
-                .unwrap_or(u64::MAX)
-                .saturating_mul(WORLD_VERTEX_STRIDE)
-                .max(4),
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        if !vertices.is_empty() {
-            queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&vertices));
-        }
-        let index_buffer =
-            super::world::upload_index_buffer(device, &batch.indices, "places-wgpu-prop-indices");
-        PropChunk {
-            vertex_buffer,
-            index_buffer,
-            vertex_count: u32::try_from(batch.vertices.len()).unwrap_or(u32::MAX),
-            shared: None,
-        }
     }
 
     #[cfg(feature = "visual-diagnostics")]

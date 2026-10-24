@@ -1865,6 +1865,48 @@ pub(super) fn upload_index_buffer(
     })
 }
 
+/// Allocate the final index buffer without copying an entire primitive on the UI thread.
+pub(super) fn staged_index_buffer(
+    device: &wgpu::Device,
+    count: usize,
+    label: &str,
+) -> wgpu::Buffer {
+    device.create_buffer(&wgpu::BufferDescriptor {
+        label: Some(label),
+        size: u64::try_from(count)
+            .unwrap_or(u64::MAX)
+            .saturating_mul(2)
+            .saturating_add(3)
+            .saturating_div(4)
+            .saturating_mul(4)
+            .max(4),
+        usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    })
+}
+
+/// Callers use even offsets and bounded slices. Only the final odd u16 is padded.
+pub(super) fn write_index_slice(
+    queue: &wgpu::Queue,
+    buffer: &wgpu::Buffer,
+    indices: &[u16],
+    start: usize,
+    end: usize,
+) {
+    let values = indices.get(start..end).unwrap_or_default();
+    if values.is_empty() {
+        return;
+    }
+    let offset = u64::try_from(start).unwrap_or(u64::MAX).saturating_mul(2);
+    if values.len().is_multiple_of(2) {
+        queue.write_buffer(buffer, offset, bytemuck::cast_slice(values));
+    } else {
+        let mut padded = values.to_vec();
+        padded.push(0);
+        queue.write_buffer(buffer, offset, bytemuck::cast_slice(&padded));
+    }
+}
+
 /// Classify once at upload using the floor draw's actual material and mean
 /// plane. It supports full coverage and never animates dynamic/model vertices
 /// or a different transparent surface merely touching the same water height.
@@ -2046,6 +2088,7 @@ struct WorldPipelineVariant {
     depth_write: bool,
     cull: Option<wgpu::Face>,
     instanced: bool,
+    rigid: bool,
 }
 
 /// The reference's translucent blend state, exactly.
@@ -2082,6 +2125,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
     [
         WorldPipelineVariant {
             instanced: false,
+            rigid: false,
             label: "places-wgpu-world-opaque",
             fragment_entry: WORLD_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_FRAGMENT_ENTRY_RAW,
@@ -2095,6 +2139,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         },
         WorldPipelineVariant {
             instanced: false,
+            rigid: false,
             label: "places-wgpu-world-cutout",
             fragment_entry: WORLD_CUTOUT_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_CUTOUT_FRAGMENT_ENTRY_RAW,
@@ -2104,6 +2149,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         },
         WorldPipelineVariant {
             instanced: false,
+            rigid: false,
             label: "places-wgpu-world-translucent",
             fragment_entry: WORLD_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_FRAGMENT_ENTRY_RAW,
@@ -2113,6 +2159,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         },
         WorldPipelineVariant {
             instanced: false,
+            rigid: false,
             label: "places-wgpu-world-emission",
             fragment_entry: WORLD_EMISSION_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_EMISSION_FRAGMENT_ENTRY,
@@ -2126,6 +2173,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         },
         WorldPipelineVariant {
             instanced: false,
+            rigid: false,
             label: "places-wgpu-world-emission-blend",
             fragment_entry: "fs_emission_blend",
             fragment_entry_raw: "fs_emission_blend",
@@ -2135,6 +2183,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         },
         WorldPipelineVariant {
             instanced: false,
+            rigid: false,
             label: "places-wgpu-world-emission-cutout",
             fragment_entry: WORLD_EMISSION_CUTOUT_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_EMISSION_CUTOUT_FRAGMENT_ENTRY,
@@ -2147,6 +2196,14 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
 
 /// Builds one world pipeline variant from the shared pipeline layout, shader
 /// and target format.
+pub(super) fn specialized_instances() -> bool {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        std::env::var("PLACES_BENCH").as_deref() != Ok("1")
+            || std::env::var("PLACES_BENCH_INSTANCE_KIND").as_deref() != Ok("0")
+    })
+}
+
 fn build_world_pipeline(
     device: &wgpu::Device,
     layout: &wgpu::PipelineLayout,
@@ -2176,6 +2233,14 @@ fn build_world_pipeline(
         write_mask: wgpu::ColorWrites::ALL,
     })];
     let targets = if shadow { &[][..] } else { &color_targets[..] };
+    let instance_constants: [(&str, f64); 1] = [(
+        "prop_kind",
+        if specialized_instances() {
+            if variant.rigid { 2.0 } else { 1.0 }
+        } else {
+            0.0
+        },
+    )];
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some(variant.label),
         layout: Some(layout),
@@ -2186,7 +2251,14 @@ fn build_world_pipeline(
             } else {
                 WORLD_VERTEX_ENTRY
             }),
-            compilation_options: wgpu::PipelineCompilationOptions::default(),
+            compilation_options: wgpu::PipelineCompilationOptions {
+                constants: if variant.instanced {
+                    &instance_constants
+                } else {
+                    &[]
+                },
+                ..Default::default()
+            },
             buffers: &[Some(world_vertex_layout())],
         },
         primitive: wgpu::PrimitiveState {
@@ -2487,7 +2559,9 @@ fn build_entity_pipelines(
     let (front, raw, instanced) = state;
     let [mut opaque, _, _, mut emission, _, _] = world_pipeline_variants(true);
     opaque.instanced = instanced;
+    opaque.rigid = instanced;
     emission.instanced = instanced;
+    emission.rigid = instanced;
     let reflected = match front {
         wgpu::FrontFace::Ccw => wgpu::FrontFace::Cw,
         wgpu::FrontFace::Cw => wgpu::FrontFace::Ccw,

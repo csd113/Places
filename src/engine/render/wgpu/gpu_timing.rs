@@ -18,7 +18,7 @@ const MAX_PASS_LABELS: usize = 16;
 // 32 eight-byte query values also fill one resolve-alignment block.
 const QUERY_BYTES: u64 = 256;
 const RAW_TRACE_FIRST_FRAME: u64 = 600;
-const RAW_TRACE_MAX_SAMPLES: u8 = 3;
+const RAW_TRACE_MAX_SAMPLES: u8 = 64;
 
 /// The optional feature needed by all native render-pass timestamp writes.
 pub(super) fn required_features(available: wgpu::Features) -> wgpu::Features {
@@ -99,6 +99,7 @@ pub struct GpuTimer {
     rejected_sample_reports: u8,
     raw_trace_enabled: bool,
     raw_trace_reports: u8,
+    raw_trace_next_frame: u64,
 }
 
 impl GpuTimer {
@@ -142,6 +143,7 @@ impl GpuTimer {
             rejected_sample_reports: 0,
             raw_trace_enabled,
             raw_trace_reports: 0,
+            raw_trace_next_frame: RAW_TRACE_FIRST_FRAME,
         }
     }
 
@@ -321,11 +323,12 @@ impl GpuTimer {
                         .and_then(|mapped| {
                             if self.raw_trace_enabled
                                 && self.raw_trace_reports < RAW_TRACE_MAX_SAMPLES
-                                && pending.frame.frame >= RAW_TRACE_FIRST_FRAME
+                                && pending.frame.frame >= self.raw_trace_next_frame
                                 && pending.frame.queries >= 10
                             {
                                 trace_raw_sample(&mapped, &pending.frame, self.period_ns);
                                 self.raw_trace_reports = self.raw_trace_reports.saturating_add(1);
+                                self.raw_trace_next_frame = pending.frame.frame.saturating_add(120);
                             }
                             decode_milliseconds(
                                 &mapped,
@@ -381,7 +384,7 @@ impl GpuTimer {
     }
 }
 
-/// At most three explicit benchmark records, each bounded to sixteen pairs.
+/// At most 64 explicit benchmark records, each bounded to sixteen pairs.
 /// Preserve labelled boundaries to inspect stage overlap independently of the
 /// aggregate meter. This diagnostic never changes the measured rendering work.
 fn trace_raw_sample(bytes: &[u8], frame: &FrameQueries, period_ns: f32) {

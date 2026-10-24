@@ -865,12 +865,20 @@ pub struct TextureCache {
     /// Whether the adapter filters anisotropically; the world presets clamp
     /// their request to 1x when it does not.
     anisotropy_supported: bool,
+    model_keys: model_keys::ModelImageKeys,
     persistent: HashMap<TextureKey, Arc<GpuTexture>>,
     level: HashMap<TextureKey, Arc<GpuTexture>>,
     fallback: Arc<GpuTexture>,
 }
 
 impl TextureCache {
+    pub fn model_image_key(&mut self, image: &Arc<RawImage>) -> String {
+        self.model_keys.key(image)
+    }
+    pub fn cached_model_image_key(&self, image: &Arc<RawImage>) -> Option<String> {
+        self.model_keys.get(image)
+    }
+
     /// Creates the layout, the shared samplers and the fallback sheet.
     ///
     /// `anisotropy_supported` is the adapter's
@@ -928,6 +936,7 @@ impl TextureCache {
             layout,
             samplers,
             anisotropy_supported,
+            model_keys: model_keys::ModelImageKeys::default(),
             persistent: HashMap::new(),
             level: HashMap::new(),
             fallback,
@@ -970,6 +979,7 @@ impl TextureCache {
     /// Called once per level upload, before the new level resolves its
     /// textures; prior catalog entries are retained within a bounded budget.
     pub fn begin_level(&mut self) {
+        self.model_keys.retain_live();
         self.level.clear();
         self.trim_retained(256, 256 * 1024 * 1024);
     }
@@ -1014,6 +1024,7 @@ impl TextureCache {
     /// draw/bank owns its own Arc, and queue work retains native views/fences.
     /// Count aliases across both indices before deciding whether a sheet is idle.
     pub fn release_unreferenced(&mut self) {
+        self.model_keys.retain_live();
         let references = self.cache_references();
         let active = |image: &Arc<GpuTexture>| {
             Arc::strong_count(image) > references.get(&Arc::as_ptr(image)).copied().unwrap_or(0)
@@ -1516,3 +1527,5 @@ pub use worker::{PreparedImage, TextureJob, TextureSource};
 
 #[cfg(feature = "visual-diagnostics")]
 pub use worker::is_preparing;
+
+mod model_keys;

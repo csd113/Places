@@ -102,6 +102,14 @@ impl SharedVertices {
         }
     }
 
+    /// Bounded exact lighting slice without reconstructing or skipping shape.
+    pub fn colors_range(&self, range: std::ops::Range<usize>) -> SharedColors<'_> {
+        SharedColors {
+            shared: self,
+            indices: range.start.min(self.len())..range.end.min(self.len()),
+        }
+    }
+
     fn len(&self) -> usize {
         self.asset
             .model

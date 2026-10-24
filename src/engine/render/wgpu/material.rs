@@ -1188,11 +1188,11 @@ pub fn upload_uv_mask(
     queue: &wgpu::Queue,
     cache: &mut TextureCache,
     _logical: &str,
-    image: &crate::engine::materials::RawImage,
+    image: &Arc<crate::engine::materials::RawImage>,
     level: QualityLevel,
 ) -> Arc<GpuTexture> {
     let key = super::texture::TextureKey {
-        logical: super::texture::model_image_key(image),
+        logical: cache.model_image_key(image),
         semantic: TextureSemantic::DataLinear,
         class: crate::engine::quality::TextureClass::EmissionMask,
         level,

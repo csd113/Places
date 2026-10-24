@@ -7802,3 +7802,173 @@ open. Diagnostic carry and this feature's timing checks do not close them.
 The final canonical ownership handoff records the exact pushed tip/remote and
 explicit writer release after final verification; no main merge, release, version
 bump or GitHub CI wait is part of this stage.
+
+
+## Combined runtime rendering and frame-tail phase (2026-10-24)
+
+**Scope and evidence.** Baseline is remote-matching `a8eff05b10a32bb7817fb1f70f7cecd8ece9a0c3` on
+`0.13.0-staging`. This phase preserves the prior canonical geometry sharing, independent
+placement colours, copy-on-write and limited-bind-group fallback. No map, visual asset,
+lighting quality, release version, main merge or host setting is changed. The evidence
+index is `local/windows-validation-0.13.0/runtime-frame-tail/evidence-index.json`; its
+absolute task root is `C:\Users\Connor Dawkins\Documents\Codex\2026-10-24\task-3\runtime-evidence`. Accepted C3 RAM evidence and prior binaries remain intact;
+the earlier five overwritten historical unprefixed scratch gates remain unrecovered.
+
+**Attribution before changes.** Labelled GPU timestamps and CPU render stages at the
+actual 2560×1440 drawable identify scene rendering as the main warmed Lantern cost
+(about 19.5 ms GPU in the initial fixed view). Arcade's scene was about 6.6 ms plus
+1.8–2.6 ms planar reflection; sampled CPU submission was about 1.6–1.8 ms for
+Arcade/Lantern and 0.5 ms for Pool/Home. Bloom/UI were small. These samples did not
+support reducing lighting, shadows, reflection quality or scene content. Physical
+world preparation was already off-thread: the measured approximately 199.6 ms Arcade
+activation comprised 0.95 ms neutral spawning and 198.6 ms dynamic GPU setup, dominated
+by mesh sheets/content keys/mips (179.1 ms), then objects (18.0 ms) and instances
+(1.2 ms). It was not 199 ms of Rapier world creation.
+
+**Retained implementation.** Prop source vertices, independent colours, UV receiver
+work, indices and primitive bounds now advance within batches: 4096 geometry/index
+items or 256 reactive vertices per unit, with one shared four-millisecond deadline
+across batches. Large decals are CPU-packed on the existing preparation worker and
+uploaded in bounded 4096-element slices. Real PNG sheets use the existing bounded mip
+worker; Static banks share the same uploaded sheet handles. One process-wide mip job
+prevents cancelled owners from overlapping scratch preparation; auxiliary batches
+contain at most two fitted sheets (about 11 MiB). Static-sheet content hashing and
+mips overlap bounded prop geometry/bounds work, instead of serializing all static
+sheets in Auxiliary. Weak immutable image identities
+memoize unchanged content keys without owning decoded pixels and follow editor
+copy-on-write replacements. Atomic gameplay publication still waits for all resources.
+
+Only actual physical-item sheets are held across renderer publication/cache eviction
+and runtime-prop installation, then released immediately. CPU-only/cache-hit steps
+skip needless GPU fences. At most two bounded upload units are in flight, callbacks
+own only completion flags, and consumed Static-family boundaries plus the final
+transaction receive fences. Cancellation drops pending owners without joining a mip
+worker. Review caught a two-source job incorrectly popping four sources; C9 consumes
+the exact submitted count. Earlier C8 load measurements are preserved as rejected
+incomplete-prewarm evidence, not final acceptance.
+
+Static and rigid instance vertex paths are specialized so static draws avoid the
+unneeded runtime lighting branch. Rigid groups admit opaque, single-sided meshes
+with determinate culling parity; cutout, two-sided or indeterminate cases retain
+ordinary draws with shared source storage. Original 104-byte full-precision shape
+input and independent lighting data remain. No Lantern-specific exception is added.
+
+**Measured loading and responsiveness.** Three matched fresh-process loads per side
+for each level; one longer timing run and two short loading-only runs. The short
+repeats enable matched GPU resource diagnostics on both sides; exact flags and
+probe overhead remain visible per run. Local filesystem
+caches are unspecified, so these are not claimed to be cold disk measurements. Ready
+is request to first scene presentation; all values below are medians except mean
+process peak commit/RSS. Handler values are medians of each run's worst handler, not
+per-frame p95. Full raw ranges and per-handler samples remain in `final10/accepted10-comparison.json`.
+
+| Level | Ready seconds before → after | Item activation ms | Worst prop handler ms | Worst decal handler ms | Peak commit/RSS MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| arcade | 6.389 -> 6.352 | 220.2 -> 32.0 | 63.1 -> 6.3 | 28.3 -> 0.5 | 1861.0/1087.8 -> 1829.5/1056.1 |
+| pool | 6.417 -> 6.425 | 33.0 -> 9.9 | 51.4 -> 5.4 | 63.1 -> 1.3 | 993.4/586.6 -> 994.6/588.1 |
+| lantern_hollow | 5.782 -> 5.859 | 18.1 -> 7.9 | 17.4 -> 7.9 | 13.1 -> 0.4 | 966.5/822.1 -> 964.3/822.8 |
+
+A four-millisecond CPU budget is not a hard driver-allocation deadline: indivisible
+buffer/texture allocation or a queued write can still exceed it. Remaining atomic
+activation, total-ready differences and process-RAM tradeoffs are visible in the
+table; this phase does not declare a zero-regression readiness/RAM gate by inference
+from shorter handlers. Resource ownership, pending mip work and item-sheet holds
+are checked separately after load/cancel/unload. Lantern median readiness remains
+about 77 ms slower, Pool about 8 ms slower; Pool mean peak commit is about 1.2 MiB
+higher. The strict zero-regression readiness/RAM gate is not closed. The four-ms
+budget is bounded work rather than a hard real-time promise (worst final prop
+handler 8.6 ms).
+
+**Rendering and frame tails.** All throughput timing uses VSync off, no frame
+limiter, no fixed simulation delta, no recorder, verified Immediate presentation
+and physical 2560×1440 drawable. Fixed views warm for at least five seconds; camera
+routes use identical scripted keyboard/mouse actions and are reported separately.
+Capture runs are separate. Full Arcade, menu, Pool and Home use actual Full lighting;
+Lantern and Office packages provide Off lighting, which is reported as actual rather
+than being mislabeled Full. The user confirmed the laptop is intentionally limited
+by its charger. No further clock/power diagnosis or host changes followed that
+clarification. Final pairs below are descriptive, one bounded pair per scenario;
+they do not establish unrestricted RTX 3070 throughput or final integrated FPS
+acceptance. Values are mean/p95/p99 frame milliseconds, lower is better.
+
+| Scenario / window | Baseline ms | Final ms |
+| --- | ---: | ---: |
+| arcade/fixed | 12.03/17.72/22.83 | 12.06/18.81/23.39 |
+| arcade/route | 7.88/11.34/13.66 | 7.99/11.44/14.43 |
+| home/fixed | 12.93/29.59/32.75 | 13.05/29.30/33.74 |
+| home/route | 8.15/14.96/21.23 | 8.21/14.42/22.48 |
+| lantern_hollow/fixed | 21.45/26.35/30.78 | 20.18/22.67/23.51 |
+| lantern_hollow/campfire | 12.50/18.32/18.95 | 12.48/18.26/19.00 |
+| lantern_hollow/route | 12.42/18.65/19.44 | 12.34/18.40/20.31 |
+| menu/fixed | 12.92/25.55/31.35 | 12.88/25.03/31.97 |
+| office/fixed | 9.76/16.47/19.19 | 9.68/16.41/19.25 |
+| office/route | 6.33/10.53/16.87 | 6.37/10.35/15.23 |
+| pool/fixed | 10.15/17.90/21.76 | 10.06/17.73/22.26 |
+| pool/route | 8.41/13.09/18.45 | 8.19/12.88/16.96 |
+
+The original repeated campfire instancing tradeoff remains open. Shared storage,
+merged draws and expanded geometry were controlled independently. In three matched
+720p controls, static/rigid specialization improved the street mean from about
+16.09 to 14.30 ms with the same 478 draws; late campfire was approximately 4.91
+versus 4.95 ms. That is directional support for specialization, not proof that
+merging fixed campfire. No FPS gain is inferred from RAM savings.
+
+**Rejected prototypes.** Depth ordering, canonical sidedness culling, size cutoffs,
+static opaque-only merge filter, CPU fog preparation and identity-transform elision gave
+mixed/worse results and were removed. Compact shape input plus transform elision
+made street much faster but regressed repeated late campfire mean by about 6.6%;
+it was removed, including its temporary ABI test. Early camera-transition windows
+and late warmed windows remain separate. The old buffer arena and combined compute
+submission experiments were not repeated. Automatic approval review rejected a
+proposed two-to-four-sheet auxiliary batch because it could increase peak memory;
+it was not executed. The retained overlap path preserves the two-sheet bound.
+
+**Validation.** C10 strict workspace/all-target/all-feature Clippy with warnings
+denied, locked release workspace/all-feature build and 314 Rust tests pass. The two
+new tiny owner tests protect incremental culling bounds/count/fallback and weak
+content-key copy-on-write/lifetime behavior; neither bakes maps or requires a GPU.
+Final Windows DX12 native checks cover Full reflections, water/physics props, blood,
+five skins and ragdolls, material variants, nonuniform/reflected props, culling,
+forced five-bind-group fallback, CPU and GPU cancellation, load/reload, ten
+alternating transitions and return to menu. Retired noncurrent owners and pending
+work return to zero. Historical weak probes may alias the active cached record on
+same-level reload; all retired probes reach zero after return to menu. Seventeen Portal1 movement replays (4080 ticks) compare byte-exact
+against the accepted player, plus native crouch/ramp/stairs checks. Full and Static
+circuit sequences compare all eight captured states. Editor environment preview,
+export/current verification and real Build/Play return use the isolated small fixture.
+Numeric visual comparisons and native captures are retained; no FPS claim comes
+from fixed-delta correctness runs.
+
+Asset/prop/texture checks and 24 targeted Python checks pass. Broad Python retains
+the same historical 8 failures, 9 errors and 16 skips across 369 checks, with identical
+failure headers; the unchanged wire-codec control uses the preserved RAM repacker,
+and current Rust/compiler/native checks are separate. Current tooling resolves
+runner modules by exact file path and never imports historical gate entry points.
+
+**Delivery and remaining work.** The user cancelled the comparison video before
+any comparison video capture, montage or Library upload began. Native validation captures
+remain as evidence. No media or executable upload was made. Cleanup and final
+exact-tip remote verification are recorded in the final ownership handoff.
+The awake helper remains in custody for the whole queue under its existing bounded
+SYSTEM-only policy. No Mac/Linux native coverage is claimed. Home/Pool favor,
+reward/restart, pressure and final integrated FPS acceptance remain open. Next is
+incremental Environment preview preparation, conditional cold renderer/pipeline
+bootstrap only if still measured, then final combined acceptance/issue reconciliation. Final packaging also includes
+the requested shareable Windows ZIP: game EXE, required runtime/assets, modes and
+demo levels; validate launch and discovery in a clean extraction outside the repo
+without Rust/Python/editor dependencies, excluding logs/user data/symbols/developer
+tools. This is queued, not yet built or validated; no friend contact, public release,
+main merge or version bump is authorized.
+
+
+**Runtime-phase cleanup.** All 21 selected executables/DLLs/symbols are preserved
+and re-hash-checked outside target. A post-clean native player/DLL load succeeds;
+repository assets are still used, so this does not validate the queued portable ZIP.
+Cargo removes 8,223 files / 11.3 GiB logical and recovers 10104889344
+actual bytes. Trace compression reduces 4051584111 to 253526387 bytes;
+large derived summaries/logs reduce 707046259 to 37652168 bytes.
+Every decompressed SHA is checked before raw removal. Superseded task-owned binary
+payloads are removed with prior hashes recorded; accepted baseline payloads and
+unique native captures remain. At this checkpoint 77488578560 bytes are free.
+Awake PID 34744 remains active, existing expiry 2026-10-24 17:57:20 UTC; custody
+continues for the queue. No main merge, version bump, release or CI wait occurs.

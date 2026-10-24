@@ -1,11 +1,9 @@
 //! Shared source buffers and independent placement/lighting storage.
 
-use super::world::WorldVertex;
 use crate::engine::render::common::prop_vertices::SharedVertices;
 use crate::engine::spatial::Aabb;
 use bytemuck::{Pod, Zeroable};
 use std::sync::Arc;
-use wgpu::util::DeviceExt;
 
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
@@ -71,31 +69,21 @@ impl Plan {
         device: &wgpu::Device,
         shared: &SharedVertices,
     ) -> super::props::PropChunk {
-        let vertices: Vec<WorldVertex> = shared
-            .asset
-            .model
-            .vertices
-            .iter()
-            .map(|v| {
-                WorldVertex::from(crate::engine::render::Vertex {
-                    pos: v.pos,
-                    normal: v.normal.unwrap_or([0.0; 3]),
-                    uv: v.uv,
-                    caustics_albedo: [v.color[0], v.color[1], v.color[2]],
-                    ..crate::engine::render::Vertex::UNLIT
-                })
-            })
-            .collect();
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let vertex_count = shared.asset.model.vertices.len();
+        let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-canonical-prop-vertices"),
-            contents: bytemuck::cast_slice(&vertices),
-            usage: wgpu::BufferUsages::VERTEX,
+            size: u64::try_from(vertex_count)
+                .unwrap_or(u64::MAX)
+                .saturating_mul(super::world::WORLD_VERTEX_STRIDE)
+                .max(4),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
         });
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("places-canonical-prop-indices"),
-            contents: bytemuck::cast_slice(&shared.asset.model.indices),
-            usage: wgpu::BufferUsages::INDEX,
-        });
+        let index_buffer = super::world::staged_index_buffer(
+            device,
+            shared.asset.model.indices.len(),
+            "places-canonical-prop-indices",
+        );
         let storage = |label, size| {
             device.create_buffer(&wgpu::BufferDescriptor {
                 label: Some(label),
@@ -142,7 +130,7 @@ impl Plan {
         super::props::PropChunk {
             vertex_buffer,
             index_buffer,
-            vertex_count: u32::try_from(vertices.len()).unwrap_or(u32::MAX),
+            vertex_count: u32::try_from(vertex_count).unwrap_or(u32::MAX),
             shared: Some(SharedChunk {
                 binding,
                 instances,
@@ -150,7 +138,7 @@ impl Plan {
                 visibility,
                 bounds: Vec::new(),
                 next_vertex: 0,
-                vertices_per_instance: u32::try_from(vertices.len()).unwrap_or(u32::MAX),
+                vertices_per_instance: u32::try_from(vertex_count).unwrap_or(u32::MAX),
                 reactive: self.reactive,
             }),
         }
@@ -158,12 +146,11 @@ impl Plan {
 }
 
 impl SharedChunk {
-    pub fn append(
+    pub fn begin_append(
         &mut self,
         queue: &wgpu::Queue,
-        batch: &crate::engine::render::PropMeshBatch,
         shared: &SharedVertices,
-        visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        vertices: u32,
     ) -> std::ops::Range<u32> {
         let first = u32::try_from(self.bounds.len()).unwrap_or(u32::MAX);
         let records: Vec<Instance> = shared
@@ -189,32 +176,28 @@ impl SharedChunk {
                 }
             })
             .collect();
-        let colors: Vec<[f32; 4]> = shared.colors().collect();
         queue.write_buffer(
             &self.instances,
             u64::from(first).saturating_mul(super::buffer_element_bytes::<Instance>()),
             bytemuck::cast_slice(&records),
         );
-        queue.write_buffer(
-            &self.colors,
-            u64::from(self.next_vertex).saturating_mul(16),
-            bytemuck::cast_slice(&colors),
-        );
-        if self.reactive {
-            let packed = super::props::pack_prop_vertices(batch, |v| {
-                visibility.map_or([0.0; 4], |context| context.vertex(v))
-            });
-            let values: Vec<[f32; 4]> = packed.iter().map(|v| v.uv_visibility).collect();
-            queue.write_buffer(
-                &self.visibility,
-                u64::from(self.next_vertex).saturating_mul(16),
-                bytemuck::cast_slice(&values),
-            );
-        }
-        self.next_vertex = self
-            .next_vertex
-            .saturating_add(u32::try_from(colors.len()).unwrap_or(u32::MAX));
+        self.next_vertex = self.next_vertex.saturating_add(vertices);
         first..u32::try_from(self.bounds.len()).unwrap_or(u32::MAX)
+    }
+
+    pub fn write_slice(
+        &self,
+        queue: &wgpu::Queue,
+        offset: u64,
+        colors: &[[f32; 4]],
+        visibility: Option<&[[f32; 4]]>,
+    ) {
+        queue.write_buffer(&self.colors, offset, bytemuck::cast_slice(colors));
+        if self.reactive
+            && let Some(values) = visibility
+        {
+            queue.write_buffer(&self.visibility, offset, bytemuck::cast_slice(values));
+        }
     }
 
     pub fn bytes(&self) -> u64 {

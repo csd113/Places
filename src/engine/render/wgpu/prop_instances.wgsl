@@ -7,12 +7,14 @@ struct PropInstance {
 @group(5) @binding(1) var<storage, read> prop_colors: array<vec4<f32>>;
 @group(5) @binding(2) var<storage, read> prop_uv_visibility: array<vec4<f32>>;
 
+override prop_kind: u32 = 0u;
+
 @vertex
 fn vs_prop_instance(vertex: WorldVertex, @builtin(vertex_index) vertex_index: u32,
     @builtin(instance_index) instance_index: u32) -> VsOut {
     let instance = prop_instances[instance_index];
     let world = instance.model * vec4<f32>(vertex.position, 1.0);
-    if (instance.lighting.w != 0u) {
+    if (prop_kind == 2u || (prop_kind == 0u && instance.lighting.w != 0u)) {
         var rigid = vertex;
         rigid.position = world.xyz;
         rigid.normal = (instance.normal * vec4<f32>(vertex.normal, 0.0)).xyz;

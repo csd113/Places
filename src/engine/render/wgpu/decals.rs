@@ -612,28 +612,48 @@ impl DecalPipeline {
 
 /// One uploaded decal sheet: the texture, its view and one bind group per
 /// filtering level.
-struct DecalSheet {
-    /// Kept for ownership; the bind groups reference it.
-    _texture: wgpu::Texture,
-    /// Kept for ownership; the bind groups were built from it.
-    _view: wgpu::TextureView,
-    /// Texture + the repeating Low sampler.
-    low: wgpu::BindGroup,
-    /// Texture + the repeating Medium sampler.
-    medium: wgpu::BindGroup,
-    /// Texture + the repeating High sampler.
-    high: wgpu::BindGroup,
-    /// Texel storage, every mip level included.
-    resident_bytes: usize,
+enum DecalSheet {
+    Owned {
+        _texture: wgpu::Texture,
+        _view: wgpu::TextureView,
+        low: wgpu::BindGroup,
+        medium: wgpu::BindGroup,
+        high: wgpu::BindGroup,
+        resident_bytes: usize,
+    },
+    Cached(Arc<super::texture::GpuTexture>),
 }
-
 impl DecalSheet {
-    /// The bind group for one filtering level.
-    const fn bind_group(&self, filtering: TextureFiltering) -> &wgpu::BindGroup {
-        match filtering {
-            TextureFiltering::Low => &self.low,
-            TextureFiltering::Medium => &self.medium,
-            TextureFiltering::High => &self.high,
+    fn bind_group(&self, filtering: TextureFiltering) -> &wgpu::BindGroup {
+        match self {
+            Self::Cached(texture) => texture.bind_group(filtering),
+            Self::Owned {
+                low,
+                medium,
+                high,
+                _texture: _,
+                _view: _,
+                resident_bytes: _,
+            } => match filtering {
+                TextureFiltering::Low => low,
+                TextureFiltering::Medium => medium,
+                TextureFiltering::High => high,
+            },
+        }
+    }
+    fn resident_bytes(&self) -> usize {
+        match self {
+            Self::Cached(texture) => {
+                usize::try_from(texture.meta().resident_bytes).unwrap_or(usize::MAX)
+            }
+            Self::Owned {
+                resident_bytes,
+                _texture: _,
+                _view: _,
+                low: _,
+                medium: _,
+                high: _,
+            } => *resident_bytes,
         }
     }
 }
@@ -719,11 +739,7 @@ impl WgpuDecals {
             sheets: uploaded.sheets.len(),
             external_sheets: uploaded.external,
             diagnostic_sheets: uploaded.diagnostics,
-            texture_bytes: uploaded
-                .sheets
-                .iter()
-                .map(|sheet| sheet.resident_bytes)
-                .sum(),
+            texture_bytes: uploaded.sheets.iter().map(DecalSheet::resident_bytes).sum(),
         };
         Self {
             chunks,
@@ -1043,7 +1059,7 @@ fn upload_sheet(
         textures,
         TextureFiltering::High,
     );
-    DecalSheet {
+    DecalSheet::Owned {
         _texture: texture,
         _view: view,
         low,
@@ -1173,3 +1189,6 @@ fn halve(source: &RawImage) -> RawImage {
         (source.height / 2).max(1),
     )
 }
+
+mod staged;
+pub use staged::DecalUpload;

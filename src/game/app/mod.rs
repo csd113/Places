@@ -3548,6 +3548,9 @@ impl FrameLoop<'_> {
                         matches!(intent, LoadIntent::Graphics),
                         probes,
                     );
+                    if physical.is_some() {
+                        self.renderer.stage_item_sheets();
+                    }
                     self.renderer.set_prepared_geometry(geometry);
                     self.renderer.set_prepared_caustics(caustics);
                     self.renderer.set_prepared_transport(transport);

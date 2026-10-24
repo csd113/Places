@@ -183,12 +183,13 @@ impl WgpuDynamic {
         reason = "One cohesive level upload: the per-model loop and the per-object loop share the same counters and context."
     )]
     pub fn upload(ctx: &mut DynamicUploadContext<'_>, scene: &DynamicScene) -> Self {
+        let mut timer = crate::engine::perf::loading::StageTimer::new("dynamic-upload");
         let mut value = Self::default();
         if scene.is_empty() {
             return value;
         }
-        let mut image_keys = std::collections::HashMap::new();
         for mesh in scene.meshes() {
+            let mut mesh_timer = crate::engine::perf::loading::StageTimer::new("dynamic-mesh");
             let mut textures: Vec<Arc<GpuTexture>> = Vec::with_capacity(mesh.textures.len());
             for (index, image) in mesh.textures.iter().enumerate() {
                 if super::material::ultraviolet_only_texture(
@@ -204,13 +205,11 @@ impl WgpuDynamic {
                     textures.push(ctx.cache.fallback());
                     continue;
                 }
-                let logical = image_keys
-                    .entry(Arc::as_ptr(image))
-                    .or_insert_with(|| super::texture::model_image_key(image));
+                let logical = ctx.cache.model_image_key(image);
                 let (outcome, texture) = ctx.cache.get_or_upload_fitted(
                     ctx.device,
                     ctx.queue,
-                    logical,
+                    &logical,
                     image.as_ref(),
                     TextureClass::Prop,
                     TextureOrigin::Catalog,
@@ -227,6 +226,7 @@ impl WgpuDynamic {
                 }
                 textures.push(texture);
             }
+            mesh_timer.step("sheets");
             let uv_masks = mesh
                 .textures
                 .iter()
@@ -248,6 +248,7 @@ impl WgpuDynamic {
                         })
                 })
                 .collect();
+            mesh_timer.step("masks");
             // Untextured primitives still draw with the asset-backed white
             // fallback; they must not borrow another primitive's texture.
             let white = textures.len();
@@ -274,7 +275,9 @@ impl WgpuDynamic {
             value
                 .meshes
                 .push(Self::upload_mesh(ctx, mesh, textures, uv_masks, submeshes));
+            mesh_timer.step("buffers");
         }
+        timer.step("meshes");
         for object in scene.objects() {
             let Some(mesh_index) =
                 Some(object.mesh_index()).filter(|index| *index < value.meshes.len())
@@ -358,8 +361,10 @@ impl WgpuDynamic {
                 caustics_receiver: super::caustics::CausticsReceiverCache::default(),
             });
         }
+        timer.step("objects");
         value.prepare_instance_groups(ctx);
         value.sync_instance_groups(ctx.queue);
+        timer.step("instances");
         value.finish_stats(scene);
         value
     }
@@ -368,20 +373,24 @@ impl WgpuDynamic {
         if ctx.device.limits().max_bind_groups < 6 {
             return;
         }
+        let specialized = super::world::specialized_instances();
         for (mesh_slot, mesh) in self.meshes.iter().enumerate() {
             // Sorted transparency retains one independently ordered object.
-            if mesh
-                .submeshes
-                .iter()
-                .any(|part| part.pass == BatchPass::Translucent)
-            {
+            if mesh.submeshes.iter().any(|part| {
+                part.pass == BatchPass::Translucent
+                    || (specialized && (part.pass != BatchPass::Opaque || part.double_sided))
+            }) {
                 continue;
             }
             let objects: Vec<_> = self
                 .objects
                 .iter()
                 .enumerate()
-                .filter_map(|(slot, object)| (object.mesh == mesh_slot).then_some(slot))
+                .filter_map(|(slot, object)| {
+                    (object.mesh == mesh_slot
+                        && (!specialized || object.culling_reflected.is_some()))
+                    .then_some(slot)
+                })
                 .collect();
             if objects.len() < 2 {
                 continue;

@@ -34,6 +34,8 @@ use crate::engine::scene::LocomotionSnapshot;
 pub struct PreparedGeometry {
     pub(super) upload: super::wgpu::world::WorldUpload,
     alternate: Option<super::wgpu::world::WorldUpload>,
+    decals: super::wgpu::decals::DecalUpload,
+    alternate_decals: Option<super::wgpu::decals::DecalUpload>,
 }
 impl PreparedGeometry {
     /// Packs immutable geometry and occlusion while the UI continues presenting.
@@ -55,6 +57,11 @@ impl PreparedGeometry {
         )?;
         let materials = super::MaterialRenderState::from_table(&loaded.materials);
         let prepared = Self {
+            decals: super::wgpu::decals::DecalUpload::prepare(loaded, &build.mesh),
+            alternate_decals: build
+                .static_light_off
+                .as_ref()
+                .map(|state| super::wgpu::decals::DecalUpload::prepare(loaded, &state.mesh)),
             upload: super::wgpu::world::WorldUpload::new(&build.mesh, &materials),
             alternate: build
                 .static_light_off
@@ -264,10 +271,19 @@ impl Renderer {
         );
     }
 
+    /// Protect staged item sheets until the atomic gameplay installation publishes them.
+    pub fn stage_item_sheets(&mut self) {
+        self.renderer.stage_item_sheets();
+    }
+
     /// Supplies the worker-packed CPU plan before the first GPU step.
     pub fn set_prepared_geometry(&mut self, geometry: PreparedGeometry) {
-        self.renderer
-            .set_prepared_geometry(geometry.upload, geometry.alternate);
+        self.renderer.set_prepared_geometry(
+            geometry.upload,
+            geometry.alternate,
+            geometry.decals,
+            geometry.alternate_decals,
+        );
     }
 
     /// Supplies worker-prepared immutable visibility before staged GPU upload.
