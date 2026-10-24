@@ -946,6 +946,12 @@ impl Renderer {
         self.renderer.gpu_timing()
     }
 
+    /// Actual configured presentation mode, for native performance receipts.
+    #[must_use]
+    pub const fn presentation_mode(&self) -> &'static str {
+        self.renderer.presentation_mode()
+    }
+
     /// Cost and shape of the most recently built level.
     #[must_use]
     pub const fn level_stats(&self) -> LevelBuildStats {

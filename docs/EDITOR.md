@@ -426,6 +426,17 @@ It checks picker results against the uncached filter across themes, types and
 queries. It opens no window, saves no source and performs no map bake; preview
 CPU time does not include GPU upload or input-to-present latency.
 
+For native performance evidence, `places-editor PROJECT --performance-test`
+requests Immediate presentation and removes the normal 16 ms loop delay. It
+refuses a surface that cannot select Immediate; it does not alter saved player
+settings or ordinary editor pacing. Set `PLACES_LOAD_TRACE` to a fresh JSONL
+path for frame/pump intervals, successful presentation flags, actual mode,
+physical drawable, focus and the SDL-reported display refresh rate. The same
+opt-in logs split device/driver bootstrap and pipeline creation from project
+preparation. Run outside compilation/capture work. Inspect steady successful
+frames and verify display pacing before drawing FPS conclusions;
+request-to-ready and action-handler milliseconds are latency measurements.
+
 ### 0.13.0 selection, structure and bake review
 
 Model/entity, fixture and material pickers show committed previews in an eight-tile

@@ -8127,3 +8127,176 @@ complete combined acceptance and the requested portable Windows game/modes/demo
 ZIP, validate clean extracted launch without Rust/Python/editor and exclude
 private/developer files. Delivery is to the user; no friend contact, video,
 public release, main merge, version bump or GitHub CI wait occurs.
+
+
+## Bounded cold-bootstrap attribution and runtime menu storage (Windows, 2026-10-24)
+
+**Result.** The actual tracked `assets/shared/menu/scene.bin` now uses the supported
+lossless storage migration. It is **15,558,745 bytes**, down from **17,025,419**:
+**1,466,674 bytes / 8.6146% saved**. Native appearance and representative events
+remain exact. The cold-start investigation retains attribution and an explicit
+uncapped editor test path; it retains **no speculative bootstrap optimization**
+and does not claim that cold input stalls are fixed. Existing preview sharing,
+RAM/instancing reductions, shader specialization, character pipeline preparation
+and the two-sheet upload bound remain intact.
+
+**Editor mode and timing.** `places-editor PROJECT --performance-test` requests
+Immediate and removes the normal unconditional 16 ms loop sleep. Unsupported
+Immediate surfaces fail with a named error; normal editor pacing and saved player
+settings retain their prior semantics. `PLACES_LOAD_TRACE` enables buffered frame
+and pump records with successful-presentation flags, actual mode, physical size,
+focus and SDL display refresh. Startup and lazy pipeline stages are opt-in too.
+This supersedes the preceding editor phase's missing test-mode path. Its historical
+Fifo figures remain latency evidence, never uncapped FPS acceptance.
+
+Two fresh-process Lantern workflows use **DX12, actual Immediate, 1440x816**,
+no loop sleep, no fixed delta and no capture. SDL reports **165 Hz**. All four
+editor controls/repeats have zero unsuccessful presentations. The small-scene
+Immediate control has 3,621/3,633 ready pump intervals below the 6.061 ms refresh
+interval (median **1.466 ms**), proving that this path is not capped at display
+refresh. Focus is recorded and often false; this is path/latency validation,
+not the remaining focus-controlled target-resolution FPS acceptance campaign.
+Reported seconds are CPU preparation and request-to-ready, separately:
+
+| Case | Preparation range (s), two Immediate runs | Request-to-ready range (s) |
+| --- | ---: | ---: |
+| Initial Inspect | 1.977-2.007 | 3.839-3.842 |
+| Cold Environment | 14.845-14.944 | 16.057-16.140 |
+| Warm foliage move | 0.563-0.568 | 1.807-1.834 |
+| Warm foliage rotate | 0.556-0.560 | 1.816-2.026 |
+| Room material | 1.464-1.480 | 2.934-3.093 |
+
+Moves/rotations retain unchanged batch/architecture reuse and exact source-history
+restoration; material edits retain the large previous savings. The normal Fifo
+latency control prepares Environment in 14.749 s and readies it in 16.694 s;
+move/rotate preparation is 0.540/0.541 s. Different pacing changes upload polling
+opportunities, so the shorter Immediate ready latency is not a renderer throughput
+win or an improvement to normal user startup. Filesystem/driver caches were not
+flushed. These are cold **process/renderer** paths, not cold-disk measurements.
+
+**Cold attribution and bounded decision.** The first normal native bootstrap
+spends **615 ms** in adapter/driver selection, **96 ms** in device creation,
+**16 ms** in instance setup and **18 ms** in project renderer resources. The two
+Immediate Lantern starts spend **236-356 ms** selecting the adapter, **68-104 ms**
+creating the device and **18-20 ms** in project resources. Pipeline creation costs
+**2.253 s** in the normal control and **2.415-2.422 s** in the Immediate repeats;
+world-surface/capture calls dominate. These API-call groups include WGSL validation,
+DXC and driver PSO work, not a claim to isolate pure DXC CPU time from every driver
+operation. Main-thread placement is project controlled; device/driver initialization
+is separate from those later pipeline calls and from worker map preparation.
+
+The longest editor pump gaps are **2.345 s** normal and **2.452-2.458 s** Immediate.
+The small scene prepares Inspect in 207 ms but waits a further **2.075 s** for the UI
+while initial pipeline creation costs **2.249 s**. This isolates a real initial
+input-polling stall independently of Lantern's map size. Cold Environment's separate
+worker cost remains **14.845-14.944 s**, with **41.8-42.4 ms** maximum upload handlers.
+Ordinary scripted action handlers still peak around **101.5 ms**. Handler timings
+exclude queue delay; pump gaps bound periods when new input cannot be polled.
+
+The fresh runtime menu functional pair likewise records **2.273/2.138 s** of pipeline
+creation and **2.308/2.168 s** maximum pump gaps before/after storage migration.
+Variant decode stages total **617/430 ms**, with other preparation **48/47 ms**;
+CPU delivery overlaps the blocked rendering thread, so its elapsed request span
+must not all be called map work. Launch-to-world-commit is **4.105/3.874 s** in this
+single fixed-step capture pair. It is descriptive attribution, not an accepted
+startup speedup: cache state and compilation variation remain uncontrolled.
+
+The pinned wgpu-hal 30.0.1 DX12 implementation has a unit `PipelineCache` and a
+stub `create_pipeline_cache`; it offers no retained binary cache to enable here.
+Existing asynchronous character pipeline work is not duplicated. Removing needed
+pipeline variants or introducing a new threading/cache lifetime architecture would
+expand the change and validation burden. No such speculative variant was run or
+retained in this bounded pass. Input stalls and strict cold/no-regression acceptance
+remain open. No clocks, driver, fan, charger, power-plan or quality changes were made.
+
+**Actual menu transport and exactness.** `places-compile optimize-storage` validates
+the preserved baseline, writes a distinct destination and never bakes. Balanced
+Zstd 9 produces 16,296,723 bytes; explicit compact Zstd 19 produces the selected
+15,558,745 bytes. Compact migration takes 11.65 s in this unisolated tooling run;
+that is not a compiler-performance acceptance measurement. Both layouts are
+cost-selected using the supported bounded policy. The actual runtime resource is
+then replaced only from the validated selected file, with automatic baseline
+restoration if native/parity validation fails.
+
+| Stored property | Original runtime | Selected actual runtime |
+| --- | ---: | ---: |
+| Archive bytes | 17,025,419 | 15,558,745 |
+| Decimal MB / MiB | 17.025419 / 16.236705 | 15.558745 / 14.837976 |
+| Entries | 19 | 19 |
+| Sum of uncompressed entry bytes | 61,272,098 | 45,314,957 |
+| ZIP methods | Deflate 8 | Deflate 8 + Zstd 93 |
+| Compact lightmap revision | PLC1 rev 1 | PLC1 rev 2 |
+| Encoded lightmap bytes | 52,931,016 | 36,973,828 |
+| Compressed lightmap bytes | 15,396,140 | 14,523,942 |
+| Prop recipes | PPS1 rev 2 | PPS1 rev 2 |
+
+The expanded six-channel half-bit atlas hash is identical. The full-precision
+lighting/circuit record, meshes, collision, navigation, reflection records,
+semantics/scripts/events, external dependencies and original build-input provenance
+are exact. Both Full and Static/Off decoded prop records match. Revision 4 was not
+forced over the smaller existing exact revision-2 attribute sharing. The expanded
+runtime atlas is unchanged; archive saving is not a measured runtime RAM reduction.
+
+Native matched **1280x720, DX12, actual Immediate**, fixed 1/30-second functional
+runs use a fixed menu seed. **19 image pairs are pixel exact** (zero differing
+channels). Parcel relay states 100-115 and blackout/roach states 500-506 complete;
+all **26/17 respective traced state snapshots** match exactly, including door
+states, circuit states, agent simulation and carry ownership. Captures visibly
+show the original parcel relay, full blackout and restored scene with the roaches.
+These capture/fixed-delta runs make no FPS claim.
+
+A scratch junction asset overlay was refused by ordinary installed-asset admission
+before renderer startup (exit 1). The owned PID had ended. The corrected runs use
+the actual supported asset root; asset validation was never disabled. The failed
+trial is retained as a harness receipt and excluded from successful comparisons.
+An optional WMI refresh query also returned OS Access denied and was not retried;
+the native SDL receipt supplies current display refresh without a remaining blocker.
+
+Original SHA-256: `902134fbf796b4f2aee2807f37fc6b192ee83a23bde2283cad7043d85d2f5f15`.
+Selected actual SHA-256: `bbb7cb766b5962d3c2f09b9cade186012500e4fe8213ca2ee0d71b665e3c660d`.
+No newer package exists under `projects/menu`; the original solved runtime payload
+is the migration source. **Baseline and selected package both remain stale for
+current source/preparation inputs** (`source bytes changed`; `compiler preparation
+code changed`). Their original source SHA and compiler fingerprint are preserved,
+not relabelled current. This storage-only migration does not close source-currency
+acceptance or authorize a replacement bake with different runtime semantics.
+
+**Gates, evidence and cleanup.** Final formatting, strict workspace/all-target/
+all-feature Clippy with `-D warnings`, locked release workspace/all-feature build,
+all **316 Rust tests**, two focused Python ZIP lifetime/routing checks, and asset /
+texture / prop checks pass. Actual installed menu typed validation has intact
+dependencies and no warnings. No tests were added and no shipped map was baked.
+The prior 42 preview parities, 16 circuit images and 24 Python checks remain dated
+accepted evidence, not rerun claims; the known broader 17 Python failures remain.
+
+This sole-writer phase starts at remote-matching
+`a87d1a68cdae4fea3737a62ac84292ebb7248fce` on `0.13.0-staging`.
+Evidence is in `C:/Users/Connor Dawkins/Documents/Codex/2026-10-24/task-5/cold-menu-evidence`,
+indexed by `local/windows-validation-0.13.0/cold-menu/evidence-index.json`.
+`editor-measurements.json`, `runtime-cold-attribution.json`, `menu-equivalence.json`,
+native parity/event receipts and `final-validation.json` are the measured outcomes.
+The 485 Rust/shader source hashes and all 11 selected EXE/DLL/PDB hashes are checked.
+The preserved payload is `selected-bin` (93,054,200 bytes),
+with source/payload manifests. Historical evidence and prior owners are untouched.
+
+After every build/native task ended, Cargo clean removes **6,305 files / 7.6 GiB
+logical**; actual free-space recovery is **7,658,115,072 bytes
+(7.13 GiB)**. Checked task-owned disposable
+copies/junctions recover another **47,554,560 bytes** actual.
+Free space immediately after cleanup is **81,514,000,384 bytes**. No broad temp
+or user-data sweep occurs. All 11 preserved file hashes are checked again, and
+real editor Environment plus actual-menu game/DLL smoke pass with `target` absent.
+They still use repository assets; this is not the queued clean-extracted portable
+ZIP validation. Baseline menu evidence is retained. Awake PID **53180** remains in
+queue custody through **2026-10-25 16:32:30 UTC**, with no persistent power changes.
+Exact commit/remote/clean state and writer release are in the final ownership handoff.
+
+**Remaining combined acceptance.** Lantern readiness +77 ms, Pool +8 ms and Pool
+peak commit +1.2 MiB remain open, alongside mixed final FPS/instancing/campfire,
+Home/Pool favor and reward/restart, pressure, and final integrated Windows checks.
+Cold pipeline/input stalls and existing menu source currency are not claimed fixed.
+Issue reconciliation and the authorized portable game/DLL/assets/modes/demo ZIP
+with clean extraction/user delivery are next, serialized after this writer releases.
+Mac Metal remains a later user-mediated switch after Windows; no Mac/Linux native
+coverage is claimed. No main merge, release, version bump, CI wait, comparison video,
+four-sheet retry, public upload or friend outreach occurs in this phase.

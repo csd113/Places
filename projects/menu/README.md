@@ -66,3 +66,19 @@ Only after verification, copy the package to `assets/shared/menu/scene.bin`.
 Cargo and ordinary tests do not bake this scene. It is a tracked application
 resource and works without gameplay maps or a source checkout. It never appears
 as an Explore entry.
+
+
+## Runtime storage migration (2026-10-24)
+
+The actual `assets/shared/menu/scene.bin` was migrated losslessly from the preserved
+17,025,419-byte runtime package to 15,558,745 bytes using supported compact
+`places-compile optimize-storage`, without rebaking. Binary ZIP transport uses
+Zstd method 93, lightmaps use PLC1 revision 2, and cost-selected prop recipes remain
+PPS1 revision 2. Full/Static decoded records, scripts, dependencies and original
+build-input provenance are exact; native matched appearance and representative
+events pass. See the single `docs/reports/release-0.13.0.md` report and its evidence index.
+
+Runtime SHA-256 is `bbb7cb766b5962d3c2f09b9cade186012500e4fe8213ca2ee0d71b665e3c660d`.
+Original source/preparation provenance is retained. Both original and migrated
+packages report existing source/preparation staleness against the current project;
+storage migration does not make `verify --require-current` pass or claim a fresh bake.

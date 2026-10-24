@@ -879,6 +879,7 @@ impl WgpuRenderer {
             ));
         }
 
+        let mut bootstrap = crate::engine::perf::loading::StageTimer::new("renderer-bootstrap");
         let descriptor = wgpu::InstanceDescriptor {
             backends: surface::native_backends(),
             ..wgpu::InstanceDescriptor::new_without_display_handle()
@@ -892,11 +893,14 @@ impl WgpuRenderer {
         #[cfg(not(target_os = "windows"))]
         let instance = wgpu::Instance::new(descriptor);
 
+        bootstrap.step("instance");
         let retained_window = window.clone();
         // SAFETY: the clone owns the same SDL handles. It is retained by the
         // renderer after its surface field, including during surface recovery.
         let wgpu_surface = unsafe { surface::create(&instance, &retained_window) }?;
+        bootstrap.step("surface");
         let adapter = Self::request_adapter(&instance, &wgpu_surface)?;
+        bootstrap.step("adapter-driver");
         let adapter_info = adapter.get_info();
         Self::check_native_backend(&adapter_info)?;
 
@@ -909,6 +913,7 @@ impl WgpuRenderer {
             )
         })?;
         let present_mode = surface::select_present_mode(&capabilities, true);
+        bootstrap.step("capabilities");
         let alpha_mode = surface::select_alpha_mode(&capabilities);
 
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
@@ -925,6 +930,7 @@ impl WgpuRenderer {
                 surface::native_backend_label()
             )
         })?;
+        bootstrap.step("device-driver");
         logging::info(format!(
             "[wgpu] memory allocator policy: {:?}",
             device_memory_hints()
@@ -957,6 +963,7 @@ impl WgpuRenderer {
             DrawableSize::new(width, height),
             device_lost,
         );
+        bootstrap.step("project-resources");
         renderer.window = Some(retained_window);
         Ok(renderer)
     }
@@ -1367,6 +1374,11 @@ impl WgpuRenderer {
         // Report the interval the selected mode really corresponds to: a
         // surface that cannot present immediately keeps the synchronized path.
         i32::from(mode != wgpu::PresentMode::Immediate)
+    }
+
+    /// Actual selected mode; requested vertical synchronization alone is insufficient evidence.
+    pub const fn presentation_mode(&self) -> &'static str {
+        present_mode_label(self.config.present_mode)
     }
 
     /// Records the drawable size and schedules a surface/depth rebuild.
@@ -6104,6 +6116,7 @@ impl WgpuRenderer {
         if self.world_pipeline.as_ref().map(WorldPipeline::format) == Some(self.config.format) {
             return;
         }
+        let mut pipeline = crate::engine::perf::loading::StageTimer::new("renderer-pipelines");
         self.world_pipeline = Some(WorldPipeline::new(
             &self.device,
             self.config.format,
@@ -6111,6 +6124,7 @@ impl WgpuRenderer {
             &self.material_layout,
             &self.environment_layout,
         ));
+        pipeline.step("world-surface");
         // The capture pipeline is format-fixed (the reflection targets) and
         // culls nothing so both sides remain visible in reflections. The reversed front
         // face compensates for the winding the probe projection's Y flip and
@@ -6125,6 +6139,7 @@ impl WgpuRenderer {
             false,
             true,
         ));
+        pipeline.step("world-capture");
         // The decal pass runs in the same colour+depth passes as the world, so
         // it needs one pipeline per target format.
         self.decal_pipeline = Some(DecalPipeline::new(
@@ -6145,6 +6160,7 @@ impl WgpuRenderer {
             &self.caustics,
             &self.textures,
         ));
+        pipeline.step("decals");
         // The sky pass draws in the same colour+depth passes as the world (the
         // main surface and the offscreen scene target, in raw display space),
         // sampling the shared texture-cache group 1.
@@ -6154,6 +6170,7 @@ impl WgpuRenderer {
             SCENE_FORMAT,
             self.textures.layout(),
         ));
+        pipeline.step("sky");
         // The effect billboards run in the same colour+depth passes as the
         // world (the main surface and the offscreen scene target), with the
         // shared texture-cache layout as group 1, so every uploaded effect
@@ -6168,6 +6185,7 @@ impl WgpuRenderer {
             SCENE_FORMAT,
             self.textures.layout(),
         ));
+        pipeline.step("effects");
         // The offscreen post chain: the scene target's format equals the
         // reflection format, the emissive target is raw, and the resolve and
         // present pipelines write the surface format.
@@ -6179,6 +6197,7 @@ impl WgpuRenderer {
             }
             None => PostProcess::new(&self.device, self.config.format),
         });
+        pipeline.step("postprocess");
         self.scene_pipeline = Some(WorldPipeline::with_state(
             &self.device,
             SCENE_FORMAT,
@@ -6189,6 +6208,7 @@ impl WgpuRenderer {
             false,
             true,
         ));
+        pipeline.step("world-scene");
         self.emissive_pipeline = Some(WorldPipeline::with_state(
             &self.device,
             EMISSIVE_FORMAT,
@@ -6199,6 +6219,7 @@ impl WgpuRenderer {
             false,
             true,
         ));
+        pipeline.step("world-emissive");
         logging::info(format!(
             "[wgpu] world pipeline for surface format {:?}",
             self.config.format
@@ -6220,12 +6241,14 @@ impl WgpuRenderer {
     /// Builds the UI pipeline and uploads its committed atlas once per format.
     fn ensure_ui_pipeline(&mut self, format: wgpu::TextureFormat) {
         if self.ui.as_ref().map(UiRenderer::format) != Some(format) {
+            let mut pipeline = crate::engine::perf::loading::StageTimer::new("renderer-pipelines");
             self.ui = Some(UiRenderer::new(
                 &self.device,
                 &self.queue,
                 format,
                 self.editor_ui,
             ));
+            pipeline.step("ui-and-font-upload");
         }
         if let Some(ui) = self.ui.as_mut() {
             ui.set_images(&self.device, &self.queue, &self.ui_images);

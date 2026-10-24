@@ -13,6 +13,7 @@ mod gameplay_actions;
 mod geometry_actions;
 mod input;
 mod navigation;
+mod performance;
 pub mod process;
 #[doc(hidden)]
 pub mod profiling;
@@ -253,7 +254,7 @@ impl App {
         let _title = window.set_title(&title);
     }
 
-    fn draw(&mut self, window: &sdl3::video::Window) {
+    fn draw(&mut self, window: &sdl3::video::Window) -> bool {
         let browser_images = self.browser_images();
         let (vertices, _hits) = ui::build(self);
         let images = if matches!(self.popup, Some(Popup::Thumbnail)) {
@@ -268,7 +269,7 @@ impl App {
             browser_images
         };
         self.viewport.set_ui_images(images);
-        let _presented = self.viewport.draw(window, &vertices);
+        self.viewport.draw(window, &vertices)
     }
 
     fn dialogs(&mut self) {
@@ -318,6 +319,7 @@ struct Options {
     asset_root: Option<PathBuf>,
     capture_dir: Option<PathBuf>,
     verify_script: Option<PathBuf>,
+    performance_test: bool,
 }
 
 fn options() -> Result<Option<Options>, String> {
@@ -329,10 +331,11 @@ fn options() -> Result<Option<Options>, String> {
                 use std::io::Write;
                 let _written = writeln!(
                     std::io::stdout(),
-                    "places-editor [PROJECT] [--new PROJECT] [--level ID] [--compiler PATH] [--game PATH] [--asset-root PATH]\nNative project editor. Built-in assets only. See docs/EDITOR.md for controls."
+                    "places-editor [PROJECT] [--new PROJECT] [--level ID] [--compiler PATH] [--game PATH] [--asset-root PATH] [--performance-test]\nNative project editor. Built-in assets only. See docs/EDITOR.md for controls."
                 );
                 return Ok(None);
             }
+            "--performance-test" => options.performance_test = true,
             "--new" => {
                 options.new = true;
                 options.project = Some(PathBuf::from(
@@ -403,8 +406,9 @@ fn create_app(
     sdl: &sdl3::Sdl,
     tools: ToolPaths,
     capture_dir: Option<PathBuf>,
+    performance_test: bool,
 ) -> Result<App, String> {
-    let viewport = Viewport::new(window)?;
+    let viewport = Viewport::new(window, performance_test)?;
     let (dialog_sender, dialog_receiver) = mpsc::channel();
     let capture = capture_dir.map(Capture::new).transpose()?;
     let catalog = assets::AssetCatalog::load_default();
@@ -458,6 +462,7 @@ fn create_app(
 }
 
 fn application(options: Options) -> Result<(), String> {
+    let mut startup = crate::engine::perf::loading::StageTimer::new("editor-bootstrap");
     let mut verification = options
         .verify_script
         .as_deref()
@@ -467,15 +472,27 @@ fn application(options: Options) -> Result<(), String> {
         paths::configure_assets(root)?;
     }
     assets::validate_installation()?;
+    startup.step("assets-validated");
     let _user = paths::initialize_user()?;
     let tools = configured_tools(&options)?;
     let sdl = sdl3::init().map_err(|e| e.to_string())?;
     let video = sdl.video().map_err(|e| e.to_string())?;
     let mut window = editor_window(&video)?;
-    let mut app = create_app(&window, &sdl, tools, options.capture_dir)?;
+    startup.step("paths-tools-window");
+    let mut app = create_app(
+        &window,
+        &sdl,
+        tools,
+        options.capture_dir,
+        options.performance_test,
+    )?;
+    startup.step("app-renderer-audio");
     app.load_initial(options.project, options.new, options.level)?;
+    startup.step("project-open-request");
+    let mut trace = performance::FrameTrace::new(options.performance_test, &window);
     let mut events = sdl.event_pump().map_err(|e| e.to_string())?;
     while !app.closing {
+        trace.pump(&app.viewport, &window);
         let (_, hits) = ui::build(&app);
         for event in events.poll_iter() {
             app.event(&event, &window, &hits);
@@ -502,12 +519,15 @@ fn application(options: Options) -> Result<(), String> {
             app.status = format!("Viewport: {error}");
         }
         app.update_window(&mut window, &video);
-        app.draw(&window);
+        let presented = app.draw(&window);
+        trace.present(&app.viewport, &window, presented);
         app.capture_frame();
         if let Some(driver) = &mut verification {
             driver.advance(&mut app, &mut window)?;
         }
-        std::thread::sleep(Duration::from_millis(16));
+        if !options.performance_test {
+            std::thread::sleep(Duration::from_millis(16));
+        }
     }
     Ok(())
 }

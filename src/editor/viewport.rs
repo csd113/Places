@@ -64,7 +64,7 @@ pub(super) struct Viewport {
 }
 
 impl Viewport {
-    pub fn new(window: &Window) -> Result<Self, String> {
+    pub fn new(window: &Window, performance_test: bool) -> Result<Self, String> {
         let mut renderer = Renderer::new(window)?;
         renderer.set_editor_ui();
         renderer.set_quality(QualityLevel::High);
@@ -72,7 +72,10 @@ impl Viewport {
         renderer.set_lightmap_quality(LightmapQuality::Off);
         renderer.set_reflection_quality(ReflectionQuality::Off);
         renderer.set_bloom_enabled(false);
-        let _swap_interval = renderer.set_swap_interval(true);
+        let interval = renderer.set_swap_interval(!performance_test);
+        if performance_test && interval != 0_i32 {
+            return Err("Editor performance testing requires Immediate presentation, unsupported by this surface".into());
+        }
         let (width, height) = window.size_in_pixels();
         Ok(Self {
             renderer,
@@ -276,6 +279,10 @@ impl Viewport {
                 ])
             })
             .collect()
+    }
+
+    pub const fn presentation_mode(&self) -> &'static str {
+        self.renderer.presentation_mode()
     }
 
     pub const fn preview_metrics(&self) -> &serde_json::Value {

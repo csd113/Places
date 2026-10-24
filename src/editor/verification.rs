@@ -297,6 +297,7 @@ impl Verification {
             "navigation": app.navigation.checkpoint(),
             "visible_controls": controls.iter().map(|hit| serde_json::json!({"action":format!("{:?}",hit.action),"center":hit.center()})).collect::<Vec<_>>(),
             "input_focus": window.has_input_focus(),
+            "presentation_mode": app.viewport.presentation_mode(),
             "ui_focus": app.ui_focus.map(|action| format!("{action:?}")),
             "audio_preview": app.preview_audio.stats(),
             "editor_resources":app.document.as_ref().map(super::Document::resource_snapshot),
