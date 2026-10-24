@@ -8313,8 +8313,9 @@ locked release rebuild supplies the final player SHA-256
 `a66d6ad4c266dfa161d3a7afa77ea461d068a5341cdb0d26b8044d48a4ec4fdb`; a rebuild is not claimed binary-identical to the earlier
 player. The final staging commit adds the installation/reconciliation report;
 exact local/remote identity is recorded in the local ownership handoff. The
-visible menu/Cargo version remains **0.12.0** pending the separately authorized
-final version bump; the 0.13.0 staging filename is not a public release tag.
+observed native menu label is **0.12.0**, while `Cargo.toml` is already
+**0.13.0** at this commit. No version change occurred in this phase; the staging
+ZIP is not a public release tag.
 
 ### Aggregate and native acceptance
 
@@ -8492,3 +8493,38 @@ combined **Mac/Metal**, and **Linux** remain open. This Windows staging push
 does not wait for CI, merge main, publish a release, bump the version or claim
 the final cross-platform version gate. The parent coordinates the later
 user-mediated Mac switch after Windows custody is safely released.
+
+
+## Combined-map entry audit (2026-10-24)
+
+The shareable ZIP contains **six distinct playable projects**, with **16 internal
+compiled sections**. All six archive hashes, all 16 stable section IDs and all
+16 semantics-record identities are distinct. No obsolete standalone exports or
+duplicate map archives were found; **zero map/archive files were deleted**.
+The live-menu scene is outside that count, and the reward room is part of Hub.
+
+Relay Annex's three Explore cards were its linked Intake, Tower and Discharge
+sections. Its source manifest now sets the existing `menu_entry_only: true`
+policy, giving one Relay Annex entry on future normal exports. All three member
+sources, scripts, thumbnails and transition declarations remain. Normal metadata
+export reuses every prepared world in 6.04 seconds: only `build-inputs.json` and
+`manifest.json` change for each member; gameplay, geometry, lightmaps, collision
+and other compiled records are byte-exact. The proof bundle validates. Native
+Explore shows **six** project entries, and the existing project loader reaches
+Intake -> Tower -> Discharge -> Intake with internal rows hidden. This is an
+explicit loader diagnostic, not a fresh objective/airlock playthrough; the
+authored transition scripts and conditions remain byte-exact.
+
+The original validated ZIP is preserved unchanged at **658,523,027 bytes**, SHA
+`9e39f4be4d36c4f446054f19cd1a4e65e8204316ec89b24c3e30239d21b5c97c`.
+It still has the previous eight-card menu metadata. The parent queued a larger
+Beam campaign next and requested no new full distribution here. The next
+assembly must use the refreshed Relay component (or re-export its now-correct
+source) so only one Annex card appears. No Library retry, broad build, new art
+or campaign expansion runs in this audit. Rust/shader sources are unchanged,
+so the previous strict gates are retained rather than reported as rerun.
+
+Evidence and the refreshed Relay component are under
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-24/task-6/redundancy-audit/`.
+The repository writer is released after this bounded metadata/report commit;
+the queued four-section Beam expansion is a separate task.

@@ -1,6 +1,8 @@
 # Relay Annex
 
-A separate three-map commissioning shift for Places 0.12.0 staging. Talk to the
+A commissioning campaign with three connected internal sections. Explore shows
+one Relay Annex entry; Intake, Tower and Discharge remain available through
+their links. Talk to the
 night staff, clear intake, climb four connected service floors, restore the
 observation circuit and recover the last passenger from discharge.
 

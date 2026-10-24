@@ -6,6 +6,7 @@
   "author": "Places",
   "description": "A snowbound commissioning shift: intake, four service floors, and the flooded discharge hall.",
   "entry_level": "relay_intake",
+  "menu_entry_only": true,
   "levels": [
     {
       "id": "relay_intake",
