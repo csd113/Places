@@ -7578,3 +7578,227 @@ its existing SYSTEM-only policy/stop mechanism, expiry **2026-10-24 17:57:20 UTC
 Cleanup does not stop it or release that custody.
 
 The 95 verbose trace/CSV files are losslessly compressed from **737,842,126 to 72,697,834 bytes**. Every decompressed SHA-256 is checked before removing its raw file; saved-evidence readers accept the .gz form. This recovers **664,576,000 additional actual bytes**, with **88,103,923,712 bytes (82.05 GiB)** free at that checkpoint. PNGs, binaries, settings, samples and comparison summaries remain directly accessible.
+
+
+### Shared canonical prop geometry and automatic instancing — completed Windows stage
+
+Implemented in `7965ded350e2b5c6523aac510ac00e6fa95b3be0`, against the accepted
+RAM checkpoint `0b6de58ebfc29b7c271c12bccac77aab246c8690`. This section supersedes
+the earlier proposal with actual inventory and native measurements. The final
+player SHA-256 is `caa80df645c3a994f701da5cc127fe5b78f353bbb75eda418e48c7a144b4584b`; the RAM control is
+`f534960f9e1319b14a671bd7afcc27252961fe4868ce70ba52ad245f126b9174`. Exact source hashes, commands, binaries,
+settings, samples, original PNGs and compact evidence are preserved under
+`C:\Users\Connor Dawkins\Documents\Codex\2026-10-24\task\instancing-evidence\final`.
+The local index is `local/windows-validation-0.13.0/instancing/evidence-index.json`.
+Earlier pre-compatibility cohorts remain separately labeled and are excluded from
+the final tables below.
+
+The existing bounded decoder remains authoritative. Every position, normal, UV,
+frame, neutral albedo, lightmap field and ordered index must match the verified
+source under its authored transform exactly before CPU storage is factored.
+The source model allocation is reused; exact independent HDR colour palettes
+remain per placed vertex. Mutation detaches through copy-on-write. GPU storage
+then uses source geometry, transforms and separate RGBA32F lighting/required UV
+visibility. Compatible material/controller ranges merge automatically; each
+placement keeps individual culling. The route also covers emission, reflection
+and flashlight shadows. No map-author flag, format change, quality reduction,
+texture replacement or full shipped-map bake is involved. On-disk geometry stays
+in its existing expanded format; decoding still determines the load peak.
+
+Repeated furniture and lamps benefit through the same generic admission. Rigid
+props already shared source meshes; their new automatic draw grouping additionally
+requires bit-exact fragment lighting, emission and culling parity. Independent
+probes or effects retain separate draws. Skinned poses, ragdolls, sorted blends,
+atlas-split topology and altered/unknown geometry retain their appropriate paths.
+Texture/uniform variants can share; variants changing per-vertex factors fall back.
+Home Full's split chart data remains independent and shows no meaningful saving.
+Six-group devices use the instance route. Five-group devices keep CPU sharing and
+expanded GPU uploads; unused instance declarations are excluded from their shader
+module. Oversized per-source storage uses the same fallback. The accepted allocator
+policy, exact palettes and cancelled-cache retirement are preserved; no buffer arena
+was reintroduced.
+
+**Actual geometry/lighting inventory.** All 247 trees are admitted: 4,883,797 placed
+vertices factor to 68,989 source vertices. CPU retained tree vertices fall from
+146,397,820 to 54,068,734 bytes (**139.62 →51.56 MiB**), while the independent baked
+colour heap remains exactly **54,011,630 bytes /51.51 MiB**. CPU index payload remains
+10,776,768 bytes /10.28 MiB. Existing source-cache geometry is already owned and is
+not charged again. Requested tree GPU payload, reconciled from inventory with the
+native six-group upload, is **518,691,656 →85,509,388 bytes /494.66 →81.55 MiB**:
+7,329,068 shape bytes +78,140,752 independent RGBA32F bytes +39,520 transform bytes
++48 dummy visibility bytes. This is a requested payload, not driver residency.
+
+Across Lantern props, the native upload reports **48 canonical meshes /1,068
+placements**, including repeated chairs/furniture, 10 standing lamps, 8 wall lamps
+and 5 streetlights. Requested prop buffers fall **541,085,240 →92,803,072 bytes
+(516.02 →88.50 MiB)**. The latter contains 11,015,264 vertex bytes, 261,072 index bytes
+and 81,526,736 independent lighting/instance bytes. Prepared CPU retained-build bytes
+fall 200,888,446 →105,937,404. The existing model-cache geometry/skin allocation stays
+13,881,280 bytes. Settled HAL live buffers are 759,627,776 →187,367,424 bytes; texture
+bytes remain 132,644,864. These are overlapping views of resources: never add
+requested bytes, HAL counters, allocator reservations, process memory and WDDM usage.
+
+**Matched process memory.** Values are settled medians in MiB, private /resident.
+Fresh runs warm 8 seconds; samples are collected sequentially with no build or bake
+overlapping a timing window. The final current-source cohort is used throughout.
+
+| Scene/state | Accepted RAM | Canonical |
+|---|---:|---:|
+| Lantern fresh, repeat 1 | 1464.64 / 674.77 | 866.08 / 517.67 |
+| Lantern fresh, repeat 2 | 1463.94 / 674.93 | 863.14 / 518.15 |
+| Home Full,720p | 717.32 / 448.33 | 715.93 / 446.12 |
+| Menu after first unload | 793.37 / 508.15 | 818.38 / 530.07 |
+| Office then Lantern | 1648.47 / 728.50 | 945.67 / 534.68 |
+| Same-level reload after cancellation/rollback | 2160.57 / 795.48 | 1034.78 / 563.53 |
+| Tenth direct transition | 1701.14 / 782.56 | 1124.54 / 653.92 |
+| Menu after tenth transition | 867.61 / 509.70 | 898.44 / 546.11 |
+| Lantern,1440p | 1627.84 / 738.71 | 966.64 / 581.99 |
+| Home Full,1440p | 811.14 / 506.21 | 811.81 / 506.88 |
+
+The two 720p Lantern runs average **1464.29 /674.85 →864.61 /517.91 MiB**.
+WDDM dedicated/shared usage is **838.88 /246.08 →390.07 /182.08 MiB**. Fresh-process
+peaks across load through traversal are at most **1471.12 /791.70 →868.43 /789.69 MiB**;
+peak resident memory is essentially unchanged because legacy decoding expands first.
+After the matched same-level reload, WDDM dedicated/shared is 1223.75 /302.08 →518.30
+/174.08 MiB. After transition 10 it is 967.20 /278.08 →518.32 /182.08 MiB.
+Menu-after-unload private/resident is modestly higher in the candidate, as the table
+shows; the feature does not improve every state.
+
+No retired owners or scheduled CPU work remain in cancellation, rollback, unload
+or transition witnesses. Residual retention remains: the reloaded Lantern backend
+has **851.44 /1364.00 →305.62 /532.00 MiB allocated /reserved**. The candidate still
+has 226.38 MiB unused capacity, and its reload/transition process footprint remains
+above a fresh load. This distinguishes live resources and capacity without claiming
+that all remaining private/resident memory has been attributed or eliminated.
+
+**Request to first presented scene, seconds.** This is a warm local native campaign,
+not an OS-cache-cold benchmark. Lantern's 720p pair averages 5.8432 →5.5275 seconds;
+CPU preparation is slightly slower while the smaller GPU installation reduces net
+load time. Home Full has no general load-time gain.
+
+| Scene | Accepted RAM | Canonical |
+|---|---:|---:|
+| Lantern 720p,R1 | 5.8969 | 5.5007 |
+| Lantern 720p,R2 | 5.7895 | 5.5543 |
+| HomeFull 720p | 3.1526 | 3.2993 |
+| Lantern 1440p | 6.2958 | 5.6716 |
+| HomeFull 1440p | 3.3578 | 3.4687 |
+
+**Uncapped frame distribution, milliseconds.** Both 1280×720 windowed and 2560×1440
+fullscreen runs record actual Immediate presentation and physical drawable size,
+VSync off, no frame limiter, no fixed delta and no capture during timing. Home and
+campfire rates exceed the 165 Hz display reference, and GPU-heavy street windows
+track GPU elapsed time rather than plateauing at refresh. Lantern requests Static
+but the existing package resolves to its vertex-lit **Off/low** path in both builds;
+High graphics/filtering and bloom remain identical. Home resolves **Full lighting
+and reflections**. Requested settings alone are not presented as actual quality.
+
+| Scene/window | Mean before→after | Median | p 95 | p 99 |
+|---|---:|---:|---:|---:|
+| Lantern 720p,R1/idle | 13.729 → 13.771 | 14.401 → 14.332 | 16.094 → 15.958 | 17.489 → 17.214 |
+| Lantern 720p,R1/traversed | 6.860 → 6.828 | 5.699 → 5.591 | 15.429 → 15.143 | 16.644 → 16.303 |
+| Lantern 720p,R2/idle | 13.833 → 13.897 | 14.399 → 14.352 | 16.132 → 16.016 | 16.706 → 16.856 |
+| Lantern 720p,R2/traversed | 6.507 → 6.862 | 5.117 → 5.621 | 15.588 → 15.156 | 17.276 → 16.478 |
+| HomeFull 720p/idle | 3.381 → 3.265 | 3.937 → 3.911 | 5.942 → 5.709 | 6.825 → 6.381 |
+| HomeFull 720p/traversed | 2.524 → 2.538 | 1.579 → 1.668 | 4.947 → 5.170 | 6.903 → 5.904 |
+| Lantern 1440p/idle | 18.126 → 18.674 | 18.082 → 18.505 | 19.826 → 20.998 | 20.537 → 22.151 |
+| Lantern 1440p/traversed | 13.974 → 14.238 | 15.550 → 16.120 | 20.358 → 19.989 | 24.069 → 25.405 |
+| HomeFull 1440p/idle | 13.375 → 13.354 | 9.316 → 8.389 | 29.488 → 29.792 | 30.648 → 30.353 |
+| HomeFull 1440p/traversed | 9.329 → 9.235 | 9.028 → 9.348 | 22.383 → 19.254 | 26.244 → 26.534 |
+
+No FPS improvement is claimed. The 720p traversal pair means average 6.683 →6.845 ms
+(+2.4%); one repeat is slightly faster and one slower. The single 1440p Lantern pair
+also has higher mean/p 99 values, as retained above. Target-resolution results do
+not close the later combined Full-quality frame-tail acceptance.
+
+**Three counterbalanced fixed-camera repeats** separate storage from merging.
+Expanded GPU forces the existing five-group route on the same adapter; shared
+storage keeps source buffers but disables static draw merging. GPU timestamps are
+deduplicated by sample ID. CPU renderer-call wall time includes command work and
+waits, and is not a pure submission microbenchmark.
+
+| Mode/pose | Mean loop ms | GPU elapsed ms | Renderer wall ms | Actual draws |
+|---|---:|---:|---:|---:|
+| ram/street | 16.151 | 15.543 | 2.477 | 853 |
+| ram/campfire | 4.948 | 4.063 | 0.842 | 75 |
+| expanded-gpu/street | 16.122 | 15.513 | 2.162 | 853 |
+| expanded-gpu/campfire | 4.956 | 4.083 | 0.817 | 75 |
+| shared-storage/street | 16.229 | 15.556 | 2.565 | 1562 |
+| shared-storage/campfire | 4.997 | 4.200 | 0.933 | 140 |
+| shared-merged/street | 16.148 | 15.449 | 1.863 | 478 |
+| shared-merged/campfire | 5.140 | 4.407 | 0.830 | 70 |
+
+Street mean is unchanged (16.151 →16.148 ms), while renderer-call wall time drops
+about 25% and draws 853 →478. Campfire is **4.949 →5.140 ms (+3.9%)**, slower in all
+three merged repeats. Shared storage alone averages 4.997 ms (+1.0%); grouping adds
+about 2.9% there. These controls implicate grouping/order/GPU batch behavior in much
+of that scene's cost; they do not isolate overdraw, cache effects or a particular
+transform/lighting instruction. This is a retained memory/CPU-submission tradeoff,
+not a free throughput gain. The raw controls remain available for the next runtime
+stage.
+
+**Validation and visual bounds.** Final fmt, strict workspace/all-target/all-feature
+Clippy,312 Rust tests and locked workspace/all-feature release all exit 0 against a
+frozen source set. Four new tiny regressions protect exact HDR/signed-zero data,
+source/topology matching, COW independence and rigid lighting equality; no Rust
+test bakes a shipped map. Naga validates 11 legacy and 12 instanced entry points.
+Windows native DX12 on an RTX 3070 Laptop GPU is the actual backend coverage;
+forcing five groups on this adapter is not a second hardware/backend test.
+macOS/Linux runtime behavior remains untested.
+
+The furniture fixture checks scale/yaw/pitch/roll, a material variant, lamps with
+transparent fallback,12 distinct pickup bodies, rotation/release and individual
+culling. Ten unaffected body poses remain exact; visible vertices match and draws
+fall 24 →14. Framed editor lighting preview, export integrity and require-current
+verification pass. The copied fixture was correctly marked stale after the shader
+change and rebuilt before these final checks. Existing legacy shipped payloads
+load without a wire-format migration. The initial five-group shader failure was
+fixed and the final fallback has pixel-exact street output.
+
+Raw native Lantern street/campfire/pond views preserve lighting, shapes and shadows;
+only **1 /1 /6 pixels** change, maximum RGB channel error **3 /1 /1** out of 255.
+Coordinates and untouched source PNG hashes are recorded in `visual-review.json`.
+Home Full on/off, Pool water and Beach are exact; all 16 Arcade Full/Static circuit
+states are exact against the accepted RAM reference. Ordinary Shape/One Guest
+routes/restart, Home/Pool/Lab/blood/mirror/cycles, five independent skins/ragdolls/
+reset and stairs/ramp/crouch pass. All 17 movement trajectories /4,080 ticks remain
+byte-exact. Capture runs make no FPS claim.
+
+Asset/prop/texture checks and 24 targeted Python checks pass; 100 texture advisories
+remain historical. The broad 369-check Python run retains the same 8 failures,
+9 errors and 16 skips with no changed failure headers. Its unchanged wire-codec
+control uses the preserved RAM repacker; current Rust package tests and current
+compiler/runtime fixture checks are recorded separately.
+
+A final evidence-helper import mistakenly selected the prior task's unguarded
+`gates.py`, rerunning cached tests/release after native timing had finished and
+overwriting five historical **unprefixed scratch gate records**. Their original
+contents were not recoverable from available copies. Accepted `c3-*` RAM gate
+evidence, baseline binaries and native measurements are intact and hash-checked;
+the import now uses the exact current file. This preservation limitation is
+recorded in `final/import-path-incident.json` and the old folder's
+`unprefixed-gate-files-provenance.json`; the altered unprefixed records must not be
+used as RAM-baseline evidence.
+
+**Cleanup and handoff.** All 21 final executables/DLLs/symbol files are preserved
+and hash-checked outside target. Cargo removes 7,814 files /10.6 GiB logical, recovering
+**9,586,139,136 actual bytes (8.93 GiB)**.
+Completed traces are losslessly compressed from **951,700,069 to
+83,374,407 bytes**, with every decompressed SHA checked before
+raw removal; observed free-space recovery is 868,450,304 bytes.
+Task-owned disposable cleanup recovers 56,553,472 further
+bytes, leaving **84,190,552,064 bytes (78.41 GiB)**
+free at that checkpoint. Raw PNGs, source fixtures and compact evidence remain.
+No raw video or executable Library upload was made. Awake PID 34744 remains active
+under its existing SYSTEM-only policy, expiry 2026-10-24 17:57:20 UTC; custody continues
+for the whole queue. No host power/fan/driver/security settings were changed.
+
+Remaining order: combined Full-quality target-resolution runtime/frame-tail work
+(including prop activation/upload blocks and GPU waits), incremental Environment
+preview preparation, conditional cold renderer/pipeline bootstrap work, then final
+combined acceptance, issue reconciliation and cleanup. Home favor acceptance,
+Pool favor/throw, eight-favor reward/restart and the new pressure campaign remain
+open. Diagnostic carry and this feature's timing checks do not close them.
+The final canonical ownership handoff records the exact pushed tip/remote and
+explicit writer release after final verification; no main merge, release, version
+bump or GitHub CI wait is part of this stage.

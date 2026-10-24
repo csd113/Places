@@ -1082,7 +1082,7 @@ existing five-group renderer retains expanded GPU uploads and CPU sharing.
 Instance shader resources are appended only for capable devices: unused WGSL
 resource declarations are still validated against the device limit.
 Per-shape storage buffers must fit the requested device limit or use that same
-fallback. There are no per-frame resource allocations or new GPU waits in the
+fallback. There are no per-frame GPU resource allocations or new GPU waits in the
 static route. The rigid route updates bounded transform records when changed.
 Diagnostics distinguish source-shape buffers, independent lighting/instance
 storage and expanded draw equivalents. Requested payloads, live HAL counters,
