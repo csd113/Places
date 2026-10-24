@@ -669,6 +669,53 @@ fn attach_prop_textures(
     }
 }
 
+fn canonical_semantics<R: std::io::Read + std::io::Seek>(
+    reader: &mut PackageReader<R>,
+    manifest: Option<&Manifest>,
+    assets: &crate::engine::props::PropAssets,
+) -> Result<Option<(LevelDef, crate::engine::loader::PropCatalog)>, String> {
+    if let (Some(package_manifest), Some(root)) = (manifest, assets.root()) {
+        let catalog_path = root.join("catalog.json");
+        let bytes = read_named_entry(
+            reader,
+            package_manifest,
+            "semantics.json",
+            MAX_SEMANTICS_BYTES,
+        )?;
+        let level: LevelDef = serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+        Ok(
+            crate::engine::loader::PropCatalog::load_from_path(&catalog_path)
+                .map(|catalog| (level, catalog)),
+        )
+    } else {
+        Ok(None)
+    }
+}
+
+fn trace_prop_parse(props: &[PropMeshBatch], encoded_bytes: usize) {
+    if std::env::var("PLACES_BENCH_RESOURCE_TRACE").as_deref() == Ok("1") {
+        crate::engine::logging::info(format!(
+            "[memory-stage] props-parsed encoded_record_bytes={} retained_vertex_bytes={} private_bytes={:?}",
+            encoded_bytes,
+            props.iter().fold(0_usize, |bytes, batch| bytes
+                .saturating_add(batch.vertices.retained_bytes())),
+            crate::engine::resources::process_memory_bytes()
+        ));
+    }
+}
+
+fn share_prepared_props(
+    props: &mut [PropMeshBatch],
+    semantics: Option<&(LevelDef, crate::engine::loader::PropCatalog)>,
+    assets: &mut crate::engine::props::PropAssets,
+    lighting: &LevelLighting,
+) -> Result<(), String> {
+    if let Some((level, catalog)) = semantics {
+        crate::engine::render::share_canonical_props(props, level, catalog, assets, lighting)?;
+    }
+    Ok(())
+}
+
 fn decode_variant<R: std::io::Read + std::io::Seek>(
     reader: &mut PackageReader<R>,
     variant: &Variant,
@@ -686,15 +733,7 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     timer.step("props-read-reconstruct");
     let mut props = crate::engine::resources::decode(&props_bytes, read_props)?;
     timer.step("props-parse");
-    if std::env::var("PLACES_BENCH_RESOURCE_TRACE").as_deref() == Ok("1") {
-        crate::engine::logging::info(format!(
-            "[memory-stage] props-parsed encoded_record_bytes={} retained_vertex_bytes={} private_bytes={:?}",
-            props_bytes.capacity(),
-            props.iter().fold(0_usize, |bytes, batch| bytes
-                .saturating_add(batch.vertices.retained_bytes())),
-            crate::engine::resources::process_memory_bytes()
-        ));
-    }
+    trace_prop_parse(&props, props_bytes.capacity());
     drop(props_bytes);
     let variant_textures = manifest.map_or_else(
         || Ok(std::collections::HashMap::new()),
@@ -702,9 +741,12 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     )?;
     attach_prop_textures(&mut props, assets, &variant_textures);
     timer.step("prop-textures");
+    let shared_semantics = canonical_semantics(reader, manifest, assets)?;
     let lighting_bytes = reader.read_blob(&variant.entries.lighting, MAX_LIGHTING_BYTES)?;
     let lighting = read_lighting(&lighting_bytes)?;
     drop(lighting_bytes);
+    share_prepared_props(&mut props, shared_semantics.as_ref(), assets, &lighting)?;
+    timer.step("prop-canonical-sharing");
     let static_light_off = match &variant.entries.static_light_off {
         Some(state) => {
             if state
@@ -724,6 +766,7 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
                     .textures
                     .clone();
             }
+            share_prepared_props(&mut batches, shared_semantics.as_ref(), assets, &lighting)?;
             Some(Arc::new(crate::engine::render::StaticLightState {
                 fixtures: state.fixtures.clone(),
                 mesh: off_mesh,

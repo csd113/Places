@@ -15,6 +15,7 @@ pub mod atmosphere;
 pub mod blacklight;
 pub mod blood;
 pub mod camera;
+pub mod canonical_props;
 pub mod character;
 pub mod decals;
 pub mod doors;

@@ -77,7 +77,7 @@ pub struct LevelBuildStats {
     pub prop_vertices: usize,
     /// Indices in the prop mesh.
     pub prop_indices: usize,
-    /// Draw calls the level needs for real prop geometry.
+    /// Prepared prop draw groups, before individual instance culling.
     pub prop_draws: usize,
     /// Cullable static batches the level was partitioned into.
     pub static_batches: usize,
@@ -137,8 +137,8 @@ pub struct RenderStats {
     pub visible_batches: usize,
     /// Draw calls issued for the scene.
     pub draw_calls: usize,
-    /// Draw calls the dynamic-object path submitted this frame: one per object
-    /// per material, never one per vertex.
+    /// Actual dynamic-object draw commands; compatible instances share one
+    /// submission while lighting-incompatible objects retain separate draws.
     pub dynamic_draws: usize,
     /// Distinct vertices the dynamic objects hold this frame.
     pub dynamic_vertices: usize,

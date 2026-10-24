@@ -1,23 +1,17 @@
-//! Props: the neutral per-model batches as wgpu buffers and materials.
+//! Prepared props as shared source buffers or independent fallback batches.
 //!
-//! The renderer-neutral build (`render::common::props`) has already resolved
-//! every placed prop into world-space geometry with prepared lightmap
-//! coordinates or vertex lighting, one batch per `(model, spatial cell)` with
-//! one submesh per glTF primitive. This module uploads exactly that:
+//! The neutral interface supplies world-space geometry and independent baked
+//! lighting. Exact canonical admission exposes a shared source model and its
+//! placements; this module uploads that shape once, separate RGBA32F lighting,
+//! transforms and required static UV visibility. Compatible material ranges
+//! merge automatically while each placement keeps its own culling bounds.
+//! Unsupported topology and sorted blends retain individual batch buffers.
 //!
-//! * one 16-bit-indexable vertex/index buffer pair per batch;
-//! * one clamped GPU sheet per model texture, cached through the texture cache
-//!   under the bounded `Catalog` retention policy;
-//! * GPU materials carrying each primitive's alpha, emission and scalar
-//!   surface/fluorescence response;
-//! * one draw per submesh, culled by its indexed primitive bounds for opaque
-//!   and cutout; blended draws retain batch bounds and sorting centres.
-//!
-//! Each primitive's authored alpha mode selects the opaque, cut-out or sorted
-//! translucent pass through `BatchPass::of`. The shared world shader consumes
-//! the prepared lighting and material response. Buffers, textures and materials
-//! are prepared at installation; light controls and emission animations update
-//! existing material uniforms.
+//! Model sheets stay in the existing bounded texture cache. Resolved texture,
+//! material and emission-controller identity governs draw compatibility;
+//! controls update existing material uniforms. Shared geometry and draw merging
+//! are independent mechanisms, and reflection/emission/shadow passes use the
+//! same source shape without sharing another placement's baked colours.
 
 use std::sync::Arc;
 
@@ -30,7 +24,7 @@ use crate::engine::render::common::materials::BatchPass;
 use crate::engine::render::common::props::PropMeshBatch;
 use crate::engine::spatial::Aabb;
 
-/// One 16-bit-indexable prop buffer pair.
+/// One 16-bit-indexable source or fallback buffer pair.
 pub struct PropChunk {
     /// Interleaved [`WorldVertex`] data.
     pub vertex_buffer: wgpu::Buffer,
@@ -38,15 +32,15 @@ pub struct PropChunk {
     pub index_buffer: wgpu::Buffer,
     /// Distinct vertices the chunk holds.
     pub vertex_count: u32,
-    /// Indices the chunk holds.
-    pub index_count: u32,
+    pub shared: Option<super::prop_instances::SharedChunk>,
 }
 
 /// One prop submesh draw: one primitive of one model batch.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct PropDraw {
     /// Which [`PropChunk`].
     pub chunk: usize,
+    pub instances: std::ops::Range<u32>,
     /// First index in the chunk's index buffer.
     pub index_start: u32,
     /// Indices the draw covers.
@@ -69,8 +63,15 @@ pub struct PropDraw {
 }
 
 /// What one level's prop upload produced, as plain counters.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
 pub struct PropGpuStats {
+    pub vertex_bytes: usize,
+    pub index_bytes: usize,
+    pub lighting_instance_bytes: u64,
+    pub cullable_draws: usize,
+    pub canonical_meshes: usize,
+    pub canonical_vertices: usize,
+    pub canonical_instances: usize,
     /// Batched model cells uploaded.
     pub batches: usize,
     /// GPU buffer pairs.
@@ -124,19 +125,22 @@ struct PropMaterialIdentity {
 impl PropMaterialIdentity {
     fn new(
         submesh: &crate::engine::render::common::props::PropSubmeshBatch,
-        texture_base: usize,
+        texture_slots: &[usize],
         texture_count: usize,
         light_control: Option<u32>,
     ) -> Self {
         let mask_slot = |slot: Option<u32>| {
             slot.and_then(|index| usize::try_from(index).ok())
                 .filter(|index| *index < texture_count)
-                .and_then(|index| texture_base.checked_add(index))
+                .and_then(|index| texture_slots.get(index).copied())
         };
         let emission_mask = mask_slot(submesh.emission.mask);
         let emission = EmissionRecord::material(submesh.emission, emission_mask.is_some());
         Self {
-            texture: prop_texture_slot(submesh.texture, texture_base, texture_count, 0),
+            texture: submesh
+                .texture
+                .and_then(|index| texture_slots.get(usize::from(index)).copied())
+                .unwrap_or(0),
             emission,
             emission_mask,
             // Local model mask indices are not identities across batches. Even
@@ -161,6 +165,10 @@ pub struct PropUpload {
     image_keys: std::collections::HashMap<(String, usize), ImageIdentity>,
     level: QualityLevel,
     lighting_level: QualityLevel,
+    shared_plans: std::collections::HashMap<
+        *const crate::engine::props::LoadedPropAsset,
+        super::prop_instances::Plan,
+    >,
 }
 
 /// Kept only while an upload is assembled; cloned batches share the same image.
@@ -169,22 +177,9 @@ struct ImageIdentity {
     key: String,
 }
 
-fn prop_texture_slot(
-    texture: Option<u16>,
-    texture_base: usize,
-    texture_count: usize,
-    fallback: usize,
-) -> usize {
-    texture
-        .map(usize::from)
-        .filter(|index| *index < texture_count)
-        .and_then(|index| texture_base.checked_add(index))
-        .unwrap_or(fallback)
-}
-
 /// Visibility is consumed only by fluorescent primitives. OR their referenced
 /// vertices so shared indices retain coverage, independently of lighting quality.
-fn pack_prop_vertices(
+pub(super) fn pack_prop_vertices(
     batch: &PropMeshBatch,
     mut visibility: impl FnMut(&crate::engine::render::Vertex) -> [f32; 4],
 ) -> Vec<WorldVertex> {
@@ -267,7 +262,26 @@ impl PropUpload {
         skip_models: &[String],
         level: QualityLevel,
         lighting_level: QualityLevel,
+        batches: &[PropMeshBatch],
     ) -> Self {
+        let mut shared_plans = std::collections::HashMap::<_, super::prop_instances::Plan>::new();
+        for batch in batches {
+            if let Some(shared) = batch.vertices.shared() {
+                let plan = shared_plans
+                    .entry(super::prop_instances::identity(shared))
+                    .or_default();
+                plan.vertices = plan
+                    .vertices
+                    .saturating_add(u64::try_from(batch.vertices.len()).unwrap_or(u64::MAX));
+                plan.instances = plan
+                    .instances
+                    .saturating_add(u64::try_from(shared.placements.len()).unwrap_or(u64::MAX));
+                plan.reactive |= batch
+                    .submeshes
+                    .iter()
+                    .any(|s| s.response.fluorescence.strength > 0.0);
+            }
+        }
         Self {
             props: WgpuProps {
                 chunks: Vec::new(),
@@ -283,6 +297,7 @@ impl PropUpload {
             image_keys: std::collections::HashMap::new(),
             level,
             lighting_level,
+            shared_plans,
         }
     }
 
@@ -326,7 +341,7 @@ impl PropUpload {
             textures.push(cache.fallback());
         }
         // The model's sheets, once per texture list entry.
-        let texture_base = textures.len();
+        let mut texture_slots = Vec::with_capacity(batch.textures.len());
         for (index, image) in batch.textures.iter().enumerate() {
             if super::material::ultraviolet_only_texture(
                 index,
@@ -338,7 +353,7 @@ impl PropUpload {
                     )
                 }),
             ) {
-                textures.push(cache.fallback());
+                texture_slots.push(0);
                 continue;
             }
             let identity = self
@@ -373,24 +388,51 @@ impl PropUpload {
             stats.resident_bytes = stats.resident_bytes.saturating_add(
                 usize::try_from(texture.meta().resident_bytes).unwrap_or(usize::MAX),
             );
-            textures.push(texture);
+            let slot = textures
+                .iter()
+                .position(|old| Arc::ptr_eq(old, &texture))
+                .unwrap_or_else(|| {
+                    let slot = textures.len();
+                    textures.push(texture);
+                    slot
+                });
+            texture_slots.push(slot);
         }
-        let chunk = WgpuProps::upload_batch(device, queue, batch, visibility);
-        let chunk_index = chunks.len();
-        stats.vertices = stats
-            .vertices
-            .saturating_add(usize::try_from(chunk.vertex_count).unwrap_or(usize::MAX));
-        stats.indices = stats
-            .indices
-            .saturating_add(usize::try_from(chunk.index_count).unwrap_or(usize::MAX));
-        chunks.push(chunk);
-        for submesh in &batch.submeshes {
+        let shared_plan = batch.vertices.shared().and_then(|shared| {
+            self.shared_plans
+                .get_mut(&super::prop_instances::identity(shared))
+                .filter(|plan| plan.admitted(device))
+                .map(|plan| (shared, plan))
+        });
+        let (chunk_index, instances, source_parts) = if let Some((shared, plan)) = shared_plan {
+            let index = if let Some(index) = plan.chunk {
+                index
+            } else {
+                let index = chunks.len();
+                chunks.push(plan.upload(device, shared));
+                plan.chunk = Some(index);
+                index
+            };
+            let instances = chunks
+                .get_mut(index)
+                .and_then(|chunk| chunk.shared.as_mut())
+                .map_or(0..0, |chunk| chunk.append(queue, batch, shared, visibility));
+            (index, instances, Some(&shared.asset.model.submeshes))
+        } else {
+            let chunk = WgpuProps::upload_batch(device, queue, batch, visibility);
+            let index = chunks.len();
+            chunks.push(chunk);
+            (index, 0..1, None)
+        };
+        stats.vertices = stats.vertices.saturating_add(batch.vertices.len());
+        stats.indices = stats.indices.saturating_add(batch.indices.len());
+        for (part_slot, submesh) in batch.submeshes.iter().enumerate() {
             if submesh.index_count == 0 {
                 continue;
             }
             let identity = PropMaterialIdentity::new(
                 submesh,
-                texture_base,
+                &texture_slots,
                 batch.textures.len(),
                 batch.light_control,
             );
@@ -470,11 +512,25 @@ impl PropUpload {
             } else {
                 primitive_bounds
             };
+            let (index_start, index_count, draw_vertex_count) =
+                source_parts.and_then(|parts| parts.get(part_slot)).map_or(
+                    (submesh.first_index, submesh.index_count, vertex_count),
+                    |part| {
+                        (
+                            part.first_index,
+                            part.index_count,
+                            vertex_count
+                                .checked_div(instances.end.saturating_sub(instances.start))
+                                .unwrap_or(vertex_count),
+                        )
+                    },
+                );
             draws.push(PropDraw {
                 chunk: chunk_index,
-                index_start: submesh.first_index,
-                index_count: submesh.index_count,
-                vertex_count,
+                instances: instances.clone(),
+                index_start,
+                index_count,
+                vertex_count: draw_vertex_count,
                 bounds,
                 texture,
                 material,
@@ -486,13 +542,115 @@ impl PropUpload {
 
     /// Consumes the completed accumulator; no GPU submission or wait occurs here.
     pub(crate) fn finish(mut self) -> WgpuProps {
-        self.props.stats.chunks = self.props.chunks.len();
-        self.props.stats.draws = self.props.draws.len();
+        // Shared opaque/cutout draws can be grouped across cells. Individual
+        // instance bounds still decide every surviving contiguous run at encode.
+        let mut shared = Vec::new();
+        self.props.draws.retain(|draw| {
+            if self
+                .props
+                .chunks
+                .get(draw.chunk)
+                .is_some_and(|chunk| chunk.shared.is_some())
+            {
+                shared.push(draw.clone());
+                false
+            } else {
+                true
+            }
+        });
+        shared.sort_by_key(|draw| {
+            (
+                draw.chunk,
+                draw.material,
+                draw.texture,
+                draw.index_start,
+                draw.index_count,
+                draw.instances.start,
+            )
+        });
+        let mut merged: Vec<PropDraw> = Vec::new();
+        for draw in shared {
+            let previous_end = merged.last().map(|previous| previous.instances.end);
+            let consecutive = previous_end == Some(draw.instances.start);
+            if let Some(last) = merged.last_mut()
+                && last.chunk == draw.chunk
+                && last.material == draw.material
+                && last.texture == draw.texture
+                && last.index_start == draw.index_start
+                && last.index_count == draw.index_count
+                && last.pass == draw.pass
+                && last.emissive == draw.emissive
+                && consecutive
+            {
+                last.instances.end = draw.instances.end;
+                last.bounds = last.bounds.union(&draw.bounds);
+            } else {
+                merged.push(draw);
+            }
+        }
+        if std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+            && std::env::var("PLACES_BENCH_PROP_MERGE").as_deref() == Ok("0")
+        {
+            // Mechanism control: keep shared buffers/lighting unchanged, but
+            // submit each placement independently. No map or quality changes.
+            let mut separate = Vec::new();
+            for draw in merged {
+                for instance in draw.instances.clone() {
+                    let mut single = draw.clone();
+                    single.instances = instance..instance.saturating_add(1);
+                    separate.push(single);
+                }
+            }
+            self.props.draws.extend(separate);
+        } else {
+            self.props.draws.extend(merged);
+        }
+        self.props.update_storage_stats();
         self.props
     }
 }
 
 impl WgpuProps {
+    fn update_storage_stats(&mut self) {
+        for chunk in &self.chunks {
+            self.stats.vertex_bytes = self
+                .stats
+                .vertex_bytes
+                .saturating_add(usize::try_from(chunk.vertex_buffer.size()).unwrap_or(usize::MAX));
+            self.stats.index_bytes = self
+                .stats
+                .index_bytes
+                .saturating_add(usize::try_from(chunk.index_buffer.size()).unwrap_or(usize::MAX));
+            if let Some(canonical) = &chunk.shared {
+                self.stats.canonical_vertices = self
+                    .stats
+                    .canonical_vertices
+                    .saturating_add(usize::try_from(chunk.vertex_count).unwrap_or(usize::MAX));
+                self.stats.canonical_meshes = self.stats.canonical_meshes.saturating_add(1);
+                self.stats.canonical_instances = self
+                    .stats
+                    .canonical_instances
+                    .saturating_add(canonical.bounds.len());
+                self.stats.lighting_instance_bytes = self
+                    .stats
+                    .lighting_instance_bytes
+                    .saturating_add(canonical.bytes());
+            }
+        }
+        self.stats.chunks = self.chunks.len();
+        self.stats.draws = self.draws.len();
+        self.stats.cullable_draws = self.draws.iter().fold(0_usize, |count, draw| {
+            count.saturating_add(
+                usize::try_from(draw.instances.end.saturating_sub(draw.instances.start))
+                    .unwrap_or(usize::MAX),
+            )
+        });
+        crate::engine::logging::info(format_args!(
+            "[prop-storage] {}",
+            serde_json::to_string(&self.stats).unwrap_or_default()
+        ));
+    }
+
     /// Configure a prepared owner's already-emissive slots without changing artwork.
     pub fn configure_light_control(
         &mut self,
@@ -568,7 +726,7 @@ impl WgpuProps {
         lighting_level: QualityLevel,
         visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
     ) -> Self {
-        let mut upload = PropUpload::new(skip_models, level, lighting_level);
+        let mut upload = PropUpload::new(skip_models, level, lighting_level, batches);
         for batch in batches {
             upload.push_batch_with_blacklight(
                 device,
@@ -610,7 +768,7 @@ impl WgpuProps {
             vertex_buffer,
             index_buffer,
             vertex_count: u32::try_from(batch.vertices.len()).unwrap_or(u32::MAX),
-            index_count: u32::try_from(batch.indices.len()).unwrap_or(u32::MAX),
+            shared: None,
         }
     }
 
@@ -620,6 +778,12 @@ impl WgpuProps {
             bytes
                 .saturating_add(chunk.vertex_buffer.size())
                 .saturating_add(chunk.index_buffer.size())
+                .saturating_add(
+                    chunk
+                        .shared
+                        .as_ref()
+                        .map_or(0, super::prop_instances::SharedChunk::bytes),
+                )
         })
     }
 

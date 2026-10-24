@@ -270,8 +270,7 @@ struct VsOut {
     @location(11) water_surface: f32,
 };
 
-@vertex
-fn vs_main(vertex: WorldVertex) -> VsOut {
+fn world_vertex(vertex: WorldVertex) -> VsOut {
     let world = environment.model * vec4<f32>(vertex.position, 1.0);
     var out: VsOut;
     out.clip = camera.view_projection * world;
@@ -293,6 +292,9 @@ fn vs_main(vertex: WorldVertex) -> VsOut {
     out.lightmap_page = vertex.lightmap_page;
     return out;
 }
+
+@vertex
+fn vs_main(vertex: WorldVertex) -> VsOut { return world_vertex(vertex); }
 
 // Decode authored fog/storm display colours before linear mixing.
 fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
@@ -1022,3 +1024,4 @@ fn fs_shadow_blend(in: VsOut) {
     let alpha = textureSample(base_texture, base_sampler, in.uv).a * in.color.a * material.opacity * environment.opacity;
     if (alpha < 0.95) { discard; }
 }
+

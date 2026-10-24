@@ -71,6 +71,7 @@ pub mod material;
 pub mod postprocess;
 #[cfg(feature = "visual-diagnostics")]
 mod probe_visualization;
+pub mod prop_instances;
 pub mod props;
 mod readback;
 pub mod reflections;

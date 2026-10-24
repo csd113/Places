@@ -259,9 +259,16 @@ const fn capture_format(surface_format: wgpu::TextureFormat) -> wgpu::TextureFor
 /// attached-light uniform — which is one more than WebGPU's default
 /// `maxBindGroups` of 4; the renderer asks for exactly what it binds. Every
 /// device the world pipeline is created on goes through this request.
-pub(super) fn world_device_limits() -> wgpu::Limits {
+pub(super) fn world_device_limits(available: &wgpu::Limits) -> wgpu::Limits {
+    let requested = if std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+        && std::env::var("PLACES_BENCH_MAX_BIND_GROUPS").as_deref() == Ok("5")
+    {
+        5
+    } else {
+        6
+    };
     wgpu::Limits {
-        max_bind_groups: 5,
+        max_bind_groups: available.max_bind_groups.clamp(5, requested),
         ..wgpu::Limits::default()
     }
 }
@@ -875,7 +882,7 @@ impl WgpuRenderer {
 
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("places-wgpu"),
-            required_limits: world_device_limits(),
+            required_limits: world_device_limits(&adapter.limits()),
             required_features: gpu_timing::required_features(adapter.features()),
             memory_hints: device_memory_hints(),
             ..Default::default()
@@ -973,7 +980,7 @@ impl WgpuRenderer {
         Self::check_native_backend(&adapter_info)?;
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("places-wgpu-compiler"),
-            required_limits: world_device_limits(),
+            required_limits: world_device_limits(&adapter.limits()),
             required_features: gpu_timing::required_features(adapter.features()),
             memory_hints: device_memory_hints(),
             ..Default::default()
@@ -3590,6 +3597,7 @@ impl WgpuRenderer {
                     pending.characters.claimed_models(),
                     pending.graphics.quality,
                     pending.graphics.lighting_quality,
+                    &pending.build.batches,
                 ));
                 pending.phase = UploadPhase::Auxiliary;
             }
@@ -4219,14 +4227,10 @@ impl WgpuRenderer {
             prop_chunks: prop_stats.chunks,
             vbo_bytes: world_stats
                 .vertex_bytes
-                .saturating_add(prop_stats.vertices.saturating_mul(
-                    usize::try_from(super::world::WORLD_VERTEX_STRIDE).unwrap_or(usize::MAX),
-                )),
-            index_bytes: world_stats.index_bytes.saturating_add(
-                prop_stats
-                    .indices
-                    .saturating_mul(std::mem::size_of::<u16>()),
-            ),
+                .saturating_add(prop_stats.vertex_bytes),
+            index_bytes: world_stats
+                .index_bytes
+                .saturating_add(prop_stats.index_bytes),
             build_millis: started.elapsed().as_secs_f64() * 1_000.0_f64,
             lighting_millis: build.timings.lighting_millis,
             props_millis: build.timings.props_millis,
@@ -5203,7 +5207,7 @@ impl WgpuRenderer {
         self.world.as_ref().map_or(0, |world| world.draws().len())
     }
 
-    /// Prop submesh draws in the loaded level.
+    /// Prepared prop submesh groups in the loaded level.
     #[must_use]
     pub fn prop_draw_count(&self) -> usize {
         self.world_props
@@ -6536,7 +6540,7 @@ impl WgpuRenderer {
             .saturating_add(dynamic.vertices);
         let total_batches = world
             .draws
-            .saturating_add(props.draws)
+            .saturating_add(props.cullable_draws)
             .saturating_add(dynamic.draws);
         self.render_stats = RenderStats {
             total_vertices,
@@ -6546,17 +6550,15 @@ impl WgpuRenderer {
             total_batches,
             visible_batches: totals.visible_batches,
             draw_calls: totals.draw_calls,
-            dynamic_draws: dynamic.draws,
+            dynamic_draws: totals.dynamic_draws,
             dynamic_vertices: dynamic.vertices,
             vbo_bytes: world
                 .vertex_bytes
-                .saturating_add(props.vertices.saturating_mul(
-                    usize::try_from(super::world::WORLD_VERTEX_STRIDE).unwrap_or(usize::MAX),
-                ))
+                .saturating_add(props.vertex_bytes)
                 .saturating_add(dynamic.vertex_bytes),
             index_bytes: world
                 .index_bytes
-                .saturating_add(props.indices.saturating_mul(std::mem::size_of::<u16>()))
+                .saturating_add(props.index_bytes)
                 .saturating_add(dynamic.index_bytes),
             texture_binds: totals.texture_binds,
             material_changes: totals.material_binds,
@@ -7428,7 +7430,7 @@ impl WgpuRenderer {
             "pending_texture_cache": self.prepared_install.as_ref().map(|pending| pending.textures.diagnostic_retention()),
             "post_attachment_texel_bytes": self.post.as_ref().map_or(0, PostProcess::diagnostic_attachment_bytes),
             "atlas_texel_bytes": self.lightmaps.stats().resident_bytes,
-            "prop_geometry": self.world_props.as_ref().map(|props| serde_json::json!({"vertex_bytes":props.stats().vertices.saturating_mul(usize::try_from(super::world::WORLD_VERTEX_STRIDE).unwrap_or(usize::MAX)),"index_bytes":props.stats().indices.saturating_mul(2),"buffer_requested_bytes":props.geometry_buffer_bytes(),"buffers":props.stats().chunks.saturating_mul(2),"layout":"individual batch buffers"})),
+            "prop_geometry": self.world_props.as_ref().map(|props| serde_json::json!({"vertex_bytes":props.stats().vertex_bytes,"index_bytes":props.stats().index_bytes,"independent_lighting_instance_bytes":props.stats().lighting_instance_bytes,"canonical_meshes":props.stats().canonical_meshes,"canonical_instances":props.stats().canonical_instances,"buffer_requested_bytes":props.geometry_buffer_bytes(),"layout":"canonical shape plus independent placement lighting; compatible automatic instances; individual fallback buffers"})),
             "character_geometry": self.world_characters.as_ref().map(|characters|serde_json::json!({"vertex_bytes":characters.stats().vertex_bytes,"index_bytes":characters.stats().index_bytes,"characters":characters.stats().characters,"shared_models":characters.stats().meshes})),
             "drawable": [self.drawable_size.width, self.drawable_size.height],
             "surface_present_mode": surface::present_mode_label(self.config.present_mode),
@@ -7660,6 +7662,7 @@ impl WgpuRenderer {
                 pending.characters.claimed_models(),
                 pending.graphics.quality,
                 pending.graphics.lighting_quality,
+                &bank.state.batches,
             ));
         }
         pending.phase = UploadPhase::StaticProps;

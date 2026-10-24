@@ -93,7 +93,7 @@ pub struct DynamicGpuStats {
     pub meshes: usize,
     /// Live objects.
     pub objects: usize,
-    /// Draw calls one frame submits (one per object per primitive).
+    /// Unculled per-object primitive ranges; actual commands are reported by `RenderStats`.
     pub draws: usize,
     /// Distinct vertices the scene draws, summed over objects.
     pub vertices: usize,
@@ -114,6 +114,36 @@ pub struct WgpuDynamic {
     objects: Vec<DynamicObjectGpu>,
     materials: Vec<GpuMaterial>,
     stats: DynamicGpuStats,
+    instance_groups: Vec<RigidInstanceGroup>,
+}
+
+/// One mesh can instance only while every live member has the exact same
+/// fragment lighting and material state. Otherwise ordinary draws retain each
+/// object's original environment. Geometry is shared on either path.
+pub struct RigidInstanceGroup {
+    pub objects: Vec<usize>,
+    pub environment: EnvironmentBindings,
+    pub instances: super::prop_instances::DynamicInstances,
+    pub compatible: bool,
+}
+
+pub struct DynamicSubmission<'a> {
+    pub object: usize,
+    pub group: Option<&'a RigidInstanceGroup>,
+    pub bounds: Aabb,
+    pub environment: &'a wgpu::BindGroup,
+}
+
+fn same_fragment_environment(a: &EnvironmentUniform, b: &EnvironmentUniform) -> bool {
+    let model = std::mem::offset_of!(EnvironmentUniform, model);
+    let model_end = model.saturating_add(std::mem::size_of_val(&a.model));
+    let normal = std::mem::offset_of!(EnvironmentUniform, normal_model);
+    let normal_end = normal.saturating_add(std::mem::size_of_val(&a.normal_model));
+    let left = bytemuck::bytes_of(a);
+    let right = bytemuck::bytes_of(b);
+    left.get(..model) == right.get(..model)
+        && left.get(model_end..normal) == right.get(model_end..normal)
+        && left.get(normal_end..) == right.get(normal_end..)
 }
 
 /// The renderer state a dynamic upload needs: the shared texture cache, the
@@ -328,8 +358,117 @@ impl WgpuDynamic {
                 caustics_receiver: super::caustics::CausticsReceiverCache::default(),
             });
         }
+        value.prepare_instance_groups(ctx);
+        value.sync_instance_groups(ctx.queue);
         value.finish_stats(scene);
         value
+    }
+
+    fn prepare_instance_groups(&mut self, ctx: &DynamicUploadContext<'_>) {
+        if ctx.device.limits().max_bind_groups < 6 {
+            return;
+        }
+        for (mesh_slot, mesh) in self.meshes.iter().enumerate() {
+            // Sorted transparency retains one independently ordered object.
+            if mesh
+                .submeshes
+                .iter()
+                .any(|part| part.pass == BatchPass::Translucent)
+            {
+                continue;
+            }
+            let objects: Vec<_> = self
+                .objects
+                .iter()
+                .enumerate()
+                .filter_map(|(slot, object)| (object.mesh == mesh_slot).then_some(slot))
+                .collect();
+            if objects.len() < 2 {
+                continue;
+            }
+            let environment = EnvironmentBindings::new(
+                ctx.device,
+                ctx.queue,
+                ctx.environment_layout,
+                ctx.cache,
+                ctx.lightmaps,
+                ctx.probes,
+                ctx.planar,
+                ctx.probe_fallback,
+                ctx.planar_fallback,
+                ctx.caustics,
+                &ctx.environment,
+            );
+            let instances = super::prop_instances::DynamicInstances::new(ctx.device, objects.len());
+            self.instance_groups.push(RigidInstanceGroup {
+                objects,
+                environment,
+                instances,
+                compatible: false,
+            });
+        }
+    }
+
+    fn sync_instance_groups(&mut self, queue: &wgpu::Queue) {
+        for group in &mut self.instance_groups {
+            let Some(reference) = group
+                .objects
+                .first()
+                .and_then(|slot| self.objects.get(*slot))
+            else {
+                continue;
+            };
+            let uniform = reference.environment.uploaded_uniform();
+            group.compatible = group.objects.iter().all(|slot| {
+                self.objects.get(*slot).is_some_and(|object| {
+                    object.culling_reflected == reference.culling_reflected
+                        && object.emission == reference.emission
+                        && object.emission_scale.to_bits() == reference.emission_scale.to_bits()
+                        && same_fragment_environment(uniform, object.environment.uploaded_uniform())
+                })
+            });
+            if group.compatible {
+                let common = uniform.with_model(glam::Mat4::IDENTITY);
+                let _stats = group.environment.update(queue, &common);
+                group.instances.update(
+                    queue,
+                    group.objects.iter().filter_map(|slot| {
+                        self.objects
+                            .get(*slot)
+                            .map(|object| *object.environment.uploaded_uniform())
+                    }),
+                );
+            }
+        }
+    }
+
+    pub fn submission(&self, slot: usize) -> Option<DynamicSubmission<'_>> {
+        let group = self
+            .instance_groups
+            .iter()
+            .find(|group| group.compatible && group.objects.contains(&slot));
+        if let Some(instances) = group {
+            if instances.objects.first() != Some(&slot) {
+                return None;
+            }
+            let (object, bounds) = instances
+                .objects
+                .iter()
+                .find_map(|index| self.world_bounds(*index).map(|bounds| (*index, bounds)))?;
+            Some(DynamicSubmission {
+                object,
+                group,
+                bounds,
+                environment: instances.environment.bind_group(),
+            })
+        } else {
+            Some(DynamicSubmission {
+                object: slot,
+                group: None,
+                bounds: self.world_bounds(slot)?,
+                environment: self.environment(slot)?,
+            })
+        }
     }
 
     /// Updates a material variant without recreating model buffers, textures or
@@ -371,6 +510,11 @@ impl WgpuDynamic {
             .is_emissive();
         }
         object.emission_scale = scale;
+        // A controller may write between sync and encode. Revalidate groups
+        // on the next ordinary sync; this frame keeps independent materials.
+        for group in &mut self.instance_groups {
+            group.compatible = false;
+        }
         true
     }
 
@@ -508,6 +652,7 @@ impl WgpuDynamic {
             }
             let _update_stats = object.environment.update(queue, &uniform);
         }
+        self.sync_instance_groups(queue);
         self.stats.draws = scene.draw_count();
         self.stats.vertices = scene.vertex_count();
     }
@@ -675,3 +820,7 @@ impl WgpuDynamic {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/rigid_instance_lighting.rs"]
+mod instance_tests;

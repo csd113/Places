@@ -1048,6 +1048,57 @@ graphics change or per frame.
 
 ## 9. Props, dynamics, doors, fixtures and emission
 
+### Automatic canonical geometry and compatible instances (0.13.0)
+
+Prepared prop records retain their existing bounded package format. At runtime,
+`canonical_props` verifies every position, normal, UV, frame, albedo and ordered
+index against a dependency-verified source model under an authored placement.
+Only an exact match enters shared CPU storage. Its source shape stays in the
+existing model allocation; every placement retains independent exact HDR
+colours and its transform. CPU iteration reconstructs the original float bits.
+Copy-on-write editing materializes only the edited batch. Neutral editor previews apply the same admission after preview lighting; export retains the existing wire layout. Atlas-split topology,
+independent animated poses, sorted blends, modified shapes and unknown inputs
+keep their existing paths. Models need no new map-author flags.
+
+The native GPU route uploads one canonical vertex/index pair per admitted source
+shape, separate per-placement transforms and RGBA32F lighting, and static UV
+visibility when required. Material/texture/controller identity governs automatic
+opaque/cutout instancing independently of storage sharing. Each placement keeps
+its own guarded world bounds; rendering submits only contiguous visible runs.
+Reflection, emission and flashlight-shadow passes use the same geometry route.
+The indexed legacy path preserves its world-axis tangent contract. CPU and GPU
+matrix evaluation can round differently; native comparisons bound that difference.
+
+Rigid props already share model-space meshes. Automatic rigid instancing also
+requires exact fragment-environment, emission and culling-parity compatibility;
+probe/visibility/effect differences retain independent draws. Single-sided,
+reflected and two-sided pipelines preserve the source raster policy. Physics
+bodies, pickup/motion and per-object visibility remain independent. Emission
+writes invalidate groups before rendering; ordinary synchronization revalidates.
+Skins and ragdolls retain their independent pose paths.
+
+Six bind groups enable instance storage. A native device supporting only the
+existing five-group renderer retains expanded GPU uploads and CPU sharing.
+Instance shader resources are appended only for capable devices: unused WGSL
+resource declarations are still validated against the device limit.
+Per-shape storage buffers must fit the requested device limit or use that same
+fallback. There are no per-frame resource allocations or new GPU waits in the
+static route. The rigid route updates bounded transform records when changed.
+Diagnostics distinguish source-shape buffers, independent lighting/instance
+storage and expanded draw equivalents. Requested payloads, live HAL counters,
+backend allocator capacity, process memory and driver GPU usage are overlapping
+views and must not be added together.
+
+Developer controls require `PLACES_BENCH=1`: `PLACES_BENCH_PROP_MERGE=0` keeps
+shared static GPU storage while submitting individual instances;
+`PLACES_BENCH_MAX_BIND_GROUPS=5` exercises the renderer fallback. The CPU
+conversion control `PLACES_BENCH_CANONICAL_PROPS=0` retains the prior palette
+representation. These controls do not change authored quality or package data.
+The [0.13.0 measured report](reports/release-0.13.0.md) records the memory savings
+and the retained scene-dependent frame-time cost; fewer submissions do not imply
+a throughput improvement.
+
+
 **Props / GLB models.** The neutral build's `PropMeshBatch` list supplies world-space vertices and primitive ranges; model sheets use the texture cache with clamp wrap and the player's filter. Static, non-animated props receive HDR atlas charts in a successful Medium/Full build, including incident transport and dominant-direction response. Off and atlas-fallback builds retain CPU vertex lighting (`LIGHTMAP_NONE`). Imported surface normals, scalar material response, emission and its mask follow the shared material shader. GLB `OPAQUE`, `MASK` and `BLEND` contracts select the corresponding opaque, cutout or sorted translucent pass. This path does not introduce model normal-map textures or per-model reflection routing.
 
 **Dynamic objects.** One model-space buffer is shared per registered model, with one group-3 environment per object carrying its transform, current centre sample and spatial incident/residual support plus selected finite direct lights. Centre samples refresh each frame; transform, source, field or movable-caster changes invalidate the cached spatial payload, and unchanged uniforms produce no GPU write. Imported GLB meshes retain their surface normals and material alpha contract. Opaque and cutout primitives use the shared body passes; blended submeshes join the shared back-to-front order across world, prop, dynamic and character transparency, with depth writes off. Current rigid-object transforms participate in bounded model-local visibility queries for entity lighting. Static atlases remain baked during motion. The guards admit at most 256 objects and 256 distinct meshes, including separate door frames/leaves. Reusing a registered model consumes no further mesh slot. Aggregate geometry remains capped at 1,048,560 vertices and 779,520 indices, the former sixteen-model worst case including reviewed dense models; a refusal reports the actual count and limit. Unused asset slots may be replaced, while live objects and registered handles retain stable indices. The engine's washer-drum demonstration is spawned by `set_dynamic_demo` for levels that ship one.

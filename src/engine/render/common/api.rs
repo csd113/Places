@@ -301,6 +301,7 @@ impl LevelBuild {
         let mut vertices = std::collections::HashSet::new();
         let mut indices = std::collections::HashSet::new();
         let mut images = std::collections::HashSet::new();
+        let mut shared_instances = 0_usize;
         let mut prop_bytes = 0_usize;
         let mut expanded = 0_usize;
         let mut index_bytes = 0_usize;
@@ -311,6 +312,12 @@ impl LevelBuild {
                 .flat_map(|state| &state.batches),
         ) {
             if vertices.insert(batch.vertices.identity()) {
+                shared_instances = shared_instances.saturating_add(
+                    batch
+                        .vertices
+                        .shared()
+                        .map_or(0, |shared| shared.placements.len()),
+                );
                 prop_bytes = prop_bytes.saturating_add(batch.vertices.retained_bytes());
                 expanded = expanded.saturating_add(
                     batch
@@ -353,7 +360,7 @@ impl LevelBuild {
                     materialized_pages.saturating_add(usize::from(page.texels.is_materialized()));
             }
         }
-        serde_json::json!({"architecture_bytes":architecture,"prop_vertex_bytes":prop_bytes,"prop_expanded_equivalent_bytes":expanded,"prop_index_bytes":index_bytes,"prop_image_bytes":image_bytes,"lightmap_pixel_bytes":atlas_bytes,"lightmap_chart_bytes":chart_bytes,"lightmap_pages":page_count,"lightmap_materialized_pages":materialized_pages,"switchable_lightmap_groups":self.lightmaps.as_ref().map_or(0, |maps| maps.switchable.len()),"static_alternate":self.static_light_off.is_some(),"lighting_bytes":self.lighting.retained_heap_bytes(),"irradiance_bytes":self.probes.as_ref().map_or(0, |field| allocation_bytes(&field.probes).saturating_add(field.local_direct.as_ref().map_or(0, |direct| allocation_bytes(&direct.probes).saturating_add(allocation_bytes(&direct.light_indices)))).saturating_add(field.switchable_indirect.iter().fold(allocation_bytes(&field.switchable_indirect), |bytes, group| bytes.saturating_add(allocation_bytes(&group.probes))))),"scope":"Unique CPU batch allocations within this build. Images may also be shared with material/model owners; do not add those again. Excludes GPU and transient decoding."})
+        serde_json::json!({"prop_canonical_instances":shared_instances,"canonical_source_scope":"source geometry is shared with the model-cache charge, not duplicated here","architecture_bytes":architecture,"prop_vertex_bytes":prop_bytes,"prop_expanded_equivalent_bytes":expanded,"prop_index_bytes":index_bytes,"prop_image_bytes":image_bytes,"lightmap_pixel_bytes":atlas_bytes,"lightmap_chart_bytes":chart_bytes,"lightmap_pages":page_count,"lightmap_materialized_pages":materialized_pages,"switchable_lightmap_groups":self.lightmaps.as_ref().map_or(0, |maps| maps.switchable.len()),"static_alternate":self.static_light_off.is_some(),"lighting_bytes":self.lighting.retained_heap_bytes(),"irradiance_bytes":self.probes.as_ref().map_or(0, |field| allocation_bytes(&field.probes).saturating_add(field.local_direct.as_ref().map_or(0, |direct| allocation_bytes(&direct.probes).saturating_add(allocation_bytes(&direct.light_indices)))).saturating_add(field.switchable_indirect.iter().fold(allocation_bytes(&field.switchable_indirect), |bytes, group| bytes.saturating_add(allocation_bytes(&group.probes))))),"scope":"Unique CPU batch allocations within this build. Images may also be shared with material/model owners; do not add those again. Excludes GPU and transient decoding."})
     }
 
     /// Conservative retained data size. Shared images are counted once within
@@ -587,6 +594,15 @@ fn authoring_preview_parts(
                 illuminate_preview_vertices(batch.vertices.make_mut().as_mut_slice());
             }
         }
+    }
+    if let Err(error) = super::canonical_props::share_canonical_props(
+        &mut batches,
+        level,
+        catalog,
+        assets,
+        &lighting,
+    ) {
+        crate::engine::logging::info(format_args!("[props] preview sharing interrupted: {error}"));
     }
     (
         LevelBuild {

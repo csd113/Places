@@ -98,6 +98,21 @@ pub const WORLD_SHADER_SRC: &str = concat!(
     include_str!("caustics.wgsl")
 );
 
+// Group declarations are validated against device limits even if an entry point
+// is unused. Five-group devices must never receive the instance shader module.
+fn world_shader_source(instanced: bool) -> std::borrow::Cow<'static, str> {
+    #[cfg(feature = "visual-diagnostics")]
+    let mut source = super::diagnostics::world_shader_source(WORLD_SHADER_SRC);
+    #[cfg(not(feature = "visual-diagnostics"))]
+    let mut source: std::borrow::Cow<'static, str> = WORLD_SHADER_SRC.into();
+    if instanced {
+        source
+            .to_mut()
+            .push_str(include_str!("prop_instances.wgsl"));
+    }
+    source
+}
+
 /// Name of the world vertex entry point.
 pub const WORLD_VERTEX_ENTRY: &str = "vs_main";
 /// Name of the opaque and translucent world fragment entry point for the sRGB
@@ -1914,6 +1929,8 @@ fn mark_water_surfaces(
 pub struct WorldDrawTotals {
     /// `draw_indexed` calls issued.
     pub draw_calls: usize,
+    /// Actual dynamic path submissions, including compatible instance runs.
+    pub dynamic_draws: usize,
     /// Ranges that survived the frustum test.
     pub visible_batches: usize,
     /// Distinct vertices those ranges index.
@@ -1952,6 +1969,7 @@ impl WorldDrawTotals {
     /// splice-in paths accumulate only the totals.
     const fn absorb(&mut self, other: Self) {
         self.draw_calls = self.draw_calls.saturating_add(other.draw_calls);
+        self.dynamic_draws = self.dynamic_draws.saturating_add(other.dynamic_draws);
         self.visible_batches = self.visible_batches.saturating_add(other.visible_batches);
         self.visible_vertices = self.visible_vertices.saturating_add(other.visible_vertices);
         self.visible_indices = self.visible_indices.saturating_add(other.visible_indices);
@@ -2027,6 +2045,7 @@ struct WorldPipelineVariant {
     blend: Option<wgpu::BlendState>,
     depth_write: bool,
     cull: Option<wgpu::Face>,
+    instanced: bool,
 }
 
 /// The reference's translucent blend state, exactly.
@@ -2062,6 +2081,7 @@ const TRANSLUCENT_BLEND: wgpu::BlendState = wgpu::BlendState {
 const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6] {
     [
         WorldPipelineVariant {
+            instanced: false,
             label: "places-wgpu-world-opaque",
             fragment_entry: WORLD_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_FRAGMENT_ENTRY_RAW,
@@ -2074,6 +2094,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
             },
         },
         WorldPipelineVariant {
+            instanced: false,
             label: "places-wgpu-world-cutout",
             fragment_entry: WORLD_CUTOUT_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_CUTOUT_FRAGMENT_ENTRY_RAW,
@@ -2082,6 +2103,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
             cull: None,
         },
         WorldPipelineVariant {
+            instanced: false,
             label: "places-wgpu-world-translucent",
             fragment_entry: WORLD_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_FRAGMENT_ENTRY_RAW,
@@ -2090,6 +2112,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
             cull: None,
         },
         WorldPipelineVariant {
+            instanced: false,
             label: "places-wgpu-world-emission",
             fragment_entry: WORLD_EMISSION_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_EMISSION_FRAGMENT_ENTRY,
@@ -2102,6 +2125,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
             },
         },
         WorldPipelineVariant {
+            instanced: false,
             label: "places-wgpu-world-emission-blend",
             fragment_entry: "fs_emission_blend",
             fragment_entry_raw: "fs_emission_blend",
@@ -2110,6 +2134,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
             cull: None,
         },
         WorldPipelineVariant {
+            instanced: false,
             label: "places-wgpu-world-emission-cutout",
             fragment_entry: WORLD_EMISSION_CUTOUT_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_EMISSION_CUTOUT_FRAGMENT_ENTRY,
@@ -2156,7 +2181,11 @@ fn build_world_pipeline(
         layout: Some(layout),
         vertex: wgpu::VertexState {
             module: shader,
-            entry_point: Some(WORLD_VERTEX_ENTRY),
+            entry_point: Some(if variant.instanced {
+                "vs_prop_instance"
+            } else {
+                WORLD_VERTEX_ENTRY
+            }),
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             buffers: &[Some(world_vertex_layout())],
         },
@@ -2227,16 +2256,238 @@ fn world_uniform_binding(
     (buffer, binding)
 }
 
+fn build_world_variants(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+    shader: &wgpu::ShaderModule,
+    state: (wgpu::TextureFormat, wgpu::FrontFace, bool, bool),
+) -> [wgpu::RenderPipeline; 6] {
+    let (format, front_face, raw_target, cull_opaque) = state;
+    let [
+        opaque_variant,
+        cutout_variant,
+        translucent_variant,
+        emission_variant,
+        emission_blend_variant,
+        emission_cutout_variant,
+    ] = world_pipeline_variants(cull_opaque);
+    let build = |variant| {
+        build_world_pipeline(
+            device, layout, shader, format, front_face, raw_target, variant,
+        )
+    };
+    let opaque = build(opaque_variant);
+    let cutout = build(cutout_variant);
+    let translucent = build(translucent_variant);
+    let (emission, emission_cutout, emission_blend) = if format == DEPTH_FORMAT {
+        (opaque.clone(), cutout.clone(), translucent.clone())
+    } else {
+        (
+            build(emission_variant),
+            build(emission_cutout_variant),
+            build(emission_blend_variant),
+        )
+    };
+    [
+        opaque,
+        cutout,
+        translucent,
+        emission,
+        emission_blend,
+        emission_cutout,
+    ]
+}
+
+struct InstancePipelines {
+    passes: [wgpu::RenderPipeline; 6],
+    entities: [wgpu::RenderPipeline; 4],
+}
+
+fn build_prop_pipelines(
+    device: &wgpu::Device,
+    shader: &wgpu::ShaderModule,
+    layouts: [&wgpu::BindGroupLayout; 5],
+    state: (wgpu::TextureFormat, wgpu::FrontFace, bool),
+) -> InstancePipelines {
+    let [
+        bind_group_layout,
+        texture_layout,
+        material_layout,
+        environment_layout,
+        lights_layout,
+    ] = layouts;
+    let (format, front_face, raw_target) = state;
+    let instance_layout = super::prop_instances::layout(device);
+    let instance_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("places-shared-props-pipeline-layout"),
+        bind_group_layouts: &[
+            Some(bind_group_layout),
+            Some(texture_layout),
+            Some(material_layout),
+            Some(environment_layout),
+            Some(lights_layout),
+            Some(&instance_layout),
+        ],
+        immediate_size: 0,
+    });
+    let passes = world_pipeline_variants(false).map(|mut variant| {
+        variant.instanced = true;
+        build_world_pipeline(
+            device,
+            &instance_pipeline_layout,
+            shader,
+            format,
+            front_face,
+            raw_target,
+            variant,
+        )
+    });
+    let entities = build_entity_pipelines(
+        device,
+        &instance_pipeline_layout,
+        shader,
+        format,
+        (front_face, raw_target, true),
+    );
+    InstancePipelines { passes, entities }
+}
+
+fn visible_rigid_instances(
+    dynamic: &super::dynamic::WgpuDynamic,
+    group: Option<&super::dynamic::RigidInstanceGroup>,
+    inputs: WorldEncodeInputs<'_>,
+) -> usize {
+    group.map_or(1, |instances| {
+        instances
+            .objects
+            .iter()
+            .filter(|index| {
+                dynamic
+                    .world_bounds(**index)
+                    .is_some_and(|bounds| !inputs.cull || inputs.frame.visible(&bounds))
+            })
+            .count()
+    })
+}
+
+fn bind_rigid_geometry<'a>(
+    pass: &mut wgpu::RenderPass<'a>,
+    dynamic: &'a super::dynamic::WgpuDynamic,
+    object_part: (usize, usize),
+    bind: bool,
+) -> Option<std::ops::Range<u32>> {
+    let (object, submesh) = object_part;
+    let (vertices, indices, first, count) = dynamic.geometry(object, submesh)?;
+    if bind {
+        pass.set_vertex_buffer(0, vertices.slice(..));
+        pass.set_index_buffer(indices.slice(..), wgpu::IndexFormat::Uint16);
+    }
+    Some(first..first.checked_add(count)?)
+}
+
+fn encode_rigid_runs(
+    pass: &mut wgpu::RenderPass<'_>,
+    inputs: WorldEncodeInputs<'_>,
+    dynamic: &super::dynamic::WgpuDynamic,
+    group: &super::dynamic::RigidInstanceGroup,
+    indices: std::ops::Range<u32>,
+) -> WorldDrawTotals {
+    let mut totals = WorldDrawTotals::default();
+    let visible = |slot: usize| {
+        group
+            .objects
+            .get(slot)
+            .and_then(|object| dynamic.world_bounds(*object))
+            .is_some_and(|bounds| !inputs.cull || inputs.frame.visible(&bounds))
+    };
+    let mut cursor = 0;
+    while cursor < group.objects.len() {
+        if !visible(cursor) {
+            cursor = cursor.saturating_add(1);
+            continue;
+        }
+        let first = cursor;
+        cursor = cursor.saturating_add(1);
+        while cursor < group.objects.len() && visible(cursor) {
+            cursor = cursor.saturating_add(1);
+        }
+        pass.draw_indexed(
+            indices.clone(),
+            0,
+            u32::try_from(first).unwrap_or(u32::MAX)..u32::try_from(cursor).unwrap_or(u32::MAX),
+        );
+        let count = cursor.saturating_sub(first);
+        totals.draw_calls = totals.draw_calls.saturating_add(1);
+        totals.visible_batches = totals.visible_batches.saturating_add(count);
+        totals.visible_indices = totals.visible_indices.saturating_add(
+            usize::try_from(indices.end.saturating_sub(indices.start))
+                .unwrap_or(usize::MAX)
+                .saturating_mul(count),
+        );
+    }
+    totals
+}
+
+fn encode_prop_runs(
+    pass: &mut wgpu::RenderPass<'_>,
+    inputs: WorldEncodeInputs<'_>,
+    chunk: &super::props::PropChunk,
+    draw: &super::props::PropDraw,
+) -> WorldDrawTotals {
+    let mut totals = WorldDrawTotals::default();
+    let Some(end) = draw.index_start.checked_add(draw.index_count) else {
+        return totals;
+    };
+    let visible = |slot: u32| {
+        !inputs.cull
+            || chunk.shared.as_ref().is_none_or(|shared| {
+                shared
+                    .bounds
+                    .get(usize::try_from(slot).unwrap_or(usize::MAX))
+                    .is_none_or(|bounds| inputs.frame.visible(bounds))
+            })
+    };
+    let mut cursor = draw.instances.start;
+    while cursor < draw.instances.end {
+        if !visible(cursor) {
+            cursor = cursor.saturating_add(1);
+            continue;
+        }
+        let first = cursor;
+        cursor = cursor.saturating_add(1);
+        while cursor < draw.instances.end && visible(cursor) {
+            cursor = cursor.saturating_add(1);
+        }
+        pass.draw_indexed(draw.index_start..end, 0, first..cursor);
+        let count = usize::try_from(cursor.saturating_sub(first)).unwrap_or(usize::MAX);
+        totals.visible_indices = totals.visible_indices.saturating_add(
+            usize::try_from(draw.index_count)
+                .unwrap_or(usize::MAX)
+                .saturating_mul(count),
+        );
+        totals.draw_calls = totals.draw_calls.saturating_add(1);
+        totals.visible_batches = totals.visible_batches.saturating_add(count);
+        totals.visible_vertices = totals.visible_vertices.saturating_add(
+            usize::try_from(draw.vertex_count)
+                .unwrap_or(usize::MAX)
+                .saturating_mul(count),
+        );
+    }
+    totals
+}
+
 /// Opaque scene/emission pipelines with matching ordinary and reflected facing.
 fn build_entity_pipelines(
     device: &wgpu::Device,
     layout: &wgpu::PipelineLayout,
     shader: &wgpu::ShaderModule,
     format: wgpu::TextureFormat,
-    front: wgpu::FrontFace,
-    raw: bool,
+    state: (wgpu::FrontFace, bool, bool),
 ) -> [wgpu::RenderPipeline; 4] {
-    let [opaque, _, _, emission, _, _] = world_pipeline_variants(true);
+    let (front, raw, instanced) = state;
+    let [mut opaque, _, _, mut emission, _, _] = world_pipeline_variants(true);
+    opaque.instanced = instanced;
+    emission.instanced = instanced;
     let reflected = match front {
         wgpu::FrontFace::Ccw => wgpu::FrontFace::Cw,
         wgpu::FrontFace::Cw => wgpu::FrontFace::Ccw,
@@ -2276,6 +2527,7 @@ fn build_entity_pipelines(
 ///   into the raw bloom source.
 /// * **emission-blend** — straight coverage blending for transparent emission.
 pub struct WorldPipeline {
+    instanced: Option<InstancePipelines>,
     opaque_culled: wgpu::RenderPipeline,
     opaque_culled_reflected: wgpu::RenderPipeline,
     emission_culled: wgpu::RenderPipeline,
@@ -2354,10 +2606,7 @@ impl WorldPipeline {
         cull_opaque: bool,
         raw_target: bool,
     ) -> Self {
-        #[cfg(feature = "visual-diagnostics")]
-        let shader_source = super::diagnostics::world_shader_source(WORLD_SHADER_SRC);
-        #[cfg(not(feature = "visual-diagnostics"))]
-        let shader_source = WORLD_SHADER_SRC.into();
+        let shader_source = world_shader_source(device.limits().max_bind_groups >= 6);
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("places-wgpu-world-shader"),
             source: wgpu::ShaderSource::Wgsl(shader_source),
@@ -2388,25 +2637,6 @@ impl WorldPipeline {
         let (lights_buffer, lights_bind_group, lights_sampler) =
             create_dynamic_lights_binding(device, &lights_layout);
         let [
-            opaque_variant,
-            cutout_variant,
-            translucent_variant,
-            emission_variant,
-            emission_blend_variant,
-            emission_cutout_variant,
-        ] = world_pipeline_variants(cull_opaque);
-        let build = |variant| {
-            build_world_pipeline(
-                device,
-                &pipeline_layout,
-                &shader,
-                format,
-                front_face,
-                raw_target,
-                variant,
-            )
-        };
-        let [
             opaque_culled,
             emission_culled,
             opaque_culled_reflected,
@@ -2416,22 +2646,37 @@ impl WorldPipeline {
             &pipeline_layout,
             &shader,
             format,
-            front_face,
-            raw_target,
+            (front_face, raw_target, false),
         );
-        let opaque = build(opaque_variant);
-        let cutout = build(cutout_variant);
-        let translucent = build(translucent_variant);
-        let (emission, emission_cutout, emission_blend) = if format == DEPTH_FORMAT {
-            (opaque.clone(), cutout.clone(), translucent.clone())
-        } else {
-            (
-                build(emission_variant),
-                build(emission_cutout_variant),
-                build(emission_blend_variant),
+        let instanced = (device.limits().max_bind_groups >= 6).then(|| {
+            build_prop_pipelines(
+                device,
+                &shader,
+                [
+                    &bind_group_layout,
+                    texture_layout,
+                    material_layout,
+                    environment_layout,
+                    &lights_layout,
+                ],
+                (format, front_face, raw_target),
             )
-        };
+        });
+        let [
+            opaque,
+            cutout,
+            translucent,
+            emission,
+            emission_blend,
+            emission_cutout,
+        ] = build_world_variants(
+            device,
+            &pipeline_layout,
+            &shader,
+            (format, front_face, raw_target, cull_opaque),
+        );
         Self {
+            instanced,
             opaque_culled,
             opaque_culled_reflected,
             emission_culled,
@@ -2508,6 +2753,44 @@ impl WorldPipeline {
     }
 
     /// The pipeline one material pass submits through.
+    fn prop_pipeline_for(&self, pass: BatchPass, emission: bool) -> &wgpu::RenderPipeline {
+        let index = match (pass, emission) {
+            (BatchPass::Opaque, false) => 0,
+            (BatchPass::Cutout, false) => 1,
+            (BatchPass::Translucent, false) => 2,
+            (BatchPass::Opaque, true) => 3,
+            (BatchPass::Translucent, true) => 4,
+            (BatchPass::Cutout, true) => 5,
+        };
+        self.instanced
+            .as_ref()
+            .and_then(|pipelines| pipelines.passes.get(index))
+            .unwrap_or(&self.opaque)
+    }
+
+    fn rigid_pipeline_for(
+        &self,
+        pass: BatchPass,
+        emission: bool,
+        double_sided: bool,
+        reflected: Option<bool>,
+    ) -> &wgpu::RenderPipeline {
+        let index = match (entity_cull_mode(pass, double_sided, reflected), emission) {
+            (EntityCullMode::Regular, false) => Some(0),
+            (EntityCullMode::Regular, true) => Some(1),
+            (EntityCullMode::Reflected, false) => Some(2),
+            (EntityCullMode::Reflected, true) => Some(3),
+            (EntityCullMode::TwoSided, _) => None,
+        };
+        index
+            .and_then(|slot| {
+                self.instanced
+                    .as_ref()
+                    .and_then(|pipelines| pipelines.entities.get(slot))
+            })
+            .unwrap_or_else(|| self.prop_pipeline_for(pass, emission))
+    }
+
     const fn pipeline_for(&self, pass: BatchPass) -> &wgpu::RenderPipeline {
         match pass {
             BatchPass::Opaque => &self.opaque,
@@ -2895,6 +3178,34 @@ impl WorldPipeline {
     /// shared mesh and the object's own material slots. `emission_only` is the
     /// emissive pass; `wanted` selects the alpha class, so a blended dynamic
     /// primitive draws in the shared translucent order, with depth writes off.
+    fn bind_dynamic_pipeline<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        dynamic: &'a super::dynamic::WgpuDynamic,
+        object_part: (usize, usize),
+        state: (BatchPass, bool),
+        group: Option<&'a super::dynamic::RigidInstanceGroup>,
+    ) {
+        let (object, submesh) = object_part;
+        let (wanted, emission_only) = state;
+        if let Some(instances) = group {
+            pass.set_pipeline(self.rigid_pipeline_for(
+                wanted,
+                emission_only,
+                dynamic.submesh_double_sided(object, submesh),
+                dynamic.culling_reflected(object),
+            ));
+            pass.set_bind_group(5, &instances.instances.binding, &[]);
+        } else {
+            pass.set_pipeline(self.entity_pipeline_for(
+                wanted,
+                emission_only,
+                dynamic.submesh_double_sided(object, submesh),
+                dynamic.culling_reflected(object),
+            ));
+        }
+    }
+
     fn encode_dynamic<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
@@ -2916,17 +3227,16 @@ impl WorldPipeline {
             || 0..dynamic.object_count(),
             |index| index..index.saturating_add(1).min(dynamic.object_count()),
         );
-        for object in object_range {
-            let Some(bounds) = dynamic.world_bounds(object) else {
+        for slot in object_range {
+            let Some(submission) = dynamic.submission(slot) else {
                 continue;
             };
-            if inputs.cull && !inputs.frame.visible(&bounds) {
+            let object = submission.object;
+            let group = submission.group;
+            if group.is_none() && inputs.cull && !inputs.frame.visible(&submission.bounds) {
                 continue;
             }
-            let Some(environment) = dynamic.environment(object) else {
-                continue;
-            };
-            pass.set_bind_group(3, environment, &[]);
+            pass.set_bind_group(3, submission.environment, &[]);
             let mut bound_texture: Option<usize> = None;
             let mut bound_material: Option<usize> = None;
             let mut geometry_bound = false;
@@ -2941,12 +3251,13 @@ impl WorldPipeline {
                 {
                     continue;
                 }
-                pass.set_pipeline(self.entity_pipeline_for(
-                    wanted,
-                    emission_only,
-                    dynamic.submesh_double_sided(object, submesh),
-                    dynamic.culling_reflected(object),
-                ));
+                self.bind_dynamic_pipeline(
+                    pass,
+                    dynamic,
+                    (object, submesh),
+                    (wanted, emission_only),
+                    group,
+                );
                 totals.emissive_visible |= dynamic.submesh_emissive(object, submesh);
                 let Some(material_slot) = dynamic.material_slot(object, submesh) else {
                     continue;
@@ -2967,28 +3278,33 @@ impl WorldPipeline {
                     totals.texture_binds = totals.texture_binds.saturating_add(1);
                     bound_texture = Some(material_slot);
                 }
-                let Some((vertex_buffer, index_buffer, first_index, index_count)) =
-                    dynamic.geometry(object, submesh)
+                let Some(indices) =
+                    bind_rigid_geometry(pass, dynamic, (object, submesh), !geometry_bound)
                 else {
                     continue;
                 };
-                if !geometry_bound {
-                    pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-                    pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                    geometry_bound = true;
+                geometry_bound = true;
+                let index_count = indices.end.saturating_sub(indices.start);
+                if let Some(instances) = group {
+                    totals.absorb(encode_rigid_runs(pass, inputs, dynamic, instances, indices));
+                } else {
+                    pass.draw_indexed(indices, 0, 0..1);
+                    totals.visible_indices = totals
+                        .visible_indices
+                        .saturating_add(usize::try_from(index_count).unwrap_or(usize::MAX));
+                    totals.draw_calls = totals.draw_calls.saturating_add(1);
+                    totals.visible_batches = totals.visible_batches.saturating_add(1);
                 }
-                let Some(end) = first_index.checked_add(index_count) else {
-                    continue;
-                };
-                pass.draw_indexed(first_index..end, 0, 0..1);
-                totals.visible_indices = totals
-                    .visible_indices
-                    .saturating_add(usize::try_from(index_count).unwrap_or(usize::MAX));
-                totals.draw_calls = totals.draw_calls.saturating_add(1);
-                totals.visible_batches = totals.visible_batches.saturating_add(1);
             }
-            totals.record_object_vertices(before_draws, dynamic.object_vertex_count(object));
+            let visible_instances = visible_rigid_instances(dynamic, group, inputs);
+            totals.record_object_vertices(
+                before_draws,
+                dynamic
+                    .object_vertex_count(object)
+                    .saturating_mul(visible_instances),
+            );
         }
+        totals.dynamic_draws = totals.draw_calls;
         totals
     }
 
@@ -3180,7 +3496,7 @@ impl WorldPipeline {
         selected: Option<usize>,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
-        let mut bound_pipeline: Option<BatchPass> = None;
+        let mut bound_pipeline: Option<(BatchPass, bool)> = None;
         pass.set_bind_group(0, &self.bind_group, &[]);
         pass.set_bind_group(3, inputs.environment, &[]);
         pass.set_bind_group(4, &self.lights_bind_group, &[]);
@@ -3206,13 +3522,22 @@ impl WorldPipeline {
             if inputs.cull && !inputs.frame.visible(&draw.bounds) {
                 continue;
             }
-            if bound_pipeline != Some(draw.pass) {
-                if emission_only {
+            let Some(chunk) = props.chunk(draw.chunk) else {
+                continue;
+            };
+            let instanced = chunk.shared.is_some();
+            if bound_pipeline != Some((draw.pass, instanced)) {
+                if instanced {
+                    pass.set_pipeline(self.prop_pipeline_for(draw.pass, emission_only));
+                } else if emission_only {
                     pass.set_pipeline(self.emission_pipeline_for(draw.pass));
                 } else {
                     pass.set_pipeline(self.pipeline_for(draw.pass));
                 }
-                bound_pipeline = Some(draw.pass);
+                bound_pipeline = Some((draw.pass, instanced));
+                bound_chunk = None;
+                bound_texture = None;
+                bound_material = None;
             }
             totals.emissive_visible |= draw.emissive;
             if bound_material != Some(draw.material) {
@@ -3232,25 +3557,14 @@ impl WorldPipeline {
                 bound_texture = Some(draw.texture);
             }
             if bound_chunk != Some(draw.chunk) {
-                let Some(chunk) = props.chunk(draw.chunk) else {
-                    continue;
-                };
                 pass.set_vertex_buffer(0, chunk.vertex_buffer.slice(..));
                 pass.set_index_buffer(chunk.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                if let Some(shared) = &chunk.shared {
+                    pass.set_bind_group(5, &shared.binding, &[]);
+                }
                 bound_chunk = Some(draw.chunk);
             }
-            let Some(end) = draw.index_start.checked_add(draw.index_count) else {
-                continue;
-            };
-            pass.draw_indexed(draw.index_start..end, 0, 0..1);
-            totals.visible_indices = totals
-                .visible_indices
-                .saturating_add(usize::try_from(draw.index_count).unwrap_or(usize::MAX));
-            totals.draw_calls = totals.draw_calls.saturating_add(1);
-            totals.visible_batches = totals.visible_batches.saturating_add(1);
-            totals.visible_vertices = totals
-                .visible_vertices
-                .saturating_add(usize::try_from(draw.vertex_count).unwrap_or(usize::MAX));
+            totals.absorb(encode_prop_runs(pass, inputs, chunk, draw));
         }
         totals
     }
