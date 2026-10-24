@@ -6,12 +6,12 @@ stage; earlier next-stage statements are historical handoffs. Raw local receipts
 and direct binaries remain outside `target` in their original stage directories.
 No main merge or release is implied by this staging report.
 
-The [latest pass A handoff](#editor-preview-and-install-pass-a---windows-2026-10-23) records
-preview reuse, staged installation and matched Windows evidence. The real editor
-bake-progress bar is retained.
-Final combined verification and cleanup follow the newly approved passes. Earlier
-final/next-stage statements remain historical cohort records; macOS FPS gains
-remain inconclusive and Linux remains unverified.
+The [latest RAM handoff](#runtime-ram-phase-4---windows-2026-10-24) records
+substantial Lantern memory savings and the approved shared-geometry/automatic
+instancing stage before remaining runtime/editor work. The editor bake-progress
+bar and earlier accepted gains are retained. Earlier next-stage statements are
+historical cohort records; final combined acceptance is still pending, macOS FPS
+gains remain inconclusive and Linux remains unverified.
 
 
 ## Configurable Sun and Moon - native Windows, 2026-10-22
@@ -7252,3 +7252,329 @@ verify no active target users, clean Cargo and task-owned disposable staging
 between runs, and report actual recovery. Retain awake **PID 34744**, original
 SYSTEM-only policy/stop mechanism and expiry **2026-10-24 17:57:20 UTC**; no renewal
 or stop is needed here. Cleanup does not release awake custody.
+
+## Runtime RAM phase 4 - Windows, 2026-10-24
+
+Lantern Hollow now retains substantially less CPU data and process memory. The
+final implementation keeps exact immutable prop-attribute palettes, selects
+smaller backend allocator blocks, retires idle GPU texture handles after a new
+world commits, evicts unrelated prepared records, and retires completed CPU
+preparations when a level load is cancelled during GPU upload. The displayed
+world retains its own handles and weak prepared-record reuse. No working-set
+trimming, texture/lighting reduction, animation change or map-specific rule is used.
+
+The original control is remote-matching `6700bc16aebd81ef3ffcb203544b046915c837d9`.
+All final comparisons use the same preserved nine-level package, SHA-256
+`dcfa9bc8f911f7eae2b6cad8f874a8d8a83077559208e02ade1b2a7304bf7b96`.
+Lantern's preserved shipped member uses Static/off; it has no Full atlas variant.
+High textures/filtering, content, 1280x720 camera route and eight-second warmup
+match before/after. Home Full verifies a non-Lantern atlas/circuit case. These
+are fresh-process runs with an ordinarily warm filesystem cache, not proof of
+cold OS-cache or target-resolution performance. No game/build/bake overlapped
+any timing cohort. Host power, GPU, fan and driver settings were not changed.
+The recorded custom host limits remain unconfirmed context, not a throttling diagnosis.
+
+All figures below are MiB (2^20 bytes). Private bytes/commit, resident Windows
+working set, WDDM dedicated GPU and WDDM shared GPU memory are separate,
+overlapping accounting views and must not be added together. Windows working set
+is the resident-page measure used here; no Linux RSS measurement is implied.
+See Microsoft's [GPU accounting explanation](https://devblogs.microsoft.com/directx/gpus-in-the-task-manager/)
+and [heap/private-memory guidance](https://techcommunity.microsoft.com/blog/askperf/an-overview-of-troubleshooting-memory-issues/372673).
+
+| Matched phase | Process private | Working set | Dedicated GPU | Shared GPU |
+| --- | ---: | ---: | ---: | ---: |
+| Lantern settled (two original controls; final confirmation) | 1964.50 → 1468.37 | 1035.71 → 675.64 | 975.34 → 838.88 | 338.08 → 246.08 |
+| Lantern traversal | 1970.73 → 1472.99 | 1040.77 → 680.21 | 975.46 → 838.95 | 339.08 → 247.08 |
+| Home Full settled | 912.45 → 714.91 | 503.03 → 443.05 | 461.01 → 324.55 | 209.08 → 149.08 |
+| Return to animated menu | 1090.55 → 776.49 | 681.68 → 488.27 | 462.46 → 341.84 | 339.08 → 143.08 |
+| Office after menu | 1001.10 → 691.77 | 592.29 → 419.92 | 462.46 → 325.87 | 339.08 → 175.08 |
+| Lantern after menu/Office/reload | 1995.59 → 1645.85 | 1068.57 → 725.29 | 975.46 → 967.30 | 339.08 → 271.08 |
+| Tenth direct map transition | 2188.30 → 1696.42 | 1256.00 → 777.51 | 975.58 → 967.20 | 466.08 → 278.08 |
+| Menu after ten transitions | 1100.35 → 795.01 | 692.73 → 505.20 | 462.33 → 341.71 | 338.08 → 142.08 |
+
+Settled Lantern private memory falls **25.3%**,
+and resident working set **34.8%**. The final
+single-run kernel peak commit/working set is **1474.01 /
+788.03 MiB**; original matched single
+controls were 1971.36–1971.82 / 1131.93–1133.19 MiB. For the identical ten-transition
+campaign, kernel peak commit/working set changes from
+**2466.77 / 1540.43**
+to **1795.89 / 1125.80 MiB**.
+Process samples are every 200 ms; kernel peak counters additionally capture
+short process peaks. WDDM samples do not establish unsampled GPU peak maxima.
+Raw samples, losslessly compressed trace/frame CSVs, phase windows and request timings remain
+in `task-12/memory-evidence/`; final-run identities carry exact binary hashes.
+
+### What occupies Lantern Hollow
+
+The following are decoded allocation charges/payloads, not subdivisions of total
+process RSS. Families are classified from actual model paths; shared image/model
+identities are counted once. The unchanged GPU column excludes padding, staging,
+texture storage, allocator capacity and driver overhead.
+
+| Content family | CPU prop vertices before → after | Static GPU vertex/index payload |
+| --- | ---: | ---: |
+| Characters (compiled fallback geometry) | 9.17 → 2.88 | 0.00 |
+| Houses and structural props | 7.13 → 1.72 | 9.00 |
+| Trees and vegetation | 394.01 → 140.69 | 498.22 |
+| Lighting fixture props | 0.58 → 0.13 | 0.73 |
+| Rocks, terrain and roads | 3.23 → 0.62 | 4.11 |
+| Furniture and other props | 3.24 → 0.66 | 3.94 |
+
+All prop vertices total **417.36 → 146.70 MiB**, preserving every float bit,
+signed zero, HDR colour, UV, normal/tangent and atlas selector. Prepared level
+records total **462.24 → 191.58 MiB**. Runtime access reconstructs one stack
+value; there is no retained expanded float cache. Compiler authoring keeps
+editable vectors, so phase 3's bounded export path is preserved. Palettes are
+kept only when their measured allocation charge saves at least ten percent.
+
+The largest contributors are **247 trees of three models**:
+
+| Model | Placements | CPU vertices before → after | Static GPU payload |
+| --- | ---: | ---: | ---: |
+| tree_01 | 62 | 121.32 → 42.23 | 153.87 |
+| tree_02 | 61 | 167.26 → 61.86 | 211.25 |
+| tree_03 | 124 | 102.65 → 35.52 | 129.55 |
+
+Those three models account for 93.74% of expanded prop CPU vertices and 95.86%
+of static prop GPU geometry. Source models and textures are already shared; the
+large copies are placed, world-space/baked meshes in spatial batches. GPU shape
+payload is still duplicated in this RAM checkpoint. The approved instancing
+stage below addresses that remaining structural cost.
+
+Other measured CPU data: prop indices **11.21 MiB**, navigation **19.95 MiB**,
+architecture **2.27 MiB**, lighting metadata **2.98 MiB** and compiled collision
+records **0.027 MiB**, included in the prepared charge. The collision figure
+is serialized/runtime record ownership, not all Rapier, body, pose or query
+allocations; those remain in the engine/unassigned heap subtotal. Per-vertex
+baked lighting is already included in geometry, not charged again as an atlas.
+Lantern has **zero atlas pages, circuit atlas variants, materialized float pages,
+probe-field or reflection-capture payloads** in this matched Static member.
+Home Full retains **64 MiB** of packed atlas planes, four page records and one
+switchable group, with **zero materialized float page copies**. Existing lazy
+packed-page behavior is preserved rather than claimed as a new phase 4 saving.
+
+Unique source material/fixture/prop RGBA totals **68.31 MiB across 58 images**:
+60.06 MiB material/fixture and 8.25 MiB prop images. Model-cache image counters
+overlap those same allocations. Shared source geometry/skin vertices total
+**13.24 MiB**; retained encoded GLB input is **zero**. The 21 rendered characters
+use **11.64 MiB** of posed GPU vertices and **0.084 MiB** of indices over seven
+shared models, separately from static GPU props. Rig/clip metadata and per-actor
+state are not falsely included in the static-prop table. One water volume has a
+small source surface (4.3 KiB CPU); water shading/attachments are engine resources.
+Global decoded audio is **21.04 MiB / 63 clips**, not a particular tree or house.
+Luau is about **0.5 MiB**, one module/AI in Lantern, with zero queued frame actions.
+
+First-load native heaps contain **368.84 MiB allocated / 386.87 MiB committed**,
+including **18.03 MiB committed slack**. Identified CPU payload charges total
+approximately **286.44 MiB**; **82.40 MiB within those heaps** remains unassigned
+among engine, physics, pose/rig, native and driver structures. Another
+**1081.50 MiB of process private bytes lies outside enumerated heaps**; these
+include graphics/native allocations and are not arbitrarily assigned to map
+objects. Source model textures report 8.80 MiB with overlap and possible extra
+actor images beyond the 68.31 MiB scoped material/fixture/compiled-prop union;
+that counter is not added a second time.
+
+The final settled backend allocation breakdown separately identifies **549.19 MiB
+static prop buffers** (516.02 MiB requested payload plus allocation padding),
+**126.25 MiB material uniforms/internal sampler-index buffers** and **96.75 MiB
+sampled texture allocations**. Texture binding helper buffers occupy another
+12 MiB. Character bind/pose/skinning, dynamic objects, architecture, environment,
+post/decal/backend and staging allocations remain explicit disjoint label groups
+in `final-gpu-allocation-breakdown.json`, reconciling to the full allocated total.
+The 126.25 MiB binding cost belongs to the engine/backend resource layout, not
+505 different tree textures; it is a further measured target for the approved
+shared-rendering work. GPU cache texel budgets overlap these allocations and are
+not summed again.
+
+### Lifetimes, staging and allocator attribution
+
+The bounded phase 3 archive reader still uses its eight-MiB Zstd history. Lantern
+prop reconstruction temporarily overlaps **198.48 MiB** of decoded shared segments
+and **326.64 MiB** of encoded prop records. These are transient archive/record
+intermediates, not settled level records. The new exact palette builder handles
+one bounded batch at a time and releases the batch float vector and attribute
+hash maps after conversion. GPU conversion/staging remains bounded to the
+existing upload batches and fences. Attribution runs observe about 23 MiB of
+backend staging at commit and about 1.875 MiB of retained staging capacity when
+settled; the latter is allocator-owned, not a live decoded map page. CPU mip work
+is idle, pending install/cache state is clear and scheduled preparation is absent
+at settled/unload checkpoints. No resource is freed by bypassing a GPU fence.
+
+The backend MemoryUsage policy reduces initial reserved block capacity from
+**1152 to 924 MiB** in the controlled arena-layout experiment, with identical
+allocated live payload. Its approximately **226 MiB process-commit** effect is
+separate from the approximately **271 MiB CPU vertex** saving. These are mechanism
+comparisons, not additive independent accounting totals. The default policy
+change uses wgpu's supported per-device allocation hints, not global driver or
+host tuning. Old-policy diagnostic controls are explicitly excluded from FPS claims.
+
+Cache-only GPU sheets are pruned after replacement commit, preserving active
+draw/circuit banks and native queue owners. In the menu/Office/reload control,
+pruning removes 119.68 MiB of otherwise idle texture payload and about 65 MiB of
+extra process commit on the final Lantern visit. Optional source-image caching
+remains bounded at 256 entries/256 MiB; diagnostic worker-image reports distinguish
+cache-only pixels from live material owners. Unrelated prepared identities are
+evicted: the original direct-transition control retains Office's prepared/build
+owner while Lantern is active; final candidate checkpoints retain none. The old
+control therefore fails the candidate-only zero-owner invariant, documented in
+`baseline-retention-assessment.json`; its successful native timing samples remain valid.
+
+The pre-correction C2 RAM candidate left completed CPU caches after GPU-stage
+cancellation despite no worker
+being active. Serial worker maintenance now retires them after pending resources
+are dropped, retaining only weak identities for the displayed rollback world.
+The matched GPU-cancelled Office checkpoint (C2 before the correction versus
+final binary, rather than the original release control) changes from **859.10 / 642.68** to **592.85 / 378.11 MiB private/working set**. Reopening the displayed Office proves a prepared-record cache hit after retirement; Lantern recovery, same-level reload and final menu unload pass.
+
+The cancellation/same-level-reload stress path still reaches **2242.91 MiB kernel
+peak commit / 1010.25 MiB peak working set**. After same-level reload it settles
+at **2072.19 MiB private / 799.38 MiB working set**, with **1223.76 MiB dedicated /
+310.08 MiB shared GPU**. This residual is not hidden: rollback-safe replacement
+uploads duplicate large GPU geometry, and the backend retains **1372.00 MiB
+reserved against 851.44 MiB allocated**, including **520.56 MiB unused capacity**.
+All six process heaps report **398.95 MiB allocated / 447.59 MiB committed** there.
+A separately observed **28 MiB cache-only source-image** allocation is bounded
+and cleared on menu unload. After menu return the stress process is
+**992.76 / 577.26 MiB private/working set**: heaps are **272.11 allocated /
+372.03 committed**, backend **270.56 allocated / 452.00 reserved**, and idle GPU
+texture payload is zero. These views overlap; they are evidence of retained
+allocator/driver capacity, not quantities to sum or a full attribution of every
+process byte. Reducing the remaining GPU shape duplication is the approved next
+stage; this checkpoint does not promise every reload stays below 2 GiB commit.
+
+Every final settled witness for an inactive distinct level reports zero prepared-
+record, build and transport owners; pending CPU work/install is absent. Same-
+identity reloads can share records with the active world; after final menu unload
+their retired owners are zero. Menu measurements include
+the live animated menu and its approximately 97.48 MiB of prepared records, not
+an empty renderer. Repeated process/driver totals can remain above first-load
+levels after ownership clears. Win32 HeapSummary reports all six process heaps,
+separating allocated bytes from committed slack; backend allocation reports
+separate live labeled allocations from unused block capacity. These prove
+allocator/driver residency and bounded caches rather than treating every elevated
+working-set page as a map leak. HeapSummary includes native/driver heaps and
+excludes allocations made outside them; the remaining process subtotal is kept
+unassigned, not arbitrarily charged to map objects or declared wholly GPU memory.
+Detailed per-phase heap/block/label figures remain in the final analysis and
+allocator receipts. No heap compaction, empty-working-set or residency trimming is used.
+
+The shared prop-buffer arena prototype was **rejected**. It removed 32.5 MiB of
+HAL allocation padding and 780 buffer objects, but initial process/GPU totals
+were nearly unchanged and the ten-transition run finished at 1826.19 MiB private
+versus 1703.08 MiB with individual buffers; menu retention was also worse. The
+final binary retains individual batch buffers. Prototype source diff and controls
+are preserved so lower live allocation is not misreported as lower process residency.
+
+### Timing and validation
+
+Original Lantern: startup to request **3.927 s**, request to present **4.772 s**; settled mean/p95/p99 loop **13.533/16.078/16.336 ms**, traversal **6.715/15.745/16.837 ms**.
+
+Final Lantern: startup to request **5.038 s**, request to present **5.909 s**; settled mean/p95/p99 loop **13.457/16.136/16.374 ms**, traversal **6.740/15.384/16.693 ms**.
+
+Original Home Full: startup to request **3.936 s**, request to present **3.178 s**; settled mean/p95/p99 loop **3.258/5.812/6.648 ms**, traversal **2.516/4.977/5.865 ms**.
+
+Final Home Full: startup to request **4.026 s**, request to present **3.195 s**; settled mean/p95/p99 loop **3.075/5.559/6.367 ms**, traversal **2.468/4.736/6.262 ms**.
+
+The main tradeoff is roughly **1.1 s** extra Lantern preparation, dominated by
+prop parsing/attribute interning (about 0.37 to 1.30 s), in exchange for substantial
+settled/peak savings. Home has a much smaller parsing cost. FPS gains are not
+claimed. Every throughput cohort requested and applied Immediate on DX12,
+1280x720 physical drawable, swap interval zero, VSync/limiters off, no fixed delta
+or capture. Home runs well above the reported 165 Hz desktop refresh; Lantern
+frame distributions do not plateau at refresh. Capture/fixed-step, allocation
+report and diagnostic lifecycle runs are excluded from throughput conclusions.
+
+Final source is frozen across successful format, strict workspace/all-targets/
+all-features Clippy, **308 Rust tests (zero failed/ignored)** and locked release
+workspace/all-features build. The two small new regressions protect exact HDR/
+signed-zero attributes, copy-on-write independence and the u16 palette boundary;
+they use bounded vectors, not map bakes. Asset/prop checks pass; texture checks
+pass with 100 existing advisories. All 24 targeted Python checks pass. Broad
+Python runs 369 tests with the same eight failures, nine errors and 16 skips;
+new/resolved failure-header sets are empty. No full shipped map was rebaked.
+Phase 3 encoder/storage/bake gains remain historical and are not claimed anew.
+
+Final native checks cover matched Lantern street/campfire/pond, Home Full on/off,
+Pool water and Beach views, all 16 Arcade Full/Static UV/restroom circuit states,
+ordinary Shape/One Guest routes/restarts, held props, water, blood, mirrors and
+cycles, five animated skins/ragdolls/reset and stairs/ramp/crouch. Movement
+checks retain all **17 exact trajectories / 4,080 ticks**. The street's 12
+one-step sky-pixel differences also occur on an unchanged-control repeat; other
+matched views and circuit states are exact. The final street also matches the
+unchanged-control repeat byte-for-byte. Raw images are untouched; an inherited
+overview pose was excluded for poor framing and corrected scene labels are used.
+No gameplay acceptance is inferred from fixed-step capture FPS. macOS/Linux
+runtime behavior remains unverified in this Windows phase.
+
+Home's timed favor-pickup replay, remaining Pool favor/throw, eight-favor
+reward/restart, new pressure campaign and final integrated FPS acceptance remain
+open. Diagnostic carry checks do not resolve those ordinary-input acceptance items.
+
+### Approved shared geometry and automatic instancing stage
+
+Connor explicitly approved the feature after this RAM assessment. It is the next
+dedicated stage, before general frame-tail work. The three trees have 4,883,797
+placed vertices/5,388,384 indices but only 68,989 source vertices/77,106 source
+indices. Counts exactly match source topology times placements; this vertex-lit
+path transforms geometry and samples per-placement HDR lighting without bake
+subdivision/displacement. Full atlas paths may split triangle corners and assign
+independent chart coordinates, so canonical topology must follow the actual route.
+
+A conservative shared-tree GPU budget is **6.99 MiB canonical geometry +
+74.52 MiB independent RGBA32F lighting + 0.03 MiB instance records = 81.54 MiB**,
+versus the current **494.66 MiB** tree GPU payload. This is an arithmetic design
+budget, not an implemented or measured saving. Lighting is independent, but not
+necessarily incompressible: exact palettes can retain less than full RGBA32F.
+The final attribute inventory measures **51.51 MiB independent baked colour**,
+**88.06 MiB position/UV/frame streams** and **10.28 MiB indices** for these trees.
+Keeping those exact compressed lighting streams with canonical CPU geometry
+yields an estimated **57.21 MiB payload** before metadata; the optional GPU
+palette form needs validation of its alignment/fetch cost. These remain design
+budgets, not implemented savings.
+A conservative full-RGBA CPU representation is about 80.22 MiB before metadata,
+versus about 149.89 MiB of current placed tree vertices/indices; source-model
+cache ownership is separate and must not be counted twice. Native CPU/GPU
+transform rounding must be checked before promising pixel-exact output.
+
+Implement shared storage separately from merging instances into fewer draws.
+Start with compatible repeated static opaque/cutout props, then validate furniture,
+lamps and repeated physics props automatically without editor flags. Preserve
+per-instance bounds/culling, transforms including scale/rotation, baked-lighting
+attributes, material/emission/circuit state and source identity. Physics bodies
+and interactions remain independent; skinned characters keep independent poses;
+ragdolls, sorted transparency and uniquely modified topology keep suitable paths.
+If records change, retain bounded legacy compatibility and validation. Benchmark
+against this final RAM candidate and original control; test appearance/shadows,
+variants, individual culling, pickup/motion, cancellation, unload/reload and
+backend portability. Do not reuse one tree's baked colours for every tree.
+
+Remaining order after this completed RAM phase: **shared geometry/automatic
+instancing**, then combined target-resolution Full runtime/frame-tail work
+(including the roughly 198 ms item installation/spawn_runtime_props block and
+54/28 ms prop/decal uploads), then incremental authored Environment preview
+(14.266 s worker/16.222 s request-to-ready baseline), then conditional cold
+renderer/pipeline bootstrap investigation, then final combined acceptance and
+issue/report reconciliation. Physics preparation already runs on the worker;
+the 198 ms block must not be assumed to be Rapier construction. Preserve existing
+character-pipeline prewarming. No extra broad compiler, portal, GPU-solver or codec
+rewrite is part of this queue.
+
+The final 21 executable/DLL/symbol files, matched packages/recovery sources and
+current comparison media are preserved/hash-checked outside `target`. Evidence is
+indexed by `local/windows-validation-0.13.0/memory-phase4/evidence-index.json`;
+the canonical writer/commit/remote handoff remains
+`local/windows-validation-0.13.0/final/ownership-handoff.json`. No executable
+Library bundle was uploaded or raw video recorded. Task-owned staging/cache/temp
+files are removed. Verified Cargo cleanup exits zero, recovering
+**10,135,814,144 actual bytes (9.44 GiB)**;
+free space afterward is **87,405,518,848 bytes
+(81.40 GiB)**. These are measured filesystem
+deltas, separate from Cargo's logical deletion count. Task-owned disposable cleanup recovers an additional **34,709,504 bytes**,
+leaving **87,440,224,256 bytes (81.44 GiB)** free.
+Preserved hashes and compiler
+version remain usable after cleanup. Awake PID **34744** remains in custody under
+its existing SYSTEM-only policy/stop mechanism, expiry **2026-10-24 17:57:20 UTC**.
+Cleanup does not stop it or release that custody.
+
+The 95 verbose trace/CSV files are losslessly compressed from **737,842,126 to 72,697,834 bytes**. Every decompressed SHA-256 is checked before removing its raw file; saved-evidence readers accept the .gz form. This recovers **664,576,000 additional actual bytes**, with **88,103,923,712 bytes (82.05 GiB)** free at that checkpoint. PNGs, binaries, settings, samples and comparison summaries remain directly accessible.
