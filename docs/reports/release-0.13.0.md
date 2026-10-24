@@ -7028,3 +7028,227 @@ active under next-writer custody, with its original stop mechanism and expiry
 **2026-10-24 17:57:20 UTC**. Stopping it still waits until the whole queue finishes.
 No stop file, permanent power/security change, CI wait, main merge, release, force
 push, version bump or executable Library upload occurs. All unique evidence remains.
+
+
+## Phase 3 — lighting/compiler, exact storage and bounded compression
+
+**This phase is complete; the whole queue is not.** The separate implementation
+commits on `0.13.0-staging` are:
+
+- Planner extraction: `dd8a42b722ac3a20ec42551ef519b8d7429261e6`.
+- CPU light transport: `4e37872932540a8e83cc57f4fbbdbed0ffefbc6c`.
+- Exact storage, bounded codec and coordinated tooling: `58c81b34f2644fdbb345e27a78222dc87fc87e32`.
+
+No application version bump, main merge, release, force push or GitHub CI wait
+occurred. The compiler still reports **0.13.0**. The final report commit, live
+remote verification and sole-writer release are recorded in the canonical
+`local/windows-validation-0.13.0/final/ownership-handoff.json` after publication.
+
+### CPU lighting and compiler measurements
+
+Frozen phase-2 executables provide the control. The retained changes cache
+immutable local-emitter quadrature/world positions, extents, range and strength;
+cache global source directions/weights; reuse squared point distances; and hoist
+receiver hemisphere axes out of the gather-ray loop. Sample/evaluation order,
+visibility predicates, density, samples, bounces and precision remain unchanged.
+The direct stage supplies the measured gain. Indirect-stage changes are small
+and are not claimed as a meaningful independent speedup.
+
+Two clean forced Full bakes per side ran sequentially, with the second pass in
+reverse candidate/control order, 12 workers, no concurrent build/bake/game and
+no disk-cleanup contention. OS file caches were not flushed. Results are medians;
+individual runs, CPU times, worker/job counts, stage times and peaks remain in
+`paired-bake-profiles.json` and `paired-bake-summary.json`.
+
+| Cohort | Control wall | Candidate wall | Wall reduction | CPU reduction |
+| --- | ---: | ---: | ---: | ---: |
+| Home Full | 90.993 s | 88.637 s | 2.59% | 2.56% |
+| Pool Full | 233.630 s | 222.905 s | 4.59% | 4.79% |
+| Beach Full | 286.573 s | 278.558 s | 2.80% | 2.85% |
+
+Run variation is retained, particularly Pool's 219.959/225.851 s candidate and
+227.197/240.062 s control samples; this is a two-run host-specific comparison,
+not a statistical or universal speedup claim. Direct-stage medians are
+Home **38.163→35.988 s**, Pool **117.683→108.894 s**, Beach **69.685→63.921 s**.
+Scene and logical/geometric work counts are exact: Home 781,491 receivers and
+575,325,441 direct rays; Pool 1,262,575 and 1,364,243,940; Beach 6,907,832 and
+1,028,645,568. Bounce counts are unchanged too. Whole-bake peak working sets
+remain approximately **0.575 / 0.883 / 2.398 GB**, with no whole-bake RAM win claimed.
+Lantern's separate **Static/off** cache run is **38.162→36.903 s**, exact decoded;
+it is not a substituted Full cohort or a settled runtime-memory measurement.
+
+Earlier Home **100.337→89.568 s**, Pool **344.893→228.453 s**, Beach
+**342.038→288.303 s** wins belong to the prior parallel-filter/grouped-geometry
+pass, not this pass. Existing deterministic contiguous jobs, reusable worker
+scratch and bounded base/first-circuit sharing remain. Earlier 4/8/12-worker and
+256/1024-job experiments are reused rather than rebaking them gratuitously.
+No persistent receiver×ray×bounce transfer matrix was introduced. The rejected
+GPU prototype's **151/16,384** raw Pool predicate mismatches/setup cost remain
+disqualifying; CPU predicates were not relaxed or blindly reimplemented. BVH
+builds at **12.7–17.9 ms** remain outside the primary bottleneck.
+
+The parent supplied a **post-cohort read-only** power audit: Best Performance
+overlay, Passive AC cooling, Ryzen Controller running with a saved 5 W STAPM /
+75°C preset whose enforcement is unknown, and an idle NVIDIA ceiling snapshot
+34 W versus 80 W default/100 W maximum. There was no idle slowdown flag and
+charger wattage is unknown. No host power/profile setting changed in this phase;
+these observations do not establish active throttling throughout the runs.
+
+### Stored data, compression and allocation
+
+PLC1 revision 2 adds exact uniform/empty 16-square tiles: six decoded binary16
+coefficients once, including short edge tiles and signed-zero behavior. Existing
+nonuniform packed decisions/bits remain. Migration compacts the owned record in
+place without solving or requantizing; original capacity is retained, so this
+in-place step is not claimed as an immediate RSS shrink. Existing PPS4 prop/state
+factoring and content-addressed project sharing are in both controls and are not
+credited again. Actual role/header/recovery/source accounting counts shared
+physical records once in `final-storage-breakdown.json`.
+
+| Actual package | Deflate-9 control bytes | Balanced bytes | Explicit compact bytes |
+| --- | ---: | ---: | ---: |
+| Lab, ordinary | 7,211,461 | 7,068,616 | 6,715,347 |
+| Nine-level mixed project | 217,543,084 | 203,072,809 | 186,908,950 |
+
+The nine-level reductions are **6.65% balanced / 14.08% compact**. Its uncompressed
+ZIP-record bytes fall **742,244,970→667,098,207**; Lab falls
+**31,376,942→23,745,381**. These are stored record bytes, not expanded runtime RAM.
+The control is normalized through the current phase-2 optimizer and reproduces
+the preserved original sizes. Lab's atlas record shrinks **20,940,328→13,308,720**
+bytes and Arcade's **253,482,600→207,151,112**. Existing archive compression already
+handles repeated zeros well, so raw reductions are larger than physical savings.
+
+Ordinary builds use Zstandard **6**, balanced `optimize-storage` **9**, and the
+explicit slower `--compact` profile **19**. Bootstrap JSON remains Deflate at
+level ≤9. Actual nine-level migration takes **61.010 / 197.778 s**; both peak
+working sets are about **806.8 MB**, dominated by earlier prop validation.
+The codec-only sweep records level-9/19 encoding **9.290 / 143.606 s**, encoder
+working-set peaks **291 / 364 MB** and sampled private peaks **291 / 504 MB**.
+The isolated sweep also compressed bootstrap JSON, so its pilot bytes are not
+substituted for the actual publication table above.
+
+Three counterordered bounded record-read series measure median
+**1.010→0.716 / 0.855 s**, CPU **1.469→1.141 / 1.266 s**, peak working set
+**257.7→217.0 / 221.1 MB** for control/balanced/compact. These read all stored
+records through the same bounded current reader; they are not whole-game load
+or cold-disk timings. Native loaders were validated separately.
+
+The shared Rust reader enters ZIP method 93 through raw entries and enforces
+**8 MiB history**, **16 MiB conservative live reservation**, **64 KiB input
+buffering**, expansion ceiling `compressed*65,536+64 KiB`, existing role/aggregate
+output limits, exact declared length, CRC and content-addressed hashes. It rejects
+oversized windows, output/ratio violations, every tested truncation, skippable or
+concatenated frames and suffix bytes. Valid short-reading streams work. The pinned
+Zstd producer levels 1–19 fit the history contract; decoder enforcement is
+independent. Rust `zstd`/`zstd-sys` are linked; no external codec program is needed
+by the game/editor/compiler. New named capabilities and project transport revision
+2 make old readers fail closed; current readers accept legacy Stored/Deflate,
+project revision 1 and PLC1 revision 1. Authored project format and ordinary map
+major version remain unchanged. Migration requires a separate destination and
+preserves sources, decoded semantics and original build provenance.
+
+The page encoder borrows packed half planes and converts editable pixels tile by
+tile, avoiding a full float materialization and whole-atlas half scratch copy.
+Three counterordered Arcade encoder-process runs measure approximately
+**6.780→5.273 s**, **22.2% less CPU**, peak working set **1.934→0.701 GB** and peak
+commit **2.049→0.839 GB**. Decoded half planes are exact; packed pages stay
+unmaterialized. This isolated process includes I/O (the new writer also syncs),
+and is distinct from whole-bake peaks or settled runtime atlas memory.
+
+Level 15's 0.45% extra saving at roughly 4.5× encode time is rejected. Exact
+byte/bit/delta rearrangements were inverse-hash verified and measured; byte lanes
+hurt Arcade Zstd-9 and save only 0.107% at 19, while bit/delta modes are worse.
+Whole-tile dictionaries add complexity with negligible archive benefit. Prior
+93.6% atlas density is not treated as a packing opportunity. No resolution,
+samples, bounces, precision or lighting detail was silently reduced.
+
+### Validation, tooling and custody
+
+The 1,206-line private repair planner extraction preserves shared wall-joint
+classification, post-check safety gate, finding order, JSON/CLI and exit behavior.
+Its source-body oracle, **11** old/new CLI cases and **14** repair-applier checks
+pass. Loader validation/runtime collision extractions from phase 2 were not redone.
+
+Final gates: **306 Rust tests**, strict all-target/all-feature Clippy, locked
+all-feature workspace release, required asset checks and **24 targeted Python
+checks** pass. The broad **369-test** run retains exactly the known **8 failures /
+9 errors / 16 skips**, with no new failure headers. New tests are tiny format,
+security, short-read and codec-boundary fixtures; ordinary Cargo tests/CI do not
+bake shipped maps. Compiled Rust/Cargo/shader hashes match the frozen producer.
+
+Canonical decoded oracles check every lightmap half, reconstructed PMP/Off stream,
+other record, source and migration provenance. Fresh-bake comparisons exclude only
+the documented code/tool and manifest compiler/lighting fingerprints. Small
+Static/Full serial-versus-12-worker cases, unchanged-member rebuilds, no-op and
+unrelated-file reuse, hostile/truncated input, source recovery, existing-directory
+refusal and cancellation/restart pass. Home's cancelled forced bake preserves its
+cache and restarts by verified reuse in **0.210 s**. Compact archive-stage cancel
+exits 130 about **0.13 s** after request without publishing a partial output.
+
+Eight matched native Full-view pairs are **pixel-exact**, covering Home circuit
+on/off, wall seams/shadows, Pool service props and water/transmission, Beach shore,
+water and cast shadows. The contact-sheet legend corrects inherited camera labels;
+full-resolution screenshots remain unmodified. Arcade's eight Full and eight
+Static UV/restroom states are pixel-exact; compact Full matches balanced in every
+state. Ordinary Lab compact/balanced and matched Lantern Static captures are exact.
+Complete nine-level contexts validate transitions; per-level bake caches are not
+misrepresented as standalone distributable maps. The native composition contains
+four fresh members and five preserved representative members, with original
+fingerprints and all 20 recovery files intact; it is not an all-level fresh bake.
+
+Native editor export, current-input validation, cross-project recovery while a
+preview is active, exact source recovery and cold/cached Play pass. Ordinary Shape
+and One Guest routes/restarts, shared interaction/blood/mirror/cycle checks,
+five skins/ragdolls/reset and native stairs/ramp/crouch checks pass. All **17**
+movement trajectories / **4,080 ticks** match the preserved control byte-for-byte.
+A legacy helper first failed before rendering because Cargo output lacked DXC
+DLLs. It was repaired with verified matching links from the complete frozen
+payload, then all shared checks passed; the failed receipt is retained.
+
+Presentation sanity: **Direct3D 12**, **Immediate**,
+physical drawable **1280×720**, swap interval **0**, VSync off, no frame limiter,
+fixed delta or capture during timing, 300 warmup and 1,500 measured frames.
+Mean **414.63 FPS**, median **601.07**, above the
+reported **165 Hz** desktop refresh with no refresh plateau.
+This is not a runtime throughput gain comparison or final integrated acceptance.
+
+Python is developer/release automation, not executable runtime logic. Actual
+compressed-payload readers share the bounded Rust compatibility adapter; eight
+bootstrap-only tools were restored unchanged. The exact purposes/callers and
+temporary scaffolding are in `python-tool-inventory.json`. Set
+`PLACES_PACKAGE_REPACK` to preserved `final-bin/package-repack.exe` when using
+Python payload tools after Cargo cleanup.
+
+Evidence is under **`task-9/compiler-evidence/`**, indexed by
+`local/windows-validation-0.13.0/compiler-phase3/evidence-index.json`. Key receipts:
+`candidate18-gates.json`, `paired-bake-*.json`, `final-storage-*.json`,
+`transport-review15/packing-process-summary.json`, `final-source-validation.json`,
+`native-lighting-comparisons.json`, `human-visual-review.json`,
+`Places-phase3-lighting-before-after.png`, native/editor/shared acceptance files,
+`native-fps/acceptance.json`, `artifact-preservation.json` and `cargo-clean.json`.
+
+The **21 current executable/DLL/symbol files** and the earlier exact-measurement
+producer files are preserved and hash-verified outside `target`, with **18 required
+comparison packages**, **206 PNGs**, unique sources and recovery evidence. Identical
+archive copies share verified storage; all evidence paths/bytes remain. No raw
+RGBA recording or executable Library bundle was created/uploaded. Task-owned
+staging aliases and compatibility copies are removed between completed runs.
+
+With no active build/bake/game or target executable, verified workspace-only
+`cargo clean` exited 0 and removed target: **8,033 files / 10.6 GiB logical**,
+**9,907,314,688 actual bytes (9.23 GiB)** recovered.
+Archive consolidation recovered another **210,079,744 actual bytes**. Free space
+after Cargo cleanup is **86,548,312,064 bytes (80.60 GiB)**.
+This does not credit the parent's separate cross-project/old-work cleanup.
+Preserved payload hashes still match and `places-compile --version` runs after
+cleanup. No unrelated system temp or user data was swept.
+
+**Next:** major Lantern steady/transient RAM, targeted runtime frame-tail/render
+work, then combined gameplay/resource/performance acceptance and issue/report
+reconciliation. Home's timed favor pickup replay, remaining Pool favor/throw,
+eight-favor reward/restart, pressure and final integrated FPS remain open.
+Every next completed Rust phase must preserve matching artifacts outside target,
+verify no active target users, clean Cargo and task-owned disposable staging
+between runs, and report actual recovery. Retain awake **PID 34744**, original
+SYSTEM-only policy/stop mechanism and expiry **2026-10-24 17:57:20 UTC**; no renewal
+or stop is needed here. Cleanup does not release awake custody.
