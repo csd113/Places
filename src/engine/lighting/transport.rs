@@ -487,6 +487,76 @@ pub struct TransportEmitter {
     pub switchable: Option<usize>,
 }
 
+/// Solve-local immutable quadrature, retaining the reference tap order and
+/// arithmetic. At most 14 points per emitter (1 + 4 + 9) are stored once.
+struct PreparedEmitter {
+    samples: [Vec<[f32; 3]>; 3],
+    horizontal_extents: (f32, f32),
+    reach: f32,
+    reach_squared: f32,
+    strength: f32,
+}
+
+impl PreparedEmitter {
+    fn new(emitter: &TransportEmitter) -> Self {
+        let reach = emitter.range + emitter.shape.bounding_radius();
+        Self {
+            samples: std::array::from_fn(|index| {
+                let taps = u8::try_from(index.saturating_add(1)).unwrap_or(3);
+                emitter
+                    .shape
+                    .samples(taps)
+                    .into_iter()
+                    .map(|offset| add(emitter.position, offset))
+                    .collect()
+            }),
+            horizontal_extents: emitter.horizontal_extents(),
+            reach,
+            reach_squared: reach * reach,
+            strength: crate::engine::lighting::LOCAL_LIGHT_STRENGTH
+                * emitter.intensity
+                * emitter.height_factor,
+        }
+    }
+
+    fn horizontal_distance(&self, emitter: &TransportEmitter, point: [f32; 3]) -> f32 {
+        let (half_w, half_d) = self.horizontal_extents;
+        let dx = ((point[0] - emitter.position[0]).abs() - half_w).max(0.0);
+        let dz = ((point[2] - emitter.position[2]).abs() - half_d).max(0.0);
+        (dx * dx + dz * dz).sqrt()
+    }
+}
+
+/// Global source disk quadrature is independent from every receiver.
+struct PreparedGlobalLight {
+    directions: [Vec<[f32; 3]>; 3],
+    weights: [[f32; 3]; 3],
+}
+
+impl PreparedGlobalLight {
+    fn new(light: &crate::engine::lighting::directional::DirectionalLight) -> Self {
+        let counts = [1_u16, 2, 3].map(|taps| {
+            if light.angular_radius > 0.0 {
+                taps.pow(2)
+            } else {
+                1
+            }
+        });
+        Self {
+            directions: counts.map(|count| {
+                (0..count)
+                    .map(|sample| light.sample_direction(sample, count))
+                    .collect()
+            }),
+            weights: counts.map(|count| {
+                light
+                    .color
+                    .map(|value| value * light.intensity / f32::from(count))
+            }),
+        }
+    }
+}
+
 impl TransportEmitter {
     fn is_valid(&self) -> bool {
         self.position
@@ -640,6 +710,7 @@ impl TransportEmitter {
     /// per-tap visibility, coverage and cosine are integrated independently.
     fn accumulate_direct(
         &self,
+        prepared: &PreparedEmitter,
         scene: &TransportScene,
         accumulator: &mut Accumulator,
         point: [f32; 3],
@@ -648,42 +719,48 @@ impl TransportEmitter {
         attenuation: [f32; 3],
         taps: u8,
     ) -> (u64, usize) {
-        if self.intensity <= 0.0 || !self.reaches(point) {
+        if self.intensity <= 0.0 {
             return (0, 0);
         }
         let distance = if self.directional {
-            self.horizontal_distance(point)
+            let distance = prepared.horizontal_distance(self, point);
+            if distance > prepared.reach {
+                return (0, 0);
+            }
+            distance
         } else {
-            length(sub(self.position, point))
+            let delta = sub(point, self.position);
+            let squared_distance = dot(delta, delta);
+            if squared_distance > prepared.reach_squared {
+                return (0, 0);
+            }
+            // The former falloff used the negated delta; its three squares
+            // are identical. Reuse the same distance without a second dot.
+            squared_distance.sqrt()
         };
         let falloff = self.falloff.factor(distance / self.range);
         if !falloff.is_finite() || falloff <= 0.0 {
             return (0, 0);
         }
-        let sample_count = self.shape.sample_count(taps);
+        let samples = &prepared.samples[usize::from(taps.clamp(1, 3).saturating_sub(1))];
+        let sample_count = samples.len();
         let count = f32::from(u8::try_from(sample_count).unwrap_or(1).max(1));
-        let strength = crate::engine::lighting::LOCAL_LIGHT_STRENGTH
-            * self.intensity
-            * self.height_factor
-            * falloff;
+        let strength = prepared.strength * falloff;
         if !strength.is_finite() {
             accumulator.surface_light = [f32::NAN; 3];
             return (0, 0);
         }
         let mut signature = 0_u64;
-        let mut index = 0_usize;
-        self.shape.for_each_sample(taps, |offset| {
-            let sample = add(self.position, offset);
+        for (index, sample) in samples.iter().copied().enumerate() {
             let throughput = scene.transmittance(ray_origin, sample);
             signature = coverage::visibility_key(signature, index, throughput.to_bits());
-            index = index.saturating_add(1);
             if throughput <= 0.0 {
-                return;
+                continue;
             }
             let delta = sub(sample, point);
             let length = length(delta);
             if length <= 1.0e-6 {
-                return;
+                continue;
             }
             let direction = scale(delta, 1.0 / length);
             let weight = attenuate(
@@ -696,7 +773,7 @@ impl TransportEmitter {
             } else {
                 accumulate_lobe(accumulator, weight, direction);
             }
-        });
+        }
         (signature, sample_count)
     }
 
@@ -995,9 +1072,11 @@ pub struct TransportScene {
     legacy_ray_triangles: Vec<RayTriangle>,
     nodes: Vec<BvhNode>,
     emitters: Vec<TransportEmitter>,
+    prepared_emitters: Vec<PreparedEmitter>,
     /// Stable representative source and member sources of each authored circuit.
     switchable_groups: Vec<(usize, Vec<usize>)>,
     global_lights: Vec<crate::engine::lighting::directional::DirectionalLight>,
+    prepared_global_lights: Vec<PreparedGlobalLight>,
     /// Resolved water bodies the solve transmits through and attenuates in.
     water: Vec<TransportWaterBody>,
     /// Per-texel authored baseline target in receiver order (see
@@ -1550,9 +1629,11 @@ impl TransportScene {
             ray_nodes,
             legacy_ray_triangles,
             nodes,
+            prepared_emitters: emitters.iter().map(PreparedEmitter::new).collect(),
             emitters,
             switchable_groups: Vec::new(),
             global_lights: Vec::new(),
+            prepared_global_lights: Vec::new(),
             water: Vec::new(),
             receiver_target: Vec::new(),
             probe_target: Vec::new(),
@@ -1636,6 +1717,12 @@ impl TransportScene {
         mut self,
         lights: Vec<crate::engine::lighting::directional::DirectionalLight>,
     ) -> Self {
+        self.prepared_global_lights =
+            if lights.len() <= crate::engine::level::MAX_GLOBAL_ILLUMINATORS {
+                lights.iter().map(PreparedGlobalLight::new).collect()
+            } else {
+                Vec::new()
+            };
         self.global_lights = lights;
         self
     }
@@ -1651,19 +1738,10 @@ impl TransportScene {
         let mut signature = 0_u64;
         let mut rays = 0_usize;
         for (index, light) in self.global_lights.iter().enumerate() {
-            let count = if light.angular_radius > 0.0 {
-                u16::from(taps.clamp(1, 3)).pow(2)
-            } else {
-                1
-            };
-            let weight = attenuate(
-                light
-                    .color
-                    .map(|value| value * light.intensity / f32::from(count)),
-                attenuation,
-            );
-            for sample in 0..count {
-                let direction = light.sample_direction(sample, count);
+            let tap_index = usize::from(taps.clamp(1, 3).saturating_sub(1));
+            let prepared = &self.prepared_global_lights[index];
+            let weight = attenuate(prepared.weights[tap_index], attenuation);
+            for (sample, direction) in prepared.directions[tap_index].iter().copied().enumerate() {
                 if light.cast_shadows {
                     rays = rays.saturating_add(1);
                 }
@@ -1675,7 +1753,7 @@ impl TransportScene {
                 };
                 signature = coverage::visibility_key(
                     signature,
-                    index.saturating_mul(9).saturating_add(usize::from(sample)),
+                    index.saturating_mul(9).saturating_add(sample),
                     throughput.to_bits(),
                 );
                 if throughput <= 0.0 {
@@ -1707,6 +1785,7 @@ impl TransportScene {
                 continue;
             };
             let (signature, rays) = emitter.accumulate_direct(
+                &self.prepared_emitters[*index],
                 self,
                 &mut result.light,
                 receiver.position,
@@ -3043,10 +3122,11 @@ impl TransportScene {
                 .get(usize::try_from(receiver.surface).unwrap_or(usize::MAX))
                 .map_or(receiver.normal, |triangle| triangle.normal);
             let mut accumulator = Accumulator::default();
+            let (tangent, bitangent) = hemisphere_axes(receiver.normal);
             // A shared sequence makes the estimator depend on geometry, not
             // chart ordering or how many texels another chart happened to add.
             for local in &directions {
-                let direction = hemisphere_sample(receiver.normal, *local);
+                let direction = hemisphere_from_local(receiver.normal, tangent, bitangent, *local);
                 // Smooth shading normals can tilt below the actual face. Such
                 // directions have no visible geometric hemisphere and must not
                 // hit this face's back and recycle its own illumination.
@@ -3693,6 +3773,7 @@ fn accumulate_probe_emitters(
         }
         let previous = accumulator.irradiance;
         let _emitter_sample_status = emitter.accumulate_direct(
+            &scene.prepared_emitters[emitter_index],
             scene,
             accumulator,
             position,
@@ -3724,6 +3805,7 @@ fn selected_probe_direct(
     for (slot, _) in &scene.runtime_direct_lights {
         if let Some(emitter) = scene.emitters.get(*slot) {
             let _sample = emitter.accumulate_direct(
+                &scene.prepared_emitters[*slot],
                 scene,
                 &mut local,
                 position,
@@ -4439,7 +4521,7 @@ fn next_unit(state: &mut u64) -> f32 {
 /// The Duff et al. branchless orthonormal basis keeps the sampling frame
 /// continuous across the normal's sign changes, so a chart boundary cannot
 /// produce a visible seam from the ray directions alone.
-fn hemisphere_sample(normal: [f32; 3], local: [f32; 3]) -> [f32; 3] {
+fn hemisphere_axes(normal: [f32; 3]) -> ([f32; 3], [f32; 3]) {
     let sign = if normal[2] >= 0.0 { 1.0 } else { -1.0 };
     let a = -1.0 / (sign + normal[2]);
     let b = normal[0] * normal[1] * a;
@@ -4449,7 +4531,13 @@ fn hemisphere_sample(normal: [f32; 3], local: [f32; 3]) -> [f32; 3] {
         -sign * normal[0],
     ];
     let t2 = [b, sign + normal[1] * normal[1] * a, -normal[1]];
-    hemisphere_from_local(normal, t1, t2, local)
+    (t1, t2)
+}
+
+// Diagnostic ray reproduction retains the original scalar entry point.
+fn hemisphere_sample(normal: [f32; 3], local: [f32; 3]) -> [f32; 3] {
+    let (tangent, bitangent) = hemisphere_axes(normal);
+    hemisphere_from_local(normal, tangent, bitangent, local)
 }
 
 fn hemisphere_sequence(count: usize, pass: u8) -> Vec<[f32; 3]> {

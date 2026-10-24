@@ -5,8 +5,8 @@ use super::{
     Accumulator, AtomicBool, BOUNCE_GAIN, Chart, GatherAudit, GatherEvent, LightmapFailure,
     LightmapPatch, MAX_BOUNCE_RAYS, RadianceCache, SolveOptions, StageAudit, SurfaceCacheTarget,
     TransportReceiver, TransportScene, TransportSolution, TransportSolve, accumulate_surface_lobe,
-    add, add_scaled, append_switchable_probe_field, attenuate, coverage, dot, hemisphere_sample,
-    lattice_cell, parallel_map, record_gather, scale,
+    add, add_scaled, append_switchable_probe_field, attenuate, coverage, dot, hemisphere_axes,
+    hemisphere_from_local, lattice_cell, parallel_map, record_gather, scale,
 };
 
 impl TransportScene {
@@ -232,8 +232,9 @@ impl TransportScene {
                 .get(usize::try_from(receiver.surface).unwrap_or(usize::MAX))
                 .map_or(receiver.normal, |triangle| triangle.normal);
             let mut result = [Accumulator::default(); 2];
+            let (tangent, bitangent) = hemisphere_axes(receiver.normal);
             for local in &directions {
-                let direction = hemisphere_sample(receiver.normal, *local);
+                let direction = hemisphere_from_local(receiver.normal, tangent, bitangent, *local);
                 if dot(direction, geometric_normal) <= 0.0 {
                     record_gather(audit.as_ref(), GatherEvent::Horizon);
                     continue;
