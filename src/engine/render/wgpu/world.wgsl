@@ -268,6 +268,7 @@ struct VsOut {
     @location(9) uv_visibility: vec4<f32>,
     @location(10) caustics_albedo: vec3<f32>,
     @location(11) water_surface: f32,
+    @location(12) @interpolate(flat) water_node_hint: u32,
 };
 
 fn world_vertex(vertex: WorldVertex) -> VsOut {
@@ -278,7 +279,8 @@ fn world_vertex(vertex: WorldVertex) -> VsOut {
     out.color = vertex.color;
     out.uv_visibility = vertex.uv_visibility;
     out.caustics_albedo = vertex.caustics_albedo;
-    out.water_surface = vertex.water_surface;
+    out.water_surface = min(vertex.water_surface, 1.0);
+    out.water_node_hint = u32(max(vertex.water_surface - 1.0, 0.0));
     // Normals use the inverse transpose; tangents use the model transform.
     // The material stage normalizes and re-orthogonalizes the frame.
     let normal_matrix = mat3x3<f32>(environment.normal_model[0].xyz, environment.normal_model[1].xyz, environment.normal_model[2].xyz);
@@ -564,7 +566,7 @@ struct SurfaceNormals {
 // Prepare the normal frame once. Material shading orients the visible side
 // and applies the normal map; caustic receiver selection keeps the original
 // geometric orientation and its independent front-facing gate.
-fn surface_normals(in: VsOut, front_facing: bool) -> SurfaceNormals {
+fn surface_normals(in: VsOut, front_facing: bool, selected_water: u32) -> SurfaceNormals {
     // Models may omit authored normals. Derive their diffuse normal from
     // actual posed world geometry, oriented toward the visible side.
     // Derivatives remain outside conditional control flow. Scale each vector
@@ -599,8 +601,8 @@ fn surface_normals(in: VsOut, front_facing: bool) -> SurfaceNormals {
         normal = normalize(tangent * scaled.x + bitangent * scaled.y + normal * scaled.z);
     }
     var out: SurfaceNormals;
-    if (in.water_surface > 0.5) {
-        let selected = water_surface_node(in.world_position);
+    if (water_blend_pass && in.water_surface > 0.5) {
+        let selected = selected_water;
         if (selected > 0u) {
             let motion = caustics.nodes[selected - 1u].motion;
             let point = in.world_position.xz - motion.zw * caustics.seconds;
@@ -624,7 +626,7 @@ fn surface_sheen(in: VsOut, normal: vec3<f32>, view: vec3<f32>, light: vec3<f32>
     if ((material.flags & MATERIAL_FLAG_RESPONSE_ENABLED) == 0u || all(material.specular == vec3<f32>(0.0))) {
         return vec3<f32>(0.0);
     }
-    if (in.water_surface > 0.5) { return material.specular * water_reflectance * light * 0.12; }
+    if (water_blend_pass && in.water_surface > 0.5) { return material.specular * water_reflectance * light * 0.12; }
     let facing = clamp(abs(dot(normal, view)), 0.0, 1.0);
     let gloss = 1.0 - material.roughness;
     let grazing = pow(1.0 - facing, mix(1.0, 16.0, gloss));
@@ -644,7 +646,7 @@ fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>, water_refle
         return vec3<f32>(0.0);
     }
     var weight = water_reflectance;
-    if (in.water_surface <= 0.5) {
+    if ((!water_blend_pass || in.water_surface <= 0.5)) {
         let facing = clamp(abs(dot(normal, view)), 0.0, 1.0);
         let fresnel = mix(0.08, 1.0, pow(1.0 - facing, 5.0));
         let gloss = clamp(1.0 - material.roughness, 0.0, 1.0);
@@ -699,7 +701,7 @@ fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>, water_refle
         }
         sample_color = sharp;
     }
-    let strength = select(material.reflection_strength, clamp(material.reflection_strength * 6.0, vec3<f32>(0.0), vec3<f32>(0.95)), in.water_surface > 0.5);
+    let strength = select(material.reflection_strength, clamp(material.reflection_strength * 6.0, vec3<f32>(0.0), vec3<f32>(0.95)), water_blend_pass && in.water_surface > 0.5);
     return strength * combine * sample_color;
 }
 
@@ -876,9 +878,12 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     // metres into this material's actual world UV frame, preserving its tiling.
     let uv_dx = dpdx(in.uv); let uv_dy = dpdy(in.uv);
     let pos_dx = dpdx(in.world_position.xz); let pos_dy = dpdy(in.world_position.xz);
+    // Select the authored plane once; normals, advection and optics share it.
+    var selected_water = 0u;
+    if (water_blend_pass && in.water_surface > 0.5) { selected_water = water_surface_node_hinted(in.world_position, in.water_node_hint); }
     var uv = in.uv;
-    if (in.water_surface > 0.5) {
-        let selected = water_surface_node(in.world_position);
+    if (water_blend_pass && in.water_surface > 0.5) {
+        let selected = selected_water;
         if (selected > 0u) {
             let motion = caustics.nodes[selected - 1u].motion;
             let determinant = pos_dx.x * pos_dy.y - pos_dy.x * pos_dx.y;
@@ -900,7 +905,7 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     if (cutout && alpha < material.alpha_cutoff) {
         discard;
     }
-    let normals = surface_normals(in, front_facing);
+    let normals = surface_normals(in, front_facing, selected_water);
     let normal = normals.material;
     // The baked light term plus the frame's attached lights. The dynamic term
     // is additive and never modifies `surface_light`, so every lightmap and
@@ -916,7 +921,7 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let view = normalize(camera.position - in.world_position);
     let incident = baked + attached + beam;
     var water_reflectance = 0.0;
-    if (in.water_surface > 0.5) { water_reflectance = water_fresnel(normal, view); }
+    if (water_blend_pass && in.water_surface > 0.5) { water_reflectance = water_fresnel(normal, view); }
     let sheen = surface_sheen(in, normal, view, incident, water_reflectance);
     let reflection = surface_reflection(in, normal, view, water_reflectance);
     let emission = surface_emission(in, base_linear);
@@ -929,7 +934,7 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     out.color = storm_fog(camera.position, in.world_position, color);
     out.alpha = alpha;
     if (water_blend_pass && in.water_surface > 0.5 && water_presentation.controls.y > 0.5) {
-        let water = water_composite(in, normal, view, out.color - reflection, reflection, alpha, water_reflectance);
+        let water = water_composite(in, normal, view, out.color - reflection, reflection, alpha, water_reflectance, selected_water);
         out.color = water.rgb;
         out.alpha = water.a;
     }

@@ -1,4 +1,4 @@
-//! Bounded water presentation. Opaque snapshots never alias an attachment;
+//! Bounded water presentation. Opaque colour is copied; depth is shared read-only;
 //! local impulses change normals only, leaving collision and mean height intact.
 use std::collections::HashMap;
 
@@ -318,17 +318,30 @@ impl Interactions {
     }
 }
 
-/// One reusable opaque image/depth pair. Low, dry levels and unload release it.
+/// Reusable opaque colour plus the post chain's immutable depth view.
+/// Only the disabled fallback owns a tiny private depth texture.
 pub struct Snapshot {
     pub color: wgpu::Texture,
-    pub depth: wgpu::Texture,
+    _owned_depth: Option<wgpu::Texture>,
     pub color_view: wgpu::TextureView,
     pub depth_view: wgpu::TextureView,
     pub size: DrawableSize,
 }
 
 impl Snapshot {
-    pub fn new(device: &wgpu::Device, size: DrawableSize) -> Self {
+    pub fn new(device: &wgpu::Device, size: DrawableSize, depth: &wgpu::TextureView) -> Self {
+        Self::create(device, size, Some(depth))
+    }
+
+    pub fn fallback(device: &wgpu::Device) -> Self {
+        Self::create(device, DrawableSize::new(1, 1), None)
+    }
+
+    fn create(
+        device: &wgpu::Device,
+        size: DrawableSize,
+        scene_depth: Option<&wgpu::TextureView>,
+    ) -> Self {
         let make = |label, format| {
             device.create_texture(&wgpu::TextureDescriptor {
                 label: Some(label),
@@ -349,22 +362,36 @@ impl Snapshot {
             "places-water-opaque-color",
             super::postprocess::SCENE_FORMAT,
         );
-        let depth = make("places-water-opaque-depth", super::surface::DEPTH_FORMAT);
         let color_view = color.create_view(&wgpu::TextureViewDescriptor::default());
-        let depth_view = depth.create_view(&wgpu::TextureViewDescriptor::default());
+        let (owned_depth, depth_view) = scene_depth.map_or_else(
+            || {
+                let depth = make("places-water-disabled-depth", super::surface::DEPTH_FORMAT);
+                let view = depth.create_view(&wgpu::TextureViewDescriptor::default());
+                (Some(depth), view)
+            },
+            |view| (None, view.clone()),
+        );
         Self {
             color,
-            depth,
+            _owned_depth: owned_depth,
             color_view,
             depth_view,
             size,
         }
     }
+    /// Post targets can be replaced at the same size. Compare handle identity,
+    /// not just dimensions, so old targets retire and sampling never goes stale.
+    pub fn set_depth(&mut self, depth: &wgpu::TextureView) {
+        if self.depth_view != *depth {
+            self.depth_view = depth.clone();
+        }
+    }
+
     #[cfg(feature = "visual-diagnostics")]
     pub fn bytes(&self) -> u64 {
         u64::from(self.size.width)
             .saturating_mul(u64::from(self.size.height))
-            .saturating_mul(12)
+            .saturating_mul(8)
     }
 }
 

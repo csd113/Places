@@ -155,7 +155,8 @@ Authoritative paths:
 | Baked navigation (`nav_agent` bodies, per-class clearance, stairs/slopes, door portals), runtime path queries and the shared AI framework (`ai`: idle/wander/follow/flee/investigate/pursue/catch, sight and hearing, catch -> sequence) | Implemented (see [§33](#33-navigation-and-ai)); the player loads the compiler's bake and never builds one. |
 | Animation actions (`play_animation`, `toggle_animation`) | Implemented per instance; the target must carry an `animation` component. |
 | Audio actions (`play_sound`, `stop_sound`) | Implemented through the shared entity dispatcher and preloaded native audio backend; cue ids resolve through `assets/audio/catalog.json`. |
-| Water refraction, realtime shadow maps and runtime static transport solves | Not implemented; straight alpha/depth transmission and bounded entity direct lights are implemented |
+| Water refraction | Medium/High use guarded opaque-scene colour/depth sampling; Low and reflection captures retain straight alpha |
+| Realtime shadow maps and runtime static transport solves | Not implemented; prepared transmission and bounded entity direct lights are implemented |
 | Animated entities: each placed skinned GLB follows its own action/movement/idle state; a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
 | Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
 | GLB MASK/cutout and BLEND on static props, characters and dynamic props | Implemented; shared back-to-front object/batch sorting, without intersecting-triangle sorting |
@@ -1486,7 +1487,7 @@ own air.
 | `opacity` | number | no | `0.62` | `0.0..=1.0`; base surface coverage. The material opacity remains 1 so one material serves every volume. |
 | `attenuation_per_metre` | number | no | `0.0` | Finite 0–16. Low and reflection captures retain `(1-opacity) * exp(-attenuation_per_metre * vertical_depth)` coverage. Medium/High water presentation adds this scalar extinction to RGB absorption over opaque view-ray thickness (bounded at 12 m); opacity controls colour density. This changes appearance only. Baked light transmission, mean height, collision and buoyancy keep their existing contracts. |
 | `caustics` | object | no | `{ "tint": [1, 1, 1], "speed": 1.35, "strength": 0.24 }` | Optional independent per-water focus controls. Each nested field can be omitted. Linear RGB `tint` channels must be finite in `0..1`; `speed` is finite in `0..8` (`0` freezes animation); `strength` is finite in `0..1` (`0` disables this water's caustics). These affect eligible source light only and create no emission. |
-| `motion` | object | no | `{ "speed": 1, "strength": 0.35, "flow_speed": 0, "direction_degrees": 0 }` | Strict optional controls: finite `speed` 0–8 (ripple clock), `strength` 0–1 (ripple amount), `flow_speed` 0–4 metres/second, `direction_degrees` 0–360 using Places yaw (0 = −Z, 90 = +X). Unknown nested fields reject. Zero flow is physically still; speed 0 holds ripples, strength 0 removes them. For a fully static picture also set caustics speed to 0 and keep interaction subjects still. |
+| `motion` | object | no | `{ "speed": 1, "strength": 0.35, "flow_speed": 0, "direction_degrees": 0 }` | Strict optional controls: finite `speed` 0–8 (ripple clock), `strength` 0–1 (ripple amount), `flow_speed` 0–4 metres/second, `direction_degrees` 0–360 using Places yaw (0 = −Z, 90 = +X). Unknown nested fields reject. Zero flow is physically still; speed 0 holds analytic surface motion, strength 0 removes that ambient normal/UV detail. Local interaction ripples remain independent of those motion controls. For a fully static picture also set caustics speed to 0 and keep interaction subjects still. |
 | `swimming` | boolean | no | `true` | `false` keeps the surface decorative: the player walks or falls through it, and no swim state can trigger. |
 
 Medium/Full water surfaces receive ordinary incident-HDR floor charts and their
@@ -1501,10 +1502,13 @@ sorting, straight alpha and no depth writes. Intersecting triangles and large
 coalesced ranges still require authored separation. Medium/High presentation
 uses one cached water bound with the existing conservative frustum/occlusion
 result to skip water that cannot contribute to the view.
-When potentially visible it copies the completed opaque inputs once at scene
-resolution: colour is limited to a conservative projected water rectangle plus
-a five-texel guard; depth remains a separate full-surface copy. Resources retain
-scene dimensions across camera motion. It uses a
+When potentially visible it copies completed opaque colour once at scene
+resolution, limited to a conservative projected water rectangle plus a five-texel
+guard. The transparency pass samples the existing opaque depth attachment
+read-only; it allocates no second full-size depth texture. Opaque draws use a
+separate fallback binding, and target-view identity handles same-size target
+replacement. The colour resource retains scene dimensions across camera motion.
+It uses a
 guarded displacement of at most three pixels for refraction. The complete
 bilinear footprint must lie behind the water; foreground/viewport edges fall
 back to the original pixel. Previously sorted transparency retains its remaining
@@ -1512,6 +1516,12 @@ transmission through compensated straight alpha; this is an opaque-scene
 refraction approximation, not a multi-layer transparent ray tracer. Low and
 reflection captures retain the ordinary blended fallback. No new reflection
 capture or planar work is introduced.
+
+Unambiguous static surfaces cache the canonical volume-tree leaf once during
+upload in the existing vertex tag bytes. Overlaps, large authored sets and
+boundary pixels retain the full priority query. This adds no mesh bytes,
+per-frame water scan or per-prop resource. Opaque/cutout programs specialize
+away water branches; their geometry is never classified as a water surface.
 
 Animated caustics redistribute existing diffuse light across upward-facing
 submerged floors, steps and movable surfaces in Static and Full lighting.
@@ -2423,7 +2433,8 @@ Consequences worth knowing:
   `solid: false` pane is a pure visual surface — each combination (opaque solid
   panel, walk-through glass, solid glass, cut-out walk-through grille) is
   legal and explicit.
-* Transparency uses straight alpha without refraction. Prepared transport
+* Ordinary blended materials use straight alpha without refraction; water has
+  the Medium/High opaque-scene approximation described above. Prepared transport
   attenuates blended crossings by `1 - coverage`, and cutout holes transmit
   while covered texels block. A pane is distinct from an empty aperture.
 * GLB MASK props use the cutout pass on every route and transmit prepared rays
@@ -4865,7 +4876,8 @@ interiors that stop being finished around you. Keep this practical:
 
 Water is a **volume you author** (`water[]`, see
 [Water volumes](#water-volumes-wading-swimming-and-surfacing)): a translucent
-surface plus wading and swimming, with no refraction and no transmission. Puddled
+surface plus wading and swimming. Medium/High add guarded refraction and depth
+absorption; Low retains ordinary blended transmission. Puddled
 water that the player should not swim in can instead be implied with a wet
 `floor_patches` material (`core:pool_deck_wet_01`, a near-mirror `planar` sheen over
 the dry tile). Windows may hold real glass (see

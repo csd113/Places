@@ -9231,7 +9231,13 @@ power/security/sleep change, awake helper or GPU-clock/charger investigation
 occurred. Connor's manually configured sleep setting is unchanged.
 
 
-## Water presentation and bounded interaction work (Windows, 2026-10-25)
+## Initial water candidate: performance rejected (Windows, 2026-10-25)
+
+The initial implementation was pushed as
+`259c2671eda1ed929b54e3b09215d7910922de6e`. Its visual/interaction work and evidence
+are preserved, but the measured Beach and repeated-drop GPU regressions below
+were rejected. The water phase remains open for the correction described after
+this historical record.
 
 This phase starts at clean staging commit
 `fca71d907155f14fb188786264f511fee2260139` and implements the four approved
@@ -9405,8 +9411,154 @@ commit/remote, clean staging tree and explicit writer-custody release.
 
 The ~2.4-second cold input stall, subjective ambience listening, reflected-CRT
 visual acceptance, broader Python failures, Mac/Metal/Linux validation and final
-version CI/package gate remain open. The measured High-water GPU cost above is
-an explicit appearance tradeoff. No advanced audio, AI, editor or Backrooms work,
+version CI/package gate remain open. The measured High-water GPU cost above failed
+acceptance and triggered the performance correction; it is not an accepted appearance tradeoff. No advanced audio, AI, editor or Backrooms work,
 ZIP refresh, video/comparison recording, Library upload, version bump, release,
 main merge, force push, CI wait or power/security/sleep change is performed.
 Connor's manually configured Never-sleep setting remains unchanged.
+
+## Water performance correction: acceptance still open (Windows, 2026-10-25)
+
+The initial `259c2671` water candidate above failed performance acceptance. This
+forward correction preserves its four requested appearance/interaction changes
+and recovers the large Beach and throwing throughput losses. **It does not close
+water acceptance:** High interaction frame tails remain worse than the pre-water
+baseline. That cost has not been accepted as an unavoidable visual tradeoff.
+Audio and the other subsequent phases have not started.
+
+**Implemented correction.** The water transparency pass now samples the existing
+scene depth through a read-only depth attachment. Opaque/capture/emission passes
+retain a separate fallback camera binding, so the depth cannot simultaneously be
+bound for sampling and writing. Snapshot bindings follow actual texture-view
+identity, including same-size target replacement; resize, quality changes,
+unload and reload retire the old views. Opaque diagnostic probe draws execute
+before read-only transparency. Only the conservative water colour rectangle is
+copied. The full-size reusable colour allocation remains stable as the camera
+moves; the extra full-size depth texture and copy are removed.
+
+Unambiguous water surfaces cache their canonical tree leaf at world upload. The
+cache reuses the existing vertex tag, adds no mesh bytes and performs no per-frame
+global scan or mesh upload. Ambiguous overlaps, circle/rectangle boundaries and
+large authored sets retain the complete original priority query. Shared corners
+retain their first valid hint rather than overwriting a large pool triangle with
+an adjacent bay's hint. Water is selected once and reused by motion/compositing;
+opaque/cutout pipelines specialize all water branches out. No planar reflection,
+fluid simulation or unrelated reflection-system change is introduced.
+
+The original bounded eight-event ripple/wake budget, decay/retirement, collision
+and buoyancy, mean water height, Low/reflection fallbacks, foreground depth guards,
+angle-dependent reflection and depth absorption remain active. The earlier
+coalesced moving-body lighting updates and per-prop mesh-upload fixes remain.
+Disabling ripples/optics, weaker depth guards, unrolled loops, an extra depth copy
+and broader visibility upload batches were diagnostic trials, not shipping
+defaults. The upload-eight trial saved calls but transferred 43% more bytes and
+did not consistently improve true-throw tails; it was rejected and the checked
+source restored byte for byte. The undefined-identifier shader error in an
+isolated diagnostic helper was fixed once with a function-bounded replacement;
+the failed receipt is preserved and is not a validation result.
+
+**Matched performance.** The corrected primary campaign has 30 runs: three
+alternating before/after pairs for five scopes, against the preserved `fca71d9`
+player. Settings remain High/filtering/Full reflections/bloom, DX12, RTX 3070
+Laptop GPU, 1280x720 physical. Full lightmaps are used except Beach Static.
+VSync and frame limits are off; actual `Immediate (immediate)` is verified and
+every run exceeds the 165-Hz display. Each run measures 12 seconds after ready
+with 120 warmup frames discarded, or 14 seconds for true throw/drop/player entry.
+The physical cases log the same physics CSV scope on both sides; a real mouse
+throw occurs exactly once in every true-throw run. Primary timings exclude
+screenshots and detailed CPU/pass/resource traces. Separate diagnostic replays
+measure pass labels/resources. Figures are medians of per-run statistics, not
+pooled percentiles or comparisons across earlier timing epochs.
+
+| Scope | FPS before -> corrected | Loop p95 / p99 ms before -> corrected | GPU p99 ms before -> corrected |
+| --- | ---: | --- | ---: |
+| Repeated drops | 445.05 -> 425.50 | 2.774 / 3.480 -> 3.734 / 4.479 | 1.406 -> 2.664 |
+| True throw, drops and player entry | 457.50 -> 460.14 | 2.701 / 3.079 -> 3.142 / 4.290 | 1.190 -> 2.374 |
+| Beach | 308.63 -> 322.24 | 5.093 / 5.539 -> 4.801 / 5.349 | 3.702 -> 3.720 |
+| Pool | 292.05 -> 279.66 | 6.424 / 7.158 -> 6.599 / 7.238 | 4.919 -> 4.826 |
+| Dry Arcade control | 317.47 -> 328.73 | 4.508 / 4.909 -> 4.237 / 4.681 | 3.835 -> 3.652 |
+
+Another three alternating pairs in the seeded visible-water Pool menu measure
+268.35 -> 284.85 FPS, loop p95 6.699 -> 6.010 ms and p99 7.432 -> 6.437 ms.
+The menu contains water and is not a dry control. Repeated-drop mean CPU update
+falls 1.217 -> 0.929 ms and p95 1.559 -> 1.289; true-throw mean falls
+1.203 -> 0.909 ms and p95 1.558 -> 1.241. Mean GPU time increases
+0.684 -> 1.140 ms and 0.536 -> 0.922 respectively. The remaining interaction
+p99 loss is meaningful despite recovered mean throughput. This correction is
+therefore a reviewable improvement, not a claim of baseline-tail parity or
+completed water acceptance. Pool mean throughput is also 4.2% lower in this
+campaign and remains part of the reported tradeoff.
+
+Detailed per-pass tracing of the corrected repeated-drop replay samples mean
+scene 0.488 ms and water transparency 0.541 ms. Those sparse label samples are
+diagnostic; they do not replace the full-run GPU/loop tail measurements, and no
+missing baseline pass labels are fabricated. GPU pass sums omit copy/barrier
+gaps; loop and swap measurements retain their end-to-end cost. The retained
+shader/upload ablations do not establish that the remaining cost is unavoidable.
+
+**Visual and lifetime checks.** Seven final native views (Pool above, motion,
+grazing, ladder/foreground, submerged, round contact edge and outdoor Beach) are
+inspected and pixel-identical to the initial four-feature candidate: zero changed
+RGB pixels in all seven. This establishes that the measured correction did not
+obtain its gains by degrading those views. Ten further native fixture captures
+cover real throwing, repeated impacts, player entry, floating ducks/wakes and
+Low-to-High recovery. Three load/menu-return cycles, Low/Medium/High changes and
+960x540-to-1280x720 recovery pass; five lifecycle screenshots are inspected.
+Probe Field, Probe Neighborhood and restored Final views are inspected after
+the read-only pass change, with clean shutdown and no GPU validation error.
+These screenshot/trace runs make no FPS claim.
+
+At matched loaded checkpoints across all three cycles the fixture has 39 HAL
+textures, 84,082,688 HAL texture bytes and 84 buffers. Each unload reports zero
+water snapshot bytes, active events and tracked bodies. High snapshot texel
+storage falls from 11,059,200 to 7,372,800 bytes (one third less); Medium is
+1,843,200, 960x540 is 4,147,200, and Low/unloaded is zero. The menu can allocate
+its own new snapshot. Active events remain capped at eight; histories use the
+existing preallocated track capacity of 448. HAL counters include transient
+uploads/capture readbacks and pending worlds; they are partial GPU memory
+evidence, not complete VRAM or a whole-process leak proof.
+
+Read-only Windows limited-query sampling retains working-set/private/commit
+peaks and page-fault counts. Repeated-drop maximum peak working set is
+357.30 -> 343.17 MiB and peak commit 492.14 -> 485.64 MiB in this campaign;
+these include startup and are not Rust allocation-call counts. Raw per-run
+CPU/GPU tails, worst frames, samples and other process-memory peaks remain in
+`performance-correction-analysis.json` and the receipts.
+
+**Validation and preserved deliverables.** The selected corrected source passes
+strict workspace/all-target/all-feature Clippy, locked all-target/all-feature
+check, locked workspace/all-feature release, **329 aggregate Rust tests**
+(zero failed/ignored), **25 focused Python tests**, asset/texture/prop/audio
+checks, format and patch whitespace. The one new tiny CPU regression protects
+cache tree ownership, adjacent/overlap classification and its preparation cap; it
+requires no full shipped-map bake. The final small water fixture compiles,
+validates and passes `--require-current` verification; SHA-256 is
+`74575a623cfbd3f735643ea56efc07302618bca3427a128a510684b56a6f4fad`.
+Shipped packages remain frozen for matched views and are not final-version
+rebakes. Asset counts/advisories are unchanged. The 17 broader Python
+failures/errors and 16 skips remain open, without another broad rerun.
+
+Correction evidence is in
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-25/task-4/water-performance-correction/`:
+`phase-summary-corrected.json`, `corrected-timing-results.json`,
+`performance-correction-analysis.json`, `corrected-menu-results.json`,
+`corrected-visual-equivalence.json`, `resource-analysis-corrected.json`,
+native receipts/PNGs, diagnostic trial sources and logs, and
+`quality-cached-copy-fixed/results.json`. The exact checked source was restored
+after the rejected upload trial; `source-restoration-verification.json` proves
+the byte-for-byte patch/test match, so the selected build's checks and native
+results remain applicable. The selected player SHA-256 is
+`044b3fc5851d75f57a01fb02893745fbc20bbe1db14a141c7438a9613d805509`.
+`cached-copy-bin/` preserves all four checked production executables and six
+DLLs outside target. Rejected upload-eight binaries are separately labelled.
+`preservation-verification.json` verifies every entry of the original evidence
+manifest and all selected binaries; the original evidence is preserved.
+Correction-local handoff/hash/cleanup receipts record the eventual staging
+commit, remote verification, tree state and writer custody.
+
+The High interaction tail regression remains an explicit acceptance blocker.
+The ~2.4-second cold input stall, subjective ambience listening, reflected-CRT
+visual acceptance, broader Python failures, Mac/Metal/Linux checks and final
+version gate also remain open. No subsequent queue phase, ZIP refresh, video,
+Library upload, release, version bump, main merge, force push, CI wait or
+security/power/sleep setting change is performed.

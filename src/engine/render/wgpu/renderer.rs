@@ -1813,6 +1813,7 @@ impl WgpuRenderer {
         let totals = shadow.pipeline.encode(
             &mut pass,
             super::world::WorldEncodeInputs {
+                water: false,
                 geometry: world,
                 textures,
                 materials,
@@ -5260,6 +5261,7 @@ impl WgpuRenderer {
                 .encode(
                     pass,
                     super::world::WorldEncodeInputs {
+                        water: false,
                         geometry,
                         textures,
                         materials,
@@ -5714,8 +5716,18 @@ impl WgpuRenderer {
             self.water_snapshot.as_ref().map(|snapshot| snapshot.size)
         };
         if self.water_snapshot.as_ref().map(|snapshot| snapshot.size) != size {
-            self.water_snapshot =
-                size.map(|dimensions| super::water::Snapshot::new(&self.device, dimensions));
+            self.water_snapshot = size.and_then(|dimensions| {
+                self.post
+                    .as_ref()
+                    .and_then(PostProcess::scene_depth_view)
+                    .map(|depth| super::water::Snapshot::new(&self.device, dimensions, depth))
+            });
+        }
+        if let (Some(snapshot), Some(depth)) = (
+            self.water_snapshot.as_mut(),
+            self.post.as_ref().and_then(PostProcess::scene_depth_view),
+        ) {
+            snapshot.set_depth(depth);
         }
         if let Some(pipeline) = self.scene_pipeline.as_mut() {
             pipeline.bind_water(&self.device, self.water_snapshot.as_ref());
@@ -5914,10 +5926,7 @@ impl WgpuRenderer {
                     })],
                     depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                         view: depth,
-                        depth_ops: Some(wgpu::Operations {
-                            load: wgpu::LoadOp::Load,
-                            store: wgpu::StoreOp::Store,
-                        }),
+                        depth_ops: None,
                         stencil_ops: None,
                     }),
                     timestamp_writes: timer
@@ -5955,6 +5964,7 @@ impl WgpuRenderer {
         pipeline.encode_emissive(
             pass,
             super::world::WorldEncodeInputs {
+                water: false,
                 geometry: world,
                 textures,
                 materials,
@@ -5999,6 +6009,7 @@ impl WgpuRenderer {
             additional_draws = additional_draws.saturating_add(1);
         }
         let inputs = super::world::WorldEncodeInputs {
+            water: phase == 2,
             geometry: world,
             textures,
             materials,
@@ -6019,22 +6030,25 @@ impl WgpuRenderer {
         if phase == 2 {
             totals.translucent_draws = totals.visible_batches;
         }
+        #[cfg(feature = "visual-diagnostics")]
+        {
+            if phase != 2 {
+                additional_draws =
+                    additional_draws.saturating_add(self.encode_probe_visualization(
+                        pass,
+                        pipeline,
+                        textures,
+                        materials,
+                        environment,
+                        frame,
+                    ));
+            }
+        }
         if phase == 1 {
             if !self.visual_diagnostic_active() {
                 self.encode_decals(pass, self.decal_scene_pipeline.as_ref(), frame, &mut totals);
             }
             return (totals, totals.draw_calls.saturating_add(additional_draws));
-        }
-        #[cfg(feature = "visual-diagnostics")]
-        {
-            additional_draws = additional_draws.saturating_add(self.encode_probe_visualization(
-                pass,
-                pipeline,
-                textures,
-                materials,
-                environment,
-                frame,
-            ));
         }
         if phase == 0 && !self.visual_diagnostic_active() {
             self.encode_decals(pass, self.decal_scene_pipeline.as_ref(), frame, &mut totals);
@@ -6191,6 +6205,7 @@ impl WgpuRenderer {
             totals = pipeline.encode(
                 &mut pass,
                 super::world::WorldEncodeInputs {
+                    water: false,
                     geometry: world,
                     textures,
                     materials,
@@ -6660,6 +6675,7 @@ impl WgpuRenderer {
                     let _draw_stats = pipeline.encode(
                         &mut pass,
                         super::world::WorldEncodeInputs {
+                            water: false,
                             geometry: world,
                             textures,
                             materials,
@@ -6797,6 +6813,7 @@ impl WgpuRenderer {
             let mut capture_draws = capture_pipeline.encode(
                 &mut pass,
                 super::world::WorldEncodeInputs {
+                    water: false,
                     geometry: world,
                     textures,
                     materials: capture_materials,

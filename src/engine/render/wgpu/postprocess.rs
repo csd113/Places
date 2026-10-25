@@ -452,7 +452,7 @@ struct PostTargets {
     scene_texture: wgpu::Texture,
     scene_view: wgpu::TextureView,
     /// The scene depth, shared with the emissive pass. Kept for ownership.
-    depth_texture: wgpu::Texture,
+    _depth_texture: wgpu::Texture,
     depth_view: wgpu::TextureView,
     /// The emissive image at the scene target's own size: the pass tests
     /// against the scene depth in window coordinates, so a smaller target
@@ -667,11 +667,6 @@ impl PostProcess {
         let Some(targets) = self.targets.as_ref() else {
             return;
         };
-        let size = wgpu::Extent3d {
-            width: snapshot.size.width,
-            height: snapshot.size.height,
-            depth_or_array_layers: 1,
-        };
         let ([x, y], extent) = region;
         let mut source = targets.scene_texture.as_image_copy();
         let mut destination = snapshot.color.as_image_copy();
@@ -686,13 +681,8 @@ impl PostProcess {
                 depth_or_array_layers: 1,
             },
         );
-        // Keep the separate full depth copy: no writable attachment is sampled,
-        // and backend depth-copy subresource restrictions remain satisfied.
-        encoder.copy_texture_to_texture(
-            targets.depth_texture.as_image_copy(),
-            snapshot.depth.as_image_copy(),
-            size,
-        );
+        // Depth is sampled directly while attached read-only in the following
+        // pass. No depth COPY_SRC transition or writable-depth restore is needed.
     }
 
     /// The scene colour target, for the world body's main pass.
@@ -1034,7 +1024,7 @@ impl PostProcess {
             "places-wgpu-scene-depth",
             scene_size,
             DEPTH_FORMAT,
-            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
         );
         let (emissive_texture, emissive_view) = create_target_texture(
             device,
@@ -1103,7 +1093,7 @@ impl PostProcess {
         PostTargets {
             scene_texture,
             scene_view,
-            depth_texture,
+            _depth_texture: depth_texture,
             depth_view,
             _emissive_texture: emissive_texture,
             emissive_view,

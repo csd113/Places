@@ -1,3 +1,5 @@
+// Classification is restricted to static blended floors. Specialize every
+// water branch out of opaque/cutout shading, avoiding its register cost there.
 override water_blend_pass: bool = false;
 
 // Water presentation inputs are private to this pipeline's camera binding.
@@ -69,8 +71,7 @@ fn water_safe_sample(pixel: vec2<i32>, offset: vec2<f32>, fragment_depth: f32, s
         (coordinate + 0.5) / vec2<f32>(size), 0.0).rgb;
 }
 
-fn water_composite(in: VsOut, normal: vec3<f32>, view: vec3<f32>, scatter: vec3<f32>, reflection: vec3<f32>, alpha: f32, facing: f32) -> vec4<f32> {
-    let selected = water_surface_node(in.world_position);
+fn water_composite(in: VsOut, normal: vec3<f32>, view: vec3<f32>, scatter: vec3<f32>, reflection: vec3<f32>, alpha: f32, facing: f32, selected: u32) -> vec4<f32> {
     if (selected == 0u || alpha <= 0.0) { return vec4<f32>(scatter + reflection, alpha); }
     let node = caustics.nodes[selected - 1u];
     let size = vec2<i32>(textureDimensions(water_opaque_depth));

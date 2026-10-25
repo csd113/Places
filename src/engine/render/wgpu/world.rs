@@ -194,7 +194,9 @@ pub struct WorldVertex {
     pub uv_visibility: [f32; 4],
     /// Neutral material factor, independent of vertex-baked illumination.
     pub caustics_albedo: [f32; 3],
-    /// Static water-surface classification, derived once from source and mesh.
+    /// Static water tag: zero is dry; one is uncached water; larger exact
+    /// integers add a one-based node hint. The vertex shader restores the
+    /// original 0/1 coverage before interpolation, without adding mesh bytes.
     pub water_surface: f32,
 }
 
@@ -1410,6 +1412,7 @@ pub(in crate::engine::render) struct WorldUpload {
     world: WgpuWorldGeometry,
     cursor: usize,
     vertices: Vec<WorldVertex>,
+    water_hints: Option<Vec<u16>>,
 }
 impl WorldUpload {
     pub fn new(mesh: &LevelMesh, materials: &MaterialRenderState) -> Self {
@@ -1474,6 +1477,7 @@ impl WorldUpload {
             world,
             cursor: 0,
             vertices: Vec::new(),
+            water_hints: None,
         }
     }
     pub fn advance(
@@ -1483,6 +1487,9 @@ impl WorldUpload {
         visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
         water_source: Option<(&crate::engine::level::LevelDef, &MaterialTable)>,
     ) -> bool {
+        if self.water_hints.is_none() {
+            self.water_hints = water_source.map(|(level, _)| super::caustics::surface_hints(level));
+        }
         let began = std::time::Instant::now();
         let Some(chunk) = self.packer.chunks.get_mut(self.cursor) else {
             return true;
@@ -1513,6 +1520,7 @@ impl WorldUpload {
             chunk,
             &self.world.draws,
             self.cursor,
+            self.water_hints.as_deref().unwrap_or_default(),
             water_source,
         );
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
@@ -1950,6 +1958,7 @@ fn mark_water_surfaces(
     chunk: &MeshChunk,
     draws: &[WorldDraw],
     chunk_index: usize,
+    hints: &[u16],
     source: Option<(
         &crate::engine::level::LevelDef,
         &crate::engine::materials::MaterialTable,
@@ -1968,7 +1977,7 @@ fn mark_water_surfaces(
         let Some(indices) = chunk.indices.get(start..end) else {
             continue;
         };
-        for water in &level.water {
+        for (water_index, water) in level.water.iter().enumerate() {
             if materials.index_of(water.material_id()) != Some(draw.material) {
                 continue;
             }
@@ -1990,8 +1999,13 @@ fn mark_water_surfaces(
                     && z >= z0 - 0.0001
                     && z <= z1 + 0.0001
                     && in_circle
+                    // Shared boundary corners can match adjacent bays. Keep
+                    // the first valid hint; replacing it can force an entire
+                    // large triangle through the neighbour's fallback query.
+                    && vertex.water_surface <= 1.0
                 {
-                    vertex.water_surface = 1.0;
+                    vertex.water_surface =
+                        1.0 + f32::from(hints.get(water_index).copied().unwrap_or(0));
                 }
             }
         }
@@ -2639,8 +2653,9 @@ pub struct WorldPipeline {
     camera_buffer: wgpu::Buffer,
     camera_layout: wgpu::BindGroupLayout,
     water_buffer: wgpu::Buffer,
-    water_fallback: super::water::Snapshot,
-    water_size: Option<DrawableSize>,
+    _water_fallback: super::water::Snapshot,
+    water_binding: Option<wgpu::BindGroup>,
+    water_views: Option<(wgpu::TextureView, wgpu::TextureView)>,
     /// The group-4 attached-light uniform, shared across this pipeline's draws.
     lights_buffer: wgpu::Buffer,
     /// The group-4 binding over `lights_buffer`.
@@ -2730,7 +2745,7 @@ impl WorldPipeline {
         });
         let camera_buffer = Self::camera_buffer(device);
         let water_buffer = super::water::uniform_buffer(device);
-        let water_fallback = super::water::Snapshot::new(device, DrawableSize::new(1, 1));
+        let water_fallback = super::water::Snapshot::fallback(device);
         let bind_group = Self::camera_binding(
             device,
             &bind_group_layout,
@@ -2796,8 +2811,9 @@ impl WorldPipeline {
             camera_buffer,
             camera_layout: bind_group_layout,
             water_buffer,
-            water_fallback,
-            water_size: None,
+            _water_fallback: water_fallback,
+            water_binding: None,
+            water_views: None,
             lights_buffer,
             lights_bind_group,
             lights_layout,
@@ -2854,18 +2870,37 @@ impl WorldPipeline {
 
     /// Rebinds only on snapshot lifetime/size changes, never per object or frame.
     pub fn bind_water(&mut self, device: &wgpu::Device, snapshot: Option<&super::water::Snapshot>) {
-        let size = snapshot.map(|image| image.size);
-        if self.water_size == size {
+        let unchanged = match (self.water_views.as_ref(), snapshot) {
+            (None, None) => true,
+            (Some((color, depth)), Some(image)) => {
+                *color == image.color_view && *depth == image.depth_view
+            }
+            _ => false,
+        };
+        if unchanged {
             return;
         }
-        self.water_size = size;
-        self.bind_group = Self::camera_binding(
-            device,
-            &self.camera_layout,
-            &self.camera_buffer,
-            &self.water_buffer,
-            snapshot.unwrap_or(&self.water_fallback),
-        );
+        self.water_binding = snapshot.map(|image| {
+            Self::camera_binding(
+                device,
+                &self.camera_layout,
+                &self.camera_buffer,
+                &self.water_buffer,
+                image,
+            )
+        });
+        self.water_views =
+            snapshot.map(|image| (image.color_view.clone(), image.depth_view.clone()));
+    }
+
+    /// Opaque draws never bind the scene depth as an SRV. The shared view is
+    /// selected only in the explicitly read-only transparency pass.
+    fn camera_binding_for(&self, water: bool) -> &wgpu::BindGroup {
+        if water {
+            self.water_binding.as_ref().unwrap_or(&self.bind_group)
+        } else {
+            &self.bind_group
+        }
     }
 
     pub fn upload_water(&self, queue: &wgpu::Queue, uniform: &super::water::Uniform) {
@@ -3122,6 +3157,8 @@ pub struct WorldEncodeInputs<'a> {
     pub frame: &'a WorldFrame,
     /// Whether the CPU frustum test runs.
     pub cull: bool,
+    /// True only for the water transparency pass with a read-only depth attachment.
+    pub water: bool,
 }
 
 impl WorldPipeline {
@@ -3242,7 +3279,12 @@ impl WorldPipeline {
                         })
                 }
                 TransparentItem::Character(index) => {
-                    self.bind_character_state(pass, emission_only, BatchPass::Translucent);
+                    self.bind_character_state(
+                        pass,
+                        emission_only,
+                        BatchPass::Translucent,
+                        inputs.water,
+                    );
                     inputs
                         .characters
                         .map_or_else(WorldDrawTotals::default, |characters| {
@@ -3400,7 +3442,7 @@ impl WorldPipeline {
         } else {
             pass.set_pipeline(self.pipeline_for(wanted));
         }
-        pass.set_bind_group(0, &self.bind_group, &[]);
+        pass.set_bind_group(0, self.camera_binding_for(inputs.water), &[]);
         pass.set_bind_group(4, &self.lights_bind_group, &[]);
         let object_range = selected.map_or_else(
             || 0..dynamic.object_count(),
@@ -3505,7 +3547,7 @@ impl WorldPipeline {
         wanted: BatchPass,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
-        self.bind_character_state(pass, emission_only, wanted);
+        self.bind_character_state(pass, emission_only, wanted, inputs.water);
         for character in 0..characters.character_count() {
             totals.absorb(self.encode_character_submeshes(
                 pass,
@@ -3525,13 +3567,14 @@ impl WorldPipeline {
         pass: &mut wgpu::RenderPass<'a>,
         emission_only: bool,
         wanted: BatchPass,
+        water: bool,
     ) {
         if emission_only {
             pass.set_pipeline(self.emission_pipeline_for(wanted));
         } else {
             pass.set_pipeline(self.pipeline_for(wanted));
         }
-        pass.set_bind_group(0, &self.bind_group, &[]);
+        pass.set_bind_group(0, self.camera_binding_for(water), &[]);
         pass.set_bind_group(4, &self.lights_bind_group, &[]);
     }
 
@@ -3676,7 +3719,7 @@ impl WorldPipeline {
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
         let mut bound_pipeline: Option<(BatchPass, bool)> = None;
-        pass.set_bind_group(0, &self.bind_group, &[]);
+        pass.set_bind_group(0, self.camera_binding_for(inputs.water), &[]);
         pass.set_bind_group(3, inputs.environment, &[]);
         pass.set_bind_group(4, &self.lights_bind_group, &[]);
         let mut bound_chunk: Option<usize> = None;
@@ -3771,7 +3814,7 @@ impl WorldPipeline {
         } else {
             pass.set_pipeline(self.pipeline_for(pass_kind));
         }
-        pass.set_bind_group(0, &self.bind_group, &[]);
+        pass.set_bind_group(0, self.camera_binding_for(inputs.water), &[]);
         pass.set_bind_group(3, inputs.environment, &[]);
         pass.set_bind_group(4, &self.lights_bind_group, &[]);
         let mut bound_chunk: Option<usize> = None;

@@ -143,6 +143,50 @@ fn tree(leaves: &mut [Node], nodes: &mut Vec<Node>) {
     }
 }
 
+/// Cache only unambiguous static surface ownership, once per world upload.
+/// Reuse the exact GPU tree builder, so hints survive its priority/spatial order.
+/// Large or overlapping authored sets keep the complete fragment query.
+pub fn surface_hints(level: &LevelDef) -> Vec<u16> {
+    const MAX_CACHED_SURFACES: usize = 256;
+    if level.water.is_empty() || level.water.len() > MAX_CACHED_SURFACES {
+        return Vec::new();
+    }
+    let resolved = WaterVolumes::from_level(level);
+    let volumes = resolved.volumes();
+    if volumes.len() != level.water.len() {
+        return Vec::new();
+    }
+    let mut leaves: Vec<_> = volumes
+        .iter()
+        .enumerate()
+        .map(|(index, volume)| leaf(volume, index, CausticsDef::default(), [0; 4]))
+        .collect();
+    let mut nodes = Vec::new();
+    tree(&mut leaves, &mut nodes);
+    let mut hints = vec![0; volumes.len()];
+    for ((index, volume), hint) in volumes.iter().enumerate().zip(&mut hints) {
+        let ambiguous = volumes.iter().enumerate().any(|(other_index, other)| {
+            other_index != index
+                && (other.surface_y - volume.surface_y).abs() < 0.002
+                && volume.x0 < other.x1
+                && volume.x1 > other.x0
+                && volume.z0 < other.z1
+                && volume.z1 > other.z0
+        });
+        if ambiguous {
+            continue;
+        }
+        let priority = u32::try_from(index).unwrap_or(0).saturating_add(1);
+        *hint = nodes
+            .iter()
+            .position(|node| node.meta[2] == priority)
+            .and_then(|offset| u16::try_from(offset).ok())
+            .and_then(|offset| offset.checked_add(1))
+            .unwrap_or(0);
+    }
+    hints
+}
+
 /// CPU-only receiver data, owned by one immutable prepared scene. The editor
 /// builds it on its existing coalesced worker; no GPU handle crosses threads.
 pub struct PreparedCaustics {
@@ -573,3 +617,7 @@ impl Caustics {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/water_surface_cache.rs"]
+mod surface_cache_tests;

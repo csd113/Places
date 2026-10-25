@@ -119,3 +119,17 @@ fn water_surface_node(position: vec3<f32>) -> u32 {
     }
     return selected;
 }
+
+// A flat static hint avoids tree traversal inside an unambiguous authored
+// surface. Boundary pixels and all ambiguous/uncached geometry use the complete
+// original priority query. The cache adds no vertex bytes or per-frame uploads.
+fn water_surface_node_hinted(position: vec3<f32>, hint: u32) -> u32 {
+    if (hint > 0u && hint <= caustics.water_count) {
+        let node = caustics.nodes[hint - 1u];
+        let inside = all(position.xz > node.min.xz + vec2<f32>(0.001))
+            && all(position.xz < node.max.xz - vec2<f32>(0.001));
+        let circle = node.max.w <= 0.0 || distance(position.xz, (node.min.xz + node.max.xz) * 0.5) < node.max.w - 0.001;
+        if (node.links.z > 0u && abs(position.y - node.min.w) < 0.0005 && inside && circle) { return hint; }
+    }
+    return water_surface_node(position);
+}
