@@ -131,6 +131,8 @@ def main() -> None:
     parser.add_argument("--fullscreen", action="store_true")
     parser.add_argument("--console-open", action="store_true", help="enable/open the console through the SDL acceptance action path")
     parser.add_argument("--vsync", action="store_true", help="otherwise request Immediate presentation")
+    parser.add_argument("--frame-latency", type=int, choices=(1, 2, 3), help="diagnostic surface queue-depth hint; normal default is 2, not an FPS limit")
+    parser.add_argument("--dx12-frame-wait", choices=("wait", "dontwait", "none"), help="benchmark-only DX12 acquisition wait control; normal default is wait")
     parser.add_argument("--texture-quality", choices=("low", "medium", "high"), default="high", help="independent texture residency for matched timing")
     parser.add_argument("--texture-filtering", choices=("low", "medium", "high"), default="high", help="independent sampler setting for matched timing")
     parser.add_argument("--frames", type=int, default=600)
@@ -145,8 +147,10 @@ def main() -> None:
     parser.add_argument("--actions", type=Path, help="bounded native SDL action script")
     parser.add_argument("--lighting-sequence", type=Path, help="existing bounded entity/light/door/capture actions")
     parser.add_argument("--capture-frame", type=int, help="capture instead of measuring performance")
-    parser.add_argument("--gpu-trace", action="store_true", help="three labelled raw GPU samples; diagnostic run")
+    parser.add_argument("--gpu-trace", action="store_true", help="at most 64 labelled raw GPU samples; diagnostic run")
+    parser.add_argument("--gpu-trace-min-ms", type=float, help="with --gpu-trace, capture bounded slow GPU samples rather than periodic samples")
     parser.add_argument("--no-caustics", action="store_true", help="same-build disabled-effect control")
+    parser.add_argument("--no-water-optics", action="store_true", help="diagnostic water fallback without snapshot/refraction/depth contact; retains other quality settings and interactions")
     parser.add_argument("--no-occlusion", action="store_true", help="diagnostic only: retain frustum culling but disable conservative solid-triangle occlusion")
     parser.add_argument("--no-gpu-timing", action="store_true", help="same-build instrumentation control")
     parser.add_argument("--no-present", action="store_true", help="diagnostic only: render and discard acquired frames; no presented-FPS claim")
@@ -168,6 +172,8 @@ def main() -> None:
         parser.error("frames must be 1..3600; warmup must be 0..1200")
     if args.seconds is not None and (not math.isfinite(args.seconds) or not 2 <= args.seconds <= 60 or args.capture_frame is not None):
         parser.error("--seconds must be finite, 2..60 and cannot capture")
+    if args.gpu_trace_min_ms is not None and (not args.gpu_trace or not math.isfinite(args.gpu_trace_min_ms) or not 0 <= args.gpu_trace_min_ms <= 1000):
+        parser.error("--gpu-trace-min-ms requires --gpu-trace and finite 0..1000 ms")
     if args.motion and args.move_script:
         parser.error("select --motion or --move-script")
     if args.motion and args.warmup != 120:
@@ -238,11 +244,15 @@ def main() -> None:
         "PLACES_BENCH_ACTIONS": str(args.actions.resolve(strict=True)) if args.actions else "",
         "PLACES_BENCH_OCCLUSION": "off" if args.no_occlusion else "",
         "PLACES_BENCH_GPU_TRACE": "1" if args.gpu_trace else "",
+        "PLACES_BENCH_FRAME_LATENCY": str(args.frame_latency) if args.frame_latency is not None else "",
+        "PLACES_BENCH_DX12_FRAME_WAIT": args.dx12_frame_wait or "",
+        "PLACES_BENCH_GPU_TRACE_MIN_MS": str(args.gpu_trace_min_ms) if args.gpu_trace_min_ms is not None else "",
         "PLACES_BENCH_GPU_TIMING": "off" if args.no_gpu_timing else "",
         "PLACES_BENCH_NOSWAP": "1" if args.no_present else "",
         "PLACES_BENCH_NORENDER": "1" if args.no_render else "",
         "PLACES_BENCH_FINISH": "1" if args.finish else "",
         "PLACES_BENCH_CAUSTICS": "off" if args.no_caustics else "",
+        "PLACES_BENCH_WATER_OPTICS": "off" if args.no_water_optics else "",
         "PLACES_PHYSICS_LOG": str(out / "physics.csv") if args.physics_log else "",
         "PLACES_PHYSICS_TRACE": "1" if args.physics_trace else "",
     }
@@ -376,7 +386,7 @@ def main() -> None:
         for key in ("loop_ms", "frame_ms", "update_ms", "render_ms", "swap_ms")
     }
     receipt = dict(
-        kind="capture" if capture else "diagnostic" if (args.cpu_trace or args.render_trace or args.surface_trace or args.hide_models or args.no_present or args.no_render or args.no_occlusion or args.finish or args.gpu_trace or args.graphics_cycle or args.window_cycle or args.quality_cycle or args.lighting_sequence or args.physics_trace or args.actions) else "timing",
+        kind="capture" if capture else "diagnostic" if (args.cpu_trace or args.render_trace or args.surface_trace or args.hide_models or args.no_present or args.no_render or args.no_occlusion or args.no_water_optics or args.finish or args.gpu_trace or args.frame_latency is not None or args.dx12_frame_wait is not None or args.graphics_cycle or args.window_cycle or args.quality_cycle or args.lighting_sequence or args.physics_trace or args.actions) else "timing",
         requested_ready_seconds=args.seconds, warmup_frames=args.warmup,
         started_utc=started_utc, elapsed_seconds=time.monotonic() - started,
         binary=str(binary), binary_sha256=binary_sha256, package=str(package), package_sha256=package_sha256,
@@ -388,7 +398,7 @@ def main() -> None:
         environment={key: value for key, value in env.items() if key.startswith("PLACES_")},
         load_before=load_before, load_after=system_load_average(), presented_ready=presented, missed_ready=missed,
         native_identity=[line for line in log.splitlines()
-                         if line.startswith(("[renderer]", "[window]", "[settings]", "[wgpu] GPU timing", "[wgpu] present mode"))],
+                         if line.startswith(("[renderer]", "[window]", "[settings]", "[wgpu] GPU timing", "[wgpu] present mode", "[wgpu] desired maximum frame latency", "[wgpu] DX12 frame wait"))],
         metrics=metrics, gpu_elapsed_ms=None if capture else statistics_for(list(gpu.values())),
         average_fps=None if capture or args.no_present else 1000 / statistics.fmean(float(row["loop_ms"]) for row in rows),
         render_iterations_per_second=(1000 / statistics.fmean(float(row["loop_ms"]) for row in rows)

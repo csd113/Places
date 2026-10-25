@@ -101,6 +101,23 @@ pub fn configure_dx12_compiler(descriptor: &mut wgpu::InstanceDescriptor) -> Res
             .ok_or("DXC runtime path is not valid UTF-8")?
             .to_string(),
     };
+    if std::env::var("PLACES_BENCH").as_deref() == Ok("1") {
+        match std::env::var("PLACES_BENCH_DX12_FRAME_WAIT").as_deref() {
+            Ok("dontwait") => {
+                descriptor.backend_options.dx12.latency_waitable_object =
+                    wgpu::Dx12UseFrameLatencyWaitableObject::DontWait;
+            }
+            Ok("none") => {
+                descriptor.backend_options.dx12.latency_waitable_object =
+                    wgpu::Dx12UseFrameLatencyWaitableObject::None;
+            }
+            _ => {}
+        }
+    }
+    crate::engine::logging::info(format!(
+        "[wgpu] DX12 frame wait {:?}",
+        descriptor.backend_options.dx12.latency_waitable_object
+    ));
     crate::engine::logging::info(format!(
         "[wgpu] Windows shader compiler: DXC ({})",
         compiler.display()

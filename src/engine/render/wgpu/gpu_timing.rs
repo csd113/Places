@@ -34,6 +34,46 @@ struct FrameQueries {
     draws: [Option<usize>; MAX_PASS_LABELS],
 }
 
+/// Owns the bounded opt-in trace budget independently of timestamp decoding.
+struct RawTrace {
+    minimum_ms: Option<f32>,
+    reports: u8,
+    next_frame: u64,
+}
+
+impl RawTrace {
+    fn new() -> Self {
+        Self {
+            minimum_ms: std::env::var("PLACES_BENCH_GPU_TRACE_MIN_MS")
+                .ok()
+                .and_then(|value| value.parse::<f32>().ok())
+                .filter(|value| value.is_finite() && (0.0..=1_000.0).contains(value)),
+            reports: 0,
+            next_frame: RAW_TRACE_FIRST_FRAME,
+        }
+    }
+
+    fn record(
+        &mut self,
+        bytes: &[u8],
+        frame: &FrameQueries,
+        period_ns: f32,
+        milliseconds: Option<f32>,
+    ) {
+        if self.reports >= RAW_TRACE_MAX_SAMPLES
+            || frame.frame < self.next_frame
+            || !milliseconds
+                .is_some_and(|value| self.minimum_ms.is_none_or(|minimum| value >= minimum))
+        {
+            return;
+        }
+        trace_raw_sample(bytes, frame, period_ns);
+        self.reports = self.reports.saturating_add(1);
+        let interval = if self.minimum_ms.is_some() { 1 } else { 120 };
+        self.next_frame = frame.frame.saturating_add(interval);
+    }
+}
+
 struct PendingReadback {
     receiver: Receiver<Result<(), wgpu::BufferAsyncError>>,
     frame: FrameQueries,
@@ -97,9 +137,7 @@ pub struct GpuTimer {
     samples: u64,
     status: GpuTiming,
     rejected_sample_reports: u8,
-    raw_trace_enabled: bool,
-    raw_trace_reports: u8,
-    raw_trace_next_frame: u64,
+    raw_trace: Option<RawTrace>,
 }
 
 impl GpuTimer {
@@ -141,9 +179,7 @@ impl GpuTimer {
             samples: 0,
             status: unavailable.map_or(GpuTiming::Pending, GpuTiming::Unavailable),
             rejected_sample_reports: 0,
-            raw_trace_enabled,
-            raw_trace_reports: 0,
-            raw_trace_next_frame: RAW_TRACE_FIRST_FRAME,
+            raw_trace: raw_trace_enabled.then(RawTrace::new),
         }
     }
 
@@ -321,21 +357,21 @@ impl GpuTimer {
                         .get_mapped_range()
                         .map_err(|error| TimestampDecodeError::MappedRange(error.to_string()))
                         .and_then(|mapped| {
-                            if self.raw_trace_enabled
-                                && self.raw_trace_reports < RAW_TRACE_MAX_SAMPLES
-                                && pending.frame.frame >= self.raw_trace_next_frame
-                                && pending.frame.queries >= 10
-                            {
-                                trace_raw_sample(&mapped, &pending.frame, self.period_ns);
-                                self.raw_trace_reports = self.raw_trace_reports.saturating_add(1);
-                                self.raw_trace_next_frame = pending.frame.frame.saturating_add(120);
-                            }
-                            decode_milliseconds(
+                            let decoded = decode_milliseconds(
                                 &mapped,
                                 pending.frame.queries,
                                 self.period_ns,
                                 pending.frame.empty_pairs,
-                            )
+                            );
+                            if let Some(trace) = self.raw_trace.as_mut() {
+                                trace.record(
+                                    &mapped,
+                                    &pending.frame,
+                                    self.period_ns,
+                                    decoded.as_ref().copied().ok(),
+                                );
+                            }
+                            decoded
                         });
                     let frame = pending.frame.frame;
                     let queries = pending.frame.queries;

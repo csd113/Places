@@ -1381,10 +1381,36 @@ differences are multiplied by the queue timestamp period and converted from
 nanoseconds to milliseconds. Interval merging uses a fixed sixteen-pair array.
 
 For bounded native diagnosis, `PLACES_BENCH=1 PLACES_BENCH_GPU_TRACE=1`
-records three labelled raw samples from a loaded scene with bloom passes.
+records at most 64 labelled raw samples, normally spaced by 120 renderer frames
+starting at frame 600. Valid scenes with fewer than five passes are included;
+no bloom or water pass is required. `PLACES_BENCH_GPU_TRACE_MIN_MS=<0..1000>`
+instead selects valid samples whose aggregate elapsed GPU span meets that
+threshold, with the same 64-record cap and no periodic spacing. The equivalent
+harness arguments are `--gpu-trace --gpu-trace-min-ms <milliseconds>`.
+Slow-sample traces help attribute tails that periodic sampling may miss; their
+logging runs are diagnostic and must not be used as authoritative FPS results.
 `PLACES_BENCH_GPU_TIMING=off` under the benchmark disables query/readback
 resources for a same-build instrumentation control and reports that explicit
-reason. Both switches are inert in normal play. Per-pass spans overlap and
+reason. These switches are inert in normal play.
+`PLACES_BENCH_FRAME_LATENCY=1..3` (harness `--frame-latency`) overrides only the
+benchmark's surface queue-depth hint, whose normal value remains 2. It does not
+set an FPS limit or change presentation mode. The requested hint is logged;
+backend behavior is measured rather than inferred from that hint. Queue-depth
+and forced-completion controls are diagnostic, not substitute acceptance runs.
+On Windows, `PLACES_BENCH_DX12_FRAME_WAIT=wait|dontwait|none` (harness
+`--dx12-frame-wait`) independently controls the DX12 acquisition wait for
+diagnosis. Normal play retains the backend's Wait policy. Presentation mode,
+queue-depth hint, shaders and other quality settings do not change with this
+control; the effective backend policy is logged. It changes no OS setting.
+`PLACES_BENCH_WATER_OPTICS=off` (harness `--no-water-optics`) selects the
+water optical fallback only: no opaque snapshot or separated water pass,
+refraction, depth absorption or depth-based contact. Ambient motion,
+interaction normals, physics and other quality settings remain enabled.
+This deliberately incomplete appearance is a causal diagnostic, never an
+accepted-quality default. `--render-trace` also reports at most 96 swap-stage
+records splitting presentation from device polling, after the warm scene
+clock reaches three seconds. Its logging run is not an FPS acceptance run.
+Per-pass spans overlap and
 must not be added as independent GPU costs.
 
 After the final surface-copy submission (UI in the direct fallback), a

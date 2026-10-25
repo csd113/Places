@@ -161,6 +161,32 @@ fn render_trace_finish(stamps: [Option<std::time::Instant>; 6]) {
     }
 }
 
+/// Explicit swap-stage diagnosis; bounded logs are never timing acceptance.
+fn present_trace_finish(
+    start_stamp: Option<std::time::Instant>,
+    present_stamp: Option<std::time::Instant>,
+) {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static REPORTS: AtomicUsize = AtomicUsize::new(0);
+    let (Some(frame_started), Some(frame_presented)) = (start_stamp, present_stamp) else {
+        return;
+    };
+    let completed = std::time::Instant::now();
+    let ms = |end: std::time::Instant, begin| {
+        end.saturating_duration_since(begin).as_secs_f64() * 1_000.0_f64
+    };
+    let total = ms(completed, frame_started);
+    if (total >= 2.0_f64 || REPORTS.load(Ordering::Relaxed) < 3)
+        && REPORTS.fetch_add(1, Ordering::Relaxed) < 96
+    {
+        logging::info(format!(
+            "[present-cpu] total_ms={total:.6} present_ms={:.6} poll_ms={:.6}",
+            ms(frame_presented, frame_started),
+            ms(completed, frame_presented),
+        ));
+    }
+}
+
 /// Fixed scalar storage for explicit native resource-lifetime diagnostics.
 /// Peaks describe sampled observations, including staged old/new worlds; they
 /// do not claim to measure an unsampled driver allocation high-water mark.
@@ -1102,9 +1128,23 @@ impl WgpuRenderer {
             present_mode,
             alpha_mode,
             view_formats: Vec::new(),
-            desired_maximum_frame_latency: 2,
+            // Explicit queue-depth attribution only; ordinary play retains
+            // the existing two-frame hint. This does not select an FPS cap.
+            desired_maximum_frame_latency: if std::env::var("PLACES_BENCH").as_deref() == Ok("1") {
+                std::env::var("PLACES_BENCH_FRAME_LATENCY")
+                    .ok()
+                    .and_then(|value| value.parse::<u32>().ok())
+                    .filter(|value| (1..=3).contains(value))
+                    .unwrap_or(2)
+            } else {
+                2
+            },
         };
 
+        logging::info(format!(
+            "[wgpu] desired maximum frame latency {}",
+            config.desired_maximum_frame_latency
+        ));
         let gpu_timer = GpuTimer::new(&adapter, &device, &queue);
         let renderer = Self {
             window: None,
@@ -5707,8 +5747,13 @@ impl WgpuRenderer {
     }
 
     fn prepare_water_frame(&mut self, frame: &super::world::WorldFrame) {
+        static OPTICS: OnceLock<bool> = OnceLock::new();
         let visible = self.water_interactions.visible(frame);
-        let size = if self.quality == QualityLevel::Low {
+        let optics = *OPTICS.get_or_init(|| {
+            !(std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+                && std::env::var("PLACES_BENCH_WATER_OPTICS").as_deref() == Ok("off"))
+        });
+        let size = if self.quality == QualityLevel::Low || !optics {
             None
         } else if visible {
             self.post.as_ref().and_then(PostProcess::scene_size)
@@ -6905,8 +6950,11 @@ impl WgpuRenderer {
             self.recreate_surface();
         }
         if let Some(texture) = self.pending_frame.take() {
+            let trace_started = render_trace_start(self.animation_seconds);
             self.queue.present(texture);
+            let trace_presented = trace_started.map(|_| std::time::Instant::now());
             self.poll_device();
+            present_trace_finish(trace_started, trace_presented);
             return true;
         }
         self.ensure_ready();

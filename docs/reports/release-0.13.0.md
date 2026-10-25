@@ -9562,3 +9562,135 @@ visual acceptance, broader Python failures, Mac/Metal/Linux checks and final
 version gate also remain open. No subsequent queue phase, ZIP refresh, video,
 Library upload, release, version bump, main merge, force push, CI wait or
 security/power/sleep setting change is performed.
+
+### Remaining water tails: focused attribution, acceptance still open
+
+The follow-up to `2a2ffa9f` retains all four water improvements and its depth,
+ownership, CPU-lighting and mesh-upload wins. No further quality-preserving
+runtime optimization was established. The remaining High interaction tail is
+reproducible; it is not dismissed as benchmark noise or accepted as unavoidable.
+The exact split within the optical shader's texture operations, arithmetic and
+GPU scheduling remains unresolved. No reduced-effect default is shipped.
+
+The diagnostic changes make that conclusion reviewable. Raw GPU traces now
+include valid scenes with fewer than five passes and optionally select slow
+samples, retaining the hard 64-record cap. The trace budget has its own small
+owner, independent of timestamp decoding and mapping lifetime. At most 96
+explicit swap-stage records split presentation from device polling. Separate
+benchmark-only controls expose queue depth, DX12 acquisition wait and the water
+optical fallback. Normal play retains queue depth 2, DX12 Wait and full optics;
+these controls create no per-prop resource or per-frame global scan. All seven
+core water implementation files remain byte-identical to the preserved
+`2a2ffa9f` source. No water shader/texture, reflection system, collision,
+buoyancy, mean height or quality default is changed by this follow-up.
+
+**Attribution.** Existing primary replays were joined with the correct CPU
+alignment: a row's loop cadence covers the preceding frame's work. Slow
+corrected frames correlate most strongly with that preceding presentation wait
+(0.80-0.88), while CPU update time is lower. GPU samples arrive asynchronously;
+they are not treated as measurements of the CPU row carrying them. Most tail
+frames are outside the first 100 ms after an item-pose event.
+
+Twelve new timestamp-on/off controls rule out timestamp collection as the
+explanation: full-path median p99 is 4.453 ms with timing and 4.461 without it.
+Eight matched normal/forced-completion controls show scheduling sensitivity:
+the before/after p99 gap shrinks from 3.149 -> 4.507 ms normally to
+3.203 -> 3.422 ms with explicit completion. Completion reduces throughput,
+so it is rejected as a shipping fix. Nine same-build queue-depth controls reject
+depth 1 (about 242 FPS, p99 4.847 ms); depth 3 provides no useful improvement
+over depth 2. Six same-build DX12 Wait/DontWait controls show only
+4.545 -> 4.468 ms p99, so the normal policy is retained.
+
+Sixty-four selected slow GPU samples locate a median 1.422 ms opaque scene span,
+0.672 ms water-transparency span and 0.115 ms gap between pass spans. Those are
+elapsed GPU timeline spans, including scheduling, not independent active-work
+costs. The actual slow CPU swap records are predominantly presentation:
+median 2.235 ms presenting and 0.247 ms polling. Static/entity shader and
+diagnostic-hook ablations show no useful gain. Preparing fixed camera basis and
+coordinate scales produces only 4.524 -> 4.463 ms p99 in three pairs, so no
+uniform/shader change is retained on that evidence.
+
+The decisive optical controls use the same CPU executable code, geometry,
+physics actions, lighting and High settings. An isolated, equal-length embedded
+WGSL substitution removes only the final `water_composite` branch. It retains
+the snapshot, separated pass, ambient motion, Fresnel and interaction normals.
+A third control also removes snapshot/pass setup. These copied executables are
+explicitly diagnostic, hash-labelled and never production deliverables.
+
+Three balanced runs per path measure 12 seconds after ready with 120 warmup
+frames excluded, High/filtering/Full reflections/bloom/lightmaps, 1280x720
+physical, real delta and the same physics CSV scope. Actual Immediate is
+verified, VSync/frame limits are off and every run exceeds the 165-Hz display.
+Primary runs have no screenshots or detailed CPU/GPU/resource tracing. The
+additional 3.2-12-second segment starts at the first repeated drop and is
+reported alongside the complete interval, rather than replacing it.
+
+| Same-build optical path | Whole-interval FPS | Whole p99 ms | Repeated-drop p99 ms (3.2-12 s) | Mean CPU update ms | Mean / p99 GPU span ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Full selected default | 417.68 | 4.467 | 4.211 | 0.938 | 1.163 / 2.776 |
+| Optical shader ablated; snapshot/pass retained | 477.37 | 3.765 | 2.988 | 0.943 | 0.782 / 1.938 |
+| Optical shader and snapshot/pass ablated | 498.21 | 3.308 | 3.001 | 0.936 | 0.702 / 1.405 |
+
+CPU update averages differ by less than 0.007 ms. The shader ablation removes
+the repeated-drop tail penalty while retaining all CPU interaction work,
+ripples and snapshot/pass setup. Removing setup further improves average
+throughput but does not improve that steady p99. This attributes the remaining
+tail primarily to the requested optical path and its presentation/scheduling
+interaction, not a new per-prop CPU rebuild, unbounded events or mesh uploads.
+Whole-interval tails also include startup/held-target behavior; their variation
+is retained above. Percentiles and GPU pass spans are not additively decomposed.
+
+**Concrete choices, not silent defaults.** Keeping the current full path
+preserves all four approved improvements at the measured cost. A compiled
+water-only optical fallback is the measured lower-cost alternative: it retains
+motion, angle-dependent surface reflection, local ripples and physics, but loses
+guarded refraction, view-ray absorption and depth-based contact/meniscus. It
+therefore does not satisfy the full approved visual scope. The 498-FPS control
+also specializes the shader; the runtime `--no-water-optics` switch alone is not
+claimed to provide that result. A different capture/shader architecture could
+preserve the visual scope, but no gain for such a redesign is established by
+these measurements. Full optics remain selected and acceptance remains open;
+this evidence is not a proof that every possible implementation has this cost.
+
+New evidence lives under
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-25/task-4/water-tail-attribution/`:
+`final-attribution-analysis.json`, `existing-frame-attribution.json`,
+timestamp/completion/queue/wait summaries, `slow-pass-attribution.json`,
+`setup-primary-results.json`, diagnostic provenance and raw receipts. Prelaunch
+helper omissions, the unusable no-presentation control (loading waits for a real
+presentation), and the initial caught diagnostic-helper lint failures remain
+preserved as failed receipts, not acceptance evidence. The cold input stall, listening/CRT
+acceptance, broader Python failures, platform checks and final version gate
+remain open. Audio and all subsequent queue phases remain untouched.
+
+Final strict Clippy, locked workspace/all-feature release, aggregate **329 Rust
+and 25 focused Python tests**, asset/texture/prop checks, format and whitespace
+pass. Six invalid diagnostic argument combinations reject before native launch.
+The initial Clippy failures were corrected by extracting the bounded trace owner,
+using distinct binding names, typing the threshold and ordering declarations;
+no lint suppression is added. No new persistent test suite or shipped-map bake
+is introduced. The 17 known broader Python failures/errors and 16 skips remain
+open without another broad rerun.
+
+Post-final-source native checks inspect two matched Pool views (above and
+ladder/foreground): both are pixel-identical to the preserved full-quality
+candidate. Five quality/resize screenshots are inspected across three complete
+load/menu-return cycles. Each matched loaded checkpoint has 39 HAL textures,
+84,082,688 texture bytes, 84 buffers, seven bodies and 453 colliders; each unload
+has zero water snapshot bytes, active events and histories. Active events remain
+bounded at eight. Final traces retain exactly 64 slow full-path records and 64
+valid four-pass fallback records, verifying the cap and removal of the old
+five-pass blind spot. Screenshot/resource/trace runs make no FPS claim. HAL
+counters remain partial GPU memory evidence, not total VRAM or allocation-call
+counts. The final small fixture compiles, validates and verifies current; its
+SHA-256 is `7fe786818bf1783dfd3699a754b2bf359c6c7e7fb671af627a2b76a2a2544d26`.
+
+`quality-final-fixed/results.json`, `final-native-functional.json` and
+`final-native-analysis.json` identify these final checks. Selected production
+executables/DLLs are preserved in `final-bin/`; the player SHA-256 is
+`19a4a3a22718e5f340919e8281e2c9aae9fbab4e260244493ab75e258ecdf0ba`. `final-runtime-source.patch` records the exact checked/native-tested
+runtime changes. Correction-local preservation, handoff and cleanup receipts
+record the staging commit/remote, clean tree, retained evidence and idle-only
+Cargo cleanup. Full visual quality remains selected; the measured optical tail
+and the unresolved instruction-level attribution remain open. No audio or
+subsequent queue phase is started.
