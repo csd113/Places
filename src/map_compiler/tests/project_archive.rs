@@ -93,13 +93,33 @@ fn project_provenance_and_cache_seed_select_and_verify_exact_records() -> Result
     // protects metadata-only builds with no standalone cache; placeholder
     // records exercise selection/integrity only, with no solve or GPU.
     let selected_level = crate::engine::level::LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"second","name":"Second","spawn":{"x":1,"z":1},"rooms":[{"width":2,"depth":2,"height":3}]}"#).map_err(|error|error.to_string())?;
-    let (variants, prepared) =
-        super::super::reuse_prepared_lighting(&package, "stage", &selected_level, &mut Vec::new())?;
+    let (variants, prepared) = super::super::reuse_prepared_lighting(
+        &package,
+        "stage",
+        &selected_level,
+        &[crate::engine::quality::LightmapQuality::Off],
+        &inputs,
+        &mut Vec::new(),
+    )?;
     assert_eq!(variants.len(), 1);
     assert!(
         !prepared.is_empty(),
         "selected export records must seed prepared reuse without changing the export"
     );
+    // A parsed provenance record must agree with the requested producer/mode.
+    // Reuse this existing sub-KiB archive: no added bake, assets or large fixture.
+    let mut changed_inputs = inputs.clone();
+    changed_inputs.capture_probes = !inputs.capture_probes;
+    assert!(!super::super::preparation_inputs_match(
+        &inputs,
+        &changed_inputs
+    ));
+    changed_inputs.capture_probes = inputs.capture_probes;
+    changed_inputs.compiler_code_sha256 = Some("changed".into());
+    assert!(!super::super::preparation_inputs_match(
+        &inputs,
+        &changed_inputs
+    ));
     let staged = root.0.join("seed.placesmap");
     super::super::project_cache::seed(&package, "second", &staged)?;
     let seeded = super::super::inspect(&staged)?;

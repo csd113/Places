@@ -184,7 +184,9 @@ pub struct Manifest {
     /// package for a fingerprint mismatch.
     #[serde(default)]
     pub compiler_fingerprint: String,
-    /// Developer **stage** fingerprint of the illumination/geometry inputs.
+    /// Developer **stage** fingerprint of the common illumination/geometry inputs.
+    /// Quality selection/order is excluded; matching qualities can be reused
+    /// independently. Preparation code identity still covers every quality profile.
     ///
     /// It excludes display name/author and navigation/AI components, while
     /// retaining catalogue and referenced-image/model identities. A display,

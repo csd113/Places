@@ -138,7 +138,12 @@ impl TransportScene {
         crate::engine::progress::stage("building shared diffuse radiance cache");
         let cache_started = std::time::Instant::now();
         let cache = RadianceCache::build(receivers);
-        let mut previous = combined.clone();
+        let mut previous = combined.each_ref().map(|layer| {
+            layer
+                .iter()
+                .map(|value| value.surface_light)
+                .collect::<Vec<_>>()
+        });
         crate::engine::logging::info(format_args!(
             "[transport-cache] receivers={} build_ms={:.3}",
             receivers.len(),
@@ -175,11 +180,11 @@ impl TransportScene {
                     .zip(&gained)
                 {
                     add_scaled(total, &gain[channel], 1.0);
-                    *prior_gain = gain[channel];
+                    *prior_gain = gain[channel].surface_light;
                 }
                 if combined[channel]
                     .iter()
-                    .chain(&previous[channel])
+                    .chain(gained.iter().map(|gain| &gain[channel]))
                     .any(|value| !value.is_finite())
                 {
                     return Err(LightmapFailure::FillNonFinite);
@@ -209,7 +214,7 @@ impl TransportScene {
     fn bounce_pair_pass(
         &self,
         receivers: &[TransportReceiver],
-        values: [&[Accumulator]; 2],
+        values: [&[[f32; 3]]; 2],
         cache: &RadianceCache,
         options: SolveOptions,
         order: u8,
@@ -328,11 +333,9 @@ impl SurfaceStencil {
         self.fallback
     }
 
-    pub(super) fn sample(&self, values: &[Accumulator]) -> [f32; 3] {
+    pub(super) fn sample(&self, values: &[[f32; 3]]) -> [f32; 3] {
         if self.fallback {
-            return values
-                .get(self.entries[0].0)
-                .map_or([0.0; 3], |value| value.surface_light);
+            return values.get(self.entries[0].0).copied().unwrap_or([0.0; 3]);
         }
         let mut light = [0.0; 3];
         for (index, weight) in &self.entries[..self.len] {
@@ -340,7 +343,7 @@ impl SurfaceStencil {
                 continue;
             };
             for channel in 0..3 {
-                light[channel] += value.surface_light[channel] * weight;
+                light[channel] += value[channel] * weight;
             }
         }
         for channel in &mut light {

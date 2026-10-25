@@ -38,6 +38,7 @@ impl ProjectSpool {
         self.finish(
             u64::try_from(bytes.len()).map_err(|error| error.to_string())?,
             sha256,
+            None,
         )
     }
 
@@ -50,18 +51,36 @@ impl ProjectSpool {
         let mut file = self.incoming()?;
         let (bytes, sha256) = reader.copy_entry_to(name, MAX_BINARY_BYTES, &mut file, check)?;
         drop(file);
-        self.finish(bytes, sha256)
+        self.finish(bytes, sha256, None)
+    }
+
+    /// Keep a verified owned compressed snapshot instead of decoded disk bytes.
+    pub(super) fn add_compressed_entry<R: Read + Seek>(
+        &mut self,
+        reader: &mut PackageReader<R>,
+        name: &str,
+        check: &impl Fn() -> Result<(), String>,
+    ) -> Result<String, String> {
+        let file = self.incoming()?;
+        let (bytes, sha256, compressed) = reader.snapshot_compressed_entry(name, file, check)?;
+        self.finish(bytes, sha256, Some(compressed))
     }
 
     fn incoming(&self) -> Result<File, String> {
         fs::OpenOptions::new()
             .create_new(true)
             .write(true)
+            .read(true)
             .open(self.root.join("incoming"))
             .map_err(|error| error.to_string())
     }
 
-    fn finish(&mut self, bytes: u64, sha256: String) -> Result<String, String> {
+    fn finish(
+        &mut self,
+        bytes: u64,
+        sha256: String,
+        compressed: Option<archive::CompressedRecord>,
+    ) -> Result<String, String> {
         let name = format!("blobs/{sha256}.record");
         let incoming = self.root.join("incoming");
         if let Some(previous) = self.records.get(&name) {
@@ -85,6 +104,7 @@ impl ProjectSpool {
         let _old = self.records.insert(
             name.clone(),
             archive::SpoolEntry {
+                compressed,
                 name: name.clone(),
                 path,
                 bytes,

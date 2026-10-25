@@ -111,9 +111,11 @@ blobs/<sha256>.png                embedded texture pixels (community packages)
 ```
 
 Every blob name embeds the SHA-256 of the entry's uncompressed bytes. Readers
-recompute the digest before decoding and refuse a mismatch. Entries are written
-in sorted order with a fixed timestamp, so two builds of the same content
-produce the same archive.
+recompute the digest before decoding and refuse a mismatch. Fresh ordinary builds write entries
+in sorted order with a fixed timestamp and compression profile. Incremental
+project exports may retain verified existing compressed streams, including legacy
+methods, so equivalent decoded content need not have identical archive bytes or
+size. Content-addressed identities continue to hash decoded record bytes.
 
 An ordinary map’s `semantics.json` is its prepared gameplay JSON. It is a
 `LevelDef` (current authored schema: `schema: "places-level"`, `format_version: 1`, typed components,
@@ -233,7 +235,14 @@ never triggers procedural geometry generation.
   This entry remains optional for data-only packages from other producers.
 * `lighting_fingerprint` identifies prepared geometry, collision, lighting and
   reflections. It retains source materials/images/models, physical environment
-  and fog, lights, entities, tool/capture identity, formats and quality. It
+  and fog, lights, entities, tool/capture identity and formats. The v2 stage
+  key excludes requested quality selection/order; each existing quality can be
+  reused independently while missing qualities are prepared. Preparation source
+  identity covers all quality profiles, so code/profile edits invalidate all.
+  Cache decisions expose `prepared_world/<quality>` hits/misses/bypasses and an
+  aggregate `partial` result when some requested qualities are reused.
+  Older stage keys miss conservatively once. Full package identity retains
+  requested quality selection/order and complete current provenance. It
   excludes display name/author, navigation/AI components and
   Luau modules, the required-lighting policy and `environment.presentation`
   (exposure, shoulder and grade after HDR capture).

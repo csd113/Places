@@ -450,26 +450,46 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     let reused = if request.force {
         Err("forced rebuild requested".to_string())
     } else {
-        reuse_prepared_lighting(&request.out, &lighting_fingerprint, &level, &mut warnings).or_else(
-            |original| {
-                let Some(exported) = project::exported_cache(&request.source) else {
-                    return Err(original);
-                };
-                if exported == request.out || !exported.is_file() {
-                    return Err(original);
-                }
-                reuse_prepared_lighting(&exported, &lighting_fingerprint, &level, &mut warnings)
-                    .map_err(|reason| format!("{original}; project export: {reason}"))
-            },
+        reuse_prepared_lighting(
+            &request.out,
+            &lighting_fingerprint,
+            &level,
+            &request.variants,
+            &build_inputs,
+            &mut warnings,
         )
+        .or_else(|original| {
+            let Some(exported) = project::exported_cache(&request.source) else {
+                return Err(original);
+            };
+            if exported == request.out || !exported.is_file() {
+                return Err(original);
+            }
+            reuse_prepared_lighting(
+                &exported,
+                &lighting_fingerprint,
+                &level,
+                &request.variants,
+                &build_inputs,
+                &mut warnings,
+            )
+            .map_err(|reason| format!("{original}; project export: {reason}"))
+        })
     };
     record_phase(&mut phases, "prepared_package_integrity", reuse_started);
     if let Ok((reused_variants, reused_blobs)) = reused {
         progress::stage("reusing verified geometry, lighting, probes and collision");
         cache_decisions.push(CacheDecision {
             stage: "prepared_world".to_string(),
-            status: "hit".to_string(),
-            reasons: vec!["prepared-stage identity and every declared record verified".to_string()],
+            status: if reused_variants.len() == request.variants.len() {
+                "hit"
+            } else {
+                "partial"
+            }
+            .to_string(),
+            reasons: vec![
+                "common prepared-stage identity and every declared record verified".to_string(),
+            ],
         });
         for (name, (bytes, role)) in reused_blobs {
             let _interned_blob = blobs.entry(name).or_insert((bytes, role));
@@ -511,6 +531,40 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
             status: if request.force { "bypass" } else { "miss" }.to_string(),
             reasons: vec![reason],
         });
+    }
+    let missing: Vec<_> = request
+        .variants
+        .iter()
+        .copied()
+        .filter(|quality| {
+            !variants
+                .iter()
+                .any(|variant| variant.lightmap_quality == quality.name())
+        })
+        .collect();
+    for quality in &request.variants {
+        let hit = !missing.contains(quality);
+        cache_decisions.push(CacheDecision {
+            stage: format!("prepared_world/{}", quality.name()),
+            status: if hit {
+                "hit"
+            } else if request.force {
+                "bypass"
+            } else {
+                "miss"
+            }
+            .into(),
+            reasons: vec![
+                if hit {
+                    "quality and common preparation inputs verified"
+                } else {
+                    "quality unavailable with current preparation inputs"
+                }
+                .into(),
+            ],
+        });
+    }
+    if !missing.is_empty() {
         let device_started = Instant::now();
         progress::check_cancelled()?;
         progress::stage("resolving capture materials");
@@ -527,7 +581,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
             |context| Ok(context.loaded.materials.clone()),
         )?;
         record_phase(&mut phases, "capture_device_materials", device_started);
-        for quality in &request.variants {
+        for quality in &missing {
             progress::check_cancelled()?;
             progress::variant(quality.name());
             progress::stage("preparing geometry and lightmap layout");
@@ -593,6 +647,20 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
             variant_stats.push(stats);
         }
     }
+
+    // Reused and newly prepared qualities follow the caller's requested order.
+    variants.sort_by_key(|variant| {
+        request
+            .variants
+            .iter()
+            .position(|quality| quality.name() == variant.lightmap_quality)
+    });
+    variant_stats.sort_by_key(|stats| {
+        request
+            .variants
+            .iter()
+            .position(|quality| quality.name() == stats.lightmap_quality)
+    });
 
     let sharing_started = Instant::now();
     progress::check_cancelled()?;
@@ -1028,12 +1096,19 @@ pub fn verify_selected(
     if let Err(error) = integrity {
         differences.push(format!("package integrity failed: {error}"));
     }
-    let prepared = fingerprint_with_build_inputs(
-        &lighting_fingerprint(&level, &variants, &dependencies)?,
+    let prepared = lighting_stage_fingerprint(
+        &level,
+        &variants,
+        &dependencies,
         &build_inputs,
-    );
-    let prepared_reusable =
-        integrity_valid && manifest.lighting_fingerprint.as_deref() == Some(&prepared);
+        &catalog,
+        &catalog_path,
+        asset_root,
+    )?;
+    let prepared_reusable = integrity_valid
+        && manifest.lighting_fingerprint.as_deref() == Some(&prepared)
+        && read_build_inputs(package, &manifest)
+            .is_ok_and(|previous| preparation_inputs_match(&previous, &build_inputs));
     let current = differences.is_empty();
     let status = if !integrity_valid {
         "invalid"
@@ -2396,8 +2471,9 @@ fn lighting_stage_fingerprint(
 ///
 /// It folds everything the prepared static world depends on — the level with
 /// the navigation and AI components removed, the dependency identities, the
-/// record versions, the lighting model and the transport solver, and the
-/// requested variants. Display name/author, navigation/AI components and final
+/// record versions, the lighting model and the transport solver, and
+/// each quality's implementation (through preparation source identity). Requested
+/// variant selection/order is excluded. Display name/author, navigation/AI components and final
 /// presentation are excluded; the outer key additionally hashes the exact
 /// referenced catalog closure, preparation source and reflection capture mode. An edit to the
 /// excluded fields reuses the previous geometry, lightmaps, probes and collision.
@@ -2423,7 +2499,7 @@ fn lighting_fingerprint(
 /// Returns an error when the stripped level cannot be serialized.
 pub(crate) fn lighting_fingerprint_with_revision(
     level: &LevelDef,
-    variants: &[LightmapQuality],
+    _variants: &[LightmapQuality],
     dependencies: &[PackageDependency],
     geometry_revision: u32,
 ) -> Result<String, String> {
@@ -2470,7 +2546,7 @@ pub(crate) fn lighting_fingerprint_with_revision(
     // Explicit stage-key version: older packages miss once, then reuse safely.
     let _formatted_stage_lighting = writeln!(
         canonical,
-        "stage lighting v1 navigation_display_metadata_presentation_scripts_excluded"
+        "stage lighting v2 independent_quality navigation_display_metadata_presentation_scripts_excluded"
     );
     // This reusable stage also stores collision boxes, including region rims.
     let _formatted_rim_backing = writeln!(
@@ -2499,9 +2575,6 @@ pub(crate) fn lighting_fingerprint_with_revision(
     // revision therefore invalidates both stages together instead of letting
     // a stale mesh and its old lightmaps be reused.
     let _formatted_geometry_geometry = writeln!(canonical, "geometry {geometry_revision}");
-    for quality in variants {
-        let _formatted_variant = writeln!(canonical, "variant {}", quality.name());
-    }
     for dependency in dependencies {
         let _formatted_dep = writeln!(
             canonical,
@@ -2565,6 +2638,8 @@ fn reuse_prepared_lighting(
     out: &Path,
     lighting_fingerprint: &str,
     level: &LevelDef,
+    requested: &[LightmapQuality],
+    expected_inputs: &BuildInputs,
     warnings: &mut Vec<String>,
 ) -> Result<(Vec<Variant>, BlobMap), String> {
     if !out.exists() {
@@ -2575,13 +2650,21 @@ fn reuse_prepared_lighting(
     let names = reader.names().to_vec();
     let manifest_bytes =
         reader.read_entry("manifest.json", crate::engine::package::MAX_MANIFEST_BYTES)?;
-    let manifest = Manifest::from_json(&manifest_bytes, &names)?;
-    let _verified_inputs = read_build_inputs(out, &manifest)?;
+    let mut manifest = Manifest::from_json(&manifest_bytes, &names)?;
+    let previous_inputs = read_build_inputs(out, &manifest)?;
+    if !preparation_inputs_match(&previous_inputs, expected_inputs) {
+        return Err("compiler preparation provenance or capture mode changed".into());
+    }
     if manifest.lighting_fingerprint.as_deref() != Some(lighting_fingerprint) {
-        return Err(
-            "prepared geometry, illumination, assets, variants or tool identity changed"
-                .to_string(),
-        );
+        return Err("prepared geometry, illumination, assets or tool identity changed".to_string());
+    }
+    manifest.variants.retain(|variant| {
+        requested
+            .iter()
+            .any(|quality| quality.name() == variant.lightmap_quality)
+    });
+    if manifest.variants.is_empty() {
+        return Err("no requested quality is available in the verified prepared stage".into());
     }
     let mut needed = BTreeSet::new();
     let mut shared_names = Vec::new();
@@ -2632,9 +2715,6 @@ fn reuse_prepared_lighting(
     needed.extend(shared_names.iter().map(String::as_str));
     let mut blobs: BlobMap = BTreeMap::new();
     for entry in &manifest.entries {
-        if entry.name == "semantics.json" {
-            continue;
-        }
         let bytes = read_declared_entry(&mut reader, entry)?;
         // Verify all old records, but carry forward only referenced static
         // data. Navigation is rebuilt; retaining its previous blobs would
@@ -2809,6 +2889,13 @@ fn reuse_current(
             Err(vec![format!("package integrity failed: {error}")])
         }
     }
+}
+
+fn preparation_inputs_match(previous: &BuildInputs, current: &BuildInputs) -> bool {
+    previous.revision == current.revision
+        && previous.compiler_code_sha256 == current.compiler_code_sha256
+        && (previous.compiler_code_sha256.is_some() || previous.tool_sha256 == current.tool_sha256)
+        && previous.capture_probes == current.capture_probes
 }
 
 fn read_build_inputs(out: &Path, manifest: &Manifest) -> Result<BuildInputs, String> {

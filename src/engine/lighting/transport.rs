@@ -2856,7 +2856,12 @@ impl TransportScene {
             receivers.len(),
             cache_started.elapsed().as_secs_f64() * 1_000.0_f64
         ));
-        let mut previous_order = accumulators.clone();
+        // Gather reads only the exact surface integral; directional moments stay
+        // in the full direct/total accumulators. Reuse this RGB buffer each order.
+        let mut previous_order: Vec<[f32; 3]> = accumulators
+            .iter()
+            .map(|value| value.surface_light)
+            .collect();
         for pass_index in 0..options.bounces {
             let order_started = std::time::Instant::now();
             crate::engine::logging::info(format_args!(
@@ -2900,7 +2905,9 @@ impl TransportScene {
             {
                 return Err(LightmapFailure::FillNonFinite);
             }
-            previous_order = gained;
+            for (previous, gain) in previous_order.iter_mut().zip(&gained) {
+                *previous = gain.surface_light;
+            }
             crate::engine::logging::info(format_args!(
                 "[transport-order] shared_layers=1 order={pass_index} gather_ms={gather_ms:.3} accumulation_ms={:.3}",
                 accumulation_started.elapsed().as_secs_f64() * 1_000.0_f64
@@ -3096,7 +3103,7 @@ impl TransportScene {
     fn bounce_pass(
         &self,
         receivers: &[TransportReceiver],
-        current: &[Accumulator],
+        current: &[[f32; 3]],
         cache: &RadianceCache,
         samples: usize,
         pass_index: u8,

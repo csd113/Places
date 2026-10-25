@@ -318,6 +318,17 @@ buffer bound, not a claim about total process memory. Spool files and partial
 archives are removed on failure/cancellation, while the previous published output
 is retained. Export needs scratch disk for the spool, current temporary map and
 final compressed archive, and reports retained record bytes after each map.
+
+Verified compressed export staging retains an owned single-record ZIP snapshot
+for prepared records, including unchanged-member reuse and cache seeding. The
+snapshot passes the ordinary bounded decoder, exact length, CRC and decoded
+SHA-256 validation before reuse. Publication compares pinned metadata and hashes
+the compressed bytes actually copied, with cancellation checks during I/O.
+Aggregate limits continue to charge decoded bytes. Bootstrap manifests remain
+Deflate; existing Stored/Deflate/Zstandard payloads retain their method and exact
+compressed stream. Storage optimization still decodes/re-encodes records to apply
+its explicitly requested compression profile. This changes no package revision.
+
 Existing prepared caches may be reused only when their exact source, assets and
 compiler provenance match. Export does not provide a resumable partial-project
 checkpoint or bypass executable fingerprints.

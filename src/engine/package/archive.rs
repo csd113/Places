@@ -6,6 +6,8 @@ use std::path::{Path, PathBuf};
 use sha2::{Digest as _, Sha256};
 
 mod bounded_zstd;
+mod compressed;
+pub(crate) use compressed::CompressedRecord;
 
 use super::{MAX_ENTRIES, MAX_PROJECT_TOTAL_BYTES, MAX_TOTAL_BYTES, OpenError, hash, project};
 
@@ -563,6 +565,7 @@ pub struct PendingEntry {
 
 /// One owned compiler spool record, pinned by its decoded length and digest.
 pub(crate) struct SpoolEntry {
+    pub compressed: Option<CompressedRecord>,
     pub name: String,
     pub path: PathBuf,
     pub bytes: u64,
@@ -788,6 +791,10 @@ fn write_project_archive_to(
     let mut writer = zip::ZipWriter::new(file);
     for entry in entries {
         check()?;
+        if let Some(record) = &entry.compressed {
+            compressed::write(&mut writer, entry, record, check)?;
+            continue;
+        }
         let mut input = open_spool_file(entry)?;
         writer
             .start_file(entry.name.as_str(), file_options(&entry.name, compression))
@@ -809,8 +816,14 @@ fn write_project_archive_to(
 /// Reject links/special files before opening and check the opened handle too.
 /// Nonblocking/no-follow flags close the regular-file/FIFO and symlink races.
 fn open_spool_file(entry: &SpoolEntry) -> Result<std::fs::File, String> {
+    let stored_bytes = entry
+        .compressed
+        .as_ref()
+        .map_or(entry.bytes, |record| record.file_bytes);
     let check = |metadata: &std::fs::Metadata| {
-        if metadata.is_file() && !metadata.file_type().is_symlink() && metadata.len() == entry.bytes
+        if metadata.is_file()
+            && !metadata.file_type().is_symlink()
+            && metadata.len() == stored_bytes
         {
             Ok(())
         } else {

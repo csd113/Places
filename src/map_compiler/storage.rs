@@ -137,6 +137,7 @@ fn publish_ordinary(
                 .get(&physical)
                 .ok_or("Storage spool record disappeared")?;
             Ok(archive::SpoolEntry {
+                compressed: None,
                 name,
                 path: entry.path.clone(),
                 bytes: entry.bytes,

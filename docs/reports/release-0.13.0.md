@@ -8911,3 +8911,158 @@ security or update setting was changed, restored or investigated, and no awake
 helper was started. Routine staging commit/push is authorized; exact final remote
 and writer release are recorded in the external ownership handoff. No force
 push, main merge, public release or version bump is implied.
+
+## Compiler follow-up: exact working buffers and independent reuse - Windows, 2026-10-25
+
+This completes the three newly authorized compiler optimizations on
+`0.13.0-staging`, starting from clean, remote-verified
+`a98abc5ec3c74f758f702f0196605d8f76759769`. It does not complete the remaining
+0.13.0 queue. Root `AGENTS.md`, the relevant canonical release/format guidance
+and current implementation were checked. This checkout has no checkout skills.
+No repository source map, visual/audio asset, quality setting, shader, dependency/version,
+solver equation, sample count, bounce count or memory budget changed.
+
+**Previous-bounce buffers.** The single and shared base/first-circuit paths now
+retain only exact surface-light RGB in the previous-order vectors. The full
+15-f32 direct, gained and total directional accumulators remain, including their
+finite checks and original arithmetic order. Existing geometric stencils, BVH,
+emitter filtering, scratch reuse and parallel work division are unchanged.
+An RGB previous value is 12 bytes versus 60: **48*N theoretical bytes saved per
+layer**, or 96*N for the shared pair. This is an allocation calculation, not a
+prediction of whole-process resident-memory savings.
+
+Six clean forced Full bakes ran sequentially with 12 workers and no concurrent
+build, other bake, native game or decoder campaign. Home/Pool used control then
+candidate; Beach reversed that order. File caches were not flushed and host
+thermal/background variation was not controlled. These are **one pair per map**,
+not a statistical speedup claim. Windows process counters were sampled every
+50 ms; CPU includes all process threads. Peak working set and PeakPagefileUsage
+(commit charge) are distinct; sampled current-private peaks remain separately
+in the raw receipts. No GPU memory is added to these figures.
+
+| Case | Wall seconds before -> after | CPU seconds | Peak working set MiB | Peak commit MiB |
+| --- | ---: | ---: | ---: | ---: |
+| Home Full | 84.333 -> 85.007 | 952.328 -> 960.422 | 546.9 -> 496.2 | 641.5 -> 570.4 |
+| Pool Full | 220.220 -> 222.717 | 2,373.734 -> 2,407.062 | 844.0 -> 762.3 | 1,011.5 -> 943.9 |
+| Beach Full | 277.377 -> 278.521 | 2,954.391 -> 2,966.562 | 2,285.5 -> 2,279.5 | 2,922.5 -> 2,604.7 |
+
+Home/Pool working-set peaks fall approximately **9.3% / 9.7%**. Beach's working
+set is effectively flat, while peak commit falls approximately **10.9%**.
+All three candidate wall times are within about 1.2% of their controls, with no
+whole-bake speed gain established. Initial Pool/Beach samples overlapped an
+early Clippy build and are explicitly excluded from these comparisons. The
+uncontended controls were rebuilt; every repeated control archive is byte-exact.
+
+The preserved bounded Rust oracle compares every decoded lightmap half plane,
+reconstructed prepared-prop/Static-off stream, mesh, lighting/probe/collision/
+navigation record, semantics and dependency. **Home, Pool and Beach are exact**;
+receiver, direct-ray, logical bounce and geometric-work counts are unchanged.
+Only compiler-code/tool identity, compiler/lighting fingerprints and the declared
+provenance-record digest are normalized. Other provenance fields, record names,
+roles and lengths remain compared. These ordinary outputs are selected-level
+build caches rather than complete distributable environment collections.
+The retained standalone Home `validate` refusal is the expected complete-project
+context guard. These linked caches pass bounded record reads and current-input
+checks; the complete two-member export below receives full typed/native validation.
+
+| Ordinary Full package | Before bytes | After bytes | Decoded lighting |
+| --- | ---: | ---: | --- |
+| Home | 11,096,833 | 11,096,825 | exact |
+| Pool | 17,980,200 | 17,980,195 | exact |
+| Beach | 17,808,563 | 17,808,561 | exact |
+
+**Independent qualities.** The v2 common preparation key excludes requested
+quality membership/order, while retaining actual prepared source, geometry/
+solver/record revisions, assets, catalog closure, preparation code and capture
+mode. Every declared old record is still checked; only requested existing
+qualities are retained, and missing qualities are built. Navigation, semantics,
+atlas keys and complete current provenance are refreshed. Results follow caller
+order and cache decisions identify each quality. Old stage keys miss
+conservatively once; a prior producer is not retrospectively blessed.
+
+On the existing material-transport fixture, Full -> Static+Full takes
+**15.360 -> 0.315 s**;
+reordering takes **15.459 -> 0.209 s**;
+removing Static takes **14.229 -> 0.210 s**.
+The candidate reports the expected hits/misses and performs no Full preparation
+for these reuse requests. Each retained quality matches an independent forced
+build exactly. The existing Static/Full CLI remains unchanged; legacy Medium
+reading is not expanded into a new CLI feature.
+
+Real illumination changes invalidate the stage. Display-only edits refresh it.
+Old-producer, changed-code, changed-capture and unsupported-provenance cases
+require a bake; verification and actual reuse share the same explicit provenance
+guard. Current-source checks and independent forced comparisons pass. A scratch
+harness filename collision overwrote its own edited source with a timing receipt
+after a successful incremental build; the exact source was reconstructed at a
+distinct path and reverified. Other harness setup/expectation corrections are
+documented in `harness-corrections.json`; failed receipts remain separate from
+the final passing outcomes.
+
+**Verified compressed records.** Project export and ordinary cache seeding now
+stage owned one-record ZIP snapshots. The existing bounded decoder validates
+the snapshot's exact decoded length, CRC, content hash, Zstd history/ratio and
+frame termination before reuse. Publication checks pinned method/CRC/length and
+hashes precisely the compressed payload actually copied. It retains bounded
+I/O cancellation, decoded aggregate budgets, regular-file checks, source/output
+rechecks, sync and atomic publication. Bootstrap manifests remain Deflate.
+Existing Stored/Deflate/Zstd streams survive exactly; storage optimization still
+re-encodes to apply its requested profile. Package/PLC1 revisions are unchanged.
+
+An existing two-fixture project isolates an incremental metadata export with one
+unchanged member. This avoids another large collection rebake. Setup and
+correctness checks are excluded from the measured request:
+
+| Producer | Incremental wall s | CPU s | Peak working set MiB | Output bytes |
+| --- | ---: | ---: | ---: | ---: |
+| Baseline | 0.569 | 0.500 | 20.6 | 3,397,447 |
+| Candidate | 0.512 | 0.422 | 21.0 | 3,397,250 |
+
+Common compressed records remain byte-exact, and the complete decoded projects
+match across producers after the same limited provenance normalization. Output
+size is recorded separately: retaining verified existing codecs does not promise
+the same wire encoding/size as recompression. This is one short export pair;
+50-ms process polling limits wall-time precision, and no general export speedup
+or large-map scaling claim is made. The small wire-size difference includes
+provenance/metadata encoding and is not assigned as a compression-size gain.
+Complete validation, every member's
+`--require-current`, byte-exact editable recovery, no-op repeated export,
+direct corrupt-input refusal, CRC cache rejection with byte-exact safe rebuild,
+existing-recovery-directory refusal and cooperative
+cancellation/restart pass. The tiny Rust raw-copy regression additionally cancels
+mid-payload and rejects same-length spool mutation for all three codecs, retaining
+accepted output and removing owned partials.
+
+The native player imports the actual candidate project, loads both Full members,
+transitions and shuts down normally. This is a bounded format/load smoke check;
+no new gameplay, listening or FPS acceptance is implied. No recording, PCM tap,
+video or screenshot campaign was produced.
+
+**Final checks and custody.** Format, locked workspace/all-target/all-feature
+check, strict workspace/all-target/all-feature Clippy, locked all-feature release,
+**321 Rust tests (zero failed/ignored; 1.01 s test execution)**, **24 targeted
+Python tests**, asset/texture/prop/audio checks and patch whitespace pass. Two
+small essential Rust regressions were added; the existing tiny cache-seed test
+was extended for provenance. No shipped map bake enters tests or CI. Assets are
+**629 / 389 placeable / nine themes / zero warnings**; the known 100 texture
+advisories remain. The broader Python suite was not rerun: its known **17
+failures/errors and 16 skips** remain open and are not relabeled as passing.
+
+Evidence is under `C:/Users/Connor Dawkins/Documents/Codex/2026-10-25/task-2/`:
+`phase-summary.json`, `paired-bake-results.json`, `lighting-parity.json`,
+`variant-results.json`, `invalidation-results.json`, `export-results.json`,
+`export-failure-results.json`, `native-export-smoke/receipt.json` and
+`quality-final/results.json`. `candidate-bin/` retains four final executables
+and six required DLLs, hash-checked against the validated originals. Controls,
+sources, unique recovery data and failed harness receipts are preserved.
+After publication/remote verification, `cleanup.json` records verified target
+cleanup and the observed free-space change; `ownership-handoff.json` records
+the exact final commit/remote, clean tree and explicit writer-custody release.
+
+The approximately **2.4-second cold input stall** and **human/subjective ambience
+listening review** remain open. Arcade lighting, water, advanced audio, shared AI,
+editor work and map construction remain separate queue phases. Mac/Metal,
+Linux and the final-version CI gate remain open. No ZIP refresh, upload, release,
+version bump, main merge, force push, CI wait, power/security/sleep change,
+awake helper or GPU-clock investigation occurred. Connor's manual sleep setting
+was left alone.

@@ -331,6 +331,7 @@ impl Directory {
                 let path = self.0.join(format!("spool{number}"));
                 fs::write(&path, &source.bytes).map_err(|error| error.to_string())?;
                 Ok(SpoolEntry {
+                    compressed: None,
                     name: source.name.clone(),
                     path,
                     bytes: u64::try_from(source.bytes.len()).map_err(|error| error.to_string())?,
@@ -535,6 +536,7 @@ fn streamed_ordinary_migration_keeps_bounds_integrity_and_atomicity() -> Result<
                 // Metadata-only aggregate overflow: each record is individually
                 // legal, and admission must fail before opening these files.
                 let extra = |name: &str| SpoolEntry {
+                    compressed: None,
                     name: name.into(),
                     path: root.0.join("must-not-open"),
                     bytes: crate::engine::package::MAX_BINARY_BYTES,

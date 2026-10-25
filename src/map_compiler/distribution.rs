@@ -85,7 +85,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
                     stage: format!("{}/package", level.id),
                     status: "hit".into(),
                     reasons: vec![
-                        "Verified current member streamed directly; no seed/recompression or bake"
+                        "Verified current member compressed records reused; no seed/recompression or bake"
                             .into(),
                     ],
                 });
@@ -167,7 +167,8 @@ fn spool_current(
     project::select(&mut reader, Some(id))?;
     let mut records = BTreeMap::new();
     for name in reader.names().to_vec() {
-        let physical = blobs.add_entry(&mut reader, &name, &progress::check_cancelled)?;
+        let physical =
+            blobs.add_compressed_entry(&mut reader, &name, &progress::check_cancelled)?;
         drop(records.insert(name, physical));
     }
     Ok(project::ProjectMap {
@@ -230,7 +231,8 @@ fn spool_map(
         let mut records = BTreeMap::new();
         for name in reader.names().to_vec() {
             progress::check_cancelled()?;
-            let blob = spool.add_entry(&mut reader, &name, &progress::check_cancelled)?;
+            let blob =
+                spool.add_compressed_entry(&mut reader, &name, &progress::check_cancelled)?;
             let _old = records.insert(name, blob);
         }
         drop(reader);
@@ -329,6 +331,7 @@ pub(super) fn package_entries(
     drop(index_file);
     let mut entries = blobs.into_entries();
     entries.push(archive::SpoolEntry {
+        compressed: None,
         name: project::INDEX.into(),
         path: index_path,
         bytes: u64::try_from(index_bytes.len()).map_err(|error| error.to_string())?,
