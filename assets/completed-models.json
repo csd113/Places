@@ -1053,7 +1053,7 @@
     ]
   },
   "environments/arcade/props/cabinet_action.glb": {
-    "sha256": "95d183bdb4eba5b4cdaf61410decd104916001d42425292391059e716f38473f",
+    "sha256": "3b4a635ec5886de5b5be3f5fd11a586dc9f721c0130ad59cd835de92cfa7e104",
     "triangles": 1822,
     "texture_edge": 512,
     "identities": [
@@ -1071,7 +1071,7 @@
     ]
   },
   "environments/arcade/props/cabinet_fighting.glb": {
-    "sha256": "0348a2d75c61b3ef213bddcd28adad5fe54575f357621b40c0fc48070d636273",
+    "sha256": "2d3bc12b26e1505b0d7c8fdffcd4a470708cbd5c539f4fcc61f16f022c1ffe17",
     "triangles": 2430,
     "texture_edge": 512,
     "identities": [
@@ -1089,7 +1089,7 @@
     ]
   },
   "environments/arcade/props/cabinet_racing.glb": {
-    "sha256": "45ebf2d9e40f8f00699d74417ba7eb10730f3675612bf99b9a31afcb8d8eb926",
+    "sha256": "86b935d4335e1e1eb8a999b53d418a2187a907a2e674e4d64a69bb5a641d75ac",
     "triangles": 2058,
     "texture_edge": 512,
     "identities": [
@@ -1107,7 +1107,7 @@
     ]
   },
   "environments/arcade/props/cabinet_scifi.glb": {
-    "sha256": "dfb10945a0f6b280c1b34933e5bc034ec44e517f77d1c9dac8ed8ffca353c17c",
+    "sha256": "be6a2a0210d279ed73eec2fdd6106544af690197495b5efca539c58f63c240f9",
     "triangles": 1826,
     "texture_edge": 512,
     "identities": [
@@ -1125,7 +1125,7 @@
     ]
   },
   "environments/arcade/props/cabinet_shooter.glb": {
-    "sha256": "48d7d561108f4434d9a8a196a3403fcc70d0b89ece38a1b78a802c126eacde63",
+    "sha256": "3adc486595257b934f54da3fd7152019435d448dc995454388260a6b4e5d7fef",
     "triangles": 1822,
     "texture_edge": 512,
     "identities": [
@@ -1377,7 +1377,7 @@
     ]
   },
   "environments/arcade/props/pinball_comet.glb": {
-    "sha256": "b061726e9cbf26b6ceeddf61fdebd710eac649c1a8547d5b9acb2495df036198",
+    "sha256": "a13fd807366415739b24379a31a2597542472a1d6c58f9bf0428ecb09ace27bb",
     "triangles": 1532,
     "texture_edge": 512,
     "identities": [
@@ -1395,7 +1395,7 @@
     ]
   },
   "environments/arcade/props/pinball_cosmic.glb": {
-    "sha256": "7c0140e07cc6a5568275e5f175968839482ba7f4a87b126ed4cc3c2b10b7bdfc",
+    "sha256": "56f7e6ac0747a1af69f3b44aab65abe1c09e74b2be337f92f2383f9befa076cb",
     "triangles": 1532,
     "texture_edge": 512,
     "identities": [
@@ -1413,7 +1413,7 @@
     ]
   },
   "environments/arcade/props/score_monitor.glb": {
-    "sha256": "f9f3c807fab8ab519782a68b99edc2192c0a4309f8c0d42b9d6157753de697d2",
+    "sha256": "88c176e99e592fd24060ab87737e210fd51af3b9356c0a8d9a9f30cb0dee4343",
     "triangles": 646,
     "texture_edge": 512,
     "identities": [
@@ -1431,7 +1431,7 @@
     ]
   },
   "environments/arcade/props/score_monitor_inactive.glb": {
-    "sha256": "0fa30cc16877c73fa9ac5623f0836b48d1879008ef5c29ef9cfaacc517b11c80",
+    "sha256": "8966ccc18a5ba0c0131f2be8750122a28d4762eacff9fcb97dc667caef4fbb28",
     "triangles": 646,
     "texture_edge": 512,
     "identities": [

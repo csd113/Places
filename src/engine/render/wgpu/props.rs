@@ -99,18 +99,45 @@ pub struct WgpuProps {
     materials: Vec<GpuMaterial>,
     textures: Vec<Arc<GpuTexture>>,
     stats: PropGpuStats,
-    emission_controls: Vec<PropEmissionControl>,
+    emission_controls: std::collections::BTreeMap<u32, Vec<PropEmissionControl>>,
+    animated_controllers: std::collections::BTreeSet<u32>,
     animation_seconds: f32,
 }
 
 struct PropEmissionControl {
-    controller: u32,
     material: usize,
     enabled: bool,
     scale: f32,
     animation: Option<crate::engine::render::common::animation::EmissionAnimation>,
     applied: f32,
 }
+
+impl PropEmissionControl {
+    fn desired_scale(&self, seconds: f32) -> f32 {
+        if self.enabled {
+            self.scale
+                * self
+                    .animation
+                    .map_or(1.0, |animation| animation.factor(seconds))
+        } else {
+            0.0
+        }
+    }
+
+    fn apply(&mut self, queue: &wgpu::Queue, materials: &[GpuMaterial], seconds: f32) {
+        let scale = self.desired_scale(seconds);
+        if scale.to_bits() != self.applied.to_bits() {
+            if let Some(material) = materials.get(self.material) {
+                material.write_emission_scale(queue, scale);
+            }
+            self.applied = scale;
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "../../tests/prop_power.rs"]
+mod tests;
 
 /// Resolved resource slots and uniform values shared by one prop material.
 #[derive(Debug, PartialEq)]
@@ -294,7 +321,8 @@ impl PropUpload {
                 materials: Vec::new(),
                 textures: Vec::new(),
                 stats: PropGpuStats::default(),
-                emission_controls: Vec::new(),
+                emission_controls: std::collections::BTreeMap::new(),
+                animated_controllers: std::collections::BTreeSet::new(),
                 animation_seconds: 0.0,
             },
             identities: Vec::new(),
@@ -421,6 +449,7 @@ impl PropUpload {
             materials,
             textures,
             emission_controls,
+            animated_controllers: _,
             animation_seconds: _,
         } = &mut self.props;
         let identities = &mut self.identities;
@@ -477,14 +506,16 @@ impl PropUpload {
                 );
                 materials.push(gpu);
                 if let Some(owner) = controller {
-                    emission_controls.push(PropEmissionControl {
-                        controller: owner,
-                        material: materials.len().saturating_sub(1),
-                        enabled: true,
-                        scale: 1.0,
-                        animation: None,
-                        applied: 1.0,
-                    });
+                    emission_controls
+                        .entry(owner)
+                        .or_default()
+                        .push(PropEmissionControl {
+                            material: materials.len().saturating_sub(1),
+                            enabled: true,
+                            scale: 1.0,
+                            animation: None,
+                            applied: 1.0,
+                        });
                 }
                 identities.push(identity);
                 materials.len().saturating_sub(1)
@@ -612,43 +643,39 @@ impl WgpuProps {
         scale: f32,
         animation: Option<crate::engine::render::common::animation::EmissionAnimation>,
     ) {
-        for control in &mut self.emission_controls {
-            if control.controller == controller {
+        if animation.is_some_and(|value| value.is_active()) {
+            let _inserted = self.animated_controllers.insert(controller);
+        } else {
+            let _removed = self.animated_controllers.remove(&controller);
+        }
+        if let Some(controls) = self.emission_controls.get_mut(&controller) {
+            for control in controls {
                 control.enabled = enabled;
                 control.scale = scale;
                 control.animation = animation;
+                control.apply(queue, &self.materials, self.animation_seconds);
             }
         }
-        self.update_animations(queue, self.animation_seconds);
     }
 
-    /// Switch only an owner's luminous slots; opaque hardware never gains emission.
+    /// Switch one owner's luminous slots; no geometry or unrelated owner scan.
     pub fn set_light_enabled(&mut self, queue: &wgpu::Queue, controller: u32, enabled: bool) {
-        for control in &mut self.emission_controls {
-            if control.controller == controller {
+        if let Some(controls) = self.emission_controls.get_mut(&controller) {
+            for control in controls {
                 control.enabled = enabled;
+                control.apply(queue, &self.materials, self.animation_seconds);
             }
         }
-        self.update_animations(queue, self.animation_seconds);
     }
 
-    /// Animate existing emission uniforms; unchanged materials incur no writes.
+    /// Only authored animations need a frame visit. Steady power is event-driven.
     pub fn update_animations(&mut self, queue: &wgpu::Queue, seconds: f32) {
         self.animation_seconds = seconds;
-        for control in &mut self.emission_controls {
-            let scale = if control.enabled {
-                control.scale
-                    * control
-                        .animation
-                        .map_or(1.0, |animation| animation.factor(seconds))
-            } else {
-                0.0
-            };
-            if scale.to_bits() != control.applied.to_bits() {
-                if let Some(material) = self.materials.get(control.material) {
-                    material.write_emission_scale(queue, scale);
+        for controller in &self.animated_controllers {
+            if let Some(controls) = self.emission_controls.get_mut(controller) {
+                for control in controls {
+                    control.apply(queue, &self.materials, seconds);
                 }
-                control.applied = scale;
             }
         }
     }

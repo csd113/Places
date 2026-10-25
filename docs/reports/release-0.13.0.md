@@ -9066,3 +9066,166 @@ Linux and the final-version CI gate remain open. No ZIP refresh, upload, release
 version bump, main merge, force push, CI wait, power/security/sleep change,
 awake helper or GPU-clock investigation occurred. Connor's manual sleep setting
 was left alone.
+
+## Arcade power, screen materials and local light — 2026-10-25
+
+This separate phase starts from remote-verified `bc1f372a65cf5d0c7efe188aabe90127345a55ac`
+on `0.13.0-staging`. It fixes the powered-off CRT appearance and calibrates the
+Arcade family without changing the queued water, audio, AI, editor or map work.
+
+**Cause and shared fix.** Existing light-owner controls already gate true
+emission and their baked/runtime sources. The CRT artwork nevertheless used a
+bright diffuse response, so room light left an off display looking powered.
+Machine emission and local source output were also independently authored,
+with two overlapping cabinet sources totalling 0.54 and reaching 2.4 m. The
+north Fighting cabinet's static `material` standby component did not control
+its baked prop emission.
+
+Nine adopted GLBs now separate dark CRT glass from powered art. CRT diffuse RGB
+is 0.015 and powered emission is 0.65; cabinet marquee diffuse/emission is
+0.7/0.4, pinball backglass 0.7/0.45, and pinball lamp faces 0.5/0.8. The
+inactive score CRT has zero emission. Printed marquees and backglass can still
+be read under independent room illumination. These are artistic engine values,
+not calibrated nits or lux. Every GLB binary chunk, embedded PNG, geometry,
+normal, UV, alpha contract and nonmaterial document field remains exact. Only
+the nine matching adopted-model hashes change in the manifest.
+
+`tools/levels/cabinet_power.py` provides a reusable placement contract using the
+existing `light` component: one short 1.8-m source at the measured screen
+offset, intensity `0.14 * cabinet_width / 0.82 * emission_scale`, authored
+palette retained. An off or dimmed/switchable machine uses the same owner for
+luminous slots and attached light sources. Fully powered uncontrolled copies
+retain draw merging. The Arcade generator and all 36 current cabinet placements
+use it; north Fighting's actual owner now scales both emission and source to
+0.16. Other props, room/decorative fixtures, scripts, quests, transitions and
+level fields compare exactly. Independent neon/UV/decorative lighting is retained.
+
+The renderer indexes emission controls by owner. A switch writes only changed
+existing luminous material uniforms for that owner; the frame loop visits only
+authored active animations. Steady machines require no per-frame emission scan.
+Power-off dominates animation. There is no new rebake, whole-mesh upload, prop
+scan, texture generation, lighting invalidation or geometry admission change.
+Two tiny CPU regressions protect off/animation/repeated-toggle behavior and
+independent luminous identities while keeping nonemissive hardware shared.
+They use no GPU, map bake or asset fixture.
+
+**Native visual and circuit evidence.** Actual before/after PNGs were inspected
+at 1280x720. The five-cabinet fixture covers dark and normally lit on/off views,
+repeated toggles, separate room illumination, nearby static chairs, and Full ->
+Static -> Full restoration. Full-off and repeated on/off images are pixel-exact
+within each run. In matching screen regions, normally lit off mean encoded RGB
+falls from 13.46–36.45 to 0.62–5.65; these are image code values, not luminance.
+Powered art stays readable with reduced glow and localized spill. Both dark-off
+runs were already dark: the principal defect was room-lit diffuse artwork.
+The native nearby-body probe has zero machine direct strengths and zero indirect
+HDR input with the room and machines off; both become nonzero when powered.
+Its GPU vertex/index allocation, geometry revision and visibility mesh-build
+count remain stable through the switches. Independent neon stays visible.
+
+Separate fixtures cover both pinballs, active/inactive score CRTs, an authored
+off machine, and nearby dynamic-prop lighting. Saved authored-off source compiles,
+imports, loads and reloads off. Runtime state also survives the Full/Static/Full
+quality rebuild. Static quality retains its existing authored-light-state
+contract; runtime source switching is a Full-quality feature. This is source
+save/load coverage, not a claim of arbitrary runtime power persistence in a
+savegame. The initial/reload camera pitches differ, so those two images are not
+claimed pixel-identical.
+
+The exact final player reruns all four primary fixture cases. Cabinet, authored
+off and pinball captures match the initial candidate 8/8, 7/7 and 8/8; nearby
+case power views match 6/6, with its two later decorative look-at views differing.
+The larger scene uses the actual whole Arcade geometry/lights with its real
+Lua script in an isolated one-level project; only the hub transition/return
+binding is removed from this inspection harness. Before/after north standby,
+wall row, scoreboards and pinballs were captured and inspected. North Fighting
+is visibly dimmer, the fourth inactive score monitor is black, and powered
+low-poly art remains legible. Both scene runs shut down normally with no
+captured script diagnostic. Geometry GPU bytes stay 31,088,824 vertex /
+701,952 index. The independent standby owner adds one batch and five draw
+ranges (64/177 -> 65/182); uploads stay 24 with one additional cache hit.
+This scene uses prepared fallback geometry in both players (canonical instance
+counters are zero), so it is not positive native instancing evidence. The GLB
+binary comparison and existing canonical-geometry regressions cover preservation;
+no claim of unchanged unique texture memory is inferred from per-batch counters.
+
+The bundled menu is rebuilt from unchanged `projects/menu` source and passes
+typed validation and current-input verification before installation. It is
+16,420,636 bytes, SHA-256
+`8662048651aa47670b5f25923406b9137306a9107dfe49bed57e2c11a43870d3`.
+A quiet final-player run captures repeated true all-off menu beats without
+script diagnostics; the inspected blackout has no powered CRT art. The menu's
+existing independent room fixtures and Full-only runtime contract are retained.
+
+Reflection acceptance remains **inconclusive**. Native planar passes execute,
+but the tested floor and wall views do not show a recognizable reflected CRT
+even when powered. The same wall setup is blank with the baseline `bc1f372a`
+player and with diagnostic occlusion disabled. The common material-uniform path
+is retained; this phase does not claim a verified visible CRT reflection or
+expand into repairing the broader reflection visibility issue.
+
+**Uncapped native timing.** Each scene has three before/after pairs in
+alternating order, 15 seconds after ready with 120 warmup frames, real frame
+delta and no screenshots/readbacks. All use High quality/filtering/lighting,
+Full lightmaps, Full reflections and bloom, 1280x720 physical drawable,
+DX12/NVIDIA RTX 3070 Laptop GPU, VSync off, no frame limiter and actual
+`Immediate (immediate)` confirmed after initial surface creation. Every run
+exceeds the 165-Hz display rate; these samples are not refresh-rate plateaus.
+No compiler/build job runs during them.
+
+| Scene | Median FPS before -> after | FPS range before / after | Median p95 loop ms before -> after |
+| --- | ---: | --- | ---: |
+| Five-cabinet fixture | 353.10 -> 355.95 | 348.97–359.76 / 350.40–356.45 | 5.841 -> 5.744 |
+| Actual Arcade, fixed view | 313.17 -> 318.04 | 310.62–313.71 / 317.60–321.75 | 4.574 -> 4.516 |
+| Menu Arcade vignette | 271.58 -> 271.16 | 269.79–271.85 / 268.76–273.14 | 6.964 -> 6.912 |
+
+These are bounded fixed-view comparisons, not a general speedup or exhaustive
+roaming/no-regression claim. Menu samples force Arcade vignette 4, seed 42;
+the menu comparison also includes bringing its old bundled scene current.
+Capture-time BENCH_SUMMARY output is excluded. Large-map bake timings overlapped
+build work and establish no bake-performance result.
+
+**Validation and evidence.** Final format, locked workspace/all-target/all-feature
+check, strict Clippy (`--workspace --all-targets --all-features -- -D warnings`),
+locked all-feature release, aggregate Rust tests, targeted Python tests,
+asset/texture/prop/audio validation and patch whitespace pass. There are
+**323 Rust tests**, zero failed/ignored, and **24 focused Python tests**.
+Assets remain **629 / 389 placeable / nine themes / zero warnings**; 140 texture
+assets retain the known 100 advisories, and prop checks retain existing art
+advisories. Audio remains 28 cues / 66 WAVs / 10,855,264 bytes / 41.40 MiB
+decoded. The broader Python suite was not rerun; its known **17 failures/errors
+and 16 skips** remain open and are not reported as a clean full suite.
+All six candidate fixture/Arcade/menu packages receive final-compiler typed
+validation and `--require-current` verification.
+
+Evidence is under `C:/Users/Connor Dawkins/Documents/Codex/2026-10-25/task-3/`:
+`phase-summary.json`, `material-tuning.json`, `source-audit.json`,
+`screen-pixel-audit.json`, `receiver-audit.json`, `native-final-acceptance.json`,
+`arcade-native.json`, `fps-results.json`, `fps-summary.json`,
+`package-final/results.json` and `quality-final/results.json`. Native PNGs and
+logs, exact source fixtures, controls and recovery data are preserved there.
+`final-bin/` holds four final executables and six DLLs, hash-checked against
+validated originals; player SHA-256 is
+`66754e33e46dbdecd345c85774623bcf4f40f3509228c06b9f532e9cc5c2318a`.
+`preserved-binaries-final.json` and `deliverable-hashes.json` record identities;
+`cleanup.json` and `ownership-handoff.json` record final target cleanup, exact
+commit/remote, clean tree and writer-custody release after publication.
+
+Failed exploratory receipts are retained separately. An early contended menu
+run exhausted the Lua budget and is excluded; the quiet final run passes.
+An initial Arcade harness omitted its script manifest; it was corrected using
+the real script/project context and the compiler's normal verified preparation
+cache hit, without a rebake or validation bypass. Initial Clippy caught one
+test-helper shadowed name, which was fixed before final gates. A refused
+hardlink attempt was replaced by ordinary independent backup copies. Reflection
+diagnostics and the corrected camera/pixel-comparison scopes remain explicit.
+Automatic approval review denied edits to the two canonical asset/map guides
+because this phase permits updating only this release report; neither guide
+was changed and that action was not retried. The material/authoring contract
+is recorded above instead.
+
+The approximately **2.4-second cold input stall**, **subjective ambience
+listening**, reflected-CRT visual acceptance, Mac/Metal/Linux checks and the
+final-version CI gate remain open. No ZIP refresh, recording, comparison video,
+Library upload, version bump, release, main merge, force push, CI wait,
+power/security/sleep change, awake helper or GPU-clock/charger investigation
+occurred. Connor's manually configured sleep setting is unchanged.

@@ -12,9 +12,11 @@ import json
 from pathlib import Path
 
 if __package__:
+    from .cabinet_power import cabinet_power
     from .birthday_compositions import PartyComposer
     from .arcade_restroom import compose_restroom, tile_trim
 else:
+    from cabinet_power import cabinet_power
     from birthday_compositions import PartyComposer
     from arcade_restroom import compose_restroom, tile_trim
 
@@ -311,16 +313,9 @@ def build_level():
     # chooses one different design per room rather than showroom floor bays.
 
     def cabinet(name, x, z, identity, yaw=90, color=(.24, .43, 1), dim=False):
-        offsets = adopted['cabinets']["arcade:"+name]['light_offsets']
-        scale = .16 if dim else 1
-        entry = prop(name, x, z, identity, yaw=yaw, lights=[
-            dict(shape="point", offset=offsets[0],
-                 color=list(color), intensity=.36*scale, range=2.4),
-            dict(shape="point", offset=offsets[1],
-                 color=list(color), intensity=.18*scale, range=1.8)])
-        if dim:
-            entry["components"] = [dict(component="material", current="standby",
-                variants=[dict(name="standby", emission_scale=scale)])]
+        profile = adopted['cabinets']["arcade:"+name]
+        prop(name, x, z, identity, yaw=yaw,
+             **cabinet_power(profile, color, emission_scale=.16 if dim else 1.0))
 
     for name, z, color in (("racing", 6.0, (.22, .48, 1)),
                           ("shooter", 8.0, (.15, .7, .55)),
