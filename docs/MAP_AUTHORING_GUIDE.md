@@ -6001,6 +6001,19 @@ regardless of its catalog default. `bindings` uses the ordinary event/action
 contract. `play_sound`/`stop_sound`, disable/enable and reset share component audio
 lifecycle; a play action's `loop` explicitly selects its playback policy.
 
+The player also supplies a quiet shared interior layer without changing map
+sources or compiled lighting. It uses one nearby powered fluorescent/UV ballast
+source (0.5-6.5 m), one nearest water-surface source (1.5-11 m) and one sparse
+warm interior tone (4-18 m). Each family owns at most one spatial loop, regardless
+of the number of fixtures or pools. Fixture power changes, reset and map unload
+retire/rebuild this layer; application pause and master/ambience settings use the
+ordinary mixer. Source envelopes and positions blend over approximately 0.35 s.
+No occlusion, HRTF or room-acoustics simulation is implied. The source positions
+are deliberately positional even though ordinary catalog HVAC/bird/water beds
+remain non-positional. All clips are committed WAVs with provenance; see the
+runtime-audio contract in `ASSET_SPECIFICATION.md` and `tools/audio/build.py --check`.
+Do not add per-fixture hum loops to reproduce this layer: that would stack voices.
+
 ### Timers
 
 A timer is a **headless entity**: it has an id, a period and bindings, but no

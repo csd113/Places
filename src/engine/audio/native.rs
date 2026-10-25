@@ -36,6 +36,9 @@ const CAPTURE_FRAMES: usize = 96_000;
 #[derive(Default)]
 struct OutputCounters {
     frames: AtomicU64,
+    mix_wall_nanos: AtomicU64,
+    mix_blocks: AtomicU64,
+    mix_max_nanos: AtomicU64,
     errors: AtomicU64,
     peak: AtomicU32,
     capture_dropped: AtomicU64,
@@ -75,6 +78,7 @@ struct OutputCallback {
     scratch: Box<[f32]>,
     counters: Arc<OutputCounters>,
     capture: Option<Producer<[f32; 2]>>,
+    measure_mix: bool,
 }
 
 struct SdlSettings {
@@ -127,6 +131,7 @@ impl Backend for SdlBackend {
             scratch: vec![0.0; CALLBACK_SAMPLES].into_boxed_slice(),
             counters: Arc::clone(&self.counters),
             capture: producer,
+            measure_mix: std::env::var("PLACES_BENCH").as_deref() == Ok("1"),
         });
         let spec = audio::SDL_AudioSpec {
             format: audio::SDL_AUDIO_F32,
@@ -213,7 +218,20 @@ unsafe extern "C" fn render_callback(
         let Some(samples) = output.scratch.get_mut(..count) else {
             break;
         };
+        let mix_start = output.measure_mix.then(std::time::Instant::now);
         output.renderer.process(samples, 2);
+        if let Some(start) = mix_start {
+            let nanos = u64::try_from(start.elapsed().as_nanos()).unwrap_or(u64::MAX);
+            let _time = output
+                .counters
+                .mix_wall_nanos
+                .fetch_add(nanos, Ordering::Relaxed);
+            let _blocks = output.counters.mix_blocks.fetch_add(1, Ordering::Relaxed);
+            let _maximum = output
+                .counters
+                .mix_max_nanos
+                .fetch_max(nanos, Ordering::Relaxed);
+        }
         let mut peak = 0.0_f32;
         for sample in samples.iter_mut() {
             if !sample.is_finite() {
@@ -425,8 +443,10 @@ impl NativeAudio {
             self.mix,
             request.position,
             request.spatial.unwrap_or(cue.spatial),
-            cue.min_distance,
-            cue.max_distance,
+            request
+                .attenuation
+                .map_or(cue.min_distance, |[near, _]| near),
+            request.attenuation.map_or(cue.max_distance, |[_, far]| far),
             request.gain * cue.gain,
             request.bus,
         );
@@ -536,6 +556,31 @@ impl NativeAudio {
         }
     }
 
+    pub fn set_source_gain(&mut self, source: SourceId, gain: f32) {
+        if !valid_gain(gain) {
+            return;
+        }
+        for voice in self
+            .voices
+            .iter_mut()
+            .flatten()
+            .filter(|voice| voice.source == Some(source))
+        {
+            if let Some(cue) = self.cues.get(voice.cue_index) {
+                voice.gain = gain * cue.gain;
+                update_voice(voice, self.mix);
+            }
+        }
+        for pending in self
+            .pending
+            .iter_mut()
+            .flatten()
+            .filter(|play| play.request.source == Some(source))
+        {
+            pending.request.gain = gain;
+        }
+    }
+
     pub fn stop_source(&mut self, source: SourceId) {
         for pending in &mut self.pending {
             if pending
@@ -630,6 +675,9 @@ impl NativeAudio {
                 .errors
                 .saturating_add(self.counters.errors.load(Ordering::Relaxed)),
             output_frames: self.counters.frames.load(Ordering::Relaxed),
+            mix_wall_nanos: self.counters.mix_wall_nanos.load(Ordering::Relaxed),
+            mix_blocks: self.counters.mix_blocks.load(Ordering::Relaxed),
+            mix_max_nanos: self.counters.mix_max_nanos.load(Ordering::Relaxed),
             peak_amplitude: f32::from_bits(self.counters.peak.load(Ordering::Relaxed)),
             capture_dropped: self.counters.capture_dropped.load(Ordering::Relaxed),
             ..self.stats

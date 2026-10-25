@@ -605,9 +605,9 @@ impl FrameLoop<'_> {
             crate::engine::physics::ItemPose { position, rotation },
             original.scale,
         ) {
-            self.ui_state.set_status(
+            self.ui_state.developer_diagnostic(
                 format!("Could not put down the carried item: {problem}"),
-                true,
+                self.settings.developer_console,
             );
             return;
         }

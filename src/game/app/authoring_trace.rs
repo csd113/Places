@@ -4,6 +4,7 @@ use serde_json::{Map, Value, json};
 
 impl super::FrameLoop<'_> {
     pub(super) fn append_authoring_trace(&self, fields: &mut Map<String, Value>) {
+        drop(fields.insert("ui".into(), json!({"status":self.ui_state.status_message,"error":self.ui_state.status_is_error,"retry":self.ui_state.load_retry.is_some(),"version":super::APP_VERSION})));
         drop(fields.insert(
             "trigger_query".into(),
             json!(self.game.entities().trigger_query_stats()),

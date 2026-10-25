@@ -8712,3 +8712,202 @@ real blocking notices and logs must remain available.
 Known separate visual issue: arcade machine screens can remain fullbright
 when off, and machine light output needs review. Connor explicitly moved
 that work to a subsequent task; it was not investigated or fixed here.
+
+
+## Release rough edges and quiet ambience - Windows, 2026-10-25
+
+This sole-writer pass began on clean `0.13.0-staging`, with HEAD and the actual
+remote both exactly `eaa0be183482649d67984b99071ef3314c8a6891`. Both required
+ownership handoffs released custody. Repository `AGENTS.md`, the relevant
+authoring/audio contracts and prior release evidence were read; this checkout
+has no `.agents/skills` directory. No map/project source, Beam rule, renderer
+shader, Cargo version or lockfile changed.
+
+**Version and bounded loading decision.** The current UI already receives
+`env!("CARGO_PKG_VERSION")` through `APP_VERSION`; introducing another constant
+or bumping Cargo would be wrong. The freshly rebuilt native player displays
+**v0.13.0**, including a second successful menu launch after Cargo cleanup.
+`native/menu-version/version.png` and the post-clean capture retain the actual
+visible label. The deferred old portable ZIP was not rebuilt or replaced.
+
+Cold pipeline/input stalls remain open. Current native runs record approximately
+**2.166-2.361 s** in initial renderer-pipeline API groups and **2.197-2.394 s**
+maximum cold event-pump gaps; the preserved old-player timing controls reach
+2.395 s. Full values, including instrumented launch-to-ready spans, are in
+`cold-attribution.json`. These groups include project WGSL validation, DXC and
+driver PSO work, not isolated driver CPU time. The pinned DX12 pipeline-cache
+implementation still supplies no retained binary cache to enable. The bounded
+review retained no speculative bootstrap/threading/variant change and claims
+no cold-start improvement. Shared geometry, compatible instancing, immutable
+warm editor preview/cache ownership and the two-sheet mip-upload bound remain
+untouched. No four-sheet experiment, driver/clock/charger/fan or power-setting
+work was performed.
+
+**Safe admission recovery.** The default **2,147,483,648-byte** map GPU admission
+budget remains unchanged. Current Full Lantern attempts charge
+**1,215,073,300 displayed + 1,215,073,300 incoming bytes** and are refused before
+the live world changes. This is a conservative admission charge, not measured
+physical GPU memory. The renderer now returns a typed `MapAdmissionError`;
+the player offers unload/retry only when the incoming map fits by itself.
+An individually oversized map cannot receive a futile unload offer.
+
+The visible prompt explains the two-world overlap and explicitly warns that
+unsaved in-map progress restarts. Separate drawn buttons and their actual hit
+regions agree: **Enter / unload + retry**, or **Esc / keep map**. Declining keeps
+the actual Lantern camera and physical body count. Accepting unloads the current
+renderer, simulation, items, script presentation, audio and displayed lease
+before starting the exact retained source identity. No intermediate background
+world is inserted, and no second prepared bundle is held for the choice.
+The explicit fresh attempt remains cancellable: Escape reaches a usable empty
+Explore screen with no renderer level, physics bodies, audio controls, pending
+commit or displayed prepared bytes. A subsequent retry loads Full Lantern
+successfully. No budget increase, quality rewrite or silent unload was used.
+`native/reload-{keep,retry,cancel}/` contains captures and ownership snapshots.
+
+**Developer-only prop modals.** `UiState::developer_diagnostic` always preserves
+logging and gates the player-facing modal on `settings.developer_console`,
+independently of whether the console is currently open. Exact converted paths:
+
+- `apply_ragdoll`: refused start, safe carried-item release rollback, and reset
+  of an actor without an active ragdoll (`app/ragdoll_runtime.rs`).
+- Failed miniature-pin substitution (`apply_world_commands` in `app/mod.rs`).
+- Refused NPC carried-item restoration (`release_carried_item_now` in
+  `app/carry_runtime.rs`); attachment/rollback ownership remains intact.
+
+An enabled diagnostic owns normal keyboard navigation and pauses gameplay while
+its modal is visible. Native bounded fault injection calls the real missing-actor
+ragdoll refusal with the setting disabled and enabled, checks hidden/visible
+status, dismisses it normally and verifies both log messages remain. The
+disabled no-active-ragdoll path stays quiet too. This is a deliberate diagnostic
+fixture, not a claim to reproduce a naturally occurring ragdoll failure.
+The miniature/carry branches share the tested presentation seam; their safety
+checks and rollback code were not bypassed.
+
+Other examined pathways were already log-only: `update_physical_items` recovery
+events (including suspension), activation/reset-group refusals, and entity
+`SetLocked`/not-a-door warnings. They remain available in logs/traces rather than
+being globally swallowed. Objectives, authored guidance and actual load,
+settings-save, asset and startup failure notices remain unconditional.
+
+**Quiet shared ambience.** Three committed original mono PCM16/44.1-kHz WAVs
+were authored offline under the repository MIT license, with recipes, hashes and
+provenance: `fluorescent_buzz/01.wav` (7.5 s), `pool_lapping/01.wav` (23.5 s) and
+`empty_room/01.wav` (29.5 s). The generator is an explicit authoring tool,
+`tools/audio/original.py`; runtime only loads the files. The pool clip has rounded
+lapping/wash and sparse small splash envelopes. The room clip uses sparse soft
+upper partials, without abrupt stingers, dissonant rises or a subbass drone.
+Subjective warmth/melancholy is an artistic intent, not a claimed listening pass.
+
+The existing mixer owns at most **three additional spatial loops per map**:
+one nearest powered fluorescent/UV ballast (0.5-6.5 m), one nearest rectangular
+or circular water-surface point (1.5-11 m), and the restrained room tone
+(4-18 m). Dense fixture/pool arrays cannot stack a voice per placement.
+Positions and source envelopes blend over about 0.35 s, over the existing smooth
+distance attenuation/tweens. Initial playback now applies authored attenuation
+overrides immediately, rather than waiting for the next mixer update. The per-frame path visits cached placements and
+fixed controls, without constructing vectors or strings or restarting loops.
+Live fixture toggles use the same power handoff as rendering; world reset and
+map unload clear ownership. Application pause, master zero and the ambience
+slider remain authoritative. Catalog HVAC gain is **0.18 -> 0.065** (about
+8.85 dB quieter). Ordinary HVAC/bird/water catalog defaults stay non-positional;
+the new sources explicitly select spatial playback.
+
+Native power-off retires the one buzz voice; power-on restores one. A valid dry
+room retires both distant buzz and pool lapping. Three actual `restart_sign` /
+`api.reset()` cycles restore exactly three expected beds each time, with unchanged
+decoded memory and no queued voices. Map handoff retires the old water sources.
+All native shutdowns end with zero controls and pending starts. Audible-mode PCM
+has peak **0.079486** / RMS **0.009922** at the deliberately amplified test settings
+(master/ambience 1, effects 0); master-zero PCM is exactly zero. Default
+master/ambience gains are lower. The full library is **41.40 MiB decoded**, within
+the unchanged 64 MiB cap, including **20.36 MiB** for the three new clips.
+The offline audit passes **28 cues / 66 WAVs / 10,855,264 encoded bytes**.
+Windows path normalization in that audit was corrected so manifest paths compare
+as POSIX relative names rather than backslashes.
+
+Steady native three-voice mixer-process spans average **44.55 / 45.68 us per
+10-ms block** in Office/Pool, about **0.446 / 0.457%** of nominal audio time.
+These are opt-in wall-time spans, subject to scheduler preemption; they are not
+hardware CPU utilization. No callback file I/O or per-frame diagnostic allocation
+was added. Voice errors, rejected requests and pending starts are zero in these
+cases. The optional fixed developer PCM tap discarded 36,224 / 42,944 frames
+before the first audio checkpoints during cold setup; later sampled counters
+stay flat. This tap loss is reported separately from mixer/device errors, and
+the captures are not presented as gapless wall-clock recordings.
+
+The actual output stream, PCM, source positions and lifecycle were validated.
+**Human/subjective listening remains open:** no listener or audio-perception tool
+was available. The audible local PCM remains for review. One early "far" pose
+left the valid floor and recovered to spawn; it is retained and explicitly
+excluded as distance proof. `pool-distance-focused` supplies the valid dry-room
+result instead. This bounded pass is not the later full audio leak/performance
+audit and adds no occlusion, HRTF, material acoustics or reverb system.
+
+**Focused throughput check.** Sequential High / Full lightmaps / Full reflections
+runs use actual DX12 **Immediate**, **1280 x 720 physical drawable**, VSync OFF,
+no frame limiter, and a 165-Hz display. Means exceed refresh comfortably, so
+display pacing does not cap these samples. Each is one 15-second stationary
+entrance view, flashlight off, with no capture readback or active compiler.
+Both binaries use the same current audio catalog/assets. These views differ
+from the earlier flashlight-on Beam acceptance and must not be equated with
+its 305/260/305/245 samples. No general performance gain is claimed.
+
+| Scene | Mean FPS before -> after | p95 loop ms | p99 loop ms |
+| --- | ---: | ---: | ---: |
+| Office | 389.37 -> 384.73 | 4.672 -> 4.734 | 4.959 -> 5.272 |
+| Pool | 305.20 -> 309.95 | 5.891 -> 5.895 | 6.433 -> 6.560 |
+
+Small mixed single-pair changes are consistent with ordinary run variation and
+the added sound work. Beam's four linked sections, 247 props, 12 collectibles,
+single Explore entry, literal invisible-body flashlight-cast shadow, pursuit
+and footsteps are unchanged. Its accepted export remains **56,528,928 bytes**,
+SHA-256 `c8dcf901ff6060a3d9086f436df76d8d15ffd012ff1d9e6bf403c68b1a89b56e`.
+
+**Checks, evidence and cleanup.** Final format, strict workspace/all-targets/
+all-features Clippy, locked all-features workspace release, **319 Rust tests
+(zero failed/ignored; about one second execution)**, asset, texture, prop and
+audio checks pass. The three new Rust regressions use tiny deterministic
+fixtures: unload eligibility boundaries, enabled/disabled diagnostic presentation
+and explicit modal hit ownership. No full map baking is part of tests or CI.
+Assets remain **629 / 389 placeable / nine themes / zero warnings**. Texture
+checking retains the known **140 entries / 100 advisories**; prop checks retain
+existing art advisories. The broader Python baseline's **17 failures/errors and
+16 skips** was not rerun or relabeled as a pass.
+
+The final local audit has **58 passing native acceptance checks**, including
+the preserved post-clean player launch. Evidence, settings, actions, native
+captures/traces, output PCM, timing samples, quality logs and all ten preserved
+binary/DLL hashes are under
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-25/task/`.
+The current player SHA-256 is `4e760ff10f89024faf53737f263b1ceea843114f2aeb355d27823a267d69e774`.
+`native-acceptance.json`, `fps-results.json`, `audio-steady-cost.json`,
+`quality-final/results.json` and `quality-final/preserved-binaries.json` are the
+compact receipts. `selected-bin/` contains the current four executables and six
+runtime DLLs; this is not a newly assembled portable distribution.
+
+All ten saved hashes were verified before cleanup, and the tested native player
+matches the preserved player byte-for-byte. No build/native users remained.
+The resolved non-junction repository target was cleaned with Cargo: **7,439 files,
+10.1 GiB reported removed**, target absent; observed C-drive free-space change
+was **8,674,185,216 bytes**. `cleanup.json` and `cargo-clean.log` retain both figures.
+A subsequent direct preserved-player launch rendered v0.13.0 and shut down
+normally without target. Verified duplicate imported packages and the temporary
+native binary copy (**475,287,127 file bytes**) were removed only after their
+canonical preserved originals matched. Muted PCM was losslessly compressed with
+its decoded SHA-256 verified; audible PCM, unique sources, recovery data and
+native evidence remain. See `duplicate-cleanup.json`.
+
+The prior **658,523,027-byte** portable ZIP still has SHA-256
+`9e39f4be4d36c4f446054f19cd1a4e65e8204316ec89b24c3e30239d21b5c97c`.
+No duplicate ZIP, video or Library upload was produced. Final assembly must
+include the new global audio catalog/WAVs and current binaries after the remaining
+queue. Arcade screen/off-state and realistic machine lighting, compiler
+optimization, water visuals/performance, advanced acoustics/full audio audit,
+shared AI, editor work and Backrooms remain separate tasks. Mac/Metal awaits
+explicit coordination; Linux and the final release CI gate remain open.
+
+Connor's manual plugged-in sleep setting is the latest instruction. No power,
+security or update setting was changed, restored or investigated, and no awake
+helper was started. Routine staging commit/push is authorized; exact final remote
+and writer release are recorded in the external ownership handoff. No force
+push, main merge, public release or version bump is implied.

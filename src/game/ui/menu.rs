@@ -44,6 +44,7 @@ pub enum MenuIntent {
     CancelRebind,
     CancelLoad,
     Dismiss,
+    RetryLoad,
     Page(i32),
     Volume(u8),
 }
@@ -72,6 +73,7 @@ pub struct MenuLayout {
     pub rebinding: bool,
     pub loading: bool,
     pub overlay: Option<bool>,
+    pub load_retry: Option<()>,
     pub details: bool,
 }
 
@@ -81,11 +83,14 @@ impl MenuLayout {
     #[must_use]
     pub fn hit_test(&self, point: [f32; 2]) -> Option<MenuHit> {
         if let Some(error) = self.overlay {
-            let intent = if error && rect(36.0, 206.0, 444.0, 228.0).contains(point) {
-                MenuIntent::Page(if point[0] < 240.0 { -1 } else { 1 })
-            } else {
-                MenuIntent::Dismiss
-            };
+            let intent =
+                if self.load_retry.is_some() && rect(36.0, 232.0, 260.0, 252.0).contains(point) {
+                    MenuIntent::RetryLoad
+                } else if error && rect(36.0, 206.0, 444.0, 228.0).contains(point) {
+                    MenuIntent::Page(if point[0] < 240.0 { -1 } else { 1 })
+                } else {
+                    MenuIntent::Dismiss
+                };
             return rect(20.0, 12.0, 460.0, 260.0)
                 .contains(point)
                 .then_some(MenuHit { index: 0, intent });
@@ -203,6 +208,7 @@ pub fn menu_layout(
         rebinding: ui.rebinding_action.is_some(),
         loading: ui.loading_map,
         details: state == AppState::LevelSelect && ui.level_select_idx < ui.level_entries.len(),
+        load_retry: ui.load_retry,
         overlay: if ui.status_is_error {
             Some(true)
         } else if ui.credits.is_some() {
@@ -1134,7 +1140,11 @@ fn draw_error(vertices: &mut Vec<Vertex>, ui: &UiState) {
     );
     draw_text(
         vertices,
-        "SOMETHING WENT WRONG",
+        if ui.load_retry.is_some() {
+            "MAP NEEDS A FRESH START"
+        } else {
+            "SOMETHING WENT WRONG"
+        },
         36.0,
         30.0,
         1.5,
@@ -1166,6 +1176,20 @@ fn draw_error(vertices: &mut Vec<Vertex>, ui: &UiState) {
         0.875,
         MUTED,
     );
+    if ui.load_retry.is_some() {
+        add_rect(vertices, 36.0, 232.0, 260.0, 252.0, [0.22, 0.21, 0.15]);
+        add_rect(vertices, 274.0, 232.0, 444.0, 252.0, [0.13, 0.18, 0.19]);
+        draw_text(
+            vertices,
+            "Enter: unload + retry",
+            46.0,
+            238.0,
+            0.875,
+            ACCENT,
+        );
+        draw_text(vertices, "Esc: keep map", 286.0, 238.0, 0.875, TEXT);
+        return;
+    }
     add_rect(vertices, 36.0, 232.0, 444.0, 252.0, [0.22, 0.21, 0.15]);
     draw_text(
         vertices,

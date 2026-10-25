@@ -129,8 +129,12 @@ def import_audio(authoring, cache, download):
     records = []
     for clip in authoring["clips"]:
         path = AUDIO / relative_path(clip["file"])
-        original = source_bytes(sources[clip["source"]], clip, cache, download)
-        encoded = edit_pcm(original, clip)
+        if sources[clip["source"]].get("archive") == "original":
+            from original import render
+            original = encoded = render(clip["source_file"])
+        else:
+            original = source_bytes(sources[clip["source"]], clip, cache, download)
+            encoded = edit_pcm(original, clip)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(encoded)
         with wave.open(io.BytesIO(encoded), "rb") as wav:
@@ -171,7 +175,7 @@ def audit(authoring):
             if name not in records:
                 raise ValueError(f"untracked cue file: {name}")
             used.add(name)
-    if used != set(records) or used != {str(p.relative_to(AUDIO)) for p in AUDIO.rglob("*.wav")}:
+    if used != set(records) or used != {p.relative_to(AUDIO).as_posix() for p in AUDIO.rglob("*.wav")}:
         raise ValueError("unreferenced WAV asset or provenance record")
     encoded_bytes = frames_total = 0
     for name, record in records.items():

@@ -6,6 +6,31 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 const MIB: u64 = 1024 * 1024;
 
+/// A refused old/new world overlap, before either live owner is changed.
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+pub struct MapAdmissionError {
+    pub displayed: u64,
+    pub incoming: u64,
+    pub budget: u64,
+}
+
+impl MapAdmissionError {
+    /// Unloading can help only when the incoming world fits on its own.
+    pub const fn can_retry_after_unload(self) -> bool {
+        self.displayed > 0 && self.incoming <= self.budget
+    }
+}
+
+impl std::fmt::Display for MapAdmissionError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "Map GPU budget exceeded: displayed {} + incoming {} charged bytes, budget {}. The current map is preserved.",
+            self.displayed, self.incoming, self.budget
+        )
+    }
+}
+
 pub fn cpu_budget() -> u64 {
     configured("PLACES_LOAD_MEMORY_MIB", 4096)
 }

@@ -35,3 +35,8 @@ https://opengameart.org/content/ambient-bird-sounds
 rubber duck -CsG-.wav — csaszi
 https://freesound.org/people/csaszi/sounds/350917/
 Source is the publicly offered HQ MP3 preview, not the login-only original WAV. The original sound page explicitly declares Creative Commons 0.
+
+Original Places quiet interior ambience (2026-10-25)
+Fluorescent ballast, pool surface/lapping and soft empty-room partials.
+Original offline synthesis, no recordings or third-party music; repository MIT license.
+Recipe: tools/audio/original.py. Runtime loads only the committed WAV files.

@@ -18,6 +18,10 @@ pub(super) struct Audio {
     swimming: Option<bool>,
     last_water_sound: Option<std::time::Instant>,
     capture: Option<Capture>,
+    environment_ready: bool,
+    fluorescents: Vec<(usize, Vec3, bool)>,
+    pools: Vec<crate::engine::level::WaterVolumeDef>,
+    environment: [EnvironmentLoop; 3],
 }
 
 struct DoorState {
@@ -40,17 +44,130 @@ impl Audio {
             swimming: None,
             last_water_sound: None,
             capture: Capture::new(),
+            environment_ready: false,
+            fluorescents: Vec::new(),
+            pools: Vec::new(),
+            environment: std::array::from_fn(|_| EnvironmentLoop::default()),
         }
     }
 
     pub fn clear_world(&mut self) {
         self.system.clear_world();
+        self.environment_ready = false;
+        self.fluorescents.clear();
+        self.pools.clear();
+        self.environment = std::array::from_fn(|_| EnvironmentLoop::default());
         self.doors.clear();
         self.last_feet = None;
         self.distance = 0.0;
         self.world_reset = 0;
         self.swimming = None;
         self.last_water_sound = None;
+    }
+
+    pub fn light_toggles(&mut self, toggles: &[(usize, bool)]) {
+        for (index, _, enabled) in &mut self.fluorescents {
+            if let Some((_, on)) = toggles.iter().find(|(changed, _)| changed == index) {
+                *enabled = *on;
+            }
+        }
+    }
+
+    fn prepare_environment(
+        &mut self,
+        level: &crate::engine::level::LevelDef,
+        states: &[(usize, bool)],
+    ) {
+        let surfaces = crate::engine::level::LevelSurfaces::new(level);
+        self.fluorescents = level
+            .ceiling_lights
+            .iter()
+            .enumerate()
+            .filter(|(_, fixture)| {
+                matches!(
+                    crate::engine::lighting::fixture_profile(&fixture.fixture).kind,
+                    crate::engine::lighting::FixtureKind::FluorescentPanel
+                        | crate::engine::lighting::FixtureKind::BlacklightTube
+                )
+            })
+            .map(|(index, fixture)| {
+                (
+                    index,
+                    Vec3::new(
+                        fixture.x,
+                        fixture
+                            .y
+                            .unwrap_or_else(|| surfaces.ceiling_y_at(fixture.x, fixture.z)),
+                        fixture.z,
+                    ),
+                    states
+                        .iter()
+                        .find(|(key, _)| *key == index)
+                        .map_or(fixture.enabled, |(_, on)| *on),
+                )
+            })
+            .collect();
+        self.pools.clone_from(&level.water);
+        self.environment_ready = true;
+    }
+
+    fn update_environment(&mut self, listener: Vec3, delta: f32) {
+        // One voice per family, irrespective of fixture/pool count. Nearest
+        // points and preallocated controls avoid per-frame vectors or restarts.
+        let fluorescent = nearest(
+            listener,
+            self.fluorescents
+                .iter()
+                .filter_map(|(_, position, on)| on.then_some(*position)),
+        );
+        let pool = nearest(
+            listener,
+            self.pools.iter().map(|water| water_point(water, listener)),
+        );
+        let room = nearest(listener, fluorescent.into_iter().chain(pool));
+        for ((voice, spec), candidate) in
+            self.environment
+                .iter_mut()
+                .zip(ENVIRONMENT)
+                .zip([fluorescent, pool, room])
+        {
+            let target =
+                candidate.filter(|point| point.distance_squared(listener) < spec.far * spec.far);
+            let blend = 1.0 - (-delta.clamp(0.0, 0.1) / 0.35).exp();
+            voice.gain =
+                (if target.is_some() { 1.0 } else { 0.0 } - voice.gain).mul_add(blend, voice.gain);
+            if let Some(position) = target {
+                voice.position = Some(
+                    voice
+                        .position
+                        .map_or(position, |old| old.lerp(position, blend)),
+                );
+            }
+            if !voice.active
+                && let Some(position) = target
+            {
+                voice.active = self.system.play(
+                    spec.cue,
+                    PlayRequest {
+                        source: Some(spec.source),
+                        position: Some(position),
+                        spatial: Some(true),
+                        looping: Some(true),
+                        gain: voice.gain,
+                        attenuation: Some([spec.near, spec.far]),
+                        time_domain: TimeDomain::Real,
+                        bus: AudioBus::Ambient,
+                    },
+                );
+            }
+            if voice.active {
+                self.system.set_source_gain(spec.source, voice.gain);
+                if target.is_none() && voice.gain < 0.001 {
+                    self.system.stop_source(spec.source);
+                    *voice = EnvironmentLoop::default();
+                }
+            }
+        }
     }
 
     pub fn finish(&mut self) {
@@ -128,10 +245,29 @@ impl FrameLoop<'_> {
             self.audio.last_feet = None;
             self.audio.distance = 0.0;
         }
+        if !self.menu_world()
+            && let Some(loaded) = self.current_level.as_ref()
+        {
+            if !self.audio.environment_ready {
+                self.audio
+                    .prepare_environment(&loaded.level, &self.game.light_states());
+            }
+            if self.simulation_active() {
+                self.audio
+                    .update_environment(self.game.player_position, self.visual_delta_seconds());
+            }
+        }
         // Only live controls are visited, capped by the backend voice budget.
         // Routed entities publish their current transform through this seam.
         self.audio.system.update_source_positions(|source| {
-            source_position(source.0, self.game.entities(), &self.items)
+            ENVIRONMENT
+                .iter()
+                .position(|spec| spec.source == source)
+                .and_then(|index| self.audio.environment.get(index))
+                .map_or_else(
+                    || source_position(source.0, self.game.entities(), &self.items),
+                    |voice| voice.position,
+                )
         });
         let audio = &mut self.audio.system;
         self.items.world.drain_impacts(|impact| {
@@ -336,6 +472,67 @@ impl FrameLoop<'_> {
             TimeDomain::Real,
         );
     }
+}
+
+#[derive(Default)]
+struct EnvironmentLoop {
+    position: Option<Vec3>,
+    gain: f32,
+    active: bool,
+}
+
+struct EnvironmentSpec {
+    cue: &'static str,
+    source: SourceId,
+    near: f32,
+    far: f32,
+}
+// Engine entity keys occupy the regular identity space. These three private
+// application sources are resolved here instead of the authored-entity seam.
+const ENVIRONMENT: [EnvironmentSpec; 3] = [
+    EnvironmentSpec {
+        cue: "fluorescent_buzz",
+        source: SourceId(u64::MAX),
+        near: 0.5,
+        far: 6.5,
+    },
+    EnvironmentSpec {
+        cue: "pool_lapping",
+        source: SourceId(u64::MAX - 1),
+        near: 1.5,
+        far: 11.0,
+    },
+    EnvironmentSpec {
+        cue: "empty_room",
+        source: SourceId(u64::MAX - 2),
+        near: 4.0,
+        far: 18.0,
+    },
+];
+
+fn nearest(listener: Vec3, points: impl Iterator<Item = Vec3>) -> Option<Vec3> {
+    points.min_by(|a, b| {
+        a.distance_squared(listener)
+            .total_cmp(&b.distance_squared(listener))
+    })
+}
+
+fn water_point(water: &crate::engine::level::WaterVolumeDef, listener: Vec3) -> Vec3 {
+    if let Some(radius) = water.radius {
+        let centre = Vec3::new(water.x + radius, water.surface_y, water.z + radius);
+        let offset = Vec3::new(listener.x - centre.x, 0.0, listener.z - centre.z);
+        let bounded = offset.clamp_length_max(radius);
+        return Vec3::new(centre.x + bounded.x, centre.y, centre.z + bounded.z);
+    }
+    Vec3::new(
+        listener
+            .x
+            .clamp(water.x, water.x + water.width.unwrap_or(0.0)),
+        water.surface_y,
+        listener
+            .z
+            .clamp(water.z, water.z + water.depth.unwrap_or(0.0)),
+    )
 }
 
 const fn footstep_cue(surface: SurfaceMaterial) -> &'static str {

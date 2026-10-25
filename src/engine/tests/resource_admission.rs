@@ -53,3 +53,37 @@ fn cancelled_binary_decode_does_not_consume_the_next_block() {
         "cancelled decoding preserves the cursor"
     );
 }
+
+// Protects the recovery choice from offering a futile unload for a map that
+// cannot fit alone. Pure integer boundary fixture; no map/device/OS pressure.
+#[test]
+fn unload_retry_is_offered_only_when_incoming_world_fits() {
+    use super::MapAdmissionError;
+    let overlap = MapAdmissionError {
+        displayed: 1250,
+        incoming: 1215,
+        budget: 2048,
+    };
+    assert!(overlap.can_retry_after_unload());
+    assert!(
+        !MapAdmissionError {
+            incoming: 2049,
+            ..overlap
+        }
+        .can_retry_after_unload()
+    );
+    assert!(
+        !MapAdmissionError {
+            displayed: 0,
+            ..overlap
+        }
+        .can_retry_after_unload()
+    );
+    assert!(
+        MapAdmissionError {
+            incoming: 2048,
+            ..overlap
+        }
+        .can_retry_after_unload()
+    );
+}

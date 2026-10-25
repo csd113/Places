@@ -447,7 +447,8 @@ impl FrameLoop<'_> {
             | crate::game::app::actions::Action::View { yaw: _, pitch: _ }
             | crate::game::app::actions::Action::ViewAt { position: _ }
             | crate::game::app::actions::Action::Focus { focused: _ }
-            | crate::game::app::actions::Action::Quit {} => {}
+            | crate::game::app::actions::Action::Quit {}
+            | crate::game::app::actions::Action::Ragdoll { id: _, enabled: _ } => {}
         }
     }
 

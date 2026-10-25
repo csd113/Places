@@ -160,6 +160,8 @@ pub struct UiState {
     /// True when [`Self::status_message`] describes a failure, so screens can
     /// colour it without parsing their own text.
     pub status_is_error: bool,
+    /// Admission recovery offers an explicit unload/restart instead of discarding play.
+    pub load_retry: Option<()>,
     pub level_entries: Vec<String>,
     pub import_directory: String,
     pub current_map: Option<String>,
@@ -184,13 +186,23 @@ impl UiState {
 
     /// Sets the one-line status shown by the level list and settings screens.
     pub fn set_status(&mut self, message: impl Into<String>, is_error: bool) {
+        self.load_retry = None;
         self.status_message = Some(message.into());
         self.status_is_error = is_error;
         self.status_page = 0;
     }
 
+    /// Logs recoverable prop/physics problems while making their modal opt-in.
+    pub(crate) fn developer_diagnostic(&mut self, message: String, enabled: bool) {
+        crate::engine::logging::warn(&message);
+        if enabled {
+            self.set_status(message, true);
+        }
+    }
+
     /// Drops any status message (used on screen transitions and retry).
     pub fn clear_status(&mut self) {
+        self.load_retry = None;
         self.status_message = None;
         self.status_is_error = false;
     }
@@ -238,6 +250,7 @@ fn ui_signature(
     ui_state.rebinding_action.hash(&mut hasher);
     ui_state.status_message.as_deref().hash(&mut hasher);
     ui_state.status_is_error.hash(&mut hasher);
+    ui_state.load_retry.hash(&mut hasher);
     ui_state.level_entries.hash(&mut hasher);
     ui_state.import_directory.hash(&mut hasher);
     ui_state.current_map.hash(&mut hasher);

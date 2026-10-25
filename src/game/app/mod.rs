@@ -385,7 +385,7 @@ fn create_renderer(
     // upload, so the load itself bakes the right atlas, fits the right texture
     // budgets and creates the right reflection targets. The quality level, the
     // Lightmaps and the Reflections setting are independent (see
-    // `docs/RENDERER.md` §12), so `Low + Lightmaps Full` loads a Full atlas
+    // `docs/RENDERER.md` Â§12), so `Low + Lightmaps Full` loads a Full atlas
     // even though the overall level is Low.
     renderer.set_quality(settings.quality_level());
     renderer.set_lighting_quality(settings.lighting_quality());
@@ -741,6 +741,8 @@ struct FrameLoop<'a> {
     displayed_lease: Option<loading::PreparedLease>,
     retired_worlds: std::collections::VecDeque<(String, loading::LifetimeProbe)>,
     load_source: Option<loading::Source>,
+    /// Retains only the exact source/identity, never a second prepared world.
+    retry_source: Option<loading::Source>,
     load_generation: u64,
     /// Lightmap quality the in-flight preparation was requested with, so an
     /// equivalent request can reuse it and a changed quality cannot.
@@ -1045,10 +1047,7 @@ impl FrameLoop<'_> {
         // Fixture switches are gameplay state too: hand the renderer any state
         // that changed this frame (usually none) so it can re-light the
         // affected charts and scale the fixture's own face emission.
-        let light_toggles = self.game.take_light_toggles();
-        if !light_toggles.is_empty() {
-            self.renderer.apply_light_toggles(&light_toggles);
-        }
+        self.sync_fixture_state();
         // The entity runtime's spawn/despawn/move/material/audio commands are
         // applied before this frame draws, so a spawn requested by a trigger
         // or interaction is visible on the frame it happened.
@@ -1225,6 +1224,7 @@ impl FrameLoop<'_> {
     fn gameplay_active(&self) -> bool {
         self.outcome.is_none()
             && self.message.is_none()
+            && !self.ui_state.status_is_error
             && self.window_focused
             && !self.console.is_open()
             && self.load_intent.is_none()
@@ -1428,9 +1428,10 @@ impl FrameLoop<'_> {
                     target,
                 } => {
                     if let Err(error) = self.set_mannequin_pins(&group, enabled, &target) {
-                        self.ui_state
-                            .set_status(format!("Miniature pins: {error}"), true);
-                        crate::engine::logging::warn(format!("[miniature-pins] {error}"));
+                        self.ui_state.developer_diagnostic(
+                            format!("Miniature pins: {error}"),
+                            self.settings.developer_console,
+                        );
                     }
                 }
                 crate::engine::entities::WorldCommand::ActivatePhysicsGroup { group } => {
@@ -1737,8 +1738,8 @@ impl FrameLoop<'_> {
     /// re-fits the retained build, a Reflections change retires or creates the
     /// probe/planar resources, and a Lightmaps change rebuilds the CPU level
     /// once and fills an uncached atlas on a worker while the previous world
-    /// keeps rendering. The game world — player position, camera, pause state,
-    /// the `Game` struct — is not touched: this is a renderer reconfiguration,
+    /// keeps rendering. The game world â€” player position, camera, pause state,
+    /// the `Game` struct â€” is not touched: this is a renderer reconfiguration,
     /// not a level load.
     fn schedule_graphics_transition(&mut self) {
         // Any explicit schedule is a fresh attempt at the current request.
@@ -1976,14 +1977,15 @@ impl FrameLoop<'_> {
             None,
         );
         let toggles = self.game.take_light_toggles();
+        self.audio.light_toggles(&toggles);
         self.renderer.apply_light_toggles(&toggles);
         report.unsupported == 0 && report.missing_targets == 0 && report.lights_toggled == 1
     }
 
     /// Performs one scripted window action from `PLACES_BENCH_WINDOW_CYCLE`.
     ///
-    /// The action is a real SDL window operation — `set_size`, `minimize` or
-    /// `restore` — so the platform emits its own resize/iconify events and the
+    /// The action is a real SDL window operation â€” `set_size`, `minimize` or
+    /// `restore` â€” so the platform emits its own resize/iconify events and the
     /// normal frame loop observes the resulting drawable size. Errors are
     /// ignored like every other benchmark override: the run continues and the
     /// resulting drawable is whatever the window now reports.
@@ -2369,7 +2371,9 @@ impl FrameLoop<'_> {
 
     fn activate_menu_hit(&mut self, clicked: ui::MenuHit) {
         match clicked.intent {
+            ui::MenuIntent::RetryLoad => self.retry_after_unload(),
             ui::MenuIntent::Dismiss => {
+                self.retry_source = None;
                 self.ui_state.clear_status();
                 self.ui_state.credits = None;
             }
@@ -2408,6 +2412,9 @@ impl FrameLoop<'_> {
                 self.scripted_key("Escape", false);
             }
             actions::Action::ConsoleEnabled { enabled } => self.set_scripted_console(enabled),
+            actions::Action::Ragdoll { id, enabled } => {
+                self.apply_ragdoll(&id, enabled, Vec3::ZERO);
+            }
             actions::Action::Key {
                 key,
                 pressed,
@@ -2736,8 +2743,8 @@ impl FrameLoop<'_> {
             return true;
         }
 
-        // 2. Menu navigation for non-playing states (independent of gameplay bindings)
-        if self.game.app_state() == AppState::Playing {
+        // Modals own navigation independently of gameplay bindings.
+        if self.game.app_state() == AppState::Playing && !self.ui_state.status_is_error {
             // 3. Gameplay active (AppState::Playing)
             if let Event::KeyDown {
                 keycode: Some(Keycode::Escape),
@@ -2957,6 +2964,13 @@ impl FrameLoop<'_> {
     /// Dispatches one menu navigation event for the current screen.
     fn handle_menu_nav(&mut self, nav: MenuNavEvent) {
         if self.ui_state.status_is_error {
+            if self.ui_state.load_retry.is_some() && matches!(nav, MenuNavEvent::Activate) {
+                self.retry_after_unload();
+                return;
+            }
+            if matches!(nav, MenuNavEvent::Activate | MenuNavEvent::Back) {
+                self.retry_source = None;
+            }
             match nav {
                 MenuNavEvent::Activate | MenuNavEvent::Back => self.ui_state.clear_status(),
                 MenuNavEvent::Up | MenuNavEvent::Left => {
@@ -3199,6 +3213,14 @@ impl FrameLoop<'_> {
         self.game.set_app_state(state);
     }
 
+    fn sync_fixture_state(&mut self) {
+        let toggles = self.game.take_light_toggles();
+        if !toggles.is_empty() {
+            self.audio.light_toggles(&toggles);
+            self.renderer.apply_light_toggles(&toggles);
+        }
+    }
+
     fn track_retired_world(&mut self) {
         if !self.bench.enabled()
             || std::env::var("PLACES_BENCH_RESOURCE_TRACE").as_deref() != Ok("1")
@@ -3215,6 +3237,7 @@ impl FrameLoop<'_> {
     }
 
     fn unload_world_for_menu(&mut self) {
+        self.retry_source = None;
         self.startup = StartupPhase::Preparing;
         self.track_retired_world();
         self.loader.cancel();
@@ -3311,6 +3334,7 @@ impl FrameLoop<'_> {
     }
 
     fn request_load(&mut self, source: loading::Source, intent: LoadIntent) {
+        self.retry_source = None;
         self.close_console();
         // An outstanding preparation for the same world and effective lightmap
         // quality is promoted instead of restarted: the startup background
@@ -3445,6 +3469,43 @@ impl FrameLoop<'_> {
         true
     }
 
+    fn recover_from_admission_failure(
+        &mut self,
+        id: u64,
+        intent: LoadIntent,
+        error: crate::engine::resources::MapAdmissionError,
+    ) {
+        let retry = (matches!(intent, LoadIntent::Play) && error.can_retry_after_unload())
+            .then(|| self.load_source.clone())
+            .flatten();
+        self.recover_from_preparation_failure(id, &error.to_string());
+        if let Some(source) = retry {
+            self.retry_source = Some(source);
+            self.ui_state.set_status(format!(
+                                "This map fits the {} MiB budget, but keeping both worlds during reload does not ({} + {} MiB). Your current map and held items are safe. Enter unloads it and starts the requested map fresh; unsaved in-map progress restarts. Esc keeps the current map. If you cancel after unloading, Explore remains available.",
+                                error.budget / (1024 * 1024), error.displayed / (1024 * 1024), error.incoming / (1024 * 1024)), true);
+            self.ui_state.load_retry = Some(());
+            if self.game.app_state() == AppState::Playing {
+                self.game.set_app_state(AppState::Paused);
+            }
+            self.trace_world("load_retry_offered");
+        }
+    }
+
+    fn retry_after_unload(&mut self) {
+        let Some(source) = self.retry_source.take() else {
+            return;
+        };
+        self.ui_state.clear_status();
+        self.unload_world_for_menu();
+        self.startup = StartupPhase::Ready;
+        // No background world is inserted between the two owners. Cancellation
+        // after this explicit choice returns to Explore with no stale simulation.
+        self.game.set_app_state(AppState::LevelSelect);
+        self.request_load(source, LoadIntent::Play);
+        self.trace_world("load_retry_started");
+    }
+
     fn cancel_loading(&mut self) {
         // Before the first world exists, the outstanding preparation is the
         // only thing that can produce a usable background; cancelling it would
@@ -3537,7 +3598,7 @@ impl FrameLoop<'_> {
                         .renderer
                         .admit_prepared(&loaded, &build, &assets, &geometry)
                     {
-                        self.recover_from_preparation_failure(id, &error);
+                        self.recover_from_admission_failure(id, intent, error);
                         return;
                     }
                     self.renderer.install_prepared_precompiled(
@@ -4193,7 +4254,7 @@ impl FrameLoop<'_> {
     }
 
     /// Submits the UI pass: cached menu/settings geometry, the debug overlay
-    /// when visible, and — while playing — the world-anchored interaction
+    /// when visible, and â€” while playing â€” the world-anchored interaction
     /// labels and the aimed-at prompt through the same text pipeline.
     fn render_guidance(&mut self) -> bool {
         let Some((title, lines)) = &self.message else {
@@ -4958,8 +5019,6 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut ui_scratch: Vec<Vertex> = Vec::new();
     let mut applied_filtering = settings.texture_filtering.clone();
     let mut capture_path = capture_path_from_env();
-    let capture_at_frame = capture_frame_from_env();
-    let capture_at_seconds = capture_time_from_env();
 
     let mut frame_loop = FrameLoop {
         campaign: crate::game::campaign::CampaignSave::default(),
@@ -4991,8 +5050,8 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         ui_scratch: &mut ui_scratch,
         applied_filtering: &mut applied_filtering,
         capture_path: &mut capture_path,
-        capture_at_frame,
-        capture_at_seconds,
+        capture_at_frame: capture_frame_from_env(),
+        capture_at_seconds: capture_time_from_env(),
         state_log: &mut state_log,
         spawn_pos: &mut spawn_pos,
         spawn_yaw: &mut spawn_yaw,
@@ -5008,6 +5067,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         displayed_lease: None,
         retired_worlds: std::collections::VecDeque::new(),
         load_source: None,
+        retry_source: None,
         load_generation: 0,
         load_return_state: AppState::MainMenu,
         load_phase: None,

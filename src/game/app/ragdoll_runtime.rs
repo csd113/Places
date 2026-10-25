@@ -9,9 +9,10 @@ impl FrameLoop<'_> {
                 .renderer
                 .start_ragdoll(id, &mut self.items.world, velocity)
             {
-                self.ui_state
-                    .set_status(format!("Ragdoll refused for '{id}': {problem}"), true);
-                crate::engine::logging::warn(format!("[ragdoll] '{id}' refused: {problem}"));
+                self.ui_state.developer_diagnostic(
+                    format!("Ragdoll refused for '{id}': {problem}"),
+                    self.settings.developer_console,
+                );
                 self.trace_world("ragdoll_refused");
                 return;
             }
@@ -20,9 +21,9 @@ impl FrameLoop<'_> {
             self.release_carried_item_now(id);
             if self.items.carry.has_attachment(id) {
                 self.renderer.cancel_ragdoll(id, &mut self.items.world);
-                self.ui_state.set_status(
-                    "Ragdoll refused: carried item could not be released safely",
-                    true,
+                self.ui_state.developer_diagnostic(
+                    "Ragdoll refused: carried item could not be released safely".to_string(),
+                    self.settings.developer_console,
                 );
                 self.trace_world("ragdoll_carry_refused");
                 return;
@@ -36,8 +37,10 @@ impl FrameLoop<'_> {
             crate::engine::logging::info(format!("[ragdoll] '{id}' reset to authored behavior"));
             self.trace_world("ragdoll_reset");
         } else {
-            self.ui_state
-                .set_status(format!("'{id}' has no active ragdoll"), true);
+            self.ui_state.developer_diagnostic(
+                format!("'{id}' has no active ragdoll"),
+                self.settings.developer_console,
+            );
         }
     }
 }

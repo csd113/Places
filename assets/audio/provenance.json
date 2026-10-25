@@ -130,6 +130,17 @@
       "sha256": "4323d2dada03b3bef76c07c5cbab69cd59f16b57bcd5d7e98bfe5156da4599f5",
       "verified_date": "2026-10-16",
       "notice": "Source is the publicly offered HQ MP3 preview, not the login-only original WAV. The original sound page explicitly declares Creative Commons 0."
+    },
+    {
+      "id": "places_original_ambient_013",
+      "title": "Places quiet interior ambience",
+      "author": "Places contributors",
+      "license": "MIT",
+      "license_url": "https://github.com/csd113/Places/blob/main/LICENSE",
+      "page_url": "https://github.com/csd113/Places",
+      "verified_date": "2026-10-25",
+      "archive": "original",
+      "recipe": "tools/audio/original.py; offline original synthesis; no sampled recordings"
     }
   ],
   "files": [
@@ -826,6 +837,39 @@
       "source_file_sha256": "955a367cf87f150f7868e2ecf5745ef13cec2c78a29304eda27e74f1fea06c57",
       "sha256": "bd27b3fc5d7be25c3df99171273def4e2608de383002f925aa7145014cafaf47",
       "frames": 271974,
+      "sample_rate": 44100,
+      "channels": 1,
+      "sample_bits": 16
+    },
+    {
+      "file": "fluorescent_buzz/01.wav",
+      "source": "places_original_ambient_013",
+      "source_file": "fluorescent",
+      "source_file_sha256": "ba6ed52e4ae9c553fd065ed851f53f691dfdc5a363f5af905e1c28b45b8af1d5",
+      "sha256": "ba6ed52e4ae9c553fd065ed851f53f691dfdc5a363f5af905e1c28b45b8af1d5",
+      "frames": 330750,
+      "sample_rate": 44100,
+      "channels": 1,
+      "sample_bits": 16
+    },
+    {
+      "file": "pool_lapping/01.wav",
+      "source": "places_original_ambient_013",
+      "source_file": "pool",
+      "source_file_sha256": "0f79cbf53dfb390acf0b7521b2cd9c90c2ac3e89cad616f73fb5aa6c77433989",
+      "sha256": "0f79cbf53dfb390acf0b7521b2cd9c90c2ac3e89cad616f73fb5aa6c77433989",
+      "frames": 1036350,
+      "sample_rate": 44100,
+      "channels": 1,
+      "sample_bits": 16
+    },
+    {
+      "file": "empty_room/01.wav",
+      "source": "places_original_ambient_013",
+      "source_file": "empty_room",
+      "source_file_sha256": "f13f2c0cf3181d12799cf2ee5014e9822ee348c07c4343ac64bd235dede08059",
+      "sha256": "f13f2c0cf3181d12799cf2ee5014e9822ee348c07c4343ac64bd235dede08059",
+      "frames": 1300950,
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16

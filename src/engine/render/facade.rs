@@ -230,7 +230,7 @@ impl Renderer {
         build: &std::sync::Arc<super::LevelBuild>,
         assets: &crate::engine::props::PropAssets,
         geometry: &PreparedGeometry,
-    ) -> Result<(), String> {
+    ) -> Result<(), crate::engine::resources::MapAdmissionError> {
         self.renderer
             .admit_prepared(loaded, build, assets, geometry.upload.geometry_bytes())
     }

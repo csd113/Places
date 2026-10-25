@@ -132,6 +132,17 @@
       "sha256": "4323d2dada03b3bef76c07c5cbab69cd59f16b57bcd5d7e98bfe5156da4599f5",
       "verified_date": "2026-10-16",
       "notice": "Source is the publicly offered HQ MP3 preview, not the login-only original WAV. The original sound page explicitly declares Creative Commons 0."
+    },
+    {
+      "id": "places_original_ambient_013",
+      "title": "Places quiet interior ambience",
+      "author": "Places contributors",
+      "license": "MIT",
+      "license_url": "https://github.com/csd113/Places/blob/main/LICENSE",
+      "page_url": "https://github.com/csd113/Places",
+      "verified_date": "2026-10-25",
+      "archive": "original",
+      "recipe": "tools/audio/original.py; offline original synthesis; no sampled recordings"
     }
   ],
   "clips": [
@@ -471,6 +482,24 @@
       "source_file": "sfx100v2_loop_water_01.ogg",
       "crossfade_seconds": 0.2,
       "peak": 16000
+    },
+    {
+      "file": "fluorescent_buzz/01.wav",
+      "source": "places_original_ambient_013",
+      "source_file": "fluorescent",
+      "crossfade_seconds": 0.5
+    },
+    {
+      "file": "pool_lapping/01.wav",
+      "source": "places_original_ambient_013",
+      "source_file": "pool",
+      "crossfade_seconds": 0.5
+    },
+    {
+      "file": "empty_room/01.wav",
+      "source": "places_original_ambient_013",
+      "source_file": "empty_room",
+      "crossfade_seconds": 0.5
     }
   ]
 }

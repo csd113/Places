@@ -149,6 +149,12 @@ pub struct AudioStats {
     pub errors: u64,
     /// Stereo frames actually mixed by the device callback.
     pub output_frames: u64,
+    /// Opt-in native benchmark: wall nanoseconds inside mixer process calls.
+    pub mix_wall_nanos: u64,
+    /// Number of timed mixer blocks, excluding SDL submission and PCM capture.
+    pub mix_blocks: u64,
+    /// Largest timed mixer block. Scheduler preemption can affect this value.
+    pub mix_max_nanos: u64,
     /// Largest absolute mixed sample since initialization, before SDL conversion.
     pub peak_amplitude: f32,
     /// Developer tap frames discarded when its fixed queue was full.
@@ -284,6 +290,16 @@ impl AudioSystem {
             audio.update_source_positions(&mut resolve);
         }
         let _ = &mut resolve;
+    }
+
+    /// Smoothly adjusts an existing source without restarting or decoding it.
+    pub fn set_source_gain(&mut self, source: SourceId, gain: f32) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(audio) = &mut self.native {
+            audio.set_source_gain(source, gain);
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = (source, gain);
     }
 
     /// Stops all voices owned by one source, including paused loops.

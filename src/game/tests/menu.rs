@@ -83,3 +83,49 @@ fn large_explore_collections_keep_actions_and_selected_card_reachable() {
         "empty collections retain Import, Folder and Back"
     );
 }
+
+// Protects player-visible diagnostics without altering rollback or logging.
+// Two in-memory UI states only; unique coverage of the developer setting seam.
+#[test]
+fn recoverable_prop_diagnostics_follow_console_enabled_state() {
+    let mut ui = UiState::new();
+    ui.developer_diagnostic("Ragdoll refused: fixture".to_string(), false);
+    assert!(ui.status_message.is_none() && !ui.status_is_error);
+    ui.developer_diagnostic("Ragdoll refused: fixture".to_string(), true);
+    assert_eq!(
+        ui.status_message.as_deref(),
+        Some("Ragdoll refused: fixture")
+    );
+    assert!(ui.status_is_error);
+    ui.clear_status();
+    ui.set_status("Map cannot load", true);
+    assert!(
+        ui.status_is_error,
+        "real blocking failures remain unconditional"
+    );
+}
+
+// The retry button must own its click and cannot fall through to pause actions.
+// Tiny layout fixture; no renderer, assets or native window.
+#[test]
+fn budget_recovery_buttons_keep_destructive_choice_explicit() {
+    let mut ui = UiState::new();
+    ui.set_status("Keeping both worlds exceeds the budget", true);
+    ui.load_retry = Some(());
+    let layout = menu_layout(
+        AppState::Paused,
+        &ui,
+        &Settings::default(),
+        &DisplayStatus::default(),
+    );
+    assert_eq!(
+        layout.hit_test([90.0, 240.0]).map(|hit| hit.intent),
+        Some(MenuIntent::RetryLoad)
+    );
+    assert_eq!(
+        layout.hit_test([380.0, 240.0]).map(|hit| hit.intent),
+        Some(MenuIntent::Dismiss)
+    );
+    ui.clear_status();
+    assert!(ui.load_retry.is_none());
+}

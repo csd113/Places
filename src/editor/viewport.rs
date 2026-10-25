@@ -298,7 +298,10 @@ impl Viewport {
             &preview.geometry,
         ) {
             if let Some(metrics) = self.preview_metrics.as_object_mut() {
-                drop(metrics.insert("admission_error".into(), serde_json::json!(error)));
+                drop(metrics.insert(
+                    "admission_error".into(),
+                    serde_json::json!(error.to_string()),
+                ));
             }
             self.uploading = false;
             return false;

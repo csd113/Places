@@ -266,7 +266,7 @@
       "files": [
         "ambience_hvac/01.wav"
       ],
-      "gain": 0.18,
+      "gain": 0.065,
       "looping": true,
       "spatial": false,
       "min_distance": 1.0,
@@ -317,6 +317,39 @@
       "spatial": false,
       "min_distance": 1.0,
       "max_distance": 24.0
+    },
+    {
+      "id": "fluorescent_buzz",
+      "files": [
+        "fluorescent_buzz/01.wav"
+      ],
+      "gain": 0.1,
+      "looping": true,
+      "spatial": true,
+      "min_distance": 0.5,
+      "max_distance": 6.5
+    },
+    {
+      "id": "pool_lapping",
+      "files": [
+        "pool_lapping/01.wav"
+      ],
+      "gain": 0.16,
+      "looping": true,
+      "spatial": true,
+      "min_distance": 1.5,
+      "max_distance": 11
+    },
+    {
+      "id": "empty_room",
+      "files": [
+        "empty_room/01.wav"
+      ],
+      "gain": 0.065,
+      "looping": true,
+      "spatial": true,
+      "min_distance": 4,
+      "max_distance": 18
     }
   ]
 }

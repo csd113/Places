@@ -3343,11 +3343,11 @@ impl WgpuRenderer {
         build: &Arc<LevelBuild>,
         assets: &crate::engine::props::PropAssets,
         world_bytes: usize,
-    ) -> Result<(), String> {
+    ) -> Result<(), crate::engine::resources::MapAdmissionError> {
         let next = Self::map_gpu_charge(loaded, build, assets, world_bytes);
         let old = self.map_gpu_charge;
         let limit = crate::engine::resources::gpu_budget();
-        let total = old.checked_add(next).ok_or("Map GPU charge overflow")?;
+        let total = old.saturating_add(next);
         let cached = self.textures.retained_texel_bytes();
         if total.saturating_add(cached) > limit {
             // Retire optional cache ownership before admission. Live draw/bind
@@ -3357,9 +3357,11 @@ impl WgpuRenderer {
         if total > limit {
             // Release cache references only. Current draws retain their handles.
             self.textures.release_profile_textures();
-            return Err(format!(
-                "Map GPU budget exceeded: displayed {old} + incoming {next} charged bytes, budget {limit}. The current map is preserved; return to the menu before retrying."
-            ));
+            return Err(crate::engine::resources::MapAdmissionError {
+                displayed: old,
+                incoming: next,
+                budget: limit,
+            });
         }
         logging::info(format!(
             "[map-budget] gpu_displayed={old} gpu_incoming={next} gpu_cache={} gpu_limit={limit} cpu_process={:?} cpu_limit={}",

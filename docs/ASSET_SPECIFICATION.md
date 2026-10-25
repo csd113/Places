@@ -2601,3 +2601,17 @@ before world geometry. The authored visual angular diameter controls the fitted
 square, independently of the light's shadow softness. Pixels and alpha are loaded
 from the committed files; shaders do not synthesize a sun, moon or halo. These
 are not 2:1 sky panoramas. Existing panoramas retain their original contract.
+
+## Runtime audio assets
+
+Shipped sound clips are real, committed mono PCM16 WAV files under
+`assets/audio/<cue>/`, at 44,100 Hz, no longer than 30 seconds. Catalog entries
+declare gain, loop and positional mode; ordinary HVAC/bird/water beds retain
+their non-positional defaults. A deliberate positional override or a positional
+cue is required for a point emitter. Runtime preloads within 64 MiB decoded and
+48 voices; no sample synthesis occurs at launch or map load.
+`authoring.json`, `provenance.json` and `licenses/SOURCES.txt` retain recipes,
+hashes and rights. `tools/audio/build.py --check` audits this closure offline.
+The original fluorescent/pool/empty-room clips are authored by
+`tools/audio/original.py` under the repository MIT license; the runtime never
+runs that authoring tool. They have circular seams and rounded, sparse envelopes.

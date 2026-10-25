@@ -22,6 +22,11 @@ pub enum Action {
     ConsoleEnabled {
         enabled: bool,
     },
+    /// Fault injection through the real rollback/diagnostic path; no map bake.
+    Ragdoll {
+        id: String,
+        enabled: bool,
+    },
     Key {
         key: String,
         pressed: bool,
@@ -192,7 +197,10 @@ fn validate_pose_action(action: &Action) -> Result<(), String> {
             "Native item velocity requires an id and finite magnitudes at most 20".to_string(),
         );
     }
-    if let Action::Fixture { id, on: _ } | Action::AimItem { id } | Action::Activate { id } = action
+    if let Action::Fixture { id, on: _ }
+    | Action::AimItem { id }
+    | Action::Activate { id }
+    | Action::Ragdoll { id, enabled: _ } = action
         && (id.is_empty() || id.len() > 256)
     {
         return Err("Native fixture requires a bounded id".to_string());
@@ -423,7 +431,8 @@ fn validate_action(action: &Action) -> Result<(), String> {
         | Action::Quality { level: _ }
         | Action::Lightmaps { quality: _ }
         | Action::LowLighting { enabled: _ }
-        | Action::Focus { focused: _ } => {}
+        | Action::Focus { focused: _ }
+        | Action::Ragdoll { id: _, enabled: _ } => {}
     }
     Ok(())
 }
