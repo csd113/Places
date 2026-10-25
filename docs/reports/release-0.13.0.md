@@ -9229,3 +9229,184 @@ final-version CI gate remain open. No ZIP refresh, recording, comparison video,
 Library upload, version bump, release, main merge, force push, CI wait,
 power/security/sleep change, awake helper or GPU-clock/charger investigation
 occurred. Connor's manually configured sleep setting is unchanged.
+
+
+## Water presentation and bounded interaction work (Windows, 2026-10-25)
+
+This phase starts at clean staging commit
+`fca71d907155f14fb188786264f511fee2260139` and implements the four approved
+water improvements without changing mean surface height, swimming, collision,
+current forces or buoyancy. Source/PS2 material art remains the authored PNGs;
+no texture or shipped map asset changes, fluid simulation, new planar pass or
+unrelated reflection-system change is introduced.
+
+**Presentation.** Existing UV motion now has more visible analytic normal motion.
+Water uses Schlick reflectance (F0 0.02037) instead of the ordinary gloss mix;
+incident lighting is reused, with the existing authored reflection scale retained.
+Medium/High use opaque view-ray thickness, bounded at 12 m, RGB absorption plus
+existing authored attenuation, and refraction displaced by at most three scene
+pixels. Every texel of the bilinear footprint must pass foreground-depth and
+above-water/viewport checks; failure samples the original pixel. Colour filtering
+uses the existing immutable clamped-linear sampler. Compensated straight alpha
+retains already sorted transparency. This is opaque-scene refraction, not correct
+multi-layer transparent ray tracing. Low and reflection captures retain the
+ordinary blended fallback.
+
+A 5.5 cm ray-thickness contact fade and weak dark meniscus replace a sheet-like
+hard contact; no indoor ocean foam is generated. Existing authored Beach foam
+is unchanged. The water section of `docs/MAP_AUTHORING_GUIDE.md` records the
+changed appearance and fallback contracts. Material/image contracts are unchanged.
+
+**Interactions and bounded work.** Changed player footprints, rigid props and
+authored floating props feed the same model-independent impulse path. Real entry,
+throws and slow duck bobbing emit local expanding normal rings/wakes; settled,
+dry, fully submerged and teleported subjects do not. The final optical budget is
+**eight events**, with a 2.8-second maximum lifetime and priority for stronger,
+recent impacts. Ambient zero-motion water can still react to an impact. Events
+stay in their authored water volume. Normal motion never displaces the plane.
+Per-subject cooldowns and a bounded indexed motion queue coalesce repeated poses;
+no per-frame scenery scan or pose-driven mesh upload is added. CPU-prepared
+annuli/decay reject irrelevant pixels before expensive ripple arithmetic.
+
+Opaque inputs use one reusable RGBA16F/Depth32 pair at scene resolution. A cached
+water bound uses the existing conservative frustum/occlusion result; potentially
+visible water copies a projected colour rectangle with a five-texel guard, plus
+a separate full depth copy. Hidden views reuse allocations; Low, unload and
+level replacement retire the snapshot/bindings/history. No input aliases a live
+attachment. Water optics specialize out of opaque/cutout programs, and water
+Fresnel is calculated once and reused.
+
+Moving-body caustic visibility now prunes a static receiver hierarchy, composes
+only dirty cells in the original source/FMA order, and transfers coalesced spans
+in at most **64 queue writes per frame**. Light-source changes retain their
+existing full composition; ordinary prop movement does not rebuild the water,
+receiver field, meshes or lightfield. Existing source-type eligibility and energy
+rules remain intact. In the native repeated-drop checkpoints full-field uploads
+stay at one, whereas baseline rises from five at held pickup to 232 after drops.
+Regression fixtures replay sparse transfers bit-for-bit against full composition,
+including a fragmented 200-range case, without full-map baking.
+
+**Native visual/functional evidence.** All final checks use the preserved final
+player, SHA-256 `d0afcbe2fcd48ea04ab6e4ad8f1ab1c6dc9574c95dbf8f740e56866f397a219a`. Seven fixed-view
+before/after PNGs cover Pool from above, two motion times, near grazing, ladder/
+foreground, submerged, circular contact, and Beach shore/depth. Pool uses Full
+lightmaps; Beach's package supports Static. Both sides use High quality/filtering,
+Full reflections and bloom, 1280x720 physical drawable, VSync off and actual
+Immediate presentation. The final image review finds clearer depth/absorption,
+angle response and restrained motion, with intact ladder/shore silhouettes.
+The four checked dry/foreground ROIs are pixel-identical to baseline. Optimized
+sampling differs from the full manual-sampling trial by at most one or two RGB
+levels in these views. Temporal water changes include existing caustics, so their
+pixel deltas are not presented as an isolated normal-motion measurement.
+
+The small three-bay fixture contains rigid ducks/drums and three authored floating
+ducks. Baseline and final player use the exact same package and action sequence
+for a real crouch/pickup/recapture/mouse throw (one `item_thrown` event), three
+repeated duck/drum drops, player entry, Low fallback and High recovery. All ten
+final captures are inspected. Additional matched native PNGs show the shipped
+Pool's actual duck/drum entering and settling near the camera. Capture-time FPS
+is excluded. Three final load/menu-return cycles pass, including Low/Medium/High,
+960x540 -> 1280x720 recovery, stable solver/body counts and clean shutdown.
+The final compiler rebuilds only the small fixture; typed validation and
+`--require-current` verification pass. Its SHA-256 is `f6205e99a541235c46c720985a88787e616af3d521979c04f88f0681d0c2e6dc`.
+The representative project packages stay unchanged for matched runtime evidence;
+this does not claim a final-version rebake or ZIP refresh.
+
+**Performance and tradeoffs.** The first 32-event candidate is rejected: its
+three-pair fixed-drop median falls 458.90 -> 312.66 FPS, despite lower CPU update
+work. Prepared annuli/filtering alone still produce 465.53 -> 319.46 FPS in a
+separate diagnostic probe. These receipts and binaries are retained. The final
+version uses the explicit eight-event optical budget, shared reflectance and
+guarded hardware filtering, without lowering quality elsewhere. It still incurs
+a measured GPU cost for the requested optics; **this is not an overall FPS
+speedup**. CPU water-lighting work improves, while large water coverage and local
+optics can increase total frame time. These costs are reported rather than
+hidden by a limiter, changed resolution or reduced unrelated settings.
+
+Final primary measurements use three alternating before/after pairs per case,
+12 seconds after ready and 120 warmup frames (14 seconds for the true-throw/entry
+case), real delta, High/filtering/Full reflections/bloom, 1280x720 physical,
+DX12/NVIDIA RTX 3070 Laptop GPU. Full lightmaps are used except Beach Static.
+VSync is off, no frame limiter is present, and actual `Immediate (immediate)` is
+verified after initial surface creation. Every run exceeds the 165-Hz display;
+no refresh-rate plateau is accepted. No compiler or other player overlaps them.
+Primary runs have no screenshot/readback or CPU/GPU/resource trace; physical
+cases log identical physics CSVs on both sides. Separate diagnostic replays carry
+CPU/GPU/resource traces. Figures below are medians of per-run statistics.
+
+| Scene | Median FPS before -> after | p95 / p99 loop ms before -> after | p95 CPU update ms before -> after | p95 GPU pass ms before -> after |
+| --- | ---: | --- | ---: | ---: |
+| Repeated drops, fixed view | 469.08 -> 351.95 | 2.677 / 3.193 -> 4.526 / 5.078 | 1.456 -> 1.324 | 1.202 -> 2.787 |
+| True throw, drops and player entry | 484.13 -> 393.03 | 2.587 / 3.259 -> 4.360 / 4.813 | 1.459 -> 1.173 | 1.096 -> 2.671 |
+| Beach, fixed view | 313.87 -> 243.85 | 4.932 / 5.384 -> 5.315 / 5.711 | 0.556 -> 0.655 | 3.287 -> 4.230 |
+| Pool, fixed view | 288.29 -> 273.12 | 6.344 / 6.817 -> 5.877 / 6.281 | 0.306 -> 0.308 | 4.155 -> 3.542 |
+| Dry Arcade control | 319.83 -> 318.85 | 4.474 / 4.834 -> 4.458 / 4.841 | 0.976 -> 0.991 | 3.785 -> 3.807 |
+
+The seeded visible-water menu measures 269.15 ->
+260.03 FPS over another three alternating pairs.
+That view contains Pool water and is not a dry control; its early 275 -> 255 FPS
+trial was initially misclassified and corrected after inspecting the native PNG.
+The dry Arcade case above guards unrelated rendering. Fixed-drop mean CPU update
+is 1.156 -> 0.981 ms;
+GPU pass p99 is 1.467 -> 3.688 ms and median-run
+worst loop is 7.157 -> 6.471 ms.
+GPU pass unions exclude copy/barrier gaps; end-to-end loop/swap tails include them.
+Raw per-run p95/p99/worst, sample counts and measured scope remain in the receipts.
+The controlled drop and scripted throw/entry workloads are distinct and are not
+combined into a game-wide throughput claim.
+
+**Allocation and resource evidence.** New motion/ripple and dirty-cell work uses
+preallocated bounded storage; essential tests cover burst coalescing, capacity,
+hide/despawn/clear, expiration and replacement. Final native active events never
+exceed eight, and histories reset on unload. Snapshots are 11,059,200 texel bytes
+at 1280x720, 2,764,800 at Medium's 640x360 scene and 6,220,800 at 960x540; Low and
+unloaded-level rows report zero. The menu can create its own fresh snapshot.
+Loaded fixture texture counts/bytes remain stable across three cycles; geometry
+budgets do not grow per interaction. HAL counters include alignment where
+available, and texel budgets exclude driver overhead; neither is complete VRAM.
+Transient buffer/pool variation is retained in raw data, not called a leak-free
+proof for the whole process.
+
+The existing harness has no Windows RSS sampler. A task-local read-only limited
+query handle samples Windows working set/private bytes every 250 ms and records
+OS peak working set/commit plus CPU times, without installing a dependency or
+reading process memory contents. Peaks include startup/steady state and are not
+Rust allocation-call counts or GPU VRAM. In the fixed-drop runs maximum peak
+working set is 357.30 ->
+363.05 MiB, peak committed memory
+491.46 ->
+495.84 MiB. Full lifecycle process peaks,
+per-run samples and source capacity evidence are retained for interpretation.
+
+**Gates and handoff.** Final strict Clippy, locked all-target/all-feature check,
+locked workspace/all-feature release, aggregate **328 Rust tests** (zero failed/
+ignored), **25 focused Python tests**, asset/texture/prop/audio checks, format
+and patch whitespace pass. The five added Rust regressions use tiny CPU-only
+fixtures with stated unique value; no default test bakes a shipped map. Assets
+remain 629 / 389 placeable / nine themes / zero validation warnings; 140 texture
+assets retain 100 known advisories. The broader Python suite was not rerun;
+its **17 known failures/errors and 16 skips** remain open.
+
+Evidence is under `C:/Users/Connor Dawkins/Documents/Codex/2026-10-25/task-4/`:
+`phase-summary.json`, `performance-final-analysis.json`, `final-timing-results.json`,
+`final-menu-results.json`, `final-diagnostic-results.json`,
+`resource-analysis-final.json`, `visual-pixel-analysis-final-budget.json`,
+`quality-final-budget/results.json`, final native PNGs/logs, controls and source
+fixtures. Earlier rejected/exploratory receipts are preserved. Initial native
+harness misses (falling pickup target, mouse recapture and persisted pause-menu
+selection), a clipped synthetic occluder and caught compile/lint issues were
+corrected; those failed receipts are not acceptance evidence. No automatic
+approval-review denial remains in this phase.
+
+`final-bin/` preserves four production executables and six DLLs outside target,
+hash-checked against validated sources. `deliverable-hashes.json`, `cleanup.json`
+and `ownership-handoff.json` record preservation, final target cleanup, exact
+commit/remote, clean staging tree and explicit writer-custody release.
+
+The ~2.4-second cold input stall, subjective ambience listening, reflected-CRT
+visual acceptance, broader Python failures, Mac/Metal/Linux validation and final
+version CI/package gate remain open. The measured High-water GPU cost above is
+an explicit appearance tradeoff. No advanced audio, AI, editor or Backrooms work,
+ZIP refresh, video/comparison recording, Library upload, version bump, release,
+main merge, force push, CI wait or power/security/sleep change is performed.
+Connor's manually configured Never-sleep setting remains unchanged.

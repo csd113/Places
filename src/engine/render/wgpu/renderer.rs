@@ -616,6 +616,9 @@ pub struct WgpuRenderer {
     /// Created once with the device.
     environment_layout: wgpu::BindGroupLayout,
     caustics: super::caustics::Caustics,
+    water_interactions: super::water::Interactions,
+    water_snapshot: Option<super::water::Snapshot>,
+    water_active: bool,
     /// The renderer-owned texture cache: layout, shared samplers, fallback and
     /// every uploaded texture. Renderer lifetime; pack entries are dropped per
     /// level.
@@ -1127,6 +1130,9 @@ impl WgpuRenderer {
             material_layout,
             environment_layout,
             caustics,
+            water_interactions: super::water::Interactions::default(),
+            water_snapshot: None,
+            water_active: false,
             textures,
             filtering: TextureFiltering::DEFAULT,
             prop_catalog: crate::engine::loader::PropCatalog::load_default(),
@@ -1466,6 +1472,12 @@ impl WgpuRenderer {
         &self.dynamic
     }
 
+    /// Player footprint shares the live controller's feet/eye, including crouch.
+    pub fn update_water_player(&mut self, eye: glam::Vec3, feet: f32) {
+        self.water_interactions
+            .player(eye, feet, self.animation_seconds);
+    }
+
     /// Advances the dynamic scene and the emission-animation clock.
     ///
     /// The neutral scene updates transforms and refreshes environmental
@@ -1482,6 +1494,11 @@ impl WgpuRenderer {
         // Floats ride an absolute clock before the spin/probe pass, so a
         // moved float's probe is sampled at this frame's surface pose.
         let _update_stats = self.dynamic.update_floats(self.animation_seconds);
+        self.water_interactions.advance(
+            self.animation_seconds,
+            delta_seconds,
+            self.dynamic.drain_water_motion(),
+        );
         // Ambient effects ride the same absolute clock: a particle's pose is a
         // pure function of it, so this only records the time and reports which
         // emitters advanced. Their billboards are synced in `render_scene`,
@@ -2210,6 +2227,12 @@ impl WgpuRenderer {
         self.retained_build = None;
         self.lightmap_cpu = None;
         self.packaged_probes = None;
+        self.water_interactions = super::water::Interactions::default();
+        self.water_snapshot = None;
+        self.water_active = false;
+        if let Some(pipeline) = self.scene_pipeline.as_mut() {
+            pipeline.bind_water(&self.device, None);
+        }
         self.installed_level = None;
         self.level_id = None;
         self.dynamic_lighting = None;
@@ -4456,6 +4479,14 @@ impl WgpuRenderer {
             // level, so the installed definition is retained for them: a
             // runtime placement resolves its walkable floor exactly like a
             // placed prop's.
+            self.water_snapshot = None;
+            self.water_active = false;
+            if let Some(pipeline) = self.scene_pipeline.as_mut() {
+                pipeline.bind_water(&self.device, None);
+            }
+            self.water_interactions.install(&loaded.level);
+            self.dynamic
+                .enable_water_interactions(!loaded.level.water.is_empty());
             self.installed_level = Some(loaded.level.clone());
             // The door models need the resolved material table, which is only
             // in scope here; they are kept for `spawn_doors`, which re-runs
@@ -5634,6 +5665,7 @@ impl WgpuRenderer {
             );
         }
         let _ensure_post_targets_status = self.ensure_post_targets();
+        self.prepare_water_frame(&frame);
         self.last_frame = Some(frame);
         // A frame whose present was skipped (`PLACES_BENCH_NOSWAP`) must not
         // hold the swapchain: discard it before acquiring the next one.
@@ -5670,6 +5702,36 @@ impl WgpuRenderer {
             }
             Acquired::Skip => {}
         }
+    }
+
+    fn prepare_water_frame(&mut self, frame: &super::world::WorldFrame) {
+        let visible = self.water_interactions.visible(frame);
+        let size = if self.quality == QualityLevel::Low {
+            None
+        } else if visible {
+            self.post.as_ref().and_then(PostProcess::scene_size)
+        } else {
+            self.water_snapshot.as_ref().map(|snapshot| snapshot.size)
+        };
+        if self.water_snapshot.as_ref().map(|snapshot| snapshot.size) != size {
+            self.water_snapshot =
+                size.map(|dimensions| super::water::Snapshot::new(&self.device, dimensions));
+        }
+        if let Some(pipeline) = self.scene_pipeline.as_mut() {
+            pipeline.bind_water(&self.device, self.water_snapshot.as_ref());
+        }
+        let active = visible && self.water_snapshot.is_some();
+        if visible || self.water_active {
+            let uniform = self.water_interactions.uniform(
+                frame.view_projection,
+                self.animation_seconds,
+                active,
+            );
+            if let Some(pipeline) = self.scene_pipeline.as_ref() {
+                pipeline.upload_water(&self.queue, &uniform);
+            }
+        }
+        self.water_active = active;
     }
 
     /// Ensures the offscreen post targets match the drawable and level.
@@ -5784,13 +5846,19 @@ impl WgpuRenderer {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            let (scene_totals, pass_draws) = self.encode_scene_body(&mut pass, frame);
+            let (scene_totals, pass_draws) =
+                self.encode_scene_body(&mut pass, frame, u8::from(self.water_active));
             totals = scene_totals;
             drop(pass);
             if let (Some(active_timer), Some(beginning_query)) = (scene_timer, checkpoint) {
                 active_timer.record_pass_draws(beginning_query, pass_draws);
             }
         }
+        let transparent = self.encode_water_transparency(encoder, frame, timer);
+        if self.water_active {
+            totals.translucent_draws = transparent.translucent_draws;
+        }
+        totals.absorb(transparent);
         let blooms = self.bloom_requested && settings.blooms() && totals.emissive_visible;
         if blooms && self.emissive_pipeline.is_some() {
             let checkpoint = timer.map(GpuTimer::pass_checkpoint);
@@ -5810,6 +5878,62 @@ impl WgpuRenderer {
             post.encode_resolve(encoder, presented, settings, blooms, timer);
         }
         totals
+    }
+
+    fn encode_water_transparency(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        frame: &super::world::WorldFrame,
+        timer: Option<&GpuTimer>,
+    ) -> WorldDrawTotals {
+        if !self.water_active {
+            return WorldDrawTotals::default();
+        }
+        let Some(post) = self.post.as_ref() else {
+            return WorldDrawTotals::default();
+        };
+        if let Some(snapshot) = self.water_snapshot.as_ref() {
+            post.snapshot_water(
+                encoder,
+                snapshot,
+                self.water_interactions
+                    .copy_region(frame.view_projection, snapshot.size),
+            );
+            if let (Some(scene), Some(depth)) = (post.scene_view(), post.scene_depth_view()) {
+                let checkpoint = timer.map(GpuTimer::pass_checkpoint);
+                let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: Some("places-water-transparency"),
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: scene,
+                        depth_slice: None,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Load,
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                        view: depth,
+                        depth_ops: Some(wgpu::Operations {
+                            load: wgpu::LoadOp::Load,
+                            store: wgpu::StoreOp::Store,
+                        }),
+                        stencil_ops: None,
+                    }),
+                    timestamp_writes: timer
+                        .and_then(|value| value.pass_writes("water-transparency")),
+                    occlusion_query_set: None,
+                    multiview_mask: None,
+                });
+                let (transparent, draws) = self.encode_scene_body(&mut pass, frame, 2);
+                drop(pass);
+                if let (Some(active_timer), Some(beginning_query)) = (timer, checkpoint) {
+                    active_timer.record_pass_draws(beginning_query, draws);
+                }
+                return transparent;
+            }
+        }
+        WorldDrawTotals::default()
     }
 
     /// Encodes the emissive pass body (static classes, props and dynamics with
@@ -5852,6 +5976,7 @@ impl WgpuRenderer {
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
         frame: &'a super::world::WorldFrame,
+        phase: u8,
     ) -> (WorldDrawTotals, usize) {
         let mut totals = WorldDrawTotals::default();
         let mut additional_draws = 0_usize;
@@ -5866,28 +5991,40 @@ impl WgpuRenderer {
         };
         // The night sky paints the cleared background first; the world body
         // draws over it with depth testing, so a solid ceiling always hides it.
-        if !self.visual_diagnostic_active()
+        if phase != 2
+            && !self.visual_diagnostic_active()
             && let (Some(sky), Some(sky_pipeline)) = (self.sky.as_ref(), self.sky_pipeline.as_ref())
         {
             sky_pipeline.encode_scene(pass, sky, self.filtering);
             additional_draws = additional_draws.saturating_add(1);
         }
-        totals = pipeline.encode(
-            pass,
-            super::world::WorldEncodeInputs {
-                geometry: world,
-                textures,
-                materials,
-                environment: environment.bind_group_for_probe(self.active_probe),
-                props: self.world_props.as_ref(),
-                dynamic: self.world_dynamic.as_ref(),
-                characters: self.world_characters.as_ref(),
-                capture_plane: None,
-                filtering: self.filtering,
-                frame,
-                cull: self.culling,
-            },
-        );
+        let inputs = super::world::WorldEncodeInputs {
+            geometry: world,
+            textures,
+            materials,
+            environment: environment.bind_group_for_probe(self.active_probe),
+            props: self.world_props.as_ref(),
+            dynamic: self.world_dynamic.as_ref(),
+            characters: self.world_characters.as_ref(),
+            capture_plane: None,
+            filtering: self.filtering,
+            frame,
+            cull: self.culling,
+        };
+        totals = match phase {
+            1 => pipeline.encode_opaque(pass, inputs),
+            2 => pipeline.encode_transparency(pass, inputs, false),
+            _ => pipeline.encode(pass, inputs),
+        };
+        if phase == 2 {
+            totals.translucent_draws = totals.visible_batches;
+        }
+        if phase == 1 {
+            if !self.visual_diagnostic_active() {
+                self.encode_decals(pass, self.decal_scene_pipeline.as_ref(), frame, &mut totals);
+            }
+            return (totals, totals.draw_calls.saturating_add(additional_draws));
+        }
         #[cfg(feature = "visual-diagnostics")]
         {
             additional_draws = additional_draws.saturating_add(self.encode_probe_visualization(
@@ -5899,7 +6036,7 @@ impl WgpuRenderer {
                 frame,
             ));
         }
-        if !self.visual_diagnostic_active() {
+        if phase == 0 && !self.visual_diagnostic_active() {
             self.encode_decals(pass, self.decal_scene_pipeline.as_ref(), frame, &mut totals);
         }
         // Ambient effects blend over the finished world body, depth-testing
@@ -7602,6 +7739,7 @@ impl WgpuRenderer {
             "pending_item_sheet_holds": self.prepared_install.as_ref().and_then(|pending|pending.item_sheets.as_ref()).map_or(0,Vec::len),
             "pending_texture_cache": self.prepared_install.as_ref().map(|pending| pending.textures.diagnostic_retention()),
             "post_attachment_texel_bytes": self.post.as_ref().map_or(0, PostProcess::diagnostic_attachment_bytes),
+            "water": {"active":self.water_active,"snapshot_texel_bytes": self.water_snapshot.as_ref().map_or(0, super::water::Snapshot::bytes), "interactions": self.water_interactions.diagnostics()},
             "atlas_texel_bytes": self.lightmaps.stats().resident_bytes,
             "prop_geometry": self.world_props.as_ref().map(|props| serde_json::json!({"vertex_bytes":props.stats().vertex_bytes,"index_bytes":props.stats().index_bytes,"independent_lighting_instance_bytes":props.stats().lighting_instance_bytes,"canonical_meshes":props.stats().canonical_meshes,"canonical_instances":props.stats().canonical_instances,"buffer_requested_bytes":props.geometry_buffer_bytes(),"layout":"canonical shape plus independent placement lighting; compatible automatic instances; individual fallback buffers"})),
             "character_geometry": self.world_characters.as_ref().map(|characters|serde_json::json!({"vertex_bytes":characters.stats().vertex_bytes,"index_bytes":characters.stats().index_bytes,"characters":characters.stats().characters,"shared_models":characters.stats().meshes})),

@@ -1132,6 +1132,8 @@ impl FrameLoop<'_> {
         self.update_carry_attachments(visual_delta);
         // Publish every final pose once. Water, props and characters observe
         // the same visibility, including this frame's socket attachments.
+        self.renderer
+            .update_water_player(self.game.player_position, self.game.feet_y());
         let _update_stats = self.renderer.update_dynamic(visual_delta);
         self.renderer.sync_characters();
         for instance_id in &characters.finished {

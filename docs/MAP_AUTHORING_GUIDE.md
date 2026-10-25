@@ -1484,19 +1484,34 @@ own air.
 | `bottom_y` | number | no | lowest walkable floor under the footprint, else `surface_y - 2.0` | World Y of the bottom, sampled inside the rectangle or the disc's own interior. Metadata and depth reporting only; physics always stands on the walkable floor. Must be finite and strictly below `surface_y`. |
 | `material` | string | no | `core:water_pool_01` | Surface material. The default is `alpha_mode: "blend"`, so any replacement must be translucent or the water reads as a solid lid. |
 | `opacity` | number | no | `0.62` | `0.0..=1.0`; base surface coverage. The material opacity remains 1 so one material serves every volume. |
-| `attenuation_per_metre` | number | no | `0.0` | Finite 0–16. Transmission is `(1-opacity) * exp(-attenuation_per_metre * vertical_depth)`. Zero retains exact existing coverage. This stylized vertical-depth approximation changes visual coverage only, not swimming/collision; it is not screen-space thickness or refraction. |
+| `attenuation_per_metre` | number | no | `0.0` | Finite 0–16. Low and reflection captures retain `(1-opacity) * exp(-attenuation_per_metre * vertical_depth)` coverage. Medium/High water presentation adds this scalar extinction to RGB absorption over opaque view-ray thickness (bounded at 12 m); opacity controls colour density. This changes appearance only. Baked light transmission, mean height, collision and buoyancy keep their existing contracts. |
 | `caustics` | object | no | `{ "tint": [1, 1, 1], "speed": 1.35, "strength": 0.24 }` | Optional independent per-water focus controls. Each nested field can be omitted. Linear RGB `tint` channels must be finite in `0..1`; `speed` is finite in `0..8` (`0` freezes animation); `strength` is finite in `0..1` (`0` disables this water's caustics). These affect eligible source light only and create no emission. |
-| `motion` | object | no | `{ "speed": 1, "strength": 0.35, "flow_speed": 0, "direction_degrees": 0 }` | Strict optional controls: finite `speed` 0–8 (ripple clock), `strength` 0–1 (ripple amount), `flow_speed` 0–4 metres/second, `direction_degrees` 0–360 using Places yaw (0 = −Z, 90 = +X). Unknown nested fields reject. Zero flow is physically still; speed 0 holds ripples, strength 0 removes them. For a fully static picture also set caustics speed to 0. |
+| `motion` | object | no | `{ "speed": 1, "strength": 0.35, "flow_speed": 0, "direction_degrees": 0 }` | Strict optional controls: finite `speed` 0–8 (ripple clock), `strength` 0–1 (ripple amount), `flow_speed` 0–4 metres/second, `direction_degrees` 0–360 using Places yaw (0 = −Z, 90 = +X). Unknown nested fields reject. Zero flow is physically still; speed 0 holds ripples, strength 0 removes them. For a fully static picture also set caustics speed to 0 and keep interaction subjects still. |
 | `swimming` | boolean | no | `true` | `false` keeps the surface decorative: the player walks or falls through it, and no swim state can trigger. |
 
 Medium/Full water surfaces receive ordinary incident-HDR floor charts and their
 shadows, sky and practical-light sheen. Low keeps its vertex-light fallback.
 Circular fans use one upward triangle plus a folded degenerate quad triangle;
-coverage is applied once. Water and ice reuse bounded probe reflections with
-Fresnel/gloss controls. All transparent world, prop, movable and character ranges
-share stable back-to-front centre sorting, straight alpha and no depth writes.
-Intersecting triangles and large coalesced ranges still require authored
-separation. No refraction, ray tracing or new reflection pass is introduced.
+coverage is applied once. Water reuses bounded probe reflections with
+water-specific Schlick Fresnel (normal-incidence reflectance 0.02037), with
+authored reflection strength retained as an artistic scale. Ice keeps the
+ordinary material reflection/gloss response. All transparent
+world, prop, movable and character ranges share stable back-to-front centre
+sorting, straight alpha and no depth writes. Intersecting triangles and large
+coalesced ranges still require authored separation. Medium/High presentation
+uses one cached water bound with the existing conservative frustum/occlusion
+result to skip water that cannot contribute to the view.
+When potentially visible it copies the completed opaque inputs once at scene
+resolution: colour is limited to a conservative projected water rectangle plus
+a five-texel guard; depth remains a separate full-surface copy. Resources retain
+scene dimensions across camera motion. It uses a
+guarded displacement of at most three pixels for refraction. The complete
+bilinear footprint must lie behind the water; foreground/viewport edges fall
+back to the original pixel. Previously sorted transparency retains its remaining
+transmission through compensated straight alpha; this is an opaque-scene
+refraction approximation, not a multi-layer transparent ray tracer. Low and
+reflection captures retain the ordinary blended fallback. No new reflection
+capture or planar work is introduced.
 
 Animated caustics redistribute existing diffuse light across upward-facing
 submerged floors, steps and movable surfaces in Static and Full lighting.
@@ -1543,6 +1558,20 @@ How it behaves:
   independent settings. Source-light caustics keep all existing eligibility,
   colour and intensity rules; their pattern follows the same current. Water
   continues moving with all caustic lights off.
+* **Interactions** add expanding, decaying normal ripples for the live player
+    footprint, changed rigid props and authored floating props. They work
+    independently of ambient motion strength/speed, including still water.
+    Impacts and low-amplitude wakes share an eight-event budget and a 2.8-second
+    lifetime. Subjects debounce independently; unchanged, fully submerged,
+    dry and teleported bodies do not emit. Events stay local to their authored
+    water volume and preserve the mean plane. Pose updates coalesce through a
+    bounded index; no per-frame scenery scan or mesh upload is added. Unload
+    releases histories and snapshot bindings; quality changes retain live phase.
+* **Contacts** use a 5.5 cm view-ray intersection fade and a weak dark
+    meniscus instead of generated foam. Existing authored Beach foam remains
+    ordinary artwork. Source caustic eligibility/energy is unchanged: static
+    receiver hierarchies skip unrelated cells, and coalesced changed receiver spans
+    upload after movable shadow changes, in at most 64 queue writes per frame. No per-prop lighting solve is added.
 * **Depth** follows feet, live stance midpoint (waist), then eye, inspired by
   Source SDK 2013 **singleplayer** commit `77567eb4bce8d7b6b7f73e929fcde3a331c0216e`.
   Feet-only water retains land movement. Waist-deep water uses swimming even

@@ -82,6 +82,7 @@ pub mod surface;
 pub mod texture;
 pub mod ui;
 mod uv_receivers;
+pub mod water;
 pub mod world;
 
 pub use renderer::WgpuRenderer;

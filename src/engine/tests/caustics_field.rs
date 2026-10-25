@@ -748,12 +748,27 @@ fn assert_partial_water_refresh(
     // move must retain exact full-refresh shadows without querying the whole bay.
     assert!(dynamic.set_transform(id, [0.5, 0.5, 0.5], 0.0, 0.1));
     assert!(visibility.sync(dynamic)?);
+    let mut uploaded = field.samples.clone();
     let _entered = field.refresh_dynamic_visibility(visibility);
     assert!(dynamic.set_transform(id, [0.52, 0.5, 0.5], 0.0, 0.1));
     assert!(visibility.sync(dynamic)?);
     let previous_queries = field.dynamic_region_queries;
     let _moved = field.refresh_dynamic_visibility(visibility);
     field.compose();
+    for range in field.upload_spans() {
+        let source = field
+            .samples
+            .get(range.clone())
+            .ok_or("upload span outside samples")?;
+        let target = uploaded
+            .get_mut(range.clone())
+            .ok_or("upload span outside replay")?;
+        target.copy_from_slice(source);
+    }
+    assert_eq!(
+        uploaded, field.samples,
+        "sparse GPU writes exactly reproduce the complete receiver buffer, including pending consecutive changes"
+    );
     assert_full_water_refresh(field, level, lighting, volumes.volumes(), visibility);
     let mut full = ReceiverField::build(level, lighting, volumes.volumes());
     let _full = full.refresh_dynamic_visibility(visibility);
@@ -768,5 +783,39 @@ fn assert_partial_water_refresh(
     assert!(visibility.sync(dynamic)?);
     let _left = field.refresh_dynamic_visibility(visibility);
     field.compose();
+    Ok(())
+}
+
+/// Essential worst-case transfer regression, beyond the real-light replay:
+/// 200 disjoint changed cells must stay within 64 queue writes and preserve
+/// untouched gaps/tail. Two 64 KiB buffers, milliseconds, no assets/GPU/bake.
+#[test]
+fn fragmented_water_changes_keep_gpu_transfers_bounded_and_exact() -> Result<(), String> {
+    let mut field = ReceiverField {
+        samples: vec![[0.0; 4]; 4096],
+        ..ReceiverField::default()
+    };
+    let mut gpu = field.samples.clone();
+    for index in 0_usize..200 {
+        let start = index.saturating_mul(16);
+        let range = start..start.saturating_add(8);
+        field
+            .samples
+            .get_mut(range.clone())
+            .ok_or("sample range missing")?
+            .fill([1.0, 0.5, 0.25, -2.0]);
+        field.upload_ranges.push(range);
+    }
+    let spans: Vec<_> = field.upload_spans().collect();
+    assert!(spans.len() <= super::MAX_VISIBILITY_UPLOADS);
+    for span in spans {
+        gpu.get_mut(span.clone())
+            .ok_or("GPU span missing")?
+            .copy_from_slice(field.samples.get(span).ok_or("CPU span missing")?);
+    }
+    assert_eq!(
+        gpu, field.samples,
+        "coalescing retains every changed cell and all unchanged gaps/tail"
+    );
     Ok(())
 }

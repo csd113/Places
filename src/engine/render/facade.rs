@@ -424,6 +424,11 @@ impl Renderer {
         self.renderer.set_dynamic_demo(level)
     }
 
+    /// Publishes the live player footprint for local water presentation.
+    pub fn update_water_player(&mut self, eye: glam::Vec3, feet: f32) {
+        self.renderer.update_water_player(eye, feet);
+    }
+
     /// Advances the dynamic objects by `delta_seconds`.
     pub fn update_dynamic(&mut self, delta_seconds: f32) -> DynamicUpdate {
         self.renderer.update_dynamic(delta_seconds)

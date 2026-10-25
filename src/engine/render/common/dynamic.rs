@@ -1051,6 +1051,14 @@ pub struct DynamicUpdate {
     pub probes_refreshed: usize,
 }
 
+/// Coalesced transform change for local water presentation. No geometry upload.
+#[derive(Clone, Copy, Debug)]
+pub struct WaterMotion {
+    pub id: DynamicId,
+    pub previous: Aabb,
+    pub current: Option<Aabb>,
+}
+
 /// Bounded, deterministic collection of dynamic objects for one level.
 ///
 /// Order is spawn order and stays stable: despawning preserves the relative
@@ -1058,6 +1066,9 @@ pub struct DynamicUpdate {
 /// sequence of spawns. Nothing here allocates while updating.
 #[derive(Debug, Default)]
 pub struct DynamicScene {
+    water_interactions: bool,
+    water_motion: Vec<WaterMotion>,
+    water_motion_index: HashMap<DynamicId, usize>,
     objects: Vec<DynamicObject>,
     meshes: Vec<Arc<DynamicMesh>>,
     mesh_index_by_path: HashMap<String, usize>,
@@ -1078,6 +1089,36 @@ impl DynamicScene {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Enables a bounded pose queue only for wet levels; dry transforms add no work.
+    pub fn enable_water_interactions(&mut self, enabled: bool) {
+        self.water_interactions = enabled;
+        self.water_motion.clear();
+        self.water_motion_index.clear();
+        if enabled {
+            self.water_motion_index.reserve(MAX_DYNAMIC_OBJECTS);
+            self.water_motion.reserve(MAX_DYNAMIC_OBJECTS);
+        }
+    }
+
+    /// Drains this frame's changed subjects; stationary objects are never scanned.
+    pub fn drain_water_motion(&mut self) -> impl Iterator<Item = WaterMotion> + '_ {
+        self.water_motion_index.clear();
+        self.water_motion.drain(..)
+    }
+
+    fn queue_water_motion(
+        queue: &mut Vec<WaterMotion>,
+        index: &mut HashMap<DynamicId, usize>,
+        event: WaterMotion,
+    ) {
+        if let Some(previous) = index.get(&event.id).and_then(|slot| queue.get_mut(*slot)) {
+            previous.current = event.current;
+        } else if queue.len() < MAX_DYNAMIC_OBJECTS {
+            let _previous = index.insert(event.id, queue.len());
+            queue.push(event);
+        }
     }
 
     /// Number of live objects.
@@ -1150,6 +1191,19 @@ impl DynamicScene {
         if self.objects.is_empty() {
             return;
         }
+        if self.water_interactions {
+            for object in &self.objects {
+                Self::queue_water_motion(
+                    &mut self.water_motion,
+                    &mut self.water_motion_index,
+                    WaterMotion {
+                        id: object.id,
+                        previous: object.world_bounds(),
+                        current: None,
+                    },
+                );
+            }
+        }
         self.objects.clear();
         self.bump();
     }
@@ -1157,6 +1211,8 @@ impl DynamicScene {
     /// Drops every registered mesh too. Called when a level is replaced.
     pub fn clear_all(&mut self) {
         self.objects.clear();
+        self.water_motion.clear();
+        self.water_motion_index.clear();
         self.meshes.clear();
         self.mesh_index_by_path.clear();
         self.registered_meshes.clear();
@@ -1179,6 +1235,19 @@ impl DynamicScene {
     /// so a level reload or a demonstration respawn cannot duplicate them.
     pub fn clear_floats(&mut self) {
         let before = self.objects.len();
+        if self.water_interactions {
+            for object in self.objects.iter().filter(|object| object.float.is_some()) {
+                Self::queue_water_motion(
+                    &mut self.water_motion,
+                    &mut self.water_motion_index,
+                    WaterMotion {
+                        id: object.id,
+                        previous: object.world_bounds(),
+                        current: None,
+                    },
+                );
+            }
+        }
         self.objects.retain(|object| object.float.is_none());
         self.water = WaterVolumes::new();
         if self.objects.len() != before {
@@ -1280,7 +1349,22 @@ impl DynamicScene {
                 || (object.translation.y - translation.y).abs() > f32::EPSILON
                 || (object.translation.z - translation.z).abs() > f32::EPSILON
                 || (object.spin_degrees - heel).abs() > f32::EPSILON;
+            let previous_bounds =
+                (self.water_interactions && object.visible).then(|| object.world_bounds());
             object.set_placement(translation, object.base_rotation, heel, object.scale);
+            if let Some(previous) = previous_bounds
+                && changed
+            {
+                Self::queue_water_motion(
+                    &mut self.water_motion,
+                    &mut self.water_motion_index,
+                    WaterMotion {
+                        id: object.id,
+                        previous,
+                        current: Some(object.world_bounds()),
+                    },
+                );
+            }
             if changed {
                 moved = moved.saturating_add(1);
             }
@@ -1574,7 +1658,19 @@ impl DynamicScene {
         let Some(index) = self.objects.iter().position(|object| object.id == id) else {
             return false;
         };
-        drop(self.objects.remove(index));
+        let object = self.objects.remove(index);
+        if self.water_interactions {
+            Self::queue_water_motion(
+                &mut self.water_motion,
+                &mut self.water_motion_index,
+                WaterMotion {
+                    id,
+                    previous: object.world_bounds(),
+                    current: None,
+                },
+            );
+        }
+        drop(object);
         self.bump();
         true
     }
@@ -1603,12 +1699,28 @@ impl DynamicScene {
         let Some(object) = self.objects.iter_mut().find(|object| object.id == id) else {
             return false;
         };
+        let previous_bounds =
+            (self.water_interactions && object.visible).then(|| object.world_bounds());
         object.set_placement(
             Vec3::from(translation),
             object.base_rotation,
             spin_degrees,
             scale,
         );
+        if let Some(previous) = previous_bounds {
+            let current = object.world_bounds();
+            if current != previous {
+                Self::queue_water_motion(
+                    &mut self.water_motion,
+                    &mut self.water_motion_index,
+                    WaterMotion {
+                        id,
+                        previous,
+                        current: Some(current),
+                    },
+                );
+            }
+        }
         true
     }
 
@@ -1635,7 +1747,23 @@ impl DynamicScene {
         let Some(object) = self.objects.iter_mut().find(|object| object.id == id) else {
             return false;
         };
+        let previous_bounds =
+            (self.water_interactions && object.visible).then(|| object.world_bounds());
         object.set_placement(Vec3::from(translation), rotation, 0.0, object.scale);
+        if let Some(previous) = previous_bounds {
+            let current = object.world_bounds();
+            if current != previous {
+                Self::queue_water_motion(
+                    &mut self.water_motion,
+                    &mut self.water_motion_index,
+                    WaterMotion {
+                        id,
+                        previous,
+                        current: Some(current),
+                    },
+                );
+            }
+        }
         object.spin_degrees_per_second = 0.0;
         object.float = None;
         true
@@ -1651,6 +1779,17 @@ impl DynamicScene {
             return false;
         };
         object.visible = visible;
+        if !visible && self.water_interactions {
+            Self::queue_water_motion(
+                &mut self.water_motion,
+                &mut self.water_motion_index,
+                WaterMotion {
+                    id,
+                    previous: object.world_bounds(),
+                    current: None,
+                },
+            );
+        }
         true
     }
 

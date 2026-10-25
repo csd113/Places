@@ -449,10 +449,10 @@ const fn quad_vertex_layout() -> wgpu::VertexBufferLayout<'static> {
 /// Every size-dependent post target and binding, rebuilt as one unit.
 struct PostTargets {
     /// Kept for ownership; the view references it.
-    _scene_texture: wgpu::Texture,
+    scene_texture: wgpu::Texture,
     scene_view: wgpu::TextureView,
     /// The scene depth, shared with the emissive pass. Kept for ownership.
-    _depth_texture: wgpu::Texture,
+    depth_texture: wgpu::Texture,
     depth_view: wgpu::TextureView,
     /// The emissive image at the scene target's own size: the pass tests
     /// against the scene depth in window coordinates, so a smaller target
@@ -650,6 +650,49 @@ impl PostProcess {
             presented,
             created: true,
         }
+    }
+
+    /// Resident scene size, independent of diagnostics and presentation size.
+    pub fn scene_size(&self) -> Option<DrawableSize> {
+        self.targets.as_ref().map(|targets| targets.scene_size)
+    }
+
+    /// Copies the completed opaque stage once. The destination is never rendered into.
+    pub fn snapshot_water(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        snapshot: &super::water::Snapshot,
+        region: ([u32; 2], DrawableSize),
+    ) {
+        let Some(targets) = self.targets.as_ref() else {
+            return;
+        };
+        let size = wgpu::Extent3d {
+            width: snapshot.size.width,
+            height: snapshot.size.height,
+            depth_or_array_layers: 1,
+        };
+        let ([x, y], extent) = region;
+        let mut source = targets.scene_texture.as_image_copy();
+        let mut destination = snapshot.color.as_image_copy();
+        source.origin = wgpu::Origin3d { x, y, z: 0 };
+        destination.origin = source.origin;
+        encoder.copy_texture_to_texture(
+            source,
+            destination,
+            wgpu::Extent3d {
+                width: extent.width,
+                height: extent.height,
+                depth_or_array_layers: 1,
+            },
+        );
+        // Keep the separate full depth copy: no writable attachment is sampled,
+        // and backend depth-copy subresource restrictions remain satisfied.
+        encoder.copy_texture_to_texture(
+            targets.depth_texture.as_image_copy(),
+            snapshot.depth.as_image_copy(),
+            size,
+        );
     }
 
     /// The scene colour target, for the world body's main pass.
@@ -984,14 +1027,14 @@ impl PostProcess {
             "places-wgpu-scene",
             scene_size,
             SCENE_FORMAT,
-            attachment,
+            attachment | wgpu::TextureUsages::COPY_SRC,
         );
         let (depth_texture, depth_view) = create_target_texture(
             device,
             "places-wgpu-scene-depth",
             scene_size,
             DEPTH_FORMAT,
-            wgpu::TextureUsages::RENDER_ATTACHMENT,
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
         );
         let (emissive_texture, emissive_view) = create_target_texture(
             device,
@@ -1058,9 +1101,9 @@ impl PostProcess {
         let present_bind = self.present_bind(device, &scene_view);
         let presented_present_bind = self.present_bind(device, &presented_view);
         PostTargets {
-            _scene_texture: scene_texture,
+            scene_texture,
             scene_view,
-            _depth_texture: depth_texture,
+            depth_texture,
             depth_view,
             _emissive_texture: emissive_texture,
             emissive_view,

@@ -180,6 +180,7 @@ pub struct Caustics {
     last_flashlight: bool,
     focus_enabled: bool,
     source_uploads: u64,
+    visibility_upload_bytes: u64,
     receiver_lighting: Option<Arc<LevelLighting>>,
     receiver_volumes: Vec<WaterVolume>,
 }
@@ -206,6 +207,7 @@ impl Caustics {
             last_flashlight: false,
             focus_enabled: true,
             source_uploads: 0,
+            visibility_upload_bytes: 0,
             receiver_lighting: None,
             receiver_volumes: Vec::new(),
         }
@@ -317,7 +319,12 @@ impl Caustics {
                     .water
                     .get(index)
                     .map_or_else(CausticsDef::default, |def| def.caustics);
-                leaf(volume, index, controls, self.field.grid(index))
+                let mut node = leaf(volume, index, controls, self.field.grid(index));
+                if let Some(source) = level.water.get(index) {
+                    node.params[2] = source.attenuation_per_metre;
+                    node.params[3] = source.opacity();
+                }
+                node
             })
             .collect();
         tree(&mut leaves, &mut self.nodes);
@@ -484,7 +491,17 @@ impl Caustics {
         visibility: &crate::engine::render::common::dynamic_visibility::DynamicVisibility,
     ) {
         if self.has_active_sources() && self.field.refresh_dynamic_visibility(visibility) {
-            self.upload_sources(queue);
+            self.field.compose();
+            for range in self.field.upload_spans() {
+                if let Some(samples) = self.field.samples.get(range.clone()) {
+                    let offset = u64::try_from(range.start).unwrap_or(0).saturating_mul(16);
+                    let bytes = bytemuck::cast_slice(samples);
+                    queue.write_buffer(&self.sample_buffer, offset, bytes);
+                    self.visibility_upload_bytes = self
+                        .visibility_upload_bytes
+                        .saturating_add(u64::try_from(bytes.len()).unwrap_or(0));
+                }
+            }
         }
     }
 
@@ -541,6 +558,8 @@ impl Caustics {
             "factor_limit": field::MAX_FACTORS,
             "sources_dropped_by_budget": self.field.dropped_sources,
             "source_uploads": self.source_uploads,
+            "visibility_upload_bytes": self.visibility_upload_bytes,
+            "visibility_upload_limit": field::MAX_VISIBILITY_UPLOADS,
             "dynamic_revision": self.field.dynamic_revision,
             "dynamic_visibility_queries": self.field.dynamic_queries,
             "dynamic_region_queries": self.field.dynamic_region_queries,

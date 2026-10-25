@@ -573,3 +573,87 @@ fn shared_lighting_batch_matches_full_refresh_through_lifecycle() -> Result<(), 
     assert_eq!(visibility.stats().casters, 0, "reset releases every caster");
     Ok(())
 }
+
+/// Protects the newly indexed pose-event boundary, beyond mesh admission:
+/// repeated transforms coalesce from the first pose, settled/hidden bodies
+/// stay quiet, and clear/despawn retire the same key without allocation growth.
+/// One reused triangle and one object; no GPU, physics or map bake.
+#[test]
+fn water_pose_events_coalesce_retire_and_reuse_their_bounded_allocation() -> Result<(), String> {
+    let mut scene = DynamicScene::new();
+    scene.enable_water_interactions(true);
+    let mesh = scene
+        .register_model("water:triangle", &triangle(), Vec::new(), &[])
+        .ok_or("triangle refused")?;
+    let id = scene
+        .spawn_registered(mesh, [0.0; 3], SpawnOrientation::YAW_ONLY, 0.0, 1.0)
+        .ok_or("object refused")?;
+    let original = scene.get(id).ok_or("object missing")?.world_bounds();
+    let allocation = (
+        scene.water_motion.capacity(),
+        scene.water_motion_index.capacity(),
+    );
+    for index in 1_u16..1024 {
+        assert!(scene.set_pose(
+            id,
+            [0.0, f32::from(index) * 0.001, 0.0],
+            [0.0, 0.0, 0.0, 1.0]
+        ));
+    }
+    let final_bounds = scene.get(id).ok_or("object missing")?.world_bounds();
+    let events: Vec<_> = scene.drain_water_motion().collect();
+    assert_eq!(events.len(), 1);
+    let coalesced = events.first().ok_or("event missing")?;
+    assert_eq!(
+        coalesced.previous, original,
+        "the earliest crossing pose survives coalescing"
+    );
+    assert_eq!(coalesced.current, Some(final_bounds));
+    assert_eq!(
+        (
+            scene.water_motion.capacity(),
+            scene.water_motion_index.capacity()
+        ),
+        allocation,
+        "repeated motion never expands either event allocation"
+    );
+    let final_position = scene.get(id).ok_or("object missing")?.translation();
+    assert!(scene.set_pose(id, final_position, [0.0, 0.0, 0.0, 1.0]));
+    assert_eq!(
+        scene.drain_water_motion().count(),
+        0,
+        "a stationary pose has no event"
+    );
+    assert!(scene.set_visible(id, false));
+    assert!(
+        scene
+            .drain_water_motion()
+            .all(|event| event.current.is_none())
+    );
+    assert!(scene.set_pose(id, [0.0, 0.1, 0.0], [0.0, 0.0, 0.0, 1.0]));
+    assert_eq!(
+        scene.drain_water_motion().count(),
+        0,
+        "hidden subjects cannot disturb water"
+    );
+    assert!(scene.set_visible(id, true));
+    assert!(scene.set_pose(id, [0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]));
+    scene.clear();
+    let retired: Vec<_> = scene.drain_water_motion().collect();
+    assert_eq!(retired.len(), 1);
+    assert!(
+        retired.first().is_some_and(|event| event.current.is_none()),
+        "clear overrides pending motion with retirement"
+    );
+    let replacement = scene
+        .spawn_registered(mesh, [0.0; 3], SpawnOrientation::YAW_ONLY, 0.0, 1.0)
+        .ok_or("replacement refused")?;
+    assert!(scene.set_pose(replacement, [0.0, -0.1, 0.0], [0.0, 0.0, 0.0, 1.0]));
+    assert!(scene.despawn(replacement));
+    assert!(
+        scene
+            .drain_water_motion()
+            .all(|event| event.current.is_none())
+    );
+    Ok(())
+}

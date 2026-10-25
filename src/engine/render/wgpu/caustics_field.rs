@@ -16,6 +16,7 @@ pub(super) mod receiver;
 #[path = "../../tests/caustics_field.rs"]
 mod tests;
 
+pub(super) const MAX_VISIBILITY_UPLOADS: usize = 64;
 pub(super) const MAX_SAMPLES: usize = 65_536;
 pub(super) const MAX_FACTORS: usize = 4_194_304;
 const RECEIVER_EPSILON: f32 = 0.012;
@@ -70,6 +71,49 @@ struct Source {
     /// Complete per-cell certificates; movement refreshes only intersecting light paths.
     dynamic_cells: Vec<SourceCell>,
     refreshed_queries: u64,
+    dynamic_tree: Vec<CellSpan>,
+    changed_cells: Vec<usize>,
+}
+
+/// Static hierarchy over each source's sparse receiver cells. Leaves retain
+/// sample order, so dirty composition and cached factor identity stay exact.
+struct CellSpan {
+    bounds: Aabb,
+    start: usize,
+    end: usize,
+    escape: usize,
+}
+
+fn cell_tree(
+    records: &[SourceCell],
+    cells: &[ReceiverCell],
+    first: usize,
+    nodes: &mut Vec<CellSpan>,
+) {
+    if records.is_empty() {
+        return;
+    }
+    let bounds = records
+        .iter()
+        .filter_map(|record| cells.get(record.cell))
+        .fold(Aabb::EMPTY, |bounds, cell| bounds.union(&cell.bounds));
+    let index = nodes.len();
+    nodes.push(CellSpan {
+        bounds,
+        start: first,
+        end: first.saturating_add(records.len()),
+        escape: 0,
+    });
+    if records.len() > 16 {
+        let middle = records.len() / 2;
+        let (left, right) = records.split_at(middle);
+        cell_tree(left, cells, first, nodes);
+        cell_tree(right, cells, first.saturating_add(middle), nodes);
+    }
+    let escape = nodes.len();
+    if let Some(node) = nodes.get_mut(index) {
+        node.escape = escape;
+    }
 }
 
 struct SourceCell {
@@ -287,7 +331,9 @@ pub(super) struct ReceiverField {
     cells: Vec<ReceiverCell>,
     receiver_bounds: Aabb,
     dirty_cells: Vec<bool>,
+    dirty_indices: Vec<usize>,
     compose_all: bool,
+    pub(super) upload_ranges: Vec<std::ops::Range<usize>>,
 }
 
 fn local_sources(level: &LevelDef, lighting: &LevelLighting) -> Vec<Source> {
@@ -342,6 +388,8 @@ fn local_sources(level: &LevelDef, lighting: &LevelLighting) -> Vec<Source> {
                 bounds,
                 receiver_supported: false,
                 dynamic_cells: Vec::new(),
+                dynamic_tree: Vec::new(),
+                changed_cells: Vec::new(),
                 refreshed_queries: 0,
             }
         })
@@ -377,6 +425,8 @@ fn directional_source(def: &GlobalIlluminatorDef, lighting: &LevelLighting) -> O
         bounds: Aabb::EMPTY,
         receiver_supported: false,
         dynamic_cells: Vec::new(),
+        dynamic_tree: Vec::new(),
+        changed_cells: Vec::new(),
         refreshed_queries: 0,
     })
 }
@@ -658,35 +708,37 @@ struct CellVisibility<'a> {
 }
 
 impl CellVisibility<'_> {
-    fn refresh(&self, record: &mut SourceCell) {
-        record.queried = false;
-        record.dirty = false;
-        let Some(cell) = self.cells.get(record.cell) else {
-            return;
-        };
+    fn affects(&self, bounds: Aabb) -> bool {
         if self.affected.is_some_and(|[minimum, maximum]| {
-            cell.bounds
+            bounds
                 .min
                 .into_iter()
-                .zip(cell.bounds.max)
+                .zip(bounds.max)
                 .zip(minimum)
                 .zip(maximum)
                 .any(|(((low, high), affected_low), affected_high)| {
                     f64::from(high) < affected_low || f64::from(low) > affected_high
                 })
         }) {
-            return;
+            return false;
         }
-        if self.changed.is_some_and(|regions| {
+        !self.changed.is_some_and(|regions| {
             regions.iter().all(|dirty| !match self.kind {
-                SourceKind::Local(_) => {
-                    finite_light_region_overlaps(self.source, cell.bounds, *dirty)
-                }
+                SourceKind::Local(_) => finite_light_region_overlaps(self.source, bounds, *dirty),
                 SourceKind::Directional(incoming) => {
-                    directional_light_region_overlaps(incoming, cell.bounds, *dirty)
+                    directional_light_region_overlaps(incoming, bounds, *dirty)
                 }
             })
-        }) {
+        })
+    }
+
+    fn refresh(&self, record: &mut SourceCell) {
+        record.queried = false;
+        record.dirty = false;
+        let Some(cell) = self.cells.get(record.cell) else {
+            return;
+        };
+        if !self.affects(cell.bounds) {
             return;
         }
         record.queried = self.has_casters;
@@ -737,24 +789,42 @@ fn refresh_source_visibility(
         cells,
         has_casters,
     };
-    crate::engine::runtime_work::for_each_mut(&mut source.dynamic_cells, 256, |record| {
-        query.refresh(record);
-    });
+    // Static tree skips unrelated cells before certificate evaluation. The
+    // bounded source-level worker pool owns disjoint records; no nested tasks.
+    if source.dynamic_tree.is_empty() {
+        cell_tree(&source.dynamic_cells, cells, 0, &mut source.dynamic_tree);
+    }
+    source.changed_cells.clear();
+    let mut cursor = 0_usize;
     let mut queries = 0_u64;
-    let mut changed = false;
-    for record in &source.dynamic_cells {
-        queries = queries.saturating_add(u64::from(record.queried));
-        if !record.dirty {
+    while let Some(span) = source.dynamic_tree.get(cursor) {
+        if !query.affects(span.bounds) {
+            cursor = span.escape;
             continue;
         }
-        changed = true;
-        let transmission = f32::from(u8::from(record.visible));
-        if let Some(factors) = source.factors.get_mut(record.start..record.end) {
-            for factor in factors {
-                factor.transmission = transmission;
+        if span.end.saturating_sub(span.start) > 16 {
+            cursor = cursor.saturating_add(1);
+            continue;
+        }
+        if let Some(records) = source.dynamic_cells.get_mut(span.start..span.end) {
+            for (offset, record) in records.iter_mut().enumerate() {
+                query.refresh(record);
+                queries = queries.saturating_add(u64::from(record.queried));
+                if !record.dirty {
+                    continue;
+                }
+                source.changed_cells.push(span.start.saturating_add(offset));
+                let transmission = f32::from(u8::from(record.visible));
+                if let Some(factors) = source.factors.get_mut(record.start..record.end) {
+                    for factor in factors {
+                        factor.transmission = transmission;
+                    }
+                }
             }
         }
+        cursor = span.escape;
     }
+    let changed = !source.changed_cells.is_empty();
     (changed, queries)
 }
 
@@ -801,7 +871,9 @@ impl ReceiverField {
             dynamic_region_queries: 0,
             source_revision: 0,
             dirty_cells: vec![false; cells.len()],
+            dirty_indices: Vec::with_capacity(cells.len()),
             compose_all: true,
+            upload_ranges: Vec::with_capacity(cells.len().div_ceil(2)),
             cells,
             receiver_bounds,
         };
@@ -833,6 +905,13 @@ impl ReceiverField {
             ) {
                 factor_count = factor_count.saturating_add(factors.len());
                 source.dynamic_cells = source_cells(&factors);
+                source.changed_cells = Vec::with_capacity(source.dynamic_cells.len());
+                cell_tree(
+                    &source.dynamic_cells,
+                    &field.cells,
+                    0,
+                    &mut source.dynamic_tree,
+                );
                 source.factors = factors;
             } else {
                 // The loading caller rejects this discarded field at its next
@@ -857,6 +936,23 @@ impl ReceiverField {
         self.grids.get(index).map_or([0; 4], |grid| grid.gpu())
     }
 
+    /// Bound queue staging/dispatch overhead when many independent props
+    /// fragment a frame's changes. Nearby spans merge across unchanged gaps;
+    /// every byte still comes from the exact composed field.
+    pub(super) fn upload_spans(&self) -> impl Iterator<Item = std::ops::Range<usize>> {
+        let chunk = self
+            .upload_ranges
+            .len()
+            .div_ceil(MAX_VISIBILITY_UPLOADS)
+            .max(1);
+        self.upload_ranges.chunks(chunk).filter_map(|ranges| {
+            ranges
+                .first()
+                .zip(ranges.last())
+                .map(|(first, last)| first.start..last.end)
+        })
+    }
+
     pub(super) fn factor_count(&self) -> usize {
         self.sources.iter().map(|source| source.factors.len()).sum()
     }
@@ -869,23 +965,28 @@ impl ReceiverField {
 
     pub(super) fn volume_active(&self, index: usize) -> bool {
         self.grids.get(index).is_some_and(|grid| {
-            self.samples
-                .get(grid.offset..grid.offset.saturating_add(grid.count))
-                .is_some_and(|samples| {
-                    samples
-                        .iter()
-                        .any(|sample| sample[..3].iter().any(|channel| *channel > 0.0))
-                })
+            let end = grid.offset.saturating_add(grid.count);
+            self.sources.iter().any(|source| {
+                source.state.active()
+                    && source.receiver_supported
+                    && source.factors.iter().any(|factor| {
+                        usize::try_from(factor.sample)
+                            .is_ok_and(|sample| sample >= grid.offset && sample < end)
+                    })
+            })
         })
     }
 
     pub(super) fn compose(&mut self) {
+        self.upload_ranges.clear();
         if !self.compose_all {
             self.compose_dirty_cells();
             return;
         }
         self.compose_all = false;
+        self.upload_ranges.push(0..self.samples.len());
         self.dirty_cells.fill(false);
+        self.dirty_indices.clear();
         for sample in &mut self.samples {
             *sample = [0.0, 0.0, 0.0, sample[3]];
         }
@@ -910,11 +1011,22 @@ impl ReceiverField {
     // Preserve source order and the same fused operations as full composition.
     // No accumulated deltas: revisiting a cell cannot introduce numeric drift.
     fn compose_dirty_cells(&mut self) {
-        for (cell, dirty) in self.dirty_cells.iter_mut().enumerate() {
-            if !std::mem::take(dirty) {
-                continue;
+        self.dirty_indices.sort_unstable();
+        for cell in self.dirty_indices.drain(..) {
+            if let Some(dirty) = self.dirty_cells.get_mut(cell) {
+                *dirty = false;
             }
             let start = cell.saturating_mul(8);
+            let end = start.saturating_add(8).min(self.samples.len());
+            if let Some(previous) = self
+                .upload_ranges
+                .last_mut()
+                .filter(|previous| previous.end == start)
+            {
+                previous.end = end;
+            } else {
+                self.upload_ranges.push(start..end);
+            }
             if let Some(samples) = self.samples.get_mut(start..start.saturating_add(8)) {
                 for sample in samples {
                     *sample = [0.0, 0.0, 0.0, sample[3]];
@@ -1072,6 +1184,7 @@ impl ReceiverField {
         // bounded executor and join before composition/upload or world unload.
         crate::engine::runtime_work::for_each_mut(&mut self.sources, 4, |source| {
             source.refreshed_queries = 0;
+            source.changed_cells.clear();
             if changed_regions.is_some_and(|regions| {
                 regions.iter().all(|dirty| {
                     dirty.is_empty()
@@ -1111,11 +1224,14 @@ impl ReceiverField {
             self.dynamic_region_queries = self
                 .dynamic_region_queries
                 .saturating_add(source.refreshed_queries);
-            for record in &mut source.dynamic_cells {
-                if std::mem::take(&mut record.dirty) {
+            for index in &source.changed_cells {
+                if let Some(record) = source.dynamic_cells.get(*index) {
                     changed = true;
-                    if let Some(dirty) = self.dirty_cells.get_mut(record.cell) {
+                    if let Some(dirty) = self.dirty_cells.get_mut(record.cell)
+                        && !*dirty
+                    {
                         *dirty = true;
+                        self.dirty_indices.push(record.cell);
                     }
                 }
             }

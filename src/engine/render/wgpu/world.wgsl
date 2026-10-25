@@ -609,7 +609,7 @@ fn surface_normals(in: VsOut, front_facing: bool) -> SurfaceNormals {
             // continues to come exclusively from the authored PNG.
             let a = dot(point, vec2<f32>(2.8, 1.1)) - phase * 1.7;
             let b = dot(point, vec2<f32>(-1.3, 3.2)) - phase * 1.1;
-            let slope = (vec2<f32>(2.8, 1.1) * cos(a) + vec2<f32>(-1.3, 3.2) * cos(b) * 0.45) * motion.y * 0.035;
+            let slope = (vec2<f32>(2.8, 1.1) * cos(a) + vec2<f32>(-1.3, 3.2) * cos(b) * 0.45) * motion.y * 0.07 + water_local_slope(in.world_position, caustics.nodes[selected - 1u].links.z);
             let facing = select(-1.0, 1.0, front_facing);
             normal = normalize(normal + vec3<f32>(-slope.x, 0.0, -slope.y) * facing);
         }
@@ -620,10 +620,11 @@ fn surface_normals(in: VsOut, front_facing: bool) -> SurfaceNormals {
 }
 
 // The reference's view-dependent sheen, in linear light.
-fn surface_sheen(in: VsOut, normal: vec3<f32>, view: vec3<f32>, light: vec3<f32>) -> vec3<f32> {
+fn surface_sheen(in: VsOut, normal: vec3<f32>, view: vec3<f32>, light: vec3<f32>, water_reflectance: f32) -> vec3<f32> {
     if ((material.flags & MATERIAL_FLAG_RESPONSE_ENABLED) == 0u || all(material.specular == vec3<f32>(0.0))) {
         return vec3<f32>(0.0);
     }
+    if (in.water_surface > 0.5) { return material.specular * water_reflectance * light * 0.12; }
     let facing = clamp(abs(dot(normal, view)), 0.0, 1.0);
     let gloss = 1.0 - material.roughness;
     let grazing = pow(1.0 - facing, mix(1.0, 16.0, gloss));
@@ -638,15 +639,18 @@ fn surface_sheen(in: VsOut, normal: vec3<f32>, view: vec3<f32>, light: vec3<f32>
 //
 // Reflection targets store unexposed linear HDR radiance; sampling never
 // re-applies tone mapping, exposure or display conversion.
-fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>) -> vec3<f32> {
+fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>, water_reflectance: f32) -> vec3<f32> {
     if (material.reflection_mode == 0u || all(material.reflection_strength == vec3<f32>(0.0))) {
         return vec3<f32>(0.0);
     }
-    let facing = clamp(abs(dot(normal, view)), 0.0, 1.0);
-    let fresnel = mix(0.08, 1.0, pow(1.0 - facing, 5.0));
-    let gloss = clamp(1.0 - material.roughness, 0.0, 1.0);
-    let polish = gloss * gloss;
-    let weight = mix(fresnel * 0.35, 1.0, polish);
+    var weight = water_reflectance;
+    if (in.water_surface <= 0.5) {
+        let facing = clamp(abs(dot(normal, view)), 0.0, 1.0);
+        let fresnel = mix(0.08, 1.0, pow(1.0 - facing, 5.0));
+        let gloss = clamp(1.0 - material.roughness, 0.0, 1.0);
+        let polish = gloss * gloss;
+        weight = mix(fresnel * 0.35, 1.0, polish);
+    }
     var sample_color = vec3<f32>(0.0);
     var combine = weight;
     if (material.reflection_mode > 1u) {
@@ -695,7 +699,8 @@ fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>) -> vec3<f32
         }
         sample_color = sharp;
     }
-    return material.reflection_strength * combine * sample_color;
+    let strength = select(material.reflection_strength, clamp(material.reflection_strength * 6.0, vec3<f32>(0.0), vec3<f32>(0.95)), in.water_surface > 0.5);
+    return strength * combine * sample_color;
 }
 
 // Eye-to-surface extinction through authored fog boxes. Slab clipping keeps
@@ -910,8 +915,10 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let light = baked + attached + beam;
     let view = normalize(camera.position - in.world_position);
     let incident = baked + attached + beam;
-    let sheen = surface_sheen(in, normal, view, incident);
-    let reflection = surface_reflection(in, normal, view);
+    var water_reflectance = 0.0;
+    if (in.water_surface > 0.5) { water_reflectance = water_fresnel(normal, view); }
+    let sheen = surface_sheen(in, normal, view, incident, water_reflectance);
+    let reflection = surface_reflection(in, normal, view, water_reflectance);
     let emission = surface_emission(in, base_linear);
     let lit = lit_linear(base_linear * material.albedo_tint.rgb, in.color.rgb, light, material.emission_vertex);
     let focused = lit_linear(base_linear * material.albedo_tint.rgb, in.caustics_albedo, modulation * movable_contact_visibility(in, normal), material.emission_vertex);
@@ -921,6 +928,11 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     var out: Shaded;
     out.color = storm_fog(camera.position, in.world_position, color);
     out.alpha = alpha;
+    if (water_blend_pass && in.water_surface > 0.5 && water_presentation.controls.y > 0.5) {
+        let water = water_composite(in, normal, view, out.color - reflection, reflection, alpha, water_reflectance);
+        out.color = water.rgb;
+        out.alpha = water.a;
+    }
     return out;
 }
 

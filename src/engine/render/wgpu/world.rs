@@ -95,7 +95,8 @@ pub const WORLD_SHADER_SRC: &str = concat!(
     "\n",
     include_str!("world.wgsl"),
     "\n",
-    include_str!("caustics.wgsl")
+    include_str!("caustics.wgsl"),
+    include_str!("water.wgsl")
 );
 
 // Group declarations are validated against device limits even if an entry point
@@ -936,18 +937,52 @@ pub const DYNAMIC_LIGHTS_UNIFORM_SIZE: u64 = super::buffer_element_bytes::<Dynam
 fn world_camera_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("places-wgpu-world-camera-layout"),
-        entries: &[wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            // The fragment stage reads `camera.position` for the sheen's
-            // view vector, so the uniform is visible to both stages.
-            visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
-            ty: wgpu::BindingType::Buffer {
-                ty: wgpu::BufferBindingType::Uniform,
-                has_dynamic_offset: false,
-                min_binding_size: wgpu::BufferSize::new(CAMERA_UNIFORM_SIZE),
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                // The fragment stage reads `camera.position` for the sheen's
+                // view vector, so the uniform is visible to both stages.
+                visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: wgpu::BufferSize::new(CAMERA_UNIFORM_SIZE),
+                },
+                count: None,
             },
-            count: None,
-        }],
+            wgpu::BindGroupLayoutEntry {
+                binding: 1,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: wgpu::BufferSize::new(super::buffer_element_bytes::<
+                        super::water::Uniform,
+                    >()),
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 3,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Depth,
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            },
+        ],
     })
 }
 
@@ -2009,7 +2044,7 @@ impl WorldDrawTotals {
     /// The per-pass counters (`opaque_draws`, `cutout_draws`,
     /// `translucent_draws`) stay with the class that produced them; the
     /// splice-in paths accumulate only the totals.
-    const fn absorb(&mut self, other: Self) {
+    pub const fn absorb(&mut self, other: Self) {
         self.draw_calls = self.draw_calls.saturating_add(other.draw_calls);
         self.dynamic_draws = self.dynamic_draws.saturating_add(other.dynamic_draws);
         self.visible_batches = self.visible_batches.saturating_add(other.visible_batches);
@@ -2233,6 +2268,17 @@ fn build_world_pipeline(
         write_mask: wgpu::ColorWrites::ALL,
     })];
     let targets = if shadow { &[][..] } else { &color_targets[..] };
+    // Keep water's scene-read optics out of opaque/cutout fragment programs.
+    // The existing six variants specialize the same module; no extra passes,
+    // pipelines or reflection captures are created.
+    let [display_constant] = super::surface::color_target_constants(format);
+    let fragment_constants = [
+        display_constant,
+        (
+            "water_blend_pass",
+            f64::from(u8::from(variant.blend.is_some() && !shadow)),
+        ),
+    ];
     let instance_constants: [(&str, f64); 1] = [(
         "prop_kind",
         if specialized_instances() {
@@ -2295,7 +2341,7 @@ fn build_world_pipeline(
             module: shader,
             entry_point: Some(fragment_entry),
             compilation_options: wgpu::PipelineCompilationOptions {
-                constants: &super::surface::color_target_constants(format),
+                constants: &fragment_constants,
                 ..Default::default()
             },
             targets,
@@ -2303,29 +2349,6 @@ fn build_world_pipeline(
         multiview_mask: None,
         cache: None,
     })
-}
-
-fn world_uniform_binding(
-    device: &wgpu::Device,
-    layout: &wgpu::BindGroupLayout,
-    label: &str,
-    size: u64,
-) -> (wgpu::Buffer, wgpu::BindGroup) {
-    let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some(label),
-        size,
-        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    });
-    let binding = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some(label),
-        layout,
-        entries: &[wgpu::BindGroupEntry {
-            binding: 0,
-            resource: buffer.as_entire_binding(),
-        }],
-    });
-    (buffer, binding)
 }
 
 fn build_world_variants(
@@ -2614,6 +2637,10 @@ pub struct WorldPipeline {
     emission_blend: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
     camera_buffer: wgpu::Buffer,
+    camera_layout: wgpu::BindGroupLayout,
+    water_buffer: wgpu::Buffer,
+    water_fallback: super::water::Snapshot,
+    water_size: Option<DrawableSize>,
     /// The group-4 attached-light uniform, shared across this pipeline's draws.
     lights_buffer: wgpu::Buffer,
     /// The group-4 binding over `lights_buffer`.
@@ -2701,11 +2728,15 @@ impl WorldPipeline {
             ],
             immediate_size: 0,
         });
-        let (camera_buffer, bind_group) = world_uniform_binding(
+        let camera_buffer = Self::camera_buffer(device);
+        let water_buffer = super::water::uniform_buffer(device);
+        let water_fallback = super::water::Snapshot::new(device, DrawableSize::new(1, 1));
+        let bind_group = Self::camera_binding(
             device,
             &bind_group_layout,
-            "places-wgpu-world-camera",
-            CAMERA_UNIFORM_SIZE,
+            &camera_buffer,
+            &water_buffer,
+            &water_fallback,
         );
         // Zero-initialized capture buffers see no attached lights.
         let (lights_buffer, lights_bind_group, lights_sampler) =
@@ -2763,6 +2794,10 @@ impl WorldPipeline {
             emission_blend,
             bind_group,
             camera_buffer,
+            camera_layout: bind_group_layout,
+            water_buffer,
+            water_fallback,
+            water_size: None,
             lights_buffer,
             lights_bind_group,
             lights_layout,
@@ -2775,6 +2810,66 @@ impl WorldPipeline {
             #[cfg(feature = "visual-diagnostics")]
             visual_diagnostic: super::diagnostics::VisualDiagnosticMode::Final,
         }
+    }
+
+    fn camera_buffer(device: &wgpu::Device) -> wgpu::Buffer {
+        device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("places-wgpu-world-camera"),
+            size: CAMERA_UNIFORM_SIZE,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        })
+    }
+
+    fn camera_binding(
+        device: &wgpu::Device,
+        layout: &wgpu::BindGroupLayout,
+        camera: &wgpu::Buffer,
+        water: &wgpu::Buffer,
+        snapshot: &super::water::Snapshot,
+    ) -> wgpu::BindGroup {
+        device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("places-world-water-camera"),
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: camera.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: water.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(&snapshot.color_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(&snapshot.depth_view),
+                },
+            ],
+        })
+    }
+
+    /// Rebinds only on snapshot lifetime/size changes, never per object or frame.
+    pub fn bind_water(&mut self, device: &wgpu::Device, snapshot: Option<&super::water::Snapshot>) {
+        let size = snapshot.map(|image| image.size);
+        if self.water_size == size {
+            return;
+        }
+        self.water_size = size;
+        self.bind_group = Self::camera_binding(
+            device,
+            &self.camera_layout,
+            &self.camera_buffer,
+            &self.water_buffer,
+            snapshot.unwrap_or(&self.water_fallback),
+        );
+    }
+
+    pub fn upload_water(&self, queue: &wgpu::Queue, uniform: &super::water::Uniform) {
+        queue.write_buffer(&self.water_buffer, 0, bytemuck::bytes_of(uniform));
     }
 
     /// The visibility pass uses the ordinary world draw and alpha contracts.
@@ -3042,6 +3137,19 @@ impl WorldPipeline {
         pass: &mut wgpu::RenderPass<'a>,
         inputs: WorldEncodeInputs<'a>,
     ) -> WorldDrawTotals {
+        let mut totals = self.encode_opaque(pass, inputs);
+        let transparent = self.encode_transparency(pass, inputs, false);
+        totals.translucent_draws = transparent.visible_batches;
+        totals.absorb(transparent);
+        totals
+    }
+
+    /// Opaque/cutout phase, before the one shared water snapshot.
+    pub fn encode_opaque<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        inputs: WorldEncodeInputs<'a>,
+    ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
         for pass_kind in [BatchPass::Opaque, BatchPass::Cutout] {
             let class = self.encode_class(
@@ -3081,15 +3189,12 @@ impl WorldPipeline {
                 totals.absorb(self.encode_extra_class(pass, inputs, false, pass_kind));
             }
         }
-        let transparent = self.encode_transparency(pass, inputs, false);
-        totals.translucent_draws = transparent.visible_batches;
-        totals.absorb(transparent);
         totals
     }
 
     /// The scene and emission passes use one order across all transparent families.
     /// Sorting remains per range/object; intersecting triangles need authored separation.
-    fn encode_transparency<'a>(
+    pub fn encode_transparency<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
         inputs: WorldEncodeInputs<'a>,
