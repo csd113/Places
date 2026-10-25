@@ -8702,8 +8702,8 @@ edges, shared-AI work and new Backrooms map are complete. The original
 658,523,027-byte ZIP is preserved, predates the Relay fix and must not be
 represented as this new campaign. Later assembly must include the refreshed
 Beam and Relay components, all existing modes/maps and runtime dependencies,
-show six combined Explore entries, and pass extraction/runtime checks without
-Rust/Python. Attachment delivery was cancelled: no Library work is pending.
+verify combined Explore entries from the final project set (six before the
+queued new map), and pass extraction/runtime checks without Rust/Python. Attachment delivery was cancelled: no Library work is pending.
 Mac/Metal awaits explicit user coordination; Linux, final version CI and other
 previously documented release criteria remain open. The next general pass
 also owns developer-console gating of ordinary prop/physics diagnostic text;
