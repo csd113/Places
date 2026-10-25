@@ -1,0 +1,1911 @@
+{
+  "ceiling_lights": [
+    {
+      "align": "none",
+      "brightness": 0.14000000059604645,
+      "color": [
+        0.800000011920929,
+        0.699999988079071,
+        0.550000011920929
+      ],
+      "emission": 0.18000000715255737,
+      "fixture": "arcade:fluorescent_panel_01",
+      "id": "editor_1",
+      "mount": "ceiling",
+      "range": 7.0,
+      "rotation_degrees": 0.0,
+      "x": 4.0,
+      "y": 3.3980000019073486,
+      "z": 28.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.10000000149011612,
+      "color": [
+        0.6499999761581421,
+        0.550000011920929,
+        0.75
+      ],
+      "emission": 0.18000000715255737,
+      "fixture": "arcade:fluorescent_panel_01",
+      "id": "editor_2",
+      "mount": "ceiling",
+      "range": 7.0,
+      "rotation_degrees": 0.0,
+      "x": 11.5,
+      "y": 3.3980000019073486,
+      "z": 27.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.02199999988079071,
+      "color": [
+        0.25,
+        0.3499999940395355,
+        0.6499999761581421
+      ],
+      "emission": 0.18000000715255737,
+      "fixture": "arcade:fluorescent_panel_01",
+      "id": "editor_3",
+      "mount": "ceiling",
+      "range": 7.0,
+      "rotation_degrees": 0.0,
+      "x": 6.0,
+      "y": 3.3980000019073486,
+      "z": 5.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.017999999225139618,
+      "color": [
+        0.44999998807907104,
+        0.20000000298023224,
+        0.550000011920929
+      ],
+      "emission": 0.18000000715255737,
+      "fixture": "arcade:fluorescent_panel_01",
+      "id": "editor_4",
+      "mount": "ceiling",
+      "range": 7.0,
+      "rotation_degrees": 0.0,
+      "x": 3.0,
+      "y": 3.3980000019073486,
+      "z": 17.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.03999999910593033,
+      "color": [
+        0.5,
+        0.30000001192092896,
+        0.6000000238418579
+      ],
+      "emission": 0.18000000715255737,
+      "fixture": "arcade:fluorescent_panel_01",
+      "id": "editor_5",
+      "mount": "ceiling",
+      "range": 7.0,
+      "rotation_degrees": 0.0,
+      "x": 20.0,
+      "y": 3.3980000019073486,
+      "z": 5.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.02500000037252903,
+      "color": [
+        0.20000000298023224,
+        0.44999998807907104,
+        0.6499999761581421
+      ],
+      "emission": 0.18000000715255737,
+      "fixture": "arcade:fluorescent_panel_01",
+      "id": "editor_6",
+      "mount": "ceiling",
+      "range": 7.0,
+      "rotation_degrees": 0.0,
+      "x": 20.0,
+      "y": 3.3980000019073486,
+      "z": 18.0
+    }
+  ],
+  "defaults": {
+    "ceiling": "arcade:ceiling_acoustic_01",
+    "floor": "arcade:carpet_retro_swirl_01",
+    "wall": "arcade:wall_navy_01"
+  },
+  "doors": [
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "exit",
+              "script": "scripts/beam_arcade_1.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Leave Arcade",
+          "reach": 2.5
+        },
+        {
+          "component": "state",
+          "name": "ready",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "won",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "dead",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "count",
+          "value": 0
+        },
+        {
+          "component": "state",
+          "name": "beam_sealed",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "item_1_returned",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "item_2_returned",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "item_3_returned",
+          "value": false
+        }
+      ],
+      "height": 2.200000047683716,
+      "id": "exit",
+      "initial_state": "closed",
+      "locked": true,
+      "rotation_degrees": 0.0,
+      "thickness": 0.04500000178813934,
+      "width": 1.399999976158142,
+      "x": 23.299999237060547,
+      "y": 0.0,
+      "z": 29.899999618530273
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "back",
+              "script": "scripts/beam_arcade_1.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Return to Office and restart it",
+          "reach": 2.5
+        }
+      ],
+      "height": 2.200000047683716,
+      "id": "back",
+      "initial_state": "closed",
+      "locked": false,
+      "rotation_degrees": 0.0,
+      "thickness": 0.04500000178813934,
+      "width": 1.399999976158142,
+      "x": 3.299999952316284,
+      "y": 0.0,
+      "z": 29.899999618530273
+    }
+  ],
+  "environment": {
+    "fog": {
+      "color": [
+        0.025,
+        0.032,
+        0.045
+      ],
+      "density": 0.016,
+      "height_gain": 0.04,
+      "reference_y": 1.5
+    },
+    "presentation": {
+      "contrast": 1.08,
+      "exposure": 0.699999988079071,
+      "saturation": 0.9,
+      "tone_knee": 0.75
+    }
+  },
+  "floor_patches": [
+    {
+      "depth": 10.8,
+      "material": "arcade:carpet_neon_confetti_01",
+      "width": 14.6,
+      "x": 13.2,
+      "z": 0.2
+    }
+  ],
+  "floor_regions": [
+    {
+      "depth": 9,
+      "material": "arcade:lane_wood_01",
+      "offset_y": 0,
+      "width": 1.2,
+      "x": 18.9,
+      "z": 12
+    },
+    {
+      "depth": 9,
+      "material": "arcade:gutter_dark_01",
+      "offset_y": 0,
+      "width": 0.27,
+      "x": 20.3,
+      "z": 12
+    }
+  ],
+  "format_version": 1,
+  "id": "beam_arcade",
+  "name": "Arcade / One Last Prize",
+  "props": [
+    {
+      "id": "editor_prop_1",
+      "model": "core:office_reception_desk",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        2.4000000953674316,
+        0.9800000190734863,
+        0.949999988079071
+      ],
+      "solid": true,
+      "x": 11.5,
+      "y": 0.0,
+      "z": 27.100000381469727
+    },
+    {
+      "id": "editor_prop_2",
+      "model": "arcade:party_table_round",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.2000000476837158,
+        0.7528700232505798,
+        1.2000000476837158
+      ],
+      "solid": true,
+      "x": 8.5,
+      "y": 0.0,
+      "z": 27.100000381469727
+    },
+    {
+      "id": "editor_prop_3",
+      "model": "arcade:ball_rack",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.100000023841858,
+        0.7300000190734863,
+        0.6399999856948853
+      ],
+      "solid": true,
+      "x": 15.199999809265137,
+      "y": 0.0,
+      "z": 27.100000381469727
+    },
+    {
+      "id": "editor_prop_4",
+      "model": "arcade:bench_three_seat_red_blue_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        1.9800000190734863,
+        0.9907220005989075,
+        0.6054999828338623
+      ],
+      "solid": true,
+      "x": 19.5,
+      "y": 0.0,
+      "z": 27.799999237060547
+    },
+    {
+      "id": "editor_prop_5",
+      "model": "arcade:change_machine",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.5199999809265137,
+        1.4600000381469727,
+        0.47999998927116394
+      ],
+      "solid": true,
+      "x": 26.799999237060547,
+      "y": 0.0,
+      "z": 26.0
+    },
+    {
+      "id": "editor_prop_6",
+      "model": "arcade:vending_machine",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.9599999785423279,
+        2.0299999713897705,
+        0.8600000143051147
+      ],
+      "solid": true,
+      "x": 1.100000023841858,
+      "y": 0.0,
+      "z": 27.200000762939453
+    },
+    {
+      "display_name": "Cat prize",
+      "id": "arcade_plush",
+      "model": "arcade:cat_plush",
+      "physics": {
+        "angular_damping": 0.2,
+        "friction": 0.6,
+        "linear_damping": 0.05,
+        "mass_kg": 0.12,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "beam_items",
+        "restitution": 0.05,
+        "shape": {
+          "half_extents": [
+            0.0962,
+            0.18,
+            0.078804
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.2999999523162842,
+      "size": [
+        0.1923999935388565,
+        0.36000001430511475,
+        0.1576090008020401
+      ],
+      "solid": false,
+      "x": 2.700000047683716,
+      "y": 0.7200000286102295,
+      "z": 8.0
+    },
+    {
+      "id": "editor_prop_8",
+      "model": "arcade:pedestal_table",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.8999999761581421,
+        0.7200000286102295,
+        0.8999999761581421
+      ],
+      "solid": true,
+      "x": 2.700000047683716,
+      "y": 0.0,
+      "z": 8.0
+    },
+    {
+      "display_name": "Star gift",
+      "id": "arcade_gift",
+      "model": "arcade:party_gift_stars",
+      "physics": {
+        "angular_damping": 0.2,
+        "friction": 0.6,
+        "linear_damping": 0.05,
+        "mass_kg": 0.7,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "beam_items",
+        "restitution": 0.05,
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0.0,
+                0.15,
+                0.0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.15,
+                  0.15,
+                  0.15
+                ],
+                "kind": "cuboid"
+              }
+            }
+          ]
+        }
+      },
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 15.0,
+      "scale": 1.0,
+      "size": [
+        0.30399999022483826,
+        0.3747999966144562,
+        0.30399999022483826
+      ],
+      "solid": false,
+      "x": 24.0,
+      "y": 0.75,
+      "z": 5.0
+    },
+    {
+      "display_name": "Blue bowling ball",
+      "id": "arcade_ball",
+      "model": "arcade:bowling_ball_cobalt",
+      "physics": {
+        "angular_damping": 0.08,
+        "friction": 0.45,
+        "linear_damping": 0.03,
+        "mass_kg": 5.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "beam_items",
+        "restitution": 0.2,
+        "shape": {
+          "kind": "sphere",
+          "radius": 0.108
+        }
+      },
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2160000056028366,
+        0.2160000056028366,
+        0.2160000056028366
+      ],
+      "solid": false,
+      "x": 24.0,
+      "y": 0.7300000190734863,
+      "z": 20.0
+    },
+    {
+      "id": "editor_prop_11",
+      "model": "arcade:party_table_rect",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        2.0999999046325684,
+        0.75,
+        0.8500000238418579
+      ],
+      "solid": true,
+      "x": 24.0,
+      "y": 0.0,
+      "z": 5.0
+    },
+    {
+      "id": "editor_prop_12",
+      "model": "arcade:party_table_rect",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        2.0999999046325684,
+        0.75,
+        0.8500000238418579
+      ],
+      "solid": true,
+      "x": 18.0,
+      "y": 0.0,
+      "z": 5.0
+    },
+    {
+      "id": "editor_prop_13",
+      "model": "arcade:fixed_chair_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 23.299999237060547,
+      "y": 0.0,
+      "z": 3.9000000953674316
+    },
+    {
+      "id": "editor_prop_14",
+      "model": "arcade:fixed_chair_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 24.700000762939453,
+      "y": 0.0,
+      "z": 3.9000000953674316
+    },
+    {
+      "id": "editor_prop_15",
+      "model": "arcade:fixed_chair_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 23.299999237060547,
+      "y": 0.0,
+      "z": 6.099999904632568
+    },
+    {
+      "id": "editor_prop_16",
+      "model": "arcade:fixed_chair_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 24.700000762939453,
+      "y": 0.0,
+      "z": 6.099999904632568
+    },
+    {
+      "id": "editor_prop_17",
+      "model": "arcade:fixed_chair_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 17.299999237060547,
+      "y": 0.0,
+      "z": 3.9000000953674316
+    },
+    {
+      "id": "editor_prop_18",
+      "model": "arcade:fixed_chair_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 18.700000762939453,
+      "y": 0.0,
+      "z": 6.099999904632568
+    },
+    {
+      "id": "editor_prop_19",
+      "model": "arcade:party_cake_unlit",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.36000001430511475,
+        0.21799999475479126,
+        0.36000001430511475
+      ],
+      "solid": false,
+      "x": 18.0,
+      "y": 0.75,
+      "z": 5.0
+    },
+    {
+      "id": "editor_prop_20",
+      "model": "arcade:party_plate_stars",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2199999988079071,
+        0.01600000075995922,
+        0.2199999988079071
+      ],
+      "solid": false,
+      "x": 18.600000381469727,
+      "y": 0.75,
+      "z": 5.0
+    },
+    {
+      "id": "editor_prop_21",
+      "model": "arcade:party_cup_stars",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.08500000089406967,
+        0.12200000137090683,
+        0.08500000089406967
+      ],
+      "solid": false,
+      "x": 17.399999618530273,
+      "y": 0.75,
+      "z": 5.0
+    },
+    {
+      "id": "editor_prop_22",
+      "model": "arcade:party_balloon",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.29600000381469727,
+        1.5299999713897705,
+        0.29600000381469727
+      ],
+      "solid": false,
+      "x": 26.5,
+      "y": 0.0,
+      "z": 1.5
+    },
+    {
+      "id": "editor_prop_23",
+      "model": "arcade:party_balloon",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.29600000381469727,
+        1.5299999713897705,
+        0.29600000381469727
+      ],
+      "solid": false,
+      "x": 14.5,
+      "y": 0.0,
+      "z": 1.5
+    },
+    {
+      "id": "editor_prop_24",
+      "model": "arcade:neon_bowl",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.8200000524520874,
+        0.8600000143051147,
+        0.12999999523162842
+      ],
+      "solid": false,
+      "x": 19.0,
+      "y": 2.200000047683716,
+      "z": 0.20999999344348907
+    },
+    {
+      "id": "editor_prop_25",
+      "model": "arcade:ball_rack",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.100000023841858,
+        0.7300000190734863,
+        0.6399999856948853
+      ],
+      "solid": true,
+      "x": 24.0,
+      "y": 0.0,
+      "z": 20.0
+    },
+    {
+      "id": "editor_prop_26",
+      "model": "arcade:ball_return",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.6299999952316284,
+        0.7850000262260437,
+        1.809999942779541
+      ],
+      "solid": true,
+      "x": 20.799999237060547,
+      "y": 0.0,
+      "z": 19.399999618530273
+    },
+    {
+      "id": "editor_prop_27",
+      "model": "arcade:score_monitor",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.800000011920929,
+        1.1200000047683716,
+        0.6899999976158142
+      ],
+      "solid": true,
+      "x": 20.799999237060547,
+      "y": 0.0,
+      "z": 22.100000381469727
+    },
+    {
+      "id": "editor_prop_28",
+      "model": "arcade:bench_three_seat_blue_red_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        1.9800000190734863,
+        0.9907220005989075,
+        0.6054999828338623
+      ],
+      "solid": true,
+      "x": 25.700000762939453,
+      "y": 0.0,
+      "z": 22.200000762939453
+    },
+    {
+      "id": "editor_prop_29",
+      "model": "arcade:pedestal_table",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.8999999761581421,
+        0.7200000286102295,
+        0.8999999761581421
+      ],
+      "solid": true,
+      "x": 25.799999237060547,
+      "y": 0.0,
+      "z": 17.5
+    },
+    {
+      "id": "editor_prop_30",
+      "model": "arcade:soda_bottle",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.0949999988079071,
+        0.2800000011920929,
+        0.0949999988079071
+      ],
+      "solid": false,
+      "x": 25.799999237060547,
+      "y": 0.7200000286102295,
+      "z": 17.5
+    },
+    {
+      "id": "editor_prop_31",
+      "model": "arcade:bowling_ball_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2160000056028366,
+        0.2160000056028366,
+        0.2160000056028366
+      ],
+      "solid": false,
+      "x": 24.25,
+      "y": 0.7300000190734863,
+      "z": 20.0
+    },
+    {
+      "id": "editor_prop_32",
+      "model": "arcade:pinball_cosmic",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.7400000095367432,
+        1.940000057220459,
+        1.4199999570846558
+      ],
+      "solid": true,
+      "x": 1.100000023841858,
+      "y": 0.0,
+      "z": 15.0
+    },
+    {
+      "id": "editor_prop_33",
+      "model": "arcade:pinball_comet",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.7400000095367432,
+        1.940000057220459,
+        1.4199999570846558
+      ],
+      "solid": true,
+      "x": 1.100000023841858,
+      "y": 0.0,
+      "z": 18.0
+    },
+    {
+      "id": "editor_prop_34",
+      "model": "arcade:bench_three_seat_blue_red_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        1.9800000190734863,
+        0.9907220005989075,
+        0.6054999828338623
+      ],
+      "solid": true,
+      "x": 6.699999809265137,
+      "y": 0.0,
+      "z": 22.399999618530273
+    },
+    {
+      "id": "editor_prop_35",
+      "model": "arcade:cabinet_racing",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.8224859833717346,
+        2.0399999618530273,
+        1.056388020515442
+      ],
+      "solid": true,
+      "x": 1.5,
+      "y": 0.0,
+      "z": 2.0
+    },
+    {
+      "id": "editor_prop_36",
+      "model": "arcade:cabinet_shooter",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.7624859809875488,
+        2.0399999618530273,
+        0.8820000290870667
+      ],
+      "solid": true,
+      "x": 3.299999952316284,
+      "y": 0.0,
+      "z": 2.0
+    },
+    {
+      "id": "editor_prop_37",
+      "model": "arcade:cabinet_action",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.7824860215187073,
+        2.0399999618530273,
+        0.9020010232925415
+      ],
+      "solid": true,
+      "x": 5.099999904632568,
+      "y": 0.0,
+      "z": 2.0
+    },
+    {
+      "id": "editor_prop_38",
+      "model": "arcade:cabinet_fighting",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.9424859881401062,
+        2.0399999618530273,
+        0.9520009756088257
+      ],
+      "solid": true,
+      "x": 7.0,
+      "y": 0.0,
+      "z": 2.0
+    },
+    {
+      "id": "editor_prop_39",
+      "model": "arcade:cabinet_scifi",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.802486002445221,
+        2.0399999618530273,
+        0.9419999718666077
+      ],
+      "solid": true,
+      "x": 10.699999809265137,
+      "y": 0.0,
+      "z": 2.0
+    },
+    {
+      "id": "editor_prop_40",
+      "model": "arcade:cabinet_action",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.7824860215187073,
+        2.0399999618530273,
+        0.9020010232925415
+      ],
+      "solid": true,
+      "x": 6.5,
+      "y": 0.0,
+      "z": 11.0
+    },
+    {
+      "id": "editor_prop_41",
+      "model": "arcade:cabinet_fighting",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.9424859881401062,
+        2.0399999618530273,
+        0.9520009756088257
+      ],
+      "solid": true,
+      "x": 6.5,
+      "y": 0.0,
+      "z": 13.399999618530273
+    },
+    {
+      "id": "editor_prop_42",
+      "model": "arcade:cabinet_scifi",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.802486002445221,
+        2.0399999618530273,
+        0.9419999718666077
+      ],
+      "solid": true,
+      "x": 11.399999618530273,
+      "y": 0.0,
+      "z": 17.0
+    },
+    {
+      "id": "editor_prop_43",
+      "model": "arcade:cabinet_racing",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.8224859833717346,
+        2.0399999618530273,
+        1.056388020515442
+      ],
+      "solid": true,
+      "x": 11.399999618530273,
+      "y": 0.0,
+      "z": 20.0
+    },
+    {
+      "id": "editor_prop_44",
+      "model": "arcade:cabinet_shooter",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.7624859809875488,
+        2.0399999618530273,
+        0.8820000290870667
+      ],
+      "solid": true,
+      "x": 1.2000000476837158,
+      "y": 0.0,
+      "z": 21.0
+    },
+    {
+      "id": "editor_prop_45",
+      "model": "arcade:change_machine",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.5199999809265137,
+        1.4600000381469727,
+        0.47999998927116394
+      ],
+      "solid": true,
+      "x": 11.800000190734863,
+      "y": 0.0,
+      "z": 6.5
+    },
+    {
+      "id": "editor_prop_46",
+      "model": "janitor:wet_floor_sign",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.30500099062919617,
+        0.6104099750518799,
+        0.3462899923324585
+      ],
+      "solid": false,
+      "x": 25.700000762939453,
+      "y": 0.0,
+      "z": 12.5
+    },
+    {
+      "components": [
+        {
+          "component": "nav_agent",
+          "height": 1.75,
+          "max_slope": 2.6667,
+          "radius": 0.3,
+          "speed_mps": 0.88,
+          "step_height": 0.4
+        },
+        {
+          "behavior": "idler",
+          "can_open_doors": true,
+          "component": "ai",
+          "hearing_range": 0,
+          "run_speed": 0.88,
+          "sight_range": 0,
+          "walk_speed": 0.88
+        },
+        {
+          "component": "light_response",
+          "enter_intensity": 0.035,
+          "exit_intensity": 0.005,
+          "release_seconds": 0.85,
+          "reveal_only": true
+        },
+        {
+          "component": "audio",
+          "gain": 0.22,
+          "looped": false,
+          "playing": false,
+          "sound": "impact_soft"
+        }
+      ],
+      "id": "visitor",
+      "model": "core:mannequin_black",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "shadow_only": true,
+      "size": [
+        0.5785390138626099,
+        1.7230349779129028,
+        0.3169650137424469
+      ],
+      "solid": false,
+      "x": 11.199999809265137,
+      "y": 0.0,
+      "z": 9.0
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "restart",
+              "script": "scripts/beam_arcade_1.luau"
+            }
+          ],
+          "on": "interact"
+        }
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Restart Arcade",
+          "reach": 3
+        }
+      ],
+      "id": "restart_sign",
+      "model": "core:exit_sign",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.44999998807907104,
+        0.5699999928474426,
+        0.07999999821186066
+      ],
+      "solid": false,
+      "x": 24.0,
+      "y": 2.5,
+      "z": 29.757999420166016
+    },
+    {
+      "id": "editor_prop_49",
+      "model": "core:exit_sign",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.44999998807907104,
+        0.5699999928474426,
+        0.07999999821186066
+      ],
+      "solid": false,
+      "x": 4.0,
+      "y": 2.5,
+      "z": 29.757999420166016
+    },
+    {
+      "id": "editor_prop_50",
+      "model": "home:wall_switch",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.0860000029206276,
+        0.11999999731779099,
+        0.032999999821186066
+      ],
+      "solid": false,
+      "x": 7.300000190734863,
+      "y": 1.2999999523162842,
+      "z": 24.209999084472656
+    },
+    {
+      "id": "editor_prop_51",
+      "model": "arcade:cabinet_fighting",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.9424859881401062,
+        2.0399999618530273,
+        0.9520009756088257
+      ],
+      "solid": true,
+      "x": 1.100000023841858,
+      "y": 0.0,
+      "z": 5.0
+    },
+    {
+      "id": "editor_prop_52",
+      "model": "arcade:cabinet_scifi",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.802486002445221,
+        2.0399999618530273,
+        0.9419999718666077
+      ],
+      "solid": true,
+      "x": 1.100000023841858,
+      "y": 0.0,
+      "z": 10.699999809265137
+    },
+    {
+      "id": "editor_prop_53",
+      "model": "arcade:cabinet_action",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.7824860215187073,
+        2.0399999618530273,
+        0.9020010232925415
+      ],
+      "solid": true,
+      "x": 1.100000023841858,
+      "y": 0.0,
+      "z": 12.600000381469727
+    },
+    {
+      "id": "editor_prop_54",
+      "model": "arcade:cabinet_racing",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.8224859833717346,
+        2.0399999618530273,
+        1.056388020515442
+      ],
+      "solid": true,
+      "x": 8.25,
+      "y": 0.0,
+      "z": 6.0
+    },
+    {
+      "id": "editor_prop_55",
+      "model": "arcade:cabinet_shooter",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.7624859809875488,
+        2.0399999618530273,
+        0.8820000290870667
+      ],
+      "solid": true,
+      "x": 8.25,
+      "y": 0.0,
+      "z": 8.5
+    },
+    {
+      "id": "editor_prop_56",
+      "model": "arcade:cabinet_scifi",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.802486002445221,
+        2.0399999618530273,
+        0.9419999718666077
+      ],
+      "solid": true,
+      "x": 8.25,
+      "y": 0.0,
+      "z": 16.0
+    },
+    {
+      "id": "editor_prop_57",
+      "model": "arcade:cabinet_fighting",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.9424859881401062,
+        2.0399999618530273,
+        0.9520009756088257
+      ],
+      "solid": true,
+      "x": 8.25,
+      "y": 0.0,
+      "z": 18.799999237060547
+    },
+    {
+      "id": "editor_prop_58",
+      "model": "arcade:cabinet_action",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.7824860215187073,
+        2.0399999618530273,
+        0.9020010232925415
+      ],
+      "solid": true,
+      "x": 12.5,
+      "y": 0.0,
+      "z": 12.0
+    },
+    {
+      "id": "editor_prop_59",
+      "model": "arcade:party_table_round",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.2000000476837158,
+        0.7528700232505798,
+        1.2000000476837158
+      ],
+      "solid": true,
+      "x": 18.0,
+      "y": 0.0,
+      "z": 8.5
+    },
+    {
+      "id": "editor_prop_60",
+      "model": "arcade:party_table_round",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.2000000476837158,
+        0.7528700232505798,
+        1.2000000476837158
+      ],
+      "solid": true,
+      "x": 24.0,
+      "y": 0.0,
+      "z": 8.5
+    },
+    {
+      "id": "editor_prop_61",
+      "model": "arcade:fixed_chair_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 17.0,
+      "y": 0.0,
+      "z": 8.5
+    },
+    {
+      "id": "editor_prop_62",
+      "model": "arcade:fixed_chair_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 19.0,
+      "y": 0.0,
+      "z": 8.5
+    },
+    {
+      "id": "editor_prop_63",
+      "model": "arcade:fixed_chair_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 23.0,
+      "y": 0.0,
+      "z": 8.5
+    },
+    {
+      "id": "editor_prop_64",
+      "model": "arcade:fixed_chair_red",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.5400000214576721,
+        0.9200000166893005,
+        0.5397250056266785
+      ],
+      "solid": true,
+      "x": 25.0,
+      "y": 0.0,
+      "z": 8.5
+    },
+    {
+      "id": "editor_prop_65",
+      "model": "arcade:party_cup_geometric",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.08500000089406967,
+        0.12200000137090683,
+        0.08500000089406967
+      ],
+      "solid": false,
+      "x": 18.0,
+      "y": 0.7528700232505798,
+      "z": 8.5
+    },
+    {
+      "id": "editor_prop_66",
+      "model": "arcade:party_hat_stars",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.15000000596046448,
+        0.2199999988079071,
+        0.15000000596046448
+      ],
+      "solid": false,
+      "x": 24.0,
+      "y": 0.7528700232505798,
+      "z": 8.5
+    },
+    {
+      "id": "editor_prop_67",
+      "model": "arcade:bowling_pin",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11999999731779099,
+        0.3799999952316284,
+        0.11999999731779099
+      ],
+      "solid": false,
+      "x": 19.399999618530273,
+      "y": 0.0,
+      "z": 13.5
+    },
+    {
+      "id": "editor_prop_68",
+      "model": "arcade:bowling_pin",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11999999731779099,
+        0.3799999952316284,
+        0.11999999731779099
+      ],
+      "solid": false,
+      "x": 19.649999618530273,
+      "y": 0.0,
+      "z": 13.5
+    },
+    {
+      "id": "editor_prop_69",
+      "model": "arcade:bowling_pin",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11999999731779099,
+        0.3799999952316284,
+        0.11999999731779099
+      ],
+      "solid": false,
+      "x": 19.899999618530273,
+      "y": 0.0,
+      "z": 13.5
+    }
+  ],
+  "rooms": [
+    {
+      "depth": 30.0,
+      "floor_y": 0.0,
+      "height": 3.4000000953674316,
+      "material": "arcade:carpet_retro_swirl_01",
+      "width": 28.0,
+      "x": 0.0,
+      "z": 0.0
+    }
+  ],
+  "schema": "places-level",
+  "scripts": [
+    "scripts/beam_arcade_1.luau"
+  ],
+  "sound_emitters": [
+    {
+      "gain": 0.12,
+      "id": "store_hum",
+      "looped": true,
+      "playing": true,
+      "sound": "ambience_hvac",
+      "spatial": false,
+      "x": 4,
+      "y": 1.5,
+      "z": 28.2
+    },
+    {
+      "gain": 0.5,
+      "id": "returned_cue",
+      "looped": false,
+      "playing": false,
+      "sound": "switch_click",
+      "spatial": false,
+      "time_domain": "real",
+      "x": 4,
+      "y": 1,
+      "z": 28.2
+    },
+    {
+      "gain": 0.55,
+      "id": "exit_cue",
+      "looped": false,
+      "playing": false,
+      "sound": "door_close",
+      "spatial": false,
+      "time_domain": "real",
+      "x": 4,
+      "y": 1,
+      "z": 28.2
+    }
+  ],
+  "spawn": {
+    "x": 4,
+    "yaw_degrees": 0,
+    "z": 28.2
+  },
+  "transitions": [
+    "beam_office"
+  ],
+  "volumes": [
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "returned",
+              "script": "scripts/beam_arcade_1.luau"
+            }
+          ],
+          "on": "enter_volume"
+        },
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "removed",
+              "script": "scripts/beam_arcade_1.luau"
+            }
+          ],
+          "on": "exit_volume"
+        }
+      ],
+      "bottom_y": 0.7300000190734863,
+      "depth": 1.0,
+      "filter": {
+        "held": false,
+        "instance": "arcade_plush",
+        "kind": "item"
+      },
+      "id": "return_plush",
+      "item_receipt": "centre",
+      "occupancy": "per_actor",
+      "top_y": 1.25,
+      "width": 1.0,
+      "x": 8.0,
+      "z": 26.600000381469727
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "returned",
+              "script": "scripts/beam_arcade_1.luau"
+            }
+          ],
+          "on": "enter_volume"
+        },
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "removed",
+              "script": "scripts/beam_arcade_1.luau"
+            }
+          ],
+          "on": "exit_volume"
+        }
+      ],
+      "bottom_y": 0.9599999785423279,
+      "depth": 0.800000011920929,
+      "filter": {
+        "held": false,
+        "instance": "arcade_gift",
+        "kind": "item"
+      },
+      "id": "return_gift",
+      "item_receipt": "centre",
+      "occupancy": "per_actor",
+      "top_y": 1.5499999523162842,
+      "width": 1.899999976158142,
+      "x": 10.550000190734863,
+      "z": 26.700000762939453
+    },
+    {
+      "bindings": [
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "returned",
+              "script": "scripts/beam_arcade_1.luau"
+            }
+          ],
+          "on": "enter_volume"
+        },
+        {
+          "actions": [
+            {
+              "action": "run_script",
+              "handler": "removed",
+              "script": "scripts/beam_arcade_1.luau"
+            }
+          ],
+          "on": "exit_volume"
+        }
+      ],
+      "bottom_y": 0.699999988079071,
+      "depth": 0.6000000238418579,
+      "filter": {
+        "held": false,
+        "instance": "arcade_ball",
+        "kind": "item"
+      },
+      "id": "return_ball",
+      "item_receipt": "centre",
+      "occupancy": "per_actor",
+      "top_y": 1.149999976158142,
+      "width": 1.0,
+      "x": 14.699999809265137,
+      "z": 26.799999237060547
+    }
+  ],
+  "walls": [
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 28.0,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 29.600000381469727,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 0.20000000298023224,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.20000000298023224
+    },
+    {
+      "depth": 29.600000381469727,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 0.20000000298023224,
+      "x": 27.799999237060547,
+      "y": 0.0,
+      "z": 0.20000000298023224
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 3.299999952316284,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 29.799999237060547
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 18.600000381469727,
+      "x": 4.699999809265137,
+      "y": 0.0,
+      "z": 29.799999237060547
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 3.299999952316284,
+      "x": 24.700000762939453,
+      "y": 0.0,
+      "z": 29.799999237060547
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 1.2000000476837158,
+      "material": "arcade:wall_navy_01",
+      "width": 1.399999976158142,
+      "x": 3.299999952316284,
+      "y": 2.200000047683716,
+      "z": 29.799999237060547
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 1.2000000476837158,
+      "material": "arcade:wall_navy_01",
+      "width": 1.399999976158142,
+      "x": 23.299999237060547,
+      "y": 2.200000047683716,
+      "z": 29.799999237060547
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 6.800000190734863,
+      "x": 0.20000000298023224,
+      "y": 0.0,
+      "z": 24.0
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 8.0,
+      "x": 9.0,
+      "y": 0.0,
+      "z": 24.0
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 8.800000190734863,
+      "x": 19.0,
+      "y": 0.0,
+      "z": 24.0
+    },
+    {
+      "depth": 6.800000190734863,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 0.20000000298023224,
+      "x": 13.0,
+      "y": 0.0,
+      "z": 0.20000000298023224
+    },
+    {
+      "depth": 7.0,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 0.20000000298023224,
+      "x": 13.0,
+      "y": 0.0,
+      "z": 9.0
+    },
+    {
+      "depth": 6.0,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 0.20000000298023224,
+      "x": 13.0,
+      "y": 0.0,
+      "z": 18.0
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 8.800000190734863,
+      "x": 13.199999809265137,
+      "y": 0.0,
+      "z": 11.0
+    },
+    {
+      "depth": 0.20000000298023224,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 3.799999952316284,
+      "x": 24.0,
+      "y": 0.0,
+      "z": 11.0
+    },
+    {
+      "depth": 5.0,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 0.20000000298023224,
+      "x": 4.5,
+      "y": 0.0,
+      "z": 8.0
+    },
+    {
+      "depth": 5.0,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 0.20000000298023224,
+      "x": 8.800000190734863,
+      "y": 0.0,
+      "z": 5.0
+    },
+    {
+      "depth": 6.800000190734863,
+      "height": 3.4000000953674316,
+      "material": "arcade:wall_navy_01",
+      "width": 0.20000000298023224,
+      "x": 8.800000190734863,
+      "y": 0.0,
+      "z": 14.0
+    }
+  ]
+}

@@ -8456,9 +8456,10 @@ PATH; the external QA harness is not a runtime dependency. All payload hashes
 remain unchanged after play. Source artwork/masters, editor assets/tools,
 symbols, repository files, logs, scratch evidence and QA saves are excluded.
 
-Library delivery status: **blocked: supported prepared-upload helper reports prepare_uploads unavailable**. Private Library identity and
-delivery receipts stay in the local handoff, not this public repository report.
-No friend was contacted and no public release/upload was created.
+Library attachment delivery was subsequently cancelled by Connor. The earlier
+preparation failure is retained in the local historical handoff; no upload
+retry or delivery remains pending. No friend was contacted and no public
+release/upload was created.
 
 ### Reconciliation, cleanup and remaining gates
 
@@ -8528,3 +8529,186 @@ Evidence and the refreshed Relay component are under
 `C:/Users/Connor Dawkins/Documents/Codex/2026-10-24/task-6/redundancy-audit/`.
 The repository writer is released after this bounded metadata/report commit;
 the queued four-section Beam expansion is a separate task.
+
+## Beam four-section campaign (2026-10-25)
+
+Beam remains **one playable map**, now containing Home -> Pool -> Office ->
+Arcade. Stable entry `beam` links `beam_pool`, `beam_office` and `beam_arcade`;
+`menu_entry_only: true` hides the internal rows. The combined distribution
+still has six playable projects, now 19 internal sections. Relay Annex keeps
+its three linked sections and corrected single entry. Zero unique maps were
+deleted. The old ZIP remains unchanged pending the later queued work.
+
+The maintained two-storey Home gained a furnished 128-square-metre west wing
+with kitchen, dining and utility spaces, plus an upstairs bedroom. Pool is
+26 x 28 m, with changing rooms, wet deck, a sunken basin, a substantial sloped
+bank and service rooms. Office is 24 x 28 m, with nine workstations, filing and
+break rooms, reception and a meeting-room circulation loop. Arcade is 28 x 30 m,
+with 18 cabinets, two pinballs, party seating, bowling and a prize foyer.
+Together the four sections have **247 props, 25 fixtures and 12 physical
+collectibles**, over 2,626 square metres of gross floor area including Home's
+upper section. All visual assets are existing supported repository assets.
+
+| Section | Physical objects | Return furniture |
+| --- | --- | --- |
+| Home | Kitchen mug, upstairs books, cushion | Entrance TV cabinet |
+| Pool | Duck, blue towel, detergent | Plastic service table, service bench, empty rack's top shelf |
+| Office | Records, mug, supply box | Filing cabinet, break-room table, reception counter |
+| Arcade | Plush cat, star gift, blue bowling ball | Round prize table, prize counter, empty foyer ball rack |
+
+Exact-instance receivers count only released objects. Picking one up or moving
+it away clears its credit and relocks the exit. F1 names the next item and its
+return furniture. Entrances are refuges. Forward doors advance, back doors
+start a fresh previous chapter, the EXIT sign and death restart the current
+chapter, and a menu launch starts Home. Final Enter replays Arcade. Inventory
+does not transfer and there is no persistent chapter checkpoint. Arcade adds
+a two-second uninterrupted flashlight check outside its foyer, within eight
+metres of the creature, after the three returns.
+
+The creature now has **no visible body**. Existing per-entity `shadow_only`
+keeps its posed geometry in the actual handheld-flashlight shadow pass while
+hiding colour, reflection and emissive geometry. Its shadow projects onto
+ordinary floors, walls and props. Ceiling, ambient and baked light cannot
+reveal it. Existing direct flashlight observation supplies cone, range and
+occlusion eligibility and the hold/release behavior; no renderer change or
+additional per-frame lighting query was added. Native snapshots distinguish
+`mesh_visible: false` from `flashlight_caster: true`, including lit captures.
+
+The base `293f8de` visitor and the original task-6 portable Beam's recovered
+source both omit `shadow_only` and use reveal-only light response on the black
+mannequin. The expansion copied that setting; this task did not remove an
+existing shadow-only flag or implement a black-silhouette renderer. The
+correction enables the existing projection-only mechanism on all four Beam
+visitors. The available source/package history does not establish an earlier
+version matching the user's remembered appearance.
+
+Pursuit is 12% faster than the preceding authored rules: starting speeds are
+0.728 / 0.8064 / 0.896 / 0.9856 m/s, plus 0.0672 per returned item, for maxima
+0.9296 / 1.008 / 1.0976 / 1.1872 m/s. Faint attached spatial footsteps use the
+existing `impact_soft` cue, emitter gain 0.22 and cue gain 0.36, before distance
+attenuation. Actual travel accumulates a step every 0.55 m with a 0.35-second
+minimum interval and a 12-metre playback gate. Holding or stationary motion
+stops the step source. The normal master/effects controls and world/unload
+lifecycle remain authoritative; no duplicate audio system or asset was added.
+
+Introductions, item hints, objectives, reset/failure/completion and transition
+text were rewritten in concrete English. Examples: "Only unheld items count;
+removal clears their credit" became "Put the item down to return it. Picking
+it up undoes the return"; "F reveals and holds it" became "F: flashlight
+on/off. Keep the shadow in the beam to stop it"; the final line is "You
+escaped. Press Enter to play Arcade again." Native checking caught an
+overlong introduction after the shadow wording change. All script literals
+are now within the guidance API's 72-byte line limit, and actual startup and
+hint display are checked separately from syntax.
+
+Geometry, furniture, fixtures, project membership/transitions and script
+sheets were authored through the real Places editor. Reviewed source metadata
+attached physical shapes, exact-item receivers and component bindings without
+regenerating geometry. The historical `beam_editor.py` was not run. Save/reopen,
+script checks and Safety reviews are retained. Playtests led to Home's chair
+and doorway/endcap clearance fixes, a two-metre Office connector, wider Pool
+service landings and a lengthwise towel bench. The detergent destination is
+the accessible top shelf, while its source is a low shelf reached with C.
+Bounded model overlap review reached its advertised spatial/pair budget, so
+it is not an exhaustive triangle-clearance proof. Intentional support contacts
+and the maintained ramp require context; no blanket placement ignores were
+added. Bespoke patrol/last-seen/search pacing, refuge/catch and distance-step
+logic are documented for the later shared-AI migration; existing native
+navigation and light-response primitives still own movement and illumination.
+
+Normal keyboard/mouse routes complete all four chapters and actual forward
+handoffs, without pose/item teleport, activation, navigation-goal or forced
+level-load actions. Home verifies 3 -> 2 -> 3 credit with relock/unlock;
+Pool carries the duck through the basin bank and retains all three furniture
+returns; Office reaches Arcade; Arcade performs the final beam check, wins
+and replays with fresh deliveries. Three reverse doors reach fresh previous
+sections. Death, EXIT-sign reset, F1 pages and safe spawns pass. A Pool route
+that looked away was caught; the accepted route uses the flashlight while
+passing the approaching creature. Counter/shelf carry aims were adjusted in
+normal input and repeated; failed calibration evidence is retained.
+
+Lit and flashlight-off screenshots cover the campaign with Full reflections.
+Near hold/off/reacquisition captures cover Home, Pool and Office; Arcade has
+a lit encounter and an off/range case.
+The body mesh stays hidden while flashlight shadows appear on receiving
+surfaces. Ceiling fixtures remain on with flashlight-off intensity/opacity
+zero. Beam hold is stationary; darkness resumes actual pursuit. Additional
+normal-input checks cover leaving the cone, a blocking wall, and a greater
+than 24-metre range case which is also occluded (not an isolated range proof).
+Existing renderer source independently enforces that range cutoff. Audio
+checks record moving attached source positions, one step voice at a time,
+silence while held, nonzero audible PCM and exactly zero PCM at master zero.
+Those are native output/trace checks, not a claimed human listening review.
+
+Sequential DX12 measurements on the RTX 3070 Laptop GPU use High, Full
+lightmaps/reflections, VSync OFF, no frame limiter and actual **Immediate**
+presentation at **1280 x 720 physical pixels**. The 165-Hz display does not
+cap the measured means. Each sample is a 15-second stationary entrance view
+with real gameplay delta and no framebuffer readback or compilation during
+timing; these are neither whole-campaign worst-case results nor a claimed
+before/after engine improvement.
+
+| Section | Mean FPS | p95 loop ms | p99 loop ms |
+| --- | ---: | ---: | ---: |
+| Home | 305.43 | 6.108 | 6.968 |
+| Pool | 260.35 | 6.477 | 6.917 |
+| Office | 304.98 | 6.285 | 7.239 |
+| Arcade | 244.97 | 6.348 | 7.094 |
+
+The final normal full-project export is **56,528,928 bytes**, SHA-256
+`c8dcf901ff6060a3d9086f436df76d8d15ffd012ff1d9e6bf403c68b1a89b56e`,
+at `C:/Users/Connor Dawkins/Documents/Codex/2026-10-24/task-7/deliverables/beam-campaign.placesmap`.
+Native Build+Play completed in 38.94 seconds after cached world reuse. The
+preceding shadow-only world bake took 828.42 seconds. Project check, inspect,
+validate, all four `--require-current` checks and recovery pass; all nine
+embedded editable files are byte-exact to canonical sources. Both Static and
+Full variants are present. Acceptance uses High / Lightmaps Full / Full
+reflections. Direct asset closure checks found 119 files / 141 catalog
+references identical to the prior portable extraction; final assembled-root
+validation remains the deferred packaging task.
+
+Format, strict workspace/all-target/all-feature Clippy, locked all-feature
+release, **316 Rust tests**, and **629 assets / 389 placeable / nine themes /
+zero warnings** pass. Texture and prop checks pass with existing advisories
+(140 texture entries / 100 existing texture warnings). No tests were added.
+Rust, shaders and global assets are unchanged throughout this campaign work;
+recent instancing, lighting bounds, memory savings and strict two-sheet upload
+bound are retained. The broader Python baseline's 17 failures/errors and 16
+skips were not rerun and are not presented as a new all-Python pass.
+
+Final binaries and six DLLs were preserved outside `target` and their ten
+hashes matched the validated originals. The final component and all unique
+recovery/source data remain. After native/build users ended, the verified
+repository target path was cleaned with Cargo: Removed 6224 files, 6.9GiB total. Checked task-owned
+duplicate imported archives were removed only after an exact preserved copy
+was verified; disposable mixed-output audio captures were removed while the
+two final isolated audio captures remain. Cargo's observed free-space change
+was **6,977,597,440 bytes**; total observed recovery including
+those disposable copies was **12,051,505,152 bytes**. No unrelated
+files, unique source or recovery component was deleted.
+
+Evidence is under `C:/Users/Connor Dawkins/Documents/Codex/2026-10-24/task-7`.
+The ownership handoff records the exact staging commit/remote and writer
+release. No force push, main merge, public release, version bump, CI wait,
+upload, video, Windows security/power change or clock/charger investigation
+was performed. The optional bounded awake helper was blocked by execution
+policy before running. One retry under Connor's later explicit awake request
+also exited 1 before execution; no policy was bypassed and no awake request
+is active. An approved awake utility/helper is still needed for that request.
+The existing roughly 2.4-second cold startup remains a known prior result.
+
+Final portable ZIP assembly is deferred until the parent-owned release rough
+edges, shared-AI work and new Backrooms map are complete. The original
+658,523,027-byte ZIP is preserved, predates the Relay fix and must not be
+represented as this new campaign. Later assembly must include the refreshed
+Beam and Relay components, all existing modes/maps and runtime dependencies,
+show six combined Explore entries, and pass extraction/runtime checks without
+Rust/Python. Attachment delivery was cancelled: no Library work is pending.
+Mac/Metal awaits explicit user coordination; Linux, final version CI and other
+previously documented release criteria remain open. The next general pass
+also owns developer-console gating of ordinary prop/physics diagnostic text;
+real blocking notices and logs must remain available.
+
+Known separate visual issue: arcade machine screens can remain fullbright
+when off, and machine light output needs review. Connor explicitly moved
+that work to a subsequent task; it was not investigated or fixed here.

@@ -3,12 +3,29 @@
   "project_format": 1,
   "id": "beam",
   "name": "It Only Exists in the Beam",
-  "description": "A short two-storey flashlight horror demo. Recover three gifts from a deserted furniture store, return them to the exit counter, then go home.",
+  "description": "Explore Home, Pool, Office and Arcade. Return three items in each place and keep the moving shadow in your flashlight beam.",
   "entry_level": "beam",
+  "menu_entry_only": true,
   "levels": [
     {
       "id": "beam",
-      "source": "levels/beam.json"
+      "source": "levels/beam.json",
+      "display_name": "Home"
+    },
+    {
+      "id": "beam_pool",
+      "source": "levels/beam_pool.json",
+      "display_name": "Pool"
+    },
+    {
+      "id": "beam_office",
+      "source": "levels/beam_office.json",
+      "display_name": "Office"
+    },
+    {
+      "id": "beam_arcade",
+      "source": "levels/beam_arcade.json",
+      "display_name": "Arcade"
     }
   ]
 }

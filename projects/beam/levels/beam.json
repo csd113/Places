@@ -15,7 +15,7 @@
       "range": 5.0,
       "rotation_degrees": 0.0,
       "x": 7.0,
-      "y": 2.7980000972747803,
+      "y": 2.797999858856201,
       "z": 14.399999618530273
     },
     {
@@ -33,7 +33,7 @@
       "range": 5.0,
       "rotation_degrees": 0.0,
       "x": 2.0,
-      "y": 2.7980000972747803,
+      "y": 2.797999858856201,
       "z": 6.0
     },
     {
@@ -51,7 +51,7 @@
       "range": 5.0,
       "rotation_degrees": 0.0,
       "x": 10.800000190734863,
-      "y": 2.7980000972747803,
+      "y": 2.797999858856201,
       "z": 7.0
     },
     {
@@ -68,14 +68,50 @@
       "range": 4.5,
       "rotation_degrees": 0.0,
       "x": 10.0,
-      "y": 5.797999858856201,
+      "y": 5.798000335693359,
       "z": 2.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.03500000014901161,
+      "color": [
+        0.7200000286102295,
+        0.550000011920929,
+        0.3499999940395355
+      ],
+      "emission": 0.18000000715255737,
+      "fixture": "home:ceiling_light_round",
+      "id": "editor_1",
+      "mount": "ceiling",
+      "range": 6.0,
+      "rotation_degrees": 0.0,
+      "x": -5.0,
+      "y": 2.797999858856201,
+      "z": 3.0
+    },
+    {
+      "align": "none",
+      "brightness": 0.03500000014901161,
+      "color": [
+        0.7200000286102295,
+        0.550000011920929,
+        0.3499999940395355
+      ],
+      "emission": 0.18000000715255737,
+      "fixture": "home:ceiling_light_round",
+      "id": "editor_5",
+      "mount": "ceiling",
+      "range": 6.0,
+      "rotation_degrees": 0.0,
+      "x": -5.0,
+      "y": 2.797999858856201,
+      "z": 11.0
     }
   ],
   "defaults": {
-    "ceiling": "core:ceiling_panel_01",
-    "floor": "core:carpet_damp_01",
-    "wall": "core:wallpaper_stained_01"
+    "ceiling": "home:ceiling_warm_01",
+    "floor": "home:hardwood_oak_warm_01",
+    "wall": "home:wall_paint_warm_01"
   },
   "doors": [
     {
@@ -94,7 +130,7 @@
       "components": [
         {
           "component": "interactable",
-          "prompt": "Leave",
+          "prompt": "Continue to Pool",
           "reach": 2.5
         },
         {
@@ -116,6 +152,11 @@
           "component": "state",
           "name": "count",
           "value": 0
+        },
+        {
+          "component": "state",
+          "name": "beam_sealed",
+          "value": false
         },
         {
           "component": "state",
@@ -159,7 +200,7 @@
       "components": [
         {
           "component": "interactable",
-          "prompt": "Open / close"
+          "prompt": "Open or close the bedroom door"
         }
       ],
       "height": 2.0999999046325684,
@@ -186,26 +227,92 @@
     },
     "presentation": {
       "contrast": 1.08,
-      "exposure": 0.28,
+      "exposure": 0.699999988079071,
       "saturation": 0.9,
       "tone_knee": 0.75
     }
   },
+  "floor_patches": [
+    {
+      "depth": 6.6,
+      "material": "home:tile_home_01",
+      "width": 5,
+      "x": -7.8,
+      "z": 0.2
+    },
+    {
+      "depth": 5.6,
+      "material": "home:tile_home_01",
+      "width": 2.8,
+      "x": -2.8,
+      "z": 0.2
+    }
+  ],
   "format_version": 1,
+  "geometry_intent": [
+    {
+      "check": "missing-wall",
+      "depth": 4.9,
+      "note": "Adjacent lower floor strips meet without an internal wall; enclosing shell remains at x13.8.",
+      "width": 0.4,
+      "x": 11.6,
+      "z": 0.2
+    },
+    {
+      "check": "missing-wall",
+      "depth": 3.5,
+      "note": "Lower floor strips share the entry approach; enclosing shell remains at x13.8.",
+      "width": 0.4,
+      "x": 11.6,
+      "z": 12.3
+    },
+    {
+      "check": "missing-wall",
+      "depth": 0.4,
+      "note": "Ramp and lower floor join inside the tall enclosed shaft; no wall across the walking connection.",
+      "width": 2.0,
+      "x": 11.8,
+      "z": 4.8
+    },
+    {
+      "check": "missing-wall",
+      "depth": 0.4,
+      "note": "Bottom of the enclosed ramp opens to the lower entrance floor.",
+      "width": 2,
+      "x": 11.8,
+      "z": 12.3
+    },
+    {
+      "check": "missing-wall",
+      "depth": 0.6,
+      "note": "Real upper-office door plus header and jamb define the connected top landing.",
+      "width": 2.3,
+      "x": 11.5,
+      "z": 4.7
+    },
+    {
+      "check": "missing-wall",
+      "depth": 0.4,
+      "note": "Locked exit leaf spans this aperture; successful use ends the run.",
+      "width": 1.6,
+      "x": 6.2,
+      "z": 15.7
+    }
+  ],
   "id": "beam",
-  "name": "It Only Exists in the Beam",
+  "name": "Home / The Things We Keep",
   "props": [
     {
       "id": "editor_prop_1",
-      "model": "core:office_reception_desk",
+      "model": "home:cabinet_base",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 180.0,
       "scale": 1.0,
       "size": [
-        2.4000000953674316,
-        0.9800000190734863,
-        0.949999988079071
+        0.6000000238418579,
+        0.8999999761581421,
+        0.6000000238418579
       ],
       "solid": true,
       "x": 3.0,
@@ -214,15 +321,15 @@
     },
     {
       "id": "editor_prop_2",
-      "model": "core:office_reception_desk",
+      "model": "home:tv_console",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 180.0,
       "scale": 1.0,
       "size": [
-        2.4000000953674316,
-        0.9800000190734863,
-        0.949999988079071
+        1.5499999523162842,
+        0.550000011920929,
+        0.44999998807907104
       ],
       "solid": true,
       "x": 7.0,
@@ -245,8 +352,8 @@
       "components": [
         {
           "component": "interactable",
-          "prompt": "Start again",
-          "reach": 2.5
+          "prompt": "Restart Home",
+          "reach": 3
         }
       ],
       "id": "restart_sign",
@@ -262,20 +369,20 @@
       ],
       "solid": false,
       "x": 7.0,
-      "y": 2.119999885559082,
-      "z": 15.680000305175781
+      "y": 2.2200000286102295,
+      "z": 15.758000373840332
     },
     {
       "id": "editor_prop_4",
-      "model": "core:desk",
+      "model": "home:tv_console",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 0.0,
       "scale": 1.0,
       "size": [
-        1.600000023841858,
-        0.75,
-        0.699999988079071
+        1.5499999523162842,
+        0.550000011920929,
+        0.44999998807907104
       ],
       "solid": true,
       "x": 2.799999952316284,
@@ -301,15 +408,15 @@
     },
     {
       "id": "editor_prop_6",
-      "model": "core:office_filing_cabinet_tall",
+      "model": "home:bookshelf",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 0.0,
       "scale": 1.0,
       "size": [
-        0.5,
-        1.3200000524520874,
-        0.5
+        1.0,
+        1.7999999523162842,
+        0.3499999940395355
       ],
       "solid": true,
       "x": 1.0,
@@ -352,7 +459,7 @@
     },
     {
       "id": "editor_prop_9",
-      "model": "core:table",
+      "model": "home:dining_table",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 0.0,
@@ -389,7 +496,7 @@
       "model": "core:chair",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
-      "rotation_degrees": 270.0,
+      "rotation_degrees": 90.0,
       "scale": 1.0,
       "size": [
         0.5,
@@ -397,13 +504,13 @@
         0.5
       ],
       "solid": true,
-      "x": 4.300000190734863,
+      "x": 2.0,
       "y": 0.0,
-      "z": 8.100000381469727
+      "z": 7.75
     },
     {
       "id": "editor_prop_12",
-      "model": "core:armchair",
+      "model": "home:armchair",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 90.0,
@@ -420,7 +527,7 @@
     },
     {
       "id": "editor_prop_13",
-      "model": "core:couch",
+      "model": "home:sofa",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 0.0,
@@ -437,7 +544,7 @@
     },
     {
       "id": "editor_prop_14",
-      "model": "core:lamp",
+      "model": "home:floor_lamp",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 0.0,
@@ -465,9 +572,9 @@
         0.5
       ],
       "solid": false,
-      "x": 5.800000190734863,
+      "x": 6.25,
       "y": 0.0,
-      "z": 10.699999809265137
+      "z": 11.5
     },
     {
       "id": "editor_prop_16",
@@ -488,15 +595,15 @@
     },
     {
       "id": "editor_prop_17",
-      "model": "core:desk",
+      "model": "core:cabinet",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 0.0,
       "scale": 1.0,
       "size": [
-        1.600000023841858,
-        0.75,
-        0.699999988079071
+        0.8999999761581421,
+        0.8500000238418579,
+        0.44999998807907104
       ],
       "solid": true,
       "x": 10.800000190734863,
@@ -505,24 +612,24 @@
     },
     {
       "id": "editor_prop_18",
-      "model": "core:chair",
+      "model": "core:bed",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 180.0,
       "scale": 1.0,
       "size": [
-        0.5,
-        0.8999999761581421,
-        0.5
+        1.399999976158142,
+        0.550000011920929,
+        2.0
       ],
       "solid": true,
-      "x": 10.800000190734863,
+      "x": 10.199999809265137,
       "y": 3.0,
-      "z": 4.349999904632568
+      "z": 1.600000023841858
     },
     {
       "id": "editor_prop_19",
-      "model": "core:couch",
+      "model": "home:sofa",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 0.0,
@@ -556,7 +663,7 @@
     },
     {
       "id": "editor_prop_21",
-      "model": "core:armchair",
+      "model": "home:armchair",
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 90.0,
@@ -567,7 +674,7 @@
         0.8999999761581421
       ],
       "solid": true,
-      "x": 9.100000381469727,
+      "x": 8.699999809265137,
       "y": 0.0,
       "z": 11.0
     },
@@ -585,7 +692,7 @@
       ],
       "solid": false,
       "x": 10.399999618530273,
-      "y": 0.8999999761581421,
+      "y": 0.8500000238418579,
       "z": 7.800000190734863
     },
     {
@@ -606,140 +713,107 @@
       "z": 7.800000190734863
     },
     {
+      "display_name": "Kitchen mug",
       "id": "gift_red",
-      "model": "arcade:party_gift_red",
+      "model": "home:mug",
       "physics": {
-        "angular_damping": 0.20000000298023224,
-        "friction": 0.6000000238418579,
-        "linear_damping": 0.05000000074505806,
-        "mass_kg": 0.699999988079071,
+        "angular_damping": 0.2,
+        "friction": 0.6,
+        "linear_damping": 0.05,
+        "mass_kg": 0.32,
         "motion": "dynamic",
         "pickup": true,
-        "reset_group": "beam_gifts",
-        "restitution": 0.05000000074505806,
+        "reset_group": "beam_items",
+        "restitution": 0.05,
         "shape": {
-          "kind": "compound",
-          "parts": [
-            {
-              "offset": [
-                0.0,
-                0.15000000596046448,
-                0.0
-              ],
-              "shape": {
-                "half_extents": [
-                  0.15000000596046448,
-                  0.15000000596046448,
-                  0.15000000596046448
-                ],
-                "kind": "cuboid"
-              }
-            }
-          ]
+          "half_extents": [
+            0.0585,
+            0.045,
+            0.039
+          ],
+          "kind": "cuboid"
         }
       },
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 0.0,
-      "scale": 1.0,
+      "scale": 1.600000023841858,
       "size": [
-        0.30399999022483826,
-        0.3747999966144562,
-        0.30399999022483826
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
       ],
       "solid": false,
-      "x": 2.799999952316284,
-      "y": 0.75,
-      "z": 3.0
+      "x": -6.199999809265137,
+      "y": 0.8999999761581421,
+      "z": 0.6000000238418579
     },
     {
+      "display_name": "Bedside books",
       "id": "gift_green",
-      "model": "arcade:party_gift_green",
+      "model": "home:book_stack",
       "physics": {
-        "angular_damping": 0.20000000298023224,
-        "friction": 0.6000000238418579,
-        "linear_damping": 0.05000000074505806,
-        "mass_kg": 0.699999988079071,
+        "angular_damping": 0.2,
+        "friction": 0.6,
+        "linear_damping": 0.05,
+        "mass_kg": 1.1,
         "motion": "dynamic",
         "pickup": true,
-        "reset_group": "beam_gifts",
-        "restitution": 0.05000000074505806,
+        "reset_group": "beam_items",
+        "restitution": 0.05,
         "shape": {
-          "kind": "compound",
-          "parts": [
-            {
-              "offset": [
-                0.0,
-                0.15000000596046448,
-                0.0
-              ],
-              "shape": {
-                "half_extents": [
-                  0.15000000596046448,
-                  0.15000000596046448,
-                  0.15000000596046448
-                ],
-                "kind": "cuboid"
-              }
-            }
-          ]
+          "half_extents": [
+            0.125,
+            0.0275,
+            0.09
+          ],
+          "kind": "cuboid"
         }
       },
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": 15.0,
-      "scale": 1.0,
+      "scale": 1.2999999523162842,
       "size": [
-        0.30399999022483826,
-        0.3747999966144562,
-        0.30399999022483826
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
       ],
       "solid": false,
       "x": 10.800000190734863,
-      "y": 3.75,
+      "y": 3.8499999046325684,
       "z": 3.5
     },
     {
+      "display_name": "Sitting-room cushion",
       "id": "gift_stars",
-      "model": "arcade:party_gift_stars",
+      "model": "home:cushion",
       "physics": {
-        "angular_damping": 0.20000000298023224,
-        "friction": 0.6000000238418579,
-        "linear_damping": 0.05000000074505806,
-        "mass_kg": 0.699999988079071,
+        "angular_damping": 0.2,
+        "friction": 0.6,
+        "linear_damping": 0.05,
+        "mass_kg": 0.25,
         "motion": "dynamic",
         "pickup": true,
-        "reset_group": "beam_gifts",
-        "restitution": 0.05000000074505806,
+        "reset_group": "beam_items",
+        "restitution": 0.05,
         "shape": {
-          "kind": "compound",
-          "parts": [
-            {
-              "offset": [
-                0.0,
-                0.15000000596046448,
-                0.0
-              ],
-              "shape": {
-                "half_extents": [
-                  0.15000000596046448,
-                  0.15000000596046448,
-                  0.15000000596046448
-                ],
-                "kind": "cuboid"
-              }
-            }
-          ]
+          "half_extents": [
+            0.165,
+            0.16,
+            0.0575
+          ],
+          "kind": "cuboid"
         }
       },
       "pitch_degrees": 0.0,
       "roll_degrees": 0.0,
       "rotation_degrees": -15.0,
-      "scale": 1.0,
+      "scale": 1.149999976158142,
       "size": [
-        0.30399999022483826,
-        0.3747999966144562,
-        0.30399999022483826
+        0.33000001311302185,
+        0.3199999928474426,
+        0.11500000208616257
       ],
       "solid": false,
       "x": 10.5,
@@ -770,7 +844,7 @@
           "height": 1.75,
           "max_slope": 2.6667,
           "radius": 0.3,
-          "speed_mps": 0.9,
+          "speed_mps": 0.65,
           "step_height": 0.4
         },
         {
@@ -778,9 +852,9 @@
           "can_open_doors": true,
           "component": "ai",
           "hearing_range": 0,
-          "run_speed": 0.9,
+          "run_speed": 0.65,
           "sight_range": 0,
-          "walk_speed": 0.9
+          "walk_speed": 0.65
         },
         {
           "component": "light_response",
@@ -803,6 +877,7 @@
       "roll_degrees": 0.0,
       "rotation_degrees": 0.0,
       "scale": 1.0,
+      "shadow_only": true,
       "size": [
         0.5785390138626099,
         1.7230349779129028,
@@ -812,6 +887,874 @@
       "x": 3.0,
       "y": 0.0,
       "z": 5.599999904632568
+    },
+    {
+      "id": "editor_prop_3",
+      "model": "home:cabinet_base",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.6000000238418579,
+        0.8999999761581421,
+        0.6000000238418579
+      ],
+      "solid": true,
+      "x": -6.800000190734863,
+      "y": 0.0,
+      "z": 0.5019999742507935
+    },
+    {
+      "id": "editor_prop_24",
+      "model": "home:cabinet_base",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.6000000238418579,
+        0.8999999761581421,
+        0.6000000238418579
+      ],
+      "solid": true,
+      "x": -6.199999809265137,
+      "y": 0.0,
+      "z": 0.5019999742507935
+    },
+    {
+      "id": "editor_prop_25",
+      "model": "home:stove",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.6000000238418579,
+        0.9179999828338623,
+        0.6340000033378601
+      ],
+      "solid": true,
+      "x": -5.599999904632568,
+      "y": 0.0,
+      "z": 0.5189999938011169
+    },
+    {
+      "id": "editor_prop_26",
+      "model": "home:sink",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.6000000238418579,
+        0.9,
+        0.6000000238418579
+      ],
+      "solid": true,
+      "x": -5.0,
+      "y": 0.0,
+      "z": 0.5019999742507935
+    },
+    {
+      "id": "editor_prop_28",
+      "model": "core:fridge",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.699999988079071,
+        1.7999999523162842,
+        0.699999988079071
+      ],
+      "solid": true,
+      "x": -3.6500000953674316,
+      "y": 0.0,
+      "z": 0.5519999861717224
+    },
+    {
+      "id": "editor_prop_29",
+      "model": "home:cabinet_wall",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.6000000238418579,
+        0.7200000286102295,
+        0.33000001311302185
+      ],
+      "solid": true,
+      "x": -6.800000190734863,
+      "y": 1.5499999523162842,
+      "z": 0.36500000953674316
+    },
+    {
+      "id": "editor_prop_30",
+      "model": "home:cabinet_wall",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.6000000238418579,
+        0.7200000286102295,
+        0.33000001311302185
+      ],
+      "solid": true,
+      "x": -6.199999809265137,
+      "y": 1.5499999523162842,
+      "z": 0.36500000953674316
+    },
+    {
+      "id": "editor_prop_31",
+      "model": "home:toaster",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.25,
+        0.1599999964237213,
+        0.16899999976158142
+      ],
+      "solid": false,
+      "x": -6.800000190734863,
+      "y": 0.8999999761581421,
+      "z": 0.5
+    },
+    {
+      "id": "editor_prop_32",
+      "model": "home:kettle",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.21699999272823334,
+        0.20100000500679016,
+        0.16200000047683716
+      ],
+      "solid": false,
+      "x": -6.199999809265137,
+      "y": 0.8999999761581421,
+      "z": 0.30000001192092896
+    },
+    {
+      "id": "editor_prop_33",
+      "model": "home:dining_table",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.399999976158142,
+        0.75,
+        0.800000011920929
+      ],
+      "solid": true,
+      "x": -5.0,
+      "y": 0.0,
+      "z": 10.699999809265137
+    },
+    {
+      "id": "editor_prop_34",
+      "model": "home:dining_table",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.399999976158142,
+        0.75,
+        0.800000011920929
+      ],
+      "solid": true,
+      "x": -5.0,
+      "y": 0.0,
+      "z": 11.5
+    },
+    {
+      "id": "editor_prop_35",
+      "model": "home:dining_chair_refined",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.9020000100135803,
+        0.49000000953674316
+      ],
+      "solid": true,
+      "x": -5.599999904632568,
+      "y": 0.0,
+      "z": 9.800000190734863
+    },
+    {
+      "id": "editor_prop_36",
+      "model": "home:dining_chair_refined",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.9020000100135803,
+        0.49000000953674316
+      ],
+      "solid": true,
+      "x": -4.400000095367432,
+      "y": 0.0,
+      "z": 9.800000190734863
+    },
+    {
+      "id": "editor_prop_37",
+      "model": "home:dining_chair_refined",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.9020000100135803,
+        0.49000000953674316
+      ],
+      "solid": true,
+      "x": -5.599999904632568,
+      "y": 0.0,
+      "z": 12.399999618530273
+    },
+    {
+      "id": "editor_prop_38",
+      "model": "home:dining_chair_refined",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.5,
+        0.9020000100135803,
+        0.49000000953674316
+      ],
+      "solid": true,
+      "x": -4.400000095367432,
+      "y": 0.0,
+      "z": 12.399999618530273
+    },
+    {
+      "id": "editor_prop_39",
+      "model": "home:plate",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2199999988079071,
+        0.02199999988079071,
+        0.2199999988079071
+      ],
+      "solid": false,
+      "x": -5.5,
+      "y": 0.75,
+      "z": 10.5
+    },
+    {
+      "id": "editor_prop_40",
+      "model": "home:bowl",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.15000000596046448,
+        0.06499999761581421,
+        0.15000000596046448
+      ],
+      "solid": false,
+      "x": -4.5,
+      "y": 0.75,
+      "z": 10.5
+    },
+    {
+      "id": "editor_prop_41",
+      "model": "home:plant_table",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.12999999523162842,
+        0.2800000011920929,
+        0.12999999523162842
+      ],
+      "solid": false,
+      "x": -4.5,
+      "y": 0.75,
+      "z": 11.5
+    },
+    {
+      "id": "editor_prop_42",
+      "model": "home:bookshelf",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        1.0,
+        1.7999999523162842,
+        0.3499999940395355
+      ],
+      "solid": true,
+      "x": -7.400000095367432,
+      "y": 0.0,
+      "z": 14.399999618530273
+    },
+    {
+      "id": "editor_prop_43",
+      "model": "home:armchair",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.8999999761581421,
+        0.8999999761581421,
+        0.8999999761581421
+      ],
+      "solid": true,
+      "x": -6.5,
+      "y": 0.0,
+      "z": 14.600000381469727
+    },
+    {
+      "id": "editor_prop_44",
+      "model": "home:floor_lamp",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3499999940395355,
+        1.5,
+        0.3499999940395355
+      ],
+      "solid": false,
+      "x": -4.900000095367432,
+      "y": 0.0,
+      "z": 14.600000381469727
+    },
+    {
+      "id": "editor_prop_45",
+      "model": "janitor:utility_sink",
+      "physics": {
+        "motion": "fixed",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.6225,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.335,
+                  0.0225,
+                  0.265
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.7675,
+                -0.2425
+              ],
+              "shape": {
+                "half_extents": [
+                  0.335,
+                  0.1225,
+                  0.0225
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.7675,
+                0.2425
+              ],
+              "shape": {
+                "half_extents": [
+                  0.335,
+                  0.1225,
+                  0.0225
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                -0.3125,
+                0.7675,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.0225,
+                  0.1225,
+                  0.22
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0.3125,
+                0.7675,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.0225,
+                  0.1225,
+                  0.22
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                -0.27,
+                0.31,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.0175,
+                  0.31,
+                  0.2175
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0.27,
+                0.31,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.0175,
+                  0.31,
+                  0.2175
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.13,
+                -0.2
+              ],
+              "shape": {
+                "half_extents": [
+                  0.28,
+                  0.011,
+                  0.011
+                ],
+                "kind": "cuboid"
+              }
+            }
+          ]
+        }
+      },
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.6700009703636169,
+        0.89,
+        0.5299999713897705
+      ],
+      "solid": true,
+      "x": -1.0,
+      "y": 0.0,
+      "z": 1.0
+    },
+    {
+      "id": "editor_prop_46",
+      "model": "janitor:metal_storage_rack",
+      "physics": {
+        "motion": "fixed",
+        "shape": {
+          "kind": "compound",
+          "parts": [
+            {
+              "offset": [
+                0,
+                0.15,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.58,
+                  0.0125,
+                  0.235
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                0.65,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.58,
+                  0.0125,
+                  0.235
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                1.15,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.58,
+                  0.0125,
+                  0.235
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0,
+                1.65,
+                0
+              ],
+              "shape": {
+                "half_extents": [
+                  0.58,
+                  0.0125,
+                  0.235
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                -0.575,
+                0.95,
+                -0.235
+              ],
+              "shape": {
+                "half_extents": [
+                  0.022,
+                  0.95,
+                  0.022
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                -0.575,
+                0.95,
+                0.235
+              ],
+              "shape": {
+                "half_extents": [
+                  0.022,
+                  0.95,
+                  0.022
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0.575,
+                0.95,
+                -0.235
+              ],
+              "shape": {
+                "half_extents": [
+                  0.022,
+                  0.95,
+                  0.022
+                ],
+                "kind": "cuboid"
+              }
+            },
+            {
+              "offset": [
+                0.575,
+                0.95,
+                0.235
+              ],
+              "shape": {
+                "half_extents": [
+                  0.022,
+                  0.95,
+                  0.022
+                ],
+                "kind": "cuboid"
+              }
+            }
+          ]
+        }
+      },
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        1.2300009727478027,
+        1.899999976158142,
+        0.5450009703636169
+      ],
+      "solid": true,
+      "x": -1.0,
+      "y": 0.0,
+      "z": 3.0999999046325684
+    },
+    {
+      "id": "editor_prop_47",
+      "model": "janitor:lidded_storage_bin",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.4449999928474426,
+        0.3449999988079071,
+        0.354000985622406
+      ],
+      "solid": false,
+      "x": -1.0,
+      "y": 0.0,
+      "z": 4.400000095367432
+    },
+    {
+      "id": "editor_prop_48",
+      "model": "janitor:folded_towel_blue",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.36000099778175354,
+        0.05700099840760231,
+        0.2759999930858612
+      ],
+      "solid": false,
+      "x": -1.0,
+      "y": 0.8999999761581421,
+      "z": 1.0
+    },
+    {
+      "id": "editor_prop_49",
+      "model": "home:crt_tv",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.550000011920929,
+        0.47999998927116394,
+        0.46000000834465027
+      ],
+      "solid": true,
+      "x": 2.799999952316284,
+      "y": 0.550000011920929,
+      "z": 3.0
+    },
+    {
+      "id": "editor_prop_50",
+      "model": "home:coffee_table",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        1.399999976158142,
+        0.46000000834465027,
+        0.800000011920929
+      ],
+      "solid": true,
+      "x": 3.5,
+      "y": 0.0,
+      "z": 9.800000190734863
+    },
+    {
+      "id": "editor_prop_51",
+      "model": "home:rug",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        2.0,
+        0.019999999552965164,
+        1.399999976158142
+      ],
+      "solid": false,
+      "x": 3.5,
+      "y": 0.0,
+      "z": 10.5
+    },
+    {
+      "id": "editor_prop_52",
+      "model": "home:rug",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        2.0,
+        0.019999999552965164,
+        1.399999976158142
+      ],
+      "solid": false,
+      "x": 9.800000190734863,
+      "y": 0.0,
+      "z": 10.5
+    },
+    {
+      "id": "editor_prop_53",
+      "model": "home:landscape_frame",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 270.0,
+      "scale": 1.0,
+      "size": [
+        0.44999998807907104,
+        0.5,
+        0.03200000151991844
+      ],
+      "solid": false,
+      "x": 6.785999774932861,
+      "y": 1.4500000476837158,
+      "z": 9.0
+    },
+    {
+      "id": "editor_prop_54",
+      "model": "home:landscape_frame",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.44999998807907104,
+        0.5,
+        0.03200000151991844
+      ],
+      "solid": false,
+      "x": -7.785999774932861,
+      "y": 1.4500000476837158,
+      "z": 11.0
+    },
+    {
+      "id": "editor_prop_55",
+      "model": "home:plant_table",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.12999999523162842,
+        0.2800000011920929,
+        0.12999999523162842
+      ],
+      "solid": false,
+      "x": 3.0,
+      "y": 0.8999999761581421,
+      "z": 14.800000190734863
+    },
+    {
+      "id": "editor_prop_56",
+      "model": "home:book_stack",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 3.5,
+      "y": 0.46000000834465027,
+      "z": 9.800000190734863
+    },
+    {
+      "id": "editor_prop_57",
+      "model": "home:floor_lamp",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3499999940395355,
+        1.5,
+        0.3499999940395355
+      ],
+      "solid": false,
+      "x": 8.0,
+      "y": 3.0,
+      "z": 1.7999999523162842
+    },
+    {
+      "id": "editor_prop_58",
+      "model": "home:landscape_frame",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.44999998807907104,
+        0.5,
+        0.03200000151991844
+      ],
+      "solid": false,
+      "x": 10.0,
+      "y": 4.400000095367432,
+      "z": 0.21400000154972076
+    },
+    {
+      "id": "editor_prop_59",
+      "model": "home:cabinet_base",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.6000000238418579,
+        0.8999999761581421,
+        0.6000000238418579
+      ],
+      "solid": true,
+      "x": -4.400000095367432,
+      "y": 0.0,
+      "z": 0.5019999742507935
     }
   ],
   "ramps": [
@@ -829,7 +1772,7 @@
       "depth": 16.0,
       "floor_y": 0.0,
       "height": 2.799999952316284,
-      "material": "core:carpet_damp_01",
+      "material": "home:hardwood_oak_warm_01",
       "width": 11.800000190734863,
       "x": 0.0,
       "z": 0.0
@@ -838,7 +1781,7 @@
       "depth": 16.0,
       "floor_y": 0.0,
       "height": 2.799999952316284,
-      "material": "core:carpet_damp_01",
+      "material": "home:hardwood_oak_warm_01",
       "width": 0.19999980926513672,
       "x": 13.800000190734863,
       "z": 0.0
@@ -847,7 +1790,7 @@
       "depth": 5.0,
       "floor_y": 0.0,
       "height": 2.799999952316284,
-      "material": "core:carpet_damp_01",
+      "material": "home:hardwood_oak_warm_01",
       "width": 2.0,
       "x": 11.800000190734863,
       "z": 0.0
@@ -856,7 +1799,7 @@
       "depth": 3.5,
       "floor_y": 0.0,
       "height": 2.799999952316284,
-      "material": "core:carpet_damp_01",
+      "material": "home:hardwood_oak_warm_01",
       "width": 2.0,
       "x": 11.800000190734863,
       "z": 12.5
@@ -865,7 +1808,7 @@
       "depth": 5.0,
       "floor_y": 3.0,
       "height": 2.799999952316284,
-      "material": "home:hardwood_oak_01",
+      "material": "home:hardwood_oak_warm_01",
       "width": 6.800000190734863,
       "x": 7.0,
       "z": 0.0
@@ -874,9 +1817,19 @@
       "depth": 7.5,
       "floor_y": 0.0,
       "height": 5.800000190734863,
+      "material": "home:hardwood_oak_warm_01",
       "width": 2.0,
       "x": 11.800000190734863,
       "z": 5.0
+    },
+    {
+      "depth": 16.0,
+      "floor_y": 0.0,
+      "height": 2.799999952316284,
+      "material": "home:hardwood_oak_warm_01",
+      "width": 8.0,
+      "x": -8.0,
+      "z": 0.0
     }
   ],
   "schema": "places-level",
@@ -885,15 +1838,15 @@
   ],
   "sound_emitters": [
     {
-      "gain": 0.14000000059604645,
+      "gain": 0.12,
       "id": "store_hum",
       "looped": true,
       "playing": true,
       "sound": "ambience_hvac",
       "spatial": false,
-      "x": 7.0,
+      "x": 7,
       "y": 1.5,
-      "z": 14.0
+      "z": 13.1
     },
     {
       "gain": 0.5,
@@ -903,21 +1856,21 @@
       "sound": "switch_click",
       "spatial": false,
       "time_domain": "real",
-      "x": 7.0,
-      "y": 0.6000000238418579,
-      "z": 14.399999618530273
+      "x": 7,
+      "y": 1,
+      "z": 13.1
     },
     {
-      "gain": 0.550000011920929,
+      "gain": 0.55,
       "id": "exit_cue",
       "looped": false,
       "playing": false,
       "sound": "door_close",
       "spatial": false,
       "time_domain": "real",
-      "x": 7.0,
-      "y": 1.100000023841858,
-      "z": 15.800000190734863
+      "x": 7,
+      "y": 1,
+      "z": 13.1
     }
   ],
   "spawn": {
@@ -925,6 +1878,9 @@
     "yaw_degrees": 0,
     "z": 13.1
   },
+  "transitions": [
+    "beam_pool"
+  ],
   "volumes": [
     {
       "bindings": [
@@ -949,19 +1905,20 @@
           "on": "exit_volume"
         }
       ],
-      "bottom_y": 0.6000000238418579,
-      "depth": 1.600000023841858,
+      "bottom_y": 0.5400000214576721,
+      "depth": 0.4399999976158142,
       "filter": {
         "held": false,
         "instance": "gift_red",
         "kind": "item"
       },
       "id": "return_red",
+      "item_receipt": "centre",
       "occupancy": "per_actor",
-      "top_y": 1.4000000953674316,
-      "width": 2.200000047683716,
-      "x": 5.900000095367432,
-      "z": 13.600000381469727
+      "top_y": 1.2000000476837158,
+      "width": 1.399999976158142,
+      "x": 6.300000190734863,
+      "z": 14.180000305175781
     },
     {
       "bindings": [
@@ -986,19 +1943,20 @@
           "on": "exit_volume"
         }
       ],
-      "bottom_y": 0.6000000238418579,
-      "depth": 1.600000023841858,
+      "bottom_y": 0.5400000214576721,
+      "depth": 0.4399999976158142,
       "filter": {
         "held": false,
         "instance": "gift_green",
         "kind": "item"
       },
       "id": "return_green",
+      "item_receipt": "centre",
       "occupancy": "per_actor",
-      "top_y": 1.4000000953674316,
-      "width": 2.200000047683716,
-      "x": 5.900000095367432,
-      "z": 13.600000381469727
+      "top_y": 1.2000000476837158,
+      "width": 1.399999976158142,
+      "x": 6.300000190734863,
+      "z": 14.180000305175781
     },
     {
       "bindings": [
@@ -1023,19 +1981,20 @@
           "on": "exit_volume"
         }
       ],
-      "bottom_y": 0.6000000238418579,
-      "depth": 1.600000023841858,
+      "bottom_y": 0.5400000214576721,
+      "depth": 0.4399999976158142,
       "filter": {
         "held": false,
         "instance": "gift_stars",
         "kind": "item"
       },
       "id": "return_stars",
+      "item_receipt": "centre",
       "occupancy": "per_actor",
-      "top_y": 1.4000000953674316,
-      "width": 2.200000047683716,
-      "x": 5.900000095367432,
-      "z": 13.600000381469727
+      "top_y": 1.2000000476837158,
+      "width": 1.399999976158142,
+      "x": 6.300000190734863,
+      "z": 14.180000305175781
     }
   ],
   "walls": [
@@ -1048,7 +2007,7 @@
       "z": 0.0
     },
     {
-      "depth": 15.600000381469727,
+      "depth": 5.800000190734863,
       "height": 2.799999952316284,
       "width": 0.20000000298023224,
       "x": 0.0,
@@ -1161,56 +2120,69 @@
       "x": 11.600000381469727,
       "y": 2.9000000953674316,
       "z": 4.800000190734863
-    }
-  ],
-  "geometry_intent": [
-    {
-      "check": "missing-wall",
-      "x": 11.6,
-      "z": 0.2,
-      "width": 0.4,
-      "depth": 4.9,
-      "note": "Adjacent lower floor strips meet without an internal wall; enclosing shell remains at x13.8."
     },
     {
-      "check": "missing-wall",
-      "x": 11.6,
-      "z": 12.3,
-      "width": 0.4,
-      "depth": 3.5,
-      "note": "Lower floor strips share the entry approach; enclosing shell remains at x13.8."
+      "depth": 0.20000000298023224,
+      "height": 2.799999952316284,
+      "material": "home:wall_paint_warm_01",
+      "width": 8.0,
+      "x": -8.0,
+      "y": 0.0,
+      "z": 0.0
     },
     {
-      "check": "missing-wall",
-      "x": 11.8,
-      "z": 4.8,
-      "width": 2.0,
-      "depth": 0.4,
-      "note": "Ramp and lower floor join inside the tall enclosed shaft; no wall across the walking connection."
+      "depth": 15.600000381469727,
+      "height": 2.799999952316284,
+      "material": "home:wall_paint_warm_01",
+      "width": 0.20000000298023224,
+      "x": -8.0,
+      "y": 0.0,
+      "z": 0.20000000298023224
     },
     {
-      "check": "missing-wall",
-      "x": 11.8,
-      "z": 12.3,
-      "width": 2,
-      "depth": 0.4,
-      "note": "Bottom of the enclosed ramp opens to the lower entrance floor."
+      "depth": 0.20000000298023224,
+      "height": 2.799999952316284,
+      "material": "home:wall_paint_warm_01",
+      "width": 8.0,
+      "x": -8.0,
+      "y": 0.0,
+      "z": 15.800000190734863
     },
     {
-      "check": "missing-wall",
-      "x": 11.5,
-      "z": 4.7,
-      "width": 2.3,
-      "depth": 0.6,
-      "note": "Real upper-office door plus header and jamb define the connected top landing."
+      "depth": 6.0,
+      "height": 2.799999952316284,
+      "material": "home:wall_paint_warm_01",
+      "width": 0.20000000298023224,
+      "x": 0.0,
+      "y": 0.0,
+      "z": 7.800000190734863
     },
     {
-      "check": "missing-wall",
-      "x": 6.2,
-      "z": 15.7,
-      "width": 1.6,
-      "depth": 0.4,
-      "note": "Locked exit leaf spans this aperture; successful use ends the run."
+      "depth": 0.20000000298023224,
+      "height": 2.799999952316284,
+      "material": "home:wall_paint_warm_01",
+      "width": 4.800000190734863,
+      "x": -7.800000190734863,
+      "y": 0.0,
+      "z": 6.800000190734863
+    },
+    {
+      "depth": 4.0,
+      "height": 2.799999952316284,
+      "material": "home:wall_paint_warm_01",
+      "width": 0.20000000298023224,
+      "x": -3.0,
+      "y": 0.0,
+      "z": 0.20000000298023224
+    },
+    {
+      "depth": 0.800000011920929,
+      "height": 2.799999952316284,
+      "material": "home:wall_paint_warm_01",
+      "width": 0.20000000298023224,
+      "x": -3.0,
+      "y": 0.0,
+      "z": 6.0
     }
   ]
 }
