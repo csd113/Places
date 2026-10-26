@@ -108,7 +108,8 @@ impl App {
     }
 
     fn modal_event(&mut self, event: &Event, window: &Window, hits: &[Hit]) -> bool {
-        self.template_event(event)
+        self.flicker_event(event)
+            || self.template_event(event)
             || self.behavior_event(event, window, hits)
             || self.stair_event(event)
             || self.drag_event(event, window)

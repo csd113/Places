@@ -10468,3 +10468,73 @@ This phase makes no new claim about them. No main merge, release, force push,
 version bump, ordinary CI wait, host/GPU settings investigation, iGPU pass or Mac
 switch occurred. Editor custody ends here; Backrooms and the remaining queue
 return to the parent using GPT-6.1 sol.
+
+### Focused native light-flicker authoring follow-up — 2026-10-26
+
+The selected fixture now exposes **Light flicker** in Simple and Advanced modes
+and in Configure. Actual-illumination controls target one fixture or its existing
+shared circuit; glow-only controls explicitly target every matching material or
+fixture asset. The independent forms retain pending edits across panel/mode
+switches and expose bounded timing, burst, start-delay, intensity-depth and preset
+choices. Actual illumination uses the existing Power/zero states and Full prepared
+light layers; Static holds authored state unless prepared Static switching was
+already configured. No renderer, lighting scheduler, package schema or compatibility
+layer was added.
+
+Actual presets generate readable editable Luau over the existing `api.light`
+contract, with pause/resume/mute/steady/reset exports usable through the native
+event-handler picker. Regeneration creates a new file. Edited sources require
+explicit ownership transfer; old files/buffers remain intact, and event/manifest
+links cannot be orphaned. Stable fixture IDs are pinned. Circuit membership,
+deletion, enabled-state changes and overlapping controllers receive validation
+instead of silently retargeting a script. Details and limitations are in
+`docs/EDITOR.md` under Light flicker.
+
+Settled candidate: `candidate-flicker-1-bin`, preserved outside Cargo target.
+Formatting, strict `cargo clippy --workspace --all-targets --all-features -- -D
+warnings`, **359 Rust tests** (serial), and locked release workspace/all-features
+build passed. Four small source/runtime regressions cover exact scope/history,
+custom-source/event ownership, real Luau circuit dispatch, and authored-off/paused
+startup/reset. Six Python content-authoring tests passed, as did asset validation,
+audio/prop/texture build checks and clip-boundary validation. No production code
+changed after these gates; the source hash comparison passed.
+
+Native acceptance used three identical fixtures: one independent and a two-member
+circuit. The ordinary editor controls exercised both modes, invalid count refusal,
+independent pending glow, undo/redo, a 960×544 window, custom source edits and explicit
+regeneration, interrupted fields, save/reopen, native handler linking, Build+Play,
+source recovery and reversible Off controls. Recovered level and linked script
+bytes match; off/undo/save left the recovered source hashes unchanged. The actual
+export passed strict validation and require-current. The native player confirmed
+Full lighting, synchronized circuit switching, independent instance timing,
+pause/steady/mute/resume/reset, world pause and a normal E interaction invoking the
+authored mute handler, without script diagnostics. Fixed-camera captures show the
+floor illumination changing: the retained right-floor ROI luminance fell from
+90.29 to 37.52 while the independent fixture remained separately controlled.
+This is functional illumination evidence, not an FPS comparison. The consolidated
+local audit contains **41 passing checks**.
+
+All **16 existing project archives / 32 members**, plus bundled menu and both active
+One Guest outputs, passed **35 require-current/integrity checks**. Their preparation
+inputs are unchanged: existing `build.rs` excludes editor/UI and test code. Existing
+archive bytes remain exact. **Zero shipped-map rebakes** were needed; only the tiny
+new acceptance scene was prepared through native Build+Play. No fingerprint rule
+was changed or bypassed.
+
+Raw evidence, initial failed harness attempts, native captures, generated/custom
+sources, packages, receipts and the gate logs are retained at
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-26/task/editor-flicker/`.
+Initial harness window-size/manifest/visible-list selection mistakes occurred
+before the completed journey. One initial E ray selected the neighboring Resume
+prop; the separate unobstructed E case passed. Those records were not replaced.
+Glow-only authoring and source/export preservation were checked, but no separate
+quantitative glow-rendering campaign or exhaustive Static/prepared-Static matrix
+was added. Prior cold-stall, CRT, listening/hotplug/platform, broader Python,
+accepted water/performance and small shared-AI CPU-cost residuals remain unchanged;
+this follow-up makes no claim to close them or to establish zero regression.
+
+Delivery records the staging commit/remote equality in the local handoff receipt,
+preserves/hashes the candidate, comparison binaries, release symbols and unique
+evidence outside target, then performs idle-only `cargo clean`. No main merge,
+release/version bump, Backrooms work or integrated final campaign belongs to this
+follow-up.

@@ -5,6 +5,7 @@
 pub(crate) mod behavior;
 pub(crate) mod components;
 mod dragging;
+pub(crate) mod flicker;
 mod fog;
 mod gameplay;
 mod geometry;

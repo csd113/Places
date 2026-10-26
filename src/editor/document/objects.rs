@@ -423,6 +423,7 @@ pub(super) fn add(
 }
 
 pub(super) fn delete(raw: &mut Value, level: &LevelDef, id: ObjectId) -> Result<(), String> {
+    super::flicker::check_delete(raw, level, id)?;
     super::gameplay::pin_gameplay_ids(raw, level)?;
     if matches!(id, ObjectId::Prop(_)) {
         pin_prop_ids(raw, level)?;
@@ -451,6 +452,7 @@ pub(super) fn duplicate(
     }
     let mut object = object_mut(raw, id)?.clone();
     drop(object.remove("editor_instance_id"));
+    drop(object.remove("editor_flicker"));
     let current = transform(level, id)?;
     let [x, y, z] = current.position;
     set_position(

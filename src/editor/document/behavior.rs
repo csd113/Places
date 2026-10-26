@@ -122,7 +122,7 @@ impl Document {
         })
     }
 }
-fn unlink_owned_script(raw: &mut Value, path: &str) -> Result<(), String> {
+pub(super) fn unlink_owned_script(raw: &mut Value, path: &str) -> Result<(), String> {
     // Do not disable a module somebody has subsequently wired into another event.
     fn linked(value: &Value, path: &str) -> bool {
         match value {

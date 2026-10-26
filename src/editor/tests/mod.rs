@@ -11,3 +11,5 @@ mod components;
 mod browser;
 
 mod editor_phase;
+
+mod flicker;

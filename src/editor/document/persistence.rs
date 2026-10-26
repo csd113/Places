@@ -120,6 +120,7 @@ pub(super) fn validate_raw(raw: &Value, expected_id: &str) -> Result<(LevelDef, 
         .map_err(|error| format!("Unsupported or invalid scene: {error}"))?;
     crate::engine::loader::validate_level(&level)?;
     super::gameplay::validate_drafts(raw)?;
+    super::flicker::validate(raw, &level)?;
     if level.id != expected_id {
         return Err("The scene ID must match its project level ID".into());
     }

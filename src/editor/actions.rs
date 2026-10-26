@@ -19,6 +19,7 @@ pub(super) enum Pending {
 }
 
 pub(super) enum Popup {
+    Flicker,
     Template,
     Behavior,
     Stairs(Box<super::stairs::Wizard>),
@@ -84,6 +85,10 @@ pub(super) enum Popup {
 impl Popup {
     pub fn draw(&self, app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mut Vec<Hit>) {
         hits.clear();
+        if matches!(self, Self::Flicker) {
+            super::flicker::draw(app, v, hits);
+            return;
+        }
         if matches!(self, Self::Template) {
             super::templates::draw(app, v, hits);
             return;
@@ -151,7 +156,8 @@ impl Popup {
     ) {
         match self {
             Self::SceneSearch(value) => super::selection::draw_search(v, hits, value),
-            Self::Template
+            Self::Flicker
+            | Self::Template
             | Self::Behavior
             | Self::Stairs(_)
             | Self::Bakes
@@ -334,7 +340,8 @@ impl App {
     }
 
     fn contextual_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
-        Ok(self.template_action(action)?
+        Ok(self.flicker_action(action)?
+            || self.template_action(action)?
             || self.behavior_action(action)?
             || self.stair_action(action)?
             || self.authoring_action(action)?

@@ -38,6 +38,7 @@ const PANEL: [f32; 4] = [0.065, 0.09, 0.12, 1.0];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Action {
+    Flicker(super::flicker::Command),
     Author(super::authoring::Command),
     Project,
     ProjectField(super::projects::Field),
@@ -303,6 +304,16 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
             "NPC behaviors >",
             Action::Behavior(super::behavior::Command::Open),
             matches!(app.selected, Some(ObjectId::Prop(_))),
+        );
+    }
+    if app.popup.is_none() {
+        button(
+            &mut v,
+            &mut hits,
+            [312.0, 228.0, 110.0, 10.0],
+            "Light flicker >",
+            Action::Flicker(super::flicker::Command::Open),
+            matches!(app.selected, Some(ObjectId::Light(_))),
         );
     }
     if let Some(popup) = &app.popup {

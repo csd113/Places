@@ -548,3 +548,60 @@ adds no package or source-format compatibility layer. Prepared data contracts
 remain unchanged. The broad compiler source fingerprint includes renderer/debug
 files, so this phase changes the compiler freshness stamp even though it does
 not require a package-format migration.
+
+## Light flicker
+
+In either mode, select a ceiling or wall fixture and choose **Light flicker**
+(also available in **Configure**). The effect button switches between two
+independent forms; Apply changes only the displayed effect. Closing keeps pending
+fields. Reload explicitly discards them. Applied changes use ordinary undo/redo,
+Save, project export/import and Build + Play.
+
+**Actual illumination** controls the selected fixture, or every fixture already
+assigned to its shared circuit. Set a circuit in **Configure > Components > Light
+controller > Shared circuit** first. A fixture on a circuit cannot be presented
+as independently switchable: clear its circuit before choosing Individual.
+The form enables Switchable for its members. All circuit members must share their
+authored Casts light state. This form supports fixture-only circuits, up to eight
+fixtures, within the engine's overall prepared-source limits.
+
+Brief dropouts, Stutter burst and Slow outage presets expose steady seconds,
+dark seconds, burst count, gap seconds, start delay and Run on load. When on,
+the light uses its existing **Configure > Power**; when off, it is zero. These
+controls do not provide an analogue room-light dimmer. **Full lighting** selects
+the engine's existing prepared illumination layers, including the switched bounce
+and live receiver contribution. The form holds authored light/face state in
+Static unless the circuit already opts into prepared Static switching. Lightmaps
+Off cannot animate baked vertex illumination. Preview the resulting lighting in
+Build + Play, with the intended lighting mode.
+
+**Glow only** animates the face/material emission with frequency, drop depth and
+phase, using the existing `animated_emissions` flicker effect. It does not change
+room illumination. Its asset ID explicitly applies to **all matching fixtures or
+material surfaces in the level**, including other instances of the selected
+fixture. Depth 0.6 can lower the face glow to 40% of its authored value. Off removes
+that asset's animation entry. Applying Flicker replaces an existing Pulse entry
+for that same asset; other assets and actual-illumination controllers are retained.
+
+Actual controls create a readable linked Luau module using `api.light`; there is
+no separate lighting runtime. **Edit generated Luau / handlers** opens its source.
+The module exports `pause` (freeze phase/state), `resume` (unpause and unmute),
+`mute` (hold off), `steady` (hold on), and `reset` (restore authored start settings).
+Use the ordinary Scripts > Link handler picker to connect these to a prop, door
+or trigger event without writing code. Run on load off starts paused; authored
+Casts light off starts muted. Game pause stops simulation time, and a world reset
+recreates the module. Execution has no wait loop and requests at most one light
+state change per update. Direct unrelated `set_light` actions can be superseded
+at the next flicker edge; use the module's mute/resume handlers for persistent
+control.
+
+Regeneration always writes a new source file. Ordinary Apply refuses to replace
+a user-edited controller; **Replace link / keep source** explicitly transfers
+ownership while preserving the old file and edit buffer. A module linked from
+another event or the manifest cannot be silently unlinked: remove those links
+before changing its generated preset, or edit its Luau directly. Disabling a
+controller retains its settings/source and the existing Switchable/circuit flags.
+Disable it before deleting a member, changing circuit membership/stable IDs or
+changing Casts light; then reapply with the new arrangement. Editor metadata
+`editor_flicker` records settings, members and source ownership without renaming
+instance IDs or changing the package format. Blank/custom scripts remain available.

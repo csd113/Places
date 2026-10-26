@@ -63,6 +63,14 @@ pub(super) fn light_sheet(
         Action::ToggleLightMount,
         true,
     );
+    button(
+        vertices,
+        hits,
+        [140.0, 181.0, 240.0, 11.0],
+        "Light flicker / glow >",
+        Action::Flicker(crate::editor::flicker::Command::Open),
+        true,
+    );
 }
 
 pub(super) fn audio_sheet(

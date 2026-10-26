@@ -10,6 +10,7 @@ mod browser;
 mod component_actions;
 pub mod document;
 mod dragging;
+mod flicker;
 mod gameplay_actions;
 mod geometry_actions;
 mod input;
@@ -108,6 +109,7 @@ struct App {
     script_feedback: String,
     behavior: Option<behavior::Draft>,
     template: Option<templates::Draft>,
+    flicker: Option<flicker::Draft>,
     component_selection: component_actions::Selection,
     safety_report: Option<safety::SafetyReport>,
     safety_job: Option<Receiver<(serde_json::Value, safety::SafetyReport)>>,
@@ -219,6 +221,7 @@ impl App {
                 self.popup,
                 Some(
                     Popup::Template
+                        | Popup::Flicker
                         | Popup::Behavior
                         | Popup::Library {
                             materials: _,
@@ -461,6 +464,7 @@ fn create_app(
         script_feedback: String::new(),
         behavior: None,
         template: None,
+        flicker: None,
         component_selection: component_actions::Selection::default(),
         safety_report: None,
         safety_job: None,
