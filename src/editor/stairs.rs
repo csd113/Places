@@ -407,8 +407,9 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>, w
                 || "Choose floor".into(),
                 |r| {
                     format!(
-                        "{} room {i} Y{:.2} >",
+                        "{} Room{} Y{:.2} >",
                         if upper { "Upper" } else { "Lower" },
+                        i.saturating_add(1),
                         r.floor_y
                     )
                 },

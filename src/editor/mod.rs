@@ -5,6 +5,7 @@ mod actions;
 mod audio_preview;
 mod authoring;
 mod bakes;
+mod behavior;
 mod browser;
 mod component_actions;
 pub mod document;
@@ -23,6 +24,7 @@ mod safety_actions;
 mod scripting;
 mod selection;
 mod stairs;
+mod templates;
 mod transform;
 mod ui;
 mod verification;
@@ -52,6 +54,7 @@ type DialogResult = (DialogPurpose, Result<Vec<PathBuf>, DialogError>);
 struct ViewOptions {
     grid: bool,
     snap: bool,
+    simple: bool,
 }
 
 struct Capture {
@@ -81,6 +84,7 @@ struct App {
     catalog: assets::AssetCatalog,
     compile: Option<CompileJob>,
     play: Option<PlayJob>,
+    last_play_trace: Option<PathBuf>,
     play_after_build: bool,
     project_operation: Option<projects::Operation>,
     project_import: Option<PathBuf>,
@@ -102,6 +106,8 @@ struct App {
     sound_preview_until: Option<std::time::Instant>,
     popup: Option<Popup>,
     script_feedback: String,
+    behavior: Option<behavior::Draft>,
+    template: Option<templates::Draft>,
     component_selection: component_actions::Selection,
     safety_report: Option<safety::SafetyReport>,
     safety_job: Option<Receiver<(serde_json::Value, safety::SafetyReport)>>,
@@ -212,10 +218,13 @@ impl App {
             || matches!(
                 self.popup,
                 Some(
-                    Popup::Library {
-                        materials: _,
-                        page: _
-                    } | Popup::Number { field: _, value: _ }
+                    Popup::Template
+                        | Popup::Behavior
+                        | Popup::Library {
+                            materials: _,
+                            page: _
+                        }
+                        | Popup::Number { field: _, value: _ }
                         | Popup::ProjectText { field: _, value: _ }
                         | Popup::ComponentText {
                             field: _,
@@ -423,6 +432,7 @@ fn create_app(
         bakes: bakes::Planner::default(),
         compile: None,
         play: None,
+        last_play_trace: None,
         play_after_build: false,
         project_operation: None,
         project_import: None,
@@ -434,6 +444,7 @@ fn create_app(
         view: ViewOptions {
             grid: true,
             snap: true,
+            simple: true,
         },
         navigation: navigation::Inspection::default(),
         step: 0.25,
@@ -448,6 +459,8 @@ fn create_app(
         sound_preview_until: None,
         popup: None,
         script_feedback: String::new(),
+        behavior: None,
+        template: None,
         component_selection: component_actions::Selection::default(),
         safety_report: None,
         safety_job: None,

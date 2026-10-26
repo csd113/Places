@@ -225,7 +225,7 @@ fn draw_modules(doc: &crate::editor::Document, v: &mut Vec<Vertex>, hits: &mut V
         v,
         hits,
         [8.0, 53.0, 70.0, 11.0],
-        "+ New module",
+        "+ Blank module",
         Action::ScriptNew,
     );
     ui::popup_button(
@@ -242,6 +242,13 @@ fn draw_modules(doc: &crate::editor::Document, v: &mut Vec<Vertex>, hits: &mut V
         69.0,
         ui::INK,
         126,
+    );
+    ui::popup_button(
+        v,
+        hits,
+        [158.0, 53.0, 100.0, 11.0],
+        "Event templates >",
+        Action::Template(crate::editor::templates::Command::Open),
     );
     for (index, path) in doc.script_paths().iter().take(16).enumerate() {
         ui::popup_button(

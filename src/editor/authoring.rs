@@ -26,6 +26,7 @@ pub(super) enum Command {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Tool {
+    Room,
     Ramp,
     Stairs,
     Rail,
@@ -80,6 +81,7 @@ const fn flag(path: &'static str, label: &'static str, default: &'static str) ->
 impl Tool {
     const fn title(self) -> &'static str {
         match self {
+            Self::Room => "New Room",
             Self::Ramp => "Ramp",
             Self::Stairs => "Staircase",
             Self::Rail => "Guardrail",
@@ -105,7 +107,7 @@ impl Tool {
             Self::Sky => "sky",
             Self::Weather => "weather",
             Self::Sun => "global_illuminators",
-            Self::Ceiling | Self::LocalFloor => "rooms",
+            Self::Room | Self::Ceiling | Self::LocalFloor => "rooms",
             Self::Route => "routes",
             Self::GlobalPatch => "floor_patches",
             Self::GlobalRegion => "floor_regions",
@@ -116,6 +118,7 @@ impl Tool {
     }
     fn fields(self) -> Vec<Field> {
         match self {
+            Self::Room => room_fields(),
             Self::Route => vec![
                 text("/id", "Actor instance ID", ""),
                 flag("/loop", "Loop", "false"),
@@ -273,7 +276,8 @@ impl Tool {
             | Self::LocalFloor
             | Self::GlobalPatch
             | Self::GlobalRegion
-            | Self::Route => Vec::new(),
+            | Self::Route
+            | Self::Room => Vec::new(),
         }
     }
 }
@@ -323,6 +327,9 @@ impl Draft {
             original = Some(
                 serde_json::json!({"id":id,"loop":false,"steps":[{"step":"move_to","x":prop.x,"z":prop.z,"speed":0.5_f32}]}),
             );
+        }
+        if tool == Tool::Room && original.is_none() {
+            original = Some(default_room(app, doc));
         }
         let definitions = if tool == Tool::Route {
             route_fields(original.as_ref())
@@ -587,7 +594,27 @@ impl App {
         let level = doc.validate_candidate(&raw)?;
         let global_modifier = matches!(draft.tool, Tool::GlobalPatch | Tool::GlobalRegion);
         crate::engine::project::validate_level_assets(&level, &self.catalog)?;
+        if draft.tool == Tool::Room {
+            let room = level
+                .rooms
+                .get(draft.index)
+                .ok_or("Room draft is missing")?;
+            if level.rooms.iter().enumerate().any(|(index, other)| {
+                index != draft.index
+                    && other.floor_y < room.eave_y() - 0.01
+                    && other.eave_y() > room.floor_y + 0.01
+                    && other.x < room.x + room.width - 0.01
+                    && other.x + other.width > room.x + 0.01
+                    && other.z < room.z + room.depth - 0.01
+                    && other.z + other.depth > room.z + 0.01
+            }) {
+                return Err("New Room overlaps an existing room on this storey. Adjust position or Floor elevation.".into());
+            }
+        }
         if apply {
+            if draft.tool == Tool::Room {
+                self.selected = Some(super::document::ObjectId::Room(draft.index));
+            }
             self.viewport
                 .set_environment_preview(draft.environment_before);
             self.document
@@ -837,4 +864,39 @@ fn route_preview(level: &crate::engine::level::LevelDef, id: &str) -> Vec<glam::
         }
     }
     path
+}
+
+fn room_fields() -> Vec<Field> {
+    vec![
+        number("/x", "West X", "0"),
+        number("/z", "North Z", "0"),
+        number("/width", "Width m", "4"),
+        number("/depth", "Depth m", "4"),
+        number("/floor_y", "Floor elevation m", "0"),
+        number("/height", "Room height m", "2.7"),
+    ]
+}
+
+fn default_room(app: &App, doc: &super::document::Document) -> Value {
+    let anchor = app.selected.and_then(|id| {
+        if let super::document::ObjectId::Room(slot) = id {
+            doc.level().rooms.get(slot)
+        } else {
+            None
+        }
+    });
+    let x = anchor.map_or_else(
+        || {
+            doc.level()
+                .rooms
+                .iter()
+                .map(|room| room.x + room.width)
+                .fold(0.0_f32, f32::max)
+        },
+        |room| room.x + room.width,
+    );
+
+    serde_json::json!({"x":x,"z":anchor.map_or(0.0,|room|room.z),
+                "floor_y":anchor.map_or(0.0,|room|room.floor_y),"width":4.0_f32,"depth":anchor.map_or(4.0,|room|room.depth),
+                "height":anchor.map_or(2.7,|room|room.height)})
 }

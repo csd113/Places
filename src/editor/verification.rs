@@ -283,7 +283,7 @@ impl Verification {
 
     fn checkpoint(&self, app: &App, window: &Window, name: &str) -> Result<(), String> {
         let (_, controls) = ui::build(app);
-        let value = serde_json::json!({
+        let mut value = serde_json::json!({
             "step": self.next, "document": app.document.as_ref().map(super::Document::raw),
             "dirty": app.document.as_ref().is_some_and(super::Document::is_dirty),
             "selected": app.selected.map(|selected| format!("{selected:?}")),
@@ -303,6 +303,9 @@ impl Verification {
             "editor_resources":app.document.as_ref().map(super::Document::resource_snapshot),
             "preview_metrics":app.viewport.preview_metrics(),
             "axis_handles":app.viewport.axis_handles(),
+
+
+
             "thumbnail_cache_tiles":app.browser.cached_tiles(),
             "bake_rows":app.bakes.rows.iter().map(|(id,result)|serde_json::json!({"id":id,"report":result.as_ref().ok(),"error":result.as_ref().err()})).collect::<Vec<_>>(),
             "drawable": window.size_in_pixels(), "camera_target": app.viewport.target(),
@@ -314,6 +317,20 @@ impl Verification {
                 "surface_count":finding.surfaces.len(),"fix":finding.fix.as_ref().map(|fix|&fix.title)
             })).collect::<Vec<_>>()),
         });
+        drop(value.as_object_mut().ok_or("Expected JSON object")?.insert(
+            "room_edge_handles".into(),
+            serde_json::json!(app.viewport.room_edge_handles()),
+        ));
+        drop(
+            value
+                .as_object_mut()
+                .ok_or("Expected JSON object")?
+                .insert("simple_mode".into(), serde_json::json!(app.view.simple)),
+        );
+        drop(value.as_object_mut().ok_or("Expected JSON object")?.insert(
+            "behavior_draft".into(),
+            serde_json::json!(app.behavior.as_ref().map(|d| &d.plan)),
+        ));
         let bytes = serde_json::to_vec_pretty(&value).map_err(|error| error.to_string())?;
         let path = self.script.output.join(format!("{name}.json"));
         let mut file = OpenOptions::new()

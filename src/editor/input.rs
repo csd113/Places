@@ -108,7 +108,9 @@ impl App {
     }
 
     fn modal_event(&mut self, event: &Event, window: &Window, hits: &[Hit]) -> bool {
-        self.stair_event(event)
+        self.template_event(event)
+            || self.behavior_event(event, window, hits)
+            || self.stair_event(event)
             || self.drag_event(event, window)
             || self.browser_event(event)
             || self.authoring_event(event)

@@ -286,6 +286,7 @@ pub enum PlayOutcome {
 }
 
 pub struct PlayJob {
+    trace_directory: PathBuf,
     process: CapturedChild,
     tools: ToolPaths,
     level: String,
@@ -306,12 +307,18 @@ impl PlayJob {
         let canonical_package = std::fs::canonicalize(package)
             .map_err(|error| format!("Package {}: {error}", package.display()))?;
         let state_root = play_state_root(&paths::user()?.cache, &canonical_package, level);
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|error| error.to_string())?
+            .as_nanos();
+        let trace_directory = state_root.join(format!("behavior-trace-{stamp}"));
         let mut command = tool_command(&tools.game)?;
         let _configured = command.arg("--import").arg(canonical_package);
         configure_play(&mut command, &state_root);
         Ok(Self {
             process: CapturedChild::spawn(&mut command, StopPolicy::Terminate, false)?,
             tools: tools.clone(),
+            trace_directory,
             level: level.into(),
             state_root,
             phase: PlayPhase::Importing,
@@ -329,6 +336,11 @@ impl PlayJob {
     #[must_use]
     pub fn diagnostics(&self) -> &str {
         &self.diagnostics
+    }
+
+    #[must_use]
+    pub fn runtime_trace_path(&self) -> PathBuf {
+        self.trace_directory.join("ai-state.txt")
     }
 
     pub fn stop(&mut self) {
@@ -369,6 +381,7 @@ impl PlayJob {
         let mut command = tool_command(&self.tools.game)?;
         let _configured = command.env("PLACES_LEVEL", &self.level);
         configure_play(&mut command, &self.state_root);
+        let _trace = command.env("PLACES_NAV_DEBUG", &self.trace_directory);
         self.process = CapturedChild::spawn(&mut command, StopPolicy::Terminate, false)?;
         self.phase = PlayPhase::Playing;
         Ok(())

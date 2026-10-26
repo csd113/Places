@@ -346,3 +346,17 @@ and 16 KiB JSON. Empty arrays for named list fields are accepted. Handler
 effect atomicity and existing VM budgets still apply. Configure shared engine
 behaviours here; keep quest conditions, notices and authored timing in Luau.
 See MAP_AUTHORING_GUIDE section 33.8 for contact, recovery, filters and bounds.
+
+
+### Native template and visual ownership
+
+The native editor's event forms generate ordinary modules with `start` or
+`handle_event`. They use the same `api.message`, `api.door`, `api.sound`,
+`api.ai_task`, `api.ai_pause` and `api.ai_senses` contracts documented above.
+Creation always uses a new filename; regeneration cannot overwrite edited code.
+The visual behavior composer serializes TaskRequest/SenseRule directly, or
+emits readable Luau tables for those same shared APIs. Its cancellation handler
+removes its keyed tasks and senses if the NPC still exists. A custom module owns
+execution until the author explicitly selects Use visual. Source files and
+buffers remain retained when execution ownership changes. See
+[the editor workflow](EDITOR.md#event-templates-and-behavior-blocks).

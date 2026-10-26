@@ -10289,3 +10289,140 @@ host-settings change, GPU-clock diagnosis, iGPU pass or Mac switch occurs here.
 No new pre-release compatibility layer is admitted: later phases must rebuild
 affected owned content. The next approved task is the editor using Astra High,
 then Backrooms, integrated polish/one iGPU pass and the final version/package gate.
+
+## Editor phase — native authoring, 2026-10-26
+
+The editor queue phase is implemented on staging after shared-AI commit
+`47c2938f48c68a709d13ff3daad3a3c56f8db5fb`. Simple is the default action-oriented
+workspace; Advanced retains the existing inspector. Both use one document,
+selection, script buffers and undo history. New Room has preview/cancel and
+position, footprint and storey controls. Horizontal labels are Room1/Room2;
+stable IDs and references are unchanged. A room creates floor/ceiling geometry;
+walls, openings and stairs remain explicit authoring choices.
+
+Yellow viewport edge handles and matching numerical fields expand a room in a
+chosen direction, keeping its opposite edge fixed. Snapping/live dimensions,
+one-step history and Escape/focus-loss cancellation are integrated. Perimeter
+walls, doors, fixtures and wall decals move together; side-wall openings retain
+world positions. Shared boundaries, unsupported shrinks, spanning walls and
+uncertain elevated fixed-prop attachments are refused rather than guessed.
+This is conservative rectangular-room manipulation, not arbitrary topology
+editing. Ceiling geometry remains present; an editor-only material flag hides
+the top view while showing the textured underside from below. Player geometry,
+collision and lighting are retained.
+
+Event forms create readable, uniquely named editable Luau modules for start,
+interaction and volume entry/exit. Message, door/sound control, investigation,
+fetch/delivery, follow, environment use and keyed pause/cancel use supported
+shared APIs. Blank/custom source and module/line diagnostics remain available.
+Regeneration creates a new file and never overwrites existing edits. Contact
+positions and facing are explicit physical constraints, not a reachability
+promise. Native testing caught a missing delivery facing hint; final generated
+fetch scripts include it and complete actual pickup, transport, release and
+delivery interaction.
+
+The behavior panel accepts real drag/drop ordered blocks and sibling reordering,
+nested routines, waits, movement, investigation/search, fetch, use, follow and
+patrol. Hearing supports Any/selected categories and radius. Sight supports
+player/entity/instance/type filters, range/FOV and the shared LOS checks.
+Responses run ordered routines, investigate or send bounded alerts. Existing
+typed AI contracts own execution, task priorities, failure termination,
+reservations, cancellation and navigation/perception budgets. Empty or excessive
+plans and missing references are refused. Visual metadata preserves the plan
+when a new Luau copy takes ownership. Applying visual edits while Luau owns
+execution requires an explicit choice; the old file and edits remain. Dirty
+drafts survive panel/mode changes, refuse accidental NPC replacement and require
+Reload after a scene revision. Inspect last Play reads bounded, paged real-player
+snapshots with actor state, task keys, pause/active flags, phase/step and result.
+
+**Settled-code gates.** Strict workspace/all-target/all-feature Clippy passes;
+`cargo test --workspace -- --test-threads=1` passes **355 tests**; locked release
+workspace/all-feature build passes. Four small source-only editor regressions
+protect atomic edge/opening/decals/history, connected-boundary constraints,
+visual/Luau ownership and transactional template creation; no bake/GPU enters
+ordinary tests. The first parallel suite passed; a later parallel run under
+concurrent load hit the existing automatic-script-handler timing count (264
+versus 266). Subsequent full serial runs pass; no test was weakened. Asset
+validation, audio/props/textures checks and clip boundaries pass (629 assets,
+389 placeable entries, nine themes). Texture checks retain 100 existing warnings.
+The production Luau boundary gate passes both authored projects and all 11
+refusal cases. Nine targeted Python geometry checks pass. The separate 16-test
+tool suite has 14 passes, one Windows unsupported-SIGINT error and one same-name
+capture CLI failure (expected 11 REGRESSION markers, got zero); production
+Python was not changed and these are not reported as green.
+
+**Native acceptance.** Real editor input journeys cover both modes, repeated
+switches, connected and stacked rooms, directional drag/numerical resize,
+undo/redo, a separately verified live-drag Escape cancellation, stair clearance
+refusal then preview/cancel/apply, actual themed asset placement at exact
+coordinates, textured ceiling underside, save/reopen, build progress/cancel,
+repeat build, export and recovery. Recovered canonical manifest, level and all
+referenced scripts are byte-identical. Existing export behavior includes
+referenced modules; inactive regenerated modules remain in the original project.
+Native behavior journeys cover actual block drag/reorder, invalid empty loop,
+custom edits and syntax location, explicit execution ownership, unique
+regeneration, invalid template key, referenced-object deletion refusal, stale
+draft refusal/reload and interrupted forms. Readability was inspected at normal
+size and at 960x544/1920x1080. The 1,192-object Lantern Hollow inspection retains
+source bytes through search/scroll/modes/resizing. Its measured input-handler
+median is 1.288 ms, maximum 246.785 ms, excluding async waits; initial preview
+wait is 14.27 s. These are responsiveness observations, not a throughput or
+zero-stall claim.
+
+Physical player acceptance demonstrates a visual routine moving an NPC, generated
+Luau loop execution, exact pause-clock stability and cancellation without restart;
+generated fetch physically carries the original parcel, releases its reservation,
+finishes `fetch:complete` and actuates the delivery light. Selected hearing rejects
+the wrong category, Any hearing responds, and object-type sight refuses an
+occluded object then responds when visible. Follow/escort responds to changing
+player destination. Alerts reach configured receivers once and expire without
+feedback; a generated Message opens and dismisses the actual UI. Failures from
+blocked routes and the earlier bad contact remain inspectable raw evidence.
+Full prepared loading and reflection loading also pass. Final editor Build+Play
+reaches the real player and its post-Stop inspector displays live task state.
+Earlier fixed-duration Play attempts stopped before ready under load; they do
+not establish startup coverage. The final binary replays fetch, loop,
+selected-perception and Any-hearing; a **76-assertion evidence audit** checks
+accepted runs, physical outcomes, no script/audio errors, source preservation
+and exact compiled-source hashes. It is not a count of new Rust tests or a
+repeat of the prior 21-scenario shared-AI campaign.
+
+**Content and limits.** All 16 preserved project archives / 32 members, including
+menu, pass strict package validation with current readers. Project-owned source
+bytes and archives remain unchanged. No source/package format or prepared-data
+contract changes, compatibility shim or mass rebake was introduced. The broad
+compiler fingerprint hashes renderer/debug source as well as preparation code;
+this phase changes that stamp. Thus all 32 prior members report compiler-code
+freshness mismatch under `verify --require-current`, while integrity and strict
+reading pass. This is an explicit final-gate freshness residual, not a claim
+that packages have been rebuilt current. Unaffected preparation was preserved
+under the instruction not to needlessly rebake. Six playable distributions
+still have 19 internal levels, not 19 playable maps.
+
+Final editor SHA-256:
+`76049c1eb98c85307befe3974c92229e0887f9602e25f81d7364bbace01feac9`;
+player `7a98fd0d69eb14924cd8f8f110c07291053a56969edc58ce43b012e013a6e683`;
+compiler `589701e428a582f294830ab4caf2251a2dd38ca77ace250d7c640647f06b2dd1`.
+Final candidate 5 differs from candidate 4 only in two editor behavior UI files
+for readable snapshot formatting/Close; engine/compiler inputs are identical.
+Earlier native cases retain pinned candidate provenance instead of being
+misrepresented as final-binary reruns. No editor throughput comparison was made.
+
+Raw evidence, helpers, candidates, final symbols, authored acceptance projects,
+packages, traces, captures and failed attempts are preserved outside Cargo target
+at `C:/Users/Connor Dawkins/Documents/Codex/2026-10-26/task`. Key receipts are
+`editor-native-audit.json`, `candidate-5-{sources,binaries}.json`,
+`clippy-editor-15.log`, `tests-editor-5.log`, `build-editor-5.log`,
+`assets-final-results.json`, `luau-editor-final.json`, `native-settled-*/`,
+`native-editor-runtime-inspection-final/`, `native-export-recover-final/`,
+`strict-content-editor/` and `current-content-editor-check/`. Exact staging
+commit/remote verification, final preservation hashes, idle-only Cargo cleanup
+and custody release are in the external `ownership-handoff.json`.
+
+Water's accepted optical/performance residual, audio listening/headphone/hotplug/
+platform gaps and dense-pause cost, the cold ~2.4-second input stall, CRT review,
+broader Python failures/skips and shared-AI's documented small CPU cost remain.
+This phase makes no new claim about them. No main merge, release, force push,
+version bump, ordinary CI wait, host/GPU settings investigation, iGPU pass or Mac
+switch occurred. Editor custody ends here; Backrooms and the remaining queue
+return to the parent using GPT-6.1 sol.

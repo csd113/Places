@@ -873,6 +873,13 @@ fn caustic_receiver_light(in: VsOut, selected: u32) -> vec4<f32> {
     return vec4<f32>(radiance.rgb, 1.0);
 }
 
+// This presentation-only gate retains collision, lighting, and package geometry.
+// Testing the geometric normal also handles a sloped roof and its top backing.
+fn editor_ceiling_hidden(in: VsOut) -> bool {
+    return (material.flags & 8u) != 0u && (in.world_normal.y >= 0.0 ||
+        dot(in.world_normal, camera.position - in.world_position) <= 0.0);
+}
+
 fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     // Derivatives stay outside volume-dependent flow control. Transform fluid
     // metres into this material's actual world UV frame, preserving its tiling.
@@ -938,6 +945,7 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
         out.color = water.rgb;
         out.alpha = water.a;
     }
+    if (editor_ceiling_hidden(in)) { discard; }
     return out;
 }
 
@@ -982,7 +990,9 @@ fn emissive_only(in: VsOut, cutout: bool) -> vec4<f32> {
     // The returned alpha includes instance opacity; straight-alpha blending
     // scales bloom once. The attached-light term is deliberately absent here.
     let transmission = (1.0 - atmosphere(in.world_position).a) * storm_transmission(camera.position, in.world_position);
-    return vec4<f32>(surface_emission(in, base.rgb) * transmission, alpha);
+    let emission = surface_emission(in, base.rgb) * transmission;
+    if (editor_ceiling_hidden(in)) { discard; }
+    return vec4<f32>(emission, alpha);
 }
 
 @fragment

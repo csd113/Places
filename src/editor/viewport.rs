@@ -43,6 +43,7 @@ pub(super) struct Viewport {
     pending_objects: Option<Vec<PickObject>>,
     upload_samples: Vec<f64>,
     volume_guides: Vec<overlay::VolumeGuide>,
+    room_handles: Vec<[[f32; 3]; 4]>,
     navigation_coverage: Vec<super::navigation::Coverage>,
     navigation_route: Vec<Vec3>,
     navigation_start: Option<Vec3>,
@@ -85,6 +86,7 @@ impl Viewport {
             pending_objects: None,
             upload_samples: Vec::new(),
             volume_guides: Vec::new(),
+            room_handles: Vec::new(),
             navigation_coverage: Vec::new(),
             navigation_route: Vec::new(),
             navigation_start: None,
@@ -116,6 +118,11 @@ impl Viewport {
         self.pending_objects = None;
         self.requested = Some(Instant::now());
         self.volume_guides = overlay::volumes(level);
+        self.room_handles = level
+            .rooms
+            .iter()
+            .map(|room| super::document::room_resize::Edge::ALL.map(|edge| edge.handle(room)))
+            .collect();
         self.worker.request(level, self.environment_preview());
     }
 
@@ -261,6 +268,26 @@ impl Viewport {
             .map(|(id, _)| id)
     }
 
+    pub fn room_edge_handles(&self) -> Vec<[[f32; 2]; 2]> {
+        let Some(ObjectId::Room(index)) = self.selected else {
+            return Vec::new();
+        };
+        let Some(handles) = self.room_handles.get(index) else {
+            return Vec::new();
+        };
+        handles
+            .iter()
+            .zip(super::document::room_resize::Edge::ALL)
+            .filter_map(|(point, edge)| {
+                let mut end = *point;
+                *end.get_mut(edge.axis())? += 1.0;
+                Some([
+                    self.project(Vec3::from_array(*point))?,
+                    self.project(Vec3::from_array(end))?,
+                ])
+            })
+            .collect()
+    }
     pub fn axis_handles(&self) -> Vec<[[f32; 2]; 2]> {
         let Some(bounds) = self.selected_bounds() else {
             return Vec::new();
@@ -416,6 +443,11 @@ impl Viewport {
         }
         if let Some(bounds) = self.selected_bounds() {
             guides.selection(bounds);
+        }
+        if let Some(ObjectId::Room(index)) = self.selected
+            && let Some(handles) = self.room_handles.get(index)
+        {
+            guides.room_edges(handles);
         }
         if let Some(bounds) = self.highlight_bounds {
             guides.diagnostic(bounds, &self.highlight_surfaces);

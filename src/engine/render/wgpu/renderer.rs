@@ -3769,6 +3769,7 @@ impl WgpuRenderer {
                         &mut pending.textures,
                         &self.material_layout,
                         WorldMaterialInputs {
+                            editor_cutaway: self.editor_ui,
                             draws: world.draws(),
                             materials: &pending.materials,
                             table: &pending.loaded.materials,
@@ -4396,6 +4397,7 @@ impl WgpuRenderer {
                 &mut self.textures,
                 &self.material_layout,
                 WorldMaterialInputs {
+                    editor_cutaway: self.editor_ui,
                     draws: world.draws(),
                     materials: &materials,
                     table: &loaded.materials,
@@ -4716,6 +4718,7 @@ impl WgpuRenderer {
             &mut self.textures,
             &self.material_layout,
             WorldMaterialInputs {
+                editor_cutaway: self.editor_ui,
                 draws: world.draws(),
                 materials: &materials,
                 table: &loaded.materials,
@@ -8024,6 +8027,7 @@ impl WgpuRenderer {
                 &mut pending.textures,
                 &self.material_layout,
                 WorldMaterialInputs {
+                    editor_cutaway: self.editor_ui,
                     draws: world.draws(),
                     materials: &pending.materials,
                     table: &pending.loaded.materials,

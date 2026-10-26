@@ -57,8 +57,19 @@ impl Document {
     /// # Errors
     /// Creates a unique confined file, then links it to the current raw map.
     pub fn create_script(&mut self) -> Result<String, String> {
-        if self.script_paths().len() >= 16 {
-            return Err("Maximum 16 modules per map".into());
+        self.create_script_edit(&self.raw().clone(),
+            "--!strict\n-- Blank custom module. Add start, update, or named event handlers.\nreturn {}\n",
+            |_raw, _path| Ok(()))
+    }
+
+    pub(super) fn create_script_edit(
+        &mut self,
+        base: &serde_json::Value,
+        source: &str,
+        configure: impl Fn(&mut serde_json::Value, &str) -> Result<(), String>,
+    ) -> Result<String, String> {
+        if source.len() > usize::try_from(MAX_SOURCE_BYTES).unwrap_or(0) {
+            return Err("Script exceeds 64 KiB".into());
         }
         let directory = self.root().join("scripts");
         fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
@@ -66,23 +77,37 @@ impl Document {
         if !canonical.starts_with(self.root()) {
             return Err("Scripts directory escapes project".into());
         }
-        let template = "--!strict\n-- Handlers receive a scoped Places API and event context.\nlocal count = 0\nreturn {\n    entered = function(api, event)\n        count += 1\n        api.notice(\"Trigger calls: \" .. tostring(count))\n    end,\n}\n";
         for number in 1..=1000u16 {
             let relative = format!("scripts/{}_{number}.luau", self.level_id());
             let path = self.root().join(&relative);
+            if path.exists() {
+                continue;
+            }
+            let mut raw = base.clone();
+            let paths = raw
+                .as_object_mut()
+                .ok_or("Invalid level")?
+                .entry("scripts")
+                .or_insert_with(|| serde_json::json!([]))
+                .as_array_mut()
+                .ok_or("Invalid scripts")?;
+            if paths.len() >= 16 {
+                return Err("Maximum 16 modules per map".into());
+            }
+            paths.push(serde_json::json!(relative));
+            configure(&mut raw, &relative)?;
+            let _validated = persistence::validate_raw(&raw, self.level_id())?;
+            self.admit_document_bytes(
+                source
+                    .len()
+                    .saturating_mul(4)
+                    .saturating_add(super::history::value_heap_charge(&raw).saturating_mul(2)),
+            )?;
             match OpenOptions::new().write(true).create_new(true).open(&path) {
                 Ok(mut file) => {
-                    file.write_all(template.as_bytes())
+                    file.write_all(source.as_bytes())
                         .and_then(|()| file.sync_all())
                         .map_err(|e| e.to_string())?;
-                    let mut raw = self.raw().clone();
-                    raw.as_object_mut()
-                        .ok_or("Invalid level")?
-                        .entry("scripts")
-                        .or_insert_with(|| serde_json::json!([]))
-                        .as_array_mut()
-                        .ok_or("Invalid scripts")?
-                        .push(serde_json::json!(relative));
                     self.accept_edit(raw)?;
                     self.open_script(&relative)?;
                     return Ok(relative);

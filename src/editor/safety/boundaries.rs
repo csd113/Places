@@ -36,7 +36,7 @@ pub(super) fn check(level: &LevelDef, report: &mut SafetyReport) {
                 report,
                 &Edge {
                     object: ObjectId::Room(index),
-                    label: format!("Floor {} edge", index.saturating_add(1)),
+                    label: format!("Room{} edge", index.saturating_add(1)),
                     start,
                     end,
                     outward,

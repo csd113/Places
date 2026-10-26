@@ -686,24 +686,10 @@ fn finish_authoring_preview(
     batches: &mut [PropMeshBatch],
     options: PreviewFinish<'_>,
 ) {
-    // A cutaway inspection view retains roof ownership for walls and fixtures,
-    // while omitting only the ceiling draw ranges from the editor's GPU copy.
+    // Keep the actual ceiling mesh, lighting and roof ownership. The editor's
+    // material flag presents its underside only; export/player remain two-sided.
     if !options.reused_mesh {
         let editable_mesh = Arc::make_mut(mesh);
-        editable_mesh
-            .ranges
-            .retain(|range| range.key.kind != super::SurfaceKind::Ceiling);
-        editable_mesh.vertex_count = editable_mesh
-            .ranges
-            .iter()
-            .map(|range| range.vertices.len())
-            .sum();
-        editable_mesh.index_count = editable_mesh
-            .ranges
-            .iter()
-            .map(|range| range.indices.len())
-            .sum();
-        editable_mesh.batches.ceiling_batch = super::BatchRange::default();
         if options.neutral {
             for range in &mut editable_mesh.ranges {
                 illuminate_preview_vertices(&mut range.vertices);

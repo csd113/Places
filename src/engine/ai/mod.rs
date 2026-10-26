@@ -1512,6 +1512,19 @@ impl AiWorld {
                 agent.caught,
                 agent.stuck_seconds,
             );
+            for run in &agent.controller.runs {
+                let _task = writeln!(
+                    out,
+                    "  key={} priority={} active={} paused={} phase={} step={} status={}",
+                    run.request.key,
+                    run.request.priority,
+                    agent.controller.active == Some(run.token),
+                    run.paused,
+                    run.progress.phase,
+                    run.progress.index,
+                    run.progress.status
+                );
+            }
         }
         out
     }

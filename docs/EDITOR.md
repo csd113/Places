@@ -1,4 +1,4 @@
-# Editor authoring and safety (0.12.0 stage 7)
+# Native editor authoring and safety (0.13.0)
 
 Run `places-editor` beside `places-compile` and `places`, with the external
 `assets/` payload described in [INSTALLATION.md](INSTALLATION.md). No map bake is
@@ -40,8 +40,10 @@ quarter-turn rotation swaps dimensions about the centre and displays zero yaw
 afterwards. Unsafe rotations of profiled/per-face/opening data are refused.
 Prop Y is floor-relative; all scale fields change uniform scale. Prop library
 chooses the next built-in model; Material assigns a floor/wall material. Scroll
-the scene list independently. The shared renderer applies compiler trim/fixture preparation, cuts away ceilings
-and uses neutral preview light; Play shows authored ceilings, lighting and dynamic behavior.
+the scene list independently. The shared renderer applies compiler trim/fixture preparation, hides ceiling faces when viewed from above and shows their textured underside
+when looking up from inside. The real ceiling mesh, collision, bake and exported
+world remain intact. Inspect uses neutral light; Play shows authored lighting
+and dynamic behavior.
 
 Save validates the raw authoritative scene and uses an owned sibling temporary
 plus atomic rename. Unknown fields remain intact; the manifest remains byte-for-byte during scene saves. Explicit Project metadata operations save edits first and atomically publish the changed manifest.
@@ -102,7 +104,7 @@ are refused because the format cannot express their changed axis. Recess Offset
 is signed; negative lowers the basin and positive raises a platform. A region
 has no independent thickness. Water remains an independent preserved collection.
 
-Select a floor, then `Shape >` to choose a snapped world-space rectangular
+Select a room, then `Shape >` to choose a snapped world-space rectangular
 opening or add an upper floor. A cut replaces the selected room with up to four
 strips and removes **both its floor and its ceiling** inside the rectangle.
 It preserves materials, tile frames and unknown record data in each strip.
@@ -467,3 +469,82 @@ which neighboring authored room should move.
 For stairs and floor clearance, see the structural backing section of the map
 authoring guide. Connect two floors previews the shaft cut and landings before
 applying ordinary editable records. Cancel leaves source unchanged.
+
+
+## Simple and Advanced authoring
+
+The editor starts in **Simple**. `Mode` switches instantly to the existing
+Advanced inspector and back; both operate on the same document, selection,
+source buffers and undo history. Mode switching never converts level data.
+Horizontal footprints are labelled Room1, Room2, etc.; a floor/storey is a
+vertical level. Display labels do not rename stable object or level references.
+
+`New Room` opens a six-field form for position, size, floor height and ceiling
+height. Its default footprint starts east of the selected room on the same
+storey. Preview does not modify the document. Apply creates one history step;
+Cancel restores the source view. A room supplies floor and ceiling; walls,
+openings, doors and stairs are explicit geometry choices. `Move / exact size`,
+`Choose model`, `Rooms / stairs` and `Events / scripts` expose focused workflows.
+The existing actual-asset thumbnail browser, themes and numerical controls
+remain available in both modes.
+
+Select a room and drag a yellow edge handle to move that edge while keeping the
+opposite edge fixed. The toolbar controls snapping; live dimensions show metres.
+Release commits one undo step; Escape or loss of window focus cancels. Shape also
+provides West/East/North/South numerical displacement fields. Connected outer
+edges can expand; moving a shared boundary or overlapping another room is refused.
+Perimeter wall slabs and their doors, wall fixtures and surface decals move in
+one transaction. Side-wall openings keep their world positions. Unsupported
+shrinks, cut openings, spanning walls and uncertain elevated fixed-prop attachments
+are refused for explicit review. Ordinary content remains in world coordinates;
+this is not a freeform wall topology solver. Axis handles provide translation
+alongside precise controls for other supported scene objects.
+
+## Event templates and behavior blocks
+
+`Scripts > Event templates` offers start, interaction and volume entry/exit
+handlers. Choose an NPC, item, target or room location and the options required
+by the action, then Preview or Create. Supported actions include a message,
+door/sound control, investigation, fetch/delivery, following, environment use,
+and keyed AI cancellation/pause. Approach/contact coordinates are real world
+positions: check the model, floor, reach and route in Play. Templates validate
+references and shared-runtime limits; they cannot guarantee reachability.
+Every creation writes a uniquely named editable module. It never overwrites an
+existing source. `Blank module` starts custom code. Check reports the module and
+Luau error location. Save, undo and source editing use the existing script editor.
+
+Select a placed NPC and choose `NPC behaviors`. `Enable AI` fits a navigation
+body only for a new unconfigured actor; it does not replace an existing setup.
+Drag or click blocks into an ordered routine. Drag sibling rows to reorder.
+Actions include movement, wait, investigation/search, fetch/delivery, environment
+interaction, follow/escort and patrol. Hearing rules accept Any or selected event
+categories and a radius. Sight rules filter player, entities, instance IDs or
+object types and expose range/FOV; shared line-of-sight checks always apply.
+Perception responses can investigate, run an ordered routine, or send a bounded
+alert. Receive alerts is explicit. Routines stop on failure; task priorities
+select the active task. Explicit loops stay cancellable. All execution uses the
+shared AI runtime, physical item reservations/contact and existing navigation,
+perception, recursion and per-frame budgets. The form refuses malformed plans,
+missing references, empty routines and over-budget values.
+
+`Apply` retains visual ownership. `New Luau copy` transfers execution to a new
+module generated from the same typed plan. Editing that module cannot silently
+rewrite the visual plan. Ordinary Apply is refused while Luau owns execution;
+`Use visual` is the explicit choice to unlink the generated module while keeping
+its file and edits. An externally shared event-bound module is not silently
+unlinked. Pending visual drafts survive closing the panel and mode switches;
+a scene revision mismatch requires explicit Reload before applying. Save/close
+pending form edits by applying them, or explicitly Reload to discard them.
+
+`Inspect last Play` displays the real player's latest AI/navigation snapshot,
+including active/paused task keys, phase/step and last result. Refresh is explicit;
+this is a snapshot of the last editor Play session, not a simulation in the form.
+Stop Play keeps the snapshot available. Run the authored behavior to establish
+physical reachability and inspect failure or cancellation in context.
+
+Visual ownership metadata is stored beside the NPC as `editor_behavior` and
+preserves the ordinary serialized AI component and Luau contracts. This phase
+adds no package or source-format compatibility layer. Prepared data contracts
+remain unchanged. The broad compiler source fingerprint includes renderer/debug
+files, so this phase changes the compiler freshness stamp even though it does
+not require a package-format migration.

@@ -2,6 +2,7 @@
 //! validated view, never the serialization source: future/unsupported fields
 //! therefore survive ordinary edits and saves.
 
+pub(crate) mod behavior;
 pub(crate) mod components;
 mod dragging;
 mod fog;
@@ -9,6 +10,7 @@ mod gameplay;
 mod geometry;
 mod history;
 mod local_floor;
+pub(crate) mod room_resize;
 pub(super) use objects::array_mut as record_array_mut;
 pub(crate) mod intent;
 mod mounting;
@@ -17,6 +19,7 @@ mod persistence;
 mod project;
 mod scripts;
 mod source;
+mod templates;
 
 use std::collections::BTreeMap;
 use std::path::Path;

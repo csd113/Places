@@ -19,6 +19,8 @@ pub(super) enum Pending {
 }
 
 pub(super) enum Popup {
+    Template,
+    Behavior,
     Stairs(Box<super::stairs::Wizard>),
     DoorAssets,
     Bakes,
@@ -82,6 +84,14 @@ pub(super) enum Popup {
 impl Popup {
     pub fn draw(&self, app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mut Vec<Hit>) {
         hits.clear();
+        if matches!(self, Self::Template) {
+            super::templates::draw(app, v, hits);
+            return;
+        }
+        if matches!(self, Self::Behavior) {
+            super::behavior::draw(app, v, hits);
+            return;
+        }
         if let Self::Stairs(wizard) = self {
             super::stairs::draw(app, v, hits, wizard);
             return;
@@ -141,7 +151,9 @@ impl Popup {
     ) {
         match self {
             Self::SceneSearch(value) => super::selection::draw_search(v, hits, value),
-            Self::Stairs(_)
+            Self::Template
+            | Self::Behavior
+            | Self::Stairs(_)
             | Self::Bakes
             | Self::Authoring
             | Self::AuthoringForm(_)
@@ -322,7 +334,9 @@ impl App {
     }
 
     fn contextual_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
-        Ok(self.stair_action(action)?
+        Ok(self.template_action(action)?
+            || self.behavior_action(action)?
+            || self.stair_action(action)?
             || self.authoring_action(action)?
             || self.project_action(action, window)?
             || self.script_action(action)?
@@ -364,7 +378,9 @@ impl App {
             Action::Delete | Action::Duplicate => {
                 self.selection_action(action == Action::Duplicate)?;
             }
-            Action::Focus | Action::Grid | Action::Snap | Action::Step => self.view_action(action),
+            Action::Focus | Action::Grid | Action::Mode | Action::Snap | Action::Step => {
+                self.view_action(action);
+            }
             Action::Nudge(field, positive) => self.nudge(field, positive)?,
             Action::DoorAssets => {
                 self.browser.query.clear();
@@ -384,6 +400,13 @@ impl App {
     }
 
     fn add_safely(&mut self, kind: ObjectKind) -> Result<(), String> {
+        if kind == ObjectKind::Room {
+            let _opened = self.authoring_action(Action::Author(
+                super::authoring::Command::Open(super::authoring::Tool::Room),
+            ))?;
+            let _created = self.authoring_action(Action::Author(super::authoring::Command::New))?;
+            return Ok(());
+        }
         if kind == ObjectKind::Ramp {
             let _opened = self.authoring_action(Action::Author(
                 super::authoring::Command::Open(super::authoring::Tool::Ramp),
@@ -452,6 +475,16 @@ impl App {
                 self.view.grid = !self.view.grid;
                 self.viewport.set_grid(self.view.grid);
             }
+            Action::Mode => {
+                self.view.simple = !self.view.simple;
+                self.ui_focus = None;
+                self.status = if self.view.simple {
+                    "Simple mode: choose an action, then select and place in the scene."
+                } else {
+                    "Advanced mode: all precise controls; the same scene and history."
+                }
+                .into();
+            }
             Action::Snap => self.view.snap = !self.view.snap,
             Action::Step => {
                 self.step = if self.step < 0.2 {
@@ -471,13 +504,23 @@ impl App {
     fn history_action(&mut self, redo: bool) {
         let reviewing = self.safety_report.is_some();
         if let Some(document) = &mut self.document {
-            let _changed = if redo {
+            let changed = if redo {
                 document.redo()
             } else {
                 document.undo()
             };
             self.selected = None;
             self.changed();
+            self.status = if changed {
+                if redo {
+                    "Redo applied."
+                } else {
+                    "Undo applied."
+                }
+            } else {
+                "No history step available."
+            }
+            .into();
             if reviewing {
                 let result = self.start_safety();
                 self.report(result);
@@ -580,7 +623,7 @@ impl App {
             None
         };
         let label = match kind {
-            ObjectKind::Room => "floor",
+            ObjectKind::Room => "room",
             ObjectKind::Wall => "wall",
             ObjectKind::Prop => "prop",
             ObjectKind::Ramp => "ramp",
@@ -746,6 +789,7 @@ impl App {
 
     const fn field_label(&self, field: usize) -> &'static str {
         match field {
+            20..=23 => "Room edge displacement (m)",
             11 => "Pitch (degrees)",
             12 => "Roll (degrees)",
             100.. => "Gameplay property",
@@ -771,6 +815,9 @@ impl App {
     }
 
     pub(super) fn field(&self, field: usize) -> Result<f32, String> {
+        if (20..=23).contains(&field) {
+            return Ok(0.0);
+        }
         if field >= 100 {
             return self.gameplay_number(field);
         }
@@ -804,6 +851,19 @@ impl App {
         }
         if field >= 100 {
             return self.apply_gameplay_number(field, value);
+        }
+        if let Some(edge) = field
+            .checked_sub(20)
+            .and_then(|index| super::document::room_resize::Edge::ALL.get(index))
+            .copied()
+        {
+            self.document
+                .as_mut()
+                .ok_or("Open a project first")?
+                .resize_room_edge(self.selected.ok_or("Select a room")?, edge, value)?;
+            self.changed();
+            self.status = "Room edge applied as one undo step.".into();
+            return Ok(());
         }
         if self.view.snap && field < 6 {
             value = (value / self.step).round() * self.step;
@@ -897,6 +957,7 @@ impl App {
                                     });
                                 match result {
                                     Ok(player) => {
+                                        self.last_play_trace = Some(player.runtime_trace_path());
                                         self.play = Some(player);
                                         self.status =
                                             "Importing compiled level; player will open...".into();

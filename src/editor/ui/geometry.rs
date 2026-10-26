@@ -8,7 +8,7 @@ use crate::engine::render::Vertex;
 pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     text(v, "ADD GEOMETRY", 140.0, 74.0, ACCENT, 40);
     for (x, y, label, kind) in [
-        (140.0, 88.0, "Floor + ceiling", ObjectKind::Room),
+        (140.0, 88.0, "New Room", ObjectKind::Room),
         (264.0, 88.0, "Wall", ObjectKind::Wall),
         (140.0, 109.0, "Ramp", ObjectKind::Ramp),
         (264.0, 109.0, "Global recess", ObjectKind::FloorRegion),
@@ -25,7 +25,7 @@ pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &m
     );
     text(
         v,
-        "Select a floor for these connected-space tools:",
+        "Select a room for these connected-space tools:",
         140.0,
         146.0,
         INK,
@@ -44,7 +44,7 @@ pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &m
         v,
         hits,
         [140.0, 157.0, 240.0, 15.0],
-        "Floor shape tools >",
+        "Room shape tools >",
         Action::Shape,
         floor,
     );
@@ -67,7 +67,18 @@ pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &m
 }
 
 pub(in crate::editor) fn shape_popup(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
-    text(v, "FLOOR SHAPE", 140.0, 74.0, ACCENT, 45);
+    text(v, "ROOM SHAPE", 140.0, 74.0, ACCENT, 45);
+    for (index, label) in ["West", "East", "North", "South"].into_iter().enumerate() {
+        let x = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(61.0, 140.0);
+        button(
+            v,
+            hits,
+            [x, 151.0, 57.0, 11.0],
+            label,
+            Action::Field(index.saturating_add(20)),
+            true,
+        );
+    }
     text(
         v,
         "OPENING RECTANGLE / world metres",
@@ -77,14 +88,7 @@ pub(in crate::editor) fn shape_popup(app: &App, v: &mut Vec<Vertex>, hits: &mut 
         68,
     );
     let Some([x, z, width, depth]) = app.opening_rect else {
-        text(
-            v,
-            "Select a floor to edit its shape.",
-            140.0,
-            101.0,
-            INK,
-            68,
-        );
+        text(v, "Select a room to edit its shape.", 140.0, 101.0, INK, 68);
         button(
             v,
             hits,

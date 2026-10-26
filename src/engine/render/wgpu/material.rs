@@ -51,10 +51,14 @@ pub const MATERIAL_FLAG_RESPONSE_ENABLED: u32 = 1 << 1;
 /// `reflection_mode`, which a capture or a disabled player setting zeroes.
 pub const MATERIAL_FLAG_REFLECTION_ELIGIBLE: u32 = 1 << 2;
 
+/// Editor-only ceiling visibility; never serialized into a level or package.
+pub const MATERIAL_FLAG_EDITOR_CEILING: u32 = 1 << 3;
+
 /// Every flag bit the material path defines. No other bit is written.
 pub const MATERIAL_FLAG_MASK: u32 = MATERIAL_FLAG_NORMAL_ENABLED
     | MATERIAL_FLAG_RESPONSE_ENABLED
-    | MATERIAL_FLAG_REFLECTION_ELIGIBLE;
+    | MATERIAL_FLAG_REFLECTION_ELIGIBLE
+    | MATERIAL_FLAG_EDITOR_CEILING;
 
 /// The per-material uniform, in the exact layout the WGSL `Material` struct
 /// declares.
@@ -607,6 +611,8 @@ pub fn material_identities(
 /// The renderer-neutral inputs one level's material resolution needs.
 #[derive(Clone, Copy)]
 pub struct WorldMaterialInputs<'a> {
+    /// Show only ceiling undersides in the native editor.
+    pub editor_cutaway: bool,
     /// The uploaded world draw set.
     pub draws: &'a [super::world::WorldDraw],
     /// The engine's per-material render state.
@@ -728,11 +734,14 @@ impl WorldMaterials {
             let scaled_emission = animation.map_or(emission_record, |active_animation| {
                 emission_record.with_scale(active_animation.factor(0.0))
             });
-            let uniform = MaterialUniform::from_state_with_emission(
+            let mut uniform = MaterialUniform::from_state_with_emission(
                 &resolved,
                 normal.is_some(),
                 scaled_emission,
             );
+            if inputs.editor_cutaway && *kind == SurfaceKind::Ceiling {
+                uniform.flags |= MATERIAL_FLAG_EDITOR_CEILING;
+            }
             if uniform.response_enabled() {
                 stats.response_materials = stats.response_materials.saturating_add(1);
             }

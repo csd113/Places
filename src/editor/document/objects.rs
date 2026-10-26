@@ -85,7 +85,7 @@ pub(super) fn enumerate(level: &LevelDef) -> Vec<ObjectInfo> {
     let rooms = level.rooms.iter().enumerate().map(|(index, _)| {
         (
             ObjectId::Room(index),
-            format!("Floor {}", index.saturating_add(1)),
+            format!("Room{}", index.saturating_add(1)),
         )
     });
     let walls = level.walls.iter().enumerate().map(|(index, _)| {

@@ -52,6 +52,8 @@ pub(super) enum Action {
     ProjectCheck,
     ProjectMigrate,
     Scripts,
+    Behavior(super::behavior::Command),
+    Template(super::templates::Command),
     ScriptNew,
     ScriptOpen(usize),
     ScriptCheck,
@@ -131,6 +133,7 @@ pub(super) enum Action {
     Delete,
     Focus,
     Grid,
+    Mode,
     Snap,
     Step,
     Field(usize),
@@ -268,14 +271,40 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
     rect(&mut v, [0.0, 38.0, 112.0, 204.0], PANEL);
     rect(&mut v, [0.0, 242.0, 480.0, 30.0], PANEL);
     toolbar(app, &mut v, &mut hits);
+    button(
+        &mut v,
+        &mut hits,
+        [5.0, 27.0, 102.0, 10.0],
+        if app.view.simple {
+            "Mode: Simple >"
+        } else {
+            "Mode: Advanced >"
+        },
+        Action::Mode,
+        true,
+    );
     navigation(app, &mut v, &mut hits);
     if app.navigation.visible {
         navigation::draw(app, &mut v, &mut hits);
     } else {
         scene(app, &mut v, &mut hits);
-        inspector(app, &mut v, &mut hits);
+        if app.view.simple {
+            simple_selection(app, &mut v, &mut hits);
+        } else {
+            inspector(app, &mut v, &mut hits);
+        }
     }
     footer(app, &mut v, &mut hits);
+    if app.popup.is_none() {
+        button(
+            &mut v,
+            &mut hits,
+            [220.0, 228.0, 88.0, 10.0],
+            "NPC behaviors >",
+            Action::Behavior(super::behavior::Command::Open),
+            matches!(app.selected, Some(ObjectId::Prop(_))),
+        );
+    }
     if let Some(popup) = &app.popup {
         popup.draw(app, &mut v, &mut hits);
     }
@@ -474,7 +503,20 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         app.compile.is_none() && app.play.is_none() && !app.dialog_open,
     );
     for (x, w, label, action) in [
-        (5.0, 65.0, "+ Geometry", Action::Geometry),
+        (
+            5.0,
+            65.0,
+            if app.view.simple {
+                "New Room"
+            } else {
+                "+ Geometry"
+            },
+            if app.view.simple {
+                Action::Add(ObjectKind::Room)
+            } else {
+                Action::Geometry
+            },
+        ),
         (73.0, 34.0, "+ Prop", Action::Add(ObjectKind::Prop)),
     ] {
         button(
@@ -531,6 +573,37 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         MUTED,
         29,
     );
+}
+
+fn simple_selection(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    let selected = app.selected.is_some();
+    text(
+        vertices,
+        if selected {
+            "SELECTED OBJECT"
+        } else {
+            "BUILD YOUR PLACE"
+        },
+        5.0,
+        132.0,
+        ACCENT,
+        27,
+    );
+    for (y, label, action, enabled) in [
+        (144.0, "Move / exact size >", Action::Transform, selected),
+        (160.0, "Choose model >", Action::Assets, true),
+        (176.0, "Rooms / stairs >", Action::Geometry, true),
+        (192.0, "Events / scripts >", Action::Scripts, true),
+    ] {
+        button(
+            vertices,
+            hits,
+            [5.0, y, 102.0, 13.0],
+            label,
+            action,
+            enabled && app.document.is_some(),
+        );
+    }
 }
 
 fn footer(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {

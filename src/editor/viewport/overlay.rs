@@ -113,6 +113,18 @@ impl Guides {
         );
     }
 
+    pub fn room_edges(&mut self, handles: &[[f32; 3]; 4]) {
+        for handle in handles {
+            if let Some([x, y]) = self.project(Vec3::from_array(*handle)) {
+                crate::editor::ui::rect(
+                    &mut self.vertices,
+                    [x - 2.5, y - 2.5, 5.0, 5.0],
+                    [1.0, 0.74, 0.2, 1.0],
+                );
+            }
+        }
+    }
+
     pub fn selection(&mut self, bounds: Aabb) {
         self.box_lines(bounds, [1.0, 0.74, 0.2, 1.0]);
         let centre = Vec3::from_array(bounds.centre());

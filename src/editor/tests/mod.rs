@@ -9,3 +9,5 @@ mod scripting;
 mod components;
 
 mod browser;
+
+mod editor_phase;
