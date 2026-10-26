@@ -1,4 +1,4 @@
-# Luau scripting (0.12.0 stage 6)
+# Luau scripting
 
 The production profile requires `panic = "unwind"` for Luau’s C++ exception
 boundary; incompatible abort profiles fail compilation. The release-binary
@@ -80,6 +80,9 @@ that the editor performs Luau typechecking.
 | --- | --- |
 | `api.player()` | Read-only current-tick player feet `{x,y,z}`; no native handle |
 | `api.actor(id)` | Read-only entity transform plus `illuminated` (including release grace), raw `intensity`, and current collision-checked `player_visible` for AI bodies |
+| `api.ai_task(id,key,request)` | Queues shared task data as a plain table or JSON string; nil cancels that key; see the shared contracts in MAP_AUTHORING_GUIDE section 33.8 |
+| `api.ai_pause(id,key,paused)` | Suspends/resumes the named continuation and its clock |
+| `api.ai_senses(id,rules)` | Replaces at most sixteen typed hearing/sight rules with mapped responses |
 | `api.navigate(id,x,y,z)` | Queues ordinary AI navigation; finite coordinates within ±100000 m, AI body required; shared body classes, routing budgets, live doors and physical obstacles still apply |
 | `api.message(title,lines)` | Dismissible guidance: printable title ≤80 bytes, dense plain array of 1–6 lines ≤72 bytes each; Enter/Esc continues without a world reset |
 | `api.finish(won,title,detail)` | Ends the run with printable title/detail ≤80/160 bytes; Enter restarts world/VM/player and authored grouped items, Escape returns to menu |
@@ -316,3 +319,30 @@ placement. Calls are queued and use invocation-start observations, like other
 host capabilities. Pause/time scale and single-step share the existing world
 clock. Eight skeletons and 128 shared physical item/bone bodies bound allocation.
 `projects/ragdoll-lab` and `tools/bench/ragdoll.py` provide editable/native examples.
+
+### Shared AI authoring
+
+Tables and JSON use the same serialized TaskRequest/SenseRule contract as
+`ai.tasks`, `ai.senses` and shared actions. The key argument must equal
+`request.key`. A request has priority 0..200 and a `definition`; pass nil
+to cancel it. All three APIs require a live AI body. `api.actor(id)` also
+returns optional `ai_owner`, `ai_task`, `ai_phase`, `ai_result` snapshots.
+
+```luau
+api.ai_task("porter", "delivery", {
+    key = "delivery", priority = 80,
+    definition = {task = "fetch", item = {match = "id", value = "parcel"},
+        search_radius = 20, destination = {target = "shelf", kind = "shelf",
+            approach = {2, 0, 3}, contact = {2.1, 0.2, 3.3}, reach = 1.5}},
+})
+api.ai_pause("porter", "delivery", true)
+api.ai_pause("porter", "delivery", false)
+-- api.ai_task("porter", "delivery", nil) cancels and returns cargo to physics.
+```
+
+Use dense plain arrays/maps with no metatables, functions, cycles or sparse
+keys. Each conversion is bounded to 512 nodes, depth 12, 32 entries per table
+and 16 KiB JSON. Empty arrays for named list fields are accepted. Handler
+effect atomicity and existing VM budgets still apply. Configure shared engine
+behaviours here; keep quest conditions, notices and authored timing in Luau.
+See MAP_AUTHORING_GUIDE section 33.8 for contact, recovery, filters and bounds.

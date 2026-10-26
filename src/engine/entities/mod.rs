@@ -24,6 +24,7 @@
 //! entries inert (their owner handle goes stale) until the end-of-tick
 //! compaction, so a binding index can never be invalidated mid-wave.
 
+mod ai_runtime;
 mod audio;
 pub mod balloon;
 pub mod components;
@@ -165,6 +166,18 @@ pub enum WorldCommand {
         target: String,
         enabled: bool,
         velocity: [f32; 3],
+    },
+    AiPutdown {
+        token: crate::engine::ai::controller::OperationToken,
+        contact: [f32; 3],
+    },
+    AiUse {
+        token: crate::engine::ai::controller::OperationToken,
+        point: crate::engine::ai::authoring::UsePoint,
+    },
+    AiPickup {
+        token: crate::engine::ai::controller::OperationToken,
+        item: String,
     },
     /// Atomically claim the authored carry contract's exact held item.
     HandoffItem {
@@ -456,6 +469,12 @@ pub struct EntityWorld {
     physics_reset_groups: Vec<String>,
     /// Movable authored props whose render/body lifetime the native loop owns.
     authored_physics: Vec<EntityHandle>,
+    ai_objects: Vec<crate::engine::ai::tasks::AiObject>,
+    ai_physical: std::collections::HashMap<EntityHandle, ai_runtime::PhysicalObservation>,
+    next_ai_objects: f32,
+    ai_observation_version: u64,
+    ai_object_cursor: usize,
+    ai_use_acks: Vec<crate::engine::ai::tasks::UseAck>,
     /// Current bounded physical-item bounds, shared by AI queries and motion.
     navigation_obstacles: Vec<WallAabb>,
     moves: Vec<MoveGoal>,
@@ -577,6 +596,12 @@ impl EntityWorld {
             weather_endpoints: WeatherEndpoints::Absent,
             physics_reset_groups: Vec::new(),
             authored_physics: Vec::new(),
+            ai_objects: Vec::new(),
+            ai_physical: std::collections::HashMap::new(),
+            next_ai_objects: 0.0,
+            ai_observation_version: 0,
+            ai_object_cursor: 0,
+            ai_use_acks: Vec::new(),
             navigation_obstacles: Vec::new(),
             moves: Vec::new(),
             live_spawns: Vec::new(),
@@ -649,6 +674,7 @@ impl EntityWorld {
         self.moves.clear();
         self.physics_reset_groups = level.physics_reset_groups().map(str::to_string).collect();
         self.authored_physics.clear();
+        self.clear_ai_observations();
         self.navigation_obstacles.clear();
         self.live_spawns.clear();
         self.dynamic_keys.clear();
@@ -808,6 +834,10 @@ impl EntityWorld {
         self.events.clear();
         self.stimuli.clear();
         self.sim_time = 0.0;
+        self.clear_ai_observations();
+        for (handle, definition) in self.components.ais.iter() {
+            let _restored = self.ai.configure_senses(handle, definition.senses.clone());
+        }
         self.ai.reset();
         // AI and scripts/light anchors share transforms. Reset both views even
         // when the freshly idle actor will not produce a movement handoff.
@@ -847,6 +877,12 @@ impl EntityWorld {
                         velocity: _
                     }
                     | WorldCommand::ReleaseItem { target: _ }
+                    | WorldCommand::AiPutdown {
+                        token: _,
+                        contact: _
+                    }
+                    | WorldCommand::AiUse { token: _, point: _ }
+                    | WorldCommand::AiPickup { token: _, item: _ }
                     | WorldCommand::HandoffItem { target: _ }
                     | WorldCommand::RetireHidden { target: _ }
                     | WorldCommand::ChangeLevel { level: _ }
@@ -2360,6 +2396,38 @@ impl EntityWorld {
                                 target: target.clone(),
                             }
                         });
+                    report.actions_run = report.actions_run.saturating_add(1);
+                } else {
+                    report.unsupported = report.unsupported.saturating_add(1);
+                }
+            }
+            ActionDef::AiSenses { target, rules } => {
+                if let Some(handle) = self.handle_of(target)
+                    && self.ai.configure_senses(handle, rules.clone())
+                {
+                    report.actions_run = report.actions_run.saturating_add(1);
+                }
+            }
+            ActionDef::AiPause {
+                target,
+                key,
+                paused,
+            } => {
+                if self.ai.pause_task(target, key, *paused) {
+                    report.actions_run = report.actions_run.saturating_add(1);
+                }
+            }
+            ActionDef::AiTask {
+                target,
+                key,
+                request,
+            } => {
+                let accepted = if let Some(submitted) = request {
+                    submitted.key == *key && self.ai.request_task(target, *submitted.clone())
+                } else {
+                    self.ai.cancel_task(target, key)
+                };
+                if accepted {
                     report.actions_run = report.actions_run.saturating_add(1);
                 } else {
                     report.unsupported = report.unsupported.saturating_add(1);
@@ -4021,13 +4089,26 @@ impl EntityWorld {
     /// Physical query transforms follow the solver, rather than stale placement
     /// coordinates. This reuses the bounded trigger snapshot and creates no poses.
     pub fn observe_physical_items<'a>(&mut self, items: impl Iterator<Item = TriggerItem<'a>>) {
-        let observing = self.scripts.has_enabled_modules();
+        let observing = self.scripts.has_enabled_modules() || !self.ai.is_empty();
         self.script_physical.clear();
+        self.ai_physical.clear();
         for item in items {
             if let Some(handle) = self.handle_of(item.instance)
                 && let Some(transform) = self.components.transforms.get_mut(handle)
             {
                 transform.position = item.to;
+                let _old = self.ai_physical.insert(
+                    handle,
+                    ai_runtime::PhysicalObservation {
+                        center: item
+                            .centre_path
+                            .and_then(|path| path.last())
+                            .copied()
+                            .unwrap_or(item.to),
+                        half: item.half_extents,
+                        held: item.held,
+                    },
+                );
                 if observing {
                     self.script_physical
                         .push((handle, item.up_y, item.held, item.sleeping));
@@ -4052,6 +4133,7 @@ impl EntityWorld {
             && let Some(carry) = self.components.carries.get_mut(handle)
         {
             carry.item = Some(item.to_string());
+            self.next_ai_objects = 0.0;
             self.script_held_item = None;
             self.rebuild_entity_frames();
         }
@@ -4063,6 +4145,8 @@ impl EntityWorld {
             && let Some(carry) = self.components.carries.get_mut(handle)
         {
             carry.item = None;
+            // Refresh bounded ownership observations after physical restoration.
+            self.next_ai_objects = 0.0;
             self.rebuild_entity_frames();
         }
     }
@@ -4126,20 +4210,15 @@ impl EntityWorld {
                     agent.profile.height.mul_add(0.6, agent.position.y),
                     agent.position.z,
                 );
-                if crate::engine::ai::perception::sight_clear_with_leaves(
+                if crate::engine::ai::perception::sight_clear_with_solids(
                     ctx.index,
                     ctx.walls,
                     &script_leaves,
+                    &self.navigation_obstacles,
                     ctx.eye,
                     torso,
-                ) && !self.navigation_obstacles.iter().any(|wall| {
-                    crate::engine::collision::segment_overlaps_aabb(
-                        ctx.eye,
-                        torso,
-                        [wall.min_x, wall.min_y, wall.min_z],
-                        [wall.max_x, wall.max_y, wall.max_z],
-                    )
-                }) {
+                    false,
+                ) {
                     let _added = self.script_visible.insert(agent.handle);
                 }
             }
@@ -4212,21 +4291,10 @@ impl EntityWorld {
         if self.ai.is_empty() {
             return;
         }
-        let mut targets: Vec<AiTarget> = self
-            .ai
-            .agents()
-            .iter()
-            .map(|agent| AiTarget {
-                handle: agent.handle,
-                instance_id: agent.instance_id.clone(),
-                role: agent.role.clone(),
-                behavior: agent.def.behavior,
-                position: agent.position,
-                radius: agent.profile.radius,
-                height: agent.profile.height,
-                caught: agent.caught || matches!(agent.state, crate::engine::ai::AiState::Hidden),
-            })
-            .collect();
+        self.ai_use_acks
+            .retain(|ack| self.ai.operation_exists(ack.token));
+        self.refresh_ai_objects();
+        let mut targets = self.ai.target_snapshot();
         targets.push(AiTarget {
             handle: crate::engine::ai::PLAYER_TARGET_HANDLE,
             instance_id: "player".to_string(),
@@ -4263,9 +4331,13 @@ impl EntityWorld {
             stimuli: &stimuli,
             scripted: &scripted,
             obstacles: &self.navigation_obstacles,
+            objects: &self.ai_objects,
+            player_visible: &self.script_visible.iter().copied().collect::<Vec<_>>(),
+            use_acks: &self.ai_use_acks,
         };
         let mut outcome = AiOutcome::default();
         self.ai.tick(&ai_ctx, &mut outcome);
+        self.apply_ai_effects(std::mem::take(&mut outcome.task_effects), tick);
         tick.frames_dirty |= outcome.transitions > 0 || outcome.cues_changed;
         for (handle, position, yaw_degrees, spawned) in outcome.moved {
             if let Some(transform) = self.components.transforms.get_mut(handle) {
@@ -4838,35 +4910,7 @@ impl EntityWorld {
             // pose while the agent is frozen in a catch or scripted state;
             // once ordinary locomotion resumes, the state-driven gait wins so
             // a finished one-shot cannot pin the agent in a held pose.
-            let cue = if agent.frozen() {
-                self.animation_override(&agent.instance_id)
-                    .cloned()
-                    .unwrap_or_else(|| agent.cue())
-            } else {
-                agent.cue()
-            };
-            let carrying_cue = self
-                .handle_of(&agent.instance_id)
-                .and_then(|h| self.components.carries.get(h))
-                .filter(|carry| carry.item.is_some())
-                .map_or_else(
-                    || cue.clone(),
-                    |carry| {
-                        if self.scripted_poses.contains(&agent.instance_id) {
-                            cue.clone()
-                        } else {
-                            PoseCue::Clip {
-                                name: if matches!(cue, PoseCue::Walk { speed_mps: _ }) {
-                                    carry.def.walk_clip.clone()
-                                } else {
-                                    carry.def.idle_clip.clone()
-                                },
-                                once: false,
-                                paused: false,
-                            }
-                        }
-                    },
-                );
+            let carrying_cue = self.ai_frame_cue(agent);
             let (opacity, glow) = self.frame_visuals(&agent.instance_id);
             self.entity_frames.push(EntityFrame {
                 instance_id: agent.instance_id.clone(),
@@ -5241,7 +5285,7 @@ pub(crate) fn door_pose_hits_box(leaf: &DoorCollider, solid: &WallAabb) -> bool 
 /// angle, which froze the shipped demo doors; a blocker thick enough to stop
 /// a leaf (walls, props and jambs here are all several centimetres thick)
 /// still crosses the centre plane, and the worst case is a leaf whose face
-/// grazes a parallel wall by half its own thickness — the same place a real
+/// grazes a parallel wall by half its own thickness â€” the same place a real
 /// door comes to rest.
 fn door_pose_hits_static(
     index: &CollisionIndex,

@@ -6,8 +6,8 @@ validated gameplay semantics and the prepared static world the offline compiler 
 not compile maps, bake light, pack charts, capture reflections or generate
 static navigation; it decodes these records and uploads them.
 
-The repository tracks authored maps in `levels/`, with the maintained IDs
-listed in `levels/lineup.txt`. Compiled `.placesmap` files are untracked build
+The repository tracks maintained authored maps in `projects/`, with the curated
+distribution allowlist in `levels/lineup.txt`. Compiled `.placesmap` files are untracked build
 outputs. Rust builds and source tests work before any map is compiled; the
 player needs compiled packages to play.
 
@@ -23,11 +23,11 @@ python3 tools/levels/compile.py --workers 8
 `sh tools/build-maps.sh` builds the release compiler and runs the same lineup
 tool. It compiles Static (`off`) and Full variants, with reflection capture for Full, into
 `assets/levels/`, verifies each package against current inputs, and validates
-every record. After editing one source, build its output explicitly:
+every record. After editing a maintained project source, export the whole project:
 
 ```sh
-./target/release/places-compile build levels/home_showcase.json \
-    --out assets/levels/home_showcase.placesmap --asset-root assets
+./target/release/places-compile export-project projects/environments \
+    --out assets/levels/environments.placesmap --asset-root assets
 ```
 
 The player discovers bundled packages in `assets/levels/` and installed packages
@@ -44,6 +44,21 @@ inputs before exporting them. Packaging never compiles maps on the player's beha
 `places-compile` reuses an existing package when the source, the referenced
 asset identities and the compiler version are unchanged; `--force` rebuilds.
 A failed build leaves the previous package untouched.
+
+## Pre-release format policy
+
+Until Places reaches full release, do not add backward-compatibility layers or
+fallback admission for old formats. Update and recompile affected project-owned
+levels, combined projects, the bundled menu and active exports to current
+requirements. Retain strict reader validation. Preserve authored source,
+unrelated user content and unique historical evidence; report an external
+content blocker rather than silently adding fallback support. This policy
+applies to later queue items as well as the shared-AI migration.
+
+Script-bearing and configured shared-AI content requires `shared-ai-v1`.
+The compiler advertises it and the reader rejects its omission. Existing
+historical implementation notes below describe prior work; this policy does
+not authorize wholesale removal of unrelated existing code.
 
 ## Transport and exact uniform tiles (0.13.0 compiler pass)
 

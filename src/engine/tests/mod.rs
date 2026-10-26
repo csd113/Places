@@ -18,6 +18,7 @@ mod player_item_contact;
 mod project_contract;
 mod prop_rotation;
 mod release_contact;
+mod shared_ai;
 mod trigger_index;
 mod trigger_occupants;
 

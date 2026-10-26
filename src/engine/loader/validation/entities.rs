@@ -1379,6 +1379,61 @@ fn validate_action(
                 |facts| facts.has_carry,
             )?;
         }
+        ActionDef::AiSenses { target, rules } => {
+            if rules.len() > 16
+                || !rules
+                    .iter()
+                    .all(crate::engine::ai::authoring::SenseRule::is_valid)
+            {
+                return Err("Invalid bounded AI sense rules".into());
+            }
+            check_action_target(
+                action_context,
+                Some(target),
+                implicit,
+                index,
+                "an AI body",
+                |facts| facts.has_ai,
+            )?;
+        }
+        ActionDef::AiPause {
+            target,
+            key,
+            paused: _,
+        } => {
+            if !crate::engine::ai::authoring::name_valid(key) {
+                return Err("Invalid bounded AI task key".into());
+            }
+            check_action_target(
+                action_context,
+                Some(target),
+                implicit,
+                index,
+                "an AI body",
+                |facts| facts.has_ai,
+            )?;
+        }
+        ActionDef::AiTask {
+            target,
+            key,
+            request,
+        } => {
+            if !crate::engine::ai::authoring::name_valid(key)
+                || request
+                    .as_deref()
+                    .is_some_and(|r| r.key != *key || !r.is_valid())
+            {
+                return Err("Invalid bounded AI task".into());
+            }
+            check_action_target(
+                action_context,
+                Some(target),
+                implicit,
+                index,
+                "an AI body",
+                |facts| facts.has_ai,
+            )?;
+        }
         ActionDef::Navigate {
             target,
             position,

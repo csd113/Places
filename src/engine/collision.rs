@@ -4,8 +4,8 @@ use crate::engine::package::binary::{Reader, Writer};
 
 mod movement;
 pub(crate) use movement::{
-    HorizontalWorld, disc_segment_blocked, door_segment_blocked, square_overlaps_door,
-    square_overlaps_wall, sweep_player_hull,
+    HorizontalWorld, disc_segment_blocked, door_segment_blocked, dynamic_disc_segment_blocked,
+    square_overlaps_door, square_overlaps_wall, sweep_player_hull,
 };
 
 /// Half width of the fixed 32-unit square player hull (0.025 m/unit).

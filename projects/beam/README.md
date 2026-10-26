@@ -51,8 +51,8 @@ recipe for an earlier single-map layout. These saved project sources are the
 current authority; do not regenerate them from that recipe.
 
 The scripts use existing navigation, physical-item receivers and native light
-response. Patrol, last-seen/search pacing and catch rules are map-local logic
-for the queued shared AI migration. Keep the objective furniture, refuge rules,
+response. Patrol and sampled last-seen/search movement use the shared AI task runtime.
+The scripts retain authored decision timing, refuge rules and catch conditions. Keep the objective furniture, refuge rules,
 physical removal behavior and flashlight occlusion/hold behavior intact.
 
 The visitor uses the existing per-entity `shadow_only` rendering option. The

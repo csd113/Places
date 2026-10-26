@@ -72,6 +72,25 @@ impl EntityWorld {
                     sequence: _,
                     target: _
                 }
+                | ActionDef::AiSenses {
+                    target: _,
+                    rules: _
+                }
+                | ActionDef::AiPause {
+                    target: _,
+                    key: _,
+                    paused: _
+                }
+                | ActionDef::AiTask {
+                    target: _,
+                    key: _,
+                    request: _
+                }
+                | ActionDef::Navigate {
+                    target: _,
+                    position: _,
+                    speed_mps: _
+                }
                 | ActionDef::HandoffItem { target: _ }
         ) && self
             .resolve_target(action.target(), actor)

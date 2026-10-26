@@ -10,7 +10,7 @@ use glam::Vec2;
 
 /// Distance kept before a hit to absorb f32 roundoff, in metres (20 microns).
 const SWEEP_SKIN: f32 = 2e-5;
-/// Squared displacement below which there is no meaningful sweep, in m².
+/// Squared displacement below which there is no meaningful sweep, in mÂ².
 const MOTION_EPS_SQUARED: f32 = 1e-12;
 /// Dot product tolerance for a grazing direction, in metres per sweep.
 const GRAZING_EPS: f32 = 1e-8;
@@ -172,6 +172,50 @@ pub fn disc_segment_blocked(
         }
     });
     blocked
+}
+
+/// Dynamic bodies can settle into an actor after a drop. Permit a separating
+/// sweep from that initial overlap, while retaining exact sweeps for clear starts.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "finite horizontal contact vectors"
+)]
+pub fn dynamic_disc_segment_blocked(
+    from: Vec2,
+    to: Vec2,
+    radius: f32,
+    feet: f32,
+    height: f32,
+    solids: &[WallAabb],
+) -> bool {
+    solids.iter().any(|solid| {
+        if !solid.blocks_body(feet, height) {
+            return false;
+        }
+        if solid.overlaps_disc(from.x, from.y, radius) {
+            let nearest = from.clamp(
+                Vec2::new(solid.min_x, solid.min_z),
+                Vec2::new(solid.max_x, solid.max_z),
+            );
+            let offset = from - nearest;
+            let normal = if offset.length_squared() > MOTION_EPS_SQUARED {
+                offset
+            } else {
+                [
+                    (from.x - solid.min_x, Vec2::NEG_X),
+                    (solid.max_x - from.x, Vec2::X),
+                    (from.y - solid.min_z, Vec2::NEG_Y),
+                    (solid.max_z - from.y, Vec2::Y),
+                ]
+                .into_iter()
+                .min_by(|a, b| a.0.total_cmp(&b.0))
+                .map_or(Vec2::ZERO, |(_, normal)| normal)
+            };
+            return (to - from).dot(normal) < -GRAZING_EPS;
+        }
+        solid.overlaps_disc(to.x, to.y, radius)
+            || cast_disc(from, to - from, radius, solid).is_some()
+    })
 }
 
 fn cast_door(from: Vec2, motion: Vec2, radius: f32, door: &DoorCollider) -> Option<SweepHit> {

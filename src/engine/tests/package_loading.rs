@@ -361,3 +361,44 @@ fn shadow_only_sources_require_an_explicit_host_capability() -> Result<(), Strin
     assert!(world::validate_shadow_only(&level, &manifest).is_err());
     Ok(())
 }
+
+// Pre-release content is rebuilt to current capabilities, never silently
+// admitted through an old-script fallback. A sub-KiB archive protects strict
+// script and serialized-data admission without assets, baking or a GPU.
+#[test]
+fn scripts_and_shared_ai_data_require_current_capability() -> Result<(), String> {
+    let mut manifest = minimal_manifest()?;
+    manifest.required_capabilities.push("luau-v1".into());
+    let bytes = fixture_archive(&manifest)?;
+    let reader = crate::engine::package::PackageReader::new(Cursor::new(bytes))
+        .map_err(|e| e.to_string())?;
+    let mut level=crate::engine::level::LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"package_snapshot","name":"Legacy script","spawn":{"x":1,"z":1},"rooms":[{"width":4,"depth":4}]}"#).map_err(|e|e.to_string())?;
+    let path = crate::engine::project::ProjectPath::new("scripts/legacy.luau".into())?;
+    level.scripts.push(path.clone());
+    level
+        .script_sources
+        .push(crate::engine::scripting::ScriptSource {
+            path,
+            source: "return {}".into(),
+        });
+    let missing = world::validate_semantics(&reader, &manifest, &level)
+        .err()
+        .ok_or("Script archive missing shared AI capability was admitted")?;
+    assert!(missing.contains("shared-ai-v1"));
+    manifest.required_capabilities.push("shared-ai-v1".into());
+    world::validate_semantics(&reader, &manifest, &level)?;
+    level.scripts.clear();
+    level.script_sources.clear();
+    manifest
+        .required_capabilities
+        .retain(|value| value != "shared-ai-v1");
+    let configured=crate::engine::level::LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"package_snapshot","name":"Configured AI","spawn":{"x":1,"z":1},"rooms":[{"width":4,"depth":4}],"props":[{"id":"actor","model":"mannequin","x":2,"z":2,"components":[{"component":"nav_agent","radius":0.22,"height":1.8,"speed_mps":1.0},{"component":"ai","tasks":[{"key":"wait","priority":80,"definition":{"task":"wait","seconds":1}}]}]}]}"#).map_err(|e|e.to_string())?;
+    level.props = configured.props;
+    let refusal = world::validate_semantics(&reader, &manifest, &level)
+        .err()
+        .ok_or("New AI data without capability was accepted")?;
+    assert!(refusal.contains("shared-ai-v1"));
+    manifest.required_capabilities.push("shared-ai-v1".into());
+    world::validate_semantics(&reader, &manifest, &level)?;
+    Ok(())
+}

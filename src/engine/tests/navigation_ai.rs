@@ -113,6 +113,9 @@ impl Fixture {
             stimuli: &[],
             scripted,
             obstacles: &self.obstacles,
+            objects: &[],
+            player_visible: &[],
+            use_acks: &[],
         }
     }
 }

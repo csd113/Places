@@ -14,6 +14,7 @@ compile_error!(
 mod api;
 mod campaign;
 mod standard;
+mod task_value;
 
 pub use campaign::{CampaignProgress, SharedCampaign};
 

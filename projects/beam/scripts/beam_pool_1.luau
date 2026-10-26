@@ -3,11 +3,10 @@
 local C = {["next_name"]="Office",["title"]="Pool",["heading"]="POOL (2 OF 4)",["next_level"]="beam_office",["previous_level"]="beam",["final"]=false,["grace"]=10,["speed"]=0.8064,["memory"]=5,["refuge"]={2.7,6.5,23.3,28},["post"]={20,0,16},["patrol"]={{20,0,16},{20,0,7},{14,0,6.8},{5,0,8},{5,0,20},{12,0,22},{20,0,22},{20,0,4}},["receivers"]={["return_duck"]=1,["return_towel"]=2,["return_cleaner"]=3},["items"]={{["state"]="item_1_returned",["hint"]="The rubber duck is floating in the pool.",["destination"]="Put it on the plastic table in the service corridor."},{["state"]="item_2_returned",["hint"]="The blue towel is on a bench in the changing area.",["destination"]="Put it on the bench in the service corridor."},{["state"]="item_3_returned",["hint"]="The detergent is on a low shelf by the utility sink. Hold C to crouch.",["destination"]="Put it on the top shelf of the empty rack in the service corridor."}},["exit_hint"]="Use the exit door to go to the Office.",["intro"]={"Put the rubber duck on the plastic table in the service corridor.","Put the blue towel on the bench beside that table.","Put the detergent on the top shelf of the empty rack.","E: carry or put down. Hold C to crouch.","F: flashlight on/off. Keep the shadow in the beam to stop it.","F1: item hints. EXIT sign: restart. Exit door: go to the Office."}}
 -- The renderer owns actual beam occlusion/reveal/hold. Navigation owns movement.
 -- This map-local layer owns objectives, refuge boundaries, search pacing and ending.
--- The queued shared-AI pass can migrate search/patrol without changing those rules.
+-- Shared AI owns patrol/search; this layer retains narrative rules and timing.
 local returned = { false, false, false }
-local elapsed, nav_wait, close_seconds, lost_seconds = 0, 0, 0, 99
-local last_seen = { x = C.post[1], y = C.post[2], z = C.post[3] }
-local post, finished, step_wait, beam_hold, sealed = 1, false, 0, 0, false
+local elapsed, nav_wait, close_seconds = 0, 0, 0
+local finished, step_wait, beam_hold, sealed = false, 0, 0, false
 local previous_x, previous_z = C.post[1], C.post[3]
 local step_distance, step_sounding = 0, false
 local function count()
@@ -128,7 +127,6 @@ return {
                 step_sounding = false
             end
         end
-        if a.player_visible and not safe then last_seen = p; lost_seconds = 0 else lost_seconds += dt end
         if C.final and not sealed and count() == 3 then
             if not safe and a.player_visible and a.intensity >= 0.035 and distance < 8 then
                 beam_hold += dt
@@ -154,16 +152,10 @@ return {
         nav_wait -= dt
         if nav_wait > 0 or a.illuminated then return end
         nav_wait = 0.8
-        local speed = C.speed + count()*0.0672
-        if not safe and lost_seconds < C.memory then
-            api.navigate('visitor', last_seen.x, last_seen.y, last_seen.z, speed)
-        else
-            local goal = C.patrol[post]
-            if math.abs(a.x-goal[1])+math.abs(a.y-goal[2])+math.abs(a.z-goal[3]) < 0.8 then
-                post = post % #C.patrol + 1
-                goal = C.patrol[post]
-            end
-            api.navigate('visitor', goal[1], goal[2], goal[3], speed)
-        end
+        api.ai_task('visitor', 'beam_patrol', {
+            key='beam_patrol', priority=80,
+            definition={task='patrol',points=C.patrol,speed=C.speed+count()*0.0672,
+                memory_seconds=C.memory,track_player=not safe,decision_seconds=0.8},
+        })
     end,
 }

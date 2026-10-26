@@ -111,12 +111,28 @@ impl EntityWorld {
         let Some(key) = self.dynamic_key(handle).or_else(|| self.stable_key(handle)) else {
             return;
         };
+        let sound = emitter.sound.clone();
+        let gain = emitter.gain;
+        let looped = emitter.looped;
+        let time_domain = emitter.time_domain;
+        if !looped {
+            let position = self
+                .components
+                .transforms
+                .get(handle)
+                .map(|pose| pose.position);
+            let radius = emitter.attenuation.map_or(12.0, |[_, far]| far).min(30.0)
+                * emitter.gain.clamp(0.0, 1.0);
+            if let Some(anchor) = position {
+                self.note_stimulus(anchor, radius, "sound", Some(handle));
+            }
+        }
         self.commands.push(WorldCommand::PlaySound {
             entity: key,
-            sound: emitter.sound.clone(),
-            gain: emitter.gain,
-            looped: emitter.looped,
-            time_domain: emitter.time_domain,
+            sound,
+            gain,
+            looped,
+            time_domain,
         });
     }
 

@@ -246,6 +246,10 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
                 }),
             "material-acoustics-v1",
         ),
+        (
+            crate::engine::ai::authoring::level_requires_shared_ai(level),
+            "shared-ai-v1",
+        ),
         (level.has_character_textures(), "character-textures-v1"),
         (level.has_mannequin_pins(), "miniature-pins-v1"),
     ] {

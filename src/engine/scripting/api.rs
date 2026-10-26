@@ -321,6 +321,30 @@ pub(super) fn host<'scope>(
                 carry.and_then(|ownership| ownership.item.as_deref()),
             )?;
             result.set("retired", carry.is_some_and(|ownership| ownership.retired))?;
+            if let Some(agent) = world.ai().agent(&id) {
+                result.set(
+                    "ai_phase",
+                    agent
+                        .controller
+                        .active
+                        .and_then(|token| {
+                            agent.controller.runs.iter().find(|run| run.token == token)
+                        })
+                        .map(|run| run.progress.status),
+                )?;
+                result.set("ai_owner", agent.controller.owner.name())?;
+                result.set("ai_result", agent.controller.last_result.clone())?;
+                result.set(
+                    "ai_task",
+                    agent
+                        .controller
+                        .active
+                        .and_then(|token| {
+                            agent.controller.runs.iter().find(|run| run.token == token)
+                        })
+                        .map(|run| run.request.key.clone()),
+                )?;
+            }
             result.set(
                 "shadow_only",
                 world
@@ -381,6 +405,59 @@ pub(super) fn host<'scope>(
                         target: Some(id),
                         clip: Some(name),
                         looped: looped.0,
+                    },
+                )
+            },
+        )?,
+    )?;
+    api.set(
+        "ai_pause",
+        capability(
+            scope,
+            calls,
+            move |_, (raw_target, raw_key, paused): (HostString, HostString, Flag)| {
+                push(
+                    queue,
+                    limit,
+                    ActionDef::AiPause {
+                        target: entity(world, raw_target)?,
+                        key: text(raw_key, 96)?,
+                        paused: paused.0,
+                    },
+                )
+            },
+        )?,
+    )?;
+    api.set("ai_senses",capability(scope,calls,move |_,(raw_target,payload):(HostString,Value)|{
+        let rules:Vec<crate::engine::ai::authoring::SenseRule>=if matches!(&payload,Value::Table(table) if table.is_empty()){Vec::new()}else{super::task_value::decode(payload)?};
+        if rules.len()>16 || !rules.iter().all(crate::engine::ai::authoring::SenseRule::is_valid){return Err(error("Invalid bounded perception rules"));}
+        push(queue,limit,ActionDef::AiSenses{target:entity(world,raw_target)?,rules})
+    })?)?;
+    api.set(
+        "ai_task",
+        capability(
+            scope,
+            calls,
+            move |_, (raw_target, raw_key, payload): (HostString, HostString, Option<Value>)| {
+                let target = entity(world, raw_target)?;
+                let key = text(raw_key, 96)?;
+                let request = payload
+                    .map(super::task_value::decode::<crate::engine::ai::authoring::TaskRequest>)
+                    .transpose()?
+                    .map(Box::new);
+                if request
+                    .as_deref()
+                    .is_some_and(|submitted| submitted.key != key || !submitted.is_valid())
+                {
+                    return Err(error("Invalid bounded shared AI request"));
+                }
+                push(
+                    queue,
+                    limit,
+                    ActionDef::AiTask {
+                        target,
+                        key,
+                        request,
                     },
                 )
             },

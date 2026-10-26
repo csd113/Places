@@ -789,6 +789,22 @@ pub enum ActionDef {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         speed_mps: Option<f32>,
     },
+    /// Submit/replace one shared task, or cancel its key when request is absent.
+    AiSenses {
+        target: String,
+        rules: Vec<crate::engine::ai::authoring::SenseRule>,
+    },
+    AiPause {
+        target: String,
+        key: String,
+        paused: bool,
+    },
+    AiTask {
+        target: String,
+        key: String,
+        #[serde(default)]
+        request: Option<Box<crate::engine::ai::authoring::TaskRequest>>,
+    },
     /// Atomically accept the carry component's exact held item.
     HandoffItem { target: String },
     /// Return this actor's original carried item to physical simulation at its live socket.
@@ -1104,6 +1120,25 @@ const fn default_form_scale() -> f32 {
 }
 
 impl ActionDef {
+    #[must_use]
+    pub const fn uses_shared_ai(&self) -> bool {
+        matches!(
+            self,
+            Self::AiTask {
+                target: _,
+                key: _,
+                request: _
+            } | Self::AiPause {
+                target: _,
+                key: _,
+                paused: _
+            } | Self::AiSenses {
+                target: _,
+                rules: _
+            }
+        )
+    }
+
     /// The serialized tag of this action, for diagnostics.
     #[must_use]
     #[expect(
@@ -1118,6 +1153,20 @@ impl ActionDef {
                 position: _,
                 speed_mps: _,
             } => "navigate",
+            Self::AiSenses {
+                target: _,
+                rules: _,
+            } => "ai_senses",
+            Self::AiPause {
+                target: _,
+                key: _,
+                paused: _,
+            } => "ai_pause",
+            Self::AiTask {
+                target: _,
+                key: _,
+                request: _,
+            } => "ai_task",
             Self::HandoffItem { target: _ } => "handoff_item",
             Self::ReleaseItem { target: _ } => "release_item",
             Self::RetireHidden { target: _ } => "retire_hidden",
@@ -1219,6 +1268,10 @@ impl ActionDef {
     /// `None` means the action acts on the acting entity; `Some` must resolve
     /// on its own, exactly as validation promised.
     #[must_use]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Exhaustive target projection keeps typed authoring validation and dispatch consistent; splitting enum arms would duplicate the action contract"
+    )]
     pub fn target(&self) -> Option<&str> {
         match self {
             Self::Open { target }
@@ -1276,6 +1329,17 @@ impl ActionDef {
                 target,
                 position: _,
                 speed_mps: _,
+            }
+            | Self::AiSenses { target, rules: _ }
+            | Self::AiPause {
+                target,
+                key: _,
+                paused: _,
+            }
+            | Self::AiTask {
+                target,
+                key: _,
+                request: _,
             }
             | Self::ReleaseItem { target }
             | Self::HandoffItem { target }

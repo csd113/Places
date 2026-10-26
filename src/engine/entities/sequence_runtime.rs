@@ -109,6 +109,13 @@ impl EntityWorld {
             if !self.store.contains(owner) {
                 run.stop();
             }
+            if self.ai.sequence_held(owner)
+                || self
+                    .physics_actors
+                    .contains_key(self.id_of(owner).unwrap_or_default())
+            {
+                continue;
+            }
             if !run.finished && !run.stopped {
                 run.step_time += ctx.delta_seconds;
                 self.tick_sequence_steps(&mut run, ctx, tick);

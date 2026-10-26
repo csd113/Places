@@ -28,6 +28,7 @@ use glam::{Vec2, Vec3};
 
 use crate::engine::collision::{
     DoorCollider, WallAabb, disc_segment_blocked, door_segment_blocked,
+    dynamic_disc_segment_blocked,
 };
 use crate::engine::collision_index::CollisionIndex;
 use crate::engine::door::Doors;
@@ -240,16 +241,8 @@ impl AgentMove {
                 self.step_height,
                 index,
                 walls,
-            ) || disc_segment_blocked(
-                from,
-                to,
-                self.radius,
-                feet,
-                sweep_height,
-                0.0,
-                &CollisionIndex::empty(),
-                solids,
-            ) || door_segment_blocked(from, to, self.radius, feet, sweep_height, leaves)
+            ) || dynamic_disc_segment_blocked(from, to, self.radius, feet, sweep_height, solids)
+                || door_segment_blocked(from, to, self.radius, feet, sweep_height, leaves)
             {
                 return self.progress(moved, step_delta);
             }

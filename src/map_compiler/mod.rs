@@ -830,6 +830,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     if level.props.iter().any(|prop| prop.animated_door.is_some()) {
         required.push("animated-door-v1".into());
     }
+    if crate::engine::ai::authoring::level_requires_shared_ai(&level) {
+        required.push("shared-ai-v1".into());
+    }
     let manifest = Manifest {
         schema: crate::engine::package::PACKAGE_SCHEMA.to_string(),
         package_format: FORMAT_VERSION,

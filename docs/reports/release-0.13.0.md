@@ -9991,3 +9991,301 @@ unverified. The accepted water residual, cold input stall, CRT review, broader
 Python issues and final version gate remain distinct. Commit/push/remote hash,
 clean-tree verification, preserved-deliverable hashes and idle-only Cargo clean
 are recorded in the final local ownership handoff.
+
+## 2026-10-26 — shared AI foundation, six behaviours and existing-content migration
+
+**Status: shared AI implementation, current-content rebuild, native migration and
+matched performance validation completed. Final Git/custody receipts are local.**
+
+This staging increment implements the approved shared AI scope on the
+remote-verified audio base `1863c947e5e2d46b0e7085ad852b83c857dd33ad`.
+The sole writer retained custody throughout. Existing A* clearance, door
+negotiation, replanning, avoidance and stuck retries are reused. The original
+0.20-second staggered perception, eight path queries per tick and 8,192
+expansions per query remain bounded; this does not introduce another mover or
+an editor-only AI interpreter.
+
+**Runtime and ownership.** `engine/ai/authoring.rs` owns the serde contracts,
+`controller.rs` arbitration and operation identities, `tasks.rs` bounded
+behaviour execution and `senses.rs` mapped observation/alert state.
+`entities/ai_runtime.rs` adapts intent into existing world actions; native
+carry/render/physics remain responsible for the actual mesh, socket and body.
+Baseline idle/wander/prey/predator/follower and authored sequences participate
+in the same motion arbitration. Priority 0–200 selects a task; caught, physical
+ragdoll, light hold and sequences have explicit interruption semantics.
+Task preemption and explicit pause retain continuation and simulation clocks;
+cancellation, caught, despawn and world replacement invalidate their operation
+and release reservations/cargo. Ragdoll restoration creates fresh authored AI.
+Baseline resumption restores the old state, destination and custom speed, rather
+than merely returning to an idle label. Queued cancellation cannot erase the
+active owner's goal. A world epoch, generation-bearing EntityHandle and monotonic
+operation serial reject delayed physical effects after cancellation or reload.
+
+The original lost-target predator bug read the moving live target during
+advance. It now travels to observed last-known state, searches for a finite
+interval and reacquires through actual perception. Actor sight, catches, Luau
+visibility and shared tasks use static/door/live-solid LOS. An object query
+excludes the endpoint's own solid body, while a player/entity query cannot
+mistake an intervening live crate for the target body.
+
+**Six shared behaviours.** Fetch searches observed loose items by exact id or
+model type, reserves the chosen generation and follows sampled last-known item
+state. It samples eight objects per 0.20-second observation, explores expanding
+rings when the item is hidden and retries unreachable search points with a
+bounded cooldown. A player-held, stolen, removed or unavailable item cannot be
+claimed. Actual pickup waits for the posed hand to move and settle against the
+original item. The existing render/physics key is transferred into the socket
+assembly; no replacement mesh is spawned. Cancellation and interruption restore
+the original PhysicsDef, bounds, scale and mass at the current carried pose.
+Delivery navigates to an explicit stance/yaw, waits for physical putdown contact
+and actual destination proximity, then dispatches the mapped interaction.
+Raised shelves require the original body to be released at the contact and
+supported by the actual surface. Failed contact, lost cargo and root timeout
+report inspectable results and recover ownership.
+
+Investigation/search accepts typed movement/door/interact/spawn/impact/sound/
+alert noise, empty-any or selected category filters and an individual NPC
+radius. Sight filters player, other entities, exact object ids and model types
+with authored range/FOV and geometry LOS. Observations map to investigation,
+the same typed TaskRequest or a bounded alert. Follow retains only actually
+observed contact, stops live tracking behind geometry, times out memory fairly
+and uses existing navigation/stuck recovery after route or obstacle changes.
+Use supports doors, chairs, switches, shelves and generic interactable points,
+with distinct feet/contact positions, reach, optional yaw and posed socket,
+clip/contact time and hold time. Routines compose these same behaviours and
+resume their active child after urgent work, sequence ownership or pause.
+Alerts have at most 32 records, four propagation hops, six-second TTL, 16 relay
+positions and 256 visited generations; recipients share normal task priorities
+and perception semantics, preventing rebroadcast loops.
+
+**Bounded authoring and migration.** Each NPC has at most eight tasks and 16
+sense rules. Task trees are bounded to 256 nodes, depth three and 32 entries
+per list; world task object references are capped at 512. Object observation
+uses a rotating window and bounded pinned references at perception cadence;
+baseline-only scenes skip that cache. Sight work rotates eight candidates per
+rule. Native pending uses are capped at 64. Luau accepts plain tables or JSON
+through the same validated schema, with 512-node/depth-12/32-entry/16-KiB input
+bounds and invocation-atomic action publication. Cycles, metatables, sparse
+arrays, functions and non-data values are refused. `api.ai_task`, `api.ai_pause`
+and `api.ai_senses`, matching serialized actions and `ai.tasks`/`ai.senses`, plus
+actor owner/task/phase/result snapshots are documented in the canonical authoring
+guide, scripting guide and type declarations. This is the stable substrate for
+the next editor phase; no Simple/Advanced, drag-resize, template or visual-tree
+UI was implemented here.
+
+All four Beam modules now configure the shared patrol/search task while Luau
+retains quest gates, grace periods, refuge/light rules, authored 0.8-second
+patrol decisions, catch/death/reset timing, objectives and sound cues. One Guest
+configures the shared follower and explicit pauses around survey/doorway/room
+checks, retaining six arrivals, the 2.5-second room pause and proof of a physically
+closed, unobstructed locked door. Current Home's caretaker baseline and menu's authored parcel relay continue
+through existing primitives. The default-menu check exposed its stale package
+requirements. Connor's project-wide pre-release policy is now explicit: until
+full release, update owned content to current formats and add no compatibility
+layers. The provisional old-script admission exception was removed. Script-
+bearing and configured-AI packages require `shared-ai-v1` under strict reader
+validation, with a tiny semantic-admission regression. The bundled menu was
+rebuilt and verified under the exact final compiler, with its original unique
+bytes preserved outside the repository. All 16 authored projects (32 internal
+levels) were rebuilt and verified; six playable distributions contain 19
+internal levels. The menu, nine developer/review projects, 33 fixtures, two frozen
+historical sources and 462 historical validation/recovery archives are separately
+inventoried. Only the menu and two active One Guest export targets are refreshed;
+historical raw evidence remains immutable. The policy is recorded in the package
+and authoring guides and carried into the next handoff.
+
+The audio interface emits bounded, deduplicated typed gameplay stimuli from
+authored starts, footsteps and impacts. It does not change DSP, voice limits,
+cue assets/gains or the accepted audio device/listening residuals. Physical
+local correction runs only when normal A* has no usable route, probes the same
+body/floor/ceiling/door/actor collision and never teleports. Native acceptance
+caught both an overly eager correction that competed with a valid route and a
+released parcel trapping the returning baseline. Normal A* now wins; separating
+escape from an externally introduced dynamic overlap is permitted while motion
+deeper into a solid remains blocked.
+
+**Validation evidence.** Final validation and measurements are recorded below;
+raw unsuccessful candidates and corrected fixture/audit attempts remain separate
+under `C:/Users/Connor Dawkins/Documents/Codex/2026-10-25/task-8/`. Native captures
+are functional evidence and excluded from throughput measurements. Dedicated
+fixtures are explicit developer tooling, never automatic map bakes or new modes.
+
+
+Native acceptance also exposed delivery self-occlusion after the original body
+was restored. Contact rays now exclude the intended reserved body while retaining
+static/door/other-solid tests. A native raised-shelf run then found the carried
+render origin could still be sampled at the collider edge during release. The
+adapter now consumes the existing solver shape-centre path, and release publishes
+the restored physical centre before the next AI tick. This preserves script and
+render transforms and adds no world scan. Tiny tests protect strict admission,
+own-body contact versus a separate blocker and rotated physical observations.
+Final-player floor and raised-shelf native acceptance both pass with the original
+render/physics identity and actual raised support. Earlier failed candidates,
+fixture corrections and aborted/superseded helper jobs remain raw evidence.
+
+
+The exact candidate-21 source passes strict all-target/all-feature Clippy,
+**351 Rust tests** and locked optimized workspace/all-feature release. Its
+source hashes are unchanged through validation/build. The final player passes
+**21 native shared-AI scenarios / 416 checks**, plus all six baseline navigation
+cases: layered floors, clearance, doors, movable obstruction, meeting actors
+and unreachable recovery. These are functional/capture runs with current-content
+compilation active, and supply no throughput claim. Floor/table delivery,
+obscured/moved/stolen/held/removed items, competing owners, actual socket
+contact, routines/priority/sequence/pause, ragdoll, light-held cargo, typed
+perception, bounded alerts, follow obstruction, caught cancellation and inter-floor
+original-item delivery are exercised through the real native player.
+
+The corrected three-cycle unload/reload run reaches epochs 2, 4, 6 and 8.
+Each returned fixture has eight AI agents, two authored bodies, zero attachments,
+zero tasks and zero reservations. Retired-world weak witnesses report zero
+prepared-build, prepared-record and transport owners. Live process heap bytes
+are 153,061,940 initially, then 160,915,455 / 163,636,510 / 163,644,308 on the
+three returns; source image bytes stay 36,831,232 and active prepared bytes
+7,046,221. These heap counters include native/driver work, exclude VirtualAlloc,
+and include benchmark/model-cache retention; they are not AI allocation-call
+counts or a multi-hour leak claim. OS process counters and bounded frame-record
+capacity remain in the raw receipts. The original reload run completed its
+cycles but hung because its harness anchored Quit to a checkpoint after a
+capture; normal window close was recorded, the harness was corrected and only
+reload was rerun. No engine fix or repeated passing AI case was required.
+
+**Completed current-content and story gates.** All 16 project distributions
+(32 authored members, including the internal menu) exported Full and Static (`off`),
+passed package validation and passed current-source verification with the pinned
+candidate-21 compiler. Authored project sources remained byte-identical throughout
+the rebuild. Three compiler lighting advisories remain recorded: no valid
+irradiance probe at 1.500-m spacing in Beam room 1 and the unnamed authoring
+project rooms 6 and 10. They do not fail validation/current verification; no
+lighting or geometry was changed to suppress them. Exact warnings and variants
+are in `current-content/warnings-summary.json`. Six playable distributions
+contain 19 internal levels; the menu
+and nine developer/review projects are counted separately. Native current-reader
+discovery and real presentation/simulation pass for all 31 non-menu members.
+This is startup/load smoke for unchanged content, not proof of every unchanged
+quest. Full coverage retains the first 13 passing checkpoints and checks the
+remaining 18 in fresh processes. A separate Static probe passed seven members
+before correctly refusing Closing Time, whose authored circuits require Full;
+there is no blanket claim that every level supports Static.
+The initial Full campaign hit the existing conservative 2-GiB overlap limit on
+Arcade to Lantern Hollow (877,234,056 displayed plus 1,382,595,604 incoming
+charged bytes). The old world remained intact and the failed campaign was
+closed normally. This is an actual transition-budget boundary, not a format or
+AI error; no budget was raised and no package or quality was downgraded. The
+existing explicit Enter unload-and-retry route is separately exercised in the
+native player, preserving Arcade at refusal, then unloading and successfully
+loading/simulating Lantern Hollow Full. That initial
+failure and its provenance are retained separately from the completed member
+receipts. The separate bundled-menu relay run passes original parcel/body/mesh
+transfer through both porter and guest, with no duplicate body while carried
+and actual release between collectors. All seven authored vignettes remain in
+the source; this one relay does not establish full listening/visual coverage of
+every vignette.
+
+All six quiet ordinary-control migration runs pass: Beam Home, Pool, Office,
+Arcade, Beam light/catch mechanics and One Guest Too Many. They observe shared
+tasks while retaining authored completion and narrative controls; One Guest
+observes all six guests and an actually closed locked leaf. The earlier Pool
+budget failure under concurrent compilation is retained separately and does not
+relax the production budget. Arcade's first fixed-camera route returned every
+item but aimed once while the shadow remained occluded and missed the seal.
+Only Arcade was rerun: identical movement/item inputs, three extra camera-only
+reacquisitions and five seconds extra waiting pass the unchanged two-second
+seal, actual unlocked exit and win. The five passing routes were retained;
+existing snapshots additionally verify freeze/grace/pursuit/reacquisition/catch/
+reset and the named unobstructed closed locked store leaf with the original
+follower physically inside. The final production Luau guard passes both
+projects and all 11 resource/exception refusal cases.
+Asset gates pass: 629 assets, 389 placeable entries, nine themes, zero validation
+warnings, plus audio, props, textures and clip boundaries. The 27 targeted Python
+contract checks also passed; the older broader Python failures/skips were not
+rerun or reclassified.
+
+**Matched uncapped measurements.** Three interleaved baseline/candidate pairs of
+twenty-ready-second runs use the same navigation archive, timed nine-NPC route changes,
+camera, settings and 120 warmup frames. Both use real delta time, physical
+1280x720, actual Immediate presentation, VSync off and no limiter; observed FPS
+exceeds the 165-Hz panel rate. High texture quality/filtering and the same Low
+lighting setting are used in both runs (lightmaps/reflections off); this is a
+navigation/runtime comparison, not a new water optical measurement. No captures,
+builds or content bakes run during timing. Table values are medians of three
+runs; worst columns are medians of each run's worst frame, not pooled maxima.
+
+| Metric | Baseline | Shared AI | Change |
+| --- | ---: | ---: | ---: |
+| Average FPS (FPS) | 482.018 | 475.335 | -1.4% |
+| Loop p95 (ms) | 2.890 | 2.974 | +2.9% |
+| Loop p99 (ms) | 4.127 | 4.169 | +1.0% |
+| Loop worst (ms) | 19.777 | 19.965 | +1.0% |
+| Update mean (ms) | 0.580 | 0.612 | +5.6% |
+| Update p99 (ms) | 1.028 | 1.161 | +12.9% |
+| Update worst (ms) | 18.203 | 18.388 | +1.0% |
+| Whole-process CPU (s) | 23.547 | 24.375 | +3.5% |
+| Sampled peak private (MiB) | 470.992 | 469.547 | -0.3% |
+| OS peak working set (MiB) | 338.637 | 337.324 | -0.4% |
+
+Loop p99 ranges are 3.728-4.724 ms
+baseline and 3.680-4.523 ms final;
+update p99 ranges are 0.998-1.174
+and 1.136-1.695 ms. Frame counters
+exclude startup; OS CPU/private/working-set counters cover the complete process.
+Private bytes are sampled every 250 ms and are not Rust allocation-call counts
+or GPU VRAM. Thermal/session variance is not removed by three samples.
+
+An earlier time-separated comparison measured 551.6 versus 467.8 FPS and loop
+p99 2.864 versus 4.260 ms. That prompted the same-session interleaved control
+reported above. The interleaved median throughput difference is -1.4%, with
+update mean +0.032 ms and update p99 +0.133 ms. Frame-tail ranges overlap; the
+additional CPU cost is retained explicitly and zero regression is not claimed.
+Both earlier groups remain in `final-metrics-initial-session-comparison.json`,
+`baseline-navigation/` and `final-navigation/`; no host settings or GPU clocks
+were inspected or changed.
+
+The separate absolute new-task workload runs at 414.4 FPS,
+loop p99 4.183 ms (worst 8.135),
+update mean/p99 0.844/1.424 ms,
+whole-process CPU 25.719 s, sampled peak private
+463.7 MiB and OS peak working set
+332.4 MiB. This is not a baseline
+feature comparison. Its existing shared-task fixture and acceptance actions
+provide the absolute workload; the 21 functional cases remain separate proof of
+physical behaviour and ownership. All workload actions and normal shutdown are
+verified. The task workload retains a 19.5-second lifetime checkpoint inside the
+measurement; its serialization cost can affect the worst frame. The matched
+navigation comparison has no such checkpoints.
+
+**Provenance and handoff.** Player SHA-256:
+`a870b627ff177f41551f8cb902b2a87307812aa8caeacfe5c6528904d10d5da6`; compiler:
+`8d486f5b0a42d5f8c5d357789e3ed8ac2bd345cd2cebb3ef58185364272bd82e`. All gates and rebuilt content use those pinned
+executables. Source review subsequently restored the original UTF-8 punctuation
+in exactly two pre-existing documentation-comment lines in package/world.rs;
+no runtime tokens changed. Exact as-built bytes, the two-line delta and hashes
+of every other unchanged Rust/Cargo input are retained in
+`native-build-21/final-source-lineage.json`. Formatting and whitespace checks
+pass after that comment-only restoration.
+
+Raw receipts live outside target in task-8: `current-content/` (all packages,
+source proofs and original active-target backups), `native-current-content-final/`,
+`native-current-content/` (original Full transition-budget refusal),
+`native-current-content-full-resume/`, `native-current-content-static/`,
+`migration-native21/`, `migration-native21-arcade-adjusted/`,
+`migration-native21-final-results.json`, `native-full-budget-retry/`,
+`native-menu21/`, `native-final21-ai-matrix.json`,
+`native-final21-lifetime.json`, `native-final21-navigation/`,
+`native-build-21/`, `assets-ai-final21/`, `luau-release-ai21.json`,
+`baseline-navigation/`, `final-navigation/`, `paired-session-navigation/`,
+`paired-metrics.json`, `final-task-stress/` and
+`final-metrics.json`. Unique old menu/export bytes, failed candidates and harness
+attempts remain preserved. Final source/binaries/symbols/packages are hash-checked
+before idle-only Cargo cleanup. Exact staging commit, verified remote hash,
+clean-tree and cleanup/custody receipts are recorded in `ownership-handoff.json`.
+
+Water retains its accepted optical p99 cost (4.211 versus 2.988 ms). Audio
+listening, headphone fit, physical hotplug and platform coverage remain
+unverified; dense pause still adds approximately 22 ms. The cold approximately
+2.4-second input stall and CRT reflection review remain separate. No main merge,
+force push, release/version bump, ordinary CI wait,
+host-settings change, GPU-clock diagnosis, iGPU pass or Mac switch occurs here.
+No new pre-release compatibility layer is admitted: later phases must rebuild
+affected owned content. The next approved task is the editor using Astra High,
+then Backrooms, integrated polish/one iGPU pass and the final version/package gate.

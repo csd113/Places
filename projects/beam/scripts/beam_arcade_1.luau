@@ -3,11 +3,10 @@
 local C = {["next_name"]="",["title"]="Arcade",["heading"]="ARCADE (4 OF 4)",["next_level"]="",["previous_level"]="beam_office",["final"]=true,["grace"]=6,["speed"]=0.9856,["memory"]=4,["refuge"]={0.2,27.8,24.3,30},["post"]={11.2,0,9},["patrol"]={{11.2,0,9},{10.5,0,4},{3,0,5},{3,0,13},{6.5,0,16},{11,0,22},{17,0,22},{23,0,12},{23,0,8},{15,0,8}},["receivers"]={["return_plush"]=1,["return_gift"]=2,["return_ball"]=3},["items"]={{["state"]="item_1_returned",["hint"]="The plush cat is on a small table behind the west arcade machines.",["destination"]="Put it on the round prize table in the foyer."},{["state"]="item_2_returned",["hint"]="The star-patterned gift is on a party table.",["destination"]="Put it on the prize counter in the foyer."},{["state"]="item_3_returned",["hint"]="The blue bowling ball is on the rack by the bowling lane.",["destination"]="Put it on the empty ball rack in the foyer."}},["exit_hint"]="Use the exit door in the foyer to finish the game.",["intro"]={"Put the plush cat on the round prize table and the gift on the counter.","Put the blue bowling ball on the empty rack in the foyer.","Then leave the foyer and keep your flashlight on the moving shadow.","Hold the beam for two seconds. Move closer if the exit stays locked.","E: carry or put down. F: flashlight on/off. F1: item hints.","The foyer is safe. Use the EXIT sign to restart this chapter."}}
 -- The renderer owns actual beam occlusion/reveal/hold. Navigation owns movement.
 -- This map-local layer owns objectives, refuge boundaries, search pacing and ending.
--- The queued shared-AI pass can migrate search/patrol without changing those rules.
+-- Shared AI owns patrol/search; this layer retains narrative rules and timing.
 local returned = { false, false, false }
-local elapsed, nav_wait, close_seconds, lost_seconds = 0, 0, 0, 99
-local last_seen = { x = C.post[1], y = C.post[2], z = C.post[3] }
-local post, finished, step_wait, beam_hold, sealed = 1, false, 0, 0, false
+local elapsed, nav_wait, close_seconds = 0, 0, 0
+local finished, step_wait, beam_hold, sealed = false, 0, 0, false
 local previous_x, previous_z = C.post[1], C.post[3]
 local step_distance, step_sounding = 0, false
 local function count()
@@ -128,7 +127,6 @@ return {
                 step_sounding = false
             end
         end
-        if a.player_visible and not safe then last_seen = p; lost_seconds = 0 else lost_seconds += dt end
         if C.final and not sealed and count() == 3 then
             if p.z < C.refuge[3] and not safe and a.player_visible and a.intensity >= 0.035 and distance < 8 then
                 beam_hold += dt
@@ -154,16 +152,10 @@ return {
         nav_wait -= dt
         if nav_wait > 0 or a.illuminated then return end
         nav_wait = 0.8
-        local speed = C.speed + count()*0.0672
-        if not safe and lost_seconds < C.memory then
-            api.navigate('visitor', last_seen.x, last_seen.y, last_seen.z, speed)
-        else
-            local goal = C.patrol[post]
-            if math.abs(a.x-goal[1])+math.abs(a.y-goal[2])+math.abs(a.z-goal[3]) < 0.8 then
-                post = post % #C.patrol + 1
-                goal = C.patrol[post]
-            end
-            api.navigate('visitor', goal[1], goal[2], goal[3], speed)
-        end
+        api.ai_task('visitor', 'beam_patrol', {
+            key='beam_patrol', priority=80,
+            definition={task='patrol',points=C.patrol,speed=C.speed+count()*0.0672,
+                memory_seconds=C.memory,track_player=not safe,decision_seconds=0.8},
+        })
     end,
 }

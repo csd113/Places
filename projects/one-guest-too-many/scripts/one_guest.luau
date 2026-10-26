@@ -4,8 +4,6 @@
 local arrivals = 0
 local armed = true
 local clock = 0
-local lastSeen = nil
-local searchLeft = 0
 local lockPending = false
 local caught = false
 local phase = "quiet"
@@ -123,6 +121,7 @@ return {
         -- Doorway caution is physical and visible. A guest already entirely in
         -- the room waits while the leaf sweeps, rather than walking into it.
         if (d.phase == "closing" or d.phase == "opening") and inside(a) then
+            api.ai_pause(follower,"guest_follow",true)
             api.navigate(follower, a.x, a.y, a.z)
             state(api, "doorway")
             return
@@ -132,6 +131,7 @@ return {
         if contained then
             if not caught then
                 caught = true
+                api.ai_pause(follower,"guest_follow",true)
                 api.navigate(follower, a.x, a.y, a.z)
                 api.prompt("party_cake", arrivals == 6 and "Finish the birthday party" or "Birthday cake - waiting for guests")
                 api.set_state("party_cake", "contained", true)
@@ -155,28 +155,17 @@ return {
         end
         if roomPause > 0 and inside(a) then
             roomPause -= dt
+            api.ai_pause(follower,"guest_follow",true)
             api.navigate(follower, a.x, a.y, a.z)
             state(api, "surveying")
             return
         end
-        local dx, dz = p.x-a.x, p.z-a.z
-        local distance2 = dx*dx + dz*dz
-        if a.player_visible and distance2 < 144 and math.abs(p.y-a.y) < 1.5 then
-            lastSeen = {x=p.x, y=p.y, z=p.z}
-            searchLeft = 4
-            state(api, "following")
-            if distance2 > 2.25 then api.navigate(follower, p.x, p.y, p.z, 1.25)
-            else api.navigate(follower, a.x, a.y, a.z) end
-        elseif lastSeen and searchLeft > 0 then
-            searchLeft -= dt
-            state(api, "searching")
-            api.navigate(follower, lastSeen.x, lastSeen.y, lastSeen.z, 1.25)
-        else
-            if lastSeen then
-                api.navigate(follower, a.x, a.y, a.z)
-                lastSeen = nil
-            end
-            state(api, "waiting")
-        end
+        api.ai_task(follower,"guest_follow",{
+            key="guest_follow",priority=80,
+            definition={task="follow",target="player",distance=1.5,memory_seconds=4},
+        })
+        api.ai_pause(follower,"guest_follow",false)
+        state(api, a.ai_phase == "target_lost" and "waiting"
+            or (a.ai_phase == "searching" and "searching" or "following"))
     end,
 }

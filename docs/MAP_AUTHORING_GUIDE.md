@@ -7463,6 +7463,102 @@ template, the group, the tags and the sequence are all ordinary data.
   point with no navigable cell, so a stair or passage that silently breaks an
   actor's clearance is visible at build time.
 
+### 33.8 Shared tasks, perception and interaction (0.13)
+
+The `shared-ai-v1` package capability admits the same typed behaviours from
+serialized `ai.tasks`, actions and Luau. Script-bearing and configured-AI content
+requires the current capability. Before full release, project-owned content is
+rebuilt to current formats rather than admitted through compatibility fallbacks. `ai.tasks` contains requests with
+`key`, `priority` (0..200) and `definition`; the highest priority runs first,
+with older requests winning ties. Up to eight tasks belong to one NPC. Reusing
+an identical key/request is idempotent; changing a request replaces its token.
+Patrol parameter updates retain the patrol waypoint and sampled memory.
+
+| Definition `task` | Required configuration |
+| --- | --- |
+| `move` | `point: [x,y,z]`, optional `speed` (0.05..8 m/s) |
+| `wait` | `seconds` (0.01..600) |
+| `investigate` | last observed `point`, `seconds` (0.1..120), search `radius` (0..20 m) |
+| `fetch` | `item: {match: "id" or "object_type", value: "..."}`, `destination: UsePoint`, optional `search_radius` (default 30, maximum 100 m) |
+| `use` | `point: UsePoint` |
+| `follow` | entity `target` (or `player`), `distance` (0.5..10 m), `memory_seconds` (0.1..120) |
+| `routine` | `steps` (1..32 definitions), optional `looped` (false) |
+| `patrol` | `points` (1..32 feet points), `speed`, `memory_seconds`, optional `track_player` (false), `decision_seconds` (default 0.8, 0.1..5) |
+
+`UsePoint` separates reachable feet `approach: [x,y,z]` from world-space
+`contact: [x,y,z]`. It names `target`, optional `kind` (`interact`, `door`,
+`chair`, `switch`, `shelf`), `reach` (default 1.5 m), `contact_seconds` (0.35),
+`hold_seconds` (0), optional facing `yaw_degrees`, animation `clip` and posed node `socket`. With a
+socket, native interaction waits for actual posed contact within 0.18 m.
+Author approach/facing and the clip for that rig; a timer alone cannot prove
+hand contact. Missing targets, unreachable contacts and failed contact have
+inspectable failure results. Door use respects locks. Switch/shelf/interact
+requires an enabled ordinary interactable; chair use may supply only its pose.
+
+Fetch requires an NPC `carry` component/socket and a loose physical pickup
+item. It reserves the actual entity generation, approaches and plays the
+existing pickup clip, then transfers the original render resource and body
+through the existing native carry owner. AI set-down waits for the actual
+item grip to settle within 0.18 m of the configured contact point; an early
+wrist pause cannot drop cargo from standing height. Player-held and other-owned items
+are unavailable. Fetch navigation retains sampled last-known item positions when an item moves
+out of sight. Its bounded search expands through eight directions around the
+last observed point or home, up to the configured radius; unreachable samples
+rotate after cooldown and ordinary task timeout still applies. Authored routines
+can visit likely rooms/storeys before fetching. Removal, theft and interruption release reservations and
+require a fresh observation. Shelf completion waits for actual release near
+the destination contact (within 0.35 m, capped by reach) before its ordinary
+interaction. Set the destination clip to `set_down_tabletop` for raised surfaces
+on rigs with that clip; the ordinary floor set-down is the default. Cargo is restored to
+physics at its current grip on cancellation; it is never a visual duplicate.
+
+`ai.senses` is a list of at most sixteen rules. A hearing filter is
+`{sense:"hear", categories:["door"], radius:8}`; an empty category list means
+any. Categories are `movement`, `door`, `interact`, `spawn`, `sound`, `impact`
+and `alert`; both source audibility and the configured NPC radius apply.
+A sight filter is `{sense:"see", player:true, entities:false, objects:[],
+object_types:[], range:12, fov_degrees:160}`. Nonempty ID/model lists match
+objects; `entities` selects other AI actors. Real static geometry, current door leaves and live physical solid bounds block
+sight through the same baseline/task/Luau contract. Object queries exclude
+the endpoint body so they can see the object itself. Responses are `{response:"investigate",seconds:4,
+radius:1}`, `{response:"task",request:{...}}` or
+`{response:"alert",radius:8,hops:2}`. Sight fires on a new visible identity,
+then rearms after loss; hearing deduplicates the observed stimulus. Use
+`receive_alerts:true` to accept alerts as priority-90 investigation tasks.
+Alerts retain the observed point, expire after six seconds and cannot relay
+back through a previously visited generation. At most 32 alerts, four hops,
+16 relay points and 256 recipients per alert are retained.
+
+Actions `ai_task {target,key,request}` (null request cancels),
+`ai_pause {target,key,paused}` and `ai_senses {target,rules}` use those same
+contracts. Luau equivalents are described in [SCRIPTING.md](SCRIPTING.md).
+Higher tasks, sequences, caught/ragdoll state and light holds share arbitration.
+Suspended task clocks stop. Move/wait/follow retain progress; interrupted fetch
+re-observes and re-reserves; use replays its pose and retains an already confirmed
+contact. Explicit pause holds locomotion. Sequences retain authored timing and
+restore the prior AI state. Light holds retain custody, pause task poses and
+prevent physical commits until released. Cancellation, reset and unload
+invalidate epoch/generation/operation tokens before queued contact can commit.
+
+Perception remains staggered at 0.20 seconds, path queries rotate fairly with
+eight per tick and 8192 expansions per query. Searches inspect eight observed
+objects per perception interval; object snapshots rotate a 512-transform window
+with bounded explicitly pinned references. Definitions permit three nested
+routine levels, 256 nodes and 512 total explicit object references per world.
+There are no task-driven per-frame world or lighting scans. Follow/predator
+pursuit use sampled last-known positions and bounded search after loss; a hidden
+moving target cannot steer them using its live transform. Existing navigation,
+storey clearance, replanning and local avoidance serve every movement task.
+Dynamic overlap from a dropped item permits only separating escape; static
+walls retain strict collision.
+
+Native checkpoints expose `entity_simulation.ai_runtime` counts and each
+agent's `owner`, task key/token/priority/paused/active flags, nested progress,
+last result, sense rules, body radius, path queries and stuck state. Luau
+`api.actor` exposes `ai_owner`, `ai_task`, `ai_phase` and `ai_result` for authored
+story decisions. These are the authoring seam for the next editor work; no
+visual behaviour editor is implemented by this runtime change.
+
 ## 34. The Outdoor Kit
 
 The `outdoor` theme is a reusable night-exterior kit: tileable ground

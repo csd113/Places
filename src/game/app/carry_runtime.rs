@@ -23,6 +23,7 @@ struct Attachment {
     item_bounds: Option<Aabb>,
     hidden: bool,
     reset: OwnedItemReset,
+    operation: Option<crate::engine::ai::controller::OperationToken>,
 }
 
 /// Contact retains the loose item's exact pose, then continuously seats it in
@@ -74,6 +75,7 @@ struct RestoredCarry {
 struct ContactMotion {
     start: Vec3,
     previous: Vec3,
+    expected: Option<Vec3>,
 }
 
 impl ContactMotion {
@@ -81,6 +83,7 @@ impl ContactMotion {
         Self {
             start: position,
             previous: position,
+            expected: None,
         }
     }
 
@@ -92,7 +95,11 @@ impl ContactMotion {
             f32::INFINITY
         };
         self.previous = position;
-        moved && speed < 0.12
+        moved
+            && speed < 0.12
+            && self
+                .expected
+                .is_none_or(|expected| position.distance(expected) <= 0.18)
     }
 }
 
@@ -100,6 +107,12 @@ impl ContactMotion {
 pub(super) struct CarryRuntime {
     attachments: BTreeMap<String, Attachment>,
     pending_pickups: BTreeMap<String, ContactMotion>,
+    loose_operations: BTreeMap<String, crate::engine::ai::controller::OperationToken>,
+    loose_items: BTreeMap<String, String>,
+    pending_uses: BTreeMap<
+        crate::engine::ai::controller::OperationToken,
+        crate::engine::ai::authoring::UsePoint,
+    >,
     pending_putdowns: BTreeMap<String, ContactMotion>,
     occluders: Vec<WallAabb>,
     item_groups: BTreeMap<String, String>,
@@ -173,6 +186,9 @@ impl CarryRuntime {
         Self {
             attachments: BTreeMap::new(),
             pending_pickups: BTreeMap::new(),
+            loose_operations: BTreeMap::new(),
+            loose_items: BTreeMap::new(),
+            pending_uses: BTreeMap::new(),
             pending_putdowns: BTreeMap::new(),
             occluders,
             item_groups,
@@ -198,6 +214,9 @@ impl CarryRuntime {
         physics: &mut crate::engine::physics::ItemWorld,
     ) -> Result<Vec<RestoredCarry>, String> {
         self.pending_pickups.clear();
+        self.loose_operations.clear();
+        self.loose_items.clear();
+        self.pending_uses.clear();
         self.pending_putdowns.clear();
         let mut restored: Vec<RestoredCarry> = Vec::with_capacity(self.attachments.len());
         for (actor, attachment) in &self.attachments {
@@ -235,7 +254,9 @@ impl CarryRuntime {
         serde_json::json!({
             "opaque_uncut_walls":self.occluders.len(),
             "pending_pickups":self.pending_pickups.keys().collect::<Vec<_>>(),
+            "pending_uses":self.pending_uses.iter().map(|(token,point)|serde_json::json!({"serial":token.serial,"target":point.target,"expected_contact":point.contact,"socket":point.socket})).collect::<Vec<_>>(),
             "pending_putdowns":self.pending_putdowns.keys().collect::<Vec<_>>(),
+            "putdown_contacts":self.pending_putdowns.iter().map(|(actor,motion)|serde_json::json!({"actor":actor,"expected":motion.expected.map(|point|point.to_array()),"last_grip":motion.previous.to_array()})).collect::<Vec<_>>(),
             "attachments":self.attachments.iter().map(|(actor,attachment)| serde_json::json!({
                 "actor":actor,"item":attachment.item,"key":attachment.key,"socket":attachment.socket,
                 "socket_world":renderer.character_socket_transform(actor, &attachment.socket).map(|m| m.to_cols_array_2d()),
@@ -441,6 +462,30 @@ impl FrameLoop<'_> {
             .is_some_and(|name| name.starts_with(prefix))
     }
 
+    pub(super) fn pickup_ai_item(
+        &mut self,
+        token: crate::engine::ai::controller::OperationToken,
+        item: &str,
+    ) {
+        if !self.game.entities().ai_pickup_valid(token, item) {
+            return;
+        }
+        let Some(actor) = self.game.entities().id_of(token.owner).map(str::to_string) else {
+            return;
+        };
+        let _previous = self
+            .items
+            .carry
+            .loose_operations
+            .insert(actor.clone(), token);
+        let _cancelled = self.items.carry.pending_pickups.remove(&actor);
+        let _old_item = self
+            .items
+            .carry
+            .loose_items
+            .insert(actor.clone(), item.to_string());
+        self.handoff_item(&actor);
+    }
     pub(super) fn handoff_item(&mut self, target: &str) {
         if self.items.carry.has_attachment(target) {
             return;
@@ -459,6 +504,56 @@ impl FrameLoop<'_> {
         }
     }
 
+    fn loose_pickup_policy(
+        &self,
+        target: &str,
+        item: &str,
+        key: u64,
+    ) -> Option<(bool, Option<crate::engine::ai::controller::OperationToken>)> {
+        let operation = self.items.carry.loose_operations.get(target).copied();
+        if operation.is_some_and(|token| !self.game.entities().ai_pickup_valid(token, item)) {
+            return None;
+        }
+        let loose = (self.menu_world() && self.menu_active()) || operation.is_some();
+        if loose && self.items.world.held() == Some(key) {
+            return None;
+        }
+        Some((loose, operation))
+    }
+    fn carry_attachment_pose(
+        &self,
+        target: &str,
+        key: u64,
+        def: &crate::engine::level::CarryDef,
+        preserve_pose: bool,
+    ) -> Option<(Mat4, Mat4)> {
+        let [x, y, z] = def.rotation_degrees.map(f32::to_radians);
+        let authored_grip = Mat4::from_rotation_translation(
+            Quat::from_euler(EulerRot::XYZ, x, y, z),
+            Vec3::from_array(def.offset),
+        );
+        let local = if preserve_pose {
+            let socket = self
+                .renderer
+                .character_socket_transform(target, &def.socket)?;
+            let mut original_pose = None;
+            self.items.world.for_each_pose(|body, pose| {
+                if body == key {
+                    original_pose = Some(pose);
+                }
+            });
+            let pose = original_pose?;
+            // The existing item starts in exactly its pre-contact world pose.
+            // Subsequent socket motion lifts that same rendered resource.
+            socket.inverse().mul_mat4(&Mat4::from_rotation_translation(
+                pose.rotation,
+                pose.position,
+            ))
+        } else {
+            authored_grip
+        };
+        Some((authored_grip, local))
+    }
     fn handoff_item_now(&mut self, target: &str, preserve_pose: bool) {
         if self.items.carry.attachments.contains_key(target) {
             return;
@@ -472,7 +567,10 @@ impl FrameLoop<'_> {
         if carry.item.is_some() || carry.retired {
             return;
         }
-        let def = carry.def.clone();
+        let mut def = carry.def.clone();
+        if let Some(selected) = self.items.carry.loose_items.get(target) {
+            def.item.clone_from(selected);
+        }
         let Some(key) = self
             .items
             .authored
@@ -482,7 +580,10 @@ impl FrameLoop<'_> {
         else {
             return;
         };
-        let menu_pickup = self.menu_world() && self.menu_active();
+        let Some((menu_pickup, operation)) = self.loose_pickup_policy(target, &def.item, key)
+        else {
+            return;
+        };
         if !self.handoff_reachable(target, key, menu_pickup) {
             return;
         }
@@ -492,35 +593,10 @@ impl FrameLoop<'_> {
         let Some(reset) = self.carry_item_reset(&def.item) else {
             return;
         };
-        let [x, y, z] = def.rotation_degrees.map(f32::to_radians);
-        let authored_grip = Mat4::from_rotation_translation(
-            Quat::from_euler(EulerRot::XYZ, x, y, z),
-            Vec3::from_array(def.offset),
-        );
-        let local = if preserve_pose {
-            let Some(socket) = self
-                .renderer
-                .character_socket_transform(target, &def.socket)
-            else {
-                return;
-            };
-            let mut original_pose = None;
-            self.items.world.for_each_pose(|body, pose| {
-                if body == key {
-                    original_pose = Some(pose);
-                }
-            });
-            let Some(pose) = original_pose else {
-                return;
-            };
-            // The existing item starts in exactly its pre-contact world pose.
-            // Subsequent socket motion lifts that same rendered resource.
-            socket.inverse().mul_mat4(&Mat4::from_rotation_translation(
-                pose.rotation,
-                pose.position,
-            ))
-        } else {
-            authored_grip
+        let Some((authored_grip, local)) =
+            self.carry_attachment_pose(target, key, &def, preserve_pose)
+        else {
+            return;
         };
         let transferred = if menu_pickup {
             self.items.world.remove_movable(key)
@@ -552,14 +628,41 @@ impl FrameLoop<'_> {
                 item_bounds: None,
                 hidden: false,
                 reset,
+                operation,
             },
         ));
+        let _pending = self.items.carry.loose_operations.remove(target);
+        let _selected = self.items.carry.loose_items.remove(target);
         self.items.input.invalidate();
         self.items.target = None;
         self.game.entities_mut().confirm_handoff(target, &item);
         self.trace_world("npc_item_handoff");
     }
 
+    pub(super) fn release_ai_item(
+        &mut self,
+        token: crate::engine::ai::controller::OperationToken,
+        contact: Vec3,
+    ) {
+        if !self.game.entities().ai().operation_running(token) {
+            return;
+        }
+        let Some(actor) = self.game.entities().id_of(token.owner).map(str::to_string) else {
+            return;
+        };
+        if self
+            .items
+            .carry
+            .attachments
+            .get(&actor)
+            .is_some_and(|attachment| attachment.operation == Some(token))
+        {
+            self.release_carried_item(&actor);
+            if let Some(motion) = self.items.carry.pending_putdowns.get_mut(&actor) {
+                motion.expected = Some(contact);
+            }
+        }
+    }
     pub(super) fn release_carried_item(&mut self, target: &str) {
         if !self.items.carry.has_attachment(target) {
             return;
@@ -611,7 +714,14 @@ impl FrameLoop<'_> {
             );
             return;
         }
+        // Publish the restored solver center before the next AI tick can see
+        // its new collider. The carried render origin can lie on its edge.
+        let item = attachment.item.clone();
+        let restored_center = self.items.world.body_center(attachment.key);
         drop(self.items.carry.attachments.remove(target));
+        if let Some(center) = restored_center {
+            self.game.entities_mut().observe_carried_pose(&item, center);
+        }
         self.game.entities_mut().confirm_item_release(target);
         self.trace_world("npc_item_released");
     }
@@ -622,9 +732,101 @@ impl FrameLoop<'_> {
         }
     }
 
+    pub(super) fn request_ai_contact(
+        &mut self,
+        token: crate::engine::ai::controller::OperationToken,
+        point: crate::engine::ai::authoring::UsePoint,
+    ) {
+        if self.items.carry.pending_uses.len() < 64
+            && self.game.entities().ai().operation_valid(token)
+        {
+            let _old = self.items.carry.pending_uses.insert(token, point);
+        }
+    }
+    fn update_ai_contacts(&mut self) {
+        if !self.simulation_active() {
+            return;
+        }
+        let mut completed = Vec::new();
+        self.items
+            .carry
+            .pending_uses
+            .retain(|token, _| self.game.entities().ai().native_contact_valid(*token));
+        for (token, point) in &self.items.carry.pending_uses {
+            if !self.game.entities().ai().operation_running(*token) {
+                continue;
+            }
+            let Some(actor) = self.game.entities().id_of(token.owner) else {
+                continue;
+            };
+            let contact = point.socket.as_deref().map_or_else(
+                || Some(Vec3::from_array(point.contact)),
+                |socket| {
+                    self.renderer
+                        .character_socket_transform(actor, socket)
+                        .map(|pose| pose.transform_point3(Vec3::ZERO))
+                },
+            );
+            if contact
+                .is_some_and(|actual| actual.distance(Vec3::from_array(point.contact)) <= 0.18)
+            {
+                completed.push((*token, point.clone()));
+            }
+        }
+        for (token, point) in completed {
+            if self.game.entities_mut().confirm_ai_contact(token, &point) {
+                let _removed = self.items.carry.pending_uses.remove(&token);
+                self.trace_world("ai_hand_contact");
+            }
+        }
+    }
+    fn cancel_ai_carry_contacts(&mut self) {
+        let cancelled: Vec<_> = self
+            .items
+            .carry
+            .loose_operations
+            .iter()
+            .filter(|(_, token)| !self.game.entities().ai().operation_valid(**token))
+            .map(|(actor, _)| actor.clone())
+            .collect();
+        for actor in cancelled {
+            let _pending = self.items.carry.pending_pickups.remove(&actor);
+            let _operation = self.items.carry.loose_operations.remove(&actor);
+            let _selected = self.items.carry.loose_items.remove(&actor);
+        }
+        let interrupted: Vec<_> = self
+            .items
+            .carry
+            .attachments
+            .iter()
+            .filter(|(_, attachment)| {
+                attachment
+                    .operation
+                    .is_some_and(|token| !self.game.entities().ai().operation_valid(token))
+            })
+            .map(|(actor, _)| actor.clone())
+            .collect();
+        for actor in interrupted {
+            self.release_carried_item_now(&actor);
+        }
+    }
     pub(super) fn update_carry_contacts(&mut self, delta: f32) {
+        self.update_ai_contacts();
+        self.cancel_ai_carry_contacts();
         let pickups: Vec<_> = self.items.carry.pending_pickups.keys().cloned().collect();
         for actor in pickups {
+            if self.items.carry.loose_operations.contains_key(&actor) && !self.simulation_active() {
+                continue;
+            }
+            if self
+                .items
+                .carry
+                .loose_operations
+                .get(&actor)
+                .is_some_and(|token| !self.game.entities().ai().operation_running(*token))
+            {
+                continue;
+            }
             if !self.contact_clip(&actor, "pick_up_") {
                 let _removed_request = self.items.carry.pending_pickups.remove(&actor);
                 continue;
@@ -646,7 +848,14 @@ impl FrameLoop<'_> {
                 .entities()
                 .handle_of(&actor)
                 .and_then(|handle| self.game.entities().components().carries.get(handle))
-                .map(|carry| carry.def.item.clone());
+                .map(|carry| {
+                    self.items
+                        .carry
+                        .loose_items
+                        .get(&actor)
+                        .cloned()
+                        .unwrap_or_else(|| carry.def.item.clone())
+                });
             let near = item
                 .and_then(|id| {
                     self.items
@@ -669,6 +878,17 @@ impl FrameLoop<'_> {
         }
         let putdowns: Vec<_> = self.items.carry.pending_putdowns.keys().cloned().collect();
         for actor in putdowns {
+            if let Some(token) = self
+                .items
+                .carry
+                .attachments
+                .get(&actor)
+                .and_then(|attachment| attachment.operation)
+                && (!self.simulation_active()
+                    || !self.game.entities().ai().operation_running(token))
+            {
+                continue;
+            }
             if !self.contact_clip(&actor, "set_down_") {
                 let _removed_request = self.items.carry.pending_putdowns.remove(&actor);
                 continue;
@@ -718,6 +938,9 @@ impl FrameLoop<'_> {
             let (_, rotation, position) = socket
                 .mul_mat4(&attachment.local)
                 .to_scale_rotation_translation();
+            self.game
+                .entities_mut()
+                .observe_carried_pose(&attachment.item, position);
             let _moved = self.renderer.set_runtime_model_pose(
                 attachment.key,
                 position.to_array(),

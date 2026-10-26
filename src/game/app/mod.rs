@@ -1401,6 +1401,15 @@ impl FrameLoop<'_> {
                         "Transition destination '{level}' is unavailable in this package"
                     ));
                 }
+                crate::engine::entities::WorldCommand::AiPutdown { token, contact } => {
+                    self.release_ai_item(token, Vec3::from_array(contact));
+                }
+                crate::engine::entities::WorldCommand::AiUse { token, point } => {
+                    self.request_ai_contact(token, point);
+                }
+                crate::engine::entities::WorldCommand::AiPickup { token, item } => {
+                    self.pickup_ai_item(token, &item);
+                }
                 crate::engine::entities::WorldCommand::HandoffItem { target } => {
                     self.handoff_item(&target);
                 }
@@ -3983,6 +3992,7 @@ impl FrameLoop<'_> {
         serde_json::json!({
             "time": self.game.entities().sim_time(),
             "sequences": self.game.entities().active_sequences(),
+            "ai_runtime":self.game.entities().ai().resource_snapshot(),
             "agents": self.game.entities().ai().agents().iter().map(|agent| {
                 serde_json::json!({
                     "id": agent.instance_id, "state": agent.state.name(),
@@ -3997,6 +4007,9 @@ impl FrameLoop<'_> {
                     "hidden_remaining": agent.hidden_remaining,
                     "opacity": agent.opacity(), "pose": format!("{:?}", agent.cue()),
                     "light_held": agent.light_look_target.is_some(),
+                    "owner":agent.controller.owner,"last_result":agent.controller.last_result,
+                    "senses":agent.def.senses,"sight_range":agent.def.sight_range,"body_radius":agent.profile.radius,
+                    "tasks":agent.controller.runs.iter().map(|run|serde_json::json!({"key":run.request.key,"priority":run.request.priority,"serial":run.token.serial,"active":agent.controller.active==Some(run.token),"paused":run.paused,"progress":run.progress.snapshot()})).collect::<Vec<_>>(),
                 })
             }).collect::<Vec<_>>(),
         })

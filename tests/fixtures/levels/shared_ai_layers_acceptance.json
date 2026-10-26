@@ -1,0 +1,401 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "shared_ai_layers_acceptance",
+  "name": "Shared AI layered carry acceptance",
+  "author": "Places",
+  "comment": "Developer-only acceptance. Existing layered navigation geometry plus one actual R2 carrier and original physical parcel. No new user-facing mode or visual assets.",
+  "spawn": {
+    "x": 10.6,
+    "z": 5.9,
+    "yaw_degrees": 45
+  },
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "home:ceiling_white_01"
+  },
+  "rooms": [
+    {
+      "x": 0,
+      "z": 0,
+      "width": 10,
+      "depth": 8,
+      "height": 2.8,
+      "floor_y": 0
+    },
+    {
+      "x": 10,
+      "z": 0,
+      "width": 10,
+      "depth": 8,
+      "height": 6,
+      "floor_y": 0,
+      "material": "home:hardwood_oak_01"
+    },
+    {
+      "x": 0,
+      "z": 0,
+      "width": 10,
+      "depth": 8,
+      "height": 3,
+      "floor_y": 3,
+      "material": "home:hardwood_oak_01"
+    }
+  ],
+  "ramps": [
+    {
+      "x": 11,
+      "z": 2.5,
+      "width": 7.5,
+      "depth": 2,
+      "offset_y": 0,
+      "rise": 3,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 10,
+      "z": 0,
+      "width": 8.5,
+      "depth": 2.5,
+      "offset_y": 3,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 18.5,
+      "z": 0,
+      "width": 1.5,
+      "depth": 4.5,
+      "offset_y": 3,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.2,
+      "z": -0.2,
+      "width": 20.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 6
+    },
+    {
+      "x": -0.2,
+      "z": 8,
+      "width": 20.4,
+      "depth": 0.2,
+      "y": 0,
+      "height": 6
+    },
+    {
+      "x": -0.2,
+      "z": 0,
+      "width": 0.2,
+      "depth": 8,
+      "y": 0,
+      "height": 6
+    },
+    {
+      "x": 20,
+      "z": 0,
+      "width": 0.2,
+      "depth": 8,
+      "y": 0,
+      "height": 6
+    },
+    {
+      "x": 9.9,
+      "z": 0,
+      "width": 0.2,
+      "depth": 8,
+      "y": 0,
+      "height": 2.8,
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 4.8,
+          "width": 1.6,
+          "height": 2.4
+        }
+      ]
+    },
+    {
+      "x": 9.9,
+      "z": 0,
+      "width": 0.2,
+      "depth": 8,
+      "y": 3,
+      "height": 3,
+      "openings": [
+        {
+          "kind": "passage",
+          "offset": 0.5,
+          "width": 1.6,
+          "height": 2.4
+        }
+      ]
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "id": "acceptance_light_0",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3,
+      "z": 3,
+      "y": 2.79,
+      "brightness": 0.85,
+      "align": "none",
+      "switchable": true
+    },
+    {
+      "id": "acceptance_light_1",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 7,
+      "z": 5,
+      "y": 2.79,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_2",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 3,
+      "z": 3,
+      "y": 5.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_3",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 7,
+      "z": 5,
+      "y": 5.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_4",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 14,
+      "z": 2,
+      "y": 5.99,
+      "brightness": 0.85,
+      "align": "none"
+    },
+    {
+      "id": "acceptance_light_5",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 17,
+      "z": 6,
+      "y": 5.99,
+      "brightness": 0.85,
+      "align": "none"
+    }
+  ],
+  "doors": [],
+  "props": [
+    {
+      "id": "porter_a",
+      "model": "mannequin",
+      "x": 12,
+      "y": 0,
+      "z": 6,
+      "rotation_degrees": 0,
+      "size": [
+        0.578539,
+        1.723035,
+        0.316965
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.22,
+          "height": 1.8,
+          "speed_mps": 1.8,
+          "step_height": 0.3,
+          "max_slope": 2
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 1.8,
+          "run_speed": 1.8,
+          "sight_range": 12,
+          "hearing_range": 0,
+          "can_open_doors": true,
+          "sight_fov_degrees": 360
+        },
+        {
+          "component": "animation",
+          "clip": "pose_stand",
+          "playing": false
+        },
+        {
+          "component": "carry",
+          "item": "parcel",
+          "socket": "hand.R",
+          "offset": [
+            -0.1554,
+            -0.0735,
+            0.006
+          ],
+          "rotation_degrees": [
+            0,
+            0,
+            0
+          ],
+          "idle_clip": "carry_idle",
+          "walk_clip": "carry_walk"
+        },
+        {
+          "component": "light_response",
+          "enter_intensity": 0.035,
+          "exit_intensity": 0.005,
+          "release_seconds": 0.2
+        }
+      ]
+    },
+    {
+      "id": "parcel",
+      "model": "core:cardboard_box",
+      "x": 3.3,
+      "y": 3.005,
+      "z": 4.4,
+      "rotation_degrees": 0,
+      "size": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "solid": false,
+      "physics": {
+        "motion": "dynamic",
+        "mass_kg": 2,
+        "pickup": true,
+        "reset_group": "parcel"
+      },
+      "scale": 0.55
+    },
+    {
+      "id": "delivery_point",
+      "model": "core:cardboard_box",
+      "x": 12,
+      "y": 0,
+      "z": 6.8,
+      "scale": 0.1,
+      "size": [
+        0.1,
+        0.1,
+        0.1
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "state",
+          "name": "delivered",
+          "value": false
+        },
+        {
+          "component": "interactable",
+          "prompt": "delivery_point"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "set_light",
+              "target": "acceptance_light_0",
+              "on": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fetch_a",
+      "model": "home:wall_switch",
+      "x": 13,
+      "z": 7,
+      "y": 1,
+      "solid": false,
+      "size": [
+        0.1,
+        0.2,
+        0.1
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "fetch_a"
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "ai_task",
+              "target": "porter_a",
+              "key": "delivery",
+              "request": {
+                "key": "delivery",
+                "priority": 80,
+                "definition": {
+                  "task": "routine",
+                  "steps": [
+                    {
+                      "task": "move",
+                      "point": [
+                        3,
+                        3,
+                        4
+                      ],
+                      "speed": 1.8
+                    },
+                    {
+                      "task": "fetch",
+                      "item": {
+                        "match": "id",
+                        "value": "parcel"
+                      },
+                      "destination": {
+                        "target": "delivery_point",
+                        "approach": [
+                          12,
+                          0,
+                          6
+                        ],
+                        "contact": [
+                          11.974384,
+                          0.238028,
+                          6.267148
+                        ],
+                        "kind": "shelf",
+                        "reach": 1.5,
+                        "contact_seconds": 0.35,
+                        "hold_seconds": 0,
+                        "clip": null,
+                        "socket": null,
+                        "yaw_degrees": 0
+                      },
+                      "search_radius": 12
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

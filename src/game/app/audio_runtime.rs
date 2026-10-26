@@ -282,7 +282,14 @@ impl FrameLoop<'_> {
                 )
         });
         let audio = &mut self.audio.system;
+        let entities = self.game.entities_mut();
         self.items.world.drain_impacts(|impact| {
+            entities.note_stimulus(
+                impact.position,
+                impact.strength.clamp(0.0, 1.0) * 8.0,
+                "impact",
+                None,
+            );
             let _played = audio.play(
                 impact_cue(impact.surface),
                 PlayRequest {
@@ -293,6 +300,11 @@ impl FrameLoop<'_> {
             );
         });
         self.audio.system.update_acoustic_doors(self.game.doors());
+        self.audio.system.drain_events(|event| {
+            if active {
+                self.game.entities_mut().observe_audio_start(event);
+            }
+        });
         self.audio.capture_output();
     }
 
@@ -339,6 +351,13 @@ impl FrameLoop<'_> {
                 .floor_material_at(feet)
                 .map_or(SurfaceMaterial::Hard, SurfaceMaterial::from_material_id)
         };
+        let crouched = self.game.is_crouched();
+        self.game.entities_mut().note_stimulus(
+            feet,
+            if crouched { 1.5 } else { 6.0 },
+            "movement",
+            Some(crate::engine::ai::PLAYER_TARGET_HANDLE),
+        );
         self.play_game_sound(
             footstep_cue(surface),
             None,

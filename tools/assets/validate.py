@@ -95,6 +95,7 @@ MAX_LEVEL_LIGHT_SOURCES = 1_000_000
 # implements. Unknown tags are rejected by name; audio uses the same bounded
 # entity dispatcher as every other action. There is no `play_audio` tag.
 ACTION_TAGS = (
+    "ai_task", "ai_pause", "ai_senses",
     "change_level",
     "run_script",
     "handoff_item",
@@ -2475,6 +2476,24 @@ def _validate_actions(
             if not isinstance(action.get("target"), str) or not action["target"].strip():
                 errors.append(f"{entry} ('{tag}') requires an explicit actor target")
             require("an authored carry contract", lambda facts: facts.get("has_carry", False))
+        elif tag in ("ai_task", "ai_pause", "ai_senses"):
+            require("an AI body", lambda facts: facts.get("has_ai"))
+            if tag in ("ai_task", "ai_pause"):
+                key = action.get("key")
+                if not isinstance(key, str) or not key or len(key.encode()) > 96 or any(ord(c) < 32 for c in key):
+                    errors.append(f"{entry}: {tag} requires a bounded task key")
+            if tag == "ai_pause" and not isinstance(action.get("paused"), bool):
+                errors.append(f"{entry}: ai_pause requires boolean paused")
+            if tag == "ai_task" and action.get("request") is not None:
+                request = action["request"]
+                if (not isinstance(request, dict) or request.get("key") != action.get("key")
+                        or not isinstance(request.get("priority"), int) or isinstance(request.get("priority"), bool)
+                        or not 0 <= request["priority"] <= 200 or not isinstance(request.get("definition"), dict)):
+                    errors.append(f"{entry}: ai_task requires a matching bounded TaskRequest")
+            if tag == "ai_senses" and (not isinstance(action.get("rules"), list) or len(action["rules"]) > 16):
+                errors.append(f"{entry}: ai_senses requires at most sixteen rules")
+            # Compiler serde and shared-ai authoring admission validate definition,
+            # sense-filter and response fields using the authoritative Rust contract.
         elif tag == "navigate":
             position = action.get("position")
             if not isinstance(position, list) or len(position) != 3 or not all(is_finite_number(v) and abs(v) <= 100000 for v in position):

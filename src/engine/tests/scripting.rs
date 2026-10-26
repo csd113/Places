@@ -777,3 +777,50 @@ fn script_blood_is_validated_atomic_and_cleared_on_reset() -> Result<(), String>
     );
     Ok(())
 }
+
+#[test]
+fn shared_ai_luau_tables_are_bounded_atomic_and_resettable() -> Result<(), String> {
+    let mut level = fixture(
+        r"return {entered=function(api)
+      api.ai_task('item','job',{key='job',priority=80,definition={task='wait',seconds=1}})
+      api.ai_senses('item',{{filter={sense='hear',categories={},radius=3},response={response='investigate',seconds=1,radius=.5}}})
+      api.ai_pause('item','job',true)
+    end}",
+    )?;
+    let prop = level.props.first_mut().ok_or("prop")?;
+    for json in [
+        r#"{"component":"nav_agent","radius":0.2,"height":1.8,"speed_mps":1}"#,
+        r#"{"component":"ai"}"#,
+    ] {
+        prop.components
+            .push(serde_json::from_str(json).map_err(|error| error.to_string())?);
+    }
+    let mut world = EntityWorld::from_level(&level);
+    let _invoked = invoke(&mut world)?;
+    let agent = world.ai().agent("item").ok_or("agent")?;
+    assert!(agent.controller.runs.first().is_some_and(|run| run.paused));
+    assert_eq!(agent.def.senses.len(), 1);
+    world.reset_runtime();
+    let restored = world.ai().agent("item").ok_or("restored")?;
+    assert!(restored.def.senses.is_empty() && restored.controller.runs.is_empty());
+    level.script_sources.first_mut().ok_or("source")?.source = r"return {entered=function(api)
+      local cycle={task='routine'};cycle.steps={cycle}
+      api.set_state('item','count',999)
+      api.ai_task('item','cycle',{key='cycle',priority=80,definition=cycle})
+    end}"
+        .into();
+    let mut refused = EntityWorld::from_level(&level);
+    let _bad = invoke(&mut refused)?;
+    assert_eq!(
+        count(&refused)?,
+        0,
+        "a cyclic request discards its preceding staged state write"
+    );
+    assert!(
+        refused
+            .ai()
+            .agent("item")
+            .is_some_and(|actor| actor.controller.runs.is_empty())
+    );
+    Ok(())
+}

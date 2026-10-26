@@ -8,11 +8,11 @@
 //! navigation mesh plus the same collision rules the player uses.
 //!
 //! ```text
-//! authored AiDef ──► AiWorld (one AiAgent per entity)
-//!                       │ perception: sight (range/FOV/LOS) + hearing (stimuli)
-//!                       │ states: Idle Wander Follow Flee Investigate Pursue Catch
-//!                       │ queries: NavMesh path/nearest, doors through Doors
-//!                       ▼
+//! authored AiDef â”€â”€â–º AiWorld (one AiAgent per entity)
+//!                       â”‚ perception: sight (range/FOV/LOS) + hearing (stimuli)
+//!                       â”‚ states: Idle Wander Follow Flee Investigate Pursue Catch
+//!                       â”‚ queries: NavMesh path/nearest, doors through Doors
+//!                       â–¼
 //!              AiOutcome: transform updates, typed events, stimuli, door requests
 //! ```
 //!
@@ -35,8 +35,12 @@
     reason = "Preserve exact sentinel comparisons and established floating-point operation order; named geometry stages and cohesive query parameters keep these numeric kernels readable. Numeric conversions and integer arithmetic exceptions are documented locally."
 )]
 
+pub mod authoring;
+pub mod controller;
 pub mod movement;
 pub mod perception;
+pub mod senses;
+pub mod tasks;
 
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
@@ -147,6 +151,15 @@ pub struct AiDef {
     /// The baseline behavior.
     #[serde(default)]
     pub behavior: AiBehavior,
+    /// Shared authored startup tasks; priorities arbitrate with scoped Luau requests.
+    #[serde(default)]
+    pub tasks: Vec<authoring::TaskRequest>,
+    /// Mapped sight/hearing responses evaluated on the shared perception clock.
+    #[serde(default)]
+    pub senses: Vec<authoring::SenseRule>,
+    /// Receive bounded team alerts.
+    #[serde(default)]
+    pub receive_alerts: bool,
     /// Free-form tag this agent advertises to others.
     #[serde(default)]
     pub role: Option<String>,
@@ -211,6 +224,9 @@ impl Default for AiDef {
     fn default() -> Self {
         Self {
             behavior: AiBehavior::Idler,
+            tasks: Vec::new(),
+            senses: Vec::new(),
+            receive_alerts: false,
             role: None,
             reacts_to: Vec::new(),
             walk_speed: default_walk_speed(),
@@ -288,7 +304,15 @@ impl AiDef {
             clip.as_deref()
                 .is_none_or(|name| !name.trim().is_empty() && name.len() <= 128)
         });
-        speeds && reactions && tags && shelter && clips
+        speeds
+            && reactions
+            && tags
+            && shelter
+            && clips
+            && self.tasks.len() <= tasks::MAX_TASKS
+            && self.tasks.iter().all(authoring::TaskRequest::is_valid)
+            && self.senses.len() <= 16
+            && self.senses.iter().all(authoring::SenseRule::is_valid)
     }
 
     /// True when `role` is one this agent reacts to.
@@ -440,6 +464,17 @@ impl AiState {
 pub struct AiAgent {
     /// The entity this agent drives.
     pub handle: EntityHandle,
+    /// Shared motion arbitration and task continuation state.
+    pub controller: controller::Controller,
+    /// State retained while a sequence owns motion.
+    pub sequence_state: Option<AiState>,
+    /// Bounded last-known target memory; never updated from live target lookup.
+    pub last_known: Option<Perceived>,
+    pub last_seen_at: f32,
+    pub task_clip: Option<String>,
+    pub(crate) pose_dirty: controller::PoseInvalidation,
+    pub next_task_sense: f32,
+    pub sense_memory: Vec<senses::SenseMemory>,
     /// The authored id, for events and the renderer handoff.
     pub instance_id: String,
     /// Authored definition.
@@ -558,6 +593,10 @@ impl AiAgent {
             .map(|area| area.nav_bounds(self.profile.radius))
     }
 
+    #[must_use]
+    pub fn authored_pose(&self) -> bool {
+        self.frozen() || self.task_clip.is_some()
+    }
     /// True when this agent should be immobilized.
     #[must_use]
     pub const fn frozen(&self) -> bool {
@@ -619,6 +658,10 @@ pub struct AiTickContext<'a> {
     pub scripted: &'a [EntityHandle],
     /// Current bounded physics item boxes, collected once before this tick.
     pub obstacles: &'a [WallAabb],
+    /// Bounded observed physical/object identities, refreshed at perception cadence.
+    pub objects: &'a [tasks::AiObject],
+    pub player_visible: &'a [EntityHandle],
+    pub use_acks: &'a [tasks::UseAck],
 }
 
 impl AiTickContext<'_> {
@@ -631,14 +674,12 @@ impl AiTickContext<'_> {
 
 impl NavDoorState for AiTickContext<'_> {
     fn obstacle_segment_blocked(&self, from: Vec3, to: Vec3, radius: f32, height: f32) -> bool {
-        crate::engine::collision::disc_segment_blocked(
+        crate::engine::collision::dynamic_disc_segment_blocked(
             glam::Vec2::new(from.x, from.z),
             glam::Vec2::new(to.x, to.z),
             radius,
             from.y.min(to.y),
             height + (to.y - from.y).abs(),
-            0.0,
-            &CollisionIndex::empty(),
             self.obstacles,
         )
     }
@@ -672,6 +713,8 @@ impl NavDoorState for AiTickContext<'_> {
 pub struct AiOutcome {
     /// A locomotion speed changed and the renderer must refresh its pose cue.
     pub cues_changed: bool,
+    pub task_effects: Vec<tasks::TaskEffect>,
+    pub task_requests: Vec<(EntityHandle, authoring::TaskRequest)>,
     /// Transform updates: `(handle, position, yaw degrees, spawned)`.
     pub moved: Vec<(EntityHandle, Vec3, f32, bool)>,
     /// Typed events: `(kind, subject, key, actor)`.
@@ -739,9 +782,13 @@ pub(crate) const PLAYER_TARGET_HANDLE: EntityHandle = EntityHandle::from_parts(u
 pub const FLEE_PATH_ATTEMPTS: usize = 3;
 
 /// The AI runtime of one world.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct AiWorld {
     agents: Vec<AiAgent>,
+    epoch: u64,
+    next_operation: u64,
+    reservations: std::collections::BTreeMap<EntityHandle, controller::OperationToken>,
+    alerts: senses::Alerts,
     next_phase: u32,
     stimuli_released: u64,
     catches_total: u64,
@@ -750,6 +797,29 @@ pub struct AiWorld {
     scratch: NavScratch,
 }
 
+static NEXT_AI_EPOCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+impl Default for AiWorld {
+    fn default() -> Self {
+        Self {
+            agents: Vec::new(),
+            epoch: NEXT_AI_EPOCH
+                .try_update(
+                    std::sync::atomic::Ordering::Relaxed,
+                    std::sync::atomic::Ordering::Relaxed,
+                    |v| v.checked_add(1),
+                )
+                .unwrap_or(0),
+            next_operation: 1,
+            reservations: std::collections::BTreeMap::new(),
+            alerts: senses::Alerts::default(),
+            next_phase: 0,
+            stimuli_released: 0,
+            catches_total: 0,
+            next_tick_agent: 0,
+            scratch: NavScratch::new(),
+        }
+    }
+}
 impl AiWorld {
     /// An empty world.
     #[must_use]
@@ -769,6 +839,51 @@ impl AiWorld {
         self.agents.len()
     }
 
+    #[must_use]
+    pub fn target_snapshot(&self) -> Vec<AiTarget> {
+        self.agents
+            .iter()
+            .map(|agent| AiTarget {
+                handle: agent.handle,
+                instance_id: agent.instance_id.clone(),
+                role: agent.role.clone(),
+                behavior: agent.def.behavior,
+                position: agent.position,
+                radius: agent.profile.radius,
+                height: agent.profile.height,
+                caught: agent.caught || matches!(agent.state, AiState::Hidden),
+            })
+            .collect()
+    }
+    #[must_use]
+    pub fn resource_snapshot(&self) -> serde_json::Value {
+        serde_json::json!({"epoch":self.epoch,"agents":self.agents.len(),"reservations":self.reservations.len(),"tasks":self.agents.iter().map(|agent|agent.controller.runs.len()).sum::<usize>(),"alerts":self.alerts.record_count()})
+    }
+    #[must_use]
+    pub const fn observation_version(&self) -> u64 {
+        self.next_operation
+    }
+    #[must_use]
+    pub fn requires_objects(&self) -> bool {
+        self.agents.iter().any(|agent|agent.controller.runs.iter().any(|run|run.request.definition.requires_objects()) || agent.def.senses.iter().any(|rule|matches!(&rule.filter,authoring::SenseFilter::See{objects,object_types,player:_,entities:_,range:_,fov_degrees:_} if !objects.is_empty() || !object_types.is_empty())))
+    }
+    #[must_use]
+    pub fn reserved_item(&self, token: controller::OperationToken) -> Option<EntityHandle> {
+        self.reservations
+            .iter()
+            .find_map(|(item, owner)| (*owner == token).then_some(*item))
+    }
+    #[must_use]
+    pub fn observation_pins(&self) -> (Vec<EntityHandle>, Vec<&str>) {
+        (
+            self.reservations.keys().copied().collect(),
+            self.agents
+                .iter()
+                .flat_map(|agent| &agent.controller.runs)
+                .flat_map(|run| run.references.iter().map(String::as_str))
+                .collect(),
+        )
+    }
     /// Every agent.
     #[must_use]
     pub fn agents(&self) -> &[AiAgent] {
@@ -786,6 +901,8 @@ impl AiWorld {
     /// Removes every agent.
     pub fn clear(&mut self) {
         self.agents.clear();
+        self.reservations.clear();
+        self.alerts = senses::Alerts::default();
         self.scratch = NavScratch::new();
         self.next_phase = 0;
         self.stimuli_released = 0;
@@ -813,8 +930,17 @@ impl AiWorld {
             .filter(|role| !role.is_empty())
             .map(str::to_string);
         self.agents.retain(|agent| agent.handle != handle);
+        let initial_tasks = def.tasks.clone();
         self.agents.push(AiAgent {
             handle,
+            controller: controller::Controller::default(),
+            sequence_state: None,
+            last_known: None,
+            last_seen_at: 0.0,
+            task_clip: None,
+            pose_dirty: controller::PoseInvalidation::default(),
+            next_task_sense: PERCEPTION_INTERVAL_S + perception_baseline(phase),
+            sense_memory: Vec::new(),
             instance_id: instance_id.to_string(),
             def,
             profile,
@@ -855,6 +981,9 @@ impl AiWorld {
             shelter_cooldown: 0.0,
             light_look_target: None,
         });
+        for request in initial_tasks {
+            let _accepted = self.request_task(instance_id, request);
+        }
     }
 
     /// Gives exclusive control to articulated physics; no hidden AI controller remains.
@@ -863,7 +992,10 @@ impl AiWorld {
             .agents
             .iter()
             .position(|agent| agent.instance_id == id)?;
-        Some(self.agents.remove(index))
+        let agent = self.agents.remove(index);
+        self.reservations
+            .retain(|_, token| token.owner != agent.handle);
+        Some(agent)
     }
 
     /// Re-registers the original authored behavior with a fresh controller clock.
@@ -881,6 +1013,8 @@ impl AiWorld {
 
     /// Removes one agent; true when it existed.
     pub fn remove(&mut self, handle: EntityHandle) -> bool {
+        self.reservations
+            .retain(|item, token| *item != handle && token.owner != handle);
         let before = self.agents.len();
         self.agents.retain(|agent| agent.handle != handle);
         self.agents.len() != before
@@ -891,6 +1025,11 @@ impl AiWorld {
         let Some(agent) = self.agents.iter_mut().find(|agent| agent.handle == handle) else {
             return false;
         };
+        agent.controller.runs.clear();
+        agent.controller.active = None;
+        agent.task_clip = None;
+        agent.pose_dirty.mark();
+        self.reservations.retain(|_, token| token.owner != handle);
         agent.caught = true;
         agent.state = AiState::Caught;
         agent.speed_mps = 0.0;
@@ -902,11 +1041,19 @@ impl AiWorld {
     /// Restores every placed agent to its authored pose and clears runtime
     /// state; spawned agents keep their position (their entity is gone).
     pub fn reset(&mut self) {
+        self.reservations.clear();
+        self.alerts = senses::Alerts::default();
         for agent in &mut self.agents {
             if !agent.spawned {
                 agent.position = agent.home;
                 agent.yaw_degrees = agent.home_yaw;
             }
+            agent.controller = controller::Controller::default();
+            agent.task_clip = None;
+            agent.next_task_sense = 0.0;
+            agent.sense_memory.clear();
+            agent.sequence_state = None;
+            agent.last_known = None;
             agent.state = AiState::Idle;
             agent.path.clear();
             agent.path_goal = None;
@@ -933,6 +1080,21 @@ impl AiWorld {
             agent.hidden_remaining = 0.0;
             agent.shelter_cooldown = 0.0;
             agent.light_look_target = None;
+        }
+        let requests: Vec<_> = self
+            .agents
+            .iter()
+            .flat_map(|agent| {
+                agent
+                    .def
+                    .tasks
+                    .iter()
+                    .cloned()
+                    .map(|request| (agent.instance_id.clone(), request))
+            })
+            .collect();
+        for (id, request) in requests {
+            let _accepted = self.request_task(&id, request);
         }
     }
 
@@ -1053,6 +1215,251 @@ impl AiWorld {
         true
     }
 
+    /// Submit or replace an authored task key. Eight bounded continuations per actor.
+    pub fn request_task(&mut self, id: &str, request: authoring::TaskRequest) -> bool {
+        if !request.is_valid() || self.epoch == 0 {
+            return false;
+        }
+        let Some(owner) = self
+            .agents
+            .iter()
+            .find(|agent| agent.instance_id == id)
+            .map(|agent| agent.handle)
+        else {
+            return false;
+        };
+        if self
+            .agents
+            .iter()
+            .find(|agent| agent.handle == owner)
+            .is_some_and(|agent| {
+                agent
+                    .controller
+                    .runs
+                    .iter()
+                    .any(|run| run.request == request)
+            })
+        {
+            return true;
+        }
+        let mut references = Vec::new();
+        request.definition.references_into(&mut references);
+        references.sort();
+        references.dedup();
+        let reference_count = self
+            .agents
+            .iter()
+            .flat_map(|agent| &agent.controller.runs)
+            .filter(|run| run.token.owner != owner || run.request.key != request.key)
+            .map(|run| run.references.len())
+            .sum::<usize>();
+        if reference_count.saturating_add(references.len()) > tasks::MAX_OBJECT_REFERENCES {
+            return false;
+        }
+        let Some(agent) = self.agents.iter_mut().find(|agent| agent.instance_id == id) else {
+            return false;
+        };
+        if agent.caught {
+            return false;
+        }
+        if let Some(run) = agent
+            .controller
+            .runs
+            .iter_mut()
+            .find(|run| run.request.key == request.key)
+        {
+            if run.request == request {
+                return true;
+            }
+            if matches!(
+                (&run.request.definition, &request.definition),
+                (
+                    authoring::TaskDef::Patrol {
+                        points: _,
+                        speed: _,
+                        memory_seconds: _,
+                        track_player: _,
+                        decision_seconds: _
+                    },
+                    authoring::TaskDef::Patrol {
+                        points: _,
+                        speed: _,
+                        memory_seconds: _,
+                        track_player: _,
+                        decision_seconds: _
+                    }
+                )
+            ) {
+                run.request = request;
+                return true;
+            }
+        }
+        let existing = agent
+            .controller
+            .runs
+            .iter()
+            .position(|run| run.request.key == request.key);
+        if existing.is_none() && agent.controller.runs.len() >= tasks::MAX_TASKS {
+            return false;
+        }
+        let Some(next) = self.next_operation.checked_add(1) else {
+            return false;
+        };
+        if let Some(index) = existing {
+            let old = agent.controller.runs.remove(index);
+            self.reservations.retain(|_, token| *token != old.token);
+        }
+        let token = controller::OperationToken {
+            epoch: self.epoch,
+            owner: agent.handle,
+            serial: self.next_operation,
+        };
+        self.next_operation = next;
+        agent
+            .controller
+            .runs
+            .push(tasks::TaskRun::new(token, request));
+        true
+    }
+    pub fn set_task_clip(&mut self, token: controller::OperationToken, clip: &str) {
+        if let Some(agent) = self
+            .agents
+            .iter_mut()
+            .find(|agent| agent.handle == token.owner && agent.controller.owns(token))
+        {
+            agent.task_clip = Some(clip.to_string());
+        }
+    }
+    pub fn configure_senses(
+        &mut self,
+        handle: EntityHandle,
+        rules: Vec<authoring::SenseRule>,
+    ) -> bool {
+        if rules.len() > 16 || !rules.iter().all(authoring::SenseRule::is_valid) {
+            return false;
+        }
+        let Some(agent) = self.agents.iter_mut().find(|agent| agent.handle == handle) else {
+            return false;
+        };
+        if agent.def.senses == rules {
+            return true;
+        }
+        let Some(next) = self.next_operation.checked_add(1) else {
+            return false;
+        };
+        self.next_operation = next;
+        agent.def.senses = rules;
+        agent.sense_memory.clear();
+        agent.next_task_sense = 0.0;
+        true
+    }
+    pub fn pause_task(&mut self, id: &str, key: &str, paused: bool) -> bool {
+        let Some(agent) = self.agents.iter_mut().find(|agent| agent.instance_id == id) else {
+            return false;
+        };
+        let Some(run) = agent
+            .controller
+            .runs
+            .iter_mut()
+            .find(|run| run.request.key == key)
+        else {
+            return false;
+        };
+        if run.paused != paused {
+            agent.pose_dirty.mark();
+            run.paused = paused;
+            if paused {
+                self.reservations.retain(|_, token| *token != run.token);
+                tasks::recover(&run.request.definition, &mut run.progress);
+            }
+        }
+        true
+    }
+    pub fn cancel_task(&mut self, id: &str, key: &str) -> bool {
+        let Some(agent) = self.agents.iter_mut().find(|agent| agent.instance_id == id) else {
+            return false;
+        };
+        let before = agent.controller.runs.len();
+        let active = agent.controller.active.is_some_and(|token| {
+            agent
+                .controller
+                .runs
+                .iter()
+                .any(|run| run.token == token && run.request.key == key)
+        });
+        agent.controller.runs.retain(|run| run.request.key != key);
+        if before == agent.controller.runs.len() {
+            return false;
+        }
+        if active {
+            agent.task_clip = None;
+            agent.pose_dirty.mark();
+        }
+        self.reservations.retain(|_, token| {
+            token.owner != agent.handle
+                || agent.controller.runs.iter().any(|run| run.token == *token)
+        });
+        if agent.controller.runs.is_empty() {
+            let mut controller = std::mem::take(&mut agent.controller);
+            controller.resume_baseline(agent);
+            controller.active = None;
+            agent.controller = controller;
+        }
+        before != agent.controller.runs.len()
+    }
+    #[must_use]
+    pub fn operation_exists(&self, token: controller::OperationToken) -> bool {
+        token.epoch == self.epoch
+            && self.agents.iter().any(|agent| {
+                agent.handle == token.owner
+                    && agent.controller.runs.iter().any(|run| run.token == token)
+            })
+    }
+    #[must_use]
+    pub fn native_contact_valid(&self, token: controller::OperationToken) -> bool {
+        self.operation_exists(token)
+            && self
+                .agents
+                .iter()
+                .find(|agent| agent.handle == token.owner)
+                .is_some_and(|agent| {
+                    agent
+                        .controller
+                        .runs
+                        .iter()
+                        .find(|run| run.token == token)
+                        .is_some_and(|run| {
+                            tasks::pending_contact_allowed(&run.request.definition, &run.progress)
+                        })
+                })
+    }
+    #[must_use]
+    pub fn operation_valid(&self, token: controller::OperationToken) -> bool {
+        token.epoch == self.epoch
+            && self
+                .agents
+                .iter()
+                .any(|agent| agent.handle == token.owner && agent.controller.owns(token))
+    }
+    #[must_use]
+    pub fn operation_running(&self, token: controller::OperationToken) -> bool {
+        self.operation_valid(token)
+            && self.agents.iter().any(|agent| {
+                agent.handle == token.owner
+                    && agent.controller.owner == controller::MotionOwner::Task
+            })
+    }
+    #[must_use]
+    pub fn item_reserved(&self, item: EntityHandle, token: controller::OperationToken) -> bool {
+        self.reservations.get(&item) == Some(&token) && self.operation_valid(token)
+    }
+    #[must_use]
+    pub fn sequence_held(&self, handle: EntityHandle) -> bool {
+        self.agents
+            .iter()
+            .find(|agent| agent.handle == handle)
+            .is_some_and(|agent| agent.caught || agent.light_look_target.is_some())
+    }
     /// The total stimuli released by movement since the world was built.
     #[must_use]
     pub const fn stimuli_released(&self) -> u64 {
@@ -1086,9 +1493,12 @@ impl AiWorld {
             );
             let _formatted_text = writeln!(
                 out,
-                "{} state={} pos=({:.2},{:.2},{:.2}) speed={:.2} goal={:?} waypoints={} \
+                "{} owner={:?} task={:?} result={:?} state={} pos=({:.2},{:.2},{:.2}) speed={:.2} goal={:?} waypoints={} \
                  doors={:?} contact={} catch_radius={:.2} caught={} stuck={:.1}",
                 agent.instance_id,
+                agent.controller.owner,
+                agent.controller.active,
+                agent.controller.last_result,
                 agent.state.name(),
                 agent.position.x,
                 agent.position.y,
@@ -1119,6 +1529,22 @@ impl AiWorld {
         let (before, after) = self.agents.split_at_mut(first);
         for agent in after.iter_mut().chain(before.iter_mut()) {
             let previous_speed = agent.speed_mps;
+            out.cues_changed |= agent.pose_dirty.take();
+            let previous_owner = agent.controller.owner;
+            let owner = agent.controller.arbitrate(
+                agent.caught || matches!(agent.state, AiState::Catch { target: _ }),
+                ctx.scripted.contains(&agent.handle),
+                agent.light_look_target.is_some(),
+            );
+            if ctx.scripted.contains(&agent.handle) || owner == controller::MotionOwner::Caught {
+                self.reservations
+                    .retain(|_, token| token.owner != agent.handle);
+                if previous_owner != owner {
+                    for run in &mut agent.controller.runs {
+                        tasks::recover(&run.request.definition, &mut run.progress);
+                    }
+                }
+            }
             if let Some(target) = agent.light_look_target
                 && !agent.caught
                 && !ctx.scripted.contains(&agent.handle)
@@ -1162,6 +1588,7 @@ impl AiWorld {
             let scripted = ctx.scripted.contains(&agent.handle);
             if scripted && !matches!(agent.state, AiState::Catch { target: _ }) {
                 if !matches!(agent.state, AiState::Scripted) {
+                    agent.sequence_state = Some(agent.state);
                     set_state(agent, AiState::Scripted, out);
                 }
                 agent.speed_mps = 0.0;
@@ -1171,21 +1598,46 @@ impl AiWorld {
                 continue;
             }
             if matches!(agent.state, AiState::Scripted) {
-                set_state(agent, AiState::Idle, out);
+                let resume = agent.sequence_state.take().unwrap_or(AiState::Idle);
+                set_state(agent, resume, out);
             }
             std::mem::swap(&mut agent.scratch, &mut self.scratch);
             if !matches!(agent.state, AiState::Hidden) {
                 perceive(agent, ctx);
             }
-            if let Some(goal) = agent.navigation_goal {
+            if agent.def.behavior == AiBehavior::Predator
+                && agent.contact.as_ref().is_some_and(|contact| {
+                    !contact.heard_only && agent.def.reacts_to_role(Some(&contact.role))
+                })
+            {
+                agent
+                    .controller
+                    .runs
+                    .retain(|run| run.request.key != "__lost_target");
+            }
+            senses::tick(agent, ctx, &mut self.alerts, out);
+            let task_driven = tasks::tick(agent, ctx, &mut self.reservations, out);
+            if task_driven {
+            } else if let Some(goal) = agent.navigation_goal {
                 set_state(agent, AiState::Investigate { point: goal }, out);
             } else {
                 decide(agent, ctx, out);
             }
             advance(agent, ctx, out);
+            out.cues_changed |= agent.pose_dirty.take();
             out.cues_changed |= agent.speed_mps != previous_speed;
             noise = noise.saturating_add(release_noise(agent, out));
             std::mem::swap(&mut agent.scratch, &mut self.scratch);
+        }
+        for (handle, request) in std::mem::take(&mut out.task_requests) {
+            if let Some(id) = self
+                .agents
+                .iter()
+                .find(|agent| agent.handle == handle)
+                .map(|agent| agent.instance_id.clone())
+            {
+                let _accepted = self.request_task(&id, request);
+            }
         }
         self.stimuli_released = self.stimuli_released.saturating_add(noise);
         // Apply catches after the iteration so the caught agent is frozen
@@ -1241,6 +1693,10 @@ fn perceive(agent: &mut AiAgent, ctx: &AiTickContext<'_>) {
     let elapsed = agent.clock - agent.last_perception_at;
     agent.last_perception_at += (elapsed / interval).floor() * interval;
     agent.contact = perception::perceive(agent, ctx);
+    if let Some(contact) = agent.contact.as_ref().filter(|contact| !contact.heard_only) {
+        agent.last_known = Some(contact.clone());
+        agent.last_seen_at = agent.clock;
+    }
     if let Some(contact) = agent.contact.as_ref()
         && contact.heard_only
     {
@@ -1291,7 +1747,10 @@ fn decide_predator(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
         let target_ok = ctx
             .target(contact.handle)
             .is_some_and(|target| !target.caught);
-        if target_ok && contact.position.distance(agent.position) <= agent.def.pursue_distance {
+        if !contact.heard_only
+            && target_ok
+            && contact.position.distance(agent.position) <= agent.def.pursue_distance
+        {
             if !matches!(agent.state, AiState::Pursue { target } if target == contact.handle) {
                 set_state(
                     agent,
@@ -1306,8 +1765,28 @@ fn decide_predator(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
             return;
         }
     }
-    if let AiState::Pursue { target } = agent.state {
-        if ctx.target(target).is_none() {
+    if matches!(agent.state, AiState::Pursue { target: _ }) {
+        if let Some(contact) = agent
+            .last_known
+            .as_ref()
+            .filter(|_| agent.clock - agent.last_seen_at < 6.0)
+        {
+            let point = contact.position;
+            out.task_requests.push((
+                agent.handle,
+                authoring::TaskRequest {
+                    key: "__lost_target".to_string(),
+                    priority: 50,
+                    definition: authoring::TaskDef::Investigate {
+                        point: point.to_array(),
+                        seconds: 6.0,
+                        radius: 1.0,
+                    },
+                },
+            ));
+            set_state(agent, AiState::Investigate { point }, out);
+            agent.interest = None;
+        } else {
             set_state(agent, AiState::Idle, out);
         }
         return;
@@ -1750,9 +2229,11 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
             threat: _,
         } => Some(destination),
         AiState::Investigate { point } => Some(point),
-        AiState::Follow { target } | AiState::Pursue { target } => {
-            ctx.target(target).map(|target_actor| target_actor.position)
-        }
+        AiState::Follow { target } | AiState::Pursue { target } => agent
+            .contact
+            .as_ref()
+            .filter(|contact| contact.handle == target && !contact.heard_only)
+            .map(|contact| contact.position),
         AiState::Idle
         | AiState::Hidden
         | AiState::Catch { target: _ }
@@ -1853,10 +2334,35 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
             agent.path.clear();
             agent.current_waypoint = 0;
             agent.speed_mps = 0.0;
-            return;
         }
     }
     if agent.path.waypoints.is_empty() {
+        // A conservative dynamic cell may reject a physically clear final
+        // approach or recovery. Only correct when no usable path exists;
+        // never pull an actor off a valid detour to chase the raw goal.
+        let near_dynamic = ctx.obstacles.iter().any(|solid| {
+            solid.blocks_body(agent.position.y, agent.profile.height)
+                && solid.overlaps_disc(
+                    agent.position.x,
+                    agent.position.z,
+                    agent.profile.radius + nav.grid().cell_m * 1.5,
+                )
+        });
+        if (near_dynamic
+            || (agent.controller.active.is_some() && agent.position.distance(goal_position) < 0.8))
+            && let Some((position, yaw, speed_mps)) =
+                physical_approach(agent, ctx, out, goal_position, speed)
+        {
+            agent.position = position;
+            agent.yaw_degrees = yaw;
+            agent.speed_mps = speed_mps;
+            agent.stuck_seconds = 0.0;
+            agent.path_age = 0.0;
+            // Keep attempted-goal/failure metadata, so retries retain the
+            // normal cooldown and shared fair path-query budget.
+            out.moved.push((agent.handle, position, yaw, agent.spawned));
+            return;
+        }
         agent.speed_mps = 0.0;
         return;
     }
@@ -1967,6 +2473,62 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         }
     }
     try_catch(agent, ctx, out);
+}
+
+/// Sub-cell contact/overlap correction reuses the ordinary physical mover.
+/// This never projects or teleports an actor and cannot bypass solid geometry.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "finite bounded world-space movement probes"
+)]
+fn physical_approach(
+    agent: &AiAgent,
+    ctx: &AiTickContext<'_>,
+    out: &AiOutcome,
+    goal: Vec3,
+    speed: f32,
+) -> Option<(Vec3, f32, f32)> {
+    let flat = glam::Vec2::new(goal.x - agent.position.x, goal.z - agent.position.z);
+    let direction = flat.try_normalize()?;
+    let horizon = flat.length().min(0.35);
+    for angle in [0.0_f32, 35.0, -35.0, 65.0, -65.0, 90.0, -90.0] {
+        let (sin, cos) = angle.to_radians().sin_cos();
+        let steering = glam::Vec2::new(
+            direction.x.mul_add(cos, direction.y * sin),
+            direction.y.mul_add(cos, -direction.x * sin),
+        );
+        let target = agent.position + Vec3::new(steering.x * horizon, 0.0, steering.y * horizon);
+        let mut mover = AgentMove {
+            position: agent.position,
+            yaw_degrees: agent.yaw_degrees,
+            radius: agent.profile.radius,
+            height: agent.profile.height,
+            step_height: agent.profile.step_height,
+            max_slope: agent.profile.max_slope,
+            speed_mps: speed,
+        };
+        if let MoveStep::Moved {
+            position,
+            yaw_degrees,
+            speed_mps,
+        } = mover.step_with_solids(
+            target,
+            ctx.delta,
+            ctx.walls,
+            ctx.index,
+            ctx.floor,
+            ctx.ceiling,
+            ctx.leaves,
+            ctx.obstacles,
+        ) && agent
+            .bounds()
+            .is_none_or(|bounds| bounds.contains(position))
+            && actor_segment_clear(agent, agent.position, position, ctx, out)
+        {
+            return Some((position, yaw_degrees, speed_mps));
+        }
+    }
+    None
 }
 
 /// Short, collision-checked probes give opposing actors a consistent right
@@ -2164,7 +2726,15 @@ fn can_catch(agent: &AiAgent, target: &AiTarget, ctx: &AiTickContext<'_>) -> boo
     // No catch through a wall or a floor: the predator must see its target.
     let from = agent.position + Vec3::new(0.0, (agent.profile.height * 0.5).max(0.1), 0.0);
     let to = target.position + Vec3::new(0.0, (target.height * 0.5).max(0.1), 0.0);
-    perception::sight_clear_with_leaves(ctx.index, ctx.walls, ctx.leaves, from, to)
+    perception::sight_clear_with_solids(
+        ctx.index,
+        ctx.walls,
+        ctx.leaves,
+        ctx.obstacles,
+        from,
+        to,
+        false,
+    )
 }
 
 /// Picks a flee destination from navigable candidates around the threat.

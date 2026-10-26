@@ -1241,7 +1241,8 @@
           "run_speed": 1.25,
           "sight_fov_degrees": 360,
           "sight_range": 12,
-          "walk_speed": 1.25
+          "walk_speed": 1.25,
+          "catch_height": 1.5
         }
       ],
       "id": "editor_template_3",

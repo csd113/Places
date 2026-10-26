@@ -85,6 +85,7 @@ fn fixture() -> Result<Fixture, String> {
             character_bounds: None,
             item_bounds: None,
             hidden: true,
+            operation: None,
             reset: OwnedItemReset {
                 definition,
                 bounds,

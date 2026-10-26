@@ -453,7 +453,7 @@ it and allocates nothing per frame.
 | `PLACES_CAPTURE_TIME=seconds` | capture at the first ready frame at or after that simulation second (takes precedence over the frame count) |
 | `PLACES_CAPTURE_FRAME=n` | which frame to capture (default 1), so a moving object can be captured mid-animation |
 | `PLACES_NO_LIGHTMAPS=1` | force the vertex-lit path for a lightmap A/B capture |
-| `PLACES_DUMP_LIGHTMAPS=1` | write baked atlas pages as PNGs under `target/agent-work/atlases/` (a fresh bake only — delete `cache/lightmaps/` first, since a cache hit writes nothing) |
+| `PLACES_DUMP_LIGHTMAPS=1` | write baked atlas pages as PNGs under `target/agent-work/atlases/` (a fresh bake only â€” delete `cache/lightmaps/` first, since a cache hit writes nothing) |
 | `PLACES_QUALITY=low\|medium\|high` | draw this run at the named profile without editing `settings.json` |
 | `PLACES_BENCH_QUALITY_CYCLE=<frame>:<profile>[,<frame>:<profile>...]` | scripted live quality switch through the normal settings path (benchmark only) |
 | `PLACES_BENCH_WINDOW_CYCLE=<frame>:resize:<w>x<h>\|<frame>:minimize\|<frame>:restore[,...]` | scripted live window events through the real SDL window: resize, minimize, restore (benchmark only) |
@@ -625,3 +625,30 @@ invariant wire bytes and conservative bounds during each explicit framebuffer
 capture. `[skin-audit]` records counts and maximum errors; a discrepancy fails
 the capture. This intentionally waits for readback and is excluded from timings.
 The timestamp trace includes the `deformation` compute pass in GPU elapsed spans.
+
+### Shared AI native acceptance
+
+`shared_ai_acceptance.py` runs the dedicated developer fixture through the real
+Windows player. Compile `tests/fixtures/levels/shared_ai_acceptance.json` and
+`navigation_layers.json` explicitly, then supply `--binary`, `--package`,
+`--nav-package`, a new evidence `--out`, and comma-separated `--cases`. Cases
+are `fetch,fetch_shelf,search,moving_item,competing,held,stolen,removed,
+interruptions,light,light_cargo,routine,follow,senses,alerts,switch,door,chair,caught,reload`. The shelf case verifies physical
+support above the floor; carries preserve the original render/physics identity.
+Diagnostics create controlled edge conditions; this does not replace ordinary
+Beam/One Guest routes. Captures are functional evidence, never FPS evidence.
+Use the existing real-delta frame timing tool separately, without builds or
+framebuffer captures during sampling, and retain CPU/frame tails and lifetime
+receipts outside `target/`.
+
+For layered carry, compile `shared_ai_layers_acceptance.json`, pass its package
+with `--source` pointing to that fixture, `--level shared_ai_layers_acceptance`
+and `--cases layers`. It visits the upper room through the real ramp/bridge,
+picks up the original parcel and delivers it downstairs. The reload case makes
+three round trips and checks fresh epochs, task/reservation cleanup and body
+counts. Contact-event snapshots preserve short physical transfers between
+checkpoints, independently of whether a screenshot happens during the lift.
+
+The dormant `caught` fixture spawns a prey with a priority-200 task and a
+predator only when requested, then checks hard cancellation, the authored
+catch sequence and baseline recovery after despawn.

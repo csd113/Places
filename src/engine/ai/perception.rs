@@ -2,7 +2,7 @@
 //! hearing from gameplay stimuli.
 //!
 //! Perception is deliberately decoupled from rendering and audio. A stimulus
-//! is a typed record — position, radius, loudness, category and source — that
+//! is a typed record â€” position, radius, loudness, category and source â€” that
 //! gameplay systems publish (movement, doors, switches, spawns). Hearing reads
 //! those records; sight raycasts the real static collision boxes and live door
 //! leaves. Both are evaluated on a staggered interval per agent by
@@ -150,7 +150,15 @@ fn sight_target(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
             }
         }
         let gaze = target.position + Vec3::new(0.0, (target.height * 0.5).max(0.05), 0.0);
-        if !sight_clear_with_leaves(ctx.index, ctx.walls, ctx.leaves, eye, gaze) {
+        if !sight_clear_with_solids(
+            ctx.index,
+            ctx.walls,
+            ctx.leaves,
+            ctx.obstacles,
+            eye,
+            gaze,
+            false,
+        ) {
             continue;
         }
         best = Some((distance, target));
@@ -269,6 +277,63 @@ pub fn sight_clear_with_leaves(
         }
     }
     nearest >= distance - 1.0e-4
+}
+
+/// The common collision LOS for baseline, tasks and scoped Luau observations.
+///
+/// Object queries may exclude the body containing their endpoint; actor queries
+/// never do, so a held or moved solid cannot reveal a player through itself.
+#[must_use]
+pub fn sight_clear_with_solids(
+    index: &CollisionIndex,
+    walls: &[WallAabb],
+    leaves: &[DoorCollider],
+    solids: &[WallAabb],
+    from: Vec3,
+    to: Vec3,
+    object_endpoint: bool,
+) -> bool {
+    sight_clear_with_ignored_body(
+        index,
+        walls,
+        leaves,
+        solids,
+        from,
+        to,
+        object_endpoint.then_some(to),
+    )
+}
+
+/// Contact queries exclude only the intended physical body's observed anchor.
+/// This also permits a released parcel to occlude its own destination contact.
+#[must_use]
+pub fn sight_clear_with_ignored_body(
+    index: &CollisionIndex,
+    walls: &[WallAabb],
+    leaves: &[DoorCollider],
+    solids: &[WallAabb],
+    from: Vec3,
+    to: Vec3,
+    body_anchor: Option<Vec3>,
+) -> bool {
+    sight_clear_with_leaves(index, walls, leaves, from, to)
+        && !solids.iter().any(|solid| {
+            let intended_body = body_anchor.is_some_and(|anchor| {
+                anchor.x >= solid.min_x
+                    && anchor.x <= solid.max_x
+                    && anchor.y >= solid.min_y
+                    && anchor.y <= solid.max_y
+                    && anchor.z >= solid.min_z
+                    && anchor.z <= solid.max_z
+            });
+            !intended_body
+                && crate::engine::collision::segment_overlaps_aabb(
+                    from,
+                    to,
+                    [solid.min_x, solid.min_y, solid.min_z],
+                    [solid.max_x, solid.max_y, solid.max_z],
+                )
+        })
 }
 
 /// The unit facing direction of a yaw in degrees.
