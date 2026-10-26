@@ -225,6 +225,11 @@ pub fn ceiling_y_for_volume(
 /// stained without changing the whole level.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoomDef {
+    #[serde(
+        default,
+        skip_serializing_if = "crate::engine::audio::acoustics::RoomAcoustics::is_default"
+    )]
+    pub acoustics: crate::engine::audio::acoustics::RoomAcoustics,
     #[serde(default)]
     pub x: f32,
     #[serde(default)]
@@ -7273,6 +7278,8 @@ const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub acoustic_materials: crate::engine::audio::acoustics::AcousticMaterials,
     /// The authored gameplay needs Full prepared illumination (for example,
     /// independent mixed fixed-prop circuits). Loading refuses lesser modes;
     /// omission preserves the established lighting selection for old packages.
@@ -8648,9 +8655,15 @@ impl LevelDef {
 /// the bare hole.
 #[must_use]
 fn opening_glass_collider(wall: &WallDef, opening: &WallOpeningDef) -> Option<WallAabb> {
-    if !opening.solid || opening.glass_material().is_none() {
+    if !opening.solid {
         return None;
     }
+    opening_glass_bounds(wall, opening)
+}
+
+/// Shared pane geometry for collision and sound, including non-colliding glass.
+pub(crate) fn opening_glass_bounds(wall: &WallDef, opening: &WallOpeningDef) -> Option<WallAabb> {
+    let _material = opening.glass_material()?;
     if !opening.offset.is_finite()
         || !opening.width.is_finite()
         || !opening.height.is_finite()

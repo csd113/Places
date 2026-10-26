@@ -526,6 +526,9 @@ pub struct Settings {
     /// Silence all audio while preserving the selected volume levels.
     #[serde(default)]
     pub muted: bool,
+    /// Independent speaker/headphone preference, retained across graphics changes.
+    #[serde(default)]
+    pub spatial_audio: crate::engine::audio::SpatialMode,
     #[serde(default = "default_vsync")]
     pub vsync: bool,
     /// Texture Filtering preference: `"low"`, `"medium"` or `"high"`.
@@ -696,6 +699,7 @@ impl Default for Settings {
             invert_look: default_invert_look(),
             developer_console: false,
             mouse_sensitivity: default_mouse_sensitivity(),
+            spatial_audio: crate::engine::audio::SpatialMode::default(),
             master_volume: default_audio_volume(),
             effects_volume: default_audio_volume(),
             ambient_volume: default_audio_volume(),
@@ -1307,6 +1311,11 @@ impl Settings {
     /// Selects the overall audio level and requests a mixer update if changed.
     ///
     /// Finite values clamp to `0.0`..=`1.0`; non-finite values use the default.
+    pub const fn set_spatial_audio(&mut self, mode: crate::engine::audio::SpatialMode) {
+        self.spatial_audio = mode;
+        self.pending.audio = true;
+    }
+
     pub const fn set_master_volume(&mut self, volume: f32) -> bool {
         let changed = set_audio_volume(&mut self.master_volume, volume);
         self.pending.audio |= changed;

@@ -2661,6 +2661,48 @@ payloads are part of the package format
 (`kind: "embedded"` dependencies), but the current compiler builds maps against
 the installed asset bundle; see [PACKAGE_FORMAT.md](PACKAGE_FORMAT.md).
 
+
+### Acoustic materials and room response (0.13.0)
+
+Audio uses the same material IDs as visible surfaces. A level may override their
+finite low/mid/high absorption and solid transmission coefficients (all `0..1`):
+
+```json
+"acoustic_materials": [
+  { "material": "core:carpet_beige_01", "absorption": [0.2, 0.65, 0.9], "transmission": 0.1 },
+  { "material": "core:pool_tile_wall_01", "absorption": [0.02, 0.04, 0.08], "transmission": 0.2 }
+]
+```
+
+The existing Space and Environment form includes **Acoustic material** records.
+The selected-room **Room ceiling / acoustics** form exposes `acoustics.wet`
+(`0..0.5`, default `0.18`) and `acoustics.decay_scale` (`0.25..2`, default `1`).
+For example a room may add `"acoustics": {"wet":0.2,"decay_scale":1.2}`.
+Preview, Apply, Undo, source save and project export/import use the ordinary
+validated document path. Duplicate material overrides, unknown coefficient keys,
+nonfinite/out-of-range values and missing material assets are errors. Omitted
+fields retain bounded defaults; carpet/acoustic surfaces absorb more than tile,
+concrete or glass. Graphics quality does not change the listening preference.
+
+Room dimensions, authored wall/floor/ceiling materials, floor patches, openings
+and live door aperture influence a bounded Sabine/early-reflection approximation.
+This is not wave simulation or diffraction. Occlusion uses sliced walls, panes,
+canonical solid scenery proxies and actual oriented door leaves. Thin rails or
+model detail inherit their existing collision proxy, rather than triangle-exact
+acoustics. Static geometry is installed once; moving emitters/listeners and door
+poses invalidate staggered cached paths. Room response transitions smoothly.
+
+Audio > Output persists `spatial_audio: "speakers" | "headphones"`; the default
+is stereo speakers. Headphones convolve complete measured MIT KEMAR responses,
+including front/back/elevation spectra and interaural delay. Individual fit and
+subjective localization still require listening. Attribution and offline asset
+conversion are in `assets/audio/hrtf/KEMAR.txt` and `tools/audio/import_hrtf.py`.
+The established Luau `api.sound(entity, playing)` and moving entity anchors feed
+this same mixer; user output preference remains under player control. The bounded
+`SoundEvent` drain and device-independent `AcousticPath` are seams for subsequent
+shared perception work; they do not implement AI.
+
+
 ## 12. Textures
 
 **Repository rule: normal editable game textures must exist as real image files in
@@ -6049,8 +6091,8 @@ warm interior tone (4-18 m). Each family owns at most one spatial loop, regardle
 of the number of fixtures or pools. Fixture power changes, reset and map unload
 retire/rebuild this layer; application pause and master/ambience settings use the
 ordinary mixer. Source envelopes and positions blend over approximately 0.35 s.
-No occlusion, HRTF or room-acoustics simulation is implied. The source positions
-are deliberately positional even though ordinary catalog HVAC/bird/water beds
+These positional loops use the shared occlusion, optional HRTF and room response
+described in Acoustic materials and room response above. Ordinary HVAC/bird/water beds
 remain non-positional. All clips are committed WAVs with provenance; see the
 runtime-audio contract in `ASSET_SPECIFICATION.md` and `tools/audio/build.py --check`.
 Do not add per-fixture hum loops to reproduce this layer: that would stack voices.
@@ -9280,3 +9322,8 @@ components/bindings and project-local Luau then orchestrate the six bounded
 arrivals, observable pursuit, real lock proof and party finish. The editor
 remains able to reopen, modify, build, play, export and recover this project;
 no alternate map format or game-specific renderer path exists.
+
+Developer native audio checks may set `PLACES_AUDIO_DEVICE` to an exact SDL
+playback-device name for that process only. Missing/invalid requested devices
+produce the established logged silent fallback; no host default, mixer or driver
+setting changes. Omitting the variable retains SDL's logical default device.

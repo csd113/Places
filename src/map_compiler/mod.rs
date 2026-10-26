@@ -816,6 +816,14 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     {
         required.push("item-receipts-v1".into());
     }
+    if !level.acoustic_materials.is_empty()
+        || level
+            .rooms
+            .iter()
+            .any(|room| room.acoustics != crate::engine::audio::acoustics::RoomAcoustics::default())
+    {
+        required.push("material-acoustics-v1".into());
+    }
     if !level.water.is_empty() {
         required.push("water-motion-v1".into());
     }
@@ -2507,6 +2515,10 @@ pub(crate) fn lighting_fingerprint_with_revision(
     let mut stripped = level.clone();
     // Display metadata is encoded anew in semantics and the manifest. It is
     // never read by static geometry, collision, illumination or probe baking.
+    stripped.acoustic_materials.clear();
+    for room in &mut stripped.rooms {
+        room.acoustics = crate::engine::audio::acoustics::RoomAcoustics::default();
+    }
     stripped.name.clear();
     stripped.author.clear();
     stripped.requires_full_lighting = false;

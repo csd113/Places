@@ -16,11 +16,14 @@ use kira::{AudioManager, AudioManagerSettings, Capacities, Decibels, Tween};
 use rtrb::{Consumer, Producer, RingBuffer};
 use sdl3::sys::audio::{self, SDL_AudioStream};
 
+use super::acoustics::{AcousticPath, AcousticScene};
 use super::catalog::{MAX_FILE_BYTES, valid_gain};
+use super::dsp::{self, OutputParameters, Parameters, RoomEffect};
 use super::{
     AudioBus, AudioCatalog, AudioSettings, AudioStats, AudioVoiceSnapshot, Listener,
     MAX_DECODED_BYTES, MAX_VOICES, PlayRequest, SourceId, TimeDomain,
 };
+use super::{SpatialMode, hrtf};
 
 #[cfg(test)]
 #[path = "../tests/audio_backend.rs"]
@@ -79,22 +82,25 @@ struct OutputCallback {
     counters: Arc<OutputCounters>,
     capture: Option<Producer<[f32; 2]>>,
     measure_mix: bool,
+    room: RoomEffect,
 }
 
 struct SdlSettings {
     subsystem: sdl3::AudioSubsystem,
     capture: bool,
+    output_parameters: Consumer<OutputParameters>,
 }
 
 /// The stream is destroyed before callback storage, so SDL cannot race freed
 /// callback userdata. SDL's logical default device follows device changes.
 struct SdlBackend {
-    _subsystem: sdl3::AudioSubsystem,
+    subsystem: sdl3::AudioSubsystem,
     stream: Option<NonNull<SDL_AudioStream>>,
     callback: Option<NonNull<OutputCallback>>,
     counters: Arc<OutputCounters>,
     capture: Option<Consumer<[f32; 2]>>,
     capture_enabled: bool,
+    output_parameters: Option<Consumer<OutputParameters>>,
 }
 
 impl Backend for SdlBackend {
@@ -104,12 +110,13 @@ impl Backend for SdlBackend {
     fn setup(settings: Self::Settings, _buffer_size: usize) -> Result<(Self, u32), String> {
         Ok((
             Self {
-                _subsystem: settings.subsystem,
+                subsystem: settings.subsystem,
                 stream: None,
                 callback: None,
                 counters: Arc::new(OutputCounters::default()),
                 capture: None,
                 capture_enabled: settings.capture,
+                output_parameters: Some(settings.output_parameters),
             },
             OUTPUT_RATE,
         ))
@@ -119,6 +126,7 @@ impl Backend for SdlBackend {
         if self.stream.is_some() {
             return Err("audio stream already initialized".to_owned());
         }
+        let requested_device = select_output_device(&self.subsystem)?;
         let producer = if self.capture_enabled {
             let (producer, consumer) = RingBuffer::new(CAPTURE_FRAMES);
             self.capture = Some(consumer);
@@ -126,7 +134,12 @@ impl Backend for SdlBackend {
         } else {
             None
         };
+        let receiver = self
+            .output_parameters
+            .take()
+            .ok_or("missing output controls")?;
         let callback = Box::new(OutputCallback {
+            room: RoomEffect::new(receiver),
             renderer,
             scratch: vec![0.0; CALLBACK_SAMPLES].into_boxed_slice(),
             counters: Arc::clone(&self.counters),
@@ -147,7 +160,7 @@ impl Backend for SdlBackend {
         // until Drop destroys the stream and synchronizes its callback first.
         let raw = unsafe {
             audio::SDL_OpenAudioDeviceStream(
-                audio::SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
+                requested_device,
                 &raw const spec,
                 Some(render_callback),
                 userdata,
@@ -161,6 +174,29 @@ impl Backend for SdlBackend {
             }
             return Err(sdl3::get_error().to_string());
         };
+        // SAFETY: stream is live and SDL owns the returned device-name pointer.
+        let device = unsafe { audio::SDL_GetAudioStreamDevice(stream.as_ptr()) };
+        // SAFETY: querying a live logical device; SDL may return null on error.
+        let name = unsafe { audio::SDL_GetAudioDeviceName(device) };
+        let device_name = if name.is_null() {
+            "unavailable".into()
+        } else {
+            // SAFETY: SDL supplies a valid NUL-terminated name for this query.
+            unsafe { std::ffi::CStr::from_ptr(name) }
+                .to_string_lossy()
+                .into_owned()
+        };
+        let mut actual = spec;
+        let mut frames = 0_i32;
+        // SAFETY: output pointers refer to live, uniquely borrowed stack values.
+        let format_ok =
+            unsafe { audio::SDL_GetAudioDeviceFormat(device, &raw mut actual, &raw mut frames) };
+        crate::engine::logging::info(format!(
+            "[audio] device={device_name:?} driver={:?} mixer=48000Hz/stereo actual={}Hz/{}channels buffer_frames={frames} format_ok={format_ok}",
+            self.subsystem.current_audio_driver(),
+            actual.freq,
+            actual.channels
+        ));
         self.callback = NonNull::new(callback_raw);
         self.stream = Some(stream);
         // SAFETY: stream is an owned, live SDL audio stream from the call above.
@@ -203,6 +239,8 @@ unsafe extern "C" fn render_callback(
     // SAFETY: SDL passes the stable boxed OutputCallback pointer supplied at
     // open. Its per-stream lock serializes callbacks; the owner destroys the
     // stream before freeing this Box and never otherwise accesses its fields.
+    let _realtime = super::RealtimeGuard::enter();
+    // SAFETY: userdata is the uniquely owned stable callback Box described above.
     let output = unsafe { &mut *userdata.cast::<OutputCallback>() };
     let requested = usize::try_from(additional_bytes)
         .unwrap_or_default()
@@ -210,6 +248,7 @@ unsafe extern "C" fn render_callback(
         .unwrap_or_default();
     let mut remaining = requested.min(MAX_CALLBACK_SAMPLES);
     remaining = remaining.saturating_sub(remaining % 2);
+    output.room.begin();
     resource_boundary(&output.counters.resource_gate, || {
         output.renderer.on_start_processing();
     });
@@ -220,6 +259,7 @@ unsafe extern "C" fn render_callback(
         };
         let mix_start = output.measure_mix.then(std::time::Instant::now);
         output.renderer.process(samples, 2);
+        output.room.process(samples);
         if let Some(start) = mix_start {
             let nanos = u64::try_from(start.elapsed().as_nanos()).unwrap_or(u64::MAX);
             let _time = output
@@ -283,6 +323,11 @@ struct LoadedCue {
 }
 
 struct Voice {
+    parameters: Producer<Parameters>,
+    path: AcousticPath,
+    cached_position: Option<Vec3>,
+    cached_listener: Vec3,
+    revision: u64,
     handle: StaticSoundHandle,
     source: Option<SourceId>,
     position: Option<Vec3>,
@@ -332,6 +377,13 @@ pub(super) struct NativeAudio {
     mix: Mix,
     stats: AudioStats,
     counters: Arc<OutputCounters>,
+    scene: AcousticScene,
+    room: super::acoustics::RoomResponse,
+    output_parameters: Producer<OutputParameters>,
+    acoustic_cursor: usize,
+    acoustic_tick: std::time::Instant,
+    epoch: u64,
+    events: std::collections::VecDeque<super::SoundEvent>,
 }
 
 impl NativeAudio {
@@ -339,6 +391,7 @@ impl NativeAudio {
         let catalog = AudioCatalog::load(asset_root)?;
         let (cues, loaded_clips, decoded_bytes) = load_clips(asset_root, catalog)?;
         let subsystem = sdl.audio().map_err(|error| error.to_string())?;
+        let (output_parameters, output_receiver) = RingBuffer::new(4);
         let mut manager = AudioManager::<SdlBackend>::new(AudioManagerSettings {
             capacities: Capacities {
                 sub_track_capacity: 0,
@@ -351,6 +404,7 @@ impl NativeAudio {
             internal_buffer_size: 128,
             backend_settings: SdlSettings {
                 subsystem,
+                output_parameters: output_receiver,
                 capture: std::env::var("PLACES_AUDIO_CAPTURE").is_ok_and(|value| value == "1"),
             },
         })?;
@@ -368,6 +422,13 @@ impl NativeAudio {
                 ..AudioStats::default()
             },
             counters,
+            scene: AcousticScene::default(),
+            room: super::acoustics::RoomResponse::default(),
+            output_parameters,
+            acoustic_cursor: 0,
+            acoustic_tick: std::time::Instant::now(),
+            epoch: 1,
+            events: std::collections::VecDeque::with_capacity(64),
         })
     }
 
@@ -455,12 +516,28 @@ impl NativeAudio {
             .volume(decibels(if paused { 0.0 } else { amplitude }))
             .panning(pan)
             .playback_rate(playback_rate(self.mix, request.time_domain));
-        match self.manager.play(sound) {
+        sound = sound.volume(decibels(unmastered(amplitude, self.mix.settings)));
+        if self.mix.settings.spatial_mode == SpatialMode::Headphones {
+            sound = sound.panning(0.0);
+        }
+        let spatial = request.spatial.unwrap_or(cue.spatial);
+        let initial = Parameters::new(
+            &direction_kernel(self.mix, request.position),
+            spatial && self.mix.settings.spatial_mode == SpatialMode::Headphones,
+            AcousticPath::default(),
+        );
+        let (prepared, parameters) = dsp::spatial(sound, &initial);
+        match self.manager.play(prepared) {
             Ok(mut handle) => {
                 if paused {
                     handle.pause(immediate());
                 }
                 *slot = Some(Voice {
+                    parameters,
+                    path: AcousticPath::default(),
+                    cached_position: None,
+                    cached_listener: Vec3::splat(f32::INFINITY),
+                    revision: 0,
                     handle,
                     source: request.source,
                     position: request.position,
@@ -482,6 +559,20 @@ impl NativeAudio {
                     .checked_rem(cue.variants.len())
                     .unwrap_or_default();
                 self.stats.played = self.stats.played.saturating_add(1);
+                if self.events.len() == 64 {
+                    let _oldest = self.events.pop_front();
+                }
+                self.events.push_back(super::SoundEvent {
+                    serial: self.stats.played,
+                    source: request.source.map(|source| source.0),
+                    position: request
+                        .position
+                        .unwrap_or(self.mix.listener.position)
+                        .to_array(),
+                    gain: request.gain * cue.gain,
+                    max_distance: request.attenuation.map_or(cue.max_distance, |[_, far]| far),
+                    looping,
+                });
                 true
             }
             Err(_capacity_error) => {
@@ -521,6 +612,7 @@ impl NativeAudio {
         self.mix.paused = paused;
         self.mix.world_scale = sanitize_world_scale(scale);
         self.mix.settings = AudioSettings {
+            spatial_mode: settings.spatial_mode,
             master_volume: sanitize_gain(settings.master_volume),
             effects_volume: sanitize_gain(settings.effects_volume),
             ambient_volume: sanitize_gain(settings.ambient_volume),
@@ -528,11 +620,101 @@ impl NativeAudio {
         };
         self.reap();
         self.retry_pending();
+        self.update_acoustics();
         for voice in self.voices.iter_mut().flatten() {
             update_voice(voice, self.mix);
         }
     }
 
+    pub fn drain_events(&mut self, consume: &mut impl FnMut(super::SoundEvent)) {
+        for event in self.events.drain(..) {
+            consume(event);
+        }
+    }
+    pub fn set_scene(&mut self, scene: AcousticScene) {
+        self.room = scene.room_at(self.mix.listener.position);
+        self.scene = scene;
+        for voice in self.voices.iter_mut().flatten() {
+            voice.revision = 0;
+        }
+    }
+    pub fn update_doors(&mut self, doors: &crate::engine::door::Doors) {
+        self.scene.update_doors(doors);
+    }
+    fn update_acoustics(&mut self) {
+        let started = std::time::Instant::now();
+        let geometry_due = self.acoustic_tick.elapsed() >= Duration::from_millis(20);
+        let mut budget = if geometry_due { 8_usize } else { 0 };
+        if geometry_due {
+            self.acoustic_tick = started;
+        }
+        let cursor = self.acoustic_cursor;
+        for offset in 0..MAX_VOICES {
+            let index = cursor.saturating_add(offset) % MAX_VOICES;
+            let Some(voice) = self.voices.get_mut(index).and_then(Option::as_mut) else {
+                continue;
+            };
+            let dirty = voice.revision != self.scene.revision
+                || voice.cached_position != voice.position
+                || voice
+                    .cached_listener
+                    .distance_squared(self.mix.listener.position)
+                    > 0.0025;
+            if voice.spatial && dirty && budget > 0 {
+                voice.path = voice
+                    .position
+                    .map_or_else(AcousticPath::default, |position| {
+                        self.scene.path(self.mix.listener.position, position)
+                    });
+                voice.cached_position = voice.position;
+                voice.cached_listener = self.mix.listener.position;
+                voice.revision = self.scene.revision;
+                self.stats.acoustic_queries = self.stats.acoustic_queries.saturating_add(1);
+                self.stats.acoustic_budget_exhausted = self
+                    .stats
+                    .acoustic_budget_exhausted
+                    .saturating_add(u64::from(voice.path.budget_exhausted));
+                budget = budget.saturating_sub(1);
+                self.acoustic_cursor = index.saturating_add(1) % MAX_VOICES;
+            }
+            if !geometry_due {
+                continue;
+            }
+            let parameters = Parameters::new(
+                &direction_kernel(self.mix, voice.position),
+                voice.spatial && self.mix.settings.spatial_mode == SpatialMode::Headphones,
+                voice.path,
+            );
+            if voice.parameters.push(parameters).is_err() {
+                self.stats.parameter_queue_full = self.stats.parameter_queue_full.saturating_add(1);
+            }
+        }
+        if geometry_due {
+            self.room = self.scene.room_at(self.mix.listener.position);
+        }
+        let room = self.room;
+        let gain = if self.mix.settings.muted || self.mix.paused {
+            0.0
+        } else {
+            self.mix.settings.master_volume
+        };
+        if self
+            .output_parameters
+            .push(OutputParameters {
+                room,
+                gain,
+                epoch: self.epoch,
+            })
+            .is_err()
+        {
+            self.stats.parameter_queue_full = self.stats.parameter_queue_full.saturating_add(1);
+        }
+        self.stats.acoustic_update_nanos = self
+            .stats
+            .acoustic_update_nanos
+            .saturating_add(u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX));
+        self.stats.acoustic_updates = self.stats.acoustic_updates.saturating_add(1);
+    }
     pub fn set_source_position(&mut self, source: SourceId, position: Vec3) {
         if !valid_position(position) {
             return;
@@ -639,6 +821,10 @@ impl NativeAudio {
     }
 
     pub fn clear_world(&mut self) {
+        self.epoch = self.epoch.wrapping_add(1);
+        self.scene = AcousticScene::default();
+        self.room = super::acoustics::RoomResponse::default();
+        self.events.clear();
         self.pending.fill(None);
         for slot in &mut self.voices {
             if let Some(voice) = slot {
@@ -663,6 +849,8 @@ impl NativeAudio {
 
     pub fn stats(&self) -> AudioStats {
         AudioStats {
+            acoustic_surfaces: self.scene.counts()[0],
+            acoustic_nodes: self.scene.counts()[1],
             active_voices: self
                 .voices
                 .iter()
@@ -718,6 +906,7 @@ impl NativeAudio {
                     time_domain: voice.time_domain,
                     paused: world_paused(self.mix, voice.time_domain),
                     pending: false,
+                    acoustic_path: voice.path,
                 });
             }
         }
@@ -751,6 +940,7 @@ impl NativeAudio {
                     time_domain: request.time_domain,
                     paused: world_paused(self.mix, request.time_domain),
                     pending: true,
+                    acoustic_path: AcousticPath::default(),
                 });
             }
         }
@@ -785,10 +975,21 @@ fn update_voice(voice: &mut Voice, mix: Mix) {
         voice.bus,
     );
     voice.handle.set_volume(
-        decibels(if paused { 0.0 } else { amplitude }),
+        decibels(if paused {
+            0.0
+        } else {
+            unmastered(amplitude, mix.settings)
+        }),
         short_tween(),
     );
-    voice.handle.set_panning(pan, short_tween());
+    voice.handle.set_panning(
+        if voice.spatial && mix.settings.spatial_mode == SpatialMode::Headphones {
+            0.0
+        } else {
+            pan
+        },
+        short_tween(),
+    );
     voice
         .handle
         .set_playback_rate(playback_rate(mix, voice.time_domain), short_tween());
@@ -808,6 +1009,33 @@ fn update_voice(voice: &mut Voice, mix: Mix) {
     voice.paused = paused;
 }
 
+fn unmastered(amplitude: f32, settings: AudioSettings) -> f32 {
+    if settings.muted || settings.master_volume <= 0.0 {
+        0.0
+    } else {
+        amplitude / settings.master_volume
+    }
+}
+fn direction_kernel(mix: Mix, position: Option<Vec3>) -> hrtf::Kernel {
+    if mix.settings.spatial_mode == SpatialMode::Speakers {
+        return [kira::Frame::ZERO; hrtf::TAPS];
+    }
+    let direction = position
+        .map(|point| {
+            Vec3::new(
+                point.x - mix.listener.position.x,
+                point.y - mix.listener.position.y,
+                point.z - mix.listener.position.z,
+            )
+        })
+        .and_then(Vec3::try_normalize)
+        .unwrap_or(mix.listener.forward);
+    hrtf::kernel(Vec3::new(
+        direction.dot(mix.right),
+        direction.dot(mix.listener.up),
+        direction.dot(mix.listener.forward),
+    ))
+}
 fn world_paused(mix: Mix, domain: TimeDomain) -> bool {
     mix.paused || (domain == TimeDomain::World && mix.world_scale <= 0.0)
 }
@@ -845,7 +1073,7 @@ fn normalize_listener(listener: Listener) -> Option<(Listener, Vec3)> {
         Listener {
             position: listener.position,
             forward,
-            up,
+            up: right.cross(forward),
         },
         right,
     ))
@@ -1069,4 +1297,30 @@ fn little_u32(bytes: Option<&[u8]>) -> Result<u32, String> {
         .and_then(|value| <[u8; 4]>::try_from(value).ok())
         .ok_or_else(|| "truncated WAV integer".to_owned())?;
     Ok(u32::from_le_bytes(array))
+}
+
+// Explicit process-only diagnostic selection leaves the system default and the
+// ordinary logical-default/hotplug policy unchanged when the variable is absent.
+fn select_output_device(
+    subsystem: &sdl3::AudioSubsystem,
+) -> Result<audio::SDL_AudioDeviceID, String> {
+    let name = match std::env::var("PLACES_AUDIO_DEVICE") {
+        Ok(value) => value,
+        Err(std::env::VarError::NotPresent) => return Ok(audio::SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK),
+        Err(std::env::VarError::NotUnicode(_)) => {
+            return Err("audio output name must be UTF-8".into());
+        }
+    };
+    if name.is_empty() || name.len() > 256 {
+        return Err("audio output name must contain 1..256 bytes".into());
+    }
+    subsystem
+        .audio_playback_device_ids()
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .find(|device| device.name().is_ok_and(|candidate| candidate == name))
+        .map_or_else(
+            || Err(format!("requested audio output unavailable: {name}")),
+            |device| Ok(device.id()),
+        )
 }

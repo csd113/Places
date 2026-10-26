@@ -34,6 +34,7 @@ pub(super) enum Tool {
     Weather,
     Sun,
     Ceiling,
+    AcousticMaterial,
     LocalFloor,
     GlobalPatch,
     GlobalRegion,
@@ -86,7 +87,8 @@ impl Tool {
             Self::Sky => "Sky",
             Self::Weather => "Snow / weather",
             Self::Sun => "Directional light",
-            Self::Ceiling => "Room ceiling",
+            Self::Ceiling => "Room ceiling / acoustics",
+            Self::AcousticMaterial => "Acoustic material",
             Self::LocalFloor => "Selected floor override",
             Self::GlobalPatch => "GLOBAL floor patch",
             Self::GlobalRegion => "GLOBAL floor region",
@@ -99,6 +101,7 @@ impl Tool {
             Self::Stairs => "stairs",
             Self::Rail => "guardrails",
             Self::Water => "water",
+            Self::AcousticMaterial => "acoustic_materials",
             Self::Sky => "sky",
             Self::Weather => "weather",
             Self::Sun => "global_illuminators",
@@ -174,7 +177,18 @@ impl Tool {
                 ),
             ],
             Self::Sky | Self::Weather | Self::Sun => self.environment_fields(),
-            Self::Ceiling => vec![text("/ceiling/kind", "Ceiling: flat / open", "flat")],
+            Self::Ceiling => vec![
+                text("/ceiling/kind", "Ceiling: flat / open", "flat"),
+                number("/acoustics/wet", "Room reflections 0..0.5", "0.18"),
+                number("/acoustics/decay_scale", "Decay multiplier 0.25..2", "1"),
+            ],
+            Self::AcousticMaterial => vec![
+                text("/material", "Existing material ID", "core:carpet_beige_01"),
+                number("/absorption/0", "Low absorption 0..1", "0.2"),
+                number("/absorption/1", "Mid absorption 0..1", "0.65"),
+                number("/absorption/2", "High absorption 0..1", "0.9"),
+                number("/transmission", "Solid transmission 0..1", "0.1"),
+            ],
             Self::GlobalPatch => vec![
                 number("/x", "X", "0"),
                 number("/z", "Z", "0"),
@@ -255,6 +269,7 @@ impl Tool {
             | Self::Rail
             | Self::Water
             | Self::Ceiling
+            | Self::AcousticMaterial
             | Self::LocalFloor
             | Self::GlobalPatch
             | Self::GlobalRegion

@@ -239,6 +239,13 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
                 .any(|light| light.visual.is_some()),
             "celestial-visuals-v1",
         ),
+        (
+            !level.acoustic_materials.is_empty()
+                || level.rooms.iter().any(|room| {
+                    room.acoustics != crate::engine::audio::acoustics::RoomAcoustics::default()
+                }),
+            "material-acoustics-v1",
+        ),
         (level.has_character_textures(), "character-textures-v1"),
         (level.has_mannequin_pins(), "miniature-pins-v1"),
     ] {

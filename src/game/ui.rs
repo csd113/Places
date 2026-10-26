@@ -56,7 +56,7 @@ impl SettingsPage {
     #[must_use]
     pub const fn item_count(self, advanced_expanded: bool) -> usize {
         match self {
-            Self::Root => 6,
+            Self::Root | Self::Audio => 6,
             Self::Graphics => {
                 if advanced_expanded {
                     10
@@ -65,7 +65,6 @@ impl SettingsPage {
                 }
             }
             Self::Display => 3,
-            Self::Audio => 5,
             Self::Controls => KeyBindings::ACTIONS.len().saturating_add(8),
         }
     }
@@ -116,6 +115,7 @@ pub enum SettingsValue {
     Filtering,
     WindowMode,
     Resolution,
+    SpatialAudio,
     MasterVolume,
     EffectsVolume,
     AmbientVolume,
@@ -281,6 +281,7 @@ fn ui_signature(
     settings.effects_volume.to_bits().hash(&mut hasher);
     settings.ambient_volume.to_bits().hash(&mut hasher);
     settings.muted.hash(&mut hasher);
+    settings.spatial_audio.hash(&mut hasher);
     settings.walk_speed.to_bits().hash(&mut hasher);
     settings.fov_degrees.to_bits().hash(&mut hasher);
     settings.invert_look.hash(&mut hasher);
@@ -835,6 +836,12 @@ fn audio_rows(settings: &Settings) -> Vec<SettingsRow> {
         selector(on_off(settings.muted)),
         SettingsRowKind::Value(SettingsValue::Mute),
     );
+    push_row(
+        &mut rows,
+        "Output",
+        selector(settings.spatial_audio.label()),
+        SettingsRowKind::Value(SettingsValue::SpatialAudio),
+    );
     push_row(&mut rows, "Back", String::new(), SettingsRowKind::Back);
     rows
 }
@@ -987,10 +994,7 @@ fn adjust_value(
             ui_state.set_status(format!("Graphics quality: {}", next.label()), false);
         }
         SettingsValue::Blood => adjust_blood(ui_state, settings),
-        SettingsValue::Bloom => {
-            let next = settings.toggle_bloom();
-            ui_state.set_status(format!("Bloom {}", on_off(next).to_lowercase()), false);
-        }
+        SettingsValue::Bloom => adjust_bloom(ui_state, settings),
         SettingsValue::Reflections => {
             if !settings.lightmaps_enabled() {
                 ui_state.set_status("Select Full lighting to change reflections", false);
@@ -1024,6 +1028,7 @@ fn adjust_value(
         }
         SettingsValue::Resolution => adjust_resolution(ui_state, settings, display, direction),
         SettingsValue::VisualStyle => adjust_style(ui_state, settings, direction),
+        SettingsValue::SpatialAudio => adjust_spatial_audio(ui_state, settings),
         SettingsValue::MasterVolume => {
             let next = step_volume(settings.master_volume, direction);
             let _changed = settings.set_master_volume(next);
@@ -1292,4 +1297,14 @@ fn adjust_style(ui: &mut UiState, settings: &mut Settings, direction: i32) {
         format!("{} style applied", settings.visual_style.label()),
         false,
     );
+}
+
+fn adjust_spatial_audio(ui_state: &mut UiState, settings: &mut Settings) {
+    settings.set_spatial_audio(settings.spatial_audio.toggled());
+    ui_state.set_status(settings.spatial_audio.label(), false);
+}
+
+fn adjust_bloom(ui_state: &mut UiState, settings: &mut Settings) {
+    let next = settings.toggle_bloom();
+    ui_state.set_status(format!("Bloom {}", on_off(next).to_lowercase()), false);
 }

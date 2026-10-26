@@ -193,3 +193,8 @@ path = "tools/rust/collection-quest-check/main.rs"
 [[bin]]
 name = "places-movement-check"
 path = "tools/rust/movement-check/main.rs"
+
+# Explicit native device, allocator and lifecycle audit; never runs in CI.
+[[bin]]
+name = "places-audio-audit"
+path = "tools/rust/audio-audit/main.rs"

@@ -411,6 +411,7 @@ impl FrameLoop<'_> {
             }
             crate::game::app::actions::Action::Load { level: _ }
             | crate::game::app::actions::Action::NavigationGoal { id: _, position: _ }
+            | crate::game::app::actions::Action::Audio(_)
             | crate::game::app::actions::Action::Escape {}
             | crate::game::app::actions::Action::ConsoleEnabled { enabled: _ }
             | crate::game::app::actions::Action::Key {

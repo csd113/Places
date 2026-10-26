@@ -1,0 +1,11 @@
+MIT KEMAR measured head-related impulse responses
+Bill Gardner and Keith Martin, MIT Media Laboratory, 1994.
+https://sound.media.mit.edu/resources/KEMAR.html
+https://sound.media.mit.edu/resources/KEMAR/diffuse.zip
+
+This data is Copyright 1994 by the MIT Media Laboratory. It is provided free with no restrictions on use, provided the authors are cited when the data is used in any research or commercial application.
+
+Places uses the complete diffuse-field equalized 128-tap responses (44.1 kHz), resampled offline to 140 taps at 48 kHz using a 32-point Hann-windowed sinc. Azimuths 0..180 are mirrored by exchanging ears. Coordinates: +X right, +Y up, +Z forward. Linear weighted interpolation among three nearby measured directions happens on the game thread; coefficients crossfade in the callback. No personalized HRTF or below -40 degree measurement is claimed.
+Source archive SHA256: a48e73137390626ef1e45d1de6a4d98530c6aa570e71b40f7c4442241ed5fa22
+Derived little-endian binary: 368 records, each 3 direction floats and 140 stereo float taps.
+SHA256: 11200599389c4e2c60144ab7636e4c0ba130a40c7f12acb77ae88be844456551

@@ -19,6 +19,7 @@ pub enum Action {
         level: String,
     },
     Escape {},
+    Audio(AudioAction),
     ConsoleEnabled {
         enabled: bool,
     },
@@ -144,6 +145,7 @@ struct Step {
 
 fn validate_pose_action(action: &Action) -> Result<(), String> {
     validate_caustics_action(action)?;
+    validate_audio_action(action)?;
     if let Action::View { yaw, pitch } = action
         && (!yaw.is_finite() || !pitch.is_finite() || pitch.abs() > 85.0)
     {
@@ -422,6 +424,7 @@ fn validate_action(action: &Action) -> Result<(), String> {
         | Action::Capture { name: _ }
         | Action::Checkpoint { name: _ }
         | Action::Load { level: _ }
+        | Action::Audio(_)
         | Action::Escape {}
         | Action::Resize {
             width: _,
@@ -655,10 +658,33 @@ impl crate::game::app::FrameLoop<'_> {
         }
     }
 
+    pub(super) fn scripted_quit(&mut self) -> bool {
+        if !self.items.captures.is_empty() {
+            self.items.quit_after_captures = true;
+            return true;
+        }
+        self.handle_event(&Event::Quit { timestamp: 0 })
+    }
     pub fn resize_scripted_window(&mut self, width: u32, height: u32) {
         if let Err(error) = self.window.set_size(width, height) {
             self.fatal_error = Some(error.to_string());
             self.game.stop();
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AudioAction {
+    pub headphones: bool,
+    pub muted: bool,
+    pub master: f32,
+}
+fn validate_audio_action(action: &Action) -> Result<(), String> {
+    if let Action::Audio(change) = action
+        && (!change.master.is_finite() || !(0.0..=1.0).contains(&change.master))
+    {
+        return Err("Native audio master must be finite in 0..1".into());
+    }
+    Ok(())
 }

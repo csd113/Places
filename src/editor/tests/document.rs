@@ -525,3 +525,35 @@ fn standalone_import_refuses_invalid_dependencies_and_existing_destinations() ->
     );
     Ok(())
 }
+
+// Unique regression: new acoustic records survive the real document history and save path.
+#[test]
+fn acoustic_authoring_save_undo_and_reopen_preserve_exact_coefficients() -> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut document = Document::open(&fixture.0)?;
+    let expected = document.raw().clone();
+    let mut candidate = expected.clone();
+    drop(candidate.as_object_mut().ok_or("level object")?.insert("acoustic_materials".into(),serde_json::json!([{"material":"core:carpet_beige_01","absorption":[0.2_f32,0.6_f32,0.9_f32],"transmission":0.12_f32}])));
+    drop(
+        candidate
+            .pointer_mut("/rooms/0")
+            .and_then(Value::as_object_mut)
+            .ok_or("room object")?
+            .insert(
+                "acoustics".into(),
+                serde_json::json!({"wet":0.12_f32,"decay_scale":0.8_f32}),
+            ),
+    );
+    document.apply_authoring_edit(&expected, candidate.clone())?;
+    document.save_all()?;
+    assert!(
+        document.undo(),
+        "acoustic change must be one reversible edit"
+    );
+    assert_eq!(document.raw(), &expected);
+    assert!(document.redo(), "redo must preserve acoustic coefficients");
+    let reopened = Document::open(&fixture.0)?;
+    assert_eq!(reopened.raw(), &candidate);
+    assert_eq!(reopened.level().acoustic_materials.len(), 1);
+    Ok(())
+}

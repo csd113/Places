@@ -3,10 +3,15 @@
 //! Native playback uses Kira's maintained mixer on the existing SDL3 platform.
 //! WAV files are validated and decoded once at loading time. Playback only
 //! shares their samples and creates small bounded voice controls. Spatial audio
-//! uses listener-relative stereo panning and distance attenuation, without HRTF
-//! or geometry occlusion. Browser builds deliberately remain silent.
+//! retains stereo distance/panning plus optional measured HRTF, cached solid/door
+//! occlusion and material/room response. Browser builds deliberately remain silent.
 
+pub mod acoustics;
 mod catalog;
+#[cfg(not(target_arch = "wasm32"))]
+mod dsp;
+#[cfg(not(target_arch = "wasm32"))]
+mod hrtf;
 #[cfg(not(target_arch = "wasm32"))]
 mod native;
 
@@ -16,6 +21,28 @@ use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
 pub use catalog::AudioCatalog;
+
+std::thread_local! { static REALTIME_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
+/// True only inside Places' native audio callback, for explicit allocator diagnostics.
+#[must_use]
+pub fn realtime_active() -> bool {
+    REALTIME_ACTIVE.with(std::cell::Cell::get)
+}
+#[cfg(not(target_arch = "wasm32"))]
+struct RealtimeGuard;
+#[cfg(not(target_arch = "wasm32"))]
+impl RealtimeGuard {
+    fn enter() -> Self {
+        REALTIME_ACTIVE.with(|flag| flag.set(true));
+        Self
+    }
+}
+#[cfg(not(target_arch = "wasm32"))]
+impl Drop for RealtimeGuard {
+    fn drop(&mut self) {
+        REALTIME_ACTIVE.with(|flag| flag.set(false));
+    }
+}
 
 /// Maximum simultaneously live mixer voices, including loops.
 pub const MAX_VOICES: usize = 48;
@@ -104,9 +131,37 @@ impl Default for Listener {
     }
 }
 
+/// Speaker fallback or measured headphone binaural rendering.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum SpatialMode {
+    Headphones,
+    #[default]
+    #[serde(other)]
+    Speakers,
+}
+impl SpatialMode {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Speakers => "Stereo speakers",
+            Self::Headphones => "Headphones (HRTF)",
+        }
+    }
+    #[must_use]
+    pub const fn toggled(self) -> Self {
+        match self {
+            Self::Speakers => Self::Headphones,
+            Self::Headphones => Self::Speakers,
+        }
+    }
+}
+
 /// Application settings, applied immediately to active and future voices.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AudioSettings {
+    /// Explicit listening mode; independent of graphics presets.
+    pub spatial_mode: SpatialMode,
     /// Master linear amplitude in `0..=1`.
     pub master_volume: f32,
     /// Effects category linear amplitude in `0..=1`.
@@ -120,6 +175,7 @@ pub struct AudioSettings {
 impl Default for AudioSettings {
     fn default() -> Self {
         Self {
+            spatial_mode: SpatialMode::default(),
             master_volume: 0.8,
             effects_volume: 1.0,
             ambient_volume: 0.6,
@@ -131,6 +187,13 @@ impl Default for AudioSettings {
 /// Bounded diagnostic counters; obtaining a snapshot never touches a device.
 #[derive(Clone, Copy, Debug, Default, Serialize)]
 pub struct AudioStats {
+    pub acoustic_queries: u64,
+    pub acoustic_budget_exhausted: u64,
+    pub acoustic_surfaces: usize,
+    pub acoustic_nodes: usize,
+    pub parameter_queue_full: u64,
+    pub acoustic_update_nanos: u64,
+    pub acoustic_updates: u64,
     /// Whether a native output stream was initialized successfully.
     pub enabled: bool,
     /// Number of decoded files shared by every voice.
@@ -191,6 +254,19 @@ pub struct AudioVoiceSnapshot {
     pub paused: bool,
     /// Whether the start is queued behind stopped mixer voices.
     pub pending: bool,
+    pub acoustic_path: acoustics::AcousticPath,
+}
+
+/// A bounded game-thread observation of a successfully started cue.
+/// The following shared-perception task can consume these without owning audio.
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct SoundEvent {
+    pub serial: u64,
+    pub source: Option<u64>,
+    pub position: [f32; 3],
+    pub gain: f32,
+    pub max_distance: f32,
+    pub looping: bool,
 }
 
 /// Reusable audio owner. Dropping it closes the stream before decoded data.
@@ -270,6 +346,34 @@ impl AudioSystem {
         }
         #[cfg(target_arch = "wasm32")]
         let _ = (listener, paused, world_scale, settings);
+    }
+
+    /// Drains at most 64 source observations, retiring them on the game thread.
+    pub fn drain_events(&mut self, mut consume: impl FnMut(SoundEvent)) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(audio) = &mut self.native {
+            audio.drain_events(&mut consume);
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = &mut consume;
+    }
+    /// Install a new immutable acoustic scene on the game thread.
+    pub fn set_acoustic_scene(&mut self, scene: acoustics::AcousticScene) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(audio) = &mut self.native {
+            audio.set_scene(scene);
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = scene;
+    }
+    /// Synchronize actual oriented door leaves without allocating.
+    pub fn update_acoustic_doors(&mut self, doors: &crate::engine::door::Doors) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(audio) = &mut self.native {
+            audio.update_doors(doors);
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = doors;
     }
 
     /// Moves every active voice belonging to a source; ignores nonfinite poses.

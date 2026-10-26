@@ -141,12 +141,13 @@ fn draw_hub(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         Tool::GlobalPatch,
         Tool::GlobalRegion,
         Tool::Route,
+        Tool::AcousticMaterial,
     ]
     .into_iter()
     .enumerate()
     {
         let x = f32::from(u16::try_from(index % 2).unwrap_or(0)).mul_add(170.0, 126.0);
-        let y = f32::from(u16::try_from(index / 2).unwrap_or(0)).mul_add(20.0, 70.0);
+        let y = f32::from(u16::try_from(index / 2).unwrap_or(0)).mul_add(18.0, 70.0);
         ui::popup_button(
             v,
             hits,

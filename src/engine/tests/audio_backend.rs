@@ -146,6 +146,7 @@ fn cached_ambient_stereo_cannot_bypass_spatial_mono_validation() -> Result<(), B
 #[test]
 fn listener_orientation_and_finite_world_clock_preserve_mix_contract() {
     let settings = AudioSettings {
+        spatial_mode: SpatialMode::Speakers,
         master_volume: 1.0,
         effects_volume: 1.0,
         ambient_volume: 1.0,

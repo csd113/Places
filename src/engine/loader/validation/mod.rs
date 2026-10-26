@@ -44,6 +44,7 @@ use props::validate_props;
 /// budgets, or malformed openings and patches.
 pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_header(level)?;
+    validate_acoustics(level)?;
     if level.transitions.len() > 256 {
         return Err("Too many level transition destinations".into());
     }
@@ -130,4 +131,25 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_fog_regions(level)?;
     validate_void_walls(level)?;
     validate_geometry_budget(level)
+}
+
+fn validate_acoustics(level: &LevelDef) -> Result<(), String> {
+    if level.acoustic_materials.len() > 256 || level.doors.len() > 256 {
+        return Err("Acoustics supports at most 256 material overrides and 256 doors".into());
+    }
+    let mut acoustic_ids = std::collections::BTreeSet::new();
+    for material in &level.acoustic_materials {
+        let id = &material.material;
+        if !acoustic_ids.insert(id) {
+            return Err("Duplicate acoustic material override".into());
+        }
+        if id.is_empty() || id.len() > 256 || !id.contains(':') {
+            return Err("Acoustic material requires an existing logical material ID".into());
+        }
+        material.properties().validate()?;
+    }
+    for room in &level.rooms {
+        room.acoustics.validate()?;
+    }
+    Ok(())
 }

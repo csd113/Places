@@ -211,3 +211,22 @@ fn styles_preserve_independent_quality_and_master_zero() -> Result<(), Box<dyn s
     assert_eq!(old.visual_style, VisualStyle::Standard);
     Ok(())
 }
+
+// Protects the new persisted choice independently of graphics presets; JSON only.
+#[test]
+fn headphone_mode_survives_serialization_and_graphics_presets()
+-> Result<(), Box<dyn std::error::Error>> {
+    let mut settings: Settings = serde_json::from_str("{}")?;
+    assert_eq!(
+        settings.spatial_audio,
+        crate::engine::audio::SpatialMode::Speakers
+    );
+    settings.spatial_audio = crate::engine::audio::SpatialMode::Headphones;
+    let _changed = settings.set_quality(QualityLevel::Low);
+    let reopened: Settings = serde_json::from_str(&serde_json::to_string(&settings)?)?;
+    assert_eq!(
+        reopened.spatial_audio,
+        crate::engine::audio::SpatialMode::Headphones
+    );
+    Ok(())
+}

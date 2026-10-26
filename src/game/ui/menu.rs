@@ -725,6 +725,9 @@ fn description(
                         "Fullscreen uses your display's size."
                     }
                     SettingsValue::Resolution => "Window size. The game adapts to display scaling.",
+                    SettingsValue::SpatialAudio => {
+                        "Choose stereo speakers or measured headphone HRTF."
+                    }
                     SettingsValue::MasterVolume => {
                         "Overall sound level. Mute keeps your volume choices."
                     }

@@ -976,3 +976,13 @@ index, and deduplicate installed dependency identities across members. Per-map
 logical references must not be added to that physical collection total. Static
 prop preparation checks the shared cancellation token between batches of vertices;
 the compiler refuses to encode or publish any interrupted partial preparation.
+
+### Authored acoustic semantics
+
+Packages with nondefault room acoustics or level acoustic-material overrides
+require `material-acoustics-v1`. The coefficients remain typed level semantics
+and survive editable project export/import; no new solved geometry record is
+introduced. An older player rejects the capability by name. Audio-only edits
+refresh package identity while retaining the prepared geometry/lighting stage.
+Measured headphone filters are attributed runtime assets, independent of the
+map's lighting variants and the player's persisted speaker/headphone preference.

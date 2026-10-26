@@ -9694,3 +9694,300 @@ record the staging commit/remote, clean tree, retained evidence and idle-only
 Cargo cleanup. Full visual quality remains selected; the measured optical tail
 and the unresolved instruction-level attribution remain open. No audio or
 subsequent queue phase is started.
+
+
+### Spatial audio, material acoustics and sound-system audit (#32)
+
+This completes the implementation and available Windows technical validation of
+[issue #32](https://github.com/csd113/Places/issues/32), based on
+remote-verified `a863b3550fec4b085ed0fc0cf9e92b314f3e7b1c` on `0.13.0-staging`.
+Subjective listening/localization and unavailable native-platform coverage
+remain explicitly unverified below; they are not converted into checked
+listening acceptance.
+
+The user accepted retaining all improved water optics and moving to audio after
+the preceding investigation. That decision supersedes the earlier wording that
+water acceptance was still awaiting a choice. The selected full optics retain
+the known **4.211 ms repeated-drop p99**, versus **2.988 ms** in the
+shader-ablated diagnostic. This audio work neither changes those optics nor
+claims to fix that residual, the separate approximately 2.4-second cold input
+stall, or reflected-CRT visual acceptance. No water shader, renderer or water
+simulation file changes.
+
+**Implementation.** The existing Kira/SDL mixer, listener, entity anchors,
+distance attenuation, stereo panning and quiet cue assets remain shared. Audio >
+Output persists Speakers (the compatible default) or Headphones independently of
+graphics quality. Headphones use measured diffuse-field MIT KEMAR responses: 368
+stored half-plane directions, mirrored ears, three-direction interpolation on
+the game thread and complete 140-tap stereo FIRs at 48 kHz. The complete
+128-tap/44.1-kHz source responses are resampled offline; no
+tap/sample-rate/voice quality reduction was used to meet the budget. Generic
+head fit and elevations below the -40-degree measurement floor are limitations.
+`KEMAR.txt` attributes Bill Gardner and Keith Martin, MIT Media Laboratory,
+1994, and preserves its free-use-with-attribution terms (not the MIT software
+license). Source archive SHA-256 is
+`a48e73137390626ef1e45d1de6a4d98530c6aa570e71b40f7c4442241ed5fa22`; reproducibly
+regenerated 416,576-byte HRIR data is
+`11200599389c4e2c60144ab7636e4c0ba130a40c7f12acb77ae88be844456551`. No new
+runtime dependency is introduced.
+
+A per-world owned BVH contains sliced wall solids, shared canonical glass bounds
+and collision-based static scenery proxies. Material-bearing walls/panes are
+deduplicated against generic collision geometry. The final review found and
+fixed a solid-pane duplicate; its regression proves one pane transmits 0.2,
+rather than applying its coefficient twice. Actual oriented door poses
+invalidate paths; solid scenery uses its existing proxy, not triangle-exact
+model geometry. Movable physics props are not promoted into stale static
+blockers. This is a bounded acoustic approximation, without diffraction or wave
+simulation.
+
+Each voice owns one cached path. Eight queries run per 20-ms tick, round-robin,
+with listener displacement above 5 cm, emitter changes, door revision and new
+world ownership invalidating results. Each query is capped at 256 BVH nodes and
+256 door tests; the pre-existing level door limit is 24. Dense 48-voice refresh
+can therefore take up to approximately 120 ms. Exhaustion conservatively muffles
+and records the event without growing queued work. Head orientation/HRIR targets
+update at 50 Hz. Gain/filter and binaural transitions are smoothed; measured FIR
+coefficients and post-effect master gain use 576-frame/12-ms linear transitions.
+
+Low/mid/high material absorption and transmission use existing material IDs.
+Carpet/acoustic defaults damp more than hard tile; authored overrides, room
+wetness/decay, dimensions/shape, floor patches, openings and live door aperture
+shape a bounded Sabine response, early taps and four stereo comb delays. Room
+response changes smoothly. One shared five-line effect owns 327,680 delay bytes;
+master mute/pause follows the effect and silences its tails. World epochs clear
+old delay samples. This is listener-room acoustics, not a traced propagation
+network between every pair of rooms. Wall-face materials are averaged and
+non-wall scenery proxies use generic coefficients.
+
+The existing editor forms add Acoustic material and Room ceiling/acoustics
+fields; ordinary Preview/Apply/Undo/save/reopen and typed validation own the
+changes. Invalid coefficients, duplicates and missing assets are refused.
+Nondefault authored acoustics require `material-acoustics-v1`; old maps retain
+defaults. Editable compile/export/import is byte-exact. Audio-only authoring
+preserves prepared geometry/light bake keys and render material slots; a focused
+regression protects both. Existing Luau sound/playing and moving-entity anchors
+use this mixer. A bounded 64-entry SoundEvent start-observation drain and
+public, device-independent AcousticPath form clean seams for later shared
+perception. No AI, new editor phase or Backrooms work is included.
+
+**Audit findings and corrections.** Initial scalar FIR mixing, and a first
+Vec4.mul_add prototype, failed the real-time budget. Portable glam lowered that
+fused operation to scalar fallbacks without FMA. A quiet 48-voice prototype used
+268.73% median mixer wall/audio duration and was rejected. Explicit Vec4
+multiply/add retains every tap and passes scalar equivalence within 1e-5. The
+isolated locked-glam probe measured 0.2720045 -> 0.0038513 seconds for the same
+work/result, without target-cpu/native flags. Final native figures below, not
+that microbenchmark, establish the callback result. Finite sounds also now keep
+the complete FIR/IIR tail before relinquishing their mixer slot; a tiny mock
+regression protects end-of-block impulses and bounded reclamation.
+
+The first dense stimulus used gain 0.005, falling below Kira's -60 dB silence
+floor after distance/category gain. Its occupied-slot numbers (including the
+earlier 4.86% 48-HRTF figure) are withdrawn as audible stress evidence. The
+final fixture uses gain 0.5 solely for validation, checks every fluorescent
+voice above a 0.001 gain floor, rejects zero native PCM and retains four dense
+WAVs. Production cue gains are unchanged. This audit-only correction preserves
+the exact game/editor/compiler binary hashes
+(`audit-only-correction-proof.json`). The final performance set combines nine
+unchanged-player Pool receipts from `matched-pane-final/pool-*` with nine new
+audible dense receipts from `matched-audible-dense/`;
+`matched-audible-final/analysis.json` links each source. The early failed
+fused-FIR timing is a complexity diagnostic, not a matched before/after
+audible-quality measurement.
+
+The first final-analysis predicate incorrectly included MainMenu/loading and
+required a positive cumulative peak before the first asynchronous audio
+callback. The corrected predicate uses ready-to-end Playing snapshots, requires
+all 48 voices and every gain above 0.001 throughout, requires zero mixer errors
+and positive output by the end. It accepts all nine audible dense controls and
+still rejects all nine earlier silent controls under the same predicate. The
+independent guarded device audit records 95,438-101,397 nonzero native PCM
+frames in each of its 32 cycles; audible dense pause and motion WAVs corroborate
+actual signal. This does not establish subjective audibility/localization.
+`guard-reconciliation.json` records the positive/negative controls; the
+byte-identical failed `native-audible-workflow/initial-results.json` and failed
+log remain preserved. Its final `results.json` explicitly records initial
+failure and the resolved analysis, rather than rewriting it as an original
+success.
+
+The callback has no new geometry/decoder/I/O/heap preparation or waiting lock.
+The pre-existing Kira resource gate remains a non-waiting atomic try-acquire; a
+contested command boundary defers publication while existing voices render. SDL
+serializes its own stream callback. Fixed two-entry per-voice and four-entry
+output SPSC controls bound communication; the consumer drains them each block.
+Rapid unlimited game updates may count full control queues, dropping redundant
+updates rather than creating a backlog; measured mute response remains bounded.
+The existing admission policy is retained: 48 mixer slots, source replacement,
+bounded loop retry and refused excess one-shots, without new priority stealing
+or virtualization. Clear retires pending controls, emitters, scene and events.
+
+**Matched baseline/final performance.** Windows 10 Home 10.0.19045, Ryzen 9
+5900HX (8 cores/16 threads), 16,537,948,160 RAM bytes, RTX 3070 Laptop/DX12;
+portable locked optimized release/all features. The baseline player is
+`19a4a3a22718e5f340919e8281e2c9aae9fbab4e260244493ab75e258ecdf0ba` at the base
+commit; the exact final player is
+`f2f9d86dda736e3f4d5ccf88d5a0a56164844ee117c60ffbdae3911015244e74`. Three
+balanced-order 15-second ready runs per map/mode exclude 120 warmup frames. All
+use High/filtering/Full lightmaps/reflections/bloom, 1280x720 physical, real
+delta, VSync/frame limit off and verified Immediate presentation. Throughput
+exceeds the 165-Hz display. No captures, detailed CPU/GPU trace or concurrent
+build is included in these primary runs. Pool uses fixed eye/listener (8,1.6,9),
+yaw 0/pitch -32, with three ambient voices. Dense uses (5.5,1.6,5), yaw/pitch 0
+and 48 comparable fluorescent sources behind the same door.
+Master/effects/ambience are 0.8/1/0.6; mute is off. The logical default is Steam
+Streaming Speakers, WASAPI, 48 kHz/stereo, 480 frames, as identified by the new
+native logs and contemporaneous device enumeration; the unchanged baseline uses
+SDL's same logical-default API but did not log its resolved endpoint name.
+Medians of independent runs follow; raw ranges remain in the analysis receipt.
+Mixer percentages use native first-ready/end counters (including audio onset;
+frame FPS alone excludes 120 warmup frames) and divide elapsed mixer wall time
+by rendered audio duration, not by total machine capacity, and exclude SDL
+transport/driver work.
+
+| Map | Mode | FPS | Loop p99 ms | Update mean ms | Update p99 ms | Mixer wall/audio |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| pool | base | 277.22 | 7.196 | 0.2831 | 0.510 | 0.471% |
+| pool | speakers | 275.07 | 7.190 | 0.2882 | 0.515 | 3.136% |
+| pool | headphones | 277.37 | 7.213 | 0.2890 | 0.540 | 4.028% |
+| audio_dense | base | 912.63 | 1.639 | 0.0468 | 0.121 | 8.087% |
+| audio_dense | speakers | 901.78 | 1.705 | 0.0532 | 0.141 | 20.861% |
+| audio_dense | headphones | 904.80 | 1.663 | 0.0574 | 0.189 | 34.239% |
+
+ Measured throughput change: pool: speakers -0.78% FPS, headphones +0.05% FPS;
+audio_dense: speakers -1.19% FPS, headphones -0.86% FPS. These small changes
+retain the added full-quality processing; raw tails/ranges are reported rather
+than labelled an audio optimization.
+
+| Map/mode | Request-to-ready median ms | OS peak working set MiB | Sampled peak private MiB | Whole process CPU seconds |
+| --- | ---: | ---: | ---: | ---: |
+| pool/base | 8887.02 | 565.65 | 945.77 | 23.656 |
+| pool/speakers | 8841.99 | 578.77 | 960.45 | 23.891 |
+| pool/headphones | 8902.76 | 578.75 | 959.06 | 23.281 |
+| audio_dense/base | 7850.99 | 343.29 | 469.41 | 22.984 |
+| audio_dense/speakers | 7892.86 | 343.47 | 480.29 | 25.312 |
+| audio_dense/headphones | 7824.57 | 343.81 | 475.93 | 26.984 |
+
+These process figures include startup, renderer/driver allocations and worker
+threads. Private bytes are 250-ms samples, not allocation-call counts or total
+GPU memory. Initial loading/first-ready cost remains separate from the warmed
+frame table and does not establish a fix for the prior cold-input stall.
+
+**Native device, latency and resource checks.** Exact-final default-device game
+runs and explicit process-only Realtek output are exercised without changing
+host mixer/default/THX settings. Realtek reports WASAPI, 48 kHz/stereo and
+512-frame (10.67-ms) buffers. The opt-in allocator/lifetime tool ran 32 cycles
+in 82.87 seconds: office/tile contrast, Speakers/Headphones, 3/48 voices, moving
+source/listener orientation, rapid source restarts, overflow admission, mute,
+pause and clear. All dense admissions reach 48; overflow is refused.
+
+| Device audit mode/voices | Mixer wall/audio median | Main-thread acoustic update mean, median across cycles (us) |
+| --- | ---: | ---: |
+| Speakers-3 | 2.606% | 1.054 |
+| Headphones-3 | 3.491% | 3.717 |
+| Speakers-48 | 17.077% | 4.280 |
+| Headphones-48 | 28.437% | 23.290 |
+
+A separate 48-audible-voice listener translation/rotation diagnostic measures
+35.421% mixer wall/audio, maximum block 5.3216 ms and 3,968 path queries against
+a 4,224 bound over 10.501 seconds. Native PCM is finite/nonzero, all voices
+exceed the gain floor and no capture loss occurs during motion. This
+capture/trace run makes no FPS claim (`native-dense-motion-final/`).
+
+Maximum measured mix block in the standalone audit is 4.8600 ms. Callback Rust
+allocations/frees, capture loss, mixer errors, query-budget exhaustion and full
+parameter queues are all zero in this quiet device audit. Six post-mixer trials
+measure cue request to first PCM signal at 1.9989-6.0022 ms; mute to a confirmed
+10-ms exact-silence witness is 28.1084-32.0689 ms, with requested 1-ms polling.
+These are native post-mixer observations, excluding physical transport/DAC and
+perception.
+
+A same-cue, same-position open-room baseline/final control exercises ordinary
+authored PlaySound/StopSound and pause. These are PCM frame-index proxies
+anchored immediately before dispatch at the preceding callback counter. Zero
+means the first sample in the next recorded block, not zero wall latency.
+Resolution/phase uncertainty is one 10-ms default-device block plus dispatch;
+physical transport is excluded.
+
+| Mode | Cue-start frame proxy ms (three trials) | Single-cue pause plus 10-ms silence ms | Audible 48-voice pause plus 10-ms silence ms |
+| --- | ---: | ---: | ---: |
+| base | 0.000-0.000 | 10.000 | 10.000 |
+| speakers | 0.000-0.000 | 10.000 | 31.979 |
+| headphones | 10.083-10.083 | 12.896 | 31.979 |
+
+The audible dense pause witness increases from 10.000 to 31.979 ms.
+Approximately 22 ms extra is consistent with the new 12-ms post-effect fade plus
+one 10-ms output-control callback phase. This measured cost is retained to fade
+reverb cleanly; it is not called immediate or treated as a listening result. The
+direct final-device wall-time witness above remains the more precise final
+measurement.
+
+The shared 66-clip decode cache is unchanged at 43,409,440 bytes (41.398 MiB),
+retained once across map swaps. Native audit live Rust bytes are 44,593,781
+after initialization, with peak 66,645,489. After explicit unload all
+voice/clip/decode/scene counters are zero. Live bytes then measure 442,996
+including retained audit JSON/scratch; dropping that harness storage leaves
+6,238 bytes, versus 270 before audio initialization. This small residual is
+reported, not asserted to be audio-owned or zero. Rust accounting excludes C
+SDL/driver allocations. OS peak working set is 66,301,952 bytes; process/private
+counters and all per-cycle live samples are preserved. This finite stress run
+shows bounded ownership and cleanup; it is not a multi-hour listening or
+driver-leak proof.
+
+The final player passes 19 checkpoints for closed/opening/open/closed-again leaf
+and solid wall, one correctly deduplicated glass pane, listener front/back/
+elevation, mute/master-zero, pause/resume, Low/High reload, restored stereo and
+fluorescent power-off/restore. Captured PCM is finite, peak 0.038504; central
+mute/master-zero/pause windows are exactly zero and resume is nonzero. Initial
+startup tap loss is 228,608 frames while the main-thread capture consumer waits
+for loading; it does not grow across the stable checks. This optional tap is not
+a complete startup/underrun witness. Existing faint fluorescent, quieter HVAC
+and subtle pool cue files/gains remain unchanged, with ordinary power envelopes
+and master/category controls.
+
+Five lab and four water-map installs plus three Low/High cycles, cancellation
+and a deliberately corrupted disposable installed-package failure retain the
+correct current world. Warm ready transitions span 349.82-716.81 ms; initial lab
+startup is 7775.43 ms and is not hidden in ready FPS. Lab checkpoints own four
+voices/6 acoustic surfaces; water checkpoints own two/385. All pending counts
+remain zero, the shared decode cache stays constant, old authored sources
+disappear and shutdown clears world voices/scenes. The 250-ms OS samples include
+graphics caches and are not Rust allocation counts. The original lifecycle
+harness confused the two maps' valid pool_lapping cue names; identity/position
+analysis corrects that assertion with the same raw run. A missing named output
+logs the established silent fallback and the player continues with disabled
+audio and zero voices. No actual unplug/ replug or dedicated physical headphone
+endpoint is claimed.
+
+**Validation, evidence and remaining acceptance.** Exact final format, strict
+workspace/all-target/all-feature Clippy, **336 Rust tests**, locked optimized
+workspace/all-feature release, assets/texture/prop/audio checks and whitespace
+pass in `quality-audible-final/results.json`. The tests use tiny fixtures, with
+no shipped-map bake, native device or performance run added to automatic tests.
+The prior broader Python 17 failures/errors and 16 skips remain separate and
+were not rerun. Authored acoustic and legacy dense projects each check, force
+export, validate, verify current and recover their two editable files byte-for-
+byte under the exact final compiler (`package-pane-final/`).
+
+Unique raw evidence is preserved outside target at `C:/Users/Connor
+Dawkins/Documents/Codex/2026-10-25/task-6/`: final quality/package receipts,
+`native-audit-audible-realtek/`, `native-functional-pane-realtek/`,
+`native-lifecycle-pane/`, `native-missing-device-pane/`,
+`matched-audible-final/`, `matched-audible-dense/`,
+`native-latency-control-audible/`, `native-dense-motion-final/`, final
+binaries/licenses/hashes, source proof and custody/cleanup receipts. Rejected
+scalar/fused-SIMD runs, pre-pane binaries/measurements, harness failures, source
+archive, regenerated HRIR and all local WAV/screenshots are retained with their
+distinct provenance. No media attachment, CI wait, release, version bump, main
+merge, force push, host setting change or iGPU pass is performed.
+
+Subjective ambience balance, crackle-free motion, useful headphone front/back/
+elevation and audible office/pool contrast still require actual listening;
+measured spectra, impulses, state and generated/native PCM do not establish it.
+Prior ambient listening remains pending. macOS/Linux native devices are not
+available in the selected Windows executor, and the integrated iGPU pass remains
+later. Individual HRTF fit, actual host/DAC latency and physical hotplug remain
+unverified. The accepted water residual, cold input stall, CRT review, broader
+Python issues and final version gate remain distinct. Commit/push/remote hash,
+clean-tree verification, preserved-deliverable hashes and idle-only Cargo clean
+are recorded in the final local ownership handoff.

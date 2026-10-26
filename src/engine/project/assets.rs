@@ -67,6 +67,16 @@ impl BuiltinAssetRef {
 /// Returns an unknown or incompatible built-in reference before baking.
 pub fn validate_level_assets(level: &LevelDef, catalog: &AssetCatalog) -> Result<(), String> {
     let mut references = Vec::new();
+    // Validate audio-only references without adding/reordering render material slots.
+    references.extend(
+        level
+            .acoustic_materials
+            .iter()
+            .map(|material| BuiltinAssetRef {
+                kind: BuiltinAssetKind::Material,
+                id: material.material.clone(),
+            }),
+    );
     references.extend(
         crate::engine::materials::referenced_material_ids(level)
             .into_iter()

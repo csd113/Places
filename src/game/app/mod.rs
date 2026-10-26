@@ -2467,6 +2467,7 @@ impl FrameLoop<'_> {
                 pressed: _,
                 recapture: _,
             } => {}
+            actions::Action::Audio(change) => self.scripted_audio(&change),
             actions::Action::Checkpoint { name } => self.scripted_checkpoint(&name),
             actions::Action::Capture { name } => {
                 self.items.captures.push_back(name);
@@ -2496,13 +2497,7 @@ impl FrameLoop<'_> {
                 }
             }
             actions::Action::Focus { focused } => return self.scripted_focus(focused),
-            actions::Action::Quit {} => {
-                if !self.items.captures.is_empty() {
-                    self.items.quit_after_captures = true;
-                    return true;
-                }
-                return self.handle_event(&Event::Quit { timestamp: 0 });
-            }
+            actions::Action::Quit {} => return self.scripted_quit(),
         }
         self.trace_world("action_result");
         self.game.is_running()
@@ -3891,7 +3886,7 @@ impl FrameLoop<'_> {
                 serde_json::json!(self.audio.system.voice_snapshot()),
             ));
             drop(fields.insert("audio".into(), serde_json::json!(self.audio.system.stats())));
-            drop(fields.insert("audio_settings".into(), serde_json::json!({"master":self.settings.master_volume,"effects":self.settings.effects_volume,"ambience":self.settings.ambient_volume,"muted":self.settings.muted})));
+            drop(fields.insert("audio_settings".into(), serde_json::json!({"master":self.settings.master_volume,"effects":self.settings.effects_volume,"ambience":self.settings.ambient_volume,"muted":self.settings.muted,"spatial_audio":self.settings.spatial_audio})));
             drop(fields.insert("console_session".into(), self.console_runtime.snapshot()));
             let fixed_instances = self.current_level.as_ref().map(|loaded| {
                 let ids=loaded.level.prop_instance_ids();

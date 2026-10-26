@@ -108,6 +108,8 @@ impl Audio {
             })
             .collect();
         self.pools.clone_from(&level.water);
+        self.system
+            .set_acoustic_scene(crate::engine::audio::acoustics::AcousticScene::build(level));
         self.environment_ready = true;
     }
 
@@ -184,6 +186,15 @@ impl Audio {
 }
 
 impl FrameLoop<'_> {
+    pub(super) const fn scripted_audio(&mut self, change: &super::actions::AudioAction) {
+        self.settings.set_spatial_audio(if change.headphones {
+            crate::engine::audio::SpatialMode::Headphones
+        } else {
+            crate::engine::audio::SpatialMode::Speakers
+        });
+        let _master_changed = self.settings.set_master_volume(change.master);
+        let _mute_changed = self.settings.set_muted(change.muted);
+    }
     pub(super) fn update_audio_mix(&mut self) {
         // The listener is the controlled player's ears in both camera modes.
         // /become changes the visual, never the interaction/listener identity.
@@ -196,6 +207,7 @@ impl FrameLoop<'_> {
             !self.simulation_active(),
             self.items.world.simulation_state().time_scale,
             AudioSettings {
+                spatial_mode: self.settings.spatial_audio,
                 master_volume: self.settings.master_volume,
                 effects_volume: self.settings.effects_volume,
                 ambient_volume: self.settings.ambient_volume,
@@ -280,6 +292,7 @@ impl FrameLoop<'_> {
                 },
             );
         });
+        self.audio.system.update_acoustic_doors(self.game.doors());
         self.audio.capture_output();
     }
 

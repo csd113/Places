@@ -45,3 +45,5 @@ mod validation_order;
 mod package_zstd;
 
 mod constant_lightmap_tiles;
+
+mod acoustics;
