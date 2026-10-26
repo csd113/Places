@@ -98,8 +98,8 @@ fn unsupported_ramp(level: &LevelDef, index: usize, report: &mut SafetyReport) {
     };
     report.findings.push(SafetyFinding {
         check: "ramp-carrier-gap", category: SafetyCategory::Void, severity: SafetySeverity::Warning,
-        title: "Ramp extends outside a carrier floor".into(),
-        risk: "At least one ramp corner lies outside every room footprint. The rendered slope can extend there, but the player has no room-based walking support outside the carriers and can fall. Extend or reshape the carrier deliberately; no floor is added automatically. Corner sampling does not prove complete footprint coverage.".into(),
+        title: "Ramp extends outside a carrier room".into(),
+        risk: "At least one ramp corner lies outside every room footprint. The rendered slope can extend there, but the player has no room-based walking support outside the carriers and can fall. Extend or reshape the carrier deliberately; no walking surface is added automatically. Corner sampling does not prove complete footprint coverage.".into(),
         position: bounds_center(bounds), bounds, objects: vec![object], surfaces: Vec::new(), fix: None, placement_ignore: None,
     });
 }
@@ -186,7 +186,7 @@ fn edge(
         return;
     }
     let risk = if void {
-        "At least one sample has no lower floor beyond the edge; a jump may leave the authored walkable space.".into()
+        "At least one sample has no lower walking surface beyond the edge; a jump may leave the authored walkable space.".into()
     } else {
         format!(
             "Sampled lower landings are up to {drop:.2} m below this edge, above the {PLAYER_STEP_HEIGHT:.2} m walking step."
@@ -197,7 +197,7 @@ fn edge(
         category: if void { SafetyCategory::Void } else { SafetyCategory::Collision },
         severity: SafetySeverity::Warning,
         title: format!("{}: jump / drop review", edge.label),
-        risk: format!("{risk} {count}/{SAMPLES} samples have no crouched-body barrier at the {:.2} m jump apex; low side walls may be cleared. Doors use their authored starting pose and exact oriented collider; opening them may expose another route. Each floor retains its storey ownership. Sampled risk, not a trajectory proof: check ceiling, approach, water, ladders and intended openings in Play. No wall is added automatically.", crate::game::CROUCH_JUMP_APEX_M),
+        risk: format!("{risk} {count}/{SAMPLES} samples have no crouched-body barrier at the {:.2} m jump apex; low side walls may be cleared. Doors use their authored starting pose and exact oriented collider; opening them may expose another route. Each room retains its storey ownership. Sampled risk, not a trajectory proof: check ceiling, approach, water, ladders and intended openings in Play. No wall is added automatically.", crate::game::CROUCH_JUMP_APEX_M),
         position: bounds_center(evidence),
         bounds: evidence,
         objects: vec![edge.object],
@@ -229,7 +229,7 @@ fn regions(level: &LevelDef, report: &mut SafetyReport) {
                 index,
                 "region-multiple-storeys",
                 "Region affects multiple floors",
-                "Floor regions apply to every overlapping room footprint, relative to each room's own floor. This edit therefore cuts or raises more than one storey. Split the footprint or review each floor in Play; no source is changed automatically.",
+                "Surface regions apply to every overlapping room footprint, relative to each room's base elevation. This edit therefore cuts or raises more than one storey. Split the footprint or review each floor in Play; no source is changed automatically.",
                 SafetySeverity::Warning,
                 report,
             );

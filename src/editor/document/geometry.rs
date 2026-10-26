@@ -16,11 +16,11 @@ pub(super) fn set_transform(
         return Err("A ramp needs a signed, nonzero rise; use a region for a flat surface".into());
     }
     if matches!(id, ObjectId::FloorRegion(_)) && (vertical - 1.0_f32).abs() > 0.0001_f32 {
-        return Err("A floor region has no thickness; change its offset Y instead".into());
+        return Err("A surface region has no thickness; change its offset Y instead".into());
     }
     let quarters = proposed.yaw_degrees / 90.0_f32;
     if (quarters - quarters.round()).abs() > 0.0001_f32 {
-        return Err("Ramps and floor regions use 90 degree footprint rotations".into());
+        return Err("Ramps and surface regions use 90 degree footprint rotations".into());
     }
     let turn = quarters.round().rem_euclid(4.0_f32);
     let odd = (turn - 1.0_f32).abs() < 0.0001_f32 || (turn - 3.0_f32).abs() < 0.0001_f32;
@@ -102,7 +102,7 @@ impl Document {
                 .iter()
                 .any(|stairs| overlaps(footprint, stairs.bounds()))
         {
-            return Err("This footprint has global regions, ramps or stairs that would affect both storeys; create a separate upper floor footprint".into());
+            return Err("This footprint has global regions, ramps or stairs that would affect both storeys; create a separate upper room footprint".into());
         }
         let floor_y = room.eave_y() + crate::engine::level::MIN_STRUCTURE_M;
         let upper_eave = floor_y + room.height;
@@ -177,8 +177,7 @@ impl Document {
             || cut_far > z1
         {
             return Err(
-                "Opening must be a finite positive rectangle contained in the selected floor"
-                    .into(),
+                "Opening must be a finite positive rectangle contained in the selected room".into(),
             );
         }
         let cut = (x, cut_right, z, cut_far);
@@ -206,11 +205,11 @@ impl Document {
         }
         if replacements.is_empty() {
             return Err(
-                "An opening must leave part of the floor; use Delete to remove a room".into(),
+                "An opening must leave part of the room; use Delete to remove it entirely".into(),
             );
         }
         let ObjectId::Room(index) = id else {
-            return Err("Select a room floor".into());
+            return Err("Select a room".into());
         };
         let count = replacements.len();
         let rooms = array_mut(&mut edited, "rooms")?;
@@ -239,13 +238,13 @@ impl Document {
 
 fn selected_room(document: &Document, id: ObjectId) -> Result<&RoomDef, String> {
     let ObjectId::Room(index) = id else {
-        return Err("Select a room floor".into());
+        return Err("Select a room".into());
     };
     document
         .level()
         .rooms
         .get(index)
-        .ok_or_else(|| "The selected floor no longer exists".into())
+        .ok_or_else(|| "The selected room no longer exists".into())
 }
 
 pub(super) fn require_clear_cut(

@@ -673,7 +673,7 @@ impl App {
                 .cloned()
                 .ok_or("Asset selection expired")?;
             if materials {
-                let selected = self.selected.ok_or("Select a floor or wall")?;
+                let selected = self.selected.ok_or("Select a room or wall")?;
                 let doc = self.document.as_mut().ok_or("Open a project first")?;
                 if self.browser.material_ceiling {
                     doc.set_ceiling_material(selected, &id)?;
@@ -804,7 +804,7 @@ impl App {
                 )
             ) =>
             {
-                "Offset from room floor (m)"
+                "Offset from room base (m)"
             }
             4 if matches!(self.selected, Some(super::document::ObjectId::Ramp(_))) => {
                 "Signed ramp rise (m)"
@@ -827,7 +827,7 @@ impl App {
                 .as_ref()
                 .and_then(|rect| rect.get(field.saturating_sub(7)))
                 .copied()
-                .ok_or_else(|| "Open floor shape tools first".into());
+                .ok_or_else(|| "Open room shape tools first".into());
         }
         let transform = self
             .document
@@ -881,7 +881,7 @@ impl App {
                 .opening_rect
                 .as_mut()
                 .and_then(|rect| rect.get_mut(field.saturating_sub(7)))
-                .ok_or("Open floor shape tools first")? = snapped;
+                .ok_or("Open room shape tools first")? = snapped;
             return Ok(());
         }
         let id = self.selected.ok_or("Select an object")?;

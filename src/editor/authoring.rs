@@ -91,9 +91,9 @@ impl Tool {
             Self::Sun => "Directional light",
             Self::Ceiling => "Room ceiling / acoustics",
             Self::AcousticMaterial => "Acoustic material",
-            Self::LocalFloor => "Selected floor override",
-            Self::GlobalPatch => "GLOBAL floor patch",
-            Self::GlobalRegion => "GLOBAL floor region",
+            Self::LocalFloor => "Selected room override",
+            Self::GlobalPatch => "GLOBAL surface patch",
+            Self::GlobalRegion => "GLOBAL surface region",
             Self::Route => "Legacy route",
         }
     }
@@ -128,7 +128,7 @@ impl Tool {
                 number("/z", "Z", "0"),
                 number("/width", "Width m", "3"),
                 number("/depth", "Depth m", "1"),
-                number("/offset_y", "Floor-relative Y", "0"),
+                number("/offset_y", "Room-relative Y", "0"),
                 number("/rise", "Signed rise m", "0.5"),
                 text("/material", "Surface material", ""),
                 text("/edge_material", "Side material", ""),
@@ -138,7 +138,7 @@ impl Tool {
                 number("/z", "Z", "0"),
                 number("/width", "Width m", "4"),
                 number("/depth", "Depth m", "1.5"),
-                number("/offset_y", "Floor-relative Y", "0"),
+                number("/offset_y", "Room-relative Y", "0"),
                 number("/rise", "Rise m", "1"),
                 number("/steps", "Step count", "5"),
                 text("/material", "Tread material", ""),
@@ -151,7 +151,7 @@ impl Tool {
                 number("/y", "World base Y / auto", ""),
                 number("/length", "Length m", "3"),
                 number("/rotation_degrees", "Yaw degrees", "0"),
-                number("/rise", "Rise m / follow floor", ""),
+                number("/rise", "Rise m / follow surface", ""),
                 number("/height", "Height m", "1"),
                 number("/post_spacing", "Post spacing m", "1.2"),
                 text("/material", "Rail material", ""),
@@ -205,7 +205,7 @@ impl Tool {
                 number("/width", "Width m", "2"),
                 number("/depth", "Depth m", "2"),
                 number("/offset_y", "Offset on ALL carriers", "0"),
-                text("/material", "Floor material ID", ""),
+                text("/material", "Surface material ID", ""),
                 text("/edge_material", "Edge material ID", ""),
             ],
             Self::LocalFloor => vec![
@@ -213,8 +213,8 @@ impl Tool {
                 number("/z", "Z", "0"),
                 number("/width", "Width m", "2"),
                 number("/depth", "Depth m", "2"),
-                number("/offset_y", "Offset from selected floor", "0"),
-                text("/material", "Floor material ID", ""),
+                number("/offset_y", "Offset from room base", "0"),
+                text("/material", "Surface material ID", ""),
             ],
         }
     }
@@ -301,7 +301,7 @@ impl Draft {
         let collection = raw.get(tool.collection());
         let index = if matches!(tool, Tool::Ceiling | Tool::LocalFloor) {
             let Some(super::document::ObjectId::Room(room_index)) = app.selected else {
-                return Err("Select the owning room floor first".into());
+                return Err("Select the owning room first".into());
             };
             room_index
         } else {
@@ -643,7 +643,7 @@ impl App {
                 preview_draft.active = None;
             }
             self.status = if global_modifier {
-                "GLOBAL modifier preview: affects every overlapping storey. Use selected-floor override for local ownership.".into()
+                "GLOBAL modifier preview: affects every overlapping storey. Use selected-room override for local ownership.".into()
             } else {
                 "Validated preview; Apply commits, Cancel restores the scene.".into()
             };

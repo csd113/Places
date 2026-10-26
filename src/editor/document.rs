@@ -345,7 +345,7 @@ impl Document {
                 | ObjectId::FloorRegion(_)
                 | ObjectId::Door(_)
         ) {
-            return Err("Select a floor or wall to change its material".into());
+            return Err("Select a room or wall to change its material".into());
         }
         self.set_object_string(id, "material", material)
     }

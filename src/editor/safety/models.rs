@@ -304,7 +304,7 @@ fn support_note(
     if !contacts.is_empty() {
         let _contact_details = write!(
             report.limitations,
-            " {} model base(s) have measured floor contact; these are support contacts rather than a visible-sheet duplicate finding. Mesh closure and visibility are not proven.",
+            " {} model base(s) have measured surface contact; these are support contacts rather than a visible-sheet duplicate finding. Mesh closure and visibility are not proven.",
             contacts.len()
         );
         let bounds = contacts
@@ -313,8 +313,8 @@ fn support_note(
             .fold(Aabb::EMPTY, |all, bounds| all.union(bounds));
         report.findings.push(SafetyFinding {
             check: "model-floor-contacts", category: SafetyCategory::Review, severity: SafetySeverity::Info,
-            title: format!("{} model base(s) meet the floor", contacts.len()),
-            risk: "Measured opaque horizontal faces at the lowest point of a model with volume above touch an architectural floor. These are support contacts, including double-sided catalog bases. This does not prove mesh closure or visibility. Thin sheets, alpha faces, interior floor intersections and all prop/prop duplicate pairs remain in the depth audit. No placement or intent annotation is changed.".into(),
+            title: format!("{} model base(s) meet the supporting surface", contacts.len()),
+            risk: "Measured opaque horizontal faces at the lowest point of a model with volume above touch a supporting surface. These are support contacts, including double-sided catalog bases. This does not prove mesh closure or visibility. Thin sheets, alpha faces, interior surface intersections and all prop/prop duplicate pairs remain in the depth audit. No placement or intent annotation is changed.".into(),
             position: bounds_center(bounds), bounds, objects: contacts.into_iter().map(ObjectId::Prop).collect(),
             surfaces: Vec::new(), fix: None, placement_ignore: None,
         });

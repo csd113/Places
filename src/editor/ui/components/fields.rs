@@ -343,7 +343,7 @@ pub(super) fn map() -> Vec<F> {
         F::new(
             T::Defaults,
             "floor",
-            "Default floor material",
+            "Default surface material",
             K::Text,
             "\"core:carpet_beige_01\"",
         ),

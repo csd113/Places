@@ -117,7 +117,7 @@ pub(in crate::editor) fn shape_popup(app: &App, v: &mut Vec<Vertex>, hits: &mut 
     }
     text(
         v,
-        "Cut removes floor+ceiling; four strips remain.",
+        "Cut removes base+ceiling; four strips remain.",
         140.0,
         125.0,
         INK,

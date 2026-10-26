@@ -158,7 +158,7 @@ fn draw_hub(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     }
     ui::text(
         v,
-        "Select a room for ceiling or local floor overrides.",
+        "Select a room for ceiling or local surface overrides.",
         126.0,
         205.0,
         ui::INK,
@@ -280,7 +280,7 @@ fn draw_water_slice(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Ve
             }
         }
     }
-    ui::text(v, "Blue: water; gold: floor", 298.0, 155.0, ui::INK, 42);
+    ui::text(v, "Blue: water; gold: surface", 298.0, 155.0, ui::INK, 42);
     ui::popup_button(
         v,
         hits,

@@ -37,9 +37,9 @@ pub(super) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         text(
             v,
             if goal {
-                "PICK GOAL / click a floor"
+                "PICK GOAL / click a surface"
             } else {
-                "PICK START / click a floor"
+                "PICK START / click a surface"
             },
             117.0,
             42.0,

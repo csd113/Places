@@ -250,7 +250,7 @@ pub(super) fn set_transform(
             let mut actual = proposed;
             let quarters = proposed.yaw_degrees / 90.0_f32;
             if (quarters - quarters.round()).abs() > 0.0001_f32 {
-                return Err("Floors and walls use 90 degree footprint rotations".into());
+                return Err("Rooms and walls use 90 degree footprint rotations".into());
             }
             if proposed.yaw_degrees.abs() > 0.0001_f32 {
                 require_simple_rotation(object, id)?;

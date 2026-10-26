@@ -14,7 +14,7 @@ impl App {
             Action::Geometry => self.popup = Some(Popup::Geometry),
             Action::Shape => {
                 let document = self.document.as_ref().ok_or("Open a project first")?;
-                let transform = document.transform(self.selected.ok_or("Select a floor first")?)?;
+                let transform = document.transform(self.selected.ok_or("Select a room first")?)?;
                 let [x, _, z] = transform.position;
                 let [width, _, depth] = transform.size;
                 let snapped = |value: f32| {
@@ -33,7 +33,7 @@ impl App {
                 self.popup = Some(Popup::Shape);
             }
             Action::UpperFloor | Action::CutOpening => {
-                let id = self.selected.ok_or("Select a floor first")?;
+                let id = self.selected.ok_or("Select a room first")?;
                 let document = self.document.as_mut().ok_or("Open a project first")?;
                 self.selected = if action == Action::UpperFloor {
                     Some(document.add_upper_floor(id)?)
@@ -42,7 +42,7 @@ impl App {
                         .cut_floor_opening(
                             id,
                             self.opening_rect
-                                .ok_or("Open floor shape tools to choose the opening rectangle")?,
+                                .ok_or("Open room shape tools to choose the opening rectangle")?,
                         )?
                         .first()
                         .copied()
@@ -51,9 +51,9 @@ impl App {
                 self.changed();
                 self.viewport.frame_next_preview();
                 self.status = if action == Action::UpperFloor {
-                    "Added upper floor. Connect storeys through a separate side shaft; lower ceiling retained."
+                    "Added a room on the upper floor. Connect storeys through a separate side shaft; lower ceiling retained."
                 } else {
-                    "Split floor and ceiling around the opening. Check every storey's ceiling and access route."
+                    "Split the room around the opening. Check every storey's ceiling and access route."
                 }.into();
             }
             _ => return Ok(false),

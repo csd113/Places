@@ -181,7 +181,7 @@ impl App {
                 }
                 self.navigation.pick_goal = Some(goal);
                 self.navigation.feedback = format!(
-                    "Click a {} floor cell.",
+                    "Click a {} walkable cell.",
                     if goal { "goal" } else { "start" }
                 );
             }
@@ -209,7 +209,7 @@ impl App {
                 self.navigation.goal_node = None;
                 self.navigation.pick_goal = None;
                 self.navigation.route.clear();
-                self.navigation.feedback = "Pick start and goal floor cells.".into();
+                self.navigation.feedback = "Pick start and goal walkable cells.".into();
             }
             _ => return Ok(false),
         }
@@ -294,7 +294,8 @@ impl App {
             return true;
         };
         let Some((node, position)) = self.navigation_floor(origin, direction) else {
-            self.navigation.feedback = "No baked floor here. Check the height slice.".into();
+            self.navigation.feedback =
+                "No baked walking surface here. Check the height slice.".into();
             return true;
         };
         if goal {
@@ -347,7 +348,7 @@ impl App {
         let nav = &mut self.navigation;
         nav.route.clear();
         let (Some(start), Some(goal), Some(data)) = (nav.start, nav.goal, &nav.prepared) else {
-            nav.feedback = "Pick start and goal floor cells.".into();
+            nav.feedback = "Pick start and goal walkable cells.".into();
             return;
         };
         let Some(agent) = data.agents.get(nav.agent) else {
@@ -382,7 +383,8 @@ impl App {
                 )
                 .is_none()
             {
-                nav.feedback = format!("Invalid {name}: body clearance or door blocks this floor.");
+                nav.feedback =
+                    format!("Invalid {name}: body clearance or door blocks this surface.");
                 return;
             }
         }
@@ -409,7 +411,7 @@ impl App {
             ),
             Err(PathResult::Invalid(message)) => format!("Invalid route: {message}"),
             Err(PathResult::Unreachable) => {
-                "Unreachable: disconnected floors or blocked route.".into()
+                "Unreachable: disconnected surfaces or blocked route.".into()
             }
             Err(PathResult::Path(_)) => "Incomplete route.".into(),
         };

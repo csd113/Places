@@ -46,7 +46,7 @@ impl Wizard {
             width: "1.2".into(),
             expected: doc.raw().clone(),
             candidate: None,
-            message: "Choose floors and width. Preview reviews the shaft and landings.".into(),
+            message: "Choose rooms and width. Preview reviews the shaft and landings.".into(),
         })
     }
 }
@@ -85,15 +85,21 @@ pub(super) fn candidate(
     catalog: &crate::engine::assets::AssetCatalog,
 ) -> Result<Value, String> {
     let level = doc.level();
-    let low = level.rooms.get(lower).ok_or("Choose a lower floor")?;
-    let high = level.rooms.get(upper).ok_or("Choose an upper floor")?;
+    let low = level
+        .rooms
+        .get(lower)
+        .ok_or("Choose a room on the lower floor")?;
+    let high = level
+        .rooms
+        .get(upper)
+        .ok_or("Choose a room on the upper floor")?;
     let rise = high.floor_y - low.floor_y;
     if lower == upper || rise <= 0.0 {
         return Err("Upper floor must be above the lower floor.".into());
     }
     if !low.ceiling.is_flat() || !high.ceiling.is_flat() {
         return Err(
-            "This straight shaft needs two flat rooms; review open/gabled floors manually.".into(),
+            "This straight shaft needs two flat rooms; review open/gabled rooms manually.".into(),
         );
     }
     if !width.is_finite() || !(0.9..=4.0).contains(&width) {
@@ -169,8 +175,8 @@ fn clear_envelope(
     landing: f32,
     catalog: &crate::engine::assets::AssetCatalog,
 ) -> Result<(), String> {
-    let low = level.rooms.get(lower).ok_or("Missing lower floor")?;
-    let high = level.rooms.get(upper).ok_or("Missing upper floor")?;
+    let low = level.rooms.get(lower).ok_or("Missing lower room")?;
+    let high = level.rooms.get(upper).ok_or("Missing upper room")?;
     let [x, z, width, depth] = cut;
     let (shaft_width, shaft_depth) = if width >= depth {
         (width + landing, depth)
@@ -185,7 +191,7 @@ fn clear_envelope(
         .iter()
         .any(|w| overlaps((w.x, w.x + w.width, w.z, w.z + w.depth)) && w.y < high.floor_y + 1.9)
     {
-        return Err("A wall intersects the proposed flight/landing envelope. Move it explicitly or choose another floor pair.".into());
+        return Err("A wall intersects the proposed flight/landing envelope. Move it explicitly or choose another room pair.".into());
     }
     // A ceiling fixture without authored Y still owns real geometry. Cutting
     // its supporting room would otherwise silently lift it into the shaft.
@@ -258,8 +264,8 @@ fn assemble(
         .get_mut("rooms")
         .and_then(Value::as_array_mut)
         .ok_or("Missing rooms")?;
-    let lower_raw = rooms.get(lower).ok_or("Missing lower floor")?.clone();
-    let upper_raw = rooms.get(upper).ok_or("Missing upper floor")?.clone();
+    let lower_raw = rooms.get(lower).ok_or("Missing lower room")?.clone();
+    let upper_raw = rooms.get(upper).ok_or("Missing upper room")?.clone();
     let mut replacements = Vec::new();
     for (i, room) in rooms.iter().enumerate() {
         if i == lower {
@@ -404,7 +410,7 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>, w
             .as_ref()
             .and_then(|d| d.level().rooms.get(i))
             .map_or_else(
-                || "Choose floor".into(),
+                || "Choose room".into(),
                 |r| {
                     format!(
                         "{} Room{} Y{:.2} >",

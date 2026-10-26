@@ -16,7 +16,7 @@ directory. `--asset-root`, `PLACES_ASSET_ROOT`, `PLACES_COMPILER`, and
 `PLACES_GAME` support explicit installations. Compiler/game paths are independent.
 New chooses a parent folder and creates a unique child; Open chooses a project
 folder. The default is the user's `projects/` folder. `--new` requires a new path.
-The starter contains a six-metre floor/ceiling and a built-in light.
+The starter contains a six-metre room and a built-in light.
 
 | Control | Action |
 | --- | --- |
@@ -38,8 +38,8 @@ Click a value, use Cmd/Ctrl A to clear it, Enter to apply, Esc to cancel.
 Rooms/walls use minimum-corner coordinates and axis-aligned footprints. Their
 quarter-turn rotation swaps dimensions about the centre and displays zero yaw
 afterwards. Unsafe rotations of profiled/per-face/opening data are refused.
-Prop Y is floor-relative; all scale fields change uniform scale. Prop library
-chooses the next built-in model; Material assigns a floor/wall material. Scroll
+Prop Y is relative to the room base; all scale fields change uniform scale. Prop library
+chooses the next built-in model; Material assigns a surface/wall material. Scroll
 the scene list independently. The shared renderer applies compiler trim/fixture preparation, hides ceiling faces when viewed from above and shows their textured underside
 when looking up from inside. The real ceiling mesh, collision, bake and exported
 world remain intact. Inspect uses neutral light; Play shows authored lighting
@@ -476,8 +476,8 @@ applying ordinary editable records. Cancel leaves source unchanged.
 The editor starts in **Simple**. `Mode` switches instantly to the existing
 Advanced inspector and back; both operate on the same document, selection,
 source buffers and undo history. Mode switching never converts level data.
-Horizontal footprints are labelled Room1, Room2, etc.; a floor/storey is a
-vertical level. Display labels do not rename stable object or level references.
+Horizontal footprints are labelled Room1, Room2, etc.; Floor denotes a
+vertical storey. Physical walking areas use Surface in controls and prompts. Display labels do not rename stable object or level references.
 
 `New Room` opens a six-field form for position, size, floor height and ceiling
 height. Its default footprint starts east of the selected room on the same

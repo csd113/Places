@@ -32,7 +32,7 @@ impl Document {
             .get(index)
             .ok_or("Select the owning room")?;
         if !room.ceiling.is_flat() && !room.ceiling.is_open() {
-            return Err("Local floor sections require a flat or open ceiling".into());
+            return Err("Local surface sections require a flat or open ceiling".into());
         }
         let number = |key: &str| {
             record

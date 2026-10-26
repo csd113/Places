@@ -173,7 +173,7 @@ fn floor_mount(
     let z = snapped(transform.position[2], snap_step);
     let source_base = surfaces
         .floor_y_at(x, z)
-        .ok_or("Place the prop over a floor before mounting it")?;
+        .ok_or("Place the prop over a room surface before mounting it")?;
     let reference_y = source_base + transform.position[1];
     let carrier = surfaces
         .rooms()
@@ -187,7 +187,7 @@ fn floor_mount(
                     &(second.floor_y + surfaces.walkable_offset_at(x, z) - reference_y).abs(),
                 )
         })
-        .ok_or("Place the prop over a floor before mounting it")?;
+        .ok_or("Place the prop over a room surface before mounting it")?;
     let floor = carrier.floor_y + surfaces.walkable_offset_at(x, z);
     let normal = surfaces.ramp_at(x, z).map_or(Vec3::Y, |ramp| {
         let (dx, dz) = match ramp.axis() {
@@ -214,13 +214,13 @@ fn floor_mount(
         if !surfaces.rooms().iter().any(|room| {
             room.contains(world.x, world.z) && (room.floor_y - carrier.floor_y).abs() <= 0.0001
         }) {
-            return Err("The model footprint extends beyond its supporting floor; adjust manually or move it inward".into());
+            return Err("The model footprint extends beyond its supporting surface; adjust manually or move it inward".into());
         }
         let support = carrier.floor_y + surfaces.walkable_offset_at(world.x, world.z);
         let expected_support =
             floor - normal.x.mul_add(relative.x, normal.z * relative.z) / normal.y;
         if (support - expected_support).abs() > 0.002 {
-            return Err("The model footprint crosses a floor step or slope boundary; move it onto one surface or adjust manually".into());
+            return Err("The model footprint crosses a surface step or slope boundary; move it onto one surface or adjust manually".into());
         }
         lift = lift.max(support - world.y);
     }

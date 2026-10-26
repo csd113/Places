@@ -10381,43 +10381,85 @@ blocked routes and the earlier bad contact remain inspectable raw evidence.
 Full prepared loading and reflection loading also pass. Final editor Build+Play
 reaches the real player and its post-Stop inspector displays live task state.
 Earlier fixed-duration Play attempts stopped before ready under load; they do
-not establish startup coverage. The final binary replays fetch, loop,
+not establish startup coverage. Candidate 5 replays fetch, loop,
 selected-perception and Any-hearing; a **76-assertion evidence audit** checks
 accepted runs, physical outcomes, no script/audio errors, source preservation
 and exact compiled-source hashes. It is not a count of new Rust tests or a
 repeat of the prior 21-scenario shared-AI campaign.
 
-**Content and limits.** All 16 preserved project archives / 32 members, including
-menu, pass strict package validation with current readers. Project-owned source
-bytes and archives remain unchanged. No source/package format or prepared-data
-contract changes, compatibility shim or mass rebake was introduced. The broad
-compiler fingerprint hashes renderer/debug source as well as preparation code;
-this phase changes that stamp. Thus all 32 prior members report compiler-code
-freshness mismatch under `verify --require-current`, while integrity and strict
-reading pass. This is an explicit final-gate freshness residual, not a claim
-that packages have been rebuilt current. Unaffected preparation was preserved
-under the instruction not to needlessly rebake. Six playable distributions
-still have 19 internal levels, not 19 playable maps.
+**Acceptance correction and current content.** The final terminology sweep
+changes 76 display strings in 20 editor files: horizontal selections, prompts
+and errors say Room; physical material/region controls say Surface; Floor
+denotes a vertical storey/elevation. Stable IDs, serialized keys, references
+and all non-string Rust tokens are unchanged. Final-binary native checks cover
+Room1 selection, the invalid rotation refusal without source mutation, upper
+Floor creation, lower/upper Room stair selectors, New Room elevation, repeated
+mode switches and save. The four corresponding assertions pass.
 
-Final editor SHA-256:
-`76049c1eb98c85307befe3974c92229e0887f9602e25f81d7364bbace01feac9`;
-player `7a98fd0d69eb14924cd8f8f110c07291053a56969edc58ce43b012e013a6e683`;
-compiler `589701e428a582f294830ab4caf2251a2dd38ca77ace250d7c640647f06b2dd1`.
-Final candidate 5 differs from candidate 4 only in two editor behavior UI files
-for readable snapshot formatting/Close; engine/compiler inputs are identical.
-Earlier native cases retain pinned candidate provenance instead of being
-misrepresented as final-binary reruns. No editor throughput comparison was made.
+The first editor handoff left a compiler-fingerprint freshness mismatch in
+all prior packages. That acceptance gap is now closed. All **16 project
+archives / 32 members** have been rebuilt with the final compiler through the
+existing supported pipeline, using eight workers and sequential project jobs.
+All members pass strict current readers and `verify --require-current`, with
+integrity valid, no differences and `bake_required: false`. The separately
+bundled menu and both active One Guest outputs were preserved before replacement,
+then rebuilt, verified, published and verified again. The existing planner
+reuses genuinely current exported preparation for the standalone outputs;
+stale preparation was not exempted. The final audit records **37 freshness
+checks and 21 strict validations**. Project source bytes are unchanged; all
+prior task-8 archives and prior active outputs remain hash-verified historical
+evidence. No fingerprint redesign, provenance bypass, format compatibility
+layer or blind source migration was introduced. Six playable distributions
+still contain 19 internal levels, not 19 playable maps. The compiler retains
+nonfatal no-valid-irradiance-probe warnings at 1.5 m spacing for Beam room 1 and
+the final authoring project rooms 6/10; they are recorded without suppressing
+them or altering source placement. Strict/current and native load checks pass.
+
+The final candidate repeats strict Clippy, all 355 Rust tests serially, the
+locked release build, nine Python geometry tests, all five asset gates and the
+production Luau boundary gate. Native checks load and simulate every rebuilt
+non-menu member in a fresh player process with the actual Full lighting variant
+and Full reflections requested (**31 members**). This is startup/load/simulation
+coverage, not a repeat of full quests or a throughput comparison. The newly
+bundled native menu passes all eight parcel-relay checks, retaining the original
+item identity across physical pickup and release. The native editor reads the
+current bake status and launches the active One Guest package through real Play,
+then stops without modifying project sources. The menu run overlapped CPU
+baking and establishes function only, not performance.
+
+The editor harness initially failed to parse eight interleaved records because
+editor and player shared its optional trace sink. That raw failed attempt is
+retained. The final audit instead verifies the exact imported-package hash,
+complete world-committed/ready records, separate player diagnostic log and
+51.78-second AI simulation state, plus editor Play/Stop and unchanged source.
+It does not claim a complete named checkpoint snapshot from the mixed trace;
+no production change or repeated native run was needed for this harness issue.
+
+Final candidate 6 SHA-256:
+editor `b335143500120207c923d20c7311ccb1dd9f166dfe4c2193e64b2fff13b6fee0`;
+player `4966a52bb54f7bc4afa8b5fd43c7cd7dbd81fc54b5aff85e05b9b4a768672f53`;
+compiler `9438652eb946467bb508e63a1263adaadb0f5825888c803a5d6052723c1855d3`.
+Candidate 6 differs from candidate 5 only in the 20 display-string files;
+engine/map-compiler/Cargo/build inputs are identical. Candidate 5's earlier
+76-assertion feature audit retains its exact binary provenance and was not
+misrepresented as a wholesale rerun on candidate 6. The correction has its own
+final-binary receipts. No editor throughput comparison was made.
 
 Raw evidence, helpers, candidates, final symbols, authored acceptance projects,
 packages, traces, captures and failed attempts are preserved outside Cargo target
-at `C:/Users/Connor Dawkins/Documents/Codex/2026-10-26/task`. Key receipts are
-`editor-native-audit.json`, `candidate-5-{sources,binaries}.json`,
-`clippy-editor-15.log`, `tests-editor-5.log`, `build-editor-5.log`,
-`assets-final-results.json`, `luau-editor-final.json`, `native-settled-*/`,
-`native-editor-runtime-inspection-final/`, `native-export-recover-final/`,
-`strict-content-editor/` and `current-content-editor-check/`. Exact staging
-commit/remote verification, final preservation hashes, idle-only Cargo cleanup
-and custody release are in the external `ownership-handoff.json`.
+at `C:/Users/Connor Dawkins/Documents/Codex/2026-10-26/task`. Original feature
+receipts include `editor-native-audit.json`, `native-settled-*/`,
+`native-editor-runtime-inspection-final/` and `native-export-recover-final/`.
+Correction receipts are under `editor-acceptance-close/`: `acceptance-audit.json`,
+`terminology-audit.json`, `compiler-lineage.json`, `gates.json`,
+`assets-final-results.json`, `luau-release.json`, `current-content/summary.json`,
+`current-content/packages.json`, per-member current/strict logs,
+`native-content/receipt.json` and `native-menu/receipt.json`. Native wording and
+editor Play traces are in `native-terminology-close/` and
+`native-editor-current-close/`; final source/binary hashes are
+`candidate-6-{sources,binaries}.json`. Exact staging commit/remote verification,
+final preservation hashes, idle-only Cargo cleanup and custody release are in
+the external `ownership-handoff.json`.
 
 Water's accepted optical/performance residual, audio listening/headphone/hotplug/
 platform gaps and dense-pause cost, the cold ~2.4-second input stall, CRT review,

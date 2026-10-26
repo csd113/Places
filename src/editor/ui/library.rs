@@ -51,7 +51,7 @@ pub(in crate::editor) fn draw_grid(
             if app.browser.material_ceiling {
                 "Ceiling"
             } else {
-                "Floor"
+                "Surface"
             },
             Action::MaterialTarget,
         );

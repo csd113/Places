@@ -322,7 +322,7 @@ fn destination(doc: &Document, id: &str) -> Result<Value, String> {
     {
         let floor = surfaces
             .floor_y_at(prop.x, prop.z)
-            .ok_or("Target has no supporting floor")?;
+            .ok_or("Target has no supporting surface")?;
         let (sin, cos) = prop.rotation_degrees.to_radians().sin_cos();
         let size = prop
             .size
@@ -345,7 +345,7 @@ fn destination(doc: &Document, id: &str) -> Result<Value, String> {
     } else if let Some(door) = doc.level().doors.iter().find(|door| door.id == id) {
         let floor = surfaces
             .floor_y_at(door.x, door.z)
-            .ok_or("Door has no supporting floor")?;
+            .ok_or("Door has no supporting surface")?;
         let (sin, cos) = door.rotation_degrees.to_radians().sin_cos();
         let contact = [
             (door.width * 0.75).mul_add(cos, door.x),
@@ -682,7 +682,7 @@ fn picker_choices(doc: &Document, command: Command) -> Vec<String> {
             .rooms
             .iter()
             .enumerate()
-            .map(|(i, r)| format!("Room{} / floor Y {:.2}", i.saturating_add(1), r.floor_y))
+            .map(|(i, r)| format!("Room{} / Floor Y {:.2}", i.saturating_add(1), r.floor_y))
             .collect();
     }
 
@@ -693,7 +693,7 @@ fn draw_options(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     let labels: &[&str] = if draft.contacts {
         &[
             "Approach X",
-            "Approach floor Y",
+            "Approach Y",
             "Approach Z",
             "Contact X",
             "Contact Y",

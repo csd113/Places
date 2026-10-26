@@ -90,7 +90,7 @@ pub(in crate::editor) fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: 
             scalar(vertices, hits, index, top, label, value);
         }
         if region {
-            text(vertices, "Y relative to floor", 5.0, 197.0, MUTED, 28);
+            text(vertices, "Y relative to room base", 5.0, 197.0, MUTED, 28);
         }
         if marker {
             text(
@@ -119,7 +119,7 @@ fn heading(app: &App) -> &'static str {
                 (WallAxis::Z, true) => "RAMP / UP +Z",
                 (WallAxis::Z, false) => "RAMP / UP -Z",
             }),
-        Some(ObjectId::FloorRegion(_)) => "REGION / FLOOR Y",
+        Some(ObjectId::FloorRegion(_)) => "REGION / SURFACE Y",
         Some(ObjectId::Light(_)) => "LIGHT / MOUNT PLANE",
         Some(ObjectId::Audio(_)) => "SOUND / POSITION",
         Some(ObjectId::SpawnPoint(_)) => "SPAWN / POSITION",
