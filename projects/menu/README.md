@@ -82,3 +82,18 @@ Runtime SHA-256 is `bbb7cb766b5962d3c2f09b9cade186012500e4fe8213ca2ee0d71b665e3c
 Original source/preparation provenance is retained. Both original and migrated
 packages report existing source/preparation staleness against the current project;
 storage migration does not make `verify --require-current` pass or claim a fresh bake.
+
+
+## Windows release preparation (2026-10-27)
+
+The release compiler freshly prepared normal Static and Full lighting/probes
+after the compiler fingerprint changed. Native integrity and
+`verify --require-current` pass before publication to the application-owned
+`assets/shared/menu/scene.bin`. This replaces the previously stale prepared
+resource; no old lighting was reused. The earlier storage-migration account
+above remains historical evidence.
+
+Current runtime bytes: **16,420,340**. SHA-256:
+`dc2e594527dde7789cc5d35bcf105abd3db0b92eb56b77af96f1e7c9d3b4da47`.
+See the final Windows section of `docs/reports/release-0.13.0.md` for the compiler,
+receipts, native acceptance, download inventory and preserved old resource.

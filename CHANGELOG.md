@@ -9,9 +9,16 @@ adds articulated mannequin ragdolls with explicit reset. Version reports are
 consolidated in [the report index](docs/reports/README.md).
 
 See [0.13.0 acceptance and limitations](docs/reports/release-0.13.0.md) for exact
-validation evidence. Native Windows/Linux acceptance, unexplained historical
-memory residency and macOS presentation pacing remain open. Ragdolls do not stand
-up automatically; generated stairs support the documented straight-floor case.
+validation evidence. Native Razer Windows game/editor/compiler and macOS
+acceptance pass. Linux/clean-OS installer acceptance, unexplained historical
+memory residency and macOS uncapped presentation pacing remain open. Ragdolls do
+not stand up automatically; generated stairs support the documented straight-floor case.
+
+The Windows portable ZIP includes the actual player, editor, compiler, runtime
+dependencies/assets and seven freshly prepared editable project archives. Relay
+Annex and development fixtures are excluded from downloads. Release notes and
+the exact artifact/checksum inventory accompany the candidate; publication,
+tagging and the main merge remain separate final actions.
 
 ## 0.12.0 — 2026-10-18
 

@@ -20,7 +20,7 @@ class CapacityGeneratorWitnessTests(unittest.TestCase):
 
     def test_current_catalogue_reproduces_exact_maintained_fixture_and_pressure(self):
         generated = self.generate(CAPACITY.load_placeables())
-        self.assertEqual((json.dumps(generated, indent=2) + "\n").encode(), FIXTURE.read_bytes())
+        self.assertEqual((json.dumps(generated, indent=2) + "\n").encode(), FIXTURE.read_bytes().replace(b'\r\n', b'\n'))
         self.assertEqual(len(generated["props"]), 5312)
         self.assertEqual(len({prop["model"] for prop in generated["props"]}), 48)
         self.assertEqual(sum(prop.get("solid", False) for prop in generated["props"]), 2760)
@@ -35,7 +35,7 @@ class CapacityGeneratorWitnessTests(unittest.TestCase):
         placeables.append(dict(id="test:unrelated_addition", asset_type="prop", model="unused.glb",
                                size=[1.0, 1.0, 1.0], solid=False))
         generated = self.generate(placeables)
-        self.assertEqual((json.dumps(generated, indent=2) + "\n").encode(), FIXTURE.read_bytes())
+        self.assertEqual((json.dumps(generated, indent=2) + "\n").encode(), FIXTURE.read_bytes().replace(b'\r\n', b'\n'))
 
     def test_removed_or_nonplaceable_current_witness_id_is_refused(self):
         current = json.loads((ROOT / "assets/catalog.json").read_text())

@@ -90,6 +90,13 @@ Projects with `menu_entry_only: true` expose just their entry in Explore and use
 visible rows for the background choice. Internal members remain available to
 `PLACES_LEVEL` and the complete `--list-levels` diagnostic inventory.
 
+For Windows distribution, use `python tools/package-windows.py --with-editor`
+with explicit runtime DLL/license and map-directory inputs; see
+[installation](INSTALLATION.md#windows-portable-game-and-authoring-tools).
+`tools/release-projects.json` is the complete seven-project 0.13.0 release
+inventory; it excludes Relay Annex and development fixtures. The curated lineup
+below is intentionally smaller and does not define the release upload inventory.
+
 To author the optional curated content, run `sh tools/build-maps.sh --workers 8`.
 That explicit command compiles exactly `levels/lineup.txt` through `places-compile`,
 then verifies every sub-map’s provenance, archive validity and Static/Full variants.

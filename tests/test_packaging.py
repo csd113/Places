@@ -34,6 +34,14 @@ def check_destination(destination: Path) -> subprocess.CompletedProcess:
 
 
 class PackageDestinationGuardTests(unittest.TestCase):
+    def directory_symlink(self, target, link):
+        try:
+            os.symlink(target, link, target_is_directory=True)
+        except OSError as error:
+            if getattr(error, 'winerror', None) == 1314:
+                self.skipTest('Windows directory-symlink privilege is unavailable; no host policy is changed')
+            raise
+
     def test_map_free_export_needs_only_the_player_and_runtime_assets(self):
         # A tiny fake release player protects script dependency boundaries on
         # every CI run, without Rust compilation, SDL or a production-map bake.
@@ -127,15 +135,18 @@ class PackageDestinationGuardTests(unittest.TestCase):
             commands = root / 'commands'
             commands.mkdir()
             move = commands / 'mv'
-            move.write_text(f'#!{sys.executable}\n'
-                            'import os, sys\nfrom pathlib import Path\n'
-                            'source = Path(sys.argv[1])\n'
-                            'if source.name == "Places.app" and source.parent.name.startswith(".places-package-stage."):\n'
-                            '    sys.exit(7)\n'
-                            'os.execv("/bin/mv", ["mv", *sys.argv[1:]])\n')
+            # A shell fixture has no interpreter-path/shebang ambiguity on Git
+            # for Windows, and still injects the same second-rename failure.
+            move.write_text('#!/bin/sh\n'
+                            'parent=${1%/*}; case "${parent##*/}/${1##*/}" in .places-package-stage.*/Places.app) exit 7;; esac\n'
+                            'exec /bin/mv "$@"\n', encoding='utf-8', newline='\n')
             move.chmod(0o755)
-            failed = subprocess.run(['sh', str(source / 'tools/package.sh'), '--with-editor', str(output)],
-                                    env={**os.environ, 'PATH': str(commands) + os.pathsep + os.environ['PATH']},
+            # Resolve the injected PATH entry inside the shell. A Windows
+            # drive colon is not a POSIX PATH separator, even under Git sh.
+            failed = subprocess.run(['sh', '-c',
+                                     'PATH="$(cd "$1" && pwd -P):$PATH"; export PATH; shift; exec sh "$@"',
+                                     'package-rollback-probe', str(commands),
+                                     str(source / 'tools/package.sh'), '--with-editor', str(output)],
                                     text=True, capture_output=True, timeout=30, check=False)
             self.assertNotEqual(failed.returncode, 0)
             for product in ('Places', 'Places.app'):
@@ -173,7 +184,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             outside.mkdir()
             target = outside / "keep-me.txt"
             target.write_text("unrelated")
-            os.symlink(outside, root / "Places")
+            self.directory_symlink(outside, root / "Places")
             result = check_destination(root)
             self.assertNotEqual(result.returncode, 0, result.stdout)
             self.assertIn("symlink", result.stdout.lower())
@@ -185,11 +196,11 @@ class PackageDestinationGuardTests(unittest.TestCase):
         # target, including through an intermediate link.
         with tempfile.TemporaryDirectory() as directory:
             home_link = Path(directory) / "home-link"
-            os.symlink(Path.home(), home_link)
+            self.directory_symlink(Path.home(), home_link)
             repo_link = Path(directory) / "repo-link"
-            os.symlink(ROOT, repo_link)
+            self.directory_symlink(ROOT, repo_link)
             chained = Path(directory) / "chained-link"
-            os.symlink(home_link, chained)
+            self.directory_symlink(home_link, chained)
             for label, destination in {
                 "home symlink": home_link,
                 "repository symlink": repo_link,

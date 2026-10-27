@@ -1,0 +1,14 @@
+{
+  "version": "0.13.0",
+  "projects": [
+    {"source": "projects/backrooms", "package": "backrooms.placesmap"},
+    {"source": "projects/environments", "package": "environments.placesmap"},
+    {"source": "projects/beam", "package": "beam.placesmap"},
+    {"source": "projects/closing-time", "package": "closing-time.placesmap"},
+    {"source": "projects/one-guest-too-many", "package": "one-guest-too-many.placesmap"},
+    {"source": "projects/shape-of-an-exit", "package": "shape-of-an-exit.placesmap"},
+    {"source": "projects/untitled-1792640069720", "package": "after-hours-rooms-beyond.placesmap"}
+  ],
+  "excluded": ["projects/relay-annex", "development gyms, labs and review fixtures"],
+  "note": "The bundled menu is a separate runtime dependency. This explicit release inventory is broader than levels/lineup.txt."
+}

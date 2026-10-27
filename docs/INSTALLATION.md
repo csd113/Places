@@ -59,26 +59,55 @@ the current candidate, repaired gameplay paths and remaining limitations. Native
 Linux, clean-OS installers and downloaded Gatekeeper trust remain open;
 successful installation is not exhaustive gameplay acceptance.
 
-## Windows portable game
+## Windows portable game and authoring tools
 
 Extract the entire `Places-0.13.0-Windows.zip`, keep its `Places` folder together,
-and open `Places/places.exe`. The x64 player requires Windows and a Direct3D 12
-GPU. Rust, Python, the editor and the repository are not runtime dependencies.
+and open `Places/places.exe`. Open `Places/places-editor.exe` for the editor;
+`Places/places-compile.exe` is the offline compiler and offers its native GUI
+with the `gui` argument. The x64 player requires Windows and a Direct3D 12 GPU.
+Rust, Python and the repository are not runtime dependencies.
 
-The game-only payload contains the EXE, `SDL3.dll`, `dxcompiler.dll`, `dxil.dll`,
-`msvcp140.dll`, `vcruntime140.dll`, `vcruntime140_1.dll`, runtime assets and six
-project packages: the nine-map Quiet Collection, Beam, Closing Time, Relay Annex,
-One Guest Too Many and The Shape of an Exit. Explore lists the project entries;
-the collection's doors reach its eight destinations. Leave **Lightmaps: Full**
-selected for this collection distribution. It does not supply a complete Static
-variant set; unsupported selections produce a named error rather than silently
-changing lighting quality.
+The payload includes all three EXEs, `SDL3.dll`, `dxcompiler.dll`, `dxil.dll`,
+`msvcp140.dll`, `vcruntime140.dll`, `vcruntime140_1.dll`, runtime assets and seven
+complete editable project packages: **The Backrooms**, **The Quiet Collection**
+(Hub plus Home, Pool, Office, Arcade, Lantern Hollow, Winter, Beach and Aero),
+**It Only Exists in the Beam** (four chapters), **Closing Time**, **One Guest Too
+Many**, **The Shape of an Exit**, and **After Hours - Rooms Beyond**. Relay Annex
+source remains in the repository and is excluded from release downloads.
+Development gyms, labs and review fixtures are excluded too.
+
+The release inventory is explicit in `tools/release-projects.json`;
+`levels/lineup.txt` describes the smaller curated developer build. Complete release
+exports retain their normal Static and Full variants. Explore lists project
+entries, and authored transitions reach their internal members.
+
+On Windows, use the native exporter after building matching binaries and preparing
+the selected map directory. `--with-editor` includes both editor and compiler:
+
+```powershell
+python tools/package-windows.py --with-editor --maps C:\Exports\ReleaseMaps `
+  --runtime-dir C:\Exports\Runtime --sdl-license C:\Dev\SDL3\LICENSE.txt `
+  C:\Exports\Candidate
+```
+
+The runtime directory supplies the six x64 DLLs above and a `licenses/` folder
+with their Windows SDK/Visual C++ notices (or pass `--runtime-notices <directory>`).
+The exporter preserves those notices and the exact SDL license alongside the
+payload. It validates PE
+architecture and every selected package against the staged assets, then checks
+the staged player's complete discovered member inventory. It never bakes maps.
+Use a new output root: an existing `Places` product is refused. `WINDOWS_RUNTIME.json`
+records actual input identities and source-worktree status; `PAYLOAD_SHA256.json`
+covers the payload files. `--build-receipt` can preserve the exact gated build/source
+receipt. The Unix shell exporter is not the Windows packaging entry point.
 
 Writable data uses `%LOCALAPPDATA%\Places`; no writes belong in the extracted
-payload. The exact Windows validation scope, package hashes and remaining
-Mac/Linux and clean-OS gates are recorded in the
-[0.13.0 report](reports/release-0.13.0.md). This portable staging ZIP is separate
-from a native installer or a public release.
+payload. Each project package includes recoverable authoring sources: use compiler
+`import-project <package> --out <new-project-folder>` and open the new folder in
+the editor. Keep the entire installation beside all three EXEs when moving it.
+The [0.13.0 report](reports/release-0.13.0.md) records exact native scope, hashes
+and remaining gates. This portable candidate is separate from a native installer
+or a public release.
 
 ## macOS launch
 
@@ -111,8 +140,8 @@ The maintained environment distribution is `environments.placesmap`: Central
 Hub plus eight destinations, with only the hub exposed in Explore. Each
 destination has a physical return door. The former eight standalone environment
 packages are retired; [the retirement inventory](reports/release-0.12.0.md#environment-collection-0120-retirement)
-records their exact IDs. Closing Time, It Only Exists in the Beam and Relay Annex
-remain separate optional project packages.
+records their exact IDs. Closing Time and It Only Exists in the Beam remain separate optional project
+packages. Relay Annex is preserved as source and excluded from 0.13.0 downloads.
 
 Import an existing collection package using the matching player and resources:
 

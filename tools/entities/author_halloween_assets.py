@@ -935,7 +935,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     for name in names:
         path = REPO_ROOT / ASSETS[name]
         reviews = json.loads((REPO_ROOT / 'assets/completed-models.json').read_text())
-        reviewed = reviews.get(str(path.relative_to(REPO_ROOT / 'assets')))
+        reviewed = reviews.get(path.relative_to(REPO_ROOT / 'assets').as_posix())
         if reviewed:
             digest = hashlib.sha256(path.read_bytes()).hexdigest()
             if digest != reviewed['sha256']:

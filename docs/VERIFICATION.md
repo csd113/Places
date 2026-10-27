@@ -38,12 +38,15 @@ all-feature check, strict debug and release Clippy, then all-feature production
 builds. `Cargo.toml` and `clippy.toml` are authoritative for lint policy. Fix causes
 rather than suppressing warnings.
 
-[GitHub CI](../.github/workflows/rust.yml) performs those stages in a temporary
-engine copy with optional map directories omitted, then runs maintained asset /
-generator checks and source Python tests. It rejects tracked compiled packages.
+[GitHub CI](../.github/workflows/rust.yml) runs test-aware check/Clippy/CPU gates
+in the full source checkout so maintained quest Luau modules remain available.
+Formatting and production binaries use a temporary engine copy with optional map
+directories omitted. Maintained asset/generator checks and source Python tests
+run in the full source checkout. It rejects tracked compiled packages.
 Ordinary CI does not bake production maps or capture reflection probes. The old
 broad Rust suite was removed in 0.11.0. The subsequent essential CPU regressions
-run with `cargo test --workspace` (245 at the 0.13.0 final gate); Python contracts,
+run with `cargo test --workspace` (360 on the final 0.13.0 Razer gate;
+362 on the accepted Mac gate); Python contracts,
 production validation and developer diagnostics remain active. Additional Rust tests require essential concrete regression value and proportional
 cost, live under the owning engine/game/editor/map_compiler tests folder, and
 must be wired into Rust discovery as described in `AGENTS.md`.

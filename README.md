@@ -40,8 +40,10 @@ bowling lanes, cabinets, birthday room and restroom of **Cosmic Lanes & Arcade**
 
 Doors, switches, weather and occasional encounters give the spaces their own
 rhythms. Adjustable graphics and remappable controls let you settle into yours.
-Separate editable game modes include **Closing Time**, **It Only Exists in the
-Beam** and **Relay Annex**. They remain independent of the collection.
+Separate editable projects include **The Backrooms**, **Closing Time**,
+**It Only Exists in the Beam**, **One Guest Too Many**, **The Shape of an Exit**
+and **After Hours - Rooms Beyond**. They remain independent of the collection.
+Relay Annex source is preserved and excluded from 0.13.0 release downloads.
 
 ## Controls
 
@@ -65,13 +67,16 @@ changed in Settings; Escape always pauses.
 
 ## About this version
 
-**Places 0.13.0** is a staging candidate. Current native validation is on
-macOS arm64 with Metal. The [release report](docs/reports/release-0.13.0.md) records
+**Places 0.13.0** is a staging candidate. Native validation covers Windows x64 with Direct3D 12
+and macOS arm64 with Metal. The [release report](docs/reports/release-0.13.0.md) records
 integrated acceptance and remaining platform, performance and delivery limits.
 No 0.13.0 release or tag has been published.
 
-The candidate includes the native editor, an always-bundled live menu scene,
-and optional gameplay packages including the nine-map Quiet Collection. The eight standalone environment demos are superseded by this
+The Windows candidate includes the game EXE, native editor, offline compiler,
+dependencies, runtime assets, an always-bundled live menu scene and all seven
+approved project packages, including the nine-map Quiet Collection.
+See [portable installation](docs/INSTALLATION.md#windows-portable-game-and-authoring-tools)
+for launch and authoring instructions. The eight standalone environment demos are superseded by this
 single package. See the [collection handoff](docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
 for the exact retirement inventory, validation and remaining work.
 

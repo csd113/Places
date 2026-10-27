@@ -38,7 +38,7 @@ def export_maps(source: Path, payload: Path, compiler: Path) -> None:
         # Ordinary player discovery also checks catalog provenance and semantic
         # compatibility. A stale, duplicate or malformed optional map must not
         # silently disappear from an export that explicitly selected it.
-        discovered = subprocess.run([str(payload / 'places'), '--list-levels'],
+        discovered = subprocess.run([str(payload / ('places.exe' if os.name == 'nt' else 'places')), '--list-levels'],
                                     env=env, text=True, capture_output=True, check=True)
         rows = discovered.stdout.splitlines()
         discovered_ids = [row.split('\t', 1)[0] for row in rows]

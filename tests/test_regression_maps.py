@@ -70,7 +70,7 @@ class MapRegressionInventoryTests(unittest.TestCase):
         commands = MAPS.planned_commands(row, Path("/compiler"), Path("/evidence"))
         self.assertEqual([command[1] for command in commands], ["build", "verify", "validate"])
         self.assertNotIn("--variants", commands[0])
-        self.assertEqual(commands[0][commands[0].index("--out") + 1], "/evidence/packages/fixture__one.placesmap")
+        self.assertEqual(Path(commands[0][commands[0].index("--out") + 1]), Path("/evidence/packages/fixture__one.placesmap"))
         self.assertIn("--require-current", commands[1])
 
     def test_evidence_is_never_overwritten(self):
@@ -89,9 +89,9 @@ class MapRegressionInventoryTests(unittest.TestCase):
                               (fixture, "/stable/fixture.placesmap")):
             command = MAPS.planned_commands(row, compiler, out, prepared_root=prepared,
                                             install_source_packages=True)[0]
-            self.assertEqual(command[command.index("--out") + 1], expected)
+            self.assertEqual(Path(command[command.index("--out") + 1]), Path(expected))
         command = MAPS.planned_commands(shipped, compiler, out)[0]
-        self.assertEqual(command[command.index("--out") + 1], "/evidence/packages/shipped.placesmap")
+        self.assertEqual(Path(command[command.index("--out") + 1]), Path("/evidence/packages/shipped.placesmap"))
         # Two IDs protect complete-project export and per-member verification;
         # this only plans CLI arguments and never prepares a world.
         project = dict(key="project", source="projects/environments/places.project.json",

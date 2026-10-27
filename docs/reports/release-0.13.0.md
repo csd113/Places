@@ -10966,3 +10966,198 @@ executables/packages exits normally after cleanup. Native/build jobs have finish
 the finite keep-awake assertions have no permanent host effect. Staging commit,
 observed remote delivery and final writer custody are recorded in
 `evidence/FINAL-HANDOFF.json` outside target.
+
+
+## Final Windows release-candidate preparation (2026-10-27)
+
+This phase reconciled the Razer checkout from Windows polish commit
+`57ce953b1ffad725dcdc1507a0cdb8c598f18263` and safely fast-forwarded the authorized
+`0.13.0-staging` branch to the accepted Mac commit
+`9fca431855e002774516559508af2bc8735eadef`. The observed remote matched that exact
+commit. The final delivery commit, exact remote equality, closing hosted CI result
+and writer custody are recorded in `FINAL-HANDOFF.json` beside the evidence below.
+This phase performs no main merge, tag, public release or 0.13.1 bump.
+
+Evidence is preserved outside Cargo target at
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-27/task/rc-evidence`. Raw failed attempts remain alongside successful receipts.
+`CHECKPOINT.json`, job receipts and five-second heartbeats retain stage, command,
+PID, timing and log custody. The single release-project whitelist is
+`tools/release-projects.json`: seven projects, 18 members. Relay Annex source is
+preserved and excluded from downloads, as are development labs, gyms and review
+fixtures. The smaller `levels/lineup.txt` is not the release inventory.
+
+**Strict gates and narrow repairs.** All commands use the locked repository
+toolchain; both Clippy profiles deny warnings. Rust tests run serially.
+
+| Gate | Result | Controller seconds |
+|---|---|---:|
+| `format` | passed | 5.01 |
+| `release` | passed | 595.34 |
+| `check` | passed | 130.08 |
+| `clippy` | passed | 45.04 |
+| `clippy-release` | passed | 65.04 |
+| `rust-tests` | passed | 290.25 |
+
+The Windows Rust suite passes **360 tests**. The complete Python suite passes
+**369 tests**, zero failures/errors, **18 optional/platform skips**, in 161.845 s.
+Asset, audio and maintained generator gates pass. Native cheap `check-project`
+preflight for all seven projects and all 11 production Luau refusal cases finish
+before the expensive exports. A supplementary catalog closure audit passes
+**7,588 references across 18 members**.
+
+Windows-only failures were repaired at their cause: canonical POSIX ledger keys,
+CRLF-independent historical text hashes/fixtures, native path comparisons,
+directory-symlink privilege handling, shell rollback injection, native command
+launch fixtures and real Windows cancellation signaling. Assertions and original
+hash pins remain. The cancellation test's two confirmed orphan workers were
+reconciled before the successful suite/preflight/bakes. No host security, GPU or
+power setting was changed. A new harness's environment-case lookup was corrected
+before packaged native tests; its failed source-audit attempt remains recorded.
+The player's supported `--paths` / `--list-levels` checks pass. A mistaken
+`--version` harness check launched normal gameplay and reached its deadline;
+that owned process was stopped and its receipt retained. Remaining checks resume
+from that point without a product change, repack or release-map recomputation.
+The runtime intentionally records successful `api.notice` output in its bounded
+diagnostics too. The Closing Time title initially tripped the harness's empty-list
+assumption. Exact source-proven notices are now classified explicitly; positive
+and negative checks retain rejection of VM errors, budget failures and wrong-level
+messages. The original normal Full run is audited without replay or package edit. Shared
+neutral fallback materials are reported separately from missing textures; all
+18 members have zero missing-texture counters and no Full-lighting fallback.
+
+The earlier hosted failure was a test-checkout boundary: maintained quest tests
+compile authored Luau with `include_str!`. Test-aware check/Clippy/test gates now
+use the complete source checkout. Formatting and production compilation still
+prove the engine-only checkout. No test was removed and hosted CI performs no
+full release-map bake. The closing hosted run targets the final delivered commit;
+its exact result belongs to the final handoff receipt, separate from native QA.
+
+**Fresh preparation and provenance.** The old accepted Windows package's integrity
+still passes, but the current compiler reports `compiler preparation code changed`
+and requires preparation after the Mac const-fn correction. Normal Static/off and
+Full exports were therefore freshly computed with the preserved strict-build
+compiler, eight workers, one project at a time. Logs retain real receiver/direct/
+bounce/filtering/reflection stages. No prior Windows or Mac lighting was copied
+into the release directory. Completed current outputs were retained; documentation,
+notice and packaging-tool changes did not trigger another lighting computation.
+
+| Project / archive | Members | Export duration | File bytes | SHA256 |
+|---|---:|---:|---:|---|
+| The Backrooms / `backrooms.placesmap` | 1 | 79m42s | 169,469,607 | `35424865bca1a3c5a8f9abe0d7d948ab9569f691e5390e7f8c279f7edaea290d` |
+| The Quiet Collection / `environments.placesmap` | 9 | 99m23s | 435,973,168 | `7705f37242b10e9f0f4ad9ed6bde0f1c938510ec4efd8705984f20a9392cf360` |
+| Beam (four chapters) / `beam.placesmap` | 4 | 13m55s | 56,481,178 | `dcf8f4b151c2d870cf5e239de5a7834592bec92460bfa3441f8687ddecb2ee08` |
+| Closing Time / `closing-time.placesmap` | 1 | 7m55s | 32,807,634 | `4698662132179dc75dae2dbaae037985adf24e87dd42dc3dd0068a6e2c933fb1` |
+| One Guest Too Many / `one-guest-too-many.placesmap` | 1 | 3m10s | 14,825,181 | `c79f5c828c1ace1a29375c6ecb7729b177dfb4794673e2925c4a1a4aa404b7c0` |
+| The Shape of an Exit / `shape-of-an-exit.placesmap` | 1 | 3m20s | 10,691,646 | `824be2547326c38389f3ecbea052ebf31d62dc14b0c867ce701b9ee1181b60c5` |
+| After Hours - Rooms Beyond / `after-hours-rooms-beyond.placesmap` | 1 | 18m01s | 44,413,559 | `01124c77b8c5fc3d0917c47c37ff5ccf2938e2f42b14bb91fbb001429f986bcd` |
+
+All seven archives pass native integrity/dependency validation and every member's
+`verify --require-current`. All 36 variants are present with zero Full fallback.
+The exact map-file total is **764,661,973 bytes = 764.662 MB = 729.238 MiB**;
+this excludes the outer ZIP, binaries and shared assets. After Hours' project,
+level and Luau source match the last accepted Windows archive byte-for-byte and
+retain the documented polished content. All seven later recoveries also match
+their current authoring sources exactly. The application-owned menu is separately
+verified/prepared and retained with its old resource backup and new provenance.
+At the menu publication step, the source proof changes only its generated
+`assets/shared/menu/scene.bin`; later provenance documentation is identified
+separately. Authored map, Rust, image and model sources remain unchanged.
+
+**Windows portable distribution.** `tools/package-windows.py --with-editor`
+includes the actual x64 player, native editor and compiler, six required runtime
+DLLs, full runtime resources and the seven project archives. It validates the
+selected packages against staged resources and all 18 discovered member IDs.
+Protected roots, existing products and actual Windows junction redirection are
+refused before staging; isolated sentinel data remains intact. The exporter
+preserves SDL and Windows SDK/Visual C++ notices, exact runtime identities and
+`PAYLOAD_SHA256.json`. DLL origins/hashes and native PE imports are retained.
+
+The ZIP is **978,508,389 bytes**, SHA256
+`0a25b0690c2f2e691d0357377f1883b9bd51be28298ef60d1930d74c3b0fe608`. CRC validation, clean extraction and every staged/extracted
+payload hash pass. Native workflows leave the extracted installation unchanged.
+`upload-inventory.json` names exactly ten prepared Windows upload files: this ZIP,
+seven standalone maps, release notes and `SHA256SUMS.txt`. Nothing was published.
+
+| Executable | SHA256 |
+|---|---|
+| `places.exe` | `44f1d8db149f92d7dd2b28425ed30197c495edc12505d849f07e6f87ba5e7201` |
+| `places-editor.exe` | `5eecd86d3a6793bebc97d857f61af18596d5f71b6633f6a92ea4a4b618e95a2e` |
+| `places-compile.exe` | `ad677b062722a80d9f26cd64627cff014d53a355beb2c03604a99fba3d329b70` |
+
+The optimized build's recorded source HEAD is `9fca431855e002774516559508af2bc8735eadef`;
+the final source ledger confirms identical gated Rust/Cargo inputs. Packaging
+records its actual worktree status, prepared assets and separate build receipt,
+rather than pretending that later delivery documentation existed at compile time.
+
+**Clean extracted-folder native acceptance.** All 18 members start and render Full,
+accept ordinary movement and exit normally. Captures are visually reviewed and
+excluded from timing. Functional game/editor/compiler EXEs use executable-relative
+assets from the extraction, outside-repository working directories, isolated user
+state and a Windows-system-only PATH. Development SDK/tool PATH entries cannot
+mask a missing packaged DLL. These are Razer native checks, not clean-OS installer
+or downloaded SmartScreen acceptance.
+
+Backrooms uses **31 resident Full pages /
+520,093,696 bytes**, without fallback.
+The fresh Pool carry/crouch/underwater/throw/buoyancy/dry-exit/pause/unload workflow,
+Beam flashlight/AI response, ordinary Home carry/handoff/whole-assembly retirement/
+save, and Home-Hub-Pool-Hub door cycle pass **12 semantic checks**.
+Previously accepted action data is explicitly identified; executables, assets and
+all prepared maps are the fresh extracted candidate. Pool/Beam diagnostic setup
+is retained honestly; normal input drives the later interactions. No exhaustive
+new quest campaign, subjective listening, PCM or hotplug claim is inferred.
+
+The extracted compiler recovers all seven complete projects, checks their sources,
+validates every archive and verifies all 18 members current without repository
+runtime resources. Native editor production control dispatch passes mode changes,
+Save/reopen, Full Build, complete-project export, actual Full Play child and normal
+Quit/return. Source bytes remain exact. The Play child history is an intact
+1,278-event byte prefix through normal shutdown. Its
+optional shared trace has padding only after that point; raw bytes remain and
+the parent returned-to-editing state independently corroborates the lifecycle.
+No native operation is replayed to repair that diagnostic artifact. The actual
+packaged compiler GUI Bake action, activated through approved keyboard navigation,
+prepares a separate small review map:
+**1,952,482 bytes**, SHA256
+`b10277d770b9dd75d211b0ca8cec2785b32eb2d322bd33a04dd99b4e646a8a0c`. Its native integrity/currentness checks and normal close
+pass. Desktop screenshot capture timed out despite approved app access; compiler
+GUI appearance is not claimed. Its real Bake-complete log and prepared output
+establish the functional workflow. Review fixtures stay outside the release directory.
+
+**Measured Windows presentation.** Six serial native runs use a quiet measurement cohort after release building and
+baking, with no competing GUI workflow. High textures/filtering, Full lighting/reflections, bloom, real delta,
+120 warmup frames, a 22-second ready window, requested VSync off and actual
+Immediate presentation use **1920x1080 physical drawable** on the **NVIDIA GeForce
+RTX 3070 Laptop GPU**. There is no capture/readback, limiter, forced GPU completion,
+graphics bypass or competing owned build/bake. The unchanged copied helper's
+initial focus/Return actions label receipts diagnostic; they do not disable
+rendering. Backrooms movement uses ordinary held input. Timing explicitly names
+the extracted resource root and preserved bounded diagnostic manifest reader;
+functional discovery checks above need no asset override.
+
+| Cohort | FPS | Loop p99 ms | Mean update ms | Mean GPU elapsed ms | Ready / missed |
+|---|---:|---:|---:|---:|---:|
+| Backrooms-walk-1 | 180.67 | 10.626 | 0.156 | 3.307 | 3981 / 0 |
+| Backrooms-walk-2 | 190.47 | 10.512 | 0.143 | 3.622 | 4190 / 0 |
+| Pool-full-1 | 128.97 | 16.029 | 0.534 | 6.737 | 2827 / 0 |
+| Pool-full-2 | 132.79 | 16.013 | 0.515 | 6.353 | 2914 / 0 |
+| Arcade-full-1 | 95.92 | 14.328 | 1.358 | 9.895 | 2092 / 0 |
+| Arcade-full-2 | 94.89 | 14.533 | 1.358 | 10.034 | 2066 / 0 |
+
+The six current-candidate Razer runs measure Backrooms walking at 180.67/190.47 FPS, Pool at 128.97/132.79 FPS and Arcade at 95.92/94.89 FPS. All use actual 1920x1080 Immediate presentation and have zero missed ready frames. Scene-dependent results above and below 120 FPS are not a single refresh-rate plateau. They establish this candidate's presented performance on this host, without a matched historical performance-gain claim or a cross-platform ratio. GPU timing spans include scheduling stalls and are not active utilization.
+
+GPU elapsed spans are not active utilization; OS process RSS is not VRAM. No
+cross-platform FPS ratio or universal throughput gain is claimed. Mac Immediate
+1080p results remain refresh-paced and inconclusive for uncapped throughput.
+Linux/clean-OS installers, subjective listening/hotplug and the accepted Windows
+water optical cost, cold input stall, CRT/probe limits, startup/functional audio
+publication-queue pressure and small shared-AI CPU cost remain scoped in this
+report. No cancelled iGPU campaign was resumed.
+
+**Artifact custody and cleanup.** All local phase build/bake/native jobs finished
+before cleanup. Preserved binaries/PDBs, maps, packages, logs, traces and captures
+remain outside target. The guarded Cargo cleanup records:
+`Removed 7553 files, 8.1GiB total`. Target is absent, and post-clean SHA256
+verification passes **4,200 preserved files /
+7,282,808,958 logical bytes**, with zero differences. Final
+delivery/hosted-CI/writer-custody status is retained in `FINAL-HANDOFF.json`.

@@ -84,11 +84,12 @@ class ExecutionTests(unittest.TestCase):
         with self.assertRaises(BrokenProcessPool):
             ordered_map(square, [1, 2], 2, initializer=bad_initializer)
         process = subprocess.Popen([sys.executable, '-m', 'tests.test_tool_execution', '--interrupt-probe'],
-                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=ROOT)
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=ROOT,
+                                   creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0)
         try:
             self.assertEqual(process.stdout.readline().strip(), 'ready')
             time.sleep(.4)
-            process.send_signal(signal.SIGINT)
+            process.send_signal(signal.CTRL_BREAK_EVENT if os.name == 'nt' else signal.SIGINT)
             stdout, _ = process.communicate(timeout=5)
             self.assertIn('children=0', stdout)
             self.assertNotEqual(process.returncode, 0)
@@ -96,6 +97,8 @@ class ExecutionTests(unittest.TestCase):
             if process.poll() is None:
                 process.kill()
             process.wait()
+            process.stdout.close()
+            process.stderr.close()
 
     def test_lattice_cache_preserves_hash_values(self):
         from tools.textures.artkit import hash01, lattice_hash01
@@ -201,6 +204,14 @@ class ExecutionTests(unittest.TestCase):
                     'assert package.read_bytes() == b"explicit package mock; never decoded"\n'
                     'print("[loading] committed " + level, flush=True)\n'
                     f'Path(os.environ["PLACES_CAPTURE"]).write_bytes({png!r})\n')
+                if os.name == 'nt':
+                    # Windows executes a quoted native command launcher, rather
+                    # than treating a Python source file as a PE executable.
+                    script = binary.with_suffix('.py')
+                    binary.rename(script)
+                    binary = binary.with_suffix('.cmd')
+                    binary.write_text(f'@echo off\n"{sys.executable}" "{script}"\n',
+                                      encoding='utf-8', newline='\n')
                 binary.chmod(0o755)
                 binaries.append(binary)
             command = [sys.executable, str(ROOT/'tools/bench/visual_check.py'),
@@ -267,6 +278,8 @@ class ExecutionTests(unittest.TestCase):
 
 if __name__ == '__main__':
     if '--interrupt-probe' in sys.argv:
+        if os.name == 'nt':
+            signal.signal(signal.SIGBREAK, signal.default_int_handler)
         print('ready', flush=True)
         try:
             ordered_map(slow, [1, 2], 2)

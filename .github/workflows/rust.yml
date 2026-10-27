@@ -53,17 +53,16 @@ jobs:
       - name: Check Rust formatting
         working-directory: ${{ runner.temp }}/places-engine
         run: sh tools/check-rust.sh format
+      # Authored quest regressions compile the maintained Luau source scripts.
+      # Run test-aware gates in the full source checkout; no map is baked.
+      # Production binaries below still build in the engine-only checkout.
       - name: Check Rust targets and features
-        working-directory: ${{ runner.temp }}/places-engine
         run: sh tools/check-rust.sh check
       - name: Clippy debug
-        working-directory: ${{ runner.temp }}/places-engine
         run: sh tools/check-rust.sh clippy
       - name: Essential CPU regressions
-        working-directory: ${{ runner.temp }}/places-engine
         run: sh tools/check-rust.sh test
       - name: Clippy release
-        working-directory: ${{ runner.temp }}/places-engine
         run: sh tools/check-rust.sh clippy-release
       - name: Build production executables
         working-directory: ${{ runner.temp }}/places-engine

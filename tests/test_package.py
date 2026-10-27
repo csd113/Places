@@ -213,7 +213,8 @@ class ShippedLevelTests(unittest.TestCase):
             source = path.read_bytes()
             self.assertEqual(json.loads(source)["schema"], "places-level")
             self.assertEqual(json.loads(source)["format_version"], 1)
-            historical = source.replace(b'  "schema": "places-level",\n', b'', 1)
+            # Git text checkouts may use CRLF; pin the original LF source bytes.
+            historical = source.replace(b'\r\n', b'\n').replace(b'  "schema": "places-level",\n', b'', 1)
             historical = historical.replace(b'"format_version": 1,', b'"format_version": 3,', 1)
             self.assertEqual(hashlib.sha256(historical).hexdigest(), digest)
             self.assertFalse((PACKAGE / "levels" / path.name).exists())
