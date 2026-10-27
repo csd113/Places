@@ -100,9 +100,13 @@ class StringLightTests(unittest.TestCase):
         self.assertFalse(axis_intersections(model, (y, z), 0),
                          'lateral spill clears the corner cage')
         level = json.loads((environment_source('winter')).read_text())
-        lanterns = [p for p in level['props'] if p['model'] == 'winter:timber_lantern']
-        self.assertEqual(len(lanterns), 2)
+        # The three winter_course markers reuse the model without authored
+        # lights; these spill assertions belong to the two actual square lamps.
+        lamp_ids = {'square_lamp_0', 'square_lamp_1'}
+        lanterns = [p for p in level['props'] if p['id'] in lamp_ids]
+        self.assertEqual({p['id'] for p in lanterns}, lamp_ids)
         for prop in lanterns:
+            self.assertEqual(prop['model'], 'winter:timber_lantern')
             self.assertEqual(prop['lights'], [{'shape': 'point', 'offset': list(TIMBER_LANTERN_SOURCE),
                                               'intensity': 1.5, 'range': 14,
                                               'color': [1, .81, .55], 'falloff': 'smooth'}])

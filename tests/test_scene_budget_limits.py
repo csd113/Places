@@ -55,11 +55,14 @@ class SceneBudgetRuntimeLimitsTests(unittest.TestCase):
                 BUDGET.validate_archive_bounds(DeclaredArchive([("dense.props", role, size)]))
 
     def test_full_atlas_container_fits_without_widening_other_records(self):
-        # Both real atlas records include the unchanged 196-byte KTX2 header.
+        # Real atlas records include the unchanged 196-byte KTX2 header.
         BUDGET.validate_archive_bounds(DeclaredArchive([("atlas.ktx2", "lightmaps", 268_435_652)]))
         BUDGET.validate_archive_bounds(DeclaredArchive([("atlas.ktx2", "lightmaps", 335_544_516)], dict(lightmaps="atlas.ktx2")))
-        BUDGET.validate_archive_bounds(DeclaredArchive([("atlas.ktx2", "lightmaps", 335_609_856)], dict(lightmaps="atlas.ktx2")))
-        for role, size in [("lightmaps", 335_609_857), ("texture", 268_435_652), ("texture", 335_544_516)]:
+        # The accepted 31-page Backrooms atlas is 496 MiB. These are declared
+        # lengths only: preflight must never allocate/decompress the payload.
+        BUDGET.validate_archive_bounds(DeclaredArchive([("atlas.ktx2", "lightmaps", 520_093_892)], dict(lightmaps="atlas.ktx2")))
+        BUDGET.validate_archive_bounds(DeclaredArchive([("atlas.ktx2", "lightmaps", 671_154_176)], dict(lightmaps="atlas.ktx2")))
+        for role, size in [("lightmaps", 671_154_177), ("texture", 268_435_652), ("texture", 335_544_516)]:
             with self.subTest(role=role, size=size), self.assertRaisesRegex(ValueError, "record safety bound"):
                 BUDGET.validate_archive_bounds(DeclaredArchive([("atlas.ktx2", role, size)]))
 
@@ -72,7 +75,7 @@ class SceneBudgetRuntimeLimitsTests(unittest.TestCase):
             ("lighting", "lighting", 268_435_456, dict(lighting="lighting")),
             ("collision", "collision", 134_217_728, dict(collision="collision")),
             ("navigation", "navigation", 134_217_728, dict(navigation="navigation")),
-            ("atlas", "lightmaps", 335_609_856, dict(lightmaps="atlas")),
+            ("atlas", "lightmaps", 671_154_176, dict(lightmaps="atlas")),
             ("charts", "lightmaps-meta", 67_108_864, dict(lightmaps_meta="charts")),
             ("irradiance", "irradiance", 268_435_456, dict(irradiance="irradiance")),
             ("positions", "probes-meta", 16_777_216, dict(probes=[dict(positions="positions", cubemaps=[])])),

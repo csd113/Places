@@ -271,6 +271,6 @@ pub fn heap_diagnostics() -> Option<serde_json::Value> {
     )
 }
 #[cfg(not(target_os = "windows"))]
-pub fn heap_diagnostics() -> Option<serde_json::Value> {
+pub const fn heap_diagnostics() -> Option<serde_json::Value> {
     None
 }

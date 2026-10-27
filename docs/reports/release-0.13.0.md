@@ -12,7 +12,9 @@ instancing stage before remaining runtime/editor work. The editor bake-progress
 bar and earlier accepted gains are retained. Earlier next-stage statements are
 historical cohort records. The [final combined Windows checkpoint](#final-combined-windows-validation-and-portable-package-2026-10-24)
 records the final portable-player checks and remaining performance limits.
-Mac/Metal validation of this final combination and Linux coverage remain open.
+The [Mac/Metal acceptance](#apple-silicon-mac-acceptance-2026-10-27) records the
+final uploaded combination, the non-Windows lint repair, current native packages
+and the refresh-pacing limitation. Linux coverage remains open.
 
 
 ## Configurable Sun and Moon - native Windows, 2026-10-22
@@ -10784,3 +10786,183 @@ iGPU work, main merge, release, version bump or 0.13.1 feature work occurred.
 
 <!-- INTEGRATED_POLISH_CUSTODY -->
 Idle-only Cargo cleanup removed 6,275 files / 7.5 GiB from the verified ordinary repository target. Post-clean rehash passes all 570 preserved paths / 6,904,792,170 logical bytes. Target is absent; native/build jobs are finished. Local writer custody is released. The external staging push was denied before execution by automatic approval review, which requires trusted direct user authorization for this exact push. The local ownership handoff records both observed commit hashes and the pending publication action; no workaround or retry was attempted.
+
+## Apple Silicon Mac acceptance, 2026-10-27
+
+**Result and scope.** The uploaded staging combination passes the applicable
+strict gates and substantive native Mac acceptance after one non-Windows lint
+repair and narrow maintenance of existing Python expectations. The exact starting
+remote and checkout were `57ce953b1ffad725dcdc1507a0cdb8c598f18263`; the remote
+was reverified unchanged at 14:00 UTC. This work used the clean isolated clone
+`/Users/connordawkins/Documents/Codex/2026-10-27/task-2/places-mac-validation`.
+The older checkout and its unrelated uncommitted data were left untouched.
+All evidence paths below are relative to the sibling `evidence/` directory,
+outside Cargo's target. This is Mac acceptance, not the complete release bake
+inventory or a replay of the accepted Windows 42-route/31-inherited-startup
+campaign. No main merge, release, version bump or 0.13.1 implementation occurred.
+
+The actual host is Apple M2 Pro, 12 CPU cores / 19 GPU cores, 16 GB unified
+memory, macOS 27.2 (26B123), arm64, SDL 3.4.18, Rust 1.99.1. Native player runs
+report **Apple M2 Pro / Metal**. Ordinary finite `caffeinate -i` assertions kept
+long jobs awake; no permanent host power, clock or security setting was changed.
+
+**Repairs and gates.** Exact uploaded code first failed strict Mac Clippy because
+the `cfg(not(target_os = "windows"))` `heap_diagnostics` stub can be const. Its
+only production change is `pub fn` to `pub const fn`, retaining `None` and the
+same Windows implementation. No lint suppression or runtime rewrite was added.
+`source-custody.json` protects 2,461 production/asset/project/build-input paths;
+none changed after the gated compiler and binaries were frozen.
+
+The initial Python suite exposed six obsolete expectations. Four newly exposed
+by the accepted Backrooms integration were distinguished from two historical
+Lantern/Winter failures by running those exact tests against archived commit
+`d5a062866136b9ccc203d2c038d011b6583cca6e`. Repairs retain the two-project curated
+lineup while testing the nine-member environment collection separately; distinguish
+an elevated Backrooms sightline aperture from walking/door clearance; exercise the
+actual 640 MiB plus 64 KiB lightmap record bound, including the 496 MiB witness,
+without allocating/decompressing it; protect six initial campfire skeletons, seven
+seats and Jun's `quest_seated` quest relationship; and apply lamp-spill assertions
+to `square_lamp_0/1`, rather than three deliberately unlit winter-course markers.
+No duplicate skeleton was restored and maintained quest content was not regenerated.
+The historical bootstrap generator still predates that quest. No new tests or
+full-map bakes were added to ordinary tests/CI.
+
+| Final gate | Result and evidence |
+|---|---|
+| Formatting and strict debug/release Clippy | Workspace/all-targets/all-features, `-D warnings`; pass, `gates-final/`. |
+| Production build | Locked release workspace/all-features; pass. |
+| Rust tests | **362 passed**, serial workspace; two Unix-specific tests account for the difference from Windows' 360. |
+| Full Python suite | **369 tests, zero failures, three optional skips**, 113.24 s; `python-complete/`. The six stale assertions above are closed. |
+| Production Luau boundaries | Eleven refusal cases pass using the normal optimized player; `gates-fixed/`. |
+| Asset/texture/prop/animation gates | 644 assets / 392 placeable / ten themes, zero asset-validator warnings, 102 inherited texture advisories; `assets/`. |
+| Diff and source identity | Clean diff formatting, identical production source and preserved executable hashes after native work. |
+
+**Freshness and preparation.** Runtime package portability and preparer currency
+are different contracts. `src/engine/package/world.rs` consumes the package's
+catalog closure and validates format/capabilities/dependencies/hash/bounds; it does
+not require the authoring compiler's source fingerprint to match the current
+host. `build.rs` fingerprints target/features and production/compiler sources;
+`src/map_compiler/mod.rs` rejects changed compiler provenance under `--require-current`.
+An intact Windows package could therefore be portable at runtime while honestly
+stale against the Mac preparer. No Windows archive was available for transfer.
+Normal Mac preparation, with full provenance and original quality, was necessary
+for currentness acceptance. No source-freshness override, quality reduction or
+provenance rewriting occurred.
+
+The two complete-project exports started once, continued during the UI approval
+wait and finished normally. Backrooms: 8 workers, **58m22s**, exit 0 at 09:24:08
+UTC. Environments: 4 workers, **1h54m38s**, exit 0 at 10:26:28 UTC. Both preserve
+normal Static/Full variants. Logs and receipts remain under `compiler/*-build/`.
+No visible compiler job was cancelled or duplicated. Integrity validation and
+all **ten member `--require-current` checks** pass with the final Mac compiler
+(`compiler/final-package-validation/`, `compiler/all-member-currency/`).
+
+| Preserved Mac package | Bytes | SHA256 |
+|---|---:|---|
+| Backrooms | 169,478,050 | `ddbd92a89ae9c6d1f9aec2ecac3ce97941dac93f1230f9cbbf8e903a1aecc56f` |
+| Environments | 435,943,849 | `a11a8add18129e66d573612376ac557ffdb6b72cd69804bef75ff46087d9f091` |
+
+These newly prepared archives have their own Mac provenance and are not claimed
+to be byte-identical to accepted Windows archives. Smaller native-only AI,
+navigation, celestial and flicker fixtures also used ordinary compiler paths.
+They are validation artifacts and must not enter the release map directory.
+
+**Native functional acceptance.** Captures and state traces are functional
+evidence, excluded from FPS cohorts. `native/final-functional-audit.json`
+independently checks the raw normal exits and state histories where a generic
+single-member/fixed-frame benchmark helper intentionally cannot report success.
+
+| Area | Observed Mac result |
+|---|---|
+| Current maps / large atlas | All **ten** current Full member startups pass: Backrooms plus Hub, Home, Pool, Office, Arcade, Lantern Hollow, Winter, Beach and Aero. All ten captures were visually inspected. Actual Metal draws and resident Full atlases, finite movement, no reset/script/fatal error and normal exits; `native/current-startups/`. Backrooms loads **31 pages / 520,093,696 bytes (496 MiB)** without fallback. |
+| Backrooms movement/collision | Normal W input climbs the 20-step stair from eye Y 1.6 to 5.15 m, then returns to the lower deck, grounded and reset count zero. Normal C-area and upper H-corridor walks cover **21.74 m / 21.87 m** at the correct floor heights. No post-spawn player mutation; before/mid/after captures and traces retained. The Windows exhaustive route evidence remains applicable; this is representative native platform coverage. |
+| Pool interaction / water / physics | With one initial diagnostic player/duck setup, ordinary E/W/crouch/throw input keeps original body `9223372036854775845` held into underwater crouch, releases that same body and lets it float at Y -0.161 m (submerged fraction 0.094, finite settled velocity). Ordinary movement reaches dry deck grounded at eye Y 1.6, zero resets. Visible floating-duck/water captures reviewed. The held-underwater capture is not evidence that the duck is visible in that particular camera view. |
+| Lifecycle / settings | Native Pool mute/headphones, unmute, pause/resume and normal return to bundled menu pass; the original Pool body disappears. No claim that total residency returns to a universal baseline. Three shared-AI reloads separately clear live ownership/tasks/reservations with distinct epochs. |
+| Shared AI | Existing acceptance plan/assertions retained, only local root/settings select Full lighting/reflections: **98 assertions across five native cases** pass, including fetch/ownership, light cargo, interruptions/ragdoll, senses and reload. `native/shared-ai-full/` and harness-custody JSON retain exact commands and hashes. |
+| CoreAudio | Real MacBook Pro Speakers / CoreAudio, 48 kHz stereo, **32 lifecycle cycles**, finite PCM, mute/latency checks; zero callback allocations/deallocations and zero voices/clips/errors after unload. `native/audio-audit/`. Subjective listening and physical hotplug remain untested. |
+| Lights / flicker authoring | Actual native editor selected light 0, applied/saved the existing flicker preset and completed normal Full Build. Runtime Full snapshots contain **61 checkpoints: 57 on / four off**, with the other five lights unchanged and no script errors. Saved visible captures all sampled ON; their filenames do not establish a paired OFF visual comparison. The real Full runtime transitions and the inherited Windows visual evidence are preserved separately. |
+| Native editor | Open, Simple/Advanced, transform, undo/redo, Save, Build, complete-project export and reopen pass on an isolated celestial-project copy. All four authoring files recover byte-for-byte. Real Play child reaches Full Metal world, exits normally and returns to editing; a later active Play/Stop round trip also passes. Initial premature import-only Play attempt is retained and excluded. `native/editor-roundtrip-audit.json`, `editor-play-complete/`, `editor-stop/`. |
+| Native compiler / portable payload | Normal `tools/package.sh --with-editor` payload includes player/editor/compiler and bundled SDL/assets. An own copied review app launched the exact compiler GUI; after owner Allow, the actual Bake button produced **370,503-byte** output and visible Bake complete. The packaged compiler validates and verifies it current from `/tmp` with `PLACES_ASSET_ROOT` unset. Official map-free payload, separate review bundle, exact output and logs are preserved under `portable/`. This is not an all-map release bundle. |
+
+The original compiler-app Computer Use request waited from 08:47 until owner
+Allow around 13:28 UTC. Background bakes continued and were reconciled before
+resuming; no restricted app interaction was routed through another interface.
+The GUI logged a sandbox-extension warning but successfully completed its bake
+and independent currency validation. The initial standalone Pool package was
+correctly refused because its transitions require the whole project; that owned
+failed player diagnostic was explicitly terminated, logged and excluded. The
+successful run uses the complete Environments project. Pool's deliberate menu
+transition and the stairs' early quit produced benchmark-helper exit 1 despite
+native exit 0 / `shutdown_complete`; their raw functional histories were audited,
+not presented as green FPS receipts. Later timed C/H/flicker helpers all exit 0.
+
+**Capture-free VSync-off performance.** Six serial runs began after all bake,
+test, editor and acceptance work ended. Each uses High textures/filtering,
+Full lighting/reflections, bloom, requested VSync off and actual applied
+**Immediate** mode, **1920x1080 physical drawable** (960x540 logical), real delta,
+120 warmup frames and 18 measured ready seconds. Windows remain natively focused
+and unoccluded. There is no capture/readback, forced completion, graphics bypass,
+frame limiter or measurement-time position mutation. Backrooms uses ordinary W
+movement, Z 68 to 104.23 m. `performance/accepted-summary.json` retains per-run
+mode/settings/source identities and raw loop/update/GPU/RSS metrics.
+
+| Scene | FPS, two runs | Loop p99 ms, two runs | Mean CPU update ms | Mean GPU elapsed ms |
+|---|---:|---:|---:|---:|
+| Pool fixed Full view | 120.00 / 119.99 | 9.264 / 9.173 | 0.134 / 0.135 | 3.541 / 3.600 |
+| Backrooms normal walk | 120.00 / 120.03 | 9.131 / 9.289 | 0.042 / 0.050 | 1.253 / 1.460 |
+| Arcade dense view | 119.87 / 119.89 | 9.452 / 9.439 | 0.778 / 0.766 | 6.239 / 6.308 |
+
+All 2,154–2,164 ready frames per run present; missed count is zero. However, all
+cohorts plateau at the physical **120 Hz** refresh rate. A separate explicitly
+rendering-bypassed surface control also runs at **120.002 FPS**, with mean render
+0.002 ms and swap/present 7.470 ms. This supports a presentation-pacing ceiling;
+**uncapped application throughput and throughput gains remain inconclusive**.
+The control is diagnostic, not a playable performance result. GPU elapsed spans
+are not active utilization. Native RSS is OS process memory, not VRAM: Pool
+534–536 MB, Backrooms 1,224–1,227 MB and Arcade 1,052–1,054 MB. No cross-platform
+FPS ratio, universal zero-regression claim or new optimization is inferred.
+
+**Final platform/release handoff.** The const repair is excluded from the Windows
+implementation, and the other changes only repair existing Python expectations.
+A Windows gameplay rewrite is not required. Strict final Windows build/tests and
+current package checks remain necessary: the compiler's global source fingerprint
+changes even for a target-gated source edit, so old package currentness must not be
+asserted for the final compiler. Parent coordinates final CI and the ordinary fresh
+Windows release preparation; no extra release bake was started during this Mac phase.
+
+The eventual upload inventory is **seven playable projects**: `backrooms`,
+`environments` (including Home / Quiet Rooms), `beam` (It Only Exists in the Beam,
+four chapters), `closing-time`, `one-guest-too-many`, `shape-of-an-exit`, and
+**After Hours - Rooms Beyond** at `projects/untitled-1792640069720`
+(`room_1792640069720`). **Relay Annex is excluded from release uploads; its
+repository source remains.** `levels/lineup.txt` is the curated default, not the
+complete release inventory. `package.sh` includes every `.placesmap` from the
+supplied map directory, so development labs, gyms and review fixtures must stay
+outside that directory. Backrooms/Environments here are Mac acceptance preparation,
+not proof that all seven release projects were freshly baked or played on Mac.
+
+Linux, subjective listening/hotplug, uncapped Mac throughput and the previously
+accepted Windows residuals (water optical cost, cold input stall, CRT/probe limits,
+startup/functional audio publication-queue pressure and small shared-AI CPU cost)
+remain honestly scoped. Native Pool audio queue-full observations are retained;
+no zero-queue-pressure claim is made for every functional/startup interval.
+The previously documented six Python expectation failures are closed by this stage.
+No pending native permission or demonstrated unresolved Mac blocker remains.
+
+Player SHA256: `1625930b87b4f76b9ed651708b63c3306ca1baa7a19c9530485fb3e895e81e80`.
+Compiler SHA256: `e2cfaca6b1a1696f223f52ca33ce671a6a0151480241ec5507c25c3ebb7139a0`.
+Editor SHA256: `72515e63d0a845442f9c750eee00c75630d9ac9f7822a47374aa134fa54e1ba1`.
+All ten direct release executables, prepared packages, official portable payload,
+review-only artifacts, raw failed attempts, logs, traces and native captures remain
+outside target. `FINAL-HANDOFF.json` records exact local/remote delivery and
+post-clean custody without creating a second canonical prose report.
+
+<!-- MAC_ACCEPTANCE_CUSTODY -->
+Idle-only `cargo clean` completed at 14:04 UTC, removing **8,141 files / 7.7 GiB**
+from this clean validation clone. Target is absent. Post-clean SHA256 verification
+passes **8,218 preserved files / 2,800,699,686 logical bytes and 24 symlinks**, with
+zero differences. A fresh two-second Full Backrooms native smoke from preserved
+executables/packages exits normally after cleanup. Native/build jobs have finished;
+the finite keep-awake assertions have no permanent host effect. Staging commit,
+observed remote delivery and final writer custody are recorded in
+`evidence/FINAL-HANDOFF.json` outside target.

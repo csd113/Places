@@ -162,12 +162,20 @@ class RepositoryTests(unittest.TestCase):
 
 class ShippedLevelTests(unittest.TestCase):
     def test_the_collection_contains_the_hub_and_every_environment(self):
-        self.assertEqual([identity for identity, _ in lineup()], ["environments"])
-        shipped = {path.stem: load_level(path) for path in level_files()}
+        self.assertEqual([identity for identity, _ in lineup()], ["environments", "backrooms"])
+        project = load_level(PACKAGE / "projects/environments/places.project.json")
+        shipped = {
+            entry["id"]: load_level(PACKAGE / "projects/environments" / entry["source"])
+            for entry in project["levels"]
+        }
         self.assertEqual(
             set(shipped),
             {"hub", "home", "pool", "office", "lantern_hollow", "winter", "beach", "aero", "arcade"},
             "the hub and eight environments are the complete editable collection",
+        )
+        self.assertEqual(
+            {path.stem for path in level_files()}, set(shipped) | {"the_backrooms"},
+            "the independent Backrooms map must remain in the curated lineup",
         )
         showcase = shipped["lantern_hollow"]
         self.assertEqual(showcase["id"], "lantern_hollow")
@@ -176,7 +184,6 @@ class ShippedLevelTests(unittest.TestCase):
 
         # Protect actual travel links as well as inventory, without compiling
         # worlds. A declared destination alone does not make its door usable.
-        project = load_level(PACKAGE / "projects/environments/places.project.json")
         self.assertEqual(project["entry_level"], "hub")
         self.assertTrue(project["menu_entry_only"])
         destinations = set(shipped) - {"hub"}
@@ -321,7 +328,12 @@ class ShippedLevelTests(unittest.TestCase):
                             minimum_width,
                             f"{path.name}: wall {index} has an unpastable opening",
                         )
-                        self.assertGreaterEqual(opening["height"], minimum_height)
+                        # A passage starting above the standing 1.8 m body is
+                        # a sightline aperture, not a walking route. Backrooms
+                        # G deliberately has one; floor passages and all doors
+                        # retain the existing standing-clearance requirement.
+                        if opening["kind"] == "door" or opening.get("sill", 0.0) < 1.8:
+                            self.assertGreaterEqual(opening["height"], minimum_height)
 
     def test_light_intensities_are_sane(self):
         for path in level_files():

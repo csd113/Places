@@ -71,7 +71,24 @@ class LanternHollowTests(unittest.TestCase):
 
     def test_seated_figures_are_skeletons_with_real_held_animation(self):
         skeletons = [p for p in self.level['props'] if p['model'] == 'skeleton']
-        self.assertEqual(len(skeletons), 7)
+        # The maintained quest leaves the seventh seat empty for Jun; the
+        # bootstrap generator predates that quest and must not regenerate it.
+        self.assertEqual({p['id'] for p in skeletons},
+                         {f'campfire_skeleton_{i}' for i in range(6)})
+        seats = [p for p in self.level['props']
+                 if p['model'] == 'outdoor:showcase_stump_seat']
+        self.assertEqual({p['id'] for p in seats},
+                         {f'campfire_seat_{i}' for i in range(7)})
+        jun = next(p for p in self.level['props'] if p['id'] == 'hollow_missing_friend')
+        self.assertEqual(jun['model'], 'collection:skeleton_friend')
+        self.assertTrue(any(action.get('sequence') == 'jun_sits'
+                            for binding in jun['bindings']
+                            for action in binding['actions']))
+        seating = next(sequence for sequence in self.level['sequences']
+                       if sequence['id'] == 'jun_sits')
+        self.assertTrue(any(step.get('action') == {
+            'action': 'play_animation', 'clip': 'quest_seated', 'loop': True,
+        } for step in seating['steps']))
         routes = {r['id']: r for r in self.level['routes']}
         for p in skeletons:
             self.assertAlmostEqual(math.dist((p['x'], p['z']), author.FIRE), 2.6, places=3)
