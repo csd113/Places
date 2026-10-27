@@ -10538,3 +10538,134 @@ preserves/hashes the candidate, comparison binaries, release symbols and unique
 evidence outside target, then performs idle-only `cargo clean`. No main merge,
 release/version bump, Backrooms work or integrated final campaign belongs to this
 follow-up.
+
+<!-- BACKROOMS_013 -->
+## The Backrooms
+
+**Map accepted.** The corrected Full package passed all local and cloud visual acceptance. All 42 physical journeys, geometry/model/clearance gates, native editor workflow, entry/unload/re-entry, 16-archive/32-member current-content checks and 31 inherited native startups passed. Three uncontended Full native performance walks completed on the selected Windows GPU. Required evidence/deliverables were preserved and hash-verified through idle Cargo cleanup.
+
+`projects/backrooms/places.project.json` contains one coherent playable level, `the_backrooms`, with two interwoven floors. The editable current-format scene and explicit bootstrap are retained. Normal editor edits take ownership; the bootstrap must not overwrite them accidentally.
+
+A cloud designer inspected all eight original images and authored the A-H design; the cloud reviewer also compared all eight first native Full views with their originals. Windows implemented that design and did not view original pixels. [The project reference table](../../projects/backrooms/README.md) retains every exact original Library identity and composition. The follow-up cloud reviewer downloaded all eight actual version-1 images, verified the current file IDs/xattrs and compared them against the original pixels; visual acceptance passed.
+
+### Area, height and circulation
+
+The lower footprint is 140 by 140 m, with offset upper galleries at 3.55 m. Gross room floors total 24,928.8 m2; this is not the accessible-area claim. Clear ceilings are 3.4 m, 21.43% above the comparable Office baseline of 2.8 m. Ordinary furniture and doors retain their normal scale except individually audited anomalies.
+
+| Prior playable distribution | Internal levels combined | Sampled standing area (m2) | Conservative support upper bound (m2) |
+|---|---:|---:|---:|
+| beam | 4 | 1,815.88 | 2,626.00 |
+| closing-time | 1 | 278.56 | 396.00 |
+| environments | 9 | 11,885.31 | 16,302.90 |
+| one-guest-too-many | 1 | 121.00 | 224.00 |
+| relay-annex | 3 | 732.31 | 957.60 |
+| shape-of-an-exit | 1 | 88.44 | 173.40 |
+
+All six previous playable distributions combine their 19 internal levels. Backrooms measures **20,281.25 m2** in one connected component after conservative hull clearance, versus the prior largest support upper bound of **16,302.9 m2**: at least **24.40% larger**. Nominal standing-centre area is 20,929.0625 m2.
+
+The common audit samples a 0.25 m grid with a 0.8 by 1.8 m standing hull, actual terrain/stairs, wall openings, headroom and transformed solid props. The certified Backrooms calculation expands clearance by another 0.125 m in X/Z to retain each cell extent. Old bounds include every room footprint, overlap and inaccessible space without subtracting obstacles; all old ramps, stairs and floor regions were checked and add no support outside those room unions. No bounding-box padding or disconnected floor is counted. Old sampled estimates do not replay every dynamic door, actor, water state or campaign gate; the conservative upper-bound comparison avoids relying on those estimates as exact accessible areas.
+
+The lower ring A-B-C-D-A and upper ring E-F-G-H-E are joined by separated A-E, B-G, C-H and D-F stairs. The circulation graph has 8 nodes, 12 edges, cycle rank 5 and no bridges, plus local returns in every zone. Ordinary stairs are 2.4 m wide with a 5.6 m run, 3.55 m rise, 20 risers of 0.1775 m and 0.28 m treads. All eight native ascent/descent journeys passed at eye heights 1.6 and 5.15 m.
+
+The 42 real normal-input journeys cover the eight stairs, eight local cycles, eight macro connections, five alternate lower openings, three added architectural loops, G and western upper returns, and eight outer-boundary samples. Starts are test scenario setup; routes use no diagnostic position changes or authored teleports. Four support spans were trimmed to remove coincident geometry, the new chair joints were repaired without changing their outer bounds, and wall corners were corrected before the final fresh replay on a newly compiled Static candidate. Its 42 receipts finished before Full started; the aggregate execution-context receipt corrects inherited concurrent-compiler wording in some harness annotations. Functional timings remain excluded from FPS acceptance.
+
+Current source SHA256: `ff3a188b1d3cf28aeb3158fb26bc503dc4d4f19ef27931ac4c034b41a4ff84f4`. Recomputed area remains unchanged. Historical topology/route receipts remain in `map-evidence/final-candidate-v2/`; final 42-route preflight and clearance receipts are in `map-evidence/final-candidate-v5/`. The successful Full package/captures are in `map-evidence/final-candidate-v6/`; current source/surface diagnostics are in `map-evidence/surface-repair/` and `map-evidence/wall-junction-review/`, outside Cargo target.
+
+### Prop intent and clearance
+
+**25 of 38 prop instances (65.79%)** deliberately use wrong transforms: nine sunken, six tilted and ten wrong scales. The denominator includes all eight model troffers and the ordinary ceiling vent. All 371 generated panel fixtures are catalog `light` instances; columns and walls are architecture. No prop-schema fixture was excluded.
+
+The audit retains every normal and actual full transform, model identity, anomaly class, collision flag, decoded model bounds and collision bounds. All solid props passed clearance against 52,431 actual native player samples; the closest was 0.1699 m at E_chair_1. Non-solid overhead fixtures remain in the denominator. This proves sampled circulation clearance, not every potential avatar position. Deliberate floor intersections remain; accidental z-fighting, traversal obstruction and invalid transforms are not accepted.
+
+| Exact prop ID | X, Z (m) | Normal Y / yaw / scale | Actual Y / roll / scale | Intent |
+|---|---|---|---|---|
+| `E_chair_0` | 17, 30.5 | 3.55 / 90 / 1 | 3.33 / 0 / 1 | sunken |
+| `E_chair_1` | 29, 34.8 | 3.55 / 90 / 1 | 3.63 / 23 / 1 | tilted |
+| `E_chair_2` | 42, 30.6 | 3.55 / 90 / 1 | 3.55 / 0 / 1 | ordinary |
+| `E_chair_3` | 51, 44.8 | 3.55 / 90 / 1 | 3.33 / 0 / 1 | sunken |
+| `E_chair_4` | 17, 45.8 | 3.55 / 90 / 1 | 3.63 / 23 / 1 | tilted |
+| `E_chair_5` | 39, 38 | 3.55 / 90 / 1 | 3.55 / 0 / 1 | ordinary |
+| `F_solitary_stool` | 9.5, 108.5 | 3.55 / 0 / 1 | 3.55 / 0 / 1.6 | scale |
+| `peripheral_chair_0` | 9, 12 | 0 / 0 / 1 | -0.22 / 0 / 1 | sunken |
+| `peripheral_chair_1` | 50, 12 | 0 / 0 / 1 | 0.08 / 23 / 1 | tilted |
+| `peripheral_chair_2` | 7, 53 | 0 / 0 / 1 | 0 / 0 / 1 | ordinary |
+| `peripheral_chair_3` | 51, 54 | 0 / 0 / 1 | -0.22 / 0 / 1 | sunken |
+| `peripheral_chair_4` | 66, 5 | 0 / 0 / 1 | 0.08 / 23 / 1 | tilted |
+| `peripheral_chair_5` | 133, 53 | 0 / 0 / 1 | 0 / 0 / 1 | ordinary |
+| `peripheral_chair_6` | 65, 135 | 0 / 0 / 1 | -0.22 / 0 / 1 | sunken |
+| `peripheral_chair_7` | 135, 135 | 0 / 0 / 1 | 0.08 / 23 / 1 | tilted |
+| `peripheral_chair_8` | 5, 75 | 0 / 0 / 1 | 0 / 0 / 1 | ordinary |
+| `peripheral_chair_9` | 52, 135 | 0 / 0 / 1 | -0.22 / 0 / 1 | sunken |
+| `H_cabinet_0` | 84, 91 | 3.55 / 180 / 1 | 3.55 / 0 / 0.55 | scale |
+| `H_cabinet_1` | 88, 91 | 3.55 / 180 / 1 | 3.33 / 0 / 1 | sunken |
+| `H_cabinet_2` | 91, 91 | 3.55 / 180 / 1 | 3.55 / 0 / 0.55 | scale |
+| `H_cabinet_3` | 85, 108 | 3.55 / 180 / 1 | 3.55 / 0 / 1 | ordinary |
+| `H_desk_0` | 86, 91 | 3.55 / 180 / 1 | 3.55 / 0 / 1 | ordinary |
+| `H_crt_0` | 86, 91 | 4.3 / 180 / 1 | 4.3 / 0 / 1 | ordinary |
+| `H_desk_1` | 90, 91 | 3.55 / 180 / 1 | 3.55 / 0 / 0.55 | scale |
+| `H_crt_1` | 90, 91 | 4.3 / 180 / 1 | 4.0425 / 23 / 1 | tilted |
+| `E_cabinet_0` | 18, 46 | 3.55 / 0 / 1 | 3.33 / 0 / 1 | sunken |
+| `E_cabinet_1` | 27, 46 | 3.55 / 0 / 1 | 3.55 / 0 / 1.6 | scale |
+| `E_cabinet_2` | 38, 46 | 3.55 / 0 / 1 | 3.33 / 0 / 1 | sunken |
+| `E_cabinet_3` | 49, 46 | 3.55 / 0 / 1 | 3.55 / 0 / 1 | ordinary |
+| `H_troffer_0` | 84, 102 | 6.947 / 0 / 1 | 6.947 / 0 / 0.55 | scale |
+| `H_troffer_1` | 90, 102 | 6.947 / 0 / 1 | 6.947 / 0 / 1.6 | scale |
+| `H_troffer_2` | 96, 102 | 6.947 / 0 / 1 | 6.947 / 0 / 0.55 | scale |
+| `H_troffer_3` | 102, 102 | 6.947 / 0 / 1 | 6.947 / 0 / 1.6 | scale |
+| `H_troffer_4` | 108, 102 | 6.947 / 0 / 1 | 6.947 / 0 / 0.55 | scale |
+| `H_troffer_5` | 114, 102 | 6.947 / 0 / 1 | 6.947 / 0 / 1 | ordinary |
+| `H_troffer_6` | 120, 102 | 6.947 / 0 / 1 | 6.947 / 0 / 1 | ordinary |
+| `H_troffer_7` | 126, 102 | 6.947 / 0 / 1 | 6.947 / 0 / 1 | ordinary |
+| `F_ceiling_vent` | 13, 106.5 | 6.947 / 0 / 1 | 6.947 / 0 / 1 | ordinary |
+
+Yaw is unchanged from normal in every row; pitch is zero. Unlisted normal roll is zero. Coordinates are the authored metre transforms; runtime floor resolution is included in the raw world-bounds audit. Troffer origins sit 3 mm below the ceiling independent of deliberate scale, and light anchors clear the measured housing undersides.
+
+### Reference corrections and incident evidence
+
+Corrections brighten actual diffuse materials/light coverage, distinguish the olive/tan/cream/cool carpets, enlarge chevrons to readable normal-distance motifs, add B offset masses and D intermediate reception cores/caps, move E chairs to alternating edges, add F trim/mesh grille and its green seat, make G panels shallow and its aperture elevated, and give H a narrow connected channel and correctly mounted fixtures. New Backrooms furniture winding was corrected locally; accepted shared models were not rebuilt. The sampled Full C study loses the old giant triangular lighting shadow after nine embedded panel anchors were cleared; the final whole-map principal C view is also clear. Three native captures along each of the final 24 m C/H walks were inspected: the former floor defect is absent, and H fixture housings remain mounted across the sampled views, including the intentional scale differences. No exhaustive camera/video sweep is claimed.
+
+The user-reported editor compiler failure was an operator-terminated redundant Export solve (owned child 19092), not an observed Rust compiler/OOM/GPU crash. The first harness also omitted the player benchmark flag and its incomplete trace is retained. Recovery seeded the verified current export, then passed native export and 106.65 seconds of actual player simulation. A later candidate was deliberately stopped after 128.094 seconds (owned child 7992, exit 4294967295) when real traversal exposed a decorative G panel across its stair doorway. Three sections were split around the real opening; corrected B-G walks passed both ways. Original failed receipts and controlled-stop evidence remain intact. A subsequent Full solve was cooperatively cancelled at 2,006.417 seconds (exit 130) after a late surface audit found support overlaps and incomplete candidate coverage. This was a sequencing error; all cheap diagnostics now precede Full. The obsolete Static player was later closed normally after strict dependency validation correctly rejected its old chair bytes; no Full solve had started for that generation. Both incidents retain exact logs.
+
+### Geometry diagnostics before lighting
+
+The former X-only architectural candidate sweep exhausted its 2,000,000-pair bound on separated tiles. A conservative 3D AABB tree now filters distant Y/Z spans while retaining the pair cap, exact clipping and all plane/area tolerances. Input, storage and traversal remain bounded; exhaustion remains an explicit error. A small essential regression covers both the later separated duplicate and adversarial coincident input. The complete native architecture check finishes with zero errors and 294 reviewed, unsuppressed warnings: 201 internal adjacent-room edges, ten supported stair samples, 81 opposite-facing junction contacts, one opposite-facing support sliver and one gap filled by a perpendicular wall.
+
+An independent placed-GLB audit completes 363,278 candidates, with only seven opposite-facing desk/CRT support contacts. Separate new-model audits found and repaired six same-facing chair joints and 18 near-coplanar rail/post contacts. Final chair/stool/vent audits are complete with no same-facing or near-coplanar overlaps; ordinary opposite-facing construction contacts remain. Asset/texture/prop checks and isolated bootstrap reproduction pass. Saved room ownership order is exact; only independent wall insertion order and equivalent number spelling differ in reproduction. These diagnostics complement native walking and final pixels; they do not prove every collision pose or camera condition.
+
+The live corner report exposed centreline butt ends in the upper perimeter. The map-specific bootstrap now assigns corner thickness explicitly: continuous runs own T junctions, and one run owns an ordinary L corner. The saved scene changes 46 wall spans, preserving every opening in world space and all non-wall source. Independent rectangle checks verify 49 perpendicular contacts with zero body overlap; emitted geometry has zero errors and no warning suppressions. Close native G/E/convex/stair views were inspected; E's stepped band is removed and intentional frames/openings remain. Source reproduction is idempotent. The correction uses current map geometry, with no engine or editor-feature change. The prior candidate stopped at its source-hash guard before Full; all 42 journeys then passed on the corrected candidate before Full started.
+
+The next Full process (12656) and all managed controllers disappeared when execution-session supervision was lost. Its last record is 1,825.363 s, direct visibility 15,863,168/27,173,236; no final event or exit code was retained. Peak recorded working set was 3,684,188,160 bytes and commit 3,968,659,456 bytes. No completed Full archive was published. This evidence does not establish a Rust/OOM/GPU crash; the termination cause remains unknown. Source, binaries and accepted 42-route/preflight evidence retained their hashes. Strict/current revalidation of the Static package passed, then only Full was restarted through a supported hidden Windows helper with persistent progress/exit receipts. No quality, budget or resource safeguard was reduced.
+
+### Bounded lighting and current validation
+
+User-authorized Full planning rises from 14 to 40 pages, retaining 1024 px pages, architecture 16 texels/m, the standard transport preset, model sampling and gutters. Low/Medium retain eight-page caps. The actual typed atlas bound rises from 384 MiB + 64 KiB to 640 MiB + 64 KiB; stale Python 320 MiB checks become 640 MiB. KTX payload allowance rises from 512 to 640 MiB to make that bounded headroom usable. Exact shape/layer/overflow/allocation checks, the 64-page decoder, switch-group limits, device limits and 1 GiB ordinary / 2 GiB project aggregates remain. Configured maxima are not measurements.
+
+Formatting, locked release/all-features build, strict Clippy and 360 serial tests passed for the bounded-checker generation with unchanged production-source hashes. The final rebuild against the repaired chair ledger passed: locked release 507.993 s, strict Clippy 19.260 s and 360 serial tests 51.536 s. Preserved compiler SHA256 is `1a6e059a8877e0ca4808274662c65104a1107b4a4708b9bd9cd82161cc830418`; historic hashes remain scoped to their own receipts. An intermediate source-freeze receipt correctly failed after comment-encoding repair; rebuilt frozen gates supersede it. Asset validation passed (644 assets, 392 placeable, 10 themes, zero warnings); texture/prop checks passed with inherited advisories.
+
+The final Full archive is **169,469,609 bytes** (169.469609 MB / 161.618814 MiB), SHA256 `270feeed3e0ff2d0ea9c7545a3cd3c16d880ed488e471ca0a5319b9a81536302`. Actual Full lighting uses **31 pages / 520,093,696 atlas GPU bytes (496 MiB)**, with fallback false. Successful end-to-end Full export took **4,380.394 seconds (1 h 13 min 0.39 s)**; the compiler-reported operation was 4,379.860 seconds. Strict validation took 6.012 seconds and require-current verification 2.004 seconds, both exit zero. Windows OS counters recorded peak compiler working set **9,285,242,880 bytes** and peak commit **9,564,200,960 bytes**; these are compiler process memory, not player resident memory or VRAM. Earlier Full archive and FPS measurements remain comparison evidence only. Affected inherited archives require strict current rebuilds rather than provenance exceptions. No compatibility layer was introduced.
+
+The corrected native A-H Full captures were actually inspected on Windows and replaced the same eight approved Library screenshot artifacts, each backend-confirmed version 1. Cloud original-pixel follow-up passed for all eight. The reviewer accepted slightly washed-out D/E/G tones and stronger A carpet mottling as optional polish, with no further map change or bake required. The unchanged current source passed actual native editor Save/reopen/Build/export/Play/Stop; normal Build cache validation reused the verified Full record, and both exported/root packages passed require-current. No redundant lighting solve or provenance bypass was used. Native editor command-to-idle timings were 157.856 seconds for Build/cache metadata refresh and 4.671 seconds for prepared-record Export, including the recorded 200 ms polling delay. These functional timings overlapped inherited compiler work and are not uncontended throughput measurements. Ordinary Full entry, normal movement, Escape/pause return to the main menu, unload and Explore/map-list re-entry passed; retired Backrooms ownership drained to zero. Restart here means normal unload/re-entry, without an invented restart button or diagnostic player-position change. C/H actual native movement covered 24.2132 and 24.2582 m respectively; all six captured positions were visually inspected, with capture readbacks excluded from FPS acceptance. Functional timings overlapped inherited compilation. All 16 inherited archives / 32 members and three active outputs passed 21 strict validations and 37 require-current checks (all 77 recorded operations exited zero), preserving the 88 inherited project-source files exactly. All 31 non-menu rebuilt members passed actual Full native startups and simulation checks. Each startup consumed only its closed, already verified archive; later independent compiler work could overlap these functional checks, whose timings are excluded from performance comparisons. No full-quest or all-map throughput claim is made. Current packages and native receipts remain outside Cargo target. Staging commit/remote equality is recorded in the local delivery handoff.
+
+### Final Windows performance and preservation
+
+Three genuine normal-input walks ran sequentially after compiler and inherited startup work finished, at actual 1920 x 1080, High / Full lighting, VSync off and Immediate presentation on the NVIDIA GeForce RTX 3070 Laptop GPU. Every ready frame was presented, with zero missed ready frames; sustained rates exceed the 165 Hz display rate. No capture readbacks, graphics bypass or diagnostic position changes are included. No clock/charger/host settings were changed.
+
+| Walk | FPS | Mean loop (ms) | p99 loop (ms) | Mean GPU elapsed (ms) | Peak OS WS / commit (MiB) |
+|---|---:|---:|---:|---:|---:|
+| A-to-D | 208.05 | 4.806 | 8.356 | 3.998 | 1111.4 / 1867.6 |
+| C-pillar-field | 217.97 | 4.588 | 8.670 | 3.928 | 1112.2 / 1867.4 |
+| E-parallel-return | 184.50 | 5.420 | 9.919 | 4.698 | 1111.6 / 1867.4 |
+
+OS process counters include startup peaks and are not VRAM measurements. The measured atlas allocation is separately 496 MiB. GPU elapsed is the supported union of pass-stage timestamp spans, including scheduling stalls; it is not active utilization. Earlier matching paths measured 213.39 / 224.75 / 190.13 FPS. Final throughput is lower by 2.50% / 3.02% / 2.96% respectively; the accepted reference corrections remain. These are different map candidates and not an isolated causal claim for a code-level throughput change. The measured difference is retained for later integrated polish; no zero-regression claim is made.
+
+| Fresh process walk | Request to ready (s) | Entry to first scene (s) |
+|---|---:|---:|
+| A-to-D | 7.718 | 10.859 |
+| C-pillar-field | 8.118 | 11.312 |
+| E-parallel-return | 7.929 | 11.134 |
+
+These load measurements use fresh processes with previously used filesystem caches, not a cold-storage test. They do not close the accepted cold input-stall residual. Per-run identities, player bounds, memory samples, frame data, load traces and baseline comparisons are retained.
+
+After all task jobs finished, preservation verified 5,767 evidence/deliverable paths (5,721 unique file identities) after Cargo cleanup; required binaries/DLLs/PDBs, native media, current archives and prior comparisons remain outside target. Cargo target is absent. No unique source/evidence or uncommitted data was deleted. The exact cleanup output and before/after hash receipts are retained locally.
+
+Raw evidence/media remain local outside target at `C:/Users/Connor Dawkins/Documents/Codex/2026-10-26/task-2/map-evidence/`. Only the expressly approved eight review images are saved to Library, with same-item replacements for follow-up. Prior water optical cost (p99 4.211 vs 2.988 ms), audio listening/hotplug/platform gaps and dense-pause cost, cold input stall, CRT review, inherited probes, broader Python/platform residuals and small shared-AI CPU cost remain accepted limitations; this map task does not reopen or claim to close them. Integrated polish and final packaging follow separately. The user cancelled iGPU testing.

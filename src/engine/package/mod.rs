@@ -106,10 +106,12 @@ pub const MAX_ENTRY_BYTES: u64 = 256 * 1024 * 1024;
 ///
 /// The completed Arcade catalog needs up to eight Full pages with two switch
 /// contributions: 384 MiB at 1024px, two RGBA16F planes and three groups.
-/// Reserve 64 KiB for its bounded KTX2 container. This typed record budget is
+/// Backrooms raises the typed record allowance to 640 MiB plus 64 KiB for
+/// bounded storage/container overhead, with a 40-page Full planning cap.
+/// This typed record budget is
 /// independent of the ordinary 256 MiB entry cap; exact codec shape checks,
-/// the 512 MiB KTX2 payload limit and the 1 GiB ordinary-map aggregate cap remain.
-pub const MAX_LIGHTMAP_ATLAS_BYTES: u64 = 384 * 1024 * 1024 + 64 * 1024;
+/// the 640 MiB KTX2 payload limit and the 1 GiB ordinary-map aggregate cap remain.
+pub const MAX_LIGHTMAP_ATLAS_BYTES: u64 = 640 * 1024 * 1024 + 64 * 1024;
 
 /// Largest accepted sum of decompressed ordinary-map entry bytes.
 pub const MAX_TOTAL_BYTES: u64 = 1024 * 1024 * 1024;

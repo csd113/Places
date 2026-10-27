@@ -45,6 +45,11 @@
       "id": "janitor_closet",
       "display_name": "Janitor / Supplies",
       "description": "Reusable utility-room storage, cleaning equipment and consumables."
+    },
+    {
+      "id": "backrooms",
+      "display_name": "The Backrooms",
+      "description": "Matte institutional chevron wallpaper, green-seated timber furniture and fluorescent circulation."
     }
   ],
   "assets": [
@@ -11477,6 +11482,277 @@
       "theme": "outdoor",
       "description": "Fitted square transparent celestial disc; placement follows the owning directional source.",
       "model": "environments/outdoor/textures/celestial/moon.png"
+    },
+    {
+      "id": "backrooms:tex_chevron_01",
+      "display_name": "Tex Chevron 01",
+      "asset_class": "environment",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/backrooms/textures/walls/chevron_01.png",
+      "surface": "wall",
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:chevron_01",
+      "display_name": "Chevron 01",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "backrooms:tex_chevron_01",
+      "surface": "wall",
+      "tile_metres": 6.0,
+      "tint": [
+        1.0,
+        1.0,
+        0.94
+      ],
+      "specular": 0.0,
+      "shine": 0.0,
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:fine_wall_01",
+      "display_name": "Fine Wall 01",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "core:tex_wallpaper_yellow_01",
+      "surface": "wall",
+      "tile_metres": 2.0,
+      "tint": [
+        0.94,
+        0.92,
+        0.78
+      ],
+      "specular": 0.0,
+      "shine": 0.0,
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:plain_cream_01",
+      "display_name": "Plain Cream 01",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "home:tex_wall_paint_offwhite_01",
+      "surface": "wall",
+      "tile_metres": 2.0,
+      "tint": [
+        1.0,
+        0.99,
+        0.92
+      ],
+      "specular": 0.0,
+      "shine": 0.0,
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:ochre_01",
+      "display_name": "Ochre 01",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "home:tex_wall_paint_offwhite_01",
+      "surface": "wall",
+      "tile_metres": 2.0,
+      "tint": [
+        0.97,
+        0.91,
+        0.72
+      ],
+      "specular": 0.0,
+      "shine": 0.0,
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:cool_cream_01",
+      "display_name": "Cool Cream 01",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "home:tex_wall_paint_offwhite_01",
+      "surface": "wall",
+      "tile_metres": 2.0,
+      "tint": [
+        0.79,
+        0.86,
+        0.79
+      ],
+      "specular": 0.0,
+      "shine": 0.0,
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:acoustic_cream_01",
+      "display_name": "Acoustic Cream 01",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "core:tex_ceiling_panel_01",
+      "surface": "ceiling",
+      "tile_metres": 2.0,
+      "tint": [
+        1.0,
+        1.0,
+        0.98
+      ],
+      "specular": 0.0,
+      "shine": 0.0,
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:carpet_olive_01",
+      "display_name": "Carpet Olive 01",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "core:tex_carpet_damp_01",
+      "surface": "floor",
+      "tile_metres": 2.0,
+      "tint": [
+        0.96,
+        1.0,
+        0.85
+      ],
+      "specular": 0.0,
+      "shine": 0.0,
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:carpet_tan_01",
+      "display_name": "Carpet Tan 01",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "core:tex_carpet_beige_01",
+      "surface": "floor",
+      "tile_metres": 2.0,
+      "tint": [
+        1.0,
+        0.97,
+        0.87
+      ],
+      "specular": 0.0,
+      "shine": 0.0,
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:carpet_cream_01",
+      "display_name": "Carpet Cream 01",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "home:tex_carpet_cream_01",
+      "surface": "floor",
+      "tile_metres": 2.0,
+      "tint": [
+        1.0,
+        1.0,
+        0.97
+      ],
+      "specular": 0.0,
+      "shine": 0.0,
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:carpet_cool_01",
+      "display_name": "Carpet Cool 01",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "home:tex_carpet_cream_01",
+      "surface": "floor",
+      "tile_metres": 2.0,
+      "tint": [
+        0.84,
+        0.92,
+        0.87
+      ],
+      "specular": 0.0,
+      "shine": 0.0,
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:wood_cap_01",
+      "display_name": "Wood Cap 01",
+      "asset_class": "environment",
+      "asset_type": "material",
+      "source": "definition",
+      "texture": "home:tex_handrail_wood_01",
+      "surface": "wall",
+      "tile_metres": 2.0,
+      "tint": [
+        0.44,
+        0.36,
+        0.28
+      ],
+      "specular": 0.0,
+      "shine": 0.0,
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:ladder_chair",
+      "display_name": "Ladder Chair",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/ladder_chair.glb",
+      "size": [
+        0.5,
+        0.94,
+        0.5
+      ],
+      "color": "#75613f",
+      "category": "Furniture",
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:round_stool",
+      "display_name": "Round Stool",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/round_stool.glb",
+      "size": [
+        0.42,
+        0.62,
+        0.42
+      ],
+      "color": "#75613f",
+      "category": "Furniture",
+      "solid": true,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:ceiling_vent",
+      "display_name": "Ceiling Vent",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/ceiling_vent.glb",
+      "size": [
+        0.8,
+        0.066,
+        0.8
+      ],
+      "color": "#cacaB8",
+      "category": "Fixtures",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "theme": "backrooms"
     }
   ]
 }

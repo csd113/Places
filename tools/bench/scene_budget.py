@@ -19,7 +19,7 @@ _package_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'levels'))
 from package_zip import PackageZip
 
 
-MAX_ATLAS_RECORD_BYTES = 320 * 1024 ** 2 + 64 * 1024
+MAX_ATLAS_RECORD_BYTES = 640 * 1024 ** 2 + 64 * 1024
 
 
 def declared_entry_limit(entry):

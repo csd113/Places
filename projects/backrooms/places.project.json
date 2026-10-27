@@ -1,0 +1,16 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "backrooms",
+  "name": "The Backrooms",
+  "author": "Places",
+  "description": "An immense connected two-storey fluorescent complex. Every route returns by another way.",
+  "entry_level": "the_backrooms",
+  "menu_entry_only": true,
+  "levels": [
+    {
+      "id": "the_backrooms",
+      "source": "levels/the_backrooms.json"
+    }
+  ]
+}

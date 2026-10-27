@@ -1665,55 +1665,151 @@ impl Checker<'_> {
 // Duplicate and coplanar surfaces
 // ---------------------------------------------------------------------------
 
-/// Conservative spatial pairs, independent of plane bins and world origin.
+type CoplanarBounds = [(f32, f32); 3];
+
+#[derive(Clone, Copy)]
+struct CoplanarItem {
+    index: usize,
+    bounds: CoplanarBounds,
+}
+
+struct CoplanarNode {
+    bounds: CoplanarBounds,
+    span: std::ops::Range<usize>,
+    children: Option<[usize; 2]>,
+}
+
+fn overlap_bounds(first: &CoplanarBounds, second: &CoplanarBounds) -> bool {
+    first
+        .iter()
+        .zip(second)
+        .all(|(a, b)| a.0 <= b.1 + OVERLAP_BOUNDS_EPS_M && b.0 <= a.1 + OVERLAP_BOUNDS_EPS_M)
+}
+
+fn build_coplanar_tree(
+    order: &mut [CoplanarItem],
+    offset: usize,
+    nodes: &mut Vec<CoplanarNode>,
+) -> Option<usize> {
+    let mut union = [(f32::INFINITY, f32::NEG_INFINITY); 3];
+    for item in order.iter() {
+        for (target, span) in union.iter_mut().zip(item.bounds) {
+            target.0 = target.0.min(span.0);
+            target.1 = target.1.max(span.1);
+        }
+    }
+    let id = nodes.len();
+    nodes.push(CoplanarNode {
+        bounds: union,
+        span: offset..offset.checked_add(order.len())?,
+        children: None,
+    });
+    if order.len() > 4 {
+        let width = |span: &(f32, f32)| f64::from(span.1) - f64::from(span.0);
+        let axis = union
+            .iter()
+            .enumerate()
+            .max_by(|first, second| width(first.1).total_cmp(&width(second.1)))
+            .map_or(0, |(axis, _)| axis);
+        let middle = order.len() / 2;
+        let _partition = order.select_nth_unstable_by(middle, |first, second| {
+            match (first.bounds.get(axis), second.bounds.get(axis)) {
+                (Some(a), Some(b)) => {
+                    let centre_a = f64::from(a.0) + f64::from(a.1);
+                    let centre_b = f64::from(b.0) + f64::from(b.1);
+                    centre_a
+                        .total_cmp(&centre_b)
+                        .then(first.index.cmp(&second.index))
+                }
+                _ => first.index.cmp(&second.index),
+            }
+        });
+        let (left, right) = order.split_at_mut_checked(middle)?;
+        let left_id = build_coplanar_tree(left, offset, nodes)?;
+        let right_id = build_coplanar_tree(right, offset.checked_add(middle)?, nodes)?;
+        nodes.get_mut(id)?.children = Some([left_id, right_id]);
+    }
+    Some(id)
+}
+
+/// Conservative three-dimensional pairs, independent of plane bins and origin.
 ///
-/// Sorted X intervals stop at the first disjoint later span. Every visited
-/// pair consumes the work budget before normal, Y/Z or polygon rejection;
-/// neither coincident sheets nor unrelated active spans permit unbounded work.
+/// A balanced AABB tree rejects distant Z/Y spans before testing leaf pairs.
+/// The former X-only sweep spent its entire pair budget on separated floors in
+/// the Backrooms. Pair tests retain the caller's bound, including rejected leaf
+/// pairs. Tree storage is at most twice the bounded input count; traversal has
+/// its own finite work allowance. Exceeding either bound reports incomplete.
 fn coplanar_candidates(triangles: &[Tri], limit: usize) -> (Vec<(usize, usize)>, bool) {
-    let mut ordered: Vec<_> = triangles
+    const MAX_INPUT_TRIANGLES: usize = 2_000_000;
+    if triangles.len() > MAX_INPUT_TRIANGLES {
+        return (Vec::new(), false);
+    }
+    let mut order: Vec<CoplanarItem> = triangles
         .iter()
         .enumerate()
         .filter(|(_, triangle)| triangle.area > 1.0e-9)
-        .map(|(index, triangle)| {
-            let bounds = std::array::from_fn::<_, 3, _>(|axis| {
-                triangle.points.iter().fold(
-                    (f32::INFINITY, f32::NEG_INFINITY),
-                    |(low, high), point| {
-                        let value = point.get(axis).copied().unwrap_or(0.0);
+        .map(|(index, triangle)| CoplanarItem {
+            index,
+            bounds: std::array::from_fn(|axis| {
+                triangle
+                    .points
+                    .iter()
+                    .filter_map(|point| point.get(axis).copied())
+                    .fold((f32::INFINITY, f32::NEG_INFINITY), |(low, high), value| {
                         (low.min(value), high.max(value))
-                    },
-                )
-            });
-            (index, bounds)
+                    })
+            }),
         })
         .collect();
-    ordered.sort_by(|first, second| {
-        first.1[0]
-            .0
-            .total_cmp(&second.1[0].0)
-            .then(first.0.cmp(&second.0))
-    });
+    if order.is_empty() {
+        return (Vec::new(), true);
+    }
+    let mut nodes = Vec::with_capacity(order.len().saturating_mul(2));
+    let Some(root) = build_coplanar_tree(&mut order, 0, &mut nodes) else {
+        return (Vec::new(), false);
+    };
+    let node_limit = order
+        .len()
+        .saturating_mul(64)
+        .saturating_add(limit.saturating_mul(32));
+    let mut node_work = 0usize;
+    let mut pair_work = 0usize;
     let mut pairs = Vec::new();
-    let mut work = 0usize;
-    for (slot, (first, first_bounds)) in ordered.iter().enumerate() {
-        for (second, second_bounds) in ordered.iter().skip(slot.saturating_add(1)) {
-            if second_bounds[0].0 > first_bounds[0].1 + OVERLAP_BOUNDS_EPS_M {
-                break;
-            }
-            if work >= limit {
+    let mut stack = Vec::with_capacity(64);
+    for first in &order {
+        stack.push(root);
+        while let Some(id) = stack.pop() {
+            if node_work >= node_limit {
+                pairs.sort_unstable();
                 return (pairs, false);
             }
-            work = work.saturating_add(1);
-            if first_bounds
-                .iter()
-                .zip(second_bounds)
-                .skip(1)
-                .any(|(a, b)| a.0 > b.1 + OVERLAP_BOUNDS_EPS_M || b.0 > a.1 + OVERLAP_BOUNDS_EPS_M)
-            {
+            node_work = node_work.saturating_add(1);
+            let Some(node) = nodes.get(id) else {
+                return (pairs, false);
+            };
+            if !overlap_bounds(&first.bounds, &node.bounds) {
                 continue;
             }
-            pairs.push(((*first).min(*second), (*first).max(*second)));
+            if let Some(children) = node.children {
+                stack.extend(children);
+                continue;
+            }
+            let Some(leaf) = order.get(node.span.clone()) else {
+                return (pairs, false);
+            };
+            for second in leaf {
+                if second.index <= first.index {
+                    continue;
+                }
+                if pair_work >= limit {
+                    pairs.sort_unstable();
+                    return (pairs, false);
+                }
+                pair_work = pair_work.saturating_add(1);
+                if overlap_bounds(&first.bounds, &second.bounds) {
+                    pairs.push((first.index, second.index));
+                }
+            }
         }
     }
     pairs.sort_unstable();

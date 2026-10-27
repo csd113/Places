@@ -173,3 +173,43 @@ fn recessed_floor_skirt_owns_the_upper_structural_band() -> Result<(), String> {
     }
     Ok(())
 }
+
+// Essential largest-map regression: 1024 separated sheets share X spans. The
+// old sweep exhausted 4000 comparisons before reaching later Z rows. This
+// millisecond in-memory test proves complete coverage without raising the pair
+// cap, then verifies coincident adversarial input still stops at that cap.
+#[test]
+fn separated_sheets_complete_with_bounded_coplanar_work() {
+    let triangle = |x: f32, z: f32| Tri {
+        key: SurfaceKey::new(SurfaceKind::Floor, 0),
+        points: [[x, 0.0, z], [x + 1.0, 0.0, z], [x, 0.0, z + 1.0]],
+        normal: [0.0, 1.0, 0.0],
+        centroid: [x + 0.333, 0.0, z + 0.333],
+        area: 0.5,
+    };
+    let mut separated = Vec::new();
+    for x in 0_u16..32 {
+        for z in 0_u16..32 {
+            separated.push(triangle(f32::from(x) * 10.0, f32::from(z) * 10.0));
+        }
+    }
+    let far_duplicate = separated.len();
+    separated.push(triangle(310.0, 310.0));
+    let (pairs, complete) = super::coplanar_candidates(&separated, 4_000);
+    assert!(
+        complete,
+        "separated rows must not consume a quadratic X-only budget"
+    );
+    assert_eq!(
+        pairs,
+        vec![(far_duplicate.saturating_sub(1), far_duplicate)],
+        "the later far-row duplicate must still be inspected"
+    );
+    let coincident: Vec<_> = (0_u16..256).map(|_| triangle(0.0, 0.0)).collect();
+    let (limited_pairs, limited_complete) = super::coplanar_candidates(&coincident, 64);
+    assert!(
+        !limited_complete,
+        "adversarial overlap must still exhaust a finite budget"
+    );
+    assert_eq!(limited_pairs.len(), 64, "the pair cap must remain exact");
+}

@@ -92,7 +92,7 @@ const DFD_BYTES: usize = DFD_TOTAL_SIZE as usize;
 pub const MAX_EDGE: u32 = 8192;
 
 /// Largest accepted total level data, in bytes.
-pub const MAX_PAYLOAD_BYTES: u64 = 512 * 1024 * 1024;
+pub const MAX_PAYLOAD_BYTES: u64 = 640 * 1024 * 1024;
 
 /// Largest accepted level count in one payload.
 pub const MAX_LEVELS: u32 = 16;

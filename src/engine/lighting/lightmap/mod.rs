@@ -259,11 +259,13 @@ impl LightmapFailure {
 /// The current Model Zoo plan reserves 13,773,305 texels including inclusive
 /// endpoints and gutters: more than thirteen 1024px pages can hold. Its
 /// deterministic plan fits the minimum fourteen pages (224 MiB for one group).
-/// The package byte bound still caps two groups at ten pages; lower profiles
+/// The Backrooms admits at most forty base pages (640 MiB), within the
+/// 640 MiB typed record bound, retaining 16 texels/metre and every receiver.
+/// The package byte bound still caps multiple contribution groups; lower profiles
 /// retain their established budget. Model charts reuse the architecture's
 /// free area before allocating further pages; all receiver samples and gutters
 /// retain their physical dimensions.
-pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 14;
+pub const LIGHTMAP_ATLAS_MAX_PAGES: usize = 40;
 
 /// Low and Medium retain their established eight-page atlas budgets.
 /// Medium's 1024px base group costs at most 128 MiB; Low's 512px group 32 MiB.
@@ -744,7 +746,7 @@ impl LightmapConfig {
     /// densities; only chart texel counts and page usage differ.
     ///
     /// Full retains architecture's 16 texels/m, matching the shared endpoint
-    /// cap, and admits fourteen pages for the current model receiver catalog.
+    /// cap, and admits forty pages within the bounded single-group record.
     /// Low retains 10 texels/m, 512px pages and its established
     /// eight-page budget. Both preserve the same physical patches and gutters.
     #[must_use]

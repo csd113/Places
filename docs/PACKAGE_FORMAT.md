@@ -295,14 +295,14 @@ prepared world for that setting:
 `quality_profile` records the bake/plan profile (`low` for `off`, `full`
 otherwise) so a future reader can tell which bake produced the vertex colours.
 
-A decoded package whose prepared atlas the device cannot bind (more than fourteen
+A decoded package whose prepared atlas the device cannot bind (more than forty
 pages, or more than four switchable groups: a combination the compiler can
 never emit) falls back to a vertex-lit rebuild of the decoded semantics. That
 is the loader's defensive recovery path, not a player-side bake of the prepared
 path; no compiler output reaches it, and the prepared solve never runs in the
 player.
 
-Full's profile planning cap is fourteen pages; lower profiles retain eight.
+Full's profile planning cap is forty pages; lower profiles retain eight.
 Architecture uses MAXRECTS until model receivers begin. Its free-rectangle union
 is then partitioned into disjoint guillotine holes, retaining all existing chart
 coordinates and occupied texels. Model charts reuse this free area immediately.
@@ -312,7 +312,7 @@ key revision 1 identifies the current layout. Superseded packages require recomp
 Before geometry emission, the planner also bounds that cap by the actual base
 and switchable illumination groups, the typed record bytes (including the exact
 196-byte single-mip KTX2 header), the codec payload/layer bounds and the decoder
-page count. At 1024px, Full allows 14/12/8/6/4 pages for zero through four
+page count. At 1024px, Full allows 40/20/13/10/8 pages for zero through four
 switchable lights. The completed Arcade catalog can retain eight pages for its three groups. The
 effective config is shared by the plan, fill and public cache-key refresh.
 The model-lighting correction shares compatible coplanar source-triangle charts
@@ -321,14 +321,15 @@ Full layout needs eleven 1024px pages, or 176 MiB for the base group, preserving
 the finer physical shadow field. The earlier
 [Stage 7 Hallows audit](art-style/stage7/integration-contract-audit.md)
 established ten pages at its former sampling density. The independent typed
-atlas bound is384 MiB+64KiB, admitting the approved denser Arcade receiver
-set without lowering sampling density. The previous320MiB bound admitted the
+atlas bound is 640 MiB + 64 KiB for Backrooms and headroom, retaining the
+640 MiB KTX2 payload and 1 GiB aggregate guards. The previous 384 MiB bound
+admitted the approved denser Arcade receiver set without lowering density. The previous 320 MiB bound admitted the
 ten-page two-group Demo payload but capped Arcade at six pages and caused a
 whole-world vertex fallback. The
 [record audit](art-style/stage7/integration-contract-audit.md) records
 the old 256 MiB rejection and 25% increase. The 64-page decoder count, exact
 KTX2 shape/length checks, four-switch-group limit and 1 GiB aggregate remain
-enforced. More groups still have to fit the typed byte bound; fourteen pages do not
+enforced. More groups still have to fit the typed byte bound; forty pages do not
 authorize an arbitrary total allocation. The aggregate guard still applies to
 the complete archive, including all quality variants.
 
@@ -593,7 +594,7 @@ reconstructed light, including an all-normal error bound. A failing tile stores
 all six source half-floats exactly (12 bytes/texel plus framing). It never changes
 exposure to meet precision. Both modes imply reserved alpha 0.5. Constants,
 dark channels and HDR outliers retain the same bounded validation. Framing and
-declared size are checked before the at-most-384-MiB RGBA16F allocation; ranges
+declared size are checked before the at-most-640-MiB RGBA16F allocation; ranges
 and coefficients are checked during decode. Malformed
 versions, ranges, coefficients, reserved bits, truncation and trailing bytes fail.
 
@@ -817,7 +818,7 @@ for current entity direct/visibility/resource behavior.
 | ordinary entry (decompressed) | 256 MiB; typed records may impose tighter bounds |
 | mesh / props record | 512 MiB each |
 | props expanded literal record | 512 MiB, including metadata, 81-byte vertices and u16 indices |
-| lightmap atlas payload | 384 MiB + 64 KiB container overhead |
+| lightmap atlas payload | 640 MiB + 64 KiB container overhead |
 | lightmap metadata | 64 MiB |
 | reflection positions | 16 MiB |
 | compiler provenance | 2 MiB |

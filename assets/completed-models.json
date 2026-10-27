@@ -6783,5 +6783,59 @@
       1.7226518392562866,
       0.14933210611343384
     ]
+  },
+  "environments/backrooms/props/ladder_chair.glb": {
+    "sha256": "a59f2c0b955af7098b3597507c51cb1465e221b940c65d1dedbf49a5ae654547",
+    "triangles": 120,
+    "texture_edge": 64,
+    "identities": [
+      "backrooms:ladder_chair"
+    ],
+    "bounds_min": [
+      -0.25,
+      0.0,
+      -0.25
+    ],
+    "bounds_max": [
+      0.25,
+      0.94,
+      0.25
+    ]
+  },
+  "environments/backrooms/props/round_stool.glb": {
+    "sha256": "b9d8c796a98597993b28a70c5835647e139e724e1e1044b0ca65ae528afb894b",
+    "triangles": 96,
+    "texture_edge": 64,
+    "identities": [
+      "backrooms:round_stool"
+    ],
+    "bounds_min": [
+      -0.21,
+      0.0,
+      -0.21
+    ],
+    "bounds_max": [
+      0.21,
+      0.6200000000000001,
+      0.21
+    ]
+  },
+  "environments/backrooms/props/ceiling_vent.glb": {
+    "sha256": "8a972b6191d0a393046e5ce99758f83e8c68278bc9ce4438b7eed4c874a8d3c9",
+    "triangles": 220,
+    "texture_edge": 64,
+    "identities": [
+      "backrooms:ceiling_vent"
+    ],
+    "bounds_min": [
+      -0.4,
+      -0.066,
+      -0.4
+    ],
+    "bounds_max": [
+      0.4,
+      0.0,
+      0.4
+    ]
   }
 }

@@ -25,7 +25,7 @@ from package_zip import PackageZip
 import zlib
 
 MAX_TOTAL = 1024 * 1024 * 1024
-MAX_ATLAS = 320 * 1024 * 1024 + 65536
+MAX_ATLAS = 640 * 1024 * 1024 + 65536
 MAX_META = 64 * 1024 * 1024
 
 
