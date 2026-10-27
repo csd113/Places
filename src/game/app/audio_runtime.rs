@@ -226,7 +226,6 @@ impl FrameLoop<'_> {
     }
 
     pub(super) fn update_game_audio(&mut self) {
-        self.update_audio_mix();
         let active = self.gameplay_active();
         if active {
             let swimming = self.game.is_swimming();

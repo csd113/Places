@@ -10669,3 +10669,118 @@ These load measurements use fresh processes with previously used filesystem cach
 After all task jobs finished, preservation verified 5,767 evidence/deliverable paths (5,721 unique file identities) after Cargo cleanup; required binaries/DLLs/PDBs, native media, current archives and prior comparisons remain outside target. Cargo target is absent. No unique source/evidence or uncommitted data was deleted. The exact cleanup output and before/after hash receipts are retained locally.
 
 Raw evidence/media remain local outside target at `C:/Users/Connor Dawkins/Documents/Codex/2026-10-26/task-2/map-evidence/`. Only the expressly approved eight review images are saved to Library, with same-item replacements for follow-up. Prior water optical cost (p99 4.211 vs 2.988 ms), audio listening/hotplug/platform gaps and dense-pause cost, cold input stall, CRT review, inherited probes, broader Python/platform residuals and small shared-AI CPU cost remain accepted limitations; this map task does not reopen or claim to close them. Integrated polish and final packaging follow separately. The user cancelled iGPU testing.
+
+## Integrated gameplay, visual and performance polish - Windows, 2026-10-27
+
+**Completed bounded integrated acceptance on the accepted Backrooms base
+`12b351ea2faef3d4e38a61b3e2999cbbae0a005c`.** The published gap plan combined
+Pool movement/carry/water/audio, Beam light/AI response, Home physical handoff,
+authored cross-map doors, native editor event/AI/light flows and separate actual
+presentation measurements. Accepted Backrooms reference/42-route/startup evidence
+was retained; optional visual nits and accepted water work were not reopened.
+
+**Concrete polish.** The game loop published the audio mix twice per frame.
+The first native Pool interval records 585 frames / 1,170 mix updates / 335 full
+parameter-queue events. `app/mod.rs` now publishes the current listener after
+movement and before interaction dispatch; `audio_runtime.rs` no longer repeats
+the publication later in the frame. Immediate application-settings updates remain.
+Only these two game files changed. No engine/DSP, cue/gain, geometry, asset,
+compiler fingerprint, format, compatibility or rendering change was introduced.
+The final functional interval records 568 frames / 568 updates / 9 full-queue
+events. This removes duplicate work; it does not promise zero overflow during
+every fast startup/menu/functional frame or halve the whole audio system's cost.
+
+**Current native combination.** Real E acquisition retains the original duck
+through deck-to-basin movement and held underwater crouch; normal mouse throw
+releases that same body into buoyancy, and W climbs the shelf to stable dry deck.
+Flashlight, headphone-mode mute/unmute, pause/resume and normal menu unload pass.
+No body recovery/suspension, mixer error or voice drop occurs in the retained
+checkpoints. The initial player/duck placement is explicitly diagnostic setup;
+subsequent motion and ownership use native input and the solver. Central 200-ms
+post-mixer mute/pause windows are exactly silent; resumed PCM is nonzero and all
+captured samples are finite/bounded. The optional tap loses 280,832 startup frames
+before its consumer catches up; it is not a complete startup or hardware-latency
+witness and establishes no subjective listening acceptance.
+
+Beam's real flashlight holds, releases and reacquires the shared moving actor
+without script/mixer errors. No new full four-section campaign or partition-LOS
+claim is made from the old timed route. Home's corrected **ordinary-input** route
+picks up the original cushion, opens/traverses the real bedroom door, hands it to
+the caretaker, witnesses the original physical/render key in the NPC assembly,
+retires that assembly only when wholly hidden and saves exactly `["home"]`.
+Normal door interactions complete Home -> Hub -> Pool -> Hub. Retired Home/Hub/
+Pool prepared/transport owners drain to zero. No diagnostic position, actor,
+goal, flag or item mutation enters the Home route or cross-map cycle.
+
+Two unchanged existing editor acceptance sources were copied into isolated
+projects. Source checks and read-only geometry/clearance diagnostics preceded
+preparation (zero offline geometry errors; broader existing fixture review
+findings remain unsuppressed). Native Save/reopen/Build/export preserves all JSON
+and Luau bytes. Actual Full Play physically carries/releases the original parcel,
+finishes `fetch:complete`, returns to baseline arbitration and actuates its target
+light. The editor's last-Play inspector visibly reports that real result. Exact
+generated fetch-handler activation is diagnostic because the fixture's controls
+overlap. The flicker project uses real E to mute its two-member Full circuit and
+passes actual Play/Stop; its independent fixture retains separate timing. Both
+level builds and project exports pass strict validation and require-current.
+Only these small review projects were prepared; **zero shipped-map rebakes**.
+Native captures of Pool, Beam, editor/runtime and interaction evidence were viewed.
+
+An obsolete 3-m/s/instant-stop Home recipe failed against the current Portal-style
+controller; an intermediate correction also planned through the chair's actual
+contact envelope. Source-aware key timings/clear endpoints fix the harness, and
+the final journey completes the favor without changing movement or geometry.
+The first AI editor recipe reached Stop before Play preparation had completed;
+the failed attempt closed and its owned compiler ended. Completed Build/export,
+failure and cancellation evidence remain. A recovered state-aware native journey
+waits for compilation and a ready-anchored game Quit, returns normally and reads
+last-Play state. Flicker retains one unparsed partial trace line after Stop; its
+complete named child witnesses and source/package checks remain available. These
+failed/superseded controllers are preserved and excluded from accepted results.
+
+**Uncontended presentation.** Two before and two final runs per scene alternate
+on the same exact packages, after all compiler/test/editor work ended. Actual
+RTX 3070 Laptop / DX12, 1920x1080 drawable, High/Full, VSync off and Immediate;
+normal real delta, no limiter, capture/readback, forced GPU completion, graphics
+bypass or performance-time position mutation. Every ready frame is presented.
+
+| Scene | Before FPS (two runs) | Final FPS (two runs) | Final loop p99 ms |
+|---|---:|---:|---:|
+| Pool fixed Full view | 131.19 / 130.33 | 135.72 / 136.13 | 13.675 / 13.978 |
+| Backrooms normal A-to-D walk | 200.70 / 197.03 | 198.62 / 198.60 | 8.207 / 8.169 |
+
+Backrooms sustains rates above the physical 165-Hz display. Pool has material
+GPU/presentation cost and does not plateau at refresh. The small two-run cohorts
+do not establish a universal FPS gain or a zero-regression claim; Backrooms'
+current before/after means differ by about -0.13%. Steady mix publications are
+exactly **2/frame before and 1/frame final** in every run. Full-queue events in the
+18-second windows are 9/8 (Pool) and 657/543 (Backrooms) before, **zero in all four
+final runs**. These steady results do not erase the functional/startup residual.
+Raw loop/update/GPU spans, actual presentation identities, player bounds and OS
+process memory counters remain in the receipts; OS memory is not VRAM.
+
+**Final gates and currency.** Rust 1.99.1: formatting, locked optimized workspace/
+all-features build, strict workspace/all-targets/all-features Clippy and **360 serial
+tests** pass. Five asset gates pass: 644 assets / 392 placeable / ten themes,
+zero asset-validator warnings and 102 inherited texture advisories. The exact
+gated production sources remain unchanged through native/performance acceptance.
+A 64-check evidence audit passes; this is not a count of new Rust tests. No
+implementation-mirroring test or full-map bake was added to ordinary tests.
+All **36 final-compiler require-current checks** pass (32 inherited members,
+Backrooms and three active outputs), retaining exact accepted archive bytes.
+The Backrooms archive remains SHA256
+`270feeed3e0ff2d0ea9c7545a3cd3c16d880ed488e471ca0a5319b9a81536302`.
+
+Final player SHA256: `5f914ad6f3f30cf8c7340a16382e3ac214a30ff6409a9b7c1734f94258d05108`.
+Final compiler SHA256: `2d804e9358f5afe64870bd8c2fa1d4fe3b0d0a82875b2b461631e42d414b677c`.
+Native media, scripts, raw failures, current-package identities, final binaries/
+DLLs/PDBs, comparison binaries and preservation/delivery receipts remain outside
+target at `C:/Users/Connor Dawkins/Documents/Codex/2026-10-26/task-3/` and the
+unchanged task-2 evidence root. The local ownership handoff records the local staging commit, observed remote
+head, delivery status and idle cleanup. Accepted water optical cost, subjective
+audio/listening/hotplug/platform gaps, cold input stall, CRT/probe/Python residuals
+and small shared-AI CPU cost remain. No host power/security/clock/charger changes,
+iGPU work, main merge, release, version bump or 0.13.1 feature work occurred.
+
+<!-- INTEGRATED_POLISH_CUSTODY -->
+Idle-only Cargo cleanup removed 6,275 files / 7.5 GiB from the verified ordinary repository target. Post-clean rehash passes all 570 preserved paths / 6,904,792,170 logical bytes. Target is absent; native/build jobs are finished. Local writer custody is released. The external staging push was denied before execution by automatic approval review, which requires trusted direct user authorization for this exact push. The local ownership handoff records both observed commit hashes and the pending publication action; no workaround or retry was attempted.

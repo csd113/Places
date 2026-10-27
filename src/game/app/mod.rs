@@ -1020,7 +1020,6 @@ impl FrameLoop<'_> {
             self.settings.visual_style.shader_value(),
             self.ready_seconds,
         );
-        self.update_audio_mix();
         let _clock_updated = self
             .game
             .set_world_time_scale(self.items.world.simulation_state().time_scale);
@@ -1033,6 +1032,10 @@ impl FrameLoop<'_> {
         }
         self.reconcile_gameplay_reset();
         self.log_player_state();
+        // Publish the current listener once, after movement and before any
+        // interaction can start a sound. A second mix later in this frame only
+        // repeated voice work and filled the bounded room-parameter queue.
+        self.update_audio_mix();
         // One press is one interaction: consume the edge the movement update
         // latched, resolve the object under the crosshair and run its
         // map-authored actions. `window_focused` gates the key the same way it
