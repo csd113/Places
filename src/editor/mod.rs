@@ -25,6 +25,7 @@ pub mod process;
 #[doc(hidden)]
 pub mod profiling;
 mod projects;
+mod reuse;
 pub mod safety;
 mod safety_actions;
 mod scripting;

@@ -32,6 +32,7 @@ pub(super) enum Popup {
     SceneSearch(String),
     Transform(Box<super::transform::Draft>),
     Duct(Box<super::ducts::Draft>),
+    Reuse(Box<super::reuse::Draft>),
     Project,
     Thumbnail,
     ProjectText {
@@ -116,6 +117,10 @@ impl Popup {
             super::authoring::draw(app, v, hits);
             return;
         }
+        if let Self::Reuse(draft) = self {
+            super::reuse::draw(app, draft, v, hits);
+            return;
+        }
         if let Self::Duct(draft) = self {
             super::ducts::draw(draft, v, hits);
             return;
@@ -178,6 +183,7 @@ impl Popup {
             | Self::AuthoringForm(_)
             | Self::Transform(_)
             | Self::Duct(_)
+            | Self::Reuse(_)
             | Self::Project
             | Self::Thumbnail
             | Self::ProjectText { field: _, value: _ }
@@ -354,7 +360,8 @@ impl App {
     }
 
     fn contextual_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
-        Ok(self.lighting_action(action)?
+        Ok(self.reuse_action(action)?
+            || self.lighting_action(action)?
             || self.focus_action(action)?
             || self.flicker_action(action)?
             || self.template_action(action)?

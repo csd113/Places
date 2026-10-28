@@ -393,7 +393,13 @@ impl App {
         self.restore_preview();
         if matches!(
             self.popup,
-            Some(Popup::Transform(_) | Popup::Duct(_) | Popup::AuthoringForm(_) | Popup::Stairs(_))
+            Some(
+                Popup::Transform(_)
+                    | Popup::Duct(_)
+                    | Popup::Reuse(_)
+                    | Popup::AuthoringForm(_)
+                    | Popup::Stairs(_)
+            )
         ) && let Some(document) = &self.document
         {
             self.viewport.rebuild(document.level());

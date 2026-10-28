@@ -115,7 +115,8 @@ impl App {
         {
             return false;
         }
-        self.construction_event(event, window)
+        self.reuse_event(event)
+            || self.construction_event(event, window)
             || self.flicker_event(event)
             || self.template_event(event)
             || self.behavior_event(event, window, hits)

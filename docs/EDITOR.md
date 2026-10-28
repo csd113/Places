@@ -864,3 +864,78 @@ Mount/Circuits/Full lighting workflow. Passive prop versions and static utility
 doors are labeled explicitly. The editor viewport is silent; Play owns local
 HVAC playback. See the [kit guide](../tools/props/backrooms_phase6/INTEGRATION.md)
 and its non-release showcase for placement, collision and source conventions.
+
+### Reuse tools: room prefabs, room styles and prop variation (0.13.1)
+
+**Reuse tools** is visible over the viewport in Simple and Advanced modes. Select
+one room before opening it for capture or styles; select a room or one fixed prop
+for variation. The sheet names its scope. Every operation first shows a private
+preview; Apply enters one ordinary undo step. Esc/Cancel discards it. Show all
+layers and leave isolation for these scoped edits; locks remain authoritative.
+Stale source, invalid assets or unsafe geometry refuse without consuming history.
+
+**Room prefabs.** Name and Capture a furnished rectangular room or corridor, then
+Apply the source capture. Choose its saved source, minimum-corner X/Z destination,
+and Linked on/off; Preview stamp and Apply. The next X destination advances by
+one room width plus two metres, so another stamp is ready. A stamp selects its
+room only on commit. Sources are map-local editable JSON, retained by ordinary
+save/reopen and project source export/recovery. No extra source file can go missing
+because a working directory changed.
+
+Capture includes the room and local tunnels, contained walls with openings,
+recesses, surrounds and trim, rectangular/circular pillars, fixed furnishings,
+interactive doors and ceiling/wall fixtures. It retains real catalog assets and
+self-contained native circuits; each stamp receives its own entity and circuit
+identities. Unsupported global geometry/gameplay content, partial carriers,
+ambiguous overlapping rooms, moving/fitted/scripted props, script bindings and
+flicker-owned fixtures receive a specific refusal. This bounded tool translates
+X/Z, preserves elevation and does not generate a layout. Sources have at most
+512 members, 32 named sources and 128 linked instances per map, within the shared
+scene/source budgets.
+
+To change a source, edit its original room and Capture again with the same name.
+Select any member of a linked stamp and choose **Update linked**, inspect, Apply.
+Updates merge unchanged fields from the source while retaining instance overrides,
+removed fields and deleted-member tombstones. Nested objects merge by field;
+arrays such as openings and bindings are coherent overrides. Source removal of
+an unchanged member removes it; a modified removed member survives independently.
+A manual Duplicate creates an independent copy. Shared-loader validation rejects
+an incompatible combined edit atomically. A missing source never deletes placed
+geometry: restore its source or **Detach linked instance**. Detach preserves the
+current geometry and overrides, including when a source is missing. An instance
+with a deleted carrier must detach its surviving members.
+
+**Room styles.** Office, Worn and Home presets cover wall finishes, floor,
+ceiling, existing trim and ceiling fixture family, with independent category
+checkboxes. Only inward wall faces in the selected room change; crossing walls
+require a deliberate split first. Boundary trim shared with an exterior or
+neighbor is retained. Props, geometry, openings, fixture power and circuits stay
+in place. Existing resolved fixture positions are pinned against ceiling-grid
+changes. A finish that would add/remove implicit catalog trim refuses with advice
+to author explicit Automatic wall trim or turn Walls off; styles never silently
+change the trim geometry. Local floor accents and unrelated content are retained.
+
+**Prop variation.** Enter an unsigned 64-bit seed, yaw radius (0–180 degrees),
+uniform scale fraction (0–0.5) and maximum sinking (0–0.25 m). At most 128 fixed
+scenery props are considered; active, fitted and circuit props are counted and
+skipped. Each first application saves the original pose fields. Seed changes use
+the same baseline, including A/B/A replay; they do not accumulate rotation,
+scale or sinking. Restore base recovers the original authored fields. Keep current
+base adopts manual pose edits or current variation for a new baseline; it keeps
+all geometry and drops only the old variation metadata. Both are previewed,
+reversible source edits. Manual edits to a saved varied pose otherwise refuse.
+
+**Protect baseline standing clearance** samples the actual supported floor at
+0.2 m spacing, plus the exact spawn, with the shared 0.4 m player radius, 1.8 m
+standing height, real wall/prop/generator collision boxes and authored door pose.
+The collision broadphase supplies candidates. A proposed pose which blocks an
+originally clear witness uses its baseline instead. Replays build from the same
+baseline scope. Protected scopes are limited to 50 by 50 m and 65,536 witnesses.
+This is bounded standing-clearance protection, not a continuous route proof:
+sub-grid gaps, moving obstacles and future door poses still need Safety/Play.
+
+Linked room carrier geometry overrides (position, dimensions, elevation, ceiling
+profile or tunnels) require restoring the carrier or detaching before a linked
+update. Surface and furnishing overrides retain their ordinary three-way merge.
+This explicit refusal prevents updating children against the source's old carrier
+frame after an instance room was independently reshaped.

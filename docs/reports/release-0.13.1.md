@@ -485,3 +485,97 @@ Phase 5 CI run 40681947328 previously passed. This acceptance is native Windows
 Razer evidence; new native Mac validation and human audio perception are not
 claimed. Fifo captures make no FPS comparison. Production rebaking, later prefab
 and runtime/FPS work, main merges and release publication remain outside phase 6.
+
+
+## Reusable authoring tools (phase 7)
+
+Reuse tools is visible in both Simple and Advanced modes. Its three tabs share
+private scene previews, explicit scope, cancellation, ordinary selection, source
+validation and one atomic undo/redo transaction. Repeated stamps advance their
+destination; preview never selects or saves an uncommitted stamp. Save/reopen and
+supported project source export/recovery preserve all authoring metadata.
+
+Furnished rectangular room/corridor sources retain contained walls, openings,
+recesses, surrounds, trim, pillars, fixed props, doors, fixtures and local tunnels.
+They reuse the real catalog and shared geometry/circuit systems. Each stamp remaps
+internal entity identities and native circuit groups. Sources are map-local;
+linked updates are explicit three-way merges with field overrides, coherent array
+overrides, removed-field/deleted-member tombstones and safe member removal.
+Missing sources retain all placed geometry and permit explicit detach. Ordinary
+Duplicate drops linked identities. Cross-name source recapture keeps member keys.
+Carrier geometry overrides refuse updates until restored or detached, avoiding
+child updates in an obsolete carrier frame. Unsupported cross-room, moving,
+fitted, script-owned or ambiguous content refuses with a specific explanation.
+
+Office, Worn and Home styles independently cover walls, floor, ceiling, existing
+trim and ceiling fixture family. They retain geometry, openings, furnishings,
+power and circuits. Only inward wall faces change; shared boundary trim stays.
+Resolved fixture locations are pinned before ceiling-grid changes. An implicit
+catalog trim topology change refuses with advice to use explicit trim or disable
+Walls, preserving the prepared trim geometry.
+
+Controlled prop variation uses an unsigned seed and a saved original pose for yaw,
+uniform scale and sinking. A/B/A replay is exact, without accumulated edits;
+Restore base retains original field presence, and Keep current base deliberately
+adopts a manually changed pose. Active, fitted and circuit props are counted and
+skipped. Optional standing-clearance protection uses the shared collision index,
+real collision boxes, floor support, ceiling headroom and authored door pose with
+the 0.4 m radius / 1.8 m standing hull. A newly blocking choice retains its base.
+The bound is 0.2 m witnesses plus exact spawn, at most 50 by 50 m / 65,536 witnesses;
+it is not continuous or dynamic route proof. No whole-layout generation was added.
+
+### Final Windows acceptance
+
+- Formatting, strict workspace/all-target/all-feature Clippy in debug and release,
+  `cargo test --workspace -- --test-threads=1` (382 passed) and
+  `cargo build --locked --release --workspace --all-features` pass. Three tiny CPU
+  regressions protect linked identity/merge/history/persistence, geometry-preserving
+  room scope and deterministic clearance-aware pose replay. They add no map bake
+  to ordinary tests. The production Luau release boundary check also passes.
+- Python source verification ran 369 tests with 18 expected smoke/optional skips.
+  Asset validation passes 674 assets / 417 placeable entries / ten themes with
+  zero warnings. Texture and prop checks pass with existing art/manifest advisories.
+  No visual asset bytes or production map sources/packages changed.
+- Exact-release native editor acceptance passes 59 checks across 392 actions.
+  It covers private previews/cancel, repeated stamping, linked versus independent
+  identity, atomic undo/redo, source recapture, per-instance override preservation,
+  explicit/idempotent updates, carrier-geometry refusal, missing-source detach,
+  save/reopen, locks/hidden scopes, A/B/A seed replay, base restore/adoption and
+  protected/unprotected choices. Compact 960x544, tall 1000x900 and wide 1440x900
+  windows were inspected at Windows 150% display scale in both editor modes.
+- The accepted four-room fixture has 28 real utility props and eight fixtures,
+  one source, two linked instances and one independent stamp. Static/Full project
+  export/import, validation, currentness and recovered-source checks pass with
+  identical source semantics. This opt-in small fixture was the only furnished
+  room bake; it did not rebake a shipped map.
+- Native Full gameplay passes ten checks: the source and linked switches independently
+  gate their own fixture pairs; untouched circuits stay unchanged. The standing
+  player walks the varied room at X=4 from Z=4.80000 to 0.60002 and returns to
+  5.23580 without crouching or recovery. Runtime script diagnostics are empty.
+  Actual Full rendering was inspected for furnishings, changed surfaces, fixtures,
+  shadows and walkway. The four-room fixture's door leaves are passive scenery;
+  a separate tiny native self-bound door witness passes four checks, opening the
+  stamped door to 90 degrees through normal interaction while the source remains
+  closed. Its Static/Full package passes current-source verification.
+
+Sources are bounded to 32 names / 512 members each, linked instances to 128 and
+variation scopes to 128 fixed props. Prefabs translate X/Z and retain elevation;
+unsupported geometry or external bindings refuse rather than leave broken copies.
+These implementation bounds and the sampled-clearance limit are documented in
+[EDITOR.md](../EDITOR.md#reuse-tools-room-prefabs-room-styles-and-prop-variation-0131)
+and the canonical map guide. Existing Safety/Play remains the route review tool.
+
+Compiler-only tasks ran BelowNormal with observed Cargo/Rust child inheritance;
+native game/editor processes were Normal. Small map builds used two workers,
+without competing builds or persistent host/security/power/GPU changes. Native
+runtime used Dx12 on the Razer's RTX 3070 Laptop at 960x600 with resident Full and
+Fifo presentation. These are visual/controller checks, with no FPS comparison.
+Actual native Mac validation remains unverified for the later cross-platform phase.
+
+The retained acceptance tree is `local/verification-0.13.1-authoring/`:
+`validation-receipt.json` indexes the final gates, native assertions and source
+round trip; `accepted-bin/`, `binary-identity.json` and `sha256.json` retain exact
+binaries, DLLs and hash evidence outside `target`. Earlier exploratory/interrupted
+runs are explicitly superseded. `custody.json` records the phase commit, verified
+remote SHA, exact-SHA CI observation and final idle/clean/cleanup observations.
+Main, v0.13.0, phase 8 runtime fixes and release publication remain outside phase 7.

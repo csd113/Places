@@ -51,6 +51,7 @@ pub(super) enum Action {
     Flicker(super::flicker::Command),
     Lighting(super::lighting::Command),
     Duct(super::ducts::Command),
+    Reuse(super::reuse::Command),
     Author(super::authoring::Command),
     Project,
     ProjectField(super::projects::Field),
@@ -341,6 +342,16 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
             "Light flicker >",
             Action::Flicker(super::flicker::Command::Open),
             matches!(app.selected, Some(ObjectId::Light(_))),
+        );
+    }
+    if app.popup.is_none() && app.placement.is_none() {
+        button(
+            &mut v,
+            &mut hits,
+            [120.0, 59.0, 102.0, 13.0],
+            "Reuse tools >",
+            Action::Reuse(super::reuse::Command::Open),
+            app.document.is_some(),
         );
     }
     super::lighting::toolbar(app, &mut v, &mut hits);

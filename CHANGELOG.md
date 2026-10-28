@@ -1,5 +1,14 @@
 ## 0.13.1 — Unreleased
 
+- Add Reuse tools in both editor modes: furnished room/corridor source capture,
+  repeated independent or linked stamping, explicit three-way linked updates,
+  category-based room styles, and seeded prop yaw/scale/sinking variation.
+  Private previews, cancellation, one-step history and ordinary source
+  persistence share the existing editor path. Linked overrides/deletions survive;
+  missing sources retain geometry. Optional standing-hull clearance protection
+  uses real collision samples, and saved baselines prevent seed drift.
+  See [the workflow and bounds](docs/EDITOR.md#reuse-tools-room-prefabs-room-styles-and-prop-variation-0131).
+
 - Add the cloud-authored 25-model utility/HVAC kit, retained Blender/GIMP sources,
   six-axis duct joins with reversible previews, five circuit-ready fluorescent
   variants and a bounded editor showcase. Preserve the original atlas and raise

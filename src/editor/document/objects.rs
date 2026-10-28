@@ -662,6 +662,10 @@ pub(super) fn duplicate(
     let mut object = object_mut(raw, id)?.clone();
     drop(object.remove("editor_instance_id"));
     drop(object.remove("editor_flicker"));
+    // A manual copy is independent; only Reuse stamps create linked membership.
+    drop(object.remove("editor_prefab"));
+    drop(object.remove("editor_prefab_source"));
+    drop(object.remove("editor_variation"));
     let current = transform(level, id)?;
     let [x, y, z] = current.position;
     set_position(
