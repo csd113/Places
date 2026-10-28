@@ -244,11 +244,7 @@ impl App {
         if !matches!(self.popup, Some(Popup::Behavior)) {
             return false;
         }
-        let size = window.size_in_pixels();
-        let point = |x, y| {
-            crate::engine::render::DrawableSize::new(size.0, size.1)
-                .window_to_ui(window.size(), [x, y])
-        };
+        let point = |x, y| super::input::ui_point(window, [x, y]);
         let Some(draft) = &mut self.behavior else {
             return false;
         };

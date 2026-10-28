@@ -82,7 +82,8 @@ impl App {
                 .objects()
                 .iter()
                 .filter(|object| {
-                    query.is_empty() || object.label.to_ascii_lowercase().contains(&query)
+                    self.focus.included(document.level(), object.id)
+                        && (query.is_empty() || object.label.to_ascii_lowercase().contains(&query))
                 })
                 .collect()
         })

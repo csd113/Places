@@ -5,6 +5,7 @@ No preview imagery is synthesized by the application. Reuses the existing
 GLB inspection renderer; material swatches preserve texture aspect and tint.
 """
 from pathlib import Path
+import argparse
 import hashlib
 import io
 import json
@@ -43,11 +44,15 @@ def build(job):
     data = io.BytesIO()
     image.save(data, format="PNG", optimize=True)
     atomic_write(output, data.getvalue())
-    return entry["id"], {"path": str(Path(output).relative_to(ROOT / "assets")),
+    return entry["id"], {"path": Path(output).relative_to(ROOT / "assets").as_posix(),
                          "source": source, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--missing-materials", action="store_true", help="add only absent material swatches; preserve all existing/native previews")
+    args = parser.parse_args()
+    existing = json.loads((ROOT / "assets/editor/previews.json").read_text(encoding="utf-8")) if args.missing_materials else {}
     entries = json.loads((ROOT / "assets/catalog.json").read_text())["assets"]
     by_id = {e["id"]: e for e in entries}
     directory = ROOT / "assets/editor/previews"
@@ -55,6 +60,8 @@ def main():
     native = json.loads((ROOT / "assets/editor/native-previews.json").read_text())
     jobs = []
     for entry in entries:
+        if args.missing_materials and (entry["asset_type"] != "material" or entry["id"] in existing):
+            continue
         if entry["id"] in native:
             continue
         if entry["asset_type"] not in ("prop", "entity", "material", "light", "decal"):
@@ -65,11 +72,14 @@ def main():
         if source:
             name = hashlib.sha256(entry["id"].encode()).hexdigest()[:24] + ".png"
             jobs.append((entry, source, str(directory / name)))
-    result = dict(ordered_map(build, jobs, workers=6, progress="editor previews"))
+    result = existing.copy()
+    result.update(ordered_map(build, jobs, workers=6, progress="editor previews"))
     # Native fixture/door derivatives are committed assets, captured explicitly
     # when their runtime geometry changes. Never substitute a flat diffuser for
     # a 3D fixture or regenerate previews while the editor is running.
     for asset_id, metadata in native.items():
+        if args.missing_materials:
+            continue
         image_path = ROOT / "assets" / metadata["path"]
         with Image.open(image_path) as image:
             if image.size != (160, 120):

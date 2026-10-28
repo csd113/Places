@@ -108,7 +108,15 @@ impl App {
     }
 
     fn modal_event(&mut self, event: &Event, window: &Window, hits: &[Hit]) -> bool {
-        self.flicker_event(event)
+        if self.popup.is_none()
+            && self.translation.is_none()
+            && self.wall_drag.is_none()
+            && pointer_on_control(event, window, hits)
+        {
+            return false;
+        }
+        self.construction_event(event, window)
+            || self.flicker_event(event)
             || self.template_event(event)
             || self.behavior_event(event, window, hits)
             || self.stair_event(event)
@@ -167,18 +175,16 @@ impl App {
 
     fn click(&mut self, window: &Window, hits: &[Hit], window_point: [f32; 2]) {
         let physical = window.size_in_pixels();
-        if let Some(point) =
-            DrawableSize::new(physical.0, physical.1).window_to_ui(window.size(), window_point)
-        {
+        if let Some(point) = super::layout::window_to_ui(
+            DrawableSize::new(physical.0, physical.1),
+            window.size(),
+            window_point,
+        ) {
             if let Some(hit) = hits.iter().find(|hit| hit.contains(point)) {
                 self.ui_focus = Some(hit.action);
                 let result = self.activate(hit.action, window);
                 self.report(result);
-            } else if self.popup.is_none()
-                && point[0] >= 112.0
-                && point[1] >= 38.0
-                && point[1] < 242.0
-            {
+            } else if self.popup.is_none() && self.viewport.contains_ui(point) {
                 if self.navigation_click(point) {
                     return;
                 }
@@ -231,9 +237,15 @@ impl App {
                 direction: _,
                 integer_x: _,
                 integer_y: _,
-            } if *mouse_x
-                < 112.0 * f32::from(u16::try_from(window.size().0).unwrap_or(1440)) / 480.0
-                && *mouse_y < 400.0 =>
+            } if {
+                let physical = window.size_in_pixels();
+                super::layout::window_to_ui(
+                    DrawableSize::new(physical.0, physical.1),
+                    window.size(),
+                    [*mouse_x, *mouse_y],
+                )
+                .is_some_and(|p| self.viewport.layout().scene_list(p))
+            } =>
             {
                 let count = self.scene_objects().len();
                 self.object_scroll = if *y > 0.0 {
@@ -241,7 +253,7 @@ impl App {
                 } else {
                     self.object_scroll
                         .saturating_add(1)
-                        .min(count.saturating_sub(4))
+                        .min(count.saturating_sub(3))
                 };
             }
             Event::KeyDown {
@@ -287,6 +299,10 @@ impl App {
     }
 }
 
+pub(super) fn ui_point(window: &Window, point: [f32; 2]) -> Option<[f32; 2]> {
+    let (width, height) = window.size_in_pixels();
+    super::layout::window_to_ui(DrawableSize::new(width, height), window.size(), point)
+}
 pub(super) fn command(modifiers: Mod) -> bool {
     modifiers.intersects(Mod::LCTRLMOD | Mod::RCTRLMOD | Mod::LGUIMOD | Mod::RGUIMOD)
 }
@@ -328,4 +344,28 @@ fn shortcut(key: Keycode, modifiers: Mod) -> Option<Action> {
             _ => None,
         }
     }
+}
+
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    clippy::rest_pattern_accessible_field,
+    reason = "Only left-pointer edges can activate controls; other SDL events and metadata belong to their existing handlers."
+)]
+fn pointer_on_control(event: &Event, window: &Window, hits: &[Hit]) -> bool {
+    let point = match event {
+        Event::MouseButtonDown {
+            mouse_btn: MouseButton::Left,
+            x,
+            y,
+            ..
+        }
+        | Event::MouseButtonUp {
+            mouse_btn: MouseButton::Left,
+            x,
+            y,
+            ..
+        } => [*x, *y],
+        _ => return false,
+    };
+    ui_point(window, point).is_some_and(|p| hits.iter().any(|hit| hit.contains(p)))
 }

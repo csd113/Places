@@ -38,6 +38,15 @@ const PANEL: [f32; 4] = [0.065, 0.09, 0.12, 1.0];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Action {
+    Place(super::construction::Tool),
+    ChainWalls,
+    CancelPlacement,
+    Layers,
+    Layer(usize),
+    Isolate,
+    ShowAll,
+    Lock,
+    ThumbnailSize,
     Flicker(super::flicker::Command),
     Author(super::authoring::Command),
     Project,
@@ -268,9 +277,7 @@ pub(super) fn button(
 pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
     let mut v = Vec::new();
     let mut hits = Vec::new();
-    rect(&mut v, [0.0, 0.0, 480.0, 38.0], PANEL);
-    rect(&mut v, [0.0, 38.0, 112.0, 204.0], PANEL);
-    rect(&mut v, [0.0, 242.0, 480.0, 30.0], PANEL);
+
     toolbar(app, &mut v, &mut hits);
     button(
         &mut v,
@@ -296,7 +303,21 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
         }
     }
     footer(app, &mut v, &mut hits);
-    if app.popup.is_none() {
+    if app.placement.is_none()
+        && !app.view.simple
+        && matches!(app.selected, Some(ObjectId::Wall(_)))
+    {
+        button(
+            &mut v,
+            &mut hits,
+            [120.0, 43.0, 90.0, 13.0],
+            "Make Doorway",
+            Action::Place(super::construction::Tool::Doorway),
+            true,
+        );
+    }
+    super::construction::draw(app, &mut v, &mut hits);
+    if app.popup.is_none() && matches!(app.selected, Some(ObjectId::Prop(_))) {
         button(
             &mut v,
             &mut hits,
@@ -306,7 +327,7 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
             matches!(app.selected, Some(ObjectId::Prop(_))),
         );
     }
-    if app.popup.is_none() {
+    if app.popup.is_none() && matches!(app.selected, Some(ObjectId::Light(_))) {
         button(
             &mut v,
             &mut hits,
@@ -316,6 +337,7 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
             matches!(app.selected, Some(ObjectId::Light(_))),
         );
     }
+    let modal_start = v.len();
     if let Some(popup) = &app.popup {
         popup.draw(app, &mut v, &mut hits);
     }
@@ -331,7 +353,38 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
             rect(&mut v, bounds, ACCENT);
         }
     }
-    (v, hits)
+    fit_layout(app, v, hits, modal_start)
+}
+fn fit_layout(
+    app: &App,
+    mut v: Vec<Vertex>,
+    mut hits: Vec<Hit>,
+    modal_start: usize,
+) -> (Vec<Vertex>, Vec<Hit>) {
+    let layout = app.viewport.layout();
+    for (index, vertex) in v.iter_mut().enumerate() {
+        let [x, y] = layout.point(
+            [vertex.pos[0], vertex.pos[1]],
+            app.popup.is_some() && index >= modal_start,
+        );
+        vertex.pos[0] = x;
+        vertex.pos[1] = y;
+    }
+    for hit in &mut hits {
+        hit.rect = layout.rect(hit.rect, app.popup.is_some());
+    }
+    let [left, top, right, bottom] = layout.bounds;
+    let [view_left, view_top, _, view_bottom] = layout.viewport();
+    let mut background = Vec::new();
+    for bounds in [
+        [left, top, right - left, view_top - top],
+        [left, view_top, view_left - left, view_bottom - view_top],
+        [left, view_bottom, right - left, bottom - view_bottom],
+    ] {
+        rect(&mut background, bounds, PANEL);
+    }
+    background.extend(v);
+    (background, hits)
 }
 
 pub(super) fn popup_button(
@@ -402,7 +455,7 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         (
             205.0,
             46.0,
-            "Build+Play",
+            "Play",
             Action::Play,
             idle && app.document.is_some(),
         ),
@@ -418,7 +471,9 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             app.document.is_some(),
         ),
     ] {
-        button(vertices, hits, [x, 14.0, w, 11.0], label, action, enabled);
+        if !app.view.simple || !matches!(action, Action::Build | Action::Safety) {
+            button(vertices, hits, [x, 14.0, w, 11.0], label, action, enabled);
+        }
     }
 
     if app.compile.is_some() || app.play.is_some() {
@@ -439,7 +494,7 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
 }
 
 fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
-    if app.compile.is_none() && app.play.is_none() {
+    if !app.view.simple && app.compile.is_none() && app.play.is_none() {
         button(
             vertices,
             hits,
@@ -474,22 +529,34 @@ fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         Action::Step,
         true,
     );
-    button(
-        vertices,
-        hits,
-        [114.0, 27.0, 55.0, 10.0],
-        if app.navigation.visible {
-            "Navigation <"
-        } else {
-            "Navigation >"
-        },
-        Action::Navigation,
-        app.document.is_some(),
-    );
+    if !app.view.simple {
+        button(
+            vertices,
+            hits,
+            [114.0, 27.0, 55.0, 10.0],
+            if app.navigation.visible {
+                "Navigation <"
+            } else {
+                "Navigation >"
+            },
+            Action::Navigation,
+            app.document.is_some(),
+        );
+    }
+    if !app.view.simple {
+        button(
+            vertices,
+            hits,
+            [174.0, 27.0, 49.0, 10.0],
+            "Layers >",
+            Action::Layers,
+            app.document.is_some(),
+        );
+    }
     text(
         vertices,
-        "RMB orbit / WASDQE fly | MMB pan | Wheel zoom | F frame",
-        174.0,
+        "RMB orbit | MMB pan | Wheel zoom | F frame",
+        if app.view.simple { 114.0 } else { 227.0 },
         29.0,
         MUTED,
         86,
@@ -513,46 +580,47 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         Action::Project,
         app.compile.is_none() && app.play.is_none() && !app.dialog_open,
     );
-    for (x, w, label, action) in [
+    for (x, y, w, label, action) in [
+        (5.0, 52.0, 49.0, "New Room", Action::Add(ObjectKind::Room)),
+        (
+            58.0,
+            52.0,
+            49.0,
+            "Add Wall",
+            Action::Place(super::construction::Tool::Wall),
+        ),
         (
             5.0,
-            65.0,
-            if app.view.simple {
-                "New Room"
-            } else {
-                "+ Geometry"
-            },
-            if app.view.simple {
-                Action::Add(ObjectKind::Room)
-            } else {
-                Action::Geometry
-            },
+            66.0,
+            49.0,
+            "Add Door",
+            Action::Place(super::construction::Tool::Door),
         ),
-        (73.0, 34.0, "+ Prop", Action::Add(ObjectKind::Prop)),
+        (
+            58.0,
+            66.0,
+            49.0,
+            "Add Light",
+            Action::Place(super::construction::Tool::Light),
+        ),
     ] {
         button(
             vertices,
             hits,
-            [x, 52.0, w, 11.0],
+            [x, y, w, 12.0],
             label,
             action,
             app.document.is_some(),
         );
     }
-    button(
-        vertices,
-        hits,
-        [5.0, 65.0, 102.0, 10.0],
-        "+ Scene objects >",
-        Action::Create,
-        app.document.is_some(),
-    );
     let objects = app.scene_objects();
-    for (index, object) in objects.iter().skip(app.object_scroll).take(4).enumerate() {
-        let y = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(10.0, 79.0);
+    for (index, object) in objects.iter().skip(app.object_scroll).take(3).enumerate() {
+        let y = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(10.0, 82.0);
         let label = format!(
             "{}{}",
-            if app.selected == Some(object.id) {
+            if !app.editable(object.id) {
+                "[L] "
+            } else if app.selected == Some(object.id) {
                 "> "
             } else {
                 "  "
@@ -580,7 +648,7 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             }
         ),
         5.0,
-        121.0,
+        115.0,
         MUTED,
         29,
     );
@@ -588,28 +656,47 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
 
 fn simple_selection(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     let selected = app.selected.is_some();
+    let unlocked = app.selected.is_some_and(|id| app.editable(id));
+    let wall = matches!(app.selected, Some(ObjectId::Wall(_)));
     text(
         vertices,
-        if selected {
-            "SELECTED OBJECT"
+        if selected && !unlocked {
+            "LOCKED: Layers to unlock"
+        } else if wall {
+            "WALL: drag body / ends"
+        } else if matches!(app.selected, Some(ObjectId::Room(_))) {
+            "ROOM: drag gold edges"
         } else {
-            "BUILD YOUR PLACE"
+            "SELECT / BUILD"
         },
         5.0,
-        132.0,
+        130.0,
         ACCENT,
-        27,
+        26,
     );
     for (y, label, action, enabled) in [
-        (144.0, "Move / exact size >", Action::Transform, selected),
-        (160.0, "Choose model >", Action::Assets, true),
-        (176.0, "Rooms / stairs >", Action::Geometry, true),
-        (192.0, "Events / scripts >", Action::Scripts, true),
+        (
+            141.0,
+            if wall {
+                "Make Doorway"
+            } else {
+                "More geometry >"
+            },
+            if wall {
+                Action::Place(super::construction::Tool::Doorway)
+            } else {
+                Action::Geometry
+            },
+            true,
+        ),
+        (158.0, "Move / exact size >", Action::Transform, selected),
+        (175.0, "Props / scene objects >", Action::Create, true),
+        (192.0, "Layers / focus >", Action::Layers, true),
     ] {
         button(
             vertices,
             hits,
-            [5.0, y, 102.0, 13.0],
+            [5.0, y, 102.0, 14.0],
             label,
             action,
             enabled && app.document.is_some(),

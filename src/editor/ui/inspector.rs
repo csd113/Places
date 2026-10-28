@@ -18,7 +18,7 @@ pub(in crate::editor) fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: 
         app.selected,
         Some(ObjectId::Trigger(_) | ObjectId::FogRegion(_) | ObjectId::GroundFog(_))
     );
-    text(vertices, heading(app), 5.0, 131.0, ACCENT, 25);
+    text(vertices, heading(app), 5.0, 131.0, ACCENT, 15);
     if app.selected.is_some() {
         let room = matches!(app.selected, Some(ObjectId::Room(_)));
         button(
@@ -79,6 +79,7 @@ const fn transform_fields(
     pose: crate::editor::document::Transform,
 ) -> [(usize, &'static str, f32); 9] {
     let ramp = matches!(id, Some(ObjectId::Ramp(_)));
+
     let region = matches!(id, Some(ObjectId::FloorRegion(_)));
     let prop = matches!(id, Some(ObjectId::Prop(_)));
     let circle = matches!(id, Some(ObjectId::Pillar(_)));

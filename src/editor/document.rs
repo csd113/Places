@@ -12,6 +12,7 @@ mod geometry;
 mod history;
 mod local_floor;
 pub(crate) mod room_resize;
+pub(crate) mod wall_edit;
 pub(super) use objects::array_mut as record_array_mut;
 pub(crate) mod intent;
 mod mounting;
@@ -224,8 +225,14 @@ impl Document {
     /// # Errors
     /// Rejects invalid numbers, unsupported rotations and invalid scene edits.
     pub fn set_transform(&mut self, id: ObjectId, transform: Transform) -> Result<(), String> {
-        let mut edited = self.selected.raw.clone();
-        objects::set_transform(&mut edited, self.level(), id, transform)?;
+        let mut edited = if let ObjectId::Wall(index) = id {
+            self.wall_edit_candidate(index, transform)?
+        } else {
+            self.selected.raw.clone()
+        };
+        if !matches!(id, ObjectId::Wall(_)) {
+            objects::set_transform(&mut edited, self.level(), id, transform)?;
+        }
         self.accept_edit(edited)
     }
 
@@ -239,8 +246,14 @@ impl Document {
         id: ObjectId,
         transform: Transform,
     ) -> Result<LevelDef, String> {
-        let mut edited = self.selected.raw.clone();
-        objects::set_transform(&mut edited, self.level(), id, transform)?;
+        let mut edited = if let ObjectId::Wall(index) = id {
+            self.wall_edit_candidate(index, transform)?
+        } else {
+            self.selected.raw.clone()
+        };
+        if !matches!(id, ObjectId::Wall(_)) {
+            objects::set_transform(&mut edited, self.level(), id, transform)?;
+        }
         persistence::validate_raw(&edited, self.level_id()).map(|(level, _bytes)| level)
     }
 
@@ -392,10 +405,42 @@ impl Document {
         self.accept_edit(edited)
     }
 
+    pub(crate) fn check_locked_edit(&self, edited: &Value) -> Result<(), String> {
+        for object in self.objects() {
+            let (key, i) = object.id.collection();
+            let Some(old) = self
+                .raw()
+                .get(key)
+                .and_then(|a| a.get(i))
+                .filter(|r| r.get("editor_locked").and_then(Value::as_bool) == Some(true))
+            else {
+                continue;
+            };
+            let retained = edited
+                .get(key)
+                .and_then(Value::as_array)
+                .is_some_and(|a| a.contains(old));
+            if retained {
+                continue;
+            }
+            let mut unlocked = old.clone();
+            if let Some(r) = unlocked.as_object_mut() {
+                drop(r.insert("editor_locked".into(), Value::Bool(false)));
+            }
+            if edited.get(key).and_then(|a| a.get(i)) != Some(&unlocked) {
+                return Err(format!(
+                    "{} is locked. Unlock it in Layers before editing it or its attachments.",
+                    object.label
+                ));
+            }
+        }
+        Ok(())
+    }
     fn accept_edit(&mut self, edited: Value) -> Result<(), String> {
         if edited == self.selected.raw {
             return Ok(());
         }
+        self.check_locked_edit(&edited)?;
         self.admit_document_bytes(
             history::value_heap_charge(&edited)
                 .saturating_add(self.selected.byte_count.saturating_mul(2)),

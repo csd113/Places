@@ -70,14 +70,16 @@ pub(super) struct Guides {
     vertices: Vec<Vertex>,
     matrix: Mat4,
     size: DrawableSize,
+    viewport: [f32; 4],
 }
 
 impl Guides {
-    pub const fn new(matrix: Mat4, size: DrawableSize) -> Self {
+    pub const fn new(matrix: Mat4, size: DrawableSize, viewport: [f32; 4]) -> Self {
         Self {
             vertices: Vec::new(),
             matrix,
             size,
+            viewport,
         }
     }
 
@@ -113,6 +115,25 @@ impl Guides {
         );
     }
 
+    pub fn wall_ends(&mut self, handles: &[[f32; 3]; 2]) {
+        for (i, p) in handles.iter().enumerate() {
+            if let Some([x, y]) = self.project(Vec3::from_array(*p)) {
+                crate::editor::ui::rect(
+                    &mut self.vertices,
+                    [x - 3.0, y - 3.0, 6.0, 6.0],
+                    [0.37, 0.95, 0.8, 1.0],
+                );
+                crate::editor::ui::text(
+                    &mut self.vertices,
+                    if i == 0 { "Start" } else { "End" },
+                    x + 4.0,
+                    y - 3.0,
+                    [0.9, 1.0, 0.95, 1.0],
+                    8,
+                );
+            }
+        }
+    }
     pub fn room_edges(&mut self, handles: &[[f32; 3]; 4]) {
         for handle in handles {
             if let Some([x, y]) = self.project(Vec3::from_array(*handle)) {
@@ -195,7 +216,8 @@ impl Guides {
             return None;
         }
         let point = self.point(projected);
-        (point.x >= 112.0 && point.x < 480.0 && point.y >= 38.0 && point.y < 242.0)
+        let [left, top, right, bottom] = self.viewport;
+        (point.x >= left && point.x < right && point.y >= top && point.y < bottom)
             .then_some(point.to_array())
     }
 
@@ -248,11 +270,12 @@ impl Guides {
             .filter(|point| point.w > 0.000_01)
             .map(|point| self.point(point))
             .collect();
+        let [left, top, right, bottom] = self.viewport;
         for (axis, edge, greater) in [
-            (0_usize, 112.0, true),
-            (0, 480.0, false),
-            (1, 38.0, true),
-            (1, 242.0, false),
+            (0_usize, left, true),
+            (0, right, false),
+            (1, top, true),
+            (1, bottom, false),
         ] {
             let mut clipped = Vec::new();
             let coordinate = |point: Vec2| if axis == 0 { point.x } else { point.y };
@@ -355,7 +378,7 @@ impl Guides {
         if near_second <= 0.0 {
             second = second.lerp(first, near_second / (near_second - near_first));
         }
-        let Some((a, b)) = clip(self.point(first), self.point(second)) else {
+        let Some((a, b)) = clip(self.point(first), self.point(second), self.viewport) else {
             return;
         };
         let delta = b - a;
@@ -396,15 +419,16 @@ impl Guides {
     clippy::arithmetic_side_effects,
     reason = "Screen clipping interpolates finite floating point positions."
 )]
-fn clip(start: Vec2, end: Vec2) -> Option<(Vec2, Vec2)> {
+fn clip(start: Vec2, end: Vec2, viewport: [f32; 4]) -> Option<(Vec2, Vec2)> {
     let delta = end - start;
     let mut low = 0.0_f32;
     let mut high = 1.0_f32;
+    let [left, top, right, bottom] = viewport;
     for (p, q) in [
-        (-delta.x, start.x - 112.0),
-        (delta.x, 480.0 - start.x),
-        (-delta.y, start.y - 38.0),
-        (delta.y, 242.0 - start.y),
+        (-delta.x, start.x - left),
+        (delta.x, right - start.x),
+        (-delta.y, start.y - top),
+        (delta.y, bottom - start.y),
     ] {
         if p.abs() < 0.000_001 {
             if q < 0.0 {

@@ -151,6 +151,9 @@ impl Document {
         pose: Transform,
         catalog: &crate::engine::assets::AssetCatalog,
     ) -> Result<Value, String> {
+        if let ObjectId::Wall(index) = id {
+            return self.wall_edit_candidate(index, pose);
+        }
         let mut raw = self.raw().clone();
         if let ObjectId::Room(index) = id {
             let room = self

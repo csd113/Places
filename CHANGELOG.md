@@ -45,6 +45,29 @@ checks: production 0.13.0 packages/assets are untouched; full 0.13.1 production
 rebake and CI/release closing remain later. Fifo was negotiated, so these runs
 make no uncapped FPS claim.
 
+Second editor phase: Simple mode now exposes New Room, Add Wall, Add Door,
+Add Light and Play. Make Doorway explicitly creates an opening; Add Door creates
+or fits an interactive leaf. Click-start/preview/click-end wall tools support
+chaining, grid/endpoint snapping and cancellation. Wall-body dragging and mint
+endpoint handles preserve openings, doors, wall fittings and automatic trim with
+atomic undo. Room stretching retains its attachment and shared-boundary guards.
+
+Layers/focus supplies four visibility groups, isolation and saved object locks.
+Material browsing defaults to 24 smaller labelled tiles in four rows, with an
+adjustable size, search, paging and selected state. Responsive control/hit mapping
+uses logical window size, display scale and drawable density; Simple Play saves,
+exports, builds and launches automatically. Eleven missing offline material
+previews now use the existing committed PNG pipeline.
+
+Phase acceptance: strict Clippy, locked release workspace build, 367 Rust tests,
+369 source tests (18 expected skips), and the 644-asset validator pass. Native
+Windows acceptance covers creation, chained walls, opening/leaf distinction,
+materials, locks/layers, attached wall edits, room stretch, save/reopen and
+Play/return, including opening and walking through the new door. Actual Razer
+layout checks use 150% display scale at 960x544 through 1440x900; CPU coordinate
+checks also cover 100/125/200% and doubled drawable density. Actual Mac Retina
+acceptance remains deferred. See [current acceptance and limits](docs/reports/release-0.13.1.md).
+
 ## 0.13.0 — 2026-10-28
 
 Windows prerelease [published on 2026-10-28](https://github.com/csd113/Places/releases/tag/v0.13.0). The approved queue fixes

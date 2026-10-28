@@ -235,7 +235,7 @@ impl UiRenderer {
         }
         self.pictures = images
             .iter()
-            .take(8)
+            .take(24)
             .map(|source| {
                 let view = upload_ui_image(device, queue, &source.image);
                 let (binding, _layout) = create_font_binding(device, &view, true);

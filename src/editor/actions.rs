@@ -19,6 +19,7 @@ pub(super) enum Pending {
 }
 
 pub(super) enum Popup {
+    Layers,
     Flicker,
     Template,
     Behavior,
@@ -155,6 +156,7 @@ impl Popup {
         hits: &mut Vec<Hit>,
     ) {
         match self {
+            Self::Layers => super::focus::draw(app, v, hits),
             Self::SceneSearch(value) => super::selection::draw_search(v, hits, value),
             Self::Flicker
             | Self::Template
@@ -340,7 +342,8 @@ impl App {
     }
 
     fn contextual_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
-        Ok(self.flicker_action(action)?
+        Ok(self.focus_action(action)?
+            || self.flicker_action(action)?
             || self.template_action(action)?
             || self.behavior_action(action)?
             || self.stair_action(action)?
@@ -358,6 +361,35 @@ impl App {
     }
 
     pub(super) fn activate(&mut self, action: Action, window: &Window) -> Result<(), String> {
+        if matches!(
+            action,
+            Action::Nudge(_, _)
+                | Action::Field(_)
+                | Action::Transform
+                | Action::Delete
+                | Action::Duplicate
+                | Action::Materials
+                | Action::Gameplay
+                | Action::Components(_)
+        ) && self.selected.is_some_and(|id| !self.editable(id))
+        {
+            return Err(
+                "Selection is locked or hidden. Show and unlock it in Layers before editing."
+                    .into(),
+            );
+        }
+        if self.placement.is_some()
+            && !matches!(
+                action,
+                Action::ChainWalls
+                    | Action::CancelPlacement
+                    | Action::Snap
+                    | Action::Step
+                    | Action::Grid
+            )
+        {
+            self.cancel_placement();
+        }
         if self.contextual_action(action, window)? {
             return Ok(());
         }
@@ -373,6 +405,20 @@ impl App {
     )]
     fn global_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
         match action {
+            Action::Place(tool) => self.start_placement(tool)?,
+            Action::CancelPlacement => {
+                self.cancel_placement();
+                self.status = "Placement cancelled.".into();
+            }
+            Action::ChainWalls => {
+                if let Some(p) = &mut self.placement {
+                    p.chain = !p.chain;
+                }
+            }
+            Action::ThumbnailSize => {
+                self.browser.compact = !self.browser.compact;
+                self.reset_browser_page();
+            }
             Action::BakeStatus => self.check_bakes()?,
             Action::BakeLevel(index) => self.build_bake_row(index)?,
             Action::BakeCancel => self.bakes.invalidate(),
@@ -407,6 +453,21 @@ impl App {
     }
 
     fn add_safely(&mut self, kind: ObjectKind) -> Result<(), String> {
+        match kind {
+            ObjectKind::Wall => return self.start_placement(super::construction::Tool::Wall),
+            ObjectKind::Door => return self.start_placement(super::construction::Tool::Door),
+            ObjectKind::Light => return self.start_placement(super::construction::Tool::Light),
+            ObjectKind::Room
+            | ObjectKind::Prop
+            | ObjectKind::Ramp
+            | ObjectKind::FloorRegion
+            | ObjectKind::Audio
+            | ObjectKind::Entity
+            | ObjectKind::Trigger
+            | ObjectKind::FogRegion
+            | ObjectKind::GroundFog
+            | ObjectKind::SpawnPoint => {}
+        }
         if kind == ObjectKind::Room {
             let _opened = self.authoring_action(Action::Author(
                 super::authoring::Command::Open(super::authoring::Tool::Room),
@@ -509,6 +570,7 @@ impl App {
     }
 
     fn history_action(&mut self, redo: bool) {
+        self.focus.isolated = None;
         let reviewing = self.safety_report.is_some();
         if let Some(document) = &mut self.document {
             let changed = if redo {
@@ -536,6 +598,7 @@ impl App {
     }
 
     fn selection_action(&mut self, duplicate: bool) -> Result<(), String> {
+        self.focus.isolated = None;
         let id = self.selected.ok_or("Select an object first")?;
         let document = self.document.as_mut().ok_or("Open a project first")?;
         self.selected = if duplicate {
@@ -748,7 +811,7 @@ impl App {
                                     super::gameplay_actions::GameplayChoice::Fixture
                                         | super::gameplay_actions::GameplayChoice::EntityModel
                                 ) {
-                                    super::browser::PAGE_SIZE
+                                    self.browser_page_size()
                                 } else {
                                     10
                                 },
@@ -766,10 +829,11 @@ impl App {
         } else {
             0
         };
+        let page_size = self.browser_page_size();
         if let Some(Popup::Library { page, materials: _ }) = &mut self.popup {
             *page = if forward {
                 page.saturating_add(1)
-                    .min(count.saturating_sub(1) / super::browser::PAGE_SIZE)
+                    .min(count.saturating_sub(1).checked_div(page_size).unwrap_or(0))
             } else {
                 page.saturating_sub(1)
             };

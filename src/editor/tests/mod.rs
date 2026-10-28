@@ -15,3 +15,5 @@ mod editor_phase;
 mod flicker;
 
 mod trim;
+
+mod wall_workflow;

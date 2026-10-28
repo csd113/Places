@@ -544,7 +544,7 @@ fn require_simple_rotation(object: &Map<String, Value>, id: ObjectId) -> Result<
     Ok(())
 }
 
-pub(super) fn add(
+pub(in crate::editor) fn add(
     raw: &mut Value,
     level: &LevelDef,
     kind: ObjectKind,
@@ -839,7 +839,10 @@ pub(super) fn set_number(object: &mut Map<String, Value>, key: &str, value: f32)
     drop(object.insert(key.into(), Value::from(value)));
 }
 
-pub(super) fn object_mut(raw: &mut Value, id: ObjectId) -> Result<&mut Map<String, Value>, String> {
+pub(in crate::editor) fn object_mut(
+    raw: &mut Value,
+    id: ObjectId,
+) -> Result<&mut Map<String, Value>, String> {
     let (collection, index) = id.collection();
     array_mut(raw, collection)?
         .get_mut(index)

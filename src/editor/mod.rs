@@ -8,12 +8,15 @@ mod bakes;
 mod behavior;
 mod browser;
 mod component_actions;
+mod construction;
 pub mod document;
 mod dragging;
 mod flicker;
+mod focus;
 mod gameplay_actions;
 mod geometry_actions;
 mod input;
+mod layout;
 mod navigation;
 mod performance;
 pub mod process;
@@ -91,6 +94,9 @@ struct App {
     project_import: Option<PathBuf>,
     selected: Option<ObjectId>,
     translation: Option<dragging::Translation>,
+    placement: Option<construction::Placement>,
+    wall_drag: Option<construction::WallDrag>,
+    focus: focus::Focus,
     status: String,
     ui_focus: Option<ui::Action>,
     thumbnail_image: Option<std::sync::Arc<crate::engine::materials::RawImage>>,
@@ -131,6 +137,9 @@ impl App {
         self.viewport.rebuild(document.level());
         self.viewport.frame_next_preview();
         self.document = Some(document);
+        self.focus = focus::Focus::default();
+        self.placement = None;
+        self.wall_drag = None;
         self.safety_report = None;
         self.safety_index = 0;
         self.opening_rect = None;
@@ -144,6 +153,7 @@ impl App {
     }
 
     fn changed(&mut self) {
+        self.viewport.set_focus(self.focus.clone());
         self.invalidate_navigation();
         self.bakes.invalidate();
         self.safety_report = None;
@@ -273,7 +283,10 @@ impl App {
             self.thumbnail_image
                 .iter()
                 .map(|image| crate::engine::render::UiImage {
-                    bounds: [112.0, 86.0, 256.0, 144.0],
+                    bounds: self
+                        .viewport
+                        .layout()
+                        .rect([112.0, 86.0, 256.0, 144.0], true),
                     image: std::sync::Arc::clone(image),
                 })
                 .collect()
@@ -441,6 +454,9 @@ fn create_app(
         project_import: None,
         selected: None,
         translation: None,
+        placement: None,
+        wall_drag: None,
+        focus: focus::Focus::default(),
         ui_focus: None,
         thumbnail_image: None,
         status: "New: choose a parent folder. Open: choose an existing project folder.".into(),
@@ -536,6 +552,7 @@ fn application(options: Options) -> Result<(), String> {
             app.status = format!("Viewport: {error}");
         }
         app.update_window(&mut window, &video);
+        app.viewport.sync_window(&window);
         let presented = app.draw(&window);
         trace.present(&app.viewport, &window, presented);
         app.capture_frame();

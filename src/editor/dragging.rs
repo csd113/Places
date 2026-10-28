@@ -30,8 +30,7 @@ impl App {
     pub(super) fn drag_event(&mut self, event: &Event, window: &Window) -> bool {
         let size = window.size_in_pixels();
         let ui_point = |x, y| {
-            DrawableSize::new(size.0, size.1)
-                .window_to_ui(window.size(), [x, y])
+            super::layout::window_to_ui(DrawableSize::new(size.0, size.1), window.size(), [x, y])
                 .map(Vec2::from_array)
         };
         if self.translation.is_some() {
@@ -113,6 +112,9 @@ impl App {
         false
     }
     fn begin_drag(&mut self, point: Vec2) -> bool {
+        if self.selected.is_some_and(|id| !self.editable(id)) {
+            return false;
+        }
         if self.begin_edge_drag(point) {
             return true;
         }
@@ -248,18 +250,24 @@ impl App {
             return;
         }
         drag.proposed = proposed;
+        let drag_id = drag.id;
+        let drag_edge = drag.edge;
         if let Some(doc) = &self.document {
-            let candidate = if let Some(edge) = drag.edge {
-                doc.room_edge_candidate(drag.id, edge, delta)
+            let candidate = if let Some(edge) = drag_edge {
+                doc.room_edge_candidate(drag_id, edge, delta)
             } else {
-                doc.drag_candidate(drag.id, proposed, &self.catalog)
+                doc.drag_candidate(drag_id, proposed, &self.catalog)
             };
-            match candidate.and_then(|raw| {
+            let checked_candidate = candidate.and_then(|raw| {
+                self.check_focused_edit(&raw)?;
+                Ok(raw)
+            });
+            match checked_candidate.and_then(|raw| {
                 crate::engine::level::LevelDef::from_json(&raw.to_string())
                     .map_err(|error| error.to_string())
             }) {
                 Ok(level) => {
-                    if let ObjectId::Room(index) = drag.id
+                    if let ObjectId::Room(index) = drag_id
                         && let Some(room) = level.rooms.get(index)
                     {
                         self.status = format!(

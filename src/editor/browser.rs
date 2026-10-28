@@ -47,10 +47,11 @@ pub(super) const DOOR_PREVIEWS: [&str; 3] = [
     "editor:door_restroom",
 ];
 
-pub(super) const PAGE_SIZE: usize = 8;
+pub(super) const PAGE_SIZE: usize = 24;
 
 #[derive(Default)]
 pub(super) struct Browser {
+    pub compact: bool,
     pub query: String,
     pub material_ceiling: bool,
     pub theme: usize,
@@ -104,6 +105,7 @@ impl Browser {
             .collect::<std::collections::BTreeSet<_>>();
         themes.extend(unique);
         Self {
+            compact: true,
             themes,
             search: catalog
                 .entries()
@@ -171,18 +173,27 @@ impl Browser {
     }
 }
 
-pub(super) fn tile_bounds(offset: usize) -> [f32; 4] {
-    let col = f32::from(u16::try_from(offset % 4).unwrap_or(0));
-    let row = f32::from(u16::try_from(offset / 4).unwrap_or(0));
+pub(super) fn tile_bounds(offset: usize, compact: bool) -> [f32; 4] {
+    let columns = if compact { 6 } else { 5 };
+    let col = f32::from(u16::try_from(offset.checked_rem(columns).unwrap_or(0)).unwrap_or(0));
+    let row = f32::from(u16::try_from(offset.checked_div(columns).unwrap_or(0)).unwrap_or(0));
+    let (stride, width, height) = if compact {
+        (57.0, 36.0, 27.0)
+    } else {
+        (69.0, 50.0, 37.5)
+    };
     [
-        col.mul_add(85.0, 123.0),
-        row.mul_add(72.0, 77.0),
-        80.0,
-        60.0,
+        col.mul_add(stride, 123.0),
+        row.mul_add(if compact { 35.5 } else { 47.0 }, 77.0),
+        width,
+        height,
     ]
 }
 
 impl App {
+    pub(super) const fn browser_page_size(&self) -> usize {
+        if self.browser.compact { 24 } else { 15 }
+    }
     pub(super) fn browser_page(&self) -> Option<(Rc<[String]>, usize)> {
         match self.popup {
             Some(Popup::DoorAssets) => Some((self.door_choices(), 0)),
@@ -216,16 +227,19 @@ impl App {
             return Vec::new();
         };
         let remaining = ids
-            .get(page.saturating_mul(PAGE_SIZE)..)
+            .get(page.saturating_mul(self.browser_page_size())..)
             .unwrap_or_default();
-        let (visible, _) = remaining.split_at(remaining.len().min(PAGE_SIZE));
+        let (visible, _) = remaining.split_at(remaining.len().min(self.browser_page_size()));
         self.browser.prepare_one(visible);
         visible
             .iter()
             .enumerate()
             .filter_map(|(index, id)| {
                 Some(UiImage {
-                    bounds: tile_bounds(index),
+                    bounds: self
+                        .viewport
+                        .layout()
+                        .rect(tile_bounds(index, self.browser.compact), true),
                     image: Arc::clone(self.browser.image(id)?),
                 })
             })
@@ -242,7 +256,7 @@ impl App {
         self.reset_browser_page();
     }
 
-    const fn reset_browser_page(&mut self) {
+    pub(super) const fn reset_browser_page(&mut self) {
         if let Some(
             Popup::Library { page, materials: _ } | Popup::GameplayChoices { page, choice: _ },
         ) = &mut self.popup

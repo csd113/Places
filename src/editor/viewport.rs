@@ -36,6 +36,10 @@ enum PreviewMode {
 }
 
 pub(super) struct Viewport {
+    layout: super::layout::Layout,
+    focus: super::focus::Focus,
+    identity_map: Vec<(ObjectId, ObjectId)>,
+    wall_handles: Vec<[[f32; 3]; 2]>,
     renderer: Renderer,
     worker: PreviewWorker,
     camera: Camera,
@@ -79,6 +83,10 @@ impl Viewport {
         }
         let (width, height) = window.size_in_pixels();
         Ok(Self {
+            layout: super::layout::Layout::for_window(window),
+            focus: super::focus::Focus::default(),
+            identity_map: Vec::new(),
+            wall_handles: Vec::new(),
             renderer,
             worker: PreviewWorker::new()?,
             camera: Camera::default(),
@@ -108,22 +116,45 @@ impl Viewport {
         })
     }
 
+    pub fn sync_window(&mut self, window: &Window) {
+        let (width, height) = window.size_in_pixels();
+        self.size = DrawableSize::new(width, height);
+        self.window_size = window.size();
+        self.layout = super::layout::Layout::for_window(window);
+    }
+    pub const fn layout(&self) -> super::layout::Layout {
+        self.layout
+    }
+    pub fn contains_ui(&self, point: [f32; 2]) -> bool {
+        self.layout.contains(point)
+    }
     pub fn set_ui_images(&mut self, images: Vec<crate::engine::render::UiImage>) {
         self.renderer.set_ui_images(images);
     }
 
+    pub const fn set_focus(&mut self, focus: super::focus::Focus) {
+        self.focus = focus;
+    }
     pub fn rebuild(&mut self, level: &LevelDef) {
+        self.wall_handles = level
+            .walls
+            .iter()
+            .map(super::document::wall_edit::endpoints)
+            .collect();
         self.renderer.cancel_prepared_install();
         self.uploading = false;
         self.pending_objects = None;
         self.requested = Some(Instant::now());
-        self.volume_guides = overlay::volumes(level);
+
         self.room_handles = level
             .rooms
             .iter()
             .map(|room| super::document::room_resize::Edge::ALL.map(|edge| edge.handle(room)))
             .collect();
-        self.worker.request(level, self.environment_preview());
+        let (preview, identities) = self.focus.preview(level);
+        self.volume_guides = overlay::volumes(&preview);
+        self.identity_map = identities;
+        self.worker.request(&preview, self.environment_preview());
     }
 
     pub const fn environment_preview(&self) -> bool {
@@ -163,7 +194,11 @@ impl Viewport {
 
     /// Native verification still dispatches an ordinary screen click.
     pub fn project(&self, position: Vec3) -> Option<[f32; 2]> {
-        let guide = overlay::Guides::new(self.camera.matrix(self.size), self.size);
+        let guide = overlay::Guides::new(
+            self.camera.matrix(self.size),
+            self.size,
+            self.layout.viewport(),
+        );
         guide.project(position)
     }
 
@@ -288,6 +323,17 @@ impl Viewport {
             })
             .collect()
     }
+    pub fn wall_endpoint_handles(&self) -> Vec<[f32; 2]> {
+        let Some(ObjectId::Wall(i)) = self.selected else {
+            return Vec::new();
+        };
+        self.wall_handles
+            .get(i)
+            .into_iter()
+            .flatten()
+            .filter_map(|p| self.project(Vec3::from_array(*p)))
+            .collect()
+    }
     pub fn axis_handles(&self) -> Vec<[[f32; 2]; 2]> {
         let Some(bounds) = self.selected_bounds() else {
             return Vec::new();
@@ -336,7 +382,20 @@ impl Viewport {
         let admission_ms = admission_started.elapsed().as_secs_f64() * 1_000.0_f64;
         self.preview_metrics = preview.metrics;
         let setup_started = Instant::now();
-        self.pending_objects = Some(preview.objects);
+        self.pending_objects = Some(
+            preview
+                .objects
+                .into_iter()
+                .filter_map(|mut object| {
+                    object.id = self
+                        .identity_map
+                        .iter()
+                        .find(|(filtered, _)| *filtered == object.id)?
+                        .1;
+                    Some(object)
+                })
+                .collect(),
+        );
         self.upload_samples.clear();
         self.renderer.install_prepared_precompiled(
             &preview.loaded,
@@ -363,6 +422,7 @@ impl Viewport {
         let (width, height) = window.size_in_pixels();
         self.size = DrawableSize::new(width, height);
         self.window_size = window.size();
+        self.layout = super::layout::Layout::for_window(window);
         let _resized = self.renderer.set_drawable_size(self.size);
         if let Some(preview) = self.worker.poll()
             && !self.start_preview(preview)
@@ -428,7 +488,11 @@ impl Viewport {
         self.last_frame = now;
         self.advance_camera(delta);
         self.renderer.render_scene(self.camera.render_camera());
-        let mut guides = overlay::Guides::new(self.camera.matrix(self.size), self.size);
+        let mut guides = overlay::Guides::new(
+            self.camera.matrix(self.size),
+            self.size,
+            self.layout.viewport(),
+        );
         if self.show_grid {
             guides.grid(self.camera.target);
         }
@@ -444,11 +508,7 @@ impl Viewport {
         if let Some(bounds) = self.selected_bounds() {
             guides.selection(bounds);
         }
-        if let Some(ObjectId::Room(index)) = self.selected
-            && let Some(handles) = self.room_handles.get(index)
-        {
-            guides.room_edges(handles);
-        }
+        self.draw_handles(&mut guides);
         if let Some(bounds) = self.highlight_bounds {
             guides.diagnostic(bounds, &self.highlight_surfaces);
         }
@@ -458,6 +518,18 @@ impl Viewport {
         self.renderer.present(window)
     }
 
+    fn draw_handles(&self, guides: &mut overlay::Guides) {
+        if let Some(ObjectId::Room(index)) = self.selected
+            && let Some(handles) = self.room_handles.get(index)
+        {
+            guides.room_edges(handles);
+        }
+        if let Some(ObjectId::Wall(index)) = self.selected
+            && let Some(handles) = self.wall_handles.get(index)
+        {
+            guides.wall_ends(handles);
+        }
+    }
     fn advance_camera(&mut self, seconds: f32) {
         let value = |positive, negative| {
             f32::from(u8::from(self.movement.contains(&positive)))
@@ -474,11 +546,8 @@ impl Viewport {
     }
 
     fn within(&self, x: f32, y: f32) -> bool {
-        self.size
-            .window_to_ui(self.window_size, [x, y])
-            .is_some_and(|point| {
-                (112.0..480.0).contains(&point[0]) && (38.0..242.0).contains(&point[1])
-            })
+        super::layout::window_to_ui(self.size, self.window_size, [x, y])
+            .is_some_and(|point| self.layout.contains(point))
     }
 
     #[expect(

@@ -6429,7 +6429,7 @@ impl WgpuRenderer {
     }
 
     pub fn set_ui_images(&mut self, images: Vec<crate::engine::render::UiImage>) {
-        self.ui_images = images.into_iter().take(8).collect();
+        self.ui_images = images.into_iter().take(24).collect();
     }
 
     /// Selects editor artwork; the format-specific pipeline is rebuilt lazily.

@@ -523,6 +523,61 @@
     "sha256": "c14c9bc03cbea622494abda7273449d02db1d2a9b552924f8565f18f7d853f53",
     "source": "environments/arcade/textures/walls/wall_party_purple_01.png"
   },
+  "backrooms:acoustic_cream_01": {
+    "path": "editor/previews/f2fbcf6bb0443edc78b2d2fb.png",
+    "sha256": "77773b64877e4b28856ebd6a972acb51d7d4016e9464c595a895af4b471c2edc",
+    "source": "environments/office/textures/ceilings/ceiling_panel_01.png"
+  },
+  "backrooms:carpet_cool_01": {
+    "path": "editor/previews/562d92051b2afd29b9bd2073.png",
+    "sha256": "02bfac2257a4cc3e51a3bb603dcadd027fbda70e50b85c0f367a99cc0007ef4c",
+    "source": "environments/home/textures/floors/carpet_cream_01.png"
+  },
+  "backrooms:carpet_cream_01": {
+    "path": "editor/previews/b09e4122f19c602e571eb0f7.png",
+    "sha256": "02bfac2257a4cc3e51a3bb603dcadd027fbda70e50b85c0f367a99cc0007ef4c",
+    "source": "environments/home/textures/floors/carpet_cream_01.png"
+  },
+  "backrooms:carpet_olive_01": {
+    "path": "editor/previews/45beb34f8dd7d594728c1f38.png",
+    "sha256": "112f0e5bd44c006e0d835522f872896ae477b21c425e59704080a4b25a9bd6d3",
+    "source": "environments/office/textures/floors/carpet_damp_01.png"
+  },
+  "backrooms:carpet_tan_01": {
+    "path": "editor/previews/8a2f3cfa4929c24aac423f12.png",
+    "sha256": "beb6d0d74787e5e78104b0f1ae2cb641127eb601ddfaf48fc348344c94772b87",
+    "source": "environments/office/textures/floors/carpet_beige_01.png"
+  },
+  "backrooms:chevron_01": {
+    "path": "editor/previews/37a9400487d2481f51bd26dd.png",
+    "sha256": "d6b28a42a91f55117888dbdafebb9f8d3d66b72efa598971d52e3d23ca0ce6ed",
+    "source": "environments/backrooms/textures/walls/chevron_01.png"
+  },
+  "backrooms:cool_cream_01": {
+    "path": "editor/previews/8bb5909766cb26305743f95e.png",
+    "sha256": "fabdc048ec80d9c3e07fe1a92bb6ba20e5d7797bd304f17dfe1c578d033ec7c4",
+    "source": "environments/home/textures/walls/wall_paint_offwhite_01.png"
+  },
+  "backrooms:fine_wall_01": {
+    "path": "editor/previews/f513e9e62f5299dae2fb5c28.png",
+    "sha256": "33e56521491224e0d9f39614dd4d616218eea79fd46f23c7ad2bcb5072ffa28b",
+    "source": "environments/office/textures/walls/wallpaper_yellow_01.png"
+  },
+  "backrooms:ochre_01": {
+    "path": "editor/previews/56ea6c90cda503f6c7d46342.png",
+    "sha256": "fabdc048ec80d9c3e07fe1a92bb6ba20e5d7797bd304f17dfe1c578d033ec7c4",
+    "source": "environments/home/textures/walls/wall_paint_offwhite_01.png"
+  },
+  "backrooms:plain_cream_01": {
+    "path": "editor/previews/a4a6c6c83f444229229617c3.png",
+    "sha256": "fabdc048ec80d9c3e07fe1a92bb6ba20e5d7797bd304f17dfe1c578d033ec7c4",
+    "source": "environments/home/textures/walls/wall_paint_offwhite_01.png"
+  },
+  "backrooms:wood_cap_01": {
+    "path": "editor/previews/1b7bd4a8bbca06d6ad292c19.png",
+    "sha256": "66fb5172167b4599dd5d45d055af6c714406941f6fb55f3d022a433652153a31",
+    "source": "environments/home/textures/walls/handrail_wood_01.png"
+  },
   "beach:bunting": {
     "path": "editor/previews/985883521b056c8c5b1da09f.png",
     "sha256": "7f4df9756ea80fd638d7965b6ca68f610445c6fbb154c29001c514491b60db3d",

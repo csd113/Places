@@ -52,6 +52,10 @@ enum Action {
     WorldClick {
         position: [f32; 3],
     },
+    WorldPointer {
+        position: [f32; 3],
+        pressed: Option<bool>,
+    },
     Key {
         key: String,
         #[serde(default)]
@@ -83,6 +87,7 @@ enum Action {
         name: String,
     },
     WaitIdle,
+    WaitPlay,
     Focus,
     Resize {
         width: u16,
@@ -150,7 +155,9 @@ impl Verification {
         if self.completed.elapsed() < Duration::from_millis(step.delay_ms) {
             return Ok(());
         }
-        if matches!(step.action, Action::WaitIdle) && busy(app) {
+        if (matches!(step.action, Action::WaitIdle) && busy(app))
+            || (matches!(step.action, Action::WaitPlay) && app.compile.is_some())
+        {
             let began = self.waiting.get_or_insert_with(Instant::now);
             if began.elapsed() >= Duration::from_secs(600) {
                 self.failure = Some(format!(
@@ -192,6 +199,9 @@ impl Verification {
                     .ok_or("World click is outside the visible scene viewport")?;
                 mouse(app, window, MouseButton::Left, false, point)?;
             }
+            Action::WorldPointer { position, pressed } => {
+                self.world_pointer(app, window, *position, *pressed)?;
+            }
             Action::ScrollScene { lines } => scroll_scene(app, window, *lines, false)?,
             Action::ScrollView { lines } => scroll_scene(app, window, *lines, true)?,
             Action::Control { action } => {
@@ -210,23 +220,7 @@ impl Verification {
                 y,
             } => mouse(app, window, mouse_button(button)?, *pressed, [*x, *y])?,
             Action::Motion { x, y, xrel, yrel } => {
-                let [logical_x, logical_y] = window_point(window, [*x, *y])?;
-                let [origin_x, origin_y] = window_point(window, [0.0, 0.0])?;
-                let [relative_x, relative_y] = window_point(window, [*xrel, *yrel])?;
-                dispatch(
-                    app,
-                    window,
-                    &Event::MouseMotion {
-                        timestamp: 0,
-                        window_id: window.id(),
-                        which: 0,
-                        mousestate: MouseState::from_sdl_state(0),
-                        x: logical_x,
-                        y: logical_y,
-                        xrel: relative_x - origin_x,
-                        yrel: relative_y - origin_y,
-                    },
-                );
+                move_pointer(app, window, [*x, *y], [*xrel, *yrel])?;
             }
             Action::Key {
                 key,
@@ -271,6 +265,11 @@ impl Verification {
                     return Err("SDL window raise failed".into());
                 }
             }
+            Action::WaitPlay => {
+                if app.play.is_none() {
+                    return Err(format!("Play did not start: {}", app.status));
+                }
+            }
             Action::WaitIdle => {
                 if let Some(error) = app.viewport.status() {
                     return Err(error.into());
@@ -281,6 +280,36 @@ impl Verification {
         Ok(())
     }
 
+    fn world_pointer(
+        &self,
+        app: &mut App,
+        window: &Window,
+        position: [f32; 3],
+        pressed: Option<bool>,
+    ) -> Result<(), String> {
+        let point = app
+            .viewport
+            .project(glam::Vec3::from_array(position))
+            .ok_or("World pointer is outside the viewport")?;
+        let picked = app.viewport.pick(point);
+        let (_, controls) = ui::build(app);
+        let over_control = controls
+            .iter()
+            .find(|h| h.contains(point))
+            .map(|h| format!("{:?}", h.action));
+        if let Some(down) = pressed {
+            mouse(app, window, MouseButton::Left, down, point)?;
+        } else {
+            move_pointer(app, window, point, [0.0, 0.0])?;
+        }
+        let record = serde_json::json!({"step":self.next,"world":position,"point":point,"picked":picked.map(|id|format!("{id:?}")),"over_control":over_control,"wall_drag":app.wall_drag.is_some(),"translation":app.translation.is_some(),"selected":app.selected.map(|id|format!("{id:?}")),"preparing":app.viewport.is_preparing(),"status":app.status});
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.script.output.join("pointer-events.jsonl"))
+            .map_err(|e| e.to_string())?;
+        writeln!(file, "{record}").map_err(|e| e.to_string())
+    }
     fn checkpoint(&self, app: &App, window: &Window, name: &str) -> Result<(), String> {
         let (_, controls) = ui::build(app);
         let mut value = serde_json::json!({
@@ -303,6 +332,7 @@ impl Verification {
             "editor_resources":app.document.as_ref().map(super::Document::resource_snapshot),
             "preview_metrics":app.viewport.preview_metrics(),
             "axis_handles":app.viewport.axis_handles(),
+
 
 
 
@@ -331,6 +361,39 @@ impl Verification {
             "behavior_draft".into(),
             serde_json::json!(app.behavior.as_ref().map(|d| &d.plan)),
         ));
+        for (key, entry) in [
+            (
+                "placement_state",
+                serde_json::json!(
+                    app.placement
+                        .as_ref()
+                        .map(super::construction::Placement::checkpoint)
+                ),
+            ),
+            ("display_scale", serde_json::json!(window.display_scale())),
+            ("pixel_density", serde_json::json!(window.pixel_density())),
+            ("ui_scale", serde_json::json!(app.viewport.layout().scale)),
+            (
+                "wall_endpoint_handles",
+                serde_json::json!(app.viewport.wall_endpoint_handles()),
+            ),
+            ("layers_hidden", serde_json::json!(app.focus.hidden)),
+            (
+                "isolated",
+                serde_json::json!(app.focus.isolated.map(|id| format!("{id:?}"))),
+            ),
+            (
+                "placement",
+                serde_json::json!(app.placement.as_ref().map(|p| format!("{:?}", p.tool))),
+            ),
+        ] {
+            drop(
+                value
+                    .as_object_mut()
+                    .ok_or("Expected object")?
+                    .insert(key.into(), entry),
+            );
+        }
         let bytes = serde_json::to_vec_pretty(&value).map_err(|error| error.to_string())?;
         let path = self.script.output.join(format!("{name}.json"));
         let mut file = OpenOptions::new()
@@ -364,7 +427,11 @@ fn validate(action: &Action) -> Result<(), String> {
             (1..=64).contains(&lines.unsigned_abs())
         }
         Action::Click { x, y } => valid_point(*x, *y),
-        Action::WorldClick { position } => position
+        Action::WorldClick { position }
+        | Action::WorldPointer {
+            position,
+            pressed: _,
+        } => position
             .iter()
             .all(|value| value.is_finite() && value.abs() <= 100_000.0),
         Action::Key {
@@ -390,7 +457,7 @@ fn validate(action: &Action) -> Result<(), String> {
                     .bytes()
                     .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
         }
-        Action::WaitIdle | Action::Focus | Action::Close => true,
+        Action::WaitIdle | Action::WaitPlay | Action::Focus | Action::Close => true,
         Action::Resize { width, height } => {
             (960..=2560).contains(width) && (544..=1600).contains(height)
         }
@@ -479,6 +546,32 @@ fn mouse(
         }
     };
     dispatch(app, window, &event);
+    Ok(())
+}
+
+fn move_pointer(
+    app: &mut App,
+    window: &Window,
+    [x, y]: [f32; 2],
+    [xrel, yrel]: [f32; 2],
+) -> Result<(), String> {
+    let [logical_x, logical_y] = window_point(window, [x, y])?;
+    let [origin_x, origin_y] = window_point(window, [0.0, 0.0])?;
+    let [relative_x, relative_y] = window_point(window, [xrel, yrel])?;
+    dispatch(
+        app,
+        window,
+        &Event::MouseMotion {
+            timestamp: 0,
+            window_id: window.id(),
+            which: 0,
+            mousestate: MouseState::from_sdl_state(0),
+            x: logical_x,
+            y: logical_y,
+            xrel: relative_x - origin_x,
+            yrel: relative_y - origin_y,
+        },
+    );
     Ok(())
 }
 

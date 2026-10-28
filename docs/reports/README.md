@@ -7,6 +7,7 @@ results and limitations without turning them into current claims. Local raw rece
 
 | Version | Canonical report | Consolidated evidence |
 | --- | --- | --- |
+| 0.13.1 (unreleased) | [Editor phases and acceptance](release-0.13.1.md) | Pillars/trim and basic editing; release closing deferred |
 | 0.13.0 | [Implementation and final acceptance](release-0.13.0.md) | Approved staging queue, integration, packages and remaining gates |
 | 0.12.0 | [Native editor and collection](release-0.12.0.md) | Editor stages, authored campaigns, assets, collection and macOS distribution |
 | 0.11.0 | [Engine and reliability](release-0.11.0.md) | Renderer, shader, console, audio, loading, navigation and test retirement |

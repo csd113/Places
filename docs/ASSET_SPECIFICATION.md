@@ -1611,7 +1611,9 @@ previews. They are offline renders of the actual shipped GLB's geometry,
 materials, texture and catalog tint, or fitted samples of the actual material
 texture. They retain their source orientation and never replace world textures.
 `tools/editor/build_previews.py` writes the catalog-ID index and source hashes;
-run it explicitly after changing a model/material. The editor only reads these
+run it explicitly after changing a model/material. `--missing-materials` adds only
+absent material swatches and preserves every existing/native preview and index
+record; this is the bounded path for filling a picker gap. The editor only reads these
 committed PNGs, decodes visible tiles lazily and retains at most 24 tiles.
 Missing previews show an explicit message and keep selection available.
 Native fixture bodies and the three built-in door styles use the same 160×120
