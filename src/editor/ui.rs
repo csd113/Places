@@ -49,6 +49,7 @@ pub(super) enum Action {
     Lock,
     ThumbnailSize,
     Flicker(super::flicker::Command),
+    Lighting(super::lighting::Command),
     Author(super::authoring::Command),
     Project,
     ProjectField(super::projects::Field),
@@ -341,10 +342,12 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
             matches!(app.selected, Some(ObjectId::Light(_))),
         );
     }
+    super::lighting::toolbar(app, &mut v, &mut hits);
     let modal_start = v.len();
     if let Some(popup) = &app.popup {
         popup.draw(app, &mut v, &mut hits);
     }
+    super::lighting::feedback(app, &mut v, &mut hits);
     bake_progress::draw(app, &mut v, &mut hits);
     if let Some(hit) = hits.iter().find(|hit| Some(hit.action) == app.ui_focus) {
         let [left, top, width, height] = hit.rect;

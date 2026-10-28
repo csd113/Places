@@ -6535,6 +6535,10 @@ pub struct PropDef {
     /// have matching authored enabled and Static-hold states.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub switch_group: Option<String>,
+    /// Interaction toggles power for this existing fixture circuit. Flicker
+    /// keeps its requested pattern while power is off; restoring power resumes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub light_switch: Option<String>,
     /// Optional explicit box extents [width, height, depth] in metres, overriding the catalog entry.
     #[serde(default)]
     pub size: Option<[f32; 3]>,

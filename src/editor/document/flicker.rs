@@ -211,7 +211,7 @@ impl Document {
         })?;
         Ok(())
     }
-    fn release_flicker(
+    pub(super) fn release_flicker(
         &self,
         raw: &mut Value,
         old: Option<(usize, Value)>,
@@ -316,7 +316,7 @@ impl Document {
     }
 }
 
-fn flicker_source(id: &str, settings: &Flicker, authored_on: bool) -> String {
+pub(super) fn flicker_source(id: &str, settings: &Flicker, authored_on: bool) -> String {
     let target = super::behavior::luau(&json!(id), 0);
     format!(
         r#"--!strict

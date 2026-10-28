@@ -212,6 +212,15 @@ pub(super) fn direct_pass(
     } else {
         "switched direct visibility"
     });
+    if emitters.is_empty() && (!global || scene.global_lights.is_empty()) {
+        let work = crate::engine::progress::Work::current(receivers.len());
+        if cancel.is_some_and(|flag| flag.load(super::Ordering::Relaxed)) {
+            return Err(LightmapFailure::FillSize);
+        }
+        work.advance(receivers.len());
+        work.finish();
+        return Ok((vec![super::Accumulator::default(); receivers.len()], 0));
+    }
     if taps <= 1 {
         let centres = parallel_map(receivers.len(), workers, cancel, |index| {
             receivers
@@ -389,6 +398,31 @@ impl FootprintPass<'_> {
         let point = domain
             .patch
             .point_at(texel_axis(column, width), texel_axis(row, height));
+        // The supported footprint lies on centre-to-tap segments. Conservatively
+        // bound the entire stencil plus reconstruction offsets before doing its
+        // repeated geometric support queries. Only an exactly zero local-light
+        // integral is skipped; global sources always retain the complete rule.
+        let margin = point.iter().fold(1.0_f32, |v, x| v.max(x.abs())) * (64.0 * f32::EPSILON)
+            + domain.pitch * 2.0;
+        if (!self.global || self.scene.global_lights.is_empty())
+            && self.emitters.iter().all(|emitter_index| {
+                self.scene
+                    .emitters
+                    .get(*emitter_index)
+                    .is_none_or(|emitter| {
+                        emitter.intensity <= 0.0
+                            || if emitter.directional {
+                                emitter.horizontal_distance(point)
+                                    > emitter.range + emitter.shape.bounding_radius() + margin
+                            } else {
+                                length(sub(point, emitter.position))
+                                    > emitter.range + emitter.shape.bounding_radius() + margin
+                            }
+                    })
+            })
+        {
+            return DirectSample::default();
+        }
         let axis = if self.taps >= 3 { 4_u16 } else { 2_u16 };
         // Equal centre/corner silhouettes do not prove uniform coverage:
         // thin openings and model details can leave lit interior samples.

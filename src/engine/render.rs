@@ -33,8 +33,8 @@ mod wgpu;
 
 pub(crate) use common::api::{
     LightmapFillOutcome, dump_lightmaps_for_level, fill_lightmaps_cancellable,
-    lightmap_content_key, prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
-    set_fill_workers,
+    lightmap_content_key, prepare_level_geometry_with_lightmaps, prepare_local_lightmap_geometry,
+    rebuild_vertex_lit_level, set_fill_workers,
 };
 pub use common::blacklight::MAX_BLACKLIGHTS;
 pub use common::blood::{BloodEmission, MAX_REQUESTS as MAX_BLOOD_REQUESTS};

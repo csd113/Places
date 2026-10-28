@@ -1,8 +1,10 @@
 //! A single coalesced CPU preparation worker; GPU upload stays on the UI thread.
 
 pub(in crate::editor) mod audit;
+mod local;
 mod reuse;
 mod timing;
+pub(in crate::editor) use local::Progress;
 
 use std::sync::{Arc, mpsc};
 use std::thread::{self, JoinHandle};
@@ -29,6 +31,8 @@ struct Request {
     generation: u64,
     level: LevelDef,
     environment: bool,
+    scope: Option<[f32; 4]>,
+    progress: Arc<Progress>,
     budget: Arc<crate::engine::resources::DecodeBudget>,
     queued: std::time::Instant,
 }
@@ -44,7 +48,8 @@ pub(super) struct PreviewWorker {
     response: mpsc::Receiver<Response>,
     thread: Option<JoinHandle<()>>,
     generation: u64,
-    pending: Option<(LevelDef, bool, std::time::Instant)>,
+    pending: Option<(LevelDef, bool, Option<[f32; 4]>, std::time::Instant)>,
+    pub progress: Arc<Progress>,
     budget: Option<Arc<crate::engine::resources::DecodeBudget>>,
     busy: bool,
     error: Option<String>,
@@ -62,16 +67,28 @@ impl PreviewWorker {
                 let mut textures = TextureCache::default();
                 let mut reuse = reuse::Reuse::default();
                 while let Ok(Some(request)) = request_rx.recv() {
-                    let _decode_scope = crate::engine::resources::enter(Some(request.budget));
+                    let subscription = if request.scope.is_some() {
+                        let reporter: Arc<dyn crate::engine::progress::Reporter> =
+                            request.progress.clone();
+                        crate::engine::progress::subscribe(reporter).map(Some)
+                    } else {
+                        Ok(None)
+                    };
+                    let _decode_scope =
+                        crate::engine::resources::enter(Some(Arc::clone(&request.budget)));
                     let queue_wait_ms = request.queued.elapsed().as_secs_f64() * 1_000.0_f64;
-                    let mut result = prepare(
-                        request.level,
-                        request.environment,
-                        &catalog,
-                        &mut assets,
-                        &mut textures,
-                        &mut reuse,
-                    );
+                    let mut result = match subscription.as_ref() {
+                        Ok(_) => prepare(
+                            request.level,
+                            request.environment,
+                            &catalog,
+                            &mut assets,
+                            &mut textures,
+                            &mut reuse,
+                            request.scope,
+                        ),
+                        Err(error) => Err(format!("Cannot start local preview feedback: {error}")),
+                    };
                     if let Ok(preview) = &mut result
                         && let Some(metrics) = preview.metrics.as_object_mut()
                     {
@@ -99,6 +116,7 @@ impl PreviewWorker {
             thread: Some(handle),
             generation: 0,
             pending: None,
+            progress: Arc::new(Progress::default()),
             budget: None,
             busy: false,
             error: None,
@@ -106,6 +124,10 @@ impl PreviewWorker {
     }
 
     pub fn request(&mut self, level: &LevelDef, environment: bool) {
+        self.request_scoped(level, environment, None);
+    }
+
+    pub fn request_scoped(&mut self, level: &LevelDef, environment: bool, scope: Option<[f32; 4]>) {
         if let Some(budget) = self.budget.take() {
             budget
                 .cancelled
@@ -115,7 +137,10 @@ impl PreviewWorker {
             std::sync::atomic::AtomicBool::new(false),
         )));
         self.generation = self.generation.wrapping_add(1);
-        self.pending = Some((level.clone(), environment, std::time::Instant::now()));
+        self.progress = Arc::new(Progress::new(
+            self.budget.as_ref().map(|b| Arc::clone(&b.cancelled)),
+        ));
+        self.pending = Some((level.clone(), environment, scope, std::time::Instant::now()));
         self.error = None;
     }
 
@@ -149,7 +174,7 @@ impl PreviewWorker {
             Err(mpsc::TryRecvError::Empty) => {}
         }
         if !self.busy
-            && let Some((level, environment, queued)) = self.pending.take()
+            && let Some((level, environment, scope, queued)) = self.pending.take()
         {
             if self
                 .request
@@ -157,6 +182,8 @@ impl PreviewWorker {
                     generation: self.generation,
                     level,
                     environment,
+                    scope,
+                    progress: Arc::clone(&self.progress),
                     queued,
                     budget: self.budget.as_ref().map_or_else(
                         || {
@@ -216,6 +243,7 @@ fn prepare(
     assets: &mut PropAssets,
     textures: &mut TextureCache,
     reuse: &mut reuse::Reuse,
+    scope: Option<[f32; 4]>,
 ) -> Result<PreparedPreview, String> {
     let started = std::time::Instant::now();
     let cpu_started = timing::cpu_ms();
@@ -254,8 +282,15 @@ fn prepare(
     )?;
     crate::engine::resources::checkpoint()?;
     let materials_ms = materials_started.elapsed().as_secs_f64() * 1_000.0_f64;
-    let (build, reused_build, reused_props) =
-        reuse.build(&level, catalog, assets, &materials, environment, &input_key)?;
+    let (build, reused_build, reused_props) = if let Some(bounds) = scope {
+        (
+            Arc::new(local::prepare(&level, catalog, assets, &materials, bounds)?),
+            false,
+            false,
+        )
+    } else {
+        reuse.build(&level, catalog, assets, &materials, environment, &input_key)?
+    };
     crate::engine::resources::checkpoint()?;
     let caustics_started = std::time::Instant::now();
     let caustics = crate::engine::render::PreparedCaustics::prepare(&level, &build.lighting);
@@ -286,7 +321,7 @@ fn prepare(
     let geometry = crate::engine::render::PreparedGeometry::new(&loaded, &build)?;
     let geometry_ms = geometry_started.elapsed().as_secs_f64() * 1_000.0_f64;
     let stats = assets.stats();
-    let metrics = serde_json::json!({"worker_thread_cpu_ms":cpu_started.zip(timing::cpu_ms()).map(|(begin,end)|end-begin),"cpu_prepare_ms":started.elapsed().as_secs_f64()*1_000.0_f64,"retained_build_bytes":build.retained_bytes(),"reused_build":reused_build,"reused_props":reused_props,"incremental":reuse.metrics,"source_ms":source_ms,"materials_ms":materials_ms,"lighting_ms":if reused_build {0.0_f64} else {build.timings.lighting_millis},"props_ms":if reused_build {0.0_f64} else {build.timings.props_millis},"surfaces_ms":if reused_build {0.0_f64} else {build.timings.surfaces_millis},"picking_ms":picking_ms,"characters_ms":characters_ms,"geometry_ms":geometry_ms,"caustics_prepare_ms":caustics_ms,"cached_models":stats.models_loaded,"model_texture_bytes":stats.texture_bytes,"cached_images":textures.len(),"image_decodes":textures.decoded_count()});
+    let metrics = serde_json::json!({"local_preview":scope,"preview_bake_ms":build.lightmap_millis,"preview_charts":build.lightmaps.as_ref().map(|a|a.stats.charts),"preview_texels":build.lightmaps.as_ref().map(|a|a.stats.texels),"worker_thread_cpu_ms":cpu_started.zip(timing::cpu_ms()).map(|(begin,end)|end-begin),"cpu_prepare_ms":started.elapsed().as_secs_f64()*1_000.0_f64,"retained_build_bytes":build.retained_bytes(),"reused_build":reused_build,"reused_props":reused_props,"incremental":reuse.metrics,"source_ms":source_ms,"materials_ms":materials_ms,"lighting_ms":if reused_build {0.0_f64} else {build.timings.lighting_millis},"props_ms":if reused_build {0.0_f64} else {build.timings.props_millis},"surfaces_ms":if reused_build {0.0_f64} else {build.timings.surfaces_millis},"picking_ms":picking_ms,"characters_ms":characters_ms,"geometry_ms":geometry_ms,"caustics_prepare_ms":caustics_ms,"cached_models":stats.models_loaded,"model_texture_bytes":stats.texture_bytes,"cached_images":textures.len(),"image_decodes":textures.decoded_count()});
     Ok(PreparedPreview {
         geometry,
         metrics,
@@ -385,6 +420,7 @@ pub(in crate::editor) fn profile(level: &LevelDef) -> Result<Vec<serde_json::Val
             &mut assets,
             &mut textures,
             &mut reuse,
+            None,
         )?;
         let ms = started.elapsed().as_secs_f64() * 1_000.0_f64;
         let mut mesh = Sha256::new();

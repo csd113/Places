@@ -166,6 +166,7 @@ pub struct LightmapPlan {
     failure: Option<LightmapFailure>,
     /// Invisible sliver quads left vertex-lit (see [`Self::slivers_skipped`]).
     slivers_skipped: usize,
+    preview_scope: Option<[f32; 4]>,
 }
 
 impl LightmapPlan {
@@ -183,6 +184,7 @@ impl LightmapPlan {
                 None
             },
             slivers_skipped: 0,
+            preview_scope: None,
         }
     }
 
@@ -202,7 +204,34 @@ impl LightmapPlan {
     /// without post-hoc subdivision. It is identical for `Full` and `Low`.
     #[must_use]
     pub const fn max_chart_span_m(&self) -> f32 {
-        self.config.max_chart_span_m()
+        if self.preview_scope.is_some() {
+            self.config.max_chart_span_m().min(2.0)
+        } else {
+            self.config.max_chart_span_m()
+        }
+    }
+
+    /// Ephemeral editor receivers only. Geometry emission and caster ownership
+    /// remain complete; ordinary compiler plans never set this scope.
+    pub(crate) const fn with_preview_scope(mut self, bounds: [f32; 4]) -> Self {
+        self.preview_scope = Some(bounds);
+        self
+    }
+
+    fn includes_preview_patch(&self, patch: &LightmapPatch) -> bool {
+        self.preview_scope.is_none_or(|bounds| {
+            let points = [
+                patch.point_at(0.0, 0.0),
+                patch.point_at(1.0, 0.0),
+                patch.point_at(0.0, 1.0),
+                patch.point_at(1.0, 1.0),
+            ];
+            let low_x = points.iter().fold(f32::INFINITY, |v, p| v.min(p[0]));
+            let high_x = points.iter().fold(f32::NEG_INFINITY, |v, p| v.max(p[0]));
+            let low_z = points.iter().fold(f32::INFINITY, |v, p| v.min(p[2]));
+            let high_z = points.iter().fold(f32::NEG_INFINITY, |v, p| v.max(p[2]));
+            high_x >= bounds[0] && low_x <= bounds[2] && high_z >= bounds[1] && low_z <= bounds[3]
+        })
     }
 
     /// True when a quad could not be charted; the plan must not be baked.
@@ -279,6 +308,9 @@ impl LightmapPlan {
             }
             return false;
         };
+        if !self.includes_preview_patch(&patch) {
+            return false;
+        }
         let Some(chart) = self.allocator.allocate(&patch) else {
             // `allocate` only fails on the page budget (see `ChartAllocator`).
             self.fail(LightmapFailure::PageOverflow);
@@ -330,6 +362,9 @@ impl LightmapPlan {
             self.fail(LightmapFailure::InvalidConfig);
             return false;
         };
+        if !self.includes_preview_patch(&patch) {
+            return false;
+        }
         let Some(chart) = self.allocator.allocate_at_density(&patch, surface_density) else {
             self.fail(LightmapFailure::PageOverflow);
             return false;
@@ -376,6 +411,9 @@ impl LightmapPlan {
             self.fail(LightmapFailure::InvalidConfig);
             return false;
         };
+        if !self.includes_preview_patch(&patch) {
+            return false;
+        }
         let Some(chart) = self.allocator.allocate_at_density(&patch, surface_density) else {
             self.fail(LightmapFailure::PageOverflow);
             return false;

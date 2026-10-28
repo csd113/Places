@@ -17,6 +17,7 @@ mod gameplay_actions;
 mod geometry_actions;
 mod input;
 mod layout;
+mod lighting;
 mod navigation;
 mod performance;
 pub mod process;
@@ -116,6 +117,7 @@ struct App {
     behavior: Option<behavior::Draft>,
     template: Option<templates::Draft>,
     flicker: Option<flicker::Draft>,
+    lighting: lighting::Draft,
     component_selection: component_actions::Selection,
     safety_report: Option<safety::SafetyReport>,
     safety_job: Option<Receiver<(serde_json::Value, safety::SafetyReport)>>,
@@ -133,6 +135,7 @@ struct App {
 impl App {
     fn load(&mut self, path: &Path) -> Result<(), String> {
         let document = Document::open(path)?;
+        self.lighting = lighting::Draft::default();
         self.bakes.invalidate();
         self.preview_audio.clear_world();
         self.sound_preview_until = None;
@@ -159,6 +162,8 @@ impl App {
     }
 
     fn changed(&mut self) {
+        self.lighting.preview_off = false;
+        self.lighting.painting = false;
         self.viewport.set_focus(self.focus.clone());
         self.invalidate_navigation();
         self.bakes.invalidate();
@@ -490,6 +495,7 @@ fn create_app(
         behavior: None,
         template: None,
         flicker: None,
+        lighting: lighting::Draft::default(),
         component_selection: component_actions::Selection::default(),
         safety_report: None,
         safety_job: None,

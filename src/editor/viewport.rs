@@ -30,6 +30,14 @@ enum Drag {
     Pan,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LocalPreview {
+    Inactive,
+    Pending,
+    Ready,
+    Invalidated,
+}
+
 enum PreviewMode {
     Inspect,
     Authored,
@@ -61,6 +69,7 @@ pub(super) struct Viewport {
     movement: Vec<Keycode>,
     show_grid: bool,
     preview_mode: PreviewMode,
+    local_preview: LocalPreview,
     uploading: bool,
     frame_next: bool,
     last_frame: Instant,
@@ -108,6 +117,7 @@ impl Viewport {
             movement: Vec::new(),
             show_grid: true,
             preview_mode: PreviewMode::Inspect,
+            local_preview: LocalPreview::Inactive,
             uploading: false,
             frame_next: true,
             last_frame: Instant::now(),
@@ -136,6 +146,9 @@ impl Viewport {
         self.focus = focus;
     }
     pub fn rebuild(&mut self, level: &LevelDef) {
+        if self.local_preview != LocalPreview::Inactive {
+            self.local_preview = LocalPreview::Invalidated;
+        }
         self.wall_handles = level
             .walls
             .iter()
@@ -155,6 +168,35 @@ impl Viewport {
         self.volume_guides = overlay::volumes(&preview);
         self.identity_map = identities;
         self.worker.request(&preview, self.environment_preview());
+    }
+
+    pub fn start_local_preview(&mut self, level: &LevelDef, scope: [f32; 4]) {
+        // Scope never inherits isolation: outside lights and blockers remain visible to transport.
+        self.set_environment_preview(true);
+        self.rebuild(level);
+        self.local_preview = LocalPreview::Pending;
+        self.worker.request_scoped(level, true, Some(scope));
+    }
+
+    pub fn local_progress(&self) -> Option<String> {
+        match self.local_preview {
+            LocalPreview::Inactive => None,
+            LocalPreview::Pending => Some(if self.worker.is_preparing() {
+                self.worker.progress.label()
+            } else if self.uploading {
+                "Uploading preview".into()
+            } else {
+                "Preview failed / clear and retry / see status".into()
+            }),
+            LocalPreview::Ready => Some(if self.uploading {
+                "Uploading local preview".into()
+            } else {
+                "Ready / edit invalidates / no final export or cache writes".into()
+            }),
+            LocalPreview::Invalidated => {
+                Some("Stale preview invalidated / refreshing authoring view".into())
+            }
+        }
     }
 
     pub const fn environment_preview(&self) -> bool {
@@ -363,6 +405,12 @@ impl Viewport {
     }
 
     fn start_preview(&mut self, preview: preview::PreparedPreview) -> bool {
+        self.renderer
+            .set_lightmap_quality(if preview.build.lightmaps.is_some() {
+                LightmapQuality::Full
+            } else {
+                LightmapQuality::Off
+            });
         let admission_started = Instant::now();
         if let Err(error) = self.renderer.admit_prepared(
             &preview.loaded,
@@ -379,6 +427,15 @@ impl Viewport {
             self.uploading = false;
             return false;
         }
+        self.local_preview = if preview
+            .metrics
+            .get("local_preview")
+            .is_some_and(serde_json::Value::is_array)
+        {
+            LocalPreview::Ready
+        } else {
+            LocalPreview::Inactive
+        };
         let admission_ms = admission_started.elapsed().as_secs_f64() * 1_000.0_f64;
         self.preview_metrics = preview.metrics;
         let setup_started = Instant::now();

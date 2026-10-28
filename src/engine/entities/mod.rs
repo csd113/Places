@@ -31,6 +31,7 @@ pub mod components;
 pub mod developer;
 pub mod events;
 pub mod id;
+mod light_power;
 mod ragdoll;
 mod sequence_runtime;
 pub mod sequences;
@@ -494,6 +495,7 @@ pub struct EntityWorld {
     authored_lights: Vec<(EntityHandle, bool)>,
     /// Fixtures on one authored circuit change state atomically.
     light_circuits: Vec<Vec<EntityHandle>>,
+    circuit_power: Vec<light_power::CircuitPower>,
     /// Authored state bags, restored by a reset.
     authored_states: Vec<(EntityHandle, ObjectState)>,
     /// Authored interaction prompts, restored with the other map controls.
@@ -612,6 +614,7 @@ impl EntityWorld {
             spawns_this_tick: 0,
             authored_lights: Vec::new(),
             light_circuits: Vec::new(),
+            circuit_power: Vec::new(),
             authored_states: Vec::new(),
             authored_prompts: Vec::new(),
             authored_audio: Vec::new(),
@@ -781,6 +784,7 @@ impl EntityWorld {
                     .push(WorldCommand::SetWeatherCycle { enabled: true });
             }
         }
+        self.reset_circuit_power();
         for (handle, authored) in &self.authored_lights {
             if let Some(light) = self.components.lights.get_mut(*handle)
                 && light.enabled != *authored
@@ -1112,6 +1116,7 @@ impl EntityWorld {
                 circuits.entry(group).or_default().push(handle);
             }
         }
+        self.resolve_circuit_power(level, &circuits);
         self.light_circuits = circuits.into_values().collect();
     }
 
@@ -2254,6 +2259,7 @@ impl EntityWorld {
             .get(handle)
             .map_or(Vec3::ZERO, |transform| transform.position);
         self.note_stimulus(position, 8.0, "interact", Some(handle));
+        let powered = self.toggle_circuit_power(handle);
         let _event_queued = self.events.push(EventRecord {
             generation: self.generation,
             kind: EventKind::Interact,
@@ -2263,7 +2269,12 @@ impl EntityWorld {
             origin: origin.filter(|point| point.is_finite()),
             depth: 0,
         });
-        Some(self.dispatch_queued_events())
+        let mut report = self.dispatch_queued_events();
+        if powered {
+            report.actions_run = report.actions_run.saturating_add(1);
+            report.lights_toggled = report.lights_toggled.saturating_add(1);
+        }
+        Some(report)
     }
 
     /// Runs one ordered batch of actions programmatically.
@@ -3151,7 +3162,12 @@ impl EntityWorld {
         if !light.switchable {
             return false;
         }
-        self.set_light(handle, !light.enabled, depth)
+        let requested = self
+            .circuit_power
+            .iter()
+            .find(|circuit| circuit.members.contains(&handle))
+            .map_or(light.enabled, |circuit| circuit.requested);
+        self.set_light(handle, !requested, depth)
     }
 
     fn set_light_by_id(&mut self, id: &str, on: bool, depth: u8) -> LightOutcome {
@@ -3172,6 +3188,7 @@ impl EntityWorld {
 
     /// Sets one light component, marking it dirty on a real change.
     fn set_light(&mut self, handle: EntityHandle, on: bool, depth: u8) -> bool {
+        let effective = self.request_circuit_light(handle, on);
         let members = self
             .light_circuits
             .iter()
@@ -3180,7 +3197,7 @@ impl EntityWorld {
             .unwrap_or_else(|| vec![handle]);
         let mut changed = false;
         for member in members {
-            changed |= self.set_single_light(member, on, depth);
+            changed |= self.set_single_light(member, effective, depth);
         }
         changed
     }
@@ -3930,6 +3947,12 @@ impl EntityWorld {
             circuit.retain(|candidate| *candidate != handle);
         }
         self.light_circuits.retain(|circuit| !circuit.is_empty());
+        for circuit in &mut self.circuit_power {
+            circuit.members.retain(|candidate| *candidate != handle);
+            circuit.switches.retain(|candidate| *candidate != handle);
+        }
+        self.circuit_power
+            .retain(|circuit| !circuit.members.is_empty());
         self.stimuli
             .retain(|stimulus| stimulus.source != Some(handle));
         let _release_status = self.spawn_groups.release(handle);

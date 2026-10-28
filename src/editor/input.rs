@@ -188,7 +188,11 @@ impl App {
                 if self.navigation_click(point) {
                     return;
                 }
-                self.selected = self.viewport.pick(point);
+                let picked = self.viewport.pick(point);
+                if self.paint_circuit_pick(picked) {
+                    return;
+                }
+                self.selected = picked;
                 self.viewport.select(self.selected);
             }
         }

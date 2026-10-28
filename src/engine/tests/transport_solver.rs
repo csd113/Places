@@ -262,3 +262,67 @@ fn triangular_contact_receivers_choose_air_and_preserve_touching_wall_shadows() 
     );
     Ok(())
 }
+
+// One direct-only bounded solve proves local chart restriction keeps outside
+// occlusion and light inputs, and metadata stays aligned. No filesystem/GPU.
+#[test]
+fn local_receiver_scope_keeps_full_scene_direct_shadow_bits() -> Result<(), String> {
+    use crate::engine::lighting::lightmap::{LightmapConfig, LightmapPlan};
+    let mut plan = LightmapPlan::new(LightmapConfig::for_profile(
+        crate::engine::quality::QualityProfile::Full,
+    ))
+    .with_preview_scope([0.0, 0.0, 1.0, 1.0]);
+    let mut vertices = [crate::engine::render::Vertex::UNLIT; 6];
+    let far = [
+        [10.0, 0.0, 10.0],
+        [10.0, 0.0, 11.0],
+        [11.0, 0.0, 11.0],
+        [11.0, 0.0, 10.0],
+    ];
+    assert!(
+        !plan.stamp_emitted(&mut vertices, 0, PatchKind::Floor, far, None),
+        "outside receiver charts allocate no atlas space"
+    );
+    assert!(!plan.failed(), "scoping is not a plan failure");
+    assert_eq!(
+        plan.chart_count(),
+        0,
+        "outside geometry does not consume the local atlas"
+    );
+    assert!(
+        plan.max_chart_span_m() <= 2.0,
+        "preview architecture subdivides before receiver selection"
+    );
+    let (scene, charts) = fixture()?;
+    let options = SolveOptions {
+        taps_per_axis: 3,
+        bounces: 0,
+        gather_samples: 1,
+        workers: 1,
+    };
+    let full = scene
+        .solve(&charts, options, None)
+        .map_err(|e| e.name().to_string())?;
+    let triangles = scene.triangle_count();
+    let emitters = scene.emitter_count();
+    let selected = scene.restrict_preview_receivers(&charts, &[true, false, false, false]);
+    assert_eq!(
+        selected.triangle_count(),
+        triangles,
+        "outside occluders are retained"
+    );
+    assert_eq!(
+        selected.emitter_count(),
+        emitters,
+        "outside light sources are retained"
+    );
+    let local = selected
+        .solve(charts.get(..1).ok_or("chart")?, options, None)
+        .map_err(|e| e.name().to_string())?;
+    assert_eq!(
+        bits(&local.charts),
+        bits(full.charts.get(..1).ok_or("full chart")?),
+        "local direct light and shadows match the same complete scene"
+    );
+    Ok(())
+}

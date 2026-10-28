@@ -9506,3 +9506,27 @@ floor/elevation supports the open mouths and solid side/roof enclosure. See
 for limits and standing landing requirements. New nested records reject unknown
 fields rather than guessing their meaning. No child source geometry is cached;
 moving, resizing, undoing or reopening regenerates from these records.
+
+
+### Native light circuit power and local lighting previews (0.13.1)
+
+A fixed prop's optional `light_switch` string names an existing fixture
+`switch_group`. The prop needs an enabled `interactable` component. Interacting
+with it toggles circuit power for all members; ordinary set-light/flicker requests
+continue to update the requested pattern while power is off. Multiple switches
+can share that physical circuit. Reset restores authored light/power state.
+The editor manages these fields, fixture identities, group names and duplicate
+member-light event actions through its Light circuits sheet.
+
+Native power switches require Full lighting, or the existing exact prepared
+Static off-state contract. The simple editor chooses Full and retains Static's
+authored state. The whole-level eight switched-source bound remains authoritative;
+grouping reduces selectable layer passes, not the number of retained sources.
+There is no new runtime baker and no compatibility adapter.
+
+Local room/region previews are deliberately approximate, session-only transport
+results. All geometry/lights remain in visibility queries, with receivers limited
+to intersecting charts in a four-metre halo. Preview density/bounces/samples differ
+from final Full and moving-object probes are omitted. They never replace saved
+sources, final exports or shipped bake caches; final Build/Play retains its existing
+quality and validation contract. See [the editor controls](EDITOR.md#light-circuits-and-local-preview-0131).

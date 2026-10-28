@@ -794,3 +794,55 @@ restores the source scene; Apply is atomic; repeated editing of the same record
 regenerates deterministically. Safety uses the same generator constraints and
 collision pieces, reports crouch clearance, and offers no destructive automatic
 generator repair. Existing angled geometry is preserved.
+
+
+## Light circuits and local preview (0.13.1)
+
+Choose **Light circuits** with a fixture selected. The checked fixture list
+supports one or several lights; **Paint** lets viewport clicks add/remove fixtures,
+then **Light circuits** returns to the assignment sheet. Opening a linked fixture
+or its switch selects that circuit's members. Choose a fixed prop in the right
+column, or **New switch** to add the existing wall-switch asset at the view centre.
+**Assign switch** links the checked fixtures in one undo step. Move the switch
+to its desired mount afterward. No source IDs or script authoring are required.
+
+Assigning defaults members to enabled, switchable fixtures and requires Full
+lighting. The existing eight switched-source limit applies to the whole level;
+some fixture families contain two sources. Full uses actual prepared direct and
+indirect contribution layers, including moving-object probes and fixture emission.
+The Simple Play/export path prepares the normal final package. Static holds the
+authored state; it cannot silently substitute face-only toggling for these circuits.
+Advanced authored exact Static preparation retains its existing single-circuit limits.
+
+**Unlink** removes the checked fixtures from their shared group. Assigning them to
+another switch reassigns them; a switch with no remaining members loses its circuit
+reference. Deleting members or switches, undo/redo and save/reopen use ordinary
+document history. Adopting a prop with existing interact/toggle or set-light actions
+for these same members removes those duplicate light actions and preserves sibling
+actions. Other custom event/script ownership is validated, never silently overwritten.
+
+Native circuit power gates the existing flicker pattern. An off switch stays off
+through later flicker requests; switching on resumes the current requested pattern.
+The flicker form still owns one generated module per controller. Membership changes
+retarget that generated controller atomically; joining conflicting controllers asks
+the author to disable one. Custom edited/shared modules retain their existing
+ownership refusals. **Preview off/on** changes only a private editor source copy;
+it is a quick authoring view, not execution of game events or a final lighting bake.
+
+Select a room or global floor region and choose **Preview room / region** for a
+transport preview. It uses the compiler's geometry, shadow/alpha/water traversal,
+solver and atlas assembly on the existing preparation worker. All scene emitters
+and occluders remain present; receiving charts intersect the selected footprint
+plus a four-metre halo. The preview caps receivers at 262,144 texels, uses at most
+four texels/metre, one bounce and 16 gather samples, and omits moving-object probes.
+Indirect contributions from beyond the halo are approximate. Preview architectural chart spans are capped at two metres before allocation.
+Whole retained chart domains can extend past the chosen footprint; unbaked context can retain the quick vertex view.
+
+The persistent **LOCAL PREVIEW / NON-FINAL** footer reports the actual current
+stage/pass counts and offers **Cancel / clear**, including over property dialogs.
+Any scene edit, undo/redo or rebuild invalidates the result; generations discard
+late/cancelled workers. Preview errors leave the authoring document intact. Large
+sources can still exceed whole-scene geometry or local receiver/atlas budgets and report a refusal.
+No partial result is written to a package or LightmapCache, and its ephemeral key
+cannot be presented as a current final export. Repeat or cancel the preview, then
+use normal Build/Play for final quality and actual runtime behavior.

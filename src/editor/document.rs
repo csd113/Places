@@ -3,6 +3,7 @@
 //! therefore survive ordinary edits and saves.
 
 pub(crate) mod behavior;
+pub(crate) mod circuits;
 pub(crate) mod components;
 mod dragging;
 pub(crate) mod flicker;
@@ -332,9 +333,7 @@ impl Document {
     /// # Errors
     /// Rejects stale selections or deletion that breaks scene references.
     pub fn delete(&mut self, id: ObjectId) -> Result<(), String> {
-        let mut edited = self.selected.raw.clone();
-        objects::delete(&mut edited, self.level(), id)?;
-        self.accept_edit(edited)
+        self.delete_with_circuits(id)
     }
 
     /// Copies a basic object with a small offset. Passive props receive a new

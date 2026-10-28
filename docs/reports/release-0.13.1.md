@@ -177,3 +177,195 @@ No production map rebake, main merge or release is part of this phase. Published
 main/v0.13.0 remain `b24361755e15c1a96d5b56d115499b9d4a9ef07f`. Full cross-platform
 CI/version closing remains later; the local receipt records the observed branch
 CI state when custody is released.
+
+
+## Phase 5: circuits, compiler investigation and local lighting preview
+
+The contextual Light circuits sheet selects one or many fixtures, supports
+viewport painting, chooses an existing fixed prop or creates the existing wall
+switch asset, and assigns/unlinks in one source undo step. Fixture IDs and group
+names are managed internally. Reassignment, member/switch deletion, undo/redo and
+save/reopen use the existing validated document/history paths. Duplicate member
+light actions are adopted while sibling event actions survive. Existing generated
+flicker ownership is retargeted atomically; conflicting/custom ownership receives
+the existing explicit refusals. There is one generated controller per pattern.
+
+The native switch gates power ahead of existing fixture/circuit updates. Flicker
+can update its requested pattern while power is off without relighting the room.
+Full uses the existing switched direct/indirect layers, fixture emission and
+prepared irradiance field. The simple authoring default requires Full, retains
+Static's authored state, and preserves the eight switched-source ceiling. Exact
+advanced Static switching keeps its existing limits. No face-only runtime
+substitute, compatibility layer or separate circuit baker was introduced.
+The quick editor off/on view is private source preview and visibly distinguished
+from game behavior and final transport.
+
+The room/global-region preview reuses the preparation worker, compiler geometry,
+transport, visibility rules and atlas fill. It keeps all emitters/occluders and
+limits receiver charts to the footprint plus a 4 m halo, with at most 4 texels/m,
+one bounce, 16 gather samples and 262,144 texels. Preview architectural spans cap
+at 2 m before allocation; moving-object probes are omitted. Indirect energy from
+beyond the halo remains approximate. The persistent NON-FINAL footer exposes
+real stage/count progress, cancellation and clearing; edits/undo invalidate and
+stale generations cannot publish. No package/cache writer is used. Large source
+geometry may still exceed the shared preparation budget and report refusal.
+
+### Native acceptance
+
+The exact frozen production editor/compiler/game passed 95 assertions across
+the native circuit lifecycle and room/region preview flows. Captures were visually
+inspected at compact, normal and wide sizes. Ordinary E input targeted the actual
+second switch for three off/on cycles in both one-light and two-light cases.
+Off holds span flicker periods, outside/unlinked fixtures stay on, and no script
+diagnostics occurred. Full lightmaps were resident. The crate/floor illumination
+and real shadow changed with the prepared contribution, beyond the fixture face.
+The many-light floor/crate capture mean changed from 63.23 to 0.19 display-code
+units; the single-light off view retained 40.39 from the unaffected fixture.
+These are functional visual witnesses at 960×600 with Fifo, not FPS measurements.
+
+The room preview solved 17,089 texels in
+901.5 ms and became ready in
+1499.6 ms. The region solved
+17,057 texels in 897.5 ms.
+Actual progress included a partially completed direct receiver pass. Start/cancel,
+repeat, edit invalidation, undo, clear and reopen passed. Nine source/package/cache
+files remained byte-identical across the entire preview sequence. A subsequent
+source edit and normal Play performed a final export and admitted it successfully.
+The full-scene direct-shadow CPU regression also requires bit-identical selected
+receivers after scope restriction, with all scene emitters and triangles retained.
+
+### Matched compiler measurements
+
+Before is the retained phase-4 compiler at `12018cad8a52ad19002c5807281894b2f16dcbdc`;
+after is the frozen phase-5 compiler. On the same Ryzen 9 5900HX / RTX 3070 Laptop
+Razer, Balanced power plan, each bounded fixture has three alternating fresh-process
+forced Static/Full runs at 12 workers, with independent state/config/cache roots.
+No build, editor, game or other campaign ran concurrently. Diagnostics were excluded
+from these timed cohorts. Values below are medians; CPU is process user+kernel
+time and memory is peak working set. Earlier build-contended exploratory worker
+sweeps are retained separately and do not establish gains or an optimal worker count.
+
+| Bounded source | Wall seconds before → after | CPU seconds before → after | Peak MiB before → after |
+|---|---:|---:|---:|
+| `material_transport` | 15.047 → 15.146 | 98.234 → 98.016 | 239.9 → 239.8 |
+| `architecture_after` | 47.596 → 47.947 | 463.766 → 464.594 | 285.6 → 285.2 |
+| `circuit_range` | 20.133 → 18.823 | 198.453 → 184.156 | 217.8 → 217.8 |
+
+The circuit fixture derives from the native two-room scene: two near members and
+one independently prepared outside circuit, no unswitched emitters, and bounded
+fixture ranges. It targets real empty-channel and out-of-range work. The material
+and architecture fixtures retain accepted general lighting workloads. Do not
+extrapolate a circuit-specific gain into a universal bake speedup.
+
+All nine pairs have exact physical payload equality: geometry, collision,
+navigation, lighting metadata, HDR lightmaps, irradiance and reflection-probe mips.
+Only the checked compiler code/executable identity, corresponding manifest input
+record hash and compiler/lighting provenance fingerprints differ. No density,
+taps, bounces, gather budget, floating precision, occlusion predicate or solver
+quality revision was relaxed. Each cohort also remains deterministic across repeats.
+
+The landed CPU changes skip an exactly empty direct channel, reject footprint
+refinement only when a conservative spatial bound proves no emitter reaches it,
+and omit visibility tests whose unoccluded support cannot improve the current max.
+The implementation retains the exact accepted CPU visibility and shadow path.
+
+| Source | Direct visibility seconds before → after | Indirect seconds before → after | After reflection capture s | After compression/publication s |
+|---|---:|---:|---:|---:|
+| `material_transport` | 4.003 → 4.030 | 4.512 → 4.581 | 5.338 | 0.051 |
+| `architecture_after` | 17.005 → 17.190 | 21.639 → 21.521 | 5.952 | 0.121 |
+| `circuit_range` | 4.730 → 3.572 | 13.013 → 12.903 | 0.000 | 0.063 |
+
+Material transport has 1,498 triangles but 201,642 receivers, approximately
+73.7 million counted direct rays and 25.8 million nominal bounce slots. Architecture
+has 8,286 triangles, 470,706 receivers, approximately 178.8 million direct rays and
+60.3 million nominal bounce slots. Footprint/support, alpha transport and gather
+connectivity add work beyond these nominal counters. Low polygon count does not
+bound receiver/sample cost. Stage timers separate geometry/receiver setup,
+visibility, gather/filter/fill, GPU reflection capture and final archive costs.
+
+A separate final-compiler diagnostic transforms 32,768 deterministic
+queries from the actual material scene, without replacing its bake samples.
+Receiver creation took 217.673 ms, spatial-cache construction
+7.580 ms and direction transforms
+0.787 ms. Timed kernels include allocation,
+scheduling and result collection; gather includes its connectivity rays, so these
+microkernel times are not additive whole-bake percentages or isolated hardware
+instruction costs. Worker active-wall logs expose distribution/stragglers rather
+than falsely labeling wall time as worker CPU.
+
+| Workers | Nearest alpha-aware ms | Finite opaque/MASK ms | Gather stencil/connectivity/sample ms | Accumulation ms |
+|---:|---:|---:|---:|---:|
+| 1 | 9.763 | 8.261 | 25.852 | 0.035 |
+| 12 | 2.985 | 1.958 | 5.650 | 0.024 |
+
+The finite diagnostic segment goes from a real receiver to an emitter centre,
+not to the bake's offset area-light samples; all 32,768
+segments were blocked in this set. The nearest/gather set had
+17,371 hits. Both worker budgets produced identical
+hit counts and accumulated checksums. These bounded query distributions are
+reported explicitly and do not represent the entire direct-light workload.
+
+The primary retained triangle/hierarchy capacity estimate is
+617,120 bytes, receiver capacity
+14,361,600 bytes, and one accumulator layer
+12,098,520 bytes. These exclude many textures, atlas,
+driver and transient allocations; the process peak above is the actual whole
+process observation. Compression/publication is a small cost on these fixtures.
+Sampling/traversal/gather and, on the small source, reflection capture deserve
+attention before archive work. No production map was blanket-rebaked.
+
+### GPU feasibility
+
+The retained wgpu 30.0.1 DX12 opaque f32 BVH microprototype was rerun against
+16,384 fresh real-scene rays (1,496 opaque triangles,
+2 nonopaque triangles excluded). Device setup
+took 467.175 ms, packing/upload/pipeline
+32.741 ms; dispatch/copy/synchronize/readback
+times were 11.511, 0.918, 0.371, 0.345, 0.329 ms.
+The CPU reference took 1.735 ms at 12 workers.
+There were 0 differing classifications in this bounded replay.
+GPU inputs used 642,800 bytes; the reported adapter storage-binding
+limit was 2,147,483,644 bytes, not a portable device
+allocation guarantee. The snapshot, exact prototype
+source/lock/binary hashes and adapter report are retained outside target.
+
+This experiment covers opaque any-hit queries only. The accepted baker also
+needs alpha/MASK/BLEND/water transport, f64 watertight triangle decisions/canonical
+ties, footprint support, nearest hits, radiance-cache connectivity, gather,
+per-bounce updates, probes and deterministic output. Earlier Pool replay produced
+151 f32/CPU classifications differing among 16,384 queries, mostly finite
+endpoint/precision cases; that historical rejection still matters even if a new
+small fixture agrees. It did not demonstrate 151 final-image errors.
+
+In the pinned API, [SHADER_F64](https://docs.rs/wgpu/30.0.1/wgpu/struct.Features.html#associatedconstant.SHADER_F64)
+and [EXPERIMENTAL_RAY_QUERY](https://docs.rs/wgpu/30.0.1/wgpu/struct.Features.html#associatedconstant.EXPERIMENTAL_RAY_QUERY)
+are Vulkan-only capabilities, so neither supplies a portable DX12/Metal drop-in
+for the current f64 CPU contract. The compiler currently uploads capture data
+for reflections but owns no persistent GPU transport/radiance-cache backend.
+Initialization could be amortized or share that device in a future design; it is
+not an unavoidable cost of every GPU architecture. A useful future prototype
+would keep the solve resident and use conservative GPU candidates plus exact CPU
+fallback for ambiguous boundaries, with cancellation, memory limits and whole-map
+quality/occlusion parity on each backend. Production remains the measured CPU
+path. No fragile GPU backend, GPU acceleration promise or iGPU campaign landed.
+
+### Gates, evidence and limits
+
+Final format, strict debug and release workspace/all-target/all-feature Clippy,
+locked release workspace/all-feature build, 376 Rust tests and the production
+Luau exception-boundary verifier pass. The 369 Python source checks pass with
+18 expected skips; 644 authored assets validate with zero warnings and unchanged
+prop advisories. Three narrow deterministic regressions protect native circuit
+power/flicker, atomic membership/source history and full-scene scoped shadows;
+ordinary tests bake no production map. The prior phase
+[CI run](https://github.com/csd113/Places/actions/runs/40668479262) completed
+successfully. Phase-5 remote/CI/cleanup observations are in its custody receipt.
+
+`local/verification-0.13.1-lighting/validation-receipt.json` is the concise index;
+`final-bin/`, `final-binary-identity.json`, native source projects/packages,
+recipes/captures/traces, `native-assertions.json`, `preview-isolation.json`,
+`paired-results.json`, pair quality reports and `performance-analysis.json`
+retain the exact evidence. Accepted artifacts and supporting helpers are sealed
+by a SHA-256 inventory outside target before Cargo cleanup. Actual Mac validation,
+full production rebaking/cross-platform closing and final FPS attribution remain
+later. No HVAC/assets, prefab, runtime water/stair/draw-distance work was absorbed.

@@ -55,6 +55,7 @@ pub(in crate::editor) fn run(original: &LevelDef) -> Result<serde_json::Value, S
             &mut assets,
             &mut textures,
             &mut reuse,
+            None,
         )?;
         // The candidate now replaces the old display; the fresh legacy oracle
         // needs only the current candidate alive, avoiding a third full build.

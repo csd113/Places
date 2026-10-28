@@ -992,13 +992,14 @@ fn bake_request_with_workers(
     clippy::too_many_lines,
     reason = "one cohesive prepare-and-decide pass"
 )] // one cohesive prepare-and-decide pass
-pub fn prepare_level_geometry_with_lightmaps(
+fn prepare_level_geometry_scoped(
     level: &LevelDef,
     catalog: &crate::engine::loader::PropCatalog,
     assets: &mut crate::engine::props::PropAssets,
     materials: &MaterialTable,
     mut options: LightmapBuildOptions,
     cache: Option<&mut LightmapCache>,
+    preview_scope: Option<[f32; 4]>,
 ) -> PreparedLightmapBuild {
     let started = std::time::Instant::now();
     // The vertex-lit mode is the *historical* path and must stay byte-identical
@@ -1022,7 +1023,12 @@ pub fn prepare_level_geometry_with_lightmaps(
     };
     let mut props_millis = elapsed_millis(props_started);
 
-    let mut plan = (options.mode == LightmapMode::On).then(|| LightmapPlan::new(options.config));
+    let mut plan = (options.mode == LightmapMode::On).then(|| {
+        let plan = LightmapPlan::new(options.config);
+        preview_scope.map_or(plan, |bounds| {
+            LightmapPlan::new(options.config).with_preview_scope(bounds)
+        })
+    });
     let surfaces_started = std::time::Instant::now();
     let mesh = build_mesh_for_options(
         level,
@@ -1465,4 +1471,37 @@ pub fn build_level_geometry_with_catalog_and_materials(
         .filter(|prop| prop.float.is_none())
         .collect();
     build_level_geometry_mesh(level, catalog, &fallbacks, &lighting, materials)
+}
+
+/// Prepares the ordinary final compiler plan, optionally consulting its cache.
+#[must_use]
+pub fn prepare_level_geometry_with_lightmaps(
+    level: &LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    materials: &MaterialTable,
+    options: LightmapBuildOptions,
+    cache: Option<&mut LightmapCache>,
+) -> PreparedLightmapBuild {
+    prepare_level_geometry_scoped(level, catalog, assets, materials, options, cache, None)
+}
+
+/// Prepares a private bounded receiver plan with complete scene geometry.
+pub fn prepare_local_lightmap_geometry(
+    level: &LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    materials: &MaterialTable,
+    options: LightmapBuildOptions,
+    bounds: [f32; 4],
+) -> PreparedLightmapBuild {
+    prepare_level_geometry_scoped(
+        level,
+        catalog,
+        assets,
+        materials,
+        options,
+        None,
+        Some(bounds),
+    )
 }

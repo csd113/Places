@@ -74,6 +74,7 @@ fn validate_light_circuits(level: &LevelDef) -> Result<(), String> {
         }
     }
     validate_prop_light_circuits(level)?;
+    validate_power_switches(level)?;
     Ok(())
 }
 
@@ -285,6 +286,50 @@ pub(super) fn validate_prop_lights(level: &LevelDef) -> Result<(), String> {
                     "Prop {i} light {j} has malformed {} dimensions; every extent must be \
                      finite, positive and within the engine caps",
                     light.shape().name()
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_power_switches(level: &LevelDef) -> Result<(), String> {
+    for (index, prop) in level.props.iter().enumerate() {
+        if let Some(group) = prop.light_switch.as_deref() {
+            if prop.physics.is_some()
+                || prop.float.is_some()
+                || prop.animated_door.is_some()
+                || !prop.components.iter().any(|component| {
+                    matches!(
+                        component,
+                        crate::engine::level::ComponentDef::Interactable {
+                            enabled: true,
+                            prompt: _,
+                            reach: _,
+                            label: _
+                        }
+                    )
+                })
+                || !level
+                    .ceiling_lights
+                    .iter()
+                    .any(|fixture| fixture.switch_group.as_deref() == Some(group))
+            {
+                return Err(format!(
+                    "Prop {index} circuit switch needs a fixed enabled interactable and an existing fixture circuit"
+                ));
+            }
+            if !level.requires_full_lighting
+                && level
+                    .ceiling_lights
+                    .iter()
+                    .filter(|fixture| fixture.switch_group.as_deref() == Some(group))
+                    .any(|fixture| {
+                        fixture.static_switch != crate::engine::level::StaticSwitchMode::Prepared
+                    })
+            {
+                return Err(format!(
+                    "Prop {index} circuit switch requires Full lighting or exact prepared Static switching"
                 ));
             }
         }

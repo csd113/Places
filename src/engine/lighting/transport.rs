@@ -1680,6 +1680,40 @@ impl TransportScene {
         })
     }
 
+    /// Restricts receiver metadata for an explicitly non-final local editor solve.
+    /// Geometry, lights, alpha and water remain complete; omitted receivers mean
+    /// indirect light beyond the preview halo is approximate. No cache key is reused.
+    pub(crate) fn restrict_preview_receivers(
+        mut self,
+        charts: &[(LightmapPatch, Chart)],
+        selected: &[bool],
+    ) -> Self {
+        let mut offset = 0usize;
+        let mut targets = Vec::new();
+        let mut density = Vec::new();
+        for (index, (_, chart)) in charts.iter().enumerate() {
+            let count = usize::try_from(chart.width)
+                .unwrap_or(0)
+                .saturating_mul(usize::try_from(chart.height).unwrap_or(0));
+            if selected.get(index).copied().unwrap_or(false) {
+                targets.extend_from_slice(
+                    self.receiver_target
+                        .get(offset..offset.saturating_add(count))
+                        .unwrap_or_default(),
+                );
+                if let Some(value) = self.chart_sample_density.get(index) {
+                    density.push(*value);
+                }
+            }
+            offset = offset.saturating_add(count);
+        }
+        self.receiver_target = targets;
+        self.chart_sample_density = density;
+        self.probe_target.clear();
+        self.probe_layout = None;
+        self
+    }
+
     /// Attaches the resolved water bodies the solve transmits through and
     /// attenuates in.
     #[must_use]
@@ -2602,6 +2636,14 @@ impl TransportScene {
         if let Err(error) = diagnostics::dump_gpu_probe(self, charts) {
             crate::engine::logging::warn(format_args!("[solver-probe] {error}"));
         }
+        if let Err(error) = diagnostics::profile_cpu(
+            self,
+            charts,
+            cancel,
+            options.workers.clamp(1, MAX_TRANSPORT_WORKERS),
+        ) {
+            crate::engine::logging::warn(format_args!("[solver-cpu-profile] {error}"));
+        }
         let workers = options.workers.clamp(1, MAX_TRANSPORT_WORKERS);
         let taps = options.taps_per_axis.clamp(1, 3);
         let bounces = options.bounces.min(3);
@@ -3039,21 +3081,25 @@ impl TransportScene {
         self.emitters
             .iter()
             .filter(|emitter| emitter.switchable.is_none() && emitter.intensity > 0.0)
-            .map(|emitter| {
+            .fold(0.0_f32, |best, emitter| {
                 let distance = if emitter.directional {
                     emitter.horizontal_distance(point)
                 } else {
                     length(sub(emitter.position, point))
                 };
                 let support = emitter.falloff.factor(distance / emitter.range);
-                if !support.is_finite() || support <= 0.0 {
-                    return 0.0;
+                if !support.is_finite() || support <= best {
+                    return best;
                 }
-                // Authored recovery fill cannot cross a sealed blocker either.
-                support * emitter.visibility(self, point, ray_origin, 3).0
+                // Visibility is at most one, so this source cannot improve the
+                // existing maximum when its unoccluded support is already lower.
+                let visible = support * emitter.visibility(self, point, ray_origin, 3).0;
+                if visible.is_finite() {
+                    best.max(visible)
+                } else {
+                    best
+                }
             })
-            .filter(|value| value.is_finite())
-            .fold(0.0_f32, f32::max)
     }
 
     /// Applies the same continuous response at every architectural receiver.

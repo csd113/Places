@@ -399,3 +399,16 @@ No artwork exporter, production map bake or broad native campaign ran. The
 other seven installed packages remain unchanged/stale; archived Demo/Zoo were
 not reactivated. Source CI and the publication handoff record exact revision
 status separately. Unknown-owner untracked HDR/size audit files remain present.
+
+
+### Bounded lighting CPU query diagnostic
+
+`PLACES_SOLVER_CPU_PROFILE=<new-directory>` with a forced bounded Full compiler
+build writes `cpu-queries.json`. It reports receiver/cache construction, 32,768
+or fewer deterministic real receiver queries, nearest alpha-aware transport,
+finite opaque/MASK visibility, gather-stencil connectivity/sample time, scheduling
+at one and the selected compiler worker budget, and primary retained-capacity estimates. Kernel timings
+include their output allocation and collection; they are not additive full-bake
+fractions, exact live-heap attribution or GPU speedups. Keep this diagnostic out of
+timed before/after cohorts. The ordinary `PLACES_VERBOSE=1` stage timers and
+`PLACES_SOLVER_PROFILE=1` worker timings remain the complete-bake references.

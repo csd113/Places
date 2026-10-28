@@ -363,6 +363,10 @@ impl Verification {
         ));
         for (key, entry) in [
             (
+                "lighting",
+                serde_json::json!({"local_preview":app.viewport.local_progress(),"fixtures":app.lighting.fixtures,"switch":app.lighting.switch,"preview_off":app.lighting.preview_off}),
+            ),
+            (
                 "placement_state",
                 serde_json::json!(
                     app.placement

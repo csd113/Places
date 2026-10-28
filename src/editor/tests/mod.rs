@@ -12,6 +12,7 @@ mod browser;
 
 mod editor_phase;
 
+mod circuits;
 mod flicker;
 
 mod trim;

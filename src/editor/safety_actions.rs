@@ -368,6 +368,13 @@ impl App {
     }
 
     pub(super) fn close_popup(&mut self) {
+        if self.lighting.painting || (self.popup.is_none() && self.lighting.preview_off) {
+            self.lighting.painting = false;
+            self.lighting.preview_off = false;
+            if let Some(document) = &self.document {
+                self.viewport.rebuild(document.level());
+            }
+        }
         if matches!(
             self.popup,
             Some(Popup::Safety {

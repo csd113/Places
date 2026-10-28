@@ -1,6 +1,9 @@
 //! Opt-in offline stage images and exact visibility-caster reports.
 //! Diagnostic files never replace a package's physical lighting solution.
 
+mod cpu;
+pub(super) use cpu::profile_cpu;
+
 use std::cell::RefCell;
 use std::io::{BufWriter, Write as _};
 use std::path::{Path, PathBuf};
