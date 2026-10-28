@@ -247,6 +247,11 @@ three.
 
 ---
 
+The main scene camera and its frustum share a 0.1 m near plane and 256 m far
+plane. This covers the 140 x 140 m Backrooms extent including diagonal views.
+Spatial buckets, conservative visibility and prop/resource budgets remain active;
+authors should still enclose their maps and inspect long views in Play.
+
 ## 4. Coordinate System and Units
 
 | Item | Value |
@@ -1523,6 +1528,16 @@ boundary pixels retain the full priority query. This adds no mesh bytes,
 per-frame water scan or per-prop resource. Opaque/cutout programs specialize
 away water branches; their geometry is never classified as a water surface.
 
+Water probe captures contain radiance from the scene and authored sky, with
+zero radiance for otherwise unfilled directions. Actual fixture-source changes
+refresh the existing bounded probes in wet scenes, rather than retaining a lit
+reflection after power is off. Live recaptures use their base mip instead of
+stale offline-filtered mips. Moving subjects keep their existing runtime lighting
+and are not included in these static probes. Unchanged sources do no recapture
+work. These preparation-input changes invalidate compiler fingerprints: prepare
+affected distributions with the current compiler before packaging; runtime
+acceptance of an older compatible package is not proof of current preparation.
+
 Animated caustics redistribute existing diffuse light across upward-facing
 submerged floors, steps and movable surfaces in Static and Full lighting.
 The runtime uses the resolved rectangle/circle, bottom and free surface; dry
@@ -1784,6 +1799,15 @@ How the two behave:
   `floor_y`. The player controller steps or slopes over them with the ordinary
   0.45 m rule, and `PLACES_CAPTURE`-style inspection shows exactly what the
   player stands on.
+* **Grounded stair support follows the nosing envelope across the complete
+  square hull.** This keeps the leading/trailing edges above the real treads
+  through ascent, descent, reversals and landings. Landing and airborne sweeps
+  retain the rendered treads. At the bottom, the real previous tread determines
+  whether the final drop is a legal riser; the higher nosing profile cannot turn
+  it into an accidental fall. The remaining entry/exit eye correction is bounded
+  and swept against live clearance, settles when stopped, and ends immediately
+  on a fall, jump, swim or ladder transition. It never changes the collision hull
+  or permits a step through a header, wall or closed door.
 * **Movement uses fixed 15 ms commands** with bounded spatial segments and
   swept hull collision. Steps up to 0.45 m compare the raised route with the
   sliding route. Authorable ramp rise/run may reach 2, but a slope whose upward

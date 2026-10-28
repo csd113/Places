@@ -1,5 +1,17 @@
 ## 0.13.1 — Unreleased
 
+- Restore continuous grounded stair support across the full player hull, retain
+  real tread contacts for jumps/falls, and ease the first/last riser camera
+  within live clearance. Raise the shared scene clipping/culling distance from
+  100 to 256 m for long Backrooms sightlines.
+- Refresh water reflection probes when their actual light sources switch, keep
+  unfilled directions dark, and preserve authored sky radiance. Water's fallback
+  sheen uses the incident energy already folded into its vertices. Existing
+  source eligibility still excludes fluorescent and moonlight caustics.
+- Launch the Windows release game directly without a console window. File
+  diagnostics and error notices remain; explicit CLI/verbose use can attach to
+  the caller's console. Editor/compiler command-line entry points are retained.
+
 - Add Reuse tools in both editor modes: furnished room/corridor source capture,
   repeated independent or linked stamping, explicit three-way linked updates,
   category-based room styles, and seeded prop yaw/scale/sinking variation.

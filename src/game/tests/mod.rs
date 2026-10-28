@@ -10,3 +10,5 @@ mod guidance;
 mod player_shape;
 mod portal_movement;
 mod water;
+
+mod stair_traversal;

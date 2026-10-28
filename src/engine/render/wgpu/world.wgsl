@@ -926,7 +926,13 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let attached = dynamic_light_term(normal, in.world_position);
     let light = baked + attached + beam;
     let view = normalize(camera.position - in.world_position);
-    let incident = baked + attached + beam;
+    var incident = baked + attached + beam;
+    if (water_blend_pass && in.water_surface > 0.5
+        && environment.lightmap_enabled * (1.0 - step(254.5, in.lightmap_page)) <= 0.5) {
+        // Vertex-lit water already contains incident energy in its colour.
+        // The neutral fallback factor is not incident light for its sheen.
+        incident = baked * in.color.rgb + attached + beam;
+    }
     var water_reflectance = 0.0;
     if (water_blend_pass && in.water_surface > 0.5) { water_reflectance = water_fresnel(normal, view); }
     let sheen = surface_sheen(in, normal, view, incident, water_reflectance);

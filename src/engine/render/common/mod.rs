@@ -98,7 +98,9 @@ pub use props::{PropMeshBatch, PropSubmeshBatch};
 /// 60 µm at 10 m and 6 mm at the far plane. A decal's whole depth bias is two
 /// of those steps, so it can never visibly lift a marking off its surface.
 pub const SCENE_NEAR_M: f32 = 0.1;
-pub const SCENE_FAR_M: f32 = 100.0;
+// Covers the 140 x 140 m Backrooms diagonal with headroom. Spatial buckets,
+// occlusion and prop budgets still bound submitted work. Near stays at 0.1 m.
+pub const SCENE_FAR_M: f32 = 256.0;
 
 /// Resolves level material ids into surface keys and render parameters.
 ///

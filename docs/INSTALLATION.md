@@ -5,6 +5,14 @@ a complete installation starts with zero maps and opens Explore with import
 instructions. Missing required resources are a startup error, distinct from an
 empty map list. The player never compiles a map at startup.
 
+The Windows release `places.exe` uses the GUI subsystem, so opening it from
+Explorer starts the game without a terminal. Explicit game CLI arguments or
+`PLACES_VERBOSE=1` attach to an existing caller console when available; redirected
+output remains usable. PowerShell scripts should wait explicitly for a GUI
+executable, for example with `Start-Process -Wait`. Debug game builds and the
+editor/compiler retain console entry points. Normal player errors still use the
+bounded diagnostics journal and native error notices described below.
+
 ## Installed resources
 
 ```text

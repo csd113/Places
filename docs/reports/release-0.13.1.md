@@ -1,4 +1,4 @@
-# 0.13.1 editor acceptance (unreleased)
+# 0.13.1 acceptance (unreleased)
 
 The first phase added rectangular/circular pillars and fitted automatic trim.
 Its accepted source is `fa9a8b93cbfba0b0e8a1b1ee064c01cbbe1be9e1`; its receipt,
@@ -579,3 +579,115 @@ binaries, DLLs and hash evidence outside `target`. Earlier exploratory/interrupt
 runs are explicitly superseded. `custody.json` records the phase commit, verified
 remote SHA, exact-SHA CI observation and final idle/clean/cleanup observations.
 Main, v0.13.0, phase 8 runtime fixes and release publication remain outside phase 7.
+
+## Phase 8: runtime traversal, distance, water and Windows launch
+
+Grounded movement was querying rendered treads across the square hull despite
+the existing stair nosing contract. It now follows the whole-hull nosing envelope;
+airborne and landing queries retain real treads. The last drop compares the prior
+real supporting tread, preventing a legal maximum riser plus its pitch sample
+from becoming an accidental fall. Walls, headers, doors, clearance and Rapier
+sweeps remain authoritative. A bounded first-person eye correction handles the
+remaining entry/exit step, settles on stopping and hands off immediately to falls,
+jumps, swimming and ladders. It uses live camera clearance and never moves feet.
+
+One small CPU regression covers ascent/descent, pausing/reversal, real hull
+support, the 0.45 m maximum riser, 0.15 m minimum tread and their combined boundary.
+It adds fewer than 2,000 controller samples and no assets/GPU/bake to ordinary tests.
+Native ordinary input covers three flights, both landings, a low header that
+refuses standing, crouched passage in both directions, restored standing,
+interruption/reversal, an adjacent wall and a real side fall/landing. All require
+zero recovery resets. The accepted clearance recipe uses the default 3.75 m/s
+walk setting. Earlier short and invalid overlong recipes remain superseded.
+Matched 100 ms native interior eye samples have a maximum change of 0.2000 m
+before and 0.0945 m after; these are sampled trajectory witnesses, not frame timings.
+
+### Effective long-view distance and focused cost
+
+The main projection and its frustum shared a fixed 100 m far plane. The Backrooms
+occupies 140 x 140 m, with unobstructed diagonal views beyond 100 m. The shared far
+plane is now 256 m; near remains 0.1 m. The scene is already resident, so no distance
+streamer was introduced or disabled. Spatial buckets, occlusion, resource and
+prop budgets remain. Native diagonal/reverse/approach captures show the former
+central void replaced by the real distant wall, without its approach pop-in.
+
+Three alternating before/after fresh-process runs use the identical existing
+Backrooms package and fixed view on the Razer RTX 3070 Laptop / Dx12. Each has
+240 warmup and 1,200 measured frames at an actual 960x600 drawable, V-sync off,
+no engine frame cap and actual Immediate presentation. Roughly 656-659 FPS is
+well above the observed 165 Hz display pacing. No build or bake ran concurrently;
+native process priority was Normal and host power/GPU/security settings were unchanged.
+
+| Focused diagonal view | Before | After |
+|---|---:|---:|
+| CPU render ms, median of three run means | 0.663 | 0.679 |
+| GPU render ms, median of three timestamp medians | 0.758 | 0.743 |
+| Whole-loop median ms, median of three runs | 1.524 | 1.518 |
+| Visible distinct submitted vertices | 144,410 | 145,698 |
+| Draw calls | 322 | 324 |
+
+The resident 402,961 vertices are unchanged. The small GPU/FPS difference is noise,
+not a throughput-gain claim. This measures the added distance in one representative
+view; full surface/prop attribution remains phase 10.
+
+### Water radiance
+
+Full reflections reproduced the reported dark animated sheet: a probe retained
+the lit scene after the lamp switched off. Actual source changes in wet scenes
+now refresh the existing bounded static probes. Live recaptures select their base
+mip rather than stale package-filtered mips. Unfilled directions carry zero
+radiance; authored sky is rendered into open directions. This preserves real
+reflection instead of using local diffuse brightness as a reflection gate.
+Moving subjects retain their live rendering and remain outside static probes.
+The vertex-lit water sheen also consumes energy already folded into vertex colour,
+rather than treating its unit fallback shader factor as illumination.
+
+In the matched pool witness, the fixed interior ROI's dark mean falls from
+12.347 to 0.0163 display-code units out of 255 (after maximum 1). The illuminated
+mean remains 149.405; flashlight peak remains 244. Off holds, flashlight on/off,
+power return, waves, basin visibility and the floating duck were inspected.
+There are exactly two one-probe/six-face/64px recaptures for off/on, with no
+unchanged-source per-frame recapture. No material or room is globally darkened.
+Existing caustic eligibility remains: eligible pool sources/sun and an appropriate
+above-water flashlight; fluorescent and moon sources stay excluded. The existing
+essential source/visibility regressions pass.
+
+### Windows launch and final gates
+
+The release game changes from PE console subsystem 3 to GUI subsystem 2. Explorer's
+ordinary executable-open mechanism (ShellExecute, empty argv, no console-suppression
+flags) creates one game window without a console. Explicit CLI/verbose use can
+attach to its caller's console; redirected `--paths` JSON still works. Compiler
+and editor remain subsystem 3, with working help output. The native editor opens
+the prior accepted authoring project without source edits.
+
+The ordinary non-benchmark menu renders correctly in a retained 1920x1080 native
+framebuffer capture. Normal close records clean shutdown. A controlled invalid
+developer environment shows the native error notice with its diagnostics path,
+then records the handled error and closes. All session markers clear. Windows
+Graphics Capture timed out on this shell-launched window; native framebuffer
+pixels, window inventory, native dialog accessibility and journals supply the
+evidence. This is a launch-validation layout, not phase-9 package acceptance.
+
+Formatting, strict workspace/all-target/all-feature debug and release Clippy,
+383 Rust tests, the locked release workspace/all-feature build, 369 Python source
+tests (18 expected skips), and the asset/texture/prop checks pass. Catalog validation
+reports 674 assets and zero warnings; existing art/manifest advisories remain.
+The focused native suite passes 21 assertions. Phase-7 exact-SHA CI run 40762985830
+completed successfully; the new commit's exact-SHA CI observation is in custody.json.
+
+Engine preparation inputs changed, invalidating compiler fingerprints. The two
+bounded final Static/Full fixtures validate and verify current. Backrooms rendering
+uses its unchanged compatible installed package deliberately; it is not evidence
+of current preparation. Affected distributions must be prepared with the current
+compiler before later packaging. No production map, texture or model was rebaked
+or edited, and previous-phase evidence is retained.
+
+`local/verification-0.13.1-runtime/validation-receipt.json` indexes accepted gates,
+native assertions, fixture/package identities, launch evidence and limitations.
+`accepted-bin/`, `binary-identity.json` and `sha256.json` preserve binaries and
+evidence outside target; `custody.json` records exact commit/remote/CI and cleanup.
+Compiler children ran BelowNormal where observed; game/editor were Normal.
+The interrupted initial release run and superseded exploratory recipes are retained
+and excluded from acceptance. Main/v0.13.0, Mac validation, phase 9, full FPS
+attribution and release publication are outside this phase.

@@ -370,7 +370,8 @@ pub struct Game {
     sim_delta_seconds: f32,
     world_time_scale: f32,
     frame_count: u64,
-    /// World Y of the rendered eye: exactly `feet_y + eye_offset_current`.
+    /// World Y of the physical eye: exactly `feet_y + eye_offset_current`.
+    /// First-person rendering uses the clearance-constrained `view_position`.
     ///
     /// Kept as a public field for the camera and tests. Every mutator in the
     /// controller preserves the invariant; the buoyant swim pose moves the eye
@@ -390,6 +391,8 @@ pub struct Game {
     /// the fixed [`CROUCH_TRANSITION_SECONDS`] rate; the collision body uses
     /// the target stance immediately (`Game::body_height`).
     eye_offset_current: f32,
+    /// Bounded presentation offset for grounded step transitions.
+    step_eye_lag: f32,
     /// World Y of the walkable floor the player is standing on: the pitch line
     /// across a staircase, the exact rendered surface everywhere else (see
     /// [`crate::engine::level::WalkableFloor::walk_height_at`]). This is the value
@@ -559,6 +562,7 @@ impl Game {
             player_position: spawn_pos,
             feet_y: spawn_pos.y - EYE_HEIGHT,
             eye_offset_current: EYE_HEIGHT,
+            step_eye_lag: 0.0,
             player_yaw: spawn_yaw.rem_euclid(TWO_PI),
             player_pitch: 0.0,
             collision_index: CollisionIndex::build(&world.walls),
@@ -775,6 +779,7 @@ impl Game {
         self.player_position = spawn_pos;
         self.feet_y = spawn_pos.y - EYE_HEIGHT;
         self.eye_offset_current = EYE_HEIGHT;
+        self.step_eye_lag = 0.0;
         self.player_yaw = spawn_yaw.rem_euclid(TWO_PI);
         self.player_pitch = 0.0;
         self.horizontal_velocity = Vec2::ZERO;
@@ -1086,7 +1091,8 @@ impl Game {
     }
 
     /// World Y of the player's physical feet: the authoritative vertical
-    /// coordinate, with the rendered eye always `feet_y() + eye_offset()`.
+    /// coordinate, with the physical eye always `feet_y() + eye_offset()`.
+    /// Grounded step presentation is exposed separately by `view_position`.
     #[must_use]
     pub const fn feet_y(&self) -> f32 {
         self.feet_y
@@ -1305,6 +1311,7 @@ impl Game {
             let command = self.movement_input;
             let previous_stance = self.stance;
             let previous_feet = self.feet_y;
+            let previously_grounded = self.grounded;
             self.update_crouch(&command);
             if previous_stance == Stance::Crouched
                 && self.stance == Stance::Standing
@@ -1317,6 +1324,7 @@ impl Game {
             self.advance_eye_offset(VERTICAL_SUBSTEP);
             self.update_locomotion_step(&command, settings, VERTICAL_SUBSTEP);
             self.apply_movement_constraint(constrain(self));
+            self.advance_step_eye(previous_feet, previously_grounded);
             self.movement_input.clear_presses();
         }
         self.sim_delta_seconds = delta;
@@ -2041,7 +2049,7 @@ impl Game {
         let floor_ceiling = current_surface + PLAYER_STEP_HEIGHT + STEP_EPS;
         let floor = self
             .floor
-            .hull_support(
+            .walking_hull_support(
                 Vec2::new(x, z),
                 self.body_half() - CONTACT_EPS,
                 floor_ceiling,
@@ -2517,13 +2525,18 @@ impl Game {
                 // maximum-height riser plus one pitch sample starts a fall.
                 // Only use it when the feet follow the walking surface: a prop
                 // above the floor must still lose support at its own edge.
+                let point = Vec2::new(previous.x, previous.y);
+                let half = self.body_half() - CONTACT_EPS;
                 let dropped = support.dropped
                     && !self
                         .floor
-                        .walk_height_at(previous.x, previous.y)
-                        .filter(|height| (*height - current_surface).abs() <= STEP_EPS)
-                        .and_then(|_| self.floor.height_at(previous.x, previous.y))
-                        .is_some_and(|height| {
+                        .walking_hull_support(point, half, current_surface + STEP_EPS)
+                        .filter(|(height, _)| (*height - current_surface).abs() <= STEP_EPS)
+                        .and_then(|_| {
+                            self.floor
+                                .hull_support(point, half, current_surface + STEP_EPS)
+                        })
+                        .is_some_and(|(height, _)| {
                             support.surface_y >= height - PLAYER_STEP_HEIGHT - STEP_EPS
                         });
                 StepOutcome::Accepted {

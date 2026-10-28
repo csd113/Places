@@ -86,6 +86,10 @@ pub struct Interactions {
 }
 
 impl Interactions {
+    pub const fn has_water(&self) -> bool {
+        self.bounds.is_some()
+    }
+
     pub fn install(&mut self, level: &LevelDef) {
         let volumes = WaterVolumes::from_level(level);
         let bounds = (!volumes.is_empty()).then(|| {

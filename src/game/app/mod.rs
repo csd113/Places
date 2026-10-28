@@ -3765,6 +3765,7 @@ impl FrameLoop<'_> {
 
     fn trace_player_body(&self) -> serde_json::Value {
         serde_json::json!({
+            "view_position": self.game.view_position().to_array(),
             "feet_y": self.game.feet_y(), "body_height": self.game.body_height(),
             "half_width": self.game.body_half(), "form": self.game.form_model(),
             "eye_height": self.game.player_position.y - self.game.feet_y(),
@@ -4588,12 +4589,14 @@ impl FrameLoop<'_> {
         );
         let (cam_pos, cam_yaw, cam_pitch) = match self.game.app_state() {
             AppState::Playing | AppState::Paused | AppState::PauseSettings => representation_camera
-                .map_or(
-                    (
-                        self.game.player_position,
-                        self.game.player_yaw,
-                        self.game.player_pitch,
-                    ),
+                .map_or_else(
+                    || {
+                        (
+                            self.game.view_position(),
+                            self.game.player_yaw,
+                            self.game.player_pitch,
+                        )
+                    },
                     |camera| (camera.position, camera.yaw, camera.pitch),
                 ),
             AppState::MainMenu | AppState::LevelSelect | AppState::Settings => {

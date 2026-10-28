@@ -2682,9 +2682,29 @@ impl WgpuRenderer {
                 previous_revision,
                 self.entity_lighting_revision,
             );
+            // Water samples the static probe radiance while its normals animate.
+            // A switched source invalidates that radiance just as it invalidates
+            // the incident atlas mask. Reuse the existing bounded two-probe
+            // capture, once per actual source change, only in wet scenes.
+            let refresh_water_probes =
+                self.water_interactions.has_water() && !self.reflection_targets.probes().is_empty();
+            if refresh_water_probes {
+                // Live captures have only a base level; never sample the stale
+                // prefiltered package mips after replacing their radiance.
+                self.probe_max_mip = 0;
+            }
             let uniform = self.level_environment();
             if let Some(environment) = self.environment.as_mut() {
                 let _update_stats = environment.update(&self.queue, &uniform);
+            }
+            if refresh_water_probes {
+                // Probes represent the static scene. Live subjects bind these
+                // same targets for sampling and cannot be bound during a bake.
+                let dynamic = self.world_dynamic.take();
+                let characters = self.world_characters.take();
+                self.bake_reflection_probes();
+                self.world_dynamic = dynamic;
+                self.world_characters = characters;
             }
         }
     }
@@ -6688,6 +6708,16 @@ impl WgpuRenderer {
                 );
                 pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
                 let world_frame = frame.world_frame();
+                if let (Some(sky), Some(sky_pipeline)) =
+                    (self.sky.as_ref(), self.sky_pipeline.as_mut())
+                {
+                    sky_pipeline.upload_camera_with_storm(
+                        &self.queue,
+                        frame.view_projection,
+                        sky,
+                        [0.0; 4],
+                    );
+                }
                 if let Some(decal_pipeline) = self.decal_reflection_pipeline.as_mut() {
                     decal_pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
                 }
@@ -6704,7 +6734,7 @@ impl WgpuRenderer {
                             depth_slice: None,
                             resolve_target: None,
                             ops: wgpu::Operations {
-                                load: wgpu::LoadOp::Clear(CLEAR_COLOR),
+                                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                                 store: wgpu::StoreOp::Store,
                             },
                         })],
@@ -6720,6 +6750,13 @@ impl WgpuRenderer {
                         occlusion_query_set: None,
                         multiview_mask: None,
                     });
+                    // Only authored sky radiance fills unoccluded directions.
+                    // The display clear colour is never reflected illumination.
+                    if let (Some(sky), Some(sky_pipeline)) =
+                        (self.sky.as_ref(), self.sky_pipeline.as_ref())
+                    {
+                        sky_pipeline.encode_scene(&mut pass, sky, self.filtering);
+                    }
                     let _draw_stats = pipeline.encode(
                         &mut pass,
                         super::world::WorldEncodeInputs {

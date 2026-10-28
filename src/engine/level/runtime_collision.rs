@@ -415,6 +415,27 @@ impl WalkableFloor {
         half: f32,
         max_y: f32,
     ) -> Option<(f32, glam::Vec3)> {
+        self.hull_support_sampled(point, half, max_y, StairSampling::Stepped)
+    }
+
+    /// Grounded support follows the stair nosings over the complete hull.
+    /// Airborne contacts keep the real treads through `hull_support`.
+    pub(crate) fn walking_hull_support(
+        &self,
+        point: glam::Vec2,
+        half: f32,
+        max_y: f32,
+    ) -> Option<(f32, glam::Vec3)> {
+        self.hull_support_sampled(point, half, max_y, StairSampling::PitchLine)
+    }
+
+    fn hull_support_sampled(
+        &self,
+        point: glam::Vec2,
+        half: f32,
+        max_y: f32,
+        sampling: StairSampling,
+    ) -> Option<(f32, glam::Vec3)> {
         let mut best: Option<(f32, glam::Vec3)> = None;
         let mut offer = |height: f32, normal: glam::Vec3| {
             if height <= max_y && best.is_none_or(|current| height >= current.0) {
@@ -431,8 +452,11 @@ impl WalkableFloor {
             }
             for x in [low_x, point.x.clamp(low_x, high_x), high_x] {
                 for z in [low_z, point.y.clamp(low_z, high_z), high_z] {
-                    if let Some(height) = Self::room_height_at(room, x, z, StairSampling::Stepped) {
-                        offer(height, glam::Vec3::Y);
+                    if let Some(height) = Self::room_height_at(room, x, z, sampling) {
+                        let tread = Self::room_height_at(room, x, z, StairSampling::Stepped);
+                        if tread.is_some_and(|value| value <= max_y) {
+                            offer(height.min(max_y), glam::Vec3::Y);
+                        }
                     }
                 }
             }
@@ -468,9 +492,17 @@ impl WalkableFloor {
                 let b = (point.x + half).min(x1);
                 let c = (point.y - half).max(z0);
                 let d = (point.y + half).min(z1);
-                if a < b && c < d {
+                if a < b && c < d && stair.height_at(a, c).max(stair.height_at(b, d)) <= max_y {
                     offer(
-                        stair.height_at(a, c).max(stair.height_at(b, d)),
+                        match sampling {
+                            StairSampling::Stepped => {
+                                stair.height_at(a, c).max(stair.height_at(b, d))
+                            }
+                            StairSampling::PitchLine => {
+                                stair.pitch_height_at(a, c).max(stair.pitch_height_at(b, d))
+                            }
+                        }
+                        .min(max_y),
                         glam::Vec3::Y,
                     );
                 }
