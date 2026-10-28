@@ -513,6 +513,7 @@ pub(super) fn validate_architecture(level: &LevelDef) -> Result<(), String> {
     validate_guardrails(level)?;
     validate_thresholds(level)?;
     validate_baseboards(level)?;
+    crate::map_compiler::trim::validate_attachments(level)?;
     validate_architecture_overlaps(level)
 }
 
@@ -1206,12 +1207,18 @@ fn validate_baseboards(level: &LevelDef) -> Result<(), String> {
             || !board.rotation_degrees.is_finite()
             || !board.height.is_finite()
             || !board.thickness.is_finite()
+            || !board.uv_offset.is_finite()
+            || board.miters.is_some_and(|ends| {
+                ends.into_iter()
+                    .any(|value| !value.is_finite() || value.abs() > 8.0)
+            })
         {
             return Err(format!(
                 "Baseboard {i} position and dimensions must be finite numbers"
             ));
         }
-        if board.length <= 0.0 {
+        let (front_start, front_end) = board.span_at(board.thickness());
+        if board.length <= 0.0 || front_end <= front_start {
             return Err(format!("Baseboard {i} length must be positive"));
         }
         if !(0.01..=1.0).contains(&board.height) {
@@ -1242,7 +1249,9 @@ fn validate_baseboards(level: &LevelDef) -> Result<(), String> {
         let mid_y = board
             .height()
             .mul_add(0.5, board.base_y(&LevelSurfaces::new(level)));
-        if let Some(wall) = point_buried_in_wall(level, mx, mz, mid_y) {
+        if !board.generated
+            && let Some(wall) = point_buried_in_wall(level, mx, mz, mid_y)
+        {
             return Err(format!(
                 "Baseboard {i} is buried inside wall {wall}: place the run so its back \
                  plane lies on the wall's face (the room edge is the wall's centre plane)"

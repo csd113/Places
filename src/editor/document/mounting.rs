@@ -107,7 +107,10 @@ fn mounted_transform(
                 LightMount::Wall => wall_mount(level, current, bounds, snap_step),
             }
         }
-        ObjectId::Room(_)
+        ObjectId::Column(_)
+        | ObjectId::Pillar(_)
+        | ObjectId::ArcWall(_)
+        | ObjectId::Room(_)
         | ObjectId::Wall(_)
         | ObjectId::Ramp(_)
         | ObjectId::FloorRegion(_)

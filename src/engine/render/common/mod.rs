@@ -17,6 +17,7 @@ pub mod blood;
 pub mod camera;
 pub mod canonical_props;
 pub mod character;
+pub mod contact;
 pub mod decals;
 pub mod doors;
 pub mod dynamic;
@@ -459,6 +460,7 @@ struct WallFaceStrip<'a, Y: Fn(f32) -> f32, S: Fn(f32, f32) -> [f32; 3]> {
     /// Whether `u` is negated so the face reads unmirrored from its own side.
     flip_u: bool,
     lighting: &'a LevelLighting,
+    contacts: &'a contact::Contacts,
     /// Room resolved by the parent geometry, shared by its doorway fragments.
     room: Option<usize>,
     tile_metres: f32,
@@ -606,13 +608,14 @@ impl<Y: Fn(f32) -> f32, S: Fn(f32, f32) -> [f32; 3]> WallFaceStrip<'_, Y, S> {
                 first_bottom,
                 self.uv(uv_v_ref, first_at, self.bottom),
             );
-            stamp_lightmap_quad(
+            contact::stamp(
+                self.contacts,
                 self.lightmap,
                 vertices,
                 first,
                 PatchKind::Wall,
-                corners,
                 face_room,
+                None,
             );
         }
     }
@@ -637,6 +640,7 @@ fn add_wall_length_face<'a>(
     reversed: bool,
     flip_u: bool,
     lighting: &'a LevelLighting,
+    contacts: &'a contact::Contacts,
     room: Option<usize>,
     tile_metres: f32,
     lightmap: Option<LightmapEmit<'a>>,
@@ -654,6 +658,7 @@ fn add_wall_length_face<'a>(
         reversed,
         flip_u,
         lighting,
+        contacts,
         room,
         tile_metres,
         lightmap,
@@ -735,7 +740,7 @@ fn merge_light_runs(
 const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 
 /// Current pre-release geometry revision; superseded layouts require recompilation.
-pub const GEOMETRY_REVISION: u32 = 5;
+pub const GEOMETRY_REVISION: u32 = 6;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.
@@ -1700,6 +1705,7 @@ fn add_wall_cross_quad(
     bottom: f32,
     top: [f32; 2],
     facing_positive: bool,
+    contacts: &contact::Contacts,
     corners: [[f32; 3]; 4],
     tile_metres: f32,
     lightmap: Option<LightmapEmit<'_>>,
@@ -1754,13 +1760,14 @@ fn add_wall_cross_quad(
         order[3].1,
         uv(order[3].0),
     );
-    stamp_lightmap_quad(
+    contact::stamp(
+        contacts,
         lightmap,
         vertices,
         first,
         PatchKind::Wall,
-        [order[0].0, order[1].0, order[2].0, order[3].0],
         room,
+        None,
     );
 }
 
@@ -2419,6 +2426,7 @@ fn emit_lit_surface_grid(
     kind: PatchKind,
     room: Option<usize>,
     lightmap: Option<LightmapEmit<'_>>,
+    contacts: Option<&contact::Contacts>,
 ) {
     let LitSurface {
         caustics_albedo,
@@ -2485,6 +2493,7 @@ fn emit_lit_surface_grid(
                 kind,
                 room,
                 lightmap,
+                contacts,
             );
         }
     }
@@ -2508,6 +2517,7 @@ fn emit_grid_quad(
     kind: PatchKind,
     room: Option<usize>,
     lightmap: Option<LightmapEmit<'_>>,
+    contacts: Option<&contact::Contacts>,
 ) {
     let points = xz.map(|[x, z]| [x, y_at(x, z), z]);
     let first = vertices.len();
@@ -2526,7 +2536,11 @@ fn emit_grid_quad(
         corner_colors[3],
         uv(points[3][0], points[3][2]),
     );
-    stamp_lightmap_quad(lightmap, vertices, first, kind, points, room);
+    if let Some(index) = contacts {
+        contact::stamp(index, lightmap, vertices, first, kind, room, None);
+    } else {
+        stamp_lightmap_quad(lightmap, vertices, first, kind, points, room);
+    }
 }
 
 /// Samples a `(cells_x + 1) x (cells_z + 1)` corner grid of baked colours.

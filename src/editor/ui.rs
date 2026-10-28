@@ -661,8 +661,27 @@ fn footer_actions(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         vertices,
         hits,
         [5.0, 228.0, 49.0, 10.0],
-        "Configure >",
-        Action::Gameplay,
+        match app.selected {
+            Some(ObjectId::Wall(_)) => "Auto trim >",
+            Some(ObjectId::Column(_) | ObjectId::Pillar(_)) => "Pillar >",
+            Some(ObjectId::ArcWall(_)) => "Curve trim >",
+            _ => "Configure >",
+        },
+        match app.selected {
+            Some(ObjectId::Column(_)) => Action::Author(super::authoring::Command::Open(
+                super::authoring::Tool::Column,
+            )),
+            Some(ObjectId::Pillar(_)) => Action::Author(super::authoring::Command::Open(
+                super::authoring::Tool::Pillar,
+            )),
+            Some(ObjectId::ArcWall(_)) => Action::Author(super::authoring::Command::Open(
+                super::authoring::Tool::ArcWall,
+            )),
+            Some(ObjectId::Wall(_)) => Action::Author(super::authoring::Command::Open(
+                super::authoring::Tool::WallTrim,
+            )),
+            _ => Action::Gameplay,
+        },
         app.selected.is_some(),
     );
     button(
@@ -674,7 +693,10 @@ fn footer_actions(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         app.selected.is_some_and(|id| {
             matches!(
                 id,
-                ObjectId::Room(_)
+                ObjectId::Column(_)
+                    | ObjectId::Pillar(_)
+                    | ObjectId::ArcWall(_)
+                    | ObjectId::Room(_)
                     | ObjectId::Wall(_)
                     | ObjectId::Ramp(_)
                     | ObjectId::FloorRegion(_)

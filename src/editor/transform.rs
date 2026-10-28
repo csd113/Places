@@ -65,6 +65,8 @@ impl Draft {
             position: [x, y, z],
             size: if matches!(self.id, ObjectId::Prop(_)) {
                 [width; 3]
+            } else if matches!(self.id, ObjectId::Pillar(_)) {
+                [width, height, width]
             } else {
                 [width, height, depth]
             },

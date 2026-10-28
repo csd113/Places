@@ -13,3 +13,5 @@ mod browser;
 mod editor_phase;
 
 mod flicker;
+
+mod trim;

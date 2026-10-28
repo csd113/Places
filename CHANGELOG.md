@@ -1,6 +1,49 @@
 ## 0.13.1 — Unreleased
 
-Development version for the next approved editor phase.
+First editor phase: rectangular and circular pillar creation and fitted automatic
+trim, using the existing engine primitives and baseboard preparation.
+
+- Geometry exposes both pillar shapes. Selected pillars keep the ordinary
+  material browser, transforms, duplication, deletion and source history.
+  Blank base/height follow the floor/ceiling; circular size has one diameter.
+- Pillars offer none, bottom, top or both trim bands. Selected walls expose
+  Auto trim with a clickable wall set, dimensions/material, preview and one-step
+  undo. Regeneration replaces derived output after geometry changes.
+- Fitted rectangular/round/curved joins share contact clipping before lightmap
+  creation, continuous trim texture distance and visible ceiling-band undersides.
+  Unsupported floor/roof contacts produce named feedback. Deliberate angles and
+  authored positions are retained; published maps/assets remain unchanged.
+- Floor/ceiling charts exclude buried receivers at contacts, correcting the
+  reproduced false-gap dark seam at bare and trimmed walls without suppressing
+  lighting or shadows. Clipped triangular receiver edges choose their owning
+  air side; microscopic clipping residue is removed before publication.
+
+Workflow and fit limits: [editor guide](docs/EDITOR.md#pillars-and-automatic-trim-0131).
+This is an unreleased bounded phase; later queued editor work remains separate.
+
+Phase acceptance on the Razer (Windows, RTX 3070 / Dx12, 2026-10-28):
+format, strict workspace/all-target/all-feature Clippy and locked release build
+pass; 365 Rust tests and 369 source tests pass (18 expected source-test skips).
+The asset validator checks 644 assets with zero warnings. Five small CPU
+regressions cover regeneration, source/history, joins, receiver ownership and
+real shadow preservation; ordinary tests do not bake production maps.
+
+Native evidence includes 326 editor verification actions, all pillar trim modes,
+material browser/picking, preview/source isolation, copy/delete, undo/redo,
+repeat wall-set Apply, Save/Build, exact export/source recovery and final editor
+lighting. Twenty final compiled-game views cover rectangular, circular and
+angled curved junctions, floor/ceiling bands, wood corner alignment, bare-wall
+comparison, albedo/normals/lightmap diagnostics and both pillar collisions.
+The small fixture has zero geometry errors/warnings; unsupported open-ceiling
+and raised-floor contacts produce named refusals. The fixture and authored
+project export pass integrity and `verify --require-current` checks.
+
+Razer evidence and hash-verified executables are retained outside `target` under
+`local/verification-0.13.1-trim/`: `validation-receipt.json`, `accepted-bin/`,
+source projects, packages, recipes and framebuffer captures. These are phase
+checks: production 0.13.0 packages/assets are untouched; full 0.13.1 production
+rebake and CI/release closing remain later. Fifo was negotiated, so these runs
+make no uncapped FPS claim.
 
 ## 0.13.0 — 2026-10-28
 

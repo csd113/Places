@@ -466,6 +466,16 @@ fn push_architecture_materials(level: &LevelDef, push: &mut impl FnMut(&str)) {
     for strip in &level.thresholds {
         push_all([strip.material.as_ref(), None, None]);
     }
+    for trim in level
+        .walls
+        .iter()
+        .filter_map(|p| p.trim.as_ref())
+        .chain(level.columns.iter().filter_map(|p| p.trim.as_ref()))
+        .chain(level.pillars.iter().filter_map(|p| p.trim.as_ref()))
+        .chain(level.arc_walls.iter().filter_map(|p| p.trim.as_ref()))
+    {
+        push_all([trim.material.as_ref(), None, None]);
+    }
     for board in &level.baseboards {
         push_all([board.material.as_ref(), None, None]);
     }

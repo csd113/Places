@@ -3821,6 +3821,9 @@ impl WallAxis {
 /// Rectangular wall footprint definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WallDef {
+    /// Saved trim attachment; omitted retains catalog-driven wall skirting.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim: Option<TrimDef>,
     pub x: f32,
     #[serde(default)]
     pub y: f32,
@@ -4243,6 +4246,9 @@ impl HalfWallDef {
 /// ceiling plane); author a smaller `height` for a post with a visible capital.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColumnDef {
+    /// Saved trim attachment; omitted leaves the primitive undecorated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim: Option<TrimDef>,
     pub x: f32,
     pub z: f32,
     pub width: f32,
@@ -4459,6 +4465,9 @@ pub fn round_segments_for(sweep_degrees: f32, authored: Option<u32>) -> u32 {
 /// [`ArcWallDef::collision_boxes`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArcWallDef {
+    /// Saved trim attachment; omitted leaves the primitive undecorated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim: Option<TrimDef>,
     /// World X of the arc circle's centre.
     pub x: f32,
     /// World Z of the arc circle's centre.
@@ -4714,6 +4723,9 @@ impl ArcWallDef {
 /// around its bounding circle and a baked shadow around it stays round.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PillarDef {
+    /// Saved trim attachment; omitted leaves the primitive undecorated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trim: Option<TrimDef>,
     /// World X of the pillar's centre.
     pub x: f32,
     /// World Z of the pillar's centre.
@@ -5479,6 +5491,15 @@ pub enum BaseboardUvProjection {
 /// industrial kick plate.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BaseboardDef {
+    /// Preparation output is replaced before every regeneration.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub generated: bool,
+    /// Along displacement per metre across at the two mitered ends.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub miters: Option<[f32; 2]>,
+    /// Texture origin for this run; fitted fronts unroll continuously through miters.
+    #[serde(default)]
+    pub uv_offset: f32,
     /// World X of the run's start point.
     pub x: f32,
     /// World Z of the run's start point.
@@ -5519,7 +5540,37 @@ const fn default_baseboard_thickness() -> f32 {
     BASEBOARD_DEFAULT_THICKNESS_M
 }
 
+/// A trim attachment regenerates through the existing baseboard preparation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TrimDef {
+    pub placement: TrimPlacement,
+    #[serde(default = "default_baseboard_height")]
+    pub height: f32,
+    #[serde(default = "default_baseboard_thickness")]
+    pub thickness: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub material: Option<String>,
+}
+
+/// Explicit none also disables a wall material's automatic skirting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TrimPlacement {
+    None,
+    Bottom,
+    Top,
+    Both,
+}
+
 impl BaseboardDef {
+    /// Along range at an across offset, including fitted corner joins.
+    #[must_use]
+    pub fn span_at(&self, across: f32) -> (f32, f32) {
+        let [start, end] = self.miters.unwrap_or([0.0; 2]);
+        (start * across, end.mul_add(across, self.length))
+    }
+
     /// Board height, sanitised to the default.
     #[must_use]
     pub fn height(&self) -> f32 {

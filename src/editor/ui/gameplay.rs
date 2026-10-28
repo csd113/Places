@@ -122,9 +122,13 @@ pub(in crate::editor) fn gameplay_popup(
         ObjectId::FogRegion(_) => "REGIONAL FOG",
         ObjectId::GroundFog(_) => "GROUND FOG",
         ObjectId::Prop(_) => "PROP / ENTITY",
-        ObjectId::Room(_) | ObjectId::Wall(_) | ObjectId::Ramp(_) | ObjectId::FloorRegion(_) => {
-            "GEOMETRY"
-        }
+        ObjectId::Column(_)
+        | ObjectId::Pillar(_)
+        | ObjectId::ArcWall(_)
+        | ObjectId::Room(_)
+        | ObjectId::Wall(_)
+        | ObjectId::Ramp(_)
+        | ObjectId::FloorRegion(_) => "GEOMETRY",
     };
     text(
         vertices,
@@ -144,7 +148,13 @@ pub(in crate::editor) fn gameplay_popup(
         ObjectId::FogRegion(_) | ObjectId::GroundFog(_) => {
             fog_sheet(app, vertices, hits, object, id);
         }
-        ObjectId::Room(_) | ObjectId::Wall(_) | ObjectId::Ramp(_) | ObjectId::FloorRegion(_) => {
+        ObjectId::Column(_)
+        | ObjectId::Pillar(_)
+        | ObjectId::ArcWall(_)
+        | ObjectId::Room(_)
+        | ObjectId::Wall(_)
+        | ObjectId::Ramp(_)
+        | ObjectId::FloorRegion(_) => {
             text(
                 vertices,
                 "Transform and Shape controls are in the inspector.",

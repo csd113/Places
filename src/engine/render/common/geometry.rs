@@ -38,8 +38,11 @@ const WALL_JAMB_MULT: f32 = 0.78;
 const WALL_HEAD_MULT: f32 = 0.92;
 
 /// The immutable inputs every emitter stage of one level build shares.
+#[derive(Clone, Copy)]
 pub struct EmitContext<'a, 's> {
     pub level: &'a LevelDef,
+    pub contacts: &'s super::contact::Contacts,
+    pub trim_owner: Option<usize>,
     pub surfaces: &'s LevelSurfaces<'a>,
     pub lighting: &'a LevelLighting,
     pub materials: &'a MaterialLookup<'a>,
@@ -148,8 +151,11 @@ pub(super) fn build_level_geometry_mesh_with_fixture_models(
         plan: Some(cell),
         max_span_m,
     });
+    let contacts = super::contact::Contacts::new(level, &surfaces);
     let context = EmitContext {
         level,
+        contacts: &contacts,
+        trim_owner: None,
         surfaces: &surfaces,
         lighting,
         materials: &lookup,
@@ -271,6 +277,7 @@ fn emit_floors(
                 PatchKind::Floor,
                 Some(room_index),
                 context.lightmap,
+                Some(context.contacts),
             );
             buckets.add_quads(surface.key, scratch);
         }
@@ -532,6 +539,7 @@ fn emit_ceilings(
             PatchKind::Ceiling,
             Some(room_index),
             context.lightmap,
+            Some(context.contacts),
         );
         buckets.add_quads(ceiling_key, scratch);
     }
@@ -938,6 +946,7 @@ fn emit_wall_length_face(
             strip.reversed,
             strip.flip_u,
             context.lighting,
+            context.contacts,
             room,
             context.materials.tile_metres(strip.key),
             context.lightmap,
@@ -1334,13 +1343,14 @@ fn emit_wall_slice_cap(
             colors[3],
             uv(points[3]),
         );
-        stamp_lightmap_quad(
+        super::contact::stamp(
+            context.contacts,
             context.lightmap,
             scratch,
             first,
             PatchKind::Wall,
-            points,
             room,
+            None,
         );
         for vertex in scratch.get_mut(first..).into_iter().flatten() {
             vertex.caustics_albedo = base_color;
@@ -1706,6 +1716,7 @@ fn emit_wall_cross_quad(
                 face_bottom,
                 [top_low_y, top_high_y],
                 covers(boundary.left),
+                context.contacts,
                 corners,
                 tile,
                 context.lightmap,

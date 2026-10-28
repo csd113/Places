@@ -26,6 +26,9 @@ pub enum ObjectKind {
 /// The UI clears/remaps selections after structural edits and history changes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ObjectId {
+    Column(usize),
+    Pillar(usize),
+    ArcWall(usize),
     Room(usize),
     Wall(usize),
     Prop(usize),
@@ -43,6 +46,9 @@ pub enum ObjectId {
 impl ObjectId {
     pub(crate) const fn collection(self) -> (&'static str, usize) {
         match self {
+            Self::Column(index) => ("columns", index),
+            Self::Pillar(index) => ("pillars", index),
+            Self::ArcWall(index) => ("arc_walls", index),
             Self::Room(index) => ("rooms", index),
             Self::Wall(index) => ("walls", index),
             Self::Prop(index) => ("props", index),
@@ -112,7 +118,30 @@ pub(super) fn enumerate(level: &LevelDef) -> Vec<ObjectInfo> {
             format!("Region {}", index.saturating_add(1)),
         )
     });
+    let architecture = level
+        .columns
+        .iter()
+        .enumerate()
+        .map(|(i, _)| {
+            (
+                ObjectId::Column(i),
+                format!("Rectangular pillar {}", i.saturating_add(1)),
+            )
+        })
+        .chain(level.pillars.iter().enumerate().map(|(i, _)| {
+            (
+                ObjectId::Pillar(i),
+                format!("Circular pillar {}", i.saturating_add(1)),
+            )
+        }))
+        .chain(level.arc_walls.iter().enumerate().map(|(i, _)| {
+            (
+                ObjectId::ArcWall(i),
+                format!("Curved wall {}", i.saturating_add(1)),
+            )
+        }));
     rooms
+        .chain(architecture)
         .chain(walls)
         .chain(props)
         .chain(ramps)
@@ -128,7 +157,67 @@ pub(super) fn enumerate(level: &LevelDef) -> Vec<ObjectInfo> {
         .collect()
 }
 
-pub(super) fn transform(level: &LevelDef, id: ObjectId) -> Result<Transform, String> {
+fn primitive_transform(level: &LevelDef, id: ObjectId) -> Result<Transform, String> {
+    match id {
+        ObjectId::Column(index) => level.columns.get(index).map(|piece| {
+            let surfaces = LevelSurfaces::new(level);
+            Transform {
+                position: [piece.x, piece.base_y(&surfaces), piece.z],
+                size: [
+                    piece.width,
+                    piece.top_y(&surfaces) - piece.base_y(&surfaces),
+                    piece.depth,
+                ],
+                yaw_degrees: 0.0,
+                pitch_degrees: 0.0,
+                roll_degrees: 0.0,
+            }
+        }),
+        ObjectId::Pillar(index) => level.pillars.get(index).map(|piece| {
+            let surfaces = LevelSurfaces::new(level);
+            Transform {
+                position: [piece.x, piece.base_y(&surfaces), piece.z],
+                size: [
+                    piece.radius * 2.0,
+                    piece.top_y(&surfaces) - piece.base_y(&surfaces),
+                    piece.radius * 2.0,
+                ],
+                yaw_degrees: 0.0,
+                pitch_degrees: 0.0,
+                roll_degrees: 0.0,
+            }
+        }),
+        ObjectId::ArcWall(index) => level.arc_walls.get(index).map(|piece| {
+            let surfaces = LevelSurfaces::new(level);
+            Transform {
+                position: [piece.x, piece.base_y(&surfaces), piece.z],
+                size: [
+                    piece.radius * 2.0,
+                    piece.top_y_at(&surfaces, piece.x, piece.z) - piece.base_y(&surfaces),
+                    piece.thickness,
+                ],
+                yaw_degrees: piece.start_degrees,
+                pitch_degrees: 0.0,
+                roll_degrees: 0.0,
+            }
+        }),
+        ObjectId::Room(_)
+        | ObjectId::Wall(_)
+        | ObjectId::Prop(_)
+        | ObjectId::Ramp(_)
+        | ObjectId::FloorRegion(_)
+        | ObjectId::Light(_)
+        | ObjectId::Audio(_)
+        | ObjectId::Door(_)
+        | ObjectId::Trigger(_)
+        | ObjectId::FogRegion(_)
+        | ObjectId::GroundFog(_)
+        | ObjectId::SpawnPoint(_) => None,
+    }
+    .ok_or_else(|| "The selected pillar or curved wall no longer exists".into())
+}
+
+pub(in crate::editor) fn transform(level: &LevelDef, id: ObjectId) -> Result<Transform, String> {
     if matches!(
         id,
         ObjectId::Light(_)
@@ -142,6 +231,9 @@ pub(super) fn transform(level: &LevelDef, id: ObjectId) -> Result<Transform, Str
         return super::gameplay::transform(level, id);
     }
     match id {
+        ObjectId::Column(_) | ObjectId::Pillar(_) | ObjectId::ArcWall(_) => {
+            return primitive_transform(level, id);
+        }
         ObjectId::Room(index) => level.rooms.get(index).map(|room| Transform {
             position: [room.x, room.floor_y, room.z],
             size: [room.width, room.height, room.depth],
@@ -235,6 +327,9 @@ pub(super) fn set_transform(
     let current = transform(level, id)?;
     let object = object_mut(raw, id)?;
     match id {
+        ObjectId::Column(_) | ObjectId::Pillar(_) | ObjectId::ArcWall(_) => {
+            set_primitive_transform(object, id, current, proposed)?;
+        }
         ObjectId::Prop(_) => {
             let [scale, scale_y, scale_z] = proposed.size;
             if (scale - scale_y).abs() > 0.0001_f32 || (scale - scale_z).abs() > 0.0001_f32 {
@@ -297,6 +392,117 @@ pub(super) fn set_transform(
     Ok(())
 }
 
+fn set_primitive_transform(
+    object: &mut Map<String, Value>,
+    id: ObjectId,
+    current: Transform,
+    proposed: Transform,
+) -> Result<(), String> {
+    match id {
+        ObjectId::Column(_) => {
+            let quarters = proposed.yaw_degrees / 90.0;
+            if (quarters - quarters.round()).abs() > 0.0001 {
+                return Err("Rectangular pillars use 90 degree footprint rotations".into());
+            }
+            let [width, height, depth] = proposed.size;
+            let odd = quarters.rem_euclid(2.0).abs() > 0.0001;
+            let mut rotated = proposed;
+            if odd {
+                rotated.position[0] = (width - depth).mul_add(0.5, rotated.position[0]);
+                rotated.position[2] = (depth - width).mul_add(0.5, rotated.position[2]);
+            }
+            set_primitive_position(object, current, rotated);
+            set_number(object, "width", if odd { depth } else { width });
+            set_number(object, "depth", if odd { width } else { depth });
+            if object.get("height").is_some_and(|v| !v.is_null())
+                || (height - current.size[1]).abs() > 0.0001
+            {
+                set_number(object, "height", height);
+            }
+        }
+        ObjectId::Pillar(_) | ObjectId::ArcWall(_) => {
+            let [diameter, height, depth] = proposed.size;
+            if matches!(id, ObjectId::Pillar(_)) && proposed.yaw_degrees.abs() > 0.0001 {
+                return Err(
+                    "Circular pillars have no yaw; their material follows the circumference".into(),
+                );
+            }
+            if matches!(id, ObjectId::Pillar(_)) && (diameter - depth).abs() > 0.0001 {
+                return Err(
+                    "Circular pillars have one diameter; change Width to resize the circle".into(),
+                );
+            }
+            set_primitive_position(object, current, proposed);
+            set_number(object, "radius", diameter * 0.5);
+            if object.get("height").is_some_and(|v| !v.is_null())
+                || (height - current.size[1]).abs() > 0.0001
+            {
+                set_number(object, "height", height);
+            }
+            if matches!(id, ObjectId::ArcWall(_)) {
+                set_number(object, "thickness", depth);
+                set_number(object, "start_degrees", proposed.yaw_degrees);
+            }
+        }
+        ObjectId::Room(_)
+        | ObjectId::Wall(_)
+        | ObjectId::Prop(_)
+        | ObjectId::Ramp(_)
+        | ObjectId::FloorRegion(_)
+        | ObjectId::Light(_)
+        | ObjectId::Audio(_)
+        | ObjectId::Door(_)
+        | ObjectId::Trigger(_)
+        | ObjectId::FogRegion(_)
+        | ObjectId::GroundFog(_)
+        | ObjectId::SpawnPoint(_) => return Err("Select a pillar or curved wall".into()),
+    }
+    Ok(())
+}
+
+fn set_primitive_position(
+    object: &mut Map<String, Value>,
+    current: Transform,
+    proposed: Transform,
+) {
+    let [x, y, z] = proposed.position;
+    set_number(object, "x", x);
+    set_number(object, "z", z);
+    if object.get("y").is_some_and(|value| !value.is_null())
+        || (y - current.position[1]).abs() > 0.0001
+    {
+        set_number(object, "y", y);
+    }
+}
+
+pub(in crate::editor) fn architecture_bounds(
+    level: &LevelDef,
+    id: ObjectId,
+) -> Option<crate::engine::spatial::Aabb> {
+    let surfaces = LevelSurfaces::new(level);
+    let boxes = if let ObjectId::Column(index) = id {
+        level
+            .columns
+            .get(index)?
+            .solid_box(&surfaces)
+            .into_iter()
+            .collect()
+    } else if let ObjectId::Pillar(index) = id {
+        level.pillars.get(index)?.collision_boxes(&surfaces)
+    } else if let ObjectId::ArcWall(index) = id {
+        level.arc_walls.get(index)?.collision_boxes(&surfaces)
+    } else {
+        return None;
+    };
+    boxes
+        .into_iter()
+        .map(|solid| crate::engine::spatial::Aabb {
+            min: solid.min,
+            max: solid.max,
+        })
+        .reduce(|a, b| a.union(&b))
+}
+
 fn require_simple_rotation(object: &Map<String, Value>, id: ObjectId) -> Result<(), String> {
     let complex = match id {
         ObjectId::Room(_) => {
@@ -315,7 +521,10 @@ fn require_simple_rotation(object: &Map<String, Value>, id: ObjectId) -> Result<
                 Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
             })
         }),
-        ObjectId::Prop(_)
+        ObjectId::Column(_)
+        | ObjectId::Pillar(_)
+        | ObjectId::ArcWall(_)
+        | ObjectId::Prop(_)
         | ObjectId::Ramp(_)
         | ObjectId::FloorRegion(_)
         | ObjectId::Light(_)
@@ -366,7 +575,7 @@ pub(super) fn add(
         ),
         ObjectKind::Wall => (
             "walls",
-            serde_json::json!({"x":x, "y":y, "z":z, "width":4.0_f32, "depth":0.2_f32, "height":2.7_f32}),
+            serde_json::json!({"x":x, "y":y, "z":z, "width":4.0_f32, "depth":0.2_f32}),
         ),
         ObjectKind::Prop => {
             pin_prop_ids(raw, level)?;
@@ -461,7 +670,10 @@ pub(super) fn duplicate(
         match id {
             ObjectId::Room(_) => "floor_y",
             ObjectId::Ramp(_) | ObjectId::FloorRegion(_) => "offset_y",
-            ObjectId::Wall(_)
+            ObjectId::Column(_)
+            | ObjectId::Pillar(_)
+            | ObjectId::ArcWall(_)
+            | ObjectId::Wall(_)
             | ObjectId::Prop(_)
             | ObjectId::Light(_)
             | ObjectId::Audio(_)
@@ -510,6 +722,9 @@ pub(super) fn duplicate(
     let index = entries.len();
     entries.push(Value::Object(object));
     Ok(match id {
+        ObjectId::Column(_) => ObjectId::Column(index),
+        ObjectId::Pillar(_) => ObjectId::Pillar(index),
+        ObjectId::ArcWall(_) => ObjectId::ArcWall(index),
         ObjectId::Room(_) => ObjectId::Room(index),
         ObjectId::Wall(_) => ObjectId::Wall(index),
         ObjectId::Prop(_) => ObjectId::Prop(index),

@@ -89,16 +89,22 @@ pub fn prepare_level(level: &mut LevelDef, catalog: &AssetCatalog, pack: Option<
 /// fronts, and skipped when it would be buried in a crossing wall or when an
 /// authored run already covers the same plane and span.
 fn generate_automatic_baseboards(level: &mut LevelDef, catalog: &AssetCatalog) -> usize {
+    level.baseboards.retain(|board| !board.generated);
+    let attached = super::trim::attached_baseboards(level);
     let authored_count = level.baseboards.len();
     let mut generated: Vec<BaseboardDef> = Vec::new();
-    let mut remaining = crate::engine::level::MAX_LEVEL_BASEBOARDS
-        .saturating_sub(u64::try_from(authored_count).unwrap_or(u64::MAX));
+    let mut remaining = crate::engine::level::MAX_LEVEL_BASEBOARDS.saturating_sub(
+        u64::try_from(authored_count.saturating_add(attached.len())).unwrap_or(u64::MAX),
+    );
     {
         let surfaces = LevelSurfaces::new(level);
         // `authored_count` was captured from this same array, so the prefix is
         // always present; the empty fallback only satisfies the no-slicing rule.
         let authored = level.baseboards.get(..authored_count).unwrap_or_default();
         for wall in &level.walls {
+            if wall.trim.is_some() {
+                continue;
+            }
             if remaining == 0 {
                 break;
             }
@@ -113,8 +119,9 @@ fn generate_automatic_baseboards(level: &mut LevelDef, catalog: &AssetCatalog) -
             );
         }
     }
-    let count = generated.len();
+    let count = generated.len().saturating_add(attached.len());
     level.baseboards.append(&mut generated);
+    level.baseboards.extend(attached);
     count
 }
 
@@ -195,6 +202,9 @@ fn generate_wall_baseboards(
         };
         for (low, high) in baseboard_segments(wall, length, along_positive) {
             let run = BaseboardDef {
+                generated: true,
+                miters: None,
+                uv_offset: low,
                 x: dx.mul_add(low, face.start.0),
                 z: dz.mul_add(low, face.start.1),
                 length: high - low,
@@ -264,9 +274,28 @@ fn baseboard_face_floor(
 /// positive length axis; the other faces measure their span from the far end.
 /// Spans ascend along the run.
 fn baseboard_segments(wall: &WallDef, length: f32, along_positive: bool) -> Vec<(f32, f32)> {
+    baseboard_segments_at(
+        wall,
+        length,
+        along_positive,
+        wall.y,
+        wall.y + BASEBOARD_DEFAULT_HEIGHT_M,
+    )
+}
+
+pub(super) fn baseboard_segments_at(
+    wall: &WallDef,
+    length: f32,
+    along_positive: bool,
+    bottom: f32,
+    top: f32,
+) -> Vec<(f32, f32)> {
     let mut spans = vec![(0.0, length)];
     for opening in &wall.openings {
-        if !opening.sill.is_finite() || opening.sill > BASEBOARD_DEFAULT_HEIGHT_M + 1.0e-3 {
+        if !opening.sill.is_finite()
+            || wall.y + opening.sill >= top - 1.0e-4
+            || wall.y + opening.sill + opening.height <= bottom + 1.0e-4
+        {
             continue;
         }
         let (low, high) = if along_positive {

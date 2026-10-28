@@ -912,6 +912,10 @@ impl App {
             12 => transform.roll_degrees = value,
             _ => return Err("Unknown transform field".into()),
         }
+        if matches!(id, super::document::ObjectId::Pillar(_)) && matches!(field, 3 | 5) {
+            transform.size[0] = value;
+            transform.size[2] = value;
+        }
         if matches!(id, super::document::ObjectId::Prop(_)) && (3..=5).contains(&field) {
             transform.size = [value; 3];
         }

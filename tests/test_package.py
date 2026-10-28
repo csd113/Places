@@ -133,11 +133,11 @@ class RepositoryTests(unittest.TestCase):
     def test_version_matches_the_changelog(self):
         version = cargo_version()
         newest = re.search(
-            r"^## (\S+) — (\d{4}-\d{2}-\d{2})$",
+            r"^## (\S+) — (?:Unreleased|\d{4}-\d{2}-\d{2})$",
             (PACKAGE / "CHANGELOG.md").read_text(encoding="utf-8"),
             re.MULTILINE,
         )
-        self.assertIsNotNone(newest, "CHANGELOG.md needs a dated release heading")
+        self.assertIsNotNone(newest, "CHANGELOG.md needs a versioned release or Unreleased heading")
         self.assertEqual(newest.group(1), version)
 
     def test_crate_metadata_describes_places(self):

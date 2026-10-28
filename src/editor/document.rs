@@ -15,7 +15,7 @@ pub(crate) mod room_resize;
 pub(super) use objects::array_mut as record_array_mut;
 pub(crate) mod intent;
 mod mounting;
-mod objects;
+pub(super) mod objects;
 mod persistence;
 mod project;
 mod scripts;
@@ -340,7 +340,10 @@ impl Document {
     pub fn set_material(&mut self, id: ObjectId, material: &str) -> Result<(), String> {
         if !matches!(
             id,
-            ObjectId::Room(_)
+            ObjectId::Column(_)
+                | ObjectId::Pillar(_)
+                | ObjectId::ArcWall(_)
+                | ObjectId::Room(_)
                 | ObjectId::Wall(_)
                 | ObjectId::Ramp(_)
                 | ObjectId::FloorRegion(_)

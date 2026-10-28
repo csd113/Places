@@ -82,6 +82,7 @@ pub(super) fn objects(
             .collect();
         result.push(PickObject::boxed(ObjectId::Wall(index), bounds, boxes));
     }
+    architecture_objects(level, &surfaces, &mut result);
     for (index, prop) in level.props.iter().enumerate() {
         let definition = catalog.get(&prop.model);
         let base = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
@@ -130,6 +131,49 @@ pub(super) fn objects(
     }
     gameplay_objects(level, catalog, assets, lighting, &mut result);
     result
+}
+
+fn architecture_objects(
+    level: &LevelDef,
+    surfaces: &LevelSurfaces<'_>,
+    result: &mut Vec<PickObject>,
+) {
+    for (index, column) in level.columns.iter().enumerate() {
+        if let Some(solid) = column.solid_box(surfaces) {
+            let bounds = Aabb {
+                min: solid.min,
+                max: solid.max,
+            };
+            result.push(PickObject::boxed(
+                ObjectId::Column(index),
+                bounds,
+                vec![bounds],
+            ));
+        }
+    }
+    for (id, solids) in level
+        .pillars
+        .iter()
+        .enumerate()
+        .map(|(i, p)| (ObjectId::Pillar(i), p.collision_boxes(surfaces)))
+        .chain(
+            level
+                .arc_walls
+                .iter()
+                .enumerate()
+                .map(|(i, p)| (ObjectId::ArcWall(i), p.collision_boxes(surfaces))),
+        )
+    {
+        let boxes: Vec<_> = solids
+            .into_iter()
+            .map(|solid| Aabb {
+                min: solid.min,
+                max: solid.max,
+            })
+            .collect();
+        let bounds = boxes.iter().fold(Aabb::EMPTY, |a, b| a.union(b));
+        result.push(PickObject::boxed(id, bounds, boxes));
+    }
 }
 
 fn gameplay_objects(

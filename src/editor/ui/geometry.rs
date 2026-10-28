@@ -23,14 +23,27 @@ pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &m
         Action::Author(crate::editor::authoring::Command::Hub),
         true,
     );
-    text(
-        v,
-        "Select a room for these connected-space tools:",
-        140.0,
-        146.0,
-        INK,
-        68,
-    );
+    for (x, label, tool) in [
+        (
+            140.0,
+            "Rectangular pillar",
+            crate::editor::authoring::Tool::Column,
+        ),
+        (
+            264.0,
+            "Circular pillar",
+            crate::editor::authoring::Tool::Pillar,
+        ),
+    ] {
+        button(
+            v,
+            hits,
+            [x, 146.0, 116.0, 11.0],
+            label,
+            Action::Author(crate::editor::authoring::Command::Create(tool)),
+            true,
+        );
+    }
     button(
         v,
         hits,
@@ -48,13 +61,15 @@ pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &m
         Action::Shape,
         floor,
     );
-    text(
+    button(
         v,
-        "Openings and upper floors use the selected footprint.",
-        140.0,
-        180.0,
-        MUTED,
-        68,
+        hits,
+        [140.0, 177.0, 240.0, 12.0],
+        "Automatic trim for wall selection >",
+        Action::Author(crate::editor::authoring::Command::Open(
+            crate::editor::authoring::Tool::WallTrim,
+        )),
+        matches!(app.selected, Some(ObjectId::Wall(_))),
     );
     button(
         v,

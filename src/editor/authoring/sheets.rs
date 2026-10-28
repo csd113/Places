@@ -31,10 +31,10 @@ pub(in crate::editor) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit
         draw_hub(v, hits);
         return;
     };
-    draw_form(draft, v, hits);
+    draw_form(app, draft, v, hits);
 }
 
-fn draw_form(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+fn draw_form(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     ui::text(
         v,
         &format!(
@@ -47,7 +47,9 @@ fn draw_form(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         ui::INK,
         85,
     );
-    {
+    if draft.tool == Tool::WallTrim && draft.page > 0 {
+        draw_wall_selection(app, draft, v, hits);
+    } else {
         for (index, (field, value)) in draft
             .fields
             .iter()
@@ -107,6 +109,11 @@ fn draw_form(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             v,
             if matches!(draft.tool, Tool::GlobalPatch | Tool::GlobalRegion) {
                 "GLOBAL: affects ALL overlapping storeys."
+            } else if matches!(
+                draft.tool,
+                Tool::Column | Tool::Pillar | Tool::ArcWall | Tool::WallTrim
+            ) {
+                "Click trim to cycle. Blank height follows ceiling."
             } else {
                 "Blank = automatic / omitted. Ctrl/Cmd A clears."
             },
@@ -123,7 +130,36 @@ fn draw_form(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     ] {
         ui::popup_button(v, hits, [x, 218.0, 105.0, 13.0], label, action);
     }
-    draw_navigation(draft, v, hits);
+    draw_form_navigation(app, draft, v, hits);
+}
+
+fn draw_form_navigation(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    if draft.tool == Tool::WallTrim {
+        let count = app
+            .document
+            .as_ref()
+            .map_or(0, |doc| doc.level().walls.len());
+        if draft.page > 0 {
+            ui::popup_button(
+                v,
+                hits,
+                [126.0, 180.0, 100.0, 12.0],
+                "< Settings / walls",
+                Action::Author(Command::Page(false)),
+            );
+        }
+        if draft.page.saturating_mul(6) < count {
+            ui::popup_button(
+                v,
+                hits,
+                [238.0, 180.0, 105.0, 12.0],
+                "Choose walls >",
+                Action::Author(Command::Page(true)),
+            );
+        }
+    } else {
+        draw_navigation(draft, v, hits, app.view.simple);
+    }
 }
 
 fn draw_hub(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
@@ -173,7 +209,7 @@ fn draw_hub(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     );
 }
 
-fn draw_navigation(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+fn draw_navigation(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, simple: bool) {
     if draft.page > 0 {
         ui::popup_button(
             v,
@@ -188,9 +224,16 @@ fn draw_navigation(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             v,
             hits,
             [180.0, 180.0, 48.0, 12.0],
-            "Page >",
+            if matches!(draft.tool, Tool::Column | Tool::Pillar) {
+                "Trim >"
+            } else {
+                "Page >"
+            },
             Action::Author(Command::Page(true)),
         );
+    }
+    if simple && matches!(draft.tool, Tool::Column | Tool::Pillar | Tool::ArcWall) {
+        return;
     }
     if !draft.tool.singleton() && !matches!(draft.tool, Tool::Ceiling | Tool::LocalFloor) {
         for (x, label, action) in [
@@ -288,4 +331,41 @@ fn draw_water_slice(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Ve
         "Switch X / Z slice",
         Action::Author(Command::Slice),
     );
+}
+
+fn draw_wall_selection(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    let Some(doc) = &app.document else { return };
+    let selection = draft
+        .fields
+        .iter()
+        .find(|(field, _)| field.path.as_ref() == "/wall_selection")
+        .map_or("", |(_, value)| value.as_str());
+    for (index, wall) in doc
+        .level()
+        .walls
+        .iter()
+        .enumerate()
+        .skip(draft.page.saturating_sub(1).saturating_mul(6))
+        .take(6)
+    {
+        let number = index.saturating_add(1);
+        let checked = selection
+            .split(',')
+            .filter_map(|part| part.trim().parse::<usize>().ok())
+            .any(|value| value == number);
+        let y = f32::from(u16::try_from(index % 6).unwrap_or(0)).mul_add(18.0, 66.0);
+        ui::popup_button(
+            v,
+            hits,
+            [126.0, y, 330.0, 14.0],
+            &format!(
+                "[{}] Wall {number} / X {:.2} Z {:.2} / {:.2}m",
+                if checked { "x" } else { " " },
+                wall.x,
+                wall.z,
+                wall.length()
+            ),
+            Action::Author(Command::ToggleWall(index)),
+        );
+    }
 }

@@ -528,6 +528,9 @@ pub(super) fn reference_bounds(level: &LevelDef, objects: &[ObjectId]) -> Option
                     max: [x1, floor + region.offset().max(0.0), z1],
                 }
             }),
+            ObjectId::Column(_) | ObjectId::Pillar(_) | ObjectId::ArcWall(_) => {
+                crate::editor::document::objects::architecture_bounds(level, *object)
+            }
             ObjectId::Light(_)
             | ObjectId::Audio(_)
             | ObjectId::Door(_)

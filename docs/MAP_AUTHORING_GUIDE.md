@@ -1988,6 +1988,35 @@ Rules that matter:
 
 ---
 
+
+**Saved trim attachments (0.13.1).** `walls[]`, `columns[]`, `pillars[]` and
+`arc_walls[]` may carry the same optional attachment:
+
+```json
+"trim": {
+  "placement": "both",
+  "height": 0.09,
+  "thickness": 0.018,
+  "material": "home:baseboard_white_01"
+}
+```
+
+`placement` is `none`, `bottom`, `top` or `both`. Height defaults to 0.09 m
+(accepted 0.01..1 m), thickness to 0.018 m (0.004..0.2 m), and an omitted
+material uses the owning surface material. Explicit `none` disables a wall's
+catalog skirting; an omitted attachment retains catalog-driven behavior.
+Attachments regenerate through the ordinary baseboard preparation shared by
+editor preview and compilation. Opening cuts use the actual selected vertical
+band. Fitted ends and single-owner caps prevent duplicate exposed joins; top
+bands have a visible underside. Unsupported surface fits are rejected with the
+owner named. See the [editor workflow and limits](EDITOR.md#pillars-and-automatic-trim-0131).
+
+Prepared baseboard records use `generated`, `miters` and `uv_offset` to identify
+replaceable output, fitted end planes and physical texture distance. Author
+attachments on their owners rather than copying prepared generated runs into
+editable source. Geometry revision 6 requires recompilation for the new fitting;
+no production package is rebuilt automatically.
+
 ### Arc walls and circular pillars
 
 Two data-authored primitives cover the curved vocabulary without any code

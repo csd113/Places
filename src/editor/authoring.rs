@@ -14,8 +14,10 @@ use std::borrow::Cow;
 pub(super) enum Command {
     Hub,
     Open(Tool),
+    Create(Tool),
     Field(usize),
     Page(bool),
+    ToggleWall(usize),
     Record(bool),
     New,
     Preview,
@@ -26,6 +28,10 @@ pub(super) enum Command {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Tool {
+    Column,
+    Pillar,
+    ArcWall,
+    WallTrim,
     Room,
     Ramp,
     Stairs,
@@ -81,6 +87,10 @@ const fn flag(path: &'static str, label: &'static str, default: &'static str) ->
 impl Tool {
     const fn title(self) -> &'static str {
         match self {
+            Self::Column => "Rectangular pillar",
+            Self::Pillar => "Circular pillar",
+            Self::ArcWall => "Curved wall",
+            Self::WallTrim => "Automatic wall trim",
             Self::Room => "New Room",
             Self::Ramp => "Ramp",
             Self::Stairs => "Staircase",
@@ -99,6 +109,10 @@ impl Tool {
     }
     const fn collection(self) -> &'static str {
         match self {
+            Self::Column => "columns",
+            Self::Pillar => "pillars",
+            Self::ArcWall => "arc_walls",
+            Self::WallTrim => "walls",
             Self::Ramp => "ramps",
             Self::Stairs => "stairs",
             Self::Rail => "guardrails",
@@ -116,8 +130,75 @@ impl Tool {
     const fn singleton(self) -> bool {
         matches!(self, Self::Sky | Self::Weather)
     }
+    fn pillar_fields(self) -> Vec<Field> {
+        let mut fields = vec![
+            number(
+                "/x",
+                if self == Self::Column {
+                    "X / minimum corner"
+                } else {
+                    "Centre X"
+                },
+                "0",
+            ),
+            number(
+                "/z",
+                if self == Self::Column {
+                    "Z / minimum corner"
+                } else {
+                    "Centre Z"
+                },
+                "0",
+            ),
+        ];
+        if self == Self::Column {
+            fields.extend([
+                number("/width", "Width m", "0.6"),
+                number("/depth", "Depth m", "0.6"),
+            ]);
+        } else {
+            fields.extend([
+                number("/radius", "Radius m", "0.35"),
+                number("/segments", "Segments 3..128", "32"),
+            ]);
+        }
+        fields.extend([
+            number("/y", "Base Y / blank = floor", ""),
+            number("/height", "Height / blank = ceiling", ""),
+            text(
+                "/material",
+                "Wall material / catalog ID",
+                "core:wallpaper_yellow_01",
+            ),
+        ]);
+        if self == Self::ArcWall {
+            fields.extend([
+                number("/thickness", "Wall thickness m", "0.2"),
+                number("/start_degrees", "Start degrees", "0"),
+                number("/sweep_degrees", "Signed sweep degrees", "90"),
+            ]);
+        }
+        fields.extend(trim_fields());
+        fields
+    }
     fn fields(self) -> Vec<Field> {
         match self {
+            Self::Column | Self::Pillar | Self::ArcWall => self.pillar_fields(),
+            Self::WallTrim => {
+                let mut fields = vec![text(
+                    "/wall_selection",
+                    "Wall numbers (comma separated)",
+                    "1",
+                )];
+                fields.extend(trim_fields());
+                if let Some(field) = fields
+                    .iter_mut()
+                    .find(|field| field.path.as_ref() == "/trim/placement")
+                {
+                    field.default = "bottom";
+                }
+                fields
+            }
             Self::Room => room_fields(),
             Self::Route => vec![
                 text("/id", "Actor instance ID", ""),
@@ -157,28 +238,7 @@ impl Tool {
                 text("/material", "Rail material", ""),
                 text("/post_material", "Post material", ""),
             ],
-            Self::Water => vec![
-                number("/x", "X", "0"),
-                number("/z", "Z", "0"),
-                number("/width", "Width m / blank circle", "2"),
-                number("/depth", "Depth m / blank circle", "2"),
-                number("/surface_y", "World surface Y", "-0.2"),
-                number("/bottom_y", "World bottom Y / auto", ""),
-                flag("/swimming", "Swimming", "true"),
-                number("/opacity", "Opacity / material", ""),
-                text("/material", "Surface material", ""),
-                number("/attenuation_per_metre", "Absorption per m", "0"),
-                text("/shape", "Shape: rect / circle", "rect"),
-                number("/radius", "Circle radius / blank rect", ""),
-                number("/motion/speed", "Ripple speed (0 holds)", "1"),
-                number("/motion/strength", "Ripple strength 0..1", "0.35"),
-                number("/motion/flow_speed", "Current m/s (0 still)", "0"),
-                number(
-                    "/motion/direction_degrees",
-                    "Flow yaw: 0 north, 90 east",
-                    "0",
-                ),
-            ],
+            Self::Water => water_fields(),
             Self::Sky | Self::Weather | Self::Sun => self.environment_fields(),
             Self::Ceiling => vec![
                 text("/ceiling/kind", "Ceiling: flat / open", "flat"),
@@ -267,7 +327,11 @@ impl Tool {
                 flag("/bake", "Bake", "true"),
                 number("/angular_size_degrees", "Angular size degrees", "0.5"),
             ],
-            Self::Ramp
+            Self::Column
+            | Self::Pillar
+            | Self::ArcWall
+            | Self::WallTrim
+            | Self::Ramp
             | Self::Stairs
             | Self::Rail
             | Self::Water
@@ -280,6 +344,64 @@ impl Tool {
             | Self::Room => Vec::new(),
         }
     }
+}
+
+fn water_fields() -> Vec<Field> {
+    vec![
+        number("/x", "X", "0"),
+        number("/z", "Z", "0"),
+        number("/width", "Width m / blank circle", "2"),
+        number("/depth", "Depth m / blank circle", "2"),
+        number("/surface_y", "World surface Y", "-0.2"),
+        number("/bottom_y", "World bottom Y / auto", ""),
+        flag("/swimming", "Swimming", "true"),
+        number("/opacity", "Opacity / material", ""),
+        text("/material", "Surface material", ""),
+        number("/attenuation_per_metre", "Absorption per m", "0"),
+        text("/shape", "Shape: rect / circle", "rect"),
+        number("/radius", "Circle radius / blank rect", ""),
+        number("/motion/speed", "Ripple speed (0 holds)", "1"),
+        number("/motion/strength", "Ripple strength 0..1", "0.35"),
+        number("/motion/flow_speed", "Current m/s (0 still)", "0"),
+        number(
+            "/motion/direction_degrees",
+            "Flow yaw: 0 north, 90 east",
+            "0",
+        ),
+    ]
+}
+
+fn trim_fields() -> Vec<Field> {
+    vec![
+        text(
+            "/trim/placement",
+            "Trim: none / bottom / top / both",
+            "none",
+        ),
+        number("/trim/height", "Trim height m", "0.09"),
+        number("/trim/thickness", "Trim thickness m", "0.018"),
+        text(
+            "/trim/material",
+            "Trim material / catalog ID",
+            "home:baseboard_white_01",
+        ),
+    ]
+}
+
+fn form_index(
+    app: &App,
+    tool: Tool,
+    requested: Option<usize>,
+    collection: Option<&Value>,
+) -> Result<usize, String> {
+    Ok(if matches!(tool, Tool::Ceiling | Tool::LocalFloor) {
+        let Some(super::document::ObjectId::Room(room_index)) = app.selected else {
+            return Err("Select the owning room first".into());
+        };
+        room_index
+    } else {
+        requested.unwrap_or_else(|| collection.and_then(Value::as_array).map_or(0, Vec::len))
+    })
 }
 
 pub(super) struct Draft {
@@ -299,14 +421,7 @@ impl Draft {
         let doc = app.document.as_ref().ok_or("Open a project first")?;
         let raw = doc.raw();
         let collection = raw.get(tool.collection());
-        let index = if matches!(tool, Tool::Ceiling | Tool::LocalFloor) {
-            let Some(super::document::ObjectId::Room(room_index)) = app.selected else {
-                return Err("Select the owning room first".into());
-            };
-            room_index
-        } else {
-            requested.unwrap_or_else(|| collection.and_then(Value::as_array).map_or(0, Vec::len))
-        };
+        let index = form_index(app, tool, requested, collection)?;
         let mut original = if tool.singleton() {
             collection.filter(|value| !value.is_null())
         } else {
@@ -327,6 +442,13 @@ impl Draft {
             original = Some(
                 serde_json::json!({"id":id,"loop":false,"steps":[{"step":"move_to","x":prop.x,"z":prop.z,"speed":0.5_f32}]}),
             );
+        }
+        if matches!(tool, Tool::Column | Tool::Pillar | Tool::ArcWall) && original.is_none() {
+            let [x, _, z] = app.viewport.target();
+            original = Some(serde_json::json!({"x":x,"z":z}));
+        }
+        if tool == Tool::WallTrim && original.is_none() {
+            return Err("Select a wall before opening Automatic trim".into());
         }
         if tool == Tool::Room && original.is_none() {
             original = Some(default_room(app, doc));
@@ -372,7 +494,13 @@ impl Draft {
                         .map_or_else(|| value.to_string(), str::to_owned)
                 },
             );
-            fields.push((field, content));
+            let field_content =
+                if tool == Tool::WallTrim && field.path.as_ref() == "/wall_selection" {
+                    index.saturating_add(1).to_string()
+                } else {
+                    content
+                };
+            fields.push((field, field_content));
         }
         Ok(Self {
             tool,
@@ -389,6 +517,31 @@ impl Draft {
             expected: raw.clone(),
             original,
         })
+    }
+    fn toggle_wall(&mut self, index: usize) {
+        if self.tool != Tool::WallTrim {
+            return;
+        }
+        if let Some((_, value)) = self
+            .fields
+            .iter_mut()
+            .find(|(field, _)| field.path.as_ref() == "/wall_selection")
+        {
+            let number = index.saturating_add(1);
+            let mut selected: std::collections::BTreeSet<usize> = value
+                .split(',')
+                .filter_map(|part| part.trim().parse().ok())
+                .collect();
+            if !selected.remove(&number) {
+                let _inserted = selected.insert(number);
+            }
+            *value = selected
+                .iter()
+                .map(usize::to_string)
+                .collect::<Vec<_>>()
+                .join(",");
+            self.preview = false;
+        }
     }
     fn record(&self) -> Result<Value, String> {
         let mut record = if self.tool == Tool::LocalFloor {
@@ -449,7 +602,39 @@ impl Draft {
         if doc.raw() != &self.expected {
             return Err("Scene changed; reopen the authoring form".into());
         }
-        let record = self.record()?;
+        let mut record = self.record()?;
+        if self.tool == Tool::WallTrim {
+            let selection = record
+                .as_object_mut()
+                .ok_or("Invalid trim draft")?
+                .remove("wall_selection")
+                .ok_or("Choose wall numbers")?;
+            let indices: std::collections::BTreeSet<usize> = selection
+                .as_str()
+                .ok_or("Enter comma separated wall numbers")?
+                .split(',')
+                .map(|part| {
+                    part.trim()
+                        .parse::<usize>()
+                        .ok()
+                        .and_then(|i| i.checked_sub(1))
+                        .ok_or_else(|| {
+                            "Use wall numbers from the scene list, for example 1,3,4".to_string()
+                        })
+                })
+                .collect::<Result<_, _>>()?;
+            let trim = record.get("trim").cloned().ok_or("Choose trim placement")?;
+            let mut raw = self.expected.clone();
+            let walls = super::document::record_array_mut(&mut raw, "walls")?;
+            for index in indices {
+                let wall = walls
+                    .get_mut(index)
+                    .and_then(Value::as_object_mut)
+                    .ok_or("A selected wall no longer exists")?;
+                drop(wall.insert("trim".into(), trim.clone()));
+            }
+            return Ok(raw);
+        }
         if self.tool == Tool::LocalFloor {
             return doc.local_floor_candidate(self.index, &record);
         }
@@ -520,11 +705,23 @@ impl App {
     pub(super) fn authoring_action(&mut self, action: Action) -> Result<bool, String> {
         match action {
             Action::Author(Command::Hub) => self.popup = Some(Popup::Authoring),
+            Action::Author(Command::Create(tool)) => {
+                self.popup = Some(Popup::AuthoringForm(Box::new(Draft::new(
+                    self, tool, None,
+                )?)));
+            }
             Action::Author(Command::Open(tool)) => {
+                let index = match (tool, self.selected) {
+                    (Tool::Column, Some(super::document::ObjectId::Column(i)))
+                    | (Tool::Pillar, Some(super::document::ObjectId::Pillar(i)))
+                    | (Tool::ArcWall, Some(super::document::ObjectId::ArcWall(i)))
+                    | (Tool::WallTrim, Some(super::document::ObjectId::Wall(i))) => i,
+                    _ => 0,
+                };
                 self.popup = Some(Popup::AuthoringForm(Box::new(Draft::new(
                     self,
                     tool,
-                    Some(0),
+                    Some(index),
                 )?)));
             }
             Action::Author(Command::Slice) => {
@@ -534,8 +731,26 @@ impl App {
             }
             Action::Author(Command::Field(index)) => {
                 if let Some(Popup::AuthoringForm(draft)) = &mut self.popup {
-                    draft.active = Some(index);
+                    if let Some((field, value)) = draft.fields.get_mut(index)
+                        && field.path.as_ref() == "/trim/placement"
+                    {
+                        *value = match value.as_str() {
+                            "none" => "bottom",
+                            "bottom" => "top",
+                            "top" => "both",
+                            _ => "none",
+                        }
+                        .into();
+                        draft.active = None;
+                    } else {
+                        draft.active = Some(index);
+                    }
                     draft.preview = false;
+                }
+            }
+            Action::Author(Command::ToggleWall(index)) => {
+                if let Some(Popup::AuthoringForm(draft)) = &mut self.popup {
+                    draft.toggle_wall(index);
                 }
             }
             Action::Author(Command::Page(next)) => {
@@ -612,15 +827,38 @@ impl App {
             }
         }
         if apply {
-            if draft.tool == Tool::Room {
-                self.selected = Some(super::document::ObjectId::Room(draft.index));
-            }
             self.viewport
                 .set_environment_preview(draft.environment_before);
             self.document
                 .as_mut()
                 .ok_or("Open a project first")?
                 .apply_authoring_edit(&draft.expected, raw)?;
+            match draft.tool {
+                Tool::Room => self.selected = Some(super::document::ObjectId::Room(draft.index)),
+                Tool::Column => {
+                    self.selected = Some(super::document::ObjectId::Column(draft.index));
+                }
+                Tool::Pillar => {
+                    self.selected = Some(super::document::ObjectId::Pillar(draft.index));
+                }
+                Tool::ArcWall => {
+                    self.selected = Some(super::document::ObjectId::ArcWall(draft.index));
+                }
+                Tool::WallTrim
+                | Tool::Ramp
+                | Tool::Stairs
+                | Tool::Rail
+                | Tool::Water
+                | Tool::Sky
+                | Tool::Weather
+                | Tool::Sun
+                | Tool::Ceiling
+                | Tool::AcousticMaterial
+                | Tool::LocalFloor
+                | Tool::GlobalPatch
+                | Tool::GlobalRegion
+                | Tool::Route => {}
+            }
             self.popup = None;
             self.changed();
             self.status = "Authored record applied. Undo restores the entire edit.".into();
@@ -696,7 +934,10 @@ impl App {
         let Some(Popup::AuthoringForm(draft)) = &self.popup else {
             return Ok(());
         };
-        if matches!(draft.tool, Tool::Ceiling | Tool::LocalFloor) {
+        if matches!(
+            draft.tool,
+            Tool::Ceiling | Tool::LocalFloor | Tool::WallTrim
+        ) {
             return Err("Use scene Delete for a room".into());
         }
         let mut raw = draft.expected.clone();

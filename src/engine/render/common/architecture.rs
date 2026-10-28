@@ -16,7 +16,7 @@
 //!   a ceiling or a wall face, so trim and architecture share the tiling of the
 //!   surfaces they stand against;
 //! * static surfaces are stamped into the lightmap atlas through
-//!   [`stamp_lightmap_quad`]; only the vertex-lit fallback samples the bake per
+//!   [`super::stamp_lightmap_quad`]; only the vertex-lit fallback samples the bake per
 //!   corner, exactly like the wall emitter.
 //!
 //! The pieces that physically exist are also the pieces collision and the
@@ -30,7 +30,7 @@ use super::geometry::{EmitContext, WALL_BOTTOM_GRADIENT, WALL_TOP_GRADIENT};
 use super::{
     LitSurface, MaterialSlot, SMOOTH_NORMAL, SurfaceKey, Vertex, WALL_FACE_EAST_MULT,
     WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, add_quad,
-    emit_lit_surface_grid, lit_surface_grid, shade, stamp_lightmap_quad, tiled_uv,
+    emit_lit_surface_grid, lit_surface_grid, shade, tiled_uv,
 };
 use crate::engine::level::{
     ArcWallDef, ArchwayDef, BaseboardDef, BaseboardUvProjection, ColumnDef, GuardrailDef,
@@ -354,7 +354,15 @@ fn emit_face_inner(
     } else {
         None
     };
-    stamp_lightmap_quad(context.lightmap, scratch, 0, face.kind, points, room);
+    super::contact::stamp(
+        context.contacts,
+        context.lightmap,
+        scratch,
+        0,
+        face.kind,
+        room,
+        context.trim_owner,
+    );
     buckets.add_quads(face.key, scratch);
 }
 
@@ -567,6 +575,7 @@ fn emit_ramp_surface(
         PatchKind::Floor,
         Some(room_index),
         context.lightmap,
+        Some(context.contacts),
     );
     buckets.add_quads(key, scratch);
 }
@@ -1555,8 +1564,8 @@ fn emit_column(
         piece.material_ref(),
         piece.material_ref(),
         piece.cap_ref(),
-        (boxed.max[1] - ceiling).abs() <= FLUSH_EPS_M,
-        boxed.min[1] - floor > 0.02,
+        (boxed.max[1] - ceiling).abs() <= 1.0e-4,
+        boxed.min[1] - floor > 1.0e-4,
     );
     emit_box(context, buckets, scratch, (boxed.min, boxed.max), keys);
 }
@@ -1840,7 +1849,7 @@ fn emit_arc_wall(
         // ceiling height — so it never fights the ceiling; a wall authored
         // above or clearly below the ceiling keeps its cap.
         let cap_tile = context.materials.tile_metres(keys.cap);
-        if (top_mid - ceiling_mid).abs() > FLUSH_EPS_M {
+        if (top_mid - ceiling_mid).abs() > 1.0e-4 {
             let mut top_cap_points = [
                 [p_in0.0, top0, p_in0.1],
                 [p_in1.0, top1, p_in1.1],
@@ -2112,7 +2121,7 @@ fn emit_pillar(
     // authored as the ceiling height: an exact plane match would fight the
     // ceiling surface (the square-column rule).
     let ceiling = context.surfaces.ceiling_y_at(piece.x, piece.z);
-    if (top - ceiling).abs() > FLUSH_EPS_M {
+    if (top - ceiling).abs() > 1.0e-4 {
         for index in 0..segments {
             let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
             let fraction0 = index_f / count;
@@ -3174,10 +3183,17 @@ fn other_cap_planes(other: &BaseboardDef, board: &BaseboardDef) -> [BaseboardPla
         n_across: n.0.mul_add(ax, n.1 * az),
         offset: n.0.mul_add(corner.0 - board.x, n.1 * (corner.1 - board.z)),
     };
+    let [start_miter, end_miter] = other.miters.unwrap_or([0.0; 2]);
     [
-        plane((odx, odz), (other.x, other.z)),
         plane(
-            (-odx, -odz),
+            (
+                (-start_miter).mul_add(oax, odx),
+                (-start_miter).mul_add(oaz, odz),
+            ),
+            (other.x, other.z),
+        ),
+        plane(
+            (end_miter.mul_add(oax, -odx), end_miter.mul_add(oaz, -odz)),
             (odx.mul_add(run, other.x), odz.mul_add(run, other.z)),
         ),
         plane((oax, oaz), (other.x, other.z)),
@@ -3392,12 +3408,16 @@ fn baseboard_uv(
     reason = "one trim-aware emitter with its three faces"
 )] // one trim-aware emitter with its three faces
 fn emit_baseboard(
-    context: &EmitContext<'_, '_>,
+    parent_context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
     scratch: &mut Vec<Vertex>,
     index: usize,
     board: &BaseboardDef,
 ) {
+    let context = &EmitContext {
+        trim_owner: Some(index),
+        ..*parent_context
+    };
     if !board.length.is_finite()
         || board.length <= 0.0
         || !board.x.is_finite()
@@ -3433,11 +3453,12 @@ fn emit_baseboard(
     // hidden inside it.
     let start_joint = baseboard_joint(context.level, index, board, context.surfaces, true);
     let end_joint = baseboard_joint(context.level, index, board, context.surfaces, false);
+    let (front_start, front_end) = board.span_at(thickness);
     let mut cap_pieces: Vec<Vec<[f32; 2]>> = vec![vec![
         [0.0, 0.0],
         [run, 0.0],
-        [run, thickness],
-        [0.0, thickness],
+        [front_end, thickness],
+        [front_start, thickness],
     ]];
     let mut front_gaps: Vec<(f32, f32)> = Vec::new();
     let mut trim_start = start_joint.joined;
@@ -3466,7 +3487,7 @@ fn emit_baseboard(
     cap_pieces.retain(|piece| polygon_area(piece) > 1.0e-5);
 
     // The front face: the run's full length minus every covered interval.
-    let mut spans: Vec<(f32, f32)> = vec![(0.0, run)];
+    let mut spans: Vec<(f32, f32)> = vec![(front_start, front_end)];
     for (gap_low, gap_high) in front_gaps {
         let mut next: Vec<(f32, f32)> = Vec::new();
         for (low, high) in spans {
@@ -3500,7 +3521,7 @@ fn emit_baseboard(
                 [along, across, y],
                 uv_base,
                 tile,
-                tiled_uv(along, top - y, tile),
+                tiled_uv(along + board.uv_offset, top - y, tile),
             )
         });
         emit_local_face(
@@ -3518,85 +3539,100 @@ fn emit_baseboard(
         );
     }
 
-    // Keep a parallelogram cap in one chart. Triangulating it creates unused
-    // chart regions beyond each triangle and introduces a diagonal lighting
-    // interpolation boundary across an otherwise continuous strip.
-    // Irregular clipped pieces still need the triangle fan below.
-    for piece in &cap_pieces {
-        if let [p0, p1, p2, p3] = piece.as_slice() {
-            let parallelogram = p0
-                .iter()
-                .zip(p1)
-                .zip(p2)
-                .zip(p3)
-                .all(|(((&a, &b), &c), &d)| ((b - a) + (d - c)).abs() <= 1.0e-6);
-            if parallelogram {
-                let locals = [*p0, *p1, *p2, *p3].map(|[along, across]| [along, across, top]);
-                let uv = locals.map(|[along, across, y]| {
-                    baseboard_uv(
-                        board.uv_projection,
-                        &frame,
-                        [along, across, y],
-                        uv_base,
-                        tile,
-                        tiled_uv(along, across, tile),
-                    )
-                });
-                emit_local_face(
-                    context,
-                    buckets,
-                    scratch,
-                    key,
-                    PatchKind::Wall,
-                    &frame,
-                    locals,
-                    uv,
-                    [0.0, 1.0, 0.0],
-                    false,
-                    true,
-                );
-                continue;
-            }
-        }
-        let mut iter = piece.iter();
-        let Some(first) = iter.next().copied() else {
+    let (mid_x, mid_z) = board.point_at(0.5, thickness * 0.5);
+    let ceiling = context.surfaces.ceiling_y_at(mid_x, mid_z);
+    let floor = context.surfaces.floor_y_at(mid_x, mid_z);
+    for (cap_y, up) in [(top, true), (base, false)] {
+        if (up && (top - ceiling).abs() < 1.0e-4)
+            || (!up && floor.is_some_and(|y| (base - y).abs() < 1.0e-4))
+        {
             continue;
-        };
-        let mut previous = first;
-        for point in iter {
-            if triangle_area_2d(first, previous, *point) > 1.0e-5 {
-                let [fx, fz] = first;
-                let [px, pz] = previous;
-                let [qx, qz] = *point;
-                let locals = [[fx, fz, top], [px, pz, top], [qx, qz, top], [qx, qz, top]];
-                let uv = locals.map(|[along, across, y]| {
-                    baseboard_uv(
-                        board.uv_projection,
+        }
+        let cap_normal = [0.0, if up { 1.0 } else { -1.0 }, 0.0];
+        // Keep a parallelogram cap in one chart. Triangulating it creates unused
+        // chart regions beyond each triangle and introduces a diagonal lighting
+        // interpolation boundary across an otherwise continuous strip.
+        // Irregular clipped pieces still need the triangle fan below.
+        for piece in &cap_pieces {
+            if let [p0, p1, p2, p3] = piece.as_slice() {
+                let parallelogram = p0
+                    .iter()
+                    .zip(p1)
+                    .zip(p2)
+                    .zip(p3)
+                    .all(|(((&a, &b), &c), &d)| ((b - a) + (d - c)).abs() <= 1.0e-6);
+                if parallelogram {
+                    let locals = [*p0, *p1, *p2, *p3].map(|[along, across]| [along, across, cap_y]);
+                    let uv = locals.map(|[along, across, y]| {
+                        baseboard_uv(
+                            board.uv_projection,
+                            &frame,
+                            [along, across, y],
+                            uv_base,
+                            tile,
+                            tiled_uv(along + board.uv_offset, across, tile),
+                        )
+                    });
+                    emit_local_face(
+                        context,
+                        buckets,
+                        scratch,
+                        key,
+                        PatchKind::Wall,
                         &frame,
-                        [along, across, y],
-                        uv_base,
-                        tile,
-                        tiled_uv(along, across, tile),
-                    )
-                });
-                emit_local_face(
-                    context,
-                    buckets,
-                    scratch,
-                    key,
-                    PatchKind::Wall,
-                    &frame,
-                    locals,
-                    uv,
-                    [0.0, 1.0, 0.0],
-                    false,
-                    true,
-                );
+                        locals,
+                        uv,
+                        cap_normal,
+                        false,
+                        up,
+                    );
+                    continue;
+                }
             }
-            previous = *point;
+            let mut iter = piece.iter();
+            let Some(first) = iter.next().copied() else {
+                continue;
+            };
+            let mut previous = first;
+            for point in iter {
+                if triangle_area_2d(first, previous, *point) > 1.0e-5 {
+                    let [fx, fz] = first;
+                    let [px, pz] = previous;
+                    let [qx, qz] = *point;
+                    let locals = [
+                        [fx, fz, cap_y],
+                        [px, pz, cap_y],
+                        [qx, qz, cap_y],
+                        [qx, qz, cap_y],
+                    ];
+                    let uv = locals.map(|[along, across, y]| {
+                        baseboard_uv(
+                            board.uv_projection,
+                            &frame,
+                            [along, across, y],
+                            uv_base,
+                            tile,
+                            tiled_uv(along + board.uv_offset, across, tile),
+                        )
+                    });
+                    emit_local_face(
+                        context,
+                        buckets,
+                        scratch,
+                        key,
+                        PatchKind::Wall,
+                        &frame,
+                        locals,
+                        uv,
+                        cap_normal,
+                        false,
+                        up,
+                    );
+                }
+                previous = *point;
+            }
         }
     }
-
     // The ends, unless the joint's other run already closes them or the end
     // butts flush against a perpendicular wall's face — drawing the end face
     // there would put a second surface on the wall's own plane, which is
@@ -3607,8 +3643,16 @@ fn emit_baseboard(
         }
         let locals = [
             [at, 0.0, base],
-            [at, thickness, base],
-            [at, thickness, top],
+            [
+                if at == 0.0 { front_start } else { front_end },
+                thickness,
+                base,
+            ],
+            [
+                if at == 0.0 { front_start } else { front_end },
+                thickness,
+                top,
+            ],
             [at, 0.0, top],
         ];
         let uv = locals.map(|[along, across, y]| {

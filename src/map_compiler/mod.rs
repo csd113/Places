@@ -47,6 +47,7 @@ mod project_cache;
 mod project_spool;
 pub mod source;
 mod storage;
+pub mod trim;
 
 pub use application::run;
 pub use source::prepare_level;

@@ -30,7 +30,10 @@ impl Document {
                 drop(template.insert("shadow_only".into(), value));
                 return self.accept_edit(raw);
             }
-            ObjectId::Room(_)
+            ObjectId::Column(_)
+            | ObjectId::Pillar(_)
+            | ObjectId::ArcWall(_)
+            | ObjectId::Room(_)
             | ObjectId::Wall(_)
             | ObjectId::Ramp(_)
             | ObjectId::FloorRegion(_)

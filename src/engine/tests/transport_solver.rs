@@ -205,3 +205,60 @@ fn cancelled_parallel_solver_does_not_publish_partial_receiver_batches() -> Resu
     );
     Ok(())
 }
+
+// Essential contact regression: clipping creates triangular floor/ceiling charts.
+// Their third edge must choose the owning air side without suppressing a real
+// touching wall. A few CPU rays, no bake, files, assets or GPU.
+#[test]
+fn triangular_contact_receivers_choose_air_and_preserve_touching_wall_shadows() -> Result<(), String>
+{
+    let corners = [
+        [4.0, 3.0, 4.0],
+        [5.0, 3.0, 4.0],
+        [4.0, 3.0, 5.0],
+        [4.0, 3.0, 5.0],
+    ];
+    let patch = LightmapPatch::from_quad(PatchKind::Ceiling, corners, None).ok_or("patch")?;
+    let wall = [
+        [5.0, 0.0, 4.0],
+        [4.0, 0.0, 5.0],
+        [4.0, 3.0, 5.0],
+        [5.0, 3.0, 4.0],
+    ];
+    let scene = TransportScene::new(
+        vec![
+            TransportTriangle::new(wall[0], wall[1], wall[2], [0.5; 3]).ok_or("wall")?,
+            TransportTriangle::new(wall[0], wall[2], wall[3], [0.5; 3]).ok_or("wall")?,
+        ],
+        Vec::new(),
+    )
+    .ok_or("scene")?;
+    for (u, v) in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (0.5, 0.5), (1.0, 1.0)] {
+        let origin = receiver_ray_origin(&patch, u, v, [0.0, -1.0, 0.0]);
+        let local = patch.local_of(origin);
+        assert!(
+            local.0 > 0.0 && local.1 > 0.0 && local.0 + local.1 < 1.0,
+            "all three boundaries choose this triangle's interior, including its reflected half"
+        );
+        assert!(
+            length(sub(origin, patch.point_at(u, v))) < 0.0001,
+            "the correction is rounding separation, not a visible lighting bias"
+        );
+    }
+    let origin = receiver_ray_origin(&patch, 0.5, 0.5, [0.0, -1.0, 0.0]);
+    assert!(
+        !scene.occluded(origin, [4.3, 2.0, 4.3]),
+        "the exposed side receives its light"
+    );
+    assert!(
+        scene.occluded(origin, [4.8, 2.0, 4.8]),
+        "a real touching wall still occludes"
+    );
+    let interior = receiver_ray_origin(&patch, 0.25, 0.25, [0.0, -1.0, 0.0]);
+    assert_eq!(
+        interior,
+        receiver_position(patch.point_at(0.25, 0.25), [0.0, -1.0, 0.0]),
+        "interior receivers retain their physical origin"
+    );
+    Ok(())
+}

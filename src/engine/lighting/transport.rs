@@ -215,7 +215,7 @@ pub fn solver_fingerprint() -> u64 {
 }
 
 /// Current pre-release solver revision; superseded layouts require recompilation.
-pub const SOLVER_REVISION: u64 = 1;
+pub const SOLVER_REVISION: u64 = 2;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -1196,6 +1196,10 @@ fn receiver_ray_origin(patch: &LightmapPatch, u: f32, v: f32, normal: [f32; 3]) 
         .iter()
         .fold(1.0_f32, |scale, value| scale.max(value.abs()));
     let inset = 2.0 * SURFACE_OFFSET_M * magnitude;
+    if patch.is_triangular() {
+        let (inner_u, inner_v) = triangle_receiver_uv(patch, u, v, inset);
+        return receiver_position(patch.point_at(inner_u, inner_v), normal);
+    }
     let (width, height) = patch.extent_m();
     let inset_axis = |coordinate: f32, extent: f32| {
         if extent > 0.0 {
@@ -1208,6 +1212,39 @@ fn receiver_ray_origin(patch: &LightmapPatch, u: f32, v: f32, normal: [f32; 3]) 
     receiver_position(
         patch.point_at(inset_axis(u, width), inset_axis(v, height)),
         normal,
+    )
+}
+
+/// All three triangle edges own an air side, including the chart diagonal.
+/// Use physical edge altitudes so acute clipped corners get the same rounding
+/// separation as rectangular charts. Interior samples retain their location.
+fn triangle_receiver_uv(patch: &LightmapPatch, u: f32, v: f32, inset: f32) -> (f32, f32) {
+    let (mut unit_u, mut unit_v) = (u.clamp(0.0, 1.0), v.clamp(0.0, 1.0));
+    if unit_u + unit_v > 1.0 {
+        (unit_u, unit_v) = (1.0 - unit_v, 1.0 - unit_u);
+    }
+    let area = length(cross3(patch.u_axis, patch.v_axis));
+    let opposite_edges = [
+        length(sub(patch.v_axis, patch.u_axis)),
+        length(patch.v_axis),
+        length(patch.u_axis),
+    ];
+    let weights = [1.0 - unit_u - unit_v, unit_u, unit_v];
+    let toward_centre =
+        weights
+            .into_iter()
+            .zip(opposite_edges)
+            .fold(0.0_f32, |amount, (weight, edge)| {
+                let margin = (inset * edge / area).min(0.25);
+                if weight < margin {
+                    amount.max((margin - weight) / (1.0 / 3.0 - weight))
+                } else {
+                    amount
+                }
+            });
+    (
+        (1.0 / 3.0 - unit_u).mul_add(toward_centre, unit_u),
+        (1.0 / 3.0 - unit_v).mul_add(toward_centre, unit_v),
     )
 }
 

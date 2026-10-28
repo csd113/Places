@@ -7,8 +7,8 @@ use crate::engine::level::WallAxis;
 use crate::engine::render::Vertex;
 
 pub(in crate::editor) fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
-    let ramp = matches!(app.selected, Some(ObjectId::Ramp(_)));
     let region = matches!(app.selected, Some(ObjectId::FloorRegion(_)));
+    let circle = matches!(app.selected, Some(ObjectId::Pillar(_)));
     let prop = matches!(app.selected, Some(ObjectId::Prop(_)));
     let marker = matches!(
         app.selected,
@@ -19,21 +19,17 @@ pub(in crate::editor) fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: 
         Some(ObjectId::Trigger(_) | ObjectId::FogRegion(_) | ObjectId::GroundFog(_))
     );
     text(vertices, heading(app), 5.0, 131.0, ACCENT, 25);
-    if app.selected.is_some() && !matches!(app.selected, Some(ObjectId::Room(_))) {
+    if app.selected.is_some() {
+        let room = matches!(app.selected, Some(ObjectId::Room(_)));
         button(
             vertices,
             hits,
-            [67.0, 128.0, 40.0, 10.0],
-            "Pose >",
-            Action::Transform,
-            true,
-        );
-    }
-    if matches!(app.selected, Some(ObjectId::Room(_))) {
-        button(
-            vertices,
-            hits,
-            [64.0, 128.0, 43.0, 10.0],
+            [
+                if room { 64.0 } else { 67.0 },
+                128.0,
+                if room { 43.0 } else { 40.0 },
+                10.0,
+            ],
             "Pose >",
             Action::Transform,
             true,
@@ -43,40 +39,11 @@ pub(in crate::editor) fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: 
         .selected
         .and_then(|id| app.document.as_ref()?.transform(id).ok())
     {
-        let [pos_x, pos_y, pos_z] = transform.position;
-        let [width, height, depth] = transform.size;
-        let fields = [
-            (0, "X", pos_x),
-            (
-                1,
-                if ramp || region {
-                    "Offset"
-                } else if prop {
-                    "Y local"
-                } else {
-                    "Y"
-                },
-                pos_y,
-            ),
-            (2, "Z", pos_z),
-            (3, if prop { "Scale" } else { "Width" }, width),
-            (4, if ramp { "Rise" } else { "Height" }, height),
-            (
-                5,
-                if matches!(app.selected, Some(ObjectId::Door(_))) {
-                    "Thick"
-                } else {
-                    "Depth"
-                },
-                depth,
-            ),
-            (6, if ramp { "Turn" } else { "Yaw" }, transform.yaw_degrees),
-            (11, "Pitch", transform.pitch_degrees),
-            (12, "Roll", transform.roll_degrees),
-        ];
+        let fields = transform_fields(app.selected, transform);
         let mut row = 0_u16;
         for (index, label, value) in fields {
-            if (prop && matches!(index, 4 | 5))
+            if (circle && matches!(index, 5 | 6))
+                || (prop && matches!(index, 4 | 5))
                 || (region && matches!(index, 4 | 6))
                 || (!prop && matches!(index, 11 | 12))
                 || (marker && (3..=5).contains(&index))
@@ -107,6 +74,57 @@ pub(in crate::editor) fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: 
     }
 }
 
+const fn transform_fields(
+    id: Option<ObjectId>,
+    pose: crate::editor::document::Transform,
+) -> [(usize, &'static str, f32); 9] {
+    let ramp = matches!(id, Some(ObjectId::Ramp(_)));
+    let region = matches!(id, Some(ObjectId::FloorRegion(_)));
+    let prop = matches!(id, Some(ObjectId::Prop(_)));
+    let circle = matches!(id, Some(ObjectId::Pillar(_)));
+    let [pos_x, pos_y, pos_z] = pose.position;
+    let [width, height, depth] = pose.size;
+    [
+        (0, "X", pos_x),
+        (
+            1,
+            if ramp || region {
+                "Offset"
+            } else if prop {
+                "Y local"
+            } else {
+                "Y"
+            },
+            pos_y,
+        ),
+        (2, "Z", pos_z),
+        (
+            3,
+            if prop {
+                "Scale"
+            } else if circle {
+                "Diameter"
+            } else {
+                "Width"
+            },
+            width,
+        ),
+        (4, if ramp { "Rise" } else { "Height" }, height),
+        (
+            5,
+            if matches!(id, Some(ObjectId::Door(_))) {
+                "Thick"
+            } else {
+                "Depth"
+            },
+            depth,
+        ),
+        (6, if ramp { "Turn" } else { "Yaw" }, pose.yaw_degrees),
+        (11, "Pitch", pose.pitch_degrees),
+        (12, "Roll", pose.roll_degrees),
+    ]
+}
+
 fn heading(app: &App) -> &'static str {
     match app.selected {
         Some(ObjectId::Ramp(index)) => app
@@ -119,6 +137,9 @@ fn heading(app: &App) -> &'static str {
                 (WallAxis::Z, true) => "RAMP / UP +Z",
                 (WallAxis::Z, false) => "RAMP / UP -Z",
             }),
+        Some(ObjectId::Column(_)) => "RECTANGULAR PILLAR",
+        Some(ObjectId::Pillar(_)) => "CIRCULAR PILLAR / CENTRE",
+        Some(ObjectId::ArcWall(_)) => "CURVED WALL / CENTRE",
         Some(ObjectId::FloorRegion(_)) => "REGION / SURFACE Y",
         Some(ObjectId::Light(_)) => "LIGHT / MOUNT PLANE",
         Some(ObjectId::Audio(_)) => "SOUND / POSITION",

@@ -605,3 +605,64 @@ Disable it before deleting a member, changing circuit membership/stable IDs or
 changing Casts light; then reapply with the new arrangement. Editor metadata
 `editor_flicker` records settings, members and source ownership without renaming
 instance IDs or changing the package format. Blank/custom scripts remain available.
+
+
+## Pillars and automatic trim (0.13.1)
+
+Open **Geometry** (Simple mode: **Rooms / stairs**) and choose **Rectangular
+pillar** or **Circular pillar**. The first sheet edits useful dimensions and
+position. Rectangles use a minimum X/Z corner; circles use their centre and one
+radius. Blank base Y follows the floor and blank height follows the ceiling.
+Use **Trim >** for the wall material, trim placement and trim settings. Click
+placement to cycle **none / bottom / top / both**. Defaults are 9 cm high and
+18 mm thick with the installed white baseboard material.
+
+After Apply, **Pillar >** reopens the selected shape's sheet. **Material** opens
+the existing visual catalog browser for its wall finish. Pose/drag, Copy,
+Delete, Undo/Redo and Save use the ordinary document paths. Circular transforms
+expose one diameter; rectangular footprint rotations use quarter turns.
+Simple mode omits record-navigation/delete controls from the pillar sheet;
+Advanced retains the existing detailed authoring controls.
+
+Select a wall and choose **Auto trim >** (also available from Geometry). Bottom
+is the default. **Choose walls >** opens a paged checklist; the settings show
+the chosen wall numbers and accept direct number entry too. Preview leaves
+source/history unchanged; Apply commits the whole wall set in one undo step.
+Repeated Apply and later geometry changes regenerate the saved attachments,
+including walls moved/stretched by the existing room-edge tool. New walls follow
+the local ceiling by default. Manual baseboard runs remain in the same system.
+When an attached band coincides with a saved manual run, the manual run keeps
+visible-face ownership; coincident fronts and caps are drawn once.
+
+Inspect a preview from several angles. Use **Preview: Lighting** before opening
+the sheet when checking illumination, then check the compiled game as well.
+Ceiling bands include their visible underside and omit the cap coplanar with a
+flat ceiling. Pillar/curve bands follow the primitive's actual segmented polygon;
+straight walls and trim lose buried fragments at their junctions. Texture distance
+continues around the perimeter instead of restarting at every segment.
+
+Floor and ceiling lightmap charts also exclude the footprints hidden inside
+walls, pillars and trim. This fixes a thin dark line that could look like a gap
+at a bare wall-floor contact: hidden occluded samples no longer interpolate onto
+the exposed edge. The same correction applies with trim present; light values,
+shadow casting and the authored contact positions are retained.
+Clipped triangular charts select the owning air side at all three edges with
+rounding-scale separation, including their diagonal edge. A touching opaque wall
+continues to block light; this does not add a geometric shadow bias.
+
+Floor bands require a continuous flat floor contact. Wall/curve ceiling bands
+require a flat closed ceiling; shorter pillar capitals can use an explicit post
+height. Steps, sloping/open roof fits, incomplete support and excessive miters
+receive a named error before Apply. These tools preserve authored geometry and
+do not straighten intentional distortion. Trim remains decorative; the existing
+pillar/wall solids provide collision and baked occlusion.
+
+The existing Frame command uses bounding-box distance and can place its camera
+outside a nearby outer wall. Zoom/orbit inside before judging a close contact;
+that general camera behavior is outside this trim phase.
+
+The small native validation source is
+[`editor_trim_contacts.json`](../tests/fixtures/levels/editor_trim_contacts.json).
+It includes bare and trimmed wall-floor contacts, both pillar shapes, all four
+band choices, a straight wall entering a circular pillar, and an angled arc
+junction. Production maps are not inputs to ordinary tests.

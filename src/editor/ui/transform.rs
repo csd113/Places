@@ -27,6 +27,9 @@ pub(in crate::editor) fn draw(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec
     .into_iter()
     .enumerate()
     {
+        if matches!(draft.id, ObjectId::Pillar(_)) && matches!(index, 5 | 6) {
+            continue;
+        }
         if matches!(draft.id, ObjectId::Prop(_)) && matches!(index, 4 | 5) {
             continue;
         }
@@ -39,6 +42,8 @@ pub(in crate::editor) fn draw(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec
         let y = f32::from(row).mul_add(30.0, 87.0);
         let field_label = if index == 3 && matches!(draft.id, ObjectId::Prop(_)) {
             "Scale"
+        } else if index == 3 && matches!(draft.id, ObjectId::Pillar(_)) {
+            "Diameter"
         } else if index == 4 && matches!(draft.id, ObjectId::Ramp(_)) {
             "Rise"
         } else {
