@@ -1,5 +1,15 @@
 ## 0.13.1 — Unreleased
 
+Phase 5 adds contextual light-circuit selection/painting and one-step switch
+assignment, native power that composes with existing flicker and prepared Full
+illumination, and cancellable non-final room/region transport previews. Local
+previews retain outside lights/occluders and invalidate on edits without writing
+final exports or bake caches. Conservative CPU work reductions preserve exact
+physical output on bounded matched fixtures. Measured compiler/GPU investigation,
+quality evidence, native lifecycle validation and limits are recorded in
+[the phase-5 report](docs/reports/release-0.13.1.md#phase-5-circuits-compiler-investigation-and-local-lighting-preview).
+GPU transport remains experimental; production uses the accepted CPU solver.
+
 First editor phase: rectangular and circular pillar creation and fitted automatic
 trim, using the existing engine primitives and baseboard preparation.
 
