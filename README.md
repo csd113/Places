@@ -67,12 +67,14 @@ changed in Settings; Escape always pauses.
 
 ## About this version
 
-**Places 0.13.0** is a staging candidate. Native validation covers Windows x64 with Direct3D 12
-and macOS arm64 with Metal. The [release report](docs/reports/release-0.13.0.md) records
-integrated acceptance and remaining platform, performance and delivery limits.
-No 0.13.0 release or tag has been published.
+**Places 0.13.1** is the development version on `0.13.1-dev`.
+The shareable [0.13.0 Windows prerelease](https://github.com/csd113/Places/releases/tag/v0.13.0) includes the game,
+editor, compiler, runtime dependencies/assets and seven prepared project packages.
+Native 0.13.0 validation covers Windows x64/Direct3D 12 and macOS arm64/Metal.
+The [release report](docs/reports/release-0.13.0.md) records exact acceptance and
+remaining platform, performance and delivery limits.
 
-The Windows candidate includes the game EXE, native editor, offline compiler,
+The 0.13.0 Windows prerelease includes the game EXE, native editor, offline compiler,
 dependencies, runtime assets, an always-bundled live menu scene and all seven
 approved project packages, including the nine-map Quiet Collection.
 See [portable installation](docs/INSTALLATION.md#windows-portable-game-and-authoring-tools)

@@ -1,5 +1,5 @@
 {
-  "version": "0.13.0",
+  "version": "0.13.1",
   "projects": [
     {"source": "projects/backrooms", "package": "backrooms.placesmap"},
     {"source": "projects/environments", "package": "environments.placesmap"},

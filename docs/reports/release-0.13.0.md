@@ -11161,3 +11161,29 @@ remain outside target. The guarded Cargo cleanup records:
 verification passes **4,200 preserved files /
 7,282,808,958 logical bytes**, with zero differences. Final
 delivery/hosted-CI/writer-custody status is retained in `FINAL-HANDOFF.json`.
+
+
+## Prerelease publication and development handoff (2026-10-28)
+
+[Places 0.13.0 Windows prerelease](https://github.com/csd113/Places/releases/tag/v0.13.0) is published with exactly three
+verified assets. Annotated tag `v0.13.0` and remote main resolve to the validated
+commit `b24361755e15c1a96d5b56d115499b9d4a9ef07f`. The closing
+[CI run](https://github.com/csd113/Places/actions/runs/40600373906) passes all
+18 steps, 362 Rust tests and 369 Python tests (16 optional/platform skips).
+
+The Windows ZIP is 978,508,389 bytes, SHA256
+`0a25b0690c2f2e691d0357377f1883b9bd51be28298ef60d1930d74c3b0fe608`.
+All three uploaded asset names, sizes and GitHub SHA256 digests match the final
+upload inventory. The seven embedded maps total 764,661,973 bytes. The download also
+provides release notes and SHA256SUMS.txt; no private evidence or Annex package
+was uploaded. The corrected three-asset release supersedes the earlier ten-file
+prepared upload inventory; standalone map outputs are retained locally. Release-note links are pinned to the validated source commit.
+
+After publication, `0.13.1-dev` was created/pushed from updated main and verified
+before the fully merged old local/remote `0.13.0-staging` branch was deleted.
+The version-only development change updates Cargo/lock/release-inventory version
+to 0.13.1 and uses focused metadata, formatting and consistency checks. Existing
+game/editor/compiler displays derive from CARGO_PKG_VERSION. Published 0.13.0
+binaries and prepared maps remain unchanged; this handoff implements no editor
+queue features. Detailed publication, server digest and branch receipts remain
+under `C:/Users/Connor Dawkins/Documents/Codex/2026-10-27/task/rc-evidence/publication`.

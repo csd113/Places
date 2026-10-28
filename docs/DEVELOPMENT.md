@@ -93,8 +93,8 @@ visible rows for the background choice. Internal members remain available to
 For Windows distribution, use `python tools/package-windows.py --with-editor`
 with explicit runtime DLL/license and map-directory inputs; see
 [installation](INSTALLATION.md#windows-portable-game-and-authoring-tools).
-`tools/release-projects.json` is the complete seven-project 0.13.0 release
-inventory; it excludes Relay Annex and development fixtures. The curated lineup
+`tools/release-projects.json` is the authoritative seven-project release
+inventory retained for 0.13.1 development; it excludes Relay Annex and development fixtures. The curated lineup
 below is intentionally smaller and does not define the release upload inventory.
 
 To author the optional curated content, run `sh tools/build-maps.sh --workers 8`.
@@ -187,9 +187,8 @@ python3 tools/assets/validate.py
 ```
 
 The 0.11.0 cleanup removed the previous broad Rust test suite. The essential CPU
-regression suite now runs with `cargo test --workspace`; the 0.13.0 final gate
-contains 245 tests. New tests
-must meet the essential regression-value, ownership/discovery and proportional
+regression suite runs with `cargo test --workspace`; the canonical release report
+records each closed version's platform-specific gate counts. New tests must meet the essential regression-value, ownership/discovery and proportional
 cost requirements in `AGENTS.md`; ordinary CI never bakes full maps. Runtime
 validation, security checks and explicit native diagnostics remain active.
 
@@ -253,3 +252,7 @@ transitions, focus loss and zero-world-time carry control through a direct nativ
 executable. Supply the existing developer-console fixture package; the tool never
 builds or bakes. Captures, action scripts, traces, saved settings, hashes and
 assertion receipts stay outside automatic Rust/CI execution.
+
+The published 0.13.0 outputs stay pinned to `v0.13.0`. A development-version
+change updates compiler preparation identity; use the matching released compiler
+for release currentness checks. Do not rebuild published artifacts for a version bump.

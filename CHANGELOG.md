@@ -1,6 +1,10 @@
-## 0.13.0 — 2026-10-21
+## 0.13.1 — Unreleased
 
-Staging candidate; no release or tag has been published. The approved queue fixes
+Development version for the next approved editor phase.
+
+## 0.13.0 — 2026-10-28
+
+Windows prerelease [published on 2026-10-28](https://github.com/csd113/Places/releases/tag/v0.13.0). The approved queue fixes
 shared collision, recovery, lighting invalidation and resource ownership defects;
 adds bounded visual editor browsers, per-level bake planning, solid generated
 stairs and structural floors/ramps; improves audio authoring and persistent master
@@ -17,8 +21,8 @@ not stand up automatically; generated stairs support the documented straight-flo
 The Windows portable ZIP includes the actual player, editor, compiler, runtime
 dependencies/assets and seven freshly prepared editable project archives. Relay
 Annex and development fixtures are excluded from downloads. Release notes and
-the exact artifact/checksum inventory accompany the candidate; publication,
-tagging and the main merge remain separate final actions.
+the exact artifact/checksum inventory accompany the prerelease. The validated
+candidate is tagged `v0.13.0` and merged to main; development uses `0.13.1-dev`.
 
 ## 0.12.0 — 2026-10-18
 
