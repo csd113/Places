@@ -1,5 +1,12 @@
 ## 0.13.1 — Unreleased
 
+Independent phase-6 audio groundwork reserves HVAC hum for one spatial voice
+near explicitly tagged fixed duct props, with falloff and world-reset cleanup;
+standalone sound authoring no longer creates global HVAC. The cloud asset bundle
+is still blocked at supported Windows transfer, so no new models are installed
+and existing maps currently have quiet HVAC. Validation and remaining work:
+[phase-6 partial report](docs/reports/release-0.13.1.md#phase-6-audio-groundwork-assets-blocked).
+
 Phase 5 adds contextual light-circuit selection/painting and one-step switch
 assignment, native power that composes with existing flicker and prepared Full
 illumination, and cancellable non-final room/region transport previews. Local

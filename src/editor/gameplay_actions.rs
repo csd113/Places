@@ -345,7 +345,7 @@ impl App {
         }
         let asset = match kind {
             ObjectKind::Light => Some("core:fluorescent_panel_01"),
-            ObjectKind::Audio => Some("ambience_hvac"),
+            ObjectKind::Audio => Some("empty_room"),
             ObjectKind::Entity | ObjectKind::SpawnPoint => Some("mannequin"),
             ObjectKind::Room
             | ObjectKind::Wall

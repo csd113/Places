@@ -1,13 +1,21 @@
 //! Gameplay policy over the reusable mixer. Cue selection never reaches SDL.
 
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 
 use super::FrameLoop;
 use crate::engine::audio::{
     AudioBus, AudioSettings, AudioSystem, Listener, PlayRequest, SourceId, TimeDomain,
 };
 use crate::engine::door::DoorPhase;
+use crate::engine::level::{LevelDef, LevelSurfaces};
+use crate::engine::loader::PropCatalog;
 use crate::engine::physics::SurfaceMaterial;
+
+#[cfg(test)]
+#[path = "../tests/audio_environment.rs"]
+mod tests;
+
+const HVAC_CUE: &str = "ambience_hvac";
 
 pub(super) struct Audio {
     pub system: AudioSystem,
@@ -21,7 +29,8 @@ pub(super) struct Audio {
     environment_ready: bool,
     fluorescents: Vec<(usize, Vec3, bool)>,
     pools: Vec<crate::engine::level::WaterVolumeDef>,
-    environment: [EnvironmentLoop; 3],
+    ducts: Vec<DuctSource>,
+    environment: [EnvironmentLoop; 4],
 }
 
 struct DoorState {
@@ -47,6 +56,7 @@ impl Audio {
             environment_ready: false,
             fluorescents: Vec::new(),
             pools: Vec::new(),
+            ducts: Vec::new(),
             environment: std::array::from_fn(|_| EnvironmentLoop::default()),
         }
     }
@@ -56,6 +66,7 @@ impl Audio {
         self.environment_ready = false;
         self.fluorescents.clear();
         self.pools.clear();
+        self.ducts.clear();
         self.environment = std::array::from_fn(|_| EnvironmentLoop::default());
         self.doors.clear();
         self.last_feet = None;
@@ -75,7 +86,8 @@ impl Audio {
 
     fn prepare_environment(
         &mut self,
-        level: &crate::engine::level::LevelDef,
+        level: &LevelDef,
+        catalog: &PropCatalog,
         states: &[(usize, bool)],
     ) {
         let surfaces = crate::engine::level::LevelSurfaces::new(level);
@@ -108,13 +120,14 @@ impl Audio {
             })
             .collect();
         self.pools.clone_from(&level.water);
+        self.ducts = duct_sources(level, catalog);
         self.system
             .set_acoustic_scene(crate::engine::audio::acoustics::AcousticScene::build(level));
         self.environment_ready = true;
     }
 
     fn update_environment(&mut self, listener: Vec3, delta: f32) {
-        // One voice per family, irrespective of fixture/pool count. Nearest
+        // One voice per family, irrespective of fixture/pool/duct count. Nearest
         // points and preallocated controls avoid per-frame vectors or restarts.
         let fluorescent = nearest(
             listener,
@@ -127,11 +140,15 @@ impl Audio {
             self.pools.iter().map(|water| water_point(water, listener)),
         );
         let room = nearest(listener, fluorescent.into_iter().chain(pool));
+        let duct = nearest(
+            listener,
+            self.ducts.iter().map(|duct| duct.nearest(listener)),
+        );
         for ((voice, spec), candidate) in
             self.environment
                 .iter_mut()
                 .zip(ENVIRONMENT)
-                .zip([fluorescent, pool, room])
+                .zip([fluorescent, pool, room, duct])
         {
             let target =
                 candidate.filter(|point| point.distance_squared(listener) < spec.far * spec.far);
@@ -139,11 +156,15 @@ impl Audio {
             voice.gain =
                 (if target.is_some() { 1.0 } else { 0.0 } - voice.gain).mul_add(blend, voice.gain);
             if let Some(position) = target {
-                voice.position = Some(
+                voice.position = Some(if spec.cue == HVAC_CUE {
+                    // Never sweep the sound anchor through empty space
+                    // when the nearest duct changes.
+                    position
+                } else {
                     voice
                         .position
-                        .map_or(position, |old| old.lerp(position, blend)),
-                );
+                        .map_or(position, |old| old.lerp(position, blend))
+                });
             }
             if !voice.active
                 && let Some(position) = target
@@ -260,8 +281,11 @@ impl FrameLoop<'_> {
             && let Some(loaded) = self.current_level.as_ref()
         {
             if !self.audio.environment_ready {
-                self.audio
-                    .prepare_environment(&loaded.level, &self.game.light_states());
+                self.audio.prepare_environment(
+                    &loaded.level,
+                    &loaded.catalog,
+                    &self.game.light_states(),
+                );
             }
             if self.simulation_active() {
                 self.audio
@@ -422,15 +446,18 @@ impl FrameLoop<'_> {
         gain: f32,
         time_domain: TimeDomain,
     ) {
-        let played = self.audio.system.play(
-            cue,
-            PlayRequest {
-                position,
-                gain,
-                time_domain,
-                ..PlayRequest::default()
-            },
-        );
+        // HVAC is owned by the one nearby-duct environment voice. Legacy
+        // generic requests must not reintroduce global or stacked hum.
+        let played = cue != HVAC_CUE
+            && self.audio.system.play(
+                cue,
+                PlayRequest {
+                    position,
+                    gain,
+                    time_domain,
+                    ..PlayRequest::default()
+                },
+            );
         if self.bench.enabled() {
             self.trace.record("audio_cue", self.load_generation, &serde_json::json!({"cue":cue,"position":position.map(|point| point.to_array()),"gain":gain,"played":played}).to_string());
         }
@@ -446,23 +473,26 @@ impl FrameLoop<'_> {
     ) {
         let position = source_position(entity, self.game.entities(), &self.items);
         let spatial = self.game.entities().audio_source_spatial(entity);
-        let played = self.audio.system.play(
-            sound,
-            PlayRequest {
-                source: Some(SourceId(entity)),
-                attenuation: self.game.entities().audio_source_attenuation(entity),
-                position,
-                spatial,
-                gain,
-                looping: Some(looping),
-                time_domain,
-                bus: if looping || spatial == Some(false) {
-                    AudioBus::Ambient
-                } else {
-                    AudioBus::Effects
+        // Existing room/vending emitters retain their authored identity and
+        // actions, but HVAC playback is derived only from placed duct stock.
+        let played = sound != HVAC_CUE
+            && self.audio.system.play(
+                sound,
+                PlayRequest {
+                    source: Some(SourceId(entity)),
+                    attenuation: self.game.entities().audio_source_attenuation(entity),
+                    position,
+                    spatial,
+                    gain,
+                    looping: Some(looping),
+                    time_domain,
+                    bus: if looping || spatial == Some(false) {
+                        AudioBus::Ambient
+                    } else {
+                        AudioBus::Effects
+                    },
                 },
-            },
-        );
+            );
         if self.bench.enabled() {
             self.trace.record("audio_authored", self.load_generation, &serde_json::json!({"source":entity,"cue":sound,"position":position.map(|point| point.to_array()),"looping":looping,"played":played}).to_string());
         }
@@ -518,9 +548,9 @@ struct EnvironmentSpec {
     near: f32,
     far: f32,
 }
-// Engine entity keys occupy the regular identity space. These three private
+// Engine entity keys occupy the regular identity space. These four private
 // application sources are resolved here instead of the authored-entity seam.
-const ENVIRONMENT: [EnvironmentSpec; 3] = [
+const ENVIRONMENT: [EnvironmentSpec; 4] = [
     EnvironmentSpec {
         cue: "fluorescent_buzz",
         source: SourceId(u64::MAX),
@@ -539,7 +569,54 @@ const ENVIRONMENT: [EnvironmentSpec; 3] = [
         near: 4.0,
         far: 18.0,
     },
+    EnvironmentSpec {
+        cue: HVAC_CUE,
+        source: SourceId(u64::MAX - 3),
+        near: 0.75,
+        far: 8.0,
+    },
 ];
+
+/// Immutable acoustic envelope using the same transform as the rendered stock.
+/// The fitted box handles either horizontal direction and vertical up/down.
+struct DuctSource {
+    transform: Mat4,
+    inverse: Mat4,
+    minimum: Vec3,
+    maximum: Vec3,
+}
+
+impl DuctSource {
+    fn nearest(&self, listener: Vec3) -> Vec3 {
+        let local = self.inverse.transform_point3(listener);
+        self.transform
+            .transform_point3(local.clamp(self.minimum, self.maximum))
+    }
+}
+
+fn duct_sources(level: &LevelDef, catalog: &PropCatalog) -> Vec<DuctSource> {
+    let surfaces = LevelSurfaces::new(level);
+    level
+        .props
+        .iter()
+        .filter_map(|prop| {
+            let entry = catalog.assets().placeable(&prop.model)?;
+            if prop.is_physics_movable() || !entry.tags.iter().any(|tag| tag == "hvac-duct") {
+                return None;
+            }
+            let [width, height, depth] = entry.size?;
+            let transform =
+                prop.placement_matrix(surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0));
+            let inverse = transform.inverse();
+            (transform.is_finite() && inverse.is_finite()).then_some(DuctSource {
+                transform,
+                inverse,
+                minimum: Vec3::new(-width * 0.5, 0.0, -depth * 0.5),
+                maximum: Vec3::new(width * 0.5, height, depth * 0.5),
+            })
+        })
+        .collect()
+}
 
 fn nearest(listener: Vec3, points: impl Iterator<Item = Vec3>) -> Option<Vec3> {
     points.min_by(|a, b| {

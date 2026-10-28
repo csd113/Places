@@ -486,6 +486,7 @@ fn create_app(
         prop: "core:chair".into(),
         sound_cues: crate::engine::audio::AudioCatalog::load(paths::assets()?)?
             .cue_ids()
+            .filter(|cue| *cue != "ambience_hvac")
             .map(str::to_string)
             .collect(),
         preview_audio: crate::engine::audio::AudioSystem::new(paths::assets()?, sdl),

@@ -276,7 +276,7 @@ pub(super) fn add(
         ),
         ObjectKind::Audio => (
             "sound_emitters",
-            json!({"id":id,"x":x,"y":y,"z":z,"sound":asset.unwrap_or("ambience_hvac"),"gain":1.0_f32,"looped":true,"playing":true,"spatial":false}),
+            json!({"id":id,"x":x,"y":y,"z":z,"sound":asset.unwrap_or("empty_room"),"gain":1.0_f32,"looped":true,"playing":true,"spatial":true}),
             ObjectId::Audio,
         ),
         ObjectKind::SpawnPoint => {

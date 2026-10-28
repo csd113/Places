@@ -369,3 +369,89 @@ retain the exact evidence. Accepted artifacts and supporting helpers are sealed
 by a SHA-256 inventory outside target before Cargo cleanup. Actual Mac validation,
 full production rebaking/cross-platform closing and final FPS attribution remain
 later. No HVAC/assets, prefab, runtime water/stair/draw-distance work was absorbed.
+
+## Phase 6 audio groundwork (assets blocked)
+
+The independent audio portion is implemented. Fixed props whose catalog entry
+explicitly carries the existing `hvac-duct` tag supply transformed acoustic
+envelopes. The player selects one nearest envelope for the entire family, using
+a 0.75 m near distance and squared falloff to an 8 m cutoff. Duplicate modules
+cannot stack voices. Catalog dimensions follow the rendered scale and
+yaw/pitch/roll, independently of collision-size overrides. A changed nearest
+duct moves the anchor directly to the real envelope; gain fades smoothly.
+World reset and map changes clear all derived duct anchors and voices.
+
+The player reserves `ambience_hvac` for this owner, so existing standalone and
+prop-attached room/vending requests cannot produce global or duplicate hum.
+The standalone sound picker excludes that automatic bed; new Audio placements
+default to positional `empty_room`. Other audio controls and cue files retain
+their existing contracts. No production catalog entry is tagged yet: existing
+maps therefore have quiet HVAC until the actual duct assets are adopted.
+
+### Independent Razer acceptance
+
+Formatting, strict debug/release workspace/all-target/all-feature Clippy and the
+locked release workspace/all-feature build pass with Rust/Cargo 1.99.1.
+All 377 Rust tests pass serially. The first parallel run had one existing bowling
+Luau wall-time-budget failure; that exact case passes in isolation and the full
+serialized rerun passes without changing budgets or scripts. The new tiny CPU
+control protects six horizontal/vertical rotations, elevated floors, collision
+override independence, duplicate candidates, untagged props and empty rebuilding.
+
+The source Python campaign ran 369 checks with 18 expected skips. Its three
+packaging cases initially reported six subtest/process errors because this
+process lacked `sh` on PATH. Their focused six-test module passes (three expected
+skips) using the already-installed Git shell on process-local PATH; no host
+setting or test changed. All other source cases passed. Asset validation reports
+644 assets, zero warnings; audio, texture and prop checks pass with unchanged
+texture/prop preferred-budget advisories. No imagery, model bytes or budgets
+were changed.
+
+Two real native Windows/Dx12 runs pass 15 assertions using the unchanged crate as
+an explicitly labelled stand-in and a private catalog tag. All three tiny
+Static control packages pass integrity/current-source verification. Native
+observations establish a single spatial voice near the stock, reduced gain at
+distance, no far voice, restart on return, one voice for four overlapping
+90-degree stock placements, and clearing after loading the source with no stock.
+Three obsolete global emitters stay silent without stock. Captured no-stock
+post-mixer PCM has exactly zero RMS; the mixed locality run has RMS 0.0036864.
+
+Both runs report zero mixer/device errors. The developer WAV queue discarded
+startup frames before the first observation (58,112 / 61,696); the locality
+counter stays unchanged across every measured step. Captures prove actual stored
+post-mixer samples, not an uninterrupted recording or human listening perception.
+The retained native screenshot was inspected and shows the existing crate.
+These 960x600, Fifo observations make no FPS or delivered-HVAC visual claim.
+The accepted executable/DLL set, source snapshots, control sources/packages,
+recipes, WAVs, traces, initial failed runs and hashes remain under
+`local/verification-0.13.1-hvac-audio/`. The receipt records commit/remote/custody.
+
+### Bundle transfer blocker and remaining work
+
+The approved Library bundle
+`libfile_df3ab6e82cb081918279130cc6c4cb55`,
+`Places_0.13.1_Utility_HVAC_Cloud_Assets.zip` v0 (45,317,941 bytes), has expected
+SHA-256 `97f78cef00a4a234fd1b89a3c3613238ce5f19b30f624a6665f22044754119ae`.
+The current supported Library helper downloaded on retry but failed before
+atomic installation at `os.setxattr`, which Windows Python lacks. There is no
+installed WSL distribution or Docker/Podman runtime. No installation, security
+change, patched/no-op metadata, raw URL download or further transfer retry was
+attempted. This is an unavailable supported transfer route, not an approval
+denial. No consumer-local archive exists and its hash has NOT been verified here.
+
+The smallest unblock is a supported Windows-compatible Library materialization
+preserving identity/metadata, or an available supported executor-local Linux
+route. The cloud-authored models must not be remade on the Razer.
+
+Actual bundle QA pixels, import/catalog/material/collision integration,
+connector/snapping/joins, functional doors, fixture/circuit anchors, complete
+editor placement/preview/Play/save/reopen validation and source/export acceptance
+remain undone. Existing `janitor:janitor_cart` and supplies remain registered
+without duplicates; their phase-6 native visual confirmation is still pending.
+No new accepted-model ledger entry or editable Blender/GIMP master was adopted.
+Measure the installed plus new unique decoded images before choosing the
+authorized pack-budget increase. Phase 6 remains incomplete.
+
+Phase 5 GitHub CI run 40681947328 completed successfully. Production maps,
+protected main/v0.13.0, host settings and later queued work remain outside this
+independent audio change.

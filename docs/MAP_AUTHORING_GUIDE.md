@@ -9530,3 +9530,23 @@ to intersecting charts in a four-metre halo. Preview density/bounces/samples dif
 from final Full and moving-object probes are omitted. They never replace saved
 sources, final exports or shipped bake caches; final Build/Play retains its existing
 quality and validation contract. See [the editor controls](EDITOR.md#light-circuits-and-local-preview-0131).
+
+### Decorative duct audio ownership (0.13.1)
+
+Fixed catalog props explicitly tagged `hvac-duct` provide the HVAC acoustic
+surfaces. The player uses their catalog dimensions and ordinary placement
+transform (floor offset, scale, yaw/pitch/roll and optional fit), rather than
+an enlarged collision override. Movable physics items are excluded.
+One nearest-surface voice covers the complete duct family; overlapping modules
+do not stack. It has a 0.75 m near distance, squared falloff and an 8 m cutoff.
+The anchor switches directly between real envelopes; only gain fades.
+World reset/map change clears derived envelopes and the voice.
+
+`ambience_hvac` is reserved for that player-owned duct voice. Generic authored
+audio requests for it do not create separate room/global voices. New standalone
+Audio objects instead default to positional `empty_room`; the standalone cue
+picker excludes the automatic HVAC bed. Its explicit, three-second samples
+remain listener-centred. Decorative ducts are separate from traversable crouch-tunnel construction geometry.
+
+The asset bundle's catalog adoption and native acceptance are recorded separately
+in the release report; this contract does not claim those models are installed.
