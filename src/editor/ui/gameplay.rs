@@ -22,6 +22,7 @@ pub(in crate::editor) fn create_popup(vertices: &mut Vec<Vertex>, hits: &mut Vec
         65,
     );
     for (index, (label, kind)) in [
+        ("Static prop (catalog)", ObjectKind::Prop),
         ("Light fixture", ObjectKind::Light),
         ("Ambient / positional sound", ObjectKind::Audio),
         ("Entity", ObjectKind::Entity),
@@ -34,7 +35,7 @@ pub(in crate::editor) fn create_popup(vertices: &mut Vec<Vertex>, hits: &mut Vec
     .into_iter()
     .enumerate()
     {
-        let y = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(12.0, 96.0);
+        let y = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(11.0, 90.0);
         button(
             vertices,
             hits,

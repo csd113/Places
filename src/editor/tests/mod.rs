@@ -18,3 +18,5 @@ mod flicker;
 mod trim;
 
 mod wall_workflow;
+
+mod utility_lights;

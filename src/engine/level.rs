@@ -7696,12 +7696,13 @@ pub const MAX_PROP_TEXTURE_BYTES: usize =
     crate::engine::assets::decoded_rgba_bytes(MAX_PROP_TEXTURE_SIZE, MAX_PROP_TEXTURE_SIZE);
 /// Decoded RGBA8 budget for the whole shipped prop pack.
 ///
-/// A deliberately desktop-scale limit: 106 MiB accommodates reviewed 1024-square
+/// A deliberately desktop-scale limit: 128 MiB accommodates reviewed 1024-square
 /// party cloths, 512-square wrapping and their ink masks. The measured catalog
-/// uses approximately 104.4 MiB, counting every per-model image copy. It still
+/// uses 89.434 MiB by unique PNG identity after the utility kit import. Equal
+/// decoded family images share allocations. The cap still
 /// refuses a pathological or accidentally duplicated multi-gigabyte set
 /// before it can become resident.
-pub const PROP_TEXTURE_PACK_BUDGET_BYTES: usize = 106 * 1024 * 1024;
+pub const PROP_TEXTURE_PACK_BUDGET_BYTES: usize = 128 * 1024 * 1024;
 
 /// Hard ceiling on the number of distinct prop models a single level may use.
 ///

@@ -1,0 +1,13 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "utility_showcase",
+  "name": "Utility kit showcase",
+  "entry_level": "utility_showcase",
+  "levels": [
+    {
+      "id": "utility_showcase",
+      "source": "levels/utility_showcase.json"
+    }
+  ]
+}

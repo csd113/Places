@@ -134,6 +134,23 @@ impl Guides {
             }
         }
     }
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Finite validated connector guides use bounded metre-space offsets."
+    )]
+    pub fn duct_ports(&mut self, ports: &[crate::editor::ducts::WorldPort; 2]) {
+        for (port, color) in ports
+            .iter()
+            .zip([[0.3, 1.0, 0.5, 1.0], [1.0, 0.35, 0.7, 1.0]])
+        {
+            let p = port.position;
+            let w = port.normal.cross(port.height);
+            self.line(p, p + port.normal * 0.35, color, 1.8);
+            self.line(p - port.height * 0.12, p + port.height * 0.12, color, 1.4);
+            self.line(p - w * 0.12, p + w * 0.12, color, 1.4);
+        }
+    }
+
     pub fn room_edges(&mut self, handles: &[[f32; 3]; 4]) {
         for handle in handles {
             if let Some([x, y]) = self.project(Vec3::from_array(*handle)) {

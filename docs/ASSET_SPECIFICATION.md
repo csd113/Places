@@ -883,7 +883,7 @@ normal runtime texture         256x 256 native
 | Higher resolutions | Reviewed party cloths use 1024-square sheets and wrapping uses 512-square sheets for print fidelity at their model scale; ordinary props retain 256 or smaller |
 | Hard maximum | 1024 px per edge (parser rejects the model above it) |
 | Runtime budget | High preserves sheets up to 1024; Medium ≤192 and Low ≤128 (`TextureClass::Prop`); smaller sheets remain unchanged and downscaling preserves aspect |
-| Pack budget | 106 MiB decoded RGBA8 for the entire shipped pack (`PROP_TEXTURE_PACK_BUDGET_BYTES`), counting per-model copies and numeric masks; the current detailed party-print set brings the pack to approximately 104.4 MiB |
+| Pack budget | 128 MiB decoded RGBA8 for the entire shipped pack (`PROP_TEXTURE_PACK_BUDGET_BYTES`), counting unique family images and numeric masks; the phase 6 audit reports 89.434 MiB by exact PNG identity |
 | Decoded memory | `width × height × 4` bytes per image (RGBA8), summed over a model for `texture_bytes`; the surface class additionally caps one sheet at `MAX_SURFACE_TEXTURE_BYTES` (4 MiB) |
 | Practical guidance | 256×256 remains ordinary content; larger sheets require reviewed metre-scale print detail and bounded whole-pack accounting |
 
@@ -1362,7 +1362,7 @@ Each shares the print's normalized UV frame/orientation; black ordinary backing
 and white printed ink give `extras.uv_response=0.65` through the existing
 `extras.uv_response_mask` texture binding. Printed stripes can fill the wrap.
 Ribbons/bows remain nonreactive. These masks add 3.5 MiB across 14 model payloads;
-together with larger prints, the pack uses approximately 104.4 MiB within its 106 MiB
+together with larger prints, the pack audit reports 89.434 MiB of unique PNG-family images within its 128 MiB
 limit. Actual per-model copies remain counted. All sheets are opaque, clamped,
 non-tiling, with finite normalized UVs and +Y-up metre geometry. These printed
 surfaces supply no ordinary emission or illumination. Only tiny candle-flame
@@ -1418,7 +1418,7 @@ All fittings embed the unchanged opaque 32-square `party_palette.png` from
 row-major four-by-four swatches (white, cream, metal and charcoal); material
 factors give muted teal laminate and restrained porcelain/chrome response.
 No atlas is repacked, resized, or synthesized at load. Each model's decoded
-copy is still charged to the ordinary 106 MiB pack budget. Geometry supplies
+copy is still charged to the ordinary 128 MiB pack budget. Geometry supplies
 real bowl cavities, seat rings, trap/faucet stock, partition thickness, foot
 plates, hinges and latches. The mirror-frame model is an open frame: the map's
 opaque planar opening pane supplies the actual reflection, with no painted image.
@@ -1531,7 +1531,7 @@ All Arcade model atlases are fitted square 1024-square retained masters with
 128-square palette-only native PNGs or 256-square graphic native PNGs. The
 palette class covers pins, balls, chairs, table, return, rack, batten, plush,
 gutter and divider; detailed cabinets, CRTs, vending, pinball and labelled
-small props retain 256-square natives. These existing atlases retain their resolution; the current 106 MiB
+small props retain 256-square natives. These existing atlases retain their resolution; the current 128 MiB
 decoded prop-pack budget includes detailed party prints and their ink masks. Their model-defined regions must be recorded by the
 builder and changed together with model texture UVs. Acoustic ceiling sheets
 are square repeats containing two 2:1 modules; visible fluorescent diffuser
@@ -2265,7 +2265,7 @@ without checking the implementation.
     pack budget is aggregate.** A 16×16 surface sheet passes the dimension
     tests; ordinary prop sheets are capped at 256×256, with reviewed cloth 1024 /
     wrap 512 exceptions, and the toolkit/Rust tests enforce both these
-    authoring limits and the 106 MiB decoded pack budget, but a single pathological sheet below the ordinary 1024 edge cap
+    authoring limits and the 128 MiB decoded pack budget, but a single pathological sheet below the ordinary 1024 edge cap
     is otherwise unconstrained. Art direction is the only guard for the rest.
 12. **Shipped fixture dimensions are pinned by a Rust test.** The loader test
     `test_fixture_sheets_resolve_one_sheet_per_family_from_the_catalog` asserts
@@ -2364,7 +2364,7 @@ cloth 1024², gift 512², cake 1024×256 and restroom 1024×512. All are embedde
 with equivalent unique standalone PNG sources under assets/. No image is
 resized, regenerated, repacked or given a new alpha contract during adoption.
 Identical decoded RGBA images (dimensions included) share an Arc across models;
-numeric fluorescence values remain exact. The 106 MiB unique decoded pack budget
+numeric fluorescence values remain exact. The 128 MiB unique decoded pack budget
 is retained; per-GLB embedded copies are storage representation, not separate
 resident images. Weak ownership releases unused family sheets on dependency
 changes. Toolkit accounting conservatively deduplicates exact embedded PNG bytes.
@@ -2618,3 +2618,17 @@ hashes and rights. `tools/audio/build.py --check` audits this closure offline.
 The original fluorescent/pool/empty-room clips are authored by
 `tools/audio/original.py` under the repository MIT license; the runtime never
 runs that authoring tool. They have circular seams and rounded, sparse envelopes.
+
+
+### 0.13.1 utility and HVAC kit
+
+The 25 cloud-authored institutional GLBs retain their original embedded and
+standalone 256-square PNG, plus packed Blender sources and layered GIMP master
+under `tools/props/backrooms_phase6/`. Six HVAC pieces expose measured rectangular
+connector faces for editor joins and the automatic spatial duct audio owner.
+Five operational light IDs reuse the original fixture models with measured top
+and luminous-plane offsets; only their diffuser/tube material emits. Passive
+models, static doors, hollow stock, collision limits and source/hash conventions
+are documented in [the kit integration guide](../tools/props/backrooms_phase6/INTEGRATION.md).
+The unique new atlas costs 0.25 MiB decoded RGBA; summing its 25 embedded copies
+costs 6.25 MiB. The reviewed 128 MiB pack ceiling preserves original visual quality.

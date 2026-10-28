@@ -1,0 +1,12 @@
+# Render and structural review
+
+All 25 new models were constructed/exported in three stages. Each stage was reimported from its GLB, not merely viewed in its authoring scene, and rendered into a contact sheet. Final close-ups separately inspect HVAC hollow ends, cabinet interior, wired-glass doors, fixture damage/cables, chair/table construction and clock face.
+
+- Pass 1: silhouette, scale, real apertures and simple sheet stock. Clock face UV orientation was visibly incorrect; cylinder transforms and planar face mapping were corrected before pass 2. A swept-duct moving-frame discontinuity was caught in construction inspection and fixed before the first successful export; the horizontal/vertical mating cross-sections were made consistent.
+- Pass 2: construction detail, open-panel breakers, glazing beads and kick plates, T-webs, tube sockets and folding braces. Clock face now reads correctly. Lens and steel remain separate, with no emissive housing. Inspection cameras intentionally rotate ceiling/fixture groups to show undersides; this never changes source geometry.
+- Pass 3: one-cut manufactured bevels, narrow folded seams, screw/latch/hinge details, grid tabs, chair bumpers, fixture clips. Final broad sheet and ten close-up GLB renders inspected. Shapes remain angular rather than bubbly. No extra unrelated prop family was added.
+- Existing janitor cart: downloaded from the audited exact commit, reimported and rendered separately. Its existing dark angular frame, yellow sack and caster geometry already satisfy the maintenance-cart family; existing supply IDs are reused instead of duplicating them.
+
+Final standalone validation passes for all 25: binary glTF2, triangles, finite geometry, zero-base centred origin, exact metadata bounds, UV0 inside0..1, embedded PNG decoded-identical to standalone native atlas, no image URI, material/primitive limits and no degenerate triangles. Every positional edge has even incidence (2 or4 where independent closed stock contacts); no single-sided boundary edge exists. This is sealed component construction, not a boolean union. Exported geometry ranges156–1464 triangles per model. Images add6.25MiB decoded RGBA across the pack.
+
+This is cloud Blender/GIMP asset acceptance only. Native Places importer/editor/game rendering, collision and proximity-audio behavior remain integration checks, not claimed results. Shader lighting acceptance must happen there.

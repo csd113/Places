@@ -1,0 +1,1482 @@
+{
+  "assets": [
+    {
+      "name": "breaker_panel_closed",
+      "id": "backrooms:breaker_panel_closed",
+      "size": [
+        0.46,
+        0.76,
+        0.191
+      ],
+      "triangles": 512,
+      "materials": [
+        "paint_sage",
+        "charcoal",
+        "brushed",
+        "label"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        -0.0,
+        -0.0205
+      ],
+      "pass": 3,
+      "notes": [
+        "Static open or closed cabinet; not an animated interactable.",
+        "Open-front folded-steel shell and closed rear. Open cover is hinged 104 degrees.",
+        "Pass 1 shell and silhouette; pass 2 latch, hinge, warning and breaker interiors; pass 3 single-cut manufactured edges, fasteners and bonding detail.",
+        "Mount wall breaker with back plane flush to wall; place floor cabinet at Y0. Open variant origin is centred under its occupied bounding box."
+      ],
+      "file": "models/breaker_panel_closed.glb",
+      "sha256": "6c5c306321e8bf1fb5b2c76d6a16c8698f2c1c1204f93fbde407738f88ff1456",
+      "byte_length": 82732,
+      "triangles_measured": 512,
+      "primitives": 4,
+      "materials_count": 4,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.23000000417232513,
+        0.0,
+        -0.09549999982118607
+      ],
+      "bounds_max": [
+        0.23000000417232513,
+        0.7599999904632568,
+        0.09549999982118607
+      ],
+      "welded_edge_incidence": {
+        "2": 724,
+        "4": 22
+      },
+      "errors": []
+    },
+    {
+      "name": "breaker_panel_open",
+      "id": "backrooms:breaker_panel_open",
+      "size": [
+        0.563507,
+        0.76,
+        0.587715
+      ],
+      "triangles": 816,
+      "materials": [
+        "paint_sage",
+        "charcoal",
+        "brushed",
+        "label",
+        "paint_cream",
+        "rust",
+        "paper"
+      ],
+      "origin_translation_game": [
+        0.051753,
+        -0.0,
+        -0.218857
+      ],
+      "pass": 3,
+      "notes": [
+        "Static open or closed cabinet; not an animated interactable.",
+        "Open-front folded-steel shell and closed rear. Open cover is hinged 104 degrees.",
+        "Pass 1 shell and silhouette; pass 2 latch, hinge, warning and breaker interiors; pass 3 single-cut manufactured edges, fasteners and bonding detail.",
+        "Mount wall breaker with back plane flush to wall; place floor cabinet at Y0. Open variant origin is centred under its occupied bounding box."
+      ],
+      "file": "models/breaker_panel_open.glb",
+      "sha256": "9b69770debf62b6b6284e329b5ee5d503faa7d4675c7f5d85888ba9a7dfe63e5",
+      "byte_length": 106760,
+      "triangles_measured": 816,
+      "primitives": 7,
+      "materials_count": 7,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.28175342082977295,
+        0.0,
+        -0.2938573956489563
+      ],
+      "bounds_max": [
+        0.28175342082977295,
+        0.7599999904632568,
+        0.2938573956489563
+      ],
+      "welded_edge_incidence": {
+        "2": 1180,
+        "4": 22
+      },
+      "errors": []
+    },
+    {
+      "name": "electrical_cabinet_closed",
+      "id": "backrooms:electrical_cabinet_closed",
+      "size": [
+        0.72,
+        1.62,
+        0.381
+      ],
+      "triangles": 608,
+      "materials": [
+        "paint_sage",
+        "charcoal",
+        "brushed",
+        "label"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        -0.0,
+        -0.0205
+      ],
+      "pass": 3,
+      "notes": [
+        "Static open or closed cabinet; not an animated interactable.",
+        "Open-front folded-steel shell and closed rear. Open cover is hinged 104 degrees.",
+        "Pass 1 shell and silhouette; pass 2 latch, hinge, warning and breaker interiors; pass 3 single-cut manufactured edges, fasteners and bonding detail.",
+        "Mount wall breaker with back plane flush to wall; place floor cabinet at Y0. Open variant origin is centred under its occupied bounding box."
+      ],
+      "file": "models/electrical_cabinet_closed.glb",
+      "sha256": "4214b55cb90b3232b3902adce9358f86467f3c9de039b79ab5457962b5cc4310",
+      "byte_length": 89460,
+      "triangles_measured": 608,
+      "primitives": 4,
+      "materials_count": 4,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.36000001430511475,
+        0.0,
+        -0.19049999117851257
+      ],
+      "bounds_max": [
+        0.36000001430511475,
+        1.6200000047683716,
+        0.19049999117851257
+      ],
+      "welded_edge_incidence": {
+        "2": 868,
+        "4": 22
+      },
+      "errors": []
+    },
+    {
+      "name": "electrical_cabinet_open",
+      "id": "backrooms:electrical_cabinet_open",
+      "size": [
+        0.88405,
+        1.62,
+        1.029992
+      ],
+      "triangles": 1032,
+      "materials": [
+        "paint_sage",
+        "charcoal",
+        "brushed",
+        "label",
+        "paint_cream",
+        "rust",
+        "paper"
+      ],
+      "origin_translation_game": [
+        0.082025,
+        -0.0,
+        -0.344996
+      ],
+      "pass": 3,
+      "notes": [
+        "Static open or closed cabinet; not an animated interactable.",
+        "Open-front folded-steel shell and closed rear. Open cover is hinged 104 degrees.",
+        "Pass 1 shell and silhouette; pass 2 latch, hinge, warning and breaker interiors; pass 3 single-cut manufactured edges, fasteners and bonding detail.",
+        "Mount wall breaker with back plane flush to wall; place floor cabinet at Y0. Open variant origin is centred under its occupied bounding box."
+      ],
+      "file": "models/electrical_cabinet_open.glb",
+      "sha256": "daa9a81be184e7baafe9e86005777c80faa7b8818e9ac2f7aabeb27dd72c8578",
+      "byte_length": 122824,
+      "triangles_measured": 1032,
+      "primitives": 7,
+      "materials_count": 7,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.4420247972011566,
+        0.0,
+        -0.5149958729743958
+      ],
+      "bounds_max": [
+        0.4420247972011566,
+        1.6200000047683716,
+        0.5149959325790405
+      ],
+      "welded_edge_incidence": {
+        "2": 1504,
+        "4": 22
+      },
+      "errors": []
+    },
+    {
+      "name": "fluorescent_damaged",
+      "id": "backrooms:fluorescent_damaged",
+      "size": [
+        1.2,
+        0.166221,
+        0.6
+      ],
+      "triangles": 428,
+      "materials": [
+        "paint_cream",
+        "brushed",
+        "tube",
+        "diffuser",
+        "charcoal",
+        "galvanized",
+        "label"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        0.099721,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "1.2 x 0.6 m institutional fitting, long axis X.",
+        "Opaque closed backpan and real lens aperture. No built-in illumination or unconditional buzz.",
+        "Mount with top Y at ceiling; hanging cable anchors at measured top. Add switched runtime light source separately."
+      ],
+      "file": "models/fluorescent_damaged.glb",
+      "sha256": "07ffa8e1d3044feccb7cb0e7075b05cfae29bcaa1927045fd1f02fa7036b0dd1",
+      "byte_length": 78640,
+      "triangles_measured": 428,
+      "primitives": 7,
+      "materials_count": 7,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.6000000238418579,
+        0.0,
+        -0.30000001192092896
+      ],
+      "bounds_max": [
+        0.6000000238418579,
+        0.1662212312221527,
+        0.30000001192092896
+      ],
+      "welded_edge_incidence": {
+        "2": 634,
+        "4": 4
+      },
+      "errors": []
+    },
+    {
+      "name": "fluorescent_hanging",
+      "id": "backrooms:fluorescent_hanging",
+      "size": [
+        1.2,
+        0.6715,
+        0.6
+      ],
+      "triangles": 492,
+      "materials": [
+        "paint_cream",
+        "brushed",
+        "diffuser",
+        "charcoal",
+        "galvanized",
+        "label"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        0.001,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "1.2 x 0.6 m institutional fitting, long axis X.",
+        "Opaque closed backpan and real lens aperture. No built-in illumination or unconditional buzz.",
+        "Mount with top Y at ceiling; hanging cable anchors at measured top. Add switched runtime light source separately."
+      ],
+      "file": "models/fluorescent_hanging.glb",
+      "sha256": "44d286901c43dd031de5e105220b645da2a3e9c4b2a52f76c24821b2d5314402",
+      "byte_length": 83036,
+      "triangles_measured": 492,
+      "primitives": 6,
+      "materials_count": 6,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.6000000238418579,
+        0.0,
+        -0.30000001192092896
+      ],
+      "bounds_max": [
+        0.6000000238418579,
+        0.6714999675750732,
+        0.30000001192092896
+      ],
+      "welded_edge_incidence": {
+        "2": 726,
+        "4": 6
+      },
+      "errors": []
+    },
+    {
+      "name": "fluorescent_missing_diffuser",
+      "id": "backrooms:fluorescent_missing_diffuser",
+      "size": [
+        1.2,
+        0.0675,
+        0.6
+      ],
+      "triangles": 404,
+      "materials": [
+        "paint_cream",
+        "brushed",
+        "tube",
+        "charcoal",
+        "galvanized",
+        "label"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        0.001,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "1.2 x 0.6 m institutional fitting, long axis X.",
+        "Opaque closed backpan and real lens aperture. No built-in illumination or unconditional buzz.",
+        "Mount with top Y at ceiling; hanging cable anchors at measured top. Add switched runtime light source separately."
+      ],
+      "file": "models/fluorescent_missing_diffuser.glb",
+      "sha256": "569e9d53c392adbbbd1c9e9dbad486f9b0eba49b786a5d0a5a1e2af4ec324517",
+      "byte_length": 76064,
+      "triangles_measured": 404,
+      "primitives": 6,
+      "materials_count": 6,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.6000000238418579,
+        0.0,
+        -0.30000001192092896
+      ],
+      "bounds_max": [
+        0.6000000238418579,
+        0.06749999523162842,
+        0.30000001192092896
+      ],
+      "welded_edge_incidence": {
+        "2": 598,
+        "4": 4
+      },
+      "errors": []
+    },
+    {
+      "name": "fluorescent_recessed",
+      "id": "backrooms:fluorescent_recessed",
+      "size": [
+        1.2,
+        0.0675,
+        0.6
+      ],
+      "triangles": 344,
+      "materials": [
+        "paint_cream",
+        "brushed",
+        "diffuser",
+        "charcoal",
+        "galvanized",
+        "label"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        0.001,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "1.2 x 0.6 m institutional fitting, long axis X.",
+        "Opaque closed backpan and real lens aperture. No built-in illumination or unconditional buzz.",
+        "Mount with top Y at ceiling; hanging cable anchors at measured top. Add switched runtime light source separately."
+      ],
+      "file": "models/fluorescent_recessed.glb",
+      "sha256": "6d9447a2ab3723bcf3a4ac2e2c4a7f4888278b8db499de6a5d27e8402e7feb26",
+      "byte_length": 72416,
+      "triangles_measured": 344,
+      "primitives": 6,
+      "materials_count": 6,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.6000000238418579,
+        0.0,
+        -0.30000001192092896
+      ],
+      "bounds_max": [
+        0.6000000238418579,
+        0.06749999523162842,
+        0.30000001192092896
+      ],
+      "welded_edge_incidence": {
+        "2": 504,
+        "4": 6
+      },
+      "errors": []
+    },
+    {
+      "name": "fluorescent_surface",
+      "id": "backrooms:fluorescent_surface",
+      "size": [
+        1.2,
+        0.1085,
+        0.6
+      ],
+      "triangles": 344,
+      "materials": [
+        "paint_cream",
+        "brushed",
+        "diffuser",
+        "charcoal",
+        "galvanized",
+        "label"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        0.001,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "1.2 x 0.6 m institutional fitting, long axis X.",
+        "Opaque closed backpan and real lens aperture. No built-in illumination or unconditional buzz.",
+        "Mount with top Y at ceiling; hanging cable anchors at measured top. Add switched runtime light source separately."
+      ],
+      "file": "models/fluorescent_surface.glb",
+      "sha256": "863ca4fa10432da47f3d2a88ab9af3d33ccd128187eb79db13c1265b7018d322",
+      "byte_length": 72416,
+      "triangles_measured": 344,
+      "primitives": 6,
+      "materials_count": 6,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.6000000238418579,
+        0.0,
+        -0.30000001192092896
+      ],
+      "bounds_max": [
+        0.6000000238418579,
+        0.10850000381469727,
+        0.30000001192092896
+      ],
+      "welded_edge_incidence": {
+        "2": 504,
+        "4": 6
+      },
+      "errors": []
+    },
+    {
+      "name": "folding_table_institutional",
+      "id": "backrooms:folding_table_institutional",
+      "size": [
+        1.8,
+        0.745,
+        0.75
+      ],
+      "triangles": 508,
+      "materials": [
+        "laminate",
+        "charcoal",
+        "brushed",
+        "rubber",
+        "label"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        -0.0,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "1.8 m laminate folding utility table, open fixed pose; readable U-frame and locking braces.",
+        "Ordinary floor-contact origin. Suggested collision covers top and legs without filling walk-under volume."
+      ],
+      "file": "models/folding_table_institutional.glb",
+      "sha256": "3355be3cc58df85943035b500d0ab0fb908ca5b0bbfffb6e95d02dfb7a05aa20",
+      "byte_length": 79744,
+      "triangles_measured": 508,
+      "primitives": 5,
+      "materials_count": 5,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.8999999761581421,
+        0.0,
+        -0.375
+      ],
+      "bounds_max": [
+        0.8999999761581421,
+        0.7450000047683716,
+        0.375
+      ],
+      "welded_edge_incidence": {
+        "2": 762
+      },
+      "errors": []
+    },
+    {
+      "name": "hvac_duct_short",
+      "id": "backrooms:hvac_duct_short",
+      "size": [
+        1.2,
+        0.446,
+        0.641
+      ],
+      "triangles": 228,
+      "materials": [
+        "galvanized",
+        "brushed",
+        "charcoal"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        0.0205,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "Hollow 12 mm sheet stock; no caps or grille blocking passage.",
+        "Use connector anchors from manifest, not bounding box dimensions."
+      ],
+      "file": "models/hvac_duct_short.glb",
+      "sha256": "40f70c7bfb6e8b78a3900ac9a469bf7a389f30e1a621fccddacf13f3dfc168fe",
+      "byte_length": 60924,
+      "triangles_measured": 228,
+      "primitives": 3,
+      "materials_count": 3,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.6000000238418579,
+        0.0,
+        -0.3205000162124634
+      ],
+      "bounds_max": [
+        0.6000000238418579,
+        0.44599997997283936,
+        0.3205000162124634
+      ],
+      "welded_edge_incidence": {
+        "2": 334,
+        "4": 4
+      },
+      "errors": []
+    },
+    {
+      "name": "hvac_duct_straight",
+      "id": "backrooms:hvac_duct_straight",
+      "size": [
+        2.4,
+        0.446,
+        0.641
+      ],
+      "triangles": 228,
+      "materials": [
+        "galvanized",
+        "brushed",
+        "charcoal"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        0.0205,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "Hollow 12 mm sheet stock; no caps or grille blocking passage.",
+        "Use connector anchors from manifest, not bounding box dimensions."
+      ],
+      "file": "models/hvac_duct_straight.glb",
+      "sha256": "eea788d4ecf50f59810f0106346226ccbfb41ef2aa3fa4c77939b0b650e8ac44",
+      "byte_length": 60912,
+      "triangles_measured": 228,
+      "primitives": 3,
+      "materials_count": 3,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -1.2000000476837158,
+        0.0,
+        -0.3205000162124634
+      ],
+      "bounds_max": [
+        1.2000000476837158,
+        0.44599997997283936,
+        0.3205000162124634
+      ],
+      "welded_edge_incidence": {
+        "2": 334,
+        "4": 4
+      },
+      "errors": []
+    },
+    {
+      "name": "hvac_duct_vertical",
+      "id": "backrooms:hvac_duct_vertical",
+      "size": [
+        0.441,
+        2.4,
+        0.641
+      ],
+      "triangles": 156,
+      "materials": [
+        "galvanized",
+        "brushed"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        -0.0,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "Hollow 12 mm sheet stock; no caps or grille blocking passage.",
+        "Use connector anchors from manifest, not bounding box dimensions."
+      ],
+      "file": "models/hvac_duct_vertical.glb",
+      "sha256": "9128c4b4dbf43f9ec75df787d5fd36a2e53831ea3591a316e1b49129ae10afd0",
+      "byte_length": 54948,
+      "triangles_measured": 156,
+      "primitives": 2,
+      "materials_count": 2,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.22050000727176666,
+        0.0,
+        -0.3205000162124634
+      ],
+      "bounds_max": [
+        0.22050000727176666,
+        2.4000000953674316,
+        0.3205000162124634
+      ],
+      "welded_edge_incidence": {
+        "2": 226,
+        "4": 4
+      },
+      "errors": []
+    },
+    {
+      "name": "hvac_elbow_down",
+      "id": "backrooms:hvac_elbow_down",
+      "size": [
+        1.141,
+        1.141,
+        0.65
+      ],
+      "triangles": 296,
+      "materials": [
+        "galvanized",
+        "brushed"
+      ],
+      "origin_translation_game": [
+        0.3455,
+        -0.184,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "Hollow swept rectangular elbow with sealed sheet-stock walls and open ends.",
+        "Horizontal, up and down variants are separate editor-ready meshes; ordinary yaw provides either direction."
+      ],
+      "file": "models/hvac_elbow_down.glb",
+      "sha256": "417c43f198d0d29c5798f6c41a436db7697434e0950b009362584e1ff977ebaa",
+      "byte_length": 64528,
+      "triangles_measured": 296,
+      "primitives": 2,
+      "materials_count": 2,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.5705000162124634,
+        0.0,
+        -0.32499998807907104
+      ],
+      "bounds_max": [
+        0.5704999566078186,
+        1.1410000324249268,
+        0.32499998807907104
+      ],
+      "welded_edge_incidence": {
+        "2": 440,
+        "4": 2
+      },
+      "errors": []
+    },
+    {
+      "name": "hvac_elbow_horizontal",
+      "id": "backrooms:hvac_elbow_horizontal",
+      "size": [
+        1.241,
+        0.45,
+        1.241
+      ],
+      "triangles": 296,
+      "materials": [
+        "galvanized",
+        "brushed"
+      ],
+      "origin_translation_game": [
+        0.2955,
+        0.025,
+        -0.2955
+      ],
+      "pass": 3,
+      "notes": [
+        "Hollow swept rectangular elbow with sealed sheet-stock walls and open ends.",
+        "Horizontal, up and down variants are separate editor-ready meshes; ordinary yaw provides either direction."
+      ],
+      "file": "models/hvac_elbow_horizontal.glb",
+      "sha256": "1e754d7256918077b90697a5f7c1ec0be0723d14bcf8cc66f7ef533b75ad41ff",
+      "byte_length": 64528,
+      "triangles_measured": 296,
+      "primitives": 2,
+      "materials_count": 2,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.6204999685287476,
+        0.0,
+        -0.6204999685287476
+      ],
+      "bounds_max": [
+        0.6204999685287476,
+        0.4500001072883606,
+        0.6204999685287476
+      ],
+      "welded_edge_incidence": {
+        "2": 432,
+        "4": 6
+      },
+      "errors": []
+    },
+    {
+      "name": "hvac_elbow_up",
+      "id": "backrooms:hvac_elbow_up",
+      "size": [
+        1.141,
+        1.141,
+        0.65
+      ],
+      "triangles": 296,
+      "materials": [
+        "galvanized",
+        "brushed"
+      ],
+      "origin_translation_game": [
+        0.3455,
+        0.025,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "Hollow swept rectangular elbow with sealed sheet-stock walls and open ends.",
+        "Horizontal, up and down variants are separate editor-ready meshes; ordinary yaw provides either direction."
+      ],
+      "file": "models/hvac_elbow_up.glb",
+      "sha256": "13f9b080a29ad4ce95dba2df5f083532386d4dab2e65a1128501e8122e403202",
+      "byte_length": 64528,
+      "triangles_measured": 296,
+      "primitives": 2,
+      "materials_count": 2,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.5705000162124634,
+        0.0,
+        -0.32499998807907104
+      ],
+      "bounds_max": [
+        0.5704999566078186,
+        1.1410001516342163,
+        0.32499998807907104
+      ],
+      "welded_edge_incidence": {
+        "2": 440,
+        "4": 2
+      },
+      "errors": []
+    },
+    {
+      "name": "stackable_chair_institutional",
+      "id": "backrooms:stackable_chair_institutional",
+      "size": [
+        0.49792,
+        0.816955,
+        0.4966
+      ],
+      "triangles": 580,
+      "materials": [
+        "paint_sage",
+        "brushed",
+        "rubber",
+        "label"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        -0.0,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "Stackable institutional chair, compressed sheet stock and splayed steel frame, fixed single-chair pose.",
+        "0.47 m approximate footprint, 0.45 m seat height; floor-contact origin."
+      ],
+      "file": "models/stackable_chair_institutional.glb",
+      "sha256": "07c40a2a285a6da76de263edd67ab7ef7e354e54fa55d0197b66d7711f4cd491",
+      "byte_length": 83912,
+      "triangles_measured": 580,
+      "primitives": 4,
+      "materials_count": 4,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.2489600032567978,
+        0.0,
+        -0.2483000010251999
+      ],
+      "bounds_max": [
+        0.2489600032567978,
+        0.8169553279876709,
+        0.2483000010251999
+      ],
+      "welded_edge_incidence": {
+        "2": 870
+      },
+      "errors": []
+    },
+    {
+      "name": "suspended_ceiling_crooked_tile",
+      "id": "backrooms:suspended_ceiling_crooked_tile",
+      "size": [
+        1.204,
+        0.210869,
+        1.212
+      ],
+      "triangles": 368,
+      "materials": [
+        "paint_cream",
+        "galvanized",
+        "acoustic",
+        "brushed"
+      ],
+      "origin_translation_game": [
+        0.0,
+        0.101434,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "1.2 m modular T-grid, 0.6 m stock bays; real empty apertures.",
+        "Mount at ceiling using measured model top Y; occupied base follows ordinary Places origin.",
+        "Crooked tile is a fixed damaged pose, not simulated."
+      ],
+      "file": "models/suspended_ceiling_crooked_tile.glb",
+      "sha256": "8eb0b69f3b736b7a2dfc6a2282a990d82ee5994c76c156f13809eb104cc66253",
+      "byte_length": 72372,
+      "triangles_measured": 368,
+      "primitives": 4,
+      "materials_count": 4,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.6019999980926514,
+        0.0,
+        -0.6059999465942383
+      ],
+      "bounds_max": [
+        0.6019999980926514,
+        0.21086858212947845,
+        0.6059999465942383
+      ],
+      "welded_edge_incidence": {
+        "2": 552
+      },
+      "errors": []
+    },
+    {
+      "name": "suspended_ceiling_exposed_grid",
+      "id": "backrooms:suspended_ceiling_exposed_grid",
+      "size": [
+        1.204,
+        0.0465,
+        1.212
+      ],
+      "triangles": 192,
+      "materials": [
+        "paint_cream",
+        "galvanized",
+        "brushed"
+      ],
+      "origin_translation_game": [
+        0.0,
+        -0.046,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "1.2 m modular T-grid, 0.6 m stock bays; real empty apertures.",
+        "Mount at ceiling using measured model top Y; occupied base follows ordinary Places origin.",
+        "Crooked tile is a fixed damaged pose, not simulated."
+      ],
+      "file": "models/suspended_ceiling_exposed_grid.glb",
+      "sha256": "645ded1396389bd32f1f7d746eaf648b10333326d5182f6b7c942c2bbfb4b77f",
+      "byte_length": 57856,
+      "triangles_measured": 192,
+      "primitives": 3,
+      "materials_count": 3,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.6019999980926514,
+        0.0,
+        -0.6059999465942383
+      ],
+      "bounds_max": [
+        0.6019999980926514,
+        0.04650000110268593,
+        0.6059999465942383
+      ],
+      "welded_edge_incidence": {
+        "2": 288
+      },
+      "errors": []
+    },
+    {
+      "name": "suspended_ceiling_missing_tile",
+      "id": "backrooms:suspended_ceiling_missing_tile",
+      "size": [
+        1.204,
+        0.0465,
+        1.212
+      ],
+      "triangles": 324,
+      "materials": [
+        "paint_cream",
+        "galvanized",
+        "acoustic",
+        "brushed"
+      ],
+      "origin_translation_game": [
+        0.0,
+        -0.046,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "1.2 m modular T-grid, 0.6 m stock bays; real empty apertures.",
+        "Mount at ceiling using measured model top Y; occupied base follows ordinary Places origin.",
+        "Crooked tile is a fixed damaged pose, not simulated."
+      ],
+      "file": "models/suspended_ceiling_missing_tile.glb",
+      "sha256": "22f42b92497d9435f9955221e461eb82a86c3848ed337796b11e916a13a7907b",
+      "byte_length": 68784,
+      "triangles_measured": 324,
+      "primitives": 4,
+      "materials_count": 4,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.6019999980926514,
+        0.0,
+        -0.6059999465942383
+      ],
+      "bounds_max": [
+        0.6019999980926514,
+        0.04650000110268593,
+        0.6059999465942383
+      ],
+      "welded_edge_incidence": {
+        "2": 486
+      },
+      "errors": []
+    },
+    {
+      "name": "suspended_ceiling_stained_tiles",
+      "id": "backrooms:suspended_ceiling_stained_tiles",
+      "size": [
+        1.204,
+        0.0465,
+        1.212
+      ],
+      "triangles": 368,
+      "materials": [
+        "paint_cream",
+        "galvanized",
+        "waterstain",
+        "acoustic",
+        "brushed"
+      ],
+      "origin_translation_game": [
+        0.0,
+        -0.046,
+        0.0
+      ],
+      "pass": 3,
+      "notes": [
+        "1.2 m modular T-grid, 0.6 m stock bays; real empty apertures.",
+        "Mount at ceiling using measured model top Y; occupied base follows ordinary Places origin.",
+        "Crooked tile is a fixed damaged pose, not simulated."
+      ],
+      "file": "models/suspended_ceiling_stained_tiles.glb",
+      "sha256": "d1b3f53c9cba398881b66311d44bd8af8ce8ad15c7a9b218891ecbd82ee62b55",
+      "byte_length": 72388,
+      "triangles_measured": 368,
+      "primitives": 5,
+      "materials_count": 5,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.6019999980926514,
+        0.0,
+        -0.6059999465942383
+      ],
+      "bounds_max": [
+        0.6019999980926514,
+        0.04650000110268593,
+        0.6059999465942383
+      ],
+      "welded_edge_incidence": {
+        "2": 552
+      },
+      "errors": []
+    },
+    {
+      "name": "utility_door",
+      "id": "backrooms:utility_door",
+      "size": [
+        1.08,
+        2.16,
+        0.183928
+      ],
+      "triangles": 828,
+      "materials": [
+        "paint_sage",
+        "paint_cream",
+        "wireglass",
+        "brushed",
+        "charcoal",
+        "label"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        -0.0,
+        3.6e-05
+      ],
+      "pass": 3,
+      "notes": [
+        "Static closed institutional door assembly, metres. +Z faces corridor.",
+        "Real upper aperture with separately fitted wired-glass pane; no opaque slab behind glass.",
+        "Open bottom jamb: level architecture or door opening owns traversal/collision, not this decorative assembly.",
+        "Pass 1 stiles, rails and glazing silhouette; pass 2 kick plates, glazing beads, lever and closer; pass 3 single-cut bevels, hinges, fasteners and identifier.",
+        "Rear frame plane is game Z=-0.092 m before automatic recentering; install against the wall opening, not laid over an uncut wall."
+      ],
+      "file": "models/utility_door.glb",
+      "sha256": "08dc0e4fd674f95bd5d963536d7dee61c1a6a08514788e41a0d5b8308bd869bf",
+      "byte_length": 107580,
+      "triangles_measured": 828,
+      "primitives": 6,
+      "materials_count": 6,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.5399999618530273,
+        0.0,
+        -0.09196411073207855
+      ],
+      "bounds_max": [
+        0.5399999618530273,
+        2.1600000858306885,
+        0.09196411073207855
+      ],
+      "welded_edge_incidence": {
+        "2": 1214,
+        "4": 14
+      },
+      "errors": []
+    },
+    {
+      "name": "utility_double_door_wired",
+      "id": "backrooms:utility_double_door_wired",
+      "size": [
+        1.98,
+        2.16,
+        0.183928
+      ],
+      "triangles": 1464,
+      "materials": [
+        "paint_sage",
+        "paint_cream",
+        "wireglass",
+        "brushed",
+        "charcoal",
+        "label"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        -0.0,
+        3.6e-05
+      ],
+      "pass": 3,
+      "notes": [
+        "Static closed institutional door assembly, metres. +Z faces corridor.",
+        "Real upper aperture with separately fitted wired-glass pane; no opaque slab behind glass.",
+        "Open bottom jamb: level architecture or door opening owns traversal/collision, not this decorative assembly.",
+        "Pass 1 stiles, rails and glazing silhouette; pass 2 kick plates, glazing beads, lever and closer; pass 3 single-cut bevels, hinges, fasteners and identifier.",
+        "Rear frame plane is game Z=-0.092 m before automatic recentering; install against the wall opening, not laid over an uncut wall."
+      ],
+      "file": "models/utility_double_door_wired.glb",
+      "sha256": "19beab79ff0719a9878afc743ad346ae430b532ab1ad768cf9c8544bcd701292",
+      "byte_length": 152500,
+      "triangles_measured": 1464,
+      "primitives": 6,
+      "materials_count": 6,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.9900000095367432,
+        0.0,
+        -0.09196410328149796
+      ],
+      "bounds_max": [
+        0.9900000095367432,
+        2.1600000858306885,
+        0.09196410328149796
+      ],
+      "welded_edge_incidence": {
+        "2": 2144,
+        "4": 26
+      },
+      "errors": []
+    },
+    {
+      "name": "wall_clock_institutional",
+      "id": "backrooms:wall_clock_institutional",
+      "size": [
+        0.34,
+        0.34,
+        0.0775
+      ],
+      "triangles": 384,
+      "materials": [
+        "charcoal",
+        "clockface",
+        "brushed"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        -0.0,
+        -0.00175
+      ],
+      "pass": 3,
+      "notes": [
+        "Fixed static 10:08 pose; no real-time clock claim.",
+        "+Z front. Place rear face against wall, occupied base at mount Y."
+      ],
+      "file": "models/wall_clock_institutional.glb",
+      "sha256": "3912e70afa544fe827f454f993bbbebe40526009d2ed15c8afecbcbdc56d163f",
+      "byte_length": 68776,
+      "triangles_measured": 384,
+      "primitives": 3,
+      "materials_count": 3,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.17000000178813934,
+        0.0,
+        -0.038750000298023224
+      ],
+      "bounds_max": [
+        0.17000000178813934,
+        0.3400000035762787,
+        0.038750000298023224
+      ],
+      "welded_edge_incidence": {
+        "2": 576
+      },
+      "errors": []
+    },
+    {
+      "name": "wall_speaker_institutional",
+      "id": "backrooms:wall_speaker_institutional",
+      "size": [
+        0.26,
+        0.32,
+        0.1105
+      ],
+      "triangles": 268,
+      "materials": [
+        "paint_cream",
+        "charcoal",
+        "brushed"
+      ],
+      "origin_translation_game": [
+        -0.0,
+        -0.0,
+        -0.00125
+      ],
+      "pass": 3,
+      "notes": [
+        "Passive institutional wall PA speaker, closed case; +Z front.",
+        "No automatic audio emitter, only sound if level explicitly assigns it."
+      ],
+      "file": "models/wall_speaker_institutional.glb",
+      "sha256": "bdab4c8c74da40dee785a5f652e4f769bf4abf5a1c0b0fb532deb4614187c31c",
+      "byte_length": 63464,
+      "triangles_measured": 268,
+      "primitives": 3,
+      "materials_count": 3,
+      "images": [
+        {
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 41696,
+          "decoded_rgba_bytes": 262144,
+          "sha256": "bfca8f78778fbff1b348fa84bca43767241e3a477bcbd39fc781163e5295623c"
+        }
+      ],
+      "bounds_min": [
+        -0.12999999523162842,
+        0.0,
+        -0.05525000020861626
+      ],
+      "bounds_max": [
+        0.12999999523162842,
+        0.3199999928474426,
+        0.05525000020861626
+      ],
+      "welded_edge_incidence": {
+        "2": 402
+      },
+      "errors": []
+    }
+  ],
+  "new_asset_count": 25,
+  "new_texture_decoded_rgba_bytes": 6553600,
+  "passed": true
+}

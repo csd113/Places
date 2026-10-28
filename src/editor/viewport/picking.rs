@@ -281,7 +281,12 @@ fn fixture_objects(
         };
         let matrix = glam::Mat4::from_rotation_translation(
             glam::Quat::from_rotation_y(yaw.to_radians()),
-            Vec3::new(fixture.x, lighting.fixture_y_for(fixture), fixture.z),
+            Vec3::new(
+                fixture.x,
+                lighting.fixture_y_for(fixture)
+                    + crate::engine::lighting::fixture_profile(&fixture.fixture).model_offset_y,
+                fixture.z,
+            ),
         );
         let model = crate::engine::lighting::fixture_model_id(&fixture.fixture)
             .and_then(|id| catalog.get(id).model)

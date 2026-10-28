@@ -2893,7 +2893,7 @@ target is rendered scene data. None is runtime-generated texture artwork.
 | Surface square | both edges equal | policy tests |
 | Surface decoded bytes | 4 MiB | policy tests |
 | Prop native edge | 256 | prop toolkit + props policy tests |
-| Prop pack decoded memory | 106 MiB | `tools/props/build.py --check` + props policy tests |
+| Prop pack decoded memory | 128 MiB | `tools/props/build.py --check` + props policy tests |
 | Decal / fixture faces | POT both edges | build.py warning; package tests fail non-POT fitted sheets |
 
 ---
@@ -3329,7 +3329,7 @@ remain usable with the measured anchors in §34.7a.
 | Vertices per model | 65 535 (`MAX_PROP_VERTICES`) |
 | Primitives / materials / images per model | 32 / 16 / 16 |
 | Prop texture | **256×256 ordinary native**, with reviewed party cloth 1024 and wrapping 512; engine ceiling 1024 (`MAX_PROP_TEXTURE_SIZE`), High preserves authored size and Medium/Low reduce to 192/128 |
-| Prop pack decoded memory | 106 MiB (`PROP_TEXTURE_PACK_BUDGET_BYTES`); identical decoded images share allocations. `tools/props/build.py --check` and `tools/assets/audit.py` report the current inventory. |
+| Prop pack decoded memory | 128 MiB (`PROP_TEXTURE_PACK_BUDGET_BYTES`); identical decoded images share allocations. `tools/props/build.py --check` and `tools/assets/audit.py` report the current inventory. |
 | Materials per prop | one per primitive; a multi-material model costs one draw range per material per batch |
 | Distinct models per level | 4096 (`MAX_LEVEL_PROP_MODELS`; fallback boxes beyond it) |
 | Summed baked prop vertices per level | 24 000 000 (`MAX_LEVEL_PROP_VERTICES`; fallback boxes beyond it) |
@@ -5394,7 +5394,7 @@ language; possible engine rejection.
 **Prevention:** 500 triangles preferred, 800 justified, 1500 shipped art budget;
 256×256 is the native prop texture size (32/64/128 legal for lighter props), and
 reviewed party cloth 1024/wrap 512 exceptions preserve print detail. The whole
-pack must decode to at most 106 MiB. Exceedances require explicit art-budget
+pack must decode to at most 128 MiB. Exceedances require explicit art-budget
 review; former Rust allowlist tests were removed in 0.11.0.
 
 ### Texture Seams / Incorrect Tiling
@@ -5445,7 +5445,7 @@ none of them is optional for a change that ships content.
 | `cargo fmt --all --check` | Rust formatting | **Yes** when code changed |
 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | Strict lints (`AGENTS.md` policy) | **Yes** when code changed |
 | `python3 tools/textures/build.py --check` | Texture/decal/fixture PNGs exist, parse, ≤1024 (sky ≤2048×1024, 2:1 POT); warns >256 / non-POT | Yes when art changed |
-| `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses, and its decoded texture memory fits the per-texture and 106 MiB pack budgets; prints bounds/budget flags | Yes when props changed |
+| `python3 tools/props/build.py --check` | Every catalogued prop GLB exists and parses, and its decoded texture memory fits the per-texture and 128 MiB pack budgets; prints bounds/budget flags | Yes when props changed |
 | `python3 tools/assets/audit.py --workers 12` | Every GLB and standalone PNG, finite geometry/UVs/skin data/clip channels, fitted UV range, zero-area faces, native image budget and equivalent PNG source coverage; records topology, materials, bounds, clips, duplicates and map uses in JSON. Topology review candidates require visual interpretation | Yes when assets changed |
 | `./target/release/places-compile build <source>.json` | Compiles the edited source into its `.placesmap` (prepares geometry, lighting, atlas, collision and probe captures) | **Yes, after every map edit** |
 | `./target/release/places-compile validate <package>.placesmap` | Decodes every prepared record and re-hashes every entry and dependency | **Yes, before shipping** |
@@ -9550,3 +9550,20 @@ remain listener-centred. Decorative ducts are separate from traversable crouch-t
 
 The asset bundle's catalog adoption and native acceptance are recorded separately
 in the release report; this contract does not claim those models are installed.
+
+
+### Utility ducts and institutional props (0.13.1)
+
+The Backrooms catalog includes six decorative HVAC modules, cabinets, static
+utility doors, suspended ceiling variants, passive fluorescent models and
+institutional furniture. Simple mode exposes Duct joins when one of the six
+duct models is selected: choose an end/direction or target, preview, then Apply
+one reversible pose. Green A/pink B arrows mark outward normals. Connections
+match scale, rectangular orientation and actual outer flange planes. These
+small ducts are separate from crouch tunnel authoring and use conservative
+solid placement boxes. Five Add Light variants provide the same fluorescent
+housings with actual measured emitter/mount offsets and existing circuit tools;
+use these instead of overlapping a passive housing with another fixture.
+See the [kit placement and source guide](../tools/props/backrooms_phase6/INTEGRATION.md)
+and its non-release `showcase/` editor project. The editor viewport is silent;
+Play owns one nearby spatial HVAC voice, which clears when pipes are removed.

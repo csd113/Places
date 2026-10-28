@@ -35,6 +35,22 @@ pub(in crate::editor) fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: 
             true,
         );
     }
+    if let Some(ObjectId::Prop(index)) = app.selected
+        && app
+            .document
+            .as_ref()
+            .and_then(|document| document.level().props.get(index))
+            .is_some_and(|placed| crate::editor::ducts::supported(&placed.model))
+    {
+        button(
+            vertices,
+            hits,
+            [29.0, 128.0, 35.0, 10.0],
+            "Duct >",
+            Action::Duct(crate::editor::ducts::Command::Open),
+            true,
+        );
+    }
     if let Some(transform) = app
         .selected
         .and_then(|id| app.document.as_ref()?.transform(id).ok())

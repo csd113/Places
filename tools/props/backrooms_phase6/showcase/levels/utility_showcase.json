@@ -1,0 +1,672 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "utility_showcase",
+  "name": "Utility and HVAC kit showcase",
+  "author": "Places",
+  "comment": "Bounded developer showcase; open roof exposes ceiling stock. Passive prop variants remain separate from operational circuit fixtures. Not part of the release map inventory.",
+  "spawn": {
+    "x": 9,
+    "z": 30,
+    "yaw_degrees": 0
+  },
+  "rooms": [
+    {
+      "x": -3,
+      "z": -3,
+      "width": 27,
+      "depth": 38,
+      "height": 10.30700026321411,
+      "ceiling": {
+        "kind": "open"
+      }
+    }
+  ],
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "ceiling_lights": [
+    {
+      "id": "utility_light_recessed",
+      "fixture": "backrooms:light_fluorescent_recessed",
+      "x": 0.0,
+      "z": -1.0,
+      "y": 4.6,
+      "align": "none",
+      "brightness": 0.8,
+      "range": 7,
+      "switch_group": "utility_showcase_circuit",
+      "switchable": true
+    },
+    {
+      "id": "utility_light_surface",
+      "fixture": "backrooms:light_fluorescent_surface",
+      "x": 4.5,
+      "z": -1.0,
+      "y": 4.6,
+      "align": "none",
+      "brightness": 0.8,
+      "range": 7,
+      "switch_group": "utility_showcase_circuit",
+      "switchable": true
+    },
+    {
+      "id": "utility_light_hanging",
+      "fixture": "backrooms:light_fluorescent_hanging",
+      "x": 9.0,
+      "z": -1.0,
+      "y": 4.6,
+      "align": "none",
+      "brightness": 0.8,
+      "range": 7,
+      "switch_group": "utility_showcase_circuit",
+      "switchable": true
+    },
+    {
+      "id": "utility_light_damaged",
+      "fixture": "backrooms:light_fluorescent_damaged",
+      "x": 13.5,
+      "z": -1.0,
+      "y": 4.6,
+      "align": "none",
+      "brightness": 0.8,
+      "range": 7,
+      "switch_group": "utility_showcase_circuit",
+      "switchable": true
+    },
+    {
+      "id": "utility_light_missing_diffuser",
+      "fixture": "backrooms:light_fluorescent_missing_diffuser",
+      "x": 18.0,
+      "z": -1.0,
+      "y": 4.6,
+      "align": "none",
+      "brightness": 0.8,
+      "range": 7,
+      "switch_group": "utility_showcase_circuit",
+      "switchable": true
+    },
+    {
+      "id": "inspection_0",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0,
+      "z": 0,
+      "y": 4.2,
+      "align": "none",
+      "brightness": 1,
+      "range": 12
+    },
+    {
+      "id": "inspection_1",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 9,
+      "z": 0,
+      "y": 4.2,
+      "align": "none",
+      "brightness": 1,
+      "range": 12
+    },
+    {
+      "id": "inspection_2",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 18,
+      "z": 0,
+      "y": 4.2,
+      "align": "none",
+      "brightness": 1,
+      "range": 12
+    },
+    {
+      "id": "inspection_3",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0,
+      "z": 19,
+      "y": 4.2,
+      "align": "none",
+      "brightness": 1,
+      "range": 12
+    },
+    {
+      "id": "inspection_4",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 9,
+      "z": 19,
+      "y": 4.2,
+      "align": "none",
+      "brightness": 1,
+      "range": 12
+    },
+    {
+      "id": "inspection_5",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 18,
+      "z": 19,
+      "y": 4.2,
+      "align": "none",
+      "brightness": 1,
+      "range": 12
+    }
+  ],
+  "props": [
+    {
+      "id": "breaker_panel_closed",
+      "model": "backrooms:breaker_panel_closed",
+      "x": 0.0,
+      "y": 1.2,
+      "z": 0.0,
+      "solid": true,
+      "size": [
+        0.46,
+        0.76,
+        0.191
+      ]
+    },
+    {
+      "id": "breaker_panel_open",
+      "model": "backrooms:breaker_panel_open",
+      "x": 4.5,
+      "y": 1.2,
+      "z": 0.0,
+      "solid": true,
+      "size": [
+        0.563507,
+        0.76,
+        0.587715
+      ]
+    },
+    {
+      "id": "electrical_cabinet_closed",
+      "model": "backrooms:electrical_cabinet_closed",
+      "x": 9.0,
+      "y": 0,
+      "z": 0.0,
+      "solid": true,
+      "size": [
+        0.72,
+        1.62,
+        0.381
+      ]
+    },
+    {
+      "id": "electrical_cabinet_open",
+      "model": "backrooms:electrical_cabinet_open",
+      "x": 13.5,
+      "y": 0,
+      "z": 0.0,
+      "solid": true,
+      "size": [
+        0.88405,
+        1.62,
+        1.029992
+      ]
+    },
+    {
+      "id": "fluorescent_damaged",
+      "model": "backrooms:fluorescent_damaged",
+      "x": 18.0,
+      "y": 2.8,
+      "z": 0.0,
+      "solid": false,
+      "size": [
+        1.2,
+        0.166221,
+        0.6
+      ]
+    },
+    {
+      "id": "fluorescent_hanging",
+      "model": "backrooms:fluorescent_hanging",
+      "x": 0.0,
+      "y": 2.8,
+      "z": 5.0,
+      "solid": false,
+      "size": [
+        1.2,
+        0.6715,
+        0.6
+      ]
+    },
+    {
+      "id": "fluorescent_missing_diffuser",
+      "model": "backrooms:fluorescent_missing_diffuser",
+      "x": 4.5,
+      "y": 2.8,
+      "z": 5.0,
+      "solid": false,
+      "size": [
+        1.2,
+        0.0675,
+        0.6
+      ]
+    },
+    {
+      "id": "fluorescent_recessed",
+      "model": "backrooms:fluorescent_recessed",
+      "x": 9.0,
+      "y": 2.8,
+      "z": 5.0,
+      "solid": false,
+      "size": [
+        1.2,
+        0.0675,
+        0.6
+      ]
+    },
+    {
+      "id": "fluorescent_surface",
+      "model": "backrooms:fluorescent_surface",
+      "x": 13.5,
+      "y": 2.8,
+      "z": 5.0,
+      "solid": false,
+      "size": [
+        1.2,
+        0.1085,
+        0.6
+      ]
+    },
+    {
+      "id": "folding_table_institutional",
+      "model": "backrooms:folding_table_institutional",
+      "x": 18.0,
+      "y": 0,
+      "z": 5.0,
+      "solid": true,
+      "size": [
+        1.8,
+        0.745,
+        0.75
+      ]
+    },
+    {
+      "id": "hvac_duct_short",
+      "model": "backrooms:hvac_duct_short",
+      "x": 0.0,
+      "y": 0,
+      "z": 10.0,
+      "solid": true,
+      "size": [
+        1.2,
+        0.446,
+        0.641
+      ]
+    },
+    {
+      "id": "hvac_duct_straight",
+      "model": "backrooms:hvac_duct_straight",
+      "x": 4.5,
+      "y": 0,
+      "z": 10.0,
+      "solid": true,
+      "size": [
+        2.4,
+        0.446,
+        0.641
+      ]
+    },
+    {
+      "id": "hvac_duct_vertical",
+      "model": "backrooms:hvac_duct_vertical",
+      "x": 9.0,
+      "y": 0,
+      "z": 10.0,
+      "solid": true,
+      "size": [
+        0.441,
+        2.4,
+        0.641
+      ]
+    },
+    {
+      "id": "hvac_elbow_down",
+      "model": "backrooms:hvac_elbow_down",
+      "x": 13.5,
+      "y": 0,
+      "z": 10.0,
+      "solid": true,
+      "size": [
+        1.141,
+        1.141,
+        0.65
+      ]
+    },
+    {
+      "id": "hvac_elbow_horizontal",
+      "model": "backrooms:hvac_elbow_horizontal",
+      "x": 18.0,
+      "y": 0,
+      "z": 10.0,
+      "solid": true,
+      "size": [
+        1.241,
+        0.45,
+        1.241
+      ]
+    },
+    {
+      "id": "hvac_elbow_up",
+      "model": "backrooms:hvac_elbow_up",
+      "x": 0.0,
+      "y": 0,
+      "z": 15.0,
+      "solid": true,
+      "size": [
+        1.141,
+        1.141,
+        0.65
+      ]
+    },
+    {
+      "id": "stackable_chair_institutional",
+      "model": "backrooms:stackable_chair_institutional",
+      "x": 4.5,
+      "y": 0,
+      "z": 15.0,
+      "solid": true,
+      "size": [
+        0.49792,
+        0.816955,
+        0.4966
+      ]
+    },
+    {
+      "id": "suspended_ceiling_crooked_tile",
+      "model": "backrooms:suspended_ceiling_crooked_tile",
+      "x": 9.0,
+      "y": 2.8,
+      "z": 15.0,
+      "solid": false,
+      "size": [
+        1.204,
+        0.210869,
+        1.212
+      ]
+    },
+    {
+      "id": "suspended_ceiling_exposed_grid",
+      "model": "backrooms:suspended_ceiling_exposed_grid",
+      "x": 13.5,
+      "y": 2.8,
+      "z": 15.0,
+      "solid": false,
+      "size": [
+        1.204,
+        0.0465,
+        1.212
+      ]
+    },
+    {
+      "id": "suspended_ceiling_missing_tile",
+      "model": "backrooms:suspended_ceiling_missing_tile",
+      "x": 18.0,
+      "y": 2.8,
+      "z": 15.0,
+      "solid": false,
+      "size": [
+        1.204,
+        0.0465,
+        1.212
+      ]
+    },
+    {
+      "id": "suspended_ceiling_stained_tiles",
+      "model": "backrooms:suspended_ceiling_stained_tiles",
+      "x": 0.0,
+      "y": 2.8,
+      "z": 20.0,
+      "solid": false,
+      "size": [
+        1.204,
+        0.0465,
+        1.212
+      ]
+    },
+    {
+      "id": "utility_door",
+      "model": "backrooms:utility_door",
+      "x": 4.5,
+      "y": 0,
+      "z": 20.0,
+      "solid": true,
+      "size": [
+        1.08,
+        2.16,
+        0.183928
+      ]
+    },
+    {
+      "id": "utility_double_door_wired",
+      "model": "backrooms:utility_double_door_wired",
+      "x": 9.0,
+      "y": 0,
+      "z": 20.0,
+      "solid": true,
+      "size": [
+        1.98,
+        2.16,
+        0.183928
+      ]
+    },
+    {
+      "id": "wall_clock_institutional",
+      "model": "backrooms:wall_clock_institutional",
+      "x": 13.5,
+      "y": 1.2,
+      "z": 20.0,
+      "solid": false,
+      "size": [
+        0.34,
+        0.34,
+        0.0775
+      ]
+    },
+    {
+      "id": "wall_speaker_institutional",
+      "model": "backrooms:wall_speaker_institutional",
+      "x": 18.0,
+      "y": 1.2,
+      "z": 20.0,
+      "solid": false,
+      "size": [
+        0.26,
+        0.32,
+        0.1105
+      ]
+    },
+    {
+      "id": "showcase_switch",
+      "model": "home:wall_switch",
+      "x": 20.0,
+      "y": 1.2,
+      "z": 28.0,
+      "solid": false,
+      "light_switch": "utility_showcase_circuit",
+      "components": [
+        {
+          "component": "interactable",
+          "enabled": true,
+          "prompt": "Lights on / off"
+        }
+      ],
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ]
+    },
+    {
+      "id": "reused_janitor_cart",
+      "model": "janitor:janitor_cart",
+      "x": 13.0,
+      "z": 26.5,
+      "y": 0.0,
+      "solid": true,
+      "size": [
+        0.730001,
+        0.9375,
+        0.660001
+      ]
+    },
+    {
+      "id": "reused_cardboard_supply_box",
+      "model": "janitor:cardboard_supply_box",
+      "x": 15.4,
+      "z": 26.5,
+      "y": 0.0,
+      "solid": false,
+      "size": [
+        0.340001,
+        0.282501,
+        0.274001
+      ]
+    },
+    {
+      "id": "reused_detergent_bottle",
+      "model": "janitor:detergent_bottle",
+      "x": 17.8,
+      "z": 26.5,
+      "y": 0.0,
+      "solid": false,
+      "size": [
+        0.116,
+        0.2655,
+        0.095941
+      ]
+    },
+    {
+      "id": "reused_spray_cleaner_bottle",
+      "model": "janitor:spray_cleaner_bottle",
+      "x": 13.0,
+      "z": 28.5,
+      "y": 0.0,
+      "solid": false,
+      "size": [
+        0.126001,
+        0.253,
+        0.079001
+      ]
+    },
+    {
+      "id": "reused_mop_wringer_bucket",
+      "model": "janitor:mop_wringer_bucket",
+      "x": 15.4,
+      "z": 28.5,
+      "y": 0.0,
+      "solid": true,
+      "size": [
+        0.480001,
+        0.978944,
+        0.382
+      ]
+    },
+    {
+      "id": "reused_string_mop",
+      "model": "janitor:string_mop",
+      "x": 17.8,
+      "z": 28.5,
+      "y": 0.0,
+      "solid": false,
+      "size": [
+        0.256564,
+        1.513582,
+        0.252109
+      ]
+    },
+    {
+      "id": "joined_0",
+      "model": "backrooms:hvac_duct_straight",
+      "x": 1,
+      "y": 2.2,
+      "z": 28,
+      "solid": true,
+      "size": [
+        2.4,
+        0.446,
+        0.641
+      ]
+    },
+    {
+      "id": "joined_1",
+      "model": "backrooms:hvac_duct_short",
+      "x": 2.8000000715255737,
+      "y": 2.2,
+      "z": 28.0,
+      "rotation_degrees": 0,
+      "pitch_degrees": 0,
+      "roll_degrees": 0,
+      "solid": true,
+      "size": [
+        1.2,
+        0.446,
+        0.641
+      ]
+    },
+    {
+      "id": "joined_2",
+      "model": "backrooms:hvac_elbow_horizontal",
+      "x": 4.020500063896179,
+      "y": 2.1955,
+      "z": 28.2955,
+      "rotation_degrees": 0,
+      "pitch_degrees": 0,
+      "roll_degrees": 0,
+      "solid": true,
+      "size": [
+        1.241,
+        0.45,
+        1.241
+      ]
+    },
+    {
+      "id": "joined_3",
+      "model": "backrooms:hvac_elbow_up",
+      "x": 4.316000063896179,
+      "y": 2.1955,
+      "z": 29.48649998474121,
+      "rotation_degrees": 270,
+      "pitch_degrees": 0,
+      "roll_degrees": 0,
+      "solid": true,
+      "size": [
+        1.141,
+        1.141,
+        0.65
+      ]
+    },
+    {
+      "id": "joined_4",
+      "model": "backrooms:hvac_duct_vertical",
+      "x": 4.316000063896179,
+      "y": 3.3365001516342163,
+      "z": 29.831999984741213,
+      "rotation_degrees": 90,
+      "pitch_degrees": 0,
+      "roll_degrees": 0,
+      "solid": true,
+      "size": [
+        0.441,
+        2.4,
+        0.641
+      ]
+    },
+    {
+      "id": "joined_5",
+      "model": "backrooms:hvac_elbow_down",
+      "x": 4.316000063896179,
+      "y": 6.307000263214111,
+      "z": 28.915999984741212,
+      "rotation_degrees": 90,
+      "pitch_degrees": 0,
+      "roll_degrees": 90,
+      "solid": true,
+      "size": [
+        1.141,
+        1.141,
+        0.65
+      ]
+    }
+  ],
+  "requires_full_lighting": true
+}

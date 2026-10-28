@@ -50,6 +50,7 @@ pub(super) enum Action {
     ThumbnailSize,
     Flicker(super::flicker::Command),
     Lighting(super::lighting::Command),
+    Duct(super::ducts::Command),
     Author(super::authoring::Command),
     Project,
     ProjectField(super::projects::Field),
@@ -664,6 +665,9 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
 fn simple_selection(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     let selected = app.selected.is_some();
     let unlocked = app.selected.is_some_and(|id| app.editable(id));
+    let duct = matches!(app.selected, Some(ObjectId::Prop(index))
+        if app.document.as_ref().and_then(|doc| doc.level().props.get(index))
+            .is_some_and(|placed| super::ducts::supported(&placed.model)));
     let wall = matches!(app.selected, Some(ObjectId::Wall(_)));
     text(
         vertices,
@@ -684,9 +688,17 @@ fn simple_selection(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) 
     for (y, label, action, enabled) in [
         (
             141.0,
-            if wall { "Doorway" } else { "More geometry >" },
+            if wall {
+                "Doorway"
+            } else if duct {
+                "Duct joins >"
+            } else {
+                "More geometry >"
+            },
             if wall {
                 Action::Place(super::construction::Tool::Doorway)
+            } else if duct {
+                Action::Duct(super::ducts::Command::Open)
             } else {
                 Action::Geometry
             },

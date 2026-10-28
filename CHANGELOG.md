@@ -1,11 +1,15 @@
 ## 0.13.1 — Unreleased
 
-Independent phase-6 audio groundwork reserves HVAC hum for one spatial voice
-near explicitly tagged fixed duct props, with falloff and world-reset cleanup;
-standalone sound authoring no longer creates global HVAC. The cloud asset bundle
-is still blocked at supported Windows transfer, so no new models are installed
-and existing maps currently have quiet HVAC. Validation and remaining work:
-[phase-6 partial report](docs/reports/release-0.13.1.md#phase-6-audio-groundwork-assets-blocked).
+- Add the cloud-authored 25-model utility/HVAC kit, retained Blender/GIMP sources,
+  six-axis duct joins with reversible previews, five circuit-ready fluorescent
+  variants and a bounded editor showcase. Preserve the original atlas and raise
+  the decoded prop pack ceiling to 128 MiB. Static doors and passive fixtures
+  are labeled explicitly; existing janitor cart/supplies are reused.
+
+HVAC hum now belongs to one nearby spatial duct voice, with squared falloff,
+duplicate suppression and removal/map-transition cleanup. Native kit placement,
+circuit lighting, source export/import and actual-duct audio acceptance are
+recorded in [the phase-6 report](docs/reports/release-0.13.1.md#phase-6-utility-kit-duct-joins-and-local-hvac-audio).
 
 Phase 5 adds contextual light-circuit selection/painting and one-step switch
 assignment, native power that composes with existing flicker and prepared Full

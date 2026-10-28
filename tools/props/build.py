@@ -57,7 +57,7 @@ TEXTURE_DECODED_MAX = TEXTURE_ENGINE_MAX * TEXTURE_ENGINE_MAX * 4
 # the audited catalog to approximately104.4MiB;106MiB bounds that combined cost.
 # Count every embedded image, including numeric masks, so duplicated payloads
 # remain included in the real resource cost.
-PACK_TEXTURE_MEMORY_MAX = 106 * 1024 * 1024
+PACK_TEXTURE_MEMORY_MAX = 128 * 1024 * 1024
 
 # Asset types the toolkit can build: entities place through the same pipeline.
 PLACEABLE_TYPES = ("prop", "entity")

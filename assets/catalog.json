@@ -11753,6 +11753,717 @@
         "source": "completed-models.json"
       },
       "theme": "backrooms"
+    },
+    {
+      "id": "backrooms:breaker_panel_closed",
+      "display_name": "Breaker Panel Closed",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/breaker_panel_closed.glb",
+      "size": [
+        0.46,
+        0.76,
+        0.191
+      ],
+      "color": "#c0c3ad",
+      "category": "Utility",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:breaker_panel_open",
+      "display_name": "Breaker Panel Open",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/breaker_panel_open.glb",
+      "size": [
+        0.563507,
+        0.76,
+        0.587715
+      ],
+      "color": "#c0c3ad",
+      "category": "Utility",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:electrical_cabinet_closed",
+      "display_name": "Electrical Cabinet Closed",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/electrical_cabinet_closed.glb",
+      "size": [
+        0.72,
+        1.62,
+        0.381
+      ],
+      "color": "#c0c3ad",
+      "category": "Utility",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:electrical_cabinet_open",
+      "display_name": "Electrical Cabinet Open",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/electrical_cabinet_open.glb",
+      "size": [
+        0.88405,
+        1.62,
+        1.029992
+      ],
+      "color": "#c0c3ad",
+      "category": "Utility",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:fluorescent_damaged",
+      "display_name": "Fluorescent Damaged (Passive Model)",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/fluorescent_damaged.glb",
+      "size": [
+        1.2,
+        0.166221,
+        0.6
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Passive fixture model, without emitted light. Use Add Light for a functional light and the existing circuit controls; do not overlap two housings.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:fluorescent_hanging",
+      "display_name": "Fluorescent Hanging (Passive Model)",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/fluorescent_hanging.glb",
+      "size": [
+        1.2,
+        0.6715,
+        0.6
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Passive fixture model, without emitted light. Use Add Light for a functional light and the existing circuit controls; do not overlap two housings.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:fluorescent_missing_diffuser",
+      "display_name": "Fluorescent Missing Diffuser (Passive Model)",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/fluorescent_missing_diffuser.glb",
+      "size": [
+        1.2,
+        0.0675,
+        0.6
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Passive fixture model, without emitted light. Use Add Light for a functional light and the existing circuit controls; do not overlap two housings.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:fluorescent_recessed",
+      "display_name": "Fluorescent Recessed (Passive Model)",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/fluorescent_recessed.glb",
+      "size": [
+        1.2,
+        0.0675,
+        0.6
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Passive fixture model, without emitted light. Use Add Light for a functional light and the existing circuit controls; do not overlap two housings.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:fluorescent_surface",
+      "display_name": "Fluorescent Surface (Passive Model)",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/fluorescent_surface.glb",
+      "size": [
+        1.2,
+        0.1085,
+        0.6
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Passive fixture model, without emitted light. Use Add Light for a functional light and the existing circuit controls; do not overlap two housings.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:folding_table_institutional",
+      "display_name": "Folding Table Institutional",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/folding_table_institutional.glb",
+      "size": [
+        1.8,
+        0.745,
+        0.75
+      ],
+      "color": "#c0c3ad",
+      "category": "Furniture",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:hvac_duct_short",
+      "display_name": "Hvac Duct Short",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/hvac_duct_short.glb",
+      "size": [
+        1.2,
+        0.446,
+        0.641
+      ],
+      "color": "#c0c3ad",
+      "category": "HVAC",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Decorative hollow duct, not a player tunnel. Local hum is automatic. Use Duct joins to align connector faces; yaw/pitch/roll preserve all-axis stock.",
+      "tags": [
+        "utility-kit",
+        "hvac-duct"
+      ]
+    },
+    {
+      "id": "backrooms:hvac_duct_straight",
+      "display_name": "Hvac Duct Straight",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/hvac_duct_straight.glb",
+      "size": [
+        2.4,
+        0.446,
+        0.641
+      ],
+      "color": "#c0c3ad",
+      "category": "HVAC",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Decorative hollow duct, not a player tunnel. Local hum is automatic. Use Duct joins to align connector faces; yaw/pitch/roll preserve all-axis stock.",
+      "tags": [
+        "utility-kit",
+        "hvac-duct"
+      ]
+    },
+    {
+      "id": "backrooms:hvac_duct_vertical",
+      "display_name": "Hvac Duct Vertical",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/hvac_duct_vertical.glb",
+      "size": [
+        0.441,
+        2.4,
+        0.641
+      ],
+      "color": "#c0c3ad",
+      "category": "HVAC",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Decorative hollow duct, not a player tunnel. Local hum is automatic. Use Duct joins to align connector faces; yaw/pitch/roll preserve all-axis stock.",
+      "tags": [
+        "utility-kit",
+        "hvac-duct"
+      ]
+    },
+    {
+      "id": "backrooms:hvac_elbow_down",
+      "display_name": "Hvac Elbow Down",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/hvac_elbow_down.glb",
+      "size": [
+        1.141,
+        1.141,
+        0.65
+      ],
+      "color": "#c0c3ad",
+      "category": "HVAC",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Decorative hollow duct, not a player tunnel. Local hum is automatic. Use Duct joins to align connector faces; yaw/pitch/roll preserve all-axis stock.",
+      "tags": [
+        "utility-kit",
+        "hvac-duct"
+      ]
+    },
+    {
+      "id": "backrooms:hvac_elbow_horizontal",
+      "display_name": "Hvac Elbow Horizontal",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/hvac_elbow_horizontal.glb",
+      "size": [
+        1.241,
+        0.45,
+        1.241
+      ],
+      "color": "#c0c3ad",
+      "category": "HVAC",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Decorative hollow duct, not a player tunnel. Local hum is automatic. Use Duct joins to align connector faces; yaw/pitch/roll preserve all-axis stock.",
+      "tags": [
+        "utility-kit",
+        "hvac-duct"
+      ]
+    },
+    {
+      "id": "backrooms:hvac_elbow_up",
+      "display_name": "Hvac Elbow Up",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/hvac_elbow_up.glb",
+      "size": [
+        1.141,
+        1.141,
+        0.65
+      ],
+      "color": "#c0c3ad",
+      "category": "HVAC",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Decorative hollow duct, not a player tunnel. Local hum is automatic. Use Duct joins to align connector faces; yaw/pitch/roll preserve all-axis stock.",
+      "tags": [
+        "utility-kit",
+        "hvac-duct"
+      ]
+    },
+    {
+      "id": "backrooms:stackable_chair_institutional",
+      "display_name": "Stackable Chair Institutional",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/stackable_chair_institutional.glb",
+      "size": [
+        0.49792,
+        0.816955,
+        0.4966
+      ],
+      "color": "#c0c3ad",
+      "category": "Furniture",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:suspended_ceiling_crooked_tile",
+      "display_name": "Suspended Ceiling Crooked Tile",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/suspended_ceiling_crooked_tile.glb",
+      "size": [
+        1.204,
+        0.210869,
+        1.212
+      ],
+      "color": "#c0c3ad",
+      "category": "Ceilings",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Passive suspended-ceiling module. Fit on a 1.2 m stock grid; occupied tabs and crooked tiles are included in measured bounds.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:suspended_ceiling_exposed_grid",
+      "display_name": "Suspended Ceiling Exposed Grid",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/suspended_ceiling_exposed_grid.glb",
+      "size": [
+        1.204,
+        0.0465,
+        1.212
+      ],
+      "color": "#c0c3ad",
+      "category": "Ceilings",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Passive suspended-ceiling module. Fit on a 1.2 m stock grid; occupied tabs and crooked tiles are included in measured bounds.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:suspended_ceiling_missing_tile",
+      "display_name": "Suspended Ceiling Missing Tile",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/suspended_ceiling_missing_tile.glb",
+      "size": [
+        1.204,
+        0.0465,
+        1.212
+      ],
+      "color": "#c0c3ad",
+      "category": "Ceilings",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Passive suspended-ceiling module. Fit on a 1.2 m stock grid; occupied tabs and crooked tiles are included in measured bounds.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:suspended_ceiling_stained_tiles",
+      "display_name": "Suspended Ceiling Stained Tiles",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/suspended_ceiling_stained_tiles.glb",
+      "size": [
+        1.204,
+        0.0465,
+        1.212
+      ],
+      "color": "#c0c3ad",
+      "category": "Ceilings",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Passive suspended-ceiling module. Fit on a 1.2 m stock grid; occupied tabs and crooked tiles are included in measured bounds.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:utility_door",
+      "display_name": "Utility Door (Static Model)",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/utility_door.glb",
+      "size": [
+        1.08,
+        2.16,
+        0.183928
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Decorative fixed door model. It has no opening animation; use Add Door for a functional door leaf.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:utility_double_door_wired",
+      "display_name": "Utility Double Door Wired (Static Model)",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/utility_double_door_wired.glb",
+      "size": [
+        1.98,
+        2.16,
+        0.183928
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Decorative fixed door model. It has no opening animation; use Add Door for a functional door leaf.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:wall_clock_institutional",
+      "display_name": "Wall Clock Institutional",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/wall_clock_institutional.glb",
+      "size": [
+        0.34,
+        0.34,
+        0.0775
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:wall_speaker_institutional",
+      "display_name": "Wall Speaker Institutional",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/wall_speaker_institutional.glb",
+      "size": [
+        0.26,
+        0.32,
+        0.1105
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors.",
+      "tags": [
+        "utility-kit"
+      ]
+    },
+    {
+      "id": "backrooms:light_fluorescent_recessed",
+      "display_name": "Fluorescent Recessed (Light)",
+      "asset_class": "environment",
+      "theme": "backrooms",
+      "asset_type": "light",
+      "source": "file",
+      "model": "environments/backrooms/textures/lights/light_fluorescent_recessed.png",
+      "description": "Operational utility fixture. Mount at ceiling; use Circuits to wire switches and light states. Housing and emitter use measured source geometry.",
+      "tags": [
+        "utility-kit",
+        "fluorescent",
+        "circuit"
+      ],
+      "category": "Utility Lights"
+    },
+    {
+      "id": "backrooms:light_fluorescent_surface",
+      "display_name": "Fluorescent Surface (Light)",
+      "asset_class": "environment",
+      "theme": "backrooms",
+      "asset_type": "light",
+      "source": "file",
+      "model": "environments/backrooms/textures/lights/light_fluorescent_surface.png",
+      "description": "Operational utility fixture. Mount at ceiling; use Circuits to wire switches and light states. Housing and emitter use measured source geometry.",
+      "tags": [
+        "utility-kit",
+        "fluorescent",
+        "circuit"
+      ],
+      "category": "Utility Lights"
+    },
+    {
+      "id": "backrooms:light_fluorescent_hanging",
+      "display_name": "Fluorescent Hanging (Light)",
+      "asset_class": "environment",
+      "theme": "backrooms",
+      "asset_type": "light",
+      "source": "file",
+      "model": "environments/backrooms/textures/lights/light_fluorescent_hanging.png",
+      "description": "Operational utility fixture. Mount at ceiling; use Circuits to wire switches and light states. Housing and emitter use measured source geometry.",
+      "tags": [
+        "utility-kit",
+        "fluorescent",
+        "circuit"
+      ],
+      "category": "Utility Lights"
+    },
+    {
+      "id": "backrooms:light_fluorescent_damaged",
+      "display_name": "Fluorescent Damaged (Light)",
+      "asset_class": "environment",
+      "theme": "backrooms",
+      "asset_type": "light",
+      "source": "file",
+      "model": "environments/backrooms/textures/lights/light_fluorescent_damaged.png",
+      "description": "Operational utility fixture. Mount at ceiling; use Circuits to wire switches and light states. Housing and emitter use measured source geometry.",
+      "tags": [
+        "utility-kit",
+        "fluorescent",
+        "circuit"
+      ],
+      "category": "Utility Lights"
+    },
+    {
+      "id": "backrooms:light_fluorescent_missing_diffuser",
+      "display_name": "Fluorescent Missing Diffuser (Light)",
+      "asset_class": "environment",
+      "theme": "backrooms",
+      "asset_type": "light",
+      "source": "file",
+      "model": "environments/backrooms/textures/lights/light_fluorescent_missing_diffuser.png",
+      "description": "Operational utility fixture. Mount at ceiling; use Circuits to wire switches and light states. Housing and emitter use measured source geometry.",
+      "tags": [
+        "utility-kit",
+        "fluorescent",
+        "circuit"
+      ],
+      "category": "Utility Lights"
     }
   ]
 }

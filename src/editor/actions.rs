@@ -31,6 +31,7 @@ pub(super) enum Popup {
     AuthoringForm(Box<super::authoring::Draft>),
     SceneSearch(String),
     Transform(Box<super::transform::Draft>),
+    Duct(Box<super::ducts::Draft>),
     Project,
     Thumbnail,
     ProjectText {
@@ -115,6 +116,10 @@ impl Popup {
             super::authoring::draw(app, v, hits);
             return;
         }
+        if let Self::Duct(draft) = self {
+            super::ducts::draw(draft, v, hits);
+            return;
+        }
         if let Self::Transform(draft) = self {
             ui::transform_popup(draft, v, hits);
             return;
@@ -172,6 +177,7 @@ impl Popup {
             | Self::Authoring
             | Self::AuthoringForm(_)
             | Self::Transform(_)
+            | Self::Duct(_)
             | Self::Project
             | Self::Thumbnail
             | Self::ProjectText { field: _, value: _ }
@@ -363,6 +369,7 @@ impl App {
             || self.safety_action(action)?
             || self.component_action(action)?
             || self.transform_action(action)?
+            || self.duct_action(action)?
             || self.selection_ui_action(action)?
             || self.gameplay_action(action)?)
     }
@@ -373,6 +380,7 @@ impl App {
             Action::Nudge(_, _)
                 | Action::Field(_)
                 | Action::Transform
+                | Action::Duct(_)
                 | Action::Delete
                 | Action::Duplicate
                 | Action::Materials

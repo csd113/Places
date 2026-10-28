@@ -1,0 +1,554 @@
+{
+  "assets": [
+    {
+      "id": "backrooms:breaker_panel_closed",
+      "display_name": "Breaker Panel Closed",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/breaker_panel_closed.glb",
+      "size": [
+        0.46,
+        0.76,
+        0.191
+      ],
+      "color": "#c0c3ad",
+      "category": "Utility",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:breaker_panel_open",
+      "display_name": "Breaker Panel Open",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/breaker_panel_open.glb",
+      "size": [
+        0.563507,
+        0.76,
+        0.587715
+      ],
+      "color": "#c0c3ad",
+      "category": "Utility",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:electrical_cabinet_closed",
+      "display_name": "Electrical Cabinet Closed",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/electrical_cabinet_closed.glb",
+      "size": [
+        0.72,
+        1.62,
+        0.381
+      ],
+      "color": "#c0c3ad",
+      "category": "Utility",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:electrical_cabinet_open",
+      "display_name": "Electrical Cabinet Open",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/electrical_cabinet_open.glb",
+      "size": [
+        0.88405,
+        1.62,
+        1.029992
+      ],
+      "color": "#c0c3ad",
+      "category": "Utility",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:fluorescent_damaged",
+      "display_name": "Fluorescent Damaged",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/fluorescent_damaged.glb",
+      "size": [
+        1.2,
+        0.166221,
+        0.6
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:fluorescent_hanging",
+      "display_name": "Fluorescent Hanging",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/fluorescent_hanging.glb",
+      "size": [
+        1.2,
+        0.6715,
+        0.6
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:fluorescent_missing_diffuser",
+      "display_name": "Fluorescent Missing Diffuser",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/fluorescent_missing_diffuser.glb",
+      "size": [
+        1.2,
+        0.0675,
+        0.6
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:fluorescent_recessed",
+      "display_name": "Fluorescent Recessed",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/fluorescent_recessed.glb",
+      "size": [
+        1.2,
+        0.0675,
+        0.6
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:fluorescent_surface",
+      "display_name": "Fluorescent Surface",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/fluorescent_surface.glb",
+      "size": [
+        1.2,
+        0.1085,
+        0.6
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:folding_table_institutional",
+      "display_name": "Folding Table Institutional",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/folding_table_institutional.glb",
+      "size": [
+        1.8,
+        0.745,
+        0.75
+      ],
+      "color": "#c0c3ad",
+      "category": "Furniture",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:hvac_duct_short",
+      "display_name": "Hvac Duct Short",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/hvac_duct_short.glb",
+      "size": [
+        1.2,
+        0.446,
+        0.641
+      ],
+      "color": "#c0c3ad",
+      "category": "HVAC",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:hvac_duct_straight",
+      "display_name": "Hvac Duct Straight",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/hvac_duct_straight.glb",
+      "size": [
+        2.4,
+        0.446,
+        0.641
+      ],
+      "color": "#c0c3ad",
+      "category": "HVAC",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:hvac_duct_vertical",
+      "display_name": "Hvac Duct Vertical",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/hvac_duct_vertical.glb",
+      "size": [
+        0.441,
+        2.4,
+        0.641
+      ],
+      "color": "#c0c3ad",
+      "category": "HVAC",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:hvac_elbow_down",
+      "display_name": "Hvac Elbow Down",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/hvac_elbow_down.glb",
+      "size": [
+        1.141,
+        1.141,
+        0.65
+      ],
+      "color": "#c0c3ad",
+      "category": "HVAC",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:hvac_elbow_horizontal",
+      "display_name": "Hvac Elbow Horizontal",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/hvac_elbow_horizontal.glb",
+      "size": [
+        1.241,
+        0.45,
+        1.241
+      ],
+      "color": "#c0c3ad",
+      "category": "HVAC",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:hvac_elbow_up",
+      "display_name": "Hvac Elbow Up",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/hvac_elbow_up.glb",
+      "size": [
+        1.141,
+        1.141,
+        0.65
+      ],
+      "color": "#c0c3ad",
+      "category": "HVAC",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:stackable_chair_institutional",
+      "display_name": "Stackable Chair Institutional",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/stackable_chair_institutional.glb",
+      "size": [
+        0.49792,
+        0.816955,
+        0.4966
+      ],
+      "color": "#c0c3ad",
+      "category": "Furniture",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:suspended_ceiling_crooked_tile",
+      "display_name": "Suspended Ceiling Crooked Tile",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/suspended_ceiling_crooked_tile.glb",
+      "size": [
+        1.204,
+        0.210869,
+        1.212
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:suspended_ceiling_exposed_grid",
+      "display_name": "Suspended Ceiling Exposed Grid",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/suspended_ceiling_exposed_grid.glb",
+      "size": [
+        1.204,
+        0.0465,
+        1.212
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:suspended_ceiling_missing_tile",
+      "display_name": "Suspended Ceiling Missing Tile",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/suspended_ceiling_missing_tile.glb",
+      "size": [
+        1.204,
+        0.0465,
+        1.212
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:suspended_ceiling_stained_tiles",
+      "display_name": "Suspended Ceiling Stained Tiles",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/suspended_ceiling_stained_tiles.glb",
+      "size": [
+        1.204,
+        0.0465,
+        1.212
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:utility_door",
+      "display_name": "Utility Door",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/utility_door.glb",
+      "size": [
+        1.08,
+        2.16,
+        0.183928
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:utility_double_door_wired",
+      "display_name": "Utility Double Door Wired",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/utility_double_door_wired.glb",
+      "size": [
+        1.98,
+        2.16,
+        0.183928
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": true,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:wall_clock_institutional",
+      "display_name": "Wall Clock Institutional",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/wall_clock_institutional.glb",
+      "size": [
+        0.34,
+        0.34,
+        0.0775
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    },
+    {
+      "id": "backrooms:wall_speaker_institutional",
+      "display_name": "Wall Speaker Institutional",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/backrooms/props/wall_speaker_institutional.glb",
+      "size": [
+        0.26,
+        0.32,
+        0.1105
+      ],
+      "color": "#c0c3ad",
+      "category": "Fixtures",
+      "solid": false,
+      "theme": "backrooms",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "description": "Blender/GIMP authored institutional utility kit. Metres, +Y up, +Z front, centred base origin. See phase6 manifest for mounts and connector anchors."
+    }
+  ]
+}

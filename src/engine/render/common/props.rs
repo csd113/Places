@@ -1473,7 +1473,12 @@ fn resolve_fixture_model_instances(
         };
         let transform = glam::Mat4::from_rotation_translation(
             glam::Quat::from_rotation_y(rotation.to_radians()),
-            glam::Vec3::new(fixture.x, lighting.fixture_y_for(fixture), fixture.z),
+            glam::Vec3::new(
+                fixture.x,
+                lighting.fixture_y_for(fixture)
+                    + crate::engine::lighting::fixture_profile(&fixture.fixture).model_offset_y,
+                fixture.z,
+            ),
         );
         let Some((min, max)) = asset.model.bounds() else {
             continue;
@@ -1487,7 +1492,10 @@ fn resolve_fixture_model_instances(
         }
         let color = fixture.emitted_color();
         for (primitive, source) in builder.primitives.iter_mut().zip(&asset.model.submeshes) {
-            primitive.emission = if source.material == 2 {
+            primitive.emission = if crate::engine::lighting::fixture_profile(&fixture.fixture)
+                .emissive_slots
+                .contains(&source.material)
+            {
                 MaterialEmission::new([color.r, color.g, color.b], fixture.emission_intensity())
             } else {
                 MaterialEmission::NONE

@@ -11,6 +11,7 @@ mod component_actions;
 mod construction;
 pub mod document;
 mod dragging;
+mod ducts;
 mod flicker;
 mod focus;
 mod gameplay_actions;

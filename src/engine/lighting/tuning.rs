@@ -265,6 +265,12 @@ pub struct FixtureProfile {
     /// Upper bound on the quads the renderer emits for one fixture, used by
     /// the level geometry estimate.
     pub quads: u64,
+    /// Translation from the mounting plane to the delivered model origin.
+    pub model_offset_y: f32,
+    /// Measured luminous plane and aperture for authored utility housings.
+    pub emitter_override: Option<(f32, LightShape)>,
+    /// Only these delivered material slots follow fixture emission/circuits.
+    pub emissive_slots: &'static [u16],
 }
 
 impl FixtureProfile {
@@ -282,6 +288,9 @@ impl FixtureProfile {
     /// Source taps must lie on the diffuser rather than inside opaque housing.
     #[must_use]
     pub const fn emission_shape(self) -> LightShape {
+        if let Some((_, shape)) = self.emitter_override {
+            return shape;
+        }
         if self.model.is_some() {
             return match self.kind {
                 FixtureKind::RoundRecessed => LightShape::Rect {
@@ -321,6 +330,9 @@ impl FixtureProfile {
     /// Luminous plane relative to the mounting plane the mesh resolver uses.
     #[must_use]
     pub const fn emission_y(self, mount_y: f32) -> f32 {
+        if let Some((local_y, _)) = self.emitter_override {
+            return mount_y + self.model_offset_y + local_y;
+        }
         if self.model.is_some() {
             return match self.kind {
                 FixtureKind::FluorescentPanel => mount_y - 0.04,
@@ -382,13 +394,18 @@ pub const ROUND_LENS_DROP_M: f32 = 0.017;
 /// `asset_type: "light"` entries and each entry's visible-face PNG in
 /// agreement, so a catalogued fixture can never silently render as some other
 /// fixture or fall back to an untextured sheet.
-pub const LIGHT_FIXTURE_IDS: [&str; 6] = [
+pub const LIGHT_FIXTURE_IDS: [&str; 11] = [
     "core:fluorescent_panel_01",
     "core:pool_light_round",
     "core:pool_light_wall",
     "home:ceiling_light_round",
     "arcade:blacklight_tube",
     "arcade:fluorescent_panel_01",
+    "backrooms:light_fluorescent_recessed",
+    "backrooms:light_fluorescent_surface",
+    "backrooms:light_fluorescent_hanging",
+    "backrooms:light_fluorescent_damaged",
+    "backrooms:light_fluorescent_missing_diffuser",
 ];
 
 /// The profile of a fixture family.
@@ -398,6 +415,9 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
         FixtureKind::FluorescentPanel => FixtureProfile {
             kind,
             model: None,
+            model_offset_y: 0.0,
+            emitter_override: None,
+            emissive_slots: &[2],
             half_width: FIXTURE_HALF_WIDTH_M,
             half_depth: FIXTURE_HALF_DEPTH_M,
             // One luminous diffuser plus four housing side walls, a four-strip
@@ -407,6 +427,9 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
         FixtureKind::BlacklightTube => FixtureProfile {
             kind,
             model: None,
+            model_offset_y: 0.0,
+            emitter_override: None,
+            emissive_slots: &[2],
             half_width: 0.6,
             half_depth: 0.075,
             quads: 7,
@@ -414,6 +437,9 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
         FixtureKind::RoundRecessed => FixtureProfile {
             kind,
             model: None,
+            model_offset_y: 0.0,
+            emitter_override: None,
+            emissive_slots: &[2],
             half_width: 0.22,
             half_depth: 0.22,
             quads: 34,
@@ -421,6 +447,9 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
         FixtureKind::WallSconce => FixtureProfile {
             kind,
             model: None,
+            model_offset_y: 0.0,
+            emitter_override: None,
+            emissive_slots: &[2],
             half_width: 0.20,
             half_depth: 0.09,
             quads: 6,
@@ -428,6 +457,9 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
         FixtureKind::FlushMount => FixtureProfile {
             kind,
             model: None,
+            model_offset_y: 0.0,
+            emitter_override: None,
+            emissive_slots: &[2],
             half_width: FLUSH_MOUNT_RADIUS_M,
             half_depth: FLUSH_MOUNT_RADIUS_M,
             quads: 35,
@@ -456,6 +488,29 @@ pub fn fixture_profile(fixture_id: &str) -> FixtureProfile {
         profile.half_width = 0.25;
         profile.half_depth = 0.25;
     }
+    // Original GLBs are floor-origin assets. Their measured tops mount at the
+    // ceiling; source taps stay just below the delivered diffuser/tube surface.
+    let utility = match fixture_id {
+        "backrooms:light_fluorescent_recessed" => Some((0.0675, 0.018, 0.56, 0.26)),
+        "backrooms:light_fluorescent_surface" => Some((0.1085, 0.018, 0.56, 0.26)),
+        "backrooms:light_fluorescent_hanging" => Some((0.6715, 0.018, 0.56, 0.26)),
+        "backrooms:light_fluorescent_missing_diffuser" => Some((0.0675, 0.016, 0.53, 0.14)),
+        // The broken fragment moves this asset's floor origin downward.
+        "backrooms:light_fluorescent_damaged" => Some((0.166_221_23, 0.1146, 0.53, 0.14)),
+        _ => None,
+    };
+    if let Some((height, emitter_y, half_width, half_depth)) = utility {
+        profile.model_offset_y = -height;
+        profile.emitter_override = Some((
+            emitter_y,
+            LightShape::Rect {
+                half_width,
+                half_depth,
+            },
+        ));
+        // Damaged diffuser fragments stay passive; only the intact tubes glow.
+        profile.emissive_slots = &[2];
+    }
     profile
 }
 
@@ -466,6 +521,13 @@ pub fn fixture_model_id(fixture_id: &str) -> Option<&'static str> {
         "core:fluorescent_panel_01" => Some("core:office_fluorescent_panel_housing"),
         "core:pool_light_round" => Some("core:pool_light_round_housing"),
         "core:pool_light_wall" => Some("core:pool_light_wall_housing"),
+        "backrooms:light_fluorescent_recessed" => Some("backrooms:fluorescent_recessed"),
+        "backrooms:light_fluorescent_surface" => Some("backrooms:fluorescent_surface"),
+        "backrooms:light_fluorescent_hanging" => Some("backrooms:fluorescent_hanging"),
+        "backrooms:light_fluorescent_damaged" => Some("backrooms:fluorescent_damaged"),
+        "backrooms:light_fluorescent_missing_diffuser" => {
+            Some("backrooms:fluorescent_missing_diffuser")
+        }
         _ => None,
     }
 }

@@ -1,0 +1,218 @@
+{
+  "backrooms:hvac_duct_short": [
+    {
+      "position": [
+        -0.6000000238418579,
+        0.2205,
+        0.0
+      ],
+      "outward_normal": [
+        -1,
+        0,
+        0
+      ],
+      "height_axis": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "position": [
+        0.6000000238418579,
+        0.2205,
+        0.0
+      ],
+      "outward_normal": [
+        1,
+        0,
+        0
+      ],
+      "height_axis": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "backrooms:hvac_duct_straight": [
+    {
+      "position": [
+        -1.2000000476837158,
+        0.2205,
+        0.0
+      ],
+      "outward_normal": [
+        -1,
+        0,
+        0
+      ],
+      "height_axis": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "position": [
+        1.2000000476837158,
+        0.2205,
+        0.0
+      ],
+      "outward_normal": [
+        1,
+        0,
+        0
+      ],
+      "height_axis": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "backrooms:hvac_duct_vertical": [
+    {
+      "position": [
+        0.0,
+        0,
+        0.0
+      ],
+      "outward_normal": [
+        0,
+        -1,
+        0
+      ],
+      "height_axis": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "position": [
+        0.0,
+        2.4000000953674316,
+        0.0
+      ],
+      "outward_normal": [
+        0,
+        1,
+        0
+      ],
+      "height_axis": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "backrooms:hvac_elbow_down": [
+    {
+      "position": [
+        -0.5705000162124634,
+        0.916,
+        0.0
+      ],
+      "outward_normal": [
+        -1,
+        0,
+        0
+      ],
+      "height_axis": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "position": [
+        0.3455,
+        0,
+        0.0
+      ],
+      "outward_normal": [
+        0,
+        -1,
+        0
+      ],
+      "height_axis": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "backrooms:hvac_elbow_horizontal": [
+    {
+      "position": [
+        -0.6204999685287476,
+        0.225,
+        -0.2955
+      ],
+      "outward_normal": [
+        -1,
+        0,
+        0
+      ],
+      "height_axis": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "position": [
+        0.2955,
+        0.225,
+        0.6204999685287476
+      ],
+      "outward_normal": [
+        0,
+        0,
+        1
+      ],
+      "height_axis": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "backrooms:hvac_elbow_up": [
+    {
+      "position": [
+        -0.5705000162124634,
+        0.225,
+        0.0
+      ],
+      "outward_normal": [
+        -1,
+        0,
+        0
+      ],
+      "height_axis": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "position": [
+        0.3455,
+        1.1410001516342163,
+        0.0
+      ],
+      "outward_normal": [
+        0,
+        1,
+        0
+      ],
+      "height_axis": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

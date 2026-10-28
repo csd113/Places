@@ -1,0 +1,158 @@
+{
+  "backrooms:hvac_duct_short": [
+    {
+      "position": [
+        -0.6,
+        0.2205,
+        0.0
+      ],
+      "outward_normal": [
+        -1,
+        0,
+        0
+      ]
+    },
+    {
+      "position": [
+        0.6,
+        0.2205,
+        0.0
+      ],
+      "outward_normal": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "backrooms:hvac_duct_straight": [
+    {
+      "position": [
+        -1.2,
+        0.2205,
+        0.0
+      ],
+      "outward_normal": [
+        -1,
+        0,
+        0
+      ]
+    },
+    {
+      "position": [
+        1.2,
+        0.2205,
+        0.0
+      ],
+      "outward_normal": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "backrooms:hvac_duct_vertical": [
+    {
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "outward_normal": [
+        0,
+        -1,
+        0
+      ]
+    },
+    {
+      "position": [
+        0.0,
+        2.4,
+        0.0
+      ],
+      "outward_normal": [
+        0,
+        1,
+        0
+      ]
+    }
+  ],
+  "backrooms:hvac_elbow_down": [
+    {
+      "position": [
+        -0.5545,
+        0.916,
+        0.0
+      ],
+      "outward_normal": [
+        -1,
+        0,
+        0
+      ]
+    },
+    {
+      "position": [
+        0.3455,
+        0.016,
+        0.0
+      ],
+      "outward_normal": [
+        0,
+        -1,
+        0
+      ]
+    }
+  ],
+  "backrooms:hvac_elbow_horizontal": [
+    {
+      "position": [
+        -0.6045,
+        0.225,
+        -0.2955
+      ],
+      "outward_normal": [
+        -1,
+        0,
+        0
+      ]
+    },
+    {
+      "position": [
+        0.2955,
+        0.225,
+        0.6045
+      ],
+      "outward_normal": [
+        0,
+        0,
+        1
+      ]
+    }
+  ],
+  "backrooms:hvac_elbow_up": [
+    {
+      "position": [
+        -0.5545,
+        0.225,
+        0.0
+      ],
+      "outward_normal": [
+        -1,
+        0,
+        0
+      ]
+    },
+    {
+      "position": [
+        0.3455,
+        1.125,
+        0.0
+      ],
+      "outward_normal": [
+        0,
+        1,
+        0
+      ]
+    }
+  ]
+}

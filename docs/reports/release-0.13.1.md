@@ -370,88 +370,118 @@ by a SHA-256 inventory outside target before Cargo cleanup. Actual Mac validatio
 full production rebaking/cross-platform closing and final FPS attribution remain
 later. No HVAC/assets, prefab, runtime water/stair/draw-distance work was absorbed.
 
-## Phase 6 audio groundwork (assets blocked)
+## Phase 6 utility kit, duct joins and local HVAC audio
 
-The independent audio portion is implemented. Fixed props whose catalog entry
-explicitly carries the existing `hvac-duct` tag supply transformed acoustic
-envelopes. The player selects one nearest envelope for the entire family, using
-a 0.75 m near distance and squared falloff to an 8 m cutoff. Duplicate modules
-cannot stack voices. Catalog dimensions follow the rendered scale and
-yaw/pitch/roll, independently of collision-size overrides. A changed nearest
-duct moves the anchor directly to the real envelope; gain fades smoothly.
-World reset and map changes clear all derived duct anchors and voices.
+Phase 6 is integrated and accepted on the Razer. The 25 cloud-authored Blender
+4.3.2/GIMP 3.0.4 models retain their original GLB and native 256-square atlas bytes.
+They total 11,764 triangles, 156–1,464 per model. The catalog adds 25 prop entries
+and five operational fixture entries, reaching 674 assets / 417 placeable entries
+across the existing ten themes. Existing janitor cart, supply box, two bottles,
+mop bucket and mop are reused byte-for-byte, with six native inspection captures.
 
-The player reserves `ambience_hvac` for this owner, so existing standalone and
-prop-attached room/vending requests cannot produce global or duplicate hum.
-The standalone sound picker excludes that automatic bed; new Audio placements
-default to positional `empty_room`. Other audio controls and cue files retain
-their existing contracts. No production catalog entry is tagged yet: existing
-maps therefore have quiet HVAC until the actual duct assets are adopted.
+The final public-GitHub transfer was explicitly authorized after disclosure.
+All 34 payloads / 100 ASCII transport parts were verified by length, SHA-256 and
+Git blob identity. The repository preserves 31 original runtime/document inputs
+and 38 original final editable/master/workflow/text-QA files. The consolidated
+receipt is `f75d7f760c3b5b7b90dd60880a1fcb9d1e17d5a0`; editable ZIP SHA-256 is
+`7af21156eae3bddc850f1c531641b9fea24993eb56c610a326af1d7bb50b970`.
+Original source and per-file receipts live in `tools/props/backrooms_phase6/`.
+The complete final contact sheet and hollow-elbow close-up were inspected as
+actual pixels before acceptance. They remain outside runtime assets, alongside
+native evidence. No models were remade on the Razer; the larger original Library
+bundle and early construction history remain in their original Library records.
 
-### Independent Razer acceptance
+### Placement and runtime integration
 
-Formatting, strict debug/release workspace/all-target/all-feature Clippy and the
-locked release workspace/all-feature build pass with Rust/Cargo 1.99.1.
-All 377 Rust tests pass serially. The first parallel run had one existing bowling
-Luau wall-time-budget failure; that exact case passes in isolation and the full
-serialized rerun passes without changing budgets or scripts. The new tiny CPU
-control protects six horizontal/vertical rotations, elevated floors, collision
-override independence, duplicate candidates, untagged props and empty rebuilding.
+Simple and Advanced modes expose contextual Duct joins for the six HVAC models.
+Green A/pink B guides show outward normals. Six direction controls and ordinary
+pitch/roll allow either horizontal direction and vertical up/down. Explicit
+same-scale joins oppose normals, match rectangular aperture orientation, and
+meet actual outer flange planes, including projecting elbow stock. Preview
+frames the proposed source/target; Apply is one source pose edit. Cancellation,
+undo/redo and save/reopen retain their ordinary document boundaries. Targets are
+bounded to 32 nearest visible fixed duct ends; moving/floating/fitted poses are
+refused. These decorative 0.6 x 0.4 m ducts are separate from crouch tunnels.
+Their collision is the documented conservative transformed box.
 
-The source Python campaign ran 369 checks with 18 expected skips. Its three
-packaging cases initially reported six subtest/process errors because this
-process lacked `sh` on PATH. Their focused six-test module passes (three expected
-skips) using the already-installed Git shell on process-local PATH; no host
-setting or test changed. All other source cases passed. Asset validation reports
-644 assets, zero warnings; audio, texture and prop checks pass with unchanged
-texture/prop preferred-budget advisories. No imagery, model bytes or budgets
-were changed.
+The Add to scene sheet now exposes static catalog prop creation. Catalog model
+changes capture measured size/solid defaults. The non-release showcase captures
+all prop collision sizes explicitly and demonstrates all 25 variants, a joined
+six-piece run, five circuit fixtures and reused maintenance stock. Ceiling grids
+and passive fixture props are nonsolid. Doors are labeled Static Model; the
+existing Add Door tool remains the interactive-leaf workflow. Speaker and clock
+are passive/fixed scenery. See the kit's `INTEGRATION.md` for placement details.
 
-Two real native Windows/Dx12 runs pass 15 assertions using the unchanged crate as
-an explicitly labelled stand-in and a private catalog tag. All three tiny
-Static control packages pass integrity/current-source verification. Native
-observations establish a single spatial voice near the stock, reduced gain at
-distance, no far voice, restart on return, one voice for four overlapping
-90-degree stock placements, and clearing after loading the source with no stock.
-Three obsolete global emitters stay silent without stock. Captured no-stock
-post-mixer PCM has exactly zero RMS; the mixed locality run has RMS 0.0036864.
+Five Add Light variants reuse the delivered fluorescent GLBs through existing
+mounting, Circuits, switches and Full lighting. Measured model-top offsets also
+drive picking and canonical prepared placement. Luminous planes lie at the actual
+lens/tubes; only material slot 2 emits, leaving housings, labels and damaged
+diffuser fragments passive. Each owns a distinct 2:1 fallback PNG path containing
+exact existing fluorescent-face bytes; normal rendering uses the original GLB
+atlas. Passive prop versions are labeled explicitly to avoid overlapping housings.
 
-Both runs report zero mixer/device errors. The developer WAV queue discarded
-startup frames before the first observation (58,112 / 61,696); the locality
-counter stays unchanged across every measured step. Captures prove actual stored
-post-mixer samples, not an uninterrupted recording or human listening perception.
-The retained native screenshot was inspected and shows the existing crate.
-These 960x600, Fifo observations make no FPS or delivered-HVAC visual claim.
-The accepted executable/DLL set, source snapshots, control sources/packages,
-recipes, WAVs, traces, initial failed runs and hashes remain under
-`local/verification-0.13.1-hvac-audio/`. The receipt records commit/remote/custody.
+Automatic `ambience_hvac` is owned by fixed catalog props tagged `hvac-duct`.
+One nearest transformed envelope supplies one spatial voice, with 0.75 m near
+distance, squared falloff and an 8 m cutoff. Adjacent/duplicate stock cannot stack
+voices. Collision-size overrides do not enlarge the acoustic envelope. Anchors
+jump between actual ducts instead of sweeping through empty space; gain smooths.
+World resets/transitions clear the cache and voices. Old global/authored requests
+for this reserved cue are suppressed. The authoring viewport remains silent;
+Play uses the runtime owner. New generic Audio placements use positional
+`empty_room`, and the chooser excludes the automatically owned HVAC cue.
 
-### Bundle transfer blocker and remaining work
+### Measured budget and acceptance
 
-The approved Library bundle
-`libfile_df3ab6e82cb081918279130cc6c4cb55`,
-`Places_0.13.1_Utility_HVAC_Cloud_Assets.zip` v0 (45,317,941 bytes), has expected
-SHA-256 `97f78cef00a4a234fd1b89a3c3613238ce5f19b30f624a6665f22044754119ae`.
-The current supported Library helper downloaded on retry but failed before
-atomic installation at `os.setxattr`, which Windows Python lacks. There is no
-installed WSL distribution or Docker/Podman runtime. No installation, security
-change, patched/no-op metadata, raw URL download or further transfer retry was
-attempted. This is an unavailable supported transfer route, not an approval
-denial. No consumer-local archive exists and its hash has NOT been verified here.
+The new atlas adds **0.25 MiB unique decoded RGBA**, or 6.25 MiB when summed over
+25 embedded copies. The pack check reports 89.434 MiB by exact PNG identity,
+conservative over decoded-pixel sharing. The authorized desktop cap is 128 MiB;
+per-image and geometry safeguards remain. No delivered texture was downscaled.
 
-The smallest unblock is a supported Windows-compatible Library materialization
-preserving identity/metadata, or an available supported executor-local Linux
-route. The cloud-authored models must not be remade on the Razer.
+- Formatting, strict workspace/all-target/all-feature Clippy and the locked
+  release workspace/all-feature build pass. All 379 Rust tests pass serially;
+  the two small new tests protect all-axis rectangular joins/history and measured
+  fixture mounting/persistence without baking a shipped map. Python verification
+  passes 369 tests with 18 documented smoke/optional skips. Packaging checks use
+  the installed Git shell in the process PATH, without changing host settings.
+- Catalog validation reports 674 assets and zero warnings. Prop/texture checks
+  pass with existing art advisories retained. All 69 original imported files
+  were hash-checked again after integration; reused maintenance GLBs match the
+  pre-import branch byte-for-byte.
+- Native editor capture covers every new variant. Ordinary input exercises six
+  orientations, framed joins, both editor modes, preview/cancel, atomic apply,
+  undo/redo, catalog creation/removal, fixture grouping and source save/reopen.
+  Checkpoints verify that previews do not mutate source. Build/Play returns to
+  editing normally. Full native rendering records all five circuit states on,
+  then off, then on, plus material/fixture, hollow stock, joined-run and shadow
+  captures. A measured-box control stops the standing player at Z=0.72052 and
+  allows walking under overhead stock to Z=-1.82916.
+- Native actual-duct audio passes 15 checks: one spatial near voice, lower middle
+  gain, stopped far voice, restart on return, one voice for four rotated duplicate
+  modules, and silence after removal/map transition. Three obsolete global HVAC
+  requests in the no-pipe control produce no voice and PCM RMS 0.0. Locality PCM
+  RMS is approximately 0.003713. Mixer/device errors are zero. Startup capture
+  queues dropped 45,312/45,824 frames; these are real retained post-mixer samples,
+  not a continuous-recording claim. Human listening remains unverified.
+- Supported project export/import, package validation/currentness and recovered
+  project checks pass with identical source semantics (38 props / 11 lights).
+  The recovered project reopens natively with measured collision boxes and
+  unchanged maintenance assets. Export archive SHA-256 is
+  `5022f7f234dbd0ba42bf5601a10da9504b5e634da22995cd484a96602dac1619`.
 
-Actual bundle QA pixels, import/catalog/material/collision integration,
-connector/snapping/joins, functional doors, fixture/circuit anchors, complete
-editor placement/preview/Play/save/reopen validation and source/export acceptance
-remain undone. Existing `janitor:janitor_cart` and supplies remain registered
-without duplicates; their phase-6 native visual confirmation is still pending.
-No new accepted-model ledger entry or editable Blender/GIMP master was adopted.
-Measure the installed plus new unique decoded images before choosing the
-authorized pack-budget increase. Phase 6 remains incomplete.
+The canonical local receipt and retained binary/DLL set, exact source snapshots,
+recipes, packages, checkpoints, WAVs, images and hashes are under
+`local/verification-0.13.1-utility/`. Earlier independent audio groundwork remains
+under `local/verification-0.13.1-hvac-audio/` at commit `210d44b`.
+Required evidence is retained outside `target` before cleanup.
 
-Phase 5 GitHub CI run 40681947328 completed successfully. Production maps,
-protected main/v0.13.0, host settings and later queued work remain outside this
-independent audio change.
+For the separately requested responsiveness work, no Rust compiler remained when
+the priority instruction arrived. Remaining compiler-only helpers used two
+workers and explicitly requested BelowNormal; long-running compiler priorities
+were observed as BelowNormal. Native game/editor priority was observed as Normal.
+Fast compiler commands sometimes exited before sampling. This is per-process
+scope, with no persistent host policy or observed later Rust-child inheritance.
+
+Phase 5 CI run 40681947328 previously passed. This acceptance is native Windows
+Razer evidence; new native Mac validation and human audio perception are not
+claimed. Fifo captures make no FPS comparison. Production rebaking, later prefab
+and runtime/FPS work, main merges and release publication remain outside phase 6.

@@ -846,3 +846,21 @@ sources can still exceed whole-scene geometry or local receiver/atlas budgets an
 No partial result is written to a package or LightmapCache, and its ephemeral key
 cannot be presented as a current final export. Repeat or cancel the preview, then
 use normal Build/Play for final quality and actual runtime behavior.
+
+
+### Utility props and HVAC (0.13.1)
+
+Props / scene objects > Static prop (catalog) creates a passive prop; Configure
+opens its model picker. The Backrooms utility kit includes six HVAC modules.
+Select one for Duct joins in Simple mode or Duct in the Advanced inspector.
+Choose a source end and direction or target, preview the framed result, then
+Apply one reversible pose. Green A/pink B guides mark outward end normals.
+Joins require matching scale and preserve rectangular aperture orientation.
+Use Pose for free pitch/roll and height; these small ducts are decorative,
+separate from crouch tunnels.
+
+Five operational fluorescent variants appear in Add Light and use the existing
+Mount/Circuits/Full lighting workflow. Passive prop versions and static utility
+doors are labeled explicitly. The editor viewport is silent; Play owns local
+HVAC playback. See the [kit guide](../tools/props/backrooms_phase6/INTEGRATION.md)
+and its non-release showcase for placement, collision and source conventions.

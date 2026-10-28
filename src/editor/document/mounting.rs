@@ -88,7 +88,13 @@ fn mounted_transform(
                 crate::engine::lighting::fixture_model_id(&fixture.fixture)
             {
                 let definition = catalog.get(model_id);
-                model_bounds(definition.model.as_deref(), definition.size, assets)?
+                let mut bounds =
+                    model_bounds(definition.model.as_deref(), definition.size, assets)?;
+                let offset =
+                    crate::engine::lighting::fixture_profile(&fixture.fixture).model_offset_y;
+                bounds.min[1] += offset;
+                bounds.max[1] += offset;
+                bounds
             } else {
                 let profile = crate::engine::lighting::fixture_profile(&fixture.fixture);
                 match fixture.mount {

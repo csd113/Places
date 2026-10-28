@@ -1,0 +1,233 @@
+{
+  "repository": "csd113/Places",
+  "files": [
+    {
+      "path": "tools/props/backrooms_phase6/sources/breaker_panel_closed.blend",
+      "size": 1312140,
+      "sha256": "214158a8fc837134ee8b1ff37f96564d6806896b91726bbe88845d2a9bb89692",
+      "expected_git_sha": "1c945889105ddf1a6469a5e43c065a3e43c5afad"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/breaker_panel_open.blend",
+      "size": 1523112,
+      "sha256": "0dcc3e281d8a580b234e7d9db9774850ac5634f3a0541b5c73d1fe669974007e",
+      "expected_git_sha": "40dba6865b33f525aae2f2bc978cd4253afe2c66"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/electrical_cabinet_closed.blend",
+      "size": 1025124,
+      "sha256": "ed3800eb45919478f9d7c78eadc096f90cbc2496a0de89e1e22365a16d3b3252",
+      "expected_git_sha": "06c9f11f215b099e632a92178e1f5336822eb24c"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/electrical_cabinet_open.blend",
+      "size": 1245716,
+      "sha256": "16010406380a0cf42aedd26519a40f9b4285feed5c610a21accb4c3fd621832f",
+      "expected_git_sha": "9305d553294f8691d2a62de1522719839554af09"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/fluorescent_damaged.blend",
+      "size": 2912332,
+      "sha256": "82448209e98ed03e42b48386417d31adde7dd6e3f5d83299a452832b66494efc",
+      "expected_git_sha": "0454822e36335bce3bacfca366fca744b33383a7"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/fluorescent_hanging.blend",
+      "size": 2730136,
+      "sha256": "1eb956cfbf264fbde076131a73944c872e07f57d6b4e48fe4264d5f1a511311c",
+      "expected_git_sha": "f879ba861f4cc8d6c12d476f727e4a05d1d66a01"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/fluorescent_missing_diffuser.blend",
+      "size": 3071464,
+      "sha256": "c846087ea9c8fc271dd930434cb0aa57a1efa7b52f8de39788ab4ea6a0c78c11",
+      "expected_git_sha": "91ba4c7981c8474d4a71942ac3061ff9e6fc0f6b"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/fluorescent_recessed.blend",
+      "size": 2396956,
+      "sha256": "72e9b4b6be4fdd4745057abdfbe08369c4c7ce5dea04178fc24b82567efbfafb",
+      "expected_git_sha": "e05c88211c383dbc14fc3f97eafe00bf63b0a09f"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/fluorescent_surface.blend",
+      "size": 2557708,
+      "sha256": "f00ee4b1c27e4e12d3a223a04d9314f1e128774eef331e17cebde417b0722ce3",
+      "expected_git_sha": "fbdabd4dc0f49e1d27ddc959b5124a05f9a75ff7"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/folding_table_institutional.blend",
+      "size": 3374644,
+      "sha256": "07b8daefa7d17a74b7c7a8ec87601059760ed4693646b8d6e829b96c0d846395",
+      "expected_git_sha": "e2b9eea4a108c080136390f8c712e3f8ba0dda95"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/hvac_duct_short.blend",
+      "size": 673784,
+      "sha256": "082c17e86a91ca9f9e694be0b1e5697c0f582f7c6a4f52054d4dafc46c51556c",
+      "expected_git_sha": "9f1ae1f3258ab3d48abb6a9ec72c4a6496f9fdd0"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/hvac_duct_straight.blend",
+      "size": 593408,
+      "sha256": "8fd721a2a8666b90f41f8ea8fa11af63a9ebb3241f3ea36d70afb4ca1c3a9541",
+      "expected_git_sha": "6c010cd95a8acb3e4e0c68b6f325cde09c4f58c0"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/hvac_duct_vertical.blend",
+      "size": 721972,
+      "sha256": "b32593cc01a72d817628129c2698ede17f121b1eca4adc92beb4dd61658dfe46",
+      "expected_git_sha": "cfd2d40589057df8120a93b8de04a2b69424630f"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/hvac_elbow_down.blend",
+      "size": 893528,
+      "sha256": "c3c9bcc6b8782c95032b8b0a95cafc69618c4ee3da11af76ec63cb97f8a449ee",
+      "expected_git_sha": "d3edcfb6d477c2a63ad3a2a6ec739923feb7b13a"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/hvac_elbow_horizontal.blend",
+      "size": 786360,
+      "sha256": "e02277e6af832173bde8b1fe7a26098236b80b33b8048463b70d2adec7850f2e",
+      "expected_git_sha": "e7826a758efe4b24cea3acae369f5f2738e93726"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/hvac_elbow_up.blend",
+      "size": 839944,
+      "sha256": "7dc980d5356e7af639f78e5f8bcdf3624794b02388c85b89e6f0e4f2a776cfbb",
+      "expected_git_sha": "a0a79488a9451502aa6e9a12c5854e84d3de9fea"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/liminal_utility_materials.xcf",
+      "size": 443701,
+      "sha256": "26de6b09e990bf020119bfec310b069172c8d3590bdee77fcdb73073141e2367",
+      "expected_git_sha": "787fb1604282c820345bdf82bb466315adfff180"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/stackable_chair_institutional.blend",
+      "size": 3487676,
+      "sha256": "d54f7330025e16b834b25fcae8093f2489e6d4921afc3c78fc59af366d5f0434",
+      "expected_git_sha": "77e5f7a2932594904dbd3f84e7643a47cdea677b"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/suspended_ceiling_crooked_tile.blend",
+      "size": 2024396,
+      "sha256": "3bf236486ee39a25ddc8abb278fe374abf1d8d973f2d4c79ab0185a615000f7a",
+      "expected_git_sha": "091d8918efcb0486b4ebe7f8b74da1aeca28fcf8"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/suspended_ceiling_exposed_grid.blend",
+      "size": 2224868,
+      "sha256": "48fa08bc51c533735b96b3841c379a51a6cba3b3817c50bc6c6740c74b3a67ed",
+      "expected_git_sha": "4984dcb435db132ed593a76c6ce7b51c79a62364"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/suspended_ceiling_missing_tile.blend",
+      "size": 1913772,
+      "sha256": "b7c4a8747bb097e10f5cef605ccf77b9ad0e5dbf86843b19691dfff770e770a6",
+      "expected_git_sha": "9c7e4e26e1d48fd71b7aed21269b7dcd64e22469"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/suspended_ceiling_stained_tiles.blend",
+      "size": 2158056,
+      "sha256": "0ff5ed1ec5cd55590bd8ce12b2321442d04082c029cd82ac9472990351dd2d6c",
+      "expected_git_sha": "7531c82a192114b18fb09e51bfe39d1ed17e4e98"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/utility_door.blend",
+      "size": 1684976,
+      "sha256": "a9718d480c06939b906d21b5aabadd54ffa0f805534d70514b416b931c21e3b7",
+      "expected_git_sha": "cc930c0dae215947f100129b306d6d5cffc9936c"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/utility_double_door_wired.blend",
+      "size": 1896036,
+      "sha256": "8b5054b1dda1046b50e31cdf50729e654d183e555239ea756619830ba5321fc4",
+      "expected_git_sha": "772efce2da79fd55ae194bdc2939bb989d793c00"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/wall_clock_institutional.blend",
+      "size": 3150580,
+      "sha256": "bd91545fef0818d197eebd8e587bd36db89d0622e6becae157d7378620bb59be",
+      "expected_git_sha": "9232b67c1081c61fd902f25373878e17faea65da"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/sources/wall_speaker_institutional.blend",
+      "size": 3222464,
+      "sha256": "1e49d8dbfb86303841088c147f383cbedea5b6047676a7a98d75ad8808204f23",
+      "expected_git_sha": "48cc1f6216a84546edfacb87173ef88f0c023fbe"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/textures/liminal_utility_master.png",
+      "size": 74420,
+      "sha256": "50f9728c536f01dc35276dce649d0b63b8cc958f80ae4a051071c75d70214659",
+      "expected_git_sha": "79cdd0e41586fdc92b3ceb9b64e10df6f2b16ec4"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/workflow/assetkit.py",
+      "size": 5865,
+      "sha256": "ee569390a8824da5077d850ab1b43bb2189ee5d07c01adfe666b75c8a71dec83",
+      "expected_git_sha": "024fc6ed72c17d0c86d3f00e6448af8e932cdab4"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/workflow/build_assets.py",
+      "size": 3992,
+      "sha256": "c76b8bae5bc28841ada5014e5d07f053f1e9ba9a25beb99dbe72d09f3ac7783e",
+      "expected_git_sha": "2a38c373d6ff9549100a089ea92a6e120a1411e6"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/workflow/ceilings_fixtures.py",
+      "size": 9801,
+      "sha256": "d26b9f368eea85d16e5064f3156d6aeeb0476471b758072fd6a25bdc10e484a0",
+      "expected_git_sha": "b77f1ef7a4cc137f5d33931b331cb3dce8b331b0"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/workflow/doors_electrical.py",
+      "size": 8989,
+      "sha256": "9cad1d10e0839edbf12a8bbc61f24aa60f155fa3b1b046b4192949eb8bbdffa1",
+      "expected_git_sha": "3deb0962882981f8c2e77a2b715a77fb54e9547c"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/workflow/hvac.py",
+      "size": 4567,
+      "sha256": "6060cdcba267861a0477d5b21158198053871e639c8174e50ff8a96d619658b3",
+      "expected_git_sha": "f3c0fd73991ae22ea1117271f5174f1d9bd5c539"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/workflow/package_bundle.py",
+      "size": 10758,
+      "sha256": "20c6c99da03b82e8a0a55822669847af738ff52283aab8e5d23bcbd9a3f287a5",
+      "expected_git_sha": "aa7e1692513c36bb1d8b84bbc59b258980dbe08b"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/workflow/paint_atlas_gimp.py",
+      "size": 5539,
+      "sha256": "752908e5bbe0c9f7f64bcd149246101bafd4f87e8d01f47ad399c8c710f98820",
+      "expected_git_sha": "4d50016862025a2cfe2e8dbace7ed0c606b33167"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/workflow/render_detail_qa.py",
+      "size": 2694,
+      "sha256": "9e94dbce0ee1545f00f465559e757e086949ee6814133ae7374a7796fa02a9b6",
+      "expected_git_sha": "c385f8265c759216f99cd8ff38850d8afad5da58"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/workflow/validate_glb.py",
+      "size": 4239,
+      "sha256": "e71864df4d2e97ee0e0143c3ce5061966e5f7511b1a149cf860d927628c6137c",
+      "expected_git_sha": "f5df088eb8129f456b16c91d8944de3edfe3a50c"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/qa/glb_validation.json",
+      "size": 38886,
+      "sha256": "94a23ac415e7304aaf0241143ba6bc17cb41cf7bac8970937ae9da55ddd75060",
+      "expected_git_sha": "31ddf2ca1d5b910ad45a45a0e0ed2d865aeb35f7"
+    },
+    {
+      "path": "tools/props/backrooms_phase6/qa/REVIEW.md",
+      "size": 2429,
+      "sha256": "284f8a202cfd56afdb410998668b2b963f39b7ac23e4e37c50be0fd39b23e20a",
+      "expected_git_sha": "ac27721a8aa5d70fb0ccb7529c3a6f0b418bc473"
+    }
+  ]
+}

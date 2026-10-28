@@ -55,6 +55,7 @@ pub(super) struct Viewport {
     pending_objects: Option<Vec<PickObject>>,
     upload_samples: Vec<f64>,
     volume_guides: Vec<overlay::VolumeGuide>,
+    duct_guides: Vec<super::ducts::Guide>,
     room_handles: Vec<[[f32; 3]; 4]>,
     navigation_coverage: Vec<super::navigation::Coverage>,
     navigation_route: Vec<Vec3>,
@@ -103,6 +104,7 @@ impl Viewport {
             pending_objects: None,
             upload_samples: Vec::new(),
             volume_guides: Vec::new(),
+            duct_guides: Vec::new(),
             room_handles: Vec::new(),
             navigation_coverage: Vec::new(),
             navigation_route: Vec::new(),
@@ -166,6 +168,10 @@ impl Viewport {
             .collect();
         let (preview, identities) = self.focus.preview(level);
         self.volume_guides = overlay::volumes(&preview);
+        self.duct_guides = super::ducts::guides(level)
+            .into_iter()
+            .filter(|guide| self.focus.included(level, guide.id))
+            .collect();
         self.identity_map = identities;
         self.worker.request(&preview, self.environment_preview());
     }
@@ -576,6 +582,12 @@ impl Viewport {
     }
 
     fn draw_handles(&self, guides: &mut overlay::Guides) {
+        for duct in &self.duct_guides {
+            if Some(duct.id) == self.selected {
+                guides.duct_ports(&duct.ports);
+            }
+        }
+
         if let Some(ObjectId::Room(index)) = self.selected
             && let Some(handles) = self.room_handles.get(index)
         {

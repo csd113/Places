@@ -1,0 +1,452 @@
+{
+  "environments/backrooms/props/breaker_panel_closed.glb": {
+    "sha256": "6c5c306321e8bf1fb5b2c76d6a16c8698f2c1c1204f93fbde407738f88ff1456",
+    "triangles": 512,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:breaker_panel_closed"
+    ],
+    "bounds_min": [
+      -0.23000000417232513,
+      0.0,
+      -0.09549999982118607
+    ],
+    "bounds_max": [
+      0.23000000417232513,
+      0.7599999904632568,
+      0.09549999982118607
+    ]
+  },
+  "environments/backrooms/props/breaker_panel_open.glb": {
+    "sha256": "9b69770debf62b6b6284e329b5ee5d503faa7d4675c7f5d85888ba9a7dfe63e5",
+    "triangles": 816,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:breaker_panel_open"
+    ],
+    "bounds_min": [
+      -0.28175342082977295,
+      0.0,
+      -0.2938573956489563
+    ],
+    "bounds_max": [
+      0.28175342082977295,
+      0.7599999904632568,
+      0.2938573956489563
+    ]
+  },
+  "environments/backrooms/props/electrical_cabinet_closed.glb": {
+    "sha256": "4214b55cb90b3232b3902adce9358f86467f3c9de039b79ab5457962b5cc4310",
+    "triangles": 608,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:electrical_cabinet_closed"
+    ],
+    "bounds_min": [
+      -0.36000001430511475,
+      0.0,
+      -0.19049999117851257
+    ],
+    "bounds_max": [
+      0.36000001430511475,
+      1.6200000047683716,
+      0.19049999117851257
+    ]
+  },
+  "environments/backrooms/props/electrical_cabinet_open.glb": {
+    "sha256": "daa9a81be184e7baafe9e86005777c80faa7b8818e9ac2f7aabeb27dd72c8578",
+    "triangles": 1032,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:electrical_cabinet_open"
+    ],
+    "bounds_min": [
+      -0.4420247972011566,
+      0.0,
+      -0.5149958729743958
+    ],
+    "bounds_max": [
+      0.4420247972011566,
+      1.6200000047683716,
+      0.5149959325790405
+    ]
+  },
+  "environments/backrooms/props/fluorescent_damaged.glb": {
+    "sha256": "07ffa8e1d3044feccb7cb0e7075b05cfae29bcaa1927045fd1f02fa7036b0dd1",
+    "triangles": 428,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:fluorescent_damaged"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.1662212312221527,
+      0.30000001192092896
+    ]
+  },
+  "environments/backrooms/props/fluorescent_hanging.glb": {
+    "sha256": "44d286901c43dd031de5e105220b645da2a3e9c4b2a52f76c24821b2d5314402",
+    "triangles": 492,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:fluorescent_hanging"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.6714999675750732,
+      0.30000001192092896
+    ]
+  },
+  "environments/backrooms/props/fluorescent_missing_diffuser.glb": {
+    "sha256": "569e9d53c392adbbbd1c9e9dbad486f9b0eba49b786a5d0a5a1e2af4ec324517",
+    "triangles": 404,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:fluorescent_missing_diffuser"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.06749999523162842,
+      0.30000001192092896
+    ]
+  },
+  "environments/backrooms/props/fluorescent_recessed.glb": {
+    "sha256": "6d9447a2ab3723bcf3a4ac2e2c4a7f4888278b8db499de6a5d27e8402e7feb26",
+    "triangles": 344,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:fluorescent_recessed"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.06749999523162842,
+      0.30000001192092896
+    ]
+  },
+  "environments/backrooms/props/fluorescent_surface.glb": {
+    "sha256": "863ca4fa10432da47f3d2a88ab9af3d33ccd128187eb79db13c1265b7018d322",
+    "triangles": 344,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:fluorescent_surface"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.30000001192092896
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.10850000381469727,
+      0.30000001192092896
+    ]
+  },
+  "environments/backrooms/props/folding_table_institutional.glb": {
+    "sha256": "3355be3cc58df85943035b500d0ab0fb908ca5b0bbfffb6e95d02dfb7a05aa20",
+    "triangles": 508,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:folding_table_institutional"
+    ],
+    "bounds_min": [
+      -0.8999999761581421,
+      0.0,
+      -0.375
+    ],
+    "bounds_max": [
+      0.8999999761581421,
+      0.7450000047683716,
+      0.375
+    ]
+  },
+  "environments/backrooms/props/hvac_duct_short.glb": {
+    "sha256": "40f70c7bfb6e8b78a3900ac9a469bf7a389f30e1a621fccddacf13f3dfc168fe",
+    "triangles": 228,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:hvac_duct_short"
+    ],
+    "bounds_min": [
+      -0.6000000238418579,
+      0.0,
+      -0.3205000162124634
+    ],
+    "bounds_max": [
+      0.6000000238418579,
+      0.44599997997283936,
+      0.3205000162124634
+    ]
+  },
+  "environments/backrooms/props/hvac_duct_straight.glb": {
+    "sha256": "eea788d4ecf50f59810f0106346226ccbfb41ef2aa3fa4c77939b0b650e8ac44",
+    "triangles": 228,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:hvac_duct_straight"
+    ],
+    "bounds_min": [
+      -1.2000000476837158,
+      0.0,
+      -0.3205000162124634
+    ],
+    "bounds_max": [
+      1.2000000476837158,
+      0.44599997997283936,
+      0.3205000162124634
+    ]
+  },
+  "environments/backrooms/props/hvac_duct_vertical.glb": {
+    "sha256": "9128c4b4dbf43f9ec75df787d5fd36a2e53831ea3591a316e1b49129ae10afd0",
+    "triangles": 156,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:hvac_duct_vertical"
+    ],
+    "bounds_min": [
+      -0.22050000727176666,
+      0.0,
+      -0.3205000162124634
+    ],
+    "bounds_max": [
+      0.22050000727176666,
+      2.4000000953674316,
+      0.3205000162124634
+    ]
+  },
+  "environments/backrooms/props/hvac_elbow_down.glb": {
+    "sha256": "417c43f198d0d29c5798f6c41a436db7697434e0950b009362584e1ff977ebaa",
+    "triangles": 296,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:hvac_elbow_down"
+    ],
+    "bounds_min": [
+      -0.5705000162124634,
+      0.0,
+      -0.32499998807907104
+    ],
+    "bounds_max": [
+      0.5704999566078186,
+      1.1410000324249268,
+      0.32499998807907104
+    ]
+  },
+  "environments/backrooms/props/hvac_elbow_horizontal.glb": {
+    "sha256": "1e754d7256918077b90697a5f7c1ec0be0723d14bcf8cc66f7ef533b75ad41ff",
+    "triangles": 296,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:hvac_elbow_horizontal"
+    ],
+    "bounds_min": [
+      -0.6204999685287476,
+      0.0,
+      -0.6204999685287476
+    ],
+    "bounds_max": [
+      0.6204999685287476,
+      0.4500001072883606,
+      0.6204999685287476
+    ]
+  },
+  "environments/backrooms/props/hvac_elbow_up.glb": {
+    "sha256": "13f9b080a29ad4ce95dba2df5f083532386d4dab2e65a1128501e8122e403202",
+    "triangles": 296,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:hvac_elbow_up"
+    ],
+    "bounds_min": [
+      -0.5705000162124634,
+      0.0,
+      -0.32499998807907104
+    ],
+    "bounds_max": [
+      0.5704999566078186,
+      1.1410001516342163,
+      0.32499998807907104
+    ]
+  },
+  "environments/backrooms/props/stackable_chair_institutional.glb": {
+    "sha256": "07c40a2a285a6da76de263edd67ab7ef7e354e54fa55d0197b66d7711f4cd491",
+    "triangles": 580,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:stackable_chair_institutional"
+    ],
+    "bounds_min": [
+      -0.2489600032567978,
+      0.0,
+      -0.2483000010251999
+    ],
+    "bounds_max": [
+      0.2489600032567978,
+      0.8169553279876709,
+      0.2483000010251999
+    ]
+  },
+  "environments/backrooms/props/suspended_ceiling_crooked_tile.glb": {
+    "sha256": "8eb0b69f3b736b7a2dfc6a2282a990d82ee5994c76c156f13809eb104cc66253",
+    "triangles": 368,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:suspended_ceiling_crooked_tile"
+    ],
+    "bounds_min": [
+      -0.6019999980926514,
+      0.0,
+      -0.6059999465942383
+    ],
+    "bounds_max": [
+      0.6019999980926514,
+      0.21086858212947845,
+      0.6059999465942383
+    ]
+  },
+  "environments/backrooms/props/suspended_ceiling_exposed_grid.glb": {
+    "sha256": "645ded1396389bd32f1f7d746eaf648b10333326d5182f6b7c942c2bbfb4b77f",
+    "triangles": 192,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:suspended_ceiling_exposed_grid"
+    ],
+    "bounds_min": [
+      -0.6019999980926514,
+      0.0,
+      -0.6059999465942383
+    ],
+    "bounds_max": [
+      0.6019999980926514,
+      0.04650000110268593,
+      0.6059999465942383
+    ]
+  },
+  "environments/backrooms/props/suspended_ceiling_missing_tile.glb": {
+    "sha256": "22f42b92497d9435f9955221e461eb82a86c3848ed337796b11e916a13a7907b",
+    "triangles": 324,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:suspended_ceiling_missing_tile"
+    ],
+    "bounds_min": [
+      -0.6019999980926514,
+      0.0,
+      -0.6059999465942383
+    ],
+    "bounds_max": [
+      0.6019999980926514,
+      0.04650000110268593,
+      0.6059999465942383
+    ]
+  },
+  "environments/backrooms/props/suspended_ceiling_stained_tiles.glb": {
+    "sha256": "d1b3f53c9cba398881b66311d44bd8af8ce8ad15c7a9b218891ecbd82ee62b55",
+    "triangles": 368,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:suspended_ceiling_stained_tiles"
+    ],
+    "bounds_min": [
+      -0.6019999980926514,
+      0.0,
+      -0.6059999465942383
+    ],
+    "bounds_max": [
+      0.6019999980926514,
+      0.04650000110268593,
+      0.6059999465942383
+    ]
+  },
+  "environments/backrooms/props/utility_door.glb": {
+    "sha256": "08dc0e4fd674f95bd5d963536d7dee61c1a6a08514788e41a0d5b8308bd869bf",
+    "triangles": 828,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:utility_door"
+    ],
+    "bounds_min": [
+      -0.5399999618530273,
+      0.0,
+      -0.09196411073207855
+    ],
+    "bounds_max": [
+      0.5399999618530273,
+      2.1600000858306885,
+      0.09196411073207855
+    ]
+  },
+  "environments/backrooms/props/utility_double_door_wired.glb": {
+    "sha256": "19beab79ff0719a9878afc743ad346ae430b532ab1ad768cf9c8544bcd701292",
+    "triangles": 1464,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:utility_double_door_wired"
+    ],
+    "bounds_min": [
+      -0.9900000095367432,
+      0.0,
+      -0.09196410328149796
+    ],
+    "bounds_max": [
+      0.9900000095367432,
+      2.1600000858306885,
+      0.09196410328149796
+    ]
+  },
+  "environments/backrooms/props/wall_clock_institutional.glb": {
+    "sha256": "3912e70afa544fe827f454f993bbbebe40526009d2ed15c8afecbcbdc56d163f",
+    "triangles": 384,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:wall_clock_institutional"
+    ],
+    "bounds_min": [
+      -0.17000000178813934,
+      0.0,
+      -0.038750000298023224
+    ],
+    "bounds_max": [
+      0.17000000178813934,
+      0.3400000035762787,
+      0.038750000298023224
+    ]
+  },
+  "environments/backrooms/props/wall_speaker_institutional.glb": {
+    "sha256": "bdab4c8c74da40dee785a5f652e4f769bf4abf5a1c0b0fb532deb4614187c31c",
+    "triangles": 268,
+    "texture_edge": 256,
+    "identities": [
+      "backrooms:wall_speaker_institutional"
+    ],
+    "bounds_min": [
+      -0.12999999523162842,
+      0.0,
+      -0.05525000020861626
+    ],
+    "bounds_max": [
+      0.12999999523162842,
+      0.3199999928474426,
+      0.05525000020861626
+    ]
+  }
+}
