@@ -68,6 +68,17 @@ layout checks use 150% display scale at 960x544 through 1440x900; CPU coordinate
 checks also cover 100/125/200% and doubled drawable density. Actual Mac Retina
 acceptance remains deferred. See [current acceptance and limits](docs/reports/release-0.13.1.md).
 
+Third editor phase integrates construction integrity into the existing Safety
+review, now directly available in both modes. Shared checks cover short corner/
+endpoint gaps and tails, wall planes/thickness, floor/ceiling seams, openings,
+sampled route/landing/headroom and measured material UV phase discontinuities.
+Previewed compatible corrections form one undoable group; stale, conflicting,
+locked/hidden or protected edits refuse atomically. Existing wall attachments,
+offline alignment planning, mounting, collision and geometry union/clipping are
+reused. Cancellation discards partial results. Angled geometry, artistic
+intersections and unsupported UV/material corrections retain explicit review.
+See the [editor workflow](docs/EDITOR.md) and [phase acceptance](docs/reports/release-0.13.1.md).
+
 ## 0.13.0 — 2026-10-28
 
 Windows prerelease [published on 2026-10-28](https://github.com/csd113/Places/releases/tag/v0.13.0). The approved queue fixes

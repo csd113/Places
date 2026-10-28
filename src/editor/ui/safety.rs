@@ -2,7 +2,7 @@
 
 use super::{ACCENT, Action, Hit, INK, MUTED, PANEL, button, rect, text};
 use crate::editor::App;
-use crate::editor::safety::{SafetyCategory, SafetyFinding, SafetyFix};
+use crate::editor::safety::{SafetyCategory, SafetyFinding};
 use crate::engine::render::Vertex;
 
 pub(in crate::editor) fn safety_popup(
@@ -12,19 +12,13 @@ pub(in crate::editor) fn safety_popup(
     index: usize,
     preview: bool,
 ) {
-    if preview
-        && let Some(fix) = app
-            .safety_report
-            .as_ref()
-            .and_then(|report| report.findings.get(index))
-            .and_then(|finding| finding.fix.as_ref())
-    {
-        fix_preview(v, hits, fix);
+    if preview && let Some((_, _, explanation)) = &app.safety_preview {
+        fix_preview(v, hits, explanation);
         return;
     }
     rect(v, [0.0, 0.0, 480.0, 272.0], [0.0, 0.0, 0.0, 0.6]);
     rect(v, [118.0, 44.0, 356.0, 194.0], PANEL);
-    text(v, "GEOMETRY SAFETY", 128.0, 54.0, ACCENT, 64);
+    text(v, "CONSTRUCTION / SAFETY", 128.0, 54.0, ACCENT, 64);
     button(
         v,
         hits,
@@ -50,16 +44,32 @@ pub(in crate::editor) fn safety_popup(
             MUTED,
             94,
         );
+        button(
+            v,
+            hits,
+            [128.0, 112.0, 116.0, 13.0],
+            "Cancel analysis",
+            Action::CancelSafety,
+            true,
+        );
         return;
     }
     let Some(report) = &app.safety_report else {
         text(
             v,
-            "Open a project to run these checks.",
+            "Analysis stopped or changed. Run the checks again.",
             128.0,
             79.0,
             INK,
             94,
+        );
+        button(
+            v,
+            hits,
+            [128.0, 100.0, 116.0, 13.0],
+            "Run checks",
+            Action::Safety,
+            app.document.is_some(),
         );
         return;
     };
@@ -92,9 +102,10 @@ pub(in crate::editor) fn safety_popup(
                 .any(|entry| entry.placement_ignore.is_none()),
         ],
     );
+    group_controls(app, v, hits, finding, index);
 }
 
-fn fix_preview(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, fix: &SafetyFix) {
+fn fix_preview(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, explanation: &str) {
     rect(v, [118.0, 178.0, 356.0, 60.0], PANEL);
     text(
         v,
@@ -112,7 +123,7 @@ fn fix_preview(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, fix: &SafetyFix) {
         Action::ClosePopup,
         true,
     );
-    wrapped(v, &fix.explanation, [128.0, 198.0], INK, 94, 2);
+    wrapped(v, explanation, [128.0, 198.0], INK, 94, 2);
     button(
         v,
         hits,
@@ -125,7 +136,7 @@ fn fix_preview(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, fix: &SafetyFix) {
         v,
         hits,
         [252.0, 220.0, 116.0, 13.0],
-        "Apply this fix",
+        "Apply preview",
         Action::ApplyFix,
         true,
     );
@@ -204,14 +215,6 @@ fn finding_details(
         &format!("Review saved ignores ({ignored})"),
         Action::IgnoredFindings,
         ignored > 0,
-    );
-    text(
-        v,
-        "Cmd/Ctrl Z undoes intent and corrections.",
-        128.0,
-        216.0,
-        MUTED,
-        64,
     );
     button(
         v,
@@ -316,4 +319,35 @@ fn wrapped(
     if !line.is_empty() && row < rows {
         text(v, &line, x, f32::from(row).mul_add(9.0, y), color, width);
     }
+}
+
+fn group_controls(
+    app: &App,
+    v: &mut Vec<Vertex>,
+    hits: &mut Vec<Hit>,
+    finding: &SafetyFinding,
+    index: usize,
+) {
+    if finding.fix.is_some() && finding.placement_ignore.is_none() {
+        button(
+            v,
+            hits,
+            [128.0, 219.0, 116.0, 13.0],
+            if app.safety_choices.contains(&index) {
+                "Remove choice"
+            } else {
+                "Choose for group"
+            },
+            Action::ChooseFix,
+            true,
+        );
+    }
+    button(
+        v,
+        hits,
+        [252.0, 219.0, 116.0, 13.0],
+        &format!("Preview group ({})", app.safety_choices.len()),
+        Action::PreviewGroup,
+        !app.safety_choices.is_empty(),
+    );
 }

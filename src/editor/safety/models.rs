@@ -65,7 +65,11 @@ impl Triangle {
     }
 }
 
-pub(super) fn check(level: &LevelDef, report: &mut SafetyReport) {
+pub(super) fn check(
+    level: &LevelDef,
+    report: &mut SafetyReport,
+    cancel: &std::sync::atomic::AtomicBool,
+) {
     if level.props.is_empty() {
         return;
     }
@@ -78,6 +82,9 @@ pub(super) fn check(level: &LevelDef, report: &mut SafetyReport) {
     }
     let surfaces = LevelSurfaces::new(level);
     for (index, prop) in level.props.iter().enumerate() {
+        if cancel.load(std::sync::atomic::Ordering::Relaxed) {
+            return;
+        }
         let definition = catalog.get(&prop.model);
         let Some(path) = definition.model else {
             continue;

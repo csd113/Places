@@ -1213,3 +1213,44 @@ pub fn repair_main(options: &RepairCliOptions) -> Result<(), Box<dyn std::error:
         }
     }
 }
+
+/// In-memory editor adapter for the existing planner. Raw metadata survives;
+/// ambiguous couplings are refused before its mandatory no-new-error check.
+pub fn preview_alignment(
+    raw: &serde_json::Value,
+    first: usize,
+    second: usize,
+) -> Result<Vec<(String, serde_json::Value)>, String> {
+    let level: LevelDef = serde_json::from_value(raw.clone()).map_err(|e| e.to_string())?;
+    let surfaces = LevelSurfaces::new(&level);
+    let candidate = compute_wall_joints(&level, &surfaces)
+        .into_iter()
+        .find(|c| c.joint.first == first && c.joint.second == second && c.joint.auto_repairable)
+        .ok_or("This joint is not an unambiguous automatic alignment")?;
+    let (_, review) = coupled_edits(&level, &candidate, 0);
+    if let Some(reason) = review.first() {
+        return Err(reason.message.clone());
+    }
+    let catalog = crate::engine::assets::AssetCatalog::load_default();
+    let mut prepared = level.clone();
+    crate::map_compiler::prepare_level(&mut prepared, &catalog, None);
+    let baseline = check_level(&prepared, "editor alignment", true);
+    let mut state = PlannerState {
+        catalog: &catalog,
+        source: "editor alignment",
+        fingerprints: error_fingerprints(&baseline),
+        edits: Vec::new(),
+        review: Vec::new(),
+    };
+    if state.attempt(&level, &candidate, 0).is_none() {
+        return Err(state.review.first().map_or_else(
+            || "Alignment post-check refused".into(),
+            |r| r.message.clone(),
+        ));
+    }
+    Ok(state
+        .edits
+        .iter()
+        .map(|edit| (edit.target.pointer(), serde_json::json!(edit.new)))
+        .collect())
+}

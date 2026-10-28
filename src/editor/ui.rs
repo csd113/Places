@@ -132,6 +132,9 @@ pub(super) enum Action {
     Safety,
     Finding(bool),
     PreviewFix,
+    ChooseFix,
+    PreviewGroup,
+    CancelSafety,
     CancelFix,
     ApplyFix,
     InspectFinding,
@@ -471,7 +474,7 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             app.document.is_some(),
         ),
     ] {
-        if !app.view.simple || !matches!(action, Action::Build | Action::Safety) {
+        if !app.view.simple || !matches!(action, Action::Build) {
             button(vertices, hits, [x, 14.0, w, 11.0], label, action, enabled);
         }
     }

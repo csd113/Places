@@ -15,7 +15,7 @@ pub(crate) mod room_resize;
 pub(crate) mod wall_edit;
 pub(super) use objects::array_mut as record_array_mut;
 pub(crate) mod intent;
-mod mounting;
+pub(crate) mod mounting;
 pub(super) mod objects;
 mod persistence;
 mod project;

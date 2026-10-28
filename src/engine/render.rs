@@ -27,6 +27,7 @@ pub(crate) use common::character::claimed_character_models;
 pub use common::prop_vertices::PropVertices;
 pub(crate) use common::props::override_material_textures as override_prop_textures;
 pub(crate) use common::props::relight_probe_props;
+pub(crate) use common::subtract_rectangles;
 mod facade;
 mod wgpu;
 

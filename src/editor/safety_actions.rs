@@ -1,6 +1,10 @@
 //! On-demand analysis and source-guarded, individually previewed corrections.
 
-use std::sync::mpsc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+    mpsc,
+};
 
 use super::actions::Popup;
 use super::ui::Action;
@@ -25,70 +29,59 @@ impl App {
                 });
                 self.highlight_finding(self.safety_index);
             }
-            Action::Finding(forward) => {
-                let Some(Popup::Safety { index, preview: _ }) = self.popup else {
-                    return Err("Open Safety first".into());
-                };
-                self.restore_preview();
-                let count = self
-                    .safety_report
-                    .as_ref()
-                    .map_or(0, |report| report.findings.len());
-                let active = |candidate: &usize| {
-                    self.safety_report
-                        .as_ref()
-                        .and_then(|report| report.findings.get(*candidate))
-                        .is_some_and(|finding| finding.placement_ignore.is_none())
-                };
-                let next = if forward {
-                    (index.saturating_add(1)..count).find(active)
-                } else {
-                    (0..index).rev().find(active)
-                }
-                .unwrap_or(index);
-                self.safety_index = next;
-                self.popup = Some(Popup::Safety {
-                    index: next,
-                    preview: false,
-                });
-                self.highlight_finding(next);
-            }
+            Action::Finding(forward) => self.navigate_finding(forward)?,
             Action::IgnoreFinding | Action::ClearFindingIgnore => {
                 self.change_placement_ignore(action == Action::IgnoreFinding)?;
             }
             Action::IgnoredFindings => self.review_placement_ignores()?,
-            Action::PreviewFix => {
-                let Some(Popup::Safety { index, preview: _ }) = self.popup else {
-                    return Err("Open Safety first".into());
-                };
-                let candidate = self.fix_candidate(index)?;
-                let level: LevelDef =
-                    serde_json::from_value(candidate).map_err(|error| error.to_string())?;
-                crate::engine::loader::validate_level(&level)?;
-                self.viewport.rebuild(&level);
-                self.popup = Some(Popup::Safety {
-                    index,
-                    preview: true,
-                });
-                self.status = "Correction preview only. Source and history unchanged; Apply creates one undo step.".into();
+            Action::CancelSafety => {
+                self.cancel_safety();
+                self.status =
+                    "Cancelling Safety at the next safe analysis boundary; source unchanged."
+                        .into();
+            }
+            Action::ChooseFix => {
+                let index = self.safety_index;
+                let finding = self
+                    .safety_report
+                    .as_ref()
+                    .and_then(|r| r.findings.get(index))
+                    .ok_or("Run Safety first")?;
+                if finding.fix.is_none() || finding.placement_ignore.is_some() {
+                    return Err("This issue has no eligible correction".into());
+                }
+                if !self.safety_choices.remove(&index) {
+                    let _inserted = self.safety_choices.insert(index);
+                }
+                self.status = format!(
+                    "{} corrections chosen. Preview group checks all conflicts before changing anything.",
+                    self.safety_choices.len()
+                );
+            }
+            Action::PreviewFix | Action::PreviewGroup => {
+                self.preview_safety(action == Action::PreviewGroup)?;
             }
             Action::ApplyFix => {
                 let Some(Popup::Safety {
-                    index,
+                    index: _,
                     preview: true,
                 }) = self.popup
                 else {
                     return Err("Preview this correction before applying it".into());
                 };
-                let candidate = self.fix_candidate(index)?;
+                let (expected, candidate, _) = self
+                    .safety_preview
+                    .as_ref()
+                    .ok_or("Preview this correction first")?
+                    .clone();
+                self.check_focused_edit(&candidate)?;
                 let document = self.document.as_mut().ok_or("Open a project first")?;
-                let expected = document.raw().clone();
                 document.apply_checked_edit(&expected, candidate)?;
                 self.popup = None;
                 self.selected = None;
                 self.changed();
                 self.status =
-                    "Applied one reviewed correction. Cmd/Ctrl Z restores the exact source.".into();
+                    "Applied the reviewed correction group atomically. Cmd/Ctrl Z restores the exact source.".into();
                 self.start_safety()?;
             }
             Action::CancelFix => {
@@ -114,6 +107,80 @@ impl App {
         Ok(true)
     }
 
+    fn navigate_finding(&mut self, forward: bool) -> Result<(), String> {
+        let Some(Popup::Safety { index, preview: _ }) = self.popup else {
+            return Err("Open Safety first".into());
+        };
+        self.restore_preview();
+        let count = self
+            .safety_report
+            .as_ref()
+            .map_or(0, |report| report.findings.len());
+        let active = |candidate: &usize| {
+            self.safety_report
+                .as_ref()
+                .and_then(|report| report.findings.get(*candidate))
+                .is_some_and(|finding| finding.placement_ignore.is_none())
+        };
+        let next = if forward {
+            (index.saturating_add(1)..count).find(active)
+        } else {
+            (0..index).rev().find(active)
+        }
+        .unwrap_or(index);
+        self.safety_index = next;
+        self.popup = Some(Popup::Safety {
+            index: next,
+            preview: false,
+        });
+        self.highlight_finding(next);
+        Ok(())
+    }
+    fn preview_safety(&mut self, group: bool) -> Result<(), String> {
+        let Some(Popup::Safety { index, preview: _ }) = self.popup else {
+            return Err("Open Safety first".into());
+        };
+        let document = self.document.as_ref().ok_or("Open a project first")?;
+        let report = self.safety_report.as_ref().ok_or("Run Safety first")?;
+        let (candidate, explanation) = if group {
+            let findings = self
+                .safety_choices
+                .iter()
+                .filter_map(|i| report.findings.get(*i))
+                .collect::<Vec<_>>();
+            (
+                safety::preview_group(document.raw(), &findings)?,
+                format!(
+                    "Previewing {} chosen compatible corrections. Apply commits them together in ONE undo step. Cancel preserves the exact original source. Reanalysis follows acceptance.",
+                    findings.len()
+                ),
+            )
+        } else {
+            (
+                self.fix_candidate(index)?,
+                report
+                    .findings
+                    .get(index)
+                    .and_then(|f| f.fix.as_ref())
+                    .map_or_else(String::new, |f| f.explanation.clone()),
+            )
+        };
+        self.check_focused_edit(&candidate)?;
+        let expected = document.raw().clone();
+        let level: LevelDef =
+            serde_json::from_value(candidate.clone()).map_err(|e| e.to_string())?;
+        crate::engine::loader::validate_level(&level)?;
+        self.safety_preview = Some((expected, candidate, explanation));
+        self.viewport.rebuild(&level);
+        self.popup = Some(Popup::Safety {
+            index,
+            preview: true,
+        });
+        self.status =
+            "Correction preview only. Source and history unchanged; Apply creates one undo step."
+                .into();
+        Ok(())
+    }
     fn change_placement_ignore(&mut self, ignore: bool) -> Result<(), String> {
         let Some(Popup::Safety { index, preview: _ }) = self.popup else {
             return Err("Open Safety first".into());
@@ -182,10 +249,12 @@ impl App {
             let level = document.level().clone();
             let raw = document.raw().clone();
             let (sender, receiver) = mpsc::channel();
+            let cancel = Arc::new(AtomicBool::new(false));
+            self.safety_cancel = Some(Arc::clone(&cancel));
             let _worker = std::thread::Builder::new()
                 .name("places-editor-safety".into())
                 .spawn(move || {
-                    let report = safety::analyze(&level, &raw);
+                    let report = safety::analyze_cancellable(&level, &raw, &cancel);
                     let _sent = sender.send((raw, report));
                 })
                 .map_err(|error| format!("Cannot start safety analysis: {error}"))?;
@@ -215,6 +284,14 @@ impl App {
             Ok((raw, report)) => {
                 self.safety_job = None;
                 if self
+                    .safety_cancel
+                    .take()
+                    .is_some_and(|token| token.load(Ordering::Relaxed))
+                {
+                    self.status = "Safety cancelled; source and history unchanged. Open Safety to run it again.".into();
+                    return;
+                }
+                if self
                     .document
                     .as_ref()
                     .is_some_and(|document| document.raw() == &raw)
@@ -228,6 +305,7 @@ impl App {
                         "Safety review: {} active entries, {ignored} saved placement ignores. Checks are bounded; review in context.",
                         report.findings.len().saturating_sub(ignored)
                     );
+                    self.safety_choices.clear();
                     self.safety_report = Some(report);
                     if matches!(
                         self.popup,
@@ -269,7 +347,14 @@ impl App {
         }
     }
 
+    pub(super) fn cancel_safety(&self) {
+        if let Some(token) = &self.safety_cancel {
+            token.store(true, Ordering::Relaxed);
+        }
+    }
+
     fn restore_preview(&mut self) {
+        self.safety_preview = None;
         if matches!(
             self.popup,
             Some(Popup::Safety {
@@ -283,6 +368,15 @@ impl App {
     }
 
     pub(super) fn close_popup(&mut self) {
+        if matches!(
+            self.popup,
+            Some(Popup::Safety {
+                index: _,
+                preview: _
+            })
+        ) {
+            self.cancel_safety();
+        }
         self.preview_audio.clear_world();
         self.sound_preview_until = None;
         if let Some(Popup::AuthoringForm(draft)) = &self.popup {

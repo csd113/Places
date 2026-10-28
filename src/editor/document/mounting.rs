@@ -334,3 +334,24 @@ fn wall_mount(
 #[cfg(test)]
 #[path = "../tests/mounting.rs"]
 mod tests;
+
+/// Preview the existing surface mount operation without touching history.
+pub(in crate::editor) fn candidate(
+    level: &LevelDef,
+    raw: &serde_json::Value,
+    id: ObjectId,
+) -> Result<serde_json::Value, String> {
+    let catalog = PropCatalog::load_default();
+    let mut assets = PropAssets::load_default();
+    let pose = mounted_transform(
+        level,
+        id,
+        objects::transform(level, id)?,
+        None,
+        &catalog,
+        &mut assets,
+    )?;
+    let mut result = raw.clone();
+    objects::set_transform(&mut result, level, id, pose)?;
+    Ok(result)
+}

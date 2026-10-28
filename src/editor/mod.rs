@@ -120,6 +120,9 @@ struct App {
     safety_report: Option<safety::SafetyReport>,
     safety_job: Option<Receiver<(serde_json::Value, safety::SafetyReport)>>,
     safety_index: usize,
+    safety_cancel: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    safety_choices: std::collections::BTreeSet<usize>,
+    safety_preview: Option<(serde_json::Value, serde_json::Value, String)>,
     opening_rect: Option<[f32; 4]>,
     dialog_open: bool,
     dialog_sender: Sender<DialogResult>,
@@ -140,6 +143,9 @@ impl App {
         self.focus = focus::Focus::default();
         self.placement = None;
         self.wall_drag = None;
+        self.cancel_safety();
+        self.safety_choices.clear();
+        self.safety_preview = None;
         self.safety_report = None;
         self.safety_index = 0;
         self.opening_rect = None;
@@ -156,6 +162,9 @@ impl App {
         self.viewport.set_focus(self.focus.clone());
         self.invalidate_navigation();
         self.bakes.invalidate();
+        self.cancel_safety();
+        self.safety_choices.clear();
+        self.safety_preview = None;
         self.safety_report = None;
         self.safety_index = 0;
         self.opening_rect = None;
@@ -485,6 +494,9 @@ fn create_app(
         safety_report: None,
         safety_job: None,
         safety_index: 0,
+        safety_cancel: None,
+        safety_choices: std::collections::BTreeSet::new(),
+        safety_preview: None,
         opening_rect: None,
         dialog_open: false,
         dialog_sender,

@@ -168,14 +168,44 @@ warnings and envelope layering estimates are labeled estimates, not triangle
 proofs. Intentional artistic intersections remain unchanged; decals use their
 separate depth-biased pass and are excluded from model coplanarity comparisons.
 
-Only identical simple raw wall records receive a removal candidate. Metadata,
-openings, per-face data and props disqualify automatic deletion. `Preview fix`
-renders the candidate without editing source/history and leaves the scene open
-to camera navigation. `Back to finding`, Close or Esc restores the source view.
-`Apply` is available after preview, applies one correction and creates one undo
-step. Any intervening source edit invalidates the candidate; validation failure
-leaves the source and history untouched. No bulk correction or automatic filling,
-prop movement, intersection repair or artistic reinterpretation is performed.
+Construction/Safety is available directly in Simple and Advanced modes. It shares
+the offline wall-plane/thickness classification, rectangular endpoint checks,
+emitted opaque wall UV measurements and room-surface comparisons. Short gaps and
+tails within 5 cm can offer **Weld / trim this endpoint** when one solid carrier
+covers the full wall thickness. Existing overlapping L/T contacts are valid.
+Near corners/footprint cracks up to 35 cm remain review-only beyond the weld
+tolerance. Partial-thickness corners, competing carriers, intentional angles, openings and
+different heights require review. Existing collinear union and covered-face
+clipping remain authoritative; no arbitrary intersection is cut or flattened.
+
+The review also samples player width/standing/crouch headroom at openings,
+stairs, ramps and spawn, checks endpoint landings, and reports small room/floor/
+ceiling seams. Solid carriers are clipped out of floor-gap findings through the
+existing covered-face helper, including real opening slices. The loader retains slope/riser and closed-door validity gates;
+Safety adds the authored door pose and local route evidence. Floor and wall
+texture scale comes from the shared material table. Ceiling tile-frame and
+measured square-corner phase breaks are review-only: a different orientation
+can be intentional or invisible on symmetric artwork, and walls have no local
+wrapping-frame correction. Generated trim retains its continuous run mapping.
+
+**Preview fix** renders a private candidate; Close, Esc or **Back to finding**
+restores the source view. Available corrections include exact simple duplicate
+removal, identical-setting rectangular wall union, supported plane alignment,
+structural ceiling clearance, small measured floor-prop mounting gaps and
+restoration of a catalog prop's supported collision. Mounting and collision use
+the existing tools; floating/embedded scenery, physics, fitted spans, arbitrary
+wall mounts and ambiguous attachments are not inferred or moved.
+
+Use **Choose for group** on each desired correction, then **Preview group**.
+Conflicting edits or changed shared carriers refuse the whole group. **Apply
+preview** commits compatible choices in one undo step and starts reanalysis.
+Locked or hidden objects, protected placement intent and every intervening
+source change block acceptance. Deletions address original records, so array
+shifts cannot redirect another correction. Individual preview remains available.
+**Cancel analysis** (or closing the review) cooperatively stops background work;
+cancelled partial results never become findings or fixes. Full scans remain
+deterministic and bounded; only the first 16 eligible plane-alignment proposals
+receive planner post-checks per scan. No resumable/dirty-region cache is used.
 
 The checks are not an exhaustive no-clip, watertightness, reachability or rendered
 z-fighting proof. Edge sampling can miss narrow routes; motion, alpha pixels,

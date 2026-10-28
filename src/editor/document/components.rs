@@ -273,20 +273,7 @@ impl Document {
             .props
             .get(index)
             .ok_or("Prop selection expired")?;
-        let mut physics = catalog
-            .placeable(&prop.model)
-            .and_then(|entry| entry.physics.clone())
-            .filter(|profile| profile.shape.is_some())
-            .ok_or("This installed model has no fitted collision profile")?;
-        physics.motion = crate::engine::physics::config::BodyMotion::Fixed;
-        physics.pickup = false;
-        physics.reset_group = None;
-        physics.water = None;
-        let mut raw = self.raw().clone();
-        drop(object_mut(&mut raw, id)?.insert(
-            "physics".into(),
-            serde_json::to_value(physics).map_err(|error| error.to_string())?,
-        ));
+        let raw = fixed_shape_candidate(self.raw(), &prop.model, id, catalog)?;
         self.accept_edit(raw)
     }
 
@@ -331,4 +318,54 @@ fn component_array(object: &mut serde_json::Map<String, Value>) -> Result<&mut V
         .or_insert_with(|| json!([]))
         .as_array_mut()
         .ok_or_else(|| "Invalid components".into())
+}
+
+fn fixed_shape_candidate(
+    source: &Value,
+    model: &str,
+    id: ObjectId,
+    catalog: &crate::engine::assets::AssetCatalog,
+) -> Result<Value, String> {
+    let mut physics = catalog
+        .placeable(model)
+        .and_then(|entry| entry.physics.clone())
+        .filter(|profile| profile.shape.is_some())
+        .ok_or("This installed model has no fitted collision profile")?;
+    physics.motion = crate::engine::physics::config::BodyMotion::Fixed;
+    physics.pickup = false;
+    physics.reset_group = None;
+    physics.water = None;
+    let mut raw = source.clone();
+    drop(object_mut(&mut raw, id)?.insert(
+        "physics".into(),
+        serde_json::to_value(physics).map_err(|error| error.to_string())?,
+    ));
+    Ok(raw)
+}
+
+pub(in crate::editor) fn catalog_collision_candidate(
+    source: &Value,
+    level: &crate::engine::level::LevelDef,
+    index: usize,
+    catalog: &crate::engine::assets::AssetCatalog,
+) -> Result<Value, String> {
+    let prop = level.props.get(index).ok_or("Prop changed")?;
+    if prop.physics.is_some() || prop.float.is_some() || prop.span.is_some() {
+        return Err(
+            "Authored physics, floating props and fitted spans require manual collision review"
+                .into(),
+        );
+    }
+    let id = ObjectId::Prop(index);
+    if catalog
+        .placeable(&prop.model)
+        .and_then(|entry| entry.physics.as_ref())
+        .is_some_and(|profile| profile.shape.is_some())
+    {
+        fixed_shape_candidate(source, &prop.model, id, catalog)
+    } else {
+        let mut result = source.clone();
+        drop(object_mut(&mut result, id)?.insert("solid".into(), json!(true)));
+        Ok(result)
+    }
 }

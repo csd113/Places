@@ -47,6 +47,11 @@
 //! Exit statuses: `0` no confirmed defects, `1` confirmed defects, `2` usage or
 //! file/parse failure.
 
+pub mod construction;
+mod routes;
+mod seams;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use std::collections::{BTreeMap, BTreeSet, HashMap, VecDeque};
 use std::fmt::Write as _;
 use std::path::PathBuf;
@@ -1004,7 +1009,28 @@ fn resolve_source(level: &str) -> Result<(PathBuf, String), String> {
 /// Runs the checker for one already-parsed level.
 #[must_use]
 pub fn check_level(level: &LevelDef, source: &str, validated: bool) -> CheckReport {
+    check_controlled(level, source, validated, None)
+}
+
+/// Same deterministic full analysis with cooperative cancellation. Callers must
+/// discard a partial report when their token is set.
+#[must_use]
+pub fn check_level_cancellable(
+    level: &LevelDef,
+    source: &str,
+    validated: bool,
+    cancel: &AtomicBool,
+) -> CheckReport {
+    check_controlled(level, source, validated, Some(cancel))
+}
+fn check_controlled<'a>(
+    level: &'a LevelDef,
+    source: &str,
+    validated: bool,
+    cancel: Option<&'a AtomicBool>,
+) -> CheckReport {
     let mut checker = Checker::new(level);
+    checker.cancel = cancel;
     let surfaces = LevelSurfaces::new(level);
 
     let materials = crate::engine::render::logical_materials(level);
@@ -1013,26 +1039,48 @@ pub fn check_level(level: &LevelDef, source: &str, validated: bool) -> CheckRepo
         level, &catalog, &materials,
     );
 
-    checker.check_mesh(&mesh);
+    if !checker.cancelled() {
+        checker.check_mesh(&mesh);
+        seams::wall_uv(&mut checker, &mesh, &materials);
+    }
     let triangles = collect_triangles(&mesh);
-    checker.check_duplicate_surfaces(&triangles);
-    checker.check_wall_joints(&surfaces, &triangles, &materials);
+    if !checker.cancelled() {
+        checker.check_duplicate_surfaces(&triangles);
+    }
+    if !checker.cancelled() {
+        checker.check_wall_joints(&surfaces, &triangles, &materials);
+    }
 
     let colliders = authored_colliders(level, &surfaces);
     let engine_boxes = level.collision_aabbs();
     let index = SpatialHash::build(&triangles);
-    checker.check_colliders(&colliders, &engine_boxes, &triangles, &index);
+    if !checker.cancelled() {
+        checker.check_colliders(&colliders, &engine_boxes, &triangles, &index);
+    }
     // The placeholder mesh uses the fallback catalog, but prop sizes are read
     // from the shipped catalog so the layering heuristic sees real extents.
     checker.check_props(
         &crate::engine::loader::PropCatalog::load_default(),
         &surfaces,
     );
-    checker.check_openings(&surfaces);
-    checker.check_curves(&surfaces);
-    checker.check_rooms(&surfaces, &colliders);
-    checker.check_spawn(&surfaces);
+    if !checker.cancelled() {
+        checker.check_openings(&surfaces);
+    }
+    if !checker.cancelled() {
+        checker.check_curves(&surfaces);
+    }
+    if !checker.cancelled() {
+        checker.check_rooms(&surfaces, &colliders);
+    }
+    if !checker.cancelled() {
+        checker.check_spawn(&surfaces);
+    }
 
+    if !checker.cancelled() {
+        construction::check(&mut checker);
+        routes::check(&mut checker);
+        seams::check(&mut checker);
+    }
     let mut report = CheckReport {
         source: source.to_string(),
         level_id: level.id.clone(),
@@ -1511,6 +1559,7 @@ struct Checker<'a> {
     findings: Vec<Finding>,
     suppressed: BTreeMap<String, usize>,
     counts: HashMap<&'static str, usize>,
+    cancel: Option<&'a AtomicBool>,
 }
 
 impl<'a> Checker<'a> {
@@ -1520,7 +1569,13 @@ impl<'a> Checker<'a> {
             findings: Vec::new(),
             suppressed: BTreeMap::new(),
             counts: HashMap::new(),
+            cancel: None,
         }
+    }
+
+    fn cancelled(&self) -> bool {
+        self.cancel
+            .is_some_and(|token| token.load(Ordering::Relaxed))
     }
 
     /// True when an intent annotation covers this heuristic position.
@@ -1835,6 +1890,9 @@ impl Checker<'_> {
             self.incomplete_overlap_audit();
         }
         for (first, second) in pairs {
+            if self.cancelled() {
+                return;
+            }
             let (Some(a), Some(b)) = (triangles.get(first), triangles.get(second)) else {
                 continue;
             };
@@ -3445,6 +3503,9 @@ impl Checker<'_> {
             })
         };
         while let Some((ix, iz, current_foot)) = queue.pop_front() {
+            if self.cancelled() {
+                return;
+            }
             for (dx, dz) in [
                 (1i32, 0i32),
                 (-1_i32, 0_i32),
@@ -3791,6 +3852,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
 
 mod repair;
 
+pub(crate) use repair::preview_alignment;
 pub use repair::{
     REPAIR_FORMAT, REPAIR_VERSION, RepairCliOptions, repair_main, repair_options_from_args,
     run_repair,

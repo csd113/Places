@@ -5,6 +5,14 @@
 //! ordinary validated history.
 
 mod boundaries;
+mod corrections;
+mod integrity;
+#[cfg(test)]
+#[path = "tests/integrity.rs"]
+mod integrity_tests;
+use corrections::Correction;
+pub use corrections::preview_group;
+use std::sync::atomic::{AtomicBool, Ordering};
 mod items;
 mod models;
 
@@ -95,8 +103,7 @@ pub struct SafetyFix {
     pub title: String,
     pub explanation: String,
     expected: Arc<Value>,
-    remove_wall: Option<usize>,
-    ceiling: Option<(usize, f32)>,
+    correction: Correction,
 }
 
 impl SafetyFix {
@@ -112,33 +119,12 @@ impl SafetyFix {
                 "Safety result is stale. Run Safety again before applying this fix.".into(),
             );
         }
-        let mut candidate = current_raw.clone();
-        if let Some((room, height)) = self.ceiling {
-            let level =
-                LevelDef::from_json(&current_raw.to_string()).map_err(|error| error.to_string())?;
-            let record = candidate
-                .get_mut("rooms")
-                .and_then(|rooms| rooms.get_mut(room))
-                .and_then(Value::as_object_mut)
-                .ok_or("The ceiling room no longer exists")?;
-            drop(record.insert("height".into(), serde_json::json!(height)));
-            let _adjusted = reanchor_ceiling_fixtures(&level, &mut candidate, room, height);
-            crate::editor::document::intent::ensure_automatic_edit_allowed(
-                current_raw,
-                &candidate,
-            )?;
-            return Ok(candidate);
-        }
-        let remove_wall = self.remove_wall.ok_or("Missing correction")?;
-        let walls = candidate
-            .get_mut("walls")
-            .and_then(Value::as_array_mut)
-            .ok_or("The duplicate wall collection no longer exists")?;
-        if remove_wall >= walls.len() {
-            return Err("The duplicate wall no longer exists".into());
-        }
-        drop(walls.remove(remove_wall));
+        let candidate = self.correction.candidate(current_raw)?;
+        ensure_locked_correction(current_raw, &candidate)?;
         crate::editor::document::intent::ensure_automatic_edit_allowed(current_raw, &candidate)?;
+        let level: LevelDef =
+            serde_json::from_value(candidate.clone()).map_err(|error| error.to_string())?;
+        crate::engine::loader::validate_level(&level)?;
         Ok(candidate)
     }
 }
@@ -165,6 +151,19 @@ pub fn preview_corrections(raw: &Value, findings: &[SafetyFinding]) -> Vec<Resul
 /// Asset loading and CPU geometry preparation belong on the editor worker.
 #[must_use]
 pub fn analyze(level: &LevelDef, raw: &Value) -> SafetyReport {
+    analyze_cancellable(level, raw, &AtomicBool::new(false))
+}
+
+/// Cooperative cancellation is checked between preparation stages and inside
+/// the shared checker flood. A cancelled report is discarded by the UI worker.
+#[must_use]
+pub fn analyze_cancellable(level: &LevelDef, raw: &Value, cancel: &AtomicBool) -> SafetyReport {
+    if cancel.load(Ordering::Relaxed) {
+        return SafetyReport {
+            findings: Vec::new(),
+            limitations: "Analysis cancelled; no corrections generated.".into(),
+        };
+    }
     if let Some(reason) = complexity_limit(level) {
         return budget_report(&reason);
     }
@@ -174,46 +173,19 @@ pub fn analyze(level: &LevelDef, raw: &Value) -> SafetyReport {
     if let Some(reason) = complexity_limit(&prepared) {
         return budget_report(&reason);
     }
-    let checked = geometry_check::check_level(&prepared, "editor document", true);
+    let checked =
+        geometry_check::check_level_cancellable(&prepared, "editor document", true, cancel);
+    if cancel.load(Ordering::Relaxed) {
+        return SafetyReport {
+            findings: Vec::new(),
+            limitations: "Analysis cancelled; no corrections generated.".into(),
+        };
+    }
     let mut report = SafetyReport {
         findings: checked
             .findings
             .into_iter()
-            .map(|finding| {
-                let objects = references(level, &finding.id, finding.position);
-                let bounds = if finding.surfaces.is_empty() {
-                    reference_bounds(level, &objects)
-                        .unwrap_or_else(|| marker_bounds(finding.position))
-                } else {
-                    finding
-                        .surfaces
-                        .iter()
-                        .flatten()
-                        .fold(Aabb::EMPTY, |bounds, point| bounds.expanded(*point))
-                };
-                SafetyFinding {
-                    check: finding.check,
-                    category: category(finding.check),
-                    severity: match finding.severity {
-                        Severity::Error => SafetySeverity::Error,
-                        Severity::Warning => {
-                            if finding.check == "shared-storey-plane" {
-                                SafetySeverity::Info
-                            } else {
-                                SafetySeverity::Warning
-                            }
-                        }
-                    },
-                    title: format!("{}: {}", finding.check, finding.id),
-                    risk: corrected_risk(finding.check, finding.message),
-                    position: finding.position,
-                    bounds,
-                    objects,
-                    surfaces: finding.surfaces,
-                    fix: None,
-                    placement_ignore: None,
-                }
-            })
+            .map(|finding| source_finding(level, finding))
             .collect(),
         limitations: LIMITATIONS.into(),
     };
@@ -228,7 +200,20 @@ pub fn analyze(level: &LevelDef, raw: &Value) -> SafetyReport {
     duplicate_wall_fixes(level, raw, &mut report);
     items::check(&prepared, &mut report);
     boundaries::check(&prepared, &mut report);
-    models::check(&prepared, &mut report);
+    if cancel.load(Ordering::Relaxed) {
+        return SafetyReport {
+            findings: Vec::new(),
+            limitations: "Analysis cancelled; no corrections generated.".into(),
+        };
+    }
+    models::check(&prepared, &mut report, cancel);
+    if cancel.load(Ordering::Relaxed) {
+        return SafetyReport {
+            findings: Vec::new(),
+            limitations: "Analysis cancelled; no corrections generated.".into(),
+        };
+    }
+    integrity::corrections(level, raw, &mut report, cancel);
     prioritize(&mut report.findings);
     if report.findings.len() > MAX_FINDINGS {
         let omitted = report.findings.len().saturating_sub(MAX_FINDINGS);
@@ -370,11 +355,20 @@ fn corrected_risk(check: &str, message: String) -> String {
 
 fn category(check: &str) -> SafetyCategory {
     match check {
-        "room-leak" | "missing-wall" | "spawn-outside-room" => SafetyCategory::Void,
+        "room-leak"
+        | "missing-wall"
+        | "spawn-outside-room"
+        | "floor-footprint-crack"
+        | "wall-corner-gap"
+        | "wall-endpoint-gap"
+        | "wall-floor-seam"
+        | "wall-ceiling-seam" => SafetyCategory::Void,
         "duplicate-surface" | "coplanar-sliver" | "overlap-emission" | "reversed-face" => {
             SafetyCategory::Coplanar
         }
-        "prop-layer-coplanar" => SafetyCategory::MaterialDepth,
+        "prop-layer-coplanar" | "material-ceiling-continuity" | "material-wall-corner-phase" => {
+            SafetyCategory::MaterialDepth
+        }
         "prop-duplicate" | "opening-overlap" => SafetyCategory::GeometryOverlap,
         "geometry-check-incomplete" => SafetyCategory::Review,
         _ => SafetyCategory::Collision,
@@ -436,8 +430,7 @@ fn duplicate_wall_fixes(level: &LevelDef, raw: &Value, report: &mut SafetyReport
                 title: format!("Remove duplicate wall {}", remove.saturating_add(1)),
                 explanation: format!("Removes only wall {}; keeps identical wall {}. Apply creates one undo step. Any source edit invalidates this preview.", remove.saturating_add(1), keep.saturating_add(1)),
                 expected: Arc::clone(&expected),
-                remove_wall: Some(remove),
-                ceiling: None,
+                correction: Correction::RemoveWall(remove),
             }),
         });
     }
@@ -457,6 +450,7 @@ fn references(level: &LevelDef, id: &str, point: [f32; 3]) -> Vec<ObjectId> {
             "room" => Some(ObjectId::Room(index)),
             "wall" => Some(ObjectId::Wall(index)),
             "prop" => Some(ObjectId::Prop(index)),
+            "door" => Some(ObjectId::Door(index)),
             "ramp" => Some(ObjectId::Ramp(index)),
             _ => None,
         };
@@ -591,8 +585,7 @@ fn structural_clearance_fixes(level: &LevelDef, raw: &Value, report: &mut Safety
                     issue.lower
                 ),
                 expected: Arc::clone(&expected),
-                remove_wall: None,
-                ceiling: Some((issue.lower, proposed)),
+                correction: Correction::Ceiling(issue.lower, proposed),
             })
         } else {
             None
@@ -636,4 +629,72 @@ fn reanchor_ceiling_fixtures(
         }
     }
     adjusted
+}
+
+fn ensure_locked_correction(before: &Value, after: &Value) -> Result<(), String> {
+    for (collection, value) in before.as_object().ok_or("Expected scene object")? {
+        let Some(records) = value.as_array() else {
+            continue;
+        };
+        for record in records
+            .iter()
+            .filter(|r| r.get("editor_locked").and_then(Value::as_bool) == Some(true))
+        {
+            let count = records.iter().filter(|r| *r == record).count();
+            let retained = after
+                .get(collection)
+                .and_then(Value::as_array)
+                .map_or(0, |a| a.iter().filter(|r| *r == record).count());
+            if retained < count {
+                return Err(format!(
+                    "A {collection} object is locked. Unlock it in Layers before correcting it or its attachments."
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn source_finding(level: &LevelDef, finding: geometry_check::Finding) -> SafetyFinding {
+    let objects = references(level, &finding.id, finding.position);
+    let local_marker = finding.check.starts_with("wall-corner-")
+        || finding.check == "wall-endpoint-gap"
+        || finding.check.starts_with("route-")
+        || finding.check.starts_with("opening-")
+        || finding.check.ends_with("-seam")
+        || finding.check.starts_with("material-")
+        || finding.check == "floor-footprint-crack";
+    let bounds = if local_marker {
+        marker_bounds(finding.position)
+    } else if finding.surfaces.is_empty() {
+        reference_bounds(level, &objects).unwrap_or_else(|| marker_bounds(finding.position))
+    } else {
+        finding
+            .surfaces
+            .iter()
+            .flatten()
+            .fold(Aabb::EMPTY, |bounds, point| bounds.expanded(*point))
+    };
+    SafetyFinding {
+        check: finding.check,
+        category: category(finding.check),
+        severity: match finding.severity {
+            Severity::Error => SafetySeverity::Error,
+            Severity::Warning => {
+                if finding.check == "shared-storey-plane" {
+                    SafetySeverity::Info
+                } else {
+                    SafetySeverity::Warning
+                }
+            }
+        },
+        title: format!("{}: {}", finding.check, finding.id),
+        risk: corrected_risk(finding.check, finding.message),
+        position: finding.position,
+        bounds,
+        objects,
+        surfaces: finding.surfaces,
+        fix: None,
+        placement_ignore: None,
+    }
 }

@@ -153,7 +153,7 @@ impl App {
         };
         doc.check_locked_edit(candidate)?;
         for object in doc.objects() {
-            if self.editable(object.id) {
+            if self.editable(object.id) && self.focus.included(doc.level(), object.id) {
                 continue;
             }
             let (key, i) = object.id.collection();
@@ -161,10 +161,17 @@ impl App {
                 && !candidate
                     .get(key)
                     .and_then(serde_json::Value::as_array)
-                    .is_some_and(|a| a.contains(old))
+                    .is_some_and(|a| {
+                        let before = doc
+                            .raw()
+                            .get(key)
+                            .and_then(serde_json::Value::as_array)
+                            .map_or(0, |records| records.iter().filter(|r| *r == old).count());
+                        a.iter().filter(|r| *r == old).count() >= before
+                    })
             {
                 return Err(format!(
-                    "{} is locked or in a hidden layer. Show and unlock it before changing its attachments.",
+                    "{} is locked, hidden or outside isolation. Show and unlock it before changing its attachments.",
                     object.label
                 ));
             }

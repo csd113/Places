@@ -121,106 +121,7 @@ impl Document {
         index: usize,
         pose: Transform,
     ) -> Result<Value, String> {
-        let old = self
-            .level()
-            .walls
-            .get(index)
-            .ok_or("Wall no longer exists")?;
-        let mut raw = self.raw().clone();
-        objects::set_transform(&mut raw, self.level(), ObjectId::Wall(index), pose)?;
-        let new: WallDef = serde_json::from_value(
-            raw.get("walls")
-                .and_then(|a| a.get(index))
-                .ok_or("Missing wall")?
-                .clone(),
-        )
-        .map_err(|e| e.to_string())?;
-        let delta = [new.x - old.x, new.y - old.y, new.z - old.z];
-        let resized = !near(old.width, new.width) || !near(old.depth, new.depth);
-        if old.axis() != new.axis() {
-            let fitted = has_fittings(self.level(), old);
-            if fitted {
-                return Err(
-                    "Walls with fittings keep their axis. Draw a new segment to turn a corner."
-                        .into(),
-                );
-            }
-            conflict(self.level(), &new, Some(index))?;
-            let _validated = persistence::validate_raw(&raw, self.level_id())?;
-            return Ok(raw);
-        }
-        let origin_shift = if old.axis() == WallAxis::X {
-            delta[0]
-        } else {
-            delta[2]
-        };
-        let perpendicular = if old.axis() == WallAxis::X {
-            delta[2]
-        } else {
-            delta[0]
-        };
-        if resized && (perpendicular.abs() > 0.001 || delta[1].abs() > 0.001) {
-            return Err("Resize the length or move the wall in separate steps".into());
-        }
-        let mut proposed = old.clone();
-        proposed.x = new.x;
-        proposed.y = new.y;
-        proposed.z = new.z;
-        proposed.width = new.width;
-        proposed.depth = new.depth;
-        proposed.height = new.height;
-        if proposed.length() < 0.5 {
-            return Err("Keep at least 0.50m of wall".into());
-        }
-        let new_length = proposed.length();
-        for opening in &mut proposed.openings {
-            if resized {
-                opening.offset -= origin_shift;
-            }
-            if opening.offset < 0.0 || opening.end() > new_length {
-                return Err("Resize would cut through an opening. Move the doorway or use the opposite endpoint.".into());
-            }
-        }
-        // Keep existing junctions closed. Unconnected partitions remain freely movable.
-        let old_ends = endpoints(old);
-        let new_ends = endpoints(&proposed);
-        for (i, other) in self.level().walls.iter().enumerate() {
-            if i == index || !near(old.y, other.y) {
-                continue;
-            }
-            for (before, after) in old_ends.iter().zip(new_ends) {
-                if attached(other, before[0], before[2]) && !attached(other, after[0], after[2]) {
-                    return Err(format!(
-                        "This endpoint joins Wall {}. Resize the room edge to move a connected perimeter, or drag the free endpoint.",
-                        i.saturating_add(1)
-                    ));
-                }
-            }
-        }
-        conflict(self.level(), &proposed, Some(index))?;
-        let record = objects::object_mut(&mut raw, ObjectId::Wall(index))?;
-        if resized {
-            for opening in record
-                .get_mut("openings")
-                .and_then(Value::as_array_mut)
-                .into_iter()
-                .flatten()
-            {
-                let offset = opening
-                    .get("offset")
-                    .and_then(Value::as_f64)
-                    .ok_or("Missing opening offset")?;
-                drop(
-                    opening
-                        .as_object_mut()
-                        .ok_or("Invalid opening")?
-                        .insert("offset".into(), json!(offset - f64::from(origin_shift))),
-                );
-            }
-        }
-        move_fittings(&mut raw, self.level(), old, &proposed, resized, delta)?;
-        let _validated = persistence::validate_raw(&raw, self.level_id())?;
-        Ok(raw)
+        edit_candidate(self.raw(), self.level(), index, pose)
     }
 
     pub(crate) fn doorway_candidate(
@@ -441,4 +342,108 @@ fn fit_door(
     }
     drop(r.insert("bidirectional".into(), json!(true)));
     Ok(id)
+}
+
+/// Shared attachment-preserving wall candidate used by direct edits and Safety.
+pub fn edit_candidate(
+    source: &Value,
+    level: &LevelDef,
+    index: usize,
+    pose: Transform,
+) -> Result<Value, String> {
+    let old = level.walls.get(index).ok_or("Wall no longer exists")?;
+    let mut raw = source.clone();
+    objects::set_transform(&mut raw, level, ObjectId::Wall(index), pose)?;
+    let new: WallDef = serde_json::from_value(
+        raw.get("walls")
+            .and_then(|a| a.get(index))
+            .ok_or("Missing wall")?
+            .clone(),
+    )
+    .map_err(|e| e.to_string())?;
+    let delta = [new.x - old.x, new.y - old.y, new.z - old.z];
+    let resized = (old.width - new.width).abs() > 0.0001 || (old.depth - new.depth).abs() > 0.0001;
+    if old.axis() != new.axis() {
+        let fitted = has_fittings(level, old);
+        if fitted {
+            return Err(
+                "Walls with fittings keep their axis. Draw a new segment to turn a corner.".into(),
+            );
+        }
+        conflict(level, &new, Some(index))?;
+        let _validated = persistence::validate_raw(&raw, &level.id)?;
+        return Ok(raw);
+    }
+    let origin_shift = if old.axis() == WallAxis::X {
+        delta[0]
+    } else {
+        delta[2]
+    };
+    let perpendicular = if old.axis() == WallAxis::X {
+        delta[2]
+    } else {
+        delta[0]
+    };
+    if resized && (perpendicular.abs() > 0.001 || delta[1].abs() > 0.001) {
+        return Err("Resize the length or move the wall in separate steps".into());
+    }
+    let mut proposed = old.clone();
+    proposed.x = new.x;
+    proposed.y = new.y;
+    proposed.z = new.z;
+    proposed.width = new.width;
+    proposed.depth = new.depth;
+    proposed.height = new.height;
+    if proposed.length() < 0.5 {
+        return Err("Keep at least 0.50m of wall".into());
+    }
+    let new_length = proposed.length();
+    for opening in &mut proposed.openings {
+        if resized {
+            opening.offset -= origin_shift;
+        }
+        if opening.offset < 0.0 || opening.end() > new_length {
+            return Err("Resize would cut through an opening. Move the doorway or use the opposite endpoint.".into());
+        }
+    }
+    // Keep existing junctions closed. Unconnected partitions remain freely movable.
+    let old_ends = endpoints(old);
+    let new_ends = endpoints(&proposed);
+    for (i, other) in level.walls.iter().enumerate() {
+        if i == index || !near(old.y, other.y) {
+            continue;
+        }
+        for (before, after) in old_ends.iter().zip(new_ends) {
+            if attached(other, before[0], before[2]) && !attached(other, after[0], after[2]) {
+                return Err(format!(
+                    "This endpoint joins Wall {}. Resize the room edge to move a connected perimeter, or drag the free endpoint.",
+                    i.saturating_add(1)
+                ));
+            }
+        }
+    }
+    conflict(level, &proposed, Some(index))?;
+    let record = objects::object_mut(&mut raw, ObjectId::Wall(index))?;
+    if resized {
+        for opening in record
+            .get_mut("openings")
+            .and_then(Value::as_array_mut)
+            .into_iter()
+            .flatten()
+        {
+            let offset = opening
+                .get("offset")
+                .and_then(Value::as_f64)
+                .ok_or("Missing opening offset")?;
+            drop(
+                opening
+                    .as_object_mut()
+                    .ok_or("Invalid opening")?
+                    .insert("offset".into(), json!(offset - f64::from(origin_shift))),
+            );
+        }
+    }
+    move_fittings(&mut raw, level, old, &proposed, resized, delta)?;
+    let _validated = persistence::validate_raw(&raw, &level.id)?;
+    Ok(raw)
 }

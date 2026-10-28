@@ -1307,7 +1307,7 @@ pub(in crate::engine::render) fn cross_section_covered(
 /// Both axes are cut at every covered edge, so the result is an exact
 /// partition: a wall end half-covered by a thinner abutting wall keeps exactly
 /// the half that is still exposed.
-pub(in crate::engine::render) fn subtract_rectangles(
+pub fn subtract_rectangles(
     exposed: (f32, f32, f32, f32),
     covered: &[(f32, f32, f32, f32)],
 ) -> Vec<(f32, f32, f32, f32)> {
