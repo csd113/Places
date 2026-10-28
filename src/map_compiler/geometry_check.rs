@@ -1416,13 +1416,20 @@ fn authored_colliders(level: &LevelDef, surfaces: &LevelSurfaces<'_>) -> Vec<Col
         }
     }
     for (index, piece) in level.guardrails.iter().enumerate() {
-        if let Some(boxed) = piece.solid_box(surfaces) {
+        for boxed in crate::engine::level::construction::rail_collision(piece, level) {
             out.push(Collider {
                 source: format!("guardrail {index}"),
                 aabb: boxed.to_wall_aabb(),
                 ghost_checked: false,
             });
         }
+    }
+    for piece in crate::engine::level::construction::pieces(level) {
+        out.push(Collider {
+            source: "construction attachment".into(),
+            aabb: piece.bounds.to_wall_aabb(),
+            ghost_checked: true,
+        });
     }
     out
 }

@@ -106,6 +106,7 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     validate_water(level)?;
     validate_ladders(level)?;
     validate_walls(level)?;
+    crate::engine::level::construction::validate(level)?;
     validate_architecture(level)?;
     validate_ceiling_lights(level)?;
     validate_props(level)?;

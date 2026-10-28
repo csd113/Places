@@ -738,3 +738,59 @@ The small native validation source is
 It includes bare and trimmed wall-floor contacts, both pillar shapes, all four
 band choices, a straight wall entering a circular pillar, and an angled arc
 junction. Production maps are not inputs to ordinary tests.
+
+## Construction generators (0.13.1)
+
+Simple mode's **More geometry** (or a selected wall's **Build**) opens the same geometry menu as
+Advanced mode. Select a carrier wall for **Wall recess / niche** or
+**Door/window surround**. Recess width/height describe the aperture; a fitted
+5 mm liner on each side carries the side material. Depth cuts from the chosen
+north/west or south/east face and must retain at least 5 cm of solid wall.
+Thicken the wall explicitly for a deeper niche. **Make Doorway** remains a
+through-cut; a recess never silently converts to one.
+Its back material affects the cavity face; the opposite exterior keeps the wall
+material.
+
+Surrounds follow the saved opening dimensions. Frame width, projection, sill
+projection and optional outer trim have separate controls/materials. The sill
+is omitted at a floor-level doorway. Delete in the surround form removes its
+surround, preserving the aperture. Frame and trim must fit the carrier edges.
+Use the record arrows to choose an opening. The niche form's later page has
+back/side materials and optional frame controls.
+
+The existing light **Mount Surface** command fits the actual niche backing.
+Moving the carrier wall carries that fitted light with its other attachments.
+After changing the niche depth or aperture, explicitly remount/review fittings;
+there is no persistent niche-specific fixture anchor.
+
+**Place railing path** collects a start and successive corners. **Apply path**
+commits all sections/posts in one undo step; Escape discards the whole preview.
+**Edit railing / fence** adjusts height, post spacing, materials and endpoints.
+Automatic elevation splits at stair/ramp boundaries and follows their profiles;
+corners share posts. Advanced world Y/rise overrides remain contextual. Paths
+must retain floor support, fit the ceiling and avoid existing collision.
+Corners use fitted miters; reversals and corners too tight for their sections
+refuse. Use simple paths and inspect unusual crossings and flight transitions
+in Play. This tool does not generate a structural support system below a fence.
+
+**Connect crouch tunnel** takes two mouth centres on one room floor and snaps
+the route to X or Z, displaying a private shell before the second click applies
+it. **Edit crouch tunnels** adjusts the selected room's saved passages. Default
+clearance is 1.05 m, width 1.1 m and shell thickness 0.1 m. The actual player is
+0.9 m crouched and 1.8 m standing; permitted clearance is 0.95–1.60 m. Both mouths
+need 0.9 m standing landings. The room supplies the passage floor. Sources store
+room-local endpoints, so moving the carrier carries the shell; invalid resizing
+refuses. Deleting a carrier or generator removes its derived geometry.
+
+Tunnels currently support straight, level X/Z routes 1–30 m long, inside one
+flat room. Angled/bent/vertical connections, automatic wall cuts, ramps, stairs,
+floor regions and unsupported landings refuse with feedback. Existing walls,
+props, authored door poses and other tunnels are checked before admission.
+Dynamic movement still needs Play validation. This is architectural passage
+geometry, separate from decorative HVAC assets.
+
+All four tools use the ordinary validated source/history/save system. Cancel
+restores the source scene; Apply is atomic; repeated editing of the same record
+regenerates deterministically. Safety uses the same generator constraints and
+collision pieces, reports crouch clearance, and offers no destructive automatic
+generator repair. Existing angled geometry is preserved.

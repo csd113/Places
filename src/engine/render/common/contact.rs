@@ -20,6 +20,7 @@ impl Plane {
 }
 struct Solid {
     trim_owner: Option<usize>,
+    covers_trim: bool,
     bounds: Aabb,
     planes: Vec<Plane>,
 }
@@ -107,7 +108,20 @@ impl Contacts {
         let fit_architecture = level.walls.iter().any(|p| p.trim.is_some())
             || level.columns.iter().any(|p| p.trim.is_some())
             || level.pillars.iter().any(|p| p.trim.is_some())
-            || level.arc_walls.iter().any(|p| p.trim.is_some());
+            || level.arc_walls.iter().any(|p| p.trim.is_some())
+            || level.walls.iter().any(|w| {
+                w.openings
+                    .iter()
+                    .any(|o| o.recess.is_some() || o.surround.is_some())
+            })
+            || level.rooms.iter().any(|r| !r.tunnels.is_empty());
+        for piece in crate::engine::level::construction::pieces(level) {
+            let [x0, y0, z0] = piece.bounds.min;
+            let [x1, y1, z1] = piece.bounds.max;
+            let mut volume = prism(&[(x0, z0), (x1, z0), (x1, z1), (x0, z1)], y0, y1);
+            volume.covers_trim = true;
+            solids.push(volume);
+        }
         for wall in &level.walls {
             let (x, z) = wall.min_corner();
             for slice in surfaces.wall_solid_slices(wall) {
@@ -266,6 +280,7 @@ fn prism(points: &[(f32, f32)], bottom: f32, top: f32) -> Solid {
         bounds,
         planes,
         trim_owner: None,
+        covers_trim: false,
     }
 }
 
@@ -280,6 +295,9 @@ fn subtract(
     if solid.planes.iter().any(|plane| {
         polygon.iter().all(|v| plane.distance(v.pos) <= 0.00001)
             && plane.normal.dot(normal) <= 0.0
+            // Fitted frames own coincident trim ends; retaining both exterior
+            // faces leaves the old baseboard visibly fighting the new jamb.
+            && !(solid.covers_trim && owner.is_some())
             && owner
                 .zip(solid.trim_owner)
                 .is_none_or(|(current, other)| other >= current)

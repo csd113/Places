@@ -105,23 +105,7 @@ fn draw_form(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>)
             );
         }
     } else {
-        ui::text(
-            v,
-            if matches!(draft.tool, Tool::GlobalPatch | Tool::GlobalRegion) {
-                "GLOBAL: affects ALL overlapping storeys."
-            } else if matches!(
-                draft.tool,
-                Tool::Column | Tool::Pillar | Tool::ArcWall | Tool::WallTrim
-            ) {
-                "Click trim to cycle. Blank height follows ceiling."
-            } else {
-                "Blank = automatic / omitted. Ctrl/Cmd A clears."
-            },
-            126.0,
-            197.0,
-            ui::INK,
-            90,
-        );
+        ui::text(v, form_hint(draft.tool), 126.0, 197.0, ui::INK, 90);
     }
     for (x, label, action) in [
         (126.0, "Preview", Action::Author(Command::Preview)),
@@ -367,5 +351,26 @@ fn draw_wall_selection(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut
             ),
             Action::Author(Command::ToggleWall(index)),
         );
+    }
+}
+
+fn form_hint(tool: Tool) -> &'static str {
+    if matches!(tool, Tool::GlobalPatch | Tool::GlobalRegion) {
+        "GLOBAL: affects ALL overlapping storeys."
+    } else if matches!(
+        tool,
+        Tool::Column | Tool::Pillar | Tool::ArcWall | Tool::WallTrim
+    ) {
+        "Click trim to cycle. Blank height follows ceiling."
+    } else if tool == Tool::Tunnel {
+        "One flat room; 0.9 m clear landings. Esc cancels."
+    } else if tool == Tool::Recess {
+        "Solid backing required. More > materials / optional trim."
+    } else if tool == Tool::Surround {
+        "Follows opening size. Delete removes surround only."
+    } else if tool == Tool::RailPath {
+        "Corners use X,Z pairs; blank Y/rise follows the floor."
+    } else {
+        "Blank = automatic / omitted. Ctrl/Cmd A clears."
     }
 }

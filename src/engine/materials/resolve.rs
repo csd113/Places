@@ -333,6 +333,11 @@ pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
     push(&level.defaults.wall);
     push(&level.defaults.floor);
     push(&level.defaults.ceiling);
+    for piece in crate::engine::level::construction::pieces(level) {
+        if let Some(reference) = piece.material {
+            push(reference.id);
+        }
+    }
     for room in level.room_iter() {
         if let Some(material) = &room.material {
             push(material);

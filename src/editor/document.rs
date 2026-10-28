@@ -14,6 +14,9 @@ mod local_floor;
 pub(crate) mod room_resize;
 pub(crate) mod wall_edit;
 pub(super) use objects::array_mut as record_array_mut;
+#[cfg(test)]
+#[path = "tests/construction_generators.rs"]
+mod construction_generator_tests;
 pub(crate) mod intent;
 pub(crate) mod mounting;
 pub(super) mod objects;

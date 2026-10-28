@@ -79,7 +79,17 @@ reused. Cancellation discards partial results. Angled geometry, artistic
 intersections and unsupported UV/material corrections retain explicit review.
 See the [editor workflow](docs/EDITOR.md) and [phase acceptance](docs/reports/release-0.13.1.md).
 
-## 0.13.0 — 2026-10-28
+Fourth editor phase adds backed wall recesses/TV niches, fitted door/window
+surrounds and sills, railing/fence paths with shared posts and stair following,
+and point-to-point crouch tunnels. All use private preview, atomic history,
+save/reopen and derived regeneration. Source admission and shared Safety reject
+unsupported cuts, routes, headroom and corner fit. Frames clip existing wall trim;
+rail corners meet at miters. Simple mode exposes the tools through geometry/Build
+controls while retaining the wall/door/light tools and 24-tile material browser.
+See the [supported routes and controls](docs/EDITOR.md#construction-generators-0131)
+and [phase acceptance](docs/reports/release-0.13.1.md).
+
+## 0.13.0 - 2026-10-28
 
 Windows prerelease [published on 2026-10-28](https://github.com/csd113/Places/releases/tag/v0.13.0). The approved queue fixes
 shared collision, recovery, lighting invalidation and resource ownership defects;

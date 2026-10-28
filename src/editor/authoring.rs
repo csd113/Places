@@ -1,4 +1,5 @@
 //! Focused source forms: complete records are validated before admission.
+mod generators;
 mod sheets;
 use super::{
     App,
@@ -28,6 +29,10 @@ pub(super) enum Command {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Tool {
+    Recess,
+    Surround,
+    RailPath,
+    Tunnel,
     Column,
     Pillar,
     ArcWall,
@@ -49,6 +54,7 @@ pub(super) enum Tool {
 }
 #[derive(Clone, Copy)]
 enum Kind {
+    Json,
     Number,
     Text,
     Bool,
@@ -87,6 +93,10 @@ const fn flag(path: &'static str, label: &'static str, default: &'static str) ->
 impl Tool {
     const fn title(self) -> &'static str {
         match self {
+            Self::Recess => "Wall recess / TV niche",
+            Self::Surround => "Door / window surround",
+            Self::RailPath => "Railing / fence path",
+            Self::Tunnel => "Crouch tunnel",
             Self::Column => "Rectangular pillar",
             Self::Pillar => "Circular pillar",
             Self::ArcWall => "Curved wall",
@@ -109,13 +119,15 @@ impl Tool {
     }
     const fn collection(self) -> &'static str {
         match self {
+            Self::Recess | Self::Surround => "openings",
+            Self::Tunnel => "tunnels",
             Self::Column => "columns",
             Self::Pillar => "pillars",
             Self::ArcWall => "arc_walls",
             Self::WallTrim => "walls",
             Self::Ramp => "ramps",
             Self::Stairs => "stairs",
-            Self::Rail => "guardrails",
+            Self::Rail | Self::RailPath => "guardrails",
             Self::Water => "water",
             Self::AcousticMaterial => "acoustic_materials",
             Self::Sky => "sky",
@@ -183,6 +195,9 @@ impl Tool {
     }
     fn fields(self) -> Vec<Field> {
         match self {
+            Self::Recess | Self::Surround | Self::RailPath | Self::Tunnel => {
+                generators::fields(self)
+            }
             Self::Column | Self::Pillar | Self::ArcWall => self.pillar_fields(),
             Self::WallTrim => {
                 let mut fields = vec![text(
@@ -327,7 +342,11 @@ impl Tool {
                 flag("/bake", "Bake", "true"),
                 number("/angular_size_degrees", "Angular size degrees", "0.5"),
             ],
-            Self::Column
+            Self::Recess
+            | Self::Surround
+            | Self::RailPath
+            | Self::Tunnel
+            | Self::Column
             | Self::Pillar
             | Self::ArcWall
             | Self::WallTrim
@@ -405,6 +424,7 @@ fn form_index(
 }
 
 pub(super) struct Draft {
+    owner: Option<usize>,
     pub tool: Tool,
     index: usize,
     fields: Vec<(Field, String)>,
@@ -420,7 +440,8 @@ impl Draft {
     fn new(app: &App, tool: Tool, requested: Option<usize>) -> Result<Self, String> {
         let doc = app.document.as_ref().ok_or("Open a project first")?;
         let raw = doc.raw();
-        let collection = raw.get(tool.collection());
+        let owner = generators::owner(app, tool)?;
+        let collection = generators::collection(raw, tool, owner);
         let index = form_index(app, tool, requested, collection)?;
         let mut original = if tool.singleton() {
             collection.filter(|value| !value.is_null())
@@ -428,6 +449,7 @@ impl Draft {
             collection.and_then(|values| values.get(index))
         }
         .cloned();
+        generators::initialize(app, tool, owner, &mut original)?;
         if tool == Tool::Route && original.is_none() {
             let Some(super::document::ObjectId::Prop(prop_index)) = app.selected else {
                 return Err("Select an actor before creating a route".into());
@@ -449,9 +471,6 @@ impl Draft {
         }
         if tool == Tool::WallTrim && original.is_none() {
             return Err("Select a wall before opening Automatic trim".into());
-        }
-        if tool == Tool::Room && original.is_none() {
-            original = Some(default_room(app, doc));
         }
         let definitions = if tool == Tool::Route {
             route_fields(original.as_ref())
@@ -503,6 +522,7 @@ impl Draft {
             fields.push((field, field_content));
         }
         Ok(Self {
+            owner,
             tool,
             index,
             fields,
@@ -556,6 +576,8 @@ impl Draft {
                 None
             } else {
                 Some(match field.kind {
+                    Kind::Json => serde_json::from_str(content)
+                        .map_err(|e| format!("{}: {e}", field.label))?,
                     Kind::Text => Value::String(content.trim().into()),
                     Kind::Number => {
                         let value: Value = serde_json::from_str(content)
@@ -595,6 +617,12 @@ impl Draft {
             if object.remove("show_disc").and_then(|value| value.as_bool()) != Some(true) {
                 drop(object.remove("visual"));
             }
+        }
+        if self.tool == Tool::Recess
+            && record.pointer("/surround/width").is_none()
+            && let Some(object) = record.as_object_mut()
+        {
+            drop(object.remove("surround"));
         }
         Ok(record)
     }
@@ -646,7 +674,7 @@ impl Draft {
                     .insert(self.tool.collection().into(), record),
             );
         } else {
-            let values = super::document::record_array_mut(&mut raw, self.tool.collection())?;
+            let values = generators::collection_mut(&mut raw, self.tool, self.owner)?;
             if self.index == values.len() {
                 values.push(record);
             } else {
@@ -711,13 +739,7 @@ impl App {
                 )?)));
             }
             Action::Author(Command::Open(tool)) => {
-                let index = match (tool, self.selected) {
-                    (Tool::Column, Some(super::document::ObjectId::Column(i)))
-                    | (Tool::Pillar, Some(super::document::ObjectId::Pillar(i)))
-                    | (Tool::ArcWall, Some(super::document::ObjectId::ArcWall(i)))
-                    | (Tool::WallTrim, Some(super::document::ObjectId::Wall(i))) => i,
-                    _ => 0,
-                };
+                let index = generators::open_index(self, tool);
                 self.popup = Some(Popup::AuthoringForm(Box::new(Draft::new(
                     self,
                     tool,
@@ -770,7 +792,7 @@ impl App {
                 let maximum = self
                     .document
                     .as_ref()
-                    .and_then(|doc| doc.raw().get(draft.tool.collection()))
+                    .and_then(|doc| generators::collection(doc.raw(), draft.tool, draft.owner))
                     .and_then(Value::as_array)
                     .map_or(0, Vec::len);
                 let index = if next {
@@ -792,13 +814,25 @@ impl App {
                     self, draft.tool, None,
                 )?)));
             }
-            Action::Author(Command::Preview) => self.apply_authoring_form(false)?,
-            Action::Author(Command::Apply) => self.apply_authoring_form(true)?,
+            Action::Author(Command::Preview) => self.checked_authoring_form(false)?,
+            Action::Author(Command::Apply) => self.checked_authoring_form(true)?,
             Action::Author(Command::RouteStep(kind)) => self.edit_authoring_route(kind)?,
             Action::Author(Command::Delete) => self.delete_authoring_record()?,
             _ => return Ok(false),
         }
         Ok(true)
+    }
+    fn checked_authoring_form(&mut self, apply: bool) -> Result<(), String> {
+        let result = self.apply_authoring_form(apply);
+        if result.is_err() {
+            if let Some(doc) = &self.document {
+                self.viewport.rebuild(doc.level());
+            }
+            if let Some(Popup::AuthoringForm(draft)) = &mut self.popup {
+                draft.preview = false;
+            }
+        }
+        result
     }
     fn apply_authoring_form(&mut self, apply: bool) -> Result<(), String> {
         let Some(Popup::AuthoringForm(draft)) = &self.popup else {
@@ -807,6 +841,7 @@ impl App {
         let doc = self.document.as_ref().ok_or("Open a project first")?;
         let raw = draft.candidate(doc)?;
         let level = doc.validate_candidate(&raw)?;
+        self.check_focused_edit(&raw)?;
         let global_modifier = matches!(draft.tool, Tool::GlobalPatch | Tool::GlobalRegion);
         crate::engine::project::validate_level_assets(&level, &self.catalog)?;
         if draft.tool == Tool::Room {
@@ -844,7 +879,11 @@ impl App {
                 Tool::ArcWall => {
                     self.selected = Some(super::document::ObjectId::ArcWall(draft.index));
                 }
-                Tool::WallTrim
+                Tool::Recess
+                | Tool::Surround
+                | Tool::RailPath
+                | Tool::Tunnel
+                | Tool::WallTrim
                 | Tool::Ramp
                 | Tool::Stairs
                 | Tool::Rail
@@ -941,14 +980,21 @@ impl App {
             return Err("Use scene Delete for a room".into());
         }
         let mut raw = draft.expected.clone();
-        if draft.tool.singleton() {
+        if draft.tool == Tool::Surround {
+            let values = generators::collection_mut(&mut raw, draft.tool, draft.owner)?;
+            let opening = values
+                .get_mut(draft.index)
+                .and_then(Value::as_object_mut)
+                .ok_or("Opening no longer exists")?;
+            drop(opening.remove("surround"));
+        } else if draft.tool.singleton() {
             drop(
                 raw.as_object_mut()
                     .ok_or("Invalid level")?
                     .remove(draft.tool.collection()),
             );
         } else {
-            let values = super::document::record_array_mut(&mut raw, draft.tool.collection())?;
+            let values = generators::collection_mut(&mut raw, draft.tool, draft.owner)?;
             if draft.index >= values.len() {
                 return Err("No saved record to delete".into());
             }

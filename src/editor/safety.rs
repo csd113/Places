@@ -214,6 +214,7 @@ pub fn analyze_cancellable(level: &LevelDef, raw: &Value, cancel: &AtomicBool) -
         };
     }
     integrity::corrections(level, raw, &mut report, cancel);
+    construction_review(level, &mut report);
     prioritize(&mut report.findings);
     if report.findings.len() > MAX_FINDINGS {
         let omitted = report.findings.len().saturating_sub(MAX_FINDINGS);
@@ -236,6 +237,35 @@ pub fn analyze_cancellable(level: &LevelDef, raw: &Value, cancel: &AtomicBool) -
     });
     crate::editor::document::intent::annotate_report(raw, &mut report);
     report
+}
+
+fn construction_review(level: &LevelDef, report: &mut SafetyReport) {
+    if let Err(error) = crate::engine::level::construction::validate(level) {
+        report.findings.push(SafetyFinding {
+            check: "construction-generator-integrity",
+            category: SafetyCategory::Collision,
+            severity: SafetySeverity::Error,
+            title: "Construction generator needs review".into(),
+            risk: error,
+            position: [0.0; 3],
+            bounds: marker_bounds([0.0; 3]),
+            objects: Vec::new(),
+            surfaces: Vec::new(),
+            fix: None,
+            placement_ignore: None,
+        });
+    }
+    for (i, room) in level.rooms.iter().enumerate() {
+        for tunnel in &room.tunnels {
+            let bounds = tunnel.bounds(room);
+            let position = [
+                f32::midpoint(bounds.min[0], bounds.max[0]),
+                bounds.max[1],
+                f32::midpoint(bounds.min[2], bounds.max[2]),
+            ];
+            report.findings.push(SafetyFinding { check:"crouch-tunnel-clearance",category:SafetyCategory::Collision,severity:SafetySeverity::Info,title:format!("Crouch tunnel: {:.2} m headroom, {:.2} m width",tunnel.clearance,tunnel.width),risk:"Generator checks the shell, floor and both standing landings. Play-test both directions and release Crouch inside to verify standing refusal; dynamic motion remains runtime validation.".into(),position,bounds:Aabb{min:bounds.min,max:bounds.max},objects:vec![ObjectId::Room(i)],surfaces:Vec::new(),fix:None,placement_ignore:None });
+        }
+    }
 }
 
 fn budget_report(reason: &str) -> SafetyReport {

@@ -280,7 +280,8 @@ fn wall_mount(
     let half_width = (bounds.max[0] - bounds.min[0]) * 0.5;
     let half_height = (bounds.max[1] - bounds.min[1]) * 0.5;
     let mut best: Option<(f32, Vec3, f32)> = None;
-    for wall in &level.walls {
+    let backing = crate::engine::level::construction::recess_mount_carriers(level);
+    for wall in level.walls.iter().chain(&backing) {
         let (x, z) = wall.min_corner();
         for slice in wall_solid_slices_profiled(
             wall,

@@ -1077,7 +1077,9 @@ fn validate_guardrails(level: &LevelDef) -> Result<(), String> {
                 rail.post_spacing
             ));
         }
-        if rail.rise().abs() > crate::engine::level::MAX_RAMP_SLOPE * rail.length {
+        if rail.path.is_empty()
+            && rail.rise().abs() > crate::engine::level::MAX_RAMP_SLOPE * rail.length
+        {
             return Err(format!(
                 "Guardrail {i} slopes too steeply: {:.2} m of rise over {:.2} m of run",
                 rail.rise().abs(),

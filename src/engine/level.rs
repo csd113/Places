@@ -1,4 +1,5 @@
 mod celestial;
+pub(crate) mod construction;
 pub use celestial::CelestialVisualDef;
 mod ground;
 pub use ground::GroundSurfaces;
@@ -225,6 +226,8 @@ pub fn ceiling_y_for_volume(
 /// stained without changing the whole level.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoomDef {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tunnels: Vec<construction::TunnelDef>,
     #[serde(
         default,
         skip_serializing_if = "crate::engine::audio::acoustics::RoomAcoustics::is_default"
@@ -3940,6 +3943,10 @@ impl WallDef {
 /// A rectangular cutout through a wall's thickness: doorway, window, passage, vent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WallOpeningDef {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recess: Option<construction::RecessDef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub surround: Option<construction::SurroundDef>,
     /// Opening type: "door", "window", "passage" or "vent". An unknown kind loads
     /// as a generic opening, so a future kind never breaks an older fixture.
     #[serde(default = "default_opening_kind")]
@@ -4007,7 +4014,7 @@ impl WallOpeningDef {
     /// True for walk-through openings ("door" and "passage").
     #[must_use]
     pub fn is_door(&self) -> bool {
-        self.kind == "door" || self.kind == "passage"
+        self.recess.is_none() && (self.kind == "door" || self.kind == "passage")
     }
 
     /// The material id of the pane filling this opening, if it authors one.
@@ -5135,6 +5142,9 @@ impl ArchwayDef {
 /// painted material and it is an industrial or office rail.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GuardrailDef {
+    /// Additional world X/Z endpoints. Empty retains one numeric run.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub path: Vec<[f32; 2]>,
     /// World X of the rail's start point.
     pub x: f32,
     /// World Z of the rail's start point.
@@ -8414,10 +8424,13 @@ impl LevelDef {
             boxes.extend(piece.solid_boxes(&surfaces));
         }
         for piece in &self.guardrails {
-            if let Some(boxed) = piece.solid_box(&surfaces) {
-                boxes.push(boxed);
-            }
+            boxes.extend(construction::rail_collision(piece, self));
         }
+        boxes.extend(
+            construction::pieces(self)
+                .into_iter()
+                .map(|piece| piece.bounds),
+        );
         boxes
     }
 
@@ -8493,12 +8506,21 @@ impl LevelDef {
                     .saturating_add(MAX_ARCHWAY_EXTRA_QUADS),
             );
         }
-        for rail in &self.guardrails {
+        for rail in self
+            .guardrails
+            .iter()
+            .flat_map(|rail| construction::rail_runs(rail, self))
+        {
             let posts = clamped_ceil_u64(rail.length / rail.post_spacing(), 1024.0);
             wall_quads = wall_quads
                 .saturating_add(posts.saturating_add(2).saturating_mul(4))
                 .saturating_add(MAX_GUARDRAIL_EXTRA_QUADS);
         }
+        wall_quads = wall_quads.saturating_add(
+            u64::try_from(construction::pieces(self).len())
+                .unwrap_or(u64::MAX)
+                .saturating_mul(MAX_COLUMN_QUADS),
+        );
         for _ in &self.thresholds {
             wall_quads = wall_quads.saturating_add(MAX_THRESHOLD_QUADS);
         }

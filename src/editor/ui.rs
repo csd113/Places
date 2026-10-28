@@ -41,6 +41,7 @@ pub(super) enum Action {
     Place(super::construction::Tool),
     ChainWalls,
     CancelPlacement,
+    ApplyPlacement,
     Layers,
     Layer(usize),
     Isolate,
@@ -680,11 +681,7 @@ fn simple_selection(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) 
     for (y, label, action, enabled) in [
         (
             141.0,
-            if wall {
-                "Make Doorway"
-            } else {
-                "More geometry >"
-            },
+            if wall { "Doorway" } else { "More geometry >" },
             if wall {
                 Action::Place(super::construction::Tool::Doorway)
             } else {
@@ -699,10 +696,20 @@ fn simple_selection(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) 
         button(
             vertices,
             hits,
-            [5.0, y, 102.0, 14.0],
+            [5.0, y, if wall && y < 150.0 { 49.0 } else { 102.0 }, 14.0],
             label,
             action,
             enabled && app.document.is_some(),
+        );
+    }
+    if wall {
+        button(
+            vertices,
+            hits,
+            [58.0, 141.0, 49.0, 14.0],
+            "Build >",
+            Action::Geometry,
+            app.document.is_some(),
         );
     }
 }

@@ -6,6 +6,7 @@ use crate::editor::document::{ObjectId, ObjectKind};
 use crate::engine::render::Vertex;
 
 pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    super::rect(v, [130.0, 65.0, 260.0, 184.0], [0.075, 0.11, 0.14, 1.0]);
     text(v, "ADD GEOMETRY", 140.0, 74.0, ACCENT, 40);
     for (x, y, label, kind) in [
         (140.0, 88.0, "New Room", ObjectKind::Room),
@@ -71,10 +72,70 @@ pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &m
         )),
         matches!(app.selected, Some(ObjectId::Wall(_))),
     );
+    generator_choices(app, v, hits);
+}
+
+fn generator_choices(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    let floor = matches!(app.selected, Some(ObjectId::Room(_)));
+    for (x, y, label, tool, enabled) in [
+        (
+            140.0,
+            192.0,
+            "Wall recess / niche",
+            crate::editor::authoring::Tool::Recess,
+            matches!(app.selected, Some(ObjectId::Wall(_))),
+        ),
+        (
+            264.0,
+            192.0,
+            "Door/window surround",
+            crate::editor::authoring::Tool::Surround,
+            matches!(app.selected, Some(ObjectId::Wall(_))),
+        ),
+        (
+            140.0,
+            207.0,
+            "Edit railing / fence",
+            crate::editor::authoring::Tool::RailPath,
+            true,
+        ),
+        (
+            264.0,
+            207.0,
+            "Edit crouch tunnels",
+            crate::editor::authoring::Tool::Tunnel,
+            floor,
+        ),
+    ] {
+        button(
+            v,
+            hits,
+            [x, y, 116.0, 12.0],
+            label,
+            Action::Author(crate::editor::authoring::Command::Open(tool)),
+            enabled,
+        );
+    }
     button(
         v,
         hits,
-        [330.0, 190.0, 50.0, 12.0],
+        [140.0, 222.0, 116.0, 12.0],
+        "Place railing path",
+        Action::Place(crate::editor::construction::Tool::RailPath),
+        true,
+    );
+    button(
+        v,
+        hits,
+        [264.0, 222.0, 116.0, 12.0],
+        "Connect crouch tunnel",
+        Action::Place(crate::editor::construction::Tool::Tunnel),
+        true,
+    );
+    button(
+        v,
+        hits,
+        [330.0, 238.0, 50.0, 12.0],
         "Close",
         Action::ClosePopup,
         true,

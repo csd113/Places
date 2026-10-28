@@ -9467,3 +9467,42 @@ Developer native audio checks may set `PLACES_AUDIO_DEVICE` to an exact SDL
 playback-device name for that process only. Missing/invalid requested devices
 produce the established logged silent fallback; no host default, mixer or driver
 setting changes. Omitting the variable retains SDL's logical default device.
+
+## Construction generator source (0.13.1)
+
+Construction attachments are ordinary saved level data. Their derived geometry
+feeds the existing static renderer/lightmap charts, visibility occlusion,
+collision and Construction/Safety. Geometry revision 7 requires recompilation
+of changed sources; no prepared packages are refreshed automatically.
+
+`walls[].openings[].recess` contains required `depth`, optional `positive_face`
+(false = north/west), `back_material` and `side_material`. It retains at least
+0.05 m backing and cannot contain glazing. Aperture dimensions/elevation remain
+the opening's `offset`, `width`, `height` and `sill`; liners inset 0.005 m on
+each edge. The cavity backing has a 0.005 m material liner; the opposite
+exterior retains the carrier material. `kind: "recess"` requires its recess definition. Through openings
+retain their existing door/window/passage contract.
+
+`walls[].openings[].surround` contains required `width` and `projection`, optional
+`sill_projection`, `trim_width`, `material`, `sill_material` and `trim_material`.
+Frames remain outside the clear aperture; both through-opening faces are fitted,
+or just the selected recess face. Floor-level apertures omit the sill. Bounds
+and neighboring apertures must leave space for the saved attachment.
+
+`guardrails[].path` is an optional array of world `[x,z]` endpoints following the
+existing `x,z` start. It replaces the scalar run's shape while reusing its
+height/post spacing/material parameters. Empty paths remain ordinary scalar
+guardrails. Generated sections use stair/ramp surface boundaries, fitted corner
+posts and short swept collision boxes; arbitrary path angles remain supported.
+Connected rail faces meet at a shared miter instead of overlapping corner caps.
+Reversed or excessively tight corners refuse; inspect unusual crossings manually.
+Author `y`/`rise` only for explicitly reviewed manual elevation. Path admission
+requires supported floor/ceiling fit and no intersection with existing collision.
+
+`rooms[].tunnels` contains up to 16 records with room-local `[x,z]` `start` and
+`end`, `width`, `clearance`, `thickness`, and optional `material`. The room's
+floor/elevation supports the open mouths and solid side/roof enclosure. See
+[editor controls and supported routes](EDITOR.md#construction-generators-0131)
+for limits and standing landing requirements. New nested records reject unknown
+fields rather than guessing their meaning. No child source geometry is cached;
+moving, resizing, undoing or reopening regenerates from these records.

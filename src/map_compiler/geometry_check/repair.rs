@@ -535,6 +535,11 @@ fn element_footprints(level: &LevelDef) -> Vec<ElementFootprint> {
         );
     }
     for (index, piece) in level.guardrails.iter().enumerate() {
+        // Path endpoints form one generated attachment. Legacy scalar repair
+        // cannot move all of them atomically; leave it for the shared review.
+        if !piece.path.is_empty() {
+            continue;
+        }
         let radians = piece.rotation_degrees.to_radians();
         let start = (piece.x, piece.z);
         let end = segment_end(start, (radians.cos(), -radians.sin()), piece.length);

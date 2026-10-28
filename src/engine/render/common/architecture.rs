@@ -117,8 +117,48 @@ pub fn emit_architecture(
     for piece in &context.level.archways {
         emit_archway(context, buckets, scratch, piece);
     }
-    for rail in &context.level.guardrails {
-        emit_guardrail(context, buckets, scratch, rail);
+    for source in &context.level.guardrails {
+        let runs = crate::engine::level::construction::rail_runs(source, context.level);
+        for (index, rail) in runs.iter().enumerate() {
+            let (previous, next_run) =
+                crate::engine::level::construction::rail_neighbors(&runs, index);
+            let joints = rail_joints(rail, previous, next_run, context.surfaces);
+            let next = next_run.map(|next| {
+                [
+                    rail.base_y_at(context.surfaces, 1.0)
+                        .min(next.base_y(context.surfaces)),
+                    rail.base_y_at(context.surfaces, 1.0)
+                        .max(next.base_y(context.surfaces))
+                        + rail.height()
+                        - crate::engine::level::GUARDRAIL_RAIL_THICKNESS_M,
+                ]
+            });
+            emit_guardrail(
+                context,
+                buckets,
+                scratch,
+                rail,
+                previous.is_some(),
+                next,
+                joints,
+            );
+        }
+    }
+    for piece in crate::engine::level::construction::pieces(context.level) {
+        let key = wall_key(context, piece.material);
+        let keys = BoxKeys {
+            faces: key,
+            ends: key,
+            cap: Some(key),
+            bottom: Some(key),
+        };
+        emit_box(
+            context,
+            buckets,
+            scratch,
+            (piece.bounds.min, piece.bounds.max),
+            keys,
+        );
     }
     for strip in &context.level.thresholds {
         emit_threshold(context, buckets, scratch, strip);
@@ -2649,11 +2689,43 @@ fn emit_local_face(
 }
 
 /// Emits one guardrail: its two rails and its posts.
+#[derive(Clone, Copy)]
+struct RailJoints {
+    miters: [f32; 2],
+    caps: [bool; 2],
+}
+fn rail_joints(
+    rail: &GuardrailDef,
+    previous: Option<&GuardrailDef>,
+    next: Option<&GuardrailDef>,
+    surfaces: &LevelSurfaces<'_>,
+) -> RailJoints {
+    RailJoints {
+        miters: [
+            previous
+                .and_then(|p| crate::engine::level::construction::rail_miter(rail, p))
+                .unwrap_or(0.0),
+            next.and_then(|n| crate::engine::level::construction::rail_miter(rail, n))
+                .unwrap_or(0.0),
+        ],
+        caps: [
+            previous.is_none_or(|p| {
+                (p.base_y_at(surfaces, 1.0) - rail.base_y(surfaces)).abs() > 0.0001
+            }),
+            next.is_none_or(|n| {
+                (rail.base_y_at(surfaces, 1.0) - n.base_y(surfaces)).abs() > 0.0001
+            }),
+        ],
+    }
+}
 fn emit_guardrail(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
     scratch: &mut Vec<Vertex>,
     rail: &GuardrailDef,
+    skip_start: bool,
+    end_post_span: Option<[f32; 2]>,
+    joints: RailJoints,
 ) {
     if !rail.length.is_finite()
         || rail.length <= 0.0
@@ -2687,7 +2759,7 @@ fn emit_guardrail(
     ] {
         emit_rail_run(
             context, buckets, scratch, key, tile, &frame, &base_at, run, rail_top, thickness,
-            half_width,
+            half_width, joints,
         );
     }
 
@@ -2701,17 +2773,16 @@ fn emit_guardrail(
     let post_half = crate::engine::level::GUARDRAIL_POST_SIZE_M * 0.5;
     let post_top_at = |along: f32| base_at(along) + top_height - top_thickness;
     for at in guardrail_post_positions(run, spacing, post_half) {
+        if skip_start && at < 0.0001 {
+            continue;
+        }
+        let span = if run - at < 0.0001 {
+            end_post_span.unwrap_or_else(|| [base_at(at), post_top_at(at)])
+        } else {
+            [base_at(at), post_top_at(at)]
+        };
         emit_post(
-            context,
-            buckets,
-            scratch,
-            post_key,
-            post_tile,
-            &frame,
-            at,
-            base_at(at),
-            post_top_at(at),
-            post_half,
+            context, buckets, scratch, post_key, post_tile, &frame, at, span[0], span[1], post_half,
         );
     }
 }
@@ -2767,6 +2838,7 @@ fn emit_rail_run(
     rail_top: f32,
     thickness: f32,
     half_width: f32,
+    joints: RailJoints,
 ) {
     let top_at = |along: f32| base_at(along) + rail_top;
     let bottom_at = |along: f32| base_at(along) + rail_top - thickness;
@@ -2783,6 +2855,16 @@ fn emit_rail_run(
         0.0
     };
     let run_scale = slope.mul_add(slope, 1.0).sqrt();
+    let local = |at: f32, across: f32, upper: bool| {
+        let coefficient = if at < 0.0001 {
+            joints.miters[0]
+        } else {
+            joints.miters[1]
+        };
+        let along = coefficient.mul_add(across, at);
+        let y = top_at(along) - if upper { 0.0 } else { thickness };
+        [along, across, y]
+    };
     // The top face's own normal, tilted by the run's slope; a level rail gets
     // exactly `[0, 1, 0]` back.
     let top_normal = {
@@ -2793,10 +2875,10 @@ fn emit_rail_run(
     };
     // The top face: along the run, across the rail's width.
     let top_locals = [
-        [0.0, -half_width, top_at(0.0)],
-        [run, -half_width, top_at(run)],
-        [run, half_width, top_at(run)],
-        [0.0, half_width, top_at(0.0)],
+        local(0.0, -half_width, true),
+        local(run, -half_width, true),
+        local(run, half_width, true),
+        local(0.0, half_width, true),
     ];
     let top_uv = top_locals.map(|[along, across, _]| tiled_uv(along * run_scale, across, tile));
     emit_local_face(
@@ -2816,10 +2898,10 @@ fn emit_rail_run(
     // The two sides and the two ends.
     for side in [-1.0f32, 1.0] {
         let locals = [
-            [0.0, side * half_width, bottom_at(0.0)],
-            [run, side * half_width, bottom_at(run)],
-            [run, side * half_width, top_at(run)],
-            [0.0, side * half_width, top_at(0.0)],
+            local(0.0, side * half_width, false),
+            local(run, side * half_width, false),
+            local(run, side * half_width, true),
+            local(0.0, side * half_width, true),
         ];
         let uv = locals.map(|[along, _, y]| tiled_uv(along * run_scale, top_at(along) - y, tile));
         emit_local_face(
@@ -2837,12 +2919,20 @@ fn emit_rail_run(
         );
     }
     for (at, sign) in [(0.0f32, -1.0f32), (run, 1.0f32)] {
+        let (capped, coefficient) = if at < 0.0001 {
+            (joints.caps[0], joints.miters[0])
+        } else {
+            (joints.caps[1], joints.miters[1])
+        };
+        if !capped {
+            continue;
+        }
         let top = top_at(at);
         let locals = [
-            [at, -half_width, bottom_at(at)],
-            [at, half_width, bottom_at(at)],
-            [at, half_width, top],
-            [at, -half_width, top],
+            local(at, -half_width, false),
+            local(at, half_width, false),
+            local(at, half_width, true),
+            local(at, -half_width, true),
         ];
         let uv = locals.map(|[_, across, y]| tiled_uv(across, top - y, tile));
         emit_local_face(
@@ -2854,7 +2944,7 @@ fn emit_rail_run(
             frame,
             locals,
             uv,
-            frame.normal(sign, 0.0),
+            normalized3(frame.normal(sign, -sign * coefficient)),
             true,
             false,
         );

@@ -18,6 +18,8 @@ use sdl3::{
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Tool {
+    Tunnel,
+    RailPath,
     Wall,
     Doorway,
     Door,
@@ -26,6 +28,8 @@ pub(super) enum Tool {
 impl Tool {
     const fn hint(self) -> &'static str {
         match self {
+            Self::Tunnel => "Click two mouth centres on one floor. Preview; Esc cancels.",
+            Self::RailPath => "Click start and path corners. Apply path commits; Esc cancels.",
             Self::Wall => "Click start, then end. Walls snap to X/Z. Esc cancels.",
             Self::Doorway => "Click a wall: makes an opening only. Esc cancels.",
             Self::Door => "Click a wall or doorway: fits an interactive door. Esc cancels.",
@@ -34,6 +38,7 @@ impl Tool {
     }
 }
 pub(super) struct Placement {
+    points: Vec<[f32; 3]>,
     pub tool: Tool,
     start: Option<[f32; 3]>,
     candidate: Option<(serde_json::Value, ObjectId)>,
@@ -81,6 +86,7 @@ impl App {
         }
         self.cancel_placement();
         self.placement = Some(Placement {
+            points: Vec::new(),
             tool,
             start: None,
             candidate: None,
@@ -153,26 +159,47 @@ impl App {
         let Some(at) = self.placement_position(point) else {
             return;
         };
-        let Some(placement) = &self.placement else {
+        let Some((tool, start_point)) = self.placement.as_ref().map(|p| (p.tool, p.start)) else {
             return;
         };
-        let tool = placement.tool;
-        let start_point = placement.start;
         let Some(doc) = &self.document else {
             return;
         };
+        if matches!(tool, Tool::Wall | Tool::Tunnel | Tool::RailPath) && start_point.is_none() {
+            self.viewport.highlight(
+                Some(crate::engine::spatial::Aabb {
+                    min: [at[0] - 0.1, at[1], at[2] - 0.1],
+                    max: [at[0] + 0.1, at[1] + 0.2, at[2] + 0.1],
+                }),
+                &[],
+            );
+            return;
+        }
+        let start = start_point.unwrap_or(at);
         let result = match tool {
+            Tool::Tunnel | Tool::RailPath => {
+                let mut end = at;
+                if tool == Tool::Tunnel {
+                    if (end[0] - start[0]).abs() >= (end[2] - start[2]).abs() {
+                        end[2] = start[2];
+                    } else {
+                        end[0] = start[0];
+                    }
+                }
+                if let Some(p) = &mut self.placement {
+                    p.end = Some(end);
+                }
+                if tool == Tool::Tunnel {
+                    tunnel_candidate(doc, start, end)
+                } else {
+                    let points = self
+                        .placement
+                        .as_ref()
+                        .map_or_else(Vec::new, |p| p.points.clone());
+                    rail_candidate(doc, start, &points, end)
+                }
+            }
             Tool::Wall => {
-                let Some(start) = start_point else {
-                    self.viewport.highlight(
-                        Some(crate::engine::spatial::Aabb {
-                            min: [at[0] - 0.1, at[1], at[2] - 0.1],
-                            max: [at[0] + 0.1, at[1] + 0.2, at[2] + 0.1],
-                        }),
-                        &[],
-                    );
-                    return;
-                };
                 let mut end = at;
                 if (end[0] - start[0]).abs() >= (end[2] - start[2]).abs() {
                     end[2] = start[2];
@@ -406,17 +433,21 @@ impl App {
                     let Some(at) = self.placement_position(point) else {
                         return true;
                     };
-                    if let Some(p) = &mut self.placement
-                        && p.tool == Tool::Wall
-                        && p.start.is_none()
-                    {
-                        p.start = Some(at);
-                        self.status =
-                            "Start set. Move the pointer, then click the endpoint. Esc cancels."
-                                .into();
+                    if self.begin_placement_point(at) {
                         return true;
                     }
                     self.update_placement(point);
+                    if let Some(p) = &mut self.placement
+                        && p.tool == Tool::RailPath
+                    {
+                        if p.candidate.is_some()
+                            && let Some(end) = p.end
+                        {
+                            p.points.push(end);
+                            self.status = "Corner added. Continue the path or Apply path; Esc discards the whole preview.".into();
+                        }
+                        return true;
+                    }
                     let Some((raw, id)) = self.placement.as_mut().and_then(|p| p.candidate.take())
                     else {
                         return true;
@@ -464,6 +495,44 @@ impl App {
             _ => return false,
         }
         true
+    }
+    fn begin_placement_point(&mut self, at: [f32; 3]) -> bool {
+        if let Some(p) = &mut self.placement
+            && matches!(p.tool, Tool::Wall | Tool::Tunnel | Tool::RailPath)
+            && p.start.is_none()
+        {
+            p.start = Some(at);
+            self.status =
+                "Start set. Move the pointer, then click the endpoint. Esc cancels.".into();
+            return true;
+        }
+        false
+    }
+    pub(super) fn apply_path_placement(&mut self) -> Result<(), String> {
+        let p = self
+            .placement
+            .as_ref()
+            .ok_or("Start a railing path first")?;
+        if p.tool != Tool::RailPath || p.points.is_empty() {
+            return Err("Click at least one valid endpoint before Apply path".into());
+        }
+        let start = p.start.ok_or("Choose a path start")?;
+        let end = *p.points.last().ok_or("Choose a path endpoint")?;
+        let previous = p
+            .points
+            .get(..p.points.len().saturating_sub(1))
+            .unwrap_or_default();
+        let doc = self.document.as_ref().ok_or("Open a project")?;
+        let (raw, _) = rail_candidate(doc, start, previous, end)?;
+        self.check_focused_edit(&raw)?;
+        let expected = doc.raw().clone();
+        self.document
+            .as_mut()
+            .ok_or("Open a project")?
+            .apply_authoring_edit(&expected, raw)?;
+        self.cancel_placement();
+        self.status = "Railing path placed atomically. Undo restores the full path.".into();
+        Ok(())
     }
     fn begin_wall_drag(&mut self, point: [f32; 2]) -> bool {
         let Some(id @ ObjectId::Wall(i)) = self.selected else {
@@ -601,6 +670,16 @@ pub(super) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                 true,
             );
         }
+        if p.tool == Tool::RailPath {
+            ui::button(
+                v,
+                hits,
+                [120.0, 57.0, 100.0, 12.0],
+                "Apply path",
+                Action::ApplyPlacement,
+                !p.points.is_empty(),
+            );
+        }
         ui::button(
             v,
             hits,
@@ -610,6 +689,66 @@ pub(super) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             true,
         );
     }
+}
+
+fn tunnel_candidate(
+    doc: &super::Document,
+    start: [f32; 3],
+    end: [f32; 3],
+) -> Result<(serde_json::Value, ObjectId), String> {
+    let (index, room) = doc
+        .level()
+        .rooms
+        .iter()
+        .enumerate()
+        .find(|(_, r)| {
+            [start, end].iter().all(|p| {
+                p[0] >= r.x
+                    && p[0] <= r.x + r.width
+                    && p[2] >= r.z
+                    && p[2] <= r.z + r.depth
+                    && (r.floor_y - p[1]).abs() < 0.05
+            })
+        })
+        .ok_or("Both mouths must be on one room floor")?;
+    let mut raw = doc.raw().clone();
+    let parent = raw
+        .get_mut("rooms")
+        .and_then(|v| v.get_mut(index))
+        .ok_or("Missing carrier")?;
+    let tunnels = super::document::record_array_mut(parent, "tunnels")?;
+    tunnels.push(serde_json::json!({"start":[start[0]-room.x,start[2]-room.z],"end":[end[0]-room.x,end[2]-room.z],"width":1.1_f32,"clearance":1.05_f32,"thickness":0.1_f32}));
+    drop(doc.validate_candidate(&raw)?);
+    Ok((raw, ObjectId::Room(index)))
+}
+fn rail_candidate(
+    doc: &super::Document,
+    start: [f32; 3],
+    previous: &[[f32; 3]],
+    end: [f32; 3],
+) -> Result<(serde_json::Value, ObjectId), String> {
+    let mut raw = doc.raw().clone();
+    let path: Vec<_> = previous
+        .iter()
+        .copied()
+        .chain([end])
+        .map(|p| [p[0], p[2]])
+        .collect();
+    let rails = super::document::record_array_mut(&mut raw, "guardrails")?;
+    rails.push(serde_json::json!({"x":start[0],"z":start[2],"length":1_u32,"path":path,"height":1_u32,"post_spacing":1.2_f32}));
+    drop(doc.validate_candidate(&raw)?);
+    let owner = doc
+        .level()
+        .rooms
+        .iter()
+        .position(|r| {
+            start[0] >= r.x
+                && start[0] <= r.x + r.width
+                && start[2] >= r.z
+                && start[2] <= r.z + r.depth
+        })
+        .ok_or("Place railing on a room floor")?;
+    Ok((raw, ObjectId::Room(owner)))
 }
 
 fn light_candidate(

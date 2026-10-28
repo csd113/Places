@@ -382,6 +382,7 @@ impl App {
             && !matches!(
                 action,
                 Action::ChainWalls
+                    | Action::ApplyPlacement
                     | Action::CancelPlacement
                     | Action::Snap
                     | Action::Step
@@ -406,6 +407,7 @@ impl App {
     fn global_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
         match action {
             Action::Place(tool) => self.start_placement(tool)?,
+            Action::ApplyPlacement => self.apply_path_placement()?,
             Action::CancelPlacement => {
                 self.cancel_placement();
                 self.status = "Placement cancelled.".into();
