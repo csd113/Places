@@ -200,8 +200,9 @@ Use **Choose for group** on each desired correction, then **Preview group**.
 Conflicting edits or changed shared carriers refuse the whole group. **Apply
 preview** commits compatible choices in one undo step and starts reanalysis.
 Locked or hidden objects, protected placement intent and every intervening
-source change block acceptance. Deletions address original records, so array
-shifts cannot redirect another correction. Individual preview remains available.
+source change block acceptance. Lock changes invalidate the cached review, so
+unlocking can immediately run a fresh scan. Deletions address original records,
+so array shifts cannot redirect another correction. Individual preview remains available.
 **Cancel analysis** (or closing the review) cooperatively stops background work;
 cancelled partial results never become findings or fixes. Full scans remain
 deterministic and bounded; only the first 16 eligible plane-alignment proposals

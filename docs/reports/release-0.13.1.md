@@ -50,23 +50,24 @@ the emitter's covered-face subtraction. It adds short corner/endpoint gap/tail
 review, floor/ceiling seams, sampled player/route/landing clearance, authored door
 pose intrusion and measured ceiling/wall UV phase checks. Compatible chosen
 corrections preview privately and commit in one undo step; stale, conflicting,
-locked/hidden/isolated or protected contexts refuse. Cancellation discards partial
+locked/hidden/isolated or protected contexts refuse. Lock changes invalidate cached
+review, allowing immediate unlock/rescan. Cancellation discards partial
 results. Supported L/T contacts, solid-supported seams and angled geometry remain.
 
 Final Razer gates pass: format, strict workspace/all-target/all-feature Clippy,
 locked release workspace build, 371 Rust tests, 369 Python source tests (18 skips),
 644 assets with zero warnings and the unchanged texture/prop checks. Four tiny CPU
 regressions protect source/history, original-index grouping, corner intent and
-solid-versus-open floor gaps. Native Windows acceptance has 128 assertions across
-336 actions, including preview/apply/undo/redo/save/reopen, repeat/idempotence,
+solid-versus-open floor gaps. Native Windows acceptance has 144 assertions across
+392 actions, including preview/apply/undo/redo/save/reopen, repeat/idempotence,
 mixed conflicts, locks/hidden layers, cancellation/restart and compact/tall/wide
 layouts. Shared CLI/editor findings and marker positions agree. The deliberately
 bad fixture retains its one unrelated original error after local corrections.
 
 Three old/new runs retain all 10 small-scene and 89 Arcade legacy findings with
 deterministic results. Small scans finish before the next frame poll; Arcade's
-median report completion is 760 / 762 ms before/after; cancellation returns in
-191 ms. These frame-polled observations justify retaining existing spatial
+median report completion is 758 / 776 ms before/after; cancellation returns in
+194 ms. These frame-polled observations justify retaining existing spatial
 traversal and full scans; no new chunk/dirty-region cache, bake or FPS claim.
 
 Automatic endpoint edits stay within 5 cm with one full-thickness solid carrier.
@@ -78,7 +79,7 @@ Actual Mac native validation and full production/release closing remain deferred
 The prior phase CI passed; the phase commit's observed CI state is in the receipt.
 
 Accepted binaries, source fixtures, recipes, captures, profiles, hashes and the
-final receipt are under `local/verification-0.13.1-integrity/final/`. Earlier
+final receipt are under `local/verification-0.13.1-integrity/final-lock/`. Earlier
 root-level integrity evidence is superseded, retained for audit. Main/v0.13.0,
 production sources/packages and prior phase evidence are unchanged.
 

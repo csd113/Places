@@ -220,6 +220,7 @@ impl App {
                 drop(r.insert("editor_locked".into(), serde_json::Value::Bool(!locked)));
                 let expected = doc.raw().clone();
                 doc.apply_authoring_edit(&expected, raw)?;
+                self.changed();
                 self.status = if locked {
                     "Object unlocked."
                 } else {
