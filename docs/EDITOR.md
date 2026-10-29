@@ -231,6 +231,33 @@ that would affect protected context is refused for explicit review. Clearing a
 decision is a separate authoring action; source validity checks always remain
 active. Metadata details are in [PROJECT_FORMAT.md](PROJECT_FORMAT.md).
 
+`Add props / signs >` in Simple mode, or the scene-object creation sheet in
+Advanced mode, includes **Add Wall Sign**. Click a rectangular wall's broad
+face to preview and place the hub's existing PNG decal; Escape or loss of
+focus cancels the uncommitted preview. The sign sheet opens after placement
+and through `Wall sign >` / `Configure >` on an existing vertical decal.
+Choose the printed artwork (HOME, POOL, OFFICE, COSMIC LANES, LANTERN HOLLOW,
+WINTER, BEACH, FRUTIGER AERO, CENTRAL HUB or PLACES). Lettering and the subtitle
+belong to those committed PNGs; the current decal format has no free-text field.
+
+Smaller/Larger and the Width/Height inspector preserve the hub sheets' 4:1
+ratio. The complete Pose sheet accepts both dimensions together. Position is
+the world-space centre, and Spin is rotation in the wall plane. Facing chooses
+the next cardinal wall normal and mounts to the nearest compatible wall as
+one undo step. Mount to wall repeats alignment without adding another offset;
+snapping affects tangent coordinates only. The whole rotated rectangular
+footprint must fit solid wall coverage, including a continuous lintel across
+opening slices. Unsupported curved/angled/end-cap mounts require explicit
+source authoring. Manual transforms remain available for deliberate placement.
+
+Wall signs use ordinary scene selection, move axes, lock/hide/isolate,
+duplicate/delete, Undo/Redo and Save. Duplicate finds a disjoint supported
+area on the existing wall plane, and safely refuses when none fits. Repeated Add clicks
+cannot stack overlapping signs on the same wall plane. Moving a wall retains the existing attached-decal behavior, and
+a locked sign prevents that carrier edit. The existing depth-biased decal
+renderer, lighting, package dependencies and source recovery are shared by
+editor, export and Play; no generated text texture or new sign prop is added.
+
 `+ Environment / gameplay >` opens one focused creation sheet for built-in light
 fixtures, ambient/positional sounds, entities, closed doors, triggers, regional
 fog, ground fog and entity spawn points. Objects share the scene list, viewport

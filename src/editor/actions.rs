@@ -19,6 +19,7 @@ pub(super) enum Pending {
 }
 
 pub(super) enum Popup {
+    WallSigns,
     Layers,
     Flicker,
     Lighting,
@@ -160,7 +161,20 @@ impl Popup {
             return;
         }
         ui::rect(v, [0.0, 0.0, 480.0, 272.0], [0.0, 0.0, 0.0, 0.6]);
-        ui::rect(v, [130.0, 65.0, 260.0, 146.0], [0.075, 0.11, 0.14, 1.0]);
+        ui::rect(
+            v,
+            [
+                130.0,
+                65.0,
+                260.0,
+                if matches!(self, Self::Create) {
+                    160.0
+                } else {
+                    146.0
+                },
+            ],
+            [0.075, 0.11, 0.14, 1.0],
+        );
         self.draw_content(app, v, hits);
     }
 
@@ -171,6 +185,7 @@ impl Popup {
         hits: &mut Vec<Hit>,
     ) {
         match self {
+            Self::WallSigns => super::signs::draw(app, v, hits),
             Self::Layers => super::focus::draw(app, v, hits),
             Self::SceneSearch(value) => super::selection::draw_search(v, hits, value),
             Self::Lighting
@@ -360,7 +375,8 @@ impl App {
     }
 
     fn contextual_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
-        Ok(self.reuse_action(action)?
+        Ok(self.sign_action(action)?
+            || self.reuse_action(action)?
             || self.lighting_action(action)?
             || self.focus_action(action)?
             || self.flicker_action(action)?
@@ -1003,6 +1019,20 @@ impl App {
         if matches!(id, super::document::ObjectId::Pillar(_)) && matches!(field, 3 | 5) {
             transform.size[0] = value;
             transform.size[2] = value;
+        }
+        if let super::document::ObjectId::Decal(index) = id
+            && doc
+                .level()
+                .decals
+                .get(index)
+                .is_some_and(|d| d.material.starts_with("collection:sign_"))
+        {
+            if field == 3 {
+                transform.size[1] = value / 4.0;
+            }
+            if field == 4 {
+                transform.size[0] = value * 4.0;
+            }
         }
         if matches!(id, super::document::ObjectId::Prop(_)) && (3..=5).contains(&field) {
             transform.size = [value; 3];

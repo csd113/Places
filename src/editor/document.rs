@@ -24,6 +24,7 @@ pub(super) mod objects;
 mod persistence;
 mod project;
 mod scripts;
+pub(crate) mod signs;
 mod source;
 mod templates;
 

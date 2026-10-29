@@ -48,6 +48,14 @@ pub(in crate::editor) fn create_popup(vertices: &mut Vec<Vertex>, hits: &mut Vec
     button(
         vertices,
         hits,
+        [140.0, 204.0, 240.0, 12.0],
+        "Add Wall Sign",
+        Action::Sign(crate::editor::signs::Command::Add),
+        true,
+    );
+    button(
+        vertices,
+        hits,
         [140.0, 190.0, 180.0, 12.0],
         "Checkpoint volume",
         Action::AddCheckpoint,
@@ -131,7 +139,8 @@ pub(in crate::editor) fn gameplay_popup(
         ObjectId::FogRegion(_) => "REGIONAL FOG",
         ObjectId::GroundFog(_) => "GROUND FOG",
         ObjectId::Prop(_) => "PROP / ENTITY",
-        ObjectId::Column(_)
+        ObjectId::Decal(_)
+        | ObjectId::Column(_)
         | ObjectId::Pillar(_)
         | ObjectId::ArcWall(_)
         | ObjectId::Room(_)
@@ -157,7 +166,8 @@ pub(in crate::editor) fn gameplay_popup(
         ObjectId::FogRegion(_) | ObjectId::GroundFog(_) => {
             fog_sheet(app, vertices, hits, object, id);
         }
-        ObjectId::Column(_)
+        ObjectId::Decal(_)
+        | ObjectId::Column(_)
         | ObjectId::Pillar(_)
         | ObjectId::ArcWall(_)
         | ObjectId::Room(_)

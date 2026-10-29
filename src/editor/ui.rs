@@ -38,6 +38,7 @@ const PANEL: [f32; 4] = [0.065, 0.09, 0.12, 1.0];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Action {
+    Sign(super::signs::Command),
     Place(super::construction::Tool),
     ChainWalls,
     CancelPlacement,
@@ -683,6 +684,7 @@ fn simple_selection(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) 
         if app.document.as_ref().and_then(|doc| doc.level().props.get(index))
             .is_some_and(|placed| super::ducts::supported(&placed.model)));
     let wall = matches!(app.selected, Some(ObjectId::Wall(_)));
+    let sign = matches!(app.selected, Some(ObjectId::Decal(_)));
     text(
         vertices,
         if selected && !unlocked {
@@ -704,6 +706,8 @@ fn simple_selection(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) 
             141.0,
             if wall {
                 "Doorway"
+            } else if sign {
+                "Wall sign >"
             } else if duct {
                 "Duct joins >"
             } else {
@@ -711,6 +715,8 @@ fn simple_selection(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) 
             },
             if wall {
                 Action::Place(super::construction::Tool::Doorway)
+            } else if sign {
+                Action::Sign(super::signs::Command::Open)
             } else if duct {
                 Action::Duct(super::ducts::Command::Open)
             } else {
@@ -719,7 +725,7 @@ fn simple_selection(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) 
             true,
         ),
         (158.0, "Move / exact size >", Action::Transform, selected),
-        (175.0, "Props / scene objects >", Action::Create, true),
+        (175.0, "Add props / signs >", Action::Create, true),
         (192.0, "Layers / focus >", Action::Layers, true),
     ] {
         button(

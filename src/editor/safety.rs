@@ -511,6 +511,17 @@ pub(super) fn reference_bounds(level: &LevelDef, objects: &[ObjectId]) -> Option
     objects
         .iter()
         .filter_map(|object| match *object {
+            ObjectId::Decal(index) => level
+                .decals
+                .get(index)
+                .and_then(crate::editor::document::signs::corners)
+                .map(|points| {
+                    let mut bounds = Aabb::EMPTY;
+                    for point in points {
+                        bounds.expand(point.to_array());
+                    }
+                    bounds
+                }),
             ObjectId::Room(index) => level.rooms.get(index).map(|room| {
                 let (x0, x1, z0, z1) = room.bounds();
                 Aabb {

@@ -129,8 +129,35 @@ pub(super) fn objects(
             ));
         }
     }
+    decal_objects(level, &mut result);
     gameplay_objects(level, catalog, assets, lighting, &mut result);
     result
+}
+
+fn decal_objects(level: &LevelDef, result: &mut Vec<PickObject>) {
+    for (index, decal) in level
+        .decals
+        .iter()
+        .enumerate()
+        .filter(|(_, decal)| !decal.surface.is_horizontal())
+    {
+        let Some(corners) = crate::editor::document::signs::corners(decal) else {
+            continue;
+        };
+        let mut bounds = Aabb::EMPTY;
+        for point in corners {
+            bounds.expand(point.to_array());
+        }
+        result.push(PickObject {
+            id: ObjectId::Decal(index),
+            bounds,
+            boxes: Vec::new(),
+            triangles: vec![
+                [corners[0], corners[1], corners[2]],
+                [corners[0], corners[2], corners[3]],
+            ],
+        });
+    }
 }
 
 fn architecture_objects(

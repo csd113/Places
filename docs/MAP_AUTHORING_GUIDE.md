@@ -3559,6 +3559,18 @@ placements together; see [Asset Specification §7.2](ASSET_SPECIFICATION.md#72-f
 for the wall-plane offset, orientation and scaling contract. The demo's
 frame instance exposes the title through the existing E/toggle-label binding.
 
+### Hub wall signs in the editor
+
+The ten `collection:sign_*` assets are committed 1024x256 PNG decals with a
+4:1 fitted plate and printed lettering/subtitle. `Add Wall Sign` reuses them
+through `decals[]`; no editable runtime text field exists. The editor preserves
+that ratio, mounts the full rotated rectangle to solid cardinal wall coverage,
+and stores the actual wall plane. Repeated mounting does not accumulate a lift.
+The renderer supplies the shared 0.2 mm offset and decal pass depth bias once.
+Hub source signs now use those exact planes; CENTRAL HUB sits wholly above
+its 2.4 m doorway. Source packaging is refreshed explicitly after engine work.
+See [editor controls](EDITOR.md) for selection, artwork and history behavior.
+
 ### Adding a New Decal
 
 1. Author a **POT** RGBA PNG cut-out (alpha-0 background, alpha-255 artwork). For

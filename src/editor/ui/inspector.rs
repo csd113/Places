@@ -61,6 +61,7 @@ pub(in crate::editor) fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: 
             if (circle && matches!(index, 5 | 6))
                 || (prop && matches!(index, 4 | 5))
                 || (region && matches!(index, 4 | 6))
+                || (matches!(app.selected, Some(ObjectId::Decal(_))) && index == 5)
                 || (!prop && matches!(index, 11 | 12))
                 || (marker && (3..=5).contains(&index))
                 || (matches!(app.selected, Some(ObjectId::Audio(_))) && index == 6)
@@ -136,7 +137,17 @@ const fn transform_fields(
             },
             depth,
         ),
-        (6, if ramp { "Turn" } else { "Yaw" }, pose.yaw_degrees),
+        (
+            6,
+            if ramp {
+                "Turn"
+            } else if matches!(id, Some(ObjectId::Decal(_))) {
+                "Spin"
+            } else {
+                "Yaw"
+            },
+            pose.yaw_degrees,
+        ),
         (11, "Pitch", pose.pitch_degrees),
         (12, "Roll", pose.roll_degrees),
     ]
@@ -154,6 +165,7 @@ fn heading(app: &App) -> &'static str {
                 (WallAxis::Z, true) => "RAMP / UP +Z",
                 (WallAxis::Z, false) => "RAMP / UP -Z",
             }),
+        Some(ObjectId::Decal(_)) => "SIGN / CENTRE / SPIN",
         Some(ObjectId::Column(_)) => "RECTANGULAR PILLAR",
         Some(ObjectId::Pillar(_)) => "CIRCULAR PILLAR / CENTRE",
         Some(ObjectId::ArcWall(_)) => "CURVED WALL / CENTRE",

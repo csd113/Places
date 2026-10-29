@@ -28,6 +28,9 @@ impl Document {
         if snap_step.is_some_and(|step| !step.is_finite() || step <= 0.0) {
             return Err("Mount snapping needs a positive finite step".into());
         }
+        if matches!(id, ObjectId::Decal(_)) {
+            return self.mount_sign(id, snap_step);
+        }
         let catalog = PropCatalog::load_default();
         let mut assets = PropAssets::load_default();
         let proposed = mounted_transform(
@@ -113,7 +116,8 @@ fn mounted_transform(
                 LightMount::Wall => wall_mount(level, current, bounds, snap_step),
             }
         }
-        ObjectId::Column(_)
+        ObjectId::Decal(_)
+        | ObjectId::Column(_)
         | ObjectId::Pillar(_)
         | ObjectId::ArcWall(_)
         | ObjectId::Room(_)

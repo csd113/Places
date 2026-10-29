@@ -30,6 +30,7 @@ pub mod safety;
 mod safety_actions;
 mod scripting;
 mod selection;
+mod signs;
 mod stairs;
 mod templates;
 mod transform;
@@ -95,6 +96,7 @@ struct App {
     play_after_build: bool,
     project_operation: Option<projects::Operation>,
     project_import: Option<PathBuf>,
+    sign_artwork: usize,
     selected: Option<ObjectId>,
     translation: Option<dragging::Translation>,
     placement: Option<construction::Placement>,
@@ -468,6 +470,7 @@ fn create_app(
         play_after_build: false,
         project_operation: None,
         project_import: None,
+        sign_artwork: 0,
         selected: None,
         translation: None,
         placement: None,

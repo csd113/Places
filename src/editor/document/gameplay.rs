@@ -191,7 +191,8 @@ pub(super) fn transform(level: &LevelDef, id: ObjectId) -> Result<Transform, Str
             )
         }),
         ObjectId::FogRegion(_) | ObjectId::GroundFog(_) => return super::fog::transform(level, id),
-        ObjectId::Column(_)
+        ObjectId::Decal(_)
+        | ObjectId::Column(_)
         | ObjectId::Pillar(_)
         | ObjectId::ArcWall(_)
         | ObjectId::Room(_)
@@ -246,7 +247,8 @@ pub(super) fn set_transform(
             set_number(object, "width", value.size[0]);
             set_number(object, "depth", value.size[2]);
         }
-        ObjectId::Column(_)
+        ObjectId::Decal(_)
+        | ObjectId::Column(_)
         | ObjectId::Pillar(_)
         | ObjectId::ArcWall(_)
         | ObjectId::Room(_)

@@ -145,7 +145,8 @@ fn scope(doc: &Document, selected: ObjectId) -> Result<(Vec<usize>, usize), Stri
                 .ok_or("Prop room disappeared")?;
             (vec![i], room)
         }
-        ObjectId::Column(_)
+        ObjectId::Decal(_)
+        | ObjectId::Column(_)
         | ObjectId::Pillar(_)
         | ObjectId::ArcWall(_)
         | ObjectId::Wall(_)

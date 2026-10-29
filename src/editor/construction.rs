@@ -24,6 +24,7 @@ pub(super) enum Tool {
     Doorway,
     Door,
     Light,
+    WallSign,
 }
 impl Tool {
     const fn hint(self) -> &'static str {
@@ -33,6 +34,7 @@ impl Tool {
             Self::Wall => "Click start, then end. Walls snap to X/Z. Esc cancels.",
             Self::Doorway => "Click a wall: makes an opening only. Esc cancels.",
             Self::Door => "Click a wall or doorway: fits an interactive door. Esc cancels.",
+            Self::WallSign => "Click a wall face to place the sign. Escape cancels.",
             Self::Light => "Click a room floor: light mounts to its ceiling. Esc cancels.",
         }
     }
@@ -103,6 +105,13 @@ impl App {
         self.changed();
     }
     fn placement_position(&self, point: [f32; 2]) -> Option<[f32; 3]> {
+        if self
+            .placement
+            .as_ref()
+            .is_some_and(|p| p.tool == Tool::WallSign)
+        {
+            return Some(self.viewport.target());
+        }
         let doc = self.document.as_ref()?;
         let floor = self
             .placement
@@ -113,7 +122,8 @@ impl App {
                 self.selected.and_then(|id| match id {
                     ObjectId::Room(i) => doc.level().rooms.get(i).map(|r| r.floor_y),
                     ObjectId::Wall(i) => doc.level().walls.get(i).map(|w| w.y),
-                    ObjectId::Column(_)
+                    ObjectId::Decal(_)
+                    | ObjectId::Column(_)
                     | ObjectId::Pillar(_)
                     | ObjectId::ArcWall(_)
                     | ObjectId::Prop(_)
@@ -221,6 +231,7 @@ impl App {
                     })
             }
             Tool::Light => light_candidate(doc, at),
+            Tool::WallSign => self.sign_placement(point),
         };
         match result {
             Ok((raw, id)) => {
@@ -473,7 +484,11 @@ impl App {
                         } else {
                             self.placement = None;
                         }
+                        let sign = matches!(id, ObjectId::Decal(_));
                         self.changed();
+                        if sign {
+                            self.popup = Some(super::actions::Popup::WallSigns);
+                        }
                         self.status = if chain {
                             "Wall placed. Click the next endpoint; Esc finishes the chain."
                         } else {

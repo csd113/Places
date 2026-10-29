@@ -80,6 +80,9 @@ impl App {
                     "Carrier type changed. Use Mount surface to align with geometry.".into();
             }
             Action::Create => self.popup = Some(Popup::Create),
+            Action::Gameplay if matches!(self.selected, Some(ObjectId::Decal(_))) => {
+                self.popup = Some(Popup::WallSigns);
+            }
             Action::Gameplay => {
                 self.preview_audio.clear_world();
                 self.sound_preview_until = None;

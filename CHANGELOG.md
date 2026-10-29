@@ -1,5 +1,11 @@
 ## 0.13.1 — Unreleased
 
+- Author the hub's existing wall-sign decals in both editor modes: printed
+  artwork selection, fitted size/spin, solid wall placement, facing, clear-space
+  copies, selection/locks/history and source/package persistence. Retain the
+  committed PNG lettering and shared decal depth/lighting path. See
+  [Windows evidence and limits](docs/reports/wall-signs-0.13.1-windows.md).
+
 - Specialize opaque model shaders to remove the unreachable editor ceiling
   discard while retaining authored faces, materials, lighting and Full reflections.
   Matched Windows pairs improve Hollow and Arcade throughput; record frame tails,

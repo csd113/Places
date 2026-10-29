@@ -839,7 +839,7 @@
     {
       "x": 3,
       "y": 2.9,
-      "z": 0.241,
+      "z": 0.24,
       "width": 3.6,
       "height": 0.9,
       "material": "collection:sign_home",
@@ -848,7 +848,7 @@
     {
       "x": 9,
       "y": 2.9,
-      "z": 0.241,
+      "z": 0.24,
       "width": 3.6,
       "height": 0.9,
       "material": "collection:sign_pool",
@@ -857,7 +857,7 @@
     {
       "x": 15,
       "y": 2.9,
-      "z": 0.241,
+      "z": 0.24,
       "width": 3.6,
       "height": 0.9,
       "material": "collection:sign_office",
@@ -866,7 +866,7 @@
     {
       "x": 21,
       "y": 2.9,
-      "z": 0.241,
+      "z": 0.24,
       "width": 3.6,
       "height": 0.9,
       "material": "collection:sign_arcade",
@@ -875,7 +875,7 @@
     {
       "x": 3,
       "y": 2.9,
-      "z": 13.759,
+      "z": 13.76,
       "width": 3.6,
       "height": 0.9,
       "material": "collection:sign_lantern_hollow",
@@ -884,7 +884,7 @@
     {
       "x": 9,
       "y": 2.9,
-      "z": 13.759,
+      "z": 13.76,
       "width": 3.6,
       "height": 0.9,
       "material": "collection:sign_winter",
@@ -893,7 +893,7 @@
     {
       "x": 15,
       "y": 2.9,
-      "z": 13.759,
+      "z": 13.76,
       "width": 3.6,
       "height": 0.9,
       "material": "collection:sign_beach",
@@ -902,14 +902,14 @@
     {
       "x": 21,
       "y": 2.9,
-      "z": 13.759,
+      "z": 13.76,
       "width": 3.6,
       "height": 0.9,
       "material": "collection:sign_aero",
       "surface": "wall_north"
     },
     {
-      "x": 0.001,
+      "x": 0,
       "y": 2.4,
       "z": 7,
       "width": 4,
@@ -918,8 +918,8 @@
       "surface": "wall_east"
     },
     {
-      "x": 23.999,
-      "y": 2.4,
+      "x": 24,
+      "y": 2.9,
       "z": 7,
       "width": 4,
       "height": 1,

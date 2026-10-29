@@ -26,6 +26,7 @@ pub enum ObjectKind {
 /// The UI clears/remaps selections after structural edits and history changes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ObjectId {
+    Decal(usize),
     Column(usize),
     Pillar(usize),
     ArcWall(usize),
@@ -46,6 +47,7 @@ pub enum ObjectId {
 impl ObjectId {
     pub(crate) const fn collection(self) -> (&'static str, usize) {
         match self {
+            Self::Decal(index) => ("decals", index),
             Self::Column(index) => ("columns", index),
             Self::Pillar(index) => ("pillars", index),
             Self::ArcWall(index) => ("arc_walls", index),
@@ -141,6 +143,19 @@ pub(super) fn enumerate(level: &LevelDef) -> Vec<ObjectInfo> {
             )
         }));
     rooms
+        .chain(
+            level
+                .decals
+                .iter()
+                .enumerate()
+                .filter(|(_, decal)| !decal.surface.is_horizontal())
+                .map(|(index, decal)| {
+                    (
+                        ObjectId::Decal(index),
+                        format!("Wall sign / {}", decal.material),
+                    )
+                }),
+        )
         .chain(architecture)
         .chain(walls)
         .chain(props)
@@ -201,7 +216,8 @@ fn primitive_transform(level: &LevelDef, id: ObjectId) -> Result<Transform, Stri
                 roll_degrees: 0.0,
             }
         }),
-        ObjectId::Room(_)
+        ObjectId::Decal(_)
+        | ObjectId::Room(_)
         | ObjectId::Wall(_)
         | ObjectId::Prop(_)
         | ObjectId::Ramp(_)
@@ -231,6 +247,7 @@ pub(in crate::editor) fn transform(level: &LevelDef, id: ObjectId) -> Result<Tra
         return super::gameplay::transform(level, id);
     }
     match id {
+        ObjectId::Decal(index) => return super::signs::transform(level, index),
         ObjectId::Column(_) | ObjectId::Pillar(_) | ObjectId::ArcWall(_) => {
             return primitive_transform(level, id);
         }
@@ -324,9 +341,13 @@ pub(super) fn set_transform(
     ) {
         return super::gameplay::set_transform(raw, level, id, proposed);
     }
+    if let ObjectId::Decal(index) = id {
+        return super::signs::set_transform(raw, level, index, proposed);
+    }
     let current = transform(level, id)?;
     let object = object_mut(raw, id)?;
     match id {
+        ObjectId::Decal(_) => return Err("Decal transform already handled".into()),
         ObjectId::Column(_) | ObjectId::Pillar(_) | ObjectId::ArcWall(_) => {
             set_primitive_transform(object, id, current, proposed)?;
         }
@@ -444,7 +465,8 @@ fn set_primitive_transform(
                 set_number(object, "start_degrees", proposed.yaw_degrees);
             }
         }
-        ObjectId::Room(_)
+        ObjectId::Decal(_)
+        | ObjectId::Room(_)
         | ObjectId::Wall(_)
         | ObjectId::Prop(_)
         | ObjectId::Ramp(_)
@@ -521,7 +543,8 @@ fn require_simple_rotation(object: &Map<String, Value>, id: ObjectId) -> Result<
                 Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
             })
         }),
-        ObjectId::Column(_)
+        ObjectId::Decal(_)
+        | ObjectId::Column(_)
         | ObjectId::Pillar(_)
         | ObjectId::ArcWall(_)
         | ObjectId::Prop(_)
@@ -646,6 +669,17 @@ pub(super) fn delete(raw: &mut Value, level: &LevelDef, id: ObjectId) -> Result<
     Ok(())
 }
 
+fn duplicate_offset(
+    level: &LevelDef,
+    id: ObjectId,
+    [x, y, z]: [f32; 3],
+) -> Result<[f32; 3], String> {
+    if let ObjectId::Decal(index) = id {
+        return super::signs::duplicate_position(level, index);
+    }
+    Ok([x + 0.5, y, z + 0.5])
+}
+
 pub(super) fn duplicate(
     raw: &mut Value,
     level: &LevelDef,
@@ -667,14 +701,16 @@ pub(super) fn duplicate(
     drop(object.remove("editor_prefab_source"));
     drop(object.remove("editor_variation"));
     let current = transform(level, id)?;
-    let [x, y, z] = current.position;
+    let [_, y, _] = current.position;
+    let offset = duplicate_offset(level, id, current.position)?;
     set_position(
         &mut object,
-        [x + 0.5_f32, y, z + 0.5_f32],
+        offset,
         match id {
             ObjectId::Room(_) => "floor_y",
             ObjectId::Ramp(_) | ObjectId::FloorRegion(_) => "offset_y",
-            ObjectId::Column(_)
+            ObjectId::Decal(_)
+            | ObjectId::Column(_)
             | ObjectId::Pillar(_)
             | ObjectId::ArcWall(_)
             | ObjectId::Wall(_)
@@ -726,6 +762,7 @@ pub(super) fn duplicate(
     let index = entries.len();
     entries.push(Value::Object(object));
     Ok(match id {
+        ObjectId::Decal(_) => ObjectId::Decal(index),
         ObjectId::Column(_) => ObjectId::Column(index),
         ObjectId::Pillar(_) => ObjectId::Pillar(index),
         ObjectId::ArcWall(_) => ObjectId::ArcWall(index),

@@ -334,7 +334,8 @@ impl Document {
                 drop(object_mut(&mut raw, id)?.insert("solid".into(), json!(entry.solid)));
                 "model"
             }
-            ObjectId::Column(_)
+            ObjectId::Decal(_)
+            | ObjectId::Column(_)
             | ObjectId::Pillar(_)
             | ObjectId::ArcWall(_)
             | ObjectId::Room(_)
@@ -406,7 +407,8 @@ fn effective_color(level: &crate::engine::level::LevelDef, id: ObjectId) -> [f32
             .get(index)
             .and_then(|fog| fog.color)
             .unwrap_or(global),
-        ObjectId::Column(_)
+        ObjectId::Decal(_)
+        | ObjectId::Column(_)
         | ObjectId::Pillar(_)
         | ObjectId::ArcWall(_)
         | ObjectId::Room(_)

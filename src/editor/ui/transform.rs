@@ -27,6 +27,9 @@ pub(in crate::editor) fn draw(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec
     .into_iter()
     .enumerate()
     {
+        if matches!(draft.id, ObjectId::Decal(_)) && index == 5 {
+            continue;
+        }
         if matches!(draft.id, ObjectId::Pillar(_)) && matches!(index, 5 | 6) {
             continue;
         }
@@ -40,7 +43,9 @@ pub(in crate::editor) fn draw(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec
         let row = u16::try_from(index % 3).unwrap_or(0);
         let x = f32::from(col).mul_add(111.0, 126.0);
         let y = f32::from(row).mul_add(30.0, 87.0);
-        let field_label = if index == 3 && matches!(draft.id, ObjectId::Prop(_)) {
+        let field_label = if index == 6 && matches!(draft.id, ObjectId::Decal(_)) {
+            "In-plane spin"
+        } else if index == 3 && matches!(draft.id, ObjectId::Prop(_)) {
             "Scale"
         } else if index == 3 && matches!(draft.id, ObjectId::Pillar(_)) {
             "Diameter"

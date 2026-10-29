@@ -20,7 +20,8 @@ pub(super) const LAYERS: [&str; 4] = [
 ];
 pub(super) const fn layer(id: ObjectId) -> usize {
     match id {
-        ObjectId::Column(_)
+        ObjectId::Decal(_)
+        | ObjectId::Column(_)
         | ObjectId::Pillar(_)
         | ObjectId::ArcWall(_)
         | ObjectId::Room(_)
@@ -58,6 +59,9 @@ impl Focus {
         let Ok(pose) = objects::transform(level, id) else {
             return false;
         };
+        if matches!(id, ObjectId::Decal(_)) {
+            return near_selection(level, isolated, pose.position);
+        }
         if let ObjectId::Room(i) = isolated
             && let Some(room) = level.rooms.get(i)
         {
@@ -71,7 +75,10 @@ impl Focus {
         }
         if let ObjectId::Wall(i) = isolated
             && let Some(w) = level.walls.get(i)
-            && matches!(id, ObjectId::Door(_) | ObjectId::Light(_))
+            && matches!(
+                id,
+                ObjectId::Door(_) | ObjectId::Light(_) | ObjectId::Decal(_)
+            )
         {
             return pose.position[0] >= w.x - 0.2
                 && pose.position[0] <= w.x + w.width + 0.2
@@ -100,6 +107,7 @@ impl Focus {
                 });
             }};
         }
+        retain!(decals, Decal);
         retain!(rooms, Room);
         retain!(walls, Wall);
         retain!(columns, Column);
@@ -127,11 +135,7 @@ impl Focus {
             filtered.decals.clear();
             filtered.floor_patches.clear();
         }
-        if let Some(isolated) = self.isolated {
-            filtered
-                .decals
-                .retain(|d| near_selection(level, isolated, [d.x, d.y, d.z]));
-        }
+
         (filtered, map)
     }
 }
@@ -298,7 +302,8 @@ fn near_selection(level: &LevelDef, id: ObjectId, [x, y, z]: [f32; 3]) -> bool {
                 && y >= w.y
                 && y <= w.y + w.height.unwrap_or(3.0)
         }),
-        ObjectId::Column(_)
+        ObjectId::Decal(_)
+        | ObjectId::Column(_)
         | ObjectId::Pillar(_)
         | ObjectId::ArcWall(_)
         | ObjectId::Prop(_)
