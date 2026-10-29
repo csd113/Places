@@ -33,6 +33,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, OnceLock};
 
+#[path = "startup.rs"]
+mod startup;
+
 use sdl3::video::Window;
 
 use super::character::{CharacterUploadContext, WgpuCharacters};
@@ -621,6 +624,7 @@ pub struct WgpuRenderer {
     /// resources keep the device alive internally, and the surface (which must
     /// precede the device) already has the ordering constraint that matters.
     world_pipeline: Option<WorldPipeline>,
+    startup_pipelines: Option<startup::StartupPipelines>,
     flashlight: Option<crate::engine::render::common::Flashlight>,
     flashlight_shadow: Option<super::flashlight::FlashlightShadow>,
     flashlight_characters: std::cell::RefCell<Vec<super::flashlight::CharacterVisibility>>,
@@ -1159,6 +1163,7 @@ impl WgpuRenderer {
             depth_size: DrawableSize::new(0, 0),
             drawable_size,
             world_pipeline: None,
+            startup_pipelines: None,
             flashlight: None,
             flashlight_shadow: None,
             flashlight_characters: std::cell::RefCell::new(Vec::new()),
@@ -5514,6 +5519,10 @@ impl WgpuRenderer {
         if self.fatal.is_some() || self.needs_configure || self.drawable_size.is_empty() {
             return;
         }
+        if self.startup_pipelines.is_some() {
+            self.render_startup_frame();
+            return;
+        }
         self.ensure_world_pipeline();
         if self.fatal.is_some() {
             return;
@@ -6338,110 +6347,15 @@ impl WgpuRenderer {
         if self.world_pipeline.as_ref().map(WorldPipeline::format) == Some(self.config.format) {
             return;
         }
-        let mut pipeline = crate::engine::perf::loading::StageTimer::new("renderer-pipelines");
-        self.world_pipeline = Some(WorldPipeline::new(
+        let world = startup::WorldPipelines::new(
             &self.device,
             self.config.format,
             self.textures.layout(),
             &self.material_layout,
             &self.environment_layout,
-        ));
-        pipeline.step("world-surface");
-        // The capture pipeline is format-fixed (the reflection targets) and
-        // culls nothing so both sides remain visible in reflections. The reversed front
-        // face compensates for the winding the probe projection's Y flip and
-        // the planar mirror each reverse.
-        self.capture_pipeline = Some(WorldPipeline::with_state(
-            &self.device,
-            super::reflections::REFLECTION_FORMAT,
-            self.textures.layout(),
-            &self.material_layout,
-            &self.environment_layout,
-            wgpu::FrontFace::Cw,
-            false,
-            true,
-        ));
-        pipeline.step("world-capture");
-        // The decal pass runs in the same colour+depth passes as the world, so
-        // it needs one pipeline per target format.
-        self.decal_pipeline = Some(DecalPipeline::new(
-            &self.device,
-            self.config.format,
-            &self.caustics,
-            &self.textures,
-        ));
-        self.decal_reflection_pipeline = Some(DecalPipeline::new(
-            &self.device,
-            super::reflections::REFLECTION_FORMAT,
-            &self.caustics,
-            &self.textures,
-        ));
-        self.decal_scene_pipeline = Some(DecalPipeline::new(
-            &self.device,
-            SCENE_FORMAT,
-            &self.caustics,
-            &self.textures,
-        ));
-        pipeline.step("decals");
-        // The sky pass draws in the same colour+depth passes as the world (the
-        // main surface and the offscreen scene target, in raw display space),
-        // sampling the shared texture-cache group 1.
-        self.sky_pipeline = Some(SkyPipeline::new(
-            &self.device,
-            self.config.format,
-            SCENE_FORMAT,
-            self.textures.layout(),
-        ));
-        pipeline.step("sky");
-        // The effect billboards run in the same colour+depth passes as the
-        // world (the main surface and the offscreen scene target), with the
-        // shared texture-cache layout as group 1, so every uploaded effect
-        // sheet binds unchanged.
-        self.effects_pipeline = Some(EffectsPipeline::new(
-            &self.device,
-            self.config.format,
-            self.textures.layout(),
-        ));
-        self.effects_scene_pipeline = Some(EffectsPipeline::new(
-            &self.device,
-            SCENE_FORMAT,
-            self.textures.layout(),
-        ));
-        pipeline.step("effects");
-        // The offscreen post chain: the scene target's format equals the
-        // reflection format, the emissive target is raw, and the resolve and
-        // present pipelines write the surface format.
-        self.post = Some(match self.post.take() {
-            Some(mut post) => {
-                let _surface_format_changed =
-                    post.set_surface_format(&self.device, self.config.format);
-                post
-            }
-            None => PostProcess::new(&self.device, self.config.format),
-        });
-        pipeline.step("postprocess");
-        self.scene_pipeline = Some(WorldPipeline::with_state(
-            &self.device,
-            SCENE_FORMAT,
-            self.textures.layout(),
-            &self.material_layout,
-            &self.environment_layout,
-            wgpu::FrontFace::Ccw,
-            false,
-            true,
-        ));
-        pipeline.step("world-scene");
-        self.emissive_pipeline = Some(WorldPipeline::with_state(
-            &self.device,
-            EMISSIVE_FORMAT,
-            self.textures.layout(),
-            &self.material_layout,
-            &self.environment_layout,
-            wgpu::FrontFace::Ccw,
-            false,
-            true,
-        ));
-        pipeline.step("world-emissive");
+        );
+        self.prepare_all_auxiliary();
+        world.install(self);
         logging::info(format!(
             "[wgpu] world pipeline for surface format {:?}",
             self.config.format
@@ -7357,6 +7271,9 @@ impl WgpuRenderer {
         &mut self,
     ) -> Result<crate::engine::loader::RawImage, String> {
         self.validate_capture_device()?;
+        if self.startup_pipelines.is_some() {
+            return self.capture_startup_frame();
+        }
         if let Ok(selector) = std::env::var("PLACES_ENTITY_LIGHT_TRACE") {
             self.trace_entity_lighting(&selector);
         }
@@ -7449,20 +7366,8 @@ impl WgpuRenderer {
                 }
                 let _submission_2 = self.queue.submit([copy.finish()]);
             }
-        } else if !self.last_ui.is_empty() {
-            self.ensure_ui_pipeline(self.config.format);
-            if let Some(ui) = self.ui.as_mut() {
-                let ui_vertices = std::mem::take(&mut self.last_ui);
-                let _draw_stats_2 = ui.render(
-                    &self.device,
-                    &self.queue,
-                    &view,
-                    &ui_vertices,
-                    self.drawable_size,
-                    None,
-                );
-                self.last_ui = ui_vertices;
-            }
+        } else {
+            self.replay_capture_ui(&view, self.config.format, self.drawable_size);
         }
         let captured = read_back_rgba(&self.device, &self.queue, &texture, width, height, format);
         drop(view);
@@ -7470,6 +7375,28 @@ impl WgpuRenderer {
         #[cfg(feature = "visual-diagnostics")]
         self.trace_gpu_resources("capture-finished");
         captured
+    }
+
+    fn replay_capture_ui(
+        &mut self,
+        view: &wgpu::TextureView,
+        format: wgpu::TextureFormat,
+        drawable: DrawableSize,
+    ) {
+        if self.last_ui.is_empty() {
+            return;
+        }
+        self.ensure_ui_pipeline(format);
+        if let Some(ui) = self.ui.as_mut() {
+            let _stats = ui.render(
+                &self.device,
+                &self.queue,
+                view,
+                &self.last_ui,
+                drawable,
+                None,
+            );
+        }
     }
 
     /// Submits the capture's scene and then receipts the exact encoded totals.

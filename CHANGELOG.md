@@ -1,5 +1,9 @@
 ## 0.13.1 — Unreleased
 
+- Keep loading UI/event pumping active during first-use world shader preparation.
+  Preserve actual milestone progress, main-thread presentation and offline builds.
+  See [Windows startup evidence and limits](docs/reports/startup-0.13.1-windows.md).
+
 - Present ordinary NPC messages as queued two-line subtitles, retain F1 help,
   simplify loading to actual stage progress with separate unknown-work activity,
   and give Explore cards roomier spacing, contained titles and full-name details.

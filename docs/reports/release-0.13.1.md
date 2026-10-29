@@ -863,3 +863,20 @@ sizes at Windows 150% scale. No full-map rebake or compiler fingerprint change.
 The [Windows UI report](ui-0.13.1-windows.md) records the retained cold-start
 3.7-4.1 second pump gap and the unverified OS mouse check after computer-use
 capture timeouts. Mac and remote publication remain deferred/held respectively.
+
+
+## Targeted startup responsiveness follow-up (Windows)
+
+Move first-use world pipeline preparation to one immutable device worker and
+prepare smaller groups between frames. The shared loading UI presents and pumps
+events while shaders compile; real milestone progress and the final playable
+commit remain authoritative. Offline/editor constructors stay shared.
+
+Three paired cold-process launches reduce median longest pump gap from
+3381.919 to 228.842 ms (93.23%). Total time to playable is roughly unchanged.
+The [startup report](startup-0.13.1-windows.md) records 0.23-0.36 second residual
+gaps, the separate 8.5-second pre-loop initialization span, exact native cases
+and local receipts. Engine-source hashing conservatively makes older packages
+stale for --require-current; integrity/runtime loading pass, no check was
+bypassed and no shipped map was rebaked. The exact approved FPS report commit
+was normally pushed; UI/startup commits remain local. Mac stays deferred.

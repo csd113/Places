@@ -896,6 +896,15 @@ impl Renderer {
         self.renderer.set_culling(enabled);
     }
 
+    /// Prepares first-use graphics without blocking the player's event loop.
+    /// Surface and frame operations stay on the calling thread.
+    ///
+    /// # Errors
+    /// Returns a device or pipeline-worker failure.
+    pub fn prepare_startup_pipelines(&mut self) -> Result<bool, String> {
+        self.renderer.prepare_startup_pipelines()
+    }
+
     /// Renders one frame's scene from `camera`.
     pub fn render_scene(&mut self, camera: RenderCamera) {
         self.renderer.render_scene(camera);

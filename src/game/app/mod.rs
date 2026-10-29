@@ -3608,7 +3608,25 @@ impl FrameLoop<'_> {
         self.trace_world("load_cancelled");
     }
 
+    fn prepare_startup_pipelines(&mut self) -> bool {
+        match self.renderer.prepare_startup_pipelines() {
+            Ok(true) => true,
+            Ok(false) => {
+                self.update_loading_progress();
+                false
+            }
+            Err(error) => {
+                self.fatal_error = Some(error);
+                self.game.stop();
+                false
+            }
+        }
+    }
+
     fn advance_loading(&mut self) {
+        if !self.prepare_startup_pipelines() {
+            return;
+        }
         if let Some((id, result)) = self.loader.poll() {
             match result {
                 Ok(prepared) => {

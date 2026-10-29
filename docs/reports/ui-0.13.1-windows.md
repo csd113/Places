@@ -65,8 +65,10 @@ An existing environment package passes final-compiler integrity and
 
 ## Limits and custody
 
-Cold startup is not uniformly responsive: accepted runs retain about 3.7-4.1
-seconds between event pumps before the first presented loading frame. Warm
+The original UI cohort retained about 3.7-4.1 seconds between event pumps before
+the first presented loading frame. The [targeted startup follow-up](startup-0.13.1-windows.md)
+records the later shader-worker fix, paired measurements and remaining pre-loop
+initialization limit. Warm
 scripted Escape dispatch (queue to handler) in the controlled cancellation
 cases is about 2.5-4.1 ms; injected
 worker delays make interruption repeatable, and do not drive progress fill.
