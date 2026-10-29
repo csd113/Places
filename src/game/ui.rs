@@ -145,6 +145,8 @@ pub enum SettingsAction {
 /// Menu selection state across screens.
 #[derive(Debug, Clone, Default)]
 pub struct UiState {
+    pub resume_offer: Option<(String, bool)>,
+    pub resume_index: usize,
     pub main_menu_idx: usize,
     pub level_select_idx: usize,
     pub pause_menu_idx: usize,
@@ -268,6 +270,8 @@ fn ui_signature(
     ui_state.loading_step.hash(&mut hasher);
     ui_state.loading_activity.hash(&mut hasher);
     ui_state.details_open.hash(&mut hasher);
+    ui_state.resume_offer.hash(&mut hasher);
+    ui_state.resume_index.hash(&mut hasher);
     display.hash(&mut hasher);
     version.hash(&mut hasher);
 

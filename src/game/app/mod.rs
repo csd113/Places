@@ -4,6 +4,7 @@ mod actions;
 mod audio_runtime;
 mod authoring_trace;
 mod carry_runtime;
+mod checkpoints;
 mod console_input;
 mod flashlight;
 mod item_input;
@@ -654,6 +655,8 @@ struct PendingCommit {
     id: u64,
     loaded: loader::LoadedLevel,
     collision: CollisionWorld,
+    resumed: Option<Box<game::Game>>,
+    checkpoint: Option<crate::game::checkpoint::Snapshot>,
     physical: Option<item_runtime::PreparedItems>,
     intent: LoadIntent,
     lease: loading::PreparedLease,
@@ -678,6 +681,7 @@ struct PresentationState {
 }
 
 struct FrameLoop<'a> {
+    checkpoints: checkpoints::Session,
     campaign: crate::game::campaign::CampaignSave,
     diagnostic_tick: Instant,
     diagnostic_state: Option<AppState>,
@@ -1094,6 +1098,9 @@ impl FrameLoop<'_> {
             self.items.target = None;
         }
         if self.reconcile_audio_reset() {
+            self.checkpoints.pending = None;
+            self.checkpoints.request = None;
+            self.checkpoints.last_requested = None;
             self.renderer.clear_blood();
             self.clear_mannequin_pins();
             self.reset_carry_assemblies();
@@ -1150,6 +1157,7 @@ impl FrameLoop<'_> {
                 .entities_mut()
                 .notify_animation_complete(instance_id, "");
         }
+        self.finish_checkpoint();
     }
 
     fn reset_menu_items(&mut self) {
@@ -1371,6 +1379,12 @@ impl FrameLoop<'_> {
         let commands = self.game.entities_mut().take_commands();
         for command in commands {
             match command {
+                crate::engine::entities::WorldCommand::SaveCheckpoint { name } => {
+                    self.checkpoints.request = Some(name);
+                }
+                crate::engine::entities::WorldCommand::ResumeCheckpoint => {
+                    self.resume_current_checkpoint();
+                }
                 crate::engine::entities::WorldCommand::ShowMessage { title, lines } => {
                     if self.subtitles.guidance_requested.is_none() && self.outcome.is_none() {
                         self.subtitles.push(title, &lines);
@@ -2799,7 +2813,8 @@ impl FrameLoop<'_> {
     }
 
     fn handle_menu_details_key(&mut self, event: &Event) -> bool {
-        if self.game.app_state() == AppState::LevelSelect
+        if self.ui_state.resume_offer.is_none()
+            && self.game.app_state() == AppState::LevelSelect
             && !self.ui_state.status_is_error
             && !self.ui_state.loading_map
             && matches!(
@@ -3017,6 +3032,22 @@ impl FrameLoop<'_> {
 
     /// Dispatches one menu navigation event for the current screen.
     fn handle_menu_nav(&mut self, nav: MenuNavEvent) {
+        if self.ui_state.resume_offer.is_some() {
+            match nav {
+                MenuNavEvent::Activate => self.activate_checkpoint_offer(),
+                MenuNavEvent::Back => {
+                    self.ui_state.resume_offer = None;
+                    self.checkpoints.offered = None;
+                }
+                MenuNavEvent::Up | MenuNavEvent::Left => {
+                    self.ui_state.resume_index = menu_prev(self.ui_state.resume_index, 3);
+                }
+                MenuNavEvent::Down | MenuNavEvent::Right => {
+                    self.ui_state.resume_index = menu_next(self.ui_state.resume_index, 3);
+                }
+            }
+            return;
+        }
         if self.ui_state.status_is_error {
             if self.ui_state.load_retry.is_some() && matches!(nav, MenuNavEvent::Activate) {
                 self.retry_after_unload();
@@ -3187,6 +3218,10 @@ impl FrameLoop<'_> {
 
     /// Activates the selected item on the current menu.
     fn activate(&mut self) {
+        if self.ui_state.resume_offer.is_some() {
+            self.activate_checkpoint_offer();
+            return;
+        }
         match self.game.app_state() {
             AppState::MainMenu => self.activate_main_menu(),
             AppState::LevelSelect => self.activate_level_select(),
@@ -3369,7 +3404,7 @@ impl FrameLoop<'_> {
             // One of the installed levels: load it.
             Ordering::Less => {
                 if let Some(entry) = self.level_manager.get_menu_entry(selected).cloned() {
-                    self.request_load(loading::Source::entry(entry), LoadIntent::Play);
+                    self.offer_checkpoint(entry);
                 }
             }
             // `Import Levels`.
@@ -3385,12 +3420,25 @@ impl FrameLoop<'_> {
 
     /// Queues a level without blocking event dispatch.
     fn load_level_at(&mut self, index: usize) {
+        self.checkpoints.resume = None;
         if let Some(entry) = self.level_manager.get_entry(index).cloned() {
             self.request_load(loading::Source::entry(entry), LoadIntent::Play);
         }
     }
 
     fn request_load(&mut self, source: loading::Source, intent: LoadIntent) {
+        self.checkpoints.request = None;
+        self.checkpoints.pending = None;
+        self.checkpoints.last_requested = None;
+        if !matches!(intent, LoadIntent::Play)
+            || self
+                .checkpoints
+                .resume
+                .as_ref()
+                .is_some_and(|(identity, _)| identity.level != source.level_id())
+        {
+            self.checkpoints.resume = None;
+        }
         self.retry_source = None;
         self.close_console();
         // An outstanding preparation for the same world and effective lightmap
@@ -3398,7 +3446,8 @@ impl FrameLoop<'_> {
         // world must survive the player selecting that same level, and a
         // partially uploaded install must not be torn down to redo identical
         // work. A superseded request for different content still replaces it.
-        if self.reuse_outstanding_preparation(&source, intent) {
+        if self.checkpoints.resume.is_none() && self.reuse_outstanding_preparation(&source, intent)
+        {
             return;
         }
         let level_id = source.level_id().to_string();
@@ -3565,6 +3614,7 @@ impl FrameLoop<'_> {
     }
 
     fn cancel_loading(&mut self) {
+        self.checkpoints.resume = None;
         // Before the first world exists, the outstanding preparation is the
         // only thing that can produce a usable background; cancelling it would
         // strand the process on an empty menu with nothing left to wait for.
@@ -3629,7 +3679,7 @@ impl FrameLoop<'_> {
         }
         if let Some((id, result)) = self.loader.poll() {
             match result {
-                Ok(prepared) => {
+                Ok(mut prepared) => {
                     let Some(intent) = self.load_intent else {
                         return;
                     };
@@ -3641,6 +3691,11 @@ impl FrameLoop<'_> {
                         }
                         return;
                     }
+                    let Some((resumed, checkpoint)) =
+                        self.prepare_resume_or_report(id, &mut prepared)
+                    else {
+                        return;
+                    };
                     self.trace.record("preparation_result", id, &serde_json::json!({
                         "level": prepared.loaded.level.id, "wall_ms": prepared.preparation_millis,
                         "cache_hit": prepared.cache_hit,
@@ -3695,6 +3750,8 @@ impl FrameLoop<'_> {
                         id,
                         loaded,
                         collision,
+                        resumed,
+                        checkpoint,
                         physical,
                         intent,
                         lease,
@@ -3984,7 +4041,7 @@ impl FrameLoop<'_> {
                 "menu_beat".into(),
                 serde_json::json!(self.ui_state.observed_menu_beat),
             ));
-            drop(fields.insert("menu_ui".into(),serde_json::json!({"level_count":self.ui_state.level_entries.len(),"level_index":self.ui_state.level_select_idx,"scroll":self.ui_state.level_scroll,"description_page":self.ui_state.description_page,"details_open":self.ui_state.details_open.is_some(),"status":self.ui_state.status_message,"status_is_error":self.ui_state.status_is_error,"status_page":self.ui_state.status_page,"credits":self.ui_state.credits.is_some()})));
+            drop(fields.insert("menu_ui".into(),serde_json::json!({"level_count":self.ui_state.level_entries.len(),"level_index":self.ui_state.level_select_idx,"scroll":self.ui_state.level_scroll,"description_page":self.ui_state.description_page,"details_open":self.ui_state.details_open.is_some(),"status":self.ui_state.status_message,"status_is_error":self.ui_state.status_is_error,"status_page":self.ui_state.status_page,"credits":self.ui_state.credits.is_some(),"resume_offer":self.ui_state.resume_offer,"resume_index":self.ui_state.resume_index})));
             self.append_authoring_trace(fields);
             drop(fields.insert(
                 "physics_clock".into(),
@@ -4075,6 +4132,7 @@ impl FrameLoop<'_> {
     /// Snapshot existing entity state only for explicit developer trace events.
     fn entity_simulation_snapshot(&self) -> serde_json::Value {
         serde_json::json!({
+            "states": self.game.entities().components().states.iter().map(|(handle,state)|serde_json::json!({"id":self.game.entities().id_of(handle),"values":state.values})).collect::<Vec<_>>(),
             "time": self.game.entities().sim_time(),
             "sequences": self.game.entities().active_sequences(),
             "ai_runtime":self.game.entities().ai().resource_snapshot(),
@@ -4100,11 +4158,37 @@ impl FrameLoop<'_> {
         })
     }
 
+    fn install_resumed_game(&mut self, resumed: Option<Box<Game>>, collision: CollisionWorld) {
+        if let Some(candidate) = resumed {
+            *self.game = *candidate;
+        } else {
+            self.game
+                .reset_level(*self.spawn_pos, *self.spawn_yaw, collision);
+        }
+        self.console_runtime.adopt_world_reset_counters(self.game);
+    }
+    fn install_checkpoint_presentation(
+        &mut self,
+        checkpoint: Option<crate::game::checkpoint::Snapshot>,
+    ) {
+        if let Some(snapshot) = checkpoint {
+            self.flashlight = if snapshot.flashlight {
+                flashlight::Power::On
+            } else {
+                flashlight::Power::Off
+            };
+            self.trace_world("checkpoint_resumed");
+        }
+        self.checkpoints.resume = None;
+    }
+
     fn commit_loaded_world(&mut self) {
         let Some(PendingCommit {
             id,
             loaded,
             collision,
+            resumed,
+            checkpoint,
             physical,
             intent,
             lease,
@@ -4136,8 +4220,7 @@ impl FrameLoop<'_> {
             install_timer.step("dynamic-content");
             *self.spawn_pos = game::spawn_position(&loaded.level);
             *self.spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
-            self.game
-                .reset_level(*self.spawn_pos, *self.spawn_yaw, collision);
+            self.install_resumed_game(resumed, collision);
             self.game
                 .entities_mut()
                 .attach_campaign(self.campaign.attach(&loaded.entry.path));
@@ -4147,6 +4230,7 @@ impl FrameLoop<'_> {
             }
             install_timer.step("physical-items");
             self.update_item_triggers(true);
+            self.install_checkpoint_presentation(checkpoint);
             if matches!(intent, LoadIntent::Play) {
                 self.game.set_app_state(AppState::Playing);
             }
@@ -4325,6 +4409,7 @@ impl FrameLoop<'_> {
             }
         }
         let images = if self.game.app_state() == AppState::LevelSelect
+            && self.ui_state.resume_offer.is_none()
             && !self.ui_state.loading_map
             && self.ui_state.details_open.is_none()
             && !self.ui_state.status_is_error
@@ -5140,6 +5225,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut capture_path = capture_path_from_env();
 
     let mut frame_loop = FrameLoop {
+        checkpoints: checkpoints::Session::default(),
         campaign: crate::game::campaign::CampaignSave::default(),
         load_lightmaps: settings.lightmap_quality(),
         diagnostic_tick: Instant::now(),
@@ -5207,13 +5293,18 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     };
     frame_loop.start(initial_entry, direct);
 
-    if let Some(error) = frame_loop.fatal_error.take() {
-        return Err(error.into());
-    }
+    finish_player(frame_loop.fatal_error.take(), &mut bench)
+}
 
+fn finish_player(
+    error: Option<String>,
+    bench: &mut bench::Bench,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(problem) = error {
+        return Err(problem.into());
+    }
     if bench.enabled() {
         bench.finish();
     }
-
     Ok(())
 }

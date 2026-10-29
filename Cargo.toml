@@ -31,7 +31,7 @@ bytemuck = { version = "1.25.2", default-features = false, features = ["derive"]
 # Compiler-only terminal sizing and cooperative Ctrl-C handling; no UI runtime.
 ctrlc = "3.5.2"
 terminal_size = "0.4.4"
-glam = "0.34.1"
+glam = { version = "0.34.1", features = ["serde"] }
 # Maintained pure-Rust rigid bodies (native and future WASM); the player keeps
 # its established controller and shares the same metre/second gravity value.
 rapier3d = "0.36.1"

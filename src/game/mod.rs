@@ -3,6 +3,7 @@
 mod app;
 pub mod bench;
 mod campaign;
+mod checkpoint;
 pub mod console;
 pub mod display;
 pub mod gameplay_actions;

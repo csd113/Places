@@ -47,6 +47,8 @@ struct CatalogBuildInput {
 /// the validated semantic level.
 #[derive(Clone, Debug)]
 pub struct OpenedPackage {
+    /// Declared project identity from the same selected archive handle.
+    pub project_id: Option<String>,
     /// Package manifest.
     pub manifest: Manifest,
     /// Validated, authoring-prepared level semantics.
@@ -153,8 +155,10 @@ pub fn open(path: &Path) -> Result<OpenedPackage, String> {
 pub fn open_level(path: &Path, id: &str) -> Result<OpenedPackage, String> {
     let file = super::archive::open_file(path)?;
     let mut reader = PackageReader::new(file).map_err(|e| e.to_string())?;
+    let project_id = super::project::read_index(&mut reader)?.map(|index| index.project.id);
     super::project::select(&mut reader, Some(id))?;
-    let opened = open_reader(reader)?;
+    let mut opened = open_reader(reader)?;
+    opened.project_id = project_id;
     if opened.level.id != id {
         return Err(format!("Package does not contain requested level '{id}'"));
     }
@@ -199,7 +203,11 @@ fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
     validate_semantics(&reader, &manifest, &level)?;
     check_catalog_build_input(&mut reader, &manifest, &level, root)?;
     check_dependencies(&manifest, root)?;
-    Ok(OpenedPackage { manifest, level })
+    Ok(OpenedPackage {
+        project_id: None,
+        manifest,
+        level,
+    })
 }
 
 /// Shared compiler/player semantic admission, including package-only ownership
@@ -223,6 +231,16 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
         }
     }
     crate::engine::loader::validate_level(level)?;
+    if (level.saving || crate::engine::loader::validation_has_checkpoints(level))
+        && !manifest
+            .required_capabilities
+            .iter()
+            .any(|capability| capability == "gameplay-checkpoints-v1")
+    {
+        return Err(
+            "Gameplay checkpoints require gameplay-checkpoints-v1; rebuild this package".into(),
+        );
+    }
     if level.props.iter().any(|prop| prop.animated_door.is_some())
         && !manifest
             .required_capabilities

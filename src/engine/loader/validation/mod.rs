@@ -8,7 +8,7 @@ mod motion;
 pub(super) mod props;
 
 pub use entities::MAX_LIFETIME_SECONDS;
-pub use entities::script_calls;
+pub use entities::{script_calls, validation_has_checkpoints};
 pub use geometry::point_buried_in_wall;
 
 use crate::engine::level::LevelDef;
@@ -117,6 +117,7 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     let mut index = validate_instance_ids(level)?;
     index.sequence_owners = collect_sequence_owners(level);
     validate_volumes(level, &index)?;
+    validate_checkpoint_volumes(level)?;
     validate_sound_emitters(level)?;
     validate_timers(level)?;
     validate_spawns(level, &index)?;
@@ -151,6 +152,31 @@ fn validate_acoustics(level: &LevelDef) -> Result<(), String> {
     }
     for room in &level.rooms {
         room.acoustics.validate()?;
+    }
+    Ok(())
+}
+
+fn validate_checkpoint_volumes(level: &LevelDef) -> Result<(), String> {
+    use crate::engine::level::{ActionDef, LevelSurfaces, TriggerFilterDef};
+    let surfaces = LevelSurfaces::new(level);
+    for volume in &level.volumes {
+        if !matches!(volume.filter, TriggerFilterDef::Player)
+            || !volume
+                .bindings
+                .iter()
+                .flat_map(|binding| &binding.actions)
+                .any(|action| matches!(action, ActionDef::SaveCheckpoint { name: _ }))
+        {
+            continue;
+        }
+        let (x0, x1, z0, z1) = volume.bounds();
+        let floor = surfaces
+            .floor_y_at(f32::midpoint(x0, x1), f32::midpoint(z0, z1))
+            .ok_or("Player checkpoint must have a supported floor at its centre")?;
+        let (bottom, top) = volume.resolved_y_bounds(level);
+        if bottom > floor || top <= floor {
+            return Err("Player checkpoint volume must include the floor at its centre".into());
+        }
     }
     Ok(())
 }

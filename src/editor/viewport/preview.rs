@@ -309,6 +309,7 @@ fn prepare(
         path: std::path::PathBuf::new(),
     };
     let loaded = LoadedLevel {
+        project_id: None,
         package_identity: None,
         catalog: Arc::new(catalog.clone()),
         level,

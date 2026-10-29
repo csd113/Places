@@ -100,6 +100,68 @@ pub struct DoorRuntime {
     reverse_guard: f32,
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Checkpoint {
+    id: String,
+    angle: f32,
+    open_angle: f32,
+    phase: String,
+    locked: bool,
+    obstructed: bool,
+    reverse_guard: f32,
+}
+
+impl Doors {
+    #[must_use]
+    pub fn checkpoint(&self) -> Vec<Checkpoint> {
+        self.iter()
+            .map(|door| Checkpoint {
+                id: door.def.id.clone(),
+                angle: door.angle,
+                open_angle: door.open_angle,
+                phase: door.phase.name().into(),
+                locked: door.locked,
+                obstructed: door.obstructed,
+                reverse_guard: door.reverse_guard,
+            })
+            .collect()
+    }
+    /// # Errors
+    /// Rejects mismatched IDs, phases or out-of-range motion.
+    pub fn restore_checkpoint(&mut self, records: &[Checkpoint]) -> Result<(), String> {
+        if records.len() != self.len() {
+            return Err("Checkpoint door count mismatch".into());
+        }
+        for (door, record) in self.runtimes.iter_mut().zip(records) {
+            if record.id != door.def.id {
+                return Err("Checkpoint door identity mismatch".into());
+            }
+            for angle in [record.angle, record.open_angle] {
+                crate::engine::entities::checkpoint::number(angle, door.def.signed_swing().abs())?;
+            }
+            crate::engine::entities::checkpoint::number(record.reverse_guard, 10.0)?;
+            if record.reverse_guard < 0.0 || record.open_angle.abs() < record.angle.abs() {
+                return Err("Invalid checkpoint door motion".into());
+            }
+            door.phase = match record.phase.as_str() {
+                "closed" => DoorPhase::Closed,
+                "opening" => DoorPhase::Opening,
+                "open" => DoorPhase::Open,
+                "closing" => DoorPhase::Closing,
+                _ => return Err("Invalid checkpoint door phase".into()),
+            };
+            door.angle = record.angle;
+            door.open_angle = record.open_angle;
+            door.locked = record.locked;
+            door.obstructed = record.obstructed;
+            door.reverse_guard = record.reverse_guard;
+        }
+        self.bump();
+        Ok(())
+    }
+}
+
 impl DoorRuntime {
     /// Builds the run-time state for one authored door.
     #[must_use]

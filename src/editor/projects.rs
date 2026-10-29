@@ -308,13 +308,24 @@ fn draw_level(
     ui::popup_button(
         v,
         hits,
-        [238.0, 177.0, 210.0, 13.0],
+        [238.0, 177.0, 102.0, 13.0],
         if doc.level().crosshair {
             "Map crosshair: On"
         } else {
             "Map crosshair: Off"
         },
         Action::MapCrosshair,
+    );
+    ui::popup_button(
+        v,
+        hits,
+        [346.0, 177.0, 102.0, 13.0],
+        if doc.level().saving {
+            "Gameplay saves: On"
+        } else {
+            "Gameplay saves: Off"
+        },
+        Action::MapSaving,
     );
     for (row, (label, action)) in [
         (
@@ -366,6 +377,15 @@ fn draw_level(
 }
 
 impl App {
+    fn toggle_gameplay_saving(&mut self) -> Result<(), String> {
+        let doc = self.document.as_mut().ok_or("Open a project first")?;
+        doc.set_saving(!doc.level().saving)?;
+        self.status="Gameplay saves changed for this level. Disabling prevents checkpoint writes and Continue.".into();
+        self.changed();
+
+        Ok(())
+    }
+
     #[expect(
         clippy::wildcard_enum_match_arm,
         reason = "Only project actions are handled here before the central dispatcher."
@@ -389,6 +409,7 @@ impl App {
                 self.refresh_thumbnail_preview();
                 self.status = "Level image removed; the menu uses its fallback.".into();
             }
+            Action::MapSaving => self.toggle_gameplay_saving()?,
             Action::MapCrosshair => {
                 let doc = self.document.as_mut().ok_or("Open a project first")?;
                 doc.set_crosshair(!doc.level().crosshair)?;

@@ -205,6 +205,20 @@ impl Document {
     /// Changes this map's crosshair default through ordinary undo/save history.
     /// # Errors
     /// Rejects invalid resulting level data.
+    pub fn set_saving(&mut self, enabled: bool) -> Result<(), String> {
+        let mut edited = self.raw().clone();
+        drop(
+            edited
+                .as_object_mut()
+                .ok_or("Invalid level")?
+                .insert("saving".into(), Value::Bool(enabled)),
+        );
+        self.accept_edit(edited)
+    }
+
+    /// Changes this map's crosshair default through ordinary history.
+    /// # Errors
+    /// Rejects invalid resulting level data.
     pub fn set_crosshair(&mut self, enabled: bool) -> Result<(), String> {
         let mut edited = self.selected.raw.clone();
         let object = edited

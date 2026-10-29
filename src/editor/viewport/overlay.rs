@@ -25,7 +25,20 @@ pub(super) fn volumes(level: &crate::engine::level::LevelDef) -> Vec<VolumeGuide
                     min: [x0, bottom, z0],
                     max: [x1, top, z1],
                 },
-                color: [0.3, 0.9, 0.72, 0.06],
+                color: if volume
+                    .bindings
+                    .iter()
+                    .flat_map(|binding| &binding.actions)
+                    .any(|action| {
+                        matches!(
+                            action,
+                            crate::engine::level::ActionDef::SaveCheckpoint { name: _ }
+                        )
+                    }) {
+                    [1.0, 0.75, 0.2, 0.12]
+                } else {
+                    [0.3, 0.9, 0.72, 0.06]
+                },
             }
         })
         .collect();

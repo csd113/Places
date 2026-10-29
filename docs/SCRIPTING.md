@@ -368,3 +368,10 @@ removes its keyed tasks and senses if the NPC still exists. A custom module owns
 execution until the author explicitly selects Use visual. Source files and
 buffers remain retained when execution ownership changes. See
 [the editor workflow](EDITOR.md#event-templates-and-behavior-blocks).
+
+## Gameplay checkpoints (0.13.1)
+
+`api.checkpoint(name)` and `api.resume_checkpoint()` queue current-level shared
+actions. Levels opt in with `saving: true`; every module must supply bounded
+`checkpoint_state()` / `restore_state(saved)` hooks. See [checkpoint authoring,
+supported state and limits](CHECKPOINTS.md). Existing levels remain disabled.

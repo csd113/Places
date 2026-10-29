@@ -20,6 +20,7 @@ pub use config::{
 pub use impacts::{ImpactEvent, SurfaceMaterial};
 pub use recovery::{EscapeReason, RecoveryEvent, RecoveryOutcome};
 pub use trigger_path::ItemTriggerBody;
+pub use world::checkpoint;
 pub use world::{
     BodySnapshot, BodyState, ContactImpulse, ItemPose, ItemWorld, PhysicsStats, PlayerContext,
     ResetReport, SimulationState,

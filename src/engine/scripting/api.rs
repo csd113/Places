@@ -535,6 +535,24 @@ pub(super) fn host<'scope>(
         })?,
     )?;
     api.set(
+        "checkpoint",
+        capability(scope, calls, move |_, value: HostString| {
+            push(
+                queue,
+                limit,
+                ActionDef::SaveCheckpoint {
+                    name: text(value, 80)?,
+                },
+            )
+        })?,
+    )?;
+    api.set(
+        "resume_checkpoint",
+        capability(scope, calls, move |_, ()| {
+            push(queue, limit, ActionDef::ResumeCheckpoint)
+        })?,
+    )?;
+    api.set(
         "reset",
         capability(scope, calls, move |_, ()| {
             push(queue, limit, ActionDef::ResetToStart)

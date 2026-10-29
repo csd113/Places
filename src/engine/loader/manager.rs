@@ -371,6 +371,7 @@ impl LevelManager {
             .map_err(|error| format!("level `{}`: {error}", level.id))?;
         let light_sheets = self.resolve_level_fixture_sheets(&level, None, &materials)?;
         Ok(LoadedLevel {
+            project_id: opened.project_id,
             catalog: Arc::new(self.prop_catalog.clone()),
             level,
             materials,

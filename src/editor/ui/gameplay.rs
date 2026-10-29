@@ -48,6 +48,14 @@ pub(in crate::editor) fn create_popup(vertices: &mut Vec<Vertex>, hits: &mut Vec
     button(
         vertices,
         hits,
+        [140.0, 190.0, 180.0, 12.0],
+        "Checkpoint volume",
+        Action::AddCheckpoint,
+        true,
+    );
+    button(
+        vertices,
+        hits,
         [330.0, 190.0, 50.0, 12.0],
         "Close",
         Action::ClosePopup,

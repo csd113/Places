@@ -27,6 +27,7 @@
 mod ai_runtime;
 mod audio;
 pub mod balloon;
+pub mod checkpoint;
 pub mod components;
 pub mod developer;
 pub mod events;
@@ -127,6 +128,10 @@ pub struct LightResponseObservation<'a> {
 /// One renderer/audio command produced by the world.
 #[derive(Clone, Debug, PartialEq)]
 pub enum WorldCommand {
+    SaveCheckpoint {
+        name: String,
+    },
+    ResumeCheckpoint,
     PlayerForm {
         model: Option<String>,
         scale: f32,
@@ -420,6 +425,7 @@ enum WeatherEndpoints {
 
 /// The whole runtime for one loaded world.
 pub struct EntityWorld {
+    checkpoint_entity_count: usize,
     transition_targets: std::collections::BTreeSet<String>,
     scripts: crate::engine::scripting::ScriptRuntime,
     script_event: Option<EventRecord>,
@@ -552,6 +558,7 @@ impl EntityWorld {
     #[must_use]
     pub fn new() -> Self {
         Self {
+            checkpoint_entity_count: 0,
             transition_targets: std::collections::BTreeSet::new(),
             scripts: crate::engine::scripting::ScriptRuntime::default(),
             script_event: None,
@@ -741,6 +748,7 @@ impl EntityWorld {
         self.rebuild_door_colliders();
         self.rebuild_entity_frames();
         self.queue_initial_audio();
+        self.checkpoint_entity_count = self.store.len();
     }
 
     fn queue_initial_audio(&mut self) {
@@ -889,6 +897,8 @@ impl EntityWorld {
                     | WorldCommand::AiPickup { token: _, item: _ }
                     | WorldCommand::HandoffItem { target: _ }
                     | WorldCommand::RetireHidden { target: _ }
+                    | WorldCommand::SaveCheckpoint { name: _ }
+                    | WorldCommand::ResumeCheckpoint
                     | WorldCommand::ChangeLevel { level: _ }
                     | WorldCommand::EndRun {
                         won: _,
@@ -2493,6 +2503,11 @@ impl EntityWorld {
                     }
                 }
             }
+            ActionDef::SaveCheckpoint { name } => {
+                self.commands
+                    .push(WorldCommand::SaveCheckpoint { name: name.clone() });
+            }
+            ActionDef::ResumeCheckpoint => self.commands.push(WorldCommand::ResumeCheckpoint),
             ActionDef::ChangeLevel { level } => {
                 if self.permits_transition(level)
                     && !self

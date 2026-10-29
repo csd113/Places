@@ -27,6 +27,23 @@ pub(super) struct HeldItem {
     obstructed_seconds: f32,
 }
 
+impl HeldItem {
+    pub(super) const fn checkpoint_rotation(&self) -> [f32; 4] {
+        self.relative_rotation.to_array()
+    }
+    pub(super) fn from_checkpoint(key: u64, rotation: [f32; 4]) -> Self {
+        Self {
+            key,
+            relative_rotation: Quat::from_array(rotation).normalize(),
+            route: None,
+            control_delta: FIXED_STEP,
+            block_dynamic: false,
+            angular_velocity: Vec3::ZERO,
+            obstructed_seconds: 0.0,
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 enum CarryRoute {
     PositiveOrbit,

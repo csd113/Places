@@ -12,6 +12,8 @@ compile_error!(
 );
 
 mod api;
+mod checkpoint;
+pub use checkpoint::Checkpoint;
 mod campaign;
 mod standard;
 mod task_value;
@@ -247,6 +249,18 @@ pub fn check_level(level: &LevelDef) -> Result<(), String> {
     let mut exports = std::collections::BTreeMap::new();
     for source in &level.script_sources {
         drop(exports.insert(source.path.as_str(), handlers(source)?));
+    }
+    if level.saving {
+        for (path, names) in &exports {
+            if !["checkpoint_state", "restore_state"]
+                .iter()
+                .all(|hook| names.iter().any(|name| name == hook))
+            {
+                return Err(format!(
+                    "{path}: saving-enabled scripts require checkpoint_state and restore_state hooks"
+                ));
+            }
+        }
     }
     for (path, handler) in crate::engine::loader::script_calls(level) {
         if !exports

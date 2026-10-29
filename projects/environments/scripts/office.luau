@@ -19,6 +19,16 @@ local function talk(api)
     })
 end
 return {
+    checkpoint_state = function()
+        return {active=active, done=done, page1=received[1], page2=received[2], page3=received[3]}
+    end,
+    restore_state = function(saved)
+        for _, key in {"active", "done", "page1", "page2", "page3"} do
+            if type(saved[key]) ~= "boolean" then error("Invalid office checkpoint state") end
+        end
+        active, done = saved.active, saved.done
+        received = {saved.page1, saved.page2, saved.page3}
+    end,
     start = function(api) done = api.completed("office") end,
     talk = talk,
     hint = function(api) api.message("OFFICE", { "The night archivist waits by reception on the top floor.", "The three loose pages belong in the open waste crate." }) end,

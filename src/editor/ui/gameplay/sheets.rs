@@ -105,7 +105,7 @@ pub(super) fn audio_sheet(
         vertices,
         "Positional off = ambient throughout the level.",
         140.0,
-        156.0,
+        164.0,
         MUTED,
         68,
     );
@@ -258,6 +258,41 @@ pub(super) fn door_sheet(
     );
 }
 
+fn checkpoint_field(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    use crate::editor::document::components::{Field, Kind, Target};
+    let checkpoint = app
+        .document
+        .as_ref()
+        .zip(app.selected)
+        .and_then(|(doc, id)| doc.checkpoint_name(id));
+    if checkpoint.is_some() {
+        super::super::components::field_row(
+            app,
+            vertices,
+            hits,
+            Field::new(
+                Target::Object,
+                "checkpoint_name",
+                "Checkpoint name",
+                Kind::Text,
+                "\"Checkpoint\"",
+            ),
+            0,
+            145.0,
+            240.0,
+        );
+    } else {
+        button(
+            vertices,
+            hits,
+            [140.0, 145.0, 240.0, 11.0],
+            "Use as checkpoint",
+            Action::TriggerCheckpoint,
+            true,
+        );
+    }
+}
+
 pub(super) fn trigger_sheet(
     app: &App,
     vertices: &mut Vec<Vertex>,
@@ -266,6 +301,7 @@ pub(super) fn trigger_sheet(
     _page: usize,
 ) {
     use crate::editor::document::components::{Field, Kind, Target};
+    checkpoint_field(app, vertices, hits);
     let filter = object.and_then(|record| record.get("filter"));
     let kind = filter
         .and_then(|record| record.get("kind"))
@@ -326,17 +362,17 @@ pub(super) fn trigger_sheet(
     );
     text(
         vertices,
-        "Exact item and held policy compose independently.",
+        "Checkpoints save once on each eligible entry.",
         140.0,
-        156.0,
+        164.0,
         MUTED,
         68,
     );
     text(
         vertices,
-        "Settled centre requires released, sleeping item.",
+        "Level setting: Project > Gameplay saves.",
         140.0,
-        168.0,
+        176.0,
         MUTED,
         68,
     );

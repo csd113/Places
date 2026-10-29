@@ -1,5 +1,12 @@
 ## 0.13.1 — Unreleased
 
+- Add optional per-level gameplay checkpoints with editor volumes, shared script
+  actions, compatible Continue/Start new choices and bounded atomic local saves.
+  Restore authored gameplay and explicit script state through stable identities;
+  retain disabled-by-default maps and clear unsupported-state refusals. See
+  [the persistence contract](docs/CHECKPOINTS.md) and
+  [Windows validation](docs/reports/checkpoints-0.13.1-windows.md).
+
 - Keep loading UI/event pumping active during first-use world shader preparation.
   Preserve actual milestone progress, main-thread presentation and offline builds.
   See [Windows startup evidence and limits](docs/reports/startup-0.13.1-windows.md).

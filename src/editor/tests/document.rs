@@ -557,3 +557,34 @@ fn acoustic_authoring_save_undo_and_reopen_preserve_exact_coefficients() -> Resu
     assert_eq!(reopened.level().acoustic_materials.len(), 1);
     Ok(())
 }
+
+// Essential authoring contract: one trigger/option edit, no assets or bake.
+// Guards the new checkpoint action and level switch through ordinary history and disk.
+#[test]
+fn checkpoint_authoring_retains_level_policy_and_action_through_history_and_reopen()
+-> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut doc = Document::open(&fixture.0)?;
+    doc.set_saving(true)?;
+    let id = doc.add_checkpoint([2.0, 0.0, 2.0])?;
+    doc.set_checkpoint_name(id, "Reception")?;
+    assert_eq!(
+        doc.checkpoint_name(id),
+        Some("Reception"),
+        "checkpoint action carries its readable name"
+    );
+    assert!(doc.undo(), "name edit participates in ordinary undo");
+    assert!(doc.redo(), "name edit participates in ordinary redo");
+    doc.save()?;
+    let reopened = Document::open(&fixture.0)?;
+    assert!(
+        reopened.level().saving,
+        "per-level option survives source persistence"
+    );
+    assert_eq!(
+        reopened.checkpoint_name(id),
+        Some("Reception"),
+        "checkpoint source survives reopen"
+    );
+    Ok(())
+}

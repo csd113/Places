@@ -1,7 +1,8 @@
 //! Power gating composes existing prepared circuit contributions with flicker.
 use super::{EntityHandle, EntityWorld, LevelDef};
 
-enum Power {
+#[derive(Clone, Copy, serde::Serialize, serde::Deserialize)]
+pub(super) enum Power {
     InitiallyOff,
     On,
     Off,
@@ -10,7 +11,7 @@ enum Power {
 pub(super) struct CircuitPower {
     pub members: Vec<EntityHandle>,
     pub switches: Vec<EntityHandle>,
-    power: Power,
+    pub power: Power,
     pub requested: bool,
     pub authored: bool,
 }

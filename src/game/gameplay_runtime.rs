@@ -69,6 +69,11 @@ impl Runtime {
         }
     }
 
+    pub(crate) const fn adopt_world_reset_counters(&mut self, game: &Game) {
+        self.last_reset_count = game.reset_count();
+        self.last_world_reset_count = game.world_reset_count();
+    }
+
     pub(crate) const fn reset_map_presentation(&mut self) {
         self.crosshair_override = None;
     }

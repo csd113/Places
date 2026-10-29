@@ -80,6 +80,11 @@ impl Document {
     }
 
     pub(crate) fn component_value(&self, id: ObjectId, field: Field) -> Value {
+        if field.key == "checkpoint_name" {
+            return self
+                .checkpoint_name(id)
+                .map_or(Value::Null, |name| json!(name));
+        }
         let object = match field.target {
             Target::Map => Some(self.raw()),
             Target::Spawn => self.raw().get("spawn"),
@@ -113,6 +118,9 @@ impl Document {
         field: Field,
         text: &str,
     ) -> Result<(), String> {
+        if field.key == "checkpoint_name" {
+            return self.set_checkpoint_name(id, text);
+        }
         let value = values::parse(field, text)?;
         if field.target == Target::NewState {
             return self.add_state(id, text);

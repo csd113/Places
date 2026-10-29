@@ -708,6 +708,12 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         "collision".to_string(),
         "navigation".to_string(),
     ];
+    if level.saving
+        || !level.script_sources.is_empty()
+        || crate::engine::loader::validation_has_checkpoints(&level)
+    {
+        required.push("gameplay-checkpoints-v1".to_string());
+    }
     if !level.script_sources.is_empty() {
         required.push("luau-v1".to_string());
         required.push("campaign-progress-v1".to_string());
@@ -1226,6 +1232,7 @@ impl CaptureContext {
             &materials,
         )?;
         let loaded = crate::engine::loader::LoadedLevel {
+            project_id: None,
             package_identity: None,
             catalog: Arc::new(catalog.clone()),
             level: level.clone(),

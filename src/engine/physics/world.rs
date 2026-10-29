@@ -33,6 +33,9 @@ use super::trigger_path::{ItemTriggerBody, TriggerPath};
 use super::water::{WaterBody, WaterWork};
 use super::{FIXED_STEP, GRAVITY, MAX_BODIES};
 
+#[path = "checkpoint.rs"]
+pub mod checkpoint;
+
 const MAX_SUBSTEPS: usize = 12;
 const MAX_FRAME_SECONDS: f32 = 0.1;
 const MAX_IMPACTS: usize = 32;

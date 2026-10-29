@@ -7,6 +7,7 @@ use crate::engine::level::{LevelDef, LevelSurfaces};
 use super::objects::{array_mut, object_mut, set_number, set_position};
 use super::{ObjectId, ObjectInfo, ObjectKind, Transform};
 mod behavior;
+mod checkpoints;
 mod properties;
 mod shadow_only;
 mod triggers;

@@ -1049,6 +1049,10 @@ pub enum ActionDef {
     },
     /// Return the player to the level's authored spawn and re-arm triggers.
     ResetToStart,
+    /// Request a stable end-of-frame checkpoint in this enabled level.
+    SaveCheckpoint { name: String },
+    /// Reload this level's last compatible checkpoint through the normal loader.
+    ResumeCheckpoint,
     /// Select a measured prop form; null restores the human body after clearance.
     PlayerForm {
         model: Option<String>,
@@ -1178,6 +1182,8 @@ impl ActionDef {
                 title: _,
                 detail: _,
             } => "end_run",
+            Self::SaveCheckpoint { name: _ } => "save_checkpoint",
+            Self::ResumeCheckpoint => "resume_checkpoint",
             Self::ChangeLevel { level: _ } => "change_level",
             Self::RunScript {
                 script: _,
@@ -1373,6 +1379,8 @@ impl ActionDef {
             | Self::Blood { emission: _ }
             | Self::PlayerForm { model: _, scale: _ }
             | Self::ResetToStart
+            | Self::SaveCheckpoint { name: _ }
+            | Self::ResumeCheckpoint
             | Self::ResetPhysicsGroup { group: _ }
             | Self::ActivatePhysicsGroup { group: _ }
             | Self::ToggleWeather
@@ -7407,6 +7415,9 @@ const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
+    /// Opt-in local gameplay checkpoints. Omission preserves fresh-run behavior.
+    #[serde(default, skip_serializing_if = "bool_is_false")]
+    pub saving: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub acoustic_materials: crate::engine::audio::acoustics::AcousticMaterials,
     /// The authored gameplay needs Full prepared illumination (for example,

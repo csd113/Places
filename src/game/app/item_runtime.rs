@@ -59,8 +59,8 @@ pub struct Items {
 /// Prepared on the single loading worker. Cancellation drops this entire new
 /// physics world while the displayed world's simulation remains owned by Items.
 pub struct PreparedItems {
-    world: crate::engine::physics::ItemWorld,
-    authored: Vec<(u64, String, String)>,
+    pub(super) world: crate::engine::physics::ItemWorld,
+    pub(super) authored: Vec<(u64, String, String)>,
     carry: super::carry_runtime::CarryRuntime,
     spawns: Vec<(u64, usize, [f32; 3])>,
 }

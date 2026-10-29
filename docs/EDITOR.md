@@ -939,3 +939,9 @@ profile or tunnels) require restoring the carrier or detaching before a linked
 update. Surface and furnishing overrides retain their ordinary three-way merge.
 This explicit refusal prevents updating children against the source's old carrier
 frame after an instance room was independently reshaped.
+
+## Gameplay checkpoints
+
+Each level defaults to Gameplay saves: Off in Project. Add to scene > Checkpoint
+volume creates a named amber trigger; ordinary selection/transform, Events/actions,
+undo/save/reopen and Play apply. See [the supported persistence contract](CHECKPOINTS.md).

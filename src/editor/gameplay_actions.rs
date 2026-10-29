@@ -57,6 +57,8 @@ impl App {
     )]
     pub(super) fn gameplay_action(&mut self, action: Action) -> Result<bool, String> {
         match action {
+            Action::AddCheckpoint => self.add_checkpoint_tool()?,
+            Action::TriggerCheckpoint => self.set_trigger_checkpoint()?,
             Action::MountSurface => {
                 self.document
                     .as_mut()
@@ -145,6 +147,41 @@ impl App {
             _ => return Ok(false),
         }
         Ok(true)
+    }
+
+    fn add_checkpoint_tool(&mut self) -> Result<(), String> {
+        let doc = self.document.as_mut().ok_or("Open a project first")?;
+        let mut position = self.viewport.target();
+        position[1] = LevelSurfaces::new(doc.level())
+            .floor_y_at(position[0], position[2])
+            .ok_or("Place checkpoints over a supported room floor")?;
+        self.selected = Some(doc.add_checkpoint(position)?);
+        self.changed();
+        self.popup = Some(Popup::Gameplay { page: 0 });
+        self.status="Checkpoint volume added. Resize/move normally; enable Gameplay saves in Project for this level.".into();
+
+        Ok(())
+    }
+
+    fn set_trigger_checkpoint(&mut self) -> Result<(), String> {
+        let id = self.selected.ok_or("Select a trigger")?;
+        let doc = self.document.as_mut().ok_or("Open a project")?;
+        if !matches!(id, ObjectId::Trigger(_)) {
+            return Err("Select a trigger".into());
+        }
+        if doc.checkpoint_name(id).is_none() {
+            let name = doc
+                .component_object(id)
+                .and_then(|object| object.get("id"))
+                .and_then(Value::as_str)
+                .unwrap_or("Checkpoint")
+                .to_string();
+            doc.add_trigger_action(id, json!({"action":"save_checkpoint","name":name}))?;
+        }
+        self.changed();
+        self.popup = Some(Popup::Gameplay { page: 0 });
+
+        Ok(())
     }
 
     pub(super) fn gameplay_choices(&self, choice: GameplayChoice) -> std::rc::Rc<[String]> {

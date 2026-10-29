@@ -1505,7 +1505,12 @@ fn validate_action(
                 );
             }
         }
-        ActionDef::ResetToStart => {}
+        ActionDef::ResetToStart | ActionDef::ResumeCheckpoint => {}
+        ActionDef::SaveCheckpoint { name } => {
+            if name.is_empty() || name.len() > 80 || name.chars().any(char::is_control) {
+                return Err("Checkpoint name requires 1..=80 printable bytes".into());
+            }
+        }
         ActionDef::ResetPhysicsGroup { group } | ActionDef::ActivatePhysicsGroup { group } => {
             crate::engine::physics::config::validate_reset_group(group)?;
             if !index.physics_reset_groups.contains(group.as_str()) {
@@ -2951,4 +2956,16 @@ pub fn script_calls(level: &LevelDef) -> Vec<(&crate::engine::project::ProjectPa
         }
     }
     calls
+}
+
+pub fn validation_has_checkpoints(level: &LevelDef) -> bool {
+    let checkpoint = |action: &ActionDef| {
+        matches!(
+            action,
+            ActionDef::SaveCheckpoint { name: _ } | ActionDef::ResumeCheckpoint
+        )
+    };
+    authored_bindings(level).iter().any(|record| record.bindings.iter().any(|binding|binding.actions.iter().any(checkpoint)))
+        || level.effects.iter().any(|effect|effect.bindings.iter().any(|binding|binding.actions.iter().any(checkpoint)))
+        || level.sequences.iter().any(|sequence|sequence.steps.iter().any(|step|matches!(step,crate::engine::entities::sequences::SequenceStepDef::Action {action} if checkpoint(action))))
 }

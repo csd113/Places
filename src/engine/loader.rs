@@ -8,6 +8,7 @@ mod manager;
 pub use manager::LevelManager;
 mod validation;
 pub(super) use validation::props::validate_prop_physics;
+pub(crate) use validation::validation_has_checkpoints;
 pub use validation::{MAX_LIFETIME_SECONDS, validate_level};
 pub(crate) use validation::{point_buried_in_wall, script_calls};
 
@@ -58,6 +59,8 @@ pub struct LevelEntry {
 /// drawing the shared untextured white sheet.
 #[derive(Clone, Debug)]
 pub struct LoadedLevel {
+    /// Project scope captured with the loaded semantics, never inferred from a replacement file.
+    pub project_id: Option<String>,
     /// Canonical manifest identity read with these semantics. Compiler capture
     /// worlds have no package yet; runtime worlds always carry this identity.
     pub package_identity: Option<String>,

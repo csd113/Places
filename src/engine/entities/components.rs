@@ -288,7 +288,7 @@ pub struct Collider {
 }
 
 /// Playback state of one named clip.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Animation {
     /// Clip name resolved against the model's animation set.
     pub clip: String,

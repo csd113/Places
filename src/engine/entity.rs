@@ -37,7 +37,7 @@ use crate::engine::level::{
 use crate::engine::logging;
 
 /// One explicit pose request for an entity-driven character.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum PoseCue {
     /// Loop the rig's idle clip (or the first clip / procedural idle).
     Idle,
@@ -276,7 +276,7 @@ impl EntityRoutes {
 }
 
 /// One route's deterministic runtime state.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RouteState {
     /// Current base position (feet on the resolved walkable floor).
     pub position: Vec3,

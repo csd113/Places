@@ -210,15 +210,32 @@ fn row(index: usize, label: String, value: String, top: f32, height: f32) -> Men
     }
 }
 
-/// All selectable rows, including pinned trailing actions and scroll controls.
-#[must_use]
-pub fn menu_layout(
-    state: AppState,
-    ui: &UiState,
-    settings: &Settings,
-    display: &DisplayStatus,
-) -> MenuLayout {
-    let mut layout = MenuLayout {
+fn checkpoint_layout(ui: &UiState) -> Option<MenuLayout> {
+    let mut layout = MenuLayout::default();
+    if let Some((_, available)) = &ui.resume_offer {
+        layout.details = false;
+        layout.details_available = None;
+        for (index, label) in ["Continue checkpoint", "Start new", "Back"]
+            .into_iter()
+            .enumerate()
+        {
+            let mut entry = row(
+                index,
+                label.into(),
+                String::new(),
+                row_y(index, 27.0, 121.0),
+                22.0,
+            );
+            entry.enabled = index != 0 || *available;
+            layout.rows.push(entry);
+        }
+        return Some(layout);
+    }
+    None
+}
+
+fn base_layout(state: AppState, ui: &UiState) -> MenuLayout {
+    MenuLayout {
         rebinding: ui.rebinding_action.is_some(),
         loading: ui.loading_map,
         details: state == AppState::LevelSelect && ui.details_open.is_some(),
@@ -234,7 +251,21 @@ pub fn menu_layout(
             None
         },
         ..MenuLayout::default()
-    };
+    }
+}
+
+/// All selectable rows, including pinned trailing actions and scroll controls.
+#[must_use]
+pub fn menu_layout(
+    state: AppState,
+    ui: &UiState,
+    settings: &Settings,
+    display: &DisplayStatus,
+) -> MenuLayout {
+    let mut layout = base_layout(state, ui);
+    if let Some(resume) = checkpoint_layout(ui) {
+        return resume;
+    }
     match state {
         AppState::Playing => {}
         AppState::MainMenu => {
@@ -378,6 +409,9 @@ fn settings_layout(
 }
 
 const fn selected_index(state: AppState, ui: &UiState) -> usize {
+    if ui.resume_offer.is_some() {
+        return ui.resume_index;
+    }
     match state {
         AppState::MainMenu => ui.main_menu_idx,
         AppState::LevelSelect => ui.level_select_idx,
@@ -498,7 +532,9 @@ fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, u
         } else {
             TEXT
         };
-        let has_icon = state == AppState::LevelSelect && entry.index < ui.level_entries.len();
+        let has_icon = state == AppState::LevelSelect
+            && ui.resume_offer.is_none()
+            && entry.index < ui.level_entries.len();
         if has_icon {
             draw_icon_fallback(vertices, entry);
         }
@@ -525,7 +561,7 @@ fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, u
             let main = state == AppState::MainMenu;
             let width = if main {
                 140.0
-            } else if state == AppState::LevelSelect {
+            } else if state == AppState::LevelSelect && ui.resume_offer.is_none() {
                 126.0
             } else if entry.value.is_empty() {
                 360.0
@@ -779,24 +815,42 @@ fn description(
     }
 }
 
-pub(super) fn geometry(
+fn checkpoint_geometry(
     state: AppState,
     ui: &UiState,
     settings: &Settings,
     display: &DisplayStatus,
-    version: &str,
-    drawable: DrawableSize,
 ) -> Vec<Vertex> {
-    if ui.loading_map {
-        return loading(ui, version);
-    }
-    if state == AppState::Playing {
-        return Vec::new();
-    }
     let mut vertices = Vec::new();
-    if state == AppState::MainMenu {
-        return main_geometry(ui, settings, version, drawable);
+    if let Some((message, _)) = &ui.resume_offer {
+        panel(
+            &mut vertices,
+            "CONTINUE YOUR VISIT",
+            "Start new keeps the old save until another checkpoint.",
+            false,
+        );
+        for (index, line) in wrap(message, 60).iter().take(4).enumerate() {
+            draw_text(
+                &mut vertices,
+                line,
+                36.0,
+                row_y(index, 11.0, 64.0),
+                0.875,
+                MUTED,
+            );
+        }
+        draw_rows(
+            &mut vertices,
+            &menu_layout(state, ui, settings, display),
+            state,
+            ui,
+        );
+        return vertices;
     }
+    vertices
+}
+
+fn screen_titles(state: AppState, ui: &UiState) -> (&str, &str) {
     let (title, subtitle) = match state {
         AppState::MainMenu => ("Places", "an experience"),
         AppState::Paused => (
@@ -822,6 +876,31 @@ pub(super) fn geometry(
         ),
         AppState::Playing => ("", ""),
     };
+    (title, subtitle)
+}
+
+pub(super) fn geometry(
+    state: AppState,
+    ui: &UiState,
+    settings: &Settings,
+    display: &DisplayStatus,
+    version: &str,
+    drawable: DrawableSize,
+) -> Vec<Vertex> {
+    if ui.loading_map {
+        return loading(ui, version);
+    }
+    if state == AppState::Playing {
+        return Vec::new();
+    }
+    let mut vertices = Vec::new();
+    if state == AppState::MainMenu {
+        return main_geometry(ui, settings, version, drawable);
+    }
+    if ui.resume_offer.is_some() {
+        return checkpoint_geometry(state, ui, settings, display);
+    }
+    let (title, subtitle) = screen_titles(state, ui);
     panel(&mut vertices, title, subtitle, state == AppState::MainMenu);
     let layout = menu_layout(state, ui, settings, display);
     draw_rows(&mut vertices, &layout, state, ui);
@@ -1084,6 +1163,10 @@ impl UiState {
         }
     }
     pub const fn select_menu_index(&mut self, state: AppState, index: usize) {
+        if self.resume_offer.is_some() {
+            self.resume_index = if index > 2 { 2 } else { index };
+            return;
+        }
         match state {
             AppState::MainMenu => self.main_menu_idx = index,
             AppState::LevelSelect => self.level_select_idx = index,

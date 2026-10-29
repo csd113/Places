@@ -86,6 +86,52 @@ pub struct Timers {
     index: HashMap<String, usize>,
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Checkpoint {
+    id: String,
+    remaining: f32,
+    running: bool,
+    fires: u64,
+    period: f32,
+    repeat: bool,
+}
+impl Timers {
+    #[must_use]
+    pub fn checkpoint(&self) -> Vec<Checkpoint> {
+        self.iter()
+            .map(|timer| Checkpoint {
+                id: timer.def.id.clone(),
+                remaining: timer.remaining,
+                running: timer.running,
+                fires: timer.fires,
+                period: timer.period,
+                repeat: timer.repeat,
+            })
+            .collect()
+    }
+    /// # Errors
+    /// Rejects mismatched IDs and invalid countdowns before the private world commits.
+    pub fn restore_checkpoint(&mut self, records: &[Checkpoint]) -> Result<(), String> {
+        if records.len() != self.len() {
+            return Err("Checkpoint timer count mismatch".into());
+        }
+        for (timer, record) in self.timers.iter_mut().zip(records) {
+            super::checkpoint::number(record.period, 10_000_000.0)?;
+            super::checkpoint::number(record.remaining, record.period)?;
+            if timer.def.id != record.id || record.period <= 0.0 || record.remaining < 0.0 {
+                return Err("Invalid checkpoint timer".into());
+            }
+            timer.remaining = record.remaining;
+            timer.running = record.running;
+            timer.fires = record.fires;
+            timer.period = record.period;
+            timer.repeat = record.repeat;
+        }
+        Ok(())
+    }
+}
+
 impl Timers {
     /// An empty timer set.
     #[must_use]

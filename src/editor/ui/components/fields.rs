@@ -331,6 +331,7 @@ pub(super) fn source(index: usize) -> Vec<F> {
 }
 pub(super) fn map() -> Vec<F> {
     vec![
+        F::new(T::Map, "saving", "Gameplay saves", K::Bool, "false"),
         F::new(T::Spawn, "x", "Player spawn X", K::Number, "0.0"),
         F::new(T::Spawn, "z", "Player spawn Z", K::Number, "0.0"),
         F::new(

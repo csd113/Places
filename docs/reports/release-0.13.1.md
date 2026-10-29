@@ -880,3 +880,29 @@ and local receipts. Engine-source hashing conservatively makes older packages
 stale for --require-current; integrity/runtime loading pass, no check was
 bypassed and no shipped map was rebaked. The exact approved FPS report commit
 was normally pushed; UI/startup commits remain local. Mac stays deferred.
+
+
+## Optional per-level gameplay checkpoints (Windows)
+
+Gameplay saving is independently opt-in per level, with ordinary editor trigger
+volumes and explicit Luau actions. Existing shipped maps stay disabled. One local
+checkpoint restores supported authored state and explicit script closure data,
+with identity/content checks, bounded atomic storage/recovery and cancellable
+private reconstruction. Start new retains the previous checkpoint until the next
+successful save. Unsupported gameplay states refuse capture with named feedback.
+
+The [contract](../CHECKPOINTS.md) and [Windows report](checkpoints-0.13.1-windows.md)
+record source authoring, persistence boundaries and final acceptance evidence.
+Engine/source changes make prior packages stale for require-current; prior
+completed packages remain preserved and only tiny checkpoint fixtures are baked.
+Final production regeneration follows the remaining source queue. Mac remains
+explicitly deferred; FPS optimization and Hub wall-sign work have not begun.
+
+
+Checkpoint acceptance: final strict debug/release Clippy, locked production build,
+390 Rust regressions, 371 Python checks (18 expected skips), asset checks and the
+production Luau boundary verifier pass. Native Windows coverage verifies real
+restart restoration, editor build/Play activation, disabled and changed-content
+policies, corrupt recovery, atomic failure and canceled/failed-load rollback.
+Exact state/identity witnesses and the excluded shared editor trace are recorded
+in the checkpoint report; accepted artifacts and custody remain outside target.

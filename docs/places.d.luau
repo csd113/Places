@@ -27,6 +27,8 @@ export type Api = {
     navigate: (id: string, x: number, y: number, z: number) -> (),
     message: (title: string, lines: {string}) -> (),
     finish: (won: boolean, title: string, detail: string) -> (),
+    checkpoint: (name: string) -> (),
+    resume_checkpoint: () -> (),
     reset: () -> (),
     change_level: (id: string) -> (),
     exists: (id: string) -> boolean,
@@ -43,3 +45,8 @@ export type Api = {
 }
 export type Handler = (api: Api, event: Event) -> ()
 export type Module = {[string]: Handler}
+
+-- Gameplay checkpoint host calls (only effective when the current level opts in):
+-- api.checkpoint(name: string) -> ()
+-- api.resume_checkpoint() -> ()
+-- Saving-enabled modules export checkpoint_state() -> scalar table and restore_state(saved) -> ().
