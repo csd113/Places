@@ -820,3 +820,28 @@ gate logs and `sha256.json` retain exact identities outside target. Historical
 `interruption-final.json`, `progress-reconciliation.json`, `resumption-diagnosis.json`
 and `persistence-preflight/accepted.json` preserve the recovery audit. Initial failed
 controller recipes and interrupted outputs are retained and excluded from acceptance.
+
+
+## Final Windows FPS attribution (phase 10)
+
+The [ranked attribution report](fps-attribution-0.13.1-windows.md) records eight
+qualified native pairs on the Razer: three each for Hollow trees and close
+Arcade cabinets, two for Arcade planar reflections. Median paired GPU elapsed
+mean costs are 13.335, 6.114 and 1.646 ms respectively. These are controlled
+render-removal costs, not implemented quality-preserving improvements. Tree and
+cabinet frame-time tails improve; reflection removal improves means but worsens
+whole-loop tails. Smaller Pool/Backrooms effects remain screening/inconclusive.
+
+Four diagnostic runs identify a 3.4-3.5 ms Hollow character-lighting CPU floor;
+idle item physics is small. Existing current packages/binaries are reused; no
+Rust source, map, asset or shipping default changes, rebuild or rebake occurs.
+Raw evidence, hashes, reproduction plans and custody are retained under
+`local/verification-0.13.1-attribution/`, outside target. Exact-source phase-9 CI
+40817629130 passed; 15 benchmark-metric regressions pass.
+
+Connor explicitly defers native Mac validation until requested later; it remains
+unverified, not an immediate access blocker. Follow-on work is queued in order:
+cohesive NPC-subtitle/loading/level-grid UI; per-level optional save/checkpoints;
+automatic measured-target optimization preserving visual quality; existing Hub
+wall-sign editor authoring. No such implementation, release upload, tag or main
+merge is part of this attribution task.
