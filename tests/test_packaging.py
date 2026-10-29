@@ -82,6 +82,8 @@ class PackageDestinationGuardTests(unittest.TestCase):
             (source / 'assets/completed-models.json').write_text('{"authoring": "only"}')
             (source / 'assets/shared/branding').mkdir()
             (source / 'assets/shared/branding/places.png').write_bytes(b'source artwork')
+            (source / 'assets/environments/source.blend').write_bytes(b'unique model authoring source')
+            (source / 'assets/environments/CABINET_ARTWORK_PROMPTS.md').write_text('source prompts')
             # Even an existing optional package is excluded unless requested.
             (source / 'assets/levels/unselected.placesmap').write_bytes(b'not a map')
             player = source / 'target/release/places'
@@ -106,6 +108,8 @@ class PackageDestinationGuardTests(unittest.TestCase):
                                  janitor.read_bytes())
                 self.assertFalse((payload / 'assets/completed-models.json').exists())
                 self.assertFalse((payload / 'assets/shared/branding').exists())
+                self.assertFalse((payload / 'assets/environments/source.blend').exists())
+                self.assertFalse((payload / 'assets/environments/CABINET_ARTWORK_PROMPTS.md').exists())
                 self.assertFalse((payload / 'levels').exists(), 'writable levels belong in user storage')
                 self.assertEqual((payload / 'docs/INSTALLATION.md').read_text(), 'installation fixture')
                 self.assertEqual(list(payload.rglob('*.placesmap')), [])

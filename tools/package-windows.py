@@ -125,7 +125,8 @@ def main() -> int:
             shutil.copyfile(ROOT/'assets'/name, assets/name)
         for name in ('audio', 'shared', 'environments', 'entities', 'diagnostic', 'janitor_closet'):
             shutil.copytree(ROOT/'assets'/name, assets/name,
-                            ignore=shutil.ignore_patterns('*_master.png', '__pycache__'))
+                            ignore=shutil.ignore_patterns('*_master.png', '*.blend', '*.blend1',
+                                                         'CABINET_ARTWORK_PROMPTS.md', '__pycache__'))
         if args.with_editor:
             shutil.copytree(ROOT/'assets/editor', assets/'editor')
         branding = assets/'shared/branding'

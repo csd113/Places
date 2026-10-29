@@ -221,7 +221,7 @@ diagnostics occurred. Full lightmaps were resident. The crate/floor illumination
 and real shadow changed with the prepared contribution, beyond the fixture face.
 The many-light floor/crate capture mean changed from 63.23 to 0.19 display-code
 units; the single-light off view retained 40.39 from the unaffected fixture.
-These are functional visual witnesses at 960×600 with Fifo, not FPS measurements.
+These are functional visual witnesses at 960Ã—600 with Fifo, not FPS measurements.
 
 The room preview solved 17,089 texels in
 901.5 ms and became ready in
@@ -245,11 +245,11 @@ from these timed cohorts. Values below are medians; CPU is process user+kernel
 time and memory is peak working set. Earlier build-contended exploratory worker
 sweeps are retained separately and do not establish gains or an optimal worker count.
 
-| Bounded source | Wall seconds before → after | CPU seconds before → after | Peak MiB before → after |
+| Bounded source | Wall seconds before â†’ after | CPU seconds before â†’ after | Peak MiB before â†’ after |
 |---|---:|---:|---:|
-| `material_transport` | 15.047 → 15.146 | 98.234 → 98.016 | 239.9 → 239.8 |
-| `architecture_after` | 47.596 → 47.947 | 463.766 → 464.594 | 285.6 → 285.2 |
-| `circuit_range` | 20.133 → 18.823 | 198.453 → 184.156 | 217.8 → 217.8 |
+| `material_transport` | 15.047 â†’ 15.146 | 98.234 â†’ 98.016 | 239.9 â†’ 239.8 |
+| `architecture_after` | 47.596 â†’ 47.947 | 463.766 â†’ 464.594 | 285.6 â†’ 285.2 |
+| `circuit_range` | 20.133 â†’ 18.823 | 198.453 â†’ 184.156 | 217.8 â†’ 217.8 |
 
 The circuit fixture derives from the native two-room scene: two near members and
 one independently prepared outside circuit, no unswitched emitters, and bounded
@@ -269,11 +269,11 @@ refinement only when a conservative spatial bound proves no emitter reaches it,
 and omit visibility tests whose unoccluded support cannot improve the current max.
 The implementation retains the exact accepted CPU visibility and shadow path.
 
-| Source | Direct visibility seconds before → after | Indirect seconds before → after | After reflection capture s | After compression/publication s |
+| Source | Direct visibility seconds before â†’ after | Indirect seconds before â†’ after | After reflection capture s | After compression/publication s |
 |---|---:|---:|---:|---:|
-| `material_transport` | 4.003 → 4.030 | 4.512 → 4.581 | 5.338 | 0.051 |
-| `architecture_after` | 17.005 → 17.190 | 21.639 → 21.521 | 5.952 | 0.121 |
-| `circuit_range` | 4.730 → 3.572 | 13.013 → 12.903 | 0.000 | 0.063 |
+| `material_transport` | 4.003 â†’ 4.030 | 4.512 â†’ 4.581 | 5.338 | 0.051 |
+| `architecture_after` | 17.005 â†’ 17.190 | 21.639 â†’ 21.521 | 5.952 | 0.121 |
+| `circuit_range` | 4.730 â†’ 3.572 | 13.013 â†’ 12.903 | 0.000 | 0.063 |
 
 Material transport has 1,498 triangles but 201,642 receivers, approximately
 73.7 million counted direct rays and 25.8 million nominal bounce slots. Architecture
@@ -374,7 +374,7 @@ later. No HVAC/assets, prefab, runtime water/stair/draw-distance work was absorb
 
 Phase 6 is integrated and accepted on the Razer. The 25 cloud-authored Blender
 4.3.2/GIMP 3.0.4 models retain their original GLB and native 256-square atlas bytes.
-They total 11,764 triangles, 156–1,464 per model. The catalog adds 25 prop entries
+They total 11,764 triangles, 156â€“1,464 per model. The catalog adds 25 prop entries
 and five operational fixture entries, reaching 674 assets / 417 placeable entries
 across the existing ten themes. Existing janitor cart, supply box, two bottles,
 mop bucket and mop are reused byte-for-byte, with six native inspection captures.
@@ -691,3 +691,132 @@ Compiler children ran BelowNormal where observed; game/editor were Normal.
 The interrupted initial release run and superseded exploratory recipes are retained
 and excluded from acceptance. Main/v0.13.0, Mac validation, phase 9, full FPS
 attribution and release publication are outside this phase.
+
+
+## Split distribution preparation (phase 9, Windows accepted)
+
+The local Windows game/editor/compiler package and one shared levels-only ZIP
+are prepared and accepted on the Windows host. The separately built native Mac
+game/editor/compiler package remains required; the Mac is offline. These are
+unreleased local artifacts. No release asset upload, main merge or tag is part
+of this work. Existing 0.13.0 downloads remain unchanged.
+
+Each application distribution bundles its prepared live menu and shared runtime
+resources, with no gameplay archives. The levels ZIP contains exactly seven
+project packages, 18 member maps and 36 Static/Full variants. Home remains in the
+nine-member Quiet Collection; all four Beam chapters remain together. Annex
+source is preserved and excluded, along with development fixtures. Blender
+sources/backups, master artwork and the cabinet prompt document are excluded
+from application staging while repository originals remain intact.
+
+### Artifacts and source currency
+
+| Local ZIP | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `Places-0.13.1-Windows.zip` | 230,977,355 | `85d4ddb23898a4719d1e480ed7335d652f5aa0ededea92baf89e404a9bd227d3` |
+| `Places-0.13.1-Levels.zip` | 767,680,764 | `538919060086b7643606e9c50c83a8d67d67d7525c55d483522433fd0cd2a141` |
+
+The Windows clean extraction contains 1,559 files / 315,821,605
+bytes, all three EXEs, six runtime DLLs and their notices, and zero gameplay
+packages. Every payload hash remains unchanged after native acceptance. Its
+bundled current menu is 16,490,613 bytes, SHA-256 `9eb71369668ab39f88ec569bc700efe5c14afba0d8c3dfe76cf39ef0f09bbd37`.
+
+| Gameplay package | Members | Bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| `backrooms.placesmap` | 1 | 170,399,242 | `2a240f79cfcb46a8c79c5cedc9cb5113b36d40f2209b8f529adf81584eb99897` |
+| `environments.placesmap` | 9 | 436,882,001 | `749c9f3e45120d7c72416891dd5d4f5965739dc88b60b5827f06fb1e33ac28f5` |
+| `beam.placesmap` | 4 | 56,640,458 | `183d6d36728553b97d2cf8b0612da7107196ff29d9f69334f4ca20ff31115e3a` |
+| `closing-time.placesmap` | 1 | 33,771,627 | `9a0a5b23c1efbacfd85e7cd8bfcfa692f796d10575df3b622bc7e3b89eaa21ea` |
+| `one-guest-too-many.placesmap` | 1 | 14,811,117 | `71140cbeeca4b50c7b226cc2c84253a467e822d26cafbb8ba33f501902eff0fb` |
+| `shape-of-an-exit.placesmap` | 1 | 10,719,538 | `e61cd8a0c19fc7f6411e6a1525cbb15c1625d823265df50148dea129eff0abe0` |
+| `after-hours-rooms-beyond.placesmap` | 1 | 44,447,158 | `e39f041b94819d98dfd9f1556932834c907f1ddd186185d5a5874519f3541942` |
+
+Currency inspection found no current artifact among 69 distinct retained
+gameplay candidates. The latest exports of every release project, plus the menu,
+reported changed compiler preparation code; older candidates also had source or
+dependency differences. Those required outputs were rebuilt sequentially with
+eight BelowNormal compiler workers. Every final package passes native integrity
+and dependency validation, and every member passes `verify --require-current`
+against maintained source. All 36 variants have intact Static/Full records;
+Full variants contain lightmaps without a fallback. `LEVELS.json` records exact
+compiler/catalog identities, source hashes and membership. The outer ZIP stores
+each already-compressed package unchanged and contains no applications or shared
+runtime assets. No source map was edited.
+
+`tools/package-levels.py` enforces the explicit release inventory, validates all
+archive records/dependencies and every member's currency, requires both lighting
+variants, and refuses missing/extra maps or an existing output. Two tiny regressions
+protect collection membership, lighting completeness, exact bytes and preservation
+in about 0.03 seconds; ordinary source tests never bake shipped maps. Installation
+and package-format documentation describe the split layout and recovery command.
+
+### Extracted Windows acceptance
+
+Native application checks use the actual extracted executables, a system-only
+PATH, unrelated launch directories and isolated writable profiles. Successful runs use executable-relative
+assets and tool/game discovery. All six runtime DLLs were observed loading from
+the extracted application directory. Main, Settings, Credits and empty Explore
+render correctly. Requesting an absent map records a warning and returns to the
+bundled menu with import guidance. Ordinary ShellExecute creates one game window
+without a console. Normal close records a clean shutdown; a controlled startup
+error shows its diagnostics path and exits normally after OK.
+
+Explore imports an actual shipping package from its inbox. All seven packages
+import and discover exactly 18 members. Every project recovers to a fresh folder,
+with maintained source bytes matching the levels receipt. Repeat, corrupt and
+duplicate imports preserve installed package hashes and existing save data.
+Explore shows seven project entries. All 18 shipping members start natively with
+Full lighting; Backrooms and Pool also pass native Static witnesses. Captures,
+state checkpoints and journals establish the selected member and lighting mode.
+The app payload and synthetic existing user data stay intact throughout.
+
+The editor saves/reopens/builds a copied tiny room, launches actual Full Play and
+returns to editing. Its original fixture source remains unchanged. The native
+compiler GUI's keyboard Bake produces a validated/current Static/Full package and
+closes normally. Compiler GUI pixels remain unverified after Windows Graphics
+Capture timeouts; native window/input, logs and output establish functional Bake.
+The shared editor/player developer trace was unusable and is excluded; independent
+player journals, framebuffers and editor checkpoints support accepted Play.
+
+### Gates, persistence and remaining scope
+
+Formatting, strict workspace/all-target/all-feature Clippy, the locked release
+workspace/all-feature build, 371 Python source tests (18 expected skips), and
+asset/texture/prop checks pass. The catalog has 674 assets and zero warnings;
+existing art/manifest advisories remain. Rust source is byte-identical to accepted
+phase 8, whose 383 Rust regressions and exact-SHA CI passed. No Rust test was
+added. Fresh executables differ only in PE link timestamps/PDB GUIDs; the fresh
+compiler confirms the same preparation fingerprint. Accepted binaries are reused
+and preserved outside target, together with rebuilt comparison executables.
+
+Two earlier attached Backrooms attempts were interrupted before a usable output
+completed. Their distinct process lifetimes and partial evidence are retained;
+Connor confirmed he did not intentionally stop the second run. The exact internal
+origin of that tool cancellation remains unknown. Before repeating expensive work,
+an ordinary same-user hidden `Start-Process` Python supervisor passed harmless
+launcher-exit and monitor-cancellation preflights. Read-only job queries verified
+kill-on-job-close was false before the compiler started. No scheduler, service,
+`RunAs` launch, security setting or explicit job breakaway was used.
+Final accepted bake receipts supersede interrupted progress counters.
+
+Native Mac build, launch, dependencies/signing, editor/compiler behavior and use
+of this same levels ZIP remain unverified and required on the Mac. No Mac package
+was built on Windows. Windows coverage is portable acceptance on this existing
+host, without clean-OS installer proof. Fifo captures establish correctness only;
+no FPS attribution or phase-10 work occurred.
+
+Phase 8 was normally pushed to `0.13.1-dev` at
+`8671e1ffe45629a8d70b719f1f26a0c86d254eeb`; exact-SHA CI run 40777874999 passed.
+Phase-9 local commit, final cleanup and custody are recorded in
+`local/verification-0.13.1-packaging/custody.json`. The resumed turn is restricted
+to local work: no phase-9 push or other remote write was attempted, and no
+phase-9 exact-SHA remote CI is claimed. The parent coordinates any separate
+authorized publication. Main/v0.13.0 remain unchanged.
+
+`local/verification-0.13.1-packaging/validation-receipt.json` indexes final local
+acceptance. `windows-artifact.json`, `levels-artifact.json`, `bake-receipt.json`,
+`reused-binaries.json`, `rebuilt-link-metadata-proof.json`, native subfolder receipts,
+gate logs and `sha256.json` retain exact identities outside target. Historical
+`interruption-final.json`, `progress-reconciliation.json`, `resumption-diagnosis.json`
+and `persistence-preflight/accepted.json` preserve the recovery audit. Initial failed
+controller recipes and interrupted outputs are retained and excluded from acceptance.

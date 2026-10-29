@@ -222,7 +222,7 @@ for directory in shared environments entities diagnostic janitor_closet; do
     cp -R "$REPO/assets/$directory" "$STAGE/Places/assets/$directory"
 done
 rm -rf "$STAGE/Places/assets/shared/branding"
-find "$STAGE/Places/assets" -type f -name '*_master.png' -delete
+find "$STAGE/Places/assets" -type f \( -name '*_master.png' -o -name '*.blend' -o -name '*.blend1' -o -name 'CABINET_ARTWORK_PROMPTS.md' \) -delete
 if [ -n "$MAPS" ]; then
     python3 "$REPO/tools/export-maps.py" "$MAPS" "$STAGE/Places" \
         "$REPO/target/release/places-compile"

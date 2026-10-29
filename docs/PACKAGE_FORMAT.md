@@ -7,7 +7,8 @@ not compile maps, bake light, pack charts, capture reflections or generate
 static navigation; it decodes these records and uploads them.
 
 The repository tracks maintained authored maps in `projects/`, with the curated
-distribution allowlist in `levels/lineup.txt`. Compiled `.placesmap` files are untracked build
+developer allowlist in `levels/lineup.txt` and the complete release inventory in
+`tools/release-projects.json`. Compiled `.placesmap` files are untracked build
 outputs. Rust builds and source tests work before any map is compiled; the
 player needs compiled packages to play.
 
@@ -36,7 +37,9 @@ resolved resource/data/import locations; see [installation and overrides](INSTAL
 Authored JSON never becomes a playable row.
 There is no compiled Demo inside the executable: an absent Demo reports the
 explicit build/import action, and installing a valid package restores loading.
-Bundled maps are optional distribution content. A package can ship the player and
+The 0.13.1 app distributions bundle only the application-owned menu resource;
+gameplay packages are staged once in a separate levels ZIP by `tools/package-levels.py`.
+Bundled gameplay maps remain an explicit developer export option. A package can ship the player and
 runtime assets with no bundled maps; installed maps remain discoverable.
 When a distribution includes maps, verify the selected packages against current
 inputs before exporting them. Packaging never compiles maps on the player's behalf.

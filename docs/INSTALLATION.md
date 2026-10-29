@@ -1,4 +1,4 @@
-# Installation and paths (0.13.0 staging)
+# Installation and paths
 
 Ship the executable **and** its external `assets/` payload. Maps are optional:
 a complete installation starts with zero maps and opens Explore with import
@@ -12,6 +12,59 @@ output remains usable. PowerShell scripts should wait explicitly for a GUI
 executable, for example with `Start-Process -Wait`. Debug game builds and the
 editor/compiler retain console entry points. Normal player errors still use the
 bounded diagnostics journal and native error notices described below.
+
+## 0.13.1 distribution layout (unreleased)
+
+The planned downloads are `Places-0.13.1-Windows.zip` (game, editor and compiler),
+the separately prepared native Mac application package, and **one**
+`Places-0.13.1-Levels.zip` shared by both. Linux remains future scope. Each app
+distribution bundles `assets/shared/menu/scene.bin` and its shared runtime
+resources. Gameplay `.placesmap` files belong only in the levels ZIP; app
+archives contain an empty `assets/levels/` directory. A fresh app still opens
+the live menu, Settings, Credits and Explore's empty-library import guidance.
+
+Extract the levels ZIP separately. Import any `Maps/*.placesmap` through Explore,
+`places --import <package>`, or the writable `levels/` directory shown by
+`places --paths`. Do not extract individual `.placesmap` files. These are complete
+editable project packages: compiler `import-project <package> --out <new-folder>`
+recovers their authoring sources. Shared textures, models and audio stay with
+the app and are not duplicated in the levels download.
+
+The exact gameplay inventory is `tools/release-projects.json`: seven packages,
+18 member maps and 36 Static/Full variants. It includes Home in the nine-member
+Quiet Collection and all four Beam chapters. Relay Annex source stays in the
+repository and is excluded, together with development gyms, labs and fixtures.
+The application-owned menu is separate from this gameplay inventory.
+
+Prepare current maps explicitly with the matching compiler when `verify
+--require-current` reports changed source, dependencies or compiler preparation
+code. A phase number alone is not a reason to rebake. Then stage the levels ZIP:
+
+```powershell
+python tools/package-levels.py C:\Exports\ReleaseMaps `
+  C:\Exports\Places-0.13.1-Levels.zip --compiler C:\Validated\places-compile.exe
+python tools/package-windows.py --with-editor --bin-dir C:\Validated `
+  --runtime-dir C:\Exports\Runtime --sdl-license C:\Dev\SDL3\LICENSE.txt `
+  C:\Exports\Windows
+```
+
+The levels packager never bakes: it validates every archive record and dependency,
+requires every member current against maintained source, checks intact Static/Full
+lighting, and refuses extra/missing packages or an existing output. `LEVELS.json`
+records source/compiler/catalog identities, membership, sizes and SHA-256 hashes.
+The outer ZIP stores the already-compressed packages unchanged. Use the Windows
+packager without `--maps` for this release layout; `--maps` remains an explicit
+developer combined-install export option. On Mac, `sh tools/package.sh
+--with-editor <new-export-parent>` stages its app resources without gameplay maps.
+Native Mac build, launch, dependency/signing and same-levels-ZIP acceptance are
+required on the Mac; Windows preparation or cross-compilation cannot establish
+those results. A compiler preparation fingerprint can include its host target;
+the levels receipt identifies the actual preparing compiler.
+
+This layout does not publish a release or change the existing 0.13.0 downloads.
+The older portable-release instructions below describe their historical tested
+layout. See the [0.13.1 acceptance report](reports/release-0.13.1.md) for the exact
+current Windows scope and remaining native Mac dependency.
 
 ## Installed resources
 
