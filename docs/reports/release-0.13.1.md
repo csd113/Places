@@ -845,3 +845,21 @@ cohesive NPC-subtitle/loading/level-grid UI; per-level optional save/checkpoints
 automatic measured-target optimization preserving visual quality; existing Hub
 wall-sign editor authoring. No such implementation, release upload, tag or main
 merge is part of this attribution task.
+
+
+## UI readability pass (Windows)
+
+Ordinary NPC messages now use queued bottom-center subtitles while gameplay
+continues; explicit F1 guidance remains. Loading shares a minimal stage-driven
+bar with separate unknown-work activity and retained logs/errors. Explore has
+wider padded cards, bounded titles, full-name details and corrected odd-row
+navigation. Existing previews, package discovery and map behavior remain.
+
+Final source/build gates pass: strict Clippy, locked release workspace build,
+386 Rust tests, 371 Python tests (18 skips), and 674 assets with zero warnings;
+texture/prop checks retain their existing advisories. Native game/editor evidence
+covers speech, interrupted/repeated loads, errors, HUD separation and six window
+sizes at Windows 150% scale. No full-map rebake or compiler fingerprint change.
+The [Windows UI report](ui-0.13.1-windows.md) records the retained cold-start
+3.7-4.1 second pump gap and the unverified OS mouse check after computer-use
+capture timeouts. Mac and remote publication remain deferred/held respectively.

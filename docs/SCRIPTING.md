@@ -84,7 +84,7 @@ that the editor performs Luau typechecking.
 | `api.ai_pause(id,key,paused)` | Suspends/resumes the named continuation and its clock |
 | `api.ai_senses(id,rules)` | Replaces at most sixteen typed hearing/sight rules with mapped responses |
 | `api.navigate(id,x,y,z)` | Queues ordinary AI navigation; finite coordinates within ±100000 m, AI body required; shared body classes, routing budgets, live doors and physical obstacles still apply |
-| `api.message(title,lines)` | Dismissible guidance: printable title ≤80 bytes, dense plain array of 1–6 lines ≤72 bytes each; Enter/Esc continues without a world reset |
+| `api.message(title,lines)` | Queued subtitles: printable speaker/title ≤80 bytes and a dense plain array of 1–6 printable lines ≤72 bytes each. Enter/PgDown advances, PgUp rereads, Backspace skips; explicit F1 help retains its dismissible guidance panel |
 | `api.finish(won,title,detail)` | Ends the run with printable title/detail ≤80/160 bytes; Enter restarts world/VM/player and authored grouped items, Escape returns to menu |
 | `api.exists(id: string): boolean` | Tests a currently live entity identity |
 | `api.door_status(id)` | Read-only invocation-start hinged-leaf snapshot: actual `phase`, `locked`, `obstructed` and signed `angle`; a pending close/lock request is not proof of closure |
@@ -118,7 +118,15 @@ available. `event.x/y/z` are the triggering occupant origin when known; `dt` is
 zero for linked action calls. Missing context is nil. Optional `start` runs once
 on the first playing simulation tick; optional `update` runs each playing tick
 with `event.dt` in seconds. Automatic calls have no subject/event kind/origin.
-They stop while simulation is paused. An optional `hint` export runs only on a fresh F1 press during active play, through the same scoped invocation and action budgets. F1 is reserved by the native shell. Introductory guidance can be emitted from `start`; guidance panels pause movement, AI, physics and world audio until dismissed. Do not store the API: its scoped Rust
+They stop while simulation is paused. An optional `hint` export runs only on a
+fresh F1 press during active play, through the same scoped invocation and action
+budgets. F1 is reserved by the native shell. Messages from `start` and ordinary
+events use the same non-blocking subtitle queue as NPC speech. Only explicit F1
+guidance pauses movement, AI, physics and world audio until Enter/Escape.
+Subtitle reading time pauses with gameplay, F1, focus loss, loading and the
+console; map changes, replay and run completion clear speech. Identical
+consecutive queued messages coalesce; different messages retain their order.
+This API defines no dialogue choices. Do not store the API: its scoped Rust
 callbacks expire after each invocation. Store ordinary Luau values instead.
 
 A fresh map load owns fresh VMs. Reset/replay drops VMs, closures, globals,

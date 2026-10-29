@@ -9193,8 +9193,10 @@ Reusable `navigate {target, position:[x,y,z]}` requires an AI body and bounded
 finite coordinates (±100000 metres); it uses the same planner/mover as normal
 AI. `show_message {title, lines}` accepts a printable title within 80 bytes
 and 1–6 printable lines within 72 bytes. `end_run {won,title,detail}` accepts a
-boolean outcome and printable title/detail within 80/160 bytes. Native message
-panels are dismissible with Enter/Escape; outcomes restart on Enter and return
+boolean outcome and printable title/detail within 80/160 bytes. Native messages
+use queued two-line subtitles without blocking play; Enter/PgDown advances,
+PgUp rereads and Backspace skips the current message. Explicit F1 guidance
+retains its Enter/Escape panel. Outcomes restart on Enter and return
 to menu on Escape. Grouped authored physical props are restored at the safe
 spawn before replay. Optional Luau `hint` handlers are requested with F1.
 Ordinary map bindings and Luau remain the authoring path; see the Beam report

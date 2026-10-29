@@ -47,6 +47,7 @@ pub enum MenuIntent {
     RetryLoad,
     Page(i32),
     Volume(u8),
+    Details,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -75,6 +76,7 @@ pub struct MenuLayout {
     pub overlay: Option<bool>,
     pub load_retry: Option<()>,
     pub details: bool,
+    pub details_available: Option<()>,
 }
 
 impl MenuLayout {
@@ -111,6 +113,24 @@ impl MenuLayout {
                     intent: MenuIntent::CancelRebind,
                 });
         }
+        if self.details {
+            return rect(20.0, 12.0, 460.0, 260.0)
+                .contains(point)
+                .then_some(MenuHit {
+                    index: 0,
+                    intent: if point[1] >= 232.0 {
+                        MenuIntent::Details
+                    } else {
+                        MenuIntent::Page(if point[1] < 120.0 { -1 } else { 1 })
+                    },
+                });
+        }
+        if self.details_available.is_some() && rect(30.0, 238.0, 434.0, 250.0).contains(point) {
+            return Some(MenuHit {
+                index: 0,
+                intent: MenuIntent::Details,
+            });
+        }
         if let Some((offset, visible, total)) = self.scroll {
             for (top, direction, enabled) in [
                 (64.0, -1_i32, offset > 0),
@@ -123,12 +143,6 @@ impl MenuLayout {
                     });
                 }
             }
-        }
-        if self.details && rect(290.0, 66.0, 440.0, 214.0).contains(point) {
-            return Some(MenuHit {
-                index: 0,
-                intent: MenuIntent::Page(if point[1] < 82.0 { -1 } else { 1 }),
-            });
         }
         self.rows
             .iter()
@@ -207,7 +221,10 @@ pub fn menu_layout(
     let mut layout = MenuLayout {
         rebinding: ui.rebinding_action.is_some(),
         loading: ui.loading_map,
-        details: state == AppState::LevelSelect && ui.level_select_idx < ui.level_entries.len(),
+        details: state == AppState::LevelSelect && ui.details_open.is_some(),
+        details_available: (state == AppState::LevelSelect
+            && ui.level_select_idx < ui.level_entries.len())
+        .then_some(()),
         load_retry: ui.load_retry,
         overlay: if ui.status_is_error {
             Some(true)
@@ -268,11 +285,11 @@ pub fn menu_layout(
                     index,
                     label.clone(),
                     String::new(),
-                    line.mul_add(74.0, 66.0),
-                    72.0,
+                    line.mul_add(76.0, 66.0),
+                    66.0,
                 );
-                entry.bounds.left = col.mul_add(126.0, 30.0);
-                entry.bounds.right = entry.bounds.left + 120.0;
+                entry.bounds.left = col.mul_add(208.0, 30.0);
+                entry.bounds.right = entry.bounds.left + 196.0;
                 layout.rows.push(entry);
             }
             for (position, label) in ["Import levels", "Import folder", "Back"]
@@ -414,7 +431,7 @@ fn small_line(vertices: &mut Vec<Vertex>, text: &str, y: f32, color: [f32; 3]) {
 /// Menu icon placement shares visible-row scrolling and hit layout.
 #[must_use]
 pub fn level_icon_bounds(row: &MenuRow) -> [f32; 4] {
-    [row.bounds.left + 4.0, row.bounds.top + 3.0, 96.0, 54.0]
+    [row.bounds.left + 8.0, row.bounds.top + 10.5, 80.0, 45.0]
 }
 
 fn draw_icon_fallback(vertices: &mut Vec<Vertex>, row: &MenuRow) {
@@ -442,6 +459,16 @@ fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, u
     for entry in &layout.rows {
         let bounds = entry.bounds;
         let active = entry.index == selected;
+        if state == AppState::LevelSelect && entry.index < ui.level_entries.len() {
+            add_rect_rgba(
+                vertices,
+                bounds.left,
+                bounds.top,
+                bounds.right,
+                bounds.bottom,
+                [0.08, 0.10, 0.11, 0.95],
+            );
+        }
         if active {
             add_rect_rgba(
                 vertices,
@@ -476,23 +503,20 @@ fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, u
             draw_icon_fallback(vertices, entry);
         }
         if has_icon {
-            // Image leaves room for the two-line title beneath it.
-            let [left, top, width, height] = level_icon_bounds(entry);
-            add_rect_rgba(
-                vertices,
-                left,
-                top + height,
-                left + width,
-                top + height + 15.0,
-                [0.025, 0.035, 0.04, 0.91],
-            );
-            let lines = wrap(&entry.label, 18);
-            for (line, text) in lines.iter().take(2).enumerate() {
+            let left = bounds.left + 100.0;
+            let width = bounds.right - left - 8.0;
+            let lines = wrap(&entry.label, 14);
+            for (line, text) in lines.iter().take(3).enumerate() {
+                let fitted_title = if line == 2 && lines.len() > 3 {
+                    fit_text(&lines.get(2..).unwrap_or_default().join(" "), width, 0.75)
+                } else {
+                    fit_text(text, width, 0.75)
+                };
                 draw_text(
                     vertices,
-                    text,
-                    left + 3.0,
-                    row_y(line, 7.0, top + height + 2.0),
+                    &fitted_title,
+                    left,
+                    row_y(line, 10.0, bounds.top + 18.0),
                     0.75,
                     color,
                 );
@@ -763,6 +787,9 @@ pub(super) fn geometry(
     version: &str,
     drawable: DrawableSize,
 ) -> Vec<Vertex> {
+    if ui.loading_map {
+        return loading(ui, version);
+    }
     if state == AppState::Playing {
         return Vec::new();
     }
@@ -800,7 +827,18 @@ pub(super) fn geometry(
     draw_rows(&mut vertices, &layout, state, ui);
     draw_empty_state(&mut vertices, state, ui);
     if state == AppState::LevelSelect && ui.level_select_idx < ui.level_entries.len() {
+        draw_text(
+            &mut vertices,
+            "Tab / click: about selected place",
+            30.0,
+            240.0,
+            0.75,
+            MUTED,
+        );
+    }
+    if layout.details {
         draw_description(&mut vertices, ui);
+        return vertices;
     }
     let help_y = if state == AppState::LevelSelect {
         0.0
@@ -905,19 +943,6 @@ fn draw_status(vertices: &mut Vec<Vertex>, message: &str, is_error: bool) {
 }
 
 fn draw_modals(vertices: &mut Vec<Vertex>, ui: &UiState) {
-    if ui.loading_map {
-        add_rect_rgba(vertices, 22.0, 64.0, 458.0, 258.0, [0.06, 0.06, 0.05, 0.96]);
-        draw_text(vertices, "LOADING MAP", LEFT, 100.0, 1.5, ACCENT);
-        small_line(
-            vertices,
-            ui.status_message.as_deref().unwrap_or("Preparing level..."),
-            132.0,
-            TEXT,
-        );
-        add_rect(vertices, LEFT, 172.0, RIGHT, 192.0, [0.25, 0.23, 0.16]);
-        draw_text(vertices, "Cancel", 48.0, 178.0, 1.0, ACCENT);
-        small_line(vertices, "Esc or click Cancel to return.", 208.0, MUTED);
-    }
     if let Some(action) = ui.rebinding_action {
         add_rect_rgba(vertices, 22.0, 14.0, 458.0, 258.0, [0.06, 0.06, 0.05, 0.94]);
         draw_text(vertices, "PRESS A KEY", LEFT, 100.0, 2.0, ACCENT);
@@ -938,24 +963,126 @@ fn draw_modals(vertices: &mut Vec<Vertex>, ui: &UiState) {
     }
 }
 
-pub(super) fn loading(ui: &UiState, version: &str) -> Vec<Vertex> {
+pub(super) fn loading(ui: &UiState, _version: &str) -> Vec<Vertex> {
     let mut vertices = Vec::new();
-    panel(&mut vertices, "Places", "Preparing your place", true);
-    small_line(
+    add_rect(
         &mut vertices,
-        ui.status_message.as_deref().unwrap_or("Preparing level..."),
-        128.0,
-        if ui.status_is_error {
-            [1.0, 0.57, 0.43]
-        } else {
-            TEXT
-        },
+        -480.0,
+        -272.0,
+        960.0,
+        544.0,
+        [0.018, 0.026, 0.032],
     );
-    small_line(&mut vertices, &format!("v{version}"), 238.0, MUTED);
+    let label = "Loading level...";
+    draw_text(
+        &mut vertices,
+        label,
+        (480.0 - text_width(label, 1.0)) * 0.5,
+        116.0,
+        1.0,
+        TEXT,
+    );
+    add_rect(
+        &mut vertices,
+        120.0,
+        140.0,
+        360.0,
+        144.0,
+        [0.16, 0.19, 0.20],
+    );
+    // Stage completion, not an estimate of elapsed time. Decoding and the final
+    // GPU fence have unknown duration; they never acquire invented percentages.
+    let right = (f32::from(ui.loading_step.min(7)) / 7.0).mul_add(240.0, 120.0);
+    if right > 120.0 {
+        add_rect(
+            &mut vertices,
+            120.0,
+            140.0,
+            right,
+            144.0,
+            [0.83, 0.78, 0.55],
+        );
+    }
+    if ui.loading_step < 7 {
+        // Travelling activity has no percentage meaning. The solid completed
+        // portion above changes only when a real preparation milestone finishes.
+        let travel = (348.0 - right).max(0.0);
+        let marker = (f32::from(ui.loading_activity) / 72.0).mul_add(travel, right);
+        add_rect(
+            &mut vertices,
+            marker,
+            140.0,
+            (marker + 12.0).min(360.0),
+            144.0,
+            [0.48, 0.54, 0.55],
+        );
+    }
+    if ui.loading_map {
+        let hover = ui
+            .pointer
+            .hover
+            .is_some_and(|hit| hit.intent == MenuIntent::CancelLoad);
+        if hover {
+            add_rect_rgba(
+                &mut vertices,
+                LEFT,
+                172.0,
+                RIGHT,
+                192.0,
+                [0.12, 0.15, 0.16, 1.0],
+            );
+        }
+        let cancel = "Esc / click: cancel";
+        draw_text(
+            &mut vertices,
+            cancel,
+            (480.0 - text_width(cancel, 0.75)) * 0.5,
+            179.0,
+            0.75,
+            MUTED,
+        );
+    }
     vertices
 }
 
 impl UiState {
+    /// Vertical grid movement never skips a pinned action on an odd last row.
+    pub(crate) fn move_level_row(&mut self, up: bool) {
+        let total = self.level_entries.len();
+        let selected = self.level_select_idx;
+        self.level_select_idx = if total == 0 {
+            if up {
+                selected.checked_sub(1).unwrap_or(2)
+            } else if selected < 2 {
+                selected.saturating_add(1)
+            } else {
+                0
+            }
+        } else if selected >= total {
+            if up { total.saturating_sub(1) } else { 0 }
+        } else if up {
+            if selected >= 2 {
+                selected.saturating_sub(2)
+            } else {
+                total.saturating_add(2)
+            }
+        } else {
+            selected.saturating_add(2).min(total)
+        };
+        self.keep_selection_visible(AppState::LevelSelect);
+    }
+
+    pub(crate) fn place_details(&self) -> String {
+        let name = self
+            .level_entries
+            .get(self.level_select_idx)
+            .map_or("", String::as_str);
+        if self.level_description.lines().next() == Some(name) {
+            self.level_description.clone()
+        } else {
+            format!("{name}\n\n{}", self.level_description)
+        }
+    }
     pub const fn select_menu_index(&mut self, state: AppState, index: usize) {
         match state {
             AppState::MainMenu => self.main_menu_idx = index,
@@ -998,7 +1125,7 @@ impl UiState {
                 self.status_page.saturating_add(1).min(maximum)
             };
         } else {
-            let maximum = super::description_pages(&self.level_description).saturating_sub(1);
+            let maximum = super::description_pages(&self.place_details()).saturating_sub(1);
             self.description_page = if direction < 0_i32 {
                 self.description_page.saturating_sub(1)
             } else {
@@ -1066,7 +1193,7 @@ impl UiState {
             self.level_entries.len(),
             self.level_scroll,
             self.settings_scroll,
-            self.loading_map,
+            (self.loading_map, self.details_open),
             (self.credits, self.status_is_error),
             window,
             drawable,
@@ -1091,11 +1218,13 @@ pub(super) fn wrap(text: &str, width: usize) -> Vec<String> {
                     .saturating_add(1)
                     > width
             {
-                lines.push(std::mem::take(&mut line));
+                lines.push(line.trim_end().to_string());
+                line.clear();
             }
             for character in word.chars() {
                 if line.chars().count() >= width {
-                    lines.push(std::mem::take(&mut line));
+                    lines.push(line.trim_end().to_string());
+                    line.clear();
                 }
                 line.push(character);
             }
@@ -1106,32 +1235,49 @@ pub(super) fn wrap(text: &str, width: usize) -> Vec<String> {
     lines
 }
 fn draw_description(vertices: &mut Vec<Vertex>, ui: &UiState) {
-    draw_text(vertices, "ABOUT THIS PLACE", 292.0, 69.0, 0.75, ACCENT);
-    let lines = wrap(&ui.level_description, 24);
-    let page = ui.description_page.min(lines.len().saturating_sub(1) / 13);
+    add_rect_rgba(
+        vertices,
+        20.0,
+        12.0,
+        460.0,
+        260.0,
+        [0.025, 0.035, 0.04, 1.0],
+    );
+    draw_text(vertices, "ABOUT THIS PLACE", 36.0, 30.0, 1.25, ACCENT);
+    let lines = wrap(&ui.place_details(), 56);
+    let pages = lines.len().div_ceil(12).max(1);
+    let page = ui.description_page.min(pages.saturating_sub(1));
     for (line, text) in lines
         .iter()
-        .skip(page.saturating_mul(13))
-        .take(13)
+        .skip(page.saturating_mul(12))
+        .take(12)
         .enumerate()
     {
-        draw_text(vertices, text, 292.0, row_y(line, 8.5, 86.0), 0.75, TEXT);
+        draw_text(vertices, text, 36.0, row_y(line, 11.0, 63.0), 0.875, TEXT);
     }
-    if lines.len() > 13 {
-        draw_text(
-            vertices,
-            &format!(
-                "Wheel / Tab: {}/{}",
-                page.saturating_add(1),
-                lines.len().div_ceil(13)
-            ),
-            292.0,
-            204.0,
-            0.75,
-            MUTED,
-        );
-    }
+    draw_text(
+        vertices,
+        &format!(
+            "Details {}/{}   Arrows / wheel: scroll",
+            page.saturating_add(1),
+            pages
+        ),
+        36.0,
+        212.0,
+        0.875,
+        MUTED,
+    );
+    add_rect(vertices, 36.0, 232.0, 444.0, 252.0, [0.22, 0.21, 0.15]);
+    draw_text(
+        vertices,
+        "Tab / Enter / Esc / click: back",
+        46.0,
+        238.0,
+        0.875,
+        ACCENT,
+    );
 }
+
 fn draw_error(vertices: &mut Vec<Vertex>, ui: &UiState) {
     add_rect_rgba(
         vertices,

@@ -129,3 +129,106 @@ fn budget_recovery_buttons_keep_destructive_choice_explicit() {
     ui.clear_status();
     assert!(ui.load_retry.is_none());
 }
+
+// Essential regression for overflowing card titles and the full-name view.
+// Four tiny rows verify glyph containment and exclusive details hit ownership.
+#[test]
+fn card_titles_and_previews_fit_and_details_retain_the_full_name() {
+    let name = "A very long place name ".repeat(20);
+    let ui = UiState {
+        level_entries: vec![name.clone(); 4],
+        ..UiState::new()
+    };
+    let layout = menu_layout(
+        AppState::LevelSelect,
+        &ui,
+        &Settings::default(),
+        &DisplayStatus::default(),
+    );
+    let mut vertices = Vec::new();
+    draw_rows(&mut vertices, &layout, AppState::LevelSelect, &ui);
+    for card in layout.rows.iter().filter(|row| row.index < 4) {
+        let mut isolated_card = menu_layout(
+            AppState::LevelSelect,
+            &ui,
+            &Settings::default(),
+            &DisplayStatus::default(),
+        );
+        isolated_card
+            .rows
+            .retain(|candidate| candidate.index == card.index);
+        isolated_card.scroll = None;
+        let mut card_vertices = Vec::new();
+        draw_rows(
+            &mut card_vertices,
+            &isolated_card,
+            AppState::LevelSelect,
+            &ui,
+        );
+        assert!(
+            card_vertices
+                .iter()
+                .all(|vertex| vertex.pos[0] >= card.bounds.left
+                    && vertex.pos[0] <= card.bounds.right
+                    && vertex.pos[1] >= card.bounds.top
+                    && vertex.pos[1] <= card.bounds.bottom)
+        );
+        let [x, y, w, h] = level_icon_bounds(card);
+        assert!(
+            x >= card.bounds.left
+                && x + w <= card.bounds.right
+                && y >= card.bounds.top
+                && y + h <= card.bounds.bottom
+        );
+    }
+    assert!(
+        vertices.iter().all(|v| v.pos[0] >= 30.0
+            && v.pos[0] <= 458.0
+            && v.pos[1] >= 50.0
+            && v.pos[1] <= 236.0)
+    );
+    assert!(ui.place_details().starts_with(&name));
+    let details_ui = UiState {
+        level_description: ui.place_details(),
+        details_open: Some(()),
+        ..ui
+    };
+    assert_eq!(details_ui.place_details(), details_ui.level_description);
+    let details_layout = menu_layout(
+        AppState::LevelSelect,
+        &details_ui,
+        &Settings::default(),
+        &DisplayStatus::default(),
+    );
+    assert_eq!(
+        details_layout.hit_test([45.0, 240.0]).map(|hit| hit.intent),
+        Some(MenuIntent::Details)
+    );
+    assert_eq!(
+        details_layout.hit_test([80.0, 90.0]).map(|hit| hit.intent),
+        Some(MenuIntent::Page(-1))
+    );
+}
+
+// A five-map grid previously skipped the first import action on Down.
+// One tiny row-state fixture protects odd/empty grids without a native window.
+#[test]
+fn odd_grid_rows_reach_pinned_actions_and_scroll_the_selected_card() {
+    let mut ui = UiState {
+        level_entries: vec!["Place".into(); 5],
+        level_select_idx: 4,
+        ..UiState::new()
+    };
+    ui.move_level_row(false);
+    assert_eq!(ui.level_select_idx, 5);
+    ui.move_level_row(true);
+    assert_eq!(ui.level_select_idx, 4);
+    assert!(ui.level_scroll > 0);
+    ui.level_select_idx = 1;
+    ui.move_level_row(true);
+    assert_eq!(ui.level_select_idx, 7);
+    ui.level_entries.clear();
+    ui.level_select_idx = 0;
+    ui.move_level_row(true);
+    assert_eq!(ui.level_select_idx, 2);
+}

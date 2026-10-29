@@ -1,5 +1,10 @@
 ## 0.13.1 — Unreleased
 
+- Present ordinary NPC messages as queued two-line subtitles, retain F1 help,
+  simplify loading to actual stage progress with separate unknown-work activity,
+  and give Explore cards roomier spacing, contained titles and full-name details.
+  See [Windows validation and remaining limits](docs/reports/ui-0.13.1-windows.md).
+
 - Restore continuous grounded stair support across the full player hull, retain
   real tread contacts for jumps/falls, and ease the first/last riser camera
   within live clearance. Raise the shared scene clipping/culling distance from

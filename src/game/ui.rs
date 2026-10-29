@@ -9,6 +9,8 @@ use crate::game::settings::{KeyBindings, Settings, WindowMode};
 
 mod menu;
 pub(crate) use menu::level_icon_bounds;
+mod subtitles;
+pub(crate) use subtitles::Subtitles;
 mod pointer;
 pub use menu::{MenuHit, MenuIntent, MenuLayout, menu_layout};
 pub use pointer::MenuPointer;
@@ -169,6 +171,11 @@ pub struct UiState {
     pub settings_scroll: usize,
     pub pointer: MenuPointer,
     pub loading_map: bool,
+    /// Completed preparation milestones; the final milestone is a playable world.
+    pub loading_step: u8,
+    /// Activity animation; never contributes to the completed-stage fill.
+    pub loading_activity: u8,
+    pub details_open: Option<()>,
     pub credits: Option<()>,
     pub status_page: usize,
     pub level_description: String,
@@ -258,6 +265,9 @@ fn ui_signature(
     ui_state.settings_scroll.hash(&mut hasher);
     ui_state.pointer.hover.hash(&mut hasher);
     ui_state.loading_map.hash(&mut hasher);
+    ui_state.loading_step.hash(&mut hasher);
+    ui_state.loading_activity.hash(&mut hasher);
+    ui_state.details_open.hash(&mut hasher);
     display.hash(&mut hasher);
     version.hash(&mut hasher);
 
@@ -1288,7 +1298,7 @@ pub(crate) fn guidance_navigation(
 /// Count of fully readable description pages in Explore.
 #[must_use]
 pub fn description_pages(text: &str) -> usize {
-    menu::wrap(text, 24).len().div_ceil(13).max(1)
+    menu::wrap(text, 56).len().div_ceil(12).max(1)
 }
 
 fn adjust_style(ui: &mut UiState, settings: &mut Settings, direction: i32) {

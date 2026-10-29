@@ -700,6 +700,7 @@ struct FrameLoop<'a> {
     outcome: Option<(bool, String, String)>,
     message: Option<(String, Vec<String>)>,
     message_page: usize,
+    subtitles: ui::Subtitles,
     items: item_runtime::Items,
     audio: audio_runtime::Audio,
     video: Option<video::Recording>,
@@ -1061,6 +1062,9 @@ impl FrameLoop<'_> {
         self.update_world_presentation();
         self.update_game_audio();
         self.write_nav_debug(false);
+        if self.gameplay_active() {
+            self.subtitles.tick(self.game.delta_seconds());
+        }
         let frame_update_done = Instant::now();
 
         self.render_and_present(frame_begin, frame_update_done);
@@ -1099,6 +1103,8 @@ impl FrameLoop<'_> {
             self.flashlight = flashlight::Power::Off;
             self.outcome = None;
             self.message = None;
+            self.subtitles.clear();
+            self.subtitles.guidance_requested = None;
             self.update_item_triggers(true);
         }
     }
@@ -1366,7 +1372,10 @@ impl FrameLoop<'_> {
         for command in commands {
             match command {
                 crate::engine::entities::WorldCommand::ShowMessage { title, lines } => {
-                    if self.message.is_none() && self.outcome.is_none() {
+                    if self.subtitles.guidance_requested.is_none() && self.outcome.is_none() {
+                        self.subtitles.push(title, &lines);
+                        self.trace_world("subtitle_queued");
+                    } else if self.message.is_none() && self.outcome.is_none() {
                         self.message_page = 0;
                         self.message = Some((title, lines));
                         self.input_handler.clear_gameplay_inputs();
@@ -1379,6 +1388,7 @@ impl FrameLoop<'_> {
                 crate::engine::entities::WorldCommand::EndRun { won, title, detail } => {
                     if self.outcome.is_none() {
                         self.outcome = Some((won, title, detail));
+                        self.subtitles.clear();
                         self.input_handler.clear_gameplay_inputs();
                         self.items.input.invalidate();
                         self.items.target = None;
@@ -1605,6 +1615,7 @@ impl FrameLoop<'_> {
                 }
             }
         }
+        self.subtitles.guidance_requested = None;
     }
 
     /// Stops the frame loop when the active backend hit a fatal GPU error.
@@ -2330,9 +2341,10 @@ impl FrameLoop<'_> {
             {
                 let flipped = *direction == MouseWheelDirection::Flipped;
                 let step = if (*y > 0.0) == flipped { 1_i32 } else { -1_i32 };
-                if self
-                    .menu_hit(*mouse_x, *mouse_y)
-                    .is_some_and(|hit| matches!(hit.intent, ui::MenuIntent::Page(_)))
+                if self.ui_state.details_open.is_some()
+                    || self
+                        .menu_hit(*mouse_x, *mouse_y)
+                        .is_some_and(|hit| matches!(hit.intent, ui::MenuIntent::Page(_)))
                 {
                     self.ui_state.scroll_details(step);
                 } else {
@@ -2390,6 +2402,11 @@ impl FrameLoop<'_> {
                 self.retry_source = None;
                 self.ui_state.clear_status();
                 self.ui_state.credits = None;
+            }
+            ui::MenuIntent::Details => {
+                self.ui_state.details_open = self.ui_state.details_open.is_none().then_some(());
+                self.ui_state.description_page = 0;
+                self.ui_state.pointer.invalidate();
             }
             ui::MenuIntent::Page(direction) => self.ui_state.scroll_details(direction),
             ui::MenuIntent::Volume(percent) => {
@@ -2783,6 +2800,8 @@ impl FrameLoop<'_> {
 
     fn handle_menu_details_key(&mut self, event: &Event) -> bool {
         if self.game.app_state() == AppState::LevelSelect
+            && !self.ui_state.status_is_error
+            && !self.ui_state.loading_map
             && matches!(
                 event,
                 Event::KeyDown {
@@ -2797,13 +2816,11 @@ impl FrameLoop<'_> {
                 }
             )
         {
-            let pages = ui::description_pages(&self.ui_state.level_description);
-            self.ui_state.description_page = self
-                .ui_state
-                .description_page
-                .saturating_add(1)
-                .checked_rem(pages)
-                .unwrap_or(0);
+            self.ui_state.details_open = (self.ui_state.details_open.is_none()
+                && self.ui_state.level_select_idx < self.ui_state.level_entries.len())
+            .then_some(());
+            self.ui_state.description_page = 0;
+            self.ui_state.pointer.invalidate();
             return true;
         }
         false
@@ -2838,6 +2855,7 @@ impl FrameLoop<'_> {
                 ui::GuidanceNavigation::Dismiss => {}
             }
             self.message = None;
+
             self.input_handler.clear_gameplay_inputs();
             self.items.input.invalidate();
             self.game.reset_timing();
@@ -2861,7 +2879,34 @@ impl FrameLoop<'_> {
             && self.outcome.is_none()
             && self.message.is_none()
         {
+            self.subtitles.guidance_requested = Some(());
             self.game.request_hint();
+            self.apply_world_commands();
+            return true;
+        }
+        if self.game.app_state() == AppState::Playing
+            && self.message.is_none()
+            && self.subtitles.active()
+            && let Event::KeyDown {
+                keycode: Some(key),
+                repeat: false,
+                timestamp: _,
+                window_id: _,
+                scancode: _,
+                keymod: _,
+                which: _,
+                raw: _,
+            } = event
+        {
+            if *key == Keycode::Return || *key == Keycode::PageDown {
+                self.subtitles.advance();
+            } else if *key == Keycode::PageUp {
+                self.subtitles.previous();
+            } else if *key == Keycode::Backspace {
+                self.subtitles.skip();
+            } else {
+                return self.handle_guidance_event(event);
+            }
             return true;
         }
         if self.handle_guidance_event(event) {
@@ -2995,21 +3040,22 @@ impl FrameLoop<'_> {
             self.ui_state.credits = None;
             return;
         }
-        match nav {
-            MenuNavEvent::Up => {
-                self.cycle_selection(true);
-                if self.game.app_state() == AppState::LevelSelect
-                    && self.ui_state.level_select_idx < self.ui_state.level_entries.len()
-                {
-                    self.cycle_selection(true);
-                }
+        if self.ui_state.details_open.is_some() {
+            match nav {
+                MenuNavEvent::Activate | MenuNavEvent::Back => self.ui_state.details_open = None,
+                MenuNavEvent::Up | MenuNavEvent::Left => self.ui_state.scroll_details(-1),
+                MenuNavEvent::Down | MenuNavEvent::Right => self.ui_state.scroll_details(1),
             }
-            MenuNavEvent::Down => {
-                self.cycle_selection(false);
-                if self.game.app_state() == AppState::LevelSelect
-                    && self.ui_state.level_select_idx < self.ui_state.level_entries.len()
-                {
-                    self.cycle_selection(false);
+            self.ui_state.pointer.invalidate();
+            return;
+        }
+        match nav {
+            MenuNavEvent::Up | MenuNavEvent::Down => {
+                let up = matches!(nav, MenuNavEvent::Up);
+                if self.game.app_state() == AppState::LevelSelect {
+                    self.ui_state.move_level_row(up);
+                } else {
+                    self.cycle_selection(up);
                 }
             }
             MenuNavEvent::Left => {
@@ -3270,6 +3316,8 @@ impl FrameLoop<'_> {
         self.flashlight = flashlight::Power::Off;
         self.outcome = None;
         self.message = None;
+        self.subtitles.clear();
+        self.subtitles.guidance_requested = None;
         self.ready_frames = 0;
         self.ready_seconds = 0.0;
         self.input_handler.clear_gameplay_inputs();
@@ -3387,6 +3435,7 @@ impl FrameLoop<'_> {
                 self.load_source = Some(source);
                 self.load_lightmaps = lightmaps;
                 self.load_phase = None;
+                self.ui_state.loading_step = 0;
                 if self.game.app_state() == AppState::Playing {
                     self.game.set_app_state(AppState::Paused);
                 }
@@ -3656,16 +3705,11 @@ impl FrameLoop<'_> {
 
     fn update_loading_progress(&mut self) {
         // Idle cache retirement uses the worker but owns no loading UI.
-        let phase = self.load_intent.and_then(|_| self.loader.phase());
-        if phase == Some(loading::Phase::Reading) {
-            self.ui_state.set_status(
-                format!(
-                    "Reading map and assets: {} MiB decoded... Esc to cancel",
-                    self.loader.decoded_bytes() / (1024 * 1024)
-                ),
-                false,
-            );
+        if self.load_intent.is_some() {
+            self.ui_state.loading_activity =
+                u8::try_from(self.game.frame_count() % 72).unwrap_or(0);
         }
+        let phase = self.load_intent.and_then(|_| self.loader.phase());
         if phase != self.load_phase {
             self.load_phase = phase;
             if let Some(active_phase) = phase {
@@ -3679,8 +3723,22 @@ impl FrameLoop<'_> {
                     loading::Phase::Visibility => "Preparing visibility",
                     loading::Phase::Ready => "Uploading level",
                 };
-                self.ui_state
-                    .set_status(format!("{label}... Esc to cancel"), false);
+                let completed = match active_phase {
+                    loading::Phase::Queued | loading::Phase::Reading => 0,
+                    loading::Phase::Geometry => 1,
+                    loading::Phase::Lightmaps => 2,
+                    loading::Phase::Collision => 3,
+                    loading::Phase::Characters => 4,
+                    loading::Phase::Visibility => 5,
+                    loading::Phase::Ready => 6,
+                };
+                self.ui_state.loading_step = self.ui_state.loading_step.max(completed);
+                self.trace.record("loading_progress", self.load_generation, &serde_json::json!({"completed":self.ui_state.loading_step,"decoded_bytes":self.loader.decoded_bytes()}).to_string());
+                logging::info(format!(
+                    "[loading] {label}; {} decoded bytes",
+                    self.loader.decoded_bytes()
+                ));
+
                 self.trace.record("phase", self.load_generation, label);
             }
         }
@@ -3740,8 +3798,7 @@ impl FrameLoop<'_> {
     }
 
     fn notify_upload(&mut self) -> Result<(), String> {
-        self.ui_state
-            .set_status("Uploading level... Esc to cancel".to_string(), false);
+        self.ui_state.loading_step = self.ui_state.loading_step.max(6);
         if let (Some(actions), Some(pending)) = (&self.actions, &self.pending_commit) {
             actions.notify(&format!("upload:{}", pending.loaded.level.id))
         } else {
@@ -3885,8 +3942,7 @@ impl FrameLoop<'_> {
                 "carry_assemblies".into(),
                 self.items.carry.diagnostics(self.renderer),
             ));
-            drop(fields.insert("outcome".into(), serde_json::json!(self.outcome)));
-            drop(fields.insert("guidance".into(), serde_json::json!(self.message)));
+            self.trace_communication(fields);
             drop(fields.insert("controls".into(), serde_json::json!({
                 "flashlight_on": self.flashlight.is_on(),
                 "settings_page": format!("{:?}", self.ui_state.settings_page), "settings_index": self.ui_state.settings_idx,
@@ -3910,7 +3966,7 @@ impl FrameLoop<'_> {
                 "menu_beat".into(),
                 serde_json::json!(self.ui_state.observed_menu_beat),
             ));
-            drop(fields.insert("menu_ui".into(),serde_json::json!({"level_count":self.ui_state.level_entries.len(),"level_index":self.ui_state.level_select_idx,"scroll":self.ui_state.level_scroll,"description_page":self.ui_state.description_page,"status":self.ui_state.status_message,"status_is_error":self.ui_state.status_is_error,"status_page":self.ui_state.status_page,"credits":self.ui_state.credits.is_some()})));
+            drop(fields.insert("menu_ui".into(),serde_json::json!({"level_count":self.ui_state.level_entries.len(),"level_index":self.ui_state.level_select_idx,"scroll":self.ui_state.level_scroll,"description_page":self.ui_state.description_page,"details_open":self.ui_state.details_open.is_some(),"status":self.ui_state.status_message,"status_is_error":self.ui_state.status_is_error,"status_page":self.ui_state.status_page,"credits":self.ui_state.credits.is_some()})));
             self.append_authoring_trace(fields);
             drop(fields.insert(
                 "physics_clock".into(),
@@ -3933,6 +3989,13 @@ impl FrameLoop<'_> {
         }
         self.trace
             .record(event, self.load_generation, &state.to_string());
+    }
+
+    fn trace_communication(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        drop(fields.insert("outcome".into(), serde_json::json!(self.outcome)));
+        drop(fields.insert("guidance".into(), serde_json::json!(self.message)));
+        drop(fields.insert("subtitles".into(), self.subtitles.snapshot()));
+        drop(fields.insert("loading_step".into(), self.ui_state.loading_step.into()));
     }
 
     fn trace_native_window(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
@@ -4037,6 +4100,8 @@ impl FrameLoop<'_> {
             self.flashlight = flashlight::Power::Off;
             self.outcome = None;
             self.message = None;
+            self.subtitles.clear();
+            self.subtitles.guidance_requested = None;
             self.console_runtime
                 .clear_given_props(self.renderer, &mut self.items.world);
         }
@@ -4126,6 +4191,7 @@ impl FrameLoop<'_> {
             }
             apply_screen_request(self.game, self.ui_state);
         }
+        self.ui_state.loading_step = 7;
         install_timer.step("finalize");
         self.trace_world("world_committed");
         self.trace.record("ready", id, "");
@@ -4242,6 +4308,7 @@ impl FrameLoop<'_> {
         }
         let images = if self.game.app_state() == AppState::LevelSelect
             && !self.ui_state.loading_map
+            && self.ui_state.details_open.is_none()
             && !self.ui_state.status_is_error
             && self.ui_state.credits.is_none()
             && self.startup == StartupPhase::Ready
@@ -4324,10 +4391,22 @@ impl FrameLoop<'_> {
             false,
             &self.settings.bindings.interact,
         );
+        let hand_start = self.ui_scratch.len();
         if item_hint {
             ui::append_interaction_hint(self.ui_scratch, &self.settings.bindings.interact);
         }
+        if self.subtitles.active() {
+            for vertex in self.ui_scratch.iter_mut().skip(hand_start) {
+                vertex.pos[1] -= 48.0;
+            }
+        }
+        let release_start = self.ui_scratch.len();
         self.items.append_release_hint(self.ui_scratch);
+        if self.subtitles.active() {
+            for vertex in self.ui_scratch.iter_mut().skip(release_start) {
+                vertex.pos[1] -= 64.0;
+            }
+        }
         if self.console_runtime.trigger_labels_visible() {
             self.items.append_authoring_debug(
                 self.ui_scratch,
@@ -4393,6 +4472,7 @@ impl FrameLoop<'_> {
             self.ui_scratch.extend_from_slice(ui_vertices);
             if show_labels {
                 self.append_play_labels(drawable, cam_pos, cam_yaw, cam_pitch);
+                self.subtitles.append(self.ui_scratch);
             }
             if self.perf_overlay.is_visible() {
                 self.ui_scratch
@@ -4463,6 +4543,11 @@ impl FrameLoop<'_> {
     /// Frame-based screenshots also support the settled source-only menu.
     /// Timed lighting captures continue to require a prepared world.
     fn capture_ready_screen(&mut self, world_ready: bool, frame_begin: Instant) {
+        // Explicit loading captures inspect the actual frame without advancing
+        // ready-world benchmark counters or recording time as playable work.
+        if !world_ready && !self.items.captures.is_empty() {
+            self.capture_item_frame();
+        }
         let capture_ready = world_ready
             || ((self.capture_path.is_some() || !self.items.captures.is_empty())
                 && self.capture_at_seconds.is_none()
@@ -5059,6 +5144,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         outcome: None,
         message: None,
         message_page: 0,
+        subtitles: ui::Subtitles::default(),
         items: item_runtime::Items::new(),
         audio: audio_runtime::Audio::new(&sdl_context),
         video: video::Recording::from_env(),
