@@ -2123,6 +2123,13 @@ pub(super) fn culling_reflected(model: Mat4) -> Option<bool> {
         .then_some(determinant < 0.0)
 }
 
+/// Model materials cannot receive the editor-only ceiling-cutaway flag.
+#[derive(Clone, Copy)]
+enum WorldShaderKind {
+    Architecture,
+    Model,
+}
+
 /// One world pipeline variant's distinguishing state.
 ///
 /// The six material passes share the shader module, vertex layout, depth
@@ -2138,6 +2145,7 @@ struct WorldPipelineVariant {
     cull: Option<wgpu::Face>,
     instanced: bool,
     rigid: bool,
+    shader_kind: WorldShaderKind,
 }
 
 /// The reference's translucent blend state, exactly.
@@ -2175,6 +2183,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         WorldPipelineVariant {
             instanced: false,
             rigid: false,
+            shader_kind: WorldShaderKind::Architecture,
             label: "places-wgpu-world-opaque",
             fragment_entry: WORLD_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_FRAGMENT_ENTRY_RAW,
@@ -2189,6 +2198,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         WorldPipelineVariant {
             instanced: false,
             rigid: false,
+            shader_kind: WorldShaderKind::Architecture,
             label: "places-wgpu-world-cutout",
             fragment_entry: WORLD_CUTOUT_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_CUTOUT_FRAGMENT_ENTRY_RAW,
@@ -2199,6 +2209,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         WorldPipelineVariant {
             instanced: false,
             rigid: false,
+            shader_kind: WorldShaderKind::Architecture,
             label: "places-wgpu-world-translucent",
             fragment_entry: WORLD_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_FRAGMENT_ENTRY_RAW,
@@ -2209,6 +2220,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         WorldPipelineVariant {
             instanced: false,
             rigid: false,
+            shader_kind: WorldShaderKind::Architecture,
             label: "places-wgpu-world-emission",
             fragment_entry: WORLD_EMISSION_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_EMISSION_FRAGMENT_ENTRY,
@@ -2223,6 +2235,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         WorldPipelineVariant {
             instanced: false,
             rigid: false,
+            shader_kind: WorldShaderKind::Architecture,
             label: "places-wgpu-world-emission-blend",
             fragment_entry: "fs_emission_blend",
             fragment_entry_raw: "fs_emission_blend",
@@ -2233,6 +2246,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         WorldPipelineVariant {
             instanced: false,
             rigid: false,
+            shader_kind: WorldShaderKind::Architecture,
             label: "places-wgpu-world-emission-cutout",
             fragment_entry: WORLD_EMISSION_CUTOUT_FRAGMENT_ENTRY,
             fragment_entry_raw: WORLD_EMISSION_CUTOUT_FRAGMENT_ENTRY,
@@ -2288,6 +2302,15 @@ fn build_world_pipeline(
     let [display_constant] = super::surface::color_target_constants(format);
     let fragment_constants = [
         display_constant,
+        // Model materials never carry the editor-only ceiling flag. Omit its
+        // unreachable discard so opaque model shaders can write depth early.
+        (
+            "editor_ceiling_gate",
+            f64::from(u8::from(matches!(
+                variant.shader_kind,
+                WorldShaderKind::Architecture
+            ))),
+        ),
         (
             "water_blend_pass",
             f64::from(u8::from(variant.blend.is_some() && !shadow)),
@@ -2441,6 +2464,11 @@ fn build_prop_pipelines(
     });
     let passes = world_pipeline_variants(false).map(|mut variant| {
         variant.instanced = true;
+        // Alpha-tested/blended programs already need their coverage branches;
+        // keep their established shader to avoid redundant specialization.
+        if variant.blend.is_none() && !variant.fragment_entry.contains("cutout") {
+            variant.shader_kind = WorldShaderKind::Model;
+        }
         build_world_pipeline(
             device,
             &instance_pipeline_layout,
@@ -2597,8 +2625,10 @@ fn build_entity_pipelines(
     let [mut opaque, _, _, mut emission, _, _] = world_pipeline_variants(true);
     opaque.instanced = instanced;
     opaque.rigid = instanced;
+    opaque.shader_kind = WorldShaderKind::Model;
     emission.instanced = instanced;
     emission.rigid = instanced;
+    emission.shader_kind = WorldShaderKind::Model;
     let reflected = match front {
         wgpu::FrontFace::Ccw => wgpu::FrontFace::Cw,
         wgpu::FrontFace::Cw => wgpu::FrontFace::Ccw,
@@ -2616,6 +2646,51 @@ fn build_entity_pipelines(
         build(reflected, opaque),
         build(reflected, emission),
     ]
+}
+
+struct ModelPipelines {
+    opaque: wgpu::RenderPipeline,
+    emission: wgpu::RenderPipeline,
+    opaque_culled: wgpu::RenderPipeline,
+    emission_culled: wgpu::RenderPipeline,
+    opaque_culled_reflected: wgpu::RenderPipeline,
+    emission_culled_reflected: wgpu::RenderPipeline,
+}
+
+/// Two-sided opaque model programs retain all authored faces and material work,
+/// while architecture alone keeps the editor ceiling-cutaway discard.
+fn build_model_pipelines(
+    device: &wgpu::Device,
+    layout: &wgpu::PipelineLayout,
+    shader: &wgpu::ShaderModule,
+    format: wgpu::TextureFormat,
+    state: (wgpu::FrontFace, bool),
+) -> ModelPipelines {
+    let [mut opaque, _, _, mut emission, _, _] = world_pipeline_variants(false);
+    opaque.shader_kind = WorldShaderKind::Model;
+    emission.shader_kind = WorldShaderKind::Model;
+    let build =
+        |variant| build_world_pipeline(device, layout, shader, format, state.0, state.1, variant);
+    let scene = build(opaque);
+    let bloom = if format == DEPTH_FORMAT {
+        scene.clone()
+    } else {
+        build(emission)
+    };
+    let [
+        opaque_culled,
+        emission_culled,
+        opaque_culled_reflected,
+        emission_culled_reflected,
+    ] = build_entity_pipelines(device, layout, shader, format, (state.0, state.1, false));
+    ModelPipelines {
+        opaque: scene,
+        emission: bloom,
+        opaque_culled,
+        emission_culled,
+        opaque_culled_reflected,
+        emission_culled_reflected,
+    }
 }
 
 /// The world material render pipelines and their camera + texture + material
@@ -2639,10 +2714,7 @@ fn build_entity_pipelines(
 /// * **emission-blend** — straight coverage blending for transparent emission.
 pub struct WorldPipeline {
     instanced: Option<InstancePipelines>,
-    opaque_culled: wgpu::RenderPipeline,
-    opaque_culled_reflected: wgpu::RenderPipeline,
-    emission_culled: wgpu::RenderPipeline,
-    emission_culled_reflected: wgpu::RenderPipeline,
+    models: ModelPipelines,
     opaque: wgpu::RenderPipeline,
     cutout: wgpu::RenderPipeline,
     translucent: wgpu::RenderPipeline,
@@ -2756,17 +2828,12 @@ impl WorldPipeline {
         // Zero-initialized capture buffers see no attached lights.
         let (lights_buffer, lights_bind_group, lights_sampler) =
             create_dynamic_lights_binding(device, &lights_layout);
-        let [
-            opaque_culled,
-            emission_culled,
-            opaque_culled_reflected,
-            emission_culled_reflected,
-        ] = build_entity_pipelines(
+        let models = build_model_pipelines(
             device,
             &pipeline_layout,
             &shader,
             format,
-            (front_face, raw_target, false),
+            (front_face, raw_target),
         );
         let instanced = (device.limits().max_bind_groups >= 6).then(|| {
             build_prop_pipelines(
@@ -2797,10 +2864,7 @@ impl WorldPipeline {
         );
         Self {
             instanced,
-            opaque_culled,
-            opaque_culled_reflected,
-            emission_culled,
-            emission_culled_reflected,
+            models,
             opaque,
             cutout,
             translucent,
@@ -3021,10 +3085,14 @@ impl WorldPipeline {
         reflected: Option<bool>,
     ) -> &wgpu::RenderPipeline {
         match entity_cull_mode(pass, double_sided, reflected) {
-            EntityCullMode::Regular if emission => &self.emission_culled,
-            EntityCullMode::Regular => &self.opaque_culled,
-            EntityCullMode::Reflected if emission => &self.emission_culled_reflected,
-            EntityCullMode::Reflected => &self.opaque_culled_reflected,
+            EntityCullMode::Regular if emission => &self.models.emission_culled,
+            EntityCullMode::Regular => &self.models.opaque_culled,
+            EntityCullMode::Reflected if emission => &self.models.emission_culled_reflected,
+            EntityCullMode::Reflected => &self.models.opaque_culled_reflected,
+            EntityCullMode::TwoSided if matches!(pass, BatchPass::Opaque) && emission => {
+                &self.models.emission
+            }
+            EntityCullMode::TwoSided if matches!(pass, BatchPass::Opaque) => &self.models.opaque,
             EntityCullMode::TwoSided if emission => self.emission_pipeline_for(pass),
             EntityCullMode::TwoSided => self.pipeline_for(pass),
         }
@@ -3751,10 +3819,13 @@ impl WorldPipeline {
             if bound_pipeline != Some((draw.pass, instanced)) {
                 if instanced {
                     pass.set_pipeline(self.prop_pipeline_for(draw.pass, emission_only));
-                } else if emission_only {
-                    pass.set_pipeline(self.emission_pipeline_for(draw.pass));
                 } else {
-                    pass.set_pipeline(self.pipeline_for(draw.pass));
+                    pass.set_pipeline(self.entity_pipeline_for(
+                        draw.pass,
+                        emission_only,
+                        true,
+                        None,
+                    ));
                 }
                 bound_pipeline = Some((draw.pass, instanced));
                 bound_chunk = None;

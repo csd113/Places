@@ -1,5 +1,11 @@
 ## 0.13.1 — Unreleased
 
+- Specialize opaque model shaders to remove the unreachable editor ceiling
+  discard while retaining authored faces, materials, lighting and Full reflections.
+  Matched Windows pairs improve Hollow and Arcade throughput; record frame tails,
+  pixel comparisons and added loading cost in the
+  [FPS optimization report](docs/reports/fps-optimization-0.13.1-windows.md).
+
 - Add optional per-level gameplay checkpoints with editor volumes, shared script
   actions, compatible Continue/Start new choices and bounded atomic local saves.
   Restore authored gameplay and explicit script state through stable identities;

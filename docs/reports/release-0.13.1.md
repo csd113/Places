@@ -906,3 +906,26 @@ restart restoration, editor build/Play activation, disabled and changed-content
 policies, corrupt recovery, atomic failure and canceled/failed-load rollback.
 Exact state/identity witnesses and the excluded shared editor trace are recorded
 in the checkpoint report; accepted artifacts and custody remain outside target.
+
+
+## Targeted opaque model rendering optimization (Windows)
+
+Specialize opaque model scene/emission programs to remove the unreachable editor
+ceiling-cutaway discard. Architecture retains that gate. Preserve model faces,
+geometry, artwork, alpha/blend behavior, lighting and Full planar reflections.
+All maps/assets remain unchanged; no shipped package is rebaked in this phase.
+
+On the checkpoint baseline c9c9eb92, nine matched pairs (18 runs, 21,600 measured
+frames) raise median average FPS from 58.20 to 64.07 in Hollow, 105.14 to 131.32
+close to Arcade cabinets and 102.74 to 123.12 in the lanes. GPU elapsed means
+improve in every pair. Hollow/cabinet full-frame tails improve consistently;
+lanes tails remain mixed. Extra request-to-ready time is about 0.28-0.55 seconds.
+The [Windows optimization report](fps-optimization-0.13.1-windows.md) records full
+pair ranges, CPU/GPU tails, seven visual comparisons, failed attempts, stage
+diagnostics, exact binaries and the loading tradeoff. Strict debug/release Clippy,
+locked release build, 390 Rust tests and 371 Python checks (18 skips) pass.
+
+Retained archives validate and load, while require-current honestly reports
+changed compiler preparation code. Packaging refresh remains after the remaining
+engine queue. Mac validation stays deferred; Hub wall-sign authoring is later
+work. This is unreleased development-branch acceptance.

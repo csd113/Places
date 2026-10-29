@@ -875,8 +875,10 @@ fn caustic_receiver_light(in: VsOut, selected: u32) -> vec4<f32> {
 
 // This presentation-only gate retains collision, lighting, and package geometry.
 // Testing the geometric normal also handles a sloped roof and its top backing.
+override editor_ceiling_gate: bool = true;
+
 fn editor_ceiling_hidden(in: VsOut) -> bool {
-    return (material.flags & 8u) != 0u && (in.world_normal.y >= 0.0 ||
+    return editor_ceiling_gate && (material.flags & 8u) != 0u && (in.world_normal.y >= 0.0 ||
         dot(in.world_normal, camera.position - in.world_position) <= 0.0);
 }
 
