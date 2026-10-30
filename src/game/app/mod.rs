@@ -180,11 +180,10 @@ fn parse_spawn_override(value: &str) -> Option<[f32; 4]> {
         .split(',')
         .map(|part| part.trim().parse::<f32>().ok())
         .collect::<Option<Vec<f32>>>()?;
-    let numbers: Vec<f32> = parts
-        .into_iter()
-        .filter(|number| number.is_finite())
-        .collect();
-    match numbers.as_slice() {
+    if !parts.iter().all(|number| number.is_finite()) {
+        return None;
+    }
+    match parts.as_slice() {
         [x, z, yaw] => Some([*x, f32::NAN, *z, *yaw]),
         [x, y, z, yaw] => Some([*x, *y, *z, *yaw]),
         _ => None,
@@ -2512,6 +2511,8 @@ impl FrameLoop<'_> {
             } => {}
             actions::Action::Audio(change) => self.scripted_audio(&change),
             actions::Action::Checkpoint { name } => self.scripted_checkpoint(&name),
+            actions::Action::SaveCheckpoint { name } => self.checkpoints.request = Some(name),
+            actions::Action::ResumeCheckpoint {} => self.resume_current_checkpoint(),
             actions::Action::Capture { name } => {
                 self.items.captures.push_back(name);
             }
@@ -4182,6 +4183,52 @@ impl FrameLoop<'_> {
         self.checkpoints.resume = None;
     }
 
+    fn apply_launch_overrides(&mut self, intent: LoadIntent, resuming_checkpoint: bool) {
+        if self.launch_overrides {
+            self.launch_overrides = false;
+            if matches!(intent, LoadIntent::Play) && !resuming_checkpoint {
+                if let Ok(value) = std::env::var("PLACES_PLAY_HERE") {
+                    let result = game::play_spawn::Pose::parse(&value)
+                        .ok_or_else(|| "Invalid Play here launch pose".to_string())
+                        .and_then(|pose| {
+                            self.game.apply_play_pose(pose)?;
+                            if !self
+                                .items
+                                .world
+                                .player_pose_clear(item_runtime::player_context(self.game))
+                            {
+                                return Err(
+                                    "Play here: a standing player overlaps a physical prop".into(),
+                                );
+                            }
+                            Ok(pose)
+                        });
+                    match result {
+                        Ok(pose) => {
+                            *self.spawn_pos = pose.eye;
+                            *self.spawn_yaw = pose.yaw;
+                            logging::event(format!(
+                                "[editor-play-here] eye={:?} yaw={} pitch={}",
+                                pose.eye, pose.yaw, pose.pitch
+                            ));
+                        }
+                        Err(error) => {
+                            self.fatal_error = Some(error);
+                            self.game.stop();
+                            return;
+                        }
+                    }
+                } else if let Some(spawn) = spawn_override_from_env() {
+                    apply_spawn_override(self.game, self.spawn_pos, self.spawn_yaw, spawn);
+                }
+            }
+            if matches!(intent, LoadIntent::Play) && pause_requested() {
+                self.game.set_app_state(AppState::Paused);
+            }
+            apply_screen_request(self.game, self.ui_state);
+        }
+    }
+
     fn commit_loaded_world(&mut self) {
         let Some(PendingCommit {
             id,
@@ -4208,6 +4255,7 @@ impl FrameLoop<'_> {
                 .clear_given_props(self.renderer, &mut self.items.world);
         }
         self.close_console();
+        let resuming_checkpoint = checkpoint.is_some();
         let mut install_timer = perf::loading::StageTimer::new("game-install");
         self.trace.record("gpu_ready", id, &loaded.level.id);
         logging::info(format!("[loading] committed {}", loaded.level.id));
@@ -4283,16 +4331,7 @@ impl FrameLoop<'_> {
         if !matches!(intent, LoadIntent::Graphics) {
             self.initialize_menu_choreography();
         }
-        if self.launch_overrides {
-            self.launch_overrides = false;
-            if let Some(spawn) = spawn_override_from_env() {
-                apply_spawn_override(self.game, self.spawn_pos, self.spawn_yaw, spawn);
-            }
-            if matches!(intent, LoadIntent::Play) && pause_requested() {
-                self.game.set_app_state(AppState::Paused);
-            }
-            apply_screen_request(self.game, self.ui_state);
-        }
+        self.apply_launch_overrides(intent, resuming_checkpoint);
         self.ui_state.loading_step = 7;
         install_timer.step("finalize");
         self.trace_world("world_committed");
@@ -5308,3 +5347,7 @@ fn finish_player(
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "../tests/spawn_input.rs"]
+mod spawn_input_tests;

@@ -38,6 +38,12 @@ enum Action {
     Control {
         action: String,
     },
+    /// Positions only the editor camera; subsequent controls still use ordinary input.
+    Camera {
+        eye: [f32; 3],
+        yaw: f32,
+        pitch: f32,
+    },
     ScrollView {
         lines: i16,
     },
@@ -203,6 +209,9 @@ impl Verification {
                 self.world_pointer(app, window, *position, *pressed)?;
             }
             Action::ScrollScene { lines } => scroll_scene(app, window, *lines, false)?,
+            Action::Camera { eye, yaw, pitch } => {
+                app.viewport.verification_view(*eye, *yaw, *pitch)?;
+            }
             Action::ScrollView { lines } => scroll_scene(app, window, *lines, true)?,
             Action::Control { action } => {
                 let (_, controls) = ui::build(app);
@@ -362,6 +371,11 @@ impl Verification {
             serde_json::json!(app.behavior.as_ref().map(|d| &d.plan)),
         ));
         for (key, entry) in [
+            ("camera_eye",serde_json::json!(app.viewport.play_camera().ok().map(|pose|pose.eye.to_array()))),
+            ("play_floor_pick",serde_json::json!(app.play_floor_pick)),
+            ("pending_play",serde_json::json!(app.pending_play.as_ref().map(|intent|serde_json::json!({"level":intent.level,"root":intent.root,"pose":intent.pose.map(crate::game::play_spawn::Pose::encode)})))),
+            ("can_undo",serde_json::json!(app.document.as_ref().is_some_and(super::Document::can_undo))),
+            ("can_redo",serde_json::json!(app.document.as_ref().is_some_and(super::Document::can_redo))),
             (
                 "lighting",
                 serde_json::json!({"local_preview":app.viewport.local_progress(),"fixtures":app.lighting.fixtures,"switch":app.lighting.switch,"preview_off":app.lighting.preview_off}),
@@ -431,6 +445,13 @@ fn validate(action: &Action) -> Result<(), String> {
             (1..=64).contains(&lines.unsigned_abs())
         }
         Action::Click { x, y } => valid_point(*x, *y),
+        Action::Camera { eye, yaw, pitch } => {
+            eye.iter()
+                .all(|value| value.is_finite() && value.abs() <= 100_000.0)
+                && yaw.is_finite()
+                && pitch.is_finite()
+                && pitch.abs() <= 90.0
+        }
         Action::WorldClick { position }
         | Action::WorldPointer {
             position,

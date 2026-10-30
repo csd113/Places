@@ -24,6 +24,13 @@ impl Default for Camera {
 }
 
 impl Camera {
+    /// Explicit native acceptance viewpoint, through the same orbit camera.
+    pub fn set_pose(&mut self, pose: crate::game::play_spawn::Pose) {
+        self.yaw = pose.yaw;
+        self.pitch = pose.pitch;
+        self.target = self.forward().mul_add(Vec3::splat(self.distance), pose.eye);
+    }
+
     fn forward(&self) -> Vec3 {
         Vec3::new(
             self.yaw.sin() * self.pitch.cos(),

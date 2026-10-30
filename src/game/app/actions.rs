@@ -113,6 +113,11 @@ pub enum Action {
     Checkpoint {
         name: String,
     },
+    /// Explicit native acceptance through the ordinary save/resume paths.
+    SaveCheckpoint {
+        name: String,
+    },
+    ResumeCheckpoint {},
     Capture {
         name: String,
     },
@@ -338,8 +343,19 @@ fn valid_capture_name(name: &str) -> bool {
             .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-'))
 }
 
+fn validate_evidence_action(action: &Action) -> Result<(), String> {
+    if let Action::Capture { name } | Action::Checkpoint { name } | Action::SaveCheckpoint { name } =
+        action
+        && !valid_capture_name(name)
+    {
+        return Err("Capture and checkpoint names must be short filename stems".into());
+    }
+    Ok(())
+}
+
 fn validate_action(action: &Action) -> Result<(), String> {
     validate_key_action(action)?;
+    validate_evidence_action(action)?;
     match action {
         Action::Load { level } if level.is_empty() || level.len() > 256 => {
             return Err("Invalid requested level id".to_string());
@@ -368,9 +384,6 @@ fn validate_action(action: &Action) -> Result<(), String> {
             recapture: _,
         } if button != "left" => {
             return Err("Native item mouse action supports the left button".to_string());
-        }
-        Action::Capture { name } | Action::Checkpoint { name } if !valid_capture_name(name) => {
-            return Err("Capture name must be a short filename stem".to_string());
         }
         Action::ConsoleEnabled { enabled: _ }
         | Action::Key {
@@ -423,6 +436,8 @@ fn validate_action(action: &Action) -> Result<(), String> {
         }
         | Action::Capture { name: _ }
         | Action::Checkpoint { name: _ }
+        | Action::SaveCheckpoint { name: _ }
+        | Action::ResumeCheckpoint {}
         | Action::Load { level: _ }
         | Action::Audio(_)
         | Action::Escape {}

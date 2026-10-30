@@ -19,6 +19,7 @@ pub(super) enum Pending {
 }
 
 pub(super) enum Popup {
+    PlayOptions,
     WallSigns,
     Layers,
     Flicker,
@@ -185,6 +186,7 @@ impl Popup {
         hits: &mut Vec<Hit>,
     ) {
         match self {
+            Self::PlayOptions => super::play_here::draw(v, hits),
             Self::WallSigns => super::signs::draw(app, v, hits),
             Self::Layers => super::focus::draw(app, v, hits),
             Self::SceneSearch(value) => super::selection::draw_search(v, hits, value),
@@ -398,6 +400,7 @@ impl App {
     }
 
     pub(super) fn activate(&mut self, action: Action, window: &Window) -> Result<(), String> {
+        self.play_floor_pick = false;
         if matches!(
             action,
             Action::Nudge(_, _)
@@ -548,9 +551,38 @@ impl App {
     )]
     fn build_action(&mut self, action: Action) -> Result<bool, String> {
         match action {
-            Action::Build | Action::Play => self.start_build(action == Action::Play)?,
+            Action::Build => {
+                self.pending_play = None;
+                self.play_floor_pick = false;
+                self.start_build(false)?;
+            }
+            Action::Play => {
+                self.play_floor_pick = false;
+                self.start_play(None)?;
+            }
+            Action::PlayOptions => {
+                if self.compile.is_some() || self.play.is_some() {
+                    return Err("A build or player is already running".into());
+                }
+                self.play_floor_pick = false;
+                self.popup = Some(Popup::PlayOptions);
+            }
+            Action::PlayCamera => self.play_camera()?,
+            Action::PlayFloor => {
+                if self.compile.is_some() || self.play.is_some() {
+                    return Err("A build or player is already running".into());
+                }
+                self.popup = None;
+                self.play_floor_pick = true;
+                self.navigation.pick_goal = None;
+                self.viewport.cancel_navigation();
+                self.status =
+                    "Play here: click a visible floor. Esc cancels; saved spawn stays unchanged."
+                        .into();
+            }
             Action::Cancel => {
-                self.play_after_build = false;
+                self.pending_play = None;
+                self.play_floor_pick = false;
                 if let Some(job) = &mut self.compile {
                     job.cancel();
                     self.status = "Cancelling safely...".into();
@@ -892,7 +924,7 @@ impl App {
         } else {
             CompileJob::start(&self.tools, doc.project(), doc.level_id())?
         });
-        self.play_after_build = play;
+
         self.status = "Compiling saved source...".into();
 
         Ok(())
@@ -1076,13 +1108,22 @@ impl App {
                                 report.bytes,
                                 report.warnings.join("; ")
                             );
-                            if self.play_after_build {
+                            if let Some(intent) = self.pending_play.take() {
                                 let result = self
                                     .document
                                     .as_ref()
-                                    .ok_or_else(|| "Project closed during build".into())
-                                    .and_then(|doc| {
-                                        PlayJob::start(&self.tools, &output, doc.level_id())
+                                    .filter(|doc| intent.matches(doc))
+                                    .ok_or_else(|| {
+                                        "Play cancelled: the project or level changed during export"
+                                            .to_string()
+                                    })
+                                    .and_then(|_| {
+                                        PlayJob::start_at(
+                                            &self.tools,
+                                            &output,
+                                            &intent.level,
+                                            intent.pose,
+                                        )
                                     });
                                 match result {
                                     Ok(player) => {
@@ -1107,7 +1148,7 @@ impl App {
                             "Build cancelled. Source and last published package retained.".into();
                     }
                 }
-                self.play_after_build = false;
+                self.pending_play = None;
             }
         }
         if let Some(job) = &mut self.play {

@@ -174,6 +174,49 @@ impl App {
         false
     }
 
+    #[expect(
+        clippy::rest_pattern_accessible_field,
+        clippy::wildcard_enum_match_arm,
+        reason = "Only pointer coordinates and Escape affect the ephemeral floor picker."
+    )]
+    fn play_floor_event(&mut self, event: &Event, window: &Window, hits: &[Hit]) -> bool {
+        match event {
+            Event::KeyDown {
+                keycode: Some(Keycode::Escape),
+                ..
+            } => {
+                self.play_floor_pick = false;
+                self.status = "Play here cancelled. Saved spawn unchanged.".into();
+                true
+            }
+            Event::MouseButtonDown {
+                mouse_btn: MouseButton::Left,
+                x,
+                y,
+                ..
+            }
+            | Event::MouseButtonUp {
+                mouse_btn: MouseButton::Left,
+                x,
+                y,
+                ..
+            } => {
+                if let Some(point) = ui_point(window, [*x, *y])
+                    && self.viewport.contains_ui(point)
+                    && !hits.iter().any(|hit| hit.contains(point))
+                {
+                    if matches!(event, Event::MouseButtonUp { .. }) {
+                        let result = self.play_floor_click(point);
+                        self.report(result);
+                    }
+                    return true;
+                }
+                false
+            }
+            _ => false,
+        }
+    }
+
     fn click(&mut self, window: &Window, hits: &[Hit], window_point: [f32; 2]) {
         let physical = window.size_in_pixels();
         if let Some(point) = super::layout::window_to_ui(
@@ -214,6 +257,9 @@ impl App {
                 }
         ) {
             self.request(Pending::Close, window);
+            return;
+        }
+        if self.play_floor_pick && self.play_floor_event(event, window, hits) {
             return;
         }
         if self.modal_event(event, window, hits) {
@@ -330,7 +376,11 @@ fn shortcut(key: Keycode, modifiers: Mod) -> Option<Action> {
             }),
             Keycode::Y => Some(Action::Redo),
             Keycode::B => Some(Action::Build),
-            Keycode::P => Some(Action::Play),
+            Keycode::P => Some(if modifiers.intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD) {
+                Action::PlayCamera
+            } else {
+                Action::Play
+            }),
             _ => None,
         }
     } else {

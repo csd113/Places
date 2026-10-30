@@ -52,6 +52,9 @@ pub(super) struct Viewport {
     worker: PreviewWorker,
     camera: Camera,
     objects: Vec<PickObject>,
+    play_mesh: Option<std::sync::Arc<crate::engine::render::LevelMesh>>,
+    play_floor: crate::engine::level::WalkableFloor,
+    play_doors: Vec<crate::engine::collision::DoorCollider>,
     pending_objects: Option<Vec<PickObject>>,
     upload_samples: Vec<f64>,
     volume_guides: Vec<overlay::VolumeGuide>,
@@ -101,6 +104,9 @@ impl Viewport {
             worker: PreviewWorker::new()?,
             camera: Camera::default(),
             objects: Vec::new(),
+            play_mesh: None,
+            play_floor: crate::engine::level::WalkableFloor::default(),
+            play_doors: Vec::new(),
             pending_objects: None,
             upload_samples: Vec::new(),
             volume_guides: Vec::new(),
@@ -159,6 +165,7 @@ impl Viewport {
         self.renderer.cancel_prepared_install();
         self.uploading = false;
         self.pending_objects = None;
+        self.play_mesh = None;
         self.requested = Some(Instant::now());
 
         self.room_handles = level
@@ -335,6 +342,39 @@ impl Viewport {
             .map(|object| object.bounds)
     }
 
+    pub fn verification_view(&mut self, eye: [f32; 3], yaw: f32, pitch: f32) -> Result<(), String> {
+        self.camera.set_pose(crate::game::play_spawn::Pose::new(
+            Vec3::from_array(eye),
+            yaw.to_radians(),
+            pitch.to_radians(),
+        )?);
+        Ok(())
+    }
+
+    pub fn play_camera(&self) -> Result<crate::game::play_spawn::Pose, String> {
+        let view = self.camera.render_camera();
+        crate::game::play_spawn::Pose::new(view.position, self.camera.yaw, self.camera.pitch)
+    }
+
+    pub fn play_floor(&self, point: [f32; 2]) -> Result<Vec3, String> {
+        if self.is_preparing() {
+            return Err("Play here: wait for the current scene preview".into());
+        }
+        let ray = self.ray(point).ok_or("Play here: no scene ray")?;
+        picking::play_floor_hit(
+            self.play_mesh
+                .as_deref()
+                .ok_or("Play here: scene is not ready")?,
+            &self.objects,
+            &self.play_floor,
+            &self.play_doors,
+            ray,
+        )
+        .ok_or_else(|| {
+            "Play here: click a visible floor; walls, doors and props block the pick".into()
+        })
+    }
+
     pub fn pick(&self, point: [f32; 2]) -> Option<ObjectId> {
         if self.is_preparing() {
             return None;
@@ -445,6 +485,9 @@ impl Viewport {
         let admission_ms = admission_started.elapsed().as_secs_f64() * 1_000.0_f64;
         self.preview_metrics = preview.metrics;
         let setup_started = Instant::now();
+        self.play_mesh = Some(std::sync::Arc::clone(&preview.build.mesh));
+        self.play_floor = crate::engine::level::WalkableFloor::from_level(&preview.loaded.level);
+        self.play_doors = crate::engine::door::Doors::from_level(&preview.loaded.level).colliders();
         self.pending_objects = Some(
             preview
                 .objects

@@ -11,6 +11,9 @@ use crate::engine::spatial::Aabb;
 #[path = "terrain_picking.rs"]
 mod terrain;
 use terrain::terrain_objects;
+#[path = "play_picking.rs"]
+mod play_picking;
+pub(super) use play_picking::play_floor_hit;
 
 #[cfg(test)]
 #[path = "../tests/terrain_picking.rs"]

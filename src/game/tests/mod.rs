@@ -1,6 +1,7 @@
 mod carried_door;
 mod developer;
 mod input;
+mod play_spawn;
 mod settings;
 mod terrain_collision;
 

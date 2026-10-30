@@ -972,3 +972,21 @@ frame after an instance room was independently reshaped.
 Each level defaults to Gameplay saves: Off in Project. Add to scene > Checkpoint
 volume creates a named amber trigger; ordinary selection/transform, Events/actions,
 undo/save/reopen and Play apply. See [the supported persistence contract](CHECKPOINTS.md).
+
+## Spawn and test here
+
+The **Here** button beside Play is available in Simple and Advanced mode.
+Choose **From camera** (Cmd/Ctrl Shift P) to retain the editor camera's actual
+eye, yaw and clamped pitch. The camera must have standing clearance and be
+within one walking step of standing height above a real floor. Choose
+**Choose a floor** and click a visible floor to stand there with the same view
+direction. Esc cancels the picker. Walls, doors, fixtures and props block floor
+picks; points in voids or without standing clearance report a reason.
+
+Play here follows the usual save and complete-project export. It never writes
+the temporary pose into the level's player spawn, selection or undo history.
+A project/level switch, edit, cancel or failure discards the queued launch.
+Play here profiles live in a separate `play-here` directory under the normal
+package/level test profile, so its checkpoints cannot affect normal Play. The
+pose is applied once at fresh startup. Explicit checkpoint Resume, graphics
+reloads and later level transitions retain their normal position rules.

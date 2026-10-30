@@ -126,6 +126,9 @@ pub(super) enum Action {
     BakeCancel,
     Build,
     Play,
+    PlayOptions,
+    PlayCamera,
+    PlayFloor,
     Cancel,
     Stop,
     Add(ObjectKind),
@@ -470,14 +473,14 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         ),
         (
             151.0,
-            51.0,
+            47.0,
             "Save+Build",
             Action::Build,
             idle && app.document.is_some(),
         ),
         (
-            205.0,
-            46.0,
+            201.0,
+            25.0,
             "Play",
             Action::Play,
             idle && app.document.is_some(),
@@ -499,6 +502,14 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         }
     }
 
+    button(
+        vertices,
+        hits,
+        [229.0, 14.0, 25.0, 11.0],
+        "Here",
+        Action::PlayOptions,
+        idle && app.document.is_some(),
+    );
     if app.compile.is_some() || app.play.is_some() {
         let playing = app.play.is_some();
         button(
@@ -521,7 +532,7 @@ fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         button(
             vertices,
             hits,
-            [254.0, 14.0, 37.0, 11.0],
+            [257.0, 14.0, 34.0, 11.0],
             "Scripts",
             Action::Scripts,
             app.document.is_some(),

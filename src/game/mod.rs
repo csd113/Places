@@ -44,6 +44,7 @@ use crate::game::settings::Settings;
 
 mod developer;
 pub mod movement_probe;
+pub(crate) mod play_spawn;
 mod portal_movement;
 mod recovery;
 mod water;

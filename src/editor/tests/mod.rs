@@ -1,6 +1,7 @@
 mod document;
 mod fog;
 mod geometry;
+mod play_here;
 
 mod gameplay;
 

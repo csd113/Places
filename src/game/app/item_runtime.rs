@@ -172,7 +172,7 @@ impl Items {
     }
 }
 
-fn player_context(game: &crate::game::Game) -> PlayerContext {
+pub(super) fn player_context(game: &crate::game::Game) -> PlayerContext {
     PlayerContext {
         half: game.body_half(),
         eye: game.player_position,
@@ -426,6 +426,8 @@ impl FrameLoop<'_> {
             }
             | crate::game::app::actions::Action::Capture { name: _ }
             | crate::game::app::actions::Action::Checkpoint { name: _ }
+            | crate::game::app::actions::Action::SaveCheckpoint { name: _ }
+            | crate::game::app::actions::Action::ResumeCheckpoint {}
             | crate::game::app::actions::Action::Resize {
                 width: _,
                 height: _,

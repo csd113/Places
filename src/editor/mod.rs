@@ -21,6 +21,7 @@ mod layout;
 mod lighting;
 mod navigation;
 mod performance;
+mod play_here;
 pub mod process;
 #[doc(hidden)]
 pub mod profiling;
@@ -93,7 +94,8 @@ struct App {
     compile: Option<CompileJob>,
     play: Option<PlayJob>,
     last_play_trace: Option<PathBuf>,
-    play_after_build: bool,
+    pending_play: Option<play_here::Intent>,
+    play_floor_pick: bool,
     project_operation: Option<projects::Operation>,
     project_import: Option<PathBuf>,
     sign_artwork: usize,
@@ -139,6 +141,15 @@ struct App {
 impl App {
     fn load(&mut self, path: &Path) -> Result<(), String> {
         let document = Document::open(path)?;
+        if let Some(player) = self
+            .play
+            .as_mut()
+            .filter(|job| job.phase() == process::PlayPhase::Importing)
+        {
+            player.stop();
+        }
+        self.pending_play = None;
+        self.play_floor_pick = false;
         self.lighting = lighting::Draft::default();
         self.bakes.invalidate();
         self.preview_audio.clear_world();
@@ -166,6 +177,15 @@ impl App {
     }
 
     fn changed(&mut self) {
+        if let Some(player) = self
+            .play
+            .as_mut()
+            .filter(|job| job.phase() == process::PlayPhase::Importing)
+        {
+            player.stop();
+        }
+        self.pending_play = None;
+        self.play_floor_pick = false;
         self.lighting.preview_off = false;
         self.lighting.painting = false;
         self.viewport.set_focus(self.focus.clone());
@@ -467,7 +487,8 @@ fn create_app(
         compile: None,
         play: None,
         last_play_trace: None,
-        play_after_build: false,
+        pending_play: None,
+        play_floor_pick: false,
         project_operation: None,
         project_import: None,
         sign_artwork: 0,

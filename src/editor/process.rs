@@ -290,6 +290,7 @@ pub struct PlayJob {
     process: CapturedChild,
     tools: ToolPaths,
     level: String,
+    pose: Option<crate::game::play_spawn::Pose>,
     state_root: PathBuf,
     phase: PlayPhase,
     stopping: bool,
@@ -304,9 +305,23 @@ impl PlayJob {
     /// # Errors
     /// Reports missing packages/tools or process creation errors.
     pub fn start(tools: &ToolPaths, package: &Path, level: &str) -> Result<Self, String> {
+        Self::start_at(tools, package, level, None)
+    }
+
+    pub(crate) fn start_at(
+        tools: &ToolPaths,
+        package: &Path,
+        level: &str,
+        pose: Option<crate::game::play_spawn::Pose>,
+    ) -> Result<Self, String> {
         let canonical_package = std::fs::canonicalize(package)
             .map_err(|error| format!("Package {}: {error}", package.display()))?;
-        let state_root = play_state_root(&paths::user()?.cache, &canonical_package, level);
+        let normal_root = play_state_root(&paths::user()?.cache, &canonical_package, level);
+        let state_root = if pose.is_some() {
+            normal_root.join("play-here")
+        } else {
+            normal_root
+        };
         let stamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_err(|error| error.to_string())?
@@ -320,6 +335,7 @@ impl PlayJob {
             tools: tools.clone(),
             trace_directory,
             level: level.into(),
+            pose,
             state_root,
             phase: PlayPhase::Importing,
             stopping: false,
@@ -381,6 +397,9 @@ impl PlayJob {
         let mut command = tool_command(&self.tools.game)?;
         let _configured = command.env("PLACES_LEVEL", &self.level);
         configure_play(&mut command, &self.state_root);
+        if let Some(pose) = self.pose.take() {
+            let _pose = command.env("PLACES_PLAY_HERE", pose.encode());
+        }
         let _trace = command.env("PLACES_NAV_DEBUG", &self.trace_directory);
         self.process = CapturedChild::spawn(&mut command, StopPolicy::Terminate, false)?;
         self.phase = PlayPhase::Playing;
@@ -403,6 +422,9 @@ fn play_state_root(cache: &Path, package: &Path, level: &str) -> PathBuf {
 fn configure_play(command: &mut Command, state_root: &Path) {
     // Editor test runs must never install packages or settings into the user's
     // normal player profile. Import and windowed play share this isolated root.
+    let _overrides = command
+        .env_remove("PLACES_SPAWN")
+        .env_remove("PLACES_PLAY_HERE");
     let _state = command.env(paths::STATE_ROOT_ENV, state_root);
     let _config = command.env(paths::CONFIG_ROOT_ENV, state_root.join("config"));
     let _cache = command.env(paths::CACHE_ROOT_ENV, state_root.join("cache"));
