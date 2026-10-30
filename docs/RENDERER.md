@@ -240,11 +240,12 @@ Indices are `IndexFormat::Uint16`. The neutral `MeshPacker` chunks the draw set 
 pub struct CameraUniform {
     pub view_projection: [[f32; 4]; 4],  // offset 0,  64 bytes
     pub position: [f32; 3],              // offset 64, 12 bytes
-    pub _padding: f32,                   // offset 76
-}                                        // 80 bytes total
+    pub diagnostic_selector: f32,        // offset 76; zero without diagnostics
+    pub clip_plane: [f32; 4],             // offset 80; zero outside planar capture
+}                                        // 96 bytes total
 ```
 
-Column-major, matching WGSL `struct Camera { view_projection: mat4x4<f32>, position: vec3<f32>, _padding: f32 }` at `@group(0) @binding(0)`. The buffer is created once (size 80, `UNIFORM | COPY_DST`), the bind group once, and the matrix + eye pair is written with `Queue::write_buffer` only when it differs from the last uploaded one (`camera_uniform_changed` is a pure, tested predicate). Tests pin `size_of`, the alignment, the field offsets and the column order.
+Column-major, matching WGSL `struct Camera { view_projection: mat4x4<f32>, position: vec3<f32>, _padding: f32, clip_plane: vec4<f32> }` at `@group(0) @binding(0)`. The buffer is created once (size 96, `UNIFORM | COPY_DST`), the bind group once, and the matrix, eye and clipping half-space are written with `Queue::write_buffer` only when it differs from the last uploaded one (`camera_uniform_changed` is a pure, tested predicate). The explicit 16-byte alignment matches WGSL; native validation covers all consumers. The focused capture regressions protect half-space ownership and clearing the clip plane when the pipeline is reused.
 
 ### 4.4 Coordinate conventions
 
@@ -1044,7 +1045,7 @@ with the real capture matrices and samples it back, checking layer selection,
 the `s` axis and the `t` axis. The mip chain never regenerates at load, on a
 graphics change or per frame.
 
-**Planar mirror.** One plane per frame (the nearest whose reflective bounds survive the cull; Medium and High only), half the render size, its own depth, cleared to the raw clear colour. The capture skips the active plane's own static batches: the routing records the plane per mesh range, the material identity includes that plane, and each draw's material state is excluded exactly when its own plane is the capture plane. A material used on two disjoint floor patches therefore keeps two routes — selecting one reflects and excludes its ranges without treating the other plane's ranges as part of it. Sampling uses the projected `uv`, with the `v` flipped because the capture target's first row is NDC `+y`.
+**Planar mirror.** One plane per frame (the nearest whose reflective bounds survive the cull; Medium and High only), half the render size, its own depth, cleared to the raw clear colour. The capture skips the active plane's own static batches: the routing records the plane per mesh range, the material identity includes that plane, and each draw's material state is excluded exactly when its own plane is the capture plane. A material used on two disjoint floor patches therefore keeps two routes — selecting one reflects and excludes its ranges without treating the other plane's ranges as part of it. Sampling uses the projected `uv`, with the `v` flipped because the capture target's first row is NDC `+y`. The capture retains only the world half-space on the real camera's side of the selected mirror. The shared world/model/character shader and decal shader discard the opposite side, including structural floor backing that would otherwise cover the mirror from below. CPU capture occlusion admits only opaque triangles wholly within the retained half-space; crossing or discarded triangles cannot prove coverage. Frustum, model/held/animated bounds, projection, near/far depth, BLEND ordering and the one-plane budget are unchanged. Probe and ordinary-camera uploads clear the clipping plane; this is a camera uniform, independent of every actor's environment/fade binding.
 
 ## 9. Props, dynamics, doors, fixtures and emission
 
@@ -1532,7 +1533,7 @@ The following differences were measured in the historical porting campaign above
 The renderer's contracts are covered by in-crate tests, most of which run without a GPU because they pin CPU-side layouts, mirrors of the shader maths and pipeline state:
 
 - **Geometry:** the 72-byte neutral vertex, the 76-byte `WorldVertex` and every offset, the clip correction (near → 0, far → 1, midpoint → 0.5, `w` preserved, no mirroring), winding direction, culling, depth compare.
-- **Camera:** the 80-byte uniform layout, the write predicate, the sRGB clear colours against the reference display value.
+- **Camera:** the 96-byte uniform layout, the write predicate, the sRGB clear colours against the reference display value.
 - **Textures:** key semantics, exact 2x2 and odd-edge mip averages, 1x1 idempotence, constant chains, resident bytes, sampler policies, wrap selection, the fallback's committed pixels, semantic sRGB/data sampling.
 - **Materials:** resolution rules, the 80-byte uniform and its flags, linear color conversions and HDR accumulation, normal decode, alpha classification, blend state, translucent ordering, fallbacks.
 - **Lighting:** the sheen equation (CPU mirror), linear assembly order, absence of pre-presentation clipping, the vertex-lit build's byte-for-byte mesh, the lightmap CPU mirror of `surface_light`, the `needs_upload_fallback` rule. Controls cover the directional ceiling pool's row profile (brightest beneath the fixture), the retained vertex fallback, bounce-fill energy, the query-site radius covering the emitter extent, zone-seam continuity on a narrow strip, the bounded MaxRects allocator and its over-budget rejection, The Pit baking within the configured profile budgets, a distant room leaving a lit room's light unchanged, light-order stability, and baseboard/threshold non-participation. Prepared transport and entity support follow the current contracts in §§7.1.1–7.1.3 and §7.4 and the linked Art-style stage reports.

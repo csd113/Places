@@ -23,8 +23,10 @@ struct Camera {
     view_projection: mat4x4<f32>,
     // World-space eye position, the reference's `u_camera_pos`. Offset 64.
     position: vec3<f32>,
-    // Explicit tail padding so the struct is 80 bytes, 16-byte aligned.
+    // Explicit tail padding so the struct starts with 80 bytes, 16-byte aligned.
     _padding: f32,
+    // World-space capture half-space; zero for ordinary/probe/UI views.
+    clip_plane: vec4<f32>,
 };
 
 struct Material {
@@ -41,11 +43,11 @@ struct Material {
     // Bit 0: normal map bound and enabled. Bit 1: surface response enabled.
     // Bit 2: reflection eligible.
     flags: u32,
-    // `specular × authored strength`, the reference's `u_reflect_strength`.
+    // `specular Ã— authored strength`, the reference's `u_reflect_strength`.
     reflection_strength: vec3<f32>,
     // 0 none, 1 probe, 2 planar; the reference's `u_reflect_mode`.
     reflection_mode: u32,
-    // `emissive × intensity`, the reference's `u_emission_color`.
+    // `emissive Ã— intensity`, the reference's `u_emission_color`.
     emission_color: vec3<f32>,
     // Whether the emission mask texture is bound (the reference's
     // `u_emission_mask_enabled`).
@@ -312,7 +314,7 @@ fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
 // mean irradiance `I` and the vector sum `g` of the per-channel moment
 // vectors, both already in world space. Both planes interpolate linearly, and
 // the nonlinear step below is a function of the *scalar* `dot(g, n)` and the
-// *scalar* `|g|` of the interpolated moment — never of encoded coordinates —
+// *scalar* `|g|` of the interpolated moment â€” never of encoded coordinates â€”
 // so a bilinear blend stays smooth across texel boundaries:
 //
 //     k     = I.r + I.g + I.b
@@ -637,7 +639,7 @@ fn surface_sheen(in: VsOut, normal: vec3<f32>, view: vec3<f32>, light: vec3<f32>
 // The reference's reflection term, in linear light. A planar surface projects
 // the reflected frame through the mirrored camera; a probe surface reads the
 // static cubemap baked at load. Both are weighted by the authored strength (the
-// material's `specular × strength`), a Fresnel term and the gloss.
+// material's `specular Ã— strength`), a Fresnel term and the gloss.
 //
 // Reflection targets store unexposed linear HDR radiance; sampling never
 // re-applies tone mapping, exposure or display conversion.
@@ -953,6 +955,7 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
         out.color = water.rgb;
         out.alpha = water.a;
     }
+    if (dot(camera.clip_plane, vec4<f32>(in.world_position, 1.0)) < 0.0) { discard; }
     if (editor_ceiling_hidden(in)) { discard; }
     return out;
 }
@@ -999,6 +1002,7 @@ fn emissive_only(in: VsOut, cutout: bool) -> vec4<f32> {
     // scales bloom once. The attached-light term is deliberately absent here.
     let transmission = (1.0 - atmosphere(in.world_position).a) * storm_transmission(camera.position, in.world_position);
     let emission = surface_emission(in, base.rgb) * transmission;
+    if (dot(camera.clip_plane, vec4<f32>(in.world_position, 1.0)) < 0.0) { discard; }
     if (editor_ceiling_hidden(in)) { discard; }
     return vec4<f32>(emission, alpha);
 }

@@ -106,3 +106,43 @@ fn near_clipped_and_degenerate_occluders_never_remove_content() {
         "clipped or invalid occluders cannot prove coverage"
     );
 }
+
+/// One triangle reproduces clipped backing occlusion; no GPU/assets/bake.
+#[test]
+fn clipped_or_crossing_capture_occluders_cannot_hide_retained_objects() {
+    let occluders = wall();
+    let target = Aabb {
+        min: [-0.1, -0.1, 4.0],
+        max: [0.1, 0.1, 4.2],
+    };
+    assert!(
+        occluders.view(Vec3::ZERO, Mat4::IDENTITY).hides(&target),
+        "ordinary control must still occlude"
+    );
+    assert!(
+        !occluders
+            .clipped_view(
+                Vec3::ZERO,
+                Mat4::IDENTITY,
+                glam::Vec4::new(0.0, 0.0, 1.0, -3.0)
+            )
+            .hides(&target),
+        "discarded backing cannot prove capture coverage"
+    );
+    assert!(
+        !occluders
+            .clipped_view(Vec3::ZERO, Mat4::IDENTITY, glam::Vec4::X)
+            .hides(&target),
+        "partially clipped triangles cannot prove full coverage"
+    );
+    assert!(
+        occluders
+            .clipped_view(
+                Vec3::ZERO,
+                Mat4::IDENTITY,
+                glam::Vec4::new(0.0, 0.0, 1.0, -1.0)
+            )
+            .hides(&target),
+        "wholly retained opaque triangles remain useful"
+    );
+}

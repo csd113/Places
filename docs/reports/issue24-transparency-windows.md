@@ -1,5 +1,8 @@
 # Issue 24 animated BLEND correction — Windows, 30 October 2026
 
+Follow-up: the separate planar backing obstruction is now corrected and Windows
+acceptance is recorded in the [consolidated 0.13.1 report](release-0.13.1.md#planar-reflected-characters-windows-30-october-2026). The failed captures and limits below describe this earlier phase; clip labels alone are not actual selected-clip proof.
+
 The ordinary ghost's main-scene rear self-occlusion is corrected without changing
 its GLB, images, materials, rig, animation or fade. The exact reproduction now
 hides the face behind the full-opacity rear cloth. Partial opacity intentionally

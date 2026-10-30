@@ -16,6 +16,8 @@ struct Camera {
     // camera uniforms so one upload can serve every pass that needs a camera.
     position: vec3<f32>,
     _padding: f32,
+    // World-space capture half-space; zero for ordinary/probe/UI views.
+    clip_plane: vec4<f32>,
 };
 
 @group(0) @binding(0) var<uniform> camera: Camera;

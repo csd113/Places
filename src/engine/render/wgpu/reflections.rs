@@ -164,20 +164,39 @@ pub struct CaptureFrame {
     pub frustum: Frustum,
     /// World-space eye; the probe position or the mirrored camera.
     pub eye: glam::Vec3,
+    /// Keeps geometry on the real camera's side of the mirror; zero for probes.
+    pub clip_plane: [f32; 4],
 }
 
 impl CaptureFrame {
     /// Reflect both camera spaces together before preparing visibility.
     #[must_use]
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Negating a validated finite floating-point plane has no overflow or panic path"
+    )]
     pub fn planar(frame: &super::world::WorldFrame, plane: &ReflectionPlane) -> Self {
-        Self::new(
+        let mut capture = Self::new(
             planar_view_projection(frame.view_projection, plane),
             glam::Vec3::from_array(crate::engine::render::common::reflections::mirror_point(
                 plane.normal,
                 plane.offset,
                 frame.eye.to_array(),
             )),
-        )
+        );
+        let half_space = glam::Vec4::new(
+            plane.normal[0],
+            plane.normal[1],
+            plane.normal[2],
+            plane.offset,
+        );
+        capture.clip_plane = if plane.distance(frame.eye.to_array()) < 0.0 {
+            -half_space
+        } else {
+            half_space
+        }
+        .to_array();
+        capture
     }
 
     /// Builds a capture frame from a wgpu-clip view-projection and eye.
@@ -188,6 +207,7 @@ impl CaptureFrame {
             view_projection,
             frustum,
             eye,
+            clip_plane: [0.0; 4],
         }
     }
 
@@ -622,3 +642,7 @@ impl ReflectionTargets {
 pub fn planar_size_for(render_size: DrawableSize) -> DrawableSize {
     planar_target_size(render_size)
 }
+
+#[cfg(test)]
+#[path = "../../tests/planar_capture.rs"]
+mod tests;

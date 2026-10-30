@@ -6802,16 +6802,20 @@ impl WgpuRenderer {
             false,
             true,
         );
-        self.capture_pipeline.as_mut()?.upload_camera(
+        self.capture_pipeline.as_mut()?.upload_clipped_camera(
             &self.queue,
             capture.view_projection,
             capture.eye,
+            capture.clip_plane,
         );
-        self.decal_reflection_pipeline.as_mut()?.upload_camera(
-            &self.queue,
-            capture.view_projection,
-            capture.eye,
-        );
+        self.decal_reflection_pipeline
+            .as_mut()?
+            .upload_clipped_camera(
+                &self.queue,
+                capture.view_projection,
+                capture.eye,
+                capture.clip_plane,
+            );
         Some(capture)
     }
 
@@ -6845,9 +6849,11 @@ impl WgpuRenderer {
         else {
             return false;
         };
-        let capture_frame = capture
-            .world_frame()
-            .with_occlusion(Some(world), self.culling);
+        let capture_frame = capture.world_frame().with_clipped_occlusion(
+            Some(world),
+            self.culling,
+            capture.clip_plane,
+        );
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -7065,7 +7071,7 @@ impl WgpuRenderer {
                     "charts": atlas.charts, "chart_texels": atlas.chart_texels,
                     "bytes": atlas.resident_bytes, "format": "Rgba16Float irradiance+signed moment"},
                 "reflection_probes": probes, "active_probe": self.active_probe,
-                "active_plane": self.active_plane, "planar_resident": self.reflection_targets.planar().is_some(),
+                "active_plane": self.active_plane, "planar_passes_this_frame": self.reflection_passes, "planar_resident": self.reflection_targets.planar().is_some(),
                 "lighting_uniform": uniform.map(|value| serde_json::json!({
                     "light_scale": value.light_scale, "lightmap_enabled": value.lightmap_enabled,
                     "page_count": value.lightmap_page_count, "switchable_word": value.lightmap_switchable,

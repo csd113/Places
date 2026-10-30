@@ -1526,3 +1526,167 @@ unstaged menu scene remains SHA-256
 `E/handoff.json` records the final full local commit, saved source/binaries/evidence,
 idle-only single cargo clean and final process witness. Custody is released with
 that final receipt.
+
+## Planar reflected characters (Windows, 30 October 2026)
+
+Planar wet-floor captures now show the ghost and its animation/fade. This fixes
+the separate `TR-PLANAR-CHARACTER` finding from the transparency phase. The failed
+baseline/candidate captures in [the earlier report](issue24-transparency-windows.md)
+remain valid historical evidence; the transparency ordering change did not cause
+this missing-reflection behavior.
+
+### Demonstrated cause and bounded fix
+
+The recorded three cameras reproduce the failure with preserved production
+`06a34c558e7a2461e78ab6d10ea811381e394df6`. A temporary raw RGBA16F readback shows
+the floor's structural underside, at **y=-0.15**, filling the planar image from
+the mirrored camera. Excluding the reflective top face at y=0 left this opaque
+backing in front of the characters. CPU occlusion on/off alone could not remove
+the GPU depth obstruction. The diagnostic binary, raw image, commands and original
+source are retained; that temporary readback code is absent from final source.
+
+Each planar capture now retains the world half-space on the **real camera's**
+side of the mirror. The shared world/model/character shader and decals discard
+the opposite side. CPU capture occlusion may use only triangles wholly inside
+the retained half-space; clipped/crossing triangles cannot prove full coverage.
+The ordinary frustum, projection/near/far depth, reflected eye, posed/held bounds,
+BLEND semantics, material sidedness and per-view triangle sorting stay intact.
+The active mirror's own material exclusion and one-plane/half-resolution budget
+are retained. Probe and ordinary camera uploads clear the clipping half-space.
+No GLB, image, authored material, rig, clip or production map was rebuilt.
+
+The camera uniform is now 96 rather than 80 bytes. All consumers agree on the
+layout; decal size comes from the Rust type instead of a stale literal. Retained
+uniforms compare clipping bits too, including a same-matrix clip/reset transition.
+No new frame container, cache, target, index stream or normal-path GPU readback is
+introduced. Three sub-millisecond CPU regressions protect: real-side clipping
+without projection changes; cached camera upload/reset across captures; and
+clipped/crossing occluders versus wholly retained opaque coverage. Each uses tiny
+geometry/state without assets, GPU, baking or duplicated broad gameplay tests.
+
+![Native corrected planar front](../images/issue24-transparency/reflection-front.png)
+
+### Identities, reproduction and acceptance
+
+Evidence `E` is
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-30/task-6/reflection-evidence/`.
+`final-bin`, `final-source-hashes.json`, per-run `identity.json`, full logs, PNGs,
+CSVs, process samples, raw failed controls and allocation receipts remain outside
+Cargo target. Final player SHA256 is
+`9dac4de4d52a0a1b4b0bedc81de5e38b17c1adfef482cbb3414bb9a8953e151d`;
+reference player is
+`f1ca0279f545e9a6977c76989aa48a53734ee480099509b84db644a0f642a4f3`.
+The unchanged ghost GLB is
+`ea07c5f3e89eebf426943aff688258392796917be8fc1be86571707aa0e0fe16`.
+The final player is byte-identical to the passing pilot player.
+
+Windows Razer / RTX 3070 Laptop / DX12/DXC; actual drawable 960x640, FOV55,
+High/Full, bloom on, reflections Full. Original ready frames60/84/108 use front
+eye `[6.4,1.8,3.4]`, yaw0/pitch-17; rear `[7.6,1.8,-3.4]`, yaw204/pitch-17;
+side `[9.1,1.2,0]`, yaw270/pitch-10. Fixed delta is 1/60. Actual pass count **1**,
+camera/frame/drawable, applied settings, nonzero submitted world draws, expected
+captures and native exit/errors are checked, rather than qualifying a target
+allocation alone. Final-mode, unmodified native PNGs are the image evidence;
+thumbnail contact sheets are inspection aids only.
+
+`tools/bench/character_transparency_inputs.py --out NEW_DIRECTORY` now writes
+twelve small sources; the retained exact old rear fixture is a thirteenth control.
+All thirteen were explicitly built Static/Full with final production compiler,
+decoded/rehashed by native validate and accepted by `verify --require-current`.
+The ten unchanged inputs retain all **117** content-addressed decoded blob hashes,
+sizes and CRCs versus the preserved packages, including probe captures. Existing
+distribution/collection packages were not rebaked or declared compiler-current.
+
+| Check | Final result |
+| --- | --- |
+| Recorded front/rear/side silhouettes | PASS, including rear cloth and reflected static columns |
+| Full/partial opacity and independently mirrored ordering | PASS for idle and an actually moving float_forward control, with native cue/pose receipts |
+| Direct front/rear/side/overlap and quality controls | 30 stationary-idle + 24 moving-float pairs at High/Full, Medium/Full, Low/Static are pixel-identical; 30 legacy-labelled repeated idle pairs also retained |
+| Batched versus general path | 36 image pairs: 15 changed pixels total, max1/255; none exceeds1 |
+| CPU occlusion on/off | 36 pairs pixel-identical |
+| Reflective room floor, wet patch, crossing glass/water | PASS, both stationary and moving/fading controls; single-plane routing retained |
+| Actual float clock wrap and interrupted fade | PASS: opacity .85 -> .531 -> .583 -> .815 -> .85 ->0; light position is absent at 0; float time 2.215 -> .215 across its 4s wrap |
+| Exact hidden versus absent control | PASS, full-frame pixel-identical at ready frame252; no residual reflected glow/depth |
+| Runtime opaque and animated spawn/move/despawn | PASS for visible geometry and reflected movement; despawn matches absent exactly. Below-floor RGB contact footprint is separately limited below |
+| Real /give, Interact pickup, held movement and release | PASS: same held key, moved published bounds, then released; actual planar captures and state receipts |
+| Flashlight/shadow plus moving float on Static lighting | Explicit final native check retained with actual flashlight/clip receipts |
+
+The old stationary `float_forward` filename did **not** establish that clip:
+actual native cue was idle. Its failed live qualification is preserved and
+excluded as float proof. The corrected moving fixture publishes real locomotion;
+cameras follow its .3 m/s Z translation. Live receipts prove idle and float_forward
+selection, changing posed bounds and clock wrap. The early fixed capture named
+`zero` was only near the fade end; it is excluded from zero acceptance. The later
+`hidden` capture is the exact absent match. The attempted model-hide isolation
+also had no effect on authored characters and is explicitly unqualified.
+
+### Matched cost and ownership
+
+Twenty serial, Normal-priority throughput runs use byte-matched final fixture
+packages, the same DLLs and isolated state. Builds/native work are absent at run
+start. V-sync is off, actual presentation is **Immediate**, drawable 960x640; the
+primary display reads 165 Hz. The seven-actor and water controls exceed that rate;
+the32-actor control is below it without a refresh plateau. Each run measures 1,200
+frames after 240 warmup frames. GPU samples are deduplicated by sample ID. GPU
+figures describe encoded timestamp spans, not complete queue/driver latency.
+
+Three alternating pairs per principal view; stress is one pair. Values below
+are medians of run medians, or medians of each run's p99 for the tail column.
+
+| View | CPU render ms, reference -> final | GPU ms | Loop p99 ms | Median FPS |
+| --- | ---: | ---: | ---: | ---: |
+| Seven ghosts, rear, reflections off (3 pair(s)) | 1.357 -> 1.335 | 0.397 -> 0.398 | 3.300 -> 3.375 | 418.9 -> 422.2 |
+| Recorded wet-floor front view (3 pair(s)) | 1.356 -> 1.372 | 0.387 -> 0.466 | 3.368 -> 3.242 | 402.3 -> 411.2 |
+| Glass/water/wet-patch overlap (3 pair(s)) | 2.604 -> 2.806 | 0.720 -> 0.830 | 4.624 -> 5.125 | 272.1 -> 257.2 |
+| 32 ghosts, reflections off (1 pair(s)) | 4.908 -> 4.918 | 0.623 -> 0.610 | 10.713 -> 10.537 | 110.3 -> 110.1 |
+
+This is a correctness fix, not a claimed throughput optimization. The recorded
+view adds .079ms GPU; water adds about .201ms CPU submission and .110ms GPU, with
+the median per-run p99 loop rising .501ms. Raw ranges and the slower first water
+pair remain in `performance-analysis.json`; no tail improvement is claimed.
+Dry direct/stress controls remain near baseline.
+
+All 20 steady runs retain one fixed character/sorting capacity state. Two separate
+allocation-attribution runs (excluded from FPS evidence) report the same final
+77,594,624 allocated and 146,800,640 reserved backend bytes, the same camera
+allocation labels/counts and 64 KiB camera allocation granularity. They each retain
+six attribution receipts. Appending 16 logical camera bytes does not cross those
+allocation boundaries. Texture payloads and admitted topology/scratch ownership
+stay bounded. These backend host/device-block scopes overlap other memory scopes;
+they are not RSS or every Rust/SDL allocation. Process peaks are separately
+retained (water RSS 345.9-346.7 -> 345.5-347.8 MiB); no general memory reduction,
+zero whole-process allocation claim or multi-hour leak acceptance is implied.
+
+### Gates, limitations and local queue
+
+Format; strict workspace/all-target/all-feature Clippy in debug and release;
+locked release workspace/all-feature build of all ten executables; and 405 Rust
+tests pass on Rust/Cargo 1.99.1. The Python suite passes 372 with 18 expected skips;
+asset validation reports 674 assets / 417 placeable / 10 themes and zero warnings;
+clip boundaries pass. Final generator syntax and all twelve generated JSONs match
+the native inputs. Frozen Rust/WGSL/player hashes remain unchanged. Initial lint
+failures and the Python run lacking `sh` are retained; the latter was rerun using
+installed Git Bash in that test process's PATH, with no host setting change.
+
+A fully buried runtime crate still projects a small contact footprint. Longer
+settling did not remove it. The preserved reference with reflections OFF shows
+the same class of footprint (18,458 pixels/max10); final RGB below is 18,158/max8,
+while albedo/geometry and all despawn comparisons match. Native receipts retain
+one contact subject below the support plane. This pre-existing support-eligibility
+finding is **not** claimed fixed by planar clipping. It is deduplicated locally as
+`RUNTIME-BURIED-CONTACT`; `TR-CAPTURE-ACTUAL-CLIP` queues maintained native cue/opacity
+acceptance. `E/implementation-queue-drafts.json` contains concrete implementation
+and acceptance steps, plus the newly requested full Rust-test usefulness/pruning
+audit **after the existing agreed queue**. That broad audit did not run here.
+Prior architecture, Lantern RSS, cold-device/character-commit and audio follow-ons
+remain separate. Native acceptance is Windows only; Linux was not run and Mac
+remains explicitly deferred. This does not close all of issue #24.
+
+Fresh user approval allowed the normal push through 06a34c5 (including compiler
+4dab496 and audio 4228257); remote SHA was verified and
+[CI passed](https://github.com/csd113/Places/actions/runs/41108080625).
+The reflection branch commit is also approved for normal publication after local
+acceptance. Separate issue creations and issue #24/#30 body writes remain held after
+their prior denials; none was retried. No main merge, tag, release, force push or
+credential change was attempted. Final commit/publication, process release and the
+single idle-only target cleanup are recorded in `E/handoff.json`.

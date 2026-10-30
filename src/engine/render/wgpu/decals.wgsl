@@ -11,10 +11,12 @@ struct Camera {
     view_projection: mat4x4<f32>,
     // World-space eye position, the reference's `u_camera_pos`. The decal
     // fragment stage never reads it; it is declared because these are
-    // `render::wgpu::world::CameraUniform`'s exact bytes.
+    // `render::wgpu::world::CameraUniform`'s exact bytes, including the planar half-space.
     position: vec3<f32>,
-    // Explicit tail padding so the struct is 80 bytes, 16-byte aligned.
+    // Explicit tail padding so the struct starts with 80 bytes, 16-byte aligned.
     _padding: f32,
+    // World-space capture half-space; zero for ordinary/probe/UI views.
+    clip_plane: vec4<f32>,
     storm: Storm,
 };
 
@@ -107,6 +109,7 @@ fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
 fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
     let light = decal_light(in);
     let base = textureSample(decal_texture, decal_sampler, in.uv);
+    if (dot(camera.clip_plane, vec4<f32>(in.world_position, 1.0)) < 0.0) { discard; }
     if (base.a < 0.5) {
         discard;
     }
@@ -121,6 +124,7 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
 fn fs_main_raw(in: VsOut) -> @location(0) vec4<f32> {
     let light = decal_light(in);
     let base = textureSample(decal_texture, decal_sampler, in.uv);
+    if (dot(camera.clip_plane, vec4<f32>(in.world_position, 1.0)) < 0.0) { discard; }
     if (base.a < 0.5) {
         discard;
     }
@@ -136,6 +140,7 @@ fn fs_main_raw(in: VsOut) -> @location(0) vec4<f32> {
 fn fs_blend(in: VsOut) -> @location(0) vec4<f32> {
     let light = decal_light(in);
     let base = textureSample(decal_texture, decal_sampler, in.uv);
+    if (dot(camera.clip_plane, vec4<f32>(in.world_position, 1.0)) < 0.0) { discard; }
     let alpha = base.a * in.color.a;
     if (alpha == 0.0) {
         discard;
@@ -149,6 +154,7 @@ fn fs_blend(in: VsOut) -> @location(0) vec4<f32> {
 fn fs_blend_raw(in: VsOut) -> @location(0) vec4<f32> {
     let light = decal_light(in);
     let base = textureSample(decal_texture, decal_sampler, in.uv);
+    if (dot(camera.clip_plane, vec4<f32>(in.world_position, 1.0)) < 0.0) { discard; }
     let alpha = base.a * in.color.a;
     if (alpha == 0.0) {
         discard;

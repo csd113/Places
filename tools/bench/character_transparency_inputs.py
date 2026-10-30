@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write nine small native BLEND controls into a new, explicit directory.
+"""Write twelve small native BLEND controls into a new, explicit directory.
 
 This developer operation never bakes maps or runs in CI. Build its JSON sources
 with places-compile --variants static,full into an isolated state root. It reuses
@@ -32,6 +32,14 @@ def write_inputs(repository: Path, output: Path) -> None:
         reflection["defaults"]["floor"] = "core:pool_deck_wet_01"
         reflection["rooms"][0]["floor_shine"] = 1
         save(f"ghost_reflection_{clip}", reflection)
+        if clip == "float_forward":
+            moving = copy.deepcopy(reflection)
+            moving["routes"] = [dict(id=prop["id"], loop=True, steps=[
+                dict(step="move_to", x=prop["x"], z=prop["z"] + 1.8, speed=.3),
+                dict(step="wait", seconds=5),
+                dict(step="move_to", x=prop["x"], z=prop["z"], speed=.3),
+                dict(step="wait", seconds=5)]) for prop in moving["props"]]
+            save("ghost_reflection_float_moving", moving)
         interaction = copy.deepcopy(document)
         interaction["floor_patches"] = [dict(
             x=-9, z=-6, width=18, depth=12,
@@ -50,6 +58,17 @@ def write_inputs(repository: Path, output: Path) -> None:
         document = json.loads((fixtures / f"{source}.json").read_text(encoding="utf8"))
         save(document["id"], document)
 
+    # The same accepted proximity fade/route, now on the existing wet deck.
+    # The absent control proves zero fade leaves neither a reflection nor glow.
+    motion = json.loads((fixtures / "ghost-motion.json").read_text(encoding="utf8"))
+    motion["defaults"]["floor"] = "core:pool_deck_wet_01"
+    motion["rooms"][0]["floor_shine"] = 1
+    save("ghost_reflection_motion", motion)
+    absent = copy.deepcopy(motion)
+    absent["props"] = []
+    absent["routes"] = []
+    save("ghost_reflection_motion_absent", absent)
+
     # An explicit 32-actor workload, outside CI. Existing geometry and images
     # keep the measured delta specific to transparency submission and sorting.
     stress = copy.deepcopy(base)
@@ -61,13 +80,13 @@ def write_inputs(repository: Path, output: Path) -> None:
                     z=-(index // 8) * 1.4)
         stress["props"].append(prop)
     save("ghost_stress_32", stress)
-    print(f"Wrote nine native sources to {output}")
+    print(f"Wrote twelve native sources to {output}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", required=True, type=Path,
-                        help="new directory for the nine JSON sources")
+                        help="new directory for the twelve JSON sources")
     args = parser.parse_args()
     write_inputs(Path(__file__).resolve().parents[2], args.out.resolve())
 

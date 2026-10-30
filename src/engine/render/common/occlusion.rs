@@ -64,9 +64,26 @@ impl Occluders {
     /// triangles touching/crossing the near plane: clipped geometry cannot
     /// prove coverage. No occluder may hide its own plane or coplanar decals.
     pub fn view(&self, eye: Vec3, matrix: Mat4) -> OcclusionView {
+        self.clipped_view(eye, matrix, Vec4::ZERO)
+    }
+
+    /// A planar half-space can discard architectural backing or cut a triangle.
+    /// Such triangles cannot prove coverage. Keep ordinary-view selection intact.
+    pub fn clipped_view(&self, eye: Vec3, matrix: Mat4, clip_plane: Vec4) -> OcclusionView {
+        if !clip_plane.is_finite() {
+            return OcclusionView::EMPTY;
+        }
         let mut result = OcclusionView::EMPTY;
         let mut scores = [0.0_f32; MAX_VIEW_OCCLUDERS];
         for triangle in &self.triangles {
+            if clip_plane != Vec4::ZERO
+                && triangle
+                    .points
+                    .iter()
+                    .any(|point| clip_plane.dot(point.extend(1.0)) <= MARGIN)
+            {
+                continue;
+            }
             if triangle.points.iter().any(|point| {
                 let clip = matrix * point.extend(1.0);
                 !clip.is_finite() || clip.w <= 0.0 || clip.z <= MARGIN

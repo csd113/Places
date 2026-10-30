@@ -32,6 +32,8 @@ struct Camera {
     position: vec3<f32>,
     // Explicit tail padding so the struct is 80 bytes, 16-byte aligned.
     _padding: f32,
+    // World-space capture half-space; zero for ordinary/probe/UI views.
+    clip_plane: vec4<f32>,
 };
 
 // Group 0 is the frame camera, the same binding the world pipeline uses.

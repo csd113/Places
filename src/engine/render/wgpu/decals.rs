@@ -257,7 +257,7 @@ struct DecalCamera {
     camera: CameraUniform,
     storm: crate::engine::render::common::storm::StormUniform,
 }
-const DECAL_CAMERA_SIZE: u64 = 1648;
+const DECAL_CAMERA_SIZE: u64 = super::buffer_element_bytes::<DecalCamera>();
 
 /// The camera bind group layout: one frame uniform at binding 0.
 ///
@@ -598,8 +598,32 @@ impl DecalPipeline {
         eye: glam::Vec3,
         storm: &crate::engine::render::common::storm::StormUniform,
     ) {
+        self.upload_camera_state(queue, CameraUniform::new(view_projection, eye), storm);
+    }
+
+    /// Planar captures share the world's half-space, including cut decals.
+    pub fn upload_clipped_camera(
+        &mut self,
+        queue: &wgpu::Queue,
+        view_projection: Mat4,
+        eye: glam::Vec3,
+        clip_plane: [f32; 4],
+    ) {
+        self.upload_camera_state(
+            queue,
+            CameraUniform::new(view_projection, eye).with_clip_plane(clip_plane),
+            &crate::engine::render::common::storm::StormUniform::default(),
+        );
+    }
+
+    fn upload_camera_state(
+        &mut self,
+        queue: &wgpu::Queue,
+        camera: CameraUniform,
+        storm: &crate::engine::render::common::storm::StormUniform,
+    ) {
         let uniform = DecalCamera {
-            camera: CameraUniform::new(view_projection, eye),
+            camera,
             storm: *storm,
         };
         if self.uploaded == Some(uniform) {

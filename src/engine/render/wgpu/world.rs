@@ -297,7 +297,17 @@ pub struct WorldFrame {
 }
 
 impl WorldFrame {
-    pub fn with_occlusion(mut self, world: Option<&WgpuWorldGeometry>, enabled: bool) -> Self {
+    pub fn with_occlusion(self, world: Option<&WgpuWorldGeometry>, enabled: bool) -> Self {
+        self.with_clipped_occlusion(world, enabled, [0.0; 4])
+    }
+
+    /// A clipped capture may use only wholly retained opaque occluders.
+    pub fn with_clipped_occlusion(
+        mut self,
+        world: Option<&WgpuWorldGeometry>,
+        enabled: bool,
+        clip_plane: [f32; 4],
+    ) -> Self {
         static DISABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
         let diagnostic_disabled = *DISABLED.get_or_init(|| {
             std::env::var("PLACES_BENCH").as_deref() == Ok("1")
@@ -307,7 +317,15 @@ impl WorldFrame {
             && !diagnostic_disabled
             && let Some(geometry) = world
         {
-            self.occlusion = geometry.occluders.view(self.eye, self.view_projection);
+            self.occlusion = if clip_plane.map(f32::to_bits) == [0; 4] {
+                geometry.occluders.view(self.eye, self.view_projection)
+            } else {
+                geometry.occluders.clipped_view(
+                    self.eye,
+                    self.view_projection,
+                    glam::Vec4::from_array(clip_plane),
+                )
+            };
         }
         self
     }
@@ -366,6 +384,8 @@ pub struct CameraUniform {
     /// Reserved alignment lane; the development shader consumes it as a
     /// selector. Production WGSL retains the `_padding` spelling and zero.
     pub diagnostic_selector: f32,
+    /// World half-space retained by a planar capture; zero disables clipping.
+    pub clip_plane: [f32; 4],
 }
 
 impl CameraUniform {
@@ -376,7 +396,15 @@ impl CameraUniform {
             view_projection: matrix.to_cols_array_2d(),
             position: [eye.x, eye.y, eye.z],
             diagnostic_selector: 0.0,
+            clip_plane: [0.0; 4],
         }
+    }
+
+    /// Retains the supplied world half-space without changing projection/depth.
+    #[must_use]
+    pub const fn with_clip_plane(mut self, plane: [f32; 4]) -> Self {
+        self.clip_plane = plane;
+        self
     }
 
     /// Uses the otherwise unread padding lane for the development selector.
@@ -400,7 +428,8 @@ pub const CAMERA_UNIFORM_SIZE: u64 = super::buffer_element_bytes::<CameraUniform
 fn camera_uniform_same_bits(left: &CameraUniform, right: &CameraUniform) -> bool {
     let bits = |matrix: [[f32; 4]; 4]| matrix.map(|column| column.map(f32::to_bits));
     let camera_matches = bits(left.view_projection) == bits(right.view_projection)
-        && left.position.map(f32::to_bits) == right.position.map(f32::to_bits);
+        && left.position.map(f32::to_bits) == right.position.map(f32::to_bits)
+        && left.clip_plane.map(f32::to_bits) == right.clip_plane.map(f32::to_bits);
     #[cfg(feature = "visual-diagnostics")]
     {
         camera_matches && left.diagnostic_selector.to_bits() == right.diagnostic_selector.to_bits()
@@ -3224,16 +3253,28 @@ impl WorldPipeline {
     /// from touching the buffer at all. See [`camera_uniform_changed`], which
     /// the test below exercises directly.
     pub fn upload_camera(&mut self, queue: &wgpu::Queue, view_projection: Mat4, eye: glam::Vec3) {
+        self.upload_clipped_camera(queue, view_projection, eye, [0.0; 4]);
+    }
+
+    /// Planar-only world clipping; ordinary uploads reset the half-space.
+    pub fn upload_clipped_camera(
+        &mut self,
+        queue: &wgpu::Queue,
+        view_projection: Mat4,
+        eye: glam::Vec3,
+        clip_plane: [f32; 4],
+    ) {
         #[cfg(feature = "visual-diagnostics")]
         let uniform =
             CameraUniform::new(view_projection, eye).with_visual_diagnostic(self.visual_diagnostic);
         #[cfg(not(feature = "visual-diagnostics"))]
         let uniform = CameraUniform::new(view_projection, eye);
-        if !camera_uniform_changed(self.uploaded, uniform) {
+        let clipped_uniform = uniform.with_clip_plane(clip_plane);
+        if !camera_uniform_changed(self.uploaded, clipped_uniform) {
             return;
         }
-        queue.write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&uniform));
-        self.uploaded = Some(uniform);
+        queue.write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&clipped_uniform));
+        self.uploaded = Some(clipped_uniform);
     }
 
     /// Selects a development view for this pipeline's next camera upload.
