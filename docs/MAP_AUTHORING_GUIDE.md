@@ -159,7 +159,7 @@ Authoritative paths:
 | Realtime shadow maps and runtime static transport solves | Not implemented; prepared transmission and bounded entity direct lights are implemented |
 | Animated entities: each placed skinned GLB follows its own action/movement/idle state; a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
 | Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
-| GLB MASK/cutout and BLEND on static props, characters and dynamic props | Implemented; shared back-to-front object/batch sorting, without intersecting-triangle sorting |
+| GLB MASK/cutout and BLEND on static props, characters and dynamic props | Implemented; shared back-to-front ordering with posed triangle sorting for BLEND characters; other families retain spatial ranges |
 | Emissive decals; per-placement emission overrides; cone/spot lights | Not implemented |
 | Authoring a normal map from a level (a level names a material, and the material owns the map) | Implemented (via the catalog) |
 | Sloped floors (`ramps`), staircases (`stairs`), half walls, columns, archways, guardrails, thresholds, baseboards | Implemented |
@@ -1502,9 +1502,10 @@ coverage is applied once. Water reuses bounded probe reflections with
 water-specific Schlick Fresnel (normal-incidence reflectance 0.02037), with
 authored reflection strength retained as an artistic scale. Ice keeps the
 ordinary material reflection/gloss response. All transparent
-world, prop, movable and character ranges share stable back-to-front centre
-sorting, straight alpha and no depth writes. Intersecting triangles and large
-coalesced ranges still require authored separation. Medium/High presentation
+world, prop and movable ranges share stable back-to-front centre sorting;
+animated BLEND triangles join that order at their posed centroids. All retain
+straight alpha and no depth writes. Intersecting triangles and large coalesced
+non-character ranges still require authored separation. Medium/High presentation
 uses one cached water bound with the existing conservative frustum/occlusion
 result to skip water that cannot contribute to the view.
 When potentially visible it copies completed opaque colour once at scene
@@ -2467,9 +2468,12 @@ The renderer decides which pass a surface lands in, and there are exactly three:
 Consequences worth knowing:
 
 * World batches, static props, movable objects and characters share stable
-  back-to-front centre sorting in both scene and emission passes. Sorting is
-  per batch/object, not per intersecting triangle; large overlapping transparent
-  ranges and several primitives inside one object still need careful placement.
+  back-to-front ordering in scene and emission passes. Animated BLEND characters
+  use posed triangle centroids across primitives and instances; compatible
+  bindings coalesce only adjacent submissions, preserving each primitive's
+  emission and each instance's opacity/lighting. Other families retain spatial
+  range centres. Cyclic intersecting triangles and large overlapping non-character
+  ranges still need careful placement; this does not add geometric splitting.
 * A translucent surface never occludes anything: a pane of glass is hidden by the
   wall it sits in, but does not hide the room behind it in the depth buffer.
 * Emissive translucent materials work: emission is added to the lit term before

@@ -188,6 +188,18 @@ held actions, while `PLACES_SPAWN` / `PLACES_CAMERA` provide fixed inspection vi
 Synthetic OS keyboard acceptance requires a frontmost application. A run that did
 not receive those events cannot be reported as manual-input coverage.
 
+### Explicit animated transparency controls
+
+`python tools/bench/character_transparency_inputs.py --out NEW_DIRECTORY` writes
+nine small #24 controls for idle/float, glass/water/planar interactions, absence,
+fade reversal and a 32-actor cost view. Compile them explicitly with Static/Full
+variants into an isolated state root. This tool never bakes maps or runs in CI.
+The original exact rear view remains in `tests/fixtures/native/issue24-assets/`.
+`PLACES_BENCH=1 PLACES_BENCH_CHARACTER_BATCH=off` retains general triangle
+submission for a matched oracle. Follow the ordinary uncapped FPS requirements
+below; functional Fifo screenshots do not establish throughput. See the
+[Windows evidence and commands](reports/issue24-transparency-windows.md).
+
 ## Interpreting diagnostics and platform evidence
 
 Normal player launches retain `diagnostics/player.log` and

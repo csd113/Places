@@ -1036,6 +1036,17 @@ pub fn dynamic_lights_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGrou
 /// changed surface format never invalidates an environment binding.
 #[must_use]
 pub fn environment_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    environment_layout_with_buffer(device, wgpu::BufferBindingType::Uniform)
+}
+
+pub(super) fn environment_storage_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
+    environment_layout_with_buffer(device, wgpu::BufferBindingType::Storage { read_only: true })
+}
+
+fn environment_layout_with_buffer(
+    device: &wgpu::Device,
+    buffer_kind: wgpu::BufferBindingType,
+) -> wgpu::BindGroupLayout {
     let texture =
         |binding: u32, dimension: wgpu::TextureViewDimension| wgpu::BindGroupLayoutEntry {
             binding,
@@ -1056,7 +1067,7 @@ pub fn environment_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLa
                 // light switch, scale, fog and planar mirror.
                 visibility: wgpu::ShaderStages::VERTEX_FRAGMENT,
                 ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
+                    ty: buffer_kind,
                     has_dynamic_offset: false,
                     min_binding_size: wgpu::BufferSize::new(ENVIRONMENT_UNIFORM_SIZE),
                 },
@@ -2075,7 +2086,13 @@ enum TransparentItem {
     World(u32),
     Prop(usize),
     Dynamic(usize),
-    Character(usize),
+    Character(CharacterDraw),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct CharacterDraw {
+    character: usize,
+    span: Option<super::character_transparency::CharacterSpan>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -2093,6 +2110,39 @@ fn sort_transparency(items: &mut [TransparentEntry]) {
             .total_cmp(&left.distance)
             .then_with(|| left.ordinal.cmp(&right.ordinal))
     });
+}
+
+/// Merge only adjacent triangles of the same instance and material, after the
+/// global sort. An intervening pane, water range or different actor breaks a run.
+fn coalesce_character_triangles(items: &mut Vec<TransparentEntry>) {
+    let mut written = 0_usize;
+    for read in 0..items.len() {
+        let Some(entry) = items.get(read).copied() else {
+            continue;
+        };
+        if let TransparentItem::Character(next) = entry.item
+            && let Some(previous) = written
+                .checked_sub(1)
+                .and_then(|index| items.get_mut(index))
+            && let TransparentItem::Character(current) = &mut previous.item
+            && (current.character == next.character
+                || current.span.is_some_and(|span| {
+                    span.batch.is_some()
+                        && next
+                            .span
+                            .is_some_and(|next_span| next_span.batch == span.batch)
+                }))
+            && let (Some(current_span), Some(next_span)) = (&mut current.span, next.span)
+            && current_span.append(next_span)
+        {
+            continue;
+        }
+        if let Some(target) = items.get_mut(written) {
+            *target = entry;
+        }
+        written = written.saturating_add(1);
+    }
+    items.truncate(written);
 }
 
 /// Entity raster policy; unknown transforms stay conservatively two-sided.
@@ -2135,6 +2185,12 @@ enum WorldShaderKind {
 /// The six material passes share the shader module, vertex layout, depth
 /// format, winding and bind group layouts; only these fields differ.
 #[derive(Clone, Copy)]
+enum WorldVertexKind {
+    Standard,
+    CharacterBlend,
+}
+
+#[derive(Clone, Copy)]
 struct WorldPipelineVariant {
     label: &'static str,
     fragment_entry: &'static str,
@@ -2144,6 +2200,7 @@ struct WorldPipelineVariant {
     depth_write: bool,
     cull: Option<wgpu::Face>,
     instanced: bool,
+    vertex_kind: WorldVertexKind,
     rigid: bool,
     shader_kind: WorldShaderKind,
 }
@@ -2182,6 +2239,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
     [
         WorldPipelineVariant {
             instanced: false,
+            vertex_kind: WorldVertexKind::Standard,
             rigid: false,
             shader_kind: WorldShaderKind::Architecture,
             label: "places-wgpu-world-opaque",
@@ -2197,6 +2255,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         },
         WorldPipelineVariant {
             instanced: false,
+            vertex_kind: WorldVertexKind::Standard,
             rigid: false,
             shader_kind: WorldShaderKind::Architecture,
             label: "places-wgpu-world-cutout",
@@ -2208,6 +2267,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         },
         WorldPipelineVariant {
             instanced: false,
+            vertex_kind: WorldVertexKind::Standard,
             rigid: false,
             shader_kind: WorldShaderKind::Architecture,
             label: "places-wgpu-world-translucent",
@@ -2219,6 +2279,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         },
         WorldPipelineVariant {
             instanced: false,
+            vertex_kind: WorldVertexKind::Standard,
             rigid: false,
             shader_kind: WorldShaderKind::Architecture,
             label: "places-wgpu-world-emission",
@@ -2234,6 +2295,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         },
         WorldPipelineVariant {
             instanced: false,
+            vertex_kind: WorldVertexKind::Standard,
             rigid: false,
             shader_kind: WorldShaderKind::Architecture,
             label: "places-wgpu-world-emission-blend",
@@ -2245,6 +2307,7 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
         },
         WorldPipelineVariant {
             instanced: false,
+            vertex_kind: WorldVertexKind::Standard,
             rigid: false,
             shader_kind: WorldShaderKind::Architecture,
             label: "places-wgpu-world-emission-cutout",
@@ -2255,6 +2318,40 @@ const fn world_pipeline_variants(cull_opaque: bool) -> [WorldPipelineVariant; 6]
             cull: None,
         },
     ]
+}
+
+fn build_character_blend_pipelines(
+    device: &wgpu::Device,
+    layouts: [&wgpu::BindGroupLayout; 4],
+    state: (wgpu::TextureFormat, wgpu::FrontFace, bool),
+) -> Option<[wgpu::RenderPipeline; 2]> {
+    let (format, front, raw) = state;
+    if format == DEPTH_FORMAT {
+        return None;
+    }
+    let extra = super::character::blend::layout(device);
+    let [camera, texture, material, lights] = layouts;
+    let layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: Some("places-character-blend-pipeline-layout"),
+        bind_group_layouts: &[
+            Some(camera),
+            Some(texture),
+            Some(material),
+            Some(&extra),
+            Some(lights),
+        ],
+        immediate_size: 0,
+    });
+    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: Some("places-character-blend-shader"),
+        source: wgpu::ShaderSource::Wgsl(super::character::blend::shader_source()?.into()),
+    });
+    let [_, _, scene, _, emission, _] = world_pipeline_variants(false);
+    Some([scene, emission].map(|mut variant| {
+        variant.vertex_kind = WorldVertexKind::CharacterBlend;
+        variant.shader_kind = WorldShaderKind::Model;
+        build_world_pipeline(device, &layout, &shader, format, front, raw, variant)
+    }))
 }
 
 /// Builds one world pipeline variant from the shared pipeline layout, shader
@@ -2324,6 +2421,11 @@ fn build_world_pipeline(
             0.0
         },
     )];
+    let vertex_layouts = [Some(world_vertex_layout())];
+    let blend_layouts = [
+        Some(world_vertex_layout()),
+        Some(super::character::blend::vertex_layout()),
+    ];
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: Some(variant.label),
         layout: Some(layout),
@@ -2342,7 +2444,10 @@ fn build_world_pipeline(
                 },
                 ..Default::default()
             },
-            buffers: &[Some(world_vertex_layout())],
+            buffers: match variant.vertex_kind {
+                WorldVertexKind::Standard => &vertex_layouts,
+                WorldVertexKind::CharacterBlend => &blend_layouts,
+            },
         },
         primitive: wgpu::PrimitiveState {
             topology: wgpu::PrimitiveTopology::TriangleList,
@@ -2357,22 +2462,7 @@ fn build_world_pipeline(
             polygon_mode: wgpu::PolygonMode::Fill,
             conservative: false,
         },
-        depth_stencil: Some(wgpu::DepthStencilState {
-            format: DEPTH_FORMAT,
-            depth_write_enabled: Some(shadow || variant.depth_write),
-            // The reference's `glDepthFunc(GL_LEQUAL)`.
-            depth_compare: Some(wgpu::CompareFunction::LessEqual),
-            stencil: wgpu::StencilState::default(),
-            bias: if shadow {
-                wgpu::DepthBiasState {
-                    constant: 2,
-                    slope_scale: 2.0,
-                    clamp: 0.0,
-                }
-            } else {
-                wgpu::DepthBiasState::default()
-            },
-        }),
+        depth_stencil: Some(world_depth_state(shadow, variant)),
         multisample: wgpu::MultisampleState::default(),
         fragment: Some(wgpu::FragmentState {
             module: shader,
@@ -2386,6 +2476,25 @@ fn build_world_pipeline(
         multiview_mask: None,
         cache: None,
     })
+}
+
+fn world_depth_state(shadow: bool, variant: WorldPipelineVariant) -> wgpu::DepthStencilState {
+    wgpu::DepthStencilState {
+        format: DEPTH_FORMAT,
+        depth_write_enabled: Some(shadow || variant.depth_write),
+        // The reference's `glDepthFunc(GL_LEQUAL)`.
+        depth_compare: Some(wgpu::CompareFunction::LessEqual),
+        stencil: wgpu::StencilState::default(),
+        bias: if shadow {
+            wgpu::DepthBiasState {
+                constant: 2,
+                slope_scale: 2.0,
+                clamp: 0.0,
+            }
+        } else {
+            wgpu::DepthBiasState::default()
+        },
+    }
 }
 
 fn build_world_variants(
@@ -2713,6 +2822,9 @@ fn build_model_pipelines(
 ///   into the raw bloom source.
 /// * **emission-blend** — straight coverage blending for transparent emission.
 pub struct WorldPipeline {
+    character_blend: Option<[wgpu::RenderPipeline; 2]>,
+    front_face: wgpu::FrontFace,
+    raw_target: bool,
     instanced: Option<InstancePipelines>,
     models: ModelPipelines,
     opaque: wgpu::RenderPipeline,
@@ -2835,17 +2947,18 @@ impl WorldPipeline {
             format,
             (front_face, raw_target),
         );
+        let model_layouts = [
+            &bind_group_layout,
+            texture_layout,
+            material_layout,
+            environment_layout,
+            &lights_layout,
+        ];
         let instanced = (device.limits().max_bind_groups >= 6).then(|| {
             build_prop_pipelines(
                 device,
                 &shader,
-                [
-                    &bind_group_layout,
-                    texture_layout,
-                    material_layout,
-                    environment_layout,
-                    &lights_layout,
-                ],
+                model_layouts,
                 (format, front_face, raw_target),
             )
         });
@@ -2863,6 +2976,9 @@ impl WorldPipeline {
             (format, front_face, raw_target, cull_opaque),
         );
         Self {
+            character_blend: None,
+            front_face,
+            raw_target,
             instanced,
             models,
             opaque,
@@ -2889,6 +3005,23 @@ impl WorldPipeline {
             transparent_scratch: std::cell::RefCell::new(Vec::new()),
             #[cfg(feature = "visual-diagnostics")]
             visual_diagnostic: super::diagnostics::VisualDiagnosticMode::Final,
+        }
+    }
+
+    /// Compile the dedicated shader only for scenes with compatible BLEND
+    /// characters; ordinary worlds retain their existing pipeline set.
+    pub fn prepare_character_blend(
+        &mut self,
+        device: &wgpu::Device,
+        texture: &wgpu::BindGroupLayout,
+        material: &wgpu::BindGroupLayout,
+    ) {
+        if self.character_blend.is_none() && self.format != DEPTH_FORMAT {
+            self.character_blend = build_character_blend_pipelines(
+                device,
+                [&self.camera_layout, texture, material, &self.lights_layout],
+                (self.format, self.front_face, self.raw_target),
+            );
         }
     }
 
@@ -3298,7 +3431,8 @@ impl WorldPipeline {
     }
 
     /// The scene and emission passes use one order across all transparent families.
-    /// Sorting remains per range/object; intersecting triangles need authored separation.
+    /// Animated BLEND triangles join the global order; other families retain
+    /// their existing spatial ranges. Intersecting triangles still need splitting.
     pub fn encode_transparency<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
@@ -3306,8 +3440,9 @@ impl WorldPipeline {
         emission_only: bool,
     ) -> WorldDrawTotals {
         let mut items = self.transparent_scratch.borrow_mut();
-        Self::transparent_items(inputs, &mut items);
+        Self::transparent_items(inputs, &mut items, self.format == DEPTH_FORMAT);
         sort_transparency(&mut items);
+        coalesce_character_triangles(&mut items);
         let mut totals = WorldDrawTotals::default();
         for entry in items.iter() {
             let item = entry.item;
@@ -3372,13 +3507,17 @@ impl WorldPipeline {
         totals
     }
 
-    fn transparent_items(inputs: WorldEncodeInputs<'_>, items: &mut Vec<TransparentEntry>) {
+    fn transparent_items(
+        inputs: WorldEncodeInputs<'_>,
+        items: &mut Vec<TransparentEntry>,
+        shadow: bool,
+    ) {
         items.clear();
-        let mut push = |item, centre| {
-            items.push(TransparentEntry {
+        let push = |target: &mut Vec<TransparentEntry>, item, centre| {
+            target.push(TransparentEntry {
                 item,
                 distance: glam::Vec3::from_array(centre).distance_squared(inputs.frame.eye),
-                ordinal: items.len(),
+                ordinal: target.len(),
             });
         };
         // The shared stable sort already orders every family. Collect each in
@@ -3395,7 +3534,7 @@ impl WorldPipeline {
                     draw.index_count > 0 && (!inputs.cull || inputs.frame.visible(&draw.bounds))
                 })
             {
-                push(TransparentItem::World(*index), draw.bounds.centre());
+                push(items, TransparentItem::World(*index), draw.bounds.centre());
             }
         }
         if let Some(props) = inputs.props {
@@ -3404,7 +3543,7 @@ impl WorldPipeline {
                     && draw.index_count > 0
                     && (!inputs.cull || inputs.frame.visible(&draw.bounds))
             }) {
-                push(TransparentItem::Prop(index), draw.bounds.centre());
+                push(items, TransparentItem::Prop(index), draw.bounds.centre());
             }
         }
         if let Some(dynamic) = inputs.dynamic {
@@ -3414,7 +3553,7 @@ impl WorldPipeline {
                 }) && let Some(bounds) = dynamic.world_bounds(index)
                     && (!inputs.cull || inputs.frame.visible(&bounds))
                 {
-                    push(TransparentItem::Dynamic(index), bounds.centre());
+                    push(items, TransparentItem::Dynamic(index), bounds.centre());
                 }
             }
         }
@@ -3425,10 +3564,53 @@ impl WorldPipeline {
                 if let Some(bounds) = characters.world_bounds(index)
                     && (!inputs.cull || inputs.frame.visible(&bounds))
                 {
-                    push(TransparentItem::Character(index), bounds.centre());
+                    if shadow {
+                        items.push(TransparentEntry {
+                            item: TransparentItem::Character(CharacterDraw {
+                                character: index,
+                                span: None,
+                            }),
+                            distance: glam::Vec3::from_array(bounds.centre())
+                                .distance_squared(inputs.frame.eye),
+                            ordinal: items.len(),
+                        });
+                        continue;
+                    }
+                    for (span, distance) in characters.transparent_spans(index) {
+                        // Keys already describe the posed triangle in this view.
+                        items.push(TransparentEntry {
+                            item: TransparentItem::Character(CharacterDraw {
+                                character: index,
+                                span: Some(span),
+                            }),
+                            distance,
+                            ordinal: items.len(),
+                        });
+                    }
+                }
+            }
+            if !shadow {
+                for (character, span, distance) in characters.batch_spans() {
+                    items.push(TransparentEntry {
+                        item: TransparentItem::Character(CharacterDraw {
+                            character,
+                            span: Some(span),
+                        }),
+                        distance,
+                        ordinal: items.len(),
+                    });
                 }
             }
         }
+    }
+
+    /// Actual retained CPU ordering capacity for native memory receipts.
+    #[cfg(feature = "visual-diagnostics")]
+    pub fn transparency_scratch_bytes(&self) -> usize {
+        self.transparent_scratch
+            .borrow()
+            .capacity()
+            .saturating_mul(std::mem::size_of::<TransparentEntry>())
     }
 
     /// Releases map-sized scratch while keeping GPU pipeline objects reusable.
@@ -3621,7 +3803,10 @@ impl WorldPipeline {
                 pass,
                 inputs,
                 characters,
-                character,
+                CharacterDraw {
+                    character,
+                    span: None,
+                },
                 emission_only,
                 wanted,
             ));
@@ -3655,11 +3840,21 @@ impl WorldPipeline {
         pass: &mut wgpu::RenderPass<'a>,
         inputs: WorldEncodeInputs<'a>,
         characters: &'a super::character::WgpuCharacters,
-        character: usize,
+        selection: CharacterDraw,
         emission_only: bool,
         wanted: BatchPass,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
+        if let Some(span) = selection.span.filter(|span| span.batch.is_some()) {
+            return self.encode_character_blend_batch(
+                pass,
+                inputs,
+                characters,
+                (selection.character, span),
+                emission_only,
+            );
+        }
+        let character = selection.character;
         let Some(bounds) = characters.world_bounds(character) else {
             return totals;
         };
@@ -3673,7 +3868,11 @@ impl WorldPipeline {
         let mut bound_texture: Option<usize> = None;
         let mut bound_material: Option<usize> = None;
         let mut bound_geometry: Option<usize> = None;
-        for submesh in 0..characters.submesh_count(character) {
+        let range = selection.span.map_or_else(
+            || 0..characters.submesh_count(character),
+            |span| span.submesh..span.submesh.saturating_add(1),
+        );
+        for submesh in range {
             if characters.submesh_pass(character, submesh) != Some(wanted) {
                 continue;
             }
@@ -3710,7 +3909,16 @@ impl WorldPipeline {
                 bound_texture = Some(material_slot);
             }
             let Some((vertex_buffer, index_buffer, first_index, index_count)) =
-                characters.geometry(character, submesh, self.format == DEPTH_FORMAT)
+                selection.span.map_or_else(
+                    || characters.geometry(character, submesh, self.format == DEPTH_FORMAT),
+                    |span| {
+                        characters
+                            .transparent_geometry(character)
+                            .map(|(vertices, indices)| {
+                                (vertices, indices, span.first_index, span.index_count)
+                            })
+                    },
+                )
             else {
                 continue;
             };
@@ -3729,7 +3937,64 @@ impl WorldPipeline {
             totals.draw_calls = totals.draw_calls.saturating_add(1);
             totals.visible_batches = totals.visible_batches.saturating_add(1);
         }
-        totals.record_object_vertices(0, characters.character_vertex_count(character));
+        // Split runs still represent one visible character, not a new copy of
+        // all its vertices for every material/overlap boundary.
+        if selection.span.is_none_or(|span| span.first_index == 0) {
+            totals.record_object_vertices(0, characters.character_vertex_count(character));
+        }
+        totals
+    }
+
+    fn encode_character_blend_batch<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        inputs: WorldEncodeInputs<'a>,
+        characters: &'a super::character::WgpuCharacters,
+        selected: (usize, super::character_transparency::CharacterSpan),
+        emission: bool,
+    ) -> WorldDrawTotals {
+        let (character, span) = selected;
+        let mut totals = WorldDrawTotals::default();
+        let Some(batch) = span.batch.and_then(|slot| characters.blend_batch(slot)) else {
+            return totals;
+        };
+        let Some(pipeline) = self
+            .character_blend
+            .as_ref()
+            .and_then(|pipelines| pipelines.get(usize::from(emission)))
+        else {
+            return totals;
+        };
+        let (Some(material), Some(texture)) = (
+            characters
+                .material_slot(character, 0)
+                .and_then(|slot| characters.material(slot)),
+            characters.submesh_texture(character, 0),
+        ) else {
+            return totals;
+        };
+        let Some(end) = span.first_index.checked_add(span.index_count) else {
+            return totals;
+        };
+        pass.set_pipeline(pipeline);
+        pass.set_bind_group(0, self.camera_binding_for(inputs.water), &[]);
+        pass.set_bind_group(1, texture.bind_group(inputs.filtering), &[]);
+        pass.set_bind_group(2, material.bind_group(inputs.filtering), &[]);
+        pass.set_bind_group(3, &batch.binding, &[]);
+        pass.set_bind_group(4, &self.lights_bind_group, &[]);
+        pass.set_vertex_buffer(0, batch.vertices.slice(..));
+        pass.set_vertex_buffer(1, batch.attributes.slice(..));
+        pass.set_index_buffer(batch.indices.slice(..), wgpu::IndexFormat::Uint32);
+        pass.draw_indexed(span.first_index..end, 0, 0..1);
+        totals.draw_calls = 1;
+        totals.visible_batches = 1;
+        totals.texture_binds = 1;
+        totals.material_binds = 1;
+        totals.visible_indices = usize::try_from(span.index_count).unwrap_or(usize::MAX);
+        totals.emissive_visible = batch.emissive;
+        if span.first_index == 0 {
+            totals.visible_vertices = batch.visible_vertices;
+        }
         totals
     }
 

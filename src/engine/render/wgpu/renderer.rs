@@ -3219,6 +3219,31 @@ impl WgpuRenderer {
     /// scene was rebuilt), and again after a reflection-only change: a
     /// character's group-3 environment samples the probe cubemaps, so it must
     /// not be bound while those are being captured.
+    fn ensure_character_blend_pipelines(&mut self) {
+        if !self
+            .world_characters
+            .as_ref()
+            .is_some_and(WgpuCharacters::uses_blend_batches)
+        {
+            return;
+        }
+        for pipeline in [
+            &mut self.world_pipeline,
+            &mut self.scene_pipeline,
+            &mut self.emissive_pipeline,
+            &mut self.capture_pipeline,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            pipeline.prepare_character_blend(
+                &self.device,
+                self.textures.layout(),
+                &self.material_layout,
+            );
+        }
+    }
+
     fn upload_characters_gpu(&mut self) {
         if self.check_device_lost() {
             self.world_characters = None;
@@ -3269,10 +3294,11 @@ impl WgpuRenderer {
         if let Some(characters) = self.world_characters.as_ref() {
             let stats = characters.stats();
             logging::info(format!(
-                "[wgpu] characters: {} character(s), {} mesh(es), {} draw(s), {} vertices",
+                "[wgpu] characters: {} character(s), {} mesh(es), {} source range(s), {} vertices",
                 stats.characters, stats.meshes, stats.draws, stats.vertices
             ));
         }
+        self.ensure_character_blend_pipelines();
     }
 
     /// Whether GPU preparation is in progress for the next world.
@@ -5524,6 +5550,7 @@ impl WgpuRenderer {
             return;
         }
         self.ensure_world_pipeline();
+        self.ensure_character_blend_pipelines();
         if self.fatal.is_some() {
             return;
         }
@@ -5536,15 +5563,18 @@ impl WgpuRenderer {
         self.trace_gpu_resource_frame();
         self.gpu_timer.begin_frame(&self.queue);
         if let Some(characters) = self.world_characters.as_mut()
-            && characters.deformation_pending()
+            && (characters.deformation_pending() || characters.blend_poses_pending())
         {
             let mut encoder = self
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("places-character-deformation"),
                 });
-            let _encoded = characters
-                .encode_deformation(&mut encoder, self.gpu_timer.compute_writes("deformation"));
+            if characters.deformation_pending() {
+                let _encoded = characters
+                    .encode_deformation(&mut encoder, self.gpu_timer.compute_writes("deformation"));
+            }
+            characters.encode_blend_poses(&mut encoder);
             let _submission = self.queue.submit([encoder.finish()]);
         }
         // Animated emissions are level data; advancing them is a handful of
@@ -5628,6 +5658,9 @@ impl WgpuRenderer {
                 self.reflections_enabled,
                 false,
             );
+        }
+        if let Some(characters) = self.world_characters.as_mut() {
+            characters.prepare_transparency(&self.queue, &self.characters, &frame, self.culling);
         }
         let environment_template = self.level_environment();
         if let Some(environment) = self.environment.as_mut() {
@@ -6571,10 +6604,12 @@ impl WgpuRenderer {
         reason = "one cohesive bake: six face submissions per probe in one loop"
     )] // one cohesive bake: six face submissions per probe in one loop
     fn bake_reflection_probes(&mut self) {
+        self.ensure_character_blend_pipelines();
         if self.reflection_targets.probes().is_empty() || self.check_device_lost() {
             return;
         }
         self.ensure_world_pipeline();
+        self.ensure_character_blend_pipelines();
         if self.fatal.is_some() {
             return;
         }
@@ -6622,6 +6657,14 @@ impl WgpuRenderer {
                 );
                 pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
                 let world_frame = frame.world_frame();
+                if let Some(characters) = self.world_characters.as_mut() {
+                    characters.prepare_transparency(
+                        &self.queue,
+                        &self.characters,
+                        &world_frame,
+                        false,
+                    );
+                }
                 if let (Some(sky), Some(sky_pipeline)) =
                     (self.sky.as_ref(), self.sky_pipeline.as_mut())
                 {
@@ -6640,6 +6683,9 @@ impl WgpuRenderer {
                         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                             label: Some("places-wgpu-probe-bake"),
                         });
+                if let Some(characters) = self.world_characters.as_mut() {
+                    characters.encode_blend_poses(&mut encoder);
+                }
                 {
                     let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         label: Some("places-wgpu-probe-face"),
@@ -6727,52 +6773,73 @@ impl WgpuRenderer {
         ));
     }
 
-    /// Renders one planar mirror capture into the half-size target.
-    ///
-    /// Uses the mirrored view-projection and mirrored eye; reflection sampling
-    /// is suppressed for the duration. Returns true when
-    /// a capture was submitted.
+    /// Prepare the mirrored camera and its BLEND order before submission.
+    fn prepare_planar_capture(
+        &mut self,
+        frame: &super::world::WorldFrame,
+        plane_index: usize,
+    ) -> Option<CaptureFrame> {
+        // The main surface applies weather once after sampling its reflection.
+        self.clear_capture_weather();
+        let plane = self.reflections.routing.planes.get(plane_index)?;
+        let capture = CaptureFrame::planar(frame, plane);
+        if let Some(characters) = self.world_characters.as_mut() {
+            characters.prepare_transparency(
+                &self.queue,
+                &self.characters,
+                &capture.world_frame(),
+                self.culling,
+            );
+        }
+        // The mirror must not sample the image it is writing.
+        self.world_materials.as_mut()?.update_reflection_modes(
+            &self.queue,
+            None,
+            false,
+            false,
+            true,
+        );
+        self.capture_pipeline.as_mut()?.upload_camera(
+            &self.queue,
+            capture.view_projection,
+            capture.eye,
+        );
+        self.decal_reflection_pipeline.as_mut()?.upload_camera(
+            &self.queue,
+            capture.view_projection,
+            capture.eye,
+        );
+        Some(capture)
+    }
+
+    /// Render one planar view using its own order, then submit before the main
+    /// view reuses the character index buffers.
     fn encode_planar_capture(
         &mut self,
         frame: &super::world::WorldFrame,
         plane_index: usize,
     ) -> bool {
-        // The main surface applies weather once after sampling its reflection.
-        self.clear_capture_weather();
-        let (
-            Some(pipeline),
-            Some(decal_pipeline),
-            Some(planar),
-            Some(environment),
-            Some(materials),
-            Some(world),
-            Some(textures),
-            Some(plane),
-        ) = (
-            self.capture_pipeline.as_mut(),
-            self.decal_reflection_pipeline.as_mut(),
-            self.reflection_targets.planar(),
-            self.environment.as_ref(),
-            self.world_materials.as_mut(),
-            self.world.as_ref(),
-            self.world_textures.as_ref(),
-            self.reflections.routing.planes.get(plane_index),
-        )
-        else {
+        let Some(capture) = self.prepare_planar_capture(frame, plane_index) else {
             return false;
         };
-        let capture = CaptureFrame::planar(frame, plane);
-        // The mirror must not sample the image it is writing.
-        materials.update_reflection_modes(&self.queue, None, false, false, true);
-        pipeline.upload_camera(&self.queue, capture.view_projection, capture.eye);
-        decal_pipeline.upload_camera(&self.queue, capture.view_projection, capture.eye);
-        // Camera uploads are finished; encoding and the shared decal helper
-        // borrow the pipelines immutably for the open render pass.
-        let (Some(capture_pipeline), Some(capture_decal_pipeline), Some(capture_materials)) = (
+        let (
+            Some(capture_pipeline),
+            Some(capture_decal_pipeline),
+            Some(planar),
+            Some(environment),
+            Some(capture_materials),
+            Some(world),
+            Some(textures),
+        ) = (
             self.capture_pipeline.as_ref(),
             self.decal_reflection_pipeline.as_ref(),
+            self.reflection_targets.planar(),
+            self.environment.as_ref(),
             self.world_materials.as_ref(),
-        ) else {
+            self.world.as_ref(),
+            self.world_textures.as_ref(),
+        )
+        else {
             return false;
         };
         let capture_frame = capture
@@ -7756,10 +7823,9 @@ impl WgpuRenderer {
         let metal_layer = self.metal_layer_diagnostics();
         #[cfg(not(target_os = "macos"))]
         let metal_layer: Option<serde_json::Value> = None;
-        let allocator = allocation_report_for_event(&self.device, event, frame);
         let model_stats = self.prop_assets.stats();
         let receipt = serde_json::json!({
-            "allocator": allocator,
+            "allocator": allocation_report_for_event(&self.device, event, frame),
             "unix_time_us":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok().and_then(|duration|u64::try_from(duration.as_micros()).ok()),
             "event": event, "frame": frame, "level": self.level_id,
             "backend": surface::native_backend_label(),
@@ -7774,7 +7840,8 @@ impl WgpuRenderer {
             "water": {"active":self.water_active,"snapshot_texel_bytes": self.water_snapshot.as_ref().map_or(0, super::water::Snapshot::bytes), "interactions": self.water_interactions.diagnostics()},
             "atlas_texel_bytes": self.lightmaps.stats().resident_bytes,
             "prop_geometry": self.world_props.as_ref().map(|props| serde_json::json!({"vertex_bytes":props.stats().vertex_bytes,"index_bytes":props.stats().index_bytes,"independent_lighting_instance_bytes":props.stats().lighting_instance_bytes,"canonical_meshes":props.stats().canonical_meshes,"canonical_instances":props.stats().canonical_instances,"buffer_requested_bytes":props.geometry_buffer_bytes(),"layout":"canonical shape plus independent placement lighting; compatible automatic instances; individual fallback buffers"})),
-            "character_geometry": self.world_characters.as_ref().map(|characters|serde_json::json!({"vertex_bytes":characters.stats().vertex_bytes,"index_bytes":characters.stats().index_bytes,"characters":characters.stats().characters,"shared_models":characters.stats().meshes})),
+            "transparency_sort_scratch_bytes": {"scene":self.scene_pipeline.as_ref().map_or(0, WorldPipeline::transparency_scratch_bytes), "emission":self.emissive_pipeline.as_ref().map_or(0, WorldPipeline::transparency_scratch_bytes), "capture":self.capture_pipeline.as_ref().map_or(0, WorldPipeline::transparency_scratch_bytes)},
+            "character_geometry": self.world_characters.as_ref().map(|characters|serde_json::json!({"vertex_bytes":characters.stats().vertex_bytes,"index_bytes":characters.stats().index_bytes,"characters":characters.stats().characters,"shared_models":characters.stats().meshes,"transparency_cpu_bytes":characters.transparency_cpu_bytes(),"blend_batch_cpu_bytes":characters.blend_batch_cpu_bytes(),"blend_batch_gpu_bytes":characters.blend_batch_gpu_bytes()})),
             "drawable": [self.drawable_size.width, self.drawable_size.height],
             "surface_present_mode": surface::present_mode_label(self.config.present_mode),
             "surface_desired_frame_latency": self.config.desired_maximum_frame_latency,

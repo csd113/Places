@@ -3,7 +3,8 @@
 //! The renderer-neutral [`CharacterScene`] owns the rigs, the placement
 //! transforms and the pose evaluation; this module owns the GPU side:
 //!
-//! * one **shared index buffer per distinct model** (indices never change);
+//! * one **shared index buffer per distinct model**, retained for opaque/cutout
+//!   and shadow draws, plus a reusable per-instance BLEND ordering buffer;
 //! * one **mutable vertex buffer per character**, written by compute deformation or CPU fallback
 //!   only on the frames the animator's pose revision changes;
 //! * one group-3 environment per character carrying the placement model
@@ -25,6 +26,10 @@ use std::sync::Arc;
 
 use glam::Mat4;
 
+#[path = "character_blend.rs"]
+pub(super) mod blend;
+
+use super::character_transparency::{BlendTriangle, CharacterSpan, CharacterTransparency};
 use super::environment::EnvironmentBindings;
 use super::lightmap::LightmapAtlas;
 use super::material::{EmissionRecord, GpuMaterial};
@@ -46,6 +51,8 @@ struct CharacterMeshGpu {
     /// Triangle indices, shared by every character of this model.
     index_buffer: wgpu::Buffer,
     index_count: u32,
+    /// Only BLEND topology participates in view-dependent ordering.
+    blend_triangles: Vec<BlendTriangle>,
     /// Distinct vertices one character of this model re-poses.
     vertex_count: u32,
     /// GPU sheet per model texture.
@@ -58,6 +65,22 @@ struct CharacterMeshGpu {
     emissive: Vec<bool>,
     /// Rest transforms and clips preserve a usable outward orientation.
     culling_safe: bool,
+}
+
+impl CharacterMeshGpu {
+    fn transparency(
+        &self,
+        device: &wgpu::Device,
+        character: &Character,
+    ) -> Option<CharacterTransparency> {
+        (!self.blend_triangles.is_empty()).then(|| {
+            CharacterTransparency::new(
+                device,
+                character.asset().model.vertices.len(),
+                self.blend_triangles.len(),
+            )
+        })
+    }
 }
 
 /// The pass one source submesh's alpha contract maps to for a character.
@@ -141,6 +164,8 @@ impl CharacterKey {
 /// One live character's GPU state.
 struct CharacterGpu {
     shared_pose: Option<usize>,
+    transparency: Option<CharacterTransparency>,
+    blend_batch: Option<usize>,
     /// Cached appearance binding; index geometry is shared across all skins.
     texture: Option<Arc<GpuTexture>>,
     /// Slot into [`WgpuCharacters::meshes`].
@@ -268,7 +293,7 @@ pub struct CharacterGpuStats {
     pub meshes: usize,
     /// Live characters.
     pub characters: usize,
-    /// Draw calls one frame submits (one per character per primitive).
+    /// Unculled source primitive ranges; actual view draws can merge or split them.
     pub draws: usize,
     /// Distinct vertices the scene re-poses, summed over characters.
     pub vertices: usize,
@@ -286,6 +311,7 @@ pub struct CharacterGpuStats {
 #[derive(Default)]
 pub struct WgpuCharacters {
     skin_pipeline: Option<SkinPipeline>,
+    blend_batches: Vec<blend::BlendBatch>,
     meshes: Vec<CharacterMeshGpu>,
     characters: Vec<CharacterGpu>,
     materials: Vec<GpuMaterial>,
@@ -393,6 +419,16 @@ fn node_hierarchy_culling_safe(nodes: &[crate::engine::gltf::PropNode]) -> bool 
 }
 
 impl WgpuCharacters {
+    fn reuse_skin_pipeline(
+        device: &wgpu::Device,
+        previous: Option<&Self>,
+        pipeline: Option<SkinPipeline>,
+    ) -> SkinPipeline {
+        pipeline
+            .or_else(|| previous.and_then(|old| old.skin_pipeline.clone()))
+            .unwrap_or_else(|| SkinPipeline::new(device))
+    }
+
     pub(super) fn prepared_pipeline(&self) -> Option<SkinPipeline> {
         self.skin_pipeline.clone()
     }
@@ -434,11 +470,7 @@ impl WgpuCharacters {
         value.fallback = Some(ctx.cache.fallback());
         // Runtime admission rebuilds character bindings on the same device.
         // Retain its compiled deformation pipeline across those rebuilds.
-        value.skin_pipeline = Some(
-            pipeline
-                .or_else(|| previous.and_then(|old| old.skin_pipeline.clone()))
-                .unwrap_or_else(|| SkinPipeline::new(ctx.device)),
-        );
+        value.skin_pipeline = Some(Self::reuse_skin_pipeline(ctx.device, previous, pipeline));
         let mut mesh_index_by_path: HashMap<String, usize> = HashMap::new();
         let entries = scene
             .characters()
@@ -504,9 +536,12 @@ impl WgpuCharacters {
                 &vertex_buffer,
             );
             let world_bounds = posed_world_bounds(&pose.bounds, &character.transform());
+            let transparency = mesh.transparency(ctx.device, character);
             let texture = Self::upload_appearance(ctx, &mut value, character);
             value.characters.push(CharacterGpu {
                 shared_pose: None,
+                transparency,
+                blend_batch: None,
                 texture,
                 mesh: mesh_index,
                 key,
@@ -527,6 +562,7 @@ impl WgpuCharacters {
                 casts_flashlight_shadow: character.casts_flashlight_shadow(),
             });
         }
+        value.upload_blend_batches(ctx, scene);
         value.finish_stats();
         value
     }
@@ -578,7 +614,19 @@ impl WgpuCharacters {
         let mut submeshes: Vec<CharacterSubmeshGpu> = Vec::with_capacity(model.submeshes.len());
         let mut materials: Vec<usize> = Vec::with_capacity(model.submeshes.len());
         let mut emissive: Vec<bool> = Vec::with_capacity(model.submeshes.len());
+        let mut blend_triangles = Vec::new();
         for source in coalesced_submeshes(&model.submeshes) {
+            if character_submesh_pass(source.alpha) == BatchPass::Translucent {
+                let start = usize::try_from(source.first_index).ok()?;
+                let end = start.checked_add(usize::try_from(source.index_count).ok()?)?;
+                for triangle in model.indices.get(start..end)?.as_chunks::<3>().0 {
+                    let indices = *triangle;
+                    blend_triangles.push(BlendTriangle {
+                        indices,
+                        submesh: submeshes.len(),
+                    });
+                }
+            }
             let texture = source
                 .texture
                 .map(usize::from)
@@ -631,6 +679,7 @@ impl WgpuCharacters {
             skin_source: SkinSource::new(ctx.device, ctx.queue, model),
             index_buffer,
             index_count: u32::try_from(model.indices.len()).unwrap_or(u32::MAX),
+            blend_triangles,
             vertex_count: u32::try_from(model.vertices.len()).unwrap_or(u32::MAX),
             textures,
             submeshes,
@@ -784,7 +833,14 @@ impl WgpuCharacters {
                     .unwrap_or(usize::MAX)
                     .saturating_mul(std::mem::size_of::<u16>())
             })
-            .sum();
+            .sum::<usize>()
+            .saturating_add(
+                self.characters
+                    .iter()
+                    .filter_map(|entry| entry.transparency.as_ref())
+                    .map(|state| usize::try_from(state.buffer.size()).unwrap_or(usize::MAX))
+                    .fold(0, usize::saturating_add),
+            );
     }
 
     /// Prepares GPU palettes or CPU fallback vertices when a pose revision changes,
@@ -1110,6 +1166,107 @@ impl WgpuCharacters {
             mesh_part.first_index,
             mesh_part.index_count,
         ))
+    }
+
+    /// Prepare only visible BLEND characters for this view, before its queue
+    /// submission. Main and planar captures submit separately, so the retained
+    /// buffer can be reused safely; scene/emission share the main view order.
+    pub fn prepare_transparency(
+        &mut self,
+        queue: &wgpu::Queue,
+        scene: &CharacterScene,
+        frame: &super::world::WorldFrame,
+        cull: bool,
+    ) {
+        for entry in &mut self.characters {
+            if !entry.visible || (cull && !frame.visible(&entry.world_bounds)) {
+                continue;
+            }
+            let (Some(state), Some(mesh), Some(character)) = (
+                &mut entry.transparency,
+                self.meshes.get(entry.mesh),
+                entry.key.resolve(scene),
+            ) else {
+                continue;
+            };
+            state.prepare(
+                queue,
+                &mesh.blend_triangles,
+                &character.asset().model,
+                character.animator(),
+                (
+                    entry.uploaded_transform,
+                    frame.eye,
+                    entry.blend_batch.is_none(),
+                ),
+            );
+        }
+        self.prepare_blend_batches(queue, frame, cull);
+    }
+
+    /// View-ordered triangles join the same list as glass, water and other actors.
+    pub(super) fn transparent_spans(
+        &self,
+        character: usize,
+    ) -> impl Iterator<Item = (CharacterSpan, f32)> + '_ {
+        self.characters
+            .get(character)
+            .filter(|entry| entry.visible && entry.blend_batch.is_none())
+            .into_iter()
+            .flat_map(move |entry| {
+                let mesh = self.meshes.get(entry.mesh);
+                entry
+                    .transparency
+                    .as_ref()
+                    .into_iter()
+                    .flat_map(|state| state.order.iter().enumerate())
+                    .filter_map(move |(index, triangle)| {
+                        let source = mesh?.blend_triangles.get(triangle.source)?;
+                        Some((
+                            CharacterSpan {
+                                batch: None,
+                                submesh: source.submesh,
+                                first_index: u32::try_from(index).ok()?.checked_mul(3)?,
+                                index_count: 3,
+                            },
+                            triangle.distance,
+                        ))
+                    })
+            })
+    }
+
+    pub(super) fn transparent_geometry(
+        &self,
+        character: usize,
+    ) -> Option<(&wgpu::Buffer, &wgpu::Buffer)> {
+        let entry = self.characters.get(character)?;
+        Some((
+            &self
+                .characters
+                .get(entry.shared_pose.unwrap_or(character))?
+                .vertex_buffer,
+            &entry.transparency.as_ref()?.buffer,
+        ))
+    }
+
+    /// Retained CPU ordering scratch, excluding shared immutable topology.
+    #[cfg(feature = "visual-diagnostics")]
+    pub fn transparency_cpu_bytes(&self) -> usize {
+        self.characters
+            .iter()
+            .filter_map(|entry| entry.transparency.as_ref())
+            .map(CharacterTransparency::cpu_bytes)
+            .fold(0, usize::saturating_add)
+            .saturating_add(
+                self.meshes
+                    .iter()
+                    .map(|mesh| {
+                        mesh.blend_triangles
+                            .capacity()
+                            .saturating_mul(std::mem::size_of::<BlendTriangle>())
+                    })
+                    .fold(0, usize::saturating_add),
+            )
     }
 
     /// The number of submeshes one character draws.

@@ -48,6 +48,7 @@
 
 pub mod caustics;
 pub mod character;
+mod character_transparency;
 pub mod decals;
 #[cfg(feature = "visual-diagnostics")]
 pub mod diagnostics;

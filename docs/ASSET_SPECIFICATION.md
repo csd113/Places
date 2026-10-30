@@ -1635,6 +1635,10 @@ this directory and its index; player-only exports do not need it.
 
 ### 12.1 Application icon and documentation screenshots
 
+* `docs/images/issue24-transparency/*.png`: unchanged native Windows 960x640
+  full-frame captures. Preserve every pixel, orientation and colour; these are
+  diagnostic evidence outside the runtime catalog.
+
 * `assets/shared/branding/places.png` is the single approved icon and README
   image, formerly duplicated as root `icon.png` and `logo.png`. Keep its original
   square composition, orientation and opaque RGB bytes unchanged. New icon
