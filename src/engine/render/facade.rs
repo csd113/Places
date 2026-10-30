@@ -905,6 +905,10 @@ impl Renderer {
         self.renderer.prepare_startup_pipelines()
     }
 
+    pub(crate) fn retire_startup_pipelines(&mut self) -> bool {
+        self.renderer.retire_startup_pipelines()
+    }
+
     /// Renders one frame's scene from `camera`.
     pub fn render_scene(&mut self, camera: RenderCamera) {
         self.renderer.render_scene(camera);

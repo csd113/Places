@@ -13,29 +13,52 @@ pub(super) struct FrameTrace {
 }
 
 impl FrameTrace {
-    pub(super) fn new(performance_test: bool, window: &Window) -> Self {
+    pub(super) fn new(performance_test: bool) -> Self {
         let mut trace = LoadTrace::new();
         trace.record("entry", 0, if performance_test {
             "editor performance_test=true vsync=false sleep_ms=0; latency is distinct from FPS; verify display pacing"
         } else {
             "editor performance_test=false vsync=true sleep_ms=16"
         });
-        if trace.is_recording() {
+        Self {
+            trace,
+            previous: Instant::now(),
+            frame: Instant::now(),
+        }
+    }
+
+    pub(super) fn stage(&mut self, stage: &str) {
+        self.trace.record(stage, 0, "editor bootstrap");
+    }
+
+    pub(super) fn bootstrap_pump(&mut self, events: &mut sdl3::EventPump) -> bool {
+        self.trace.record("event_pump", 0, "editor bootstrap");
+        self.previous = Instant::now();
+        !events.poll_iter().any(|event| {
+            matches!(
+                event,
+                sdl3::event::Event::Quit { timestamp: _ }
+                    | sdl3::event::Event::Window {
+                        win_event: sdl3::event::WindowEvent::CloseRequested,
+                        timestamp: _,
+                        window_id: _
+                    }
+            )
+        })
+    }
+
+    pub(super) fn context(&mut self, window: &Window) {
+        if self.trace.is_recording() {
             let refresh = window
                 .get_display()
                 .ok()
                 .and_then(|display| display.get_mode().ok())
                 .map(|mode| mode.refresh_rate);
-            trace.record(
+            self.trace.record(
                 "runtime_context",
                 0,
                 &format!("display_refresh_hz={refresh:?}"),
             );
-        }
-        Self {
-            trace,
-            previous: Instant::now(),
-            frame: Instant::now(),
         }
     }
 

@@ -23,11 +23,24 @@ impl WorldPipelines {
         environment: &wgpu::BindGroupLayout,
     ) -> Self {
         let mut timer = crate::engine::perf::loading::StageTimer::new("renderer-world-pipelines");
-        let surface = WorldPipeline::new(device, format, textures, materials, environment);
+        let shader = WorldPipeline::shader(device);
+        timer.step("world-shader");
+        let surface = WorldPipeline::with_state(
+            device,
+            &shader,
+            format,
+            textures,
+            materials,
+            environment,
+            wgpu::FrontFace::Ccw,
+            false,
+            false,
+        );
         timer.step("world-surface");
         // Reflection projections reverse winding; both sides remain visible.
         let capture = WorldPipeline::with_state(
             device,
+            &shader,
             super::super::reflections::REFLECTION_FORMAT,
             textures,
             materials,
@@ -39,6 +52,7 @@ impl WorldPipelines {
         timer.step("world-capture");
         let scene = WorldPipeline::with_state(
             device,
+            &shader,
             SCENE_FORMAT,
             textures,
             materials,
@@ -50,6 +64,7 @@ impl WorldPipelines {
         timer.step("world-scene");
         let emissive = WorldPipeline::with_state(
             device,
+            &shader,
             super::EMISSIVE_FORMAT,
             textures,
             materials,
@@ -86,9 +101,24 @@ enum Auxiliary {
     Post,
 }
 
+struct PipelineWorker {
+    receive: Receiver<WorldPipelines>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Drop for PipelineWorker {
+    fn drop(&mut self) {
+        if let Some(thread) = self.thread.take()
+            && thread.join().is_err()
+        {
+            crate::engine::logging::warn("World pipeline worker stopped unexpectedly");
+        }
+    }
+}
+
 enum Preparation {
     Main(Auxiliary),
-    Worker(Receiver<WorldPipelines>),
+    Worker(PipelineWorker),
 }
 
 pub(super) struct StartupPipelines {
@@ -97,8 +127,8 @@ pub(super) struct StartupPipelines {
 }
 
 impl WgpuRenderer {
-    /// Opt-in by the player loop; offline baking and editor installation retain
-    /// the synchronous path. There is at most one world-pipeline worker.
+    /// Shared player/editor preparation; offline baking retains the synchronous
+    /// constructor and the same shader module reuse. At most one worker exists.
     pub fn prepare_startup_pipelines(&mut self) -> Result<bool, String> {
         if self.check_device_lost() {
             return Err(self
@@ -139,7 +169,7 @@ impl WgpuRenderer {
                     let environment = self.environment_layout.clone();
                     let format = pending.format;
                     let (send, receive) = std::sync::mpsc::channel();
-                    let _worker = std::thread::Builder::new()
+                    let worker = std::thread::Builder::new()
                         .name("places-world-pipelines".into())
                         .spawn(move || {
                             let started = std::time::Instant::now();
@@ -158,10 +188,13 @@ impl WgpuRenderer {
                             let _delivered = send.send(pipeline);
                         })
                         .map_err(|error| format!("Cannot prepare world pipelines: {error}"))?;
-                    Preparation::Worker(receive)
+                    Preparation::Worker(PipelineWorker {
+                        receive,
+                        thread: Some(worker),
+                    })
                 };
             }
-            Preparation::Worker(ref receive) => match receive.try_recv() {
+            Preparation::Worker(ref worker) => match worker.receive.try_recv() {
                 Ok(world) => {
                     // A recreated surface can change format. Finish/discard the old
                     // worker before scheduling another, rather than accumulating jobs.
@@ -186,6 +219,25 @@ impl WgpuRenderer {
         }
         self.startup_pipelines = Some(pending);
         Ok(false)
+    }
+
+    /// The editor pumps native events while a non-cancellable driver call
+    /// finishes. Taking the owner joins the one worker and drops its result.
+    pub(crate) fn retire_startup_pipelines(&mut self) -> bool {
+        let finished =
+            self.startup_pipelines
+                .as_ref()
+                .is_none_or(|pending| match &pending.preparation {
+                    Preparation::Main(_) => true,
+                    Preparation::Worker(worker) => worker
+                        .thread
+                        .as_ref()
+                        .is_none_or(std::thread::JoinHandle::is_finished),
+                });
+        if finished {
+            drop(self.startup_pipelines.take());
+        }
+        finished
     }
 
     pub(super) fn prepare_all_auxiliary(&mut self) {

@@ -43,12 +43,19 @@ enum PreviewMode {
     Authored,
 }
 
+enum PipelineReadiness {
+    Preparing,
+    Ready,
+    Failed(String),
+}
+
 pub(super) struct Viewport {
     layout: super::layout::Layout,
     focus: super::focus::Focus,
     identity_map: Vec<(ObjectId, ObjectId)>,
     wall_handles: Vec<[[f32; 3]; 2]>,
     renderer: Renderer,
+    pipelines: PipelineReadiness,
     worker: PreviewWorker,
     camera: Camera,
     objects: Vec<PickObject>,
@@ -101,6 +108,7 @@ impl Viewport {
             identity_map: Vec::new(),
             wall_handles: Vec::new(),
             renderer,
+            pipelines: PipelineReadiness::Preparing,
             worker: PreviewWorker::new()?,
             camera: Camera::default(),
             objects: Vec::new(),
@@ -278,18 +286,29 @@ impl Viewport {
     }
 
     pub fn status(&self) -> Option<&str> {
-        self.renderer
-            .fatal_error()
-            .or_else(|| self.worker.error())
-            .or_else(|| {
-                self.preview_metrics
-                    .get("admission_error")
-                    .and_then(serde_json::Value::as_str)
-            })
+        match &self.pipelines {
+            PipelineReadiness::Failed(error) => Some(error.as_str()),
+            PipelineReadiness::Preparing | PipelineReadiness::Ready => None,
+        }
+        .or_else(|| self.renderer.fatal_error())
+        .or_else(|| self.worker.error())
+        .or_else(|| {
+            self.preview_metrics
+                .get("admission_error")
+                .and_then(serde_json::Value::as_str)
+        })
+    }
+
+    pub fn retire_startup_pipelines(&mut self) -> bool {
+        self.worker.cancel();
+        self.renderer.cancel_prepared_install();
+        self.renderer.retire_startup_pipelines()
     }
 
     pub const fn is_preparing(&self) -> bool {
-        self.uploading || self.worker.is_preparing()
+        matches!(self.pipelines, PipelineReadiness::Preparing)
+            || self.uploading
+            || self.worker.is_preparing()
     }
 
     pub fn capture(&mut self, path: &std::path::Path) -> Result<(), String> {
@@ -528,15 +547,34 @@ impl Viewport {
         true
     }
 
+    fn poll_preview(&mut self) -> bool {
+        self.worker.dispatch_pending();
+        let ready = match self.renderer.prepare_startup_pipelines() {
+            Ok(ready) => ready,
+            Err(error) => {
+                self.worker.cancel();
+                drop(self.worker.poll(true));
+                self.pipelines = PipelineReadiness::Failed(error);
+                return false;
+            }
+        };
+        self.pipelines = if ready {
+            PipelineReadiness::Ready
+        } else {
+            PipelineReadiness::Preparing
+        };
+        self.worker
+            .poll(ready)
+            .is_none_or(|preview| self.start_preview(preview))
+    }
+
     pub fn draw(&mut self, window: &Window, ui: &[Vertex]) -> bool {
         let (width, height) = window.size_in_pixels();
         self.size = DrawableSize::new(width, height);
         self.window_size = window.size();
         self.layout = super::layout::Layout::for_window(window);
         let _resized = self.renderer.set_drawable_size(self.size);
-        if let Some(preview) = self.worker.poll()
-            && !self.start_preview(preview)
-        {
+        if !self.poll_preview() {
             return false;
         }
         if self.uploading {

@@ -2859,28 +2859,15 @@ pub struct WorldPipeline {
 }
 
 impl WorldPipeline {
-    /// Builds the main-pass pipeline set for one colour target format.
-    #[must_use]
-    pub fn new(
-        device: &wgpu::Device,
-        format: wgpu::TextureFormat,
-        texture_layout: &wgpu::BindGroupLayout,
-        material_layout: &wgpu::BindGroupLayout,
-        environment_layout: &wgpu::BindGroupLayout,
-    ) -> Self {
-        Self::with_state(
-            device,
-            format,
-            texture_layout,
-            material_layout,
-            environment_layout,
-            wgpu::FrontFace::Ccw,
-            // World/static ranges contain two-sided panes, curtains and void
-            // shells. Entity primitives select their own culled pipeline.
-            false,
-            // The main pipeline writes the sRGB surface.
-            false,
-        )
+    /// One validated shader module shared by all four target/raster sets.
+    /// It is dropped after construction; no process/global shader cache is added.
+    pub(super) fn shader(device: &wgpu::Device) -> wgpu::ShaderModule {
+        device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("places-wgpu-world-shader"),
+            source: wgpu::ShaderSource::Wgsl(world_shader_source(
+                device.limits().max_bind_groups >= 6,
+            )),
+        })
     }
 
     /// Builds one world pipeline set with explicit raster state.
@@ -2898,6 +2885,7 @@ impl WorldPipeline {
     )] // one pipeline set's full raster state, all explicit
     pub fn with_state(
         device: &wgpu::Device,
+        shader: &wgpu::ShaderModule,
         format: wgpu::TextureFormat,
         texture_layout: &wgpu::BindGroupLayout,
         material_layout: &wgpu::BindGroupLayout,
@@ -2906,11 +2894,6 @@ impl WorldPipeline {
         cull_opaque: bool,
         raw_target: bool,
     ) -> Self {
-        let shader_source = world_shader_source(device.limits().max_bind_groups >= 6);
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("places-wgpu-world-shader"),
-            source: wgpu::ShaderSource::Wgsl(shader_source),
-        });
         let bind_group_layout = world_camera_bind_group_layout(device);
         // Group 4 is the frame's attached-light array: created with the
         // pipeline set and shared by every variant, so binding it is one call
@@ -2943,7 +2926,7 @@ impl WorldPipeline {
         let models = build_model_pipelines(
             device,
             &pipeline_layout,
-            &shader,
+            shader,
             format,
             (front_face, raw_target),
         );
@@ -2957,7 +2940,7 @@ impl WorldPipeline {
         let instanced = (device.limits().max_bind_groups >= 6).then(|| {
             build_prop_pipelines(
                 device,
-                &shader,
+                shader,
                 model_layouts,
                 (format, front_face, raw_target),
             )
@@ -2972,7 +2955,7 @@ impl WorldPipeline {
         ] = build_world_variants(
             device,
             &pipeline_layout,
-            &shader,
+            shader,
             (format, front_face, raw_target, cull_opaque),
         );
         Self {
@@ -3112,8 +3095,10 @@ impl WorldPipeline {
         material_layout: &wgpu::BindGroupLayout,
         environment_layout: &wgpu::BindGroupLayout,
     ) -> Self {
+        let shader = Self::shader(device);
         Self::with_state(
             device,
+            &shader,
             DEPTH_FORMAT,
             texture_layout,
             material_layout,

@@ -148,42 +148,52 @@ impl PreviewWorker {
         self.error = None;
     }
 
-    pub fn poll(&mut self) -> Option<PreparedPreview> {
+    pub fn poll(&mut self, accept: bool) -> Option<PreparedPreview> {
         let mut ready = None;
-        match self.response.try_recv() {
-            Ok(response) => {
-                self.busy = false;
-                if response.generation == self.generation {
-                    match response.result {
-                        Ok(mut preview) => {
-                            self.accepted_responses = self.accepted_responses.saturating_add(1);
-                            if let Some(metrics) = preview.metrics.as_object_mut() {
-                                drop(metrics.insert(
-                                    "generation".into(),
-                                    serde_json::json!(response.generation),
-                                ));
-                                drop(metrics.insert(
-                                    "ui_response_wait_ms".into(),
-                                    serde_json::json!(
-                                        response.finished.elapsed().as_secs_f64() * 1_000.0_f64
-                                    ),
-                                ));
+        // Dispatch CPU preparation while immutable GPU pipelines compile. Keep
+        // the sole response in this existing channel until installation is safe.
+        if accept {
+            match self.response.try_recv() {
+                Ok(response) => {
+                    self.busy = false;
+                    if response.generation == self.generation {
+                        match response.result {
+                            Ok(mut preview) => {
+                                self.accepted_responses = self.accepted_responses.saturating_add(1);
+                                if let Some(metrics) = preview.metrics.as_object_mut() {
+                                    drop(metrics.insert(
+                                        "generation".into(),
+                                        serde_json::json!(response.generation),
+                                    ));
+                                    drop(metrics.insert(
+                                        "ui_response_wait_ms".into(),
+                                        serde_json::json!(
+                                            response.finished.elapsed().as_secs_f64() * 1_000.0_f64
+                                        ),
+                                    ));
+                                }
+                                ready = Some(preview);
                             }
-                            ready = Some(preview);
+                            Err(error) => self.error = Some(error),
                         }
-                        Err(error) => self.error = Some(error),
+                    } else {
+                        self.stale_responses = self.stale_responses.saturating_add(1);
                     }
-                } else {
-                    self.stale_responses = self.stale_responses.saturating_add(1);
                 }
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    self.busy = false;
+                    self.pending = None;
+                    self.error = Some("Scene preview worker stopped".to_string());
+                }
+                Err(mpsc::TryRecvError::Empty) => {}
             }
-            Err(mpsc::TryRecvError::Disconnected) => {
-                self.busy = false;
-                self.pending = None;
-                self.error = Some("Scene preview worker stopped".to_string());
-            }
-            Err(mpsc::TryRecvError::Empty) => {}
         }
+        self.dispatch_pending();
+        ready
+    }
+
+    /// Start the existing bounded CPU request before entering driver work.
+    pub fn dispatch_pending(&mut self) {
         if !self.busy
             && let Some((level, environment, scope, queued)) = self.pending.take()
         {
@@ -212,11 +222,20 @@ impl PreviewWorker {
                 self.error = Some("Scene preview worker stopped".to_string());
             }
         }
-        ready
     }
 
     pub(super) fn resource_snapshot(&self) -> serde_json::Value {
         serde_json::json!({"generation":self.generation,"active":self.busy,"pending":self.pending.is_some(),"accepted_responses":self.accepted_responses,"stale_responses":self.stale_responses,"policy":"one active worker plus one supersedable pending request; obsolete generations rejected"})
+    }
+
+    pub fn cancel(&mut self) {
+        self.pending = None;
+        if let Some(budget) = self.budget.take() {
+            self.generation = self.generation.wrapping_add(1);
+            budget
+                .cancelled
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+        }
     }
 
     pub const fn is_preparing(&self) -> bool {

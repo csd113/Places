@@ -1365,3 +1365,164 @@ The original dirty, unstaged menu scene remains SHA-256
 Final source/patch/production binaries and raw evidence are preserved outside target.
 `A/handoff.json` records the local commit, final process witness and one final cargo
 clean receipt. Build/native/write custody is released only with that final handoff.
+
+## Cold editor pipeline responsiveness and preview retirement (Windows, 30 October 2026)
+
+The editor now uses the existing player world-pipeline worker and staged auxiliary
+constructors. Window/device/SDL, uploads and presentation keep their existing
+owners. CPU preparation starts before driver constructors; its single result stays
+in the existing worker channel until pipelines permit installation. One active
+preview plus one supersedable pending request, cooperative cancellation, generation
+rejection and bounded/weak build reuse are retained. The same four target/raster
+sets share one validated world shader module in both worker and synchronous offline
+construction; raster state, shader text and complete diagnostics are preserved.
+The existing pipeline thread now has a joined lifetime owner. Normal editor close
+cancels CPU/pending upload work and pumps events while retiring in-flight pipeline
+resources. Failed pipeline preparation retires obsolete CPU results without
+leaving readiness stuck pending.
+
+### Frozen method and separate stages
+
+Reference source is local `42282572697298c66f0f1fdda5a533c92630f236` plus common
+opt-in entry/bootstrap timers. It already contains the accepted edit-validation
+and shared player/audio changes. These measurements are editor results. Final
+source is the commit containing this section. Evidence, recipes, frozen binaries,
+source snapshots, all samples and initial/interrupted receipts are outside target at
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-30/task-5/editor-cold-evidence/` (`E`).
+`reference-bin`, `accepted-bin`, `accepted-analysis.json`, `final-native-validation.json`
+and `accepted-gates.json` are the final receipts. Earlier baseline/pilot/candidate
+artifacts remain preserved. An earlier foreground Rust gate lost its process
+session before an exit receipt; it is incomplete and excluded, not a test pass.
+
+Razer/Windows, RTX 3070 Laptop/DX12, Rust/Cargo 1.99.1, locked release workspace/all
+features. Three fresh-process pairs per document alternate B/C, C/B, B/C, at Normal
+priority, with no concurrent build/bake/native timing workload. Inputs are isolated
+byte-matched copies of Performance Lab (117 objects) and Lantern Hollow (1,271).
+Actual drawable is 1440x816, Fifo/V-sync with the ordinary 16 ms editor sleep.
+These are responsiveness/ownership measurements; no uncapped FPS claim. App state,
+config and cache roots are separate; OS/driver caches are not purged. Trace `entry`
+now starts at editor application entry. First event handling, first presentation,
+CPU request/result, install readiness and successful usable presentation are distinct.
+
+Medians of three runs, milliseconds; raw ranges/samples remain in E.
+
+| Document | Measurement | Reference | Final |
+| --- | --- | ---: | ---: |
+| Performance Lab | First event pump | 1395.267 | 103.712 |
+| Performance Lab | First successful presentation | 5480.560 | 1595.575 |
+| Performance Lab | First usable preview presentation | 6363.550 | 6166.549 |
+| Performance Lab | Largest frame-loop pump gap | 3939.192 | 243.903 |
+| Lantern Hollow | First event pump | 1408.597 | 103.474 |
+| Lantern Hollow | First successful presentation | 5563.712 | 1613.640 |
+| Lantern Hollow | First usable preview presentation | 10852.347 | 10895.071 |
+| Lantern Hollow | Largest frame-loop pump gap | 4175.101 | 1026.079 |
+
+| Document | Preview stage, ms | Reference | Final |
+| --- | --- | ---: | ---: |
+| Lab | CPU preview preparation wall | 203.666 | 205.072 |
+| Lab | Request to CPU dispatch/start | 1.832 | 0.899 |
+| Lab | Finished CPU result to allowed delivery | 3734.223 | 3802.832 |
+| Lab | Admission | 0.101 | 0.090 |
+| Lab | Install setup | 0.087 | 0.079 |
+| Lab | Largest install handler | 10.540 | 10.481 |
+| Lab | Preview request to install ready | 4790.440 | 4864.065 |
+| Lantern | CPU preview preparation wall | 1958.819 | 1948.285 |
+| Lantern | Request to CPU dispatch/start | 1.770 | 1.157 |
+| Lantern | Finished CPU result to allowed delivery | 2215.162 | 2211.745 |
+| Lantern | Admission | 0.065 | 0.042 |
+| Lantern | Install setup | 0.900 | 0.834 |
+| Lantern | Largest install handler | 999.368 | 999.634 |
+| Lantern | Preview request to install ready | 9440.524 | 9471.520 |
+
+CPU work and pipeline construction overlap; these intervals must not be summed.
+Finished-result wait includes the deliberate pipeline readiness gate while the UI
+continues presenting. First-pass dispatch after an auxiliary constructor added
+about 167 ms of queue wait; final dispatch moves ahead of that constructor.
+The atomic main device/app phase remains: final maximum all-pump gaps are
+1266.160 ms Lab and
+1221.116 ms Lantern.
+The large late install still includes roughly one second of character commit.
+No hard UI-handler budget or uniform end-to-end readiness improvement is claimed.
+
+World constructor medians are Lab 3460.667 -> 3403.993 ms,
+Lantern 3679.894 -> 3539.486 ms;
+the main benefit is their owned asynchronous execution. On the explicit two-room
+escape-recovery Full fixture, offline world constructors are
+3316.204 -> 3254.085 ms and total build wall
+16.475 -> 16.363 s. This near-baseline result does not establish a general
+offline bake speedup. Native validators decode/re-hash every entry; all 13 non-provenance
+records match in each of three pairs, including both Full/Medium probe cubemaps.
+Compiler provenance/manifest identity is expected to differ. No currency rule or
+validation was weakened and no production map was rebaked.
+
+### Ownership, interruption and tradeoffs
+
+| Document | Whole-process CPU | Peak working set | Peak private commit |
+| --- | ---: | ---: | ---: |
+| Lab | 5.281 -> 5.531 s | 327.14 -> 327.67 MiB | 466.50 -> 467.48 MiB |
+| Lantern | 9.391 -> 9.672 s | 767.58 -> 801.86 MiB | 962.81 -> 960.75 MiB |
+
+Earlier continuous loading feedback adds rendered UI work. Process peaks include
+native/driver/transient owners and captures; they are separate from charged JSON
+heap, live build/image/model ownership and shared-cache scopes. No general memory
+reduction, callback improvement or leak fix is claimed. Existing immutable history
+charges, 64 revisions/32 MiB per stack and 256 MiB aggregate admission are unchanged;
+unsaved work/history is retained. `owner-snapshots.json` keeps the scopes separately.
+
+Lab final flow retains 1 document, 1 history revision, 40,423 serialized history bytes and 524,318 charged document heap bytes. Its displayed build reports 11,228,459 retained bytes; source-image pixels are 16,777,216 bytes (0 cache-only), model geometry/skin 876,544, model pixels 5,505,024, and encoded model input 0 bytes.
+
+Lantern final flow retains 9 documents, 1 history revision, 393,522 serialized history bytes and 31,395,819 charged document heap bytes. Its displayed build reports 62,066,595 retained bytes; source-image pixels are 141,623,296 bytes (78,643,200 cache-only), model geometry/skin 13,823,936, model pixels 8,962,048, and encoded model input 0 bytes.
+
+These component scopes overlap through shared material/build/model owners and are
+not added to each other or to process peaks. Both final document flows preserve
+exact edit/undo/redo, save/reopen, latest-generation acceptance and stale retirement.
+An additional cold-start edit plus eight preview supersessions before pipeline
+readiness installs only the latest generation, then undoes/redoes/saves exactly.
+That additional correctness witness ran under compile load and is excluded from
+the quiet timing/memory comparison.
+Lantern performs 18 successful dirty-map switches across all nine maps, with a
+malformed unvisited source rejected, original document/history retained, then a
+successful retry after restoring only the isolated source. Three initial pipeline
+closes and two active GPU-upload closes exit cleanly; retirement continues pumping
+native events. Native early window close also exits before opening the document.
+Pipeline retirement takes 3.001-3.097 s in those three closes, with 172-178
+event-pump calls while the non-cancellable driver work finishes; shutdown is not
+an immediate hard-deadline guarantee.
+
+Six final editor comparisons are pixel exact for world, overlays and controls;
+whole-frame differences are confined to the isolated source-path status text.
+The ordinary player fixed frame-30 Full capture also matches exactly and its
+20/700 ms startup quit checks pass. Offline and shared-player checks were repeated against the final frozen hashes after the editor dispatch change. Final editor SHA-256 is
+`4fb51650525bba10242e7354ab0b137670b8ac1d35c50488b97aebd1ae6bfe97`; the full component identities are in `accepted-bin/hashes.json`.
+
+Strict debug/release all-target/all-feature Clippy, locked all-target/all-feature
+check, locked all-feature release workspace build, format, 402 Rust tests,
+372 Python tests (18 expected skips), asset validation,
+Luau release and whitespace gates pass against the final unchanged source/binary
+hashes. No new ordinary test requires native rendering or a full map bake.
+The Luau runner's initial extensionless default failed before its cases started;
+the supported explicit final Windows `.exe` invocation passes all eleven refusals.
+Both attempt receipts remain, and default-path portability is queued locally.
+This is bounded Windows acceptance, not hours-long/all-map/native Linux acceptance;
+Mac remains explicitly deferred. #29/#18 are not closed.
+Actual GPU device-loss/pipeline-failure injection was not performed.
+
+### Local follow-on, publication hold and custody
+
+`E/implementation-queue-drafts.json` refines the existing
+`startup-shared-metadata-and-main-device` item under #28/#29 with the device gap
+and late character commit. It preserves shared metadata receipts, cancellable
+discovery, pollable owner-thread device setup and bounded cold commit as one
+deduplicated follow-on. Broader audio freshness/residual/DSP, reflection, occlusion
+and streaming work remain in their existing later queue items. The Windows
+Luau guard default-path portability finding is a separate local #17 follow-on.
+
+No GitHub write, push, tag, release or main/release merge was attempted. Publication
+remains held: the prior ancestor `4dab496` push and three compiler drafts/#30 update
+were denied/pending a fresh user decision. The remote was reported as `d0d86bc` at
+handoff and was not rechecked here. All commits remain local. The unrelated dirty,
+unstaged menu scene remains SHA-256
+`93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.
+`E/handoff.json` records the final full local commit, saved source/binaries/evidence,
+idle-only single cargo clean and final process witness. Custody is released with
+that final receipt.

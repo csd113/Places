@@ -1015,6 +1015,7 @@ impl WgpuRenderer {
     ///
     /// Returns an error when no native adapter or device is available.
     pub fn new_headless(drawable_size: DrawableSize) -> Result<Self, String> {
+        let mut timer = crate::engine::perf::loading::StageTimer::new("renderer-offline-bootstrap");
         if !surface::native_backend_is_compiled() {
             return Err(format!(
                 "the wgpu renderer was requested, but this build has no {} backend compiled \
@@ -1047,6 +1048,7 @@ impl WgpuRenderer {
                 adapter_label = surface::native_backend_label()
             )
         })?;
+        timer.step("instance-adapter-driver");
         let adapter_info = adapter.get_info();
         Self::check_native_backend(&adapter_info)?;
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
@@ -1063,6 +1065,7 @@ impl WgpuRenderer {
                 surface::native_backend_label()
             )
         })?;
+        timer.step("device-driver");
         let device_lost = Self::watch_device_loss(&device);
         validate_drawable(drawable_size, device.limits().max_texture_dimension_2d)?;
         // A synthetic presentation configuration: pipelines that name the

@@ -540,6 +540,7 @@ fn create_app(
 }
 
 fn application(options: Options) -> Result<(), String> {
+    let mut trace = performance::FrameTrace::new(options.performance_test);
     let mut startup = crate::engine::perf::loading::StageTimer::new("editor-bootstrap");
     let mut verification = options
         .verify_script
@@ -557,6 +558,12 @@ fn application(options: Options) -> Result<(), String> {
     let video = sdl.video().map_err(|e| e.to_string())?;
     let mut window = editor_window(&video)?;
     startup.step("paths-tools-window");
+    trace.stage("window_ready");
+    trace.context(&window);
+    let mut events = sdl.event_pump().map_err(|e| e.to_string())?;
+    if !trace.bootstrap_pump(&mut events) {
+        return Ok(());
+    }
     let mut app = create_app(
         &window,
         &sdl,
@@ -565,10 +572,13 @@ fn application(options: Options) -> Result<(), String> {
         options.performance_test,
     )?;
     startup.step("app-renderer-audio");
+    trace.stage("editor_app_ready");
+    if !trace.bootstrap_pump(&mut events) {
+        return Ok(());
+    }
     app.load_initial(options.project, options.new, options.level)?;
     startup.step("project-open-request");
-    let mut trace = performance::FrameTrace::new(options.performance_test, &window);
-    let mut events = sdl.event_pump().map_err(|e| e.to_string())?;
+    trace.stage("editor_project_requested");
     while !app.closing {
         trace.pump(&app.viewport, &window);
         let (_, hits) = ui::build(&app);
@@ -608,6 +618,13 @@ fn application(options: Options) -> Result<(), String> {
             std::thread::sleep(Duration::from_millis(16));
         }
     }
+    trace.stage("shutdown_requested");
+    while !app.viewport.retire_startup_pipelines() {
+        let _closing_events = trace.bootstrap_pump(&mut events);
+        std::thread::sleep(Duration::from_millis(16));
+    }
+    drop(app);
+    trace.stage("shutdown_complete");
     Ok(())
 }
 
