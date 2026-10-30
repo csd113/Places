@@ -149,7 +149,7 @@ pub mod transport;
 pub(crate) const LIGHTING_RECORD_VERSION: u16 = bake::COMPILED_VERSION;
 mod math;
 mod occlusion;
-pub(crate) use occlusion::set_preparation_assets;
+pub(crate) use occlusion::{preparation_assets_scope, set_preparation_assets};
 mod tuning;
 mod visibility;
 

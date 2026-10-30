@@ -3,16 +3,80 @@
 //! and each channel retains the reference sample/accumulation order.
 use super::{
     Accumulator, AtomicBool, BOUNCE_GAIN, Chart, GatherAudit, GatherEvent, LightmapFailure,
-    LightmapPatch, MAX_BOUNCE_RAYS, RadianceCache, SolveOptions, StageAudit, SurfaceCacheTarget,
-    TransportReceiver, TransportScene, TransportSolution, TransportSolve, accumulate_surface_lobe,
-    add, add_scaled, append_switchable_probe_field, attenuate, coverage, dot, hemisphere_axes,
-    hemisphere_from_local, lattice_cell, parallel_map, record_gather, scale,
+    LightmapPatch, MAX_BOUNCE_RAYS, RadianceCache, ReceiverSet, SolveOptions, StageAudit,
+    SurfaceCacheTarget, TransportReceiver, TransportScene, TransportSolution, TransportSolve,
+    accumulate_surface_lobe, add, add_scaled, append_switchable_probe_field, attenuate, coverage,
+    dot, hemisphere_axes, hemisphere_from_local, lattice_cell, parallel_map, record_gather, scale,
 };
 
 impl TransportScene {
+    pub(super) fn solve_circuits(
+        &self,
+        charts: &[(LightmapPatch, Chart)],
+        base_emitters: &[usize],
+        circuits: &[(usize, Vec<usize>)],
+        options: SolveOptions,
+        cancel: Option<&AtomicBool>,
+        bake_probes: bool,
+    ) -> Result<TransportSolve, LightmapFailure> {
+        let (light_index, emitter) = circuits.first().ok_or(LightmapFailure::FillSize)?;
+        let prepared = ReceiverSet::new(self, charts)?;
+        let mut solved = self.solve_pair(
+            charts,
+            &prepared,
+            true,
+            base_emitters,
+            *light_index,
+            emitter,
+            options,
+            cancel,
+            bake_probes,
+        )?;
+        // Two live energy layers at a time, independent of circuit count.
+        for group in circuits[1..].chunks(2) {
+            let (first_light, first_emitters) = &group[0];
+            if let Some((second_light, second_emitters)) = group.get(1) {
+                let next = self.solve_pair(
+                    charts,
+                    &prepared,
+                    false,
+                    first_emitters,
+                    *second_light,
+                    second_emitters,
+                    options,
+                    cancel,
+                    bake_probes,
+                )?;
+                solved.append_circuit_pair(*first_light, next)?;
+            } else {
+                let mut probes = None;
+                let layer = self.solve_prepared_pass(
+                    charts,
+                    &prepared,
+                    first_emitters,
+                    false,
+                    options.taps_per_axis,
+                    options.bounces,
+                    options.gather_samples,
+                    options.workers,
+                    cancel,
+                    &mut solved.solution.direct_rays,
+                    &mut solved.solution.bounce_rays,
+                    &mut solved.solution.cache_cells,
+                    bake_probes.then_some(&mut probes),
+                )?;
+                append_switchable_probe_field(&mut solved.probes, *first_light, probes)?;
+                solved.solution.switchable.push((*first_light, layer));
+            }
+        }
+        Ok(solved)
+    }
+
     pub(super) fn solve_pair(
         &self,
         charts: &[(LightmapPatch, Chart)],
+        prepared: &ReceiverSet,
+        apply_fill: bool,
         base_emitters: &[usize],
         light_index: usize,
         emitter: &[usize],
@@ -20,13 +84,12 @@ impl TransportScene {
         cancel: Option<&AtomicBool>,
         bake_probes: bool,
     ) -> Result<TransportSolve, LightmapFailure> {
-        let started = std::time::Instant::now();
-        crate::engine::progress::stage("building shared base and switched receivers");
-        let receivers = self.receivers(charts)?;
-        let receiver_ms = started.elapsed().as_secs_f64() * 1_000.0_f64;
-        if !self.receiver_target.is_empty() && self.receiver_target.len() != receivers.len() {
-            return Err(LightmapFailure::FillSize);
-        }
+        let receivers = &prepared.receivers;
+        let receiver_ms = if apply_fill {
+            prepared.receiver_ms
+        } else {
+            0.0_f64
+        };
         let mut direct_rays = 0usize;
         let mut direct_ms = [0.0_f64; 2];
         let mut layers = Vec::with_capacity(2);
@@ -35,9 +98,9 @@ impl TransportScene {
             let (direct, rays) = coverage::direct_pass(
                 self,
                 charts,
-                &receivers,
+                receivers,
                 emitters,
-                channel == 0,
+                channel == 0 && apply_fill,
                 options.taps_per_axis,
                 options.workers,
                 cancel,
@@ -48,8 +111,8 @@ impl TransportScene {
             }
             StageAudit {
                 charts,
-                receivers: &receivers,
-                dump: channel == 0,
+                receivers,
+                dump: channel == 0 && apply_fill,
             }
             .accumulators("direct", &direct);
             direct_rays = direct_rays.saturating_add(rays);
@@ -59,23 +122,26 @@ impl TransportScene {
             .try_into()
             .map_err(|_incomplete_layers: Vec<Vec<Accumulator>>| LightmapFailure::FillSize)?;
         let active = [
-            self.paired_base_bounce_enabled(base_emitters, options.bounces),
+            options.bounces > 0
+                && (!apply_fill || self.paired_base_bounce_enabled(base_emitters, options.bounces)),
             options.bounces > 0,
         ];
         let bounce_started = std::time::Instant::now();
         let (combined, bounce_rays, cache_cells) = self.bounce_pair_orders(
-            &receivers,
+            receivers,
+            prepared,
             [direct_base.clone(), direct_switch.clone()],
             options,
             active,
+            apply_fill,
             cancel,
         )?;
         let bounce_ms = bounce_started.elapsed().as_secs_f64() * 1_000.0_f64;
         let [base_values, switch_values] = combined;
-        if active[0] {
+        if active[0] && apply_fill {
             StageAudit {
                 charts,
-                receivers: &receivers,
+                receivers,
                 dump: true,
             }
             .accumulators("bounced", &base_values);
@@ -83,10 +149,10 @@ impl TransportScene {
         let mut probes = None;
         let base = self.finish_pass(
             charts,
-            &receivers,
+            prepared,
             &direct_base,
             base_values,
-            true,
+            apply_fill,
             options,
             cancel,
             bake_probes.then_some(&mut probes),
@@ -95,7 +161,7 @@ impl TransportScene {
         let mut switched_probes = None;
         let switchable = self.finish_pass(
             charts,
-            &receivers,
+            prepared,
             &direct_switch,
             switch_values,
             false,
@@ -127,28 +193,23 @@ impl TransportScene {
     fn bounce_pair_orders(
         &self,
         receivers: &[TransportReceiver],
+        prepared: &ReceiverSet,
         mut combined: [Vec<Accumulator>; 2],
         options: SolveOptions,
         active: [bool; 2],
+        apply_fill: bool,
         cancel: Option<&AtomicBool>,
     ) -> Result<([Vec<Accumulator>; 2], usize, usize), LightmapFailure> {
         if !active.iter().any(|channel| *channel) {
             return Ok((combined, 0, 0));
         }
-        crate::engine::progress::stage("building shared diffuse radiance cache");
-        let cache_started = std::time::Instant::now();
-        let cache = RadianceCache::build(receivers);
+        let cache = prepared.cache();
         let mut previous = combined.each_ref().map(|layer| {
             layer
                 .iter()
                 .map(|value| value.surface_light)
                 .collect::<Vec<_>>()
         });
-        crate::engine::logging::info(format_args!(
-            "[transport-cache] receivers={} build_ms={:.3}",
-            receivers.len(),
-            cache_started.elapsed().as_secs_f64() * 1_000.0_f64
-        ));
         for order in 0..options.bounces {
             let order_started = std::time::Instant::now();
             crate::engine::logging::info(format_args!(
@@ -162,10 +223,11 @@ impl TransportScene {
             let gained = self.bounce_pair_pass(
                 receivers,
                 [&previous[0], &previous[1]],
-                &cache,
+                cache,
                 options,
                 order,
                 active,
+                apply_fill,
                 cancel,
             )?;
             let gather_ms = order_started.elapsed().as_secs_f64() * 1_000.0_f64;
@@ -219,6 +281,7 @@ impl TransportScene {
         options: SolveOptions,
         order: u8,
         active: [bool; 2],
+        apply_fill: bool,
         cancel: Option<&AtomicBool>,
     ) -> Result<Vec<[Accumulator; 2]>, LightmapFailure> {
         let count = options.gather_samples.clamp(1, MAX_BOUNCE_RAYS);
@@ -250,6 +313,7 @@ impl TransportScene {
                 let Some((distance, surface)) = nearest_hit else {
                     record_gather(audit.as_ref(), GatherEvent::Escaped);
                     if active[0]
+                        && apply_fill
                         && order == 0
                         && self.sky_radiance.iter().any(|channel| *channel > 0.0)
                     {
@@ -272,7 +336,8 @@ impl TransportScene {
                     continue;
                 }
                 let hit_position = add(receiver.ray_origin, scale(direction, distance));
-                let stencil = cache.surface_stencil(self, hit_position, surface, receivers);
+                let stencil =
+                    cache.surface_stencil(self, hit_position, surface, receivers, audit.as_ref());
                 if stencil.is_empty() {
                     record_gather(audit.as_ref(), GatherEvent::CacheEmpty);
                 } else if stencil.is_fallback() {
@@ -360,6 +425,24 @@ impl RadianceCache {
         point: [f32; 3],
         surface: usize,
         receivers: &[TransportReceiver],
+        audit: Option<&GatherAudit>,
+    ) -> SurfaceStencil {
+        // Select once per hit. Normal compilation must not test optional
+        // diagnostic state for every cell, candidate and connectivity ray.
+        if audit.is_some() {
+            self.surface_stencil_inner::<true>(scene, point, surface, receivers, audit)
+        } else {
+            self.surface_stencil_inner::<false>(scene, point, surface, receivers, None)
+        }
+    }
+
+    fn surface_stencil_inner<const AUDIT: bool>(
+        &self,
+        scene: &TransportScene,
+        point: [f32; 3],
+        surface: usize,
+        receivers: &[TransportReceiver],
+        audit: Option<&GatherAudit>,
     ) -> SurfaceStencil {
         let mut stencil = SurfaceStencil::default();
         if self.cells.is_empty() || !point.iter().all(|value| value.is_finite()) {
@@ -393,7 +476,8 @@ impl RadianceCache {
                     ) else {
                         continue;
                     };
-                    let Some(receiver) = self.representative_at(scene, cell, target, receivers)
+                    let Some(receiver) = self
+                        .representative_at_audited::<AUDIT>(scene, cell, target, receivers, audit)
                     else {
                         continue;
                     };
@@ -407,7 +491,8 @@ impl RadianceCache {
         }
         if weight_sum > 0.0 {
             stencil.inverse = 1.0 / weight_sum;
-        } else if let Some(receiver) = self.nearest_stencil_receiver(scene, target, base, receivers)
+        } else if let Some(receiver) =
+            self.nearest_stencil_receiver::<AUDIT>(scene, target, base, receivers, audit)
         {
             stencil.entries[0] = (receiver, 1.0);
             stencil.len = 1;
@@ -417,12 +502,13 @@ impl RadianceCache {
         stencil
     }
 
-    fn nearest_stencil_receiver(
+    fn nearest_stencil_receiver<const AUDIT: bool>(
         &self,
         scene: &TransportScene,
         target: SurfaceCacheTarget<'_>,
         base: [f32; 3],
         receivers: &[TransportReceiver],
+        audit: Option<&GatherAudit>,
     ) -> Option<usize> {
         let mut best: Option<(i16, usize)> = None;
         for dz in -2_i16..=2 {
@@ -442,12 +528,50 @@ impl RadianceCache {
                     ) else {
                         continue;
                     };
-                    if let Some(receiver) = self.representative_at(scene, cell, target, receivers) {
+                    if let Some(receiver) = self
+                        .representative_at_audited::<AUDIT>(scene, cell, target, receivers, audit)
+                    {
                         best = Some((distance, receiver));
                     }
                 }
             }
         }
         best.map(|(_, receiver)| receiver)
+    }
+}
+
+impl TransportSolve {
+    fn append_circuit_pair(
+        &mut self,
+        first_light: usize,
+        mut next: Self,
+    ) -> Result<(), LightmapFailure> {
+        // A temporary pair's first field is its first circuit. Move its two
+        // independent probe planes and chart layers into authored circuit order.
+        let second_planes = next
+            .probes
+            .as_mut()
+            .map(|field| std::mem::take(&mut field.switchable_indirect))
+            .unwrap_or_default();
+        append_switchable_probe_field(&mut self.probes, first_light, next.probes)?;
+        if let Some(field) = self.probes.as_mut() {
+            field.switchable_indirect.extend(second_planes);
+            field
+                .validate_switchable_indirect()
+                .map_err(|_invalid| LightmapFailure::FillNonFinite)?;
+        }
+        self.solution
+            .switchable
+            .push((first_light, next.solution.charts));
+        self.solution.switchable.extend(next.solution.switchable);
+        self.solution.direct_rays = self
+            .solution
+            .direct_rays
+            .saturating_add(next.solution.direct_rays);
+        self.solution.bounce_rays = self
+            .solution
+            .bounce_rays
+            .saturating_add(next.solution.bounce_rays);
+        Ok(())
     }
 }

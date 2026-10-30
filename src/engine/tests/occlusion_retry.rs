@@ -104,3 +104,56 @@ fn cancelled_cold_occlusion_can_retry_real_geometry() -> Result<(), String> {
     );
     Ok(())
 }
+
+// A nested compiler owner must release derived allocations on an error/cancel
+// return and restore the caller's exact owner. Two empty caches + two Arc
+// sentinels, no files/assets/GPU/bake; under 1 KiB and microseconds. This covers
+// the thread-local lifetime that solver cancellation/output tests cannot see.
+#[test]
+fn compiler_preparation_scope_releases_error_owner_and_restores_caller() {
+    let _outer =
+        super::preparation_assets_scope(PropCatalog::builtin(), PropAssets::with_root("unused"));
+    let saved = Arc::new(super::ModelOcclusion::default());
+    super::PROP_OCCLUSIONS.with(|cache| {
+        drop(
+            cache
+                .borrow_mut()
+                .models
+                .insert(("sentinel".into(), 0), Arc::clone(&saved)),
+        );
+    });
+    let mut weak = std::sync::Weak::new();
+    let mut fail = || -> Result<(), String> {
+        let _inner = super::preparation_assets_scope(
+            PropCatalog::builtin(),
+            PropAssets::with_root("unused"),
+        );
+        let temporary = Arc::new(super::ModelOcclusion::default());
+        weak = Arc::downgrade(&temporary);
+        super::PROP_OCCLUSIONS.with(|cache| {
+            drop(
+                cache
+                    .borrow_mut()
+                    .models
+                    .insert(("temporary".into(), 0), temporary),
+            );
+        });
+        Err("cancelled preparation".into())
+    };
+    let result = fail();
+    assert!(result.is_err(), "exercise the error return");
+    assert!(
+        weak.upgrade().is_none(),
+        "the failed request cannot retain derived allocations"
+    );
+    super::PROP_OCCLUSIONS.with(|cache| {
+        assert!(
+            cache
+                .borrow()
+                .models
+                .get(&("sentinel".into(), 0))
+                .is_some_and(|owner| Arc::ptr_eq(owner, &saved)),
+            "restore the exact caller's owner"
+        );
+    });
+}

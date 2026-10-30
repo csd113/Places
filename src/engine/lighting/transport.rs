@@ -2656,12 +2656,11 @@ impl TransportScene {
             .map(|(index, _)| index)
             .collect();
         let switchable_emitters = self.switchable_emitter_groups();
-        if let Some((light_index, emitter)) = switchable_emitters.first() {
-            let mut paired = self.solve_pair(
+        if !switchable_emitters.is_empty() {
+            return self.solve_circuits(
                 charts,
                 &base_emitters,
-                *light_index,
-                emitter,
+                &switchable_emitters,
                 SolveOptions {
                     taps_per_axis: taps,
                     bounces,
@@ -2670,30 +2669,7 @@ impl TransportScene {
                 },
                 cancel,
                 bake_probes,
-            )?;
-            // Later circuits retain their independent pass. Pairing only
-            // the base and first circuit bounds live accumulator storage
-            // to the existing two-layer solver, regardless of map size.
-            for (remaining_light, emitters) in switchable_emitters.iter().skip(1) {
-                let mut probes = None;
-                let solved = self.solve_pass(
-                    charts,
-                    emitters,
-                    false,
-                    taps,
-                    bounces,
-                    bounce_samples,
-                    workers,
-                    cancel,
-                    &mut paired.solution.direct_rays,
-                    &mut paired.solution.bounce_rays,
-                    &mut paired.solution.cache_cells,
-                    bake_probes.then_some(&mut probes),
-                )?;
-                append_switchable_probe_field(&mut paired.probes, *remaining_light, probes)?;
-                paired.solution.switchable.push((*remaining_light, solved));
-            }
-            return Ok(paired);
+            );
         }
         let mut direct_rays = 0usize;
         let mut bounce_rays = 0usize;
@@ -2749,26 +2725,63 @@ impl TransportScene {
         cache_cells: &mut usize,
         probes: Option<&mut Option<ProbeField>>,
     ) -> Result<Vec<SolvedChart>, LightmapFailure> {
+        let prepared = ReceiverSet::new(self, charts)?;
+        self.solve_prepared_pass(
+            charts,
+            &prepared,
+            emitters,
+            apply_fill,
+            taps,
+            bounces,
+            bounce_samples,
+            workers,
+            cancel,
+            direct_rays,
+            bounce_rays,
+            cache_cells,
+            probes,
+        )
+    }
+
+    fn solve_prepared_pass(
+        &self,
+        charts: &[(LightmapPatch, Chart)],
+        prepared: &ReceiverSet,
+        emitters: &[usize],
+        apply_fill: bool,
+        taps: u8,
+        bounces: u8,
+        bounce_samples: usize,
+        workers: usize,
+        cancel: Option<&AtomicBool>,
+        direct_rays: &mut usize,
+        bounce_rays: &mut usize,
+        cache_cells: &mut usize,
+        probes: Option<&mut Option<ProbeField>>,
+    ) -> Result<Vec<SolvedChart>, LightmapFailure> {
         crate::engine::progress::stage(if apply_fill {
             "building base receivers"
         } else {
             "building switched receivers"
         });
-        let started = std::time::Instant::now();
-        let receivers = self.receivers(charts)?;
+        let receivers = &prepared.receivers;
         let audit = StageAudit {
             charts,
-            receivers: &receivers,
+            receivers,
             dump: apply_fill,
         };
-        let receiver_ms = started.elapsed().as_secs_f64() * 1_000.0_f64;
+        let receiver_ms = if apply_fill {
+            prepared.receiver_ms
+        } else {
+            0.0_f64
+        };
         let direct_started = std::time::Instant::now();
         let count = receivers.len();
         if !self.receiver_target.is_empty() && self.receiver_target.len() != count {
             return Err(LightmapFailure::FillSize);
         }
         let (direct, traced_rays) = coverage::direct_pass(
-            self, charts, &receivers, emitters, apply_fill, taps, workers, cancel,
+            self, charts, receivers, emitters, apply_fill, taps, workers, cancel,
         )?;
         let direct_ms = direct_started.elapsed().as_secs_f64() * 1_000.0_f64;
         let bounce_started = std::time::Instant::now();
@@ -2784,7 +2797,8 @@ impl TransportScene {
                 || self.sky_radiance.iter().any(|channel| *channel > 0.0))
         {
             let (combined, rays, cells) = self.bounce_orders(
-                &receivers,
+                receivers,
+                prepared.cache(),
                 accumulators,
                 SolveOptions {
                     taps_per_axis: taps,
@@ -2803,7 +2817,7 @@ impl TransportScene {
         let bounce_ms = bounce_started.elapsed().as_secs_f64() * 1_000.0_f64;
         self.finish_pass(
             charts,
-            &receivers,
+            prepared,
             &direct,
             accumulators,
             apply_fill,
@@ -2822,7 +2836,7 @@ impl TransportScene {
     fn finish_pass(
         &self,
         charts: &[(LightmapPatch, Chart)],
-        receivers: &[TransportReceiver],
+        prepared: &ReceiverSet,
         direct: &[Accumulator],
         accumulators: Vec<Accumulator>,
         apply_fill: bool,
@@ -2831,6 +2845,7 @@ impl TransportScene {
         probes: Option<&mut Option<ProbeField>>,
         timings: [f64; 3],
     ) -> Result<Vec<SolvedChart>, LightmapFailure> {
+        let receivers = &prepared.receivers;
         let SolveOptions {
             taps_per_axis: taps,
             bounces,
@@ -2848,6 +2863,7 @@ impl TransportScene {
             *probe_field = Some(bake_probe_field(
                 self,
                 receivers,
+                prepared.cache(),
                 &accumulators,
                 taps,
                 bounces,
@@ -2917,24 +2933,14 @@ impl TransportScene {
     fn bounce_orders(
         &self,
         receivers: &[TransportReceiver],
+        cache: &RadianceCache,
         mut accumulators: Vec<Accumulator>,
         options: SolveOptions,
         apply_fill: bool,
         cancel: Option<&AtomicBool>,
     ) -> Result<(Vec<Accumulator>, usize, usize), LightmapFailure> {
         let mut bounce_count = 0usize;
-        // The cache is derived from the receiver positions alone, which do
-        // not move between passes; only the solved values it is read
-        // against change. Build it once for every bounce pass.
-        crate::engine::progress::stage("building diffuse radiance cache");
-        let cache_started = std::time::Instant::now();
-        let cache = RadianceCache::build(receivers);
         let cache_cells = cache.occupied_cells();
-        crate::engine::logging::info(format_args!(
-            "[transport-cache] receivers={} build_ms={:.3}",
-            receivers.len(),
-            cache_started.elapsed().as_secs_f64() * 1_000.0_f64
-        ));
         // Gather reads only the exact surface integral; directional moments stay
         // in the full direct/total accumulators. Reuse this RGB buffer each order.
         let mut previous_order: Vec<[f32; 3]> = accumulators
@@ -2960,7 +2966,7 @@ impl TransportScene {
             let gained = self.bounce_pass(
                 receivers,
                 &previous_order,
-                &cache,
+                cache,
                 options.gather_samples,
                 pass_index,
                 apply_fill,
@@ -3265,7 +3271,13 @@ impl TransportScene {
                 }
                 // The lookup is keyed by the hit triangle and checks cache
                 // visibility, including dividers within that triangle.
-                let stencil = cache.surface_stencil(self, hit_position, triangle_index, receivers);
+                let stencil = cache.surface_stencil(
+                    self,
+                    hit_position,
+                    triangle_index,
+                    receivers,
+                    audit.as_ref(),
+                );
                 if stencil.is_empty() {
                     record_gather(audit.as_ref(), GatherEvent::CacheEmpty);
                 } else if stencil.is_fallback() {
@@ -3484,6 +3496,70 @@ struct DirectLightingSample {
     rays: usize,
 }
 
+/// Immutable solve-local geometry. No radiance or per-order directions live here.
+/// The lazy cache is identical for gathers and probes over these exact receivers.
+struct ReceiverSet {
+    receivers: Vec<TransportReceiver>,
+    cache: std::sync::OnceLock<RadianceCache>,
+    receiver_ms: f64,
+}
+
+impl ReceiverSet {
+    fn new(
+        scene: &TransportScene,
+        charts: &[(LightmapPatch, Chart)],
+    ) -> Result<Self, LightmapFailure> {
+        let started = std::time::Instant::now();
+        let receivers = scene.receivers(charts)?;
+        if !scene.receiver_target.is_empty() && scene.receiver_target.len() != receivers.len() {
+            return Err(LightmapFailure::FillSize);
+        }
+        let receiver_ms = started.elapsed().as_secs_f64() * 1_000.0_f64;
+        if std::env::var_os("PLACES_SOLVER_PROFILE").is_some() {
+            crate::engine::logging::info(format_args!(
+                "[transport-owned] receivers={} receiver_capacity_bytes={} max_energy_layers=2 receiver_build_ms={receiver_ms:.3}",
+                receivers.len(),
+                receivers
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<TransportReceiver>()),
+            ));
+        }
+        Ok(Self {
+            receivers,
+            cache: std::sync::OnceLock::new(),
+            receiver_ms,
+        })
+    }
+
+    fn cache(&self) -> &RadianceCache {
+        self.cache.get_or_init(|| {
+            let started = std::time::Instant::now();
+            let cache = RadianceCache::build(&self.receivers);
+            crate::engine::logging::info(format_args!(
+                "[transport-cache] receivers={} build_ms={:.3}",
+                self.receivers.len(),
+                started.elapsed().as_secs_f64() * 1_000.0_f64,
+            ));
+            if std::env::var_os("PLACES_SOLVER_PROFILE").is_some() {
+                let bytes = cache
+                    .cells
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<Vec<CacheRepresentative>>())
+                    .saturating_add(cache.cells.iter().fold(0_usize, |total, cell| {
+                        total.saturating_add(
+                            cell.capacity()
+                                .saturating_mul(std::mem::size_of::<CacheRepresentative>()),
+                        )
+                    }));
+                crate::engine::logging::info(format_args!(
+                    "[transport-owned] immutable_cache_capacity_bytes={bytes}"
+                ));
+            }
+            cache
+        })
+    }
+}
+
 /// Dump-only aggregate counters; normal solves allocate no counter state.
 #[derive(Default)]
 struct GatherAudit {
@@ -3495,6 +3571,10 @@ struct GatherAudit {
     cache_empty: std::sync::atomic::AtomicUsize,
     cache_fallback: std::sync::atomic::AtomicUsize,
     zero_radiance: std::sync::atomic::AtomicUsize,
+    cache_cells_examined: std::sync::atomic::AtomicUsize,
+    cache_candidates_examined: std::sync::atomic::AtomicUsize,
+    connectivity_rays: std::sync::atomic::AtomicUsize,
+    blocked_nearest: std::sync::atomic::AtomicUsize,
 }
 
 #[derive(Clone, Copy)]
@@ -3507,6 +3587,10 @@ enum GatherEvent {
     CacheEmpty,
     CacheFallback,
     ZeroRadiance,
+    CacheCell,
+    CacheCandidate,
+    ConnectivityRay,
+    BlockedNearest,
 }
 
 fn record_gather(audit: Option<&GatherAudit>, event: GatherEvent) {
@@ -3522,6 +3606,10 @@ fn record_gather(audit: Option<&GatherAudit>, event: GatherEvent) {
         GatherEvent::CacheEmpty => &measurements.cache_empty,
         GatherEvent::CacheFallback => &measurements.cache_fallback,
         GatherEvent::ZeroRadiance => &measurements.zero_radiance,
+        GatherEvent::CacheCell => &measurements.cache_cells_examined,
+        GatherEvent::CacheCandidate => &measurements.cache_candidates_examined,
+        GatherEvent::ConnectivityRay => &measurements.connectivity_rays,
+        GatherEvent::BlockedNearest => &measurements.blocked_nearest,
     };
     let _previous = counter.fetch_add(1, Ordering::Relaxed);
 }
@@ -3541,7 +3629,11 @@ impl GatherAudit {
             "cache_empty": self.cache_empty.load(Ordering::Relaxed),
             "cache_nearest_fallback": self.cache_fallback.load(Ordering::Relaxed),
             "all_active_layers_zero_radiance_hits": self.zero_radiance.load(Ordering::Relaxed),
-            "meaning": "Aggregate geometric paths; logical samples count independent energy layers. Cache-empty is absent visible support, while zero radiance can be valid darkness. Dump-enabled counts include instrumentation cost."
+            "cache_cells_examined": self.cache_cells_examined.load(Ordering::Relaxed),
+            "cache_candidate_visits": self.cache_candidates_examined.load(Ordering::Relaxed),
+            "cache_connectivity_rays": self.connectivity_rays.load(Ordering::Relaxed),
+            "cache_blocked_nearest": self.blocked_nearest.load(Ordering::Relaxed),
+            "meaning": "Cell/candidate counts are actual visits, including nearest searches and repeated fallback visits, not unique entries. Connectivity rays are exact visibility tests. Aggregate geometric paths; logical samples count independent energy layers. Cache-empty is absent visible support, while zero radiance can be valid darkness. Dump-enabled counts include instrumentation cost."
         });
         crate::engine::logging::info(format_args!("[transport-gather] {payload}"));
     }
@@ -3712,6 +3804,7 @@ fn channel_luminance(color: [f32; 3]) -> f32 {
 fn bake_probe_field(
     scene: &TransportScene,
     receivers: &[TransportReceiver],
+    cache: &RadianceCache,
     values: &[Accumulator],
     taps: u8,
     bounces: u8,
@@ -3753,7 +3846,6 @@ fn bake_probe_field(
     {
         return Err(LightmapFailure::FillSize);
     }
-    let cache = RadianceCache::build(receivers);
     let rays = PROBE_BAKE_RAYS;
     let audit = base && diagnostics::directory(probe_audit::DUMP_ENV).is_some();
     // Optional inspection I/O cannot invalidate an otherwise physical solve.
@@ -3764,7 +3856,7 @@ fn bake_probe_field(
     let baked = parallel_map(count, workers, cancel, |index| {
         let position = lattice.position(index);
         bake_probe(
-            scene, receivers, values, &cache, position, index, taps, audit, base,
+            scene, receivers, values, cache, position, index, taps, audit, base,
         )
     })?;
     let (mut baked_charts, remainder): (Vec<_>, Vec<_>) = baked
@@ -4250,8 +4342,25 @@ impl RadianceCache {
         target: SurfaceCacheTarget<'_>,
         receivers: &[TransportReceiver],
     ) -> Option<usize> {
+        self.representative_at_audited::<false>(scene, cell, target, receivers, None)
+    }
+
+    fn representative_at_audited<const AUDIT: bool>(
+        &self,
+        scene: &TransportScene,
+        cell: usize,
+        target: SurfaceCacheTarget<'_>,
+        receivers: &[TransportReceiver],
+        audit: Option<&GatherAudit>,
+    ) -> Option<usize> {
+        if AUDIT {
+            record_gather(audit, GatherEvent::CacheCell);
+        }
         let hit = target.triangle;
         let candidates = self.cells.get(cell)?.iter().filter_map(|entry| {
+            if AUDIT {
+                record_gather(audit, GatherEvent::CacheCandidate);
+            }
             let index = entry.receiver;
             let receiver = receivers.get(index)?;
             let candidate = scene
@@ -4270,15 +4379,24 @@ impl RadianceCache {
             cache_sample_order(*left, lp, *right, rp, self.cell)
         };
         let (_, closest) = candidates.clone().min_by(compare)?;
+        if AUDIT {
+            record_gather(audit, GatherEvent::ConnectivityRay);
+        }
         if let Some(receiver) = receivers.get(closest)
             && !scene.occluded(receiver.ray_origin, target.ray_origin)
         {
             return Some(closest);
         }
+        if AUDIT {
+            record_gather(audit, GatherEvent::BlockedNearest);
+        }
         candidates
             .filter(|(_, index)| {
                 *index != closest
                     && receivers.get(*index).is_some_and(|receiver| {
+                        if AUDIT {
+                            record_gather(audit, GatherEvent::ConnectivityRay);
+                        }
                         !scene.occluded(receiver.ray_origin, target.ray_origin)
                     })
             })

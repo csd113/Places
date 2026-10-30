@@ -1,7 +1,9 @@
 //! Essential regression for grouped-circuit geometric sharing and parallel
 //! filtering: compare independent layer solves, then serial/parallel outputs
 //! on 100 receivers, a hard divider and tinted water. Under 1 MiB, milliseconds;
-//! no assets, full map, filesystem or GPU. Cancellation guards worker scratch
+//! no assets, full map, filesystem or GPU. Four circuits exercise later pairs
+//! and an odd tail; independent probe planes also protect against sky/fill
+//! leaking into a later pair. Cancellation guards worker scratch
 //! publication. Existing package tests do not exercise these solver branches.
 use super::*;
 
@@ -49,7 +51,7 @@ fn fixture() -> Result<(TransportScene, Vec<(LightmapPatch, Chart)>), String> {
             },
         ));
     }
-    let emitters = (0..4_u16)
+    let emitters = (0..6_u16)
         .map(|index| TransportEmitter {
             position: [0.3 + f32::from(index) * 0.4, 1.7, 0.8],
             shape: EmitterShape::Point,
@@ -68,7 +70,12 @@ fn fixture() -> Result<(TransportScene, Vec<(LightmapPatch, Chart)>), String> {
         .collect();
     let scene = TransportScene::new(triangles, emitters)
         .ok_or("scene")?
-        .with_switchable_groups(vec![(1, vec![1, 2]), (3, vec![3])])
+        .with_switchable_groups(vec![
+            (1, vec![1, 2]),
+            (3, vec![3]),
+            (4, vec![4]),
+            (5, vec![5]),
+        ])
         .with_water(vec![TransportWaterBody {
             x0: 0.0,
             x1: 0.9,
@@ -99,6 +106,31 @@ fn bits(charts: &[SolvedChart]) -> Vec<u32> {
         .collect()
 }
 
+fn assert_probe_plane(
+    solved: &TransportSolve,
+    layer: Option<usize>,
+    probes: Option<ProbeField>,
+) -> Result<(), String> {
+    let expected = probes.ok_or("reference probes")?;
+    let field = solved.probes.as_ref().ok_or("actual probes")?;
+    if let Some(id) = layer {
+        let plane = field
+            .switchable_indirect
+            .iter()
+            .find(|plane| usize::try_from(plane.light_index) == Ok(id))
+            .ok_or("missing probe plane")?;
+        let texels: Vec<_> = expected
+            .probes
+            .into_iter()
+            .map(ProbeSample::texel)
+            .collect();
+        assert_eq!(plane.probes, texels, "independent circuit probes {id}");
+    } else {
+        assert_eq!(field.probes, expected.probes, "independent base probes");
+    }
+    Ok(())
+}
+
 #[test]
 fn grouped_circuits_and_parallel_filter_preserve_independent_layer_bits() -> Result<(), String> {
     let (scene, charts) = fixture()?;
@@ -115,6 +147,8 @@ fn grouped_circuits_and_parallel_filter_preserve_independent_layer_bits() -> Res
         (None, vec![0], true),
         (Some(1), vec![1, 2], false),
         (Some(3), vec![3], false),
+        (Some(4), vec![4], false),
+        (Some(5), vec![5], false),
     ] {
         let (mut rays, mut bounces, mut cells) = (0, 0, 0);
         let mut probes = None;
@@ -151,6 +185,7 @@ fn grouped_circuits_and_parallel_filter_preserve_independent_layer_bits() -> Res
             bits(&reference),
             "independent layer {layer:?}"
         );
+        assert_probe_plane(&solved, layer, probes)?;
     }
     let parallel = scene
         .solve_with_probes(

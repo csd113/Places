@@ -140,6 +140,7 @@ fn measure(
                 add(*origin, scale(*direction, *distance)),
                 *surface,
                 receivers,
+                None,
             )
             .sample(&values)
     })

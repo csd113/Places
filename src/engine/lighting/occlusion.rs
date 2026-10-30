@@ -789,6 +789,46 @@ pub fn set_preparation_assets(
     });
 }
 
+/// Restores the caller's owner when compiler preparation returns or unwinds.
+pub struct PreparationAssetsScope {
+    previous: Option<PropOcclusionCache>,
+    _same_thread: std::marker::PhantomData<std::rc::Rc<()>>,
+}
+
+pub fn preparation_assets_scope(
+    catalog: crate::engine::loader::PropCatalog,
+    assets: crate::engine::props::PropAssets,
+) -> PreparationAssetsScope {
+    let previous = PROP_OCCLUSIONS.with(|cache| {
+        cache.replace(PropOcclusionCache {
+            catalog,
+            assets,
+            models: HashMap::new(),
+        })
+    });
+    PreparationAssetsScope {
+        previous: Some(previous),
+        _same_thread: std::marker::PhantomData,
+    }
+}
+
+impl Drop for PreparationAssetsScope {
+    fn drop(&mut self) {
+        if let Some(previous) = self.previous.take() {
+            PROP_OCCLUSIONS.with(|cache| {
+                let released = cache.replace(previous);
+                if std::env::var_os("PLACES_COMPILER_MEMORY").is_some() {
+                    let stats = released.assets.stats();
+                    crate::engine::logging::info(format_args!(
+                        "[compiler-memory] stage=preparation_owner_released model_geometry_skin_bytes={} model_texture_bytes={} encoded_input_bytes={} derived_models={}",
+                        stats.geometry_and_skin_bytes, stats.texture_bytes, stats.encoded_input_bytes, released.models.len(),
+                    ));
+                }
+            });
+        }
+    }
+}
+
 /// World-space occluders for every static prop of one level at the historical
 /// grid cell.
 ///

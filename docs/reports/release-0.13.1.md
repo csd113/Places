@@ -959,3 +959,230 @@ undo, drag/cancel, save/reopen and bounded repeated-map ownership pass. Cold
 GPU install stalls and hours-long/platform acceptance remain queued. The
 [matched timings, memory scopes, final gates and follow-on acceptance](editor-responsiveness-0.13.1-windows.md)
 record this batch; no FPS or leak fix is claimed. No map is rebaked here.
+
+
+## Compiler transport and resource lifetimes (Windows, 30 October 2026)
+
+Later switched circuits now solve in bounded pairs, sharing the exact geometric
+traversal and cache stencil while accumulating each channel in its reference
+order. One solve-local receiver set and lazy immutable radiance layout serve all
+pairs, a final odd circuit and probes. At most two energy channels are live in a
+batch; completed output layers still scale with the authored circuit count. Sky,
+global support and baseline fill apply only to the permanent base. Direct light
+stays unfiltered, probes precede indirect filtering, and atlas gutter dilation,
+coverage samples, emitter order, alpha/water and output precision are unchanged.
+This extends the existing base/first-circuit pair; it does not rebrand the earlier
+phase-5 empty-channel/range/maximum-support skips as new work.
+
+Compiler preparation now restores the caller's thread-local model owner on every
+return. Full reflection faces are explicitly dropped before Medium; completed
+capture unloads its scene while retaining the device. Request assets and the
+lightmap cache are released before prop factoring/publication. Opt-in
+`PLACES_COMPILER_MEMORY` logs capacities at owner boundaries. New gather counters
+attribute cell/candidate/connectivity work; normal lookup uses compile-time
+specialization so disabled counters do not branch inside candidate searches.
+No persistent worker architecture, new storage format or production GPU baker is
+introduced.
+
+### Frozen identities and method
+
+Reference source is `d0d86bc4d74cf0935ab9355ba4362033494d4fec` on
+`0.13.1-dev`. Both production binaries, exact source hashes, input copies, settings,
+logs, process PID/start-time witnesses and decoded comparisons are preserved in
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-30/task-3/compiler-evidence/`
+(`E` below). Reference compiler SHA-256 is
+`438d89ad998879565e7c0a77254ec905ec27c8070cf0153f0d0747abe006f73f`;
+final `E/optimized-bin/places-compile.exe` is
+`86129f29cc15738f94a8ea4aa7f605f7de51ecd22306b15fe406bb7773718fe2`.
+The first rejected candidate and a separately instrumented reference are retained
+under `candidate-bin` and `memory-reference-bin`; neither is the final compiler.
+
+Windows 10, Ryzen 9 5900HX (8C/16T), 16,537,948,160 bytes physical RAM, RTX 3070
+Laptop, DX12 driver 32.0.16.1714; Rust/Cargo 1.99.1. Quiet builds force
+`static,full`, 12 workers, separate fresh process/state/config/cache roots and
+identical copied inputs. OS/driver caches were not purged. Builds/bakes run
+BelowNormal; native and GPU experiments run Normal, one workload at a time.
+Diagnostics are separate from timing cohorts. The three-circuit input copies the
+previous range fixture with its three existing lights independently switched;
+no geometry/artwork changes. Material and architecture inputs are unchanged
+accepted fixtures; Lab is the actual copied performance-lab project. The current
+Lantern Static resource pair is separate from Full timing. No Backrooms bake or
+collection/package publication occurred.
+
+### Alternating quiet results
+
+22 final bakes form 11 exact pairs. Values are per-side medians, not confidence
+intervals. RSS/private are Windows process observations, not allocation ownership.
+`E/final-analysis.json` retains every sample, total CPU, compiler-phase medians,
+transport timing sums and archive hashes; `final-*-parity.json` retains payload
+comparisons.
+
+| Input | Pairs | Total seconds, before -> after | Change | CPU seconds, before -> after | Peak RSS MiB, before -> after | Peak private MiB, before -> after |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Three circuits | 3 | 26.724 -> 19.588 | 26.71% faster | 258.28 -> 191.06 | 271.36 -> 272.18 | 266.14 -> 266.94 |
+| Material | 3 | 19.893 -> 19.786 | 0.54% faster | 100.00 -> 99.94 | 280.41 -> 280.87 | 441.04 -> 440.67 |
+| Architecture | 3 | 51.107 -> 52.155 | 2.05% slower | 454.19 -> 457.38 | 319.91 -> 318.57 | 544.64 -> 544.00 |
+| Actual Performance Lab | 2 | 160.222 -> 161.801 | 0.99% slower | 1809.80 -> 1827.30 | 320.97 -> 322.41 | 321.28 -> 322.82 |
+
+The useful demonstrated gain is the multi-circuit case. General architecture,
+material and Lab improvement is not established; the adverse medians are retained.
+Three-circuit Full prepare/encode falls 26.321 -> 19.214 s: receiver setup
+1.028 -> 0.343 s, summed indirect gather 19.582 -> 13.020 s, probes
+52.857 -> 19.454 ms. Direct 3.881 -> 3.935 s, filtering 1.256 -> 1.253 s,
+fill 29.258 -> 29.478 ms and archive publication 88.951 -> 86.517 ms show that
+compression is not this bottleneck. Logical per-layer samples are preserved;
+three geometric gather traversals become two for three circuits plus the base.
+
+Material Full prepare is 9.130 -> 9.155 s and capture 10.302 -> 10.240 s;
+architecture 39.712 -> 40.549 s and capture 10.858 -> 10.916 s. Lab Full prepare
+is 159.151 -> 160.682 s, indirect 138.298 -> 139.854 s, direct
+14.992 -> 14.994 s, filtering 1.330 -> 1.361 s; archive 204.947 -> 196.439 ms.
+The unchanged Lab work includes 758,629 texels, 30,136 triangles, 193,715,694 direct
+rays and 97,104,512 logical bounce samples. Receiver/cache reuse is useful locally,
+not a general solution to the remaining indirect work.
+
+An earlier candidate regressed Lab by 6.3%; it was rejected and preserved. Moving
+disabled gather instrumentation out of inner searches preceded this fresh final
+cohort. One first-candidate architecture run completed but its sampler lost a
+Windows heartbeat-file replacement race; incomplete timing was excluded, evidence
+preserved and exit verified before repeating. No healthy bake was killed for
+status. The sampler now tolerates status-reader locks.
+
+### Exactness, native quality and cleanup
+
+All 11 pairs have identical decoded physical records: geometry/props, lighting,
+circuits, irradiance, reflection mips, collision and navigation. Expected
+compiler/tool/preparation provenance and associated input hashes differ. Every
+side/fixture is byte-deterministic across its quiet repeats. Eight distinct
+reference/final packages validate with dependencies intact; four final currency
+checks pass and four reference checks correctly require a rebuild. Diagnostic
+and restart outputs also compare exactly (`package-validation.json`,
+`diagnostic-path-parity.json`, `restart-parity.json`).
+
+Holding the reference player constant isolates compiler output. Both packages
+render Full lighting at actual 960x600 DX12, High settings, fixed simulation delta
+and requested VSync off. Actual presentation is Fifo: this is visual acceptance,
+with no uncapped throughput/FPS claim. All eight circuit combinations, two views
+and restoration yield 17/17 exact RGB captures. Inspected illuminated interior
+and doorway images preserve the wall/floor/material transitions and shadowed
+opening. Nonzero world draws and applied Full settings are recorded in native
+logs. See `native-parity.json`, `native-{baseline,optimized}-three_circuits/`.
+This is a bounded visual fixture, not every shipped map/view/platform.
+
+Shared-bounce and owned reflection-scene upload cancellation exit 130, preserve
+the previous archive byte-for-byte and leave no owned staging. Exit follows the
+last matching progress event by about 104 ms. A tiny Static output-path obstacle
+fails safely without changing the obstacle; successful restart matches the quiet
+candidate. A requested face-readback-stage cancellation was never sent because
+that tiny stage completed between 100 ms progress events; its completed run is
+preserved as a failed harness expectation, not a cancellation pass. Upload-stage
+cancellation is the exercised GPU-owner boundary. In-flight face-readback cancel
+latency, long GUI retention and exhaustive per-worker allocation lifetime remain
+unproven. Process exit alone does not establish an in-process leak fix.
+
+### Owned memory and the larger storage target
+
+One diagnostic reference/candidate material pair shows peak RSS
+282.16 -> 282.04 MiB and private 440.66 -> 440.03 MiB: no material process-peak gain.
+Full/Medium face capacities are 196,608/110,592 bytes; explicit earlier release
+reduces simultaneous CPU face ownership from 307,200 to 196,608 bytes. HAL live
+scene texture bytes drop 81,592,320 -> 5,373,952 and buffer bytes
+11,468,800 -> 3,997,696 at candidate unload; device/pipelines remain. These partial
+HAL counters exclude driver allocations and are not added to process RSS.
+Model asset scopes overlap the request owner; dropping one is not necessarily
+freeing all of its reported unique bytes. A tiny Arc/Weak regression establishes
+error-return owner destruction and exact caller restoration.
+
+Current Lantern **Static** compiler peaks are RSS 1113.41 -> 1114.74 MiB and private
+1419.39 -> 1420.61 MiB, with exact physical output. This does not supply the missing
+historical baseline or explain the historical +312 MiB **runtime** RSS observation.
+Five encoded records retain 370,466,085 capacity bytes; props alone use
+342,504,549 bytes. Factored storage retains 236,153,763 capacity bytes across
+18 records, with the stored prop representation using 208,192,227 uncompressed bytes.
+Candidate factoring is about 9.60 s. Its model scope reports 13,152,192 geometry
+and skin bytes, 8,650,752 texture bytes and 46 derived models; these overlapping
+scopes are not summed as unique freed heap. Nonprop record spooling would touch
+only about 18 MB while props dominate. No speculative BlobMap streaming is shipped.
+
+The bounded 32,768-query CPU diagnostic includes allocation, scheduling and
+collection. At 12 workers nearest-alpha traversal is 3.281 ms and gather
+stencil/connectivity/sample 7.353 ms; serial values are 11.255 and 34.058 ms.
+Receiver capacity is 26,172,928 bytes and one accumulator layer 13,401,960 bytes.
+Opt-in gather records roughly 55.8-56.7 million cell visits, 1.459-1.462 billion
+candidate visits and 35.7-35.9 million exact connectivity rays per order for
+14,295,424 geometric samples. These are visits including repeated fallback, not
+unique entries; instrumented timing is excluded. Rebuilding the layout itself is
+only about 7.8 ms. Counts justify a bounded exact candidate-search follow-up;
+they do not justify replacing scoped workers without allocation/scheduling
+attribution. Source-level capacities and 100 ms sampled stage CPU/live RSS are
+separate measurements, not allocator-exact peaks. No installed/cache-disk or peak
+staging-disk saving is established by this batch.
+
+### Persistent/tiled GPU experiment and implementation queue
+
+The isolated Rust/WGSL helper keeps geometry resident, reuses ray buffers and
+measures upload/dispatch/copy/sync/readback in 1024/4096/16384-ray tiles. It is
+preserved under `E/gpu-tiled-prototype/`, never linked into Places. Fresh Pool
+contains 51,618 opaque triangles, 32,935 BVH nodes (depth25), 16,384 rays and
+56 excluded nonopaque triangles. It disagrees with the CPU on **163 rays**, both
+false hits and misses; all tile sizes reproduce the same mismatch set. The
+three-circuit snapshot (2154 triangles, depth16) matches all 16,384 rays. This
+does not erase the earlier 151 Pool disagreements or establish exact transport.
+
+Pool CPU12-worker reference is 2.477 ms. Device setup is 1776.886 ms and initial
+packing/upload/pipeline 72.110 ms. Five-run tiled transfer/compute/readback medians (including the first run) are
+7.009/2.072/0.848 ms; first runs 19.563/9.661/7.303 ms. Geometry input is
+4,582,832 GPU bytes and output 65,536 bytes. Adapter reports no shader f64.
+Three-circuit five-run tile medians are 4.675/1.427/0.591 ms versus CPU1.856 ms,
+with 1145.712 ms setup and 69.923 ms initial packing/upload/pipeline.
+These are bounded query experiments, never whole-bake speedups. An exact fallback
+is not implemented: boolean f32 hits/misses lack the canonical primitive/error
+proof needed to certify endpoints, ties and negative results. MASK/BLEND, water,
+nearest-hit, connectivity, all bounces/probes, cancellation and residency policies
+remain production requirements. No unsafe GPU bake path is shipped.
+
+Concrete implementation items are drafted in `E/implementation-queue-drafts.json`:
+
+- Exact persistent/tiled GPU traversal with canonical IDs and conservative CPU
+  fallback for hits **and misses**, verify-all timing control, all material/query
+  semantics, bounded queues/residency, failure/cancel fallback, exact fixtures and
+  alternating end-to-end bake/native proof.
+- Bounded prepared-prop factoring/staging, preserving reconstruction/storage
+  choice and atomic output, with explicit simultaneous raw/compact/compressed
+  owners, CPU/wall/peak staging disk, repeated builds, current Lantern and
+  representative Full variants. The historical runtime lead remains separate.
+- Exact cache candidate/connectivity reduction, preserving nearest/ties, plane
+  compatibility, disconnected support, sample-count/bounce-order semantics and
+  bounded reuse; counters plus quiet realistic pairs, memory and native parity.
+  Attribute scoped-worker/scratch costs before a persistent scheduling rewrite.
+
+GitHub publication of the first item was rejected twice by automatic approval
+review for missing trusted publication authorization (the retry added verified
+repository/remote evidence). No issue was created, no alternate route was used,
+and the other issue writes and #30 reconciliation were stopped. Drafts are
+concrete reviewable acceptance items; their GitHub publication remains blocked.
+Specific #24/reflection-issue/packaging denials were not retried.
+
+### Final source gates and package currency
+
+Strict debug/release workspace all-target/all-feature Clippy, locked all-feature
+release workspace build, format, 401 Rust tests and 372 Python tests (18 expected
+skips) pass. Asset validation covers 674 assets with zero warnings; props/textures
+checks pass with preexisting art advisories (112 texture manifest warnings).
+The production Luau release exception/budget boundary passes using the preserved
+final compiler. The Python suite initially lacked Git sh, then hit two sandboxed
+fake-packaging home-directory cases; approved read-access escalation passes the
+unchanged full suite. These are temporary test fixtures, not a real packaging run.
+No full shipped-map bake is added to tests/CI. All receipts are retained in E.
+
+Preparation-source SHA-256 changes from
+`95dc8ac8070e637404446958a88eafb1c5803d1859587018452769ed31739b17` to
+`860f150200359517ec84ed2bcdc69eaf773de0c708ce47d471d8bcd7b679aef1`.
+Physical solver fingerprint stays `be16b2f68e0afdd3`, solver revision2 and geometry
+revision7. Existing packages remain integrity/runtime readable but strict-current
+checks require a future real rebuild against final preparation source. Final
+packaging must regenerate affected packages after the remaining engine queue;
+none is silently declared current or republished here. Native acceptance is
+Windows only; hosted source/build CI does not establish Mac native validation.
+The unrelated menu scene remains byte-identical to the task's initial dirty file
+and unstaged. Evidence/binaries are preserved outside target before cleanup.

@@ -646,8 +646,18 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
             }
             variants.push(variant);
             variant_stats.push(stats);
+            profile_blobs("variant_encoded", &blobs);
         }
     }
+    if std::env::var_os("PLACES_COMPILER_MEMORY").is_some() {
+        let stats = assets.stats();
+        crate::engine::logging::info(format_args!(
+            "[compiler-memory] stage=build_assets_released model_geometry_skin_bytes={} model_texture_bytes={} encoded_input_bytes={}",
+            stats.geometry_and_skin_bytes, stats.texture_bytes, stats.encoded_input_bytes,
+        ));
+    }
+    drop(assets);
+    drop(cache);
 
     // Reused and newly prepared qualities follow the caller's requested order.
     variants.sort_by_key(|variant| {
@@ -668,6 +678,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     progress::variant("");
     progress::stage("sharing prepared prop records");
     factor_prepared_props(&mut variants, &mut blobs)?;
+    profile_blobs("factored_records", &blobs);
     record_phase(&mut phases, "share_prepared_props", sharing_started);
 
     let manifest_started = Instant::now();
@@ -1302,13 +1313,45 @@ impl CaptureContext {
         progress::check_cancelled()?;
         progress::stage("rendering and reading Full reflection faces");
         let full = renderer.read_back_probe_faces()?;
+        profile_readback("full_readback", &full);
         payloads.push(probe_payload(&full, &probe_points, blobs)?);
+        // Encoding owns its output; no Full face is read by the Medium capture.
+        drop(full);
         renderer.reprepare_reflection_probes(ReflectionQuality::Medium);
         progress::check_cancelled()?;
         progress::stage("rendering and reading Medium reflection faces");
         let medium = renderer.read_back_probe_faces()?;
+        profile_readback("medium_readback", &medium);
         payloads.push(probe_payload(&medium, &probe_points, blobs)?);
+        drop(medium);
+        // Keep the device, but release this variant before the next CPU solve.
+        renderer.unload_level();
         Ok(payloads)
+    }
+}
+
+fn profile_readback(stage: &str, probes: &[crate::engine::render::ProbeFaceReadback]) {
+    if std::env::var_os("PLACES_COMPILER_MEMORY").is_some() {
+        let bytes = probes
+            .iter()
+            .flat_map(|probe| &probe.faces)
+            .fold(0_usize, |total, face| total.saturating_add(face.capacity()));
+        crate::engine::logging::info(format_args!(
+            "[compiler-memory] stage={stage} face_capacity_bytes={bytes} probes={}",
+            probes.len()
+        ));
+    }
+}
+
+fn profile_blobs(stage: &str, blobs: &BlobMap) {
+    if std::env::var_os("PLACES_COMPILER_MEMORY").is_some() {
+        let bytes = blobs.values().fold(0_usize, |total, (data, _)| {
+            total.saturating_add(data.capacity())
+        });
+        crate::engine::logging::info(format_args!(
+            "[compiler-memory] stage={stage} encoded_blob_capacity_bytes={bytes} records={}",
+            blobs.len()
+        ));
     }
 }
 
@@ -1592,7 +1635,8 @@ fn build_variant(
     let compiled_collision = CompiledCollision::from_level(level);
     // The bake derives prop occlusion boxes from the same request's model
     // bytes; an edited model can never reuse stale boxes.
-    crate::engine::lighting::set_preparation_assets(catalog.clone(), assets.clone());
+    let _preparation_assets =
+        crate::engine::lighting::preparation_assets_scope(catalog.clone(), assets.clone());
     let prepared = prepare_level_geometry_with_lightmaps(
         level,
         catalog,
