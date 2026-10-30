@@ -1,0 +1,351 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "issue24_ghost_controls",
+  "name": "issue24_ghost_controls",
+  "author": "Places issue 24 review",
+  "spawn": {
+    "x": 0,
+    "z": 4,
+    "yaw_degrees": 0
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "home:tile_home_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "sky": {
+    "texture": "outdoor:tex_sky_stars_01",
+    "brightness": 0.4,
+    "ambient": 0.35
+  },
+  "rooms": [
+    {
+      "x": -10,
+      "z": -7,
+      "width": 20,
+      "depth": 14,
+      "height": 5,
+      "ceiling": {
+        "kind": "open"
+      }
+    }
+  ],
+  "props": [
+    {
+      "id": "opacity_0",
+      "model": "sheet-ghost",
+      "x": -6.4,
+      "z": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.994,
+        1.619,
+        0.716
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "fade",
+          "min_opacity": 0,
+          "max_opacity": 0,
+          "enabled": false
+        },
+        {
+          "component": "glow",
+          "color": [
+            0.4,
+            0.95,
+            1
+          ],
+          "intensity": 0.45,
+          "range": 3,
+          "socket": "body",
+          "fade": true
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": true
+        }
+      ]
+    },
+    {
+      "id": "opacity_1",
+      "model": "sheet-ghost",
+      "x": -3.2,
+      "z": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.994,
+        1.619,
+        0.716
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "fade",
+          "min_opacity": 0.05,
+          "max_opacity": 0.05,
+          "enabled": false
+        },
+        {
+          "component": "glow",
+          "color": [
+            0.4,
+            0.95,
+            1
+          ],
+          "intensity": 0.45,
+          "range": 3,
+          "socket": "body",
+          "fade": true
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": true
+        }
+      ]
+    },
+    {
+      "id": "opacity_2",
+      "model": "sheet-ghost",
+      "x": 0.0,
+      "z": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.994,
+        1.619,
+        0.716
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "fade",
+          "min_opacity": 0.5,
+          "max_opacity": 0.5,
+          "enabled": false
+        },
+        {
+          "component": "glow",
+          "color": [
+            0.4,
+            0.95,
+            1
+          ],
+          "intensity": 0.45,
+          "range": 3,
+          "socket": "body",
+          "fade": true
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": true
+        }
+      ]
+    },
+    {
+      "id": "opacity_3",
+      "model": "sheet-ghost",
+      "x": 3.2,
+      "z": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.994,
+        1.619,
+        0.716
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "fade",
+          "min_opacity": 0.85,
+          "max_opacity": 0.85,
+          "enabled": false
+        },
+        {
+          "component": "glow",
+          "color": [
+            0.4,
+            0.95,
+            1
+          ],
+          "intensity": 0.45,
+          "range": 3,
+          "socket": "body",
+          "fade": true
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": true
+        }
+      ]
+    },
+    {
+      "id": "opacity_4",
+      "model": "sheet-ghost",
+      "x": 6.4,
+      "z": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.994,
+        1.619,
+        0.716
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "fade",
+          "min_opacity": 1,
+          "max_opacity": 1,
+          "enabled": false
+        },
+        {
+          "component": "glow",
+          "color": [
+            0.4,
+            0.95,
+            1
+          ],
+          "intensity": 0.45,
+          "range": 3,
+          "socket": "body",
+          "fade": true
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": true
+        }
+      ]
+    },
+    {
+      "id": "overlap_front",
+      "model": "sheet-ghost",
+      "x": -2,
+      "z": 4,
+      "rotation_degrees": 30,
+      "size": [
+        0.994,
+        1.619,
+        0.716
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "fade",
+          "min_opacity": 0.5,
+          "max_opacity": 0.5,
+          "enabled": false
+        },
+        {
+          "component": "glow",
+          "color": [
+            0.4,
+            0.95,
+            1
+          ],
+          "intensity": 0.45,
+          "range": 3,
+          "socket": "body",
+          "fade": true
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": true
+        }
+      ]
+    },
+    {
+      "id": "overlap_back",
+      "model": "sheet-ghost",
+      "x": -2.25,
+      "z": 3.7,
+      "rotation_degrees": 210,
+      "size": [
+        0.994,
+        1.619,
+        0.716
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "fade",
+          "min_opacity": 0.5,
+          "max_opacity": 0.5,
+          "enabled": false
+        },
+        {
+          "component": "glow",
+          "color": [
+            0.4,
+            0.95,
+            1
+          ],
+          "intensity": 0.45,
+          "range": 3,
+          "socket": "body",
+          "fade": true
+        },
+        {
+          "component": "animation",
+          "clip": "idle",
+          "looped": true,
+          "playing": true
+        }
+      ]
+    }
+  ],
+  "half_walls": [
+    {
+      "x": -6.58,
+      "z": -1.2,
+      "width": 0.36,
+      "depth": 0.2,
+      "height": 1.8,
+      "material": "outdoor:concrete_pavement_01"
+    },
+    {
+      "x": -3.3800000000000003,
+      "z": -1.2,
+      "width": 0.36,
+      "depth": 0.2,
+      "height": 1.8,
+      "material": "outdoor:concrete_pavement_01"
+    },
+    {
+      "x": -0.18,
+      "z": -1.2,
+      "width": 0.36,
+      "depth": 0.2,
+      "height": 1.8,
+      "material": "outdoor:concrete_pavement_01"
+    },
+    {
+      "x": 3.02,
+      "z": -1.2,
+      "width": 0.36,
+      "depth": 0.2,
+      "height": 1.8,
+      "material": "outdoor:concrete_pavement_01"
+    },
+    {
+      "x": 6.220000000000001,
+      "z": -1.2,
+      "width": 0.36,
+      "depth": 0.2,
+      "height": 1.8,
+      "material": "outdoor:concrete_pavement_01"
+    }
+  ]
+}

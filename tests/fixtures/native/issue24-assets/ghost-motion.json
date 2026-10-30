@@ -1,0 +1,106 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "issue24_ghost_motion",
+  "name": "issue24_ghost_motion",
+  "author": "Places issue 24 review",
+  "spawn": {
+    "x": 0,
+    "z": 4,
+    "yaw_degrees": 0
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "home:tile_home_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "sky": {
+    "texture": "outdoor:tex_sky_stars_01",
+    "brightness": 0.4,
+    "ambient": 0.35
+  },
+  "rooms": [
+    {
+      "x": -10,
+      "z": -7,
+      "width": 20,
+      "depth": 14,
+      "height": 5,
+      "ceiling": {
+        "kind": "open"
+      }
+    }
+  ],
+  "props": [
+    {
+      "id": "moving",
+      "model": "sheet-ghost",
+      "x": 0,
+      "z": 0,
+      "rotation_degrees": 0,
+      "size": [
+        0.994,
+        1.619,
+        0.716
+      ],
+      "solid": false,
+      "components": [
+        {
+          "component": "fade",
+          "near_radius": 3,
+          "far_radius": 4,
+          "fade_out_seconds": 1.6,
+          "fade_in_seconds": 2.4,
+          "min_opacity": 0,
+          "max_opacity": 0.85
+        },
+        {
+          "component": "glow",
+          "color": [
+            0.4,
+            0.95,
+            1
+          ],
+          "intensity": 0.45,
+          "range": 3,
+          "socket": "body",
+          "fade": true
+        },
+        {
+          "component": "animation",
+          "clip": "float_forward",
+          "looped": true,
+          "playing": true
+        }
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "moving",
+      "loop": true,
+      "steps": [
+        {
+          "step": "move_to",
+          "x": 0,
+          "z": 1.8,
+          "speed": 0.3
+        },
+        {
+          "step": "wait",
+          "seconds": 5
+        },
+        {
+          "step": "move_to",
+          "x": 0,
+          "z": 0,
+          "speed": 0.3
+        },
+        {
+          "step": "wait",
+          "seconds": 5
+        }
+      ]
+    }
+  ]
+}

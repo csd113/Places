@@ -5048,7 +5048,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:railing_snow_corner",
@@ -5065,7 +5069,11 @@
       ],
       "color": "#f4f8ff",
       "category": "Winter",
-      "solid": false
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:railing_snow_end",
@@ -5125,7 +5133,11 @@
       "color": "#9d9890",
       "category": "Winter",
       "solid": false,
-      "description": "Reusable 1.78 m timber section copied from the Outdoors fence, with supported snow on both rails. Floor-reference origin; lowest rail at y=0.345. Timber slot 0, snow slot 1. Use separate shared posts and a continuous authored barrier."
+      "description": "Reusable 1.78 m timber section copied from the Outdoors fence, with supported snow on both rails. Floor-reference origin; lowest rail at y=0.345. Timber slot 0, snow slot 1. Use separate shared posts and a continuous authored barrier.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:fence_two_rail_post_snow",
@@ -5143,7 +5155,11 @@
       "color": "#9d9890",
       "category": "Winter",
       "solid": false,
-      "description": "One capped timber newel copied from the Outdoors fence with a supported snow crown. Base y=0, bare cap y=1.05; timber slot 0, snow slot 1. Share one post at each linked endpoint or corner."
+      "description": "One capped timber newel copied from the Outdoors fence with a supported snow crown. Base y=0, bare cap y=1.05; timber slot 0, snow slot 1. Share one post at each linked endpoint or corner.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "winter:icicle_short",
@@ -6117,7 +6133,11 @@
       "color": "#9d9890",
       "category": "Structure",
       "solid": false,
-      "description": "The two original timber rails copied from fence_two_rail, without duplicated newels. Local X endpoints -0.89/+0.89, floor-reference origin and lower stock y=0.345. Timber slot 0; use separate shared posts and a continuous authored barrier."
+      "description": "The two original timber rails copied from fence_two_rail, without duplicated newels. Local X endpoints -0.89/+0.89, floor-reference origin and lower stock y=0.345. Timber slot 0; use separate shared posts and a continuous authored barrier.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:fence_two_rail_post",
@@ -6135,7 +6155,11 @@
       "color": "#9d9890",
       "category": "Structure",
       "solid": false,
-      "description": "One original capped fence newel, copied from fence_two_rail and centred at the origin. Base y=0; 0.12 m shaft, 0.145 m foot and 0.16 m cap at y=1.05. Share one at linked endpoints and corners."
+      "description": "One original capped fence newel, copied from fence_two_rail and centred at the origin. Base y=0; 0.12 m shaft, 0.145 m foot and 0.16 m cap at y=1.05. Share one at linked endpoints and corners.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     },
     {
       "id": "outdoor:masonry_pier",

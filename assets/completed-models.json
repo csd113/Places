@@ -7287,5 +7287,113 @@
       0.3199999928474426,
       0.05525000020861626
     ]
+  },
+  "environments/winter/props/railing_snow_straight.glb": {
+    "sha256": "4a82626e2cf6d450a784b90c31c0678d2ca0ebfa4b41c8bac13fc0e94370e51b",
+    "triangles": 336,
+    "texture_edge": 128,
+    "identities": [
+      "winter:railing_snow_straight"
+    ],
+    "bounds_min": [
+      -0.8999999761581421,
+      0.14000000059604645,
+      -0.07999999821186066
+    ],
+    "bounds_max": [
+      0.8999999761581421,
+      1.1160000562667847,
+      0.07999999821186066
+    ]
+  },
+  "environments/winter/props/railing_snow_corner.glb": {
+    "sha256": "16726b4bf53e2579bd86210716a00143da5701e36fb411209a6997cba556c548",
+    "triangles": 456,
+    "texture_edge": 128,
+    "identities": [
+      "winter:railing_snow_corner"
+    ],
+    "bounds_min": [
+      -0.15000000596046448,
+      0.14000000059604645,
+      -0.15000000596046448
+    ],
+    "bounds_max": [
+      0.15000000596046448,
+      1.1160000562667847,
+      0.15000000596046448
+    ]
+  },
+  "environments/winter/props/fence_two_rail_section_snow.glb": {
+    "sha256": "a454dc7b8630d79a3bc555a1cab3fa36f02cc1dff99b6f4e2d7d086ef4c18c1c",
+    "triangles": 156,
+    "texture_edge": 256,
+    "identities": [
+      "winter:fence_two_rail_section_snow"
+    ],
+    "bounds_min": [
+      -0.8899999856948853,
+      0.3449999988079071,
+      -0.054999999701976776
+    ],
+    "bounds_max": [
+      0.8899999856948853,
+      0.9120000004768372,
+      0.054999999701976776
+    ]
+  },
+  "environments/winter/props/fence_two_rail_post_snow.glb": {
+    "sha256": "37e12bbbc8bce872d2e6a39d4703b874028354f87c3a66b516d8ea8cf69711e5",
+    "triangles": 102,
+    "texture_edge": 256,
+    "identities": [
+      "winter:fence_two_rail_post_snow"
+    ],
+    "bounds_min": [
+      -0.10000000149011612,
+      0.0,
+      -0.10000000149011612
+    ],
+    "bounds_max": [
+      0.10000000149011612,
+      1.1269999742507935,
+      0.10000000149011612
+    ]
+  },
+  "environments/outdoor/props/fence_two_rail_section.glb": {
+    "sha256": "eb284863891a481b6c122c377c45403f006a03525de23ac11b9ab662cc17c4a5",
+    "triangles": 24,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:fence_two_rail_section"
+    ],
+    "bounds_min": [
+      -0.8899999856948853,
+      0.3449999988079071,
+      -0.032499998807907104
+    ],
+    "bounds_max": [
+      0.8899999856948853,
+      0.8450000286102295,
+      0.032499998807907104
+    ]
+  },
+  "environments/outdoor/props/fence_two_rail_post.glb": {
+    "sha256": "dfb2f76a45c3d4809624bb40be74dcbadf36bb5f53d9a49dc203830cb3ef7383",
+    "triangles": 36,
+    "texture_edge": 256,
+    "identities": [
+      "outdoor:fence_two_rail_post"
+    ],
+    "bounds_min": [
+      -0.07999999821186066,
+      0.0,
+      -0.07999999821186066
+    ],
+    "bounds_max": [
+      0.08000002801418304,
+      1.0499999523162842,
+      0.07999999821186066
+    ]
   }
 }

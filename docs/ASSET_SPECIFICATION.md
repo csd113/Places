@@ -1014,6 +1014,16 @@ and non-emissive material. The completed-model ledger owns its exact hash and
 measured bounds after the obsolete constructor was retired. It creates no raster
 artwork or new UV layout.
 
+The reviewed Winter rail-only corner keeps its editable `railing_snow_corner.blend`
+source beside the GLB. Use `tools/props/export_snow_corner.py` after the Blender
+export: it composes the repaired timber with the accepted snow/metal/PNG interface
+and expands RGB vertex colours to Places-required RGBA with alpha 1. Do not install
+the raw Blender export. The two rails share the exact standalone
+`winter/props/railing_snow_modular.png`; the four modular fence exports share
+`outdoor/props/fence_two_rail_modular.png`. See the
+[review and reproducible export](reports/issue24-assets-windows.md). Their completed
+export ledger and catalog ownership protect accepted bytes from broad rebuilds.
+
 The retained Home builders in `tools/props/parts/domestic_remade.py` preserve
 existing atlas regions and tableware layouts. The completed bed and office-chair
 exports retain their standalone 256² PNG sources beside their GLBs:

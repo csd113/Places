@@ -1,0 +1,594 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "issue24_rail_controls",
+  "name": "issue24_rail_controls",
+  "author": "Places issue 24 review",
+  "spawn": {
+    "x": 0,
+    "z": 4,
+    "yaw_degrees": 0
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "home:tile_home_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "sky": {
+    "texture": "outdoor:tex_sky_stars_01",
+    "brightness": 0.4,
+    "ambient": 0.35
+  },
+  "rooms": [
+    {
+      "x": -10,
+      "z": -7,
+      "width": 20,
+      "depth": 14,
+      "height": 5,
+      "ceiling": {
+        "kind": "open"
+      }
+    }
+  ],
+  "props": [
+    {
+      "id": "bare_post_0_0",
+      "model": "outdoor:fence_two_rail_post",
+      "x": -5.0,
+      "z": 0.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "bare_post_0_1",
+      "model": "outdoor:fence_two_rail_post",
+      "x": -3.66667,
+      "z": 0.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "bare_post_0_2",
+      "model": "outdoor:fence_two_rail_post",
+      "x": -2.33333,
+      "z": 0.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "bare_post_0_3",
+      "model": "outdoor:fence_two_rail_post",
+      "x": -1.0,
+      "z": 0.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "bare_section_0_0",
+      "model": "outdoor:fence_two_rail_section",
+      "x": -4.33333,
+      "z": 0.0,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.228648,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "bare_section_0_1",
+      "model": "outdoor:fence_two_rail_section",
+      "x": -3.0,
+      "z": 0.0,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.228648,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "bare_section_0_2",
+      "model": "outdoor:fence_two_rail_section",
+      "x": -1.66667,
+      "z": 0.0,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.228648,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "bare_post_1_1",
+      "model": "outdoor:fence_two_rail_post",
+      "x": -1.0,
+      "z": 1.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "bare_post_1_2",
+      "model": "outdoor:fence_two_rail_post",
+      "x": -1.0,
+      "z": 2.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "bare_section_1_0",
+      "model": "outdoor:fence_two_rail_section",
+      "x": -1.0,
+      "z": 0.5,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 0.895314,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "bare_section_1_1",
+      "model": "outdoor:fence_two_rail_section",
+      "x": -1.0,
+      "z": 1.5,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 0.895314,
+        "rise": 0.0
+      }
+    },
+    {
+      "id": "snow_post_0_0",
+      "model": "winter:fence_two_rail_post_snow",
+      "x": 1.0,
+      "z": 0.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "snow_post_0_1",
+      "model": "winter:fence_two_rail_post_snow",
+      "x": 2.33333,
+      "z": 0.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "snow_post_0_2",
+      "model": "winter:fence_two_rail_post_snow",
+      "x": 3.66667,
+      "z": 0.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "snow_post_0_3",
+      "model": "winter:fence_two_rail_post_snow",
+      "x": 5.0,
+      "z": 0.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "snow_section_0_0",
+      "model": "winter:fence_two_rail_section_snow",
+      "x": 1.66667,
+      "z": 0.0,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.228648,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "snow_section_0_1",
+      "model": "winter:fence_two_rail_section_snow",
+      "x": 3.0,
+      "z": 0.0,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.228648,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "snow_section_0_2",
+      "model": "winter:fence_two_rail_section_snow",
+      "x": 4.33333,
+      "z": 0.0,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 1.228648,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "snow_post_1_1",
+      "model": "winter:fence_two_rail_post_snow",
+      "x": 5.0,
+      "z": 1.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "snow_post_1_2",
+      "model": "winter:fence_two_rail_post_snow",
+      "x": 5.0,
+      "z": 2.0,
+      "y": -0.006,
+      "scale": 1.005714,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "snow_section_1_0",
+      "model": "winter:fence_two_rail_section_snow",
+      "x": 5.0,
+      "z": 0.5,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 0.895314,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "snow_section_1_1",
+      "model": "winter:fence_two_rail_section_snow",
+      "x": 5.0,
+      "z": 1.5,
+      "y": -0.006,
+      "rotation_degrees": 270.0,
+      "size": [
+        1.78,
+        0.845,
+        0.065
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.78,
+        "length": 0.895314,
+        "rise": 0.0
+      },
+      "material_overrides": {
+        "0": "winter:timber_01"
+      }
+    },
+    {
+      "id": "slope_post_0_0",
+      "model": "outdoor:porch_post",
+      "x": -4.8,
+      "z": -3.0,
+      "y": -0.0126,
+      "scale": 1.023429,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "slope_post_0_1",
+      "model": "outdoor:porch_post",
+      "x": -3.0,
+      "z": -3.0,
+      "y": -0.0126,
+      "scale": 1.023429,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "slope_post_0_2",
+      "model": "outdoor:porch_post",
+      "x": -1.2,
+      "z": -3.0,
+      "y": -0.0126,
+      "scale": 1.023429,
+      "size": [
+        0.12,
+        1.05,
+        0.12
+      ],
+      "solid": true
+    },
+    {
+      "id": "slope_section_0_0",
+      "model": "winter:railing_snow_straight",
+      "x": -3.9,
+      "z": -3.0,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693189,
+        "rise": 0.169319
+      }
+    },
+    {
+      "id": "slope_section_0_1",
+      "model": "winter:railing_snow_straight",
+      "x": -2.1,
+      "z": -3.0,
+      "y": -0.006,
+      "rotation_degrees": 0.0,
+      "size": [
+        1.8,
+        1.05,
+        0.12
+      ],
+      "solid": true,
+      "span": {
+        "source_length": 1.8,
+        "length": 1.693189,
+        "rise": 0.169319
+      }
+    },
+    {
+      "id": "corner",
+      "model": "winter:railing_snow_corner",
+      "x": 0,
+      "z": -3,
+      "size": [
+        0.3,
+        1.125,
+        0.3
+      ],
+      "solid": false
+    },
+    {
+      "id": "corner_close",
+      "model": "winter:railing_snow_corner",
+      "x": 3,
+      "z": -3,
+      "scale": 3,
+      "size": [
+        0.3,
+        1.125,
+        0.3
+      ],
+      "solid": false
+    },
+    {
+      "id": "joined_corner",
+      "model": "winter:railing_snow_corner",
+      "x": 0,
+      "z": 3.5,
+      "size": [
+        0.3,
+        1.125,
+        0.3
+      ],
+      "solid": true
+    },
+    {
+      "id": "joined_east",
+      "model": "winter:railing_snow_straight",
+      "x": 1.05,
+      "z": 3.41,
+      "size": [
+        1.8,
+        1.125,
+        0.16
+      ],
+      "solid": true
+    },
+    {
+      "id": "joined_south",
+      "model": "winter:railing_snow_straight",
+      "x": -0.09,
+      "z": 4.55,
+      "rotation_degrees": 270,
+      "size": [
+        1.8,
+        1.125,
+        0.16
+      ],
+      "solid": true
+    },
+    {
+      "id": "east_terminal",
+      "model": "outdoor:porch_post",
+      "x": 1.95,
+      "z": 3.41,
+      "solid": true
+    },
+    {
+      "id": "south_terminal",
+      "model": "outdoor:porch_post",
+      "x": -0.09,
+      "z": 5.45,
+      "solid": true
+    }
+  ],
+  "ramps": [
+    {
+      "x": -5,
+      "z": -4,
+      "width": 4,
+      "depth": 2,
+      "offset_y": 0,
+      "rise": 0.4,
+      "material": "outdoor:concrete_pavement_01"
+    }
+  ]
+}

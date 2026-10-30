@@ -929,3 +929,14 @@ Retained archives validate and load, while require-current honestly reports
 changed compiler preparation code. Packaging refresh remains after the remaining
 engine queue. Mac validation stays deferred; Hub wall-sign authoring is later
 work. This is unreleased development-branch acceptance.
+
+## Issue 24 modular asset review (Windows)
+
+Six rail/fence paths are accepted, with one repaired Winter corner GLB and five
+unchanged modular exports. Editable source, deterministic post-export RGBA handling,
+missing exact PNG sources and hash-bound native evidence are retained in the
+[asset review](issue24-assets-windows.md). All 404 earlier accepted ledger records
+remain unchanged. The ordinary sheet ghost stays pending: fresh native rear views
+show face-through-cloth and internal BLEND ordering defects. Fade, zero-opacity
+and clip checks pass, but issue #24 remains open. No collection rebake or release
+is implied by this adoption.
