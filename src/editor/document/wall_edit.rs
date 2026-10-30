@@ -116,12 +116,12 @@ impl Document {
         Ok((raw, id))
     }
 
-    pub(crate) fn wall_edit_candidate(
+    pub(crate) fn wall_edit_preview(
         &self,
         index: usize,
         pose: Transform,
-    ) -> Result<Value, String> {
-        edit_candidate(self.raw(), self.level(), index, pose)
+    ) -> Result<(Value, LevelDef), String> {
+        self.validated_preview(edit_raw(self.raw(), self.level(), index, pose)?)
     }
 
     pub(crate) fn doorway_candidate(
@@ -344,8 +344,20 @@ fn fit_door(
     Ok(id)
 }
 
-/// Shared attachment-preserving wall candidate used by direct edits and Safety.
+/// Shared validated wall candidate used by Safety corrections.
 pub fn edit_candidate(
+    source: &Value,
+    level: &LevelDef,
+    index: usize,
+    pose: Transform,
+) -> Result<Value, String> {
+    let raw = edit_raw(source, level, index, pose)?;
+    let _validated = persistence::validate_raw(&raw, &level.id)?;
+    Ok(raw)
+}
+
+/// Shared attachment-preserving wall candidate used by direct edits and Safety.
+pub(super) fn edit_raw(
     source: &Value,
     level: &LevelDef,
     index: usize,
@@ -371,7 +383,6 @@ pub fn edit_candidate(
             );
         }
         conflict(level, &new, Some(index))?;
-        let _validated = persistence::validate_raw(&raw, &level.id)?;
         return Ok(raw);
     }
     let origin_shift = if old.axis() == WallAxis::X {
@@ -444,6 +455,5 @@ pub fn edit_candidate(
         }
     }
     move_fittings(&mut raw, level, old, &proposed, resized, delta)?;
-    let _validated = persistence::validate_raw(&raw, &level.id)?;
     Ok(raw)
 }

@@ -245,7 +245,7 @@ impl Document {
     /// Rejects invalid numbers, unsupported rotations and invalid scene edits.
     pub fn set_transform(&mut self, id: ObjectId, transform: Transform) -> Result<(), String> {
         let mut edited = if let ObjectId::Wall(index) = id {
-            self.wall_edit_candidate(index, transform)?
+            wall_edit::edit_raw(self.raw(), self.level(), index, transform)?
         } else {
             self.selected.raw.clone()
         };
@@ -266,7 +266,7 @@ impl Document {
         transform: Transform,
     ) -> Result<LevelDef, String> {
         let mut edited = if let ObjectId::Wall(index) = id {
-            self.wall_edit_candidate(index, transform)?
+            wall_edit::edit_raw(self.raw(), self.level(), index, transform)?
         } else {
             self.selected.raw.clone()
         };
@@ -454,20 +454,26 @@ impl Document {
         Ok(())
     }
     fn accept_edit(&mut self, edited: Value) -> Result<(), String> {
+        let mut timing = crate::engine::perf::loading::StageTimer::new("editor-edit");
         if edited == self.selected.raw {
             return Ok(());
         }
         self.check_locked_edit(&edited)?;
+        timing.step("equality-locks");
         self.admit_document_bytes(
             history::value_heap_charge(&edited)
                 .saturating_add(self.selected.byte_count.saturating_mul(2)),
         )?;
+        timing.step("admission");
         let (level, byte_count) = persistence::validate_raw(&edited, self.level_id())?;
+        timing.step("validation");
         let old = std::mem::replace(&mut self.selected.raw, edited);
         self.selected.history.edit(old, self.selected.byte_count);
         self.selected.byte_count = byte_count;
         self.selected.level = level;
+        timing.step("history-install");
         self.selected.update_view();
+        timing.step("dirty-enumerate");
         Ok(())
     }
 
@@ -492,6 +498,7 @@ impl Document {
     }
 
     fn restore_history(&mut self, redo: bool) -> bool {
+        let mut timing = crate::engine::perf::loading::StageTimer::new("editor-history");
         let Some(candidate) = self.selected.history.candidate(redo) else {
             return false;
         };
@@ -500,17 +507,19 @@ impl Document {
         let Ok((level, _)) = persistence::validate_raw(candidate, self.level_id()) else {
             return false;
         };
-        let Some((raw, byte_count)) =
+        timing.step("validation");
+        let Some(byte_count) =
             self.selected
                 .history
-                .restore(redo, &self.selected.raw, self.selected.byte_count)
+                .restore(redo, &mut self.selected.raw, self.selected.byte_count)
         else {
             return false;
         };
-        self.selected.raw = raw;
+        timing.step("restore");
         self.selected.level = level;
         self.selected.update_view();
         self.selected.byte_count = byte_count;
+        timing.step("dirty-enumerate-install");
         true
     }
 

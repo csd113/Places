@@ -50,7 +50,7 @@ fn room_edge_keeps_opening_world_position_and_history_atomic() -> Result<(), Str
     drop(with_decal.as_object_mut().ok_or("Expected object")?.insert("decals".into(), json!([{"x":0.2_f32,"y":1.0_f32,"z":4.0_f32,"width":0.5_f32,"height":0.5_f32,"material":"core:decal_test_01","surface":"wall_east","align":"none"}])));
     doc.apply_authoring_edit(&initial, with_decal)?;
     let before = doc.raw().clone();
-    let candidate = doc.room_edge_candidate(ObjectId::Room(0), Edge::West, -2.0_f32)?;
+    let (candidate, _) = doc.room_edge_candidate(ObjectId::Room(0), Edge::West, -2.0_f32)?;
     assert_eq!(
         doc.raw(),
         &before,

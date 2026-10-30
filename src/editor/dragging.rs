@@ -258,14 +258,11 @@ impl App {
             } else {
                 doc.drag_candidate(drag_id, proposed, &self.catalog)
             };
-            let checked_candidate = candidate.and_then(|raw| {
+            let checked_candidate = candidate.and_then(|(raw, level)| {
                 self.check_focused_edit(&raw)?;
-                Ok(raw)
+                Ok(level)
             });
-            match checked_candidate.and_then(|raw| {
-                crate::engine::level::LevelDef::from_json(&raw.to_string())
-                    .map_err(|error| error.to_string())
-            }) {
+            match checked_candidate {
                 Ok(level) => {
                     if let ObjectId::Room(index) = drag_id
                         && let Some(room) = level.rooms.get(index)

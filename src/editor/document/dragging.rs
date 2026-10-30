@@ -150,9 +150,18 @@ impl Document {
         id: ObjectId,
         pose: Transform,
         catalog: &crate::engine::assets::AssetCatalog,
+    ) -> Result<(Value, crate::engine::level::LevelDef), String> {
+        self.validated_preview(self.drag_raw(id, pose, catalog)?)
+    }
+
+    fn drag_raw(
+        &self,
+        id: ObjectId,
+        pose: Transform,
+        catalog: &crate::engine::assets::AssetCatalog,
     ) -> Result<Value, String> {
         if let ObjectId::Wall(index) = id {
-            return self.wall_edit_candidate(index, pose);
+            return super::wall_edit::edit_raw(self.raw(), self.level(), index, pose);
         }
         let mut raw = self.raw().clone();
         if let ObjectId::Room(index) = id {
@@ -225,7 +234,6 @@ impl Document {
             }
         }
         objects::set_transform(&mut raw, self.level(), id, pose)?;
-        let _validated = super::persistence::validate_raw(&raw, self.level_id())?;
         Ok(raw)
     }
     pub(in crate::editor) fn apply_drag(
@@ -234,7 +242,7 @@ impl Document {
         pose: Transform,
         catalog: &crate::engine::assets::AssetCatalog,
     ) -> Result<(), String> {
-        let candidate = self.drag_candidate(id, pose, catalog)?;
-        self.accept_edit(candidate)
+        let raw = self.drag_raw(id, pose, catalog)?;
+        self.accept_edit(raw)
     }
 }

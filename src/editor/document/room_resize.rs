@@ -1,6 +1,6 @@
 //! Room edges keep their opposite edge and world-space contents fixed. Related
 //! perimeter walls/door leaves follow the moved edge in the same transaction.
-use super::{Document, ObjectId, objects, persistence};
+use super::{Document, ObjectId, objects};
 use crate::engine::level::{LevelDef, RoomDef, WallAxis};
 use serde_json::{Value, json};
 
@@ -46,7 +46,11 @@ impl Document {
         id: ObjectId,
         edge: Edge,
         delta: f32,
-    ) -> Result<Value, String> {
+    ) -> Result<(Value, LevelDef), String> {
+        self.validated_preview(self.room_edge_raw(id, edge, delta)?)
+    }
+
+    fn room_edge_raw(&self, id: ObjectId, edge: Edge, delta: f32) -> Result<Value, String> {
         let ObjectId::Room(index) = id else {
             return Err("Select a room to resize".into());
         };
@@ -120,7 +124,6 @@ impl Document {
             drop(room.insert(key.into(), json!(value)));
         }
         resize_walls(&mut raw, self.level(), old, edge, old_edge, delta)?;
-        let _validated = persistence::validate_raw(&raw, self.level_id())?;
         Ok(raw)
     }
     pub(crate) fn resize_room_edge(
@@ -129,7 +132,7 @@ impl Document {
         edge: Edge,
         delta: f32,
     ) -> Result<(), String> {
-        let raw = self.room_edge_candidate(id, edge, delta)?;
+        let raw = self.room_edge_raw(id, edge, delta)?;
         self.accept_edit(raw)
     }
 }

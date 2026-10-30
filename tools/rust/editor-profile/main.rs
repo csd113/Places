@@ -9,6 +9,14 @@ fn measure(mut work: impl FnMut() -> Result<(), String>, count: u16) -> Result<f
     Ok(start.elapsed().as_secs_f64() * 1000.0 / f64::from(count))
 }
 fn main() -> Result<(), String> {
+    if std::env::args().nth(1).as_deref() == Some("--document-session") {
+        let path = std::env::args()
+            .nth(2)
+            .ok_or("Pass an isolated project copy")?;
+        let level = std::env::args().nth(3).ok_or("Pass a level id")?;
+        let result = places::editor::profiling::document_session(Path::new(&path), &level)?;
+        return writeln!(std::io::stdout(), "{result}").map_err(|error| error.to_string());
+    }
     if std::env::args().nth(1).as_deref() == Some("--preview-audit") {
         let path = std::env::args()
             .nth(2)

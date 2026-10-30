@@ -1,6 +1,15 @@
 //! Opt-in CPU operation probe for `editor-profile --responsiveness PROJECT`.
 //! No window, GPU, map bake, save, or automatic test/CI invocation.
 
+mod document_session;
+
+/// Runs matched document operations on an explicitly isolated writable project.
+/// # Errors
+/// Reports admission, exact history restoration or save/reopen failures.
+pub fn document_session(path: &Path, level: &str) -> Result<Value, String> {
+    document_session::run(path, level)
+}
+
 use std::{hint::black_box, path::Path, time::Instant};
 
 use serde_json::{Value, json};

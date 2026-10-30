@@ -43,6 +43,63 @@ use props::validate_props;
 /// duplicate id, non-finite or out-of-range dimensions, a prop outside its
 /// budgets, or malformed openings and patches.
 pub fn validate_level(level: &LevelDef) -> Result<(), String> {
+    let mut timing = crate::engine::perf::loading::StageTimer::new("level-validation");
+    validate_general(level)?;
+    timing.step("header-environment");
+    validate_global_illuminators(level)?;
+    timing.step("global-lights");
+    validate_rooms(level)?;
+    validate_surface_shine(level)?;
+    validate_floor_regions(level)?;
+    validate_water(level)?;
+    validate_ladders(level)?;
+    validate_walls(level)?;
+    crate::engine::level::construction::validate(level)?;
+    timing.step("rooms-walls-construction");
+    validate_architecture(level)?;
+    timing.step("architecture");
+    validate_ceiling_lights(level)?;
+    timing.step("ceiling-lights");
+    validate_props(level)?;
+    timing.step("props");
+    validate_prop_physics(level)?;
+    timing.step("prop-physics");
+    validate_prop_lights(level)?;
+    timing.step("prop-lights");
+    let geometry = motion::Geometry::new(level);
+    validate_doors(level, &geometry)?;
+    timing.step("doors");
+    validate_effects(level)?;
+    timing.step("effects");
+    let mut index = validate_instance_ids(level)?;
+    index.sequence_owners = collect_sequence_owners(level);
+    validate_volumes(level, &index)?;
+    validate_checkpoint_volumes(level)?;
+    validate_sound_emitters(level)?;
+    validate_timers(level)?;
+    validate_spawns(level, &index)?;
+    validate_bindings(level, &index)?;
+    validate_audio_references(level)?;
+    validate_sequences(level, &index)?;
+    validate_zero_delay_cycles(level, &index)?;
+    timing.step("instances-gameplay");
+    validate_routes(level, &geometry)?;
+    timing.step("routes");
+    validate_floats(level)?;
+    timing.step("floats");
+    validate_decals(level)?;
+    validate_decal_surfaces(level)?;
+    timing.step("decals");
+    validate_animated_emissions(level)?;
+    validate_fog_regions(level)?;
+    validate_void_walls(level)?;
+    timing.step("environment-tail");
+    validate_geometry_budget(level)?;
+    timing.step("geometry-budget");
+    Ok(())
+}
+
+fn validate_general(level: &LevelDef) -> Result<(), String> {
     validate_header(level)?;
     validate_acoustics(level)?;
     if level.transitions.len() > 256 {
@@ -99,40 +156,7 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
             return Err("storm weather supports at most 32 ceiling/roof shelters".to_string());
         }
     }
-    validate_global_illuminators(level)?;
-    validate_rooms(level)?;
-    validate_surface_shine(level)?;
-    validate_floor_regions(level)?;
-    validate_water(level)?;
-    validate_ladders(level)?;
-    validate_walls(level)?;
-    crate::engine::level::construction::validate(level)?;
-    validate_architecture(level)?;
-    validate_ceiling_lights(level)?;
-    validate_props(level)?;
-    validate_prop_physics(level)?;
-    validate_prop_lights(level)?;
-    validate_doors(level)?;
-    validate_effects(level)?;
-    let mut index = validate_instance_ids(level)?;
-    index.sequence_owners = collect_sequence_owners(level);
-    validate_volumes(level, &index)?;
-    validate_checkpoint_volumes(level)?;
-    validate_sound_emitters(level)?;
-    validate_timers(level)?;
-    validate_spawns(level, &index)?;
-    validate_bindings(level, &index)?;
-    validate_audio_references(level)?;
-    validate_sequences(level, &index)?;
-    validate_zero_delay_cycles(level, &index)?;
-    validate_routes(level)?;
-    validate_floats(level)?;
-    validate_decals(level)?;
-    validate_decal_surfaces(level)?;
-    validate_animated_emissions(level)?;
-    validate_fog_regions(level)?;
-    validate_void_walls(level)?;
-    validate_geometry_budget(level)
+    Ok(())
 }
 
 fn validate_acoustics(level: &LevelDef) -> Result<(), String> {

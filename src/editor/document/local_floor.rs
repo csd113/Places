@@ -5,6 +5,16 @@ use super::{
 };
 use serde_json::Value;
 impl Document {
+    /// A synchronous preview keeps the exact typed result of full admission.
+    /// Raw source still enters the checked commit gateway on release/apply.
+    pub(in crate::editor) fn validated_preview(
+        &self,
+        raw: Value,
+    ) -> Result<(Value, crate::engine::level::LevelDef), String> {
+        let level = self.validate_candidate(&raw)?;
+        Ok((raw, level))
+    }
+
     pub(in crate::editor) fn validate_candidate(
         &self,
         raw: &Value,

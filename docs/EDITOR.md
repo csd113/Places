@@ -95,6 +95,24 @@ during normal editing; the task3 evidence retains the scripts used. It permits
 repeatable checks of unbundled direct executables when desktop automation cannot
 address their windows.
 
+For an explicit CPU authoring comparison, run
+`editor-profile --document-session /absolute/isolated-project LEVEL_ID`.
+Use a disposable copy: the probe edits, exercises 64 retained revisions,
+saves and reopens that copy. It reports individual wall move/resize, available
+door/light transform, material, undo/redo and switch timings with exact source
+restoration checks. Unsupported candidate operations are reported as not run.
+It loads the installed asset catalog, opens no window and performs no map bake;
+it is never invoked by ordinary tests or CI. Native UI and resource lifetime
+checks remain separate explicit verification scripts.
+
+`PLACES_LOAD_TRACE` plus `PLACES_VERBOSE=1` enables the opt-in `editor-edit`,
+`editor-history`, `editor-validate` and `level-validation` stage lines.
+Use these diagnostic runs for attribution; collect matched quiet runs for
+reported latency. Verification checkpoints expose the requested/accepted preview
+generation and active/pending state. Diagnostic builds also report worker source
+image ownership and model storage; shared image/cache figures overlap live owners
+and must not be summed. OS RSS and private commit remain separate measurements.
+
 Simple mode exposes **New Room**, **Add Wall**, **Add Door** and **Add Light**
 beside the viewport. New Room reuses the adjacent-room draft: Preview and Apply
 accept its room-height defaults, then the gold edge handles stretch it in place.

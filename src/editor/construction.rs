@@ -639,18 +639,14 @@ impl App {
             .document
             .as_ref()
             .ok_or_else(|| "No project".to_string())
-            .and_then(|d| d.wall_edit_candidate(index, pose))
-            .and_then(|raw| {
+            .and_then(|d| d.wall_edit_preview(index, pose))
+            .and_then(|(raw, level)| {
                 self.check_focused_edit(&raw)?;
-                Ok(raw)
+                Ok((raw, level))
             });
         match result {
-            Ok(raw) => {
-                if let Some(doc) = &self.document
-                    && let Ok(level) = doc.validate_candidate(&raw)
-                {
-                    self.viewport.rebuild(&level);
-                }
+            Ok((raw, level)) => {
+                self.viewport.rebuild(&level);
                 if let Some(d) = &mut self.wall_drag {
                     d.candidate = Some(raw);
                 }

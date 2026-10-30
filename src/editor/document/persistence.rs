@@ -111,19 +111,25 @@ pub(super) fn read_manifest(project: &ProjectFolder) -> Result<Vec<u8>, String> 
 }
 
 pub(super) fn validate_raw(raw: &Value, expected_id: &str) -> Result<(LevelDef, usize), String> {
+    let mut timing = crate::engine::perf::loading::StageTimer::new("editor-validate");
     super::intent::validate_raw(raw)?;
+    timing.step("intent");
     let bytes = serde_json::to_vec(raw).map_err(|error| format!("Level JSON: {error}"))?;
     if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_LEVEL_JSON_BYTES {
         return Err("Level source exceeds the engine source limit".into());
     }
+    timing.step("serialize");
     let level: LevelDef = serde_json::from_slice(&bytes)
         .map_err(|error| format!("Unsupported or invalid scene: {error}"))?;
+    timing.step("deserialize");
     crate::engine::loader::validate_level(&level)?;
+    timing.step("scene");
     super::gameplay::validate_drafts(raw)?;
     super::flicker::validate(raw, &level)?;
     if level.id != expected_id {
         return Err("The scene ID must match its project level ID".into());
     }
+    timing.step("drafts-flicker-id");
     Ok((level, bytes.len()))
 }
 

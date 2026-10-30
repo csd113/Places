@@ -48,6 +48,8 @@ pub(super) struct PreviewWorker {
     response: mpsc::Receiver<Response>,
     thread: Option<JoinHandle<()>>,
     generation: u64,
+    accepted_responses: usize,
+    stale_responses: usize,
     pending: Option<(LevelDef, bool, Option<[f32; 4]>, std::time::Instant)>,
     pub progress: Arc<Progress>,
     budget: Option<Arc<crate::engine::resources::DecodeBudget>>,
@@ -115,6 +117,8 @@ impl PreviewWorker {
             response: response_rx,
             thread: Some(handle),
             generation: 0,
+            accepted_responses: 0,
+            stale_responses: 0,
             pending: None,
             progress: Arc::new(Progress::default()),
             budget: None,
@@ -152,7 +156,12 @@ impl PreviewWorker {
                 if response.generation == self.generation {
                     match response.result {
                         Ok(mut preview) => {
+                            self.accepted_responses = self.accepted_responses.saturating_add(1);
                             if let Some(metrics) = preview.metrics.as_object_mut() {
+                                drop(metrics.insert(
+                                    "generation".into(),
+                                    serde_json::json!(response.generation),
+                                ));
                                 drop(metrics.insert(
                                     "ui_response_wait_ms".into(),
                                     serde_json::json!(
@@ -164,6 +173,8 @@ impl PreviewWorker {
                         }
                         Err(error) => self.error = Some(error),
                     }
+                } else {
+                    self.stale_responses = self.stale_responses.saturating_add(1);
                 }
             }
             Err(mpsc::TryRecvError::Disconnected) => {
@@ -202,6 +213,10 @@ impl PreviewWorker {
             }
         }
         ready
+    }
+
+    pub(super) fn resource_snapshot(&self) -> serde_json::Value {
+        serde_json::json!({"generation":self.generation,"active":self.busy,"pending":self.pending.is_some(),"accepted_responses":self.accepted_responses,"stale_responses":self.stale_responses,"policy":"one active worker plus one supersedable pending request; obsolete generations rejected"})
     }
 
     pub const fn is_preparing(&self) -> bool {
@@ -322,7 +337,11 @@ fn prepare(
     let geometry = crate::engine::render::PreparedGeometry::new(&loaded, &build)?;
     let geometry_ms = geometry_started.elapsed().as_secs_f64() * 1_000.0_f64;
     let stats = assets.stats();
-    let metrics = serde_json::json!({"local_preview":scope,"preview_bake_ms":build.lightmap_millis,"preview_charts":build.lightmaps.as_ref().map(|a|a.stats.charts),"preview_texels":build.lightmaps.as_ref().map(|a|a.stats.texels),"worker_thread_cpu_ms":cpu_started.zip(timing::cpu_ms()).map(|(begin,end)|end-begin),"cpu_prepare_ms":started.elapsed().as_secs_f64()*1_000.0_f64,"retained_build_bytes":build.retained_bytes(),"reused_build":reused_build,"reused_props":reused_props,"incremental":reuse.metrics,"source_ms":source_ms,"materials_ms":materials_ms,"lighting_ms":if reused_build {0.0_f64} else {build.timings.lighting_millis},"props_ms":if reused_build {0.0_f64} else {build.timings.props_millis},"surfaces_ms":if reused_build {0.0_f64} else {build.timings.surfaces_millis},"picking_ms":picking_ms,"characters_ms":characters_ms,"geometry_ms":geometry_ms,"caustics_prepare_ms":caustics_ms,"cached_models":stats.models_loaded,"model_texture_bytes":stats.texture_bytes,"cached_images":textures.len(),"image_decodes":textures.decoded_count()});
+    #[cfg(feature = "visual-diagnostics")]
+    let cache_metrics = textures.diagnostic_retention();
+    #[cfg(not(feature = "visual-diagnostics"))]
+    let cache_metrics = serde_json::Value::Null;
+    let metrics = serde_json::json!({"local_preview":scope,"preview_bake_ms":build.lightmap_millis,"preview_charts":build.lightmaps.as_ref().map(|a|a.stats.charts),"preview_texels":build.lightmaps.as_ref().map(|a|a.stats.texels),"worker_thread_cpu_ms":cpu_started.zip(timing::cpu_ms()).map(|(begin,end)|end-begin),"cpu_prepare_ms":started.elapsed().as_secs_f64()*1_000.0_f64,"retained_build_bytes":build.retained_bytes(),"reused_build":reused_build,"reused_props":reused_props,"incremental":reuse.metrics,"source_ms":source_ms,"materials_ms":materials_ms,"lighting_ms":if reused_build {0.0_f64} else {build.timings.lighting_millis},"props_ms":if reused_build {0.0_f64} else {build.timings.props_millis},"surfaces_ms":if reused_build {0.0_f64} else {build.timings.surfaces_millis},"picking_ms":picking_ms,"characters_ms":characters_ms,"geometry_ms":geometry_ms,"caustics_prepare_ms":caustics_ms,"cached_models":stats.models_loaded,"model_geometry_and_skin_bytes":stats.geometry_and_skin_bytes,"model_encoded_input_bytes":stats.encoded_input_bytes,"source_image_cache":cache_metrics,"model_texture_bytes":stats.texture_bytes,"cached_images":textures.len(),"image_decodes":textures.decoded_count()});
     Ok(PreparedPreview {
         geometry,
         metrics,

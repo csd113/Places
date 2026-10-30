@@ -340,6 +340,7 @@ impl Verification {
             "audio_preview": app.preview_audio.stats(),
             "editor_resources":app.document.as_ref().map(super::Document::resource_snapshot),
             "preview_metrics":app.viewport.preview_metrics(),
+            "preview_worker":app.viewport.worker_snapshot(),
             "axis_handles":app.viewport.axis_handles(),
 
 

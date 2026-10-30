@@ -949,3 +949,13 @@ benchmark recipe and qualification guard; no new runtime FPS gain is claimed.
 Direct exposed Annex riser-face native acceptance remains unverified behind its
 authored barriers, and affected collection currency refresh remains a final
 packaging item. See [the dated evidence and gates](runtime-qualification-0.13.1-windows.md).
+
+
+## Editor responsiveness and ownership (Windows, 30 October 2026)
+
+Lantern CPU wall edits improve from about 96 ms to 28 ms; native repeated edit
+handlers improve from 62 ms to 37 ms, with undo/redo near 33 ms. Exact source,
+undo, drag/cancel, save/reopen and bounded repeated-map ownership pass. Cold
+GPU install stalls and hours-long/platform acceptance remain queued. The
+[matched timings, memory scopes, final gates and follow-on acceptance](editor-responsiveness-0.13.1-windows.md)
+record this batch; no FPS or leak fix is claimed. No map is rebaked here.

@@ -2,7 +2,28 @@
 
 use crate::engine::level::{ComponentDef, LevelDef, LevelSurfaces};
 use glam::Vec3;
+use std::cell::OnceCell;
 use std::collections::{HashMap, HashSet};
+
+/// One validation call owns at most one exact static collision derivation.
+/// This is request-local scratch, never a retained or revision-keyed cache.
+pub(super) struct Geometry<'a> {
+    level: &'a LevelDef,
+    solids: OnceCell<Vec<crate::engine::collision::WallAabb>>,
+}
+
+impl<'a> Geometry<'a> {
+    pub(super) const fn new(level: &'a LevelDef) -> Self {
+        Self {
+            level,
+            solids: OnceCell::new(),
+        }
+    }
+
+    fn solids(&self) -> &[crate::engine::collision::WallAabb] {
+        self.solids.get_or_init(|| self.level.collision_aabbs())
+    }
+}
 
 /// Floating props: a floating hull cannot be solid, its authored motion must
 /// be finite and bounded, it cannot also be routed, and its whole swept
@@ -136,7 +157,7 @@ fn validate_float_fields(
 /// `solid: true` prop is refused because its own collision box would block
 /// its first step.
 #[expect(clippy::too_many_lines, reason = "one cohesive route validation pass")] // one cohesive route validation pass
-pub(super) fn validate_routes(level: &LevelDef) -> Result<(), String> {
+pub(super) fn validate_routes(level: &LevelDef, geometry: &Geometry<'_>) -> Result<(), String> {
     if u64::try_from(level.routes.len()).unwrap_or(u64::MAX)
         > crate::engine::level::MAX_LEVEL_ROUTES
     {
@@ -155,8 +176,8 @@ pub(super) fn validate_routes(level: &LevelDef) -> Result<(), String> {
         .enumerate()
         .map(|(index, id)| (id.as_str(), index))
         .collect();
-    let walls = level.collision_aabbs();
-    let collision_index = crate::engine::collision_index::CollisionIndex::build(&walls);
+    let walls = geometry.solids();
+    let collision_index = crate::engine::collision_index::CollisionIndex::build(walls);
     let floor = crate::engine::level::WalkableFloor::from_level(level);
     let surfaces = LevelSurfaces::new(level);
     let mut seen: HashSet<String> = HashSet::new();
@@ -283,7 +304,7 @@ pub(super) fn validate_routes(level: &LevelDef) -> Result<(), String> {
             radius,
             body_height,
             step_height,
-            &walls,
+            walls,
             &collision_index,
             &floor,
         )?;
@@ -480,7 +501,7 @@ fn route_path_is_clear(
 /// geometry, and an interaction reach inside the engine cap. A door's id is
 /// validated with every other instance id, so a door and a prop can never share
 /// a name.
-pub(super) fn validate_doors(level: &LevelDef) -> Result<(), String> {
+pub(super) fn validate_doors(level: &LevelDef, geometry: &Geometry<'_>) -> Result<(), String> {
     if u64::try_from(level.doors.len()).unwrap_or(u64::MAX) > crate::engine::level::MAX_LEVEL_DOORS
     {
         return Err(format!(
@@ -489,8 +510,11 @@ pub(super) fn validate_doors(level: &LevelDef) -> Result<(), String> {
             crate::engine::level::MAX_LEVEL_DOORS
         ));
     }
+    if level.doors.is_empty() {
+        return Ok(());
+    }
     let surfaces = LevelSurfaces::new(level);
-    let solids = level.collision_aabbs();
+    let solids = geometry.solids();
     for (i, door) in level.doors.iter().enumerate() {
         validate_door_fields(i, door)?;
         // The hinge must stand somewhere with a floor: a door floating in the
@@ -501,7 +525,7 @@ pub(super) fn validate_doors(level: &LevelDef) -> Result<(), String> {
                 door.x, door.z
             ));
         }
-        validate_door_leaf_is_clear(i, door, level, &solids)?;
+        validate_door_leaf_is_clear(i, door, level, solids)?;
     }
     Ok(())
 }

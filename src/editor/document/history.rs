@@ -74,18 +74,19 @@ impl History {
     pub(super) fn restore(
         &mut self,
         redo: bool,
-        current: &Value,
+        current: &mut Value,
         byte_count: usize,
-    ) -> Option<(Value, usize)> {
+    ) -> Option<usize> {
         let (source, destination) = if redo {
             (&mut self.redo, &mut self.undo)
         } else {
             (&mut self.undo, &mut self.redo)
         };
         let revision = source.pop_back()?;
-        destination.push_back(Revision::new(current.clone(), byte_count));
+        let previous = std::mem::replace(current, revision.value);
+        destination.push_back(Revision::new(previous, byte_count));
         trim(destination);
-        Some((revision.value, revision.serialized_bytes))
+        Some(revision.serialized_bytes)
     }
 }
 

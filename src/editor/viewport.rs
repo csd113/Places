@@ -446,6 +446,10 @@ impl Viewport {
         self.renderer.presentation_mode()
     }
 
+    pub fn worker_snapshot(&self) -> serde_json::Value {
+        self.worker.resource_snapshot()
+    }
+
     pub const fn preview_metrics(&self) -> &serde_json::Value {
         &self.preview_metrics
     }
