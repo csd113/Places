@@ -413,25 +413,39 @@ impl LightmapAtlas {
             view_formats: &[],
         });
         let bytes = white_array_bytes(edge, layers);
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &bytes,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(edge.saturating_mul(8)),
-                rows_per_image: Some(edge),
-            },
-            wgpu::Extent3d {
-                width: edge,
-                height: edge,
-                depth_or_array_layers: layers,
-            },
-        );
+        let layer_bytes = usize::try_from(edge)
+            .unwrap_or(usize::MAX)
+            .saturating_mul(usize::try_from(edge).unwrap_or(usize::MAX))
+            .saturating_mul(8)
+            .max(1);
+        // A 1x1 array layer otherwise starts at native staging offset 256.
+        // Separate writes keep each source at zero, avoiding the pinned DX12
+        // backend's unaligned-copy intermediate allocation/retirement path.
+        for (layer, pixels) in (0..layers).zip(bytes.chunks_exact(layer_bytes)) {
+            queue.write_texture(
+                wgpu::TexelCopyTextureInfo {
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d {
+                        x: 0,
+                        y: 0,
+                        z: layer,
+                    },
+                    aspect: wgpu::TextureAspect::All,
+                },
+                pixels,
+                wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(edge.saturating_mul(8)),
+                    rows_per_image: Some(edge),
+                },
+                wgpu::Extent3d {
+                    width: edge,
+                    height: edge,
+                    depth_or_array_layers: 1,
+                },
+            );
+        }
         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         (texture, view)
     }

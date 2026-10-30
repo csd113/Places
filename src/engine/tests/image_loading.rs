@@ -1,5 +1,5 @@
-//! One numeric PNG fixture protects warm reuse and changed/error paths without
-//! any shipped artwork, whole-map preparation or GPU resource allocation.
+//! Tiny source-cache fixtures and fixed fallback cancellation protect image
+//! ownership without whole-map preparation or GPU resource allocation.
 
 use std::fs;
 use std::path::PathBuf;
@@ -112,4 +112,26 @@ fn prefetch_reuses_current_pixels_and_rejects_changed_missing_or_oversize_input(
         );
     }
     Ok(())
+}
+
+// Native rapid switching reached the infallible fallback while the map token
+// was cancelled, panicking and destroying the sole preview worker. This tiny
+// check uniquely protects that boundary, exact pixels and restored cancellation.
+#[test]
+fn cancelled_map_keeps_engine_fallback_and_restores_external_decode_budget() {
+    use crate::engine::resources::{DecodeBudget, checkpoint, current, enter};
+    use std::sync::atomic::AtomicBool;
+
+    let expected = super::missing_texture();
+    let budget = DecodeBudget::new(Arc::new(AtomicBool::new(true)));
+    let _request_scope = enter(Some(Arc::clone(&budget)));
+    assert_eq!(super::missing_texture(), expected);
+    assert!(current().is_some_and(|active| Arc::ptr_eq(&active, &budget)));
+    assert_eq!(checkpoint(), Err("Map preparation cancelled".into()));
+    assert_eq!(
+        super::decode_png(include_bytes!(
+            "../../../assets/shared/textures/missing_01.png"
+        )),
+        Err("Map preparation cancelled".into())
+    );
 }

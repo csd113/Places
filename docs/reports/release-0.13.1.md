@@ -1690,3 +1690,203 @@ acceptance. Separate issue creations and issue #24/#30 body writes remain held a
 their prior denials; none was retried. No main merge, tag, release, force push or
 credential change was attempted. Final commit/publication, process release and the
 single idle-only target cleanup are recorded in `E/handoff.json`.
+
+## Resource ownership and longer native lifetime acceptance (2026-10-30)
+
+This pass starts at published `319c7e606317f2d2202d42a379214dc2a84af52f`.
+
+Here `E` is `C:\Users\Connor
+Dawkins\Documents\Codex\2026-10-30\task-7\ownership-evidence`.
+
+Raw baseline, failed attempt, final candidate, allocation and lifecycle receipts
+remain outside `target`. `E/read-only-final/` preserves the originally completed
+read-only analysis before explicit approval of implementation.
+`E/final-comparison.json`, `owner-ledger.json` and the final handoff are the
+entry points.
+
+### Measured fixes and resource scopes
+
+Both original 15-minute editor sessions retained one additional 65,536-byte
+backend allocation labelled `Unlabeled buffer` per accepted preview, in addition
+to the initial fallback. From `large-0` to `large-11`, 22 accepted previews
+added 1,441,792 allocated bytes in each run. The pinned wgpu 30.0.1 DX12 path
+creates an unlabelled intermediate for unaligned native texture-copy offsets;
+its intermediate retirement bypasses ordinary allocator `free_resource`. A 1x1,
+two-layer RGBA16F fallback write stages its second layer at offset 256, matching
+that path. Pinned dependency excerpts and hashes are preserved in
+`dx12-intermediate-retirement-lead.json` and `pinned-backend-source/`.
+
+`LightmapAtlas::upload_white_array` now uploads each identical layer separately
+with source offset zero. The texels, layer dimensions, format, shaders and
+resulting view are unchanged. This adds one bounded queue write for the
+two-layer fallback; it avoids the problematic backend path without changing the
+dependency. All final settled editor checkpoints have zero matching unlabelled
+allocations.
+
+The first short candidate attempt exposed an existing cancellation bug during
+rapid switching: fixed embedded PNG decoding inherited a cancelled map request
+and the asset-invariant `expect` panicked, destroying the sole preview worker.
+That attempt is preserved and excluded from acceptance. Fixed engine PNG sheets
+now decode in a narrow baseline-resource scope, restoring the exact caller scope
+before its next checkpoint. Only the closed built-in asset enum is exempt from
+map cancellation/admission accounting; external images retain cancellation,
+dimensional and admission checks. No asset bytes, cache policy, document history
+or user data were changed.
+
+A separate `places-memory-audit` executable installs a System-backed counting
+Rust allocator and samples requested live/peak bytes every 250 ms. Production
+player/editor allocators are unchanged. It flushes the CSV, refuses an existing
+output file and joins the sampler before returning. It excludes
+native/C/driver/GPU allocations and allocation overhead. Existing process-heap
+snapshots are included only in explicit editor verification checkpoints. These
+diagnostic runs are separate from matched production runs.
+
+Document charges, displayed/prepared builds, source images, model images, GPU
+handles and caches overlap. The displayed build and previous reuse entry can
+share an Arc; model images can share material/cache ownership. GPU requested
+texels, HAL live bytes and allocator allocated/reserved bytes are views of
+overlapping resources. Windows process heaps include some native allocations and
+exclude separate VirtualAlloc regions. None of these figures are added to
+process RSS/private bytes. `owner-ledger.json` records each owner, lifetime,
+bound and overlap.
+
+### Matched editor acceptance
+
+Four sequential Normal-priority production sessions use byte-matched project
+inputs and DLLs, the same action recipe, drawable/settings and 30-second settled
+small/large dwells. Each visits nine maps with 117 switches over twelve rounds;
+a dirty Lantern light edit survives switching, exact undo/redo, eight preview
+supersessions, save and a separate fresh-process reopen. The two final runs use
+the same frozen candidate sources. The final 1440x816 RGBA captures match both
+baselines exactly.
+
+| Session | Seconds | Final accepted / stale | Unlabelled bytes, first -> last settled Lantern | Private delta across cycles MiB | Final supersession private delta MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| baseline-editor-long | 894.04 | 30 / 74 | 393,216 -> 1,835,008 | 14.414 | 215.723 |
+| repeat-editor-long | 895.51 | 30 / 72 | 393,216 -> 1,835,008 | 15.273 | 211.445 |
+| candidate-editor-final-1 | 894.99 | 30 / 71 | 0 -> 0 | 12.234 | 242.793 |
+| candidate-editor-final-2 | 895.25 | 30 / 68 | 0 -> 0 | 41.355 | 273.906 |
+
+| Editor observation, MiB | Two baseline runs | Two final runs |
+| --- | ---: | ---: |
+| Final settled private | 1,558.309–1,559.461 | 1,558.898–1,585.070 |
+| Observed peak RSS | 1,147.945–1,178.379 | 1,124.609–1,145.406 |
+| Observed peak private | 1,666.500–1,695.500 | 1,642.031–1,661.910 |
+| Final backend reserved | 700.000–700.000 | 700.000–732.000 |
+
+Higher candidate reservation or final private readings remain visible in this
+comparison. Removing the per-preview allocation does not establish a reduction
+in total process private memory; reserved block placement and process-heap
+commitment remain separate observations.
+
+At final settled Lantern, each displayed CPU build reports 62,066,595 retained
+bytes; shared model geometry/skin is 13,823,936 bytes, decoded model pixels
+8,962,048 and encoded GLB input zero. Final source-image cache totals are
+182681600 / 178225152 bytes. Those image totals include material aliases;
+cache-only bytes are a subset, and model pixels can overlap them. They are
+inventories, not additive process totals. GPU traces separately record
+installed/staged resources, staging state, pending texture/model sheet holds,
+HAL buffer/texture bytes and allocator block slack. Displayed/previous-build
+sharing and command/fence ownership are retained in the ledger and raw
+checkpoints.
+
+Nine document owners retain one revision / 393,522 serialized history bytes. The
+conservative document charge remains 31,395,434 bytes through switching and
+31,395,819 after undo/redo/save; the policy remains 64 revisions / 32 MiB per
+stack and 256 MiB aggregate document admission. One active plus supersedable
+pending preview remains the policy; settled workers are idle, current
+generations accepted, stale generations retired. Optional image-cache contents
+can differ with intermediate cancellation timing; those differences are not
+claimed as memory gains.
+
+Production CPU preparation, request-to-ready and upload-handler ranges remain in
+`final-comparison.json`. These are allocation-traced native observations with
+Fifo presentation, not uncapped FPS/throughput measurements. No general
+performance improvement is claimed.
+
+### Runtime and Rust allocation attribution
+
+The production runtime comparison uses the same existing 436,882,001-byte
+package (SHA256
+`749c9f3e45120d7c72416891dd5d4f5965739dc88b60b5827f06fb1e33ac28f5`), no rebake,
+High/Full settings and 960x600 drawable. Eight Lantern -> menu -> Home ->
+Lantern cycles per run yield 25 verified checkpoints. Every expected level is
+installed, scheduled/commit work is idle and retired strong-owner counts are
+zero. Prepared CPU bytes remain Lantern 450,736,645, menu 102,258,649 and Home
+80,152,501. Process medians use the final second before runtime checkpoints; raw
+250 ms samples and observed high-water figures are preserved separately.
+
+| Runtime | Seconds | Observed peak RSS MiB | Observed peak private MiB | Final Lantern private MiB |
+| --- | ---: | ---: | ---: | ---: |
+| current-runtime-long | 544.86 | 1,715.777 | 2,715.426 | 2,513.895 |
+| candidate-runtime-long | 544.08 | 1,720.379 | 2,718.238 | 2,517.305 |
+
+The separate four-round diagnostic editor session measures the final
+supersession change as 0.219 MiB counted Rust live, 0.296 MiB all-process heap
+allocated, and 59.629 MiB process private. Its detailed checkpoint join is
+`diagnostic-editor/rust-attribution.json`; the separate three-cycle runtime
+attribution is `diagnostic-runtime/rust-attribution.json`. CSV alignment uses
+its NTFS creation time immediately before the Rust Instant origin and
+four-second medians, avoiding transient checkpoint serialization. These counters
+do not partition every native/driver owner or prove that all private-memory
+growth is a Rust leak.
+
+After application return, counted Rust live is 227,188 bytes (editor) and
+219,682 bytes (runtime), including the still-live bounded sampler state.
+Per-session/global Rust peaks remain separate in the CSV and summaries.
+
+The separate diagnostic runtime also retains a small unresolved Rust-live drift.
+First-to-third settled Home is 236,999,033 -> 241,316,239 bytes (+4.117 MiB),
+and Lantern 1,462,387,365 -> 1,466,669,674 (+4.084 MiB). Prepared sizes and live
+backend allocated bytes match for each map; the two-cycle interval does not
+identify the additional Rust owner or prove a growing leak. This remains an
+explicit attribution gap alongside the larger native/private reservation
+changes; no blanket leak-free claim is made.
+
+Two separate close controls prove actual GPU staging at the checkpoint, inactive
+CPU/pending workers, followed by `install-cancelled`, cleared pending texture
+cache/sheet holds and clean process exit. Their accepted receipts are in
+`candidate-upload-close-1/acceptance.json` and
+`candidate-upload-close-2/acceptance.json`. The final runtime street capture and
+editor view were visually inspected. Exact full-frame RGBA parity applies to the
+four editor finals; the runtime capture has a small difference region and is not
+claimed pixel-identical.
+
+### Gates, remaining gaps and queue
+
+Format and final format check; strict locked workspace/all-target/all-feature
+Clippy in debug and release; locked release workspace/all-feature build; and all
+406 Rust tests pass. Exactly one new small deterministic test protects the
+native-reproduced cancellation panic: exact built-in fallback pixels, restored
+caller scope and continued external-decode cancellation. It uses a 16 KiB fixed
+image, no map bake or GPU; the full Rust suite finishes in about 1.2 seconds
+after compilation. The audit executable disables its empty test/bench harness
+rather than adding test counts. Diagnostic CLI refusal and clean joined-sampler
+receipts are in `diagnostic-cli/acceptance.json`.
+
+The historical Lantern runtime RSS increase is still unresolved. Recovered
+provenance identifies the old storage comparison as Mac/Metal at 1280x720,
+Immediate, High textures/filter, Full reflections and bloom, with the same stage
+player comparing two package representations. The recorded increases are
+327,598,080 peak bytes (+312.421875 MiB) and 330,399,744 commit bytes
+(+315.09375 MiB). Original `local/map-storage-0.13.0/final/`
+inputs/binary/capture identities are unavailable locally; the Windows
+package/player/backend differ. The DX12 fallback fix does not establish a cause
+or resolution for that Mac gap. `historical-provenance.json` preserves
+integration/implementation commits and recovered package identities.
+
+The larger private-memory uplift, allocator/driver reservations, hours-long
+sessions and exact native attribution remain qualified by the observed data.
+Shared audio-library retention stays intentional; the earlier fixed 5,968-byte
+post-unload residual remains unattributed and is not relabelled a growing leak.
+Accepted prior audio/compiler/startup/reflection campaigns were not rerun. Linux
+was not run; Mac remains deferred.
+
+Deduplicated implementation/acceptance findings remain local in
+`implementation-queue-drafts.json`. Resource-lifetime work precedes broad #31;
+the requested full Rust-test usefulness/pruning audit remains queued after all
+previously agreed work and has not started. Separate issue writes remain held.
+Normal working-branch publication, independent remote SHA verification,
+preserved evidence, unchanged unrelated dirty menu, single idle-only cleanup and
+custody release are recorded in the final handoff. No main merge, force push,
+tag, release or credential change was performed.

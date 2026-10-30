@@ -198,3 +198,10 @@ path = "tools/rust/movement-check/main.rs"
 [[bin]]
 name = "places-audio-audit"
 path = "tools/rust/audio-audit/main.rs"
+
+# Explicit native Rust heap/process attribution; never runs in CI or tests.
+[[bin]]
+name = "places-memory-audit"
+path = "tools/rust/memory-audit/main.rs"
+test = false
+bench = false

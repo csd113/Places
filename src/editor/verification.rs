@@ -339,6 +339,7 @@ impl Verification {
             "ui_focus": app.ui_focus.map(|action| format!("{action:?}")),
             "audio_preview": app.preview_audio.stats(),
             "editor_resources":app.document.as_ref().map(super::Document::resource_snapshot),
+            "process_heaps":crate::engine::resources::heap_diagnostics(),
             "preview_metrics":app.viewport.preview_metrics(),
             "preview_worker":app.viewport.worker_snapshot(),
             "axis_handles":app.viewport.axis_handles(),

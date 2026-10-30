@@ -35,6 +35,10 @@ impl BuiltinImage {
                 include_bytes!("../../../assets/shared/textures/white_fallback_01.png")
             }
         };
+        // These fixed engine sheets are baseline resources, not cancellable
+        // map input. Restore the caller's scope before its next checkpoint;
+        // cancellation/admission errors must not become asset-invariant panics.
+        let _engine_resource_scope = crate::engine::resources::enter(None);
         decode_png(bytes).expect("the embedded engine PNG is a validated repository resource")
     }
 }
