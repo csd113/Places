@@ -17,9 +17,19 @@ from tools.bench.loading import (
 from tools.bench.lightmap_report import parse_logs
 from tools.bench.capture_snowfall import expected_budgets, validate_run
 from tools.bench.item_physics import reserve_capture_latency
+from tools.bench.frame_time import verify_player_recovery
 
 
 class NativeCaptureSchedulingTests(unittest.TestCase):
+    def test_unrecoverable_spawn_cannot_qualify_native_timings(self):
+        # The Home wall-overlap recipe rendered nonzero geometry while falling
+        # below the map. One warning string protects timing qualification;
+        # no executable, assets, bake or wall-clock assertion is needed.
+        verify_player_recovery("[loading] committed home\n[bench] 15 draws")
+        verify_player_recovery("[script] Help: escaped map has no clear spawn destination")
+        with self.assertRaisesRegex(RuntimeError, "correct the benchmark spawn"):
+            verify_player_recovery("[bench] 15 draws\n[movement] escaped map has no clear spawn destination; correct the level spawn")
+
     def test_blocking_capture_keeps_key_edges_separate_and_action_budget_bounded(self):
         # Four dictionaries, no native launch/bake: a >200ms PNG previously
         # made the 50ms E down/up arrive together, losing the ordinary drop.

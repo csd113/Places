@@ -940,3 +940,12 @@ remain unchanged. The ordinary sheet ghost stays pending: fresh native rear view
 show face-through-cloth and internal BLEND ordering defects. Fade, zero-opacity
 and clip checks pass, but issue #24 remains open. No collection rebake or release
 is implied by this adoption.
+
+## Runtime interaction qualification (Windows, 30 October 2026)
+
+The current runtime passes exercised Home/Pool interactions, dormant contacts
+and authored Relay recovery. A false Home timing workload was repaired in the
+benchmark recipe and qualification guard; no new runtime FPS gain is claimed.
+Direct exposed Annex riser-face native acceptance remains unverified behind its
+authored barriers, and affected collection currency refresh remains a final
+packaging item. See [the dated evidence and gates](runtime-qualification-0.13.1-windows.md).

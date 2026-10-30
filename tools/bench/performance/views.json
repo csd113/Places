@@ -10,8 +10,8 @@
   {
     "case": "home-books",
     "level": "home",
-    "spawn": "1.9,1.6,11.8,0",
-    "camera": "0,-30",
+    "spawn": "3.6,1.6,10.7,270",
+    "camera": "270,-25",
     "drawable": "1280x720",
     "logical_size": "640x360"
   },

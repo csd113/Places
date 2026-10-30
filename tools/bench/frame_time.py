@@ -116,6 +116,14 @@ def verify_runtime_identity(log: str, level: str, variant: str | None, expected:
         raise RuntimeError(f"native package/member/lighting identity differs: {observed}")
 
 
+def verify_player_recovery(log: str) -> None:
+    """Reject an escaped diagnostic spawn before publishing its frame timings."""
+    if re.search(r"^\[movement\] escaped map has no clear spawn destination\b",
+                 log, re.MULTILINE | re.IGNORECASE):
+        raise RuntimeError("native player escaped without a clear recovery spawn; "
+                           "correct the benchmark spawn and rerun")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places")
@@ -342,6 +350,7 @@ def main() -> None:
     # Explicit action/settings scripts may deliberately change lighting variants.
     planned_variant = None if args.actions or args.graphics_cycle else "off" if args.lightmaps == "static" else "full"
     verify_runtime_identity(log, args.level, planned_variant, manifest_identity)
+    verify_player_recovery(log)
     if any(message in log.lower() for message in ("validation error", "panicked", "fatal device", "catalog hash mismatch")):
         raise RuntimeError(f"native validation failed; see {out / 'native.log'}")
     if (re.search(r"\[props\] \d+ models cached \([1-9]\d* failed\)", log)
