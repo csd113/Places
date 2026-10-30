@@ -12,6 +12,7 @@ mod item_runtime;
 mod loading;
 mod mannequin_bowling;
 mod ragdoll_runtime;
+mod startup;
 mod video;
 
 use crate::engine::{diagnostics, level, loader, logging, perf, quality, render};
@@ -5234,14 +5235,16 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap()?;
     diagnostics::previous_session_notice(interrupted);
 
-    let mut level_manager = loader::LevelManager::new()?;
+    let Some(mut started) =
+        startup::start(&sdl_context, &mut window, &settings, &mut bench, &mut trace)?
+    else {
+        return Ok(());
+    };
+    let mut level_manager = started.ready.manager;
+    let mut ui_state = started.ready.ui;
     log_asset_catalog(&level_manager);
     perf::startup_mark("asset catalog");
-    let mut renderer = create_renderer(&window, &settings, &bench)?;
-    configure_vsync(&mut renderer, &mut bench, &settings);
-    trace.record("window_ready", 0, "");
-
-    let (mut event_pump, actions) = native_inputs(&sdl_context, &window)?;
+    let mut timing = perf::loading::StageTimer::new("player-bootstrap");
     let mut input_handler = InputHandler::new();
     let mut spawn_pos = Vec3::ZERO;
     let mut spawn_yaw = 0.0;
@@ -5249,13 +5252,12 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut current_level = None;
     let mut display_status = DisplayStatus::default();
     let (initial_entry, direct) = initial_level(&level_manager);
-    let loader = loading::Loader::new(loader::LevelManager::new()?)?;
+
     // `PLACES_STATE_LOG=file.csv` records `frame,x,y,z,yaw,pitch` while the
     // game runs, so control and movement checks can assert real input results
     // from a running build instead of inferring them from screenshots.
     let mut state_log = open_state_log();
 
-    let mut ui_state = new_ui_state(&level_manager);
     apply_screen_request(&mut game, &mut ui_state);
     let mut perf_overlay = PerfOverlay::new();
     let mut ui_cache = UiGeometryCache::new();
@@ -5263,6 +5265,10 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut applied_filtering = settings.texture_filtering.clone();
     let mut capture_path = capture_path_from_env();
 
+    let items = item_runtime::Items::new();
+
+    let audio = audio_runtime::Audio::new(started.ready.audio, &sdl_context);
+    timing.step("audio");
     let mut frame_loop = FrameLoop {
         checkpoints: checkpoints::Session::default(),
         campaign: crate::game::campaign::CampaignSave::default(),
@@ -5272,8 +5278,8 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         window: &mut window,
         sdl: &sdl_context,
         video_subsystem: &video_subsystem,
-        event_pump: &mut event_pump,
-        renderer: &mut renderer,
+        event_pump: &mut started.event_pump,
+        renderer: &mut started.renderer,
         level_manager: &mut level_manager,
         game: &mut game,
         bench: &mut bench,
@@ -5288,8 +5294,8 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         message: None,
         message_page: 0,
         subtitles: ui::Subtitles::default(),
-        items: item_runtime::Items::new(),
-        audio: audio_runtime::Audio::new(&sdl_context),
+        items,
+        audio,
         video: video::Recording::from_env(),
         ui_cache: &mut ui_cache,
         ui_scratch: &mut ui_scratch,
@@ -5306,7 +5312,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         last_logged_window: (0, 0, 0, 0),
         window_focused: true,
         fatal_error: None,
-        loader,
+        loader: started.loader,
         load_intent: None,
         pending_commit: None,
         displayed_lease: None,
@@ -5321,7 +5327,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         ready_frames: 0,
         presentation: PresentationState::default(),
         trace,
-        actions,
+        actions: started.actions,
         failed_graphics: None,
         graphics_hint: None,
         nav_debug_dir: std::env::var_os("PLACES_NAV_DEBUG").map(PathBuf::from),

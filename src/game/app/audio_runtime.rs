@@ -41,11 +41,12 @@ struct DoorState {
 }
 
 impl Audio {
-    pub fn new(sdl: &sdl3::Sdl) -> Self {
-        let root = crate::engine::assets::resolve_asset_root()
-            .unwrap_or_else(|| std::path::PathBuf::from("assets"));
+    pub fn new(
+        prepared: Result<crate::engine::audio::PreparedAudio, String>,
+        sdl: &sdl3::Sdl,
+    ) -> Self {
         Self {
-            system: AudioSystem::new(&root, sdl),
+            system: AudioSystem::from_prepared(prepared, sdl),
             doors: Vec::new(),
             last_feet: None,
             distance: 0.0,

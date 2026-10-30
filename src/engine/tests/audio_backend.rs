@@ -128,7 +128,7 @@ fn cached_ambient_stereo_cannot_bypass_spatial_mono_validation() -> Result<(), B
     fs::create_dir_all(fixture.0.join("audio"))?;
     fs::write(fixture.0.join("audio/stereo.wav"), tiny_wav(2))?;
     let catalog = AudioCatalog::from_json(br#"{"format_version":1,"cues":[{"id":"ambient","files":["stereo.wav"],"spatial":false},{"id":"spatial","files":["stereo.wav"],"spatial":true}]}"#)?;
-    let result = load_clips(&fixture.0, catalog);
+    let result = load_clips(&fixture.0, catalog, &|| false);
     assert!(
         result.err().is_some_and(|error| error.contains("mono")),
         "a cached stereo clip must be rechecked when a spatial cue reuses it"
@@ -137,7 +137,7 @@ fn cached_ambient_stereo_cannot_bypass_spatial_mono_validation() -> Result<(), B
         br#"{"format_version":1,"cues":[{"id":"ambient","files":["stereo.wav"],"spatial":false}]}"#,
     )?;
     assert!(
-        load_clips(&fixture.0, allowed).is_ok(),
+        load_clips(&fixture.0, allowed, &|| false).is_ok(),
         "stereo ambience must remain supported"
     );
     Ok(())
@@ -267,4 +267,47 @@ fn tiny_wav(channels: u16) -> Vec<u8> {
         0,
     );
     bytes
+}
+
+// Protects transferring decoded ownership across the startup worker: cancelling
+// after one file must release the partial library and permit a fresh preparation.
+// Two two-frame WAVs keep the regression independent of devices and shipped maps.
+#[test]
+fn prepared_library_cancellation_allows_restart_and_drop_releases_shared_samples()
+-> Result<(), Box<dyn Error>> {
+    let fixture = AudioFixture(
+        std::env::temp_dir().join(format!("places-audio-prepare-test-{}", std::process::id())),
+    );
+    fs::create_dir_all(fixture.0.join("audio"))?;
+    for name in ["one.wav", "two.wav"] {
+        fs::write(fixture.0.join("audio").join(name), tiny_wav(1))?;
+    }
+    fs::write(
+        fixture.0.join("audio/catalog.json"),
+        br#"{"format_version":1,"cues":[{"id":"tone","files":["one.wav","two.wav"]}]}"#,
+    )?;
+    let visits = std::cell::Cell::new(0_u8);
+    let cancelled = PreparedLibrary::load(&fixture.0, &|| {
+        visits.set(visits.get().saturating_add(1));
+        visits.get() >= 2
+    });
+    assert!(
+        cancelled
+            .err()
+            .is_some_and(|error| error.contains("cancelled")),
+        "cancellation between files must reject partial ownership"
+    );
+    let restarted = PreparedLibrary::load(&fixture.0, &|| false)?;
+    let clip = restarted
+        .cues
+        .first()
+        .and_then(|cue| cue.variants.first())
+        .ok_or("restarted cue")?;
+    let samples = Arc::downgrade(&clip.frames);
+    drop(restarted);
+    assert!(
+        samples.upgrade().is_none(),
+        "dropping an undelivered library must relinquish every sample owner"
+    );
+    Ok(())
 }

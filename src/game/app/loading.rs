@@ -1015,7 +1015,11 @@ fn clear_retained(
 
 impl Loader {
     /// Transfers the existing manager (including decoded images) to one persistent worker.
-    pub fn new(mut manager: LevelManager) -> Result<Self, String> {
+    pub fn new(
+        initialize: impl FnOnce() -> Result<LevelManager, String> + Send + 'static,
+    ) -> Result<Self, String> {
+        let mut initializer = Some(initialize);
+        let mut prepared_manager = None;
         let delay = test_delay()?;
         let mut assets = PropAssets::load_default();
         let mut builds = BuildCache::default();
@@ -1028,7 +1032,16 @@ impl Loader {
         )> = std::collections::VecDeque::new();
         let release_requested = Arc::new(AtomicBool::new(false));
         let release_worker = Arc::clone(&release_requested);
-        let worker = Worker::spawn(move |request: Option<Request>, control| {
+        let mut worker = Worker::spawn(move |request: Option<Request>, control| {
+            if prepared_manager.is_none() {
+                let prepare = initializer
+                    .take()
+                    .ok_or("Level preparation initialization already failed")?;
+                prepared_manager = Some(prepare()?);
+            }
+            let manager = prepared_manager
+                .as_mut()
+                .ok_or("Missing prepared level manager")?;
             #[cfg(feature = "visual-diagnostics")]
             if std::env::var_os("PLACES_LOAD_TRACE").is_some() {
                 crate::engine::logging::info(format!(
@@ -1037,7 +1050,7 @@ impl Loader {
                 ));
             }
             if release_worker.swap(false, Ordering::AcqRel) {
-                clear_retained(&manager, &mut assets, &mut builds, &mut identities);
+                clear_retained(manager, &mut assets, &mut builds, &mut identities);
             }
             let Some(input) = request else {
                 return Ok(None);
@@ -1049,7 +1062,7 @@ impl Loader {
                 manager.release_cached_images();
             }
             let outcome = prepare_world(
-                &mut manager,
+                manager,
                 input,
                 control,
                 &mut assets,
@@ -1077,13 +1090,16 @@ impl Loader {
             }
             if release_worker.swap(false, Ordering::AcqRel) {
                 // A canceled decode must finish before cache retirement is acknowledged.
-                clear_retained(&manager, &mut assets, &mut builds, &mut identities);
+                clear_retained(manager, &mut assets, &mut builds, &mut identities);
                 if control.cancelled.load(Ordering::Relaxed) {
                     return Ok(None);
                 }
             }
             outcome
         })?;
+        // One initial maintenance request performs bootstrap on this same
+        // persistent worker before any world request can be dispatched.
+        let _initialization = worker.request(None)?;
         Ok(Self {
             worker,
             release_requested,

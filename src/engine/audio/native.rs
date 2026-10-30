@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use glam::Vec3;
 use kira::backend::{Backend, Renderer};
+use kira::command::{CommandReader, CommandWriter, command_writer_and_reader};
 use kira::sound::PlaybackState;
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::track::MainTrackBuilder;
@@ -88,7 +89,7 @@ struct OutputCallback {
 struct SdlSettings {
     subsystem: sdl3::AudioSubsystem,
     capture: bool,
-    output_parameters: Consumer<OutputParameters>,
+    output_parameters: CommandReader<OutputParameters>,
 }
 
 /// The stream is destroyed before callback storage, so SDL cannot race freed
@@ -100,7 +101,7 @@ struct SdlBackend {
     counters: Arc<OutputCounters>,
     capture: Option<Consumer<[f32; 2]>>,
     capture_enabled: bool,
-    output_parameters: Option<Consumer<OutputParameters>>,
+    output_parameters: Option<CommandReader<OutputParameters>>,
 }
 
 impl Backend for SdlBackend {
@@ -323,8 +324,11 @@ struct LoadedCue {
 }
 
 struct Voice {
-    parameters: Producer<Parameters>,
+    parameters: CommandWriter<Parameters>,
     path: AcousticPath,
+    last_parameters: Parameters,
+    last_direction: Option<Vec3>,
+    dirty_since: Option<std::time::Instant>,
     cached_position: Option<Vec3>,
     cached_listener: Vec3,
     revision: u64,
@@ -379,19 +383,45 @@ pub(super) struct NativeAudio {
     counters: Arc<OutputCounters>,
     scene: AcousticScene,
     room: super::acoustics::RoomResponse,
-    output_parameters: Producer<OutputParameters>,
+    output_parameters: CommandWriter<OutputParameters>,
+    last_output: Option<OutputParameters>,
     acoustic_cursor: usize,
     acoustic_tick: std::time::Instant,
     epoch: u64,
     events: std::collections::VecDeque<super::SoundEvent>,
 }
 
-impl NativeAudio {
-    pub fn load(asset_root: &Path, sdl: &sdl3::Sdl) -> Result<Self, String> {
+pub(super) struct PreparedLibrary {
+    cues: Vec<LoadedCue>,
+    loaded_clips: usize,
+    decoded_bytes: usize,
+}
+
+impl PreparedLibrary {
+    pub fn load(asset_root: &Path, cancelled: &impl Fn() -> bool) -> Result<Self, String> {
+        let mut timing = crate::engine::perf::loading::StageTimer::new("audio-init");
         let catalog = AudioCatalog::load(asset_root)?;
-        let (cues, loaded_clips, decoded_bytes) = load_clips(asset_root, catalog)?;
+        timing.step("catalog");
+        let (cues, loaded_clips, decoded_bytes) = load_clips(asset_root, catalog, cancelled)?;
+        timing.step("clips");
+        Ok(Self {
+            cues,
+            loaded_clips,
+            decoded_bytes,
+        })
+    }
+}
+
+impl NativeAudio {
+    pub fn from_prepared(prepared: PreparedLibrary, sdl: &sdl3::Sdl) -> Result<Self, String> {
+        let PreparedLibrary {
+            cues,
+            loaded_clips,
+            decoded_bytes,
+        } = prepared;
+        let mut timing = crate::engine::perf::loading::StageTimer::new("audio-device");
         let subsystem = sdl.audio().map_err(|error| error.to_string())?;
-        let (output_parameters, output_receiver) = RingBuffer::new(4);
+        let (output_parameters, output_receiver) = command_writer_and_reader();
         let mut manager = AudioManager::<SdlBackend>::new(AudioManagerSettings {
             capacities: Capacities {
                 sub_track_capacity: 0,
@@ -408,6 +438,7 @@ impl NativeAudio {
                 capture: std::env::var("PLACES_AUDIO_CAPTURE").is_ok_and(|value| value == "1"),
             },
         })?;
+        timing.step("SDL-device-and-mixer");
         let counters = Arc::clone(&manager.backend_mut().counters);
         Ok(Self {
             manager,
@@ -425,6 +456,7 @@ impl NativeAudio {
             scene: AcousticScene::default(),
             room: super::acoustics::RoomResponse::default(),
             output_parameters,
+            last_output: None,
             acoustic_cursor: 0,
             acoustic_tick: std::time::Instant::now(),
             epoch: 1,
@@ -478,7 +510,7 @@ impl NativeAudio {
     }
 
     fn start(&mut self, cue_index: usize, request: PlayRequest) -> bool {
-        let Some(_resource_guard) = ResourceGate::try_acquire(&self.counters.resource_gate) else {
+        let Some(resource_guard) = ResourceGate::try_acquire(&self.counters.resource_gate) else {
             return false;
         };
         // Stopped voices remain in Kira until the next device callback. Check
@@ -521,8 +553,14 @@ impl NativeAudio {
             sound = sound.panning(0.0);
         }
         let spatial = request.spatial.unwrap_or(cue.spatial);
+        let direction = kernel_direction(self.mix, request.position);
+        let kernel = select_kernel(direction);
+        self.stats.hrtf_kernel_queries = self
+            .stats
+            .hrtf_kernel_queries
+            .saturating_add(u64::from(direction.is_some()));
         let initial = Parameters::new(
-            &direction_kernel(self.mix, request.position),
+            &kernel,
             spatial && self.mix.settings.spatial_mode == SpatialMode::Headphones,
             AcousticPath::default(),
         );
@@ -535,6 +573,9 @@ impl NativeAudio {
                 *slot = Some(Voice {
                     parameters,
                     path: AcousticPath::default(),
+                    last_parameters: initial,
+                    last_direction: direction,
+                    dirty_since: Some(std::time::Instant::now()),
                     cached_position: None,
                     cached_listener: Vec3::splat(f32::INFINITY),
                     revision: 0,
@@ -558,21 +599,10 @@ impl NativeAudio {
                     .saturating_add(1)
                     .checked_rem(cue.variants.len())
                     .unwrap_or_default();
-                self.stats.played = self.stats.played.saturating_add(1);
-                if self.events.len() == 64 {
-                    let _oldest = self.events.pop_front();
-                }
-                self.events.push_back(super::SoundEvent {
-                    serial: self.stats.played,
-                    source: request.source.map(|source| source.0),
-                    position: request
-                        .position
-                        .unwrap_or(self.mix.listener.position)
-                        .to_array(),
-                    gain: request.gain * cue.gain,
-                    max_distance: request.attenuation.map_or(cue.max_distance, |[_, far]| far),
-                    looping,
-                });
+                let gain = request.gain * cue.gain;
+                let max_distance = request.attenuation.map_or(cue.max_distance, |[_, far]| far);
+                drop(resource_guard);
+                self.record_play(request, gain, max_distance, looping);
                 true
             }
             Err(_capacity_error) => {
@@ -580,6 +610,24 @@ impl NativeAudio {
                 false
             }
         }
+    }
+
+    fn record_play(&mut self, request: PlayRequest, gain: f32, max_distance: f32, looping: bool) {
+        self.stats.played = self.stats.played.saturating_add(1);
+        if self.events.len() == 64 {
+            let _oldest = self.events.pop_front();
+        }
+        self.events.push_back(super::SoundEvent {
+            serial: self.stats.played,
+            source: request.source.map(|source| source.0),
+            position: request
+                .position
+                .unwrap_or(self.mix.listener.position)
+                .to_array(),
+            gain,
+            max_distance,
+            looping,
+        });
     }
 
     const fn reject(&mut self) -> bool {
@@ -636,10 +684,21 @@ impl NativeAudio {
         self.scene = scene;
         for voice in self.voices.iter_mut().flatten() {
             voice.revision = 0;
+            let _dirty = voice
+                .dirty_since
+                .get_or_insert_with(std::time::Instant::now);
         }
     }
     pub fn update_doors(&mut self, doors: &crate::engine::door::Doors) {
+        let revision = self.scene.revision;
         self.scene.update_doors(doors);
+        if revision != self.scene.revision {
+            for voice in self.voices.iter_mut().flatten() {
+                let _dirty = voice
+                    .dirty_since
+                    .get_or_insert_with(std::time::Instant::now);
+            }
+        }
     }
     fn update_acoustics(&mut self) {
         let started = std::time::Instant::now();
@@ -660,6 +719,11 @@ impl NativeAudio {
                     .cached_listener
                     .distance_squared(self.mix.listener.position)
                     > 0.0025;
+            if voice.spatial && dirty {
+                let _dirty = voice.dirty_since.get_or_insert(started);
+            } else {
+                voice.dirty_since = None;
+            }
             if voice.spatial && dirty && budget > 0 {
                 voice.path = voice
                     .position
@@ -669,6 +733,11 @@ impl NativeAudio {
                 voice.cached_position = voice.position;
                 voice.cached_listener = self.mix.listener.position;
                 voice.revision = self.scene.revision;
+                if let Some(since) = voice.dirty_since.take() {
+                    let age =
+                        u64::try_from(started.duration_since(since).as_nanos()).unwrap_or(u64::MAX);
+                    self.stats.max_path_wait_nanos = self.stats.max_path_wait_nanos.max(age);
+                }
                 self.stats.acoustic_queries = self.stats.acoustic_queries.saturating_add(1);
                 self.stats.acoustic_budget_exhausted = self
                     .stats
@@ -680,14 +749,27 @@ impl NativeAudio {
             if !geometry_due {
                 continue;
             }
+            let direction = kernel_direction(self.mix, voice.position);
+            let kernel = if direction == voice.last_direction {
+                voice.last_parameters.kernel
+            } else {
+                self.stats.hrtf_kernel_queries = self
+                    .stats
+                    .hrtf_kernel_queries
+                    .saturating_add(u64::from(direction.is_some()));
+                select_kernel(direction)
+            };
             let parameters = Parameters::new(
-                &direction_kernel(self.mix, voice.position),
+                &kernel,
                 voice.spatial && self.mix.settings.spatial_mode == SpatialMode::Headphones,
                 voice.path,
             );
-            if voice.parameters.push(parameters).is_err() {
-                self.stats.parameter_queue_full = self.stats.parameter_queue_full.saturating_add(1);
+            if parameters != voice.last_parameters {
+                voice.parameters.write(parameters);
+                voice.last_parameters = parameters;
+                self.stats.parameter_updates = self.stats.parameter_updates.saturating_add(1);
             }
+            voice.last_direction = direction;
         }
         if geometry_due {
             self.room = self.scene.room_at(self.mix.listener.position);
@@ -698,16 +780,15 @@ impl NativeAudio {
         } else {
             self.mix.settings.master_volume
         };
-        if self
-            .output_parameters
-            .push(OutputParameters {
-                room,
-                gain,
-                epoch: self.epoch,
-            })
-            .is_err()
-        {
-            self.stats.parameter_queue_full = self.stats.parameter_queue_full.saturating_add(1);
+        let output = OutputParameters {
+            room,
+            gain,
+            epoch: self.epoch,
+        };
+        if self.last_output != Some(output) {
+            self.output_parameters.write(output);
+            self.last_output = Some(output);
+            self.stats.output_control_updates = self.stats.output_control_updates.saturating_add(1);
         }
         self.stats.acoustic_update_nanos = self
             .stats
@@ -725,6 +806,11 @@ impl NativeAudio {
             .flatten()
             .filter(|voice| voice.source == Some(source))
         {
+            if voice.position != Some(position) {
+                let _dirty = voice
+                    .dirty_since
+                    .get_or_insert_with(std::time::Instant::now);
+            }
             voice.position = Some(position);
             update_voice(voice, self.mix);
         }
@@ -798,6 +884,11 @@ impl NativeAudio {
                 continue;
             };
             if let Some(position) = resolve(source).filter(|position| valid_position(*position)) {
+                if voice.position != Some(position) {
+                    let _dirty = voice
+                        .dirty_since
+                        .get_or_insert_with(std::time::Instant::now);
+                }
                 voice.position = Some(position);
                 update_voice(voice, self.mix);
             } else {
@@ -849,6 +940,20 @@ impl NativeAudio {
 
     pub fn stats(&self) -> AudioStats {
         AudioStats {
+            stale_paths: self
+                .voices
+                .iter()
+                .flatten()
+                .filter(|voice| voice.dirty_since.is_some())
+                .count(),
+            oldest_stale_path_nanos: self
+                .voices
+                .iter()
+                .flatten()
+                .filter_map(|voice| voice.dirty_since)
+                .map(|since| u64::try_from(since.elapsed().as_nanos()).unwrap_or(u64::MAX))
+                .max()
+                .unwrap_or_default(),
             acoustic_surfaces: self.scene.counts()[0],
             acoustic_nodes: self.scene.counts()[1],
             active_voices: self
@@ -1016,9 +1121,9 @@ fn unmastered(amplitude: f32, settings: AudioSettings) -> f32 {
         amplitude / settings.master_volume
     }
 }
-fn direction_kernel(mix: Mix, position: Option<Vec3>) -> hrtf::Kernel {
+fn kernel_direction(mix: Mix, position: Option<Vec3>) -> Option<Vec3> {
     if mix.settings.spatial_mode == SpatialMode::Speakers {
-        return [kira::Frame::ZERO; hrtf::TAPS];
+        return None;
     }
     let direction = position
         .map(|point| {
@@ -1030,11 +1135,14 @@ fn direction_kernel(mix: Mix, position: Option<Vec3>) -> hrtf::Kernel {
         })
         .and_then(Vec3::try_normalize)
         .unwrap_or(mix.listener.forward);
-    hrtf::kernel(Vec3::new(
+    Some(Vec3::new(
         direction.dot(mix.right),
         direction.dot(mix.listener.up),
         direction.dot(mix.listener.forward),
     ))
+}
+fn select_kernel(direction: Option<Vec3>) -> hrtf::Kernel {
+    direction.map_or([kira::Frame::ZERO; hrtf::TAPS], hrtf::kernel)
 }
 fn world_paused(mix: Mix, domain: TimeDomain) -> bool {
     mix.paused || (domain == TimeDomain::World && mix.world_scale <= 0.0)
@@ -1142,6 +1250,7 @@ fn spatial_mix(
 fn load_clips(
     asset_root: &Path,
     catalog: AudioCatalog,
+    cancelled: &impl Fn() -> bool,
 ) -> Result<(Vec<LoadedCue>, usize, usize), String> {
     let root = fs::canonicalize(asset_root.join("audio")).map_err(|error| error.to_string())?;
     let mut cache: Vec<(PathBuf, StaticSoundData, u16)> = Vec::new();
@@ -1150,6 +1259,9 @@ fn load_clips(
     for cue in catalog.cues {
         let mut variants = Vec::with_capacity(cue.files.len());
         for file in &cue.files {
+            if cancelled() {
+                return Err("Audio preparation cancelled".into());
+            }
             let path =
                 fs::canonicalize(root.join(file)).map_err(|error| format!("{file}: {error}"))?;
             if !path.starts_with(&root) {
@@ -1195,6 +1307,9 @@ fn load_clips(
             min_distance: cue.min_distance,
             max_distance: cue.max_distance,
         });
+    }
+    if cancelled() {
+        return Err("Audio preparation cancelled".into());
     }
     Ok((cues, cache.len(), decoded_bytes))
 }

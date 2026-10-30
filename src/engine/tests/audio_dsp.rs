@@ -2,7 +2,7 @@
 //! processes four seconds with five fixed delay lines; no assets or devices.
 use super::*;
 #[test]
-fn room_tail_contrast_mute_and_epoch_retirement_are_bounded() -> Result<(), String> {
+fn room_tail_contrast_mute_and_epoch_retirement_are_bounded() {
     let coefficients = crate::engine::audio::hrtf::kernel(glam::Vec3::X);
     let history: [f32; TAPS] =
         std::array::from_fn(|index| f32::from(u16::try_from(index).unwrap_or_default()).sin());
@@ -22,36 +22,33 @@ fn room_tail_contrast_mute_and_epoch_retirement_are_bounded() -> Result<(), Stri
             && (actual.right - expected_right).abs() < 1.0e-5,
         "SIMD must preserve all measured taps, ear ordering and history direction"
     );
-    let render = |decay: f32,
-                  damping: f32|
-     -> Result<(RoomEffect, Producer<OutputParameters>, Vec<f32>), String> {
-        let (mut sender, receiver) = RingBuffer::new(4);
-        let room = RoomResponse {
-            wet: 0.4,
-            decay_seconds: decay,
-            damping,
-            size: [8.0, 3.0, 10.0],
-        };
-        sender
-            .push(OutputParameters {
+    let render =
+        |decay: f32, damping: f32| -> (RoomEffect, CommandWriter<OutputParameters>, Vec<f32>) {
+            let (mut sender, receiver) = command_writer_and_reader();
+            let room = RoomResponse {
+                wet: 0.4,
+                decay_seconds: decay,
+                damping,
+                size: [8.0, 3.0, 10.0],
+            };
+            sender.write(OutputParameters {
                 room,
                 gain: 1.0,
                 epoch: 1,
-            })
-            .map_err(|error| error.to_string())?;
-        let mut effect = RoomEffect::new(receiver);
-        effect.begin();
-        let mut warmup = vec![0.0_f32; 48_000];
-        effect.process(&mut warmup);
-        let mut samples = vec![0.0_f32; 192_000];
-        if let Some(sample) = samples.first_mut() {
-            *sample = 1.0;
-        }
-        effect.process(&mut samples);
-        Ok((effect, sender, samples))
-    };
-    let (_, _, office) = render(0.15, 0.8)?;
-    let (mut effect, mut sender, pool) = render(2.5, 0.08)?;
+            });
+            let mut effect = RoomEffect::new(receiver);
+            effect.begin();
+            let mut warmup = vec![0.0_f32; 48_000];
+            effect.process(&mut warmup);
+            let mut samples = vec![0.0_f32; 192_000];
+            if let Some(sample) = samples.first_mut() {
+                *sample = 1.0;
+            }
+            effect.process(&mut samples);
+            (effect, sender, samples)
+        };
+    let (_, _, office) = render(0.15, 0.8);
+    let (mut effect, mut sender, pool) = render(2.5, 0.08);
     let tail_energy = |samples: &[f32]| {
         samples
             .get(48_000..)
@@ -64,13 +61,18 @@ fn room_tail_contrast_mute_and_epoch_retirement_are_bounded() -> Result<(), Stri
         tail_energy(&pool) > tail_energy(&office) * 10.0,
         "reflective room must retain a measurable late tail beyond the dry office"
     );
-    sender
-        .push(OutputParameters {
-            gain: 0.0,
+    for index in 0_u16..128 {
+        sender.write(OutputParameters {
+            gain: f32::from(index) / 128.0,
             epoch: 1,
             ..OutputParameters::default()
-        })
-        .map_err(|error| error.to_string())?;
+        });
+    }
+    sender.write(OutputParameters {
+        gain: 0.0,
+        epoch: 1,
+        ..OutputParameters::default()
+    });
     effect.begin();
     let mut muted = vec![0.0_f32; 24_000];
     effect.process(&mut muted);
@@ -80,15 +82,13 @@ fn room_tail_contrast_mute_and_epoch_retirement_are_bounded() -> Result<(), Stri
             .unwrap_or_default()
             .iter()
             .all(|value| value.abs() < 1.0e-6),
-        "master mute must also silence the existing effect tail"
+        "latest master mute must survive rapid distinct controls and silence the existing effect tail"
     );
-    sender
-        .push(OutputParameters {
-            gain: 1.0,
-            epoch: 2,
-            ..OutputParameters::default()
-        })
-        .map_err(|error| error.to_string())?;
+    sender.write(OutputParameters {
+        gain: 1.0,
+        epoch: 2,
+        ..OutputParameters::default()
+    });
     effect.begin();
     let mut cleared = vec![0.0_f32; 24_000];
     effect.process(&mut cleared);
@@ -96,7 +96,6 @@ fn room_tail_contrast_mute_and_epoch_retirement_are_bounded() -> Result<(), Stri
         cleared.iter().all(|value| value.abs() < f32::EPSILON),
         "a new world epoch must retire every old delay sample"
     );
-    Ok(())
 }
 
 // A finite impulse at the very end of a block used to retire the wrapped sound

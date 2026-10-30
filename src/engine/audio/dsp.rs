@@ -1,12 +1,12 @@
 //! Fixed storage DSP over Kira's existing preloaded sound and handle lifecycle.
 use super::acoustics::{AcousticPath, RoomResponse};
 use super::hrtf::{Kernel, TAPS};
+use kira::command::{CommandReader, CommandWriter, command_writer_and_reader};
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::sound::{Sound, SoundData};
 use kira::{Frame, info::Info};
-use rtrb::{Consumer, Producer, RingBuffer};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub(super) struct Parameters {
     pub kernel: Kernel,
     pub binaural: f32,
@@ -29,14 +29,14 @@ impl Parameters {
 }
 pub(super) struct SpatialData {
     data: StaticSoundData,
-    receiver: Consumer<Parameters>,
+    receiver: CommandReader<Parameters>,
     initial: Parameters,
 }
 pub(super) fn spatial(
     data: StaticSoundData,
     initial: &Parameters,
-) -> (SpatialData, Producer<Parameters>) {
-    let (sender, receiver) = RingBuffer::new(2);
+) -> (SpatialData, CommandWriter<Parameters>) {
+    let (sender, receiver) = command_writer_and_reader();
     (
         SpatialData {
             data,
@@ -69,7 +69,7 @@ impl SoundData for SpatialData {
 }
 struct SpatialSound {
     inner: Box<dyn Sound>,
-    receiver: Consumer<Parameters>,
+    receiver: CommandReader<Parameters>,
     current: Parameters,
     target: Parameters,
     history: [f32; TAPS * 2],
@@ -81,17 +81,14 @@ struct SpatialSound {
 impl Sound for SpatialSound {
     fn on_start_processing(&mut self) {
         self.inner.on_start_processing();
-        for _ in 0_u8..2 {
-            if let Ok(value) = self.receiver.pop() {
-                if self.target.kernel != value.kernel {
-                    self.ramp = 576;
-                }
-                self.target = value;
-            } else {
-                break;
+        if let Some(value) = self.receiver.read() {
+            if self.target.kernel != value.kernel {
+                self.ramp = 576;
             }
+            self.target = value;
         }
     }
+
     fn process(&mut self, out: &mut [Frame], dt: f64, info: &Info) {
         self.inner.process(out, dt, info);
         if out.iter().all(|frame| digital_zero(*frame)) {
@@ -170,7 +167,7 @@ impl Sound for SpatialSound {
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, PartialEq)]
 pub(super) struct OutputParameters {
     pub room: RoomResponse,
     pub gain: f32,
@@ -248,13 +245,13 @@ impl Comb {
 pub(super) struct RoomEffect {
     lines: [Comb; 4],
     early: Comb,
-    receiver: Consumer<OutputParameters>,
+    receiver: CommandReader<OutputParameters>,
     current: OutputParameters,
     target: OutputParameters,
     gain_ramp: u16,
 }
 impl RoomEffect {
-    pub fn new(receiver: Consumer<OutputParameters>) -> Self {
+    pub fn new(receiver: CommandReader<OutputParameters>) -> Self {
         Self {
             lines: std::array::from_fn(|_| Comb::new()),
             early: Comb::new(),
@@ -265,10 +262,7 @@ impl RoomEffect {
         }
     }
     pub fn begin(&mut self) {
-        for _ in 0_u8..4 {
-            let Ok(value) = self.receiver.pop() else {
-                break;
-            };
+        if let Some(value) = self.receiver.read() {
             if value.epoch != self.target.epoch {
                 for line in &mut self.lines {
                     line.clear();
@@ -281,6 +275,7 @@ impl RoomEffect {
             self.target = value;
         }
     }
+
     pub fn process(&mut self, samples: &mut [f32]) {
         let shape = self.target.room.size;
         let delays = [

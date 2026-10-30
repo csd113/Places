@@ -589,6 +589,54 @@ impl Actions {
         Ok(())
     }
 
+    pub const fn owns_event(&self, event: &Event) -> bool {
+        if let Event::User {
+            type_,
+            timestamp: _,
+            window_id: _,
+            code: _,
+            data1: _,
+            data2: _,
+        } = event
+        {
+            *type_ == self.event_type
+        } else {
+            false
+        }
+    }
+
+    /// Only window controls run before data preparation; other bounded script
+    /// slots remain unacknowledged until the ordinary frame loop handles them.
+    pub fn receive_bootstrap(&self, event: &Event) -> Option<Received> {
+        let Event::User {
+            type_,
+            code,
+            timestamp: _,
+            window_id: _,
+            data1: _,
+            data2: _,
+        } = event
+        else {
+            return None;
+        };
+        if *type_ != self.event_type {
+            return None;
+        }
+        let slot = self.slots.get(usize::try_from(*code).ok()?)?;
+        if matches!(
+            slot.step.action,
+            Action::Quit {}
+                | Action::Resize {
+                    width: _,
+                    height: _
+                }
+        ) {
+            self.receive(event)
+        } else {
+            None
+        }
+    }
+
     /// Call from `handle_event`, before ordinary gameplay/menu event handling.
     pub fn receive(&self, event: &Event) -> Option<Received> {
         let Event::User {

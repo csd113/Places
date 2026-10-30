@@ -139,7 +139,7 @@ impl Default for AcousticPath {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Serialize, PartialEq)]
 pub struct RoomResponse {
     pub wet: f32,
     pub decay_seconds: f32,

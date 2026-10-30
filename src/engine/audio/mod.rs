@@ -187,6 +187,14 @@ impl Default for AudioSettings {
 /// Bounded diagnostic counters; obtaining a snapshot never touches a device.
 #[derive(Clone, Copy, Debug, Default, Serialize)]
 pub struct AudioStats {
+    /// Actual selections, excluding exact cached local directions and speakers.
+    pub hrtf_kernel_queries: u64,
+    pub parameter_updates: u64,
+    pub output_control_updates: u64,
+    /// Wall-clock dirty-path observations, never a promised latency bound.
+    pub stale_paths: usize,
+    pub oldest_stale_path_nanos: u64,
+    pub max_path_wait_nanos: u64,
     pub acoustic_queries: u64,
     pub acoustic_budget_exhausted: u64,
     pub acoustic_surfaces: usize,
@@ -269,6 +277,12 @@ pub struct SoundEvent {
     pub looping: bool,
 }
 
+/// Device-free library ownership, transferable to the existing preparation worker.
+pub struct PreparedAudio {
+    #[cfg(not(target_arch = "wasm32"))]
+    native: Option<native::PreparedLibrary>,
+}
+
 /// Reusable audio owner. Dropping it closes the stream before decoded data.
 pub struct AudioSystem {
     #[cfg(not(target_arch = "wasm32"))]
@@ -277,21 +291,45 @@ pub struct AudioSystem {
 }
 
 impl AudioSystem {
-    /// Initializes and preloads `asset_root/audio/catalog.json` during loading.
-    /// Device/library failure and `PLACES_AUDIO_DISABLE=1` produce silent audio.
-    #[must_use]
-    pub fn new(asset_root: &Path, sdl: &sdl3::Sdl) -> Self {
+    /// Validates/decodes the bounded shared library without SDL or a device.
+    /// Cancellation is checked between files; dropping the result releases its samples.
+    /// # Errors
+    /// Returns invalid content, I/O or cooperative cancellation errors.
+    pub fn prepare(
+        asset_root: &Path,
+        cancelled: impl Fn() -> bool,
+    ) -> Result<PreparedAudio, String> {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            if std::env::var("PLACES_AUDIO_DISABLE").is_ok_and(|value| value == "1") {
-                return Self {
-                    native: None,
-                    fallback_stats: AudioStats::default(),
-                };
-            }
-            match native::NativeAudio::load(asset_root, sdl) {
-                Ok(audio) => Self {
-                    native: Some(Box::new(audio)),
+            let native = if std::env::var("PLACES_AUDIO_DISABLE").as_deref() == Ok("1") {
+                None
+            } else {
+                Some(native::PreparedLibrary::load(asset_root, &cancelled)?)
+            };
+            Ok(PreparedAudio { native })
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let _ = (asset_root, cancelled);
+            Ok(PreparedAudio {})
+        }
+    }
+
+    /// Initializes SDL playback on the device-owning thread from prepared data.
+    /// Device/library failure produces the existing graceful silent fallback.
+    #[must_use]
+    pub fn from_prepared(prepared: Result<PreparedAudio, String>, sdl: &sdl3::Sdl) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let result = prepared.and_then(|library| {
+                library
+                    .native
+                    .map(|data| native::NativeAudio::from_prepared(data, sdl))
+                    .transpose()
+            });
+            match result {
+                Ok(native) => Self {
+                    native: native.map(Box::new),
                     fallback_stats: AudioStats::default(),
                 },
                 Err(error) => {
@@ -311,11 +349,17 @@ impl AudioSystem {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            let _ = (asset_root, sdl);
+            let _ = (prepared, sdl);
             Self {
                 fallback_stats: AudioStats::default(),
             }
         }
+    }
+
+    /// Synchronous convenience for editor/offline callers that already own loading.
+    #[must_use]
+    pub fn new(asset_root: &Path, sdl: &sdl3::Sdl) -> Self {
+        Self::from_prepared(Self::prepare(asset_root, || false), sdl)
     }
 
     /// Plays an already decoded cue. Returns false for a rejected/silent request.

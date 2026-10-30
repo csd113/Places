@@ -38,7 +38,7 @@ pub struct LevelManager {
     entries: Vec<LevelEntry>,
     menu_entries: Vec<LevelEntry>,
     menu_images: RefCell<MenuImageCache>,
-    prop_catalog: PropCatalog,
+    prop_catalog: Arc<PropCatalog>,
     /// Decoded texture images shared across level loads (one decode per
     /// logical texture per session).
     texture_cache: RefCell<TextureCache>,
@@ -65,11 +65,26 @@ impl LevelManager {
             entries: Vec::new(),
             menu_entries: Vec::new(),
             menu_images: RefCell::new(std::collections::BTreeMap::new()),
-            prop_catalog: PropCatalog::load_default(),
+            prop_catalog: Arc::new(PropCatalog::load_default()),
             texture_cache: RefCell::new(TextureCache::new()),
         };
         manager.refresh();
         manager
+    }
+
+    /// Independent mutable discovery/image caches over one immutable catalog.
+    /// Bootstrap needs UI and worker handles, never a second catalog read.
+    pub(crate) fn fork_for_loading(&self) -> Self {
+        Self {
+            assets_dir: self.assets_dir.clone(),
+            levels_dir: self.levels_dir.clone(),
+            import_dir: self.import_dir.clone(),
+            entries: self.entries.clone(),
+            menu_entries: self.menu_entries.clone(),
+            menu_images: RefCell::new(std::collections::BTreeMap::new()),
+            prop_catalog: Arc::clone(&self.prop_catalog),
+            texture_cache: RefCell::new(TextureCache::new()),
+        }
     }
 
     /// Every installed member, including internal maps hidden from Explore.
@@ -162,12 +177,12 @@ impl LevelManager {
 
     /// Refreshes authoring metadata before a new explicit disk load.
     pub(crate) fn refresh_catalog(&mut self) {
-        self.prop_catalog = PropCatalog::load_default();
+        self.prop_catalog = Arc::new(PropCatalog::load_default());
     }
 
     /// Prop catalog used to resolve placed props.
     #[must_use]
-    pub const fn prop_catalog(&self) -> &PropCatalog {
+    pub fn prop_catalog(&self) -> &PropCatalog {
         &self.prop_catalog
     }
 
@@ -372,7 +387,7 @@ impl LevelManager {
         let light_sheets = self.resolve_level_fixture_sheets(&level, None, &materials)?;
         Ok(LoadedLevel {
             project_id: opened.project_id,
-            catalog: Arc::new(self.prop_catalog.clone()),
+            catalog: Arc::clone(&self.prop_catalog),
             level,
             materials,
             light_sheets,

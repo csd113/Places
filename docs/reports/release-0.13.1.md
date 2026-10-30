@@ -1186,3 +1186,182 @@ none is silently declared current or republished here. Native acceptance is
 Windows only; hosted source/build CI does not establish Mac native validation.
 The unrelated menu scene remains byte-identical to the task's initial dirty file
 and unstaged. Evidence/binaries are preserved outside target before cleanup.
+
+
+## Audio controls, resource lifetimes and shared startup preparation (Windows, 30 October 2026)
+
+This bounded phase fixes lost final audio controls under game-thread update bursts,
+caches exactly equal HRTF directions/parameters, and shares startup preparation with
+the existing persistent level worker. The spatial/acoustic/HRTF system already
+existed. DSP filters/taps, cue selection, 48 voice slots, pending replacement policy,
+eight path queries per >=20 ms update and the 64 MiB decoded budget are retained.
+
+### Implementation and frozen method
+
+One owned `places-prepare` worker now discovers the catalog/packages, derives menu
+metadata and validates/decodes the cue library before serving ordinary world loads.
+UI and worker manager snapshots share one immutable catalog; the second catalog
+and package-discovery pass is removed. The cue owner moves through one bounded
+startup result. SDL audio/device creation and destruction, window/input, GPU device,
+uploads and presentation stay on their existing owning thread. Preparation checks
+cancellation between units/files; quit/error paths cancel and join the worker while
+pumping events. The existing world-pipeline worker begins during bootstrap and is
+reused by the frame loop. Editor/offline audio keeps its synchronous convenience
+constructor. No additional audio manager, worker pool, callback decoder or callback I/O.
+
+The measured reference constructor spent 2571.157 ms in catalog/discovery,
+2554.982 ms repeating it, 1170.887 ms in menu metadata, and 172.638 ms in audio:
+catalog 6.220, clips 53.010, SDL/device/mixer 111.734 ms. The matching candidate
+smoke attributes 2700.393 ms to worker catalog/discovery, 0.031 ms to its shared
+snapshot, 1183.292 ms to menu metadata, 58.919 ms to cue preparation and 110.334 ms
+to main-thread audio/device creation. These are owner/stage wall observations,
+including concurrent pipeline work. The startup gain is not credited to decode alone.
+
+Source reference is local `4dab496dff271ce24f4e75ab54631526455b5574`, branch
+`0.13.1-dev`. Evidence/binaries/recipes and every sample are outside `target` at
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-30/task-4/audio-evidence/` (`A`).
+`A/baseline-bin`, `reference-bin`, `candidate-bin`, `analysis.json`, identity files,
+logs and process CPU/RSS/private samples preserve the experiment. Final player
+SHA-256 is `69440541b53fe8d57fc7fa34d0b225a10ea98723ecfa95cf0063229d981e6cb1`; final explicit audio-audit tool is
+`aa3d608d39654c2388bd34c8763b48b2480a0aa89c46fc352f79e48f7a242983`. Exact baseline identities are in `baseline.json`.
+Only the explicit sustained harness was corrected after the matched cohort;
+`final-probe-identity.json` proves every production executable except that developer
+tool stayed byte-identical. Its earlier measured tool and failed receipt remain
+under `pre-soak-repair-bin` and `candidate-stressed-sustained`. Final-hash control,
+reload, ordinary audit and sustained checks all pass.
+
+Windows/Razer, Ryzen 9 5900HX, RTX 3070 Laptop/DX12, Rust/Cargo 1.99.1. Native WASAPI
+reports the Realtek/THX default output at actual 48000 Hz, stereo, 512 buffer frames.
+Fresh processes have separate state/config/cache roots and identical copied/hardlinked
+input packages. OS/driver caches are not purged. Three pairs alternate B/C, C/B, B/C
+at Normal priority with no builds/bakes or other task-native workload during timing.
+Startup uses actual 960x600, High/Full, VSync/Fifo; these are responsiveness and
+readiness measurements, with no uncapped FPS claim. Process-to-ready observation
+brackets are about 200 ms; `entry` tracing begins after initial installation validation.
+
+### Matched startup and audio costs
+
+Values below are medians of three process runs; complete ranges/samples remain in A.
+
+| Startup measurement | Reference | Candidate |
+| --- | ---: | ---: |
+| Entry to first event pump | 8224.869 ms | 24.869 ms |
+| Entry to first loading presentation | 8567.268 ms | 1544.920 ms |
+| Entry to ready | 17756.011 ms | 10875.499 ms |
+| Observed process-to-ready upper endpoint | 17.955 s | 11.106 s |
+| Longest gap after frame-loop entry | 340.270 ms | 126.702 ms |
+| Whole process CPU, including the short ready interval | 19.516 s | 16.703 s |
+
+Entry-to-ready improves 38.75%. Candidate first pumps range
+23.398-111.166 ms.
+The initial adapter/device/bootstrap gap still reaches 1054-1182 ms (median1078 ms).
+The reference's pump-gap series begins only after its ~8.2 s initial delay; the
+new bootstrap series exposes this earlier device gap. It must not be confused
+with post-frame-loop gaps or the previously accepted world-pipeline improvement.
+Functional Home/Beam transitions still show 666-672 ms frame-loop gaps; those
+transitions are state/ownership checks, not a matched timing gain or regression.
+
+Each quiet audio process performs 32 actual-device cycles, including 24 full
+48-voice intervals, moving sources/orientation, restart pressure, mute and pause.
+There are 36 full-capacity intervals per mode per side across the three processes.
+Mixer timing covers renderer/room processing and excludes command/admission
+boundaries (`on_start_processing`), SDL submission and capture. It is wall time,
+not full-callback CPU. Whole diagnostic CPU includes output/harness work. Full
+callback-boundary/submission attribution remains in the queued DSP work.
+
+| Full 48-voice mode | Main acoustic update, reference -> candidate | Timed mixer ms per PCM second, reference -> candidate |
+| --- | ---: | ---: |
+| Stereo | 7.561 -> 5.453 us | 169.399 -> 169.491 |
+| HRTF | 29.472 -> 6.147 us | 283.192 -> 281.071 |
+
+Exact direction/parameter caching reduces the HRTF main-thread component about 79%.
+No general callback throughput, process-CPU or tail improvement is established:
+whole diagnostic CPU medians are 18.172 -> 18.438 s,
+and the largest quiet observed mixer block is 4.989 -> 5.823 ms.
+Nine request-to-native-tap trials per mode/side give play medians/maxima of stereo
+3.297/10.881 -> 2.671/10.816 ms and HRTF 3.698/4.069 -> 2.791/4.721 ms.
+Mute-to-confirmed-10ms-silence medians/maxima are stereo 28.995/30.144 -> 29.768/30.792
+and HRTF 28.983/30.397 -> 29.734/31.455 ms. These finite observations exclude physical
+DAC/driver transport and do not establish a percentile/deadline guarantee.
+
+### Freshness, ownership and final native checks
+
+The reference control probe fills the old output FIFO with unchanged updates,
+then requests mute and stalls the game thread for 100 ms. All 16 trials retain a
+nonzero trailing 20 ms room tail; 2000 full-control-queue events are recorded.
+Kira's existing bounded latest-value command channel now carries
+room/gain/epoch and spatial targets, so newer state replaces unread older state.
+The existing DSP ramp/tail implementation remains. Both candidate and final-hash
+probes deliver 16/16 mutes, with exact trailing silence and no full-control events.
+The existing device-free room regression now includes 128 distinct controls followed
+by mute before one callback boundary. There are no new dependencies/unsafe blocks.
+
+Forty-eight joined preparation/device reloads per campaign exercise real full
+capacity, 48 pending replacement starts, scene clear, cancel/retirement and unload.
+Final unloaded Rust bytes remain exactly 82,924 for all 48 cycles, including fixed
+harness storage. Shared cues stay at 66 clips/43,409,440 decoded bytes across scene
+clear; voice/pending/scene counters clear, and unload closes/synchronizes the stream
+and releases clip/decode owners. A tiny two-file/Weak regression proves cancellation
+permits restart and dropping an undelivered library releases its sample ownership.
+
+The source-position stall witness holds 48 dirty positions for 150 ms, observes their actual
+age, then takes another ~153 ms to refresh all paths with 25 ms polls. A second scene
+replacement matches its current material path exactly. New dirty-age/max-wait
+counters report wall time; six round-robin opportunities are never a latency promise.
+
+The completed final-hash run lasts 600.320 s: 300 s stereo and 300 s HRTF,
+48 continuously active looping voices each, ~14.399 million mixed frames per mode
+and nonzero native PCM. All sampled Rust live heap values are exactly
+45,416,505 bytes, including preallocated harness records.
+The mode change begins with 48 pending starts and settles in
+21.741 ms. Callback Rust allocations/frees and mixer/SDL
+submission errors are zero; the observed cumulative mixer maximum is 6.292 ms.
+The earlier 300 s attempt failed the harness's immediate active-voice assertion
+at the mode change. It is preserved and excluded from completed-soak acceptance.
+The repaired tool waits for the existing pending/retired boundary and saves each mode.
+
+Matched initial native Rust ownership increases by 55,472 bytes (~54.2 KiB) for
+the caches; latest-value controls have three fixed values instead of the old
+two-value per-voice FIFO. No general process-memory reduction is claimed. After
+ordinary harness cleanup, reference 6244 versus candidate 6245 total bytes reduce to
+the same **5968 net bytes** after subtracting the differing pre-audio path/harness
+baseline. The fixed residual is still unattributed, not a demonstrated leak or fix.
+Rust counters exclude SDL/C/driver allocations; process peaks are separate observations.
+
+Integrated final-player checks pass for early quit at 20/3000 ms, mode/mute settings,
+Aero -> Home -> Beam loads, pending load cancellation/restart, missing/corrupt packages
+and dismissal, and actual unavailable-device silent fallback while the world remains
+playable. Separate invalid catalog, invalid WAV, missing library, disabled audio and
+unavailable-device probes all release library/voice owners and report expected fallback.
+Fixed ready-frame 30, actual 960x600 High/Full reference/final world PNGs are byte/pixel
+identical and inspected (`native-pixels-v2-*`). One view does not cover every map.
+
+Strict debug/release all-target/all-feature Clippy, locked release workspace build,
+format, 402 Rust tests, 372 Python tests (18 expected skips), audio asset `--check`
+and patch whitespace pass. Final harness-only changes reran strict gates/build/tests;
+production hashes stayed unchanged. No ordinary test bakes a full shipped map.
+Existing packages load normally; no currency rule was weakened and no production
+map/package was rebaked. Final packaging still needs the current source after the
+remaining engine queue. Native acceptance is Windows only. Physical hotplug, physical
+latency, subjective room/speaker/headphone localization and native Linux remain open;
+Mac validation stays explicitly deferred. Ten minutes does not establish multi-hour
+or all-map acceptance.
+
+### Local queue, publication hold and custody
+
+`A/implementation-queue-drafts.json` contains three deduplicated implementation items:
+shared metadata/pollable main-device and cold-commit preparation (#28/#29), exact
+residual/native owner attribution (#27/#32), and bounded wall-time freshness/world-clear
+publication/DSP work (#28/#32). Clear followed by no further main-thread update is
+an explicit follow-on witness, including correct finite-source tail policy. Physical
+and subjective acceptance remains under existing issues; this phase does not close #32.
+`A/github-update-drafts.md` is local reviewable reconciliation text.
+
+No push, GitHub issue/comment/status write, tag, release or main merge was attempted.
+The ancestor `4dab496` push and compiler issue/#30 writes remain denied/pending the
+parent's fresh user decision; no descendant push or alternate route bypassed that hold.
+The original dirty, unstaged menu scene remains SHA-256
+`93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.
+Final source/patch/production binaries and raw evidence are preserved outside target.
+`A/handoff.json` records the local commit, final process witness and one final cargo
+clean receipt. Build/native/write custody is released only with that final handoff.
