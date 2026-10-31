@@ -1103,10 +1103,19 @@ fn environment_layout_with_buffer(
                 count: None,
             },
             // One `texture_2d_array` of layer pairs: the vertex's page byte and
-            // the uniform's group counts select the pair. Binding 2 is
-            // intentionally absent (the second page texture used to live
-            // there).
+            // the uniform's group counts select a logical pair. Binding 2
+            // maps it to immutable physical storage for every world pipeline.
             texture(1, wgpu::TextureViewDimension::D2Array),
+            wgpu::BindGroupLayoutEntry {
+                binding: 2,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: wgpu::BufferSize::new(super::lightmap::PAIR_LOOKUP_BYTES),
+                },
+                count: None,
+            },
             wgpu::BindGroupLayoutEntry {
                 binding: 3,
                 visibility: wgpu::ShaderStages::FRAGMENT,
@@ -1167,7 +1176,7 @@ pub fn environment_bind_group(
     device: &wgpu::Device,
     layout: &wgpu::BindGroupLayout,
     uniform: &wgpu::Buffer,
-    lightmap_pages: &wgpu::TextureView,
+    lightmaps: &super::lightmap::LightmapAtlas,
     lightmap_sampler: &wgpu::Sampler,
     probe: &wgpu::TextureView,
     planar: &wgpu::TextureView,
@@ -1185,7 +1194,11 @@ pub fn environment_bind_group(
             },
             wgpu::BindGroupEntry {
                 binding: 1,
-                resource: wgpu::BindingResource::TextureView(lightmap_pages),
+                resource: wgpu::BindingResource::TextureView(lightmaps.view()),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: lightmaps.lookup().as_entire_binding(),
             },
             wgpu::BindGroupEntry {
                 binding: 3,

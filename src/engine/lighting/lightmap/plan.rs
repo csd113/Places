@@ -146,7 +146,7 @@ impl LevelLightmaps {
     /// Base pages occupy `2 * page` (irradiance) and `2 * page + 1`
     /// (direction); each switchable contribution follows after all base
     /// layers in the same pair layout. The shader computes the same offsets
-    /// from the uniform page and switchable counts.
+    /// from the uniform page and switchable counts before the GPU pair lookup.
     #[must_use]
     pub fn irradiance_layer(&self, switchable: Option<usize>, page: usize) -> usize {
         let group = switchable.map_or(0, |index| index.saturating_add(1));
@@ -155,7 +155,7 @@ impl LevelLightmaps {
             .saturating_add(page.saturating_mul(2))
     }
 
-    /// Total array-layer count the uploaded texture needs.
+    /// Logical plane count in archive/group order, before exact GPU pair sharing.
     #[must_use]
     pub const fn layer_count(&self) -> usize {
         self.pages

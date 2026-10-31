@@ -13,13 +13,13 @@ fn visual_atlas_available(in: VsOut) -> bool {
 fn visual_atlas_mean(in: VsOut) -> vec3<f32> {
     let page = u32(in.lightmap_page + 0.5);
     let pages = environment.lightmap_page_count;
-    var mean = textureSampleLevel(lightmap_pages, lightmap_sampler, in.lightmap_uv, page * 2u, 0.0).rgb;
+    var mean = textureSampleLevel(lightmap_pages, lightmap_sampler, in.lightmap_uv, lightmap_layer(page * 2u), 0.0).rgb;
     let count = environment.lightmap_switchable & 0xFu;
     let mask = (environment.lightmap_switchable >> 8u) & 0xFu;
     for (var group = 0u; group < count; group += 1u) {
         if ((mask & (1u << group)) != 0u) {
             let layer = pages * 2u * (group + 1u) + page * 2u;
-            mean += textureSampleLevel(lightmap_pages, lightmap_sampler, in.lightmap_uv, layer, 0.0).rgb;
+            mean += textureSampleLevel(lightmap_pages, lightmap_sampler, in.lightmap_uv, lightmap_layer(layer), 0.0).rgb;
         }
     }
     return mean;
@@ -31,8 +31,8 @@ fn visual_reconstruct(energy: vec3<f32>, moment: vec3<f32>, normal: vec3<f32>) -
     return max(vec3<f32>(0.0), energy + select(vec3<f32>(0.0), directional, k > 1.0e-6));
 }
 fn visual_atlas_layer(in: VsOut, layer: u32, normal: vec3<f32>) -> vec3<f32> {
-    let energy = textureSampleLevel(lightmap_pages, lightmap_sampler, in.lightmap_uv, layer, 0.0).rgb;
-    let moment = textureSampleLevel(lightmap_pages, lightmap_sampler, in.lightmap_uv, layer + 1u, 0.0).rgb;
+    let energy = textureSampleLevel(lightmap_pages, lightmap_sampler, in.lightmap_uv, lightmap_layer(layer), 0.0).rgb;
+    let moment = textureSampleLevel(lightmap_pages, lightmap_sampler, in.lightmap_uv, lightmap_layer(layer) + 1u, 0.0).rgb;
     return visual_reconstruct(energy, moment, normal);
 }
 fn visual_baked(in: VsOut, normal: vec3<f32>) -> vec3<f32> {

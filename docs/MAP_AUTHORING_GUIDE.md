@@ -4029,12 +4029,15 @@ player uploads these prepared package layers and multiplies receiver albedo once
   disjoint guillotine rectangles without moving the architecture charts. Both
   families share that free area; exact adjacent holes are joined and retried
   before opening a new page. Physical density, endpoints and gutters are retained.
-  Genuine page overflow remains a named failure rather than dropped surfaces. Each resident GPU page uses two RGBA16F layers. Disk storage uses bounded
+  Genuine page overflow remains a named failure rather than dropped surfaces. Logical pages carry two RGBA16F planes. Exact immutable canonical pairs can
+  share GPU storage through a bounded lookup; logical page/group records, UVs
+  and authoring budgets stay unchanged. Disk storage uses bounded
   PLC1 tile ranges with an exact six-half fallback; decoded coefficients precede
   bilinear filtering, and explicit exact KTX2 storage is also supported. See
   [the package contract](PACKAGE_FORMAT.md#5-lightmap-pages--compact-storage-and-ktx2).
-  Every switchable group adds another pair per base page. The GPU
-  allocates exactly the produced layers, without reserving unused pages.
+  Every switchable group adds a logical pair per base page. The GPU allocates
+  only unique immutable pairs plus an 800-byte lookup, without reserving unused
+  pages; editable pages remain independent. Native allocation rounding is separate.
   [The Stage 7 Hallows capacity measurement](art-style/stage7/integration-contract-audit.md)
   finds 9,549,535 padded Full texels, exceeding nine-page capacity; the existing
   packer reaches the mathematical minimum of ten. This costs 160 MiB of base

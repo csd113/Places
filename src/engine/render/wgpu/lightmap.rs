@@ -5,9 +5,9 @@
 //! count is exact: two `Rgba16Float` layers per page per layer group, with no
 //! mip chain and a fixed clamped-linear sampler that does not follow the
 //! player's filtering setting. A page's irradiance plane occupies even layers
-//! and its directional-moment plane the odd layer after it, in page order;
-//! each switchable fixture's prepared contribution follows the base group in
-//! the same pair layout. The world fragment stage reconstructs
+//! and its directional-moment plane the odd layer after it. Logical records
+//! remain base-first, then each switchable fixture's contribution; the immutable
+//! pair table selects the physical pair for each logical record. The world fragment stage reconstructs
 //! `max(0, I + (I / max(k, 1e-6)) * (2 * max(0, dot(g, n)) - length(g)))` with
 //! `k = I.r + I.g + I.b`, sampling the irradiance `I` and signed direction
 //! moment `g` from the pair; the direction plane holds the signed vector sum of
@@ -25,8 +25,8 @@
 //!   `lightmap_enabled` switch skips every sample;
 //! * plain-data stats for the developer log and the tests.
 //!
-//! The array allocates exactly [`LevelLightmaps::layer_count`] layers (at least
-//! one): every accepted page and switchable contribution becomes a layer pair,
+//! The array allocates two layers per unique immutable plane slice. A fixed
+//! 800-byte uniform maps every logical page/group pair to its physical layers,
 //! so a plan that fits the page budget always has a valid pair for every page
 //! byte and group it stamps, and no memory is reserved for pages the bake did
 //! not produce. A page set that cannot share one square edge, whose switchable
@@ -40,6 +40,60 @@
 //! samples, uploads or allocates in the frame loop.
 
 use crate::engine::lighting::lightmap::{LevelLightmaps, LightmapPage};
+use wgpu::util::DeviceExt as _;
+
+/// Bounded logical pair table: forty pages in the base and four circuit groups.
+pub const MAX_LOGICAL_PAIRS: usize = LIGHTMAP_ATLAS_MAX_PAGES * (MAX_SWITCHABLE_GROUPS + 1);
+/// One immutable, shared uniform table; no per-draw or per-frame copies.
+pub const PAIR_LOOKUP_BYTES: u64 = 800;
+
+/// Physical pairs retain the first logical occurrence. Only identical borrowed
+/// plane slices alias: pointer and length equality prove every half/alpha bit
+/// without hashing, copying, materializing or comparing a full atlas at upload.
+/// Editable pages remain independent; sharing is an optional exact optimization.
+/// Callers first validate page/group bounds through [`upload_stats`].
+#[derive(Clone, Debug)]
+pub struct PairUploadPlan {
+    pub layers: [u32; MAX_LOGICAL_PAIRS],
+    pub sources: Vec<usize>,
+}
+
+#[must_use]
+pub fn pair_upload_plan(maps: &LevelLightmaps) -> PairUploadPlan {
+    let mut plan = PairUploadPlan {
+        layers: [0; MAX_LOGICAL_PAIRS],
+        sources: Vec::new(),
+    };
+    let pages: Vec<_> = maps
+        .pages
+        .iter()
+        .chain(maps.switchable.iter().flat_map(|group| &group.pages))
+        .collect();
+    for (logical, page) in pages.iter().take(MAX_LOGICAL_PAIRS).enumerate() {
+        let prior = page.rgba16f_planes().and_then(|bytes| {
+            plan.sources.iter().position(|source| {
+                pages.get(*source).is_some_and(|other| {
+                    page.width == other.width
+                        && page.height == other.height
+                        && other
+                            .rgba16f_planes()
+                            .is_some_and(|prior| std::ptr::eq(bytes, prior))
+                })
+            })
+        });
+        let physical = prior.unwrap_or_else(|| {
+            let index = plan.sources.len();
+            plan.sources.push(logical);
+            index
+        });
+        if let Some(layer) = plan.layers.get_mut(logical) {
+            *layer = u32::try_from(physical)
+                .unwrap_or(u32::MAX)
+                .saturating_mul(LAYERS_PER_PAGE);
+        }
+    }
+    plan
+}
 
 /// Number of base atlas pages (layer pairs) one layer group can hold.
 ///
@@ -88,9 +142,9 @@ const LAYERS_PER_PAGE: u32 = 2;
 const MAX_SWITCHABLE_GROUPS: usize = 4;
 
 /// What one atlas upload produced, as plain counters.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
 pub struct LightmapUploadStats {
-    /// Base atlas pages resident (each is a layer pair in every group).
+    /// Logical base atlas pages (each has a pair lookup in every group).
     pub pages: usize,
     /// Page capacity of one layer group ([`LIGHTMAP_ATLAS_MAX_PAGES`]).
     pub capacity: usize,
@@ -102,9 +156,15 @@ pub struct LightmapUploadStats {
     pub charts: usize,
     /// Chart data texels the fill pass wrote.
     pub chart_texels: usize,
-    /// Bytes the resident page data occupies
-    /// (`layers * edge² * 8`: two `Rgba16Float` planes per page per group).
+    /// Physical texture payload bytes, excluding the lookup uniform and native
+    /// allocator overhead (`physical_pairs * edge² * 16`).
     pub resident_bytes: usize,
+    /// Logical pairs retain page/group order even when their physical data aliases.
+    pub logical_pairs: usize,
+    /// Physical pairs allocated and uploaded exactly once.
+    pub physical_pairs: usize,
+    /// Requested immutable lookup uniform bytes, separate from texture payload.
+    pub lookup_bytes: usize,
     /// True when the atlas came from the on-disk cache rather than a fresh bake.
     pub cache_hit: bool,
 }
@@ -191,6 +251,7 @@ fn white_array_bytes(edge: u32, layers: u32) -> Vec<u8> {
 pub fn upload_stats(lightmaps: Option<&LevelLightmaps>) -> LightmapUploadStats {
     let mut stats = LightmapUploadStats {
         capacity: LIGHTMAP_ATLAS_MAX_PAGES,
+        lookup_bytes: usize::try_from(PAIR_LOOKUP_BYTES).unwrap_or(usize::MAX),
         ..LightmapUploadStats::default()
     };
     let Some(level_lightmaps) = lightmaps else {
@@ -237,8 +298,12 @@ pub fn upload_stats(lightmaps: Option<&LevelLightmaps>) -> LightmapUploadStats {
         .checked_mul(edge_pixels)
         .and_then(|texels| texels.checked_mul(pages))
         .unwrap_or(usize::MAX);
-    stats.resident_bytes = level_lightmaps
-        .layer_count()
+    stats.logical_pairs = level_lightmaps.layer_count() / 2;
+    stats.physical_pairs = pair_upload_plan(level_lightmaps).sources.len();
+    stats.lookup_bytes = usize::try_from(PAIR_LOOKUP_BYTES).unwrap_or(usize::MAX);
+    stats.resident_bytes = stats
+        .physical_pairs
+        .saturating_mul(2)
         .saturating_mul(edge_pixels)
         .saturating_mul(edge_pixels)
         .saturating_mul(8);
@@ -266,6 +331,8 @@ pub struct LightmapAtlas {
     /// The fallback's view; its texture survives through this struct.
     fallback_view: wgpu::TextureView,
     stats: LightmapUploadStats,
+    pair_plan: PairUploadPlan,
+    lookup: wgpu::Buffer,
 }
 
 impl LightmapAtlas {
@@ -286,6 +353,18 @@ impl LightmapAtlas {
         let (fallback, fallback_view) =
             Self::upload_white_array(device, queue, FALLBACK_EDGE, FALLBACK_LAYERS);
         let stats = upload_stats(lightmaps);
+        let pair_plan = lightmaps.filter(|_| stats.pages > 0).map_or_else(
+            || PairUploadPlan {
+                layers: [0; MAX_LOGICAL_PAIRS],
+                sources: Vec::new(),
+            },
+            pair_upload_plan,
+        );
+        let lookup = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("places-wgpu-lightmap-pair-lookup"),
+            contents: bytemuck::cast_slice(&pair_plan.layers),
+            usage: wgpu::BufferUsages::UNIFORM,
+        });
         if let Some(level_lightmaps) = lightmaps
             && stats.pages == 0
             && !level_lightmaps.pages.is_empty()
@@ -303,16 +382,19 @@ impl LightmapAtlas {
         let mut page_array = None;
         let mut view = None;
         if stats.pages > 0 {
-            let (texture, array_view) = Self::create_page_array(device, lightmaps, &stats);
+            let (texture, array_view) = Self::create_page_array(device, &stats);
             page_array = Some(texture);
             view = Some(array_view);
             crate::engine::logging::info(format!(
-                "[lightmaps] atlas array: {} page(s) in {} layer(s), {}-texel edge, \
-                 {} bytes resident",
+                "[lightmaps] atlas array: {} page(s) in {} physical layer(s), {}-texel edge, \
+                 {} bytes resident; {} logical pairs, {} physical pairs, {} lookup bytes",
                 stats.pages,
-                lightmaps.map_or(0, LevelLightmaps::layer_count),
+                stats.physical_pairs.saturating_mul(2),
                 stats.page_edge,
-                stats.resident_bytes
+                stats.resident_bytes,
+                stats.logical_pairs,
+                stats.physical_pairs,
+                stats.lookup_bytes
             ));
         }
         Self {
@@ -321,6 +403,8 @@ impl LightmapAtlas {
             _fallback: fallback,
             fallback_view,
             stats,
+            pair_plan,
+            lookup,
         }
     }
 
@@ -348,11 +432,14 @@ impl LightmapAtlas {
         let Some(texture) = &self.pages else {
             return false;
         };
+        let Some(source) = self.pair_plan.sources.get(*cursor) else {
+            return false;
+        };
         let Some(page) = lightmaps.and_then(|maps| {
             maps.pages
                 .iter()
                 .chain(maps.switchable.iter().flat_map(|group| &group.pages))
-                .nth(*cursor)
+                .nth(*source)
         }) else {
             return false;
         };
@@ -452,17 +539,15 @@ impl LightmapAtlas {
 
     /// Creates the layer array and writes every page pair into it.
     ///
-    /// The walk order is the contract the shader's addressing mirrors: the base
-    /// group's pages first (irradiance at even layers), then each switchable
-    /// contribution in turn, all on [`LevelLightmaps::layer_count`] layers.
+    /// The pair table preserves base/group/page order while only unique
+    /// immutable pairs consume physical layers. Editable pages stay independent.
     fn create_page_array(
         device: &wgpu::Device,
-        lightmaps: Option<&LevelLightmaps>,
         stats: &LightmapUploadStats,
     ) -> (wgpu::Texture, wgpu::TextureView) {
         let edge = stats.page_edge.max(1);
-        let layers = u32::try_from(lightmaps.map_or(0, LevelLightmaps::layer_count).max(1))
-            .unwrap_or(u32::MAX);
+        let layers =
+            u32::try_from(stats.physical_pairs.saturating_mul(2).max(1)).unwrap_or(u32::MAX);
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("places-wgpu-lightmap-pages"),
             size: wgpu::Extent3d {
@@ -485,6 +570,12 @@ impl LightmapAtlas {
     #[must_use]
     pub fn view(&self) -> &wgpu::TextureView {
         self.view.as_ref().unwrap_or(&self.fallback_view)
+    }
+
+    /// Immutable logical-pair to physical-irradiance-layer uniform.
+    #[must_use]
+    pub const fn lookup(&self) -> &wgpu::Buffer {
+        &self.lookup
     }
 
     /// True when at least one real page is resident.

@@ -221,6 +221,14 @@ var uv_sampler: sampler;
 var<uniform> environment: Environment;
 @group(3) @binding(1)
 var lightmap_pages: texture_2d_array<f32>;
+@group(3) @binding(2)
+var<uniform> lightmap_pair_layers: array<vec4<u32>, 50>;
+
+// Logical page/group records remain untouched; only immutable physical storage aliases.
+fn lightmap_layer(logical_layer: u32) -> u32 {
+    let pair = logical_layer / 2u;
+    return lightmap_pair_layers[pair / 4u][pair % 4u];
+}
 @group(3) @binding(3)
 var lightmap_sampler: sampler;
 @group(3) @binding(4)
@@ -326,8 +334,9 @@ fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
 // mean; the result is bounded by `2 * I` and never draws negative light. The
 // alpha channels of both planes are reserved and ignored.
 fn decode_lightmap(uv: vec2<f32>, layer: u32, normal: vec3<f32>) -> vec3<f32> {
-    let irradiance = textureSample(lightmap_pages, lightmap_sampler, uv, layer).rgb;
-    let direction = textureSample(lightmap_pages, lightmap_sampler, uv, layer + 1u).rgb;
+    let physical = lightmap_layer(layer);
+    let irradiance = textureSample(lightmap_pages, lightmap_sampler, uv, physical).rgb;
+    let direction = textureSample(lightmap_pages, lightmap_sampler, uv, physical + 1u).rgb;
     let k = irradiance.r + irradiance.g + irradiance.b;
     let lobe = 2.0 * max(0.0, dot(direction, normal)) - length(direction);
     let directional = irradiance / max(k, 1.0e-6) * lobe;

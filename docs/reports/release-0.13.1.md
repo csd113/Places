@@ -3217,3 +3217,175 @@ and complete passing evidence are preserved for publication approval.
 identities, denial and pending action. Baseline audio CI41234598995 passed; that
 does not validate this unpublished #24 payload. Parent must account for this
 publication hold before final issue closure.
+
+## Exact GPU lightmap pairs and Pool layout proof (Windows, 31 October 2026)
+
+Lantern Hollow now uploads twelve immutable physical page pairs for its eighteen
+logical pairs: atlas texture allocation falls from 288 to 192 MiB. Its prior
+96 MiB **CPU** plane-sharing improvement is already in both sides of this
+comparison; CPU pixel ownership remains 192 MiB and archive bytes are unchanged.
+Pool's two-page geometric packing is proven feasible, but its production layout
+is retained because direct relocation cannot preserve existing exact UV lookups.
+
+Evidence `G` is `C:/Users/Connor Dawkins/Documents/Codex/2026-10-31/task-5/lightmap-evidence`.
+The matched baseline is `9bdef04b22abf3e82fd06a68ba040800b007dc87`; its preserved
+player and source identities match the released issue24 custody receipt before
+these edits. Final player SHA256 is `b527524840a3295ceda0a20a9857c94693f1140a50938c2026273367f029826e` and compiler is
+`21cec7a09fc747f80b6488f90d7a3d96c408fdd7df5c00f023ce8259f5c8c3df`. The 604 Rust/Cargo/developer-tool source hashes stay
+frozen through gates and native acceptance. The initial baseline inventory also
+includes the two unchanged Python character-checker files. No shipped map is
+rebaked or declared compiler-current; the existing package identities are retained.
+
+### Physical GPU storage and exact logical records
+
+The upload plan recognizes identical borrowed immutable canonical plane slices,
+retains their first logical occurrence and uploads each physical pair once.
+Pointer plus slice-length identity proves all HDR, signed moment and reserved
+alpha bits without a pixel hash, copy or float materialization. Editable pages
+remain independent. The fixed 800-byte uniform holds at most 200 logical-pair
+lookups; world, reflection, character and both diagnostic consumers use the same
+logical-to-physical addressing. Every logical page/group, circuit order, selector,
+UV, sampler, sample count, density and gutter remains intact. Admission charges
+the physical texture payload plus lookup, retaining the existing 128 MiB safety
+allowance and immutable package/decoder limits. The accepted zero-offset fallback
+upload is unchanged. Array/table lifetime follows the existing atomic install.
+
+| Component, Lantern Full | Baseline | Candidate |
+| --- | ---: | ---: |
+| Logical pairs / planes | 18 / 36 | 18 / 36 |
+| Physical GPU pairs / layers | 18 / 36 | 12 / 24 |
+| CPU unique half-plane pixels | 192 MiB | 192 MiB |
+| GPU atlas texture allocation | 288 MiB | 192 MiB |
+| Lookup requested / native allocation | 0 | 800 B / 64 KiB |
+| Archive-byte change | 0 | 0 |
+
+`exact-plane-acceptance.json` verifies every decoded record on the nine-map project
+and small three-circuit package against the matched baseline. Each canonical
+logical-plane digest also equals the reconstruction through physical pair lookup.
+All other maps retain their original physical pair count. Two planning calls per
+probe take 0.0026-0.0150 ms. Current baseline/candidate CPU owner and archive
+invariance is independently recorded in `cpu-archive-invariance.json`.
+
+Native allocation labels confirm the atlas's 100,663,296-byte reduction. The
+matched on-state HAL texture-byte difference is identical. One corresponding
+total native heap-reservation snapshot falls from 700 to 604 MiB; its other
+buffer allocations vary with frame/pose retirement. Reservations and texture
+payload do not establish physical VRAM residency. The lookup requests 800 bytes
+and occupies a separately reported 64 KiB native allocation. Per-pair staging
+remains bounded by the existing two-unit window (32 MiB for two 1024-square pairs);
+total page-pair upload data falls by 96 MiB, not the peak window size.
+
+### Pool: feasible rectangles, exact-lookup limit
+
+`pool-replay.json` and the two saved layouts independently place all 30,116
+unchanged chart rectangles, including mandatory two-texel architectural and
+one-texel prop gutters, into two 1024-square pages. Occupied area is 2,045,070
+texels (97.5165% of two pages). Height-first and architecture-then-height orders
+take 4.49/4.65 seconds in the Python analysis and pass bounds/nonoverlap checks.
+These are offline replay costs, not a shipping allocator benchmark. Other tested
+orders fail; a three-page control passes. No rotation, mirroring or resampling
+is used.
+
+Merely changing page IDs cannot achieve that layout: 31,482 coordinates have
+three current mandatory outer rectangles, requiring three pages when chart
+origins stay fixed. Relocation also changes the existing UNORM16 lookup weights.
+For integer texel displacement `d`, exact preservation requires an integer
+`d * 65535 / 1024`; the denominators are coprime, so only zero in-page displacement
+qualifies. The two feasible layouts move every chart and need correction on
+60,170/60,167 axes. `pool-fixed-coordinate-lower-bound.json` and
+`pool-uv-limits.json` preserve witnesses and the derivation. This proves the limit
+of direct relocation with the present coordinates, not impossibility after an
+explicit lookup/format correction.
+
+The existing Pool item is refined to that exact UV/lookup correction, with the
+proven layouts as inputs; it is not duplicated. Its potential one-page removal
+is 32 MiB of half-plane CPU/GPU payload across two groups before correction
+overhead. Compressed savings and the correction's costs remain unmeasured. The
+current production packer, three-page Pool data and UVs are retained.
+
+### Native correctness, rollback and cost
+
+All fifty serial native processes exit zero. The initial image matrix has 29
+baseline/candidate pairs: 27 are RGBA exact; two Lantern close-ups differ by one
+pixel and one red-channel step. Independent repeats with the **same binary** vary
+by zero to two pixels at one step, so the initial differences fit the measured
+native repeat envelope. They are preserved, not called exact. All six additional
+baked-light/lightmap-value diagnostic comparisons are RGBA exact. Exact decoded
+half planes and physical lookup digests are mandatory throughout.
+
+The real Lantern prop `trail_lamp_4` is toggled off/on through ordinary dispatch
+(entity state 263, baked source 34), visibly changing the close view while the
+outside control stays exact. All eight three-circuit interior images are unique.
+Home/Pool states, mixed pages/materials and the BLEND ghost/live planar reflection
+path are covered; the ghost records one reflection pass. Original PNGs, inputs,
+capture states, repeat calibration and allocation records are in
+`visual-acceptance.json`, `diagnostic-acceptance.json` and their run folders.
+
+Six quiet foreground-qualified loading processes give three interleaved pairs.
+Lantern Atlas-step CPU issuance medians are 62.147 -> 44.707 ms (ranges
+52.586-62.766 / 36.430-44.825), with 19 -> 13 staged calls including completion.
+This is CPU issuance, not GPU transfer time. Request-to-scene medians are
+12,810.90 -> 12,347.23 ms for Lantern and 4,422.49 -> 4,417.17 ms for Home.
+CPU-ready timing also varies; these data do not establish a general loading gain.
+`loading-acceptance.json` preserves event-pump tails and every run.
+
+Process values below are MiB, median [min, max] of three runs; peaks cover the
+whole process and steady values the last second before the Lantern checkpoint.
+RSS is effectively unchanged. Private-memory observations remain separate from
+CPU pixel inventories and GPU allocation witnesses.
+
+| Side | Peak RSS | Peak private | Steady Lantern private |
+| --- | ---: | ---: | ---: |
+| baseline | 1590.59 [1588.27, 1591.05] | 2573.26 [2572.94, 2575.09] | 2390.23 [2359.64, 2391.61] |
+| candidate | 1591.48 [1591.05, 1623.18] | 2478.47 [2476.83, 2489.04] | 2267.31 [2236.68, 2296.57] |
+
+Decode cancellation after nonzero work, cancellation of an allocated aliased GPU
+atlas, 1024 MiB CPU refusal and 1408 MiB GPU overlap refusal all preserve Home,
+retire the incoming world and permit restart/reload. Settled diagnostics return
+to one 64 MiB Home atlas and one 64 KiB lookup; retired different-world CPU strong
+owners reach zero and scheduled work/staging settle. The lower GPU test limit
+keeps the refusal control meaningful after physical sharing; production limits
+are unchanged. Quiet timings do not enable intrusive ownership tracing; separate
+diagnostic controls verify the unchanged 192 MiB CPU pixel owner.
+
+Eighteen quiet, foreground-qualified performance processes use V-sync off,
+actual Immediate presentation and a 960x640 physical drawable. The primary
+display is 2560x1440/165 Hz. Home/Pool run faster than refresh. Main Lantern GPU
+work exceeds a refresh period; two same-level lighter-view controls with identical
+graphics settings achieve 198-202 FPS above 165 Hz, ruling out that display/frame
+ceiling. Video recording is disabled; successful ready frames have no other
+engine limiter. Values are medians of three run medians, milliseconds:
+
+| Case | Loop baseline / candidate | GPU scene baseline / candidate |
+| --- | ---: | ---: |
+| home | 1.714 / 1.721 | 1.907 / 1.896 |
+| pool | 2.394 / 2.333 | 2.999 / 3.033 |
+| lantern | 11.669 / 11.762 | 10.712 / 10.768 |
+
+Nonalias-map paired GPU differences span -0.306 to +0.263 ms; Lantern differences
+span -0.077 to +0.092 ms. These measurements support a small bounded frame-cost
+tradeoff for the measured memory reduction, not a general FPS gain or a
+clock/thermal-controlled shader microbenchmark. `performance-acceptance.json`
+retains actual pacing, sample counts, cohorts, pairs and control runs.
+
+### Gates, scope and handoff
+
+Rust/Cargo 1.99.1: format, locked all-target/all-feature debug check, strict debug
+and release Clippy, the locked release workspace/all-feature build, 415 Rust
+regressions, 373 Python contracts (18 expected skips), 674-asset validation with
+zero warnings and texture/prop checks pass. Existing texture manifest and prop
+budget advisories remain. The existing 17-square/six-page regression now also
+protects nonblank GPU aliases across circuits, exact reconstruction, editable
+independence and copy-on-edit separation; no test count, asset/GPU dependency or
+map bake is added. An extra debug executable build was stopped as redundant
+after both Clippy profiles and regression linking; it is not claimed passed.
+
+`implementation-queue-drafts.json` marks exact GPU pair sharing complete and
+refines the sole existing Pool follow-on. Scheduling/dispatch qualification,
+#33 grime, editor work and final packaging are not started here. The full Rust
+test-usefulness audit remains LAST. Windows Razer/DX12 only: Linux native is
+unrun, not passed; Mac is deferred. No physical VRAM-residency or cross-platform
+throughput claim is made. Parent owns issue writes. `handoff.json` records scoped
+branch publication, exact remote/async CI, preserved evidence, final index/process
+custody and the single idle-only cleanup. The unrelated menu scene is preserved
+at SHA256 `93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.

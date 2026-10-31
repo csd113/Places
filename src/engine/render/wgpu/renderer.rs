@@ -3556,15 +3556,10 @@ impl WgpuRenderer {
                 .saturating_add(mesh_bytes(&state.mesh))
                 .saturating_add(prop_bytes(&state.batches));
         }
-        let atlas = build.lightmaps.as_ref().map_or(0, |maps| {
-            maps.pages.first().map_or(0, |page| {
-                usize::try_from(page.width)
-                    .unwrap_or(usize::MAX)
-                    .saturating_mul(usize::try_from(page.height).unwrap_or(usize::MAX))
-                    .saturating_mul(maps.layer_count())
-                    .saturating_mul(8)
-            })
-        });
+        let atlas_stats = super::lightmap::upload_stats(build.lightmaps.as_deref());
+        let atlas = atlas_stats.resident_bytes.saturating_add(
+            usize::try_from(super::lightmap::PAIR_LOOKUP_BYTES).unwrap_or(usize::MAX),
+        );
         let images = loaded
             .materials
             .textures()
@@ -7820,8 +7815,7 @@ impl WgpuRenderer {
         for (peak, live) in trace.peak.iter_mut().zip(current) {
             *peak = (*peak).max(live);
         }
-        let frame = trace.frame;
-        let peak = trace.peak;
+        let (frame, peak) = (trace.frame, trace.peak);
         let names = [
             "buffers",
             "textures",
@@ -7881,6 +7875,7 @@ impl WgpuRenderer {
             "post_attachment_texel_bytes": self.post.as_ref().map_or(0, PostProcess::diagnostic_attachment_bytes),
             "water": {"active":self.water_active,"snapshot_texel_bytes": self.water_snapshot.as_ref().map_or(0, super::water::Snapshot::bytes), "interactions": self.water_interactions.diagnostics()},
             "atlas_texel_bytes": self.lightmaps.stats().resident_bytes,
+            "atlas_upload": self.lightmaps.stats(),
             "prop_geometry": self.world_props.as_ref().map(|props| serde_json::json!({"vertex_bytes":props.stats().vertex_bytes,"index_bytes":props.stats().index_bytes,"independent_lighting_instance_bytes":props.stats().lighting_instance_bytes,"canonical_meshes":props.stats().canonical_meshes,"canonical_instances":props.stats().canonical_instances,"buffer_requested_bytes":props.geometry_buffer_bytes(),"layout":"canonical shape plus independent placement lighting; compatible automatic instances; individual fallback buffers"})),
             "transparency_sort_scratch_bytes": {"scene":self.scene_pipeline.as_ref().map_or(0, WorldPipeline::transparency_scratch_bytes), "emission":self.emissive_pipeline.as_ref().map_or(0, WorldPipeline::transparency_scratch_bytes), "capture":self.capture_pipeline.as_ref().map_or(0, WorldPipeline::transparency_scratch_bytes)},
             "character_geometry": self.world_characters.as_ref().map(|characters|serde_json::json!({"vertex_bytes":characters.stats().vertex_bytes,"index_bytes":characters.stats().index_bytes,"characters":characters.stats().characters,"shared_models":characters.stats().meshes,"transparency_cpu_bytes":characters.transparency_cpu_bytes(),"blend_batch_cpu_bytes":characters.blend_batch_cpu_bytes(),"blend_batch_gpu_bytes":characters.blend_batch_gpu_bytes()})),

@@ -1007,10 +1007,14 @@ shadow uniforms receive runtime state updates; the camera matrix/eye upload is
 skipped while both remain unchanged. Flashlight depth resources are created on
 first use and retained for toggles; OFF submits no visibility pass. Its dynamic
 light uniform, cone/falloff and shadow texture are shared by world and decals.
-The prepared lightmap is
-one level-scoped `texture_2d_array` (`Rgba16Float`; two layers per page, plus
-one pair per switchable fixture) uploaded once at install and dropped with the
-level. The prepared probe field is CPU memory sampled by the dynamic-object
+The prepared lightmap is one level-scoped `texture_2d_array` of `Rgba16Float`
+irradiance/directional pairs. A fixed 800-byte uniform maps up to 200 logical
+base/circuit pairs to physical layer pairs. Already-shared immutable canonical
+plane slices use one physical pair; editable pages remain independent. Logical
+page/group records, UVs, filtering and every plane bit stay unchanged. Only unique
+pairs upload, and the array/table install once and drop with the level. Admission
+charges physical texture payload and lookup while retaining its safety allowance;
+native allocator rounding is reported separately. The prepared probe field is CPU memory sampled by the dynamic-object
 update; the reflection probes are at most two cubemaps (6 faces of 64²/48² raw
 linear RGBA16F with their offline prefiltered mip chains) uploaded from the package. For
 a vertex-lit build the bake is `BakeConfig::HARD` at every level, so geometry

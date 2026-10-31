@@ -172,6 +172,18 @@ pub fn lightmap_residency(path: &Path, id: &str) -> io::Result<()> {
         let started = std::time::Instant::now();
         let maps = read_lightmaps_owned(&meta, atlas)?;
         let decode_seconds = started.elapsed().as_secs_f64();
+        let plan_started = std::time::Instant::now();
+        let plan = places::engine::render::pair_upload_plan(&maps);
+        let stats = places::engine::render::lightmap_upload_stats(Some(&maps));
+        let plan_seconds = plan_started.elapsed().as_secs_f64();
+        let all_pages: Vec<_> = maps.pages.iter().chain(maps.switchable.iter().flat_map(|group| &group.pages)).collect();
+        let mut resolved = Sha256::new();
+        for layer in plan.layers.iter().take(all_pages.len()) {
+            let source = plan.sources.get(usize::try_from(layer / 2).map_err(|error| error.to_string())?).ok_or("missing physical pair")?;
+            resolved.update(all_pages.get(*source).and_then(|page| page.rgba16f_planes()).ok_or("missing physical planes")?);
+        }
+        let resolved_hash = hash::digest_hex(&resolved.finalize());
+        if resolved_hash != reference_hash { return Err("physical pair lookup differs from logical oracle".into()); }
         let mut digest = Sha256::new();
         let mut logical_bytes = 0_usize;
         let mut materialized = 0_usize;
@@ -187,7 +199,11 @@ pub fn lightmap_residency(path: &Path, id: &str) -> io::Result<()> {
             write!(runtime_hash, "{byte:02x}").map_err(|error| error.to_string())?;
         }
         if runtime_hash != reference_hash { return Err("runtime half planes differ from contiguous oracle".into()); }
-        Ok(serde_json::json!({"id":manifest.id,"encoded_bytes":encoded_bytes,"logical_plane_bytes":logical_bytes,"unique_plane_bytes":maps.retained_pixel_bytes(),"materialized_pages":materialized,"sha256":runtime_hash,"reference_sha256":reference_hash,"decode_seconds":decode_seconds,"pages":maps.pages.len(),"switchable_lights":maps.switchable.iter().map(|group|group.light_index).collect::<Vec<_>>()}))
+        Ok(serde_json::json!({"id":manifest.id,"encoded_bytes":encoded_bytes,"logical_plane_bytes":logical_bytes,"unique_plane_bytes":maps.retained_pixel_bytes(),"materialized_pages":materialized,"sha256":runtime_hash,"reference_sha256":reference_hash,"physical_lookup_sha256":resolved_hash,
+"gpu_texture_payload_bytes":stats.resident_bytes,"gpu_lookup_bytes":stats.lookup_bytes,
+"physical_pairs":stats.physical_pairs,"logical_pairs":stats.logical_pairs,"physical_sources":plan.sources,
+"logical_irradiance_layers":plan.layers.iter().take(all_pages.len()).copied().collect::<Vec<_>>(),
+"plan_seconds":plan_seconds,"decode_seconds":decode_seconds,"pages":maps.pages.len(),"switchable_lights":maps.switchable.iter().map(|group|group.light_index).collect::<Vec<_>>()}))
     })().map_err(io::Error::other)?;
     writeln!(io::stdout().lock(), "{result}")?;
     Ok(())

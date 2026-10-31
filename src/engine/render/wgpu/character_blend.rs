@@ -87,7 +87,7 @@ fn batch_binding(ctx: &CharacterUploadContext<'_>, environments: &wgpu::Buffer) 
         ctx.device,
         &layout(ctx.device),
         environments,
-        ctx.lightmaps.view(),
+        ctx.lightmaps,
         ctx.cache.sampler(SamplerPolicy::ClampLinear),
         ctx.probe_fallback,
         ctx.planar_fallback,

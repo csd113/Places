@@ -88,3 +88,6 @@ pub struct UiImage {
 
 pub(crate) use common::api::build_authoring_preview_reusing;
 pub(crate) use common::preview_cache::{PreviewDependencies, PreviewReuse};
+
+/// Exact GPU upload planning exposed for explicit developer diagnostics.
+pub use wgpu::lightmap::{pair_upload_plan, upload_stats as lightmap_upload_stats};

@@ -133,6 +133,7 @@ fn runtime_shared_pairs_preserve_payload_order_and_edit_isolation() -> Result<()
         pair_bytes.saturating_mul(2),
         "six logical pages have exactly two pixel owners"
     );
+    check_gpu_pair_plan(&actual, &maps, pair_bytes)?;
     let first_bytes = actual
         .pages
         .first()
@@ -148,6 +149,12 @@ fn runtime_shared_pairs_preserve_payload_order_and_edit_isolation() -> Result<()
         actual.pages.first().and_then(LightmapPage::rgba16f_planes),
         Some(first_bytes.as_slice()),
         "editing an alias cannot mutate another circuit/page"
+    );
+    let edited_plan = crate::engine::render::pair_upload_plan(&actual);
+    assert_eq!(edited_plan.sources, vec![0, 1, 2]);
+    assert_eq!(
+        edited_plan.layers.get(..6),
+        Some([0, 2, 4, 2, 0, 0].as_slice())
     );
     let edited_bytes = actual
         .pages
@@ -194,4 +201,45 @@ fn shared_pair_fixture_page(energy: f32) -> LightmapPage {
             .collect::<Vec<_>>()
             .into(),
     }
+}
+
+fn check_gpu_pair_plan(
+    actual: &crate::engine::lighting::lightmap::LevelLightmaps,
+    original: &crate::engine::lighting::lightmap::LevelLightmaps,
+    pair_bytes: usize,
+) -> Result<(), String> {
+    let pages: Vec<_> = actual
+        .pages
+        .iter()
+        .chain(actual.switchable.iter().flat_map(|group| &group.pages))
+        .collect();
+    // Essential GPU regression: shared nonblank pairs across pages/circuits
+    // must resolve exact HDR/moment/alpha bits, while edits regain unique storage.
+    // Extends this existing six-page 17-square fixture; no new bake or GPU work.
+    let plan = crate::engine::render::pair_upload_plan(actual);
+    assert_eq!(plan.sources, vec![0, 1]);
+    assert_eq!(plan.layers.get(..6), Some([0, 2, 0, 2, 0, 0].as_slice()));
+    let stats = crate::engine::render::lightmap_upload_stats(Some(actual));
+    assert_eq!(stats.logical_pairs, 6);
+    assert_eq!(stats.physical_pairs, 2);
+    assert_eq!(stats.resident_bytes, pair_bytes.saturating_mul(2));
+    assert_eq!(stats.lookup_bytes, 800);
+    for (logical, layer) in plan.layers.iter().take(6).enumerate() {
+        let physical = usize::try_from(layer / 2).map_err(|error| error.to_string())?;
+        let source = *plan
+            .sources
+            .get(physical)
+            .ok_or("missing physical source")?;
+        assert_eq!(
+            pages.get(logical).and_then(|page| page.rgba16f_planes()),
+            pages.get(source).and_then(|page| page.rgba16f_planes())
+        );
+    }
+    let editable_plan = crate::engine::render::pair_upload_plan(original);
+    assert_eq!(
+        editable_plan.sources.len(),
+        6,
+        "editable pages cannot alias mutable storage"
+    );
+    Ok(())
 }
