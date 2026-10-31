@@ -119,6 +119,20 @@ pub struct SwitchableLightmaps {
 }
 
 impl LevelLightmaps {
+    /// Unique CPU pixel allocations within this atlas, including optional lazy
+    /// float diagnostics. Logical aliases and disjoint KTX2 views count their
+    /// shared backing once. GPU layers remain independently charged.
+    #[must_use]
+    pub fn retained_pixel_bytes(&self) -> usize {
+        let mut seen = std::collections::HashSet::new();
+        self.pages
+            .iter()
+            .chain(self.switchable.iter().flat_map(|group| &group.pages))
+            .fold(0_usize, |bytes, page| {
+                bytes.saturating_add(page.texels.retained_unique_bytes(&mut seen))
+            })
+    }
+
     /// Number of charts in the plan.
     #[must_use]
     pub const fn chart_count(&self) -> usize {

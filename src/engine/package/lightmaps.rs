@@ -543,13 +543,12 @@ pub fn read_lightmaps(meta_json: &[u8], image_bytes: &[u8]) -> Result<LevelLight
 /// Returns the same metadata, container and bounds errors as `read_lightmaps`.
 pub fn read_lightmaps_owned(
     meta_json: &[u8],
-    mut image_bytes: Vec<u8>,
+    image_bytes: Vec<u8>,
 ) -> Result<LevelLightmaps, String> {
     validate_metadata_size(meta_json.len())?;
     if u64::try_from(image_bytes.len()).unwrap_or(u64::MAX) > super::MAX_LIGHTMAP_ATLAS_BYTES {
         return Err("lightmap atlas record exceeds the supported byte limit".to_string());
     }
-    let encoded_bytes = image_bytes.capacity();
     let meta: LightmapsMeta = serde_json::from_slice(meta_json)
         .map_err(|error| format!("lightmap record is not valid JSON: {error}"))?;
     if meta.record_version != LIGHTMAPS_RECORD_VERSION {
@@ -558,59 +557,31 @@ pub fn read_lightmaps_owned(
             meta.record_version
         ));
     }
-    let OwnedImageShape {
-        edge,
-        layers,
-        faces,
-        mip_count,
-        range,
-    } = decode_owned_image(&meta, &mut image_bytes)?;
-    meta.validate_dimensions(edge, layers, faces, mip_count)?;
-    let plane_bytes = usize::try_from(edge)
-        .ok()
-        .and_then(|value| value.checked_mul(value))
-        .and_then(|value| value.checked_mul(8))
-        .ok_or_else(|| "lightmap page byte size overflows".to_string())?;
-    let pair_bytes = plane_bytes
-        .checked_mul(2)
-        .ok_or_else(|| "lightmap page pair byte size overflows".to_string())?;
-    let pixels = image_bytes
-        .get_mut(range.clone())
-        .ok_or_else(|| "lightmap image range is unavailable".to_string())?;
-    canonicalize_planes(pixels, plane_bytes)?;
-    if std::env::var("PLACES_BENCH_RESOURCE_TRACE").as_deref() == Ok("1") {
-        crate::engine::logging::info(format!(
-            "[memory-stage] lightmaps-decoded encoded_record_bytes={encoded_bytes} expanded_plane_bytes={} metadata_json_bytes={} private_bytes={:?}",
-            image_bytes.capacity(),
-            meta_json.len(),
-            crate::engine::resources::process_memory_bytes()
-        ));
-    }
-    let backing = std::sync::Arc::new(image_bytes);
-    let count = usize::try_from(meta.page_count)
-        .map_err(|error| format!("lightmap page count is too large: {error}"))?;
-    let mut groups = Vec::with_capacity(meta.switchable_lights.len().saturating_add(1));
-    for group in 0..meta.switchable_lights.len().saturating_add(1) {
-        let mut pages = Vec::with_capacity(count);
-        for page in 0..count {
-            let start = group
-                .checked_mul(count)
-                .and_then(|index| index.checked_add(page))
-                .and_then(|index| index.checked_mul(pair_bytes))
-                .and_then(|offset| range.start.checked_add(offset))
-                .ok_or_else(|| "lightmap packed page offset overflows".to_string())?;
-            let end = start
-                .checked_add(pair_bytes)
-                .ok_or_else(|| "lightmap packed page range overflows".to_string())?;
-            pages.push(LightmapPage::from_packed_planes(
-                edge,
-                edge,
-                std::sync::Arc::clone(&backing),
-                start..end,
-            )?);
+    let groups = if image_bytes.starts_with(b"PLC1") {
+        let image = super::compact_lightmaps::decode_shared_pages(&image_bytes)?;
+        let groups_expected = u32::try_from(meta.switchable_lights.len().saturating_add(1))
+            .map_err(|error| error.to_string())?;
+        if image.page_count != meta.page_count || image.group_count != groups_expected {
+            return Err("compact lightmap page/group counts do not match metadata".into());
         }
-        groups.push(pages);
-    }
+        let layers = image
+            .page_count
+            .checked_mul(image.group_count)
+            .and_then(|count| count.checked_mul(2))
+            .ok_or("compact lightmap layer count overflows")?;
+        meta.validate_dimensions(image.edge, layers, 1, 1)?;
+        let count = usize::try_from(image.page_count).map_err(|error| error.to_string())?;
+        let groups = image
+            .pages
+            .chunks_exact(count)
+            .map(<[_]>::to_vec)
+            .collect::<Vec<_>>();
+        drop(image_bytes);
+        groups
+    } else {
+        read_ktx2_groups(&meta, image_bytes)?
+    };
+    // Compressed bytes are retired before the runtime atlas is published.
     let mut group_iter = groups.into_iter();
     let pages = group_iter
         .next()
@@ -638,66 +609,60 @@ pub fn read_lightmaps_owned(
     })
 }
 
-struct OwnedImageShape {
-    edge: u32,
-    layers: u32,
-    faces: u32,
-    mip_count: usize,
-    range: std::ops::Range<usize>,
-}
-
-fn decode_owned_image(
+// The precise KTX2 codec keeps its original single backing allocation.
+fn read_ktx2_groups(
     meta: &LightmapsMeta,
-    image_bytes: &mut Vec<u8>,
-) -> Result<OwnedImageShape, String> {
-    let (edge, layers, faces, mip_count, range) = if image_bytes.starts_with(b"PLC1") {
-        if meta.record_version != LIGHTMAPS_RECORD_VERSION {
-            return Err("compact lightmap data requires metadata version 1".to_string());
+    mut image_bytes: Vec<u8>,
+) -> Result<Vec<Vec<LightmapPage>>, String> {
+    let image = ktx2::read_rgba16f_ranges(&image_bytes)?;
+    meta.validate_dimensions(image.edge, image.layers, image.faces, image.levels.len())?;
+    let range = image
+        .levels
+        .first()
+        .cloned()
+        .ok_or("lightmap payload has no image data")?;
+    let plane_bytes = usize::try_from(image.edge)
+        .ok()
+        .and_then(|value| value.checked_mul(value))
+        .and_then(|value| value.checked_mul(8))
+        .ok_or("lightmap page byte size overflows")?;
+    let pair_bytes = plane_bytes
+        .checked_mul(2)
+        .ok_or("lightmap pair byte size overflows")?;
+    let pixels = image_bytes
+        .get_mut(range.clone())
+        .ok_or("lightmap image range is unavailable")?;
+    canonicalize_planes(pixels, plane_bytes)?;
+    let backing = std::sync::Arc::new(image_bytes);
+    let count = usize::try_from(meta.page_count).map_err(|error| error.to_string())?;
+    let mut groups = Vec::with_capacity(meta.switchable_lights.len().saturating_add(1));
+    for group in 0..meta.switchable_lights.len().saturating_add(1) {
+        let mut pages = Vec::with_capacity(count);
+        for page in 0..count {
+            let start = group
+                .checked_mul(count)
+                .and_then(|index| index.checked_add(page))
+                .and_then(|index| index.checked_mul(pair_bytes))
+                .and_then(|offset| range.start.checked_add(offset))
+                .ok_or("lightmap packed page offset overflows")?;
+            let end = start
+                .checked_add(pair_bytes)
+                .ok_or("lightmap packed page range overflows")?;
+            pages.push(LightmapPage::from_packed_planes(
+                image.edge,
+                image.edge,
+                std::sync::Arc::clone(&backing),
+                start..end,
+            )?);
         }
-        let image = super::compact_lightmaps::decode(image_bytes)?;
-        let groups = u32::try_from(meta.switchable_lights.len().saturating_add(1))
-            .map_err(|error| format!("lightmap group count is too large: {error}"))?;
-        if image.page_count != meta.page_count || image.group_count != groups {
-            return Err("compact lightmap page/group counts do not match metadata".to_string());
-        }
-        let layers = image
-            .page_count
-            .checked_mul(image.group_count)
-            .and_then(|count| count.checked_mul(2))
-            .ok_or_else(|| "compact lightmap layer count overflows".to_string())?;
-        *image_bytes = image.rgba16f_planes;
-        let length = image_bytes.len();
-        (image.edge, layers, 1, 1, 0..length)
-    } else {
-        if meta.record_version != LIGHTMAPS_RECORD_VERSION {
-            return Err("half-float KTX2 lightmaps require metadata version 1".to_string());
-        }
-        let image = ktx2::read_rgba16f_ranges(image_bytes)?;
-        let range = image
-            .levels
-            .first()
-            .cloned()
-            .ok_or_else(|| "lightmap payload has no image data".to_string())?;
-        (
-            image.edge,
-            image.layers,
-            image.faces,
-            image.levels.len(),
-            range,
-        )
-    };
-    Ok(OwnedImageShape {
-        edge,
-        layers,
-        faces,
-        mip_count,
-        range,
-    })
+        groups.push(pages);
+    }
+    Ok(groups)
 }
 
 // Preserve the old decoder/upload normalization for malformed legacy texels:
 // negative irradiance and non-finite RGB become zero; reserved alpha is 0.5.
-fn canonicalize_planes(bytes: &mut [u8], plane_bytes: usize) -> Result<(), String> {
+pub(crate) fn canonicalize_planes(bytes: &mut [u8], plane_bytes: usize) -> Result<(), String> {
     if plane_bytes == 0
         || !bytes.len().is_multiple_of(plane_bytes)
         || !bytes.len().is_multiple_of(8)

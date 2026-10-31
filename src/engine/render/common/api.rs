@@ -349,13 +349,13 @@ impl LevelBuild {
         let mut chart_bytes = 0_usize;
         if let Some(maps) = &self.lightmaps {
             chart_bytes = allocation_bytes(&maps.charts);
+            atlas_bytes = maps.retained_pixel_bytes();
             for page in maps
                 .pages
                 .iter()
                 .chain(maps.switchable.iter().flat_map(|group| &group.pages))
             {
                 page_count = page_count.saturating_add(1);
-                atlas_bytes = atlas_bytes.saturating_add(page.retained_pixel_bytes());
                 materialized_pages =
                     materialized_pages.saturating_add(usize::from(page.texels.is_materialized()));
             }
@@ -436,14 +436,9 @@ impl LevelBuild {
                 .saturating_add(allocation_bytes(&atlas.charts))
                 .saturating_add(allocation_bytes(&atlas.switchable))
                 .saturating_add(atlas.cache_key.capacity());
-            for page in &atlas.pages {
-                bytes = bytes.saturating_add(page.retained_pixel_bytes());
-            }
+            bytes = bytes.saturating_add(atlas.retained_pixel_bytes());
             for contribution in &atlas.switchable {
                 bytes = bytes.saturating_add(allocation_bytes(&contribution.pages));
-                for page in &contribution.pages {
-                    bytes = bytes.saturating_add(page.retained_pixel_bytes());
-                }
             }
         }
         bytes

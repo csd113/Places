@@ -84,3 +84,114 @@ fn borrowed_planes_preserve_compact_bytes_and_reject_incomplete_groups() -> Resu
     );
     Ok(())
 }
+
+// Protects the measured repeated-switch-page owner: exact runtime planes and
+// group order, one allocation per unique encoded pair, copy-on-edit isolation,
+// and cancellation/malformed framing. Six 17x17 pages; no bake, asset or GPU.
+#[test]
+fn runtime_shared_pairs_preserve_payload_order_and_edit_isolation() -> Result<(), String> {
+    use crate::engine::lighting::lightmap::{LevelLightmaps, LightmapStats, SwitchableLightmaps};
+    use crate::engine::package::lightmaps::{read_lightmaps_owned, write_lightmaps};
+    let first = shared_pair_fixture_page(0.5);
+    let second = shared_pair_fixture_page(4.0);
+    let maps = LevelLightmaps {
+        pages: vec![first.clone(), second.clone(), first.clone()],
+        charts: Vec::new(),
+        stats: LightmapStats::default(),
+        cache_key: "shared-pair-regression".into(),
+        padding: 1,
+        switchable: vec![SwitchableLightmaps {
+            light_index: 3,
+            pages: vec![second, first.clone(), first],
+        }],
+    };
+    let (meta, encoded) = write_lightmaps(&maps)?;
+    let expected = compact_lightmaps::decode(&encoded)?;
+    let mut actual = read_lightmaps_owned(&meta, encoded.clone())?;
+    let pages: Vec<_> = actual
+        .pages
+        .iter()
+        .chain(actual.switchable.iter().flat_map(|group| &group.pages))
+        .collect();
+    let pair_bytes = 289_usize.saturating_mul(16);
+    for (page, expected_pair) in pages
+        .iter()
+        .zip(expected.rgba16f_planes.chunks_exact(pair_bytes))
+    {
+        assert_eq!(
+            page.rgba16f_planes(),
+            Some(expected_pair),
+            "all decoded HDR/moment/alpha bits and group indices remain exact"
+        );
+        assert!(
+            !page.texels.is_materialized(),
+            "runtime must retain packed storage"
+        );
+    }
+    assert_eq!(
+        actual.retained_pixel_bytes(),
+        pair_bytes.saturating_mul(2),
+        "six logical pages have exactly two pixel owners"
+    );
+    let first_bytes = actual
+        .pages
+        .first()
+        .and_then(LightmapPage::rgba16f_planes)
+        .ok_or("missing first plane")?
+        .to_vec();
+    actual
+        .pages
+        .get_mut(2)
+        .ok_or("missing edit alias")?
+        .set_texel(0, 0, LightmapTexel::ZERO);
+    assert_eq!(
+        actual.pages.first().and_then(LightmapPage::rgba16f_planes),
+        Some(first_bytes.as_slice()),
+        "editing an alias cannot mutate another circuit/page"
+    );
+    let edited_bytes = actual
+        .pages
+        .get(2)
+        .ok_or("missing edited page")?
+        .retained_pixel_bytes();
+    assert_eq!(
+        actual.retained_pixel_bytes(),
+        pair_bytes.saturating_mul(2).saturating_add(edited_bytes),
+        "only the edited page adds its actual float allocation, including spare capacity"
+    );
+    assert!(
+        read_lightmaps_owned(
+            &meta,
+            encoded
+                .get(..encoded.len().saturating_sub(1))
+                .ok_or("truncated fixture")?
+                .to_vec()
+        )
+        .is_err(),
+        "whole framing fails before partial publication"
+    );
+    let _scope =
+        crate::engine::resources::enter(Some(crate::engine::resources::DecodeBudget::new(
+            Arc::new(std::sync::atomic::AtomicBool::new(true)),
+        )));
+    assert!(
+        read_lightmaps_owned(&meta, encoded).is_err(),
+        "cancelled pair decoding cannot publish an atlas"
+    );
+    Ok(())
+}
+
+fn shared_pair_fixture_page(energy: f32) -> LightmapPage {
+    LightmapPage {
+        width: 17,
+        height: 17,
+        texels: (0_u16..289)
+            .map(|i| LightmapTexel {
+                irradiance: [f32::from(i % 17).mul_add(0.03125_f32, energy), 0.25, 2.0],
+                direction: [-0.125, 0.0, -0.0],
+                axis: [0.5, 0.5],
+            })
+            .collect::<Vec<_>>()
+            .into(),
+    }
+}

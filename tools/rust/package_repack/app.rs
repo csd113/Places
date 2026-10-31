@@ -70,11 +70,28 @@ fn read_only(path: &Path) -> io::Result<()> {
     Ok(())
 }
 
+fn residency(arguments: &mut impl Iterator<Item = std::ffi::OsString>) -> io::Result<()> {
+    let source = arguments
+        .next()
+        .ok_or_else(|| io::Error::other("missing INPUT"))?;
+    let level = arguments.next().unwrap_or_default();
+    if arguments.next().is_some() {
+        return Err(io::Error::other("unexpected argument"));
+    }
+    let id = level
+        .to_str()
+        .ok_or_else(|| io::Error::other("LEVEL is not UTF-8"))?;
+    crate::oracle::lightmap_residency(Path::new(&source), id)
+}
+
 fn execute() -> io::Result<()> {
     let mut arguments = std::env::args_os().skip(1);
     let input = arguments
         .next()
         .ok_or_else(|| io::Error::other("missing INPUT"))?;
+    if input == "--lightmap-residency" {
+        return residency(&mut arguments);
+    }
     if input == "--reencode-lightmaps" {
         let source = arguments
             .next()

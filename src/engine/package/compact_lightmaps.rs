@@ -643,13 +643,8 @@ impl Reader<'_> {
     }
 }
 
-/// Decode bounded compact lightmaps into the original linear half planes.
-///
-/// # Errors
-/// Rejects unsupported versions/modes, dimensions/groups, oversized expanded
-/// output, nonfinite/invalid ranges and coefficients, nonzero reserved bits,
-/// truncated blocks and trailing bytes. Invalid data is never normalized.
-pub fn decode(bytes: &[u8]) -> Result<CompactLightmapImage, String> {
+// Parse the shared shape and immutable container bounds.
+fn image_reader(bytes: &[u8]) -> Result<(Reader<'_>, Shape, u16), String> {
     if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > super::MAX_LIGHTMAP_ATLAS_BYTES {
         return Err("compact lightmap encoded record exceeds the atlas byte bound".to_string());
     }
@@ -673,7 +668,15 @@ pub fn decode(bytes: &[u8]) -> Result<CompactLightmapImage, String> {
         return Err("compact lightmap header reserved bits are nonzero".to_string());
     }
     let shape = Shape::new(edge, pages, groups)?;
-    validate_block_lengths(&mut reader, shape, version)?;
+    Ok((reader, shape, version))
+}
+
+/// Decode bounded compact lightmaps into the original linear half planes.
+/// # Errors
+/// Rejects invalid framing, ranges, coefficients and allocation bounds.
+pub fn decode(bytes: &[u8]) -> Result<CompactLightmapImage, String> {
+    let (mut reader, shape, version) = image_reader(bytes)?;
+    let _pair_ranges = validate_block_lengths(&mut reader, shape, version)?;
     reader.position = HEADER_BYTES;
     let _expanded_reservation = crate::engine::resources::allocation(shape.expanded_bytes)?;
     let mut planes = Vec::new();
@@ -684,39 +687,7 @@ pub fn decode(bytes: &[u8]) -> Result<CompactLightmapImage, String> {
     let mut stats = CompactLightmapStats::default();
     for pair in 0..shape.pairs {
         let start = shape.pair_start(pair)?;
-        for tile_y in (0..edge).step_by(16) {
-            for tile_x in (0..edge).step_by(16) {
-                let offsets = shape.tile_offsets(tile_x, tile_y)?;
-                let mode = block_mode(&mut reader, version)?;
-                let ranges = if mode == MODE_COMPACT {
-                    stats.compact_blocks = stats.compact_blocks.saturating_add(1);
-                    read_ranges(&mut reader)?
-                } else {
-                    stats.exact_blocks = stats.exact_blocks.saturating_add(1);
-                    [Range::default(); 6]
-                };
-                let constant = if mode == MODE_CONSTANT {
-                    stats.exact_blocks = stats.exact_blocks.saturating_sub(1);
-                    stats.constant_blocks = stats.constant_blocks.saturating_add(1);
-                    let bits = read_block_texel(&mut reader, MODE_EXACT, ranges)?;
-                    validate_texel(bits.map(f16_bits_to_f32))?;
-                    Some(bits)
-                } else {
-                    None
-                };
-                for offset in offsets {
-                    let bits = if let Some(value) = constant {
-                        value
-                    } else {
-                        read_block_texel(&mut reader, mode, ranges)?
-                    };
-                    if constant.is_none() {
-                        validate_texel(bits.map(f16_bits_to_f32))?;
-                    }
-                    write_texel(&mut planes, shape, start, offset, bits)?;
-                }
-            }
-        }
+        decode_pair(&mut reader, shape, start, version, &mut planes, &mut stats)?;
     }
     if reader.remaining() != 0 {
         return Err("compact lightmap payload has trailing bytes".to_string());
@@ -730,14 +701,162 @@ pub fn decode(bytes: &[u8]) -> Result<CompactLightmapImage, String> {
     })
 }
 
+// One pair is the same independent decode unit in both contiguous diagnostics
+// and runtime sharing. Tile rows are cooperative cancellation boundaries.
+fn decode_pair(
+    reader: &mut Reader<'_>,
+    shape: Shape,
+    start: usize,
+    version: u16,
+    planes: &mut [u8],
+    stats: &mut CompactLightmapStats,
+) -> Result<(), String> {
+    for tile_y in (0..shape.edge).step_by(16) {
+        crate::engine::resources::checkpoint()?;
+        for tile_x in (0..shape.edge).step_by(16) {
+            let offsets = shape.tile_offsets(tile_x, tile_y)?;
+            let mode = block_mode(reader, version)?;
+            let ranges = if mode == MODE_COMPACT {
+                stats.compact_blocks = stats.compact_blocks.saturating_add(1);
+                read_ranges(reader)?
+            } else {
+                stats.exact_blocks = stats.exact_blocks.saturating_add(1);
+                [Range::default(); 6]
+            };
+            let constant = if mode == MODE_CONSTANT {
+                stats.exact_blocks = stats.exact_blocks.saturating_sub(1);
+                stats.constant_blocks = stats.constant_blocks.saturating_add(1);
+                let bits = read_block_texel(reader, MODE_EXACT, ranges)?;
+                validate_texel(bits.map(f16_bits_to_f32))?;
+                Some(bits)
+            } else {
+                None
+            };
+            for offset in offsets {
+                let bits = if let Some(value) = constant {
+                    value
+                } else {
+                    read_block_texel(reader, mode, ranges)?
+                };
+                if constant.is_none() {
+                    validate_texel(bits.map(f16_bits_to_f32))?;
+                }
+                write_texel(planes, shape, start, offset, bits)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+pub(crate) struct SharedLightmapImage {
+    pub edge: u32,
+    pub page_count: u32,
+    pub group_count: u32,
+    pub pages: Vec<crate::engine::lighting::lightmap::LightmapPage>,
+}
+
+/// Decode unique encoded page pairs once, preserving every decoded bit and
+/// logical page/group index. Hash matches are certified by full byte equality;
+/// aliases clone the immutable page, including its lazy diagnostic pixels.
+/// Complete framing is checked before any plane allocation. No wire change.
+pub(crate) fn decode_shared_pages(bytes: &[u8]) -> Result<SharedLightmapImage, String> {
+    use sha2::{Digest as _, Sha256};
+    let (mut reader, shape, version) = image_reader(bytes)?;
+    let pair_ranges = validate_block_lengths(&mut reader, shape, version)?;
+    let pair_bytes = shape
+        .plane_bytes
+        .checked_mul(2)
+        .ok_or("lightmap pair size overflows")?;
+    let mut pages: Vec<crate::engine::lighting::lightmap::LightmapPage> =
+        Vec::with_capacity(shape.pairs);
+    let mut owners: std::collections::BTreeMap<[u8; 32], Vec<usize>> =
+        std::collections::BTreeMap::new();
+    let mut unique_bytes = 0_usize;
+    for range in &pair_ranges {
+        crate::engine::resources::checkpoint()?;
+        let encoded = bytes.get(range.clone()).ok_or("missing lightmap pair")?;
+        let digest: [u8; 32] = Sha256::digest(encoded).into();
+        let alias = owners
+            .get(&digest)
+            .and_then(|candidates| {
+                candidates.iter().find(|index| {
+                    pair_ranges
+                        .get(**index)
+                        .and_then(|prior| bytes.get(prior.clone()))
+                        == Some(encoded)
+                })
+            })
+            .copied();
+        if let Some(index) = alias {
+            pages.push(
+                pages
+                    .get(index)
+                    .ok_or("missing shared lightmap page")?
+                    .clone(),
+            );
+            continue;
+        }
+        let _reservation = crate::engine::resources::allocation(pair_bytes)?;
+        let mut planes = Vec::new();
+        planes
+            .try_reserve_exact(pair_bytes)
+            .map_err(|error| format!("compact lightmap pair allocation failed: {error}"))?;
+        planes.resize(pair_bytes, 0_u8);
+        let mut pair_reader = Reader {
+            bytes: encoded,
+            position: 0,
+        };
+        decode_pair(
+            &mut pair_reader,
+            shape,
+            0,
+            version,
+            &mut planes,
+            &mut CompactLightmapStats::default(),
+        )?;
+        if pair_reader.remaining() != 0 {
+            return Err("compact lightmap pair has trailing bytes".into());
+        }
+        super::lightmaps::canonicalize_planes(&mut planes, shape.plane_bytes)?;
+        unique_bytes = unique_bytes.saturating_add(planes.capacity());
+        let page = crate::engine::lighting::lightmap::LightmapPage::from_packed_planes(
+            shape.edge,
+            shape.edge,
+            std::sync::Arc::new(planes),
+            0..pair_bytes,
+        )?;
+        owners.entry(digest).or_default().push(pages.len());
+        pages.push(page);
+    }
+    if std::env::var("PLACES_BENCH_RESOURCE_TRACE").as_deref() == Ok("1") {
+        crate::engine::logging::info(format!(
+            "[memory-stage] lightmaps-shared encoded_record_bytes={} logical_plane_bytes={} unique_plane_bytes={unique_bytes} logical_pairs={} unique_pairs={} private_bytes={:?}",
+            bytes.len(),
+            shape.expanded_bytes,
+            shape.pairs,
+            owners.values().map(Vec::len).sum::<usize>(),
+            crate::engine::resources::process_memory_bytes()
+        ));
+    }
+    Ok(SharedLightmapImage {
+        edge: shape.edge,
+        page_count: shape.pages,
+        group_count: shape.groups,
+        pages,
+    })
+}
+
 // Validate the complete framing before allocating the expanded output. A tiny
 // attacker-controlled payload cannot request a large output from its header.
 fn validate_block_lengths(
     reader: &mut Reader<'_>,
     shape: Shape,
     version: u16,
-) -> Result<(), String> {
+) -> Result<Vec<std::ops::Range<usize>>, String> {
+    let mut pairs = Vec::with_capacity(shape.pairs);
     for _ in 0..shape.pairs {
+        crate::engine::resources::checkpoint()?;
+        let pair_start = reader.position;
         for tile_y in (0..shape.edge).step_by(16) {
             for tile_x in (0..shape.edge).step_by(16) {
                 let mode = block_mode(reader, version)?;
@@ -764,11 +883,12 @@ fn validate_block_lengths(
                 reader.position = end;
             }
         }
+        pairs.push(pair_start..reader.position);
     }
     if reader.remaining() != 0 {
         return Err("compact lightmap payload has trailing bytes".to_string());
     }
-    Ok(())
+    Ok(pairs)
 }
 
 fn block_mode(reader: &mut Reader<'_>, version: u16) -> Result<u8, String> {
@@ -902,7 +1022,7 @@ pub fn repack_constants(mut bytes: Vec<u8>) -> Result<Vec<u8>, String> {
     if header.u32()? != 0 {
         return Err("compact lightmap header reserved bits are nonzero".into());
     }
-    validate_block_lengths(&mut header, shape, version)?;
+    let _pair_ranges = validate_block_lengths(&mut header, shape, version)?;
     let mut source = HEADER_BYTES;
     let mut destination = HEADER_BYTES;
     for _ in 0..shape.pairs {

@@ -136,6 +136,35 @@ impl LightmapPixels {
         packed.bytes.get(packed.range.clone())
     }
 
+    pub(crate) fn retained_unique_bytes(
+        &self,
+        seen: &mut std::collections::HashSet<*const u8>,
+    ) -> usize {
+        let Some(packed) = &self.packed else {
+            return if seen.insert(self.editable.as_ptr().cast()) {
+                self.editable
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<LightmapTexel>())
+            } else {
+                0
+            };
+        };
+        let bytes = if seen.insert(packed.bytes.as_ptr()) {
+            packed.bytes.capacity()
+        } else {
+            0
+        };
+        bytes.saturating_add(packed.decoded.get().map_or(0, |texels| {
+            if seen.insert(texels.as_ptr().cast()) {
+                texels
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<LightmapTexel>())
+            } else {
+                0
+            }
+        }))
+    }
+
     /// Pixel bytes charged to this page. Shared atlas backing is charged by
     /// range, so page views do not each charge the complete atlas allocation.
     #[must_use]

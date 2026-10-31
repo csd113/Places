@@ -151,3 +151,44 @@ pub fn manifest_identity(path: &Path, id: &str) -> io::Result<()> {
     writeln!(io::stdout().lock(), "{}", hash::sha256_hex(&bytes))?;
     Ok(())
 }
+
+/// Explicit current runtime decoder/oracle probe, separate from native timing.
+/// Decoded planes are hashed in logical order without a second flattened copy.
+pub fn lightmap_residency(path: &Path, id: &str) -> io::Result<()> {
+    use package::lightmaps::read_lightmaps_owned;
+    use sha2::{Digest as _, Sha256};
+    let result = (|| -> Result<serde_json::Value, String> {
+        let mut reader = opened(path)?;
+        if !id.is_empty() { reader.select_level(Some(id))?; }
+        let manifest = Manifest::from_json(&reader.read_entry("manifest.json", package::MAX_MANIFEST_BYTES)?, reader.names())?;
+        let variant = manifest.variants.iter().find(|variant| variant.lightmap_quality == "full").ok_or("probe requires Full")?;
+        let meta = reader.read_blob(variant.entries.lightmaps_meta.as_deref().ok_or("missing metadata")?, package::MAX_LIGHTMAP_METADATA_BYTES)?;
+        let atlas = reader.read_blob(variant.entries.lightmaps.as_deref().ok_or("missing atlas")?, package::MAX_LIGHTMAP_ATLAS_BYTES)?;
+        let encoded_bytes = atlas.capacity();
+        // Separate oracle allocation is diagnostic only, never a runtime owner.
+        let reference = compact_lightmaps::decode(&atlas)?;
+        let reference_hash = hash::sha256_hex(&reference.rgba16f_planes);
+        drop(reference);
+        let started = std::time::Instant::now();
+        let maps = read_lightmaps_owned(&meta, atlas)?;
+        let decode_seconds = started.elapsed().as_secs_f64();
+        let mut digest = Sha256::new();
+        let mut logical_bytes = 0_usize;
+        let mut materialized = 0_usize;
+        for page in maps.pages.iter().chain(maps.switchable.iter().flat_map(|group| &group.pages)) {
+            let planes = page.rgba16f_planes().ok_or("runtime pixels materialized")?;
+            digest.update(planes);
+            logical_bytes = logical_bytes.saturating_add(planes.len());
+            materialized = materialized.saturating_add(usize::from(page.texels.is_materialized()));
+        }
+        let mut runtime_hash = String::with_capacity(64);
+        for byte in digest.finalize() {
+            use std::fmt::Write as _;
+            write!(runtime_hash, "{byte:02x}").map_err(|error| error.to_string())?;
+        }
+        if runtime_hash != reference_hash { return Err("runtime half planes differ from contiguous oracle".into()); }
+        Ok(serde_json::json!({"id":manifest.id,"encoded_bytes":encoded_bytes,"logical_plane_bytes":logical_bytes,"unique_plane_bytes":maps.retained_pixel_bytes(),"materialized_pages":materialized,"sha256":runtime_hash,"reference_sha256":reference_hash,"decode_seconds":decode_seconds,"pages":maps.pages.len(),"switchable_lights":maps.switchable.iter().map(|group|group.light_index).collect::<Vec<_>>()}))
+    })().map_err(io::Error::other)?;
+    writeln!(io::stdout().lock(), "{result}")?;
+    Ok(())
+}

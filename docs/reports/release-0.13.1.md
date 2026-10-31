@@ -221,7 +221,7 @@ diagnostics occurred. Full lightmaps were resident. The crate/floor illumination
 and real shadow changed with the prepared contribution, beyond the fixture face.
 The many-light floor/crate capture mean changed from 63.23 to 0.19 display-code
 units; the single-light off view retained 40.39 from the unaffected fixture.
-These are functional visual witnesses at 960Ã—600 with Fifo, not FPS measurements.
+These are functional visual witnesses at 960Ãƒâ€”600 with Fifo, not FPS measurements.
 
 The room preview solved 17,089 texels in
 901.5 ms and became ready in
@@ -245,11 +245,11 @@ from these timed cohorts. Values below are medians; CPU is process user+kernel
 time and memory is peak working set. Earlier build-contended exploratory worker
 sweeps are retained separately and do not establish gains or an optimal worker count.
 
-| Bounded source | Wall seconds before â†’ after | CPU seconds before â†’ after | Peak MiB before â†’ after |
+| Bounded source | Wall seconds before Ã¢â€ â€™ after | CPU seconds before Ã¢â€ â€™ after | Peak MiB before Ã¢â€ â€™ after |
 |---|---:|---:|---:|
-| `material_transport` | 15.047 â†’ 15.146 | 98.234 â†’ 98.016 | 239.9 â†’ 239.8 |
-| `architecture_after` | 47.596 â†’ 47.947 | 463.766 â†’ 464.594 | 285.6 â†’ 285.2 |
-| `circuit_range` | 20.133 â†’ 18.823 | 198.453 â†’ 184.156 | 217.8 â†’ 217.8 |
+| `material_transport` | 15.047 Ã¢â€ â€™ 15.146 | 98.234 Ã¢â€ â€™ 98.016 | 239.9 Ã¢â€ â€™ 239.8 |
+| `architecture_after` | 47.596 Ã¢â€ â€™ 47.947 | 463.766 Ã¢â€ â€™ 464.594 | 285.6 Ã¢â€ â€™ 285.2 |
+| `circuit_range` | 20.133 Ã¢â€ â€™ 18.823 | 198.453 Ã¢â€ â€™ 184.156 | 217.8 Ã¢â€ â€™ 217.8 |
 
 The circuit fixture derives from the native two-room scene: two near members and
 one independently prepared outside circuit, no unswitched emitters, and bounded
@@ -269,11 +269,11 @@ refinement only when a conservative spatial bound proves no emitter reaches it,
 and omit visibility tests whose unoccluded support cannot improve the current max.
 The implementation retains the exact accepted CPU visibility and shadow path.
 
-| Source | Direct visibility seconds before â†’ after | Indirect seconds before â†’ after | After reflection capture s | After compression/publication s |
+| Source | Direct visibility seconds before Ã¢â€ â€™ after | Indirect seconds before Ã¢â€ â€™ after | After reflection capture s | After compression/publication s |
 |---|---:|---:|---:|---:|
-| `material_transport` | 4.003 â†’ 4.030 | 4.512 â†’ 4.581 | 5.338 | 0.051 |
-| `architecture_after` | 17.005 â†’ 17.190 | 21.639 â†’ 21.521 | 5.952 | 0.121 |
-| `circuit_range` | 4.730 â†’ 3.572 | 13.013 â†’ 12.903 | 0.000 | 0.063 |
+| `material_transport` | 4.003 Ã¢â€ â€™ 4.030 | 4.512 Ã¢â€ â€™ 4.581 | 5.338 | 0.051 |
+| `architecture_after` | 17.005 Ã¢â€ â€™ 17.190 | 21.639 Ã¢â€ â€™ 21.521 | 5.952 | 0.121 |
+| `circuit_range` | 4.730 Ã¢â€ â€™ 3.572 | 13.013 Ã¢â€ â€™ 12.903 | 0.000 | 0.063 |
 
 Material transport has 1,498 triangles but 201,642 receivers, approximately
 73.7 million counted direct rays and 25.8 million nominal bounce slots. Architecture
@@ -374,7 +374,7 @@ later. No HVAC/assets, prefab, runtime water/stair/draw-distance work was absorb
 
 Phase 6 is integrated and accepted on the Razer. The 25 cloud-authored Blender
 4.3.2/GIMP 3.0.4 models retain their original GLB and native 256-square atlas bytes.
-They total 11,764 triangles, 156â€“1,464 per model. The catalog adds 25 prop entries
+They total 11,764 triangles, 156Ã¢â‚¬â€œ1,464 per model. The catalog adds 25 prop entries
 and five operational fixture entries, reaching 674 assets / 417 placeable entries
 across the existing ten themes. Existing janitor cart, supply box, two bottles,
 mop bucket and mop are reused byte-for-byte, with six native inspection captures.
@@ -1769,10 +1769,10 @@ baselines exactly.
 
 | Editor observation, MiB | Two baseline runs | Two final runs |
 | --- | ---: | ---: |
-| Final settled private | 1,558.309–1,559.461 | 1,558.898–1,585.070 |
-| Observed peak RSS | 1,147.945–1,178.379 | 1,124.609–1,145.406 |
-| Observed peak private | 1,666.500–1,695.500 | 1,642.031–1,661.910 |
-| Final backend reserved | 700.000–700.000 | 700.000–732.000 |
+| Final settled private | 1,558.309â€“1,559.461 | 1,558.898â€“1,585.070 |
+| Observed peak RSS | 1,147.945â€“1,178.379 | 1,124.609â€“1,145.406 |
+| Observed peak private | 1,666.500â€“1,695.500 | 1,642.031â€“1,661.910 |
+| Final backend reserved | 700.000â€“700.000 | 700.000â€“732.000 |
 
 Higher candidate reservation or final private readings remain visible in this
 comparison. Removing the per-preview allocation does not establish a reduction
@@ -2024,3 +2024,205 @@ At a 1024MiB CPU limit, preparation refuses safely and preserves Home; retrying 
 `implementation-queue-drafts.json` refines existing prepared-prop, lightmap and shared-metadata/cold-character owners without duplicate issues. Exact live decode/mip/staging/upload ownership and the full native/driver partition remain explicit acceptance gaps before claiming a general residency improvement. The historical Mac RSS pair, native reservation/private uplift, ~4.1MiB runtime Rust-live drift and finite 5968-byte audio residual remain separate. Linux has not run; Mac stays deferred. The full Rust-test usefulness audit remains LAST and has not started.
 
 All 590 source hashes and preserved artifact identities are verified against the accepted memory candidate, so its strict debug/release Clippy, locked all-feature release build, format and 406 Rust tests are reused. No Rust test, production source edit, map bake or target directory is added; no redundant build/clean is run. Normal working-branch documentation publication, independent remote SHA verification, CI observation and final idle custody are recorded in `S/handoff.json`. GitHub issue writes, main/release/tag/force/security changes remain excluded.
+
+
+## Lightmap packing and exact runtime pair sharing (Windows, 31 October 2026)
+
+This part of #31 adds exact CPU sharing of repeated immutable lightmap page
+pairs. On the preserved Lantern record, 18 logical pairs now retain 12 pixel
+allocations: **301989888 -> 201326592 bytes (288 -> 192 MiB)**. All decoded
+half-plane bits and all 20 matched native RGBA views remain exact. No sample,
+density, gutter, HDR/directional precision, circuit, archive codec, shader or
+GPU-layer reduction is involved. Whole-process private peaks also fall in this
+bounded Windows comparison; loading timings are mixed, so no general loading
+speedup or FPS improvement is claimed.
+
+### Baseline, fixtures and measured packing
+
+Branch baseline is `22876848d980d1ab6b4befbbb9f2d0dd27e51098`. The preserved
+pre-change player is the accepted `0e28267` source binary, SHA-256
+`038d02bb5601d36ff32c0a5dc9557a465f8637108cb0347be94c2a1a69ab11b8`.
+Final candidate player SHA-256 is `ab97f5507c95d988a881c24762ab7f8e835ca18f5f2b8f282050bf404af63bbb`. All 590 source identities and
+the exact binary/DLL/input identities are retained in evidence `L`:
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-30/task-10/lightmap-evidence/`.
+
+The existing 436882001-byte nine-map collection is unchanged, SHA-256
+`749c9f3e45120d7c72416891dd5d4f5965739dc88b60b5827f06fb1e33ac28f5`.
+Existing three-circuit, material-transport, architecture and Lab fixtures are
+reused. No production map is rebaked, repacked or asserted compiler-current.
+The existing deterministic architecture MAXRECTS/disjoint-prop holes, PLC1
+constant/range/exact tile codec, precise KTX2 codec, record factoring and
+produced-page GPU arrays were already implemented and are retained.
+
+Percentages below use each map's current base-page area. Data means rectangular
+chart data, including reflected triangle-domain samples; gutters are the actual
+two-texel architecture / one-texel prop reservations. All measured padded
+rectangles are in bounds and nonoverlapping. Wire and actual ZIP/Zstd payload
+sizes exclude chart metadata and archive headers; none is a residency total.
+CPU columns are unique packed pixel capacities, excluding object/allocator
+overhead and unrelated owners. GPU requested plane bytes remain the left CPU
+value for every row.
+
+| Full map | Pages x groups | Data / gutter / free % | Atlas wire / ZIP MiB | CPU planes before -> after MiB |
+| --- | ---: | --- | ---: | ---: |
+| Hub | 2 x 1 | 44.62 / 19.08 / 36.29 | 12.61 / 5.67 | 32 -> 32 |
+| Home | 2 x 2 | 37.28 / 17.65 / 45.07 | 23.62 / 9.85 | 64 -> 64 |
+| Pool | 3 x 2 | 40.02 / 24.99 / 34.99 | 37.14 / 15.29 | 96 -> 96 |
+| Office | 6 x 4 | 64.62 / 27.61 / 7.76 | 80.83 / 34.41 | 384 -> 384 |
+| Arcade | 8 x 3 | 63.18 / 30.75 / 6.07 | 197.93 / 75.36 | 384 -> 384 |
+| Lantern | 9 x 2 | 69.94 / 25.71 / 4.34 | 87.48 / 38.08 | 288 -> 192 |
+| Winter | 6 x 1 | 71.33 / 24.26 / 4.41 | 59.15 / 28.10 | 96 -> 96 |
+| Beach | 8 x 1 | 82.35 / 13.24 / 4.40 | 40.93 / 14.96 | 128 -> 128 |
+| Aero | 4 x 1 | 74.42 / 11.79 / 13.78 | 23.06 / 12.11 | 64 -> 64 |
+
+Eight of nine maps already meet the padded-area lower bound at their current
+1024px edge. Office, Arcade and Lantern have 92.24%, 93.93% and 95.66% padded
+occupancy. Pool uses three pages versus an area lower bound of two; fitting two
+requires 97.52% occupancy and is not proved by area alone. These are fixed-edge,
+rectangular-chart bounds, not a proof that every possible page size/layout is
+optimal. No speculative UV, page-size or packing rewrite is accepted here.
+`inventory.json`, `inventory-fixtures.json` and `packing-details.json` retain
+per-kind/per-page chart, padding and metadata costs.
+
+### Exact ownership change and limits
+
+Lantern's switch contribution has seven completely blank, identical encoded
+page pairs. Each already occupies only 65536 PLC1 bytes before ZIP compression,
+but formerly expanded to its own 16 MiB CPU pair. The runtime reader now validates
+the complete framing, hashes independent encoded pairs, certifies hash matches
+with full byte equality, and decodes each unique pair once. Aliases share the
+immutable packed bytes and lazy diagnostic lock while retaining every logical
+page and light-group index. Editing an alias obtains independent float pixels.
+Unique CPU accounting counts a backing once; GPU admission still charges every
+logical produced layer.
+
+An independent page-wise decoder matches the preserved Rust aggregate hash
+before its per-page findings are accepted. It confirms Lantern's six redundant
+pairs and no other duplicate decoded whole pairs in the nine real maps.
+`decoded-pair-inventory.json` and `decoded-acceptance.json` preserve the proof.
+The final-hash Rust probe also matches all nine real maps and four fixtures
+against the preserved executable's decoded payload hashes. No float page is
+materialized by normal sampling/upload.
+
+During Lantern decode, the disjoint compact-input and plane-payload scopes are
+91731708 + 301989888 bytes before, versus 91731708 + 201326592 after. Unique
+planes grow monotonically; there is no second full pair scratch allocation.
+Tile offsets contain at most 256 native usize values (2048 bytes on this host),
+and framing/hash indices are bounded by the existing typed pair/expanded limits.
+Metadata JSON (15734311 bytes), parsed charts, allocator overhead, other records,
+images, native/driver owners and submitted GPU work are separate scopes and are
+not added into a made-up process total. The precise KTX2 path keeps one backing.
+Reservations and cancellation are checked per unique pair and tile row; errors
+drop partial owners before a result can be published.
+
+Final diagnostic Lantern checkpoints report 350073349 prepared bytes, versus
+450736645 in the same preserved baseline's accepted loading evidence, with
+201326592 pixel bytes, 18 logical pairs and zero materialized float pages.
+This is a retained-data charge, not a complete heap partition. The existing
+3-entry/192 MiB optional cache policy is unchanged; Lantern remains oversized.
+The GPU still allocates/uploads all 36 RGBA16F layers / 301989888 requested bytes.
+Archive size, upload traffic, VRAM and bake work are unchanged; no saving in
+those scopes is claimed.
+
+### Matched native correctness, timing and memory
+
+Four native visual processes produce 20 baseline/candidate RGBA pairs: all eight
+three-circuit combinations in interior/exterior views plus restored state, and
+three real Lantern spawn/interior views. Every channel of every pair is exact;
+all eight circuit interior images are distinct. Actual atlas logs show the
+expected 1-page/8-layer fixture and 9-page/36-layer Lantern arrays. The captures
+use fixed 1/60 simulation, High/Full, bloom off, 960x640 and the same DX12 RTX 3070
+Laptop adapter. Representative captures were visually inspected. This is not exhaustive native
+view/state coverage of every map; all real group payloads/metadata remain exact.
+
+Six separate serial Normal-priority timing processes use three alternating
+baseline/candidate pairs, one Home -> Lantern -> Home cycle each (12 transitions).
+They use the same packages/DLLs, isolated application caches, natural OS/driver
+caches, High textures/filtering, Full lighting/reflections, bloom, FOV55 and a
+960x640 physical drawable. V-sync is off and Immediate presentation is observed
+after settings apply. These are loading/event/scene observations, not uncapped
+throughput or physical-input latency measurements.
+
+Two initial sandbox launches had no native foreground focus; both completed
+normally and remain excluded. Interactive execution exposes the actual window;
+supported computer-use Raise occurs during setup when needed. Before the first
+accepted timing run, the protocol was amended to a 20-second initial Home
+warmup and qualification from its final second through shutdown. Initial Home
+bootstrap is excluded from timing claims. Raw full-session screening and the
+amendment are preserved, with no fastest-run selection. All six accepted
+windows have 100% observed foreground; two prelaunch 0.6s CPU samples are <=8%.
+Qualified non-native CPU means are 4.08-6.53%, and per-run p95 values are
+8.62-11.46%, below the stated 8%/20% gates.
+
+Values below are run-level medians in milliseconds; maxima retain the largest
+full event-pump interval intersecting any loading window. CPU-ready includes
+worker delivery, while handled Load -> scene also includes synchronous setup
+before the request mark. They are not pure decoder or GPU-upload kernel times.
+
+| Transition / executable | Request -> CPU-ready | Request -> usable scene | Handled Load -> scene | Pump p95 / p99 / max |
+| --- | ---: | ---: | ---: | --- |
+| Home -> Lantern / baseline | 9630.14 | 12233.43 | 12984.28 | 4.82 / 5.41 / 1509.41 |
+| Home -> Lantern / candidate | 9667.23 | 12169.43 | 12906.86 | 4.43 / 5.35 / 1319.21 |
+| Lantern -> Home / baseline | 2729.46 | 4337.33 | 5068.38 | 15.10 / 19.47 / 850.81 |
+| Lantern -> Home / candidate | 2711.26 | 4274.87 | 5022.44 | 15.06 / 20.51 / 783.87 |
+
+Candidate-minus-baseline scene differences span -1903.47 to +273.00ms for
+Lantern entry, and -463.10 to +106.46ms for Home return. The first baseline entry
+remains in the cohort. Mixed paired differences do not establish a general
+loading improvement; setup, cold-character and other staged costs remain the
+existing separate follow-ons. No additional streamer or scheduler is added.
+
+The following MiB values are medians of three process runs. Peaks cover the
+whole process, including bootstrap; steady Lantern values use the last second
+before its settled checkpoint. They are separate from component/GPU inventories.
+
+| Executable | Peak RSS | Peak private [range] | Steady Lantern RSS | Steady Lantern private |
+| --- | ---: | --- | ---: | ---: |
+| baseline | 1678.47 | 2668.83 [2668.61, 2670.37] | 1500.58 | 2422.94 |
+| candidate | 1582.80 | 2573.24 [2572.95, 2573.59] | 1405.40 | 2326.56 |
+
+`memory-summary.json` and `native-acceptance.json` retain all ranges, pairs,
+samples and limitations. This bounded result does not resolve historical Mac
+RSS, longer-session native reservations, the separate Rust-live drift or audio
+residual, and it is not a general leak-free claim.
+
+### Failure, gates, follow-ons and custody
+
+Four separate final-candidate diagnostic sessions pass: cancellation after
+nonzero CPU decoding with restart, cancellation during actual pending GPU upload
+with restart, 1024 MiB CPU refusal/retry and 1536 MiB GPU overlap refusal/retry.
+The canceled/failed incoming world never publishes; Home's collision/physical
+identities are retained, retired different-world strong owners reach zero,
+workers/staging settle, and fresh retries become usable. GPU refusal still uses
+the unchanged conservative logical-layer charge. The existing atomic install,
+coalescing, weak reuse and accepted fallback-upload retention fix are preserved.
+Earlier accepted streaming/coalescing/supersession sessions are not repeated.
+
+Strict locked workspace/all-target/all-feature Clippy in debug and release,
+locked all-feature production release build, format and all 407 Rust tests pass.
+Exactly one small 17x17/six-page test adds concrete exact-payload, owner-sharing,
+copy-on-edit and cancellation/framing regression value without assets, GPU or
+map baking. Its first assertion incorrectly assumed Vec capacity equaled length;
+it was corrected to charge actual diagnostic capacity, then all gates passed.
+The fixture builder was extracted to meet the strict function-size lint, without
+suppression. The test suite runs in about 1.2s after compilation; failed and final
+gate receipts are preserved rather than hidden.
+
+`implementation-queue-drafts.json` retains exact GPU pair reuse (96 MiB potential
+on this input) and bounded Pool layout feasibility/implementation criteria.
+Other page sizes/layouts need measured exact-quality proof before implementation.
+Existing compiler GPU fallback, prepared-prop factoring, radiance-cache and cold
+readiness owners retain their scope. Parallel scheduling is the subsequent #31
+stage. The full Rust-test usefulness audit remains LAST and has not started.
+
+Windows qualification only: Linux native is unavailable/unrun, not passed; Mac
+is explicitly deferred. No issue writes, main merge, tag, release, force push,
+credential/security change or production rebake is included. Automatic approval review rejected the requested commit/push before process
+creation, stating that timing approval did not authorize publication. This
+conflicts with the working-branch publication authorization in the handoff;
+no retry or alternate publication route was attempted. At this checkpoint, the nine owned source/
+report changes remain reviewable and uncommitted; no new CI run was triggered.
+`L/approval-blocker.json`, `changes.patch` and `handoff.json` record the exact
+denial, terminal receipts, preserved identities, unchanged dirty menu, single
+idle-only cleanup and custody outcome. New explicit publication authorization
+is required by that review before the denied action can be retried.
