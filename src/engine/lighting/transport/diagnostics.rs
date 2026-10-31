@@ -2,6 +2,8 @@
 //! Diagnostic files never replace a package's physical lighting solution.
 
 mod cpu;
+/// Explicit correctness oracle for the developer GPU query experiment.
+pub mod gpu_oracle;
 pub(super) use cpu::profile_cpu;
 
 use std::cell::RefCell;
@@ -691,6 +693,9 @@ pub(super) fn dump_gpu_probe(
         })
         .collect();
     let excluded = scene.triangles.len().saturating_sub(triangles.len());
+    if triangles.is_empty() || triangles.len() > gpu_oracle::MAX_TRIANGLES {
+        return Err("GPU probe geometry exceeds bounded experiment".into());
+    }
     let probe = TransportScene::new(triangles, Vec::new()).ok_or("invalid probe geometry")?;
     let receivers = scene
         .receivers(charts)
@@ -730,17 +735,8 @@ pub(super) fn dump_gpu_probe(
     })
     .map_err(|error| error.name().to_string())?;
     let cpu_ms = started.elapsed().as_secs_f64() * 1_000.0_f64;
-    let nodes: Vec<_> = probe.ray_nodes.iter().map(|node| serde_json::json!({"min":node.min,"max":node.max,"first":node.first,"count":node.count,"right":node.right})).collect();
-    let packed_triangles: Vec<_> = probe
-        .ray_triangles
-        .iter()
-        .map(|triangle| triangle.corners)
-        .collect();
-    write_json(
-        &PathBuf::from(path),
-        "snapshot.json",
-        &serde_json::json!({"triangles":packed_triangles,"nodes":nodes,"rays":rays,"expected":expected,"cpu_12_workers_ms":cpu_ms,"excluded_nonopaque_triangles":excluded}),
-    )?;
+    let snapshot = gpu_oracle::capture(&probe, rays, expected, cpu_ms, excluded);
+    write_json(&PathBuf::from(path), "snapshot.json", &snapshot)?;
     crate::engine::logging::info("[solver-probe] bounded real-scene snapshot complete");
     Ok(())
 }

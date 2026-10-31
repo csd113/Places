@@ -205,3 +205,10 @@ name = "places-memory-audit"
 path = "tools/rust/memory-audit/main.rs"
 test = false
 bench = false
+
+# Explicit correctness/economics experiment; never a production bake backend.
+[[bin]]
+name = "places-lighting-gpu-probe"
+path = "tools/rust/lighting-gpu-probe/main.rs"
+test = false
+bench = false

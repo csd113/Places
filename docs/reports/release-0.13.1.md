@@ -2599,3 +2599,125 @@ scopes. The full Rust-test usefulness review remains LAST and was not started.
 Mac native is deferred; Linux native is unavailable/unrun, not passed. GitHub
 issue writes and the separate isolated GUI Bake approval hold remain in place;
 there is no main/release/tag/force push or security change.
+
+## Correctness-gated GPU query experiment (Windows, 31 October 2026)
+
+Added the explicit `places-lighting-gpu-probe` developer tool, reusing the saved
+resident-geometry/tiled WGSL prototype. No production solver query calls it;
+CPU baking remains the default. The accepted normal-filter optimization at
+`12886334748930745ec156ea2e38eda50c14334a` is the current baseline and is unchanged.
+Its earlier timing gains, raw candidate counts and connectivity counts are not
+attributed to this experiment. Usage and limits are in
+[the tool README](../../tools/rust/lighting-gpu-probe/README.md).
+
+The device returns canonical source primitive IDs. Version-2 snapshots retain
+original source order and validate reconstructed packed geometry, IDs and the
+ray hierarchy bit for bit. IDs and original leaves are canonical within this
+filtered opaque capture, rebuilt before traversal; they do not name the original
+unfiltered scene/material tree. Full-scene eligibility involving excluded faces
+is not validated by this oracle. A candidate hit must pass the unchanged CPU f64
+`PreparedRay` intersection/endpoint predicate, its original canonical leaf slab
+and every ray-hierarchy ancestor. This preserves a CPU eligibility condition
+missing from the earlier raw snapshot. It does not attribute every earlier
+disagreement to that condition. All GPU misses, ambiguity, invalid IDs and
+uncertified hits run the complete CPU query. Verify-all forces that reference
+even for a certifiable hit. The shader boundary flags are advisory; no f32
+flag absence, GPU miss or unproven interval bound authorizes a result.
+
+Evidence `G` is `C:/Users/Connor Dawkins/Documents/Codex/2026-10-31/task/gpu-evidence`. The baseline compiler is
+`04ef4ae64af67853f60c18cec312c1585ce9ebc4c239e778ee5cf0428a1a255d`;
+the final compiler is `04a7918a94f312a7193aa220b5c4adc40084c281db185c8dcfbe12c6577485be` and
+the experiment binary is `e9354475343c5c0d6726e70eabc60802c0d966518b22bda8cc3062e1b63dc64e`. Source hashes, binaries/DLLs,
+saved captures, raw observations and final receipts are preserved outside target.
+
+### Correctness and full query economics
+
+The original saved Pool input/prototype reproduces all 163 disagreements:
+119 false hits and 44 false misses among 16,384 rays.
+The new canonical gate has zero exact mismatches in every accepted nominal,
+verify-all, failure and tile replay. This includes two current small material/
+circuit scenes, Pool, and an asset-free thin/overlapping/shared-edge/endpoint/
+large-coordinate/near-parallel fixture. The historical 151-ray rejection remains
+documented, but its original input was not recovered; it is not a new pass.
+
+Three fresh processes per real capture alternate CPU/gated/verify-all order.
+Each has five repeats; the following warm medians exclude repeat zero in each
+process (12 samples per mode/case). Device initialization, packing/upload, first
+dispatch, synchronize/readback, CPU certification/fallback and total process
+costs remain separately recorded. Compiler/native work never overlaps these
+measurements; two prelaunch CPU samples must each be <=8%.
+
+| Opaque any-hit case | CPU ms | Gated ms | Verify-all ms | Full CPU fallbacks / 16,384 | Cold device/geometry/pipeline ms |
+|---|---:|---:|---:|---:|---:|
+| material_transport | 1.223 | 1.955 | 1.986 | 5,465 | 1048.7 |
+| three_circuits | 1.266 | 2.106 | 2.052 | 4,690 | 1048.2 |
+| pool | 1.895 | 2.652 | 2.913 | 7,466 | 1054.7 |
+
+`G/analysis.json` includes host read/rebuild costs, process CPU/wall/RSS/private
+and actual adapter identity. `query-reports/` retains each transfer component,
+cold first repeat, raw false-hit/miss counts, ambiguity, exact certificates and
+resolved-result hashes. Different timing scopes are not presented as one kernel
+speedup. A first concurrent-build adversarial smoke passed correctness but its
+timings are explicitly excluded.
+
+Two alternating pairs per small scene measure the same current compiler with
+the audit disabled, versus the same CPU bake with snapshot export plus a fresh
+bounded audit process. Totals below sum measured process wall/CPU and include
+the audit controls and cold setup. The audit does not replace production rays;
+these are end-to-end experiment overheads, not a substituted GPU bake or an
+estimate of an integrated backend. Every archive within a case is identical.
+
+| Current fixture | CPU bake wall / CPU s | CPU bake + audit wall / CPU s |
+|---|---:|---:|
+| material_transport | 16.117 / 95.406 | 16.696 / 96.023 |
+| three_circuits | 18.932 / 184.477 | 21.368 / 186.820 |
+
+### Bounds, failure, output and gates
+
+Pool retains 51,618 opaque triangles and excludes 56 nonopaque/transmissive faces.
+Its resident geometry buffers occupy 4,058,544 bytes;
+the 16,384-ray input/result/readback tile occupies 786,432 bytes.
+Geometry/pipeline persist for the explicit process. Host capture/CPU scene/identity
+owners are bounded by 131,072 triangles, 16,384 rays and a 64 MiB input-file cap;
+device limits are checked before allocation. Reported packing owners and OS
+process peaks are separate observations, not summed as allocator-exact live heap.
+1,000/1,024/4,096/16,384-ray tiles agree, including a partial final tile.
+
+Injected unavailable setup, dispatch rejection, readback rejection, corrupt IDs
+and explicit device destruction all resolve exactly through CPU fallback.
+A failed backend is retired and partial batch results are discarded. GPU waits
+have a ten-second limit. Tile-boundary cancellation publishes no partial result;
+fresh-process restart resolves the same complete result hash. Actual driver reset
+and physical out-of-memory exhaustion were not forced. Pool capture uses the
+existing compiler cancellation path after export, publishes no Pool package and
+does not bake the shipped map.
+
+Both small Static+Full packages pass strict validation, current-source verification
+and typed decoded-oracle comparison against the accepted CPU-cache baseline.
+All non-provenance records match exactly; only verified compiler/tool provenance
+differs. The optional diagnostic never feeds solved output. One fresh native
+session holds the accepted player constant and matches all 17 prior RGB captures
+at 960x600 across all eight circuit states, outside/restored views. Representative
+captures were inspected. This establishes CPU output/native parity, not GPU
+transport acceptance or an FPS gain.
+
+Final-hash format, strict debug/release workspace/all-target/all-feature Clippy,
+locked debug and release workspace/all-feature builds, 412 Rust tests, 372 Python
+contracts (18 existing skips) and the production Luau refusal checks pass.
+One tiny CPU test protects false hits/misses, invalid identity, endpoint/shared-
+edge/thin/overlap cases, certificate admission and verify-all fallback. It has
+six triangles and 16 rays with no files/assets/GPU/map bake; the complete 412-test
+suite runs in 4.01 seconds after compilation. Existing solved-output
+tests cannot expose an untrusted result being incorrectly admitted. The full
+Rust-test usefulness review remains LAST and was not started.
+
+Production GPU admission remains withheld: no material total production-bake
+benefit has been demonstrated. Gated queries already lose before fresh-process
+setup in all three cases. MASK/BLEND/water coverage/transmission, nearest
+distance/identity/tie ordering, connectivity, footprints, bounce and probe work
+remain unchanged on CPU and are unsupported by this tool. No broad renderer or
+worker-system rewrite is introduced. `G/residual-queue.json` gives bounded next
+actions for the parent to track; this work makes no GitHub issue writes. Native
+Mac validation remains deferred and Linux native remains unrun, not passed.
+Current Windows/Levels package refresh and release closing remain later; no
+shipping package, menu asset, main branch, tag or release was modified.
