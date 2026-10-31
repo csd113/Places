@@ -642,3 +642,86 @@ fn archive_temporary_preserves_occupied_spool_directory_and_file() -> Result<(),
     assert!(temporary.is_file());
     Ok(())
 }
+
+/// Protects the new shared receipt's unique boundary: a replacement changing
+/// only project metadata (not the selected semantic manifest) must refresh
+/// descriptions, and a cancelled scan must retain the prior complete list.
+/// Reuses the two-level KiB fixture; three archive writes, no bake/assets/GPU.
+#[test]
+fn metadata_receipt_replacement_and_cancelled_discovery() -> Result<(), String> {
+    use crate::engine::loader::LevelManager;
+    use crate::engine::resources::{DecodeBudget, enter};
+    use std::sync::{Arc, atomic::AtomicBool};
+
+    let mut fixture = fixture()?;
+    fixture.index.project.description = "first receipt".into();
+    let path = fixture.write()?;
+    let timestamp = fs::metadata(&path)
+        .and_then(|metadata| metadata.modified())
+        .map_err(|error| error.to_string())?;
+    let mut manager = LevelManager::with_paths(
+        fixture.root.clone(),
+        fixture.root.join("installed"),
+        fixture.root.join("import"),
+    );
+    let fork = manager.fork_for_loading();
+    assert_eq!(
+        manager.menu_names(),
+        vec!["Round trip", "Friendly inactive map"],
+        "startup names retain the existing project-prefix policy"
+    );
+    assert_eq!(
+        fork.menu_names(),
+        manager.menu_names(),
+        "the existing loader fork shares the discovered snapshot"
+    );
+    assert!(
+        manager.menu_description(0).contains("first receipt"),
+        "initial metadata receipt supplies the entry description"
+    );
+    let old_identity = world::discovery_identity(&path)?;
+    let old_manifest = world::package_identity(manager.get_menu_entry(0).ok_or("missing entry")?)?;
+    fixture.index.project.description = "other receipt".into();
+    let _replacement = fixture.write()?;
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&path)
+        .and_then(|file| file.set_times(fs::FileTimes::new().set_modified(timestamp)))
+        .map_err(|error| error.to_string())?;
+    assert_eq!(
+        world::package_identity(manager.get_menu_entry(0).ok_or("missing entry")?)?,
+        old_manifest,
+        "this replacement cannot be detected from the selected semantic manifest"
+    );
+    assert_ne!(
+        world::discovery_identity(&path)?,
+        old_identity,
+        "the full project index is part of receipt identity"
+    );
+    for snapshot in [&manager, &fork] {
+        assert!(
+            snapshot.menu_description(0).contains("other receipt"),
+            "both forks reject stale metadata despite a restored timestamp"
+        );
+    }
+    let entries = manager.entries().to_vec();
+    fixture.index.project.name = "Replacement title".into();
+    let _renamed = fixture.write()?;
+    let cancelled = Arc::new(AtomicBool::new(true));
+    {
+        let _scope = enter(Some(DecodeBudget::new(cancelled)));
+        manager.refresh();
+        assert_eq!(
+            manager.entries(),
+            entries,
+            "cancelled discovery publishes no partial replacement"
+        );
+    }
+    manager.refresh();
+    assert_eq!(
+        manager.menu_names().first().map(String::as_str),
+        Some("Replacement title"),
+        "retry replaces the complete metadata snapshot"
+    );
+    Ok(())
+}

@@ -146,11 +146,7 @@ impl Preparation {
             std::thread::sleep(Duration::from_millis(5));
         }
         let _joined = loader.join_finished()?;
-        trace.record(
-            "shutdown_complete",
-            0,
-            "bootstrap worker joined; device unopened",
-        );
+        trace.record("shutdown_complete", 0, "bootstrap worker joined");
         Ok(())
     }
 }
@@ -164,7 +160,10 @@ impl Drop for Preparation {
     }
 }
 
-fn prepare(cancelled: &AtomicBool) -> Result<(LevelManager, Ready), String> {
+fn prepare(cancelled: &Arc<AtomicBool>) -> Result<(LevelManager, Ready), String> {
+    let _scope = crate::engine::resources::enter(Some(
+        crate::engine::resources::DecodeBudget::new(Arc::clone(cancelled)),
+    ));
     let mut timing = StageTimer::new("bootstrap-worker");
     let manager = LevelManager::new()?;
     timing.step("catalog-and-discovery");
@@ -238,11 +237,21 @@ pub(super) fn start(
             return result.map(|_quit| None);
         }
     }
-    let mut renderer = match super::create_renderer(window, settings, bench) {
+    let render_window = window.clone();
+    let mut cancelled = false;
+    let created = super::create_renderer(&render_window, settings, bench, &mut || {
+        if preparation.pump(&mut event_pump, window, actions.as_ref(), trace)? {
+            Ok(())
+        } else {
+            cancelled = true;
+            Err("Startup cancelled".into())
+        }
+    });
+    let mut renderer = match created {
         Ok(renderer) => renderer,
         Err(error) => {
             stop(&mut preparation, &mut event_pump, &mut actions, trace)?;
-            return Err(error);
+            return if cancelled { Ok(None) } else { Err(error) };
         }
     };
     super::configure_vsync(&mut renderer, bench, settings);

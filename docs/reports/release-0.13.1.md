@@ -2721,3 +2721,164 @@ actions for the parent to track; this work makes no GitHub issue writes. Native
 Mac validation remains deferred and Linux native remains unrun, not passed.
 Current Windows/Levels package refresh and release closing remain later; no
 shipping package, menu asset, main branch, tag or release was modified.
+
+
+## Shared startup metadata and prepared character shaders (Windows, 31 October 2026)
+
+Implemented the named `startup-shared-metadata-and-main-device` follow-on from
+the retained audio/editor drafts, deduplicating #28/#29. The baseline is
+`ad114164c2d067adf4d2154c7c9e8767c841475c`, which already contains the accepted
+startup/audio worker and editor world-pipeline work. Their earlier first-pump
+and first-presentation gains remain attributed to those earlier sections.
+
+Discovery now captures validated semantics, the project index and metadata
+identity from one archive handle. Bounded immutable metadata receipts share
+Arcs across the existing UI/loading managers; menu naming no longer reopens
+every package. Description and thumbnail access check fresh content identities,
+including the full project index and thumbnail blob identities. Import/refresh
+replaces the snapshot; a cancelled scan preserves the prior complete list.
+World loads still validate their current semantic/dependency snapshot; these
+receipts do not authorize skipping that validation. The existing startup worker
+uses the decode cancellation scope, with directory/index and 8 KiB dependency
+hashing checkpoints. No additional discovery manager or preparation worker is added.
+
+Interactive adapter/device futures now poll on the SDL/device owner and pump
+controls between setup operations and pending polls. A native call inside a
+poll remains synchronous: the measured DX12 adapter call still takes about
+0.94 seconds. Device creation, SDL, uploads, installation and presentation stay
+on their owner. The existing character shader worker now prepares the four BLEND
+target sets while fitted sheets are prepared/uploaded. Only immutable device
+layouts/pipelines cross that worker boundary; matching layout identity gates
+installation. Existing shader-adaptation, material/batch admission and general
+triangle fallbacks remain intact. The worker is owned and joined, including
+normal close while native events continue pumping. The existing 128-character
+and 64 MiB BLEND-batch limits remain; buffer/binding installation is still an
+atomic scene transaction, not an enforced per-handler wall-time deadline.
+
+Evidence `S` is `C:/Users/Connor Dawkins/Documents/Codex/2026-10-31/task-2/startup-evidence`.
+All 586 preserved baseline source hashes, including player/editor startup,
+match the starting checkout. Final implementation hashes are frozen in
+`S/final-source-hashes.json`; production binaries/DLLs and native input identities
+are preserved outside target. Final SHA-256 identities are:
+
+* Player: `a7fb68327dc0d98cab70b1b22042eaf3df1c4d593d78fdd6252b37596d4421d2`.
+* Editor: `525c198b06d146e219e6b5bd86dc795c0390fa4acf5d614b68428178efeaf924`.
+* Compiler: `b6b6be9dbd508b1a508e71c719cf652fea1f37abd1e3bed3bdfe10554f538be4`.
+
+### Matched fresh-process observations
+
+Three alternating baseline/candidate pairs each cover the current small Lab
+project, Lantern and the player/Aero control: 18 accepted launches. Settings,
+assets and source/package bytes match; state/config/cache directories are
+isolated. These are fresh processes, not cold OS-file-cache or boot measurements.
+Two prelaunch 600 ms total-CPU samples must each be <=8%; measured nonchild CPU
+mean must be <=8% and p95 <=20%. Two rejected trials remain under `S/exclusions/`
+(8.18% mean and 21.16% p95); only those trials were repeated. All accepted runs
+remain in `S/paired-complete.json`, with raw samples and identities.
+
+The actual backend is DX12 on the RTX 3070 Laptop GPU. Editor drawable is
+1440x816, player drawable 960x600; actual presentation is Fifo. Editor keeps its
+ordinary 16 ms sleep and the controls retain V-sync. These are startup latency
+and behavior observations, with no FPS/uncapped-throughput claim. Values below
+are baseline -> candidate medians in milliseconds; gap columns are medians of
+each process's maximum. Trace clocks start at application entry. Separate
+process-to-checkpoint polling brackets are retained in each result receipt.
+
+| Case | First pump | First present | First usable present | Maximum all-pump gap | Maximum frame-loop gap |
+|---|---:|---:|---:|---:|---:|
+| Small editor | 103.4 -> 101.2 | 1569.9 -> 1604.2 | 6412.2 -> 6666.2 | 1227.6 -> 949.9 | 261.7 -> 264.3 |
+| Lantern editor | 103.7 -> 103.3 | 1628.6 -> 1625.9 | 11137.0 -> 10907.0 | 1225.9 -> 936.9 | 1112.2 -> 258.5 |
+| Player/Aero | 37.1 -> 37.2 | 1354.4 -> 1345.5 | 8332.3 -> 7619.1 | 1076.3 -> 963.9 | 135.0 -> 136.6 |
+
+Lantern's maximum upload handler falls from 1086.2 to 20.1 ms; its character
+commit portion falls from 1080.6 to 13.2 ms. The small project's maximum upload
+handler is 9.9 -> 10.7 ms. There is no uniform readiness gain: small-project
+usable presentation is 0.254 s slower, Lantern is 0.230 s faster and the player
+is 0.713 s faster in these cohorts. The roughly one-second native driver floor
+and roughly 0.26 s early editor frame-loop gaps remain explicit limits.
+
+Player worker catalog/discovery is 2760.2 -> 1484.9 ms;
+menu metadata is 1243.533 -> 0.023 ms.
+The seven observed receipts charge 4035 encoded bytes. The per-snapshot bound is
+64 receipts / 4 MiB encoded metadata; normal UI/loader snapshots share receipt
+Arcs. Encoded charge excludes paths/map nodes/Arc overhead and is not an exact
+heap count. Separate snapshots can retain distinct bounded revisions. No world,
+prepared records or decoded images are owned by these receipts.
+
+| Case | Whole-process CPU s | Peak RSS MiB | Peak private MiB |
+|---|---:|---:|---:|
+| Small editor | 5.641 -> 5.844 | 328.6 -> 329.8 | 468.5 -> 468.5 |
+| Lantern editor | 10.172 -> 10.609 | 802.9 -> 804.1 | 961.4 -> 951.4 |
+| Player/Aero | 13.953 -> 12.094 | 438.1 -> 439.8 | 631.0 -> 635.3 |
+
+CPU/peaks extend through the standard scripted exit (the player includes one
+second after ready). Editor capture/close costs are matched. Process peaks are
+observations, not claimed allocator savings. Editor worker CPU/queue time,
+result delivery wait, admission, install setup, upload tails and explicit
+document/image/model/history charges remain separate in `S/analysis.json` and
+the snapshots. Existing 64-revision/32 MiB per-stack and 256 MiB aggregate
+document admission remain unchanged; unsaved documents/history stay pinned.
+
+### Cancellation, preservation and exact output
+
+The small/Lantern native flows preserve dirty edits across source switches,
+failed-load retry, exact undo/redo, superseded preview generations, save and
+reopen. The cold supersession case rejects obsolete responses and installs the
+latest generation. Two initial world-pipeline closes pump while joining for
+3.533/3.659 s. Two targeted character-worker closes pump 18/27 times while
+joining for 0.439/0.592 s; the CPU preview worker is already idle. Upload close
+also exits normally. These are observed retirement times, not deadlines.
+
+Player startup Quit controls scheduled 20/700 ms both exit cleanly without
+reaching a world. The following single-run controls separate queue delivery,
+joined-worker retirement and whole-process exit; they are not latency bounds.
+
+| Scheduled delay ms | Action delivery latency ms | Shutdown request -> joined trace ms | Whole-process exit s |
+|---|---:|---:|---:|
+| 20 | 1650.4 -> 907.4 | 910.8 -> 356.2 | 2.842 -> 2.233 |
+| 700 | 328.6 -> 228.9 | 1564.9 -> 342.3 | 2.841 -> 2.235 |
+
+Player Aero/Home/Beam transitions, cancel/restart and a package corrupted after
+discovery pass. The corrupt load is refused rather than promoted from stale
+metadata. Normal close retains joined ownership. Physical device loss was not
+injected; no hard driver deadline or device-loss acceptance is claimed.
+
+All six matched editor world/UI crops `(336,114)-(1440,727)` are pixel exact;
+whole-image differences are confined to the isolated source-path status text.
+A separate fixed-ready-frame-30 player pair is exact across the complete
+960x600 RGB image. Representative captures were inspected visually. One tiny
+Full offline fixture per compiler passes native integrity validation; every one
+of its 13 non-provenance records, including probes, matches exactly. Verified
+compiler/tool provenance differs. This is parity, not an offline speed gain or
+a blanket rebake. `S/native-pipeline-complete.json` and `S/analysis.json` identify
+the final proof. Initial shader-close trial times landed before that phase;
+continuation-helper and capture-control mistakes were corrected in the harness,
+with raw failures retained and successful sessions reused. Capture-only player
+controls omit the queued Quit that otherwise postpones capture.
+
+### Gates and actionable residuals
+
+Rust/Cargo 1.99.1 final-source format, locked all-target/all-feature debug check,
+strict debug/release Clippy, locked debug/release workspace builds, 413 Rust
+regressions, 372 Python contracts (18 existing skips), asset validation and all
+11 production Luau refusals pass. The one new KiB archive regression uniquely
+protects metadata-only replacement while selected manifest/timestamp stay the
+same, fork freshness and cancelled discovery preserving the prior list. It
+uses no assets/GPU/bake. An existing collection-quest test exhausted its Luau
+frame budget during concurrent cold compilation; its unchanged-source quiet
+rerun passes with all 413 tests. No production/test budget was weakened. The
+failure is retained for the complete Rust-test usefulness audit, which remains
+LAST and was not started.
+
+This implements the measured Windows shared-metadata/polling/shader-preparation
+follow-on. Keep the same #28/#29 residual tracking for the synchronous native
+driver floor, larger-scene/runtime-only cold constructors and platform/long
+session acceptance; a further incremental commit rewrite needs a demonstrated
+workload, not a claimed universal deadline. The small readiness regression and
+editor CPU increase above remain part of acceptance. Audio residual owner
+attribution and freshness/DSP work remain separate later items. The known
+Windows Luau default compiler-suffix item remains queued; its explicit-path
+production gate passes here. `S/residual-queue.json` deduplicates these actions.
+Mac native validation is deferred; Linux native is unrun, not passed. Current
+shipping package refresh remains later; the earlier historical GUI Bake result
+is not reattributed to this code. The parent owns GitHub issue updates.

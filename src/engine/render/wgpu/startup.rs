@@ -2,10 +2,88 @@
 //! worker boundary; SDL windows, surface acquisition and presentation never do.
 use std::sync::mpsc::{Receiver, TryRecvError};
 
+pub(super) fn owner_wait<T>(
+    future: impl std::future::Future<Output = T>,
+    pump: &mut impl FnMut() -> Result<(), String>,
+) -> Result<T, String> {
+    let mut pending = std::pin::pin!(future);
+    let mut context = std::task::Context::from_waker(std::task::Waker::noop());
+    loop {
+        pump()?;
+        match pending.as_mut().poll(&mut context) {
+            std::task::Poll::Ready(value) => return Ok(value),
+            std::task::Poll::Pending => std::thread::sleep(std::time::Duration::from_millis(5)),
+        }
+    }
+}
+
+use super::super::{skinning, world};
+
 use super::{
     Acquired, DecalPipeline, EffectsPipeline, PostProcess, SCENE_FORMAT, SkyPipeline, WgpuRenderer,
     WorldPipeline,
 };
+
+pub(super) struct CharacterPipelines {
+    pub(super) skin: skinning::SkinPipeline,
+    pub(super) blend: Vec<world::PreparedCharacterBlend>,
+}
+
+pub(super) struct CharacterPipelineWorker {
+    pub(super) receive: Receiver<CharacterPipelines>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl CharacterPipelineWorker {
+    pub(super) fn start(
+        device: wgpu::Device,
+        skin: Option<skinning::SkinPipeline>,
+        blend: Vec<world::CharacterBlendPreparation>,
+        textures: wgpu::BindGroupLayout,
+        materials: wgpu::BindGroupLayout,
+    ) -> Result<Self, String> {
+        let (send, receive) = std::sync::mpsc::channel();
+        let thread = std::thread::Builder::new()
+            .name("places-character-pipeline".into())
+            .spawn(move || {
+                let started = std::time::Instant::now();
+                let prepared_skin = skin.unwrap_or_else(|| skinning::SkinPipeline::new(&device));
+                let prepared_blend = blend
+                    .into_iter()
+                    .map(|preparation| preparation.build(&device, &textures, &materials))
+                    .collect();
+                crate::engine::logging::info(format!(
+                    "[loading-shader-worker] character_pipelines_ms={:.3}",
+                    started.elapsed().as_secs_f64() * 1_000.0_f64
+                ));
+                let _delivered = send.send(CharacterPipelines {
+                    skin: prepared_skin,
+                    blend: prepared_blend,
+                });
+            })
+            .map_err(|error| format!("Cannot prepare character pipelines: {error}"))?;
+        Ok(Self {
+            receive,
+            thread: Some(thread),
+        })
+    }
+
+    fn is_finished(&self) -> bool {
+        self.thread
+            .as_ref()
+            .is_none_or(std::thread::JoinHandle::is_finished)
+    }
+}
+
+impl Drop for CharacterPipelineWorker {
+    fn drop(&mut self) {
+        if let Some(thread) = self.thread.take()
+            && thread.join().is_err()
+        {
+            crate::engine::logging::warn("Character pipeline worker stopped unexpectedly");
+        }
+    }
+}
 
 pub(super) struct WorldPipelines {
     surface: WorldPipeline,
@@ -237,7 +315,14 @@ impl WgpuRenderer {
         if finished {
             drop(self.startup_pipelines.take());
         }
-        finished
+        let character_finished = self
+            .character_pipeline_job
+            .as_ref()
+            .is_none_or(CharacterPipelineWorker::is_finished);
+        if character_finished {
+            drop(self.character_pipeline_job.take());
+        }
+        finished && character_finished
     }
 
     pub(super) fn prepare_all_auxiliary(&mut self) {

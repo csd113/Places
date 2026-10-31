@@ -332,16 +332,35 @@ impl BlendBatch {
     }
 }
 
+/// Conservative prewarm admission; final GPU batch/residency admission still
+/// uses the existing upload path. Unavailable shader adaptation keeps its
+/// established general-triangle fallback rather than retrying a worker forever.
+pub(in crate::engine::render::wgpu) fn preparation_needed(scene: &CharacterScene) -> bool {
+    if !batching_available() {
+        return false;
+    }
+    scene
+        .characters()
+        .iter()
+        .chain(scene.runtime_characters())
+        .any(|character| {
+            character.texture().is_none() && vertex_emission(&character.asset().model).is_some()
+        })
+}
+
+fn batching_available() -> bool {
+    shader_source().is_some()
+        && !(std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+            && std::env::var("PLACES_BENCH_CHARACTER_BATCH").as_deref() == Ok("off"))
+}
+
 impl WgpuCharacters {
     pub(super) fn upload_blend_batches(
         &mut self,
         ctx: &CharacterUploadContext<'_>,
         scene: &CharacterScene,
     ) {
-        if shader_source().is_none()
-            || (std::env::var("PLACES_BENCH").as_deref() == Ok("1")
-                && std::env::var("PLACES_BENCH_CHARACTER_BATCH").as_deref() == Ok("off"))
-        {
+        if !batching_available() {
             return;
         }
         // Additional batching residency is capped across the complete scene.

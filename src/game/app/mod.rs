@@ -378,9 +378,10 @@ fn create_renderer(
     window: &Window,
     settings: &Settings,
     bench: &Bench,
+    pump: &mut impl FnMut() -> Result<(), String>,
 ) -> Result<Renderer, String> {
-    let mut renderer =
-        Renderer::new(window).map_err(|e| format!("Failed to initialize the renderer: {e}"))?;
+    let mut renderer = Renderer::new_pumped(window, pump)
+        .map_err(|e| format!("Failed to initialize the renderer: {e}"))?;
     perf::startup_mark("renderer device");
     // The requested graphics configuration is recorded before the first level
     // upload, so the load itself bakes the right atlas, fits the right texture
@@ -418,24 +419,7 @@ fn configure_vsync(renderer: &mut Renderer, bench: &mut Bench, settings: &Settin
 
 /// Display names of the installed levels, in discovery order.
 fn level_entry_names(level_manager: &loader::LevelManager) -> Vec<String> {
-    let mut projects = std::collections::BTreeMap::new();
-    level_manager
-        .menu_entries()
-        .iter()
-        .map(|entry| {
-            let prefix = projects.entry(&entry.path).or_insert_with(|| {
-                crate::engine::package::project::inspect(&entry.path)
-                    .ok()
-                    .flatten()
-                    .map(|project| format!("{} / ", project.project.name))
-            });
-            prefix
-                .as_deref()
-                .and_then(|project_prefix| entry.name.strip_prefix(project_prefix))
-                .unwrap_or(&entry.name)
-                .to_string()
-        })
-        .collect()
+    level_manager.menu_names()
 }
 
 fn settings_save_problem(error: &std::io::Error) -> String {
@@ -834,6 +818,7 @@ impl FrameLoop<'_> {
                 .actions
                 .as_ref()
                 .is_some_and(|actions| !actions.is_finished())
+            || !self.renderer.retire_startup_pipelines()
         {
             self.pump_events();
             if self.fatal_error.is_some() {

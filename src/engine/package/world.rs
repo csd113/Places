@@ -149,6 +149,49 @@ pub fn open(path: &Path) -> Result<OpenedPackage, String> {
     open_reader(PackageReader::new(file).map_err(|error| error.to_string())?)
 }
 
+/// Discovery validates semantics/dependencies and captures project metadata on
+/// the same archive handle. The receipt never authorizes a later world load.
+pub(crate) fn discover(
+    path: &Path,
+) -> Result<
+    (
+        OpenedPackage,
+        Option<super::project::ProjectPackage>,
+        String,
+    ),
+    String,
+> {
+    let mut reader =
+        PackageReader::new(super::archive::open_file(path)?).map_err(|error| error.to_string())?;
+    let project = super::project::read_index(&mut reader)?;
+    if let Some(index) = &project {
+        super::project::select_index(&mut reader, index, None)?;
+    }
+    let opened = open_reader(reader)?;
+    let identity = metadata_identity(&opened.manifest, project.as_ref())?;
+    Ok((opened, project, identity))
+}
+
+/// Fresh metadata identity; no path/size/timestamp validity assumption. The
+/// complete index includes thumbnail hashes and project/member descriptions.
+pub(crate) fn discovery_identity(path: &Path) -> Result<String, String> {
+    let mut reader =
+        PackageReader::new(super::archive::open_file(path)?).map_err(|error| error.to_string())?;
+    let project = super::project::read_index(&mut reader)?;
+    if let Some(index) = &project {
+        super::project::select_index(&mut reader, index, None)?;
+    }
+    metadata_identity(&read_manifest(&mut reader)?, project.as_ref())
+}
+
+fn metadata_identity(
+    manifest: &Manifest,
+    project: Option<&super::project::ProjectPackage>,
+) -> Result<String, String> {
+    let bytes = serde_json::to_vec(&(manifest, project)).map_err(|error| error.to_string())?;
+    Ok(super::hash::sha256_hex(&bytes))
+}
+
 /// Opens only the explicitly selected level in a project package.
 /// # Errors
 /// Returns package validation errors or an undeclared identity.
@@ -433,6 +476,7 @@ fn check_dependencies(manifest: &Manifest, root: Option<&Path>) -> Result<(), St
         };
     };
     for dependency in &manifest.dependencies {
+        crate::engine::resources::checkpoint()?;
         if dependency.kind == crate::engine::package::DependencyKind::Embedded {
             continue;
         }

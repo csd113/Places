@@ -2831,6 +2831,38 @@ fn build_model_pipelines(
     }
 }
 
+/// Immutable device/layout snapshot for the existing character worker. It
+/// owns no map, surface, upload queue or SDL state.
+pub(super) struct CharacterBlendPreparation {
+    camera: wgpu::BindGroupLayout,
+    lights: wgpu::BindGroupLayout,
+    state: (wgpu::TextureFormat, wgpu::FrontFace, bool),
+}
+
+pub(super) struct PreparedCharacterBlend {
+    preparation: CharacterBlendPreparation,
+    pipelines: Option<[wgpu::RenderPipeline; 2]>,
+}
+
+impl CharacterBlendPreparation {
+    pub(super) fn build(
+        self,
+        device: &wgpu::Device,
+        texture: &wgpu::BindGroupLayout,
+        material: &wgpu::BindGroupLayout,
+    ) -> PreparedCharacterBlend {
+        let pipelines = build_character_blend_pipelines(
+            device,
+            [&self.camera, texture, material, &self.lights],
+            self.state,
+        );
+        PreparedCharacterBlend {
+            preparation: self,
+            pipelines,
+        }
+    }
+}
+
 /// The world material render pipelines and their camera + texture + material
 /// bindings.
 ///
@@ -3017,6 +3049,25 @@ impl WorldPipeline {
             transparent_scratch: std::cell::RefCell::new(Vec::new()),
             #[cfg(feature = "visual-diagnostics")]
             visual_diagnostic: super::diagnostics::VisualDiagnosticMode::Final,
+        }
+    }
+
+    pub(super) fn character_blend_preparation(&self) -> Option<CharacterBlendPreparation> {
+        (self.character_blend.is_none() && self.format != DEPTH_FORMAT).then(|| {
+            CharacterBlendPreparation {
+                camera: self.camera_layout.clone(),
+                lights: self.lights_layout.clone(),
+                state: (self.format, self.front_face, self.raw_target),
+            }
+        })
+    }
+
+    pub(super) fn install_character_blend(&mut self, prepared: &PreparedCharacterBlend) {
+        if self.camera_layout == prepared.preparation.camera
+            && self.lights_layout == prepared.preparation.lights
+            && (self.format, self.front_face, self.raw_target) == prepared.preparation.state
+        {
+            self.character_blend.clone_from(&prepared.pipelines);
         }
     }
 

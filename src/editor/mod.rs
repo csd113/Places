@@ -470,12 +470,14 @@ fn create_app(
     tools: ToolPaths,
     capture_dir: Option<PathBuf>,
     performance_test: bool,
+    pump: &mut impl FnMut() -> Result<(), String>,
 ) -> Result<App, String> {
-    let viewport = Viewport::new(window, performance_test)?;
+    let viewport = Viewport::new(window, performance_test, pump)?;
     let (dialog_sender, dialog_receiver) = mpsc::channel();
     let capture = capture_dir.map(Capture::new).transpose()?;
     let catalog = assets::AssetCatalog::load_default();
     let browser = browser::Browser::new(&catalog);
+    pump()?;
     let app = App {
         capture,
         document: None,
@@ -539,6 +541,16 @@ fn create_app(
     Ok(app)
 }
 
+fn retire_app(mut app: App, events: &mut sdl3::EventPump, trace: &mut performance::FrameTrace) {
+    trace.stage("shutdown_requested");
+    while !app.viewport.retire_startup_pipelines() {
+        let _closing_events = trace.bootstrap_pump(events);
+        std::thread::sleep(Duration::from_millis(16));
+    }
+    drop(app);
+    trace.stage("shutdown_complete");
+}
+
 fn application(options: Options) -> Result<(), String> {
     let mut trace = performance::FrameTrace::new(options.performance_test);
     let mut startup = crate::engine::perf::loading::StageTimer::new("editor-bootstrap");
@@ -564,13 +576,30 @@ fn application(options: Options) -> Result<(), String> {
     if !trace.bootstrap_pump(&mut events) {
         return Ok(());
     }
-    let mut app = create_app(
+    let mut cancelled = false;
+    let created = create_app(
         &window,
         &sdl,
         tools,
         options.capture_dir,
         options.performance_test,
-    )?;
+        &mut || {
+            if trace.bootstrap_pump(&mut events) {
+                Ok(())
+            } else {
+                cancelled = true;
+                Err("Editor startup cancelled".into())
+            }
+        },
+    );
+    let mut app = match created {
+        Ok(app) => app,
+        Err(_) if cancelled => {
+            trace.stage("shutdown_complete");
+            return Ok(());
+        }
+        Err(error) => return Err(error),
+    };
     startup.step("app-renderer-audio");
     trace.stage("editor_app_ready");
     if !trace.bootstrap_pump(&mut events) {
@@ -618,13 +647,7 @@ fn application(options: Options) -> Result<(), String> {
             std::thread::sleep(Duration::from_millis(16));
         }
     }
-    trace.stage("shutdown_requested");
-    while !app.viewport.retire_startup_pipelines() {
-        let _closing_events = trace.bootstrap_pump(&mut events);
-        std::thread::sleep(Duration::from_millis(16));
-    }
-    drop(app);
-    trace.stage("shutdown_complete");
+    retire_app(app, &mut events, &mut trace);
     Ok(())
 }
 

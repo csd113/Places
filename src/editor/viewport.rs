@@ -89,8 +89,12 @@ pub(super) struct Viewport {
 }
 
 impl Viewport {
-    pub fn new(window: &Window, performance_test: bool) -> Result<Self, String> {
-        let mut renderer = Renderer::new(window)?;
+    pub fn new(
+        window: &Window,
+        performance_test: bool,
+        pump: &mut impl FnMut() -> Result<(), String>,
+    ) -> Result<Self, String> {
+        let mut renderer = Renderer::new_pumped(window, pump)?;
         renderer.set_editor_ui();
         renderer.set_quality(QualityLevel::High);
         renderer.set_lighting_quality(QualityLevel::Low);

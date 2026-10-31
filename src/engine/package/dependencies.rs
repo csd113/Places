@@ -46,6 +46,7 @@ pub fn identity(root: &Path, path: &str, kind: DependencyKind) -> Result<(u64, S
     let mut buffer = [0; 8192];
     let mut bounded = file.by_ref().take(limit.saturating_add(1));
     loop {
+        crate::engine::resources::checkpoint()?;
         let count = bounded.read(&mut buffer).map_err(|e| e.to_string())?;
         if count == 0 {
             break;

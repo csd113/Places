@@ -858,7 +858,7 @@ pub struct WgpuRenderer {
     /// skinned vertex buffer per character and one environment per character.
     world_characters: Option<WgpuCharacters>,
     character_skin_pipeline: Option<super::skinning::SkinPipeline>,
-    character_skin_job: Option<std::sync::mpsc::Receiver<super::skinning::SkinPipeline>>,
+    character_pipeline_job: Option<startup::CharacterPipelineWorker>,
     /// The `CharacterScene::runtime_generation` the GPU side was last built
     /// from. A runtime spawn or despawn bumps the scene's generation;
     /// `sync_characters` rebuilds `world_characters` when this differs, so
@@ -903,6 +903,16 @@ impl WgpuRenderer {
     /// the adapter is not the intended native backend.
     // one cohesive device/surface bootstrap
     pub fn new(window: &Window) -> Result<Self, String> {
+        Self::new_pumped(window, &mut || Ok(()))
+    }
+
+    /// Cooperative owner-thread bootstrap. A native driver call can still
+    /// block inside a poll; no preemption or wall-time deadline is promised.
+    pub fn new_pumped(
+        window: &Window,
+        pump: &mut impl FnMut() -> Result<(), String>,
+    ) -> Result<Self, String> {
+        pump()?;
         if !surface::native_backend_is_compiled() {
             return Err(format!(
                 "the wgpu renderer was requested, but this build has no {} backend compiled \
@@ -927,12 +937,13 @@ impl WgpuRenderer {
         let instance = wgpu::Instance::new(descriptor);
 
         bootstrap.step("instance");
+        pump()?;
         let retained_window = window.clone();
         // SAFETY: the clone owns the same SDL handles. It is retained by the
         // renderer after its surface field, including during surface recovery.
         let wgpu_surface = unsafe { surface::create(&instance, &retained_window) }?;
         bootstrap.step("surface");
-        let adapter = Self::request_adapter(&instance, &wgpu_surface)?;
+        let adapter = Self::request_adapter(&instance, &wgpu_surface, pump)?;
         bootstrap.step("adapter-driver");
         let adapter_info = adapter.get_info();
         Self::check_native_backend(&adapter_info)?;
@@ -949,13 +960,20 @@ impl WgpuRenderer {
         bootstrap.step("capabilities");
         let alpha_mode = surface::select_alpha_mode(&capabilities);
 
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
-            label: Some("places-wgpu"),
-            required_limits: world_device_limits(&adapter.limits()),
-            required_features: gpu_timing::required_features(adapter.features()),
-            memory_hints: device_memory_hints(),
-            ..Default::default()
-        }))
+        let (device, queue) = startup::owner_wait(
+            async {
+                adapter
+                    .request_device(&wgpu::DeviceDescriptor {
+                        label: Some("places-wgpu"),
+                        required_limits: world_device_limits(&adapter.limits()),
+                        required_features: gpu_timing::required_features(adapter.features()),
+                        memory_hints: device_memory_hints(),
+                        ..Default::default()
+                    })
+                    .await
+            },
+            pump,
+        )?
         .map_err(|error| {
             format!(
                 "wgpu could not create a device on '{}' ({}): {error}",
@@ -964,6 +982,7 @@ impl WgpuRenderer {
             )
         })?;
         bootstrap.step("device-driver");
+        pump()?;
         logging::info(format!(
             "[wgpu] memory allocator policy: {:?}",
             device_memory_hints()
@@ -997,6 +1016,7 @@ impl WgpuRenderer {
             device_lost,
         );
         bootstrap.step("project-resources");
+        pump()?;
         renderer.window = Some(retained_window);
         Ok(renderer)
     }
@@ -1267,7 +1287,7 @@ impl WgpuRenderer {
             characters: CharacterScene::new(),
             world_characters: None,
             character_skin_pipeline: None,
-            character_skin_job: None,
+            character_pipeline_job: None,
             character_runtime_generation: 0,
             dynamic_lighting: None,
             dynamic_field: None,
@@ -1290,6 +1310,7 @@ impl WgpuRenderer {
     fn request_adapter(
         instance: &wgpu::Instance,
         surface: &wgpu::Surface<'_>,
+        pump: &mut impl FnMut() -> Result<(), String>,
     ) -> Result<wgpu::Adapter, String> {
         let options = wgpu::RequestAdapterOptions {
             power_preference: surface::native_power_preference(),
@@ -1297,20 +1318,34 @@ impl WgpuRenderer {
             compatible_surface: Some(surface),
             apply_limit_buckets: false,
         };
-        pollster::block_on(instance.request_adapter(&options)).map_err(|error| {
-            let discovered: Vec<String> =
-                pollster::block_on(instance.enumerate_adapters(surface::native_backends()))
-                    .into_iter()
-                    .map(|adapter| {
-                        let info = adapter.get_info();
-                        format!("'{}' ({:?}, {:?})", info.name, info.backend, info.device_type)
-                    })
-                    .collect();
-            format!(
-                "no compatible {} adapter for the Places window: {error}; adapters discovered: {discovered:?}",
-                surface::native_backend_label()
-            )
-        })
+        let requested =
+            startup::owner_wait(async { instance.request_adapter(&options).await }, pump)?;
+        match requested {
+            Ok(adapter) => Ok(adapter),
+            Err(error) => {
+                let discovered: Vec<String> = startup::owner_wait(
+                    async {
+                        instance
+                            .enumerate_adapters(surface::native_backends())
+                            .await
+                    },
+                    pump,
+                )?
+                .into_iter()
+                .map(|adapter| {
+                    let info = adapter.get_info();
+                    format!(
+                        "'{}' ({:?}, {:?})",
+                        info.name, info.backend, info.device_type
+                    )
+                })
+                .collect();
+                Err(format!(
+                    "no compatible {} adapter for the Places window: {error}; adapters discovered: {discovered:?}",
+                    surface::native_backend_label()
+                ))
+            }
+        }
     }
 
     /// Refuses an adapter from any backend but the intended native one.
@@ -8229,48 +8264,69 @@ impl WgpuRenderer {
 impl WgpuRenderer {
     /// A device-global immutable shader survives level supersession. At most one
     /// compilation worker exists for this renderer and owns no map or SDL state.
-    fn poll_character_pipeline(&mut self) -> Result<bool, String> {
-        if self.character_skin_pipeline.is_some() {
-            return Ok(true);
+    fn character_blend_preparations(
+        &self,
+        blend: bool,
+    ) -> Vec<super::world::CharacterBlendPreparation> {
+        if !blend {
+            return Vec::new();
         }
-        if let Some(pipeline) = self
-            .world_characters
-            .as_ref()
-            .and_then(WgpuCharacters::prepared_pipeline)
-        {
-            self.character_skin_pipeline = Some(pipeline);
-            return Ok(true);
+        [
+            &self.world_pipeline,
+            &self.scene_pipeline,
+            &self.emissive_pipeline,
+            &self.capture_pipeline,
+        ]
+        .into_iter()
+        .flatten()
+        .filter_map(WorldPipeline::character_blend_preparation)
+        .collect()
+    }
+
+    fn poll_character_pipeline(&mut self, blend: bool) -> Result<bool, String> {
+        if self.character_skin_pipeline.is_none() {
+            self.character_skin_pipeline = self
+                .world_characters
+                .as_ref()
+                .and_then(WgpuCharacters::prepared_pipeline);
         }
-        if let Some(job) = &self.character_skin_job {
-            return match job.try_recv() {
-                Ok(pipeline) => {
-                    self.character_skin_pipeline = Some(pipeline);
-                    self.character_skin_job = None;
-                    Ok(true)
+        if let Some(job) = &self.character_pipeline_job {
+            match job.receive.try_recv() {
+                Ok(prepared) => {
+                    self.character_skin_pipeline = Some(prepared.skin);
+                    for pipeline in [
+                        &mut self.world_pipeline,
+                        &mut self.scene_pipeline,
+                        &mut self.emissive_pipeline,
+                        &mut self.capture_pipeline,
+                    ]
+                    .into_iter()
+                    .flatten()
+                    {
+                        for shaders in &prepared.blend {
+                            pipeline.install_character_blend(shaders);
+                        }
+                    }
+                    // Dropping joins this owner; no detached compilation outlives the device.
+                    drop(self.character_pipeline_job.take());
                 }
-                Err(std::sync::mpsc::TryRecvError::Empty) => Ok(false),
+                Err(std::sync::mpsc::TryRecvError::Empty) => return Ok(false),
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                    Err("Character pipeline preparation stopped".into())
+                    return Err("Character pipeline preparation stopped".into());
                 }
-            };
+            }
         }
-        let device = self.device.clone();
-        let (send, receive) = std::sync::mpsc::channel();
-        let _worker = std::thread::Builder::new()
-            .name("places-character-pipeline".into())
-            .spawn(move || {
-                let started = std::time::Instant::now();
-                let pipeline = super::skinning::SkinPipeline::new(&device);
-                if std::env::var_os("PLACES_LOAD_TRACE").is_some() {
-                    logging::info(format!(
-                        "[loading-shader-worker] skin_pipeline_ms={:.3}",
-                        started.elapsed().as_secs_f64() * 1_000.0_f64
-                    ));
-                }
-                let _delivered = send.send(pipeline);
-            })
-            .map_err(|error| format!("Cannot prepare character pipeline: {error}"))?;
-        self.character_skin_job = Some(receive);
+        let preparations = self.character_blend_preparations(blend);
+        if self.character_skin_pipeline.is_some() && preparations.is_empty() {
+            return Ok(true);
+        }
+        self.character_pipeline_job = Some(startup::CharacterPipelineWorker::start(
+            self.device.clone(),
+            self.character_skin_pipeline.clone(),
+            preparations,
+            self.textures.layout().clone(),
+            self.material_layout.clone(),
+        )?);
         Ok(false)
     }
 
@@ -8389,6 +8445,15 @@ impl WgpuRenderer {
 
     fn upload_auxiliary_step(&mut self, pending: &mut PreparedInstall) {
         if pending.auxiliary_sources.is_none() {
+            // Reuse the existing immutable shader worker while fitted sheets
+            // are prepared/uploaded. It owns no map and never uploads a world.
+            if !pending.characters.is_empty() {
+                let blend = super::character::blend::preparation_needed(&pending.characters);
+                if let Err(error) = self.poll_character_pipeline(blend) {
+                    pending.upload_error = Some(error);
+                    return;
+                }
+            }
             pending.auxiliary_sources = Some(Self::auxiliary_texture_sources(pending));
             return;
         }
@@ -8417,7 +8482,8 @@ impl WgpuRenderer {
             let ready = if pending.characters.is_empty() {
                 Ok(true)
             } else {
-                self.poll_character_pipeline()
+                let blend = super::character::blend::preparation_needed(&pending.characters);
+                self.poll_character_pipeline(blend)
             };
             match ready {
                 Ok(true) => pending.phase = UploadPhase::Props,

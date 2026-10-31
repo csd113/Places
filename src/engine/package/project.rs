@@ -70,6 +70,7 @@ pub fn read_index<R: Read + Seek>(
     }
     let mut expected = BTreeSet::from([INDEX.to_string()]);
     for (compiled, authored) in index.levels.iter().zip(&index.project.levels) {
+        crate::engine::resources::checkpoint()?;
         if compiled.id != authored.id
             || compiled.records.len() > 512
             || !compiled.records.contains_key("manifest.json")
@@ -78,6 +79,7 @@ pub fn read_index<R: Read + Seek>(
         }
         let mut member_bytes = 0_u64;
         for (name, record) in &compiled.records {
+            crate::engine::resources::checkpoint()?;
             if super::normalize_entry_name(name).as_deref() != Some(name.as_str()) {
                 return Err("Unsafe virtual map entry".into());
             }
@@ -96,6 +98,7 @@ pub fn read_index<R: Read + Seek>(
     let mut source_bytes = 0_u64;
     let mut paths = BTreeSet::new();
     for (path, record) in &index.sources {
+        crate::engine::resources::checkpoint()?;
         if !paths.insert(path.as_str().to_ascii_lowercase()) {
             return Err("Case-conflicting project source paths".into());
         }
@@ -134,22 +137,31 @@ pub(crate) fn select<R: Read + Seek>(
     id: Option<&str>,
 ) -> Result<(), String> {
     if let Some(index) = read_index(reader)? {
-        let selected = id.unwrap_or(&index.project.entry_level);
-        let level = index
+        select_index(reader, &index, id)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn select_index<R: Read + Seek>(
+    reader: &mut PackageReader<R>,
+    index: &ProjectPackage,
+    id: Option<&str>,
+) -> Result<(), String> {
+    let selected = id.unwrap_or(&index.project.entry_level);
+    let level = index
+        .levels
+        .iter()
+        .find(|level| level.id == selected)
+        .ok_or_else(|| format!("Project package has no level '{selected}'"))?;
+    reader.select_view(
+        level.records.clone(),
+        index
+            .project
             .levels
             .iter()
-            .find(|level| level.id == selected)
-            .ok_or_else(|| format!("Project package has no level '{selected}'"))?;
-        reader.select_view(
-            level.records.clone(),
-            index
-                .project
-                .levels
-                .iter()
-                .map(|record| record.id.clone())
-                .collect(),
-        );
-    }
+            .map(|record| record.id.clone())
+            .collect(),
+    );
     Ok(())
 }
 

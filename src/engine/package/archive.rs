@@ -402,6 +402,7 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<DirectoryInd
     let mut total: u64 = 0;
     let mut cursor = 0_usize;
     for _ in 0..entries {
+        crate::engine::resources::checkpoint().map_err(OpenError::NotArchive)?;
         let header = directory
             .get(cursor..cursor.saturating_add(46))
             .ok_or_else(|| OpenError::NotArchive("central directory is truncated".to_string()))?;

@@ -28,7 +28,20 @@ const fn source_rank(source_type: LevelSourceType) -> u8 {
     }
 }
 
-type MenuImageCache = std::collections::BTreeMap<(PathBuf, String), Option<Arc<super::RawImage>>>;
+type MenuImageCache =
+    std::collections::BTreeMap<(PathBuf, String, String), Option<Arc<super::RawImage>>>;
+
+/// One refresh's metadata snapshot, shared with the existing loading worker.
+/// No semantic worlds, source files, thumbnail pixels or prepared records live here.
+#[derive(serde::Serialize)]
+struct MetadataReceipt {
+    identity: String,
+    project: Option<crate::engine::project::ProjectManifest>,
+}
+
+const MAX_METADATA_RECEIPTS: usize = 64;
+const MAX_METADATA_BYTES: usize = 4 * 1024 * 1024;
+type MetadataCache = std::collections::BTreeMap<PathBuf, Arc<MetadataReceipt>>;
 
 /// Unified level loader and package manager.
 pub struct LevelManager {
@@ -38,6 +51,7 @@ pub struct LevelManager {
     entries: Vec<LevelEntry>,
     menu_entries: Vec<LevelEntry>,
     menu_images: RefCell<MenuImageCache>,
+    metadata: RefCell<MetadataCache>,
     prop_catalog: Arc<PropCatalog>,
     /// Decoded texture images shared across level loads (one decode per
     /// logical texture per session).
@@ -49,11 +63,14 @@ impl LevelManager {
     /// Returns the shared resource/storage configuration error.
     pub fn new() -> Result<Self, String> {
         let paths = crate::engine::paths::user()?;
-        Ok(Self::with_paths(
+        crate::engine::resources::checkpoint()?;
+        let manager = Self::with_paths(
             crate::engine::paths::assets()?.join("levels"),
             paths.levels(),
             paths.imports(),
-        ))
+        );
+        crate::engine::resources::checkpoint()?;
+        Ok(manager)
     }
 
     #[must_use]
@@ -65,6 +82,7 @@ impl LevelManager {
             entries: Vec::new(),
             menu_entries: Vec::new(),
             menu_images: RefCell::new(std::collections::BTreeMap::new()),
+            metadata: RefCell::new(MetadataCache::new()),
             prop_catalog: Arc::new(PropCatalog::load_default()),
             texture_cache: RefCell::new(TextureCache::new()),
         };
@@ -82,6 +100,7 @@ impl LevelManager {
             entries: self.entries.clone(),
             menu_entries: self.menu_entries.clone(),
             menu_images: RefCell::new(std::collections::BTreeMap::new()),
+            metadata: RefCell::new(self.metadata.borrow().clone()),
             prop_catalog: Arc::clone(&self.prop_catalog),
             texture_cache: RefCell::new(TextureCache::new()),
         }
@@ -108,7 +127,8 @@ impl LevelManager {
     #[must_use]
     pub fn menu_thumbnail(&self, index: usize) -> Option<Arc<super::RawImage>> {
         let entry = self.get_menu_entry(index)?;
-        let key = (entry.path.clone(), entry.id.clone());
+        let identity = crate::engine::package::world::discovery_identity(&entry.path).ok()?;
+        let key = (entry.path.clone(), entry.id.clone(), identity);
         let mut cache = self.menu_images.borrow_mut();
         if let Some(cached) = cache.get(&key) {
             return cached.clone();
@@ -135,18 +155,17 @@ impl LevelManager {
         let Some(entry) = self.get_menu_entry(index) else {
             return String::new();
         };
-        let description = crate::engine::package::project::inspect(&entry.path)
-            .ok()
-            .flatten()
-            .and_then(|package| {
-                package.project.level(Some(&entry.id)).ok().map(|level| {
-                    if level.description.trim().is_empty()
-                        && entry.id == package.project.entry_level
-                    {
-                        package.project.description.clone()
-                    } else {
-                        level.description.clone()
-                    }
+        let description = self
+            .current_metadata(&entry.path)
+            .and_then(|receipt| {
+                receipt.project.as_ref().and_then(|project| {
+                    project.level(Some(&entry.id)).ok().map(|level| {
+                        if level.description.trim().is_empty() && entry.id == project.entry_level {
+                            project.description.clone()
+                        } else {
+                            level.description.clone()
+                        }
+                    })
                 })
             })
             .unwrap_or_default();
@@ -165,9 +184,83 @@ impl LevelManager {
         }
     }
 
+    /// Names from the just-discovered snapshot; startup does not reopen each
+    /// project for menu naming. Import/refresh replaces this snapshot together.
+    pub(crate) fn menu_names(&self) -> Vec<String> {
+        let receipts = self.metadata.borrow().clone();
+        self.menu_entries
+            .iter()
+            .map(|entry| {
+                let receipt = receipts
+                    .get(&entry.path)
+                    .cloned()
+                    .or_else(|| self.current_metadata(&entry.path));
+                let prefix = receipt
+                    .as_ref()
+                    .and_then(|metadata| metadata.project.as_ref())
+                    .map(|project| format!("{} / ", project.name));
+                prefix
+                    .as_deref()
+                    .and_then(|project_prefix| entry.name.strip_prefix(project_prefix))
+                    .unwrap_or(&entry.name)
+                    .to_string()
+            })
+            .collect()
+    }
+
+    fn current_metadata(&self, path: &Path) -> Option<Arc<MetadataReceipt>> {
+        let fresh_identity = crate::engine::package::world::discovery_identity(path).ok()?;
+        if let Some(receipt) = self
+            .metadata
+            .borrow()
+            .get(path)
+            .filter(|receipt| receipt.identity == fresh_identity)
+        {
+            return Some(Arc::clone(receipt));
+        }
+        let (_, project, identity) = crate::engine::package::world::discover(path).ok()?;
+        let receipt = Arc::new(MetadataReceipt {
+            identity,
+            project: project.map(|index| index.project),
+        });
+        Self::retain_metadata(&mut self.metadata.borrow_mut(), path, &receipt);
+        Some(receipt)
+    }
+
+    fn retain_metadata(cache: &mut MetadataCache, path: &Path, receipt: &Arc<MetadataReceipt>) {
+        let charge = |item: &MetadataReceipt| {
+            serde_json::to_vec(item).map_or(MAX_METADATA_BYTES, |bytes| bytes.len())
+        };
+        let bytes = cache
+            .iter()
+            .filter(|(cached, _)| cached.as_path() != path)
+            .fold(charge(receipt), |total, (_, cached)| {
+                total.saturating_add(charge(cached))
+            });
+        drop(cache.remove(path));
+        if cache.len() < MAX_METADATA_RECEIPTS && bytes <= MAX_METADATA_BYTES {
+            drop(cache.insert(path.to_path_buf(), Arc::clone(receipt)));
+        }
+    }
+
     #[cfg(feature = "visual-diagnostics")]
     pub(crate) fn diagnostic_cached_images(&self) -> serde_json::Value {
-        self.texture_cache.borrow().diagnostic_retention()
+        let mut diagnostics = self.texture_cache.borrow().diagnostic_retention();
+        let receipts = self.metadata.borrow();
+        let encoded_bytes = receipts.values().fold(0_usize, |total, receipt| {
+            total.saturating_add(
+                serde_json::to_vec(receipt.as_ref())
+                    .map_or(MAX_METADATA_BYTES, |bytes| bytes.len()),
+            )
+        });
+        if let Some(object) = diagnostics.as_object_mut() {
+            drop(object.insert("metadata_receipts".into(), serde_json::json!({
+                "entries": receipts.len(), "encoded_bytes": encoded_bytes,
+                "entry_bound": MAX_METADATA_RECEIPTS, "encoded_byte_bound": MAX_METADATA_BYTES,
+                "scope": "Immutable metadata receipts share Arcs across UI/loader snapshots; encoded charge excludes path/map/Arc overhead and is not process RSS or an exact heap count. No worlds or decoded images are retained by these receipts."
+            })));
+        }
+        diagnostics
     }
 
     /// Drops optional decoded map-image ownership when returning to the menu.
@@ -207,14 +300,28 @@ impl LevelManager {
     /// deterministic `(name, id)` order decides. A duplicate id is reported,
     /// never silently replacing a row.
     pub fn refresh(&mut self) {
-        self.menu_images.get_mut().clear();
+        if let Err(error) = self.refresh_checked() {
+            crate::engine::logging::info(format!("[levels] discovery stopped: {error}"));
+        }
+    }
+
+    fn refresh_checked(&mut self) -> Result<(), String> {
+        crate::engine::resources::checkpoint()?;
         let mut discovered = Vec::new();
-        Self::scan_package_dir(&self.assets_dir, LevelSourceType::Bundled, &mut discovered);
+        let mut receipts = MetadataCache::new();
+        Self::scan_package_dir(
+            &self.assets_dir,
+            LevelSourceType::Bundled,
+            &mut discovered,
+            &mut receipts,
+        )?;
         Self::scan_package_dir(
             &self.levels_dir,
             LevelSourceType::Installed,
             &mut discovered,
-        );
+            &mut receipts,
+        )?;
+        crate::engine::resources::checkpoint()?;
         discovered.sort_by(|a, b| {
             source_rank(a.0.source_type)
                 .cmp(&source_rank(b.0.source_type))
@@ -245,6 +352,9 @@ impl LevelManager {
         }
 
         self.entries = unique;
+        *self.metadata.get_mut() = receipts;
+        self.menu_images.get_mut().clear();
+        Ok(())
     }
 
     /// Adds every `*.placesmap` directly below `dir` to `discovered`.
@@ -252,16 +362,19 @@ impl LevelManager {
         dir: &Path,
         source_type: LevelSourceType,
         discovered: &mut Vec<(LevelEntry, bool)>,
-    ) {
+        receipts: &mut MetadataCache,
+    ) -> Result<(), String> {
+        crate::engine::resources::checkpoint()?;
         let read_dir = match fs::read_dir(dir) {
             Ok(entries) => entries,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
             Err(error) => {
                 Self::report_skipped_level(dir, &format!("Cannot read map directory: {error}"));
-                return;
+                return Ok(());
             }
         };
         for result in read_dir {
+            crate::engine::resources::checkpoint()?;
             let entry = match result {
                 Ok(entry) => entry,
                 Err(error) => {
@@ -277,9 +390,21 @@ impl LevelManager {
             if !crate::engine::package::is_package_path(&path) {
                 continue;
             }
-            match Self::probe_package_file(&path, source_type) {
-                Ok(meta) => match crate::engine::package::project::inspect(&path) {
-                    Ok(Some(index)) => {
+            match crate::engine::package::world::discover(&path) {
+                Ok((opened, project, identity)) => {
+                    let meta = LevelEntry {
+                        id: opened.level.id,
+                        name: opened.level.name,
+                        author: opened.level.author,
+                        source_type,
+                        path: path.clone(),
+                    };
+                    let receipt = Arc::new(MetadataReceipt {
+                        identity,
+                        project: project.as_ref().map(|index| index.project.clone()),
+                    });
+                    Self::retain_metadata(receipts, &path, &receipt);
+                    if let Some(index) = project {
                         for level in &index.project.levels {
                             let mut item = meta.clone();
                             item.id.clone_from(&level.id);
@@ -302,13 +427,17 @@ impl LevelManager {
                                     || level.id == index.project.entry_level,
                             ));
                         }
+                    } else {
+                        discovered.push((meta, true));
                     }
-                    Ok(None) => discovered.push((meta, true)),
-                    Err(error) => Self::report_skipped_level(&path, &error),
-                },
-                Err(error) => Self::report_skipped_level(&path, &error),
+                }
+                Err(error) => {
+                    crate::engine::resources::checkpoint()?;
+                    Self::report_skipped_level(&path, &error);
+                }
             }
         }
+        Ok(())
     }
 
     /// True for an authoring source the player never plays and never reports.
@@ -330,18 +459,6 @@ impl LevelManager {
             format!("level-skipped:{}", path.display()),
             format!("[levels] skipping {}: {error}", path.display()),
         );
-    }
-
-    /// Reads one package's manifest and semantics for discovery.
-    fn probe_package_file(path: &Path, source_type: LevelSourceType) -> Result<LevelEntry, String> {
-        let opened = crate::engine::package::world::open(path)?;
-        Ok(LevelEntry {
-            id: opened.level.id,
-            name: opened.level.name,
-            author: opened.level.author,
-            source_type,
-            path: path.to_path_buf(),
-        })
     }
 
     /// Loads the first visible menu entry in deterministic discovery order.

@@ -102,6 +102,17 @@ impl Renderer {
         WgpuRenderer::new(window).map(|renderer| Self { renderer })
     }
 
+    /// Pumps native controls between owner-thread bootstrap operations and
+    /// pending adapter/device polls. Driver calls themselves are not preempted.
+    /// # Errors
+    /// Returns native setup or caller cancellation errors.
+    pub fn new_pumped(
+        window: &Window,
+        pump: &mut impl FnMut() -> Result<(), String>,
+    ) -> Result<Self, String> {
+        WgpuRenderer::new_pumped(window, pump).map(|renderer| Self { renderer })
+    }
+
     /// Releases the inactive map while preserving the rendering device and UI.
     pub fn unload_level(&mut self) {
         self.renderer.unload_level();
