@@ -4626,7 +4626,7 @@ impl FrameLoop<'_> {
         }
     }
 
-    fn trace_lighting_capture_state(&self) {
+    fn trace_lighting_capture_state(&self, path: &Path) {
         if !self.bench.enabled() {
             return;
         }
@@ -4655,6 +4655,8 @@ impl FrameLoop<'_> {
         crate::engine::logging::info(format!(
             "[lighting-capture-state] {}",
             serde_json::json!({
+                "capture_path": path,
+                "character_animations": self.renderer.character_animation_diagnostics(self.game.entity_frames()),
                 "ready_frame": self.ready_frames,
                 "simulation_seconds": self.ready_seconds,
                 "fixed_delta_seconds": self.bench.fixed_delta_seconds(),
@@ -4709,7 +4711,7 @@ impl FrameLoop<'_> {
                 self.game.stop();
                 return;
             }
-            self.trace_lighting_capture_state();
+            self.trace_lighting_capture_state(&path);
             write_capture(self.renderer, &path);
             crate::engine::logging::info(format!(
                 "[lighting-sequence] capture_attempt ready_frame={} path={}",
@@ -4733,7 +4735,7 @@ impl FrameLoop<'_> {
         let Some(path) = self.capture_path.take() else {
             return;
         };
-        self.trace_lighting_capture_state();
+        self.trace_lighting_capture_state(&path);
         write_capture(self.renderer, &path);
         perf::startup_mark("capture readback");
         self.game.stop();

@@ -3086,3 +3086,134 @@ Startup gains/trade-offs, unrelated runtime drift, package refresh and the
 Windows default Luau executable-suffix item remain separate. Parent owns GitHub
 issue/status writes. No menu asset, main branch, tag, release, security settings
 or package publication is part of this change.
+
+## Issue #24 residual closure (Windows, 31 October 2026)
+
+Both retained implementation follow-ons are now resolved: `RUNTIME-BURIED-CONTACT`
+and `TR-CAPTURE-ACTUAL-CLIP`. This supersedes their queued/unresolved disposition
+in the planar-reflection section above. The live #24 reconciliation and closed
+#39 were rechecked: the original 144 exports, all six modular rail/fence
+dispositions, ordinary ghost BLEND ordering and planar reflected-character fix
+remain accepted. This pass adds no artwork or repeat planar implementation.
+
+### Buried runtime contact
+
+The reproduced runtime `core:crate` uses key 987, scale .65, then position
+`[6.4,-2,1.2]`, yaw 70 degrees. Contact admission now selects the highest authored walkable
+floor strictly below the transformed bounds' top. A wholly buried caster cannot
+project upward through that floor. Overlapping storeys select their own eligible
+floor regardless of room order; ramp/stair/region offsets keep their existing
+precedence. Visible partly embedded and resting casters remain eligible, and the
+existing 0.5 m suspended/held distance attenuation and eight-subject cap remain.
+No shader, reflection, transparency, shadow-map, texture or mesh contract changes.
+
+The baseline is the exact post-audio player from `7a494b03`, SHA256
+`945b76fbc503b7e350942811269990e3f6a4013cd3af69c158c7856ede701ee6`.
+Matched absent/spawn/move/below/despawn controls run with reflections off and
+Full. At the below checkpoint the baseline retains one contact subject; the final
+retains zero. Values below are changed RGB pixels / largest 8-bit channel delta
+against the same-frame absent control, over the entire 960x640 native image.
+
+| Control | Baseline below / absent | Final below / absent |
+| --- | ---: | ---: |
+| Reflections off | 18,458 / 10 | 0 / 0 |
+| Reflections full | 18,158 / 8 | 0 / 0 |
+
+Both despawn controls match absent exactly. All 14 retained absent, resting,
+low-suspended and despawn baseline/final image pairs are pixel-identical.
+Real `/give`, Interact pickup, held movement and release retain the same key and
+changing published bounds, with an actual planar pass in each capture.
+One tiny CPU regression uniquely protects buried/flush-top refusal, partial
+embedding, resting/suspended/held fade and two overlapping storeys with the upper
+room first. It uses two asset-free rooms, no solver bake, files or device.
+
+### Maintained actual-character capture acceptance
+
+Frame-based native captures now emit their path and actual
+`character_animation_diagnostics` alongside the existing final scene receipt.
+This diagnostic is called only at explicit benchmark capture endpoints, with
+the existing bounded character inventory; ordinary rendering gains no readback,
+cache or per-frame diagnostic allocation. Authored/locomotion cue precedence
+and animation behavior are unchanged.
+
+`tools/bench/check_character_capture.py --log NATIVE_LOG --expected CONTRACT_JSON
+--out NEW_RECEIPT_JSON` rejects missing/ambiguous actors, requested/actual clip
+or pause mismatches, invalid clocks/opacity/posed bounds, wrong world/drawable,
+missing final draws or PNGs, and absent or duplicate capture identities. Inputs
+are bounded to 32 MiB log / 1 MiB contract, 64 captures and 32 requested actors per
+capture. Receipts preserve selected clip, clock/duration, paused state, opacity,
+posed bounds/origin and actual PNG hashes. Series may require changing poses
+beyond origin translation, clock wrap and interrupted fade. Exact opacity
+`[0,0]` additionally requires an absent attached light and explicit image comparison;
+`--equal HIDDEN_PNG ABSENT_PNG` requires full-image RGB equality. The companion
+absent run is separately qualified with no actual characters.
+
+Mesh registration can remain true at zero; registration is not pixel visibility.
+The final native run qualifies both actual idle and moving `float_forward`,
+including their 4.8 s / 4 s wraps and changing poses. An intentional float request
+against actual idle exits nonzero and publishes no passing receipt. The proximity
+motion fixture preserves the interrupted fade, wrap and exact-zero controls;
+observed opacity sequence is `[0.85, 0.646355, 0.773264, 0.85, 0.646355, 0.433855, 0.221355, 0.008855, 0.0]`.
+Its final hidden image matches the separately qualified absent capture exactly. The earlier misleading `zero`
+filename remains a partial-opacity control; it does not qualify exact zero.
+All nine fixed-frame motion images match the post-audio baseline exactly,
+including reversal and hidden. Rejected wall-clock numeric targets from the
+initial fixed-frame contract are retained; partial opacity is qualified by actual
+state and reversal, not a mismatched clock. Omitting the required zero/absence
+image comparison also exits nonzero and publishes no passing receipt.
+The small Python refusal regression uses two in-memory receipts and no assets,
+GPU or map bake. It uniquely protects the historical false clip/zero acceptance.
+
+### Evidence, gates and scope
+
+Evidence `E` is `C:/Users/Connor Dawkins/Documents/Codex/2026-10-31/task-4/issue24-evidence`. `reproduction-identities.json` binds the original
+queue, post-audio baseline and four reused package identities.
+`contact-comparisons.json`, `native-summary.json`, per-run identities, source
+snapshots, expected contracts, logs, original PNGs and maintained checker receipts
+remain outside Cargo target. `final-bin/hashes.json` binds every preserved final
+executable/DLL. `runtime-payload-completion.json` records the byte-verified
+accepted baseline DLLs copied into this isolated runtime; the initial refused
+launch missing DXC/DXIL is retained and excluded from acceptance. No shipping
+package or host installation was changed. Final player SHA256 is `6e1e3eee78bed29606eb46d5c733106e90e9ad72bd1c9cbaa484774eb40c4d3c`;
+final compiler is `eeecbe8de8dbc863a355a0264e75eae7524b05054aaaa934af15de68a77747d3`. All frozen Rust/tool hashes are unchanged
+across gates and native acceptance. The four original small packages pass final
+compiler integrity validation. No native fixture or shipped map was rebaked,
+and no reused package is declared compiler-current.
+
+Rust/Cargo 1.99.1: format, locked all-target/all-feature debug check, strict debug
+and release Clippy, locked debug/release workspace/all-feature builds,
+415 Rust regressions, 373 Python contracts (18 existing skips), asset
+validation, clip boundaries and all 11 production Luau refusal checks pass.
+No test or ordinary CI gate bakes a shipped map. The full Rust-test usefulness
+audit stays LAST after the existing agreed queue and has not started.
+
+Native correctness is Windows Razer / RTX 3070 Laptop / DX12/DXC at actual
+960x640, FOV 55, High/Full, bloom on. Frame-sequence comparisons use fixed
+1/60 simulation delta; held-item checks use the normal live clock. Presentation
+is paced Fifo; no FPS or throughput gain is claimed. Existing #39
+cost/quality/shadow/transparent acceptance remains the supporting wider matrix.
+Linux native remains unrun, not passed; Mac remains deferred. Package refresh,
+clean-OS/platform acceptance and unrelated issue scopes remain separate.
+These are acceptance limits, not unresolved implementations of these two items.
+
+The completed asset ledger and all #24 delivered Windows criteria plus its two
+retained follow-ons are now accounted for. Parent owns the final GitHub issue
+reconciliation/closure; this pass makes no issue writes. The unrelated menu scene
+is preserved at SHA256 `93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.
+No main, force push, release, tag, credentials or package publication is involved.
+`E/handoff.json` records branch publication, exact remote, final process/index
+state and the one idle-only cleanup after evidence preservation.
+
+### Publication status after local acceptance
+
+Automatic approval review rejected the combined scoped commit/non-force push
+before the command executed. Its stated reason restricts trusted approval to the
+earlier nine audio files, excluding these seven #24 files. This is an approval
+block, not an implementation or validation failure. No file was staged, no commit
+was created and no push occurred. Local and verified remote remain
+`7a494b03d9ebc6640e1a905a97a4ddc468c90506`; the index is empty. The source changes
+and complete passing evidence are preserved for publication approval.
+`E/review.patch`, `E/review-files/` and `E/handoff.json` provide the exact payload,
+identities, denial and pending action. Baseline audio CI41234598995 passed; that
+does not validate this unpublished #24 payload. Parent must account for this
+publication hold before final issue closure.

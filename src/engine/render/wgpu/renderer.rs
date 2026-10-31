@@ -5088,11 +5088,9 @@ impl WgpuRenderer {
         let subjects = dynamic
             .chain(characters)
             .filter_map(|(bounds, sample)| {
-                let [x, _, z] = bounds.centre();
-                let floor = surfaces.floor_y_at(x, z)?;
                 crate::engine::render::common::dynamic_lights::contact_shadow(
                     bounds,
-                    floor,
+                    &surfaces,
                     sample.map_or([0.0, 1.0, 0.0], |texel| texel.direction),
                 )
             })

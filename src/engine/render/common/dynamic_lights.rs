@@ -136,19 +136,29 @@ impl ContactShadowUniform {
     };
 }
 
-/// Resolve actual transformed bounds against the authored walkable floor.
-/// Suspended objects fade their contact term rather than grounding in mid-air.
+/// Resolve transformed bounds against the highest authored walkable floor
+/// below their top. A wholly buried subject cannot shade a floor above it;
+/// stacked storeys retain their own support. Suspended contacts still fade.
 #[must_use]
 pub fn contact_shadow(
     bounds: crate::engine::spatial::Aabb,
-    floor_y: f32,
+    surfaces: &crate::engine::level::LevelSurfaces<'_>,
     incoming: [f32; 3],
 ) -> Option<ContactShadowUniform> {
     let minimum = Vec3::from_array(bounds.min);
     let maximum = Vec3::from_array(bounds.max);
-    if !minimum.is_finite() || !maximum.is_finite() || !floor_y.is_finite() {
+    if !minimum.is_finite() || !maximum.is_finite() {
         return None;
     }
+    let centre = minimum.lerp(maximum, 0.5);
+    let offset = surfaces.walkable_offset_at(centre.x, centre.z);
+    let floor_y = surfaces
+        .rooms()
+        .iter()
+        .filter(|room| room.contains(centre.x, centre.z))
+        .map(|room| room.floor_y + offset)
+        .filter(|floor| floor.is_finite() && *floor < maximum.y)
+        .max_by(f32::total_cmp)?;
     let half = Vec3::new(
         (maximum.x - minimum.x) * 0.5,
         (maximum.y - minimum.y) * 0.5,
@@ -157,7 +167,6 @@ pub fn contact_shadow(
     if !half.is_finite() || half.min_element() <= 0.0 {
         return None;
     }
-    let centre = minimum.lerp(maximum, 0.5);
     let direction = Vec3::from_array(incoming).normalize_or(Vec3::Y);
     let grounded = (1.0 - (minimum.y - floor_y).max(0.0) / 0.5).clamp(0.0, 1.0);
     if grounded <= 0.0 {
@@ -313,3 +322,7 @@ impl DynamicLightSet {
         self.lights.clear();
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/contact_shadow.rs"]
+mod tests;
