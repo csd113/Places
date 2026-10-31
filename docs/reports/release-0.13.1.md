@@ -1890,3 +1890,84 @@ Normal working-branch publication, independent remote SHA verification,
 preserved evidence, unchanged unrelated dirty menu, single idle-only cleanup and
 custody release are recorded in the final handoff. No main merge, force push,
 tag, release or credential change was performed.
+
+
+## Existing pose reuse and conservative visibility (Windows, 31 October 2026)
+
+The existing GPU pose path and conservative visibility checks pass this bounded native qualification. Current occlusion already removes submissions in Home, Pool and Arcade. The measurements do not establish an additional hidden-work cost that justifies a replacement visibility algorithm. No production rendering code, clock quantization, actor synchronization, new subsystem or Rust test was added. This records the pose/visibility part of #31; broader streaming, lightmap and scheduling work remains in its original later order.
+
+### Frozen source and conditions
+
+The source/binary baseline is `0e28267a861e9a9749189e60c50907a5b4bf89dc` on `0.13.1-dev`; all 590 source hashes match the accepted memory candidate. Preserved player SHA-256 is `038d02bb5601d36ff32c0a5dc9557a465f8637108cb0347be94c2a1a69ab11b8`. The later documentation commit does not imply a rebuilt player. Exact source, binary/DLL and package identities are retained. Accepted existing archives are reused without a production map bake or a claim that their compiler fingerprints are current.
+
+Evidence `E` is `C:/Users/Connor Dawkins/Documents/Codex/2026-10-30/task-8/qualification-evidence/`. `final-qualification.json`, `paired-summary.json`, `quality-and-diagnostic-analysis.json`, `quiet-selection.json` and the final handoff index native logs, CSVs, process samples, exact PNGs, settings, package hashes and frozen supervisor sources outside Cargo target.
+
+The final cohort has 36 serial runs: three alternating pairs per case, 900 warmup and 1,200 measured frames each, totaling 43,200 measured frames. Windows Razer / Ryzen 9 5900HX / RTX 3070 Laptop / DX12/DXC; Normal process priority, fixed 1/60 simulation step, High textures/filtering, Full lighting/reflections, bloom, FOV 55, V-sync off and no application frame limiter. Actual presentation is Immediate, swap interval zero, with 100% observed foreground during CSV growth. Lab, Home, Pool and pose views use a physical 960x640 drawable; Arcade lanes use 1920x1080. Natural OS/driver caches were not purged. Both sides of every pair have the same camera, settings, resolution and package bytes.
+
+Two consecutive 0.6s prelaunch CPU samples must be <=8%. During measured CSV growth, aggregate machine CPU minus the native process must have mean <=8% and p95 <=20%. Every accepted run passes: observed non-native means range 2.22-6.23%, and the largest per-run non-native p95 is 11.61%. This aggregate includes the small controller and OS/driver share; it is not a global command-line enumeration. The first accepted pair predates the pause; the other 34 use the same protocol after the approved resume.
+
+The earlier 36 foreground timing runs remain **screening only** because prelaunch background CPU varied 1.6-44.6%. Four earlier Arcade 960x640 attempts have a median near 6.06ms/165Hz despite Immediate and are also excluded. The accepted 1920x1080 Arcade cohort runs below that plateau. Home pacing controls with the existing dontwait/none options exceeded refresh, but presentation remains an important cheap-view cost. No fastest-run selection was used.
+
+An execution session disappeared during the first attempt at the next quiet Lab load. That attempt has no measured result and is excluded; the specifically owned native PID was verified terminal. The old stop marker remains intact. Fresh user approval permitted the persistent supervisor. Three later attempts failed foreground qualification, finished normally and remain excluded; the controller stopped on each failure. Their first valid repeats are selected explicitly. Per-case launch gates and early UI activation then kept focus corrections out of measured frames. Each supervisor has job-close termination disabled, frozen source snapshots and a terminal receipt. No healthy native run was killed for status.
+
+### Matched quiet results
+
+Values are medians of each run's average / p95 / p99, in milliseconds. Ranges below are all three paired differences, not confidence intervals. CPU work overlaps asynchronous GPU work and is not added to GPU spans. GPU timestamps cover the union of encoded pass spans, not complete driver/queue or input-to-photon latency.
+
+The nonblocking three-slot timer supplies 660-1200 distinct samples per 1,200-frame run. GPU samples are deduplicated by ID; their tails describe the captured subset. Every CPU frame remains in the frame statistics. Per-run coverage and unavailable/repeated samples remain in the raw CSVs and analysis.
+
+| Visibility view | CPU render on -> off (avg / p95 / p99) | GPU on -> off (avg / p95 / p99) | Frame loop on -> off (avg / p95 / p99) | Reported draws on -> off | Visible indices on -> off |
+| --- | --- | --- | --- | ---: | ---: |
+| Lab shelves | 0.674 / 0.827 / 0.946 -> 0.682 / 0.840 / 0.989 | 1.910 / 2.702 / 2.840 -> 1.718 / 2.338 / 2.790 | 3.065 / 4.331 / 4.873 -> 2.968 / 4.329 / 4.688 | 10 -> 10 | 89730 -> 89730 |
+| Home hall | 0.625 / 0.834 / 0.919 -> 0.616 / 0.801 / 0.891 | 1.973 / 3.183 / 3.197 -> 2.206 / 3.229 / 3.438 | 2.549 / 4.911 / 5.129 -> 2.761 / 5.515 / 5.903 | 35 -> 49 | 39120 -> 67608 |
+| Pool wide | 0.849 / 1.118 / 1.245 -> 0.863 / 1.136 / 1.272 | 2.952 / 4.163 / 4.426 -> 3.027 / 4.229 / 4.507 | 3.372 / 6.470 / 6.761 -> 3.433 / 6.516 / 6.849 | 112 -> 168 | 127704 -> 172440 |
+| Arcade lanes, 1920x1080 | 2.239 / 2.932 / 3.342 -> 2.339 / 3.103 / 3.567 | 9.953 / 12.086 / 12.710 -> 9.537 / 11.422 / 12.165 | 10.425 / 12.709 / 14.064 -> 10.123 / 12.361 / 13.883 | 262 -> 311 | 363945 -> 411945 |
+
+| Pose view | CPU update GPU -> CPU fallback (avg / p95 / p99) | GPU span (avg / p95 / p99) | Frame loop (avg / p95 / p99) |
+| --- | --- | --- | --- |
+| Lab, 12 ordinary actors | 1.842 / 2.426 / 2.728 -> 3.611 / 4.688 / 5.047 | 0.921 / 1.324 / 1.349 -> 1.147 / 1.225 / 1.247 | 3.513 / 5.102 / 5.749 -> 5.695 / 6.839 / 7.507 |
+| Lantern Hollow | 4.760 / 5.194 / 5.585 -> 5.683 / 6.158 / 6.744 | 11.641 / 13.372 / 13.546 -> 10.785 / 11.518 / 15.515 | 12.618 / 15.690 / 17.289 -> 13.807 / 17.160 / 18.385 |
+
+The pose control compares the existing whole GPU path with its established CPU fallback, including preparation, bounds, sharing, scheduling and uploads. It does not isolate exact sharing alone, and no newly implemented speedup is claimed.
+
+| Case: second control minus first | Loop mean difference [range] | Loop p95 difference [range] | Loop p99 difference [range] |
+| --- | --- | --- | --- |
+| visibility-lab | -0.096 [-0.130, -0.008] | -0.339 [-0.851, +0.096] | -0.078 [-0.185, +0.181] |
+| visibility-home | +0.205 [+0.156, +0.212] | +0.604 [+0.562, +0.749] | +0.724 [+0.717, +0.870] |
+| visibility-pool | +0.070 [+0.061, +0.137] | +0.046 [+0.034, +0.094] | +0.119 [+0.044, +0.144] |
+| visibility-arcade-lanes-hd | -0.347 [-0.375, +0.082] | -0.321 [-0.348, -0.173] | -0.181 [-0.241, -0.095] |
+| pose-lab-actors | +2.180 [+2.172, +2.440] | +1.737 [+1.640, +2.228] | +1.758 [+1.738, +2.562] |
+| pose-lantern | +1.467 [+1.190, +2.164] | +1.314 [+1.192, +3.289] | +2.062 [+1.017, +3.816] |
+
+Sparse explicit diagnostics are excluded from these timing cohorts. Three-frame character animation/skin-upload CPU samples and 64 filtered scene deformation samples per view remain in `quality-and-diagnostic-analysis.json`. Lab deformation samples average .086ms (p95 .105, p99 .108); Lantern .142ms (p95 .603, p99 .617). Their duration filter and early/slow-frame selection make them descriptive, not unbiased steady kernel-tail measurements. Earlier trace budgets exhausted on loading passes are retained and excluded as deformation proof.
+
+Frame CSV `vbo_bytes` describes resident geometry, not per-frame upload traffic. Source order still uploads a changed actor's palette before exact-sharing selection; saved compute dispatches do not imply saved palette writes. Actual per-frame palette-upload bytes and end-to-end physical input latency are not measured. No upload saving or general latency improvement is claimed.
+
+### Correctness, aliases and bounds
+
+Sharing still requires the same model, bit-exact joint palette and albedo. Placement, lighting and opacity remain independent. Ordinary Lab actors naturally acquire and lose aliases: 10 of 12 eligible entries share, then 3, then none. The existing GPU/CPU oracle passes at all five captures, including the transitions. Lantern retains 12 aliases among 15 eligible skinned entries over five live captures. These are sampled entry/owner counts, not a claim that every owner dispatches compute every frame. No actor clocks were synchronized to manufacture a result.
+
+The oracle checks vertices against the CPU pose, invariant wire fields and containment in the submitted bounds; sampled position/normal errors remain about 2.38e-7. The ordinary Home pickup/Interact/handoff flow selects `carry_walk`, keeps the same cushion key on `hand.R`, and moves the socket while the character walks. All four carried snapshots keep visible item geometry and an assembly box containing both actor and item. GPU/CPU oracle checks pass.
+
+All 15 occlusion-on/off RGBA pairs are exact, covering Lab shelves/actor bay/door/near-wall/opposite, Home hall/living/door-edge/near-plane, Pool wide/water/attendant and Arcade cabinets/lanes/door-edge. Home's four GPU-versus-CPU image pairs are exact. The five Lab GPU/CPU pairs differ in six pixels total: five by one code level, and one by at most 20/255 at [554,452] in the opposite view. That pixel is on a mannequin edge; float-dependent coverage is an inference supported by the tiny vertex error, not a pixel-identity claim. The exception and exact images remain preserved.
+
+The moving planar ghost control proves the actual `float_forward` clip and its 4s clock wrap (.033, .578, 1.377, 2.728, 1.129s), with rendered reflected silhouettes. It reports zero active GPU-audited skins and is excluded as GPU deformation-oracle proof. Existing held-item, flashlight/shadow and planar acceptance remains preserved; pose/visibility/shader source hashes are unchanged. This is sampled native acceptance, not every extreme rig/pose, doorway or platform.
+
+Occlusion retains 512 opaque candidates, 24 fresh current-view cones, strict whole-box containment, numeric margins, conservative invalid/edge/near-plane handling and reflection half-space filtering. Existing checks already reduce submissions. The on/off control prices that mechanism; it does not establish the maximum possible saving from all remaining hidden content. No additional residual cost demonstrated here justifies replacing it.
+
+### Ownership, gates and remaining scope
+
+These Windows process figures keep steady CSV-growth samples separate from whole-process peaks, MiB. Each cell is the median of the three run-level values. All ranges and visibility cases remain in `paired-summary.json`. Partial HAL buffer/texture/cache scopes overlap process accounting and are not added. No leak fix or general memory reduction is claimed.
+
+| Pose case/path | Steady RSS | Peak RSS | Steady private | Peak private |
+| --- | ---: | ---: | ---: | ---: |
+| pose-lab-actors/on | 375.1 | 377.4 | 503.3 | 509.8 |
+| pose-lab-actors/cpu | 374.5 | 406.7 | 502.7 | 534.3 |
+| pose-lantern/on | 1470.1 | 1471.1 | 2323.1 | 2324.8 |
+| pose-lantern/cpu | 1500.8 | 1501.9 | 2355.9 | 2357.0 |
+
+The accepted longer editor/runtime switch, preview, save/undo/reopen and cancellation evidence belongs to this same frozen source/binary candidate and was not repeated. This phase does not resolve the historical Mac RSS comparison, broad reservation growth or the separate small Rust-live drift. Task-owned immutable input hardlinks preserve every run's package bytes without multiplying physical package storage; prior-task evidence is untouched.
+
+All 590 source hashes and player/DLL identities match the accepted memory candidate. Its strict debug/release Clippy, locked all-feature release workspace build, format and 406 Rust tests remain applicable; unchanged Rust source was not rebuilt. No new Rust test was added and ordinary CI did not bake a shipped map. The complete Rust-test usefulness audit remains unchanged at the END of the existing agreed queue.
+
+This is Windows qualification. Linux native evidence is missing; Mac validation is explicitly deferred. Per-frame palette-upload bytes, physical input latency and exhaustive extreme-pose coverage remain limitations, not automatic code defects. No GitHub issue write, main/release merge, tag, force push, production bake or credential/security change is included. Final documentation publication, artifact hashes and idle custody are recorded in `E/handoff.json`.
