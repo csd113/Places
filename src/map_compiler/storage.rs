@@ -78,7 +78,8 @@ fn optimize_inner(
         );
         for id in ids {
             super::progress::check_cancelled()?;
-            let (manifest, records) = optimize_member(&request.source, id.as_deref(), &mut spool)?;
+            let (manifest, records) =
+                optimize_member(&request.source, id.as_deref(), &mut spool, &request.out)?;
             if let Some(project) = index.as_mut() {
                 let member = project
                     .levels
@@ -164,6 +165,7 @@ fn optimize_member(
     source: &std::path::Path,
     id: Option<&str>,
     spool: &mut super::project_spool::ProjectSpool,
+    destination: &std::path::Path,
 ) -> Result<
     (
         crate::engine::package::Manifest,
@@ -220,7 +222,7 @@ fn optimize_member(
         }
     }
     let replaced_atlases = factor_lightmap_constants(&mut selected, &mut manifest, &mut blobs)?;
-    factor_prepared_props_with_compression(&mut manifest.variants, &mut blobs, 9)?;
+    factor_prepared_props_with_compression(&mut manifest.variants, &mut blobs, 9, destination)?;
     let mut records = std::collections::BTreeMap::new();
     manifest.entries.retain(|entry| {
         !matches!(entry.role.as_str(), "props" | "props-shared")
@@ -342,14 +344,16 @@ fn storage_report(
 pub(super) fn factor_prepared_props(
     variants: &mut [Variant],
     blobs: &mut BlobMap,
+    destination: &std::path::Path,
 ) -> Result<(), String> {
-    factor_prepared_props_with_compression(variants, blobs, 6)
+    factor_prepared_props_with_compression(variants, blobs, 6, destination)
 }
 
 fn factor_prepared_props_with_compression(
     variants: &mut [Variant],
     blobs: &mut BlobMap,
     compression: i64,
+    destination: &std::path::Path,
 ) -> Result<(), String> {
     let names: BTreeSet<String> = variants
         .iter()
@@ -386,7 +390,7 @@ fn factor_prepared_props_with_compression(
     let original_bytes = records
         .iter()
         .fold(0_usize, |total, bytes| total.saturating_add(bytes.len()));
-    let (factored, shared_archive_bytes) = best_factoring(&records, compression)?;
+    let (mut factored, shared_archive_bytes) = best_factoring(&records, compression, destination)?;
     let mut recipes_fit = true;
     for recipe in &factored.recipes {
         if !crate::engine::package::shared_props::recipe_fits_runtime_budget(recipe)? {
@@ -394,17 +398,18 @@ fn factor_prepared_props_with_compression(
         }
     }
     if !recipes_fit {
-        return Ok(());
+        return factored.cleanup();
     }
     let stored_bytes = factored
         .recipes
         .iter()
-        .chain(&factored.segments)
-        .fold(0_usize, |total, bytes| total.saturating_add(bytes.len()));
+        .fold(0_usize, |total, bytes| total.saturating_add(bytes.len()))
+        .saturating_add(factored.segment_bytes());
     // A tiny or nonrepeated model set need not pay for a dictionary.
     if stored_bytes >= original_bytes {
-        return Ok(());
+        return factored.cleanup();
     }
+    super::progress::stage("sizing original prepared props");
     let original_archive_bytes = compressed_entries_bytes(
         source_names
             .iter()
@@ -413,12 +418,24 @@ fn factor_prepared_props_with_compression(
         compression,
     )?;
     if shared_archive_bytes >= original_archive_bytes {
-        return Ok(());
+        return factored.cleanup();
     }
-    for segment in factored.segments {
-        let _name = insert_blob(blobs, segment, ".props.shared", "props-shared");
+    // Selection no longer needs the complete originals. Retire them before
+    // loading the winning segments, one bounded verified segment at a time.
+    super::progress::stage("installing selected prepared props");
+    drop(records);
+    for original in &source_names {
+        drop(blobs.remove(original));
     }
-    for (original, recipe) in source_names.iter().zip(factored.recipes) {
+    for segment in factored.segments() {
+        super::progress::check_cancelled()?;
+        let bytes = segment.read_verified()?;
+        let _name = insert_blob(blobs, bytes, ".props.shared", "props-shared");
+    }
+    for (original, recipe) in source_names
+        .iter()
+        .zip(std::mem::take(&mut factored.recipes))
+    {
         let name = insert_blob(blobs, recipe, ".props.recipe", "props");
         for variant in variants.iter_mut() {
             if variant.entries.props == *original {
@@ -430,8 +447,8 @@ fn factor_prepared_props_with_compression(
                 state.props.clone_from(&name);
             }
         }
-        drop(blobs.remove(original));
     }
+    factored.cleanup()?;
     crate::engine::logging::info(format_args!(
         "[compiler] prepared props exact sharing: {original_bytes} -> {stored_bytes} raw bytes; {original_archive_bytes} -> {shared_archive_bytes} archive bytes including manifest allowance"
     ));
@@ -445,23 +462,45 @@ fn factor_prepared_props_with_compression(
 fn best_factoring(
     records: &[&[u8]],
     compression: i64,
-) -> Result<(crate::engine::package::shared_props::FactoredProps, u64), String> {
-    use crate::engine::package::shared_props::{factor_props, factor_props_with_version};
-    let established = factor_props_with_version(records, 2)?;
+    destination: &std::path::Path,
+) -> Result<(crate::engine::package::shared_props::StagedProps, u64), String> {
+    use crate::engine::package::shared_props::SHARED_PROPS_RECIPE_VERSION;
+    let check = &super::progress::check_cancelled;
+    let established = stage_candidate(records, 2, destination, check)?;
     let established_size = prepared_props_archive_size(&established, compression)?;
-    drop(established);
-    let shuffled = factor_props(records)?;
+    established.cleanup()?;
+    let shuffled = stage_candidate(records, SHARED_PROPS_RECIPE_VERSION, destination, check)?;
     let shuffled_size = prepared_props_archive_size(&shuffled, compression)?;
     if shuffled_size < established_size {
         Ok((shuffled, shuffled_size))
     } else {
-        drop(shuffled);
-        Ok((factor_props_with_version(records, 2)?, established_size))
+        shuffled.cleanup()?;
+        Ok((
+            stage_candidate(records, 2, destination, check)?,
+            established_size,
+        ))
     }
 }
 
+fn stage_candidate(
+    records: &[&[u8]],
+    version: u16,
+    destination: &std::path::Path,
+    check: &dyn Fn() -> Result<(), String>,
+) -> Result<crate::engine::package::shared_props::StagedProps, String> {
+    super::progress::stage(format!("staging prepared props v{version}"));
+    let staged = crate::engine::package::shared_props::factor_props_staged(
+        records,
+        version,
+        destination,
+        check,
+    )?;
+    super::progress::stage(format!("sizing staged prepared props v{version}"));
+    Ok(staged)
+}
+
 fn prepared_props_archive_size(
-    factored: &crate::engine::package::shared_props::FactoredProps,
+    factored: &crate::engine::package::shared_props::StagedProps,
     compression: i64,
 ) -> Result<u64, String> {
     for recipe in &factored.recipes {
@@ -475,18 +514,12 @@ fn prepared_props_archive_size(
         .map(|bytes| blob_name(bytes, ".props.recipe"))
         .chain(
             factored
-                .segments
+                .segments()
                 .iter()
-                .map(|bytes| blob_name(bytes, ".props.shared")),
+                .map(crate::engine::package::shared_props::StagedSegment::name),
         )
         .collect();
-    let shared = compressed_entries_bytes(
-        shared_names
-            .iter()
-            .zip(factored.recipes.iter().chain(&factored.segments))
-            .map(|(name, bytes)| (name.as_str(), bytes.as_slice())),
-        compression,
-    )?;
+    let shared = compressed_staged_bytes(factored, &shared_names, compression)?;
     let changed_entries = u64::try_from(shared_names.len())
         .map_err(|error| format!("shared prop manifest entry count is too large: {error}"))?;
     let manifest_allowance = changed_entries
@@ -511,14 +544,79 @@ fn compressed_entries_bytes<'a>(
         writer
             .start_file(name, options)
             .map_err(|error| format!("could not estimate prop entry '{name}': {error}"))?;
-        writer.write_all(bytes).map_err(|error| {
-            format!("could not compress prop entry '{name}' for sizing: {error}")
-        })?;
+        for chunk in bytes.chunks(crate::engine::package::shared_props::SHARED_PROPS_CHUNK_BYTES) {
+            super::progress::check_cancelled()?;
+            writer.write_all(chunk).map_err(|error| {
+                format!("could not compress prop entry '{name}' for sizing: {error}")
+            })?;
+        }
     }
     writer
         .finish()
         .map(|counter| counter.length)
         .map_err(|error| format!("could not finish prop archive size estimate: {error}"))
+}
+
+fn compressed_staged_bytes(
+    factored: &crate::engine::package::shared_props::StagedProps,
+    names: &[String],
+    compression: i64,
+) -> Result<u64, String> {
+    use sha2::{Digest as _, Sha256};
+    use std::io::{Read as _, Write as _};
+    let mut writer = zip::ZipWriter::new(ArchiveSizeCounter::default());
+    let mut names_iter = names.iter();
+    for bytes in &factored.recipes {
+        let name = names_iter.next().ok_or("Missing prop recipe name")?;
+        writer
+            .start_file(
+                name,
+                crate::engine::package::archive::file_options(name, compression),
+            )
+            .map_err(|e| e.to_string())?;
+        for chunk in bytes.chunks(crate::engine::package::shared_props::SHARED_PROPS_CHUNK_BYTES) {
+            super::progress::check_cancelled()?;
+            writer.write_all(chunk).map_err(|e| e.to_string())?;
+        }
+    }
+    let mut buffer = vec![0; crate::engine::package::shared_props::SHARED_PROPS_CHUNK_BYTES];
+    for segment in factored.segments() {
+        let name = names_iter.next().ok_or("Missing prop segment name")?;
+        writer
+            .start_file(
+                name,
+                crate::engine::package::archive::file_options(name, compression),
+            )
+            .map_err(|e| e.to_string())?;
+        let mut file = std::fs::File::open(&segment.path).map_err(|e| e.to_string())?;
+        let mut hash = Sha256::new();
+        let mut total = 0_u64;
+        loop {
+            super::progress::check_cancelled()?;
+            let count = file.read(&mut buffer).map_err(|e| e.to_string())?;
+            if count == 0 {
+                break;
+            }
+            total = total
+                .checked_add(u64::try_from(count).map_err(|e| e.to_string())?)
+                .filter(|prospective| {
+                    *prospective
+                        <= crate::engine::package::shared_props::MAX_SHARED_PROPS_SEGMENT_BYTES
+                })
+                .ok_or("Staged prop segment exceeds size limit")?;
+            let bytes = buffer.get(..count).ok_or("Prop sizing buffer overflow")?;
+            hash.update(bytes);
+            writer.write_all(bytes).map_err(|e| e.to_string())?;
+        }
+        let identity = crate::engine::package::hash::digest_hex(&hash.finalize());
+        if segment.name() != format!("blobs/{identity}.props.shared") {
+            return Err("Staged prop segment changed during sizing".into());
+        }
+    }
+    writer
+        .finish()
+        .map(|counter| counter.length)
+        .map_err(|e| e.to_string())
 }
 
 /// A ZIP-compatible seekable sink that retains no compressed payload bytes.

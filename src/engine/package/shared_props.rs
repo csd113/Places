@@ -13,6 +13,10 @@
 
 use std::collections::{HashMap, HashSet};
 
+mod staging;
+use staging::SegmentStorage;
+pub(crate) use staging::{StagedProps, StagedSegment, factor_props_staged};
+
 use sha2::{Digest, Sha256};
 
 use super::binary::{Reader, Writer};
@@ -164,17 +168,19 @@ impl Part {
     }
 }
 
-struct ChunkStore {
-    segments: Vec<Vec<u8>>,
+struct ChunkStore<'a> {
+    segments: SegmentStorage,
+    check: &'a dyn Fn() -> Result<(), String>,
     chunks: Vec<ChunkLocation>,
     identities: HashMap<[u8; 32], u32>,
     bytes: u64,
 }
 
-impl ChunkStore {
-    fn new() -> Self {
+impl<'a> ChunkStore<'a> {
+    fn new(segments: SegmentStorage, check: &'a dyn Fn() -> Result<(), String>) -> Self {
         Self {
-            segments: Vec::new(),
+            segments,
+            check,
             chunks: Vec::new(),
             identities: HashMap::new(),
             bytes: 0,
@@ -182,6 +188,7 @@ impl ChunkStore {
     }
 
     fn intern(&mut self, bytes: &[u8]) -> Result<u32, String> {
+        (self.check)()?;
         if bytes.is_empty() || bytes.len() > SHARED_PROPS_CHUNK_BYTES {
             return Err("shared prop chunk has an invalid length".to_string());
         }
@@ -191,7 +198,7 @@ impl ChunkStore {
                 .chunks
                 .get(usize_from_u32(*index)?)
                 .ok_or_else(|| "shared prop interning location is missing".to_string())?;
-            if chunk_slice(&self.segments, *location)? != bytes {
+            if !self.segments.matches(*location, bytes)? {
                 return Err("shared prop chunk SHA-256 collision".to_string());
             }
             return Ok(*index);
@@ -204,28 +211,7 @@ impl ChunkStore {
             .checked_add(u64_from_usize(bytes.len())?)
             .filter(|total| *total <= MAX_TOTAL_BYTES)
             .ok_or_else(|| "shared props exceed the archive aggregate limit".to_string())?;
-        let segment_limit = usize_from_u64(MAX_SHARED_PROPS_SEGMENT_BYTES)?;
-        if self
-            .segments
-            .last()
-            .is_none_or(|segment| segment.len().saturating_add(bytes.len()) > segment_limit)
-        {
-            if self.segments.len() >= MAX_ENTRIES {
-                return Err("shared props exceed the archive entry count limit".to_string());
-            }
-            self.segments.push(Vec::new());
-        }
-        let segment_index = self.segments.len().saturating_sub(1);
-        let segment = self
-            .segments
-            .last_mut()
-            .ok_or_else(|| "shared prop segment is missing".to_string())?;
-        let location = ChunkLocation {
-            segment: segment_index,
-            offset: segment.len(),
-            length: bytes.len(),
-        };
-        segment.extend_from_slice(bytes);
+        let location = self.segments.append(bytes, self.check)?;
         let index = u32_from_usize(self.chunks.len())?;
         self.chunks.push(location);
         let _previous = self.identities.insert(digest, index);
@@ -320,13 +306,36 @@ pub(crate) fn factor_props_with_version(
     records: &[&[u8]],
     version: u16,
 ) -> Result<FactoredProps, String> {
+    let (recipes, storage) = factor_props_into(
+        records,
+        version,
+        SegmentStorage::Memory(Vec::new()),
+        &|| Ok(()),
+    )?;
+    match storage {
+        SegmentStorage::Memory(mut segments) => {
+            for segment in &mut segments {
+                segment.shrink_to_fit();
+            }
+            Ok(FactoredProps { recipes, segments })
+        }
+        SegmentStorage::Staged(_) => Err("Unexpected staged prop result".into()),
+    }
+}
+
+fn factor_props_into(
+    records: &[&[u8]],
+    version: u16,
+    storage: SegmentStorage,
+    check: &dyn Fn() -> Result<(), String>,
+) -> Result<(Vec<Vec<u8>>, SegmentStorage), String> {
     if !matches!(version, ATTRIBUTE_VERSION | VERSION) {
         return Err("Unsupported shared prop writer version".into());
     }
     if records.is_empty() || records.len() > MAX_VARIANTS {
         return Err("shared props require a bounded nonempty quality record set".to_string());
     }
-    let mut store = ChunkStore::new();
+    let mut store = ChunkStore::new(storage, check);
     let mut recipes = Vec::with_capacity(records.len());
     for bytes in records {
         let regions = super::props::vertex_regions(bytes)?;
@@ -374,16 +383,7 @@ pub(crate) fn factor_props_with_version(
             parts,
         });
     }
-    let identities: Vec<SharedPropsSegment> = store
-        .segments
-        .iter()
-        .map(|segment| {
-            Ok(SharedPropsSegment {
-                bytes: u64_from_usize(segment.len())?,
-                sha256: hash::sha256_hex(segment),
-            })
-        })
-        .collect::<Result<_, String>>()?;
+    let identities = store.segments.identities(check)?;
     let mut encoded = Vec::with_capacity(recipes.len());
     let mut physical_bytes = store.bytes;
     for mut recipe in recipes {
@@ -398,13 +398,20 @@ pub(crate) fn factor_props_with_version(
     if store.segments.len().saturating_add(encoded.len()) > MAX_ENTRIES {
         return Err("shared prop recipes exceed the archive entry count limit".to_string());
     }
-    for segment in &mut store.segments {
-        segment.shrink_to_fit();
+    if std::env::var_os("PLACES_COMPILER_MEMORY").is_some() {
+        crate::engine::logging::info(format_args!(
+            "[compiler-prop-stage] version={version} physical_bytes={} recipe_capacity_bytes={} chunk_location_capacity_bytes={} chunk_identity_capacity_entries={}",
+            store.bytes,
+            encoded.iter().fold(0_usize, |total, bytes| total
+                .saturating_add(bytes.capacity())),
+            store
+                .chunks
+                .capacity()
+                .saturating_mul(std::mem::size_of::<ChunkLocation>()),
+            store.identities.capacity(),
+        ));
     }
-    Ok(FactoredProps {
-        recipes: encoded,
-        segments: store.segments,
-    })
+    Ok((encoded, store.segments))
 }
 
 fn localize_recipe(

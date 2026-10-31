@@ -677,7 +677,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     progress::check_cancelled()?;
     progress::variant("");
     progress::stage("sharing prepared prop records");
-    factor_prepared_props(&mut variants, &mut blobs)?;
+    factor_prepared_props(&mut variants, &mut blobs, &request.out)?;
     profile_blobs("factored_records", &blobs);
     record_phase(&mut phases, "share_prepared_props", sharing_started);
 

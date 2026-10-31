@@ -1151,6 +1151,8 @@ Concrete implementation items are drafted in `E/implementation-queue-drafts.json
   choice and atomic output, with explicit simultaneous raw/compact/compressed
   owners, CPU/wall/peak staging disk, repeated builds, current Lantern and
   representative Full variants. The historical runtime lead remains separate.
+  Status: completed by the bounded candidate-staging qualification below;
+  the raw/preparation peak and historical runtime lead remain separate.
 - Exact cache candidate/connectivity reduction, preserving nearest/ties, plane
   compatibility, disconnected support, sample-count/bounce-order semantics and
   bounded reuse; counters plus quiet realistic pairs, memory and native parity.
@@ -2226,3 +2228,258 @@ report changes remain reviewable and uncommitted; no new CI run was triggered.
 denial, terminal receipts, preserved identities, unchanged dirty menu, single
 idle-only cleanup and custody outcome. New explicit publication authorization
 is required by that review before the denied action can be retried.
+
+## Parallel scheduling qualification — 0.13.1 (#31)
+
+Disposition: the existing bounded persistent runtime pool is sufficient for the tested workloads. Retain the default four workers, maximum eight and consumer-specific inline thresholds. No new job system, pool, production scheduling change or Rust test was added. The accepted outside-repository draft was verified against its sealed evidence and appended after the publication hold was resolved; no scheduling production change or repeated campaign was needed.
+
+Windows Razer / NVIDIA GeForce RTX 3070 Laptop GPU / DX12 qualification completed 2026-10-31T04:15:58.601207+00:00. The preserved accepted all-feature player is `ab97f5507c95d988a881c24762ab7f8e835ca18f5f2b8f282050bf404af63bbb` and the headless diagnostic is `db83841e759a5dcd3d8fa0a0f658a8a8ae678c168585a6766cb85dba76b3dd9c`. Both are from the lightmap candidate whose 590 source files still match the accepted build receipt. This evaluates the opt-in parallel-physics build; it does not establish shipping/default-feature solver behavior. The measurements were frozen while `0.13.1-dev` was at `22876848d980d1ab6b4befbbb9f2d0dd27e51098`; the tested lightmap source was subsequently published at `f98f5c181b8eaf060581b3c3fda33091a50d4f6e`.
+
+### Independent CPU workloads
+
+The existing `places-physics-bench` compares explicit one-thread and 2/4/8-thread pools on contacts, immersion and dormant controls at 12/32/64/128 bodies. Each worker-count command runs three alternating comparisons per scenario/count, 240 fixed steps with 24 warmup steps. All 108 paired comparisons pass exact hashes covering every frame of body snapshots, contacts and solved impulses. Cross-worker hashes also match for all 12 fixture/count combinations. This is 51,840 hashed frame steps, of which 46,656 are timed. Only `ItemWorld::step` is timed: fixture construction, pool construction and serialization are outside that interval.
+
+Step milliseconds below are medians of the three repeat medians for each worker count. Serial references were paired independently with each count; their small spread is retained in raw receipts.
+
+| Workload | Paired serial ms (range of medians) | 2 workers ms | 4 workers ms | 8 workers ms |
+|---|---:|---:|---:|---:|
+| contacts / 12 | 0.0691–0.0706 | 0.0745 | 0.0729 | 0.0737 |
+| contacts / 32 | 0.1347–0.1392 | 0.1387 | 0.1406 | 0.1371 |
+| contacts / 64 | 0.2354–0.2473 | 0.2419 | 0.2322 | 0.2375 |
+| contacts / 128 | 0.4138–0.4220 | 0.3126 | 0.3322 | 0.3273 |
+| water / 12 | 0.0787–0.0789 | 0.0799 | 0.0816 | 0.0819 |
+| water / 32 | 0.1619–0.1622 | 0.1632 | 0.1643 | 0.1647 |
+| water / 64 | 0.3007–0.3024 | 0.2105 | 0.1613 | 0.1279 |
+| water / 128 | 0.5766–0.5787 | 0.3614 | 0.2561 | 0.2095 |
+| dormant / 128 | 0.0088–0.0090 | 0.0089 | 0.0088 | 0.0089 |
+
+Immersion scales at 64/128 bodies; 128-contact work favors two workers on this machine. Small and dormant work has no useful gain. The diagnostic deliberately overrides the production solver selection policy; it cannot justify changing that policy from these counts alone. Production already waits until 128 active bodies for parallel Rapier, with a 112-body / 0.25-second return hysteresis. Water preparation requires 64 eligible bodies and joins before ordered force application.
+
+### Native CPU, GPU and frame behavior
+
+There are 24 accepted throughput sessions (14,400 frames), three runs at each of 1/2/4/8 workers in Lab actor bay and Home. Orders are 1/2/4/8, 8/4/2/1 and 2/8/1/4. All use the same binary/packages/camera, High textures/filtering, Full lighting/reflections, bloom, fixed simulation, 960×640 physical drawable, VSync off and measured Immediate presentation. No native video recorder or normal ready-frame limiter is enabled; observed loops do not plateau at refresh rate. Every measured foreground sample is the actual native PID. Both 600-ms prelaunch samples require total CPU ≤8%; measured non-native CPU must have mean ≤8% and p95 ≤20%. One Home run was excluded after analysis overlapped it and background CPU reached 9.401%; its quiet repeat passed. No analysis ran alongside the remaining timing sessions.
+
+Every paired native run has the exact same per-frame draw-call, visible-vertex, visible-index and reflection-pass counter sequence. Four CPU/GPU diagnostic sessions and five image sessions are excluded from throughput. GPU elapsed values below deduplicate GPU sample IDs and are unioned pass coverage, including scheduling stalls; they are neither GPU utilization nor additive per-stage CPU costs.
+
+Table entries are medians across the three run statistics; p95 is the median of run p95s. All values are milliseconds.
+
+| Scene | Workers | Mean update | Mean render | Mean swap | Mean loop | Loop p95 | GPU median |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| home | 1 | 0.174 | 0.641 | 1.603 | 2.529 | 4.865 | 2.079 |
+| home | 2 | 0.178 | 0.631 | 1.556 | 2.497 | 4.854 | 1.901 |
+| home | 4 | 0.176 | 0.637 | 1.568 | 2.506 | 4.787 | 1.893 |
+| home | 8 | 0.189 | 0.644 | 1.648 | 2.601 | 4.865 | 2.080 |
+| performance_lab | 1 | 1.752 | 0.853 | 0.353 | 3.060 | 4.041 | 1.019 |
+| performance_lab | 2 | 1.618 | 0.855 | 0.351 | 2.922 | 3.909 | 1.137 |
+| performance_lab | 4 | 1.539 | 0.848 | 0.393 | 2.906 | 3.913 | 1.261 |
+| performance_lab | 8 | 1.534 | 0.865 | 0.419 | 2.920 | 4.500 | 1.167 |
+
+Lab is the relevant native CPU workload: four workers reduce paired mean update time by a median 10.60% (range 8.08–12.36%) and paired mean loop time by 4.96%. Loop p95 and p99 effects are mixed, so no tail guarantee is claimed. Eight workers give no repeatable throughput advantage over four and worsen Lab p95 in all three pairs against one worker. Home update costs remain small and show no consistent worker benefit; GPU/presentation variation dominates its frame timings. Pool diagnostics likewise show update around 0.24–0.26 ms against GPU medians around 2.8 ms, so Pool FPS is not evidence for a CPU scheduling rewrite.
+
+The three-frame CPU diagnostics show Lab character-lighting medians around 0.95 ms at one worker and 0.41 ms at four. These are directional samples, not a standalone speedup estimate. They include preparation, dispatch and synchronous join. `character_skin_upload` also includes caller-thread GPU writes. Existing diagnostics cannot separate pure dispatch/wait/join cost from useful CPU work. `diagnostic-proposal.md` prepares a bounded follow-up if another measured CPU bottleneck requires it; the source hold prevents adding that instrumentation here.
+
+### Ownership, memory and correctness
+
+Read-only source inspection confirms one process-wide `OnceLock` runtime executor with supported `PLACES_RUNTIME_WORKERS` override, default four / maximum eight / available-core budget. One application worker uses inline execution. The all-feature solver also retains its explicit one-thread reference pool; maximum eight is not a total process-thread claim. The separate existing compiler scoped workers, loader and audio threads were not replaced or requalified by runtime workload counts.
+
+Existing thresholds are eight dirty lighting receivers, two characters plus 8,192 changed vertices for parallel pose preparation, four caustic sources and 64 eligible immersed bodies. Jobs own disjoint outputs and borrow immutable inputs. `install` joins before caller-thread GPU writes, ordered physics force publication, caustic composition, world unload or shutdown. There is no newly introduced async queue, extra world snapshot or cross-frame job overlap. Stationary sessions do not replace the prior streaming/cancellation campaign; its accepted same-source results remain the evidence for those transitions.
+
+| Scene | Workers | Observed process cores | Steady private MiB |
+|---|---:|---:|---:|
+| home | 1 | 0.45 | 734.51 |
+| home | 2 | 0.55 | 736.20 |
+| home | 4 | 0.55 | 734.57 |
+| home | 8 | 0.56 | 748.59 |
+| performance_lab | 1 | 1.01 | 501.22 |
+| performance_lab | 2 | 1.09 | 500.53 |
+| performance_lab | 4 | 1.11 | 501.40 |
+| performance_lab | 8 | 1.15 | 501.86 |
+
+Process cores are sampled process CPU seconds / wall seconds in the steady interval. Private bytes include allocator, native and driver effects and are not a Rust-live or pool-only allocation ledger. Private-memory variation is small in this cohort; it does not establish a per-worker stack size or global memory ceiling. Live texture/atlas bytes and retained model/character geometry are unchanged across worker counts in each scene. Live buffer bytes vary across runs by up to 0.3125 MiB in Lab and 0.0625 MiB in Home; that small variation is not attributed to pool allocations (see `resource-analysis.json`). No overlapping loader transition is included in these memory samples.
+
+Fixed-step one/eight-worker captures at the same final frame: lab 0 changed pixels / max channel 0, pool 1 changed pixels / max channel 1. The same one-worker Pool repeat differs from its first capture by 1 pixels / max channel 1; it differs from the eight-worker capture by 0 pixels / max channel 0. Lab is exact. Pool is reported at its observed precision, without a claim of exact GPU pixel determinism. RGBA comparisons are retained in `visual-acceptance.json` and `visual-repeat-acceptance.json`; native skin audits report no errors. No source edits were made to poses, visibility, exact lightmaps, circuit handling or streaming. The previously accepted 96 MiB Lantern saving, 20 lightmap image pairs and circuit states were not unnecessarily repeated.
+
+### Disposition and publication boundary
+
+No required scheduling implementation candidate emerged. Retain the current pool/granularity policy. A bounded dispatch/dirty-work diagnostic is an optional future measurement aid, not a proven production optimization. No second pool, job graph, compiler-worker replacement, global eight-worker default or quality reduction is justified. Existing compiler/cache/prop/GPU and audio/startup follow-ons retain their scopes. The full Rust-test usefulness audit remains LAST and was not started. `implementation-queue-drafts.json` records this disposition and the optional diagnostic criteria; no GitHub issue was written.
+
+This task added no production code or tests and ran no build, Clippy, Cargo test or bake; the preserved candidate’s accepted gates remain in the lightmap handoff. Windows only: Mac is deferred; Linux native is unavailable/unrun, not passed. These are bounded fixtures, stationary representative cameras and one machine, not complete gameplay or cross-platform scaling proof.
+
+All 37 owned native processes are terminal with exit 0 (three headless physics, 33 accepted GUI sessions and one excluded GUI session). No hidden persistent supervisor was launched; each bounded command owned its native handles through completion. At that historical handoff, custody was released, target was absent, the index empty and HEAD/branch plus all 590 source and ten held-file hashes unchanged. No lightmap artifact was cleaned.
+
+The nine lightmap source/report changes plus unrelated menu remain uncommitted. Their commit/non-force push is the prior owner’s denied, known-unexecuted action with a human approval question pending; this task did not retry it or use an alternate route. No new approval-review denial occurred here. No commits, pushes, GitHub writes, releases, main/force pushes or security changes were attempted.
+
+Evidence root: `C:/Users/Connor Dawkins/Documents/Codex/2026-10-30/task-11/scheduling-evidence`. Per-run `identity.json`, `launch.json`, `process-samples.json`, `native.log`, `frames.csv`/`receipt.json`, results and cameras retain the raw evidence. `physics-analysis.json`, `native-analysis.json`, `native-paired.json`, `resource-analysis.json`, `visual-acceptance.json`, source/held hashes and terminal receipts support the tables. `consolidated-report-draft.md` preserves the original outside-repository draft. The section above was verified and appended after the publication hold was resolved.
+
+## Bounded prepared-prop candidate staging (Windows, 31 October 2026)
+
+Implemented the existing compiler follow-on from the full-bake audit. Candidate
+segment payloads now use one 16 MiB active buffer and an exclusively owned disk
+stage. The exact factoring algorithm, original-record ordering, v2/v4 compressed
+size comparison, recipe/runtime admission, manifest allowance and storage-choice
+rules remain intact. The original raw records are retired before importing the
+winning verified segments. Normal return, cancellation and errors retire stage
+ownership before archive publication. This changes compiler lifetimes, not package
+format, lighting quality, runtime loading or the production CPU lighting policy.
+
+Evidence `P` is `C:/Users/Connor Dawkins/Documents/Codex/2026-10-30/task-12/props-evidence`.
+The independently verified local/remote starting commit was
+`f98f5c181b8eaf060581b3c3fda33091a50d4f6e` on `0.13.1-dev`. The preserved baseline
+compiler `f3b009359e84909a004ec2166b17151c878d925210f883fc7aa197fcdecb06b3`
+matches all 590 starting source hashes. Final compiler `b8ef1b2bea18f2bf091d93c717cd57d1695c93ec2634dd811361c24525fbb60c` and 592 source
+hashes are frozen outside `target/`. The unrelated menu remains unchanged and
+unstaged. These are current-baseline measurements; the preceding 96 MiB runtime
+lightmap-plane saving is not attributed to this change.
+
+### Live ownership, process memory and disk
+
+Lantern Static reproduces 370,466,085 encoded capacity bytes, including
+342,504,549 prop bytes. Final factored capacity remains 236,153,763 bytes across
+18 records; its stored prop representation remains 208,192,227 bytes. These
+representation capacities are unchanged and are not process or allocator totals.
+Assets/cache already retire before factoring. The existing compressed sizing
+sink already retains no compressed payload; this change does not claim to remove
+such an owner.
+
+The new live candidate payload is bounded to 16 MiB, plus at most 65,520 bytes of
+comparison scratch, the existing 65,520-byte plane buffer and bounded recipe,
+chunk and identity metadata. Completed segments are disk-owned. Selected files
+are length/hash-verified before insertion; no complete winning segment set
+overlaps the original raw prop owners. Original records still remain live while
+the storage alternatives are evaluated. The same factoring core serves the
+unchanged in-memory API and the compiler's staged backend.
+
+Three alternating quiet pairs give these medians. RSS/private rows below are
+100 ms sampled maxima within the complete factoring phase; whole-build peaks
+are separate OS counters. MiB means 1,048,576 bytes.
+
+| Lantern Static measure | Baseline | Staged candidate |
+|---|---:|---:|
+| Factoring phase RSS MiB | 567.50 | 380.77 |
+| Factoring phase private MiB | 587.70 | 384.43 |
+| Factoring wall seconds | 10.216 | 10.621 |
+| Approximate factoring CPU seconds | 10.33 | 10.67 |
+| Whole-build peak RSS MiB | 1114.63 | 1116.17 |
+| Whole-build peak private MiB | 1420.79 | 1421.97 |
+
+Observed factoring private memory falls 203.27 MiB;
+whole-build peaks do not improve because the earlier preparation/encoding peak
+remains. CPU boundaries are sampled, approximately +/-0.2 seconds; compiler wall
+spans are independently recorded. This is a phase-specific process ownership
+improvement, not an allocator-exact heap or system-wide RAM saving. OS file cache,
+standby pages and physical device writes were not attributed.
+
+The program stages at most 208,116,410 payload bytes (198.48 MiB) in this
+case, with one candidate directory live at a time. v2, v4 and regenerated winning
+v2 write 608,936,214 segment payload bytes in total (580.73 MiB), excluding
+filesystem metadata and reads. This is program write volume, not measured device
+traffic. v4's 192,703,394 segment bytes are smaller raw storage but compress worse;
+the established v2 choice remains. Original/factored prop archive estimates are
+still 95,154,296 / 68,375,825 bytes including the existing manifest allowance.
+Those archive savings predate this change. Prop staging retires before final
+archive compression; the final archive temporary and candidate stage do not
+accumulate. Existing aggregate, chunk, variant, entry and 16-attempt exclusive
+temporary-name limits remain enforced. A hard process kill can leave an occupied
+sibling; restart preserves unowned artifacts and selects another bounded slot.
+No crash-orphan reclamation is claimed.
+
+### Quiet performance and determinism
+
+There are 18 accepted runs / nine exact pairs: three repeats each of current
+Lantern Static and bounded three-circuit/material Static+Full fixtures, 12 compiler
+workers, forced builds, unchanged assets and source. Order is baseline/candidate,
+candidate/baseline, baseline/candidate. Two 600 ms prelaunch total-CPU samples must
+each be <=8%; measured noncompiler CPU mean must be <=8% and p95 <=20%. One launch
+was excluded before a compiler process started after a 14.03% prelaunch sample.
+No accepted run was repeated. The initial baseline reproduction is excluded from
+these medians because its quiet screening was not recorded.
+
+| Case | Baseline wall s | Candidate wall s | Baseline CPU s | Candidate CPU s |
+|---|---:|---:|---:|---:|
+| Lantern Static | 38.852 | 39.226 | 39.391 | 39.625 |
+| Three circuits Static+Full | 19.650 | 19.660 | 191.969 | 193.312 |
+| Material Static+Full | 16.294 | 15.993 | 98.281 | 98.500 |
+
+Lantern pays about 0.41 seconds more factoring wall time and 0.37 seconds more
+whole-build wall time. The small Full factoring spans rise from 25.9 to 31.9 ms
+and 18.1 to 21.4 ms; 100 ms process sampling cannot resolve their peaks reliably.
+Material's overall variation includes unchanged probe capture work. No general
+bake speedup, archive-size saving, runtime/FPS gain or improved tail is claimed.
+Raw samples, quiet gates, exact physical comparisons and source/provenance
+exceptions are retained in `P/runs/`, `P/parity/` and `P/analysis.json`.
+
+All six three-repeat cohorts are byte-deterministic. Every paired physical
+record is exact, including geometry, lighting/circuits/probes, collision,
+navigation, semantics and materials. Only independently verified compiler-code
+and tool identities, their fingerprints and declared provenance hashes differ
+between baseline/candidate. Six independent decoded oracle cases also match
+exactly, including reconstructed PMP1 records and logical HDR planes. The same
+input migrated through old/new storage tools produces identical archive bytes.
+
+### Admission, recovery, cancellation and native proof
+
+Standalone Lantern correctly refuses its cross-level transitions. The targeted
+admission/native witness places its exact compressed records into a copy of the
+existing complete project, copies all other retained compressed payloads and
+preserves source/index membership without rebaking another production map.
+The historical project members include stale catalog definitions, so whole-project
+current-catalog validation is not claimed. Those two strict rejections are
+retained under `P/exclusions/`. An outside-repository selected-member witness
+links the already validated final library and calls the game's unchanged strict
+semantic/catalog/dependency admission, checks every declared hash, and decodes
+every selected variant. Both fresh Lantern members pass. The Full fixtures pass
+the ordinary complete typed validator. Final-source currency and dependency
+checks pass for candidates; baseline compiler identities correctly require a
+rebake. No validator or admission condition was weakened.
+
+Two two-member source projects export, validate and recover exact original bytes
+with baseline/candidate tools. Each export builds both bounded Full fixtures in
+one process. `P/qualification/*-project-export-resources.json` records source/stage
+RSS, private, CPU and temporary disk; baseline/candidate peak private is
+396.05 / 395.62 MiB. These are
+functional/ownership diagnostics, not quiet performance pairs or long-session
+heap proof. Raw/candidate payload owners are call-local; the project spool
+intentionally retains bounded disk records between members. No owned partial
+stage remains. Allocator-exact retained Rust heap was not measured.
+
+Cancellation during active segment staging, candidate compression sizing and
+winner installation preserves the previous selected-admissible project bytes
+and removes every owned temporary. Restart matches the candidate archive exactly.
+Focused small regressions cover backend byte parity, the real 16 MiB spill edge,
+earlier spilled-chunk reads, file tampering, cancel/error cleanup and occupied
+restart-name preservation. The largest uses under 40 MiB live synthetic data;
+no test bakes a map, reads assets or initializes a GPU. Three tests were added
+because these are new file-ownership failure modes; the full test-usefulness
+review remains LAST and was not started.
+
+Four native sessions hold the accepted current player binary constant:
+`ab97f5507c95d988a881c24762ab7f8e835ca18f5f2b8f282050bf404af63bbb`.
+All eight circuit states at two views plus restoration give 17 exact RGB pairs,
+with eight distinct circuit images. Current Lantern Static gives one exact RGBA
+pair. Captures are 960x600 with fixed simulation; visual identity/variant/drawable
+diagnostics confirm the selected level. These sessions prove output/native
+parity and supply no FPS comparison. A harness trace-label assumption was
+corrected after a successful baseline exit; its completed capture and all circuit
+comparisons were reused, rather than rerun. Logs and the correction remain under
+`P/exclusions/`, `P/native-complete.json` and the capture folders. Representative
+images were inspected visually.
+
+### Gates and remaining scope
+
+Strict debug and release all-target/all-feature Clippy, locked release workspace
+build, format check, 410 Rust tests and 372 Python contracts (18 deliberate skips)
+pass against the frozen final sources. All timed bakes and native processes are
+terminal. Production tools, source snapshots, raw data, decoded/cancellation/
+native receipts and the selected-admission witness are preserved outside target;
+`P/handoff.json` records final cleanup, publication and custody.
+
+This completes the bounded prepared-prop candidate-staging implementation item.
+The large raw input/earlier preparation peak remains; a source-capacity reduction
+must not be re-labelled as freed process/system memory. Historical missing Mac
+RSS baselines, the roughly 312 MiB historical runtime lead, broader native/runtime
+reservations and long-session Rust-live drift remain separate. Exact cache
+candidate/connectivity work and correctness-gated GPU fallback remain subsequent
+implementation items; CPU remains the production default. Scheduling retains
+the existing four-worker policy as qualified above. Windows is qualified here;
+Mac native is deferred and Linux native unavailable/unrun, not passed. GitHub
+issue writes remain held; no main/release/tag/force push or security changes occur.
