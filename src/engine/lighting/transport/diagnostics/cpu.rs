@@ -21,7 +21,7 @@ pub(in super::super) fn profile_cpu(
     let receivers = scene.receivers(charts).map_err(|e| e.name().to_string())?;
     let receivers_ms = ms(started);
     let cache_started = Instant::now();
-    let cache = RadianceCache::build(&receivers);
+    let cache = RadianceCache::build(&receivers, &scene.triangles);
     let cache_ms = ms(cache_started);
     let sampling_started = Instant::now();
     let sequence = hemisphere_sequence(16, 0);

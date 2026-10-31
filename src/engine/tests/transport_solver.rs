@@ -361,3 +361,154 @@ fn local_receiver_scope_keeps_full_scene_direct_shadow_bits() -> Result<(), Stri
     );
     Ok(())
 }
+
+// Protects conservative filtering at normal-bin and approximate-plane edges,
+// plus exact representative identity (including ties and blocked fallback).
+// One tiny synthetic scene, no assets/files/GPU/bake; under 1 MiB, milliseconds.
+// Existing solved-output tests cannot identify an incorrectly rejected sample.
+#[test]
+fn cache_normal_filter_preserves_boundary_and_blocked_selections() -> Result<(), String> {
+    check_cache_normal_bins()?;
+    let floor = TransportTriangle::new([0.0, 0.0, 0.0], [0.0, 0.0, 2.0], [2.0, 0.0, 0.0], [0.5; 3])
+        .ok_or("floor")?;
+    let mut near = floor;
+    near.normal[0] = 8.0 * f32::EPSILON;
+    near.p0[1] = SURFACE_OFFSET_M;
+    let mut opposite = floor;
+    opposite.normal = [0.0, -1.0, 0.0];
+    opposite.p0[1] = -SURFACE_OFFSET_M;
+    let divider = TransportTriangle::new(
+        [0.5, -1.0, -1.0],
+        [0.5, 3.0, -1.0],
+        [0.5, -1.0, 3.0],
+        [0.5; 3],
+    )
+    .ok_or("divider")?;
+    let scene = TransportScene::new(vec![floor, near, opposite, divider], vec![]).ok_or("scene")?;
+    assert!(
+        same_lighting_plane(&floor, &near),
+        "near-tolerance planes remain compatible"
+    );
+    let positions = [
+        [0.75, 0.0, 0.25],
+        [0.25, 0.0, 0.25],
+        [0.25, 0.0, 0.25],
+        [0.1, 0.0, 0.25],
+    ];
+    let surfaces = [0_u32, 0, 1, 2];
+    let receivers: Vec<_> = positions
+        .into_iter()
+        .zip(surfaces)
+        .map(|(position, surface)| TransportReceiver {
+            position,
+            ray_origin: receiver_position(position, floor.normal),
+            normal: floor.normal,
+            albedo: [0.5; 3],
+            area: 0.1,
+            surface,
+            attenuation: [1.0; 3],
+        })
+        .collect();
+    let mut cache = RadianceCache::build(&receivers, &scene.triangles);
+    // One deliberate cell keeps the nearest right-hand sample behind the divider;
+    // equal distances retain the original left fold and receiver order.
+    cache.cells = vec![
+        receivers
+            .iter()
+            .enumerate()
+            .map(|(index, receiver)| -> Result<CacheRepresentative, String> {
+                Ok(CacheRepresentative {
+                    receiver: index,
+                    distance: if index == 0 { 0.0 } else { 1.0 },
+                    normal_mask: cache_normal_mask(
+                        scene
+                            .triangles
+                            .get(usize::try_from(receiver.surface).map_err(|e| e.to_string())?)
+                            .ok_or("surface")?
+                            .normal,
+                    ),
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?,
+    ];
+    let blocked_target = SurfaceCacheTarget::new(&scene, 0, [0.1, 0.0, 0.25]).ok_or("target")?;
+    let audit = GatherAudit::default();
+    let selected = cache.representative_at_audited::<true>(
+        &scene,
+        0,
+        blocked_target,
+        &receivers,
+        Some(&audit),
+    );
+    assert_eq!(
+        selected,
+        Some(1),
+        "blocked nearest falls back to the first equal coplanar sample"
+    );
+    assert_eq!(
+        audit.blocked_nearest.load(Ordering::Relaxed),
+        1,
+        "exercise blocked-nearest fallback"
+    );
+    let expected = cache_filter_selections(&cache, &scene, &receivers)?;
+    for entry in cache.cells.iter_mut().flatten() {
+        entry.normal_mask = u32::MAX;
+    }
+    let actual = cache_filter_selections(&cache, &scene, &receivers)?;
+    assert_eq!(
+        actual, expected,
+        "filtering preserves every exact selected receiver or absent support"
+    );
+    cache.cells.get_mut(0).ok_or("cell")?.truncate(1);
+    assert_eq!(
+        cache.representative_at(&scene, 0, blocked_target, &receivers),
+        None,
+        "a disconnected nearest with no visible fallback has no support"
+    );
+    Ok(())
+}
+
+fn check_cache_normal_bins() -> Result<(), String> {
+    #[cfg(target_pointer_width = "64")]
+    assert_eq!(
+        std::mem::size_of::<CacheRepresentative>(),
+        16,
+        "normal mask fills existing representative padding"
+    );
+
+    for edge in [-0.5_f32, 0.5] {
+        for step in -20_i16..=20 {
+            let value = edge + f32::from(step) * f32::EPSILON;
+            for delta in -8_i16..=8 {
+                for axis in 0..3 {
+                    let mut left = [0.0, 1.0, 0.0];
+                    let mut right = left;
+                    *left.get_mut(axis).ok_or("axis")? = value;
+                    *right.get_mut(axis).ok_or("axis")? = value + f32::from(delta) * f32::EPSILON;
+                    let query = cache_normal_query(left);
+                    assert_eq!(
+                        cache_normal_mask(right) & query,
+                        query,
+                        "normal tolerance cannot cross a rejected bin"
+                    );
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn cache_filter_selections(
+    cache: &RadianceCache,
+    scene: &TransportScene,
+    receivers: &[TransportReceiver],
+) -> Result<Vec<Option<usize>>, String> {
+    let mut result = Vec::new();
+    for surface in 0..scene.triangles.len() {
+        for point in [[0.1, 0.0, 0.25], [0.9, 0.0, 0.25], [0.5, 0.0, 0.25]] {
+            let target = SurfaceCacheTarget::new(scene, surface, point).ok_or("target")?;
+            result.push(cache.representative_at(scene, 0, target, receivers));
+        }
+    }
+    Ok(result)
+}

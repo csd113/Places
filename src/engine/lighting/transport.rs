@@ -2798,7 +2798,7 @@ impl TransportScene {
         {
             let (combined, rays, cells) = self.bounce_orders(
                 receivers,
-                prepared.cache(),
+                prepared.cache(self),
                 accumulators,
                 SolveOptions {
                     taps_per_axis: taps,
@@ -2863,7 +2863,7 @@ impl TransportScene {
             *probe_field = Some(bake_probe_field(
                 self,
                 receivers,
-                prepared.cache(),
+                prepared.cache(self),
                 &accumulators,
                 taps,
                 bounces,
@@ -3531,10 +3531,10 @@ impl ReceiverSet {
         })
     }
 
-    fn cache(&self) -> &RadianceCache {
+    fn cache(&self, scene: &TransportScene) -> &RadianceCache {
         self.cache.get_or_init(|| {
             let started = std::time::Instant::now();
-            let cache = RadianceCache::build(&self.receivers);
+            let cache = RadianceCache::build(&self.receivers, &scene.triangles);
             crate::engine::logging::info(format_args!(
                 "[transport-cache] receivers={} build_ms={:.3}",
                 self.receivers.len(),
@@ -3575,6 +3575,7 @@ struct GatherAudit {
     cache_candidates_examined: std::sync::atomic::AtomicUsize,
     connectivity_rays: std::sync::atomic::AtomicUsize,
     blocked_nearest: std::sync::atomic::AtomicUsize,
+    cache_normal_rejections: std::sync::atomic::AtomicUsize,
 }
 
 #[derive(Clone, Copy)]
@@ -3591,6 +3592,7 @@ enum GatherEvent {
     CacheCandidate,
     ConnectivityRay,
     BlockedNearest,
+    CacheNormalRejection,
 }
 
 fn record_gather(audit: Option<&GatherAudit>, event: GatherEvent) {
@@ -3610,6 +3612,7 @@ fn record_gather(audit: Option<&GatherAudit>, event: GatherEvent) {
         GatherEvent::CacheCandidate => &measurements.cache_candidates_examined,
         GatherEvent::ConnectivityRay => &measurements.connectivity_rays,
         GatherEvent::BlockedNearest => &measurements.blocked_nearest,
+        GatherEvent::CacheNormalRejection => &measurements.cache_normal_rejections,
     };
     let _previous = counter.fetch_add(1, Ordering::Relaxed);
 }
@@ -3633,6 +3636,7 @@ impl GatherAudit {
             "cache_candidate_visits": self.cache_candidates_examined.load(Ordering::Relaxed),
             "cache_connectivity_rays": self.connectivity_rays.load(Ordering::Relaxed),
             "cache_blocked_nearest": self.blocked_nearest.load(Ordering::Relaxed),
+            "cache_normal_rejections": self.cache_normal_rejections.load(Ordering::Relaxed),
             "meaning": "Cell/candidate counts are actual visits, including nearest searches and repeated fallback visits, not unique entries. Connectivity rays are exact visibility tests. Aggregate geometric paths; logical samples count independent energy layers. Cache-empty is absent visible support, while zero radiance can be valid darkness. Dump-enabled counts include instrumentation cost."
         });
         crate::engine::logging::info(format_args!("[transport-gather] {payload}"));
@@ -4202,6 +4206,44 @@ struct RadianceCache {
 struct CacheRepresentative {
     receiver: usize,
     distance: f32,
+    /// Conservative normal bins occupy existing padding on 64-bit targets.
+    normal_mask: u32,
+}
+
+/// Three disjoint bins per normal component; this is only a rejection filter.
+/// The exact approximate-plane predicate still admits every candidate in order.
+fn cache_normal_bin(value: f32) -> u32 {
+    if value < -0.5 {
+        1
+    } else if value > 0.5 {
+        4
+    } else {
+        2
+    }
+}
+
+fn cache_normal_query(normal: [f32; 3]) -> u32 {
+    if !normal.iter().all(|value| value.is_finite()) {
+        return 0;
+    }
+    cache_normal_bin(normal[0])
+        | (cache_normal_bin(normal[1]) << 3_u32)
+        | (cache_normal_bin(normal[2]) << 6_u32)
+}
+
+fn cache_normal_mask(normal: [f32; 3]) -> u32 {
+    // Twice same_lighting_plane's component tolerance conservatively covers
+    // subtraction rounding at both bin edges. Non-finite values reject nothing.
+    let margin = 16.0 * f32::EPSILON;
+    let component = |value: f32| {
+        if !value.is_finite() {
+            return 7;
+        }
+        u32::from(value <= -0.5 + margin)
+            | (u32::from(value >= -0.5 - margin && value <= 0.5 + margin) << 1_u32)
+            | (u32::from(value >= 0.5 - margin) << 2_u32)
+    };
+    component(normal[0]) | (component(normal[1]) << 3_u32) | (component(normal[2]) << 6_u32)
 }
 
 /// The hit plane and air-side endpoint are invariant throughout a cache lookup.
@@ -4209,6 +4251,7 @@ struct CacheRepresentative {
 struct SurfaceCacheTarget<'a> {
     triangle: &'a TransportTriangle,
     ray_origin: [f32; 3],
+    normal_query: u32,
 }
 
 impl<'a> SurfaceCacheTarget<'a> {
@@ -4222,12 +4265,13 @@ impl<'a> SurfaceCacheTarget<'a> {
         Some(Self {
             triangle: hit,
             ray_origin: receiver_position(on_plane, hit.normal),
+            normal_query: cache_normal_query(hit.normal),
         })
     }
 }
 
 impl RadianceCache {
-    fn build(receivers: &[TransportReceiver]) -> Self {
+    fn build(receivers: &[TransportReceiver], triangles: &[TransportTriangle]) -> Self {
         let mut min = [f32::INFINITY; 3];
         let mut max = [f32::NEG_INFINITY; 3];
         for receiver in receivers {
@@ -4319,7 +4363,7 @@ impl RadianceCache {
                 entries.push(index);
             }
         }
-        let representatives = cache_representatives(cells, receivers, min, cell_m, dims);
+        let representatives = cache_representatives(cells, receivers, triangles, min, cell_m, dims);
         Self {
             min,
             cell: cell_m,
@@ -4360,6 +4404,12 @@ impl RadianceCache {
         let candidates = self.cells.get(cell)?.iter().filter_map(|entry| {
             if AUDIT {
                 record_gather(audit, GatherEvent::CacheCandidate);
+            }
+            if entry.normal_mask & target.normal_query != target.normal_query {
+                if AUDIT {
+                    record_gather(audit, GatherEvent::CacheNormalRejection);
+                }
+                return None;
             }
             let index = entry.receiver;
             let receiver = receivers.get(index)?;
@@ -4537,6 +4587,7 @@ impl RadianceCache {
 fn cache_representatives(
     cells: Vec<Vec<usize>>,
     receivers: &[TransportReceiver],
+    triangles: &[TransportTriangle],
     min: [f32; 3],
     cell: f32,
     dims: [usize; 3],
@@ -4553,6 +4604,11 @@ fn cache_representatives(
                     CacheRepresentative {
                         receiver: receiver_index,
                         distance: dot(delta, delta),
+                        normal_mask: receivers
+                            .get(receiver_index)
+                            .and_then(|receiver| usize::try_from(receiver.surface).ok())
+                            .and_then(|surface| triangles.get(surface))
+                            .map_or(u32::MAX, |triangle| cache_normal_mask(triangle.normal)),
                     }
                 })
                 .collect()

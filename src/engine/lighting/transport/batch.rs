@@ -203,7 +203,7 @@ impl TransportScene {
         if !active.iter().any(|channel| *channel) {
             return Ok((combined, 0, 0));
         }
-        let cache = prepared.cache();
+        let cache = prepared.cache(self);
         let mut previous = combined.each_ref().map(|layer| {
             layer
                 .iter()

@@ -1157,6 +1157,8 @@ Concrete implementation items are drafted in `E/implementation-queue-drafts.json
   compatibility, disconnected support, sample-count/bounce-order semantics and
   bounded reuse; counters plus quiet realistic pairs, memory and native parity.
   Attribute scoped-worker/scratch costs before a persistent scheduling rewrite.
+  Status: completed by the exact CPU normal-filter qualification below;
+  connectivity rays are preserved, with no visibility reuse or new scheduler.
 
 GitHub publication of the first item was rejected twice by automatic approval
 review for missing trusted publication authorization (the retry added verified
@@ -2477,9 +2479,123 @@ This completes the bounded prepared-prop candidate-staging implementation item.
 The large raw input/earlier preparation peak remains; a source-capacity reduction
 must not be re-labelled as freed process/system memory. Historical missing Mac
 RSS baselines, the roughly 312 MiB historical runtime lead, broader native/runtime
-reservations and long-session Rust-live drift remain separate. Exact cache
-candidate/connectivity work and correctness-gated GPU fallback remain subsequent
-implementation items; CPU remains the production default. Scheduling retains
+reservations and long-session Rust-live drift remain separate. Exact CPU cache
+filtering is completed in the following section; correctness-gated GPU fallback
+remains a subsequent implementation item. CPU remains the production default. Scheduling retains
 the existing four-worker policy as qualified above. Windows is qualified here;
 Mac native is deferred and Linux native unavailable/unrun, not passed. GitHub
 issue writes remain held; no main/release/tag/force push or security changes occur.
+
+## Exact CPU radiance-cache normal filtering (Windows, 31 October 2026)
+
+Implemented the named candidate/connectivity follow-on at
+`RadianceCache::representative_at_audited`. Each existing representative now
+stores a conservative nine-bit normal filter in its 64-bit layout padding.
+Geometric triangle normals supply the bits. The hit supplies one bin per normal
+component; candidate bins expand at both boundaries by twice the existing normal tolerance. Rejected entries avoid the
+receiver/triangle loads and approximate-plane test. Every admitted entry still
+uses the original `same_lighting_plane` predicate, distance comparison and scan
+order. This is a broad rejection filter, not an exact plane partition.
+
+The tolerance-based comparison remains an ordered left fold; it is never sorted
+or treated as a total ordering. Nearest-first visibility and the original
+blocked-nearest scan remain intact. Receiver positions, dot products, eight-cell
+interpolation, missing/disconnected support, bounce/sample sequences, alpha,
+water, probes, fill, gutters and circuit accumulation retain their original
+operations. There is no visibility/stencil reuse across queries or bounce orders.
+Normal diagnostics use the existing const-generic audit path and are absent from
+ordinary hot loops. On the measured 64-bit target each representative remains
+16 bytes; cache capacities are identical and added persistent cache capacity is
+zero. Other pointer widths were not measured.
+
+Evidence `C` is `C:/Users/Connor Dawkins/Documents/Codex/2026-10-30/task-13/cache-evidence`.
+The matching local/remote baseline is `6ac5c404e4e3e24fb8e63da21a174902cf2f978e`;
+all 592 starting source hashes match the preceding accepted compiler.
+The preserved baseline compiler is `b8ef1b2bea18f2bf091d93c717cd57d1695c93ec2634dd811361c24525fbb60c`;
+candidate compiler is `04ef4ae64af67853f60c18cec312c1585ce9ebc4c239e778ee5cf0428a1a255d`.
+Both binaries, all source hashes and saved-fixture identities remain outside
+`target/`. All four saved Lab project files also match the current project byte
+for byte. The accepted prepared-prop staging change is part of this baseline;
+its earlier memory savings remain separately attributed in the previous section.
+
+### Quiet timing and actual work
+
+There are 22 accepted forced Static+Full builds / 11 exact pairs: three repeats
+each of material, architecture and three circuits, and two current Lab repeats.
+Orders alternate baseline/candidate and candidate/baseline, using 12 compiler
+workers, unchanged assets and fresh process/state directories. Two 600 ms
+prelaunch total-CPU samples must each be <=8%; measured noncompiler CPU mean
+must be <=8% and p95 <=20%. Timings exclude solver diagnostics. No other owned
+build, analysis or native process overlaps these measurements.
+
+| Case | Baseline wall s | Filtered wall s | Baseline CPU s | Filtered CPU s |
+|---|---:|---:|---:|---:|
+| Material transport | 16.156 | 15.743 | 98.219 | 94.891 |
+| Architecture | 49.843 | 45.308 | 466.141 | 420.859 |
+| Three circuits | 20.213 | 19.052 | 196.750 | 185.391 |
+| Current Lab | 162.968 | 108.464 | 1837.695 | 1204.492 |
+
+These are cohort medians on one Windows machine, not a general speed guarantee.
+`C/analysis.json` retains individual quiet checks, wall/CPU values, stage times,
+process RSS/private peaks and deterministic archive identities. The change adds
+no cache capacity; variation in process peaks is not a claimed memory saving.
+No blanket production-map rebake or FPS campaign was performed.
+
+One separate three-circuit diagnostic pair records 5,842,480,882
+raw candidate visits on both sides and 5,004,038,038 early
+normal rejections (85.6%) in the candidate within audited surface gathers.
+Counts sum all reported bounce/layer batches for this Static+Full build. Raw
+list visits therefore remain unchanged; the saved work is candidate resolution
+and plane testing. These gather counters record
+exactly 143,232,028 connectivity rays and
+16,655,808 blocked-nearest fallbacks. Lookup counts,
+chosen support and cache capacities agree. These instrumented runs are excluded
+from timing; the historical visit/ray counts were profiling evidence, not promised
+reductions.
+
+### Exactness, cancellation and native proof
+
+Every non-provenance package payload matches exactly in all 11 pairs, including
+geometry, collision/navigation, HDR lighting, mips, probes, circuits and embedded
+source. Only verified compiler/tool identities and their fingerprints differ.
+Repeated builds within each compiler produce identical complete archive hashes.
+Eight independent decoded-oracle cases also agree. Diagnostic-on/off payloads
+match for both compilers. The one new small CPU regression covers 4,182 normal
+boundary cases and exact selections at equal distances, near-tolerance planes,
+thin opposite faces, a blocked nearest and disconnected support. It uses a tiny
+synthetic scene, no assets/files/GPU/bake, under 1 MiB and milliseconds; existing
+solved-output tests cannot expose an incorrectly rejected representative identity.
+
+Cancellation during shared bounce preserves the previous package bytes and
+retires owned temporary files; observed command-to-completion time is
+0.124 s. Restart produces the exact complete candidate archive. Existing
+solve-local cache ownership remains unchanged. One earlier cancellation prelaunch
+was screened out at 9.66% total CPU before a compiler started; successful decoded
+and counter proofs were reused without repeating their bakes.
+
+One new native session uses the same preserved player and exact earlier baseline
+package/capture provenance. All 17 matched 960x600 Full-lighting captures have
+identical RGB pixels across all eight circuit combinations, outside views and
+the restored view. Capture diagnostics confirm actual level, drawable
+size and applied Full lighting. This is image/behavior parity, with no native
+throughput claim. `C/native-complete.json` records the player/package hashes,
+settings, diagnostics and reused baseline path.
+
+### Gates and queue disposition
+
+Final-hash format, strict debug/release workspace/all-target/all-feature Clippy,
+locked release workspace/all-feature build, 411 Rust regressions, 372 Python
+contracts (18 existing skips) and all 11 bounded production Luau refusal checks
+pass. No test or automatic gate bakes a map. Final binaries, source snapshots,
+raw timing/counter receipts, decoded oracles, cancellation and native evidence
+are retained outside `target/` before the single idle cleanup.
+
+This completes the measured exact CPU cache candidate-filtering item. Connectivity
+ray counts remain unchanged; no reuse assumption or broader worker system was
+introduced. The correctness-gated GPU traversal/fallback experiment remains the
+next separate compiler item, with CPU the production default. Existing startup,
+audio, Pool packing/sharing and scheduling diagnostic follow-ons retain their
+scopes. The full Rust-test usefulness review remains LAST and was not started.
+Mac native is deferred; Linux native is unavailable/unrun, not passed. GitHub
+issue writes and the separate isolated GUI Bake approval hold remain in place;
+there is no main/release/tag/force push or security change.
