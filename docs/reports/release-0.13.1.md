@@ -2278,7 +2278,7 @@ Table entries are medians across the three run statistics; p95 is the median of 
 
 Lab is the relevant native CPU workload: four workers reduce paired mean update time by a median 10.60% (range 8.08–12.36%) and paired mean loop time by 4.96%. Loop p95 and p99 effects are mixed, so no tail guarantee is claimed. Eight workers give no repeatable throughput advantage over four and worsen Lab p95 in all three pairs against one worker. Home update costs remain small and show no consistent worker benefit; GPU/presentation variation dominates its frame timings. Pool diagnostics likewise show update around 0.24–0.26 ms against GPU medians around 2.8 ms, so Pool FPS is not evidence for a CPU scheduling rewrite.
 
-The three-frame CPU diagnostics show Lab character-lighting medians around 0.95 ms at one worker and 0.41 ms at four. These are directional samples, not a standalone speedup estimate. They include preparation, dispatch and synchronous join. `character_skin_upload` also includes caller-thread GPU writes. Existing diagnostics cannot separate pure dispatch/wait/join cost from useful CPU work. `diagnostic-proposal.md` prepares a bounded follow-up if another measured CPU bottleneck requires it; the source hold prevents adding that instrumentation here.
+The three-frame CPU diagnostics show Lab character-lighting medians around 0.95 ms at one worker and 0.41 ms at four. These are directional samples, not a standalone speedup estimate. They include preparation, dispatch and synchronous join. `character_skin_upload` also includes caller-thread GPU writes. Those historical stage spans did not isolate dispatch/wait/join from useful CPU work. The bounded current-source continuation below completes the proposed dispatch/join measurement without changing production hot loops.
 
 ### Ownership, memory and correctness
 
@@ -2303,15 +2303,132 @@ Fixed-step one/eight-worker captures at the same final frame: lab 0 changed pixe
 
 ### Disposition and publication boundary
 
-No required scheduling implementation candidate emerged. Retain the current pool/granularity policy. A bounded dispatch/dirty-work diagnostic is an optional future measurement aid, not a proven production optimization. No second pool, job graph, compiler-worker replacement, global eight-worker default or quality reduction is justified. Existing compiler/cache/prop/GPU and audio/startup follow-ons retain their scopes. The full Rust-test usefulness audit remains LAST and was not started. `implementation-queue-drafts.json` records this disposition and the optional diagnostic criteria; no GitHub issue was written.
+No required scheduling implementation candidate emerged. Retain the current pool/granularity policy. The current-source diagnostic below closes the remaining dispatch/join gap with a measured no-change outcome. No second pool, job graph, compiler-worker replacement, global eight-worker default or quality reduction is justified. Existing compiler/cache/prop/GPU and audio/startup follow-ons retain their scopes. The full Rust-test usefulness audit remains LAST and was not started. `implementation-queue-drafts.json` records the historical disposition and diagnostic criteria; no GitHub issue was written.
 
 This task added no production code or tests and ran no build, Clippy, Cargo test or bake; the preserved candidate’s accepted gates remain in the lightmap handoff. Windows only: Mac is deferred; Linux native is unavailable/unrun, not passed. These are bounded fixtures, stationary representative cameras and one machine, not complete gameplay or cross-platform scaling proof.
 
 All 37 owned native processes are terminal with exit 0 (three headless physics, 33 accepted GUI sessions and one excluded GUI session). No hidden persistent supervisor was launched; each bounded command owned its native handles through completion. At that historical handoff, custody was released, target was absent, the index empty and HEAD/branch plus all 590 source and ten held-file hashes unchanged. No lightmap artifact was cleaned.
 
-The nine lightmap source/report changes plus unrelated menu remain uncommitted. Their commit/non-force push is the prior owner’s denied, known-unexecuted action with a human approval question pending; this task did not retry it or use an alternate route. No new approval-review denial occurred here. No commits, pushes, GitHub writes, releases, main/force pushes or security changes were attempted.
+At that historical handoff, nine lightmap source/report changes and the unrelated menu were uncommitted, and the prior owner’s denied, known-unexecuted publication awaited human approval. That qualification did not retry the action. The approved lightmap source was subsequently published; this historical hold is resolved. No new approval-review denial occurred in the original qualification.
 
 Evidence root: `C:/Users/Connor Dawkins/Documents/Codex/2026-10-30/task-11/scheduling-evidence`. Per-run `identity.json`, `launch.json`, `process-samples.json`, `native.log`, `frames.csv`/`receipt.json`, results and cameras retain the raw evidence. `physics-analysis.json`, `native-analysis.json`, `native-paired.json`, `resource-analysis.json`, `visual-acceptance.json`, source/held hashes and terminal receipts support the tables. `consolidated-report-draft.md` preserves the original outside-repository draft. The section above was verified and appended after the publication hold was resolved.
+
+### Dispatch/join closure on current source (2026-10-31)
+
+The remaining dispatch/join measurement gap is complete with **no production
+change**. Current source is `c30bbd2bf4de0a506851f167fc6542488730693c`.
+Evidence `D` is
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-31/task-6/dispatch-evidence`.
+The scratch release probe imports the exact current `runtime_work.rs` by path
+(SHA256 `4f31befccf7319ba870cbf29232f39c7a24f29bb94774a60cdc99c306cb52092`)
+and links the same Rayon 1.12.0 / rayon-core 1.13.0 with Rust 1.99.1, opt-level 3,
+LTO and one codegen unit. Its only logging stubs serve unused global initialization;
+the measured explicit executor and dispatch implementation are unmodified. No
+clocks, counters, diagnostic branch, buffer or serialization enters the game.
+
+Forty accepted headless processes exit zero: three alternating 1/2/4/8-worker
+cohorts each for empty `install`, untraced useful work and 16-ms-paused work,
+plus four separate boundary-instrumented controls. There are 318,912 untraced
+batch samples and 13,824 instrumented samples. Two background-noisy processes
+also exit zero and remain under `D/excluded/`; their individual quiet repeats
+pass and they contribute no accepted timings. Before each process, two 600-ms
+total-CPU samples must be at most 8%; measured non-probe CPU must average at most
+8%, with p95 at most 20%. Accepted maxima are 4.81% mean and 13.79% p95.
+The shortest empty probes have only one 100-ms process-sampling interval; their
+two prelaunch quiet samples are retained. Analysis runs after timing processes.
+
+The useful kernel is a fixed deterministic integer recurrence on disjoint slots,
+with ordered seeds and no allocation inside the timed call. It calibrates batch
+size, not actual lighting, skinning, water computation or solver throughput.
+Shapes cover 2/4/8/16/64 slots, eight clustered dirty slots among 128, and the
+existing water dispatch shape (64-body threshold, `with_min_len(4)`) at
+32/64/128 slots. The 32-slot water control stays inline. Construction, warmup,
+reference/checksum reduction, output and the 16-ms pauses are outside timing.
+All 88 mode/shape/work groups retain identical u64 aggregate results across
+workers, repetitions and samples; these are probe checksums, not physics hashes.
+
+All following costs are microseconds, medians of three run statistics. An empty
+`install` measures handoff/return with no useful callback or parallel splitting.
+The minimal-slot operation still includes a no-inline black-box call, traversal
+and output; it is an overhead proxy rather than a subtraction from game stages.
+
+| Current executor cost, median / p95 | 1 inline | 2 workers | 4 workers | 8 workers |
+| --- | ---: | ---: | ---: | ---: |
+| Empty install | below 0.1 / 0.1 | 0.3 / 0.4 | 0.3 / 0.5 | 0.4 / 1.9 |
+| Hot eight-slot minimal batch | below 0.1 / 0.1 | 1.0 / 1.3 | 1.2 / 1.5 | 1.5 / 2.0 |
+| Same batch after a 16-ms pause | 0.6 / 1.3 | 46.2 / 71.9 | 50.3 / 76.9 | 59.85 / 81.1 |
+| Hot 64-slot water-shaped minimal batch | 0.1 / 0.2 | 1.6 / 2.0 | 1.7 / 2.2 | 2.1 / 2.6 |
+| Same water shape after a 16-ms pause | 1.0 / 1.8 | 41.7 / 71.6 | 52.65 / 77.4 | 63.5 / 79.9 |
+
+The pause is a controlled idle/wakeup case, not a measured gameplay frame cadence
+or promised sleep duration. Host clocks, thermals and power states are unchanged
+and not fixed. For example, the paused eight-slot/four-worker minimal batch has
+a median run p99 of 80.3 us, but its worst individual accepted sample is retained
+in the raw distribution rather than treated as a bound. Longer paused work has
+outliers above its p95; no universal scheduler-tail guarantee is made.
+
+The first sampled useful-work crossover requires a lower median in all three
+paired runs and a lower p95 in at least two. This is a discrete measured bracket,
+not an exact crossover or a replacement for consumer thresholds:
+
+| Shape at first qualifying sampled work | Serial median / p95 | 2 workers median / p95 | 4 workers median / p95 | 8 workers median / p95 |
+| --- | ---: | ---: | ---: | ---: |
+| Hot eight slots, 4,096 rounds/dirty slot | 43.2 / 44.2 | 30.2 / 36.8 | 24.95 / 28.9 | 27.1 / 34.6 |
+| Hot water shape, 64 slots, 512 rounds/slot | 42.1 / 43.1 | 29.8 / 35.8 | 22.5 / 27.2 | 23.3 / 31.6 |
+| Paused water shape, 64 slots, 4,096 rounds/slot | 482.6 / 514.4 | 334.5 / 369.5 | 221.55 / 260.6 | 152.35 / 212.5 |
+
+At the prior sampled hot eight-slot size (1,024 rounds), serial is 10.8 us and
+four workers 14.9 us; its p95 rises from 10.8 to 30.7 us. Paused eight-slot work
+has no qualifying crossover through its largest tested 4,096 rounds: 60.8 us
+serial versus 91.05 us at four workers. Paused 64-slot work also loses at 512
+rounds (59.3 versus 90.1 us), bracketing that crossover between the sampled
+59.3 and 482.6 us serial workloads. Eight clustered dirty slots among 128 have
+no qualifying hot crossover through 16,384 rounds: 173.1 us serial versus
+186.15 us at four workers. This deliberately imbalanced case demonstrates why
+item count alone does not guarantee scaling; it is not a measured regression in
+an authored scene or justification for a new compacted-work allocation.
+
+Separate 128-batch-per-case controls preallocate one start/end timestamp pair
+per output slot. For eight slots at 1,024 rounds and four workers, median
+entry-to-first-start / first-start-to-last-finish / last-finish-to-return are
+3.4 / 5.9 / 6.5 us; p95s are 19.8 / 7.5 / 9.7 us. Total median/p95 are
+15.6 / 32.4 us. Worker CPU-span sum has a median of 11.2 us and overlaps in
+wall time. Per-statistic medians/percentiles do not add. Entry includes dispatch
+and OS scheduling, return includes retirement and waking the caller, and the
+worker window includes gaps and per-slot clock cost. These are boundary bounds,
+not a profiler's additive compute/wait accounting. The corresponding untraced
+four-worker batch is 14.9 / 30.7 us; clock overhead is kept separate, not
+subtracted to invent a precise production synchronization cost.
+
+The prior real Lab/Home/physics/image findings above retain their original
+binary identities and attribution. This probe neither repeats nor reattributes
+their 10.60% Lab update reduction, their mixed frame tails, or either 96 MiB
+lightmap saving. It establishes the missing isolated empty-handoff and bounded
+batch/wakeup costs, but identifies no material current production bottleneck
+for which a smaller correct code change has a demonstrated gain. Busy spinning,
+another pool, asynchronous overlap, changed defaults and new thresholds remain
+unjustified. Default four / maximum eight, dirty-work gates, pose/vertex limits,
+water/solver thresholds and hysteresis, synchronous ownership/publication,
+cancellation and shutdown stay intact. The existing investigation is closed
+with this bounded no-change outcome; no duplicate open-ended follow-on is added.
+
+All 604 current Rust/Cargo/developer-tool hashes match the frozen GPU-sharing
+acceptance, whose strict debug/release Clippy, locked production build and 415
+Rust regressions passed. Production source and binaries are unchanged, so no
+fresh game build, Rust test, image/physics campaign or map bake is required or
+claimed here. The existing native image/physics and transition evidence remains
+at its stated scope. Only the scratch probe was compiled; its unused imported
+global helpers produce scratch-only dead-code/check-cfg warnings, not a new
+production gate result. `D/probe-identity.json`, `summary.json`, `paired.json`,
+`sampled-crossovers.json`, `acceptance.json`, raw runs and source copies retain
+the reproducible evidence. Preserved source, executable and hashes precede the
+single idle-only scratch Cargo cleanup; repository `target` stays absent.
+`D/handoff.json` records exact scoped report publication, remote/async CI,
+empty index and terminal-process custody. Parent owns issue writes. Windows
+Razer only; Linux remains unrun, Mac deferred. No FPS or cross-platform gain is
+claimed. #33, editor redesign, final packages and the LAST test audit are not
+started by this continuation.
+
 
 ## Bounded prepared-prop candidate staging (Windows, 31 October 2026)
 
