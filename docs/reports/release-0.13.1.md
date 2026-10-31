@@ -3224,8 +3224,10 @@ Lantern Hollow now uploads twelve immutable physical page pairs for its eighteen
 logical pairs: atlas texture allocation falls from 288 to 192 MiB. Its prior
 96 MiB **CPU** plane-sharing improvement is already in both sides of this
 comparison; CPU pixel ownership remains 192 MiB and archive bytes are unchanged.
-Pool's two-page geometric packing is proven feasible, but its production layout
-is retained because direct relocation cannot preserve existing exact UV lookups.
+Pool's two-page geometric packing and exact byte relocation are proven feasible.
+The bounded explicit-remapping investigation retains the production three-page
+layout: the tested portable corrections change existing lookups, and the locally
+matching correction fixes precision that the current sampler contract leaves open.
 
 Evidence `G` is `C:/Users/Connor Dawkins/Documents/Codex/2026-10-31/task-5/lightmap-evidence`.
 The matched baseline is `9bdef04b22abf3e82fd06a68ba040800b007dc87`; its preserved
@@ -3275,7 +3277,7 @@ and occupies a separately reported 64 KiB native allocation. Per-pair staging
 remains bounded by the existing two-unit window (32 MiB for two 1024-square pairs);
 total page-pair upload data falls by 96 MiB, not the peak window size.
 
-### Pool: feasible rectangles, exact-lookup limit
+### Pool: two-page replay and bounded exact-remapping decision
 
 `pool-replay.json` and the two saved layouts independently place all 30,116
 unchanged chart rectangles, including mandatory two-texel architectural and
@@ -3297,16 +3299,120 @@ qualifies. The two feasible layouts move every chart and need correction on
 of direct relocation with the present coordinates, not impossibility after an
 explicit lookup/format correction.
 
-The existing Pool item is refined to that exact UV/lookup correction, with the
-proven layouts as inputs; it is not duplicated. Its potential one-page removal
-is 32 MiB of half-plane CPU/GPU payload across two groups before correction
-overhead. Compressed savings and the correction's costs remain unmeasured. The
-current production packer, three-page Pool data and UVs are retained.
+The continuation uses the published `5e70827fdade43f7415e45115de68b3f927430db`
+source baseline and saved layouts. Evidence `P` is
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-31/task-5/pool-remap-evidence`;
+its original `G` evidence remains sealed. The current 604 Rust/Cargo/tool hashes
+match that baseline; no production source, map, UV or sampler changes here.
+
+An explicit 16-byte/chart displacement/page table permits exact copy-only
+relocation of all 30,116 chart rectangles across both circuit-7 groups. All
+gutters, HDR/moment half words and reserved alpha survive. There are also 35,111
+nondefault moment texels outside every chart's outer rectangle; a 421,332-byte
+sparse residual record retains full logical-page diagnostics. Reconstructing
+all twelve logical planes from the **persisted** two-page records, table and
+residual gives the original SHA256
+`ca5e3b6fb6d803c0d2f4263b29ffa3f995c6a81e10f0f93135d2b5129024b7e1`.
+`exact-relocation.json`, `persisted-roundtrip.json` and `unused-plane-bytes.json`
+separate chart correctness from preservation of unused-page data. No light is
+solved again; density, samples, orientation, selectors and circuit order stay fixed.
+
+The smallest shader candidate keeps the original UNORM16 vertex coordinates
+through interpolation, then adds the chart displacement in float32. This avoids
+the earlier re-quantization problem but loses low coordinate bits when moving
+into a larger exponent range. The three saved zero-outer-origin witness charts
+cannot move left/up; for each axis, every in-bounds positive displacement loses
+a representable original interpolant. Thus a placement restricted to
+precision-safe negative/zero shifts still needs three pages.
+`float-correction-limit.json` bounds this option; it does not prove all possible
+remapping schemes impossible.
+
+A native D3D12/DXC probe uploads the actual original and relocated Rgba16Float
+planes on the RTX 3070 Laptop GPU. It compares 254,432 linear-clamp samples on
+1,026 architecture/prop charts, including original endpoint/midpoint coordinates
+and float32 neighbors of filtering thresholds, both groups, both planes and
+blank/nonblank values. Results are bit comparisons of all four returned channels:
+
+| Correction after original interpolation | Different samples / 254,432 |
+| --- | ---: |
+| Float32 integer-texel translation | 17,318 |
+| Eight-bit round-to-even, then relocated sampling | 3,879 |
+| Eight-bit round-half-down, then relocated sampling | 23,922 |
+| Four exact texel loads with float32 bilinear arithmetic | 150,972 |
+| Eight-bit round-half-up, then relocated sampling | 0 |
+
+Translation changes twelve endpoint/midpoint probes as well as threshold probes.
+Its maximum component difference is 0.0029296875; these are concrete lookup
+counterexamples, not a claim of a visible game artifact. The half-up result is
+positive evidence for this adapter, not discarded as a failure. However, shipping
+it would fix eight fractional bits and one rounding policy. Direct3D requires
+**at least** eight fractional bits and permits conversion tolerance; it does not
+promise those exact rules. A sixteen-bit filtering model changes actual Pool
+values in saved counterexamples. The model is not a measurement of another GPU.
+The current wgpu API exposes no exact sampler-precision/tie-policy capability.
+Adopting that rule would change the required precision contract.
+See [Direct3D sampling precision and fixed-point conversion](https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm)
+and `native-sample-comparison.json` / `precision-contract-counterexample.json`.
+
+An actual sampler offset would preserve the original coordinate conversion, but
+only ten charts in the saved layout have both displacements within [-8,7];
+20,524 displacement pairs span x=-1020..1017 and y=-939..1006. WGSL requires a
+constant offset in that limited range. Shader Model 6.7 permits variables but
+retains the same range. Neither supplies arbitrary chart relocation.
+See [WGSL texture sampling](https://www.w3.org/TR/WGSL/#texturesamplelevel)
+and [Microsoft programmable offsets](https://github.com/microsoft/DirectX-Specs/blob/master/d3d/HLSL_SM_6_7_Advanced_Texture_Ops.md#programmable-offsets).
+The [texture-view descriptor](https://gpuweb.github.io/gpuweb/#dictdef-gputextureviewdescriptor)
+has no x/y crop origin; sparse virtual-texture/backend changes would exceed this
+bounded work. A dense original-coordinate indirection consumes
+12 MiB before plane data and still needs replacement filtering; the tested
+float32 replacement changes native results. `offset-inventory.json` records
+the actual layout limits.
+
+| Bounded prototype cost | Original | Two-page representation |
+| --- | ---: | ---: |
+| Decoded half-plane pixels | 100,663,296 B | 67,108,864 B |
+| Added chart table / diagnostic residual | 0 | 481,856 / 421,332 B |
+| Pixel + explicit correction CPU payload | 100,663,296 B | 68,012,052 B |
+| Native texture allocation, actually created/uploaded | 96 MiB | 64 MiB |
+| Additional native buffer requirement, table / residual | 0 | 512 / 448 KiB |
+| Matched lossless PLC1 + Zstd9 record payloads, including extras | 16,307,588 B | 16,514,901 B |
+
+Existing chart metadata and the existing GPU pair lookup are common costs.
+The prototype CPU payload reduction would be 31.138 MiB before owner overhead;
+native texture plus both correction buffers would save 31.0625 MiB in allocation
+requirements. The table requirement is queried from D3D12; the residual follows
+the same 64 KiB buffer alignment. These are allocation requirements, not physical
+VRAM residency. The matched PLC1 control uses only exact/constant tiles on both
+sides, then Zstd level 9: the denser packing produces fewer constant tiles, and
+the candidate **grows by 207,313 compressed bytes** after its extra records.
+Both scratch records independently decode to their exact source planes. This
+prices a possible format; it is not a shipping codec/archive comparison. The
+current Pool PLC1 record remains 38,942,312 encoded / 16,030,911 archived bytes;
+the 436,882,001-byte project archive remains unchanged.
+
+The native compute probe completes all six modes, six repetitions and fenced
+readbacks, with no surviving process. Its roughly 2.4 ms common dispatch floor
+and fixed ordering do not resolve game frame cost. No FPS, loading-latency,
+process-peak or physical-residency improvement is claimed. Source and prior
+production binaries are unchanged, so this rejection introduces no loader,
+cancel/reload, budget, reflection, character or diagnostic resource path to
+qualify. The earlier native game/circuit/image and cleanup evidence below remains
+applicable to the retained path; these headless probes are not scene images.
+
+**Bounded disposition:** the existing Pool item is complete with a measured
+no-adoption decision. Two-page byte storage works; the examined small portable
+lookup corrections do not meet the exact existing sampling contract. The locally
+matching precision-specific variant would require a new precision contract or a
+separately scoped backend design. Production retains its three-page layout and
+there is no claimed 32 MiB saving, duplicate follow-on or open-ended packing loop.
+No earlier CPU or GPU 96 MiB saving is reattributed. `bounded-decision.json` and
+the updated existing entry in `implementation-queue-drafts.json` record this
+decision for the parent-owned issue update.
 
 ### Native correctness, rollback and cost
 
-All fifty serial native processes exit zero. The initial image matrix has 29
-baseline/candidate pairs: 27 are RGBA exact; two Lantern close-ups differ by one
+The earlier GPU-sharing campaign's fifty serial native game processes exit zero.
+The initial image matrix has 29 baseline/candidate pairs: 27 are RGBA exact; two Lantern close-ups differ by one
 pixel and one red-channel step. Independent repeats with the **same binary** vary
 by zero to two pixels at one step, so the initial differences fit the measured
 native repeat envelope. They are preserved, not called exact. All six additional
@@ -3380,12 +3486,19 @@ independence and copy-on-edit separation; no test count, asset/GPU dependency or
 map bake is added. An extra debug executable build was stopped as redundant
 after both Clippy profiles and regression linking; it is not claimed passed.
 
-`implementation-queue-drafts.json` marks exact GPU pair sharing complete and
-refines the sole existing Pool follow-on. Scheduling/dispatch qualification,
+`G/implementation-queue-drafts.json` marks exact GPU pair sharing complete.
+`P/implementation-queue-drafts.json` closes the sole existing Pool investigation
+with its bounded no-adoption decision. The unchanged 604-file production/tool
+hash set carries forward the source gates above; the report-only continuation
+adds deterministic plane/codec reconstruction, native sampler probes and diff
+validation rather than rebuilding identical Rust sources. Scheduling/dispatch
+qualification,
 #33 grime, editor work and final packaging are not started here. The full Rust
 test-usefulness audit remains LAST. Windows Razer/DX12 only: Linux native is
 unrun, not passed; Mac is deferred. No physical VRAM-residency or cross-platform
 throughput claim is made. Parent owns issue writes. `handoff.json` records scoped
 branch publication, exact remote/async CI, preserved evidence, final index/process
-custody and the single idle-only cleanup. The unrelated menu scene is preserved
+custody and the single idle-only cleanup for GPU sharing. `P/handoff.json` records
+the Pool continuation's publication and custody; `target` stays absent and no
+second cleanup or duplicate build is needed. The unrelated menu scene is preserved
 at SHA256 `93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.
