@@ -2875,10 +2875,214 @@ follow-on. Keep the same #28/#29 residual tracking for the synchronous native
 driver floor, larger-scene/runtime-only cold constructors and platform/long
 session acceptance; a further incremental commit rewrite needs a demonstrated
 workload, not a claimed universal deadline. The small readiness regression and
-editor CPU increase above remain part of acceptance. Audio residual owner
-attribution and freshness/DSP work remain separate later items. The known
+editor CPU increase above remain part of acceptance. The audio owner/freshness follow-on below records the subsequent qualification. The known
 Windows Luau default compiler-suffix item remains queued; its explicit-path
 production gate passes here. `S/residual-queue.json` deduplicates these actions.
 Mac native validation is deferred; Linux native is unrun, not passed. Current
 shipping package refresh remains later; the earlier historical GUI Bake result
 is not reattributed to this code. The parent owns GitHub issue updates.
+
+## Audio residual owners, stale paths and world disposal (Windows, 31 October 2026)
+
+This implements the named `audio-residual-owner-attribution` and the bounded
+freshness/disposal/full-callback measurement portions of
+`audio-bounded-freshness-and-dsp-cost`. Baseline source is
+`a6643146174aa562ce55310fb3e5ea10c78d050a`, with the same read-only callback/epoch
+instrumentation and explicit probes on both comparison sides. Earlier startup
+and exact HRTF-control-cache gains retain their original attribution. No new
+kernel, tap-count, IIR/FIR arithmetic reduction or general DSP speedup is claimed.
+
+Evidence `A` is the retained `2026-10-31/task-3/audio-evidence` task artifact,
+outside `target/`. It contains raw successful and failed receipts, source/input
+hashes, baseline/candidate binaries, `analysis.json`, `final-gates.json` and
+`qualification-complete.json`. The 73 audio/catalog/HRTF/authored-scene/lockfile
+input identities remain unchanged. See the
+[explicit audio tool instructions](../../tools/rust/audio-audit/README.md).
+Final audio probe SHA-256 is `e4dde4f6770c1b7e6c17472ebb2f0f7edc9f5630f87c7d7d400686dc4027ad2b`;
+the actual-game allocator probe is
+`9753d4f582f5f91f6d66a1dd4d8d6ef31f750c9965e9bca5f21f80492a0a8255`. The final source manifest is
+`A/final-source-hashes.json`; the baseline has its separate immutable manifest.
+
+### Exact requested Rust bytes and bounded native owners
+
+The historical **5968 net requested Rust bytes** are now fully attributed:
+1024 bytes from stdout warmup and 4944 bytes from a single-file Kira/Symphonia
+decoder warmup. The latter consists of three surviving allocations of
+544, 2048 and 2352 bytes. Kira uses Symphonia's process-global default codec/probe
+registries; isolated warmup reproduces these owners before any library/device/
+scene/voice remains. Eleven repeated controlled preparation failures add exactly
+126 bytes (116-byte warning set plus the 10-byte `audio-init` key), then stay flat.
+These are bounded process-lifetime owners, not a leak or a claimed memory saving.
+Every census has zero slot overflow and zero callback Rust allocations/frees.
+
+The retained interim probe links the exact final release engine library, whose
+SHA is recorded in `A/interim-owner-build-v2.json`. Its phase ledger separates
+the synthetic scene, shared library, fixed native setup and voice allocations:
+
+| Owner | Requested Rust bytes | Retirement observation |
+| --- | ---: | --- |
+| Cue/library phase including decoder warmup | 43,445,247 | Unchanged across clear; only 4944 warmup bytes remain after unload |
+| Device/mixer/counters/capture/fixed voice and pending storage | 1,204,160 | Retained for the next world; zero after unload |
+| Synthetic scene | 564 | Zero immediately at clear |
+| 48 live or subsequently retired sound owners | 696,960 | 624 allocations; all released by the next main-thread play or unload |
+
+Logical voice/pending counts and scene counts are zero at clear. After 250 ms
+without another update, the old sounds still own 696,960 requested bytes in
+Kira's bounded retirement queue, while producing no old-world PCM. The next
+play drains all old phase-5 owners and creates one new 14,520-byte sound owner.
+Retirement remains on the main thread, preserving zero callback frees. The
+48-entry sound/retirement bounds and existing nonblocking resource gate remain.
+Pending starts use the existing fixed 48-slot buffer; lifetime pressure again
+observes 48 pending starts. The 66 shared clips retain exactly
+43,409,440 decoded frame bytes across clear, within the unchanged 64 MiB budget.
+Unloading releases the library, scene, live/pending/retired controls and native
+Rust setup owners. All 48 joined prepare/device reloads have the
+same unloaded Rust value, 89,456 bytes, including fixed harness
+records/scratch. The enlarged statistics add 6,528 bytes across the 48
+preallocated records. Harness cleanup and process-global warmup remain separate.
+
+The SDL DLL returns `-1` from `SDL_GetNumAllocations`: counting is disabled,
+not zero. SDL/C/CRT/driver byte ownership and OS reservations are outside the
+Rust allocator census. Process RSS/private samples are retained separately.
+No native byte-exact leak claim or complete driver-memory partition follows.
+The first standalone interim build used incompatible non-LTO flags; that failed
+link is retained. The corrected probe uses the final library's LTO format;
+production sources and successful source gates were unchanged.
+
+### Bounded stale contributions and explicit disposal
+
+Every detected source/door/scene invalidation, including an unverified new
+spatial start, publishes an age deadline through the existing latest-value
+channel. Oldest dirty paths receive priority, with at most eight path queries
+per update separated by at least 20 ms. At 150 ms of unresolved dirty age the
+renderer fades the unverified contribution using the existing transmission
+smoothing. A zero target settles at the existing `1e-20` digital-silence floor
+instead of retaining subnormal gain. Exact material/door paths and normal gain
+return when queries refresh them. The trade-off is temporary attenuation of a
+stale path, including a path that would eventually prove unobstructed. Dirty
+paths remain explicitly dirty; this does not make six update opportunities a
+wall-time freshness guarantee.
+
+The 48-source fixture moves across a wall/doorway, then makes no main-thread
+updates for 450 ms. Late captured energy after 300 ms changes from
+28.356346 to 7.243821 in stereo,
+and 4.624126 to 1.328051 in HRTF.
+These are native tap observations, not localization or subjective quality scores.
+Query recovery still needs 6 eligible updates;
+its last observed stereo refresh is 128.47 ms after
+updates resume. Each final path exactly matches the current material oracle.
+No faster actual path refresh is claimed.
+
+`clear_world` now publishes the room epoch immediately and advances a shared
+voice generation. The callback discards old-world source/FIR/IIR output and
+retires its slots without requiring another gameplay update. In both final
+stereo/HRTF clear-then-no-update trials, the consumed epoch equals the new main
+epoch and the captured post-clear PCM is zero. Baseline epochs stay one behind;
+old room energy remains measurable through the 600 ms capture. Restart restores
+48 voices. Natural finite-source completion retains all 140 HRTF taps and its
+existing FIR/IIR tail policy; world disposal explicitly discards old-world tails.
+Already-submitted device frames and scheduling remain outside these tap results.
+
+Home and Lantern use actual authored acoustic geometry with their two/five
+unlocked door runtimes, scripted moving listener/48-source paths and a 250 ms
+main-thread stall. Each mode runs 20 seconds, settles, then matches every source's
+transmission/cutoff/budget flag against an independent current-scene/door oracle.
+These are stress/semantic probes, not representative player-throughput cohorts.
+
+| Scene / mode / side | Surfaces / BVH nodes | Main update median / p95 us | Largest dirty wait ms | Max queries/update | Traversal budget exhaustion |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| home / speakers / baseline | 67 / 37 | 19.10 / 28.70 | 381.32 | 8 | 0 |
+| home / headphones / baseline | 67 / 37 | 32.45 / 73.30 | 381.32 | 8 | 0 |
+| home / speakers / candidate | 67 / 37 | 21.10 / 31.20 | 379.13 | 8 | 0 |
+| home / headphones / candidate | 67 / 37 | 31.30 / 72.30 | 380.75 | 8 | 0 |
+| lantern_hollow / speakers / baseline | 707 / 511 | 19.60 / 30.20 | 383.47 | 8 | 0 |
+| lantern_hollow / headphones / baseline | 707 / 511 | 26.55 / 40.60 | 383.47 | 8 | 0 |
+| lantern_hollow / speakers / candidate | 707 / 511 | 20.70 / 31.20 | 379.80 | 8 | 0 |
+| lantern_hollow / headphones / candidate | 707 / 511 | 27.25 / 39.90 | 384.13 | 8 | 0 |
+
+### Matched complete callback cost and extended playback
+
+Three alternating quiet fresh-process pairs run 15 seconds in each 48-voice
+mode with identical assets, settings, features, tap and timing instrumentation.
+Two 600 ms preflight total-CPU samples must each be <=8%; measured nonchild CPU
+mean must be <=8% and p95 <=20%. Raw exclusions, if any, remain in their original
+directories. These are fresh processes with warm/unspecified OS file caches.
+The actual output is WASAPI, Realtek/THX speakers, 48000 Hz/stereo, reported
+512-frame device buffer. HRTF names the software mode, not a headphone listening
+or physical localization acceptance result.
+
+Values below are medians in wall milliseconds per actually mixed PCM second,
+baseline -> candidate. The complete boundary includes controls/admission,
+renderer, room, sample checks/tap and SDL submission. Initial pointer/argument
+checks and final timing bookkeeping are excluded. Clock/counter overhead is
+included; SDL conversion/transport and physical DAC are outside this function.
+
+| 48-voice mode | Complete callback | Kira renderer + per-voice FIR/IIR | Shared room | SDL submission |
+| --- | ---: | ---: | ---: | ---: |
+| Stereo | 177.173 -> 180.341 | 163.882 -> 166.913 | 11.991 -> 12.049 | 0.098 -> 0.098 |
+| HRTF | 303.609 -> 307.392 | 290.387 -> 294.074 | 12.002 -> 12.033 | 0.102 -> 0.100 |
+
+Measured complete-callback cost rises about 1.8% in stereo and 1.2% in HRTF.
+Main acoustic-update means are
+3.093 -> 3.138 us in stereo and
+3.104 -> 3.220 us in HRTF.
+Whole paired diagnostic CPU median is 7.250 -> 7.344 s;
+median peak RSS is 63.28 -> 63.23 MiB and private is
+66.89 -> 66.86 MiB. These include the
+harness. Initial native requested Rust ownership increases by
+1,184 bytes versus the common-instrumentation baseline.
+Timestamp/latest-value and shared generation owners are bounded; no general
+process-memory reduction is claimed.
+
+The largest quiet cumulative callback observations are
+5.7386 -> 4.7925 ms.
+Per-mode fixed-bin p95/p99 receipts remain in `A/analysis.json`; these maxima and
+coarse bins do not establish a tail improvement or deadline. Renderer timing
+still combines Kira source/mix work with FIR/IIR. It identifies the dominant
+boundary but does not isolate individual filter operations. A further exact DSP
+optimization requires that attribution and a demonstrated complete-callback
+benefit; none was accepted by changing taps, ramp/tail lifetime or cue semantics.
+
+The final continuous run completes 300 seconds stereo plus 300 seconds HRTF,
+48 voices per mode, nonzero native PCM, zero callback Rust allocations/frees
+and zero mixer/SDL errors. All 20 Rust samples are exactly
+45,424,730 bytes, including fixed harness capacity. Observed cumulative callback
+maxima are 3.2428 ms after stereo and 5.0539 ms after HRTF; both modes have
+fixed-bin p95/p99 upper bounds of 4 ms. CPU and process-memory receipts remain
+with that run. These observations establish no deadline. Existing control
+pressure, 32-cycle audits, missing-output/disabled fallback, cancel/restart,
+pending retirement and joined unload probes pass on the final hash.
+
+An actual allocator-instrumented player also holds Aero, Home and Beam for a
+minute each, changes stereo/HRTF/mute through the normal path and exits through
+joined shutdown. Observed process wall time is 199.601 s. Every
+recorded audio snapshot retains 66 clips / 43,409,440 decoded bytes, enabled
+output and zero audio errors; installed game/renderer level IDs match each final
+world checkpoint. Whole-player Rust/RSS/private samples are separate in
+`A/final-actual-player/`; wider renderer/startup/script ownership is not
+reattributed to audio. Rendering is ordinary paced Fifo/960x600, with no FPS or
+uncapped rendering comparison claimed.
+
+### Gates and remaining acceptance
+
+Final-hash format, locked all-target/all-feature debug check, strict debug and
+release Clippy, locked debug/release workspace builds, 414 Rust regressions,
+372 Python contracts (18 existing skips), asset/audio validation and all 11
+production Luau refusals pass. Test execution is 1.14 seconds after cold
+compilation. The one new device-free regression uses one 4-frame loop and 292
+128-frame blocks to uniquely protect expired-path digital silence, recovery and
+epoch disposal. Existing finite-source/tap, mono, numerical and retirement
+regressions remain. No test or ordinary gate bakes a shipped map. The full
+Rust-test usefulness audit remains LAST and has not started.
+
+This resolves the fixed Rust residual attribution and the demonstrated
+clear-without-update defect, and qualifies the bounded stale-contribution policy
+on Windows. Keep the existing #27/#28/#32 tracking for native/driver byte
+observability, longer/platform acceptance, physical device hotplug and subjective
+speaker/headphone listening/localization. Linux native is unrun, not passed;
+Mac native stays deferred. Remaining renderer/FIR/IIR cost work uses the same
+existing DSP item, with exactness and complete-callback benefit as its gate.
+Startup gains/trade-offs, unrelated runtime drift, package refresh and the
+Windows default Luau executable-suffix item remain separate. Parent owns GitHub
+issue/status writes. No menu asset, main branch, tag, release, security settings
+or package publication is part of this change.

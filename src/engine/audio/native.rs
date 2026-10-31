@@ -36,10 +36,23 @@ const CALLBACK_SAMPLES: usize = 2048;
 const MAX_CALLBACK_SAMPLES: usize = 16_384;
 const MAX_CLIP_SECONDS: u32 = 30;
 const CAPTURE_FRAMES: usize = 96_000;
+// Six nominal query opportunities fit within 120 ms. Under a longer dirty
+// interval, fade an unverified path rather than keep an old open doorway audible.
+// This is an age policy, not an OS/callback scheduling deadline.
+const MAX_STALE_PATH_AGE: Duration = Duration::from_millis(150);
 
 #[derive(Default)]
 struct OutputCounters {
     frames: AtomicU64,
+    delivered_epoch: AtomicU64,
+    callback_wall_nanos: AtomicU64,
+    callback_calls: AtomicU64,
+    callback_max_nanos: AtomicU64,
+    admission_wall_nanos: AtomicU64,
+    renderer_wall_nanos: AtomicU64,
+    room_wall_nanos: AtomicU64,
+    submission_wall_nanos: AtomicU64,
+    callback_histogram: [AtomicU64; 8],
     mix_wall_nanos: AtomicU64,
     mix_blocks: AtomicU64,
     mix_max_nanos: AtomicU64,
@@ -243,6 +256,7 @@ unsafe extern "C" fn render_callback(
     let _realtime = super::RealtimeGuard::enter();
     // SAFETY: userdata is the uniquely owned stable callback Box described above.
     let output = unsafe { &mut *userdata.cast::<OutputCallback>() };
+    let callback_start = output.measure_mix.then(std::time::Instant::now);
     let requested = usize::try_from(additional_bytes)
         .unwrap_or_default()
         .checked_div(size_of::<f32>())
@@ -250,9 +264,16 @@ unsafe extern "C" fn render_callback(
     let mut remaining = requested.min(MAX_CALLBACK_SAMPLES);
     remaining = remaining.saturating_sub(remaining % 2);
     output.room.begin();
+    output
+        .counters
+        .delivered_epoch
+        .store(output.room.epoch(), Ordering::Relaxed);
     resource_boundary(&output.counters.resource_gate, || {
         output.renderer.on_start_processing();
     });
+    if let Some(start) = callback_start {
+        add_elapsed(&output.counters.admission_wall_nanos, start);
+    }
     while remaining > 0 {
         let count = remaining.min(output.scratch.len());
         let Some(samples) = output.scratch.get_mut(..count) else {
@@ -260,7 +281,14 @@ unsafe extern "C" fn render_callback(
         };
         let mix_start = output.measure_mix.then(std::time::Instant::now);
         output.renderer.process(samples, 2);
+        if let Some(start) = mix_start {
+            add_elapsed(&output.counters.renderer_wall_nanos, start);
+        }
+        let room_start = output.measure_mix.then(std::time::Instant::now);
         output.room.process(samples);
+        if let Some(start) = room_start {
+            add_elapsed(&output.counters.room_wall_nanos, start);
+        }
         if let Some(start) = mix_start {
             let nanos = u64::try_from(start.elapsed().as_nanos()).unwrap_or(u64::MAX);
             let _time = output
@@ -298,8 +326,14 @@ unsafe extern "C" fn render_callback(
             c_int::try_from(count.saturating_mul(size_of::<f32>())).unwrap_or_default();
         // SAFETY: samples is a valid contiguous f32 buffer of byte_count bytes;
         // SDL copies it synchronously while its callback holds the stream lock.
+        let submission_start = output.measure_mix.then(std::time::Instant::now);
+        // SAFETY: the same live, contiguous sample buffer and synchronous SDL
+        // copy contract documented above apply across the optional clock read.
         let submitted =
             unsafe { audio::SDL_PutAudioStreamData(stream, samples.as_ptr().cast(), byte_count) };
+        if let Some(start) = submission_start {
+            add_elapsed(&output.counters.submission_wall_nanos, start);
+        }
         if !submitted {
             let _errors = output.counters.errors.fetch_add(1, Ordering::Relaxed);
             break;
@@ -310,6 +344,39 @@ unsafe extern "C" fn render_callback(
         );
         remaining = remaining.saturating_sub(count);
     }
+    record_callback(&output.counters, callback_start);
+}
+
+fn record_callback(counters: &OutputCounters, callback_start: Option<std::time::Instant>) {
+    if let Some(start) = callback_start {
+        let nanos = u64::try_from(start.elapsed().as_nanos()).unwrap_or(u64::MAX);
+        let _time = counters
+            .callback_wall_nanos
+            .fetch_add(nanos, Ordering::Relaxed);
+        let _calls = counters.callback_calls.fetch_add(1, Ordering::Relaxed);
+        let _maximum = counters
+            .callback_max_nanos
+            .fetch_max(nanos, Ordering::Relaxed);
+        // Fixed noncumulative histogram boundaries: 0.25/0.5/1/2/4/8/16 ms, then infinity.
+        let bucket = [
+            250_000_u64,
+            500_000,
+            1_000_000,
+            2_000_000,
+            4_000_000,
+            8_000_000,
+            16_000_000,
+        ]
+        .partition_point(|limit| nanos > *limit);
+        if let Some(counter) = counters.callback_histogram.get(bucket) {
+            let _sample = counter.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
+fn add_elapsed(counter: &AtomicU64, started: std::time::Instant) {
+    let nanos = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
+    let _time = counter.fetch_add(nanos, Ordering::Relaxed);
 }
 
 struct LoadedCue {
@@ -388,6 +455,7 @@ pub(super) struct NativeAudio {
     acoustic_cursor: usize,
     acoustic_tick: std::time::Instant,
     epoch: u64,
+    world_epoch: Arc<AtomicU64>,
     events: std::collections::VecDeque<super::SoundEvent>,
 }
 
@@ -460,6 +528,7 @@ impl NativeAudio {
             acoustic_cursor: 0,
             acoustic_tick: std::time::Instant::now(),
             epoch: 1,
+            world_epoch: Arc::new(AtomicU64::new(1)),
             events: std::collections::VecDeque::with_capacity(64),
         })
     }
@@ -527,11 +596,7 @@ impl NativeAudio {
         let Some(data) = cue.variants.get(cue.next_variant) else {
             return false;
         };
-        let mut sound = data.clone();
         let looping = request.looping.unwrap_or(cue.looping);
-        if looping {
-            sound = sound.loop_region(..).fade_in_tween(short_tween());
-        }
         let (amplitude, pan) = spatial_mix(
             self.mix,
             request.position,
@@ -544,14 +609,7 @@ impl NativeAudio {
             request.bus,
         );
         let paused = world_paused(self.mix, request.time_domain);
-        sound = sound
-            .volume(decibels(if paused { 0.0 } else { amplitude }))
-            .panning(pan)
-            .playback_rate(playback_rate(self.mix, request.time_domain));
-        sound = sound.volume(decibels(unmastered(amplitude, self.mix.settings)));
-        if self.mix.settings.spatial_mode == SpatialMode::Headphones {
-            sound = sound.panning(0.0);
-        }
+        let sound = prepare_sound(data, looping, self.mix, amplitude, pan, request.time_domain);
         let spatial = request.spatial.unwrap_or(cue.spatial);
         let direction = kernel_direction(self.mix, request.position);
         let kernel = select_kernel(direction);
@@ -559,12 +617,23 @@ impl NativeAudio {
             .stats
             .hrtf_kernel_queries
             .saturating_add(u64::from(direction.is_some()));
-        let initial = Parameters::new(
+        let path_started = std::time::Instant::now();
+        let mut initial = Parameters::new(
             &kernel,
             spatial && self.mix.settings.spatial_mode == SpatialMode::Headphones,
             AcousticPath::default(),
         );
-        let (prepared, parameters) = dsp::spatial(sound, &initial);
+        initial.valid_until = spatial
+            .then(|| path_started.checked_add(MAX_STALE_PATH_AGE))
+            .flatten();
+        let (prepared, parameters) = dsp::spatial(
+            sound,
+            &initial,
+            Some(dsp::WorldEpoch {
+                current: Arc::clone(&self.world_epoch),
+                voice: self.epoch,
+            }),
+        );
         match self.manager.play(prepared) {
             Ok(mut handle) => {
                 if paused {
@@ -575,7 +644,7 @@ impl NativeAudio {
                     path: AcousticPath::default(),
                     last_parameters: initial,
                     last_direction: direction,
-                    dirty_since: Some(std::time::Instant::now()),
+                    dirty_since: spatial.then_some(path_started),
                     cached_position: None,
                     cached_listener: Vec3::splat(f32::INFINITY),
                     revision: 0,
@@ -684,9 +753,10 @@ impl NativeAudio {
         self.scene = scene;
         for voice in self.voices.iter_mut().flatten() {
             voice.revision = 0;
-            let _dirty = voice
-                .dirty_since
-                .get_or_insert_with(std::time::Instant::now);
+            self.stats.parameter_updates = self
+                .stats
+                .parameter_updates
+                .saturating_add(u64::from(mark_path_dirty(voice, std::time::Instant::now())));
         }
     }
     pub fn update_doors(&mut self, doors: &crate::engine::door::Doors) {
@@ -694,37 +764,50 @@ impl NativeAudio {
         self.scene.update_doors(doors);
         if revision != self.scene.revision {
             for voice in self.voices.iter_mut().flatten() {
-                let _dirty = voice
-                    .dirty_since
-                    .get_or_insert_with(std::time::Instant::now);
+                self.stats.parameter_updates = self
+                    .stats
+                    .parameter_updates
+                    .saturating_add(u64::from(mark_path_dirty(voice, std::time::Instant::now())));
             }
         }
     }
     fn update_acoustics(&mut self) {
         let started = std::time::Instant::now();
         let geometry_due = self.acoustic_tick.elapsed() >= Duration::from_millis(20);
-        let mut budget = if geometry_due { 8_usize } else { 0 };
         if geometry_due {
             self.acoustic_tick = started;
         }
         let cursor = self.acoustic_cursor;
-        for offset in 0..MAX_VOICES {
-            let index = cursor.saturating_add(offset) % MAX_VOICES;
-            let Some(voice) = self.voices.get_mut(index).and_then(Option::as_mut) else {
-                continue;
-            };
-            let dirty = voice.revision != self.scene.revision
-                || voice.cached_position != voice.position
-                || voice
-                    .cached_listener
-                    .distance_squared(self.mix.listener.position)
-                    > 0.0025;
-            if voice.spatial && dirty {
-                let _dirty = voice.dirty_since.get_or_insert(started);
-            } else {
-                voice.dirty_since = None;
-            }
-            if voice.spatial && dirty && budget > 0 {
+        // Fixed storage and oldest-first admission keep frequently moved young
+        // paths from displacing an older pending doorway/scene invalidation.
+        let mut priorities: [Option<(std::time::Instant, usize)>; MAX_VOICES] =
+            std::array::from_fn(|offset| {
+                let index = cursor.saturating_add(offset) % MAX_VOICES;
+                let voice = self.voices.get_mut(index).and_then(Option::as_mut)?;
+                let dirty = voice.spatial
+                    && (voice.revision != self.scene.revision
+                        || voice.cached_position != voice.position
+                        || voice
+                            .cached_listener
+                            .distance_squared(self.mix.listener.position)
+                            > 0.0025);
+                if dirty {
+                    self.stats.parameter_updates = self
+                        .stats
+                        .parameter_updates
+                        .saturating_add(u64::from(mark_path_dirty(voice, started)));
+                } else {
+                    voice.dirty_since = None;
+                }
+                voice.dirty_since.map(|since| (since, offset))
+            });
+        if geometry_due {
+            priorities.sort_unstable();
+            for (_, offset) in priorities.into_iter().flatten().take(8) {
+                let index = cursor.saturating_add(offset) % MAX_VOICES;
+                let Some(voice) = self.voices.get_mut(index).and_then(Option::as_mut) else {
+                    continue;
+                };
                 voice.path = voice
                     .position
                     .map_or_else(AcousticPath::default, |position| {
@@ -743,45 +826,52 @@ impl NativeAudio {
                     .stats
                     .acoustic_budget_exhausted
                     .saturating_add(u64::from(voice.path.budget_exhausted));
-                budget = budget.saturating_sub(1);
                 self.acoustic_cursor = index.saturating_add(1) % MAX_VOICES;
             }
-            if !geometry_due {
-                continue;
+            for voice in self.voices.iter_mut().flatten() {
+                let direction = kernel_direction(self.mix, voice.position);
+                let kernel = if direction == voice.last_direction {
+                    voice.last_parameters.kernel
+                } else {
+                    self.stats.hrtf_kernel_queries = self
+                        .stats
+                        .hrtf_kernel_queries
+                        .saturating_add(u64::from(direction.is_some()));
+                    select_kernel(direction)
+                };
+                let mut parameters = Parameters::new(
+                    &kernel,
+                    voice.spatial && self.mix.settings.spatial_mode == SpatialMode::Headphones,
+                    voice.path,
+                );
+                parameters.valid_until = voice
+                    .dirty_since
+                    .and_then(|since| since.checked_add(MAX_STALE_PATH_AGE));
+                if parameters != voice.last_parameters {
+                    voice.parameters.write(parameters);
+                    voice.last_parameters = parameters;
+                    self.stats.parameter_updates = self.stats.parameter_updates.saturating_add(1);
+                }
+                voice.last_direction = direction;
             }
-            let direction = kernel_direction(self.mix, voice.position);
-            let kernel = if direction == voice.last_direction {
-                voice.last_parameters.kernel
-            } else {
-                self.stats.hrtf_kernel_queries = self
-                    .stats
-                    .hrtf_kernel_queries
-                    .saturating_add(u64::from(direction.is_some()));
-                select_kernel(direction)
-            };
-            let parameters = Parameters::new(
-                &kernel,
-                voice.spatial && self.mix.settings.spatial_mode == SpatialMode::Headphones,
-                voice.path,
-            );
-            if parameters != voice.last_parameters {
-                voice.parameters.write(parameters);
-                voice.last_parameters = parameters;
-                self.stats.parameter_updates = self.stats.parameter_updates.saturating_add(1);
-            }
-            voice.last_direction = direction;
-        }
-        if geometry_due {
             self.room = self.scene.room_at(self.mix.listener.position);
         }
-        let room = self.room;
+        self.publish_output();
+        self.stats.acoustic_update_nanos = self
+            .stats
+            .acoustic_update_nanos
+            .saturating_add(u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX));
+        self.stats.acoustic_updates = self.stats.acoustic_updates.saturating_add(1);
+    }
+
+    fn publish_output(&mut self) {
         let gain = if self.mix.settings.muted || self.mix.paused {
             0.0
         } else {
             self.mix.settings.master_volume
         };
         let output = OutputParameters {
-            room,
+            room: self.room,
             gain,
             epoch: self.epoch,
         };
@@ -790,11 +880,6 @@ impl NativeAudio {
             self.last_output = Some(output);
             self.stats.output_control_updates = self.stats.output_control_updates.saturating_add(1);
         }
-        self.stats.acoustic_update_nanos = self
-            .stats
-            .acoustic_update_nanos
-            .saturating_add(u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX));
-        self.stats.acoustic_updates = self.stats.acoustic_updates.saturating_add(1);
     }
     pub fn set_source_position(&mut self, source: SourceId, position: Vec3) {
         if !valid_position(position) {
@@ -807,9 +892,10 @@ impl NativeAudio {
             .filter(|voice| voice.source == Some(source))
         {
             if voice.position != Some(position) {
-                let _dirty = voice
-                    .dirty_since
-                    .get_or_insert_with(std::time::Instant::now);
+                self.stats.parameter_updates = self
+                    .stats
+                    .parameter_updates
+                    .saturating_add(u64::from(mark_path_dirty(voice, std::time::Instant::now())));
             }
             voice.position = Some(position);
             update_voice(voice, self.mix);
@@ -885,9 +971,13 @@ impl NativeAudio {
             };
             if let Some(position) = resolve(source).filter(|position| valid_position(*position)) {
                 if voice.position != Some(position) {
-                    let _dirty = voice
-                        .dirty_since
-                        .get_or_insert_with(std::time::Instant::now);
+                    self.stats.parameter_updates =
+                        self.stats
+                            .parameter_updates
+                            .saturating_add(u64::from(mark_path_dirty(
+                                voice,
+                                std::time::Instant::now(),
+                            )));
                 }
                 voice.position = Some(position);
                 update_voice(voice, self.mix);
@@ -913,6 +1003,7 @@ impl NativeAudio {
 
     pub fn clear_world(&mut self) {
         self.epoch = self.epoch.wrapping_add(1);
+        self.world_epoch.store(self.epoch, Ordering::Release);
         self.scene = AcousticScene::default();
         self.room = super::acoustics::RoomResponse::default();
         self.events.clear();
@@ -923,6 +1014,7 @@ impl NativeAudio {
             }
             *slot = None;
         }
+        self.publish_output();
     }
 
     fn retry_pending(&mut self) {
@@ -968,6 +1060,21 @@ impl NativeAudio {
                 .errors
                 .saturating_add(self.counters.errors.load(Ordering::Relaxed)),
             output_frames: self.counters.frames.load(Ordering::Relaxed),
+            callback_wall_nanos: self.counters.callback_wall_nanos.load(Ordering::Relaxed),
+            callback_calls: self.counters.callback_calls.load(Ordering::Relaxed),
+            callback_max_nanos: self.counters.callback_max_nanos.load(Ordering::Relaxed),
+            admission_wall_nanos: self.counters.admission_wall_nanos.load(Ordering::Relaxed),
+            renderer_wall_nanos: self.counters.renderer_wall_nanos.load(Ordering::Relaxed),
+            room_wall_nanos: self.counters.room_wall_nanos.load(Ordering::Relaxed),
+            submission_wall_nanos: self.counters.submission_wall_nanos.load(Ordering::Relaxed),
+            callback_histogram: std::array::from_fn(|index| {
+                self.counters
+                    .callback_histogram
+                    .get(index)
+                    .map_or(0, |counter| counter.load(Ordering::Relaxed))
+            }),
+            world_epoch: self.epoch,
+            output_epoch: self.counters.delivered_epoch.load(Ordering::Relaxed),
             mix_wall_nanos: self.counters.mix_wall_nanos.load(Ordering::Relaxed),
             mix_blocks: self.counters.mix_blocks.load(Ordering::Relaxed),
             mix_max_nanos: self.counters.mix_max_nanos.load(Ordering::Relaxed),
@@ -1066,6 +1173,42 @@ impl NativeAudio {
         }
         written
     }
+}
+
+fn prepare_sound(
+    data: &StaticSoundData,
+    looping: bool,
+    mix: Mix,
+    amplitude: f32,
+    pan: f32,
+    domain: TimeDomain,
+) -> StaticSoundData {
+    let mut sound = data.clone();
+    if looping {
+        sound = sound.loop_region(..).fade_in_tween(short_tween());
+    }
+    sound = sound
+        .panning(pan)
+        .playback_rate(playback_rate(mix, domain))
+        .volume(decibels(unmastered(amplitude, mix.settings)));
+    if mix.settings.spatial_mode == SpatialMode::Headphones {
+        sound = sound.panning(0.0);
+    }
+    sound
+}
+
+fn mark_path_dirty(voice: &mut Voice, now: std::time::Instant) -> bool {
+    if !voice.spatial {
+        return false;
+    }
+    let since = *voice.dirty_since.get_or_insert(now);
+    let deadline = since.checked_add(MAX_STALE_PATH_AGE);
+    if voice.last_parameters.valid_until == deadline {
+        return false;
+    }
+    voice.last_parameters.valid_until = deadline;
+    voice.parameters.write(voice.last_parameters);
+    true
 }
 
 fn update_voice(voice: &mut Voice, mix: Mix) {

@@ -5,6 +5,10 @@ use kira::command::{CommandReader, CommandWriter, command_writer_and_reader};
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::sound::{Sound, SoundData};
 use kira::{Frame, info::Info};
+use std::sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+};
 
 #[derive(Clone, Copy, PartialEq)]
 pub(super) struct Parameters {
@@ -12,11 +16,13 @@ pub(super) struct Parameters {
     pub binaural: f32,
     pub transmission: f32,
     pub lowpass: f32,
+    pub valid_until: Option<std::time::Instant>,
 }
 impl Parameters {
     pub fn new(kernel: &Kernel, binaural: bool, path: AcousticPath) -> Self {
         Self {
             kernel: *kernel,
+            valid_until: None,
             binaural: if binaural { 1.0 } else { 0.0 },
             transmission: path.transmission,
             lowpass: if path.cutoff_hz >= 20_000.0 {
@@ -27,7 +33,17 @@ impl Parameters {
         }
     }
 }
+pub(super) struct WorldEpoch {
+    pub current: Arc<AtomicU64>,
+    pub voice: u64,
+}
+impl WorldEpoch {
+    fn retired(&self) -> bool {
+        self.current.load(Ordering::Acquire) != self.voice
+    }
+}
 pub(super) struct SpatialData {
+    epoch: Option<WorldEpoch>,
     data: StaticSoundData,
     receiver: CommandReader<Parameters>,
     initial: Parameters,
@@ -35,10 +51,12 @@ pub(super) struct SpatialData {
 pub(super) fn spatial(
     data: StaticSoundData,
     initial: &Parameters,
+    epoch: Option<WorldEpoch>,
 ) -> (SpatialData, CommandWriter<Parameters>) {
     let (sender, receiver) = command_writer_and_reader();
     (
         SpatialData {
+            epoch,
             data,
             receiver,
             initial: *initial,
@@ -53,6 +71,7 @@ impl SoundData for SpatialData {
         let (inner, handle) = self.data.into_sound()?;
         Ok((
             Box::new(SpatialSound {
+                epoch: self.epoch,
                 inner,
                 receiver: self.receiver,
                 current: self.initial,
@@ -68,6 +87,7 @@ impl SoundData for SpatialData {
     }
 }
 struct SpatialSound {
+    epoch: Option<WorldEpoch>,
     inner: Box<dyn Sound>,
     receiver: CommandReader<Parameters>,
     current: Parameters,
@@ -90,6 +110,17 @@ impl Sound for SpatialSound {
     }
 
     fn process(&mut self, out: &mut [Frame], dt: f64, info: &Info) {
+        if self.epoch.as_ref().is_some_and(WorldEpoch::retired) {
+            out.fill(Frame::ZERO);
+            return;
+        }
+        if self
+            .target
+            .valid_until
+            .is_some_and(|deadline| std::time::Instant::now() >= deadline)
+        {
+            self.target.transmission = 0.0;
+        }
         self.inner.process(out, dt, info);
         if out.iter().all(|frame| digital_zero(*frame)) {
             // Keep the complete FIR/IIR tail before skipping truly silent blocks.
@@ -107,6 +138,11 @@ impl Sound for SpatialSound {
             const BLEND: f32 = 1.0 / 576.0;
             self.current.transmission = (self.target.transmission - self.current.transmission)
                 .mul_add(BLEND, self.current.transmission);
+            // A stale path targets zero. Settle at the existing digital-silence
+            // floor instead of retaining subnormal gain during a long stall.
+            if self.target.transmission.to_bits() == 0 {
+                self.current.transmission = flush_silence(self.current.transmission);
+            }
             self.current.lowpass =
                 (self.target.lowpass - self.current.lowpass).mul_add(BLEND, self.current.lowpass);
             self.current.binaural = (self.target.binaural - self.current.binaural)
@@ -161,9 +197,10 @@ impl Sound for SpatialSound {
         }
     }
     fn finished(&self) -> bool {
-        self.inner.finished()
-            && (self.silent_frames >= 2048
-                || (self.silent_frames >= TAPS && digital_zero(self.filtered)))
+        self.epoch.as_ref().is_some_and(WorldEpoch::retired)
+            || (self.inner.finished()
+                && (self.silent_frames >= 2048
+                    || (self.silent_frames >= TAPS && digital_zero(self.filtered))))
     }
 }
 
@@ -261,6 +298,10 @@ impl RoomEffect {
             gain_ramp: 0,
         }
     }
+    pub const fn epoch(&self) -> u64 {
+        self.target.epoch
+    }
+
     pub fn begin(&mut self) {
         if let Some(value) = self.receiver.read() {
             if value.epoch != self.target.epoch {

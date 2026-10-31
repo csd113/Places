@@ -220,6 +220,21 @@ pub struct AudioStats {
     pub errors: u64,
     /// Stereo frames actually mixed by the device callback.
     pub output_frames: u64,
+    /// Current main-thread world generation.
+    pub world_epoch: u64,
+    /// Latest room epoch actually consumed by the device callback.
+    pub output_epoch: u64,
+    /// Opt-in whole callback boundary: controls/admission, render, room, tap and SDL copy.
+    /// Excludes SDL/driver work outside this function; observations are not deadlines.
+    pub callback_wall_nanos: u64,
+    pub callback_calls: u64,
+    pub callback_max_nanos: u64,
+    pub admission_wall_nanos: u64,
+    pub renderer_wall_nanos: u64,
+    pub room_wall_nanos: u64,
+    pub submission_wall_nanos: u64,
+    /// Noncumulative counts at <=0.25/0.5/1/2/4/8/16 ms and >16 ms.
+    pub callback_histogram: [u64; 8],
     /// Opt-in native benchmark: wall nanoseconds inside mixer process calls.
     pub mix_wall_nanos: u64,
     /// Number of timed mixer blocks, excluding SDL submission and PCM capture.
@@ -460,7 +475,8 @@ impl AudioSystem {
         let _ = source;
     }
 
-    /// Stops all playback, retaining the shared library for the next map.
+    /// Stops old-world playback and publishes room disposal immediately,
+    /// retaining the shared library for the next map. No later update is needed.
     pub fn clear_world(&mut self) {
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(audio) = &mut self.native {

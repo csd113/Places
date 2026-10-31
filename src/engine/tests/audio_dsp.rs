@@ -123,7 +123,7 @@ fn finite_source_preserves_complete_hrtf_tail_then_reclaims_its_slot() -> Result
         true,
         AcousticPath::default(),
     );
-    let (prepared, _sender) = spatial(data, &parameters);
+    let (prepared, _sender) = spatial(data, &parameters, None);
     let _handle = manager
         .play(prepared)
         .map_err(|error| format!("{error:?}"))?;
@@ -172,4 +172,74 @@ impl TailBackend {
         renderer.process(output, 2);
         Ok(())
     }
+}
+
+// Unique coverage: an expired path must fade without another control message,
+// a refreshed path must recover, and disposal must discard an in-flight tail.
+// One constant 4-frame loop, 292 tiny blocks, no device/assets/files/map bake.
+#[test]
+fn stale_path_fades_recovers_and_world_disposal_discards_its_tail() -> Result<(), String> {
+    use kira::sound::static_sound::StaticSoundSettings;
+    use kira::{AudioManager, AudioManagerSettings};
+    let mut manager = AudioManager::<TailBackend>::new(AudioManagerSettings {
+        internal_buffer_size: 128,
+        ..AudioManagerSettings::default()
+    })
+    .map_err(|()| "tail backend setup")?;
+    let epoch = Arc::new(AtomicU64::new(1));
+    let data = StaticSoundData {
+        sample_rate: 48_000,
+        frames: vec![Frame::from_mono(0.5); 4].into(),
+        settings: StaticSoundSettings::default(),
+        slice: None,
+    }
+    .loop_region(..);
+    let mut parameters = Parameters::new(
+        &[Frame::from_mono(0.1); TAPS],
+        false,
+        AcousticPath::default(),
+    );
+    parameters.valid_until = Some(std::time::Instant::now());
+    let (prepared, mut sender) = spatial(
+        data,
+        &parameters,
+        Some(WorldEpoch {
+            current: Arc::clone(&epoch),
+            voice: 1,
+        }),
+    );
+    let _handle = manager
+        .play(prepared)
+        .map_err(|error| format!("{error:?}"))?;
+    let mut output = [0.0_f32; 256];
+    for _ in 0_u16..256 {
+        manager.backend_mut().render(&mut output)?;
+    }
+    assert!(
+        output.iter().all(|sample| sample.to_bits() == 0),
+        "expired geometry must reach digital silence without subnormal output or another main-thread control"
+    );
+    parameters.valid_until = None;
+    sender.write(parameters);
+    for _ in 0_u8..32 {
+        manager.backend_mut().render(&mut output)?;
+    }
+    assert!(
+        output.iter().any(|sample| sample.abs() > 0.1),
+        "a current exact path must restore the existing voice without restarting it"
+    );
+    epoch.store(2, Ordering::Release);
+    for _ in 0_u8..4 {
+        manager.backend_mut().render(&mut output)?;
+    }
+    assert!(
+        output.iter().all(|sample| sample.abs() < f32::EPSILON),
+        "a disposed world must emit no old source/FIR/IIR tail"
+    );
+    assert_eq!(
+        manager.main_track().num_sounds(),
+        0,
+        "disposed loop must retire its Kira slot without a gameplay update"
+    );
+    Ok(())
 }

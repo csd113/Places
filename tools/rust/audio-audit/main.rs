@@ -10,6 +10,9 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
+mod allocation_owners;
+mod witnesses;
+
 struct AuditAllocator;
 static CALLBACK_ALLOCS: AtomicU64 = AtomicU64::new(0);
 static CALLBACK_FREES: AtomicU64 = AtomicU64::new(0);
@@ -27,6 +30,7 @@ unsafe impl GlobalAlloc for AuditAllocator {
         // SAFETY: GlobalAlloc caller supplies a valid layout; System owns the result.
         let pointer = unsafe { System.alloc(layout) };
         if !pointer.is_null() {
+            allocation_owners::insert(pointer, layout.size());
             allocated(layout.size());
         }
         pointer
@@ -35,6 +39,7 @@ unsafe impl GlobalAlloc for AuditAllocator {
         if places::engine::audio::realtime_active() {
             let _count = CALLBACK_FREES.fetch_add(1, Ordering::Relaxed);
         }
+        allocation_owners::remove(ptr);
         released(layout.size());
         // SAFETY: pointer/layout retain their original GlobalAlloc ownership.
         unsafe {
@@ -48,6 +53,8 @@ unsafe impl GlobalAlloc for AuditAllocator {
         // SAFETY: original layout and requested size come unchanged from allocator caller.
         let pointer = unsafe { System.realloc(ptr, layout, size) };
         if !pointer.is_null() {
+            allocation_owners::remove(ptr);
+            allocation_owners::insert(pointer, size);
             if size >= layout.size() {
                 allocated(size.saturating_sub(layout.size()));
             } else {
@@ -80,13 +87,29 @@ fn main() -> Result<(), String> {
     let fallback = mode
         .as_ref()
         .is_some_and(|value| value == "--fallback-probe");
-    if mode.is_some() && !probe && !lifetime && !sustained && !fallback {
+    let owners = mode.as_ref().is_some_and(|value| value == "--owner-probe");
+    let disposal = mode
+        .as_ref()
+        .is_some_and(|value| value == "--disposal-probe");
+    let scene = mode.as_ref().is_some_and(|value| value == "--scene-probe");
+    if mode.is_some()
+        && !probe
+        && !lifetime
+        && !sustained
+        && !fallback
+        && !owners
+        && !disposal
+        && !scene
+    {
         return Err("Unknown audit mode".into());
     }
     if args.next().is_some() || out.exists() {
         return Err("Use a new output directory and exactly two arguments".into());
     }
     std::fs::create_dir_all(&out).map_err(|error| error.to_string())?;
+    if owners {
+        return allocation_owners::run(&assets, &out);
+    }
     let sdl = sdl3::init().map_err(|error| error.to_string())?;
     let heap_before_audio = LIVE_BYTES.load(Ordering::Relaxed);
     let mut audio = AudioSystem::new(&assets, &sdl);
@@ -105,6 +128,12 @@ fn main() -> Result<(), String> {
     if !audio.stats().enabled {
         return Err("Native output unavailable; inspect actual device log".into());
     }
+    if scene {
+        return witnesses::scene(&mut audio, &out);
+    }
+    if disposal {
+        return witnesses::run(&mut audio, &out);
+    }
     if lifetime {
         return lifetime_probe(&mut audio, &sdl, &assets, &out);
     }
@@ -122,6 +151,15 @@ fn main() -> Result<(), String> {
         .map_err(|error| error.to_string())?;
         return Ok(());
     }
+    full_audit(audio, &out, heap_before_audio, heap_after_audio)
+}
+
+fn full_audit(
+    mut audio: AudioSystem,
+    out: &std::path::Path,
+    heap_before_audio: u64,
+    heap_after_audio: u64,
+) -> Result<(), String> {
     let mut results = Vec::new();
     let started = Instant::now();
     let mut settings = AudioSettings::default();
@@ -133,12 +171,12 @@ fn main() -> Result<(), String> {
             &mut settings,
             &mut scratch,
             &mut results,
-            &out,
+            out,
             cycle,
         )?;
         heap_samples.push(serde_json::json!({"cycle":cycle,"live_rust_bytes":LIVE_BYTES.load(Ordering::Relaxed),"peak_rust_bytes":PEAK_BYTES.load(Ordering::Relaxed)}));
     }
-    measure_latency(&mut audio, &out)?;
+    measure_latency(&mut audio, out)?;
     audio.unload();
     let heap_after_unload = LIVE_BYTES.load(Ordering::Relaxed);
     std::fs::write(
