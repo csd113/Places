@@ -1,5 +1,10 @@
 # Native editor authoring and safety (0.13.1 development)
 
+Project > Package version edits the distributable's numeric `major.minor.patch`
+release. It starts at `1.0.0`, is saved with project metadata and survives complete
+export/source recovery. Increase it when publishing changed content. Build/Export
+silently stamp the actual Places version; Explore details show the package release.
+
 Run `places-editor` with the external `assets/` payload described in
 [INSTALLATION.md](INSTALLATION.md). First-person quick testing runs entirely
 inside the editor. Keep `places-compile` beside it for final builds and use

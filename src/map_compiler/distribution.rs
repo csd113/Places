@@ -62,6 +62,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         let staged_source = stage_sources(&temporary, &sources)?;
         let mut blobs = ProjectSpool::new(&temporary)?;
         let mut index = project::ProjectPackage {
+            places_version: crate::engine::package::release::PLACES_VERSION.into(),
             schema: "places-project-package".into(),
             package_format: project::PROJECT_FORMAT_VERSION,
             project: folder.manifest().clone(),

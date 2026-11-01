@@ -28,6 +28,28 @@ const fn source_rank(source_type: LevelSourceType) -> u8 {
     }
 }
 
+fn ambiguous_installed_paths(
+    discovered: &[(LevelEntry, bool)],
+    owners: &DiscoveryOwners,
+) -> std::collections::BTreeSet<PathBuf> {
+    // Conflicts exclude complete community paths. Bundled rows retain their
+    // existing precedence, without exposing another release's hidden members.
+    let mut level_owners =
+        std::collections::BTreeMap::<String, std::collections::BTreeSet<PathBuf>>::new();
+    for (entry, _) in discovered {
+        let _inserted = level_owners
+            .entry(entry.id.to_ascii_lowercase())
+            .or_default()
+            .insert(entry.path.clone());
+    }
+    owners
+        .values()
+        .chain(level_owners.values())
+        .filter(|paths| paths.len() > 1)
+        .flat_map(|paths| paths.iter().cloned())
+        .collect()
+}
+
 type MenuImageCache =
     std::collections::BTreeMap<(PathBuf, String, String), Option<Arc<super::RawImage>>>;
 
@@ -36,12 +58,15 @@ type MenuImageCache =
 #[derive(serde::Serialize)]
 struct MetadataReceipt {
     identity: String,
+    version: crate::engine::package::release::ReleaseVersion,
     project: Option<crate::engine::project::ProjectManifest>,
 }
 
 const MAX_METADATA_RECEIPTS: usize = 64;
 const MAX_METADATA_BYTES: usize = 4 * 1024 * 1024;
 type MetadataCache = std::collections::BTreeMap<PathBuf, Arc<MetadataReceipt>>;
+type DiscoveryOwners =
+    std::collections::BTreeMap<(String, Option<String>), std::collections::BTreeSet<PathBuf>>;
 
 /// Unified level loader and package manager.
 pub struct LevelManager {
@@ -169,9 +194,13 @@ impl LevelManager {
                 })
             })
             .unwrap_or_default();
+        let version = self
+            .current_metadata(&entry.path)
+            .map(|receipt| format!("\nPackage version {}", receipt.version))
+            .unwrap_or_default();
         if description.trim().is_empty() {
             format!(
-                "{}\n\nA place to explore at your own pace.\n\nBy {}",
+                "{}\n\nA place to explore at your own pace.\n\nBy {}{version}",
                 entry.name,
                 if entry.author.is_empty() {
                     "an independent creator"
@@ -180,7 +209,10 @@ impl LevelManager {
                 }
             )
         } else {
-            format!("{}\n\n{}\n\nBy {}", entry.name, description, entry.author)
+            format!(
+                "{}\n\n{}\n\nBy {}{version}",
+                entry.name, description, entry.author
+            )
         }
     }
 
@@ -218,9 +250,10 @@ impl LevelManager {
         {
             return Some(Arc::clone(receipt));
         }
-        let (_, project, identity) = crate::engine::package::world::discover(path).ok()?;
+        let (opened, project, identity) = crate::engine::package::world::discover(path).ok()?;
         let receipt = Arc::new(MetadataReceipt {
             identity,
+            version: opened.manifest.package_version,
             project: project.map(|index| index.project),
         });
         Self::retain_metadata(&mut self.metadata.borrow_mut(), path, &receipt);
@@ -309,17 +342,20 @@ impl LevelManager {
         crate::engine::resources::checkpoint()?;
         let mut discovered = Vec::new();
         let mut receipts = MetadataCache::new();
+        let mut owners = DiscoveryOwners::new();
         Self::scan_package_dir(
             &self.assets_dir,
             LevelSourceType::Bundled,
             &mut discovered,
             &mut receipts,
+            &mut owners,
         )?;
         Self::scan_package_dir(
             &self.levels_dir,
             LevelSourceType::Installed,
             &mut discovered,
             &mut receipts,
+            &mut owners,
         )?;
         crate::engine::resources::checkpoint()?;
         discovered.sort_by(|a, b| {
@@ -330,9 +366,22 @@ impl LevelManager {
                 .then_with(|| a.0.path.cmp(&b.0.path))
         });
         let mut unique: Vec<LevelEntry> = Vec::with_capacity(discovered.len());
+        let ambiguous_paths = ambiguous_installed_paths(&discovered, &owners);
         self.menu_entries.clear();
         for (entry, visible) in discovered {
-            if let Some(existing) = unique.iter().find(|existing| existing.id == entry.id) {
+            if entry.source_type == LevelSourceType::Installed
+                && ambiguous_paths.contains(&entry.path)
+            {
+                Self::report_skipped_level(
+                    &entry.path,
+                    "Ambiguous duplicate installed map ID; remove the duplicate files before loading or updating",
+                );
+                continue;
+            }
+            if let Some(existing) = unique
+                .iter()
+                .find(|existing| existing.id.eq_ignore_ascii_case(&entry.id))
+            {
                 crate::engine::logging::warn_once(
                     format!("level-duplicate:{}", entry.path.display()),
                     format!(
@@ -363,6 +412,7 @@ impl LevelManager {
         source_type: LevelSourceType,
         discovered: &mut Vec<(LevelEntry, bool)>,
         receipts: &mut MetadataCache,
+        owners: &mut DiscoveryOwners,
     ) -> Result<(), String> {
         crate::engine::resources::checkpoint()?;
         let read_dir = match fs::read_dir(dir) {
@@ -392,6 +442,13 @@ impl LevelManager {
             }
             match crate::engine::package::world::discover(&path) {
                 Ok((opened, project, identity)) => {
+                    let scope = (
+                        opened.manifest.package_id.to_ascii_lowercase(),
+                        project
+                            .is_none()
+                            .then(|| opened.manifest.id.to_ascii_lowercase()),
+                    );
+                    let _inserted = owners.entry(scope).or_default().insert(path.clone());
                     let meta = LevelEntry {
                         id: opened.level.id,
                         name: opened.level.name,
@@ -401,6 +458,7 @@ impl LevelManager {
                     };
                     let receipt = Arc::new(MetadataReceipt {
                         identity,
+                        version: opened.manifest.package_version,
                         project: project.as_ref().map(|index| index.project.clone()),
                     });
                     Self::retain_metadata(receipts, &path, &receipt);
@@ -671,12 +729,9 @@ impl LevelManager {
             }
         }
         self.refresh();
-        // Always stage, including aliases of the installed file: opening an
-        // independent temporary never truncates the source's underlying inode.
-        // Validation describes the exact bytes published, not an earlier read
-        // of a source another process may edit while import is running.
-        let opened = import_package(source_path, &target_path, |opened, staged_path| {
-            self.accept_import(opened, staged_path, &target_path)
+        // Admission resolves the stable package ID, independent of an incoming rename.
+        let (opened, installed_path) = import_package(source_path, &target_path, |staged_path| {
+            self.accept_import(staged_path, &target_path)
         })?;
         self.refresh();
         Ok(LevelEntry {
@@ -684,100 +739,110 @@ impl LevelManager {
             name: opened.level.name,
             author: opened.level.author,
             source_type: LevelSourceType::Installed,
-            path: target_path,
+            path: installed_path,
         })
     }
 
-    fn accept_import(
-        &self,
-        opened: &OpenedPackage,
-        staged_path: &Path,
-        target_path: &Path,
-    ) -> Result<(), String> {
-        let incoming_project = crate::engine::package::project::inspect(staged_path)?;
-        if let Some(index) = &incoming_project {
-            self.check_project_identity(&index.project.id, target_path)?;
+    fn accept_import(&self, staged_path: &Path, named_target: &Path) -> Result<ImportPlan, String> {
+        use crate::engine::package::release::{self, UpdateAdmission};
+        let incoming = release::inspect(staged_path)?;
+        let mut matching = Vec::new();
+        for (directory, bundled) in [(&self.assets_dir, true), (&self.levels_dir, false)] {
+            let paths = match fs::read_dir(directory) {
+                Ok(paths) => paths,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(error) => return Err(error.to_string()),
+            };
+            for item in paths {
+                let path = item.map_err(|error| error.to_string())?.path();
+                if !crate::engine::package::is_package_path(&path) {
+                    continue;
+                }
+                let Ok(existing) = release::inspect_installed(&path) else {
+                    // Unreadable packages cannot be played. A named destination
+                    // is still explicitly checked below and never overwritten.
+                    continue;
+                };
+                let same_id = existing
+                    .package_id
+                    .eq_ignore_ascii_case(&incoming.package_id)
+                    && (existing.project
+                        || incoming.project
+                        || existing.member_ids == incoming.member_ids);
+                let overlap = incoming.member_ids.iter().find(|id| {
+                    existing
+                        .member_ids
+                        .iter()
+                        .any(|other| other.eq_ignore_ascii_case(id))
+                });
+                if bundled && (same_id || overlap.is_some()) {
+                    return Err(format!(
+                        "Map id '{}' belongs to bundled package {}; community imports cannot replace bundled content",
+                        overlap.unwrap_or(&incoming.package_id),
+                        path.display()
+                    ));
+                }
+                if same_id {
+                    matching.push((path, existing));
+                } else if let Some(id) = overlap {
+                    return Err(format!(
+                        "Map id '{id}' is already owned by another package at {}",
+                        path.display()
+                    ));
+                }
+            }
         }
-        let incoming_ids: Vec<&str> = incoming_project.as_ref().map_or_else(
-            || vec![opened.level.id.as_str()],
-            |index| {
-                index
-                    .project
-                    .levels
-                    .iter()
-                    .map(|level| level.id.as_str())
-                    .collect()
-            },
-        );
-        if let Some(existing) = self.entries.iter().find(|entry| {
-            incoming_ids
-                .iter()
-                .any(|id| entry.id.eq_ignore_ascii_case(id))
-                && entry.path != target_path
-        }) {
+        if matching.len() > 1 {
             return Err(format!(
-                "Map id '{}' is already installed at {}; update that file's name instead",
-                existing.id,
-                existing.path.display()
+                "Package '{}' has multiple installed copies; resolve the duplicate files before updating",
+                incoming.package_id
             ));
         }
-        match fs::symlink_metadata(target_path) {
+        let (target, unchanged) = if let Some((path, previous)) = matching.pop() {
+            let unchanged = previous.admit_update(&incoming)? == UpdateAdmission::Unchanged;
+            (path, unchanged)
+        } else {
+            (named_target.to_path_buf(), false)
+        };
+        if unchanged {
+            validate_unchanged_installation(&target)?;
+        }
+        let previous_hash = match fs::symlink_metadata(&target) {
             Ok(metadata) => {
                 if !metadata.file_type().is_file() {
                     return Err(format!(
                         "Refusing to replace non-regular import destination {}",
-                        target_path.display()
+                        target.display()
                     ));
                 }
-                let previous =
-                    crate::engine::package::world::open(target_path).map_err(|error| {
-                        format!(
-                            "Refusing to replace unreadable map {}: {error}",
-                            target_path.display()
-                        )
-                    })?;
-                let previous_project = crate::engine::package::project::inspect(target_path)?;
-                let same_identity = match (&previous_project, &incoming_project) {
-                    (Some(old), Some(new)) => old.project.id == new.project.id,
-                    (None, None) => previous.level.id == opened.level.id,
-                    (Some(_), None) | (None, Some(_)) => false,
-                };
-                if !same_identity {
-                    return Err(format!(
-                        "Refusing to overwrite map '{}' with '{}' at {}; rename the incoming file",
-                        previous.level.id,
-                        opened.level.id,
-                        target_path.display()
-                    ));
-                }
-                Ok(())
+                let previous = release::inspect_installed(&target).map_err(|error| {
+                    format!(
+                        "Refusing to replace unreadable map {}: {error}",
+                        target.display()
+                    )
+                })?;
+                let _admission = previous.admit_update(&incoming)?;
+                Some(crate::engine::package::hash::sha256_file(&target)?)
             }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(error) => Err(format!(
-                "Cannot inspect import destination {}: {error}",
-                target_path.display()
-            )),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) => return Err(error.to_string()),
+        };
+        // A rename update retains the existing filename; never leave a second copy.
+        if target != named_target
+            && named_target
+                .try_exists()
+                .map_err(|error| error.to_string())?
+        {
+            return Err(format!(
+                "Incoming filename also names another installed file: {}",
+                named_target.display()
+            ));
         }
-    }
-
-    fn check_project_identity(&self, id: &str, target: &Path) -> Result<(), String> {
-        let paths: std::collections::BTreeSet<_> = self
-            .entries
-            .iter()
-            .map(|entry| &entry.path)
-            .filter(|path| *path != target)
-            .collect();
-        for path in paths {
-            if let Some(index) = crate::engine::package::project::inspect(path)?
-                && index.project.id == id
-            {
-                return Err(format!(
-                    "Project id '{id}' is already installed at {}; update that filename instead",
-                    path.display()
-                ));
-            }
-        }
-        Ok(())
+        Ok(ImportPlan {
+            target,
+            unchanged,
+            previous_hash,
+        })
     }
 
     /// Imports every unimported `.placesmap` from `import/` (and the nested
@@ -862,29 +927,64 @@ impl LevelManager {
 }
 
 /// Copies into an exclusively owned sibling and publishes only validated bytes.
+struct ImportPlan {
+    target: PathBuf,
+    unchanged: bool,
+    previous_hash: Option<String>,
+}
+
+fn validate_unchanged_installation(path: &Path) -> Result<(), String> {
+    // An equal manifest hash is a content claim, not proof that installed
+    // payloads remain intact. Never report corrupt installed bytes as a no-op.
+    crate::engine::package::project::validate(path, &|| Ok(()))
+        .and_then(|()| crate::engine::package::world::validate_import(path))
+        .map_err(|error| format!("Installed package {} failed integrity validation: {error}; retain it for diagnosis and explicitly remove it before reinstalling", path.display()))
+}
+
 fn import_package(
     source: &Path,
-    target: &Path,
-    accept: impl FnOnce(&OpenedPackage, &Path) -> Result<(), String>,
-) -> Result<OpenedPackage, String> {
-    // Reuse nonblocking regular-file admission so a regular-file/FIFO swap
-    // cannot block between path inspection and opened-handle validation.
+    named_target: &Path,
+    accept: impl FnOnce(&Path) -> Result<ImportPlan, String>,
+) -> Result<(OpenedPackage, PathBuf), String> {
     let mut input = crate::engine::package::archive::open_file(source)?;
-    let (temporary, output) = create_temporary(target)?;
+    let (temporary, output) = create_temporary(named_target)?;
     let staged = stage_import(&mut input, output, &temporary)
         .map_err(|error| cleanup_failed_write(&temporary, error))?;
-    accept(&staged, &temporary).map_err(|error| cleanup_failed_write(&temporary, error))?;
+    let plan = accept(&temporary).map_err(|error| cleanup_failed_write(&temporary, error))?;
     drop(input);
-    fs::rename(&temporary, target).map_err(|error| {
-        cleanup_failed_write(
+    let current_hash = match fs::symlink_metadata(&plan.target) {
+        Ok(metadata) if metadata.file_type().is_file() => Some(
+            crate::engine::package::hash::sha256_file(&plan.target)
+                .map_err(|error| cleanup_failed_write(&temporary, error))?,
+        ),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Ok(_) | Err(_) => {
+            return Err(cleanup_failed_write(
+                &temporary,
+                "Import destination changed during admission".into(),
+            ));
+        }
+    };
+    if current_hash != plan.previous_hash {
+        return Err(cleanup_failed_write(
             &temporary,
-            format!(
-                "Failed to publish imported map {}: {error}",
-                target.display()
-            ),
-        )
-    })?;
-    Ok(staged)
+            "Import destination changed during admission; previous data retained".into(),
+        ));
+    }
+    if plan.unchanged {
+        fs::remove_file(&temporary).map_err(|error| error.to_string())?;
+    } else {
+        fs::rename(&temporary, &plan.target).map_err(|error| {
+            cleanup_failed_write(
+                &temporary,
+                format!(
+                    "Failed to publish imported map {}: {error}",
+                    plan.target.display()
+                ),
+            )
+        })?;
+    }
+    Ok((staged, plan.target))
 }
 
 /// Owns and closes the write handle before validation or temporary cleanup.
@@ -922,6 +1022,7 @@ fn stage_import(
     })?;
     drop(output);
     crate::engine::package::project::validate(temporary, &|| Ok(()))?;
+    crate::engine::package::world::validate_import(temporary)?;
     crate::engine::package::world::open(temporary)
         .map_err(|error| format!("Imported map validation failed: {error}"))
 }

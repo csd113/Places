@@ -59,7 +59,8 @@ fn fixture_with_menu_policy(entry_only: bool) -> Result<Fixture, String> {
     let mut blobs = BTreeMap::new();
     let mut index = project::ProjectPackage {
         schema: "places-project-package".into(),
-        package_format: 1,
+        package_format: project::PROJECT_FORMAT_VERSION,
+        places_version: crate::engine::package::release::PLACES_VERSION.into(),
         project: authored,
         levels: Vec::new(),
         sources: BTreeMap::new(),
@@ -96,7 +97,7 @@ fn fixture_with_menu_policy(entry_only: bool) -> Result<Fixture, String> {
         } else {
             Vec::new()
         };
-        let inner = serde_json::json!({"schema":"places-map","package_format":1_u32,"id":id,"name":id,"required_capabilities":capabilities,"entries":[{"name":"semantics.json","role":"semantics","bytes":source_bytes.len(),"sha256":hash::sha256_hex(&source_bytes)},{"name":prepared_name,"role":"","bytes":prepared.len(),"sha256":hash::sha256_hex(&prepared)}],"variants":[{"lightmap_quality":"off","quality_profile":"low","entries":{"mesh":prepared_name,"props":prepared_name,"lighting":prepared_name,"collision":prepared_name,"navigation":prepared_name}}]});
+        let inner = serde_json::json!({"schema":"places-map","package_format":crate::engine::package::FORMAT_VERSION,"package_id":index.project.id,"package_version":index.project.package_version,"places_version":index.places_version,"id":id,"name":id,"required_capabilities":capabilities,"entries":[{"name":"semantics.json","role":"semantics","bytes":source_bytes.len(),"sha256":hash::sha256_hex(&source_bytes)},{"name":prepared_name,"role":"","bytes":prepared.len(),"sha256":hash::sha256_hex(&prepared)}],"variants":[{"lightmap_quality":"off","quality_profile":"low","entries":{"mesh":prepared_name,"props":prepared_name,"lighting":prepared_name,"collision":prepared_name,"navigation":prepared_name}}]});
         let inner_blob = blob(
             &mut blobs,
             serde_json::to_vec(&inner).map_err(|e| e.to_string())?,
@@ -116,8 +117,26 @@ fn fixture_with_menu_policy(entry_only: bool) -> Result<Fixture, String> {
 impl Fixture {
     fn write(&self) -> Result<PathBuf, String> {
         let path = self.root.join("campaign.placesmap");
-        let mut entries: Vec<_> = self
-            .blobs
+        let mut index = self.index.clone();
+        let mut blobs = self.blobs.clone();
+        let manifest_path = ProjectPath::new("places.project.json".into())?;
+        let previous = index
+            .sources
+            .get(&manifest_path)
+            .ok_or("Missing source manifest")?;
+        if ProjectManifest::from_json(blobs.get(previous).ok_or("Missing manifest bytes")?)?
+            != index.project
+        {
+            let current_manifest =
+                serde_json::to_vec_pretty(&index.project).map_err(|e| e.to_string())?;
+            let old_manifest = index
+                .sources
+                .insert(manifest_path, blob(&mut blobs, current_manifest));
+            if let Some(old) = old_manifest {
+                drop(blobs.remove(&old));
+            }
+        }
+        let mut entries: Vec<_> = blobs
             .iter()
             .map(|(name, bytes)| PendingEntry {
                 name: name.clone(),
@@ -126,7 +145,7 @@ impl Fixture {
             .collect();
         entries.push(PendingEntry {
             name: project::INDEX.into(),
-            bytes: serde_json::to_vec(&self.index).map_err(|e| e.to_string())?,
+            bytes: serde_json::to_vec(&index).map_err(|e| e.to_string())?,
         });
         archive::write_archive(&path, entries)?;
         Ok(path)
@@ -256,6 +275,41 @@ fn entry_only_menu_retains_internal_routes_diagnostics_and_import_conflicts() ->
             .join("installed/hidden-member.placesmap")
             .exists(),
         "conflict refusal publishes no incoming package"
+    );
+    check_ambiguous_package_paths(&collection.root, &package, &incoming)?;
+    Ok(())
+}
+
+fn check_ambiguous_package_paths(
+    root: &std::path::Path,
+    package: &std::path::Path,
+    incoming: &std::path::Path,
+) -> Result<(), String> {
+    use crate::engine::loader::LevelManager;
+    // Direct drops must exclude both complete paths, including a bundle's
+    // otherwise unique hidden member; partial discovery could mix releases.
+    let installed = root.join("installed");
+    let _bundle_bytes =
+        fs::copy(package, installed.join("bundle.placesmap")).map_err(|error| error.to_string())?;
+    let _member_bytes = fs::copy(incoming, installed.join("single.placesmap"))
+        .map_err(|error| error.to_string())?;
+    let ambiguous =
+        LevelManager::with_paths(root.join("no-bundled"), installed, root.join("import"));
+    assert!(
+        ambiguous.entries().is_empty(),
+        "a conflicting package cannot leave unique hidden members playable"
+    );
+    let bundled = LevelManager::with_paths(
+        root.to_path_buf(),
+        root.join("installed"),
+        root.join("import"),
+    );
+    assert!(
+        bundled
+            .entries()
+            .iter()
+            .all(|entry| entry.source_type == crate::engine::loader::LevelSourceType::Bundled),
+        "bundled ownership excludes complete conflicting community packages"
     );
     Ok(())
 }
@@ -490,7 +544,7 @@ fn project_index_and_cancellation_refuse_unsafe_or_partial_publication() -> Resu
         project::inspect(&supported).is_ok(),
         "the current transport revision is explicitly supported"
     );
-    fixture.index.package_format = 1;
+    fixture.index.package_format = project::PROJECT_FORMAT_VERSION;
     let _unsafe_record = fixture
         .index
         .levels
@@ -506,6 +560,80 @@ fn project_index_and_cancellation_refuse_unsafe_or_partial_publication() -> Resu
     assert!(
         project::validate_thumbnail(b"not a PNG").is_err(),
         "invalid thumbnail bytes must never be accepted as image metadata"
+    );
+    Ok(())
+}
+
+// Protects whole-bundle admission from a mismatched inactive member. Two tiny
+// manifests prove discovery/selected-load cannot overlook incompatible release
+// metadata; payloads are placeholders, with no world bake or asset/GPU work.
+#[test]
+fn bundle_release_context_is_checked_on_every_member_before_selection() -> Result<(), String> {
+    use crate::engine::package::release;
+    for field in ["package_id", "package_version", "places_version"] {
+        let mut fixture = fixture()?;
+        let path = fixture.write()?;
+        let descriptor = release::inspect(&path)?;
+        assert_eq!(descriptor.package_id, "roundtrip");
+        assert_eq!(descriptor.member_ids, vec!["entry", "second"]);
+        let record = fixture
+            .index
+            .levels
+            .first_mut()
+            .ok_or("Missing inactive member")?;
+        let previous = record
+            .records
+            .get("manifest.json")
+            .ok_or("Missing manifest")?
+            .clone();
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(fixture.blobs.get(&previous).ok_or("Missing bytes")?)
+                .map_err(|error| error.to_string())?;
+        let changed = match field {
+            "package_id" => "another_project",
+            "package_version" => "1.1.0",
+            "places_version" => "999.0.0",
+            _ => return Err("Invalid test field".into()),
+        };
+        let _old = manifest
+            .as_object_mut()
+            .ok_or("Invalid manifest")?
+            .insert(field.into(), changed.into());
+        let bytes = serde_json::to_vec(&manifest).map_err(|error| error.to_string())?;
+        let replacement = blob(&mut fixture.blobs, bytes);
+        let _old_record = record.records.insert("manifest.json".into(), replacement);
+        drop(fixture.blobs.remove(&previous));
+        let incompatible = fixture.write()?;
+        assert!(
+            project::inspect(&incompatible).is_err(),
+            "discovery must check inactive {field}"
+        );
+        assert!(
+            world::open_level(&incompatible, "second").is_err(),
+            "selected load must check inactive {field}"
+        );
+        assert!(
+            project::recover(&incompatible, &fixture.root.join("refused"), &|| Ok(())).is_err(),
+            "recovery must refuse invalid {field}"
+        );
+    }
+    let metadata_fixture = fixture()?;
+    let mut raw =
+        serde_json::to_value(&metadata_fixture.index).map_err(|error| error.to_string())?;
+    let _removed = raw
+        .get_mut("project")
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or("Missing project")?
+        .remove("package_version");
+    assert!(
+        serde_json::from_value::<project::ProjectPackage>(raw).is_err(),
+        "compiled project release is mandatory even though editable sources have a default"
+    );
+    let mut fixture = fixture()?;
+    fixture.index.places_version = "999.0.0".into();
+    assert!(
+        project::inspect(&fixture.write()?).is_err(),
+        "outer target is independently admitted"
     );
     Ok(())
 }

@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import tomllib
 from pathlib import Path
 import unittest
 import zipfile
@@ -10,6 +11,7 @@ from tools.levels.package_zip import PackageZip
 from tools.levels.curated_maps import level_views, lineup, project_manifest, source_levels
 
 ROOT = Path(__file__).resolve().parents[1]
+PLACES_VERSION = tomllib.loads((ROOT / 'Cargo.toml').read_text())['package']['version']
 
 
 def selected_distributions():
@@ -86,7 +88,10 @@ class BuiltMapTests(unittest.TestCase):
 
     def check_level(self, archive, identity, records, verified):
         manifest = json.loads(archive.read(records['manifest.json']))
-        self.assertEqual(manifest['package_format'], 1, identity)
+        self.assertEqual(manifest['package_format'], 2, identity)
+        self.assertRegex(manifest['package_version'], r'^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$')
+        self.assertTrue(manifest['package_id'], identity)
+        self.assertEqual(manifest['places_version'], PLACES_VERSION, identity)
         self.assertEqual(manifest['id'], identity)
         self.assertTrue(manifest['dependencies'], f'{identity} declares dependencies')
         self.assertEqual({v['lightmap_quality'] for v in manifest['variants']}, {'off', 'full'}, identity)

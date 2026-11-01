@@ -26,7 +26,8 @@ fn write_fixture(root: &Path) -> Result<(PathBuf, project::ProjectPackage), Stri
     drop(blobs.insert(source_name.clone(), project_bytes.to_vec()));
     let mut index = project::ProjectPackage {
         schema: "places-project-package".into(),
-        package_format: 1,
+        package_format: project::PROJECT_FORMAT_VERSION,
+        places_version: crate::engine::package::release::PLACES_VERSION.into(),
         project: manifest,
         levels: Vec::new(),
         sources: BTreeMap::from([(ProjectPath::new("places.project.json".into())?, source_name)]),
@@ -47,7 +48,7 @@ fn write_fixture(root: &Path) -> Result<(PathBuf, project::ProjectPackage), Stri
         let prepared = hash::blob_name(&[], ".fixture");
         let common = hash::blob_name(&[], ".record");
         drop(blobs.insert(common.clone(), Vec::new()));
-        let inner = serde_json::json!({"schema":"places-map","package_format":1_u32,"id":id,"name":id,"lighting_fingerprint":"stage","entries":[{"name":"build-inputs.json","role":"compiler-inputs","bytes":inputs.len(),"sha256":hash::sha256_hex(&inputs)},{"name":prepared,"role":"","bytes":0_u32,"sha256":hash::sha256_hex(&[])}],"variants":[{"lightmap_quality":"off","quality_profile":"low","entries":{"mesh":prepared,"props":prepared,"lighting":prepared,"collision":prepared,"navigation":prepared}}]});
+        let inner = serde_json::json!({"schema":"places-map","package_format":crate::engine::package::FORMAT_VERSION,"package_id":index.project.id,"package_version":index.project.package_version,"places_version":index.places_version,"id":id,"name":id,"lighting_fingerprint":"stage","entries":[{"name":"build-inputs.json","role":"compiler-inputs","bytes":inputs.len(),"sha256":hash::sha256_hex(&inputs)},{"name":prepared,"role":"","bytes":0_u32,"sha256":hash::sha256_hex(&[])}],"variants":[{"lightmap_quality":"off","quality_profile":"low","entries":{"mesh":prepared,"props":prepared,"lighting":prepared,"collision":prepared,"navigation":prepared}}]});
         let inner_bytes = serde_json::to_vec(&inner).map_err(|e| e.to_string())?;
         let inner_blob = hash::blob_name(&inner_bytes, ".record");
         drop(blobs.insert(inner_blob.clone(), inner_bytes));

@@ -77,9 +77,38 @@ fn scene(id: &str) -> Value {
     })
 }
 
+fn check_release_metadata(folder: &std::path::Path) -> Result<(), String> {
+    // Reuse this document fixture to protect author-editable release roundtrip
+    // and refusal preservation; no extra project, bake or native process.
+    let mut version_document = Document::open(folder)?;
+    version_document.update_manifest("package_version", "1.10.0")?;
+    assert_eq!(
+        Document::open(folder)?
+            .manifest()
+            .package_version
+            .to_string(),
+        "1.10.0"
+    );
+    assert!(
+        version_document
+            .update_manifest("package_version", "invalid")
+            .is_err(),
+        "invalid release must refuse"
+    );
+    assert_eq!(
+        Document::open(folder)?
+            .manifest()
+            .package_version
+            .to_string(),
+        "1.10.0"
+    );
+    Ok(())
+}
+
 #[test]
 fn edits_history_and_reopen_preserve_unknown_data() -> Result<(), String> {
     let fixture = Fixture::new()?;
+    check_release_metadata(&fixture.0)?;
     let source_text =
         fs::read_to_string(fixture.source("entry")).map_err(|error| error.to_string())?;
     fs::write(

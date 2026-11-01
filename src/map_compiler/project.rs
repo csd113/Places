@@ -9,6 +9,8 @@ use crate::engine::project::{MANIFEST_NAME, ProjectFolder, read_bounded_file};
 /// One validated input snapshot. Project metadata participates in compiler
 /// identity, so changing membership/references cannot silently reuse an output.
 pub(super) struct SourceSnapshot {
+    pub package_id: String,
+    pub package_version: crate::engine::package::release::ReleaseVersion,
     pub level: LevelDef,
     pub identity: Vec<u8>,
 }
@@ -28,7 +30,12 @@ pub(super) fn read_source(input: &Path, selected: Option<&str>) -> Result<Source
         identity.push(0);
         identity
             .extend(serde_json::to_vec(&level.script_sources).map_err(|error| error.to_string())?);
-        Ok(SourceSnapshot { level, identity })
+        Ok(SourceSnapshot {
+            package_id: project.manifest().id.clone(),
+            package_version: project.manifest().package_version,
+            level,
+            identity,
+        })
     } else {
         if selected.is_some() {
             return Err("--level requires a project folder or places.project.json".into());
@@ -43,6 +50,8 @@ pub(super) fn read_source(input: &Path, selected: Option<&str>) -> Result<Source
         }
         crate::engine::loader::validate_level(&level)?;
         Ok(SourceSnapshot {
+            package_id: level.id.clone(),
+            package_version: level.package_version,
             level,
             identity: bytes,
         })

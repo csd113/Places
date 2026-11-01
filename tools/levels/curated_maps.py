@@ -18,7 +18,10 @@ def environment_source(identity: str, root: Path = ROOT) -> Path:
 
 def project_manifest(source: Path) -> dict | None:
     document = json.loads(source.read_text())
-    return document if document.get('schema') == 'places-project' else None
+    if document.get('schema') != 'places-project':
+        return None
+    document.setdefault('package_version', '1.0.0')
+    return document
 
 
 def source_levels(source: Path) -> list[tuple[str, Path]]:
@@ -76,7 +79,7 @@ def level_views(archive: zipfile.ZipFile) -> list[tuple[str, dict[str, str]]]:
         manifest = json.loads(archive.read('manifest.json'))
         return [(manifest['id'], {name: name for name in names})]
     index = json.loads(archive.read('project.json'))
-    if index['schema'] != 'places-project-package' or index['package_format'] not in (1, 2):
+    if index['schema'] != 'places-project-package' or index['package_format'] != 3:
         raise ValueError('Unsupported project package index')
     expected = [level['id'] for level in index['project']['levels']]
     actual = [level['id'] for level in index['levels']]

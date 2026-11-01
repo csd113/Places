@@ -172,6 +172,12 @@ pub struct Manifest {
     pub package_format: u32,
     /// Stable level id.
     pub id: String,
+    /// Stable distributable identity (project ID for members of a project).
+    pub package_id: String,
+    /// Authored release of the distributable, independent of the game version.
+    pub package_version: super::release::ReleaseVersion,
+    /// Automatic Places build target. Never author-supplied compatibility claims.
+    pub places_version: String,
     /// Display name.
     pub name: String,
     /// Author, `""` when unnamed.
@@ -220,9 +226,19 @@ impl Manifest {
     /// # Errors
     /// Returns an error when the input is malformed, out of bounds or unsupported.
     pub fn from_json(bytes: &[u8], archive_names: &[String]) -> Result<Self, String> {
-        let manifest: Self = serde_json::from_slice(bytes)
-            .map_err(|error| format!("manifest is not valid JSON: {error}"))?;
-        manifest.validate(archive_names)?;
+        let manifest = Self::from_json_metadata(bytes, archive_names)?;
+        super::release::admit_places_version(&manifest.places_version)?;
+        Ok(manifest)
+    }
+
+    pub(crate) fn from_json_metadata(
+        bytes: &[u8],
+        archive_names: &[String],
+    ) -> Result<Self, String> {
+        let manifest: Self = serde_json::from_slice(bytes).map_err(|error| {
+            format!("invalid package manifest: {error}; recompile with the current places-compile")
+        })?;
+        manifest.validate_metadata(archive_names)?;
         Ok(manifest)
     }
 
@@ -230,11 +246,16 @@ impl Manifest {
     ///
     /// # Errors
     /// Returns an error when the input is malformed, out of bounds or unsupported.
+    pub fn validate(&self, archive_names: &[String]) -> Result<(), String> {
+        self.validate_metadata(archive_names)?;
+        super::release::admit_places_version(&self.places_version)
+    }
+
     #[expect(
         clippy::too_many_lines,
         reason = "one cohesive structural validation pass"
     )] // one cohesive structural validation pass
-    pub fn validate(&self, archive_names: &[String]) -> Result<(), String> {
+    fn validate_metadata(&self, archive_names: &[String]) -> Result<(), String> {
         if self.schema != super::PACKAGE_SCHEMA {
             return Err(
                 "unsupported package schema; recompile this map with the current places-compile"
@@ -248,6 +269,8 @@ impl Manifest {
             ));
         }
         validate_identity("id", &self.id, 128)?;
+        validate_identity("package_id", &self.package_id, 128)?;
+        validate_identity("places_version", &self.places_version, 128)?;
         validate_identity("name", &self.name, 256)?;
         validate_optional_identity("author", &self.author, 256)?;
         for capability in &self.required_capabilities {
@@ -466,6 +489,20 @@ impl Manifest {
             .map_err(|error| format!("could not serialize manifest: {error}"))?;
         bytes.push(b'\n');
         Ok(bytes)
+    }
+
+    /// Common matching descriptor using the runtime's canonical content identity.
+    /// # Errors
+    /// Returns a manifest serialization error.
+    pub fn descriptor(&self) -> Result<super::release::PackageDescriptor, String> {
+        Ok(super::release::PackageDescriptor {
+            package_id: self.package_id.clone(),
+            package_version: self.package_version,
+            places_version: self.places_version.clone(),
+            project: false,
+            member_ids: vec![self.id.clone()],
+            content_hash: super::world::manifest_identity(self)?,
+        })
     }
 
     fn validate_variant_entry(&self, role: &str, name: &str) -> Result<(), String> {

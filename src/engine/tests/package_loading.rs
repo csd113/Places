@@ -112,7 +112,9 @@ fn minimal_manifest() -> Result<Manifest, String> {
     let blob = hash::blob_name(&[], ".mesh");
     serde_json::from_value(serde_json::json!({
         "schema": "places-map",
-        "package_format": 1,
+        "package_format": crate::engine::package::FORMAT_VERSION,
+        "package_id": "package_snapshot", "package_version": "1.0.0",
+        "places_version": crate::engine::package::release::PLACES_VERSION,
         "id": "package_snapshot",
         "name": "Original snapshot",
         "entries": [{"name": blob, "role": "", "bytes": 0, "sha256": hash::sha256_hex(&[])}],
@@ -123,6 +125,80 @@ fn minimal_manifest() -> Result<Manifest, String> {
         }]
     }))
     .map_err(|error| error.to_string())
+}
+
+// Protects required compiled metadata, exact automatic game admission and the
+// numeric authoring contract. Also proves release edits retain the solved-stage
+// key. No filesystem, assets or baking; this boundary had no prior coverage.
+#[test]
+fn package_release_metadata_is_required_bounded_and_independent_of_lighting() -> Result<(), String>
+{
+    use crate::engine::package::release::{PLACES_VERSION, ReleaseVersion, admit_places_version};
+    let mut manifest = minimal_manifest()?;
+    let names = vec![
+        manifest
+            .entries
+            .first()
+            .ok_or("Missing record")?
+            .name
+            .clone(),
+        "manifest.json".into(),
+    ];
+    manifest.validate(&names)?;
+    for field in ["package_id", "package_version", "places_version"] {
+        let mut raw = serde_json::to_value(&manifest).map_err(|error| error.to_string())?;
+        let _removed = raw.as_object_mut().ok_or("Invalid fixture")?.remove(field);
+        let error = Manifest::from_json(
+            &serde_json::to_vec(&raw).map_err(|error| error.to_string())?,
+            &names,
+        )
+        .err()
+        .ok_or("Missing compiled release metadata was accepted")?;
+        assert!(
+            error.contains("recompile"),
+            "old compiled contracts require explicit recompilation: {error}"
+        );
+    }
+    for invalid in [
+        "",
+        "1",
+        "1.2",
+        "1.2.3.4",
+        "01.2.3",
+        "-1.2.3",
+        "1.2.3-dev",
+        "4294967296.0.0",
+        " 1.2.3",
+    ] {
+        assert!(
+            ReleaseVersion::try_from(invalid.to_string()).is_err(),
+            "invalid release must refuse: {invalid}"
+        );
+    }
+    let older = ReleaseVersion::try_from("1.9.0".to_string())?;
+    let newer = ReleaseVersion::try_from("1.10.0".to_string())?;
+    assert!(newer > older, "release order must be numeric");
+    admit_places_version(PLACES_VERSION)?;
+    for unsupported in ["0.13.0", "999.0.0"] {
+        manifest.places_version = unsupported.into();
+        let error = manifest
+            .validate(&names)
+            .err()
+            .ok_or("Unsupported target was admitted")?;
+        assert!(
+            error.contains("built for Places") && error.contains(PLACES_VERSION),
+            "target mismatch is actionable: {error}"
+        );
+    }
+    let mut level = crate::engine::level::LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"release","name":"Release","spawn":{"x":0,"z":0}}"#).map_err(|error|error.to_string())?;
+    let original = crate::map_compiler::lighting_fingerprint_with_revision(&level, &[], &[], 1)?;
+    level.package_version = newer;
+    assert_eq!(
+        crate::map_compiler::lighting_fingerprint_with_revision(&level, &[], &[], 1)?,
+        original,
+        "a content release label cannot force a lighting solve"
+    );
+    Ok(())
 }
 
 fn fixture_archive(manifest: &Manifest) -> Result<Vec<u8>, String> {

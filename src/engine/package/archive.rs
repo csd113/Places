@@ -91,7 +91,7 @@ impl<R: Read + Seek> PackageReader<R> {
             project_ids: None,
         };
         if directory.requires_project_validation {
-            let _validated = project::read_index(&mut opened)
+            let _validated = project::read_index_metadata(&mut opened)
                 .map_err(OpenError::NotArchive)?
                 .ok_or_else(|| OpenError::NotArchive("Missing project index".into()))?;
         }

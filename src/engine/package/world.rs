@@ -217,6 +217,34 @@ pub fn open_bytes(bytes: &[u8]) -> Result<OpenedPackage, String> {
     open_reader(package_reader(bytes)?)
 }
 
+/// Streams every declared ordinary payload before transactional import.
+/// Project imports additionally validate all editable sources and member semantics.
+/// # Errors
+/// Rejects payload hash/length disagreement without allocating prepared worlds.
+pub(crate) fn validate_import(path: &Path) -> Result<(), String> {
+    let mut reader =
+        PackageReader::new(super::archive::open_file(path)?).map_err(|error| error.to_string())?;
+    if super::project::read_index(&mut reader)?.is_some() {
+        return Ok(());
+    }
+    let manifest = read_manifest(&mut reader)?;
+    for entry in &manifest.entries {
+        let (bytes, digest) = reader.copy_entry_to(
+            &entry.name,
+            super::MAX_BINARY_BYTES,
+            &mut std::io::sink(),
+            &|| crate::engine::resources::checkpoint(),
+        )?;
+        if bytes != entry.bytes || digest != entry.sha256 {
+            return Err(format!(
+                "Imported record '{}' disagrees with its manifest",
+                entry.name
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn package_reader(bytes: &[u8]) -> Result<PackageReader<std::io::Cursor<&[u8]>>, String> {
     PackageReader::new(std::io::Cursor::new(bytes)).map_err(|error| error.to_string())
 }

@@ -12,9 +12,9 @@ use super::{PackageReader, hash};
 use crate::engine::project::{MANIFEST_NAME, ProjectFolder, ProjectManifest, ProjectPath};
 
 pub const INDEX: &str = "project.json";
-/// Revision 2 permits window-bounded Zstandard records. Revision 1 projects
-/// remain readable; older readers reject this index before opening any blob.
-pub const PROJECT_FORMAT_VERSION: u32 = 2;
+/// Revision 3 requires independent release and automatic Places target metadata.
+/// Superseded development packages must be explicitly recompiled.
+pub const PROJECT_FORMAT_VERSION: u32 = 3;
 pub const MAX_SOURCE_BYTES: u64 = 64 * 1024 * 1024;
 pub const MAX_THUMBNAIL_BYTES: u64 = 4 * 1024 * 1024;
 
@@ -29,12 +29,28 @@ pub struct ProjectMap {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectPackage {
+    pub places_version: String,
     pub schema: String,
     pub package_format: u32,
+    #[serde(deserialize_with = "deserialize_release_project")]
     pub project: ProjectManifest,
     pub levels: Vec<ProjectMap>,
     /// Exact source file bytes. Only declared levels/scripts/thumbnails are included.
     pub sources: BTreeMap<ProjectPath, String>,
+}
+
+// Editable sources may omit the initial release; compiled indexes must stamp it.
+fn deserialize_release_project<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<ProjectManifest, D::Error> {
+    use serde::de::Error as _;
+    let raw = serde_json::Value::deserialize(deserializer)?;
+    if raw.get("package_version").is_none() {
+        return Err(D::Error::custom(
+            "compiled project is missing package_version; recompile with the current places-compile",
+        ));
+    }
+    serde_json::from_value(raw).map_err(D::Error::custom)
 }
 
 /// Reads the bounded index and verifies its complete archive namespace.
@@ -43,20 +59,38 @@ pub struct ProjectPackage {
 pub fn read_index<R: Read + Seek>(
     reader: &mut PackageReader<R>,
 ) -> Result<Option<ProjectPackage>, String> {
+    let index = read_index_metadata(reader)?;
+    if let Some(project) = &index {
+        super::release::admit_places_version(&project.places_version)?;
+    }
+    Ok(index)
+}
+
+/// Structural metadata only; grants no permission to decode or play a world.
+pub(crate) fn read_index_metadata<R: Read + Seek>(
+    reader: &mut PackageReader<R>,
+) -> Result<Option<ProjectPackage>, String> {
     if reader.has_view() || !reader.contains(INDEX) {
         return Ok(None);
     }
     let bytes = reader.read_entry(INDEX, super::MAX_MANIFEST_BYTES)?;
     crate::engine::project::check_editable_source(&bytes)?;
-    let index: ProjectPackage = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-    if index.schema != "places-project-package"
-        || !matches!(index.package_format, 1 | PROJECT_FORMAT_VERSION)
-    {
+    let index: ProjectPackage = serde_json::from_slice(&bytes).map_err(|e| {
+        format!("Invalid project package: {e}; recompile with the current places-compile")
+    })?;
+    if index.schema != "places-project-package" || index.package_format != PROJECT_FORMAT_VERSION {
         return Err(
-            "Unsupported project package schema/version; no supported conversion exists".into(),
+            "Unsupported project package schema/version; recompile with the current places-compile"
+                .into(),
         );
     }
     index.project.validate()?;
+    if index.places_version.is_empty()
+        || index.places_version.len() > 128
+        || index.places_version.chars().any(char::is_control)
+    {
+        return Err("Invalid project Places target identity".into());
+    }
     if index.levels.len() != index.project.levels.len()
         || index.sources.len() > 1024
         || index
@@ -94,6 +128,7 @@ pub fn read_index<R: Read + Seek>(
             }
             let _inserted = expected.insert(record.clone());
         }
+        validate_member_release(reader, &index, compiled)?;
     }
     let mut source_bytes = 0_u64;
     let mut paths = BTreeSet::new();
@@ -118,7 +153,68 @@ pub fn read_index<R: Read + Seek>(
     {
         return Err("Project package contains undeclared or missing records".into());
     }
+    let source_manifest = index
+        .sources
+        .iter()
+        .find(|(path, _)| path.as_str() == MANIFEST_NAME)
+        .map(|(_, record)| record)
+        .ok_or("Missing editable manifest")?;
+    if ProjectManifest::from_json(
+        &reader.read_blob(source_manifest, crate::engine::project::MAX_MANIFEST_BYTES)?,
+    )? != index.project
+    {
+        return Err("Editable manifest disagrees with project index".into());
+    }
     Ok(Some(index))
+}
+
+impl ProjectPackage {
+    /// Whole-distribution identity, invariant under ZIP compression or ordering.
+    /// # Errors
+    /// Returns an index serialization error.
+    pub fn descriptor(&self) -> Result<super::release::PackageDescriptor, String> {
+        let bytes = crate::engine::canonical_json::canonical_json_bytes(self)?;
+        Ok(super::release::PackageDescriptor {
+            package_id: self.project.id.clone(),
+            package_version: self.project.package_version,
+            places_version: self.places_version.clone(),
+            project: true,
+            member_ids: self
+                .project
+                .levels
+                .iter()
+                .map(|level| level.id.clone())
+                .collect(),
+            content_hash: hash::sha256_hex(&bytes),
+        })
+    }
+}
+
+fn validate_member_release<R: Read + Seek>(
+    reader: &mut PackageReader<R>,
+    index: &ProjectPackage,
+    compiled: &ProjectMap,
+) -> Result<(), String> {
+    // Admit every member before discovery, selection or expensive preparation.
+    // Reading by physical hash does not mutate the reader's selected view.
+    let manifest_record = compiled
+        .records
+        .get("manifest.json")
+        .ok_or("Missing member manifest")?;
+    let manifest_bytes = reader.read_blob(manifest_record, super::MAX_MANIFEST_BYTES)?;
+    let names: Vec<_> = compiled.records.keys().cloned().collect();
+    let manifest = super::Manifest::from_json_metadata(&manifest_bytes, &names)?;
+    if manifest.id != compiled.id
+        || manifest.package_id != index.project.id
+        || manifest.package_version != index.project.package_version
+        || manifest.places_version != index.places_version
+    {
+        return Err(format!(
+            "Project/member release identity disagrees in '{}'",
+            compiled.id
+        ));
+    }
+    Ok(())
 }
 
 fn check_record<R: Read + Seek>(reader: &PackageReader<R>, name: &str) -> Result<u64, String> {

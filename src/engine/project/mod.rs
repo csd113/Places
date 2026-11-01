@@ -47,6 +47,9 @@ pub struct ProjectLevel {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectManifest {
+    /// One release for the complete distributable and all virtual members.
+    #[serde(default)]
+    pub package_version: crate::engine::package::release::ReleaseVersion,
     pub schema: String,
     pub project_format: u32,
     pub id: String,

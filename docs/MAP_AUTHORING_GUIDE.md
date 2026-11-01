@@ -1,5 +1,14 @@
 # Places Map Authoring Guide
 
+Package releases (0.13.1): standalone sources and project manifests accept
+`package_version: "1.0.0"` (the editable-source default), validated as canonical
+numeric major.minor.patch. A complete project owns its distributable release;
+members retain stable level IDs. Project > Package version edits it in the native
+editor. Build/Export automatically stamp the actual Places target. Compiled map
+format 2/project-package format 3 require this metadata; old packages need explicit
+recompilation. See [the source contract](PROJECT_FORMAT.md) and
+[admission/update policy](PACKAGE_FORMAT.md#8-versioning).
+
 Repository-wide checks: [authoritative desktop verification](VERIFICATION.md).
 
 October 12 retirement: Places Demo and Model Zoo source examples below are

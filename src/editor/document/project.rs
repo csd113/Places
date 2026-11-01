@@ -179,6 +179,7 @@ impl Document {
                     .display_name = value.into();
             }
             "author" => manifest.author = value.into(),
+            "package_version" => manifest.package_version = value.to_string().try_into()?,
             "description" => manifest.description = value.into(),
             "entry_level" => manifest.entry_level = value.into(),
             "thumbnail" => {

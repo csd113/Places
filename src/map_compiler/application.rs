@@ -671,10 +671,28 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                 .first()
                 .ok_or_else(|| CliError::Usage("inspect needs a package path".to_string()))?;
             let manifest = compiler::inspect(&PathBuf::from(package.as_str()))?;
+            let descriptor =
+                crate::engine::package::release::inspect(&PathBuf::from(package.as_str()))?;
             if options.json {
-                print_json(&manifest)?;
+                let mut inspection =
+                    serde_json::to_value(&manifest).map_err(|error| error.to_string())?;
+                let _old = inspection
+                    .as_object_mut()
+                    .ok_or_else(|| "Invalid inspection".to_string())?
+                    .insert(
+                        "descriptor".into(),
+                        serde_json::to_value(&descriptor).map_err(|error| error.to_string())?,
+                    );
+                print_json(&inspection)?;
             } else {
                 println!("{} ({}) by {}", manifest.name, manifest.id, manifest.author);
+                println!(
+                    "package {} release {} built for Places {} content {}",
+                    descriptor.package_id,
+                    descriptor.package_version,
+                    descriptor.places_version,
+                    descriptor.content_hash
+                );
                 println!(
                     "format {}, created by {}",
                     manifest.package_format, manifest.created_by

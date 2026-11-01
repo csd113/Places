@@ -52,7 +52,8 @@ fn project_entries(
     let manifest_name = hash::blob_name(&manifest_bytes, ".record");
     let mut index = project::ProjectPackage {
         schema: "places-project-package".into(),
-        package_format: 1,
+        package_format: project::PROJECT_FORMAT_VERSION,
+        places_version: crate::engine::package::release::PLACES_VERSION.into(),
         project: manifest,
         levels: Vec::new(),
         sources: BTreeMap::from([(
@@ -69,7 +70,21 @@ fn project_entries(
             prepared.declared = declared;
         }
         entries.push(prepared);
-        let mut records = BTreeMap::from([("manifest.json".into(), name.clone())]);
+        let inner = serde_json::to_vec(&serde_json::json!({
+            "schema":"places-map", "package_format":crate::engine::package::FORMAT_VERSION,
+            "id":format!("map{number}"), "name":"Capacity", "package_id":"capacity",
+            "package_version":"1.0.0", "places_version":index.places_version,
+            "entries":[{"name":"prepared", "role":"", "bytes":prepared_bytes.map_or(0_u64,u64::from),
+                "sha256":hash::sha256_hex(format!("undecodable prepared fixture {number}").as_bytes())}],
+            "variants":[{"lightmap_quality":"off","quality_profile":"low","entries":{
+                "mesh":"prepared","props":"prepared","lighting":"prepared","collision":"prepared","navigation":"prepared"}}]
+        })).map_err(|error|error.to_string())?;
+        let inner_name = hash::blob_name(&inner, ".record");
+        entries.push(entry(inner_name.clone(), inner)?);
+        let mut records = BTreeMap::from([
+            ("manifest.json".into(), inner_name),
+            ("prepared".into(), name.clone()),
+        ]);
         if overflow_aliases && number == 0 {
             let _first = records.insert("alias-one".into(), name.clone());
             let _second = records.insert("alias-two".into(), name);

@@ -136,6 +136,7 @@ pub(super) fn validate_raw(raw: &Value, expected_id: &str) -> Result<(LevelDef, 
 pub(super) fn create_project(path: &Path, id: &str, name: &str) -> Result<(), String> {
     let manifest = serde_json::json!({
         "schema": "places-project", "project_format": 1_u32,
+        "package_version": "1.0.0",
         "id": id, "name": name, "entry_level": id,
         "levels": [{"id": id, "source": format!("levels/{id}.json")}]
     });

@@ -64,6 +64,7 @@ pub mod mesh;
 pub mod navigation;
 pub mod project;
 pub mod props;
+pub mod release;
 pub mod shared_props;
 pub mod world;
 
@@ -79,7 +80,7 @@ pub use manifest::{
 /// A package whose `package_format` differs is rejected by name; there is no
 /// read path for a superseded development version. Increase this only for a
 /// contract change the current player cannot interpret at all.
-pub const FORMAT_VERSION: u32 = 1;
+pub const FORMAT_VERSION: u32 = 2;
 
 /// Mandatory schema identity rejecting packages predating the revision reset.
 pub const PACKAGE_SCHEMA: &str = "places-map";

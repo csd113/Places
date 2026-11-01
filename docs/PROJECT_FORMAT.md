@@ -26,6 +26,7 @@ place required runtime assets here: this stage resolves installed built-ins.
 {
   "schema": "places-project",
   "project_format": 1,
+  "package_version": "1.0.0",
   "id": "quiet_rooms",
   "name": "Quiet Rooms",
   "author": "An author",
@@ -37,6 +38,16 @@ place required runtime assets here: this stage resolves installed built-ins.
   ]
 }
 ```
+
+`package_version` is the authored distributable release: canonical numeric
+`major.minor.patch`, each component 0..=4294967295, without leading zeroes or
+suffixes. Omission in editable sources means `1.0.0`; malformed values refuse.
+The native editor's Project > Package version field validates and saves it.
+The whole project owns one release; its compiled members retain their stable
+level IDs and carry this project ID/version context. Standalone JSON maps use
+their own `package_version` with the same rules. Export always stamps the
+actual Places version automatically; authors do not set compatibility claims.
+See [package admission and updates](PACKAGE_FORMAT.md#8-versioning).
 
 Level records also accept optional `display_name` (at most 256 bytes, no control
 characters). The player reads this explicit title from the bounded project index
@@ -120,7 +131,7 @@ complete membership, source/thumbnail recovery and same-package transitions.
 ## Deliberate pre-release reset
 
 The source schema now requires `schema: "places-level"` and `format_version: 1`.
-Compiled manifests require `schema: "places-map"` and `package_format: 1`.
+Compiled manifests require `schema: "places-map"` and `package_format: 2`.
 The schema markers distinguish these contracts from historical pre-release
 version-1 files. Binary record signatures also identify the current layout;
 old files must be recompiled, never guessed or migrated at runtime.
@@ -269,7 +280,7 @@ places-compile validate /tmp/quiet-rooms.placesmap --asset-root ./assets
 it is not project distribution. The standalone compiler GUI remains unchanged.
 
 A complete `.placesmap` has `project.json` with schema
-`places-project-package`, `package_format: 1`, the typed project metadata,
+`places-project-package`, `package_format: 3`, the typed project metadata,
 ordered level membership, virtual ordinary-map entry tables, and a confined
 source-path-to-blob table. Each virtual table maps its unchanged `manifest.json`,
 `semantics.json` and prepared entries to shared `blobs/<sha256>.record` files.

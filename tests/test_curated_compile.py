@@ -95,7 +95,7 @@ class CuratedCompileTests(unittest.TestCase):
             package = output / 'environments.placesmap'
             for fallback in (False, True):
                 with zipfile.ZipFile(package, 'w') as archive:
-                    index = {'schema': 'places-project-package', 'package_format': 1,
+                    index = {'schema': 'places-project-package', 'package_format': 3,
                              'project': manifest, 'levels': []}
                     for identity in ('hub', 'winter'):
                         name = f'{identity}/manifest.json'

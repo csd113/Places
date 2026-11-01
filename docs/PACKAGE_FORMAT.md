@@ -87,11 +87,11 @@ executable after Cargo cleanup. Python tools that only read top-level bootstrap
 JSON keep their existing readers. These developer tools are independent of the
 game/editor/compiler runtime codec.
 
-Ordinary map format 1 requires `zip-zstd-v1`. New project indexes use project
-package transport revision **2** so old readers refuse before accessing new
-compressed records. The current reader also accepts revision 1 project indexes
-and existing Stored/Deflate records. Editable source `project_format`, application
-version and ordinary map major version are unchanged. `optimize-storage` writes
+Ordinary map format **2** retains `zip-zstd-v1`. Project indexes use revision
+**3**, adding mandatory release/game admission metadata. Superseded development
+packages require explicit recompilation; there is no compatibility adapter.
+Stored/Deflate and bounded Zstandard records remain supported. Editable source
+`project_format` is unchanged. `optimize-storage` writes
 a separate destination; it never replaces the valid source package.
 
 PLC1 revision **2** adds mode 3: one exact six-channel binary16 value for an
@@ -147,11 +147,14 @@ never triggers procedural geometry generation.
 ```json
 {
   "schema": "places-map",
-  "package_format": 1,
+  "package_format": 2,
   "id": "office_demo",
+  "package_id": "office_demo",
+  "package_version": "1.0.0",
+  "places_version": "0.13.1",
   "name": "Office: After Hours",
   "author": "Places",
-  "created_by": "places-compile 0.9.0",
+  "created_by": "places-compile 0.13.1",
   "compiler_fingerprint": "<sha256>",
   "required_capabilities": ["geometry", "props", "lighting", "collision",
                             "lightmaps-hdr", "irradiance-probes", "probes-hdr"],
@@ -865,7 +868,49 @@ dependencies; and unsupported versions or capabilities.
 
 ## 8. Versioning
 
-`schema: "places-map"` and `package_format: 1` identify the one accepted
+Content releases are separate from package/record format revisions, compiler
+currency and integrity hashes. `package_version` is authored numeric
+`major.minor.patch` (see [source rules](PROJECT_FORMAT.md)); `package_id` is stable
+across updates. A project owns one distributable release, copied to every virtual
+member, while each member retains its level ID. Selected ordinary project-member
+builds retain the project/version context and match by project ID plus member ID.
+
+The compiler automatically writes `places_version` from its Cargo application
+version on each manifest and the outer project index. During pre-release,
+compatibility requires an **exact** Places version match. There is no claimed
+semantic backwards compatibility or author-editable compatibility range. Schema,
+record and capability checks still reject incompatible development changes sharing
+the same application version. Mismatches explain both versions and request a
+matching game or explicit recompilation. Old compiled contracts and missing fields
+refuse; editable sources retain their existing defaults/data.
+
+`places-compile inspect --json` includes a typed `descriptor`: stable package ID,
+numeric release, Places target, distribution kind, member IDs and canonical content
+hash. It uses the existing canonical manifest identity for ordinary maps and the
+canonical complete project index for bundles; ZIP compression/order do not change
+it. Equal version labels alone never establish identical content. These are local
+matching primitives for future map distribution/server browsing, without a network
+implementation. Normal Explore details show only the authored package version.
+
+Import stages and validates exact incoming bytes, then installs new identities or
+atomically upgrades higher releases. Identical version/content is a no-op retaining
+installed bytes. Downgrades and equal-version/different-content conflicts refuse;
+publish changed content with a higher release. Renamed updates resolve by stable
+identity and keep the installed filename. Ambiguous duplicate owners refuse;
+bundled ownership wins and cannot be shadowed by community imports. Failed
+admission/publication preserves existing installed data. Directly dropped ambiguous
+community duplicates are reported and excluded instead of selecting a release.
+Current-contract metadata from an incompatible installed Places target can be
+read solely for update comparison; a higher compatible release can replace it.
+This metadata read never admits the old world for play or converts an old format.
+
+Release edits participate in complete compiler currency but are stripped from
+the lighting-stage input. A version-only refresh repacks metadata and reuses
+eligible verified preparation, including non-entry members, rather than rebaking.
+Automatic target changes also invalidate complete currency; reuse across game/code
+changes still requires the existing strict preparation identity checks.
+
+`schema: "places-map"` and `package_format: 2` identify the one accepted
 package schema. The authored semantics require `schema: "places-level"` and
 `format_version: 1`. These mandatory schema markers distinguish this deliberate
 pre-release reset from historical files that also carried numeric revision 1.
@@ -903,13 +948,14 @@ Complete project/multi-level packaging remains stage 7; see [SCRIPTING.md](SCRIP
 ## Complete project packages (stage 7)
 
 A project archive uses `project.json` instead of a root single-map manifest, with
-schema `places-project-package` and `package_format: 1`. It carries ordered project
+schema `places-project-package` and `package_format: 3`. It carries ordered project
 membership and the entry-level ID, maps each ordinary per-level record name to a
 shared `blobs/<sha256>.record`, and indexes exact editable-source files separately.
 The reader validates this outer namespace before selecting one virtual ordinary
 package. It then runs the same manifest, dependency and prepared-record decoders.
 No inactive level is eagerly loaded, and no sources are extracted while playing.
-Older players lacking this schema refuse the archive; no existing revision changed.
+Older players refuse the archive. Every member's release metadata is admitted
+before selecting a map; inactive semantic/world payloads remain unloaded.
 
 Full import validates every record hash plus every level’s semantic/script/source
 contract. `places-compile validate` also decodes all prepared records. Editable

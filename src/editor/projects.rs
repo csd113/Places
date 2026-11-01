@@ -16,6 +16,7 @@ pub(super) enum Field {
     LevelTitle,
     Name,
     Author,
+    Version,
     Description,
     Thumbnail,
     AddLevel,
@@ -37,6 +38,7 @@ impl Field {
             Self::Name => Ok("name"),
             Self::LevelTitle => Ok("display_name"),
             Self::Author => Ok("author"),
+            Self::Version => Ok("package_version"),
             Self::Description => Ok("description"),
             Self::Thumbnail
             | Self::AddLevel
@@ -48,11 +50,37 @@ impl Field {
         }
     }
 
+    fn value(self, doc: &super::document::Document) -> String {
+        match self {
+            Self::Name => doc.manifest().name.clone(),
+            Self::LevelTitle => doc
+                .manifest()
+                .level(Some(doc.level_id()))
+                .map(|record| record.display_name.clone())
+                .unwrap_or_default(),
+            Self::Author => doc.manifest().author.clone(),
+            Self::Version => doc.manifest().package_version.to_string(),
+            Self::Description => doc.manifest().description.clone(),
+            Self::Export => doc
+                .root()
+                .join(format!("{}.placesmap", doc.manifest().id))
+                .display()
+                .to_string(),
+            Self::Transitions => doc.level().transitions.join(", "),
+            Self::Thumbnail
+            | Self::AddLevel
+            | Self::Import
+            | Self::ImportJson
+            | Self::Destination => String::new(),
+        }
+    }
+
     const fn label(self) -> &'static str {
         match self {
             Self::Name => "Project name",
             Self::LevelTitle => "Selected map menu title (blank uses stable ID)",
             Self::Author => "Author",
+            Self::Version => "Package release version (major.minor.patch)",
             Self::Description => "Description",
             Self::Thumbnail => "Selected level thumbnail: existing PNG file path",
             Self::AddLevel => "New level stable ID (lowercase letters, digits, _ or -)",
@@ -214,8 +242,9 @@ fn draw_project(app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mu
         ui::text(
             v,
             &format!(
-                "{} | {} level(s) | entry: {}",
+                "{} v{} | {} level(s) | entry: {}",
                 doc.manifest().id,
+                doc.manifest().package_version,
                 doc.manifest().levels.len(),
                 doc.manifest().entry_level
             ),
@@ -231,6 +260,7 @@ fn draw_project(app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mu
             ("Level menu image >", Field::Thumbnail),
             ("Add level", Field::AddLevel),
             ("Selected map title", Field::LevelTitle),
+            ("Package version", Field::Version),
         ]
         .into_iter()
         .enumerate()
@@ -240,7 +270,7 @@ fn draw_project(app: &App, v: &mut Vec<crate::engine::render::Vertex>, hits: &mu
                 hits,
                 [
                     30.0,
-                    f32::from(u16::try_from(row).unwrap_or(0)).mul_add(15.0, 67.0),
+                    f32::from(u16::try_from(row).unwrap_or(0)).mul_add(13.0, 67.0),
                     190.0,
                     13.0,
                 ],
@@ -424,27 +454,7 @@ impl App {
                 let value = self
                     .document
                     .as_ref()
-                    .map_or_else(String::new, |doc| match field {
-                        Field::Name => doc.manifest().name.clone(),
-                        Field::LevelTitle => doc
-                            .manifest()
-                            .level(Some(doc.level_id()))
-                            .map(|record| record.display_name.clone())
-                            .unwrap_or_default(),
-                        Field::Author => doc.manifest().author.clone(),
-                        Field::Description => doc.manifest().description.clone(),
-                        Field::Export => doc
-                            .root()
-                            .join(format!("{}.placesmap", doc.manifest().id))
-                            .display()
-                            .to_string(),
-                        Field::Transitions => doc.level().transitions.join(", "),
-                        Field::Thumbnail
-                        | Field::AddLevel
-                        | Field::Import
-                        | Field::ImportJson
-                        | Field::Destination => String::new(),
-                    });
+                    .map_or_else(String::new, |doc| field.value(doc));
                 self.popup = Some(Popup::ProjectText { field, value });
             }
             Action::ProjectApply => self.apply_project_text()?,
@@ -546,7 +556,11 @@ impl App {
         self.save()?;
         let doc = self.document.as_mut().ok_or("Open a project first")?;
         match field {
-            Field::Name | Field::Author | Field::Description | Field::LevelTitle => {
+            Field::Name
+            | Field::Author
+            | Field::Description
+            | Field::LevelTitle
+            | Field::Version => {
                 doc.update_manifest(field.metadata_key()?, &value)?;
             }
             Field::Transitions => {

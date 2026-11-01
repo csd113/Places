@@ -58,10 +58,36 @@ impl Drop for ImportFixture {
 }
 
 fn write_fixture(path: &Path, id: &str) -> Result<Vec<u8>, String> {
+    write_release_fixture(path, id, "1.0.0", id)
+}
+
+fn write_release_fixture(
+    path: &Path,
+    id: &str,
+    version: &str,
+    name: &str,
+) -> Result<Vec<u8>, String> {
+    write_target_fixture(
+        path,
+        id,
+        version,
+        name,
+        crate::engine::package::release::PLACES_VERSION,
+    )
+}
+
+fn write_target_fixture(
+    path: &Path,
+    id: &str,
+    version: &str,
+    name: &str,
+    target: &str,
+) -> Result<Vec<u8>, String> {
     let semantics = serde_json::to_vec(&serde_json::json!({
         "schema": "places-level", "format_version": 1_u32,
         "id": id,
-        "name": id,
+        "name": name,
+        "package_version": version,
         "spawn": {"x": 0_u32, "z": 0_u32}
     }))
     .map_err(|error| error.to_string())?;
@@ -92,7 +118,10 @@ fn write_fixture(path: &Path, id: &str) -> Result<Vec<u8>, String> {
         schema: crate::engine::package::PACKAGE_SCHEMA.to_string(),
         package_format: FORMAT_VERSION,
         id: id.to_owned(),
-        name: id.to_owned(),
+        package_id: id.to_owned(),
+        package_version: version.to_string().try_into()?,
+        places_version: target.into(),
+        name: name.to_owned(),
         author: String::new(),
         created_by: String::new(),
         compiler_fingerprint: String::new(),
@@ -210,9 +239,10 @@ fn import_failure_preserves_destination_and_cleans_only_owned_temporary() -> Res
     );
     let duplicate = fixture.path("source")?.join("different-name.placesmap");
     let _duplicate_bytes = write_fixture(&duplicate, "original")?;
-    assert!(
-        manager.import_file(&duplicate).is_err(),
-        "duplicate ids cannot create hidden rows"
+    assert_eq!(
+        manager.import_file(&duplicate)?.path,
+        installed,
+        "an identical renamed import resolves the installed stable ID without a second copy"
     );
     let collision = fixture.path("source")?.join("MAP.placesmap");
     let _case_bytes = write_fixture(&collision, "other")?;
@@ -233,6 +263,168 @@ fn import_failure_preserves_destination_and_cleans_only_owned_temporary() -> Res
     assert!(
         !levels.join("map.placesmap.partial-1").exists(),
         "publication failure must also remove the owned temporary"
+    );
+    Ok(())
+}
+
+// Protects real disk update admission, renamed stable-ID resolution, canonical
+// repack identity and refusal preservation. Unique value: descriptor arithmetic
+// alone cannot detect publication mistakes. A few KiB, no world bake or GPU.
+#[test]
+fn release_updates_are_numeric_atomic_idempotent_and_preserve_rejected_bytes() -> Result<(), String>
+{
+    use crate::engine::package::release;
+    let fixture = ImportFixture::new()?;
+    let source = fixture.path("source")?.join("first.placesmap");
+    let original = write_release_fixture(&source, "releases", "1.9.0", "First")?;
+    let mut manager = fixture.manager()?;
+    let installed = manager.import_file(&source)?.path;
+    let renamed = fixture.path("source")?.join("renamed.placesmap");
+    let upgrade = write_release_fixture(&renamed, "releases", "1.10.0", "Next")?;
+    assert_eq!(
+        manager.import_file(&renamed)?.path,
+        installed,
+        "renamed upgrades keep one stable installed location"
+    );
+    assert_eq!(
+        fs::read(&installed).map_err(|error| error.to_string())?,
+        upgrade
+    );
+    assert!(!fixture.path("levels")?.join("renamed.placesmap").exists());
+
+    let descriptor = release::inspect(&installed)?;
+    let repacked = stored_repack(&upgrade, false)?;
+    assert_ne!(repacked, upgrade, "fixture must change ZIP transport");
+    fs::write(&renamed, repacked).map_err(|error| error.to_string())?;
+    assert_eq!(
+        release::inspect(&renamed)?,
+        descriptor,
+        "compression and archive order cannot create a new logical release"
+    );
+    let _entry = manager.import_file(&renamed)?;
+    assert_eq!(
+        fs::read(&installed).map_err(|error| error.to_string())?,
+        upgrade,
+        "equal content is a no-op retaining installed transport bytes"
+    );
+    check_corrupt_noop(&mut manager, &installed, &renamed, &upgrade)?;
+    fs::write(&renamed, original).map_err(|error| error.to_string())?;
+    assert!(
+        manager.import_file(&renamed).is_err(),
+        "downgrade must refuse"
+    );
+    let _conflict = write_release_fixture(&renamed, "releases", "1.10.0", "Conflicting")?;
+    assert!(
+        manager.import_file(&renamed).is_err(),
+        "same release/different hash must refuse"
+    );
+    assert_eq!(
+        fs::read(&installed).map_err(|error| error.to_string())?,
+        upgrade,
+        "all failed admission keeps installed bytes"
+    );
+    check_older_target_update(&mut manager, &installed, &renamed)?;
+    fs::write(&installed, &upgrade).map_err(|error| error.to_string())?;
+    let duplicate = fixture.path("levels")?.join("duplicate.placesmap");
+    fs::write(&duplicate, &upgrade).map_err(|error| error.to_string())?;
+    manager.refresh();
+    assert!(
+        manager.entries().is_empty(),
+        "ambiguous installed releases cannot silently load"
+    );
+    assert!(
+        manager.import_file(&renamed).is_err(),
+        "duplicate owners cannot update"
+    );
+    fs::remove_file(duplicate).map_err(|error| error.to_string())?;
+    let bundled = fixture.path("bundled")?.join("official.placesmap");
+    let _bundled = write_release_fixture(&bundled, "releases", "1.0.0", "Bundled")?;
+    manager.refresh();
+    assert!(
+        manager
+            .entries()
+            .iter()
+            .all(|entry| entry.source_type == crate::engine::loader::LevelSourceType::Bundled)
+    );
+    assert!(
+        manager.import_file(&renamed).is_err(),
+        "bundled ownership cannot be shadowed"
+    );
+    assert_eq!(
+        fs::read(installed).map_err(|error| error.to_string())?,
+        upgrade
+    );
+    Ok(())
+}
+
+fn stored_repack(bytes: &[u8], corrupt: bool) -> Result<Vec<u8>, String> {
+    use crate::engine::package::PackageReader;
+    use std::io::Write as _;
+    let mut reader =
+        PackageReader::new(std::io::Cursor::new(bytes)).map_err(|error| error.to_string())?;
+    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    for name in reader.names().to_vec().into_iter().rev() {
+        writer
+            .start_file(
+                &name,
+                zip::write::SimpleFileOptions::default()
+                    .compression_method(zip::CompressionMethod::Stored),
+            )
+            .map_err(|error| error.to_string())?;
+        let mut data = reader.read_entry(&name, 65536)?;
+        if corrupt && name == "mesh.bin" {
+            data.push(1);
+        }
+        writer.write_all(&data).map_err(|error| error.to_string())?;
+    }
+    let result = writer
+        .finish()
+        .map_err(|error| error.to_string())?
+        .into_inner();
+    Ok(result)
+}
+
+fn check_corrupt_noop(
+    manager: &mut LevelManager,
+    installed: &Path,
+    source: &Path,
+    valid: &[u8],
+) -> Result<(), String> {
+    let corrupt = stored_repack(valid, true)?;
+    fs::write(installed, &corrupt).map_err(|error| error.to_string())?;
+    assert!(
+        manager.import_file(source).is_err(),
+        "an identical manifest cannot conceal corrupted installed payloads"
+    );
+    assert_eq!(
+        fs::read(installed).map_err(|error| error.to_string())?,
+        corrupt,
+        "refusal preserves corrupt evidence"
+    );
+    fs::write(installed, valid).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn check_older_target_update(
+    manager: &mut LevelManager,
+    installed: &Path,
+    source: &Path,
+) -> Result<(), String> {
+    let _old_target = write_target_fixture(installed, "releases", "1.10.0", "Next", "0.13.0")?;
+    manager.refresh();
+    assert!(
+        manager.entries().is_empty(),
+        "an older game target cannot play"
+    );
+    let incoming = write_release_fixture(source, "releases", "1.11.0", "Current game")?;
+    assert_eq!(
+        manager.import_file(source)?.path,
+        installed,
+        "current-contract metadata still resolves incompatible installed targets for update"
+    );
+    assert_eq!(
+        fs::read(installed).map_err(|error| error.to_string())?,
+        incoming
     );
     Ok(())
 }

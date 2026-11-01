@@ -4240,3 +4240,91 @@ passed 35 sampled checks: a normal BLUE throw produced nine miniature ragdolls;
 reset removed miniatures and restored the normal rack and zero-velocity ball.
 Repeated-reset completion was a first-throw strike; a completed spare sequence
 was not observed. The final receipt distinguishes this from older nine-pin play.
+
+## Independent package releases and Places compatibility (November 1)
+
+Level distributions now have an authored numeric `package_version`, independent
+of the application, archive format, compiler currency and integrity identities.
+Canonical `major.minor.patch` components are checked u32 values; editable sources
+default to `1.0.0`. Project > Package version validates and atomically saves this
+metadata. A complete project owns one release, while members retain their stable
+level IDs and carry the project ID/version context. Standalone maps own their
+release; ordinary selected-member builds retain their project/member scope.
+No maintained authored map or visual asset was changed for this feature.
+
+The compiler automatically stamps authoritative `places_version` from Cargo,
+currently `0.13.1`. Pre-release loading requires an exact application-version
+match plus the existing schema, capability and record checks. Ordinary package
+format is now 2 and project-package format is 3. Missing metadata and old compiled
+contracts require explicit recompilation; editable sources keep their data and
+defaults. Outer/member disagreement, including inactive members, is checked before
+world preparation. Diagnostics name incompatible game targets. Explore's About
+panel shows the authored package version; the internal game stamp stays in
+inspection/diagnostics.
+
+Typed inspect descriptors expose stable package/member scope, release, game target
+and the existing canonical manifest identity (or canonical complete project index
+identity). ZIP compression/order do not define logical identity. Import stages
+and validates exact bytes, installs new identities, leaves verified identical
+releases unchanged and atomically publishes higher releases. It refuses downgrades,
+equal-version content conflicts, corrupt no-op candidates and ambiguous ownership.
+Incoming renames resolve to the existing installed filename. Complete conflicting
+community paths are excluded during discovery, preserving bundled ownership and
+preventing partial hidden-member mixtures. Current-contract metadata from an
+incompatible installed target can be inspected solely for safe update comparison;
+this never admits that world for play. No server browser/networking was added.
+
+Version metadata participates in complete compiler currency but is excluded from
+the reusable lighting-stage input. Metadata-only builds refresh package/source
+provenance while retaining eligible verified preparation. Member currency, seed,
+spool and source recovery paths retain the same release context.
+
+Private Windows evidence is retained in the task-3 `evidence/` bundle, including
+`gates/`, `native/`, `runtime-payload.json`, `source-freeze.json` and the preserved
+`runnable/` tools. Final validation:
+
+- Format, locked all-target/all-feature check, strict debug and release Clippy,
+  and locked release workspace/all-feature build passed. The final build ran
+  November 1 at 20:42:44 UTC and exited 0 after 633.35 seconds. All 615 recorded
+  source inputs remained unchanged through acceptance.
+- Retained Rust suite: 419 Windows passes, zero failures/ignored. Three bounded
+  release/admission regressions and existing small editor/import fixtures protect
+  numeric ordering, missing/malformed metadata, exact targets, inactive mismatch,
+  canonical repacking, version-only lighting keys, atomic updates, downgrade/
+  conflict/corruption preservation, rename resolution and whole-package ownership.
+  They add no map bake, GPU or broad fixture sweep to ordinary Rust CI.
+- Python source suite: 373 discovered, 18 intentional skips, successful final run
+  with `PLACES_SKIP_SMOKE=1`. An initial missing-`sh` environment failure was resolved
+  by exposing the already installed Git shell to that test process. The final
+  release compiler also passed 11 bounded Luau refusals without baking a map.
+- Actual release executables exported, validated, inspected and imported a tiny
+  two-room project at 1.9.0, then upgraded it to 1.10.0 through an incoming rename.
+  Both entry and non-entry currency reports became `refresh` with valid integrity
+  and no required bake. Both reused prepared world records with identical payload
+  identities. No-op, downgrade, equal-release conflict, incoherent metadata and a
+  coherent Places 999.0.0 target were checked with installed-byte preservation.
+  Exact editable recovery retained the release and unknown source data. An
+  independent standalone build retained its authored 7.0.0 release and automatic
+  Places 0.13.1 target.
+- Both members loaded and rendered through native DX12 using Static preparation.
+  A real Explore details capture shows package version 1.10.0 without the internal
+  target. The first native attempt correctly reported missing DXC runtime DLLs;
+  matching existing DXC/DXIL and installed SDL3 payloads were restored before
+  successful fresh captures. Binary/runtime hashes and excluded attempts remain
+  in evidence. These 1920x1080 Fifo functional checks make no FPS claim.
+
+Native editor launch, rendered viewport and Project keyboard focus were captured
+through its existing F12 path. Visual acceptance of the open Project modal and
+manual version entry remains unverified: the Windows window-capture helper timed
+out after recovery, and F12 is unavailable inside that modal. Document-level
+version save/reopen and invalid-entry preservation passed the retained regression;
+the native editor session left its isolated sources unchanged.
+
+The preserved menu asset remains SHA256
+`93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.
+Old compiled distributions, including that preserved menu package, require explicit
+re-export before pairing with this contract. Native acceptance selected the tiny
+fixture directly. No Full solve or complete shipped-package refresh was run;
+that remains deferred to final/main-stage acceptance. Prior evidence/private
+deliverables remain untouched. Publication/custody details live in the private
+handoff receipt; no main push, tag or release publication is included.

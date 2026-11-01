@@ -383,6 +383,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
             &build_inputs,
             &dependencies,
             &request.variants,
+            (&snapshot.package_id, snapshot.package_version),
         )
     };
     if let Ok(reason) = current.as_ref() {
@@ -859,6 +860,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         schema: crate::engine::package::PACKAGE_SCHEMA.to_string(),
         package_format: FORMAT_VERSION,
         id: level.id.clone(),
+        package_id: snapshot.package_id,
+        package_version: snapshot.package_version,
+        places_version: crate::engine::package::release::PLACES_VERSION.into(),
         name: level.name.clone(),
         author: level.author.clone(),
         created_by: COMPILER_NAME.to_string(),
@@ -1124,6 +1128,11 @@ pub fn verify_selected(
         &variants,
         &current_fingerprint,
     ));
+    if manifest.package_id != snapshot.package_id
+        || manifest.package_version != snapshot.package_version
+    {
+        differences.push("package release metadata differs from authored source".into());
+    }
     let integrity = verify_declared_entries(package, &manifest);
     let integrity_valid = integrity.is_ok() && warnings_absent(&differences);
     if let Err(error) = integrity {
@@ -2580,6 +2589,7 @@ pub(crate) fn lighting_fingerprint_with_revision(
     }
     stripped.name.clear();
     stripped.author.clear();
+    stripped.package_version = crate::engine::package::release::ReleaseVersion::default();
     stripped.requires_full_lighting = false;
     for light in &mut stripped.global_illuminators {
         light.visual = None;
@@ -2934,11 +2944,17 @@ fn reuse_current(
     inputs: &BuildInputs,
     dependencies: &[PackageDependency],
     variants: &[LightmapQuality],
+    release: (&str, crate::engine::package::release::ReleaseVersion),
 ) -> Result<String, Vec<String>> {
     if !out.exists() {
         return Err(vec!["no previous package".to_string()]);
     }
     let manifest = inspect(out).map_err(|error| vec![error])?;
+    if manifest.package_id != release.0 || manifest.package_version != release.1 {
+        return Err(vec![
+            "package release metadata differs from authored source".into(),
+        ]);
+    }
     let differences =
         package_input_differences(out, &manifest, inputs, dependencies, variants, fingerprint);
     if !differences.is_empty() {
