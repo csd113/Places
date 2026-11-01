@@ -4,6 +4,7 @@ mod camera;
 mod overlay;
 mod picking;
 pub(super) mod preview;
+mod test_runtime;
 
 use std::time::Instant;
 
@@ -50,6 +51,7 @@ enum PipelineReadiness {
 }
 
 pub(super) struct Viewport {
+    testing: test_runtime::Testing,
     layout: super::layout::Layout,
     focus: super::focus::Focus,
     identity_map: Vec<(ObjectId, ObjectId)>,
@@ -107,6 +109,7 @@ impl Viewport {
         }
         let (width, height) = window.size_in_pixels();
         Ok(Self {
+            testing: test_runtime::Testing::default(),
             layout: super::layout::Layout::for_window(window),
             focus: super::focus::Focus::default(),
             identity_map: Vec::new(),
@@ -477,7 +480,9 @@ impl Viewport {
         &self.preview_metrics
     }
 
-    fn start_preview(&mut self, preview: preview::PreparedPreview) -> bool {
+    fn start_preview(&mut self, mut preview: preview::PreparedPreview) -> bool {
+        let is_test = preview.test.is_some();
+        self.testing.pending = preview.test.take().map(Box::new);
         self.renderer
             .set_lightmap_quality(if preview.build.lightmaps.is_some() {
                 LightmapQuality::Full
@@ -515,20 +520,24 @@ impl Viewport {
         self.play_mesh = Some(std::sync::Arc::clone(&preview.build.mesh));
         self.play_floor = crate::engine::level::WalkableFloor::from_level(&preview.loaded.level);
         self.play_doors = crate::engine::door::Doors::from_level(&preview.loaded.level).colliders();
-        self.pending_objects = Some(
-            preview
-                .objects
-                .into_iter()
-                .filter_map(|mut object| {
-                    object.id = self
-                        .identity_map
-                        .iter()
-                        .find(|(filtered, _)| *filtered == object.id)?
-                        .1;
-                    Some(object)
-                })
-                .collect(),
-        );
+        self.pending_objects = if is_test {
+            None
+        } else {
+            Some(
+                preview
+                    .objects
+                    .into_iter()
+                    .filter_map(|mut object| {
+                        object.id = self
+                            .identity_map
+                            .iter()
+                            .find(|(filtered, _)| *filtered == object.id)?
+                            .1;
+                        Some(object)
+                    })
+                    .collect(),
+            )
+        };
         self.upload_samples.clear();
         self.renderer.install_prepared_precompiled(
             &preview.loaded,
@@ -572,7 +581,12 @@ impl Viewport {
             .is_none_or(|preview| self.start_preview(preview))
     }
 
-    pub fn draw(&mut self, window: &Window, ui: &[Vertex]) -> bool {
+    pub fn draw(
+        &mut self,
+        window: &Window,
+        ui: &[Vertex],
+        audio: &mut crate::engine::audio::AudioSystem,
+    ) -> bool {
         let (width, height) = window.size_in_pixels();
         self.size = DrawableSize::new(width, height);
         self.window_size = window.size();
@@ -581,6 +595,49 @@ impl Viewport {
         if !self.poll_preview() {
             return false;
         }
+        self.advance_upload();
+        let now = Instant::now();
+        let delta = now.duration_since(self.last_frame).as_secs_f32().min(0.05);
+        self.last_frame = now;
+        self.advance_test(delta, audio);
+        if let Some(session) = &self.testing.session {
+            self.renderer.render_scene(session.camera());
+            self.renderer.render_ui(ui);
+            return self.renderer.present(window);
+        }
+        self.advance_camera(delta);
+        self.renderer.render_scene(self.camera.render_camera());
+        let mut guides = overlay::Guides::new(
+            self.camera.matrix(self.size),
+            self.size,
+            self.layout.viewport(),
+        );
+        if self.show_grid {
+            guides.grid(self.camera.target);
+        }
+        guides.navigation(
+            &self.navigation_coverage,
+            &self.navigation_route,
+            self.navigation_start,
+            self.navigation_goal,
+        );
+        for guide in &self.volume_guides {
+            guides.volume(guide);
+        }
+        if let Some(bounds) = self.selected_bounds() {
+            guides.selection(bounds);
+        }
+        self.draw_handles(&mut guides);
+        if let Some(bounds) = self.highlight_bounds {
+            guides.diagnostic(bounds, &self.highlight_surfaces);
+        }
+        let mut vertices = guides.finish();
+        vertices.extend_from_slice(ui);
+        self.renderer.render_ui(&vertices);
+        self.renderer.present(window)
+    }
+
+    fn advance_upload(&mut self) {
         if self.uploading {
             let upload_started = Instant::now();
             let finished = self.renderer.advance_prepared_install();
@@ -635,39 +692,6 @@ impl Viewport {
                 }
             }
         }
-        let now = Instant::now();
-        let delta = now.duration_since(self.last_frame).as_secs_f32().min(0.05);
-        self.last_frame = now;
-        self.advance_camera(delta);
-        self.renderer.render_scene(self.camera.render_camera());
-        let mut guides = overlay::Guides::new(
-            self.camera.matrix(self.size),
-            self.size,
-            self.layout.viewport(),
-        );
-        if self.show_grid {
-            guides.grid(self.camera.target);
-        }
-        guides.navigation(
-            &self.navigation_coverage,
-            &self.navigation_route,
-            self.navigation_start,
-            self.navigation_goal,
-        );
-        for guide in &self.volume_guides {
-            guides.volume(guide);
-        }
-        if let Some(bounds) = self.selected_bounds() {
-            guides.selection(bounds);
-        }
-        self.draw_handles(&mut guides);
-        if let Some(bounds) = self.highlight_bounds {
-            guides.diagnostic(bounds, &self.highlight_surfaces);
-        }
-        let mut vertices = guides.finish();
-        vertices.extend_from_slice(ui);
-        self.renderer.render_ui(&vertices);
-        self.renderer.present(window)
     }
 
     fn draw_handles(&self, guides: &mut overlay::Guides) {

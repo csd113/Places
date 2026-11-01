@@ -6,7 +6,7 @@ mod authoring_trace;
 mod carry_runtime;
 mod checkpoints;
 mod console_input;
-mod flashlight;
+pub(super) mod flashlight;
 mod item_input;
 mod item_runtime;
 mod loading;

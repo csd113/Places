@@ -26,7 +26,7 @@ pub(in crate::editor) fn draw_grid(
     choice: Option<GameplayChoice>,
 ) {
     let page_size = app.browser_page_size();
-    rect(v, [116.0, 43.0, 354.0, 197.0], [0.075, 0.11, 0.14, 1.0]);
+    rect(v, [116.0, 43.0, 354.0, 197.0], super::PANEL);
     text(
         v,
         &crate::game::ui::fit_text(&format!("Search: {}_", app.browser.query), 170.0, 0.5),

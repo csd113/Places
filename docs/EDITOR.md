@@ -1,8 +1,9 @@
 # Native editor authoring and safety (0.13.1 development)
 
-Run `places-editor` beside `places-compile` and `places`, with the external
-`assets/` payload described in [INSTALLATION.md](INSTALLATION.md). No map bake is
-required to compile any application.
+Run `places-editor` with the external `assets/` payload described in
+[INSTALLATION.md](INSTALLATION.md). First-person quick testing runs entirely
+inside the editor. Keep `places-compile` beside it for final builds and use
+`places` to check exported projects. No map bake is required to compile an application.
 
 ```sh
 /path/to/places-editor /path/to/project
@@ -30,8 +31,8 @@ The starter contains a six-metre room and a built-in light.
 | Grid / Snap / Step | Show metre grid, enable snapping, cycle transform step |
 | Cmd/Ctrl S, Z, Shift Z (or Y), D | Save, undo, redo, duplicate |
 | Delete / Backspace | Delete, provided semantic references remain valid |
-| Cmd/Ctrl N, O, B, P | New, open, save+build, build+play |
-| Esc | Cancel numeric entry or close a popup |
+| Cmd/Ctrl N, O, B, P | New, open, final build, first-person test in editor |
+| Esc | Return from testing, cancel placement/numeric entry, or close a popup |
 | Tab / Shift Tab, Enter | Focus next/previous visible control, activate focused control |
 
 Click a value, use Cmd/Ctrl A to clear it, Enter to apply, Esc to cancel.
@@ -42,8 +43,7 @@ Prop Y is relative to the room base; all scale fields change uniform scale. Prop
 chooses the next built-in model; Material assigns a surface/wall material. Scroll
 the scene list independently. The shared renderer applies compiler trim/fixture preparation, hides ceiling faces when viewed from above and shows their textured underside
 when looking up from inside. The real ceiling mesh, collision, bake and exported
-world remain intact. Inspect uses neutral light; Play shows authored lighting
-and dynamic behavior.
+world remain intact. Inspect uses neutral light; Authored view previews the environment. Test in editor runs gameplay with approximate unbaked lighting.
 
 Save validates the raw authoritative scene and uses an owned sibling temporary
 plus atomic rename. Unknown fields remain intact; the manifest remains byte-for-byte during scene saves. Explicit Project metadata operations save edits first and atomically publish the changed manifest.
@@ -53,7 +53,7 @@ and dirty states survive switching. Close/New/Open with unsaved changes offers
 Save, Discard, Cancel; failed saves retain edits. Save-all preflights visited
 sources; an I/O failure may leave an already saved subset, each atomically.
 
-Save+Build saves all dirty levels and compiles the selected source to its sibling
+Final build saves all dirty levels and compiles the selected source to its sibling
 `.placesmap`. One job runs at a time. Save is unavailable during compilation;
 further edits remain in memory. The footer shows a real **current-pass** progress
 bar, current source, lighting variant and stage. The exact completed/total count
@@ -70,14 +70,47 @@ safe cooperative shutdown with a bounded kill/reap fallback; the job stays activ
 until the compiler is reaped. Failure/cancellation retains the last usable package.
 A selected-level output with project transitions is a prepared member, not a
 standalone runnable distribution. Validate/play it in the complete project through
-Export or Build+Play; other member outputs need not be rebuilt for a stale-row bake.
+Project > Export; other member outputs need not be rebuilt for a stale-row bake.
 Finish/cancel builds or stop play before switching levels/projects or closing.
 
-Build+Play saves and exports the complete project, imports through the direct game executable and launches
-the selected level ID. Authored transitions stay within that package and create fresh runtime state at each destination. Profiles under `cache/editor-play/` isolate each package/level
-from ordinary installed maps/settings and other projects' output filenames. Quit
-the game or click Stop Play to return to editing. Bundled map ID conflicts are
-reported by the existing importer; choose a distinct project level ID.
+The default workspace exposes New Room, Add Wall, Add Door and Add Light beside
+the scene list. Select an object for simple size/position/material edits. Precision
+controls reveal the full inspector; Customize groups geometry, surface grime,
+reuse, scripts, navigation, lighting circuits, layers, safety and project export.
+The brighter slate theme stays dark and uses quiet underlined controls, with the
+primary Test action emphasized.
+
+**Test in editor** (Cmd/Ctrl P) prepares a private snapshot of the current level
+and current unsaved script buffers. It stays in the same native editor window,
+uses the shared player movement, collision, doors, item physics, triggers,
+navigation and script VM, and never runs the game executable, saves source,
+exports a package or solves a lightmap. Here offers the current camera
+(Cmd/Ctrl Shift P) or a visible floor pick; both validate standing height and
+body clearance without changing the authored spawn. Authored spawn testing
+also refuses an obstructed spawn instead of silently moving it.
+
+WASD moves, mouse looks, Space jumps, Ctrl crouches, E uses/picks up/drops,
+left click throws a held item, F toggles the flashlight, and F1 requests authored guidance. Script instructions use a readable paged card: Page Up/Page Down browse and Enter continues. Quick testing queues up to 16 instruction messages; completed outcomes stay visible until Escape. Escape, Stop,
+focus loss and closing discard the temporary simulation and release input/audio.
+Preparation uses the existing single cancellable preview worker and reports its
+stage; Cancel returns safely while obsolete responses are rejected. The scene,
+selection, editor camera and undo history remain authoring state.
+
+Quick lighting is explicitly approximate, including on Full-required levels:
+use Final build to check final indirect light, shadows, reflections and circuit
+illumination. Local lighting preview is a separate optional visual tool and does
+not run gameplay. Final build/export explicitly prepare Static and Full variants
+and keep all production validation and output-currency requirements.
+
+Quick test supports ordinary doors, player item pickup/drop/throw, authored sound
+emitters/actions, scripts, triggers, navigation agents and weather commands.
+Cross-level travel, persistent checkpoints, player forms, ragdolls/mannequin pin
+games, actor carry/use assemblies, complete world reset and automatic HVAC
+ambience require testing the exported project in the player. Encountering these
+operations stops quick testing with a visible diagnostic. Automatic room/pool/
+fluorescent ambience, footsteps and door movement audio are not mirrored in quick
+testing. Authored audio uses the shared spatial/audio engine and is cleared on
+return. Export the complete project through Project for full campaign acceptance.
 
 Compiler `build --events --progress off` emits versioned NDJSON `started`,
 `progress`, `finished` events on stdout. Final outcomes are `success`, `failed`,
@@ -116,7 +149,7 @@ and must not be summed. OS RSS and private commit remain separate measurements.
 Simple mode exposes **New Room**, **Add Wall**, **Add Door** and **Add Light**
 beside the viewport. New Room reuses the adjacent-room draft: Preview and Apply
 accept its room-height defaults, then the gold edge handles stretch it in place.
-Advanced mode retains build, scripts, navigation and precise property sheets.
+Final build is available in both modes. Customize opens scripts and navigation; Precision controls reveals precise property sheets.
 
 **Add Wall**: click the start on a room floor, move the pointer to preview, then
 click the end. The segment follows X or Z and defaults to 0.20m thickness and the
@@ -383,8 +416,7 @@ Export all levels + sources takes an explicit `.placesmap` path. It runs the sam
 compiler/progress/cancellation job slot as ordinary builds, then shares identical
 records by hash and publishes one file. An existing output must belong to this
 project and remain unchanged through compilation. New output, failure and cancel
-paths preserve existing user work. Save+Build still compiles only the selected
-level; a map with transitions needs complete Export/Build+Play for playback.
+paths preserve existing user work. Final build compiles only the selected level; a map with transitions needs complete Export for playback in the player.
 
 `Project >` is available in an empty editor, so recovery needs no dummy project.
 Recover editable project takes a project package and a **new** destination folder.
@@ -726,7 +758,7 @@ instance IDs or changing the package format. Blank/custom scripts remain availab
 
 ## Pillars and automatic trim (0.13.1)
 
-Open **Geometry** (Simple mode: **Rooms / stairs**) and choose **Rectangular
+Open **Customize > Geometry / stairs** and choose **Rectangular
 pillar** or **Circular pillar**. The first sheet edits useful dimensions and
 position. Rectangles use a minimum X/Z corner; circles use their centre and one
 radius. Blank base Y follows the floor and blank height follows the ceiling.
@@ -786,8 +818,7 @@ junction. Production maps are not inputs to ordinary tests.
 
 ## Construction generators (0.13.1)
 
-Simple mode's **More geometry** (or a selected wall's **Build**) opens the same geometry menu as
-Advanced mode. Select a carrier wall for **Wall recess / niche** or
+**Customize > Geometry / stairs** opens the same geometry menu in both modes. Select a carrier wall for **Wall recess / niche** or
 **Door/window surround**. Recess width/height describe the aperture; a fitted
 5 mm liner on each side carries the side material. Depth cuts from the chosen
 north/west or south/east face and must retain at least 5 cm of solid wall.
@@ -890,14 +921,14 @@ late/cancelled workers. Preview errors leave the authoring document intact. Larg
 sources can still exceed whole-scene geometry or local receiver/atlas budgets and report a refusal.
 No partial result is written to a package or LightmapCache, and its ephemeral key
 cannot be presented as a current final export. Repeat or cancel the preview, then
-use normal Build/Play for final quality and actual runtime behavior.
+use Test in editor for quick gameplay with approximate lighting, or Final build/export and the player for final quality and campaign behavior.
 
 
 ### Utility props and HVAC (0.13.1)
 
 Props / scene objects > Static prop (catalog) creates a passive prop; Configure
 opens its model picker. The Backrooms utility kit includes six HVAC modules.
-Select one for Duct joins in Simple mode or Duct in the Advanced inspector.
+Select one for **Customize > Duct joins**, or Duct in the precision inspector.
 Choose a source end and direction or target, preview the framed result, then
 Apply one reversible pose. Green A/pink B guides mark outward end normals.
 Joins require matching scale and preserve rectangular aperture orientation.
@@ -1042,11 +1073,11 @@ The controls remain modular within Reuse. Normal tests never bake a shipped map.
 
 Each level defaults to Gameplay saves: Off in Project. Add to scene > Checkpoint
 volume creates a named amber trigger; ordinary selection/transform, Events/actions,
-undo/save/reopen and Play apply. See [the supported persistence contract](CHECKPOINTS.md).
+undo/save/reopen apply. Persistent checkpoint playback requires a final exported project in the player. See [the supported persistence contract](CHECKPOINTS.md).
 
 ## Spawn and test here
 
-The **Here** button beside Play is available in Simple and Advanced mode.
+The **Here** button beside Test in editor is available in both control modes.
 Choose **From camera** (Cmd/Ctrl Shift P) to retain the editor camera's actual
 eye, yaw and clamped pitch. The camera must have standing clearance and be
 within one walking step of standing height above a real floor. Choose
@@ -1054,10 +1085,10 @@ within one walking step of standing height above a real floor. Choose
 direction. Esc cancels the picker. Walls, doors, fixtures and props block floor
 picks; points in voids or without standing clearance report a reason.
 
-Play here follows the usual save and complete-project export. It never writes
-the temporary pose into the level's player spawn, selection or undo history.
-A project/level switch, edit, cancel or failure discards the queued launch.
-Play here profiles live in a separate `play-here` directory under the normal
-package/level test profile, so its checkpoints cannot affect normal Play. The
-pose is applied once at fresh startup. Explicit checkpoint Resume, graphics
-reloads and later level transitions retain their normal position rules.
+Here uses the same private embedded session as Test in editor, without saving,
+exporting, launching another player or baking lightmaps. It never writes the
+temporary pose into the level's player spawn, selection or undo history.
+Stop/Escape, focus loss, close, cancellation and failure discard temporary state.
+Each entry creates a fresh simulation; persistent checkpoints and cross-level
+travel require testing the final exported project in the player. The Here sheet
+lists the remaining scope limits, and the runtime HUD labels approximate lighting.

@@ -10,6 +10,14 @@ pub(super) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     button(
         v,
         hits,
+        [65.0, 39.0, 42.0, 10.0],
+        "< Build",
+        Action::Navigation,
+        true,
+    );
+    button(
+        v,
+        hits,
         [5.0, 52.0, 102.0, 11.0],
         if nav.is_baking() {
             "Baking current source..."
@@ -172,7 +180,7 @@ fn coverage(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         29,
     );
     text(v, "Tint=region / red=blocked", 5.0, 201.0, MUTED, 29);
-    text(v, "Moving props: verify in Play", 5.0, 211.0, MUTED, 29);
+    text(v, "Moving props: verify in Test", 5.0, 211.0, MUTED, 29);
     button(
         v,
         hits,

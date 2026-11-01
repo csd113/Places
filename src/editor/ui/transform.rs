@@ -11,7 +11,7 @@ pub(in crate::editor) fn draw(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec
         return;
     }
     rect(v, [0.0, 0.0, 480.0, 272.0], [0.0, 0.0, 0.0, 0.6]);
-    rect(v, [116.0, 49.0, 354.0, 184.0], [0.075, 0.11, 0.14, 1.0]);
+    rect(v, [116.0, 49.0, 354.0, 184.0], super::PANEL);
     text(v, "COMPLETE TRANSFORM", 126.0, 58.0, ACCENT, 75);
     text(
         v,
@@ -100,7 +100,7 @@ pub(in crate::editor) fn draw(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec
 }
 
 fn draw_preview(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
-    rect(v, [122.0, 207.0, 348.0, 31.0], [0.075, 0.11, 0.14, 1.0]);
+    rect(v, [122.0, 207.0, 348.0, 31.0], super::PANEL);
     text(
         v,
         "POSE PREVIEW / source unchanged",

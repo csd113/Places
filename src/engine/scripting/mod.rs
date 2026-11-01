@@ -344,6 +344,7 @@ pub struct ScriptRuntime {
     sources: Vec<ScriptSource>,
     modules: Vec<Module>,
     diagnostics: Vec<String>,
+    admission_failed: bool,
     points: BTreeSet<String>,
     groups: BTreeSet<String>,
     calls: usize,
@@ -355,7 +356,10 @@ impl ScriptRuntime {
     #[must_use]
     pub fn new(level: &LevelDef) -> Self {
         if let Err(problem) = validate_sources(level) {
-            let mut invalid = Self::default();
+            let mut invalid = Self {
+                admission_failed: true,
+                ..Self::default()
+            };
             invalid.note(problem);
             return invalid;
         }
@@ -385,15 +389,20 @@ impl ScriptRuntime {
     pub fn reload(&mut self) {
         self.modules.clear();
         self.diagnostics.clear();
+        self.admission_failed = false;
         self.begin_tick();
         if self.sources.len() > MAX_MODULES {
+            self.admission_failed = true;
             self.note("Luau module budget exceeded".into());
             return;
         }
         for source in self.sources.clone() {
             match Module::load(&source) {
                 Ok(module) => self.modules.push(module),
-                Err(problem) => self.note(diagnostic(source.path.as_str(), "load", &problem)),
+                Err(problem) => {
+                    self.admission_failed = true;
+                    self.note(diagnostic(source.path.as_str(), "load", &problem));
+                }
             }
         }
     }
@@ -415,6 +424,13 @@ impl ScriptRuntime {
         self.modules.iter().any(|module| !module.disabled)
     }
 
+    /// True after rejected module admission or a VM failure disabled a module.
+    /// Informational host notices remain diagnostics without becoming failures.
+    #[must_use]
+    pub fn has_failures(&self) -> bool {
+        self.admission_failed || self.modules.iter().any(|module| module.disabled)
+    }
+
     #[must_use]
     pub fn diagnostics(&self) -> &[String] {
         &self.diagnostics
@@ -432,6 +448,7 @@ impl ScriptRuntime {
         delta: f32,
     ) -> Vec<ActionDef> {
         let Some(index) = self.modules.iter().position(|module| module.path == *path) else {
+            self.admission_failed = true;
             self.note(format!("{}: script unavailable", path.as_str()));
             return Vec::new();
         };

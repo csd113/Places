@@ -17,6 +17,7 @@ use crate::engine::props::PropAssets;
 use crate::engine::render::{CharacterScene, LevelBuild};
 
 pub(super) struct PreparedPreview {
+    pub test: Option<crate::editor::test_prepare::PreparedTest>,
     pub geometry: crate::engine::render::PreparedGeometry,
     pub loaded: LoadedLevel,
     pub metrics: serde_json::Value,
@@ -32,6 +33,7 @@ struct Request {
     level: LevelDef,
     environment: bool,
     scope: Option<[f32; 4]>,
+    test: bool,
     progress: Arc<Progress>,
     budget: Arc<crate::engine::resources::DecodeBudget>,
     queued: std::time::Instant,
@@ -50,11 +52,19 @@ pub(super) struct PreviewWorker {
     generation: u64,
     accepted_responses: usize,
     stale_responses: usize,
-    pending: Option<(LevelDef, bool, Option<[f32; 4]>, std::time::Instant)>,
+    pending: Option<Pending>,
     pub progress: Arc<Progress>,
     budget: Option<Arc<crate::engine::resources::DecodeBudget>>,
     busy: bool,
     error: Option<String>,
+}
+
+struct Pending {
+    level: LevelDef,
+    environment: bool,
+    scope: Option<[f32; 4]>,
+    test: bool,
+    queued: std::time::Instant,
 }
 
 impl PreviewWorker {
@@ -69,7 +79,7 @@ impl PreviewWorker {
                 let mut textures = TextureCache::default();
                 let mut reuse = reuse::Reuse::default();
                 while let Ok(Some(request)) = request_rx.recv() {
-                    let subscription = if request.scope.is_some() {
+                    let subscription = if request.scope.is_some() || request.test {
                         let reporter: Arc<dyn crate::engine::progress::Reporter> =
                             request.progress.clone();
                         crate::engine::progress::subscribe(reporter).map(Some)
@@ -80,6 +90,13 @@ impl PreviewWorker {
                         crate::engine::resources::enter(Some(Arc::clone(&request.budget)));
                     let queue_wait_ms = request.queued.elapsed().as_secs_f64() * 1_000.0_f64;
                     let mut result = match subscription.as_ref() {
+                        Ok(_) if request.test => prepare_test(
+                            request.level,
+                            &catalog,
+                            &mut assets,
+                            &mut textures,
+                            &mut reuse,
+                        ),
                         Ok(_) => prepare(
                             request.level,
                             request.environment,
@@ -132,6 +149,22 @@ impl PreviewWorker {
     }
 
     pub fn request_scoped(&mut self, level: &LevelDef, environment: bool, scope: Option<[f32; 4]>) {
+        self.enqueue(level, environment, scope, false);
+    }
+
+    /// Prepares the full private authored snapshot on the existing worker.
+    /// Quick tests never inherit editor isolation or local-lighting scope.
+    pub fn request_test(&mut self, level: &LevelDef) {
+        self.enqueue(level, true, None, true);
+    }
+
+    fn enqueue(
+        &mut self,
+        level: &LevelDef,
+        environment: bool,
+        scope: Option<[f32; 4]>,
+        test: bool,
+    ) {
         if let Some(budget) = self.budget.take() {
             budget
                 .cancelled
@@ -144,7 +177,13 @@ impl PreviewWorker {
         self.progress = Arc::new(Progress::new(
             self.budget.as_ref().map(|b| Arc::clone(&b.cancelled)),
         ));
-        self.pending = Some((level.clone(), environment, scope, std::time::Instant::now()));
+        self.pending = Some(Pending {
+            level: level.clone(),
+            environment,
+            scope,
+            test,
+            queued: std::time::Instant::now(),
+        });
         self.error = None;
     }
 
@@ -195,17 +234,18 @@ impl PreviewWorker {
     /// Start the existing bounded CPU request before entering driver work.
     pub fn dispatch_pending(&mut self) {
         if !self.busy
-            && let Some((level, environment, scope, queued)) = self.pending.take()
+            && let Some(pending) = self.pending.take()
         {
             if self
                 .request
                 .send(Some(Request {
                     generation: self.generation,
-                    level,
-                    environment,
-                    scope,
+                    level: pending.level,
+                    environment: pending.environment,
+                    scope: pending.scope,
+                    test: pending.test,
                     progress: Arc::clone(&self.progress),
-                    queued,
+                    queued: pending.queued,
                     budget: self.budget.as_ref().map_or_else(
                         || {
                             crate::engine::resources::DecodeBudget::new(Arc::new(
@@ -268,6 +308,35 @@ impl Drop for PreviewWorker {
             );
         }
     }
+}
+
+fn prepare_test(
+    level: LevelDef,
+    catalog: &PropCatalog,
+    assets: &mut PropAssets,
+    textures: &mut TextureCache,
+    reuse: &mut reuse::Reuse,
+) -> Result<PreparedPreview, String> {
+    let started = std::time::Instant::now();
+    crate::engine::progress::stage("Checking gameplay and scripts");
+    crate::editor::test_prepare::validate(&level, catalog.assets())?;
+    crate::engine::progress::stage("Preparing quick scene / no lighting bake");
+    let mut preview = prepare(level, true, catalog, assets, textures, reuse, None)?;
+    if preview.build.lightmaps.is_some() {
+        return Err("Quick test must not contain a lighting bake".into());
+    }
+    preview.test = Some(crate::editor::test_prepare::PreparedTest::prepare(
+        &preview.loaded,
+        &mut preview.assets,
+    )?);
+    if let Some(metrics) = preview.metrics.as_object_mut() {
+        drop(metrics.insert("quick_test".into(), serde_json::json!(true)));
+        drop(metrics.insert(
+            "quick_prepare_ms".into(),
+            serde_json::json!(started.elapsed().as_secs_f64() * 1_000.0_f64),
+        ));
+    }
+    Ok(preview)
 }
 
 fn prepare(
@@ -362,6 +431,7 @@ fn prepare(
     let cache_metrics = serde_json::Value::Null;
     let metrics = serde_json::json!({"local_preview":scope,"preview_bake_ms":build.lightmap_millis,"preview_charts":build.lightmaps.as_ref().map(|a|a.stats.charts),"preview_texels":build.lightmaps.as_ref().map(|a|a.stats.texels),"worker_thread_cpu_ms":cpu_started.zip(timing::cpu_ms()).map(|(begin,end)|end-begin),"cpu_prepare_ms":started.elapsed().as_secs_f64()*1_000.0_f64,"retained_build_bytes":build.retained_bytes(),"reused_build":reused_build,"reused_props":reused_props,"incremental":reuse.metrics,"source_ms":source_ms,"materials_ms":materials_ms,"lighting_ms":if reused_build {0.0_f64} else {build.timings.lighting_millis},"props_ms":if reused_build {0.0_f64} else {build.timings.props_millis},"surfaces_ms":if reused_build {0.0_f64} else {build.timings.surfaces_millis},"picking_ms":picking_ms,"characters_ms":characters_ms,"geometry_ms":geometry_ms,"caustics_prepare_ms":caustics_ms,"cached_models":stats.models_loaded,"model_geometry_and_skin_bytes":stats.geometry_and_skin_bytes,"model_encoded_input_bytes":stats.encoded_input_bytes,"source_image_cache":cache_metrics,"model_texture_bytes":stats.texture_bytes,"cached_images":textures.len(),"image_decodes":textures.decoded_count()});
     Ok(PreparedPreview {
+        test: None,
         geometry,
         metrics,
         caustics,

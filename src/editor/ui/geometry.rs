@@ -6,7 +6,7 @@ use crate::editor::document::{ObjectId, ObjectKind};
 use crate::engine::render::Vertex;
 
 pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
-    super::rect(v, [130.0, 65.0, 260.0, 184.0], [0.075, 0.11, 0.14, 1.0]);
+    super::rect(v, [130.0, 65.0, 260.0, 184.0], super::PANEL);
     text(v, "ADD GEOMETRY", 140.0, 74.0, ACCENT, 40);
     for (x, y, label, kind) in [
         (140.0, 88.0, "New Room", ObjectKind::Room),

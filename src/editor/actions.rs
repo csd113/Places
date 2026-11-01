@@ -19,6 +19,7 @@ pub(super) enum Pending {
 }
 
 pub(super) enum Popup {
+    Workspace,
     PlayOptions,
     WallSigns,
     Layers,
@@ -168,13 +169,15 @@ impl Popup {
                 130.0,
                 65.0,
                 260.0,
-                if matches!(self, Self::Create) {
+                if matches!(self, Self::PlayOptions) {
+                    190.0
+                } else if matches!(self, Self::Create) {
                     160.0
                 } else {
                     146.0
                 },
             ],
-            [0.075, 0.11, 0.14, 1.0],
+            [0.105, 0.14, 0.185, 1.0],
         );
         self.draw_content(app, v, hits);
     }
@@ -186,6 +189,7 @@ impl Popup {
         hits: &mut Vec<Hit>,
     ) {
         match self {
+            Self::Workspace => ui::workspace_popup(app, v, hits),
             Self::PlayOptions => super::play_here::draw(v, hits),
             Self::WallSigns => super::signs::draw(app, v, hits),
             Self::Layers => super::focus::draw(app, v, hits),
@@ -316,6 +320,7 @@ impl App {
     }
 
     pub(super) fn request(&mut self, pending: Pending, window: &Window) {
+        self.stop_runtime();
         if self.compile.is_some() || self.play.is_some() {
             self.status =
                 "Cancel the build or stop play before switching projects or closing.".into();
@@ -400,6 +405,15 @@ impl App {
     }
 
     pub(super) fn activate(&mut self, action: Action, window: &Window) -> Result<(), String> {
+        if self.runtime_active() || self.runtime_preparing() {
+            if matches!(action, Action::Stop | Action::Cancel) {
+                self.stop_runtime();
+                return Ok(());
+            }
+            if !matches!(action, Action::Capture | Action::New | Action::Open) {
+                return Err("Return to editing before changing the scene.".into());
+            }
+        }
         self.play_floor_pick = false;
         if matches!(
             action,
@@ -431,6 +445,9 @@ impl App {
             )
         {
             self.cancel_placement();
+        }
+        if matches!(self.popup, Some(Popup::Workspace)) && action != Action::Workspace {
+            self.popup = None;
         }
         if self.contextual_action(action, window)? {
             return Ok(());
@@ -469,6 +486,7 @@ impl App {
             Action::Open => self.request(Pending::Open, window),
             Action::Save => self.save()?,
             Action::Capture => self.request_capture(),
+            Action::Workspace => self.popup = Some(Popup::Workspace),
             Action::Undo | Action::Redo => self.history_action(action == Action::Redo),
             Action::Add(kind) => self.add_safely(kind)?,
             Action::Delete | Action::Duplicate => {
@@ -683,7 +701,7 @@ impl App {
         Ok(())
     }
 
-    fn request_capture(&mut self) {
+    pub(super) fn request_capture(&mut self) {
         if let Some(capture) = &mut self.capture {
             capture.pending = true;
         } else {
@@ -913,8 +931,12 @@ impl App {
     }
 
     pub(super) fn start_build(&mut self, play: bool) -> Result<(), String> {
-        if self.compile.is_some() || self.play.is_some() {
-            return Err("A build or player is already running".into());
+        if self.compile.is_some()
+            || self.play.is_some()
+            || self.runtime_active()
+            || self.runtime_preparing()
+        {
+            return Err("Stop the current test or build before starting a final build".into());
         }
         self.save()?;
         let doc = self.document.as_ref().ok_or("Open a project first")?;

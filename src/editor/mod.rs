@@ -34,6 +34,8 @@ mod selection;
 mod signs;
 mod stairs;
 mod templates;
+mod test_prepare;
+mod test_session;
 mod transform;
 mod ui;
 mod verification;
@@ -333,7 +335,22 @@ impl App {
             browser_images
         };
         self.viewport.set_ui_images(images);
-        self.viewport.draw(window, &vertices)
+        self.viewport
+            .draw(window, &vertices, &mut self.preview_audio)
+    }
+
+    fn poll_background(&mut self) {
+        if !self.runtime_active() {
+            self.update_audio_preview();
+        }
+        self.poll_jobs();
+        self.poll_runtime();
+        self.bakes.poll();
+        self.poll_safety();
+        self.poll_navigation();
+        if let Some(error) = self.viewport.status() {
+            self.status = format!("Viewport: {error}");
+        }
     }
 
     fn dialogs(&mut self) {
@@ -542,6 +559,15 @@ fn create_app(
     Ok(app)
 }
 
+fn sync_test_pointer(sdl: &sdl3::Sdl, window: &sdl3::video::Window, active: bool) {
+    let capture = active && window.has_input_focus();
+    let mouse = sdl.mouse();
+    if mouse.relative_mouse_mode(window) != capture {
+        mouse.set_relative_mouse_mode(window, capture);
+        mouse.show_cursor(!capture);
+    }
+}
+
 fn retire_app(mut app: App, events: &mut sdl3::EventPump, trace: &mut performance::FrameTrace) {
     trace.stage("shutdown_requested");
     while !app.viewport.retire_startup_pipelines() {
@@ -609,6 +635,7 @@ fn application(options: Options) -> Result<(), String> {
     app.load_initial(options.project, options.new, options.level)?;
     startup.step("project-open-request");
     trace.stage("editor_project_requested");
+    let mut outcome = Ok(());
     while !app.closing {
         trace.pump(&app.viewport, &window);
         let (_, hits) = ui::build(&app);
@@ -628,28 +655,28 @@ fn application(options: Options) -> Result<(), String> {
             app.viewport.cancel_navigation();
         }
         app.dialogs();
-        app.update_audio_preview();
-        app.poll_jobs();
-        app.bakes.poll();
-        app.poll_safety();
-        app.poll_navigation();
-        if let Some(error) = app.viewport.status() {
-            app.status = format!("Viewport: {error}");
-        }
+        app.poll_background();
+        sync_test_pointer(&sdl, &window, app.runtime_active());
         app.update_window(&mut window, &video);
         app.viewport.sync_window(&window);
         let presented = app.draw(&window);
         trace.present(&app.viewport, &window, presented);
         app.capture_frame();
-        if let Some(driver) = &mut verification {
-            driver.advance(&mut app, &mut window)?;
+        if let Some(driver) = &mut verification
+            && let Err(error) = driver.advance(&mut app, &mut window)
+        {
+            outcome = Err(error);
+            break;
         }
         if !options.performance_test {
             std::thread::sleep(Duration::from_millis(16));
         }
     }
+    app.stop_runtime();
+    sdl.mouse().set_relative_mouse_mode(&window, false);
+    sdl.mouse().show_cursor(true);
     retire_app(app, &mut events, &mut trace);
-    Ok(())
+    outcome
 }
 
 /// Starts the separate native editor application.

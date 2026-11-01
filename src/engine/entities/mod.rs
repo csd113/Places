@@ -4207,6 +4207,11 @@ impl EntityWorld {
         self.scripts.resource_snapshot()
     }
 
+    /// Typed script failure status; successful host notices are informational.
+    #[must_use]
+    pub fn script_failed(&self) -> bool {
+        self.scripts.has_failures()
+    }
     /// Bounded diagnostics for the current script run.
     #[must_use]
     pub fn script_diagnostics(&self) -> &[String] {

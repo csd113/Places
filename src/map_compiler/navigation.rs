@@ -158,6 +158,7 @@ pub fn bake(
     input: &NavBakeInput<'_>,
     options: &NavBakeOptions,
 ) -> Result<(NavGrid, NavBakeReport), String> {
+    crate::engine::progress::check_cancelled()?;
     if !options.cell_m.is_finite() || options.cell_m < 0.01 {
         return Err("navigation bake cell size must be finite and at least 0.01 m".to_string());
     }
@@ -276,6 +277,9 @@ pub fn bake(
     }
     let index = CollisionIndex::build(&walls);
     for node in 0..nodes {
+        if node.is_multiple_of(256) {
+            crate::engine::progress::check_cancelled()?;
+        }
         let Some((cx, cz)) = grid.coordinates(node) else {
             continue;
         };
@@ -296,6 +300,9 @@ pub fn bake(
     // merely because two XZ columns happen to contain walkable spans.
     for (class, profile) in input.classes.iter().enumerate() {
         for node in 0..nodes {
+            if node.is_multiple_of(256) {
+                crate::engine::progress::check_cancelled()?;
+            }
             if !grid.is_walkable(class, node) {
                 continue;
             }
@@ -342,6 +349,9 @@ pub fn bake(
         // the reverse probe before deriving connected components.
         let mut one_way = Vec::new();
         for node in 0..nodes {
+            if node.is_multiple_of(256) {
+                crate::engine::progress::check_cancelled()?;
+            }
             for direction in 0..8 {
                 if let Some(next) = grid.link(class, node, direction)
                     && !linked(&grid, class, next, node)
@@ -364,6 +374,9 @@ pub fn bake(
         // the identical destination floor.
         let mut removed = Vec::new();
         for node in 0..nodes {
+            if node.is_multiple_of(256) {
+                crate::engine::progress::check_cancelled()?;
+            }
             let Some((cx, cz)) = grid.coordinates(node) else {
                 continue;
             };
@@ -474,6 +487,7 @@ impl BakeScene<'_> {
         let index = CollisionIndex::build(self.walls);
         let mut output = Vec::new();
         for cz in start..end {
+            crate::engine::progress::check_cancelled()?;
             for cx in 0..cells_x {
                 let x = (cx as f32).mul_add(cell_m, origin_x) + cell_m * 0.5;
                 let z = (cz as f32).mul_add(cell_m, origin_z) + cell_m * 0.5;
@@ -684,6 +698,9 @@ fn label_regions(grid: &NavGrid, class: usize) -> Result<(Vec<u16>, u32, usize),
     let mut walkable = 0usize;
     let mut stack = Vec::new();
     for start in 0..grid.cell_count() {
+        if start.is_multiple_of(256) {
+            crate::engine::progress::check_cancelled()?;
+        }
         if !grid.is_walkable(class, start) || labels.get(start).copied() != Some(NO_REGION) {
             continue;
         }
@@ -699,6 +716,9 @@ fn label_regions(grid: &NavGrid, class: usize) -> Result<(Vec<u16>, u32, usize),
             *slot = region;
         }
         while let Some(node) = stack.pop() {
+            if walkable.is_multiple_of(256) {
+                crate::engine::progress::check_cancelled()?;
+            }
             walkable = walkable.saturating_add(1);
             for direction in 0..8 {
                 let Some(next) = grid.link(class, node, direction) else {

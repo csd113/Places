@@ -13,11 +13,14 @@ mod geometry;
 mod inspector;
 pub(super) mod library;
 mod navigation;
+mod runtime;
 mod safety;
 mod scripts;
 mod transform;
+mod workspace;
 pub(super) use scripts::draw as scripts_popup;
 pub(super) use transform::draw as transform_popup;
+pub(super) use workspace::draw as workspace_popup;
 
 pub(super) use gameplay::{action_popup, choices_popup, create_popup, gameplay_popup};
 pub(super) use geometry::{geometry_popup, shape_popup};
@@ -31,13 +34,16 @@ pub(super) const AXIS_COLORS: [[f32; 4]; 3] = [
     [0.3, 0.55, 1.0, 1.0],
 ];
 
-pub(super) const INK: [f32; 4] = [0.88, 0.92, 0.95, 1.0];
-pub(super) const MUTED: [f32; 4] = [0.68, 0.75, 0.80, 1.0];
-const ACCENT: [f32; 4] = [0.37, 0.86, 0.71, 1.0];
-const PANEL: [f32; 4] = [0.065, 0.09, 0.12, 1.0];
+pub(super) const INK: [f32; 4] = [0.94, 0.97, 1.0, 1.0];
+pub(super) const MUTED: [f32; 4] = [0.68, 0.77, 0.85, 1.0];
+const ACCENT: [f32; 4] = [0.48, 0.89, 0.83, 1.0];
+const PANEL: [f32; 4] = [0.105, 0.14, 0.185, 1.0];
+const SURFACE: [f32; 4] = [0.16, 0.205, 0.26, 1.0];
+const LINE: [f32; 4] = [0.235, 0.30, 0.37, 1.0];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Action {
+    Workspace,
     Sign(super::signs::Command),
     Place(super::construction::Tool),
     ChainWalls,
@@ -253,6 +259,8 @@ pub(super) fn text(
     }
 }
 
+/// Text actions use a quiet baseline; only the primary test action is filled.
+/// The entire supplied rectangle remains a keyboard/pointer target.
 pub(super) fn button(
     vertices: &mut Vec<Vertex>,
     hits: &mut Vec<Hit>,
@@ -261,21 +269,22 @@ pub(super) fn button(
     action: Action,
     active: bool,
 ) {
-    rect(
-        vertices,
-        bounds,
-        if active {
-            [0.15, 0.24, 0.28, 1.0]
-        } else {
-            [0.09, 0.12, 0.15, 1.0]
-        },
-    );
     let [x, y, width, height] = bounds;
-    let fitted = crate::game::ui::fit_text(label, width - 5.0, 0.5);
+    let primary = active && matches!(action, Action::Play | Action::Stop);
+    if primary {
+        rounded_rect(vertices, bounds, [0.20, 0.43, 0.43, 1.0]);
+    } else {
+        rect(
+            vertices,
+            [x + 2.0, y + height - 0.65, (width - 4.0).max(0.0), 0.4],
+            if active { LINE } else { SURFACE },
+        );
+    }
+    let fitted = crate::game::ui::fit_text(label, width - 6.0, 0.5);
     text(
         vertices,
         &fitted,
-        x + 2.5,
+        x + 3.0,
         (height - 7.0).mul_add(0.5, y),
         if active { INK } else { MUTED },
         68,
@@ -288,19 +297,66 @@ pub(super) fn button(
     }
 }
 
+fn rounded_rect(
+    vertices: &mut Vec<Vertex>,
+    [origin_x, origin_y, width, height]: [f32; 4],
+    color: [f32; 4],
+) {
+    // A small chamfer keeps the shared quad renderer and avoids a heavy box edge.
+    let edge = 1.5_f32.min(height * 0.25).min(width * 0.25);
+    rect(
+        vertices,
+        [origin_x + edge, origin_y, edge.mul_add(-2.0, width), height],
+        color,
+    );
+    rect(
+        vertices,
+        [origin_x, origin_y + edge, width, edge.mul_add(-2.0, height)],
+        color,
+    );
+    for (left, top, offset_x, offset_y) in [
+        (origin_x + edge, origin_y + edge, -edge, -edge),
+        (origin_x + width - edge, origin_y + edge, edge, -edge),
+        (origin_x + edge, origin_y + height - edge, -edge, edge),
+        (
+            origin_x + width - edge,
+            origin_y + height - edge,
+            edge,
+            edge,
+        ),
+    ] {
+        let [white_u, white_v, _, _] = get_white_uv();
+        for pos in [
+            [left, top, 0.0],
+            [left + offset_x, top, 0.0],
+            [left, top + offset_y, 0.0],
+        ] {
+            vertices.push(Vertex {
+                pos,
+                color,
+                uv: [white_u, white_v],
+                ..Vertex::UNLIT
+            });
+        }
+    }
+}
+
 pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
     let mut v = Vec::new();
     let mut hits = Vec::new();
-
+    if app.runtime_active() || app.runtime_preparing() {
+        let modal_start = runtime::draw(app, &mut v, &mut hits);
+        return fit_layout(app, v, hits, modal_start);
+    }
     toolbar(app, &mut v, &mut hits);
     button(
         &mut v,
         &mut hits,
         [5.0, 27.0, 102.0, 10.0],
         if app.view.simple {
-            "Mode: Simple >"
+            "Precision controls >"
         } else {
-            "Mode: Advanced >"
+            "< Simple controls"
         },
         Action::Mode,
         true,
@@ -317,51 +373,12 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
         }
     }
     footer(app, &mut v, &mut hits);
-    if app.placement.is_none()
-        && !app.view.simple
-        && matches!(app.selected, Some(ObjectId::Wall(_)))
-    {
-        button(
-            &mut v,
-            &mut hits,
-            [120.0, 43.0, 90.0, 13.0],
-            "Make Doorway",
-            Action::Place(super::construction::Tool::Doorway),
-            true,
-        );
-    }
     super::construction::draw(app, &mut v, &mut hits);
-    if app.popup.is_none() && matches!(app.selected, Some(ObjectId::Prop(_))) {
-        button(
-            &mut v,
-            &mut hits,
-            [220.0, 228.0, 88.0, 10.0],
-            "NPC behaviors >",
-            Action::Behavior(super::behavior::Command::Open),
-            matches!(app.selected, Some(ObjectId::Prop(_))),
-        );
+    // Circuit controls remain in the workspace until a temporary preview or
+    // painting operation needs an immediately accessible return/apply control.
+    if app.lighting.painting || app.lighting.preview_off {
+        super::lighting::toolbar(app, &mut v, &mut hits);
     }
-    if app.popup.is_none() && matches!(app.selected, Some(ObjectId::Light(_))) {
-        button(
-            &mut v,
-            &mut hits,
-            [312.0, 228.0, 110.0, 10.0],
-            "Light flicker >",
-            Action::Flicker(super::flicker::Command::Open),
-            matches!(app.selected, Some(ObjectId::Light(_))),
-        );
-    }
-    if app.popup.is_none() && app.placement.is_none() {
-        button(
-            &mut v,
-            &mut hits,
-            [120.0, 59.0, 102.0, 13.0],
-            "Reuse tools >",
-            Action::Reuse(super::reuse::Command::Open),
-            app.document.is_some(),
-        );
-    }
-    super::lighting::toolbar(app, &mut v, &mut hits);
     let modal_start = v.len();
     if let Some(popup) = &app.popup {
         popup.draw(app, &mut v, &mut hits);
@@ -381,6 +398,7 @@ pub(super) fn build(app: &App) -> (Vec<Vertex>, Vec<Hit>) {
     }
     fit_layout(app, v, hits, modal_start)
 }
+
 fn fit_layout(
     app: &App,
     mut v: Vec<Vertex>,
@@ -388,10 +406,11 @@ fn fit_layout(
     modal_start: usize,
 ) -> (Vec<Vertex>, Vec<Hit>) {
     let layout = app.viewport.layout();
+    let modal = app.popup.is_some() || app.runtime_active();
     for (index, vertex) in v.iter_mut().enumerate() {
         let [x, y] = layout.point(
             [vertex.pos[0], vertex.pos[1]],
-            app.popup.is_some() && index >= modal_start,
+            modal && index >= modal_start,
         );
         vertex.pos[0] = x;
         vertex.pos[1] = y;
@@ -404,10 +423,21 @@ fn fit_layout(
     let mut background = Vec::new();
     for bounds in [
         [left, top, right - left, view_top - top],
-        [left, view_top, view_left - left, view_bottom - view_top],
         [left, view_bottom, right - left, bottom - view_bottom],
     ] {
         rect(&mut background, bounds, PANEL);
+    }
+    if !app.runtime_active() && !app.runtime_preparing() {
+        rect(
+            &mut background,
+            [left, view_top, view_left - left, view_bottom - view_top],
+            PANEL,
+        );
+        rect(
+            &mut background,
+            [view_left - 0.4, view_top, 0.4, view_bottom - view_top],
+            LINE,
+        );
     }
     background.extend(v);
     (background, hits)
@@ -426,13 +456,13 @@ pub(super) fn popup_button(
 fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     text(vertices, "PLACES / EDITOR", 5.0, 4.0, ACCENT, 30);
     let title = app.document.as_ref().map_or_else(
-        || "Choose New or Open to begin".into(),
+        || "New project or open a project folder to begin".into(),
         |d| {
             format!(
                 "{} / {}{}{}",
                 d.project().manifest().name,
                 d.level_id(),
-                if d.is_dirty() { " * UNSAVED" } else { "" },
+                if d.is_dirty() { " * unsaved" } else { "" },
                 if app.viewport.is_preparing() {
                     " / preparing view"
                 } else {
@@ -443,19 +473,20 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     );
     text(vertices, &title, 114.0, 4.0, INK, 101);
     let idle = app.compile.is_none() && app.play.is_none() && !app.dialog_open;
+    let open = app.document.is_some();
     for (x, w, label, action, enabled) in [
-        (5.0, 26.0, "New", Action::New, idle),
-        (33.0, 26.0, "Open", Action::Open, idle),
+        (5.0, 23.0, "New", Action::New, idle),
+        (31.0, 23.0, "Open", Action::Open, idle),
         (
-            61.0,
-            26.0,
+            57.0,
+            25.0,
             "Save",
             Action::Save,
-            app.document.is_some() && app.compile.is_none(),
+            open && app.compile.is_none(),
         ),
         (
-            91.0,
-            26.0,
+            87.0,
+            25.0,
             "Undo",
             Action::Undo,
             app.document
@@ -463,60 +494,28 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                 .is_some_and(super::document::Document::can_undo),
         ),
         (
-            119.0,
-            26.0,
+            115.0,
+            25.0,
             "Redo",
             Action::Redo,
             app.document
                 .as_ref()
                 .is_some_and(super::document::Document::can_redo),
         ),
-        (
-            151.0,
-            47.0,
-            "Save+Build",
-            Action::Build,
-            idle && app.document.is_some(),
-        ),
-        (
-            201.0,
-            25.0,
-            "Play",
-            Action::Play,
-            idle && app.document.is_some(),
-        ),
-        (
-            294.0,
-            47.0,
-            if app.safety_job.is_some() {
-                "Checking"
-            } else {
-                "Safety >"
-            },
-            Action::Safety,
-            app.document.is_some(),
-        ),
+        (148.0, 63.0, "Customize >", Action::Workspace, open),
+        (277.0, 91.0, "Test in editor", Action::Play, idle && open),
+        (373.0, 43.0, "Here >", Action::PlayOptions, idle && open),
+        (420.0, 54.0, "Final build", Action::Build, idle && open),
     ] {
-        if !app.view.simple || !matches!(action, Action::Build) {
-            button(vertices, hits, [x, 14.0, w, 11.0], label, action, enabled);
-        }
+        button(vertices, hits, [x, 14.0, w, 11.0], label, action, enabled);
     }
-
-    button(
-        vertices,
-        hits,
-        [229.0, 14.0, 25.0, 11.0],
-        "Here",
-        Action::PlayOptions,
-        idle && app.document.is_some(),
-    );
     if app.compile.is_some() || app.play.is_some() {
         let playing = app.play.is_some();
         button(
             vertices,
             hits,
-            [254.0, 14.0, 37.0, 11.0],
-            if playing { "Stop Play" } else { "Cancel" },
+            [217.0, 14.0, 56.0, 11.0],
+            if playing { "Stop test" } else { "Cancel build" },
             if playing {
                 Action::Stop
             } else {
@@ -528,73 +527,42 @@ fn toolbar(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
 }
 
 fn navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
-    if !app.view.simple && app.compile.is_none() && app.play.is_none() {
-        button(
-            vertices,
-            hits,
-            [257.0, 14.0, 34.0, 11.0],
-            "Scripts",
-            Action::Scripts,
-            app.document.is_some(),
-        );
-    }
-
-    button(
-        vertices,
-        hits,
-        [347.0, 14.0, 34.0, 11.0],
-        if app.view.grid { "Grid On" } else { "Grid Off" },
-        Action::Grid,
-        true,
-    );
-    button(
-        vertices,
-        hits,
-        [384.0, 14.0, 34.0, 11.0],
-        if app.view.snap { "Snap On" } else { "Snap Off" },
-        Action::Snap,
-        true,
-    );
-    button(
-        vertices,
-        hits,
-        [421.0, 14.0, 53.0, 11.0],
-        &format!("Step {:.2}m", app.step),
-        Action::Step,
-        true,
-    );
-    if !app.view.simple {
-        button(
-            vertices,
-            hits,
-            [114.0, 27.0, 55.0, 10.0],
-            if app.navigation.visible {
-                "Navigation <"
+    for (x, w, label, action) in [
+        (
+            114.0,
+            38.0,
+            if app.view.grid {
+                "Grid on".into()
             } else {
-                "Navigation >"
+                "Grid off".into()
             },
-            Action::Navigation,
-            app.document.is_some(),
-        );
+            Action::Grid,
+        ),
+        (
+            156.0,
+            38.0,
+            if app.view.snap {
+                "Snap on".into()
+            } else {
+                "Snap off".into()
+            },
+            Action::Snap,
+        ),
+        (198.0, 55.0, format!("Step {:.2}m", app.step), Action::Step),
+        (
+            258.0,
+            106.0,
+            if app.viewport.environment_preview() {
+                "View: authored light".into()
+            } else {
+                "View: inspect".into()
+            },
+            Action::EnvironmentPreview,
+        ),
+    ] {
+        button(vertices, hits, [x, 27.0, w, 10.0], &label, action, true);
     }
-    if !app.view.simple {
-        button(
-            vertices,
-            hits,
-            [174.0, 27.0, 49.0, 10.0],
-            "Layers >",
-            Action::Layers,
-            app.document.is_some(),
-        );
-    }
-    text(
-        vertices,
-        "RMB orbit | MMB pan | Wheel zoom | F frame",
-        if app.view.simple { 114.0 } else { 227.0 },
-        29.0,
-        MUTED,
-        86,
-    );
+    text(vertices, "RMB orbit / F frame", 375.0, 29.0, MUTED, 27);
 }
 
 fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
@@ -602,7 +570,7 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         vertices,
         hits,
         [5.0, 39.0, 55.0, 10.0],
-        "Find >",
+        "Find scene >",
         Action::SceneSearch,
         app.document.is_some(),
     );
@@ -670,6 +638,7 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             true,
         );
     }
+    rect(vertices, [5.0, 125.0, 102.0, 0.4], LINE);
     text(
         vertices,
         &format!(
@@ -691,71 +660,81 @@ fn scene(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
 fn simple_selection(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     let selected = app.selected.is_some();
     let unlocked = app.selected.is_some_and(|id| app.editable(id));
-    let duct = matches!(app.selected, Some(ObjectId::Prop(index))
-        if app.document.as_ref().and_then(|doc| doc.level().props.get(index))
-            .is_some_and(|placed| super::ducts::supported(&placed.model)));
     let wall = matches!(app.selected, Some(ObjectId::Wall(_)));
-    let sign = matches!(app.selected, Some(ObjectId::Decal(_)));
+    let room = matches!(app.selected, Some(ObjectId::Room(_)));
     text(
         vertices,
         if selected && !unlocked {
-            "LOCKED: Layers to unlock"
+            "LOCKED / see Layers"
         } else if wall {
-            "WALL: drag body / ends"
-        } else if matches!(app.selected, Some(ObjectId::Room(_))) {
-            "ROOM: drag gold edges"
+            "WALL / drag body or ends"
+        } else if room {
+            "ROOM / drag gold edges"
+        } else if selected {
+            "SELECTION"
         } else {
-            "SELECT / BUILD"
+            "BUILD YOUR SPACE"
         },
         5.0,
-        130.0,
+        131.0,
         ACCENT,
-        26,
+        28,
     );
+    if !selected {
+        text(vertices, "1  Add a room or wall", 5.0, 145.0, INK, 29);
+        text(vertices, "2  Fit a door and light", 5.0, 157.0, INK, 29);
+        text(vertices, "3  Test in the editor", 5.0, 169.0, INK, 29);
+        button(
+            vertices,
+            hits,
+            [5.0, 188.0, 102.0, 14.0],
+            "Add props / signs >",
+            Action::Create,
+            app.document.is_some(),
+        );
+        return;
+    }
     for (y, label, action, enabled) in [
         (
-            141.0,
+            143.0,
             if wall {
-                "Doorway"
-            } else if sign {
-                "Wall sign >"
-            } else if duct {
-                "Duct joins >"
+                "Make doorway"
             } else {
-                "More geometry >"
+                "Move / resize >"
             },
             if wall {
                 Action::Place(super::construction::Tool::Doorway)
-            } else if sign {
-                Action::Sign(super::signs::Command::Open)
-            } else if duct {
-                Action::Duct(super::ducts::Command::Open)
             } else {
-                Action::Geometry
+                Action::Transform
             },
-            true,
+            unlocked,
         ),
-        (158.0, "Move / exact size >", Action::Transform, selected),
-        (175.0, "Add props / signs >", Action::Create, true),
-        (192.0, "Layers / focus >", Action::Layers, true),
+        (
+            160.0,
+            if wall {
+                "Move / exact size >"
+            } else {
+                "Object settings >"
+            },
+            if wall {
+                Action::Transform
+            } else if room {
+                Action::Shape
+            } else {
+                Action::Gameplay
+            },
+            unlocked,
+        ),
+        (177.0, "Customize selection >", Action::Workspace, true),
+        (194.0, "Add props / signs >", Action::Create, true),
     ] {
         button(
             vertices,
             hits,
-            [5.0, y, if wall && y < 150.0 { 49.0 } else { 102.0 }, 14.0],
+            [5.0, y, 102.0, 13.0],
             label,
             action,
             enabled && app.document.is_some(),
-        );
-    }
-    if wall {
-        button(
-            vertices,
-            hits,
-            [58.0, 141.0, 49.0, 14.0],
-            "Build >",
-            Action::Geometry,
-            app.document.is_some(),
         );
     }
 }
@@ -767,7 +746,11 @@ fn footer(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     text(vertices, &app.status, 5.0, 247.0, INK, 133);
     text(
         vertices,
-        "Cmd/Ctrl S save | Z undo | Shift Z redo | D duplicate | Delete | arrows move | R rotate | +/- scale",
+        if app.view.simple {
+            "Ctrl/Cmd S save | Z undo | D duplicate | Customize for surfaces, grime, behavior and export"
+        } else {
+            "Ctrl/Cmd S save | Z undo | Shift Z redo | D duplicate | arrows move | R rotate | +/- scale"
+        },
         5.0,
         258.0,
         MUTED,
@@ -808,7 +791,7 @@ fn footer_actions(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             Some(ObjectId::Wall(_)) => "Auto trim >",
             Some(ObjectId::Column(_) | ObjectId::Pillar(_)) => "Pillar >",
             Some(ObjectId::ArcWall(_)) => "Curve trim >",
-            _ => "Configure >",
+            _ => "Settings >",
         },
         match app.selected {
             Some(ObjectId::Column(_)) => Action::Author(super::authoring::Command::Open(
@@ -846,17 +829,5 @@ fn footer_actions(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                     | ObjectId::Door(_)
             )
         }),
-    );
-    button(
-        vertices,
-        hits,
-        [114.0, 228.0, 100.0, 10.0],
-        if app.viewport.environment_preview() {
-            "Preview: Lighting"
-        } else {
-            "Preview: Inspect"
-        },
-        Action::EnvironmentPreview,
-        true,
     );
 }

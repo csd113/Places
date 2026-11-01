@@ -1,5 +1,11 @@
 ## 0.13.1 — Unreleased
 
+- Simplify the editor workspace with a brighter dark slate palette, quieter
+  controls, common building tools and progressive customization. Test the current
+  unsaved scene in first person inside the editor window without a lightmap bake
+  or separate player, then return to retained authoring state. Final builds
+  preserve production lighting validation. See [workflow and limits](docs/EDITOR.md).
+
 - Author the hub's existing wall-sign decals in both editor modes: printed
   artwork selection, fitted size/spin, solid wall placement, facing, clear-space
   copies, selection/locks/history and source/package persistence. Retain the

@@ -824,3 +824,44 @@ fn shared_ai_luau_tables_are_bounded_atomic_and_resettable() -> Result<(), Strin
     );
     Ok(())
 }
+
+// Protects typed failure reporting used by embedded sessions: a successful notice
+// must not abort simulation, while a disabled VM must remain a failure. Two tiny
+// metadata-only VMs cost milliseconds and require no assets, GPU or map bake.
+#[test]
+fn notices_are_informational_while_vm_errors_are_failures() -> Result<(), String> {
+    let level = fixture(
+        "return {entered=function(api) api.notice('still running'); api.set_state('item','count',1) end}",
+    )?;
+    let mut world = EntityWorld::from_level(&level);
+    let _report = invoke(&mut world)?;
+    assert!(
+        !world.script_failed(),
+        "a successful notice leaves the module enabled"
+    );
+    assert_eq!(
+        count(&world)?,
+        1,
+        "notice handler commits its ordinary effects"
+    );
+    assert!(
+        world
+            .script_diagnostics()
+            .iter()
+            .any(|message| message == "still running"),
+        "successful notices remain visible"
+    );
+    let failed = fixture("return {entered=function() error('expected fault') end}")?;
+    let mut failed_world = EntityWorld::from_level(&failed);
+    let _failed_report = invoke(&mut failed_world)?;
+    assert!(
+        failed_world.script_failed(),
+        "an actual VM fault exposes authoritative failure state"
+    );
+    failed_world.reset_runtime();
+    assert!(
+        !failed_world.script_failed(),
+        "fresh runtime reset clears the previous disabled VM"
+    );
+    Ok(())
+}

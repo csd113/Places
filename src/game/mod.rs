@@ -18,6 +18,7 @@ pub mod settings;
 pub mod ui;
 pub mod world_labels;
 
+pub(crate) use app::flashlight::install as install_flashlight;
 pub use app::run;
 
 use std::time::Instant;

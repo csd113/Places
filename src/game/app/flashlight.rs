@@ -78,7 +78,7 @@ fn attached_light(
     }
 }
 
-fn install(renderer: &mut Renderer, enabled: bool, eye: Vec3, yaw: f32, pitch: f32) {
+pub fn install(renderer: &mut Renderer, enabled: bool, eye: Vec3, yaw: f32, pitch: f32) {
     let light = enabled.then(|| {
         attached_light(eye, yaw, pitch, |from, to| {
             renderer.light_transmittance(from.to_array(), to.to_array(), None)

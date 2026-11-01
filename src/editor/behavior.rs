@@ -152,13 +152,17 @@ impl App {
         let draft = self.behavior.as_mut().ok_or("Open Behaviors first")?;
         match command {
             Command::Runtime => {
-                let path = self
-                    .last_play_trace
-                    .as_ref()
-                    .ok_or("Build+Play first; runtime state is captured from the real player")?;
-                let bytes = crate::engine::project::read_bounded_file(path, 262_144)
-                    .map_err(|error| format!("Runtime trace is not ready yet: {error}"))?;
-                let source = String::from_utf8(bytes).map_err(|error| error.to_string())?;
+                let source = if let Some(trace) = self.viewport.runtime_trace() {
+                    trace.to_owned()
+                } else {
+                    let path = self
+                        .last_play_trace
+                        .as_ref()
+                        .ok_or("Run a first-person test, then return to inspect runtime state")?;
+                    let bytes = crate::engine::project::read_bounded_file(path, 262_144)
+                        .map_err(|error| format!("Runtime trace is not ready yet: {error}"))?;
+                    String::from_utf8(bytes).map_err(|error| error.to_string())?
+                };
                 let mut lines = Vec::new();
                 for raw_line in source.lines().take(1024) {
                     let line = runtime_summary(raw_line);

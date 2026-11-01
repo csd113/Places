@@ -3745,3 +3745,124 @@ commit, exact non-force branch publication, asynchronous CI and final process,
 index and single idle-only cleanup state. Evidence and complete runtime payloads
 are preserved before that cleanup. The unrelated menu scene remains at SHA256
 `93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.
+
+## Editor workflow redesign and embedded first-person testing
+
+November 1, 2026, Windows Razer acceptance. Baseline:
+`a9429b3f8da885dbaa26d5aee4a29fa2d40488ee`. Three implementation owners
+worked on UI, preparation and runtime with disjoint modules; one integration owner
+wired App/input/viewport, and a separate validator owned native acceptance.
+`E = local/verification-0.13.1-redesign/` retains phase checkpoints, all scripts,
+source manifests, failed/exploratory attempts, final receipts, actual framebuffer
+captures and complete debug/interim/release executable/DLL payloads outside target.
+
+### Result and runtime contract
+
+The workspace uses brighter dark slate panels, high-contrast text and quiet text
+controls, with primary Test and always-visible Final build. Room/wall/door/light
+creation stays beside the scene list; Customize groups deeper tools, including
+surface grime/reuse, geometry, lighting, scripts, navigation, layers and export.
+Precision controls retain the full inspector. Keyboard focus and scaled hit
+regions remain available; Navigation has a direct return to building.
+
+Test in editor prepares the current unsaved level and script buffers on the
+existing single coalesced preview worker. A private session owns the production
+Game, CollisionWorld, ItemWorld, navigation and script VM, renders through the
+same editor window/device, and uses the shared audio owner. Stop/Escape, focus
+loss, cancel, close and errors discard live simulation/input/audio and restore the
+authoring view. Bounded last-run diagnostics retain the behavior inspector's AI
+report. No game process, package, profile save or lightmap solve is part of quick
+testing. Generation checks reject cancelled/stale work; navigation now checks
+cooperative cancellation while sampling and processing nodes/regions.
+
+Here supports validated camera or visible-floor poses without changing authored
+spawn/history. Authored spawn testing also refuses an obstructed exact pose.
+Quick lighting remains approximate, with a visible Full-required warning where
+applicable. Local lighting preview remains a separate nonfinal visual tool.
+Final build/export explicitly request Static and Full and retain production
+validation, measured progress, cancellation and package-currency requirements.
+
+Script instructions use readable six-row pages and a bounded 16-message queue;
+PgUp/PgDn browse, Enter continues and Escape returns to editing. Successful
+notices remain informational. Typed script failure status distinguishes VM/load
+faults from notices; one tiny metadata-only regression protects that boundary
+without assets, GPU or map baking. See [the workflow and explicit limits](../EDITOR.md).
+
+### Independent final release acceptance
+
+All **21 native scenarios** exit successfully on the exact final editor hash.
+There are 189 aggregate assertions, with detailed lifecycle/Here checks retained
+separately; these overlapping diagnostics are not summed into a test-count claim.
+`release-independent-acceptance-release1.json`,
+`release-visual-review-release1.json` and `release-native-summary-release1.json`
+are the final receipts. The earlier 120-check debug campaign and focused guidance/
+VM-fault campaign are preliminary evidence, separate from final release acceptance.
+
+| Behavior | Final native observation |
+| --- | --- |
+| Common journey | New room, walls, one-step door, light and edit; test unsaved scene; return; Customize/grime adds 10 editable decals; Final build completes. |
+| Actual gameplay | Held-W stops at the closed door, E opens it, then movement traverses the doorway and stops at the far wall. Physics pickup/drop uses the live body world. |
+| Sources and state | Scene/script edits, authored spawn, undo/redo, camera, selection and isolation are retained. A distinct unsaved script buffer executes without writing disk; script Undo still works. |
+| Private full world | Isolating one wall changes only authoring display; test collision/doors still use the complete world and return restores the isolation. |
+| Lighting | Full-required source enters quick testing with zero bake milliseconds/no charts and the explicit approximate-lighting warning. |
+| Errors and clearance | Invalid script preparation, a real delayed VM fault, unsupported transition, blocked authored spawn, blocked camera and occluded floor pick return/refuse safely. |
+| Lifetimes | Escape, held-input focus loss, repeated entry/exit, active close and active-navigation cancellation release temporary state. A stale cancelled response is rejected before the view is ready. Authored loop voices return to zero. |
+| Guidance | Six long authored lines remain readable across two pages; forward/back, queued order, Enter, F1 and portrait message centering pass. |
+| Larger source | Existing 40x40 m #33 scene retains all 101 props and 61 decals across two test/return cycles without a final bake. |
+| Final output | Genuine forced-build cancellation reaps the compiler and preserves the usable package; restored source remains current. |
+
+Actual native drawables include 960x544, 1280x800, 1920x1080 and 1000x1200.
+Recorded display scale is 1.5, pixel density 1.0 and presentation **Fifo**. Independent
+inspection confirms dark contrast, contained common/deep controls, readable
+instructions and the portrait crosshair at physical (500,600). No FPS or uncapped
+throughput comparison is claimed.
+
+Eight small repeated starts take 622-644 ms; stop handlers take 0.47-0.57 ms.
+Subsequent WaitIdle samples take 983-1013 ms, excluding the recipe's preceding
+100 ms delay and distinct from stop-handler time. The two large starts take
+1597-1622 ms, with 0.69-0.77 ms stop handlers and 1334-1335 ms subsequent waits
+(also excluding 100 ms). Small repeated samples settle near 476.9 MB private
+commit, 28 threads and 569 handles. OS samples are not unique Rust/GPU retention
+totals or a formal proof of no leak. Raw measurements and timing boundaries are
+retained in the native summary and per-case process samples.
+
+Only the disposable created-room project was compiled. Static (`off`) and Full
+inspection, validate and `verify --require-current` all pass; package SHA256:
+`ad0e8ac05952dcdec719b107e253f99d92ee2b255bc09b0f7ba5537c8f29cf90`.
+`E/release-package-checks-release1/receipt.json` records exact commands and hashes.
+No shipped map or visual asset was rebuilt/replaced.
+
+### Final source gates, payload and remaining scope
+
+`qualification-receipt.json` accepts all ten required gates on unchanged 598-file
+Rust/build input hashes: format, locked workspace/all-target/all-feature strict
+Clippy in debug and release, 418 Rust tests (zero ignored), locked debug and
+release workspace/all-feature builds, Python contracts (373 tests, 18 expected
+skips), 677 assets (zero warnings), texture and prop checks. Existing art/budget
+advisories remain. A first Python attempt lacked Git's shell on PATH; the installed
+shell was added to the test environment and the source suite passed without code
+or expectation changes. Both attempt logs remain. Rust tests execute in 1.24 s;
+the full Rust-test usefulness audit remains LAST in the parent queue.
+
+Rust/Cargo 1.99.1 and every exact command/timing are recorded. Release SHA256:
+
+| Payload | SHA256 |
+| --- | --- |
+| places-editor.exe | `a14f91fa731afb0051394905f83729b306e7d5b4f3c677f09e727e8e94c028ba` |
+| places-compile.exe | `dca3104f057486cee251a6a0825f847377c9842981565b8a76ecb94f6f7cbaa4` |
+| places.exe | `2175dd05a971decfc017e8b118edc6cc85bb668c34a71e3a88abac4ef3063b25` |
+
+Quick testing supports the ordinary movement/door/item/script/navigation workflow.
+Campaign travel, persistent checkpoints, player forms, ragdolls/mannequin games,
+actor carry/use assemblies and complete world resets require final package
+testing; unsupported commands stop with a visible diagnostic. Automatic ambient,
+HVAC, footstep and door-movement audio is omitted; authored audio uses the shared
+engine. These limits are documented and disclosed in the editor.
+
+Windows/DX12 only. Linux native is unrun; Mac validation is deferred. Shipped
+package refresh and the final Rust-test audit remain in the parent queue. The
+unrelated menu scene stays at SHA256
+`93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.
+All agent/native/build custody is released before publication; target is retained
+for subsequent queue work. `E/handoff.json` records final source publication,
+asynchronous CI, exact remote verification and index/process state.

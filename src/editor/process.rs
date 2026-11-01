@@ -129,6 +129,9 @@ impl CompileJob {
             .arg("--events")
             .arg("--progress")
             .arg("off");
+        if operation == "export-project" {
+            let _variants = command.arg("--variants").arg("static,full");
+        }
         Ok(Self {
             process: CapturedChild::spawn(&mut command, StopPolicy::Cooperative, true)?,
             output: output.into(),
@@ -179,7 +182,9 @@ impl CompileJob {
             .arg(paths::assets()?)
             .arg("--events")
             .arg("--progress")
-            .arg("off");
+            .arg("off")
+            .arg("--variants")
+            .arg("static,full");
         Ok(Self {
             process: CapturedChild::spawn(&mut command, StopPolicy::Cooperative, true)?,
             output,

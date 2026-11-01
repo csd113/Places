@@ -5,7 +5,7 @@ use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use sdl3::event::Event;
+use sdl3::event::{Event, WindowEvent};
 use sdl3::keyboard::{Keycode, Mod};
 use sdl3::mouse::{MouseButton, MouseState};
 use sdl3::video::Window;
@@ -94,6 +94,10 @@ enum Action {
     },
     WaitIdle,
     WaitPlay,
+    /// Waits for private nonfinal preparation, then requires an embedded session.
+    WaitTest,
+    /// Sends the same loss-of-focus event the native window receives.
+    FocusLost,
     Focus,
     Resize {
         width: u16,
@@ -163,6 +167,7 @@ impl Verification {
         }
         if (matches!(step.action, Action::WaitIdle) && busy(app))
             || (matches!(step.action, Action::WaitPlay) && app.compile.is_some())
+            || (matches!(step.action, Action::WaitTest) && app.runtime_preparing())
         {
             let began = self.waiting.get_or_insert_with(Instant::now);
             if began.elapsed() >= Duration::from_secs(600) {
@@ -236,22 +241,7 @@ impl Verification {
                 command,
                 shift,
                 pressed,
-            } => {
-                let code = Keycode::from_name(key).ok_or("Unknown verification key")?;
-                let mut modifiers = Mod::NOMOD;
-                if *command {
-                    modifiers |= Mod::LCTRLMOD;
-                }
-                if *shift {
-                    modifiers |= Mod::LSHIFTMOD;
-                }
-                if pressed.is_none_or(|edge| edge) {
-                    key_event(app, window, code, modifiers, true);
-                }
-                if pressed.is_none_or(|edge| !edge) {
-                    key_event(app, window, code, modifiers, false);
-                }
-            }
+            } => scripted_key(app, window, key, *command, *shift, *pressed)?,
             Action::Text { text } => dispatch(
                 app,
                 window,
@@ -272,6 +262,20 @@ impl Verification {
             Action::Focus => {
                 if !window.raise() {
                     return Err("SDL window raise failed".into());
+                }
+            }
+            Action::FocusLost => dispatch(
+                app,
+                window,
+                &Event::Window {
+                    timestamp: 0,
+                    window_id: window.id(),
+                    win_event: WindowEvent::FocusLost,
+                },
+            ),
+            Action::WaitTest => {
+                if !app.runtime_active() {
+                    return Err(format!("Embedded test did not start: {}", app.status));
                 }
             }
             Action::WaitPlay => {
@@ -373,6 +377,10 @@ impl Verification {
             serde_json::json!(app.behavior.as_ref().map(|d| &d.plan)),
         ));
         for (key, entry) in [
+            ("runtime_active", serde_json::json!(app.runtime_active())),
+            ("runtime_preparing", serde_json::json!(app.runtime_preparing())),
+            ("runtime_status", serde_json::json!(app.runtime_status())),
+            ("runtime", app.viewport.runtime_snapshot()),
             ("camera_eye",serde_json::json!(app.viewport.play_camera().ok().map(|pose|pose.eye.to_array()))),
             ("play_floor_pick",serde_json::json!(app.play_floor_pick)),
             ("pending_play",serde_json::json!(app.pending_play.as_ref().map(|intent|serde_json::json!({"level":intent.level,"root":intent.root,"pose":intent.pose.map(crate::game::play_spawn::Pose::encode)})))),
@@ -414,7 +422,11 @@ impl Verification {
                     .insert(key.into(), entry),
             );
         }
-        let bytes = serde_json::to_vec_pretty(&value).map_err(|error| error.to_string())?;
+        self.write_checkpoint(&value, name)
+    }
+
+    fn write_checkpoint(&self, value: &serde_json::Value, name: &str) -> Result<(), String> {
+        let bytes = serde_json::to_vec_pretty(value).map_err(|error| error.to_string())?;
         let path = self.script.output.join(format!("{name}.json"));
         let mut file = OpenOptions::new()
             .write(true)
@@ -427,10 +439,36 @@ impl Verification {
     }
 }
 
+fn scripted_key(
+    app: &mut App,
+    window: &Window,
+    key: &str,
+    command: bool,
+    shift: bool,
+    pressed: Option<bool>,
+) -> Result<(), String> {
+    let code = Keycode::from_name(key).ok_or("Unknown verification key")?;
+    let mut modifiers = Mod::NOMOD;
+    if command {
+        modifiers |= Mod::LCTRLMOD;
+    }
+    if shift {
+        modifiers |= Mod::LSHIFTMOD;
+    }
+    if pressed.is_none_or(|edge| edge) {
+        key_event(app, window, code, modifiers, true);
+    }
+    if pressed.is_none_or(|edge| !edge) {
+        key_event(app, window, code, modifiers, false);
+    }
+    Ok(())
+}
+
 const fn busy(app: &App) -> bool {
     app.compile.is_some()
         || app.play.is_some()
         || app.viewport.is_preparing()
+        || app.runtime_preparing()
         || app.bakes.busy()
         || app.safety_job.is_some()
         || app.navigation.is_baking()
@@ -484,7 +522,12 @@ fn validate(action: &Action) -> Result<(), String> {
                     .bytes()
                     .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
         }
-        Action::WaitIdle | Action::WaitPlay | Action::Focus | Action::Close => true,
+        Action::WaitIdle
+        | Action::WaitPlay
+        | Action::WaitTest
+        | Action::FocusLost
+        | Action::Focus
+        | Action::Close => true,
         Action::Resize { width, height } => {
             (960..=2560).contains(width) && (544..=1600).contains(height)
         }

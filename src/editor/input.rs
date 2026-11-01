@@ -247,16 +247,11 @@ impl App {
         reason = "Unrelated SDL events are routed to the viewport or ignored; the editor does not own every native event."
     )]
     pub(super) fn event(&mut self, event: &Event, window: &Window, hits: &[Hit]) {
-        if matches!(
-            event,
-            Event::Quit { timestamp: _ }
-                | Event::Window {
-                    win_event: WindowEvent::CloseRequested,
-                    timestamp: _,
-                    window_id: _
-                }
-        ) {
+        if close_requested(event) {
             self.request(Pending::Close, window);
+            return;
+        }
+        if self.runtime_event(event, window, hits) {
             return;
         }
         if self.play_floor_pick && self.play_floor_event(event, window, hits) {
@@ -423,4 +418,16 @@ fn pointer_on_control(event: &Event, window: &Window, hits: &[Hit]) -> bool {
         _ => return false,
     };
     ui_point(window, point).is_some_and(|p| hits.iter().any(|hit| hit.contains(p)))
+}
+
+const fn close_requested(event: &Event) -> bool {
+    matches!(
+        event,
+        Event::Quit { timestamp: _ }
+            | Event::Window {
+                win_event: WindowEvent::CloseRequested,
+                timestamp: _,
+                window_id: _
+            }
+    )
 }
