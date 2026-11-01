@@ -2,20 +2,39 @@
 local active, done = false, false
 local received = { false, false, false }
 local papers = { "office_scrap_1", "office_scrap_2", "office_scrap_3" }
+local groups = { "office_page_1", "office_page_2", "office_page_3" }
+local reported = -1
+local function refresh(api)
+    local count = 0
+    for i, id in papers do
+        local page = api.actor(id)
+        -- A unique filing receipt survives later bumps or removal of that page.
+        received[i] = received[i] or (page.physical and not page.held and page.sleeping
+            and page.x > -1.46 and page.x < -0.94
+            and page.z > 9.89 and page.z < 10.31
+            and page.y > 7.25 and page.y < 7.64)
+        if received[i] then count += 1 end
+    end
+    return count
+end
 local function talk(api)
     if done then
-        api.message("THE NIGHT ARCHIVIST", {"Three less things to carry into tomorrow.", "At last, I can take my break."})
+        api.message("THE NIGHT ARCHIVIST", {
+            "Three less things to carry into tomorrow.",
+            "Office favor complete. The Hub has your stamp.",
+            "Return through the Hub door in the entry foyer.",
+        })
         return
     end
     active = true
-    local count = 0
-    for _, present in received do if present then count += 1 end end
+    reported = refresh(api)
     api.message("THE NIGHT ARCHIVIST", {
-        "The upstairs desks are littered with three loose pages.",
-        "Drop them into the open waste crate beside reception.",
-        "Let each page settle inside; mugs and books stay out.",
-        "Filed for recycling: " .. tostring(count) .. " of 3.",
-        "The crate's restore button recovers the three pages.",
+        "Three loose pages: one on each floor, including the basement.",
+        "Upstairs: first desk. Middle: tilted desk by the west landing.",
+        "Basement: abandoned desk in the eastern workroom. F helps there.",
+        "Bring each to the wide recycling crate in the entry foyer.",
+        "E sets a held page down. Let it settle inside; leave good things.",
+        "Filed: " .. tostring(reported) .. " of 3. F1 gives the next location.",
     })
 end
 return {
@@ -28,36 +47,63 @@ return {
         end
         active, done = saved.active, saved.done
         received = {saved.page1, saved.page2, saved.page3}
+        reported = -1
     end,
-    start = function(api) done = api.completed("office") end,
+    start = function(api)
+        done = api.completed("office")
+        if done then api.animate("office_archivist", "pose_arms_up", true) end
+    end,
     talk = talk,
-    hint = function(api) api.message("OFFICE", { "The night archivist waits by reception on the top floor.", "The three loose pages belong in the open waste crate." }) end,
+    hint = function(api)
+        if done then talk(api) return end
+        local count = refresh(api)
+        local nextPage = "Upstairs: first desk north of reception."
+        if received[1] then
+            nextPage = "Middle floor: tilted desk beside the northwest landing."
+            if received[2] then
+                nextPage = "Basement: abandoned desk in the eastern workroom."
+            end
+        end
+        api.message("OFFICE - " .. tostring(count) .. " OF 3 FILED", {
+            "Speak to the night archivist beside reception upstairs.",
+            nextPage,
+            "East ramp: upstairs to middle. West ramp: middle to basement.",
+            "Return pages to the wide crate in the top-floor entry foyer.",
+            "E picks up or sets down. The crate button recovers unfiled pages.",
+            "Recovery keeps filed pages. Mugs, books and other items do not count.",
+        })
+    end,
     recover = function(api)
         if done then return end
-        received = { false, false, false }
-        api.physics("office_scraps", false)
-        api.message("THE NIGHT ARCHIVIST", {"All three pages are back on their desks.", "The recycling count has been cleared for this attempt."})
+        reported = refresh(api)
+        for i, group in groups do
+            if not received[i] then api.physics(group, false) end
+        end
+        api.message("PAGE RECOVERY", {
+            "Requested unfiled pages back at their original desks.",
+            "Already-filed pages keep their credit.",
+            "If a desk is blocked, step clear and press the button again.",
+        })
     end,
     update = function(api)
         if not active or done then return end
-        local count = 0
-        for i, id in papers do
-            local page = api.actor(id)
-            -- The physical crate has an open mouth and a real bottom.
-            received[i] = page.physical and not page.held and page.sleeping
-                and page.x > 6.65 and page.x < 7.15
-                and page.z > 6.80 and page.z < 7.20
-                and page.y > 7.21 and page.y < 7.48
-            if received[i] then count += 1 end
-        end
+        local count = refresh(api)
         if count == 3 then
             done = true
             api.complete()
             api.animate("office_archivist", "pose_arms_up", true)
             api.message("THE NIGHT ARCHIVIST", {
                 "All three are in. Thank you for leaving the good things.",
-                "Even an endless office can have an end to its day.",
+                "You brought the last page up from the basement, too.",
                 "Office favor complete. The Hub will remember.",
+                "Return through the Hub door beside the foyer crate.",
+            })
+        elseif count ~= reported then
+            reported = count
+            api.message("OFFICE RECYCLING", {
+                "Filed: " .. tostring(count) .. " of 3 pages.",
+                "There is one page on each floor. F1 gives the next location.",
+                "The crate button recovers unfiled pages without losing these.",
             })
         end
     end,

@@ -248,10 +248,26 @@ explicit authoring folder, never an inference from the resource or data root.
 
 The player persists settings, installed packages and saved editor projects.
 Quiet Collection favor completions also persist as small atomic JSON receipts
-under `saves/`, keyed to the installed package path. Rebuilding a package at the
-same path preserves those receipts. Player position and moved physics objects
-reset on a new visit; this is not a general world-state save/load system.
-First-run and relaunch preserve existing saves.
+under `saves/`, keyed to the canonical installed package path and declared project
+identity. Standalone level identities use a separate namespace. A different
+project installed at the same filename cannot inherit or clear its predecessor's
+progress; rebuilding the same project at that filename preserves it.
+
+The exact prior canonical/raw path-only receipt can migrate on first use while
+its original bytes remain intact. One bounded, exclusively created migration-owner
+record at that canonical installation assigns the old receipt to the first
+project that adopts it. It cannot be adopted again by a different project.
+Different filenames or bundled/imported copies are never merged. A corrupt or
+inaccessible scoped receipt cannot fall back to pre-reset legacy data. Its original
+bytes are preserved: ordinary completions stay in the session and cannot overwrite
+unreadable data. Repair the receipt and restart to load it, or confirm the separate
+CLEAR operation to replace it with an empty valid save. A failed clear preserves
+the old file and live progress. Player position and moved physics objects reset
+on a new visit; this is not a general world-state save/load system.
+First-run and relaunch preserve existing saves. A separate confirmed collection
+reset publishes an empty receipt before clearing live favors, invalidates older
+gameplay checkpoints and retains other installations' saves. Save/reset failures
+remain visible; an unsuccessful clear retains remembered progress.
 The 0.13.0 player uses a dedicated bundled live-menu scene, independent of
 optional gameplay maps. A map-free install offers the live menu, empty Explore
 with import guidance, Settings and Credits. The exporter always includes the

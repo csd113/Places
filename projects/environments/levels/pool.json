@@ -2,7 +2,7 @@
   "schema": "places-level",
   "format_version": 1,
   "id": "pool",
-  "name": "Pool \u2014 After Hours",
+  "name": "Pool — After Hours",
   "author": "Places",
   "spawn": {
     "x": 2.7,
@@ -608,8 +608,8 @@
     },
     {
       "x": 1.6,
-      "y": 2.55,
-      "z": 0.158,
+      "y": 2.64,
+      "z": 0.15,
       "width": 2.4,
       "height": 0.6,
       "material": "collection:sign_hub",
@@ -1040,6 +1040,11 @@
             {
               "action": "reset_physics_group",
               "group": "pool_water_demo"
+            },
+            {
+              "action": "run_script",
+              "script": "scripts/pool.luau",
+              "handler": "restored"
             }
           ]
         }
@@ -3101,6 +3106,52 @@
         0.578539,
         1.723035,
         0.316965
+      ]
+    },
+    {
+      "id": "pool_regatta_restore",
+      "model": "home:wall_switch",
+      "x": 15.825,
+      "z": 17.6,
+      "y": 1.18,
+      "rotation_degrees": 270,
+      "scale": 1.5,
+      "solid": false,
+      "display_name": "Restore the regatta duck",
+      "components": [
+        {
+          "component": "interactable",
+          "reach": 2.5,
+          "prompt": "Restore lost duck to this table / restart float timer"
+        },
+        {
+          "component": "animation",
+          "clip": "toggle",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.25,
+          "actions": [
+            {
+              "action": "toggle_animation",
+              "clip": "toggle"
+            },
+            {
+              "action": "run_script",
+              "script": "scripts/pool.luau",
+              "handler": "restore"
+            }
+          ]
+        }
+      ],
+      "size": [
+        0.086,
+        0.12,
+        0.033
       ]
     }
   ],

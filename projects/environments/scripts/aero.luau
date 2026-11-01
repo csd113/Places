@@ -1,24 +1,37 @@
 --!strict
-local active, done = false, false
+local done = false
 local valves = { false, false, false }
+local ids = { "aero_valve_blue", "aero_valve_white", "aero_valve_lime" }
+local names = { "BLUE", "WHITE", "LIME" }
+local amounts = { 1, 2, 4 }
 local function pressure() return (if valves[1] then 1 else 0) + (if valves[2] then 2 else 0) + (if valves[3] then 4 else 0) end
+local function prompts(api)
+    for index, id in ids do
+        local state = if valves[index] then "OPEN" else "CLOSED"
+        local action = if done then "complete" elseif valves[index] then "E to close" else "E to open"
+        api.prompt(id, names[index] .. " / " .. tostring(amounts[index]) .. " / " .. state .. " - " .. action)
+    end
+    api.prompt("aero_gardener", if done then "Fountain restored / speak" else "Fountain: " .. tostring(pressure()) .. "/5 measures / speak to test")
+end
 local function reward(api)
     api.enable("aero_fountain_mist", true)
     api.sound("aero_fountain_song", true)
     api.animate("aero_gardener", "pose_arms_up", true)
-    api.spawn("aero_fish_point", "aero_reward_fish")
+    if not api.exists("aero_reward_fish") then
+        api.spawn("aero_fish_point", "aero_reward_fish")
+    end
 end
 local function talk(api)
     if done then
-        api.message("THE GLASS GARDENER", {"Water, air, and one very happy fish.", "The garden is breathing again."})
+        api.message("THE GLASS GARDENER", {"Water, air, and one very happy fish.", "Aero favor complete. Return through the Hub door when ready."})
     else
-        active = true
         api.message("THE GLASS GARDENER", {
-            "The fountain needs FIVE measures of air.",
-            "Blue sends one, white sends two, lime sends four.",
-            "Each handle opens or closes its own pipe.",
-            "Set the handles, then speak to me to release the fish.",
-            "Current pressure: " .. tostring(pressure()) .. " of 5.",
+            "Restore the fountain with exactly FIVE measures.",
+            "Go around the glass divider's right end to the NORTH wall.",
+            "BLUE adds 1, WHITE adds 2, LIME adds 4 while open.",
+            "E opens/closes a control. Its prompt shows the state.",
+            "Current pressure: " .. tostring(pressure()) .. "/5.",
+            "Speak to me at five to release the fish. F1 helps.",
         })
     end
 end
@@ -31,13 +44,15 @@ return {
             api.toggle_animation("aero_valve_lime", "toggle")
             reward(api)
         end
+        prompts(api)
     end,
     talk = function(api)
-        if active and not done and pressure() == 5 then
+        if not done and pressure() == 5 then
             done = true
             api.complete()
             reward(api)
-            api.message("THE GLASS GARDENER", {"Five measures. Listen to the fountain sing!", "Aero favor complete. The Hub will remember."})
+            prompts(api)
+            api.message("THE GLASS GARDENER", {"Five measures. Listen to the fountain sing!", "Aero favor complete. The Hub will remember.", "Return through the Hub door when ready."})
         else talk(api) end
     end,
     valve = function(api, event)
@@ -46,7 +61,12 @@ return {
         if index == nil then return end
         valves[index] = not valves[index]
         api.toggle_animation(event.subject, "toggle")
-        api.message("FOUNTAIN PRESSURE", {tostring(pressure()) .. " measures. The gardener asks for five.", "Blue: 1. White: 2. Lime: 4. Speak to the gardener to test."})
+        prompts(api)
+        api.message("FOUNTAIN PRESSURE", {
+            names[index] .. " is " .. (if valves[index] then "OPEN." else "CLOSED."),
+            tostring(pressure()) .. "/5 measures. Open controls add their numbers together.",
+            if pressure() == 5 then "Exactly five! Speak to the gardener to release the fish." else "BLUE: 1. WHITE: 2. LIME: 4. E toggles each control.",
+        })
     end,
     hint = talk,
 }

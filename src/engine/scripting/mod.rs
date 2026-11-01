@@ -488,7 +488,7 @@ impl ScriptRuntime {
         let started = Instant::now();
         let queue = Mutex::new(Vec::new());
         let notices = Mutex::new(Vec::new());
-        let completion = Cell::new(false);
+        let completion = Cell::new(campaign::CampaignChange::None);
         let native_calls = Cell::new(0usize);
         let remaining = MAX_ACTIONS.saturating_sub(self.actions).min(32);
         let result = module.lua.scope(|scope| {
@@ -549,8 +549,8 @@ impl ScriptRuntime {
             self.note(message);
             return Vec::new();
         }
-        if completion.get() {
-            let committed = campaign::commit(world);
+        if completion.get() != campaign::CampaignChange::None {
+            let committed = campaign::commit(world, completion.get());
             if let Err(problem) = committed {
                 module.disabled = true;
                 self.note(problem);

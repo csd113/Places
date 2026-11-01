@@ -77,6 +77,11 @@ fn gameplay_checkpoint_roundtrip_recovers_previous_and_preserves_failed_publicat
         Some(true),
         "door lock survives reconstruction"
     );
+    assert!(
+        recovered.snapshot.check_campaign_generation(1).is_err(),
+        "a pre-reset checkpoint cannot restore old unlocks after an explicit clear"
+    );
+    recovered.snapshot.check_campaign_generation(0)?;
     let mut changed = identity.clone();
     changed.content = "b".repeat(64);
     assert!(
@@ -146,6 +151,7 @@ fn snapshot_fixture() -> Result<(LevelDef, Snapshot), String> {
         });
     let _commands = game.entities_mut().take_commands();
     let snapshot = Snapshot {
+        campaign_generation: 0,
         player: game.checkpoint_player()?,
         world: game.entities().checkpoint()?,
         items: Vec::new(),

@@ -1060,6 +1060,39 @@
           "height": 2.2
         }
       ]
+    },
+    {
+      "x": 16.4,
+      "z": 23.519999999999996,
+      "width": 0.24,
+      "depth": 1.36,
+      "height": 3,
+      "material": "outdoor:house_siding_01"
+    },
+    {
+      "x": 19.36,
+      "z": 23.519999999999996,
+      "width": 0.24,
+      "depth": 1.36,
+      "height": 3,
+      "material": "outdoor:house_siding_01"
+    },
+    {
+      "x": 16.4,
+      "z": 24.88,
+      "width": 3.2,
+      "depth": 0.24,
+      "height": 3,
+      "material": "outdoor:house_siding_01"
+    },
+    {
+      "x": 16.32,
+      "z": 23.2,
+      "width": 3.36,
+      "depth": 2,
+      "height": 0.16,
+      "y": 3,
+      "material": "outdoor:house_siding_01"
     }
   ],
   "floor_patches": [
@@ -17067,20 +17100,25 @@
             }
           ]
         }
+      ],
+      "size": [
+        0.086,
+        0.12,
+        0.033
       ]
     },
     {
       "id": "hollow_missing_friend",
       "model": "collection:skeleton_friend",
-      "x": -10.3,
+      "x": -10.0,
       "y": 0,
-      "z": -38.7,
+      "z": -37.4,
       "solid": false,
       "occludes": false,
       "components": [
         {
           "component": "interactable",
-          "prompt": "Found Jun / speak",
+          "prompt": "Jun, the missing friend / speak to bring them home",
           "reach": 2.5
         },
         {
@@ -17152,7 +17190,40 @@
         0.414955,
         1.722652,
         1.9
-      ]
+      ],
+      "comment": "Jun remains at the northeast conifer, at its visible southeast edge beyond the cool trail lantern."
+    },
+    {
+      "id": "jun_search_lantern",
+      "model": "outdoor:lamp_stand",
+      "x": -11.8,
+      "z": -35.8,
+      "rotation_degrees": 0,
+      "solid": true,
+      "size": [
+        0.34,
+        1.05,
+        0.34
+      ],
+      "lights": [
+        {
+          "shape": "point",
+          "offset": [
+            0.0,
+            0.86,
+            0.0
+          ],
+          "intensity": 0.65,
+          "range": 4.5,
+          "color": [
+            0.5,
+            0.72,
+            1
+          ],
+          "falloff": "smooth"
+        }
+      ],
+      "comment": "A single cool lantern marks the northeast search path without exposing Jun from the campfire."
     }
   ],
   "ceiling_lights": [
@@ -18025,10 +18096,10 @@
   "decals": [
     {
       "x": 18,
-      "y": 2.62,
-      "z": 23.278999999999996,
-      "width": 2.8,
-      "height": 0.7,
+      "y": 2.7,
+      "z": 23.279999999999998,
+      "width": 2.4,
+      "height": 0.6,
       "material": "collection:sign_hub",
       "surface": "wall_north"
     }

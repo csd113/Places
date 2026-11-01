@@ -3255,8 +3255,8 @@
     {
       "id": "garden_chair",
       "model": "beach:lounge_chair",
-      "x": -13.4,
-      "z": 10.6,
+      "x": -14.7,
+      "z": 10.7,
       "y": 0.0,
       "rotation_degrees": 180,
       "size": [
@@ -9011,9 +9011,9 @@
       "id": "collection_item_reset",
       "model": "home:wall_switch",
       "x": 21.22,
-      "z": 3.741,
+      "z": 6.659,
       "y": 1.18,
-      "rotation_degrees": 0,
+      "rotation_degrees": 180,
       "solid": false,
       "components": [
         {
@@ -9041,6 +9041,11 @@
             }
           ]
         }
+      ],
+      "size": [
+        0.086,
+        0.12,
+        0.033
       ]
     },
     {
@@ -9106,15 +9111,15 @@
           "component": "nav_agent",
           "radius": 0.43,
           "height": 0.4,
-          "speed_mps": 0.160624564,
+          "speed_mps": 0.6,
           "step_height": 0.3,
           "max_slope": 2
         },
         {
           "component": "ai",
           "behavior": "idler",
-          "walk_speed": 0.160624564,
-          "run_speed": 0.160624564,
+          "walk_speed": 0.6,
+          "run_speed": 0.6,
           "sight_range": 0,
           "hearing_range": 0,
           "can_open_doors": true
@@ -12351,7 +12356,7 @@
   "walls": [
     {
       "x": 18.4,
-      "z": 3.48,
+      "z": 6.68,
       "width": 3.2,
       "depth": 0.24,
       "height": 3,
@@ -12364,13 +12369,46 @@
           "height": 2.2
         }
       ]
+    },
+    {
+      "x": 18.4,
+      "z": 6.92,
+      "width": 0.24,
+      "depth": 1.36,
+      "height": 3,
+      "material": "beach:stucco_01"
+    },
+    {
+      "x": 21.36,
+      "z": 6.92,
+      "width": 0.24,
+      "depth": 1.36,
+      "height": 3,
+      "material": "beach:stucco_01"
+    },
+    {
+      "x": 18.4,
+      "z": 8.28,
+      "width": 3.2,
+      "depth": 0.24,
+      "height": 3,
+      "material": "beach:stucco_01"
+    },
+    {
+      "x": 18.32,
+      "z": 6.6,
+      "width": 3.36,
+      "depth": 2,
+      "height": 0.16,
+      "y": 3,
+      "material": "beach:stucco_01"
     }
   ],
   "doors": [
     {
       "id": "return_hub_beach",
       "x": 19.4,
-      "z": 3.6,
+      "z": 6.8,
       "width": 1.2,
       "height": 2.2,
       "frame_material": "core:metal_brushed_01",
@@ -12397,12 +12435,12 @@
   "decals": [
     {
       "x": 20,
-      "y": 2.62,
-      "z": 3.721,
-      "width": 2.8,
-      "height": 0.7,
+      "y": 2.7,
+      "z": 6.68,
+      "width": 2.4,
+      "height": 0.6,
       "material": "collection:sign_hub",
-      "surface": "wall_south"
+      "surface": "wall_north"
     }
   ],
   "scripts": [

@@ -8,17 +8,20 @@ local function navigate(api)
     api.navigate("hollow_missing_friend", goal.x, 0, goal.z)
 end
 local function group(api)
-    if api.completed("lantern_hollow") then
-        api.message("THE CAMPFIRE CIRCLE", {"Seven friends, seven seats. Jun loves another round.", "We remember who brought our friend home."})
+    if phase == "seated" then
+        api.message("THE CAMPFIRE CIRCLE", {"Seven friends, seven seats. Everyone is here.", "Lantern Hollow favor complete. Return through the Hub door when ready."})
     elseif phase == "hiding" then
         api.message("THE CAMPFIRE CIRCLE", {
-            "Count the stumps. One of our friends is missing.",
-            "Jun is playing hide-and-seek beyond the east trees.",
-            "Look northeast of the fire, behind the tall conifer.",
-            "Speak to Jun. Keep the path to the empty stool clear.",
+            "Jun is playing hide-and-seek. One stump is empty.",
+            "Look NORTHEAST of the fire, past the large boulder.",
+            "A cool blue lantern points to the tall conifer.",
+            "Look at the tree's far edge. F is your flashlight.",
+            "Speak to Jun, then leave room for the walk home.",
         })
+    elseif phase == "sitting" then
+        api.message("THE CAMPFIRE CIRCLE", {"Jun has reached the empty stump and is sitting down.", "Give our friend a moment; the favor completes once everyone is seated."})
     else
-        api.message("THE CAMPFIRE CIRCLE", {"Jun is on the way! Make room beside the empty stool.", "We will count everyone in once our friend is seated."})
+        api.message("THE CAMPFIRE CIRCLE", {"Jun is walking back from the northeast tree.", "Stand to one side of the path and the empty stump.", "If our friend is stuck, speak to Jun to ask them to try the path again."})
     end
 end
 return {
@@ -26,6 +29,7 @@ return {
         if api.completed("lantern_hollow") then
             phase = "returning"
             navigate(api)
+            api.prompt("hollow_missing_friend", "Jun is returning to the fire / speak")
         end
     end,
     group = group,
@@ -33,12 +37,18 @@ return {
     friend = function(api)
         if phase == "hiding" then
             phase = "returning"
+            elapsed = 0
             navigate(api)
-            api.message("JUN", {"Found me! I could hear them laughing from here.", "I will walk back. Leave me a little room by the fire."})
+            api.prompt("hollow_missing_friend", "Jun is returning to the fire / speak")
+            api.message("JUN", {"Found me! I could hear them laughing from here.", "I will walk back to the empty stump by the fire.", "Walk alongside me and leave a little room on the path."})
         elseif phase == "seated" then
-            api.message("JUN", {"Best hiding place. Better company.", "Thank you for coming to find me."})
+            api.message("JUN", {"Best hiding place. Better company.", "Lantern Hollow favor complete. Thank you for bringing me home."})
+        elseif phase == "returning" then
+            elapsed = 0
+            navigate(api)
+            api.message("JUN", {"The empty stump is mine. I am trying the path again.", "Stand to one side so I can get past; I will walk every step."})
         else
-            api.message("JUN", {"The empty stump is mine. I know the way.", "You can walk alongside me, if you like."})
+            api.message("JUN", {"Here is my stump. Just sitting down!"})
         end
     end,
     update = function(api, event)
@@ -55,15 +65,16 @@ return {
                     phase = "sitting"
                     api.set_state("hollow_missing_friend", "seating", true)
                 end
-            elseif elapsed > 12 then
+            elseif elapsed > 6 then
                 elapsed = 0
                 navigate(api)
             end
         elseif phase == "sitting" and api.state("hollow_missing_friend", "seated") then
             phase = "seated"
+            api.prompt("hollow_missing_friend", "Jun is home / speak")
             if not api.completed("lantern_hollow") then
                 api.complete()
-                api.message("THE CAMPFIRE CIRCLE", {"One, two, three... seven. Everyone is here.", "Lantern Hollow favor complete. The Hub will remember."})
+                api.message("THE CAMPFIRE CIRCLE", {"One, two, three... seven. Everyone is here.", "Lantern Hollow favor complete. The Hub will remember.", "Return through the Hub door when ready."})
             end
         end
     end,

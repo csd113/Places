@@ -39,7 +39,7 @@
     {
       "id": "arcade",
       "display_name": "Retro Bowling & Arcade",
-      "description": "Empty operational 1995\u20132005 cosmic bowling: navy interiors, warm maple lanes, CRT cabinets and masked blacklight-reactive carpet."
+      "description": "Empty operational 1995–2005 cosmic bowling: navy interiors, warm maple lanes, CRT cabinets and masked blacklight-reactive carpet."
     },
     {
       "id": "janitor_closet",
@@ -9334,7 +9334,7 @@
       "asset_type": "light",
       "source": "file",
       "model": "environments/arcade/textures/lights/fluorescent_panel_01.png",
-      "description": "Existing 1.2\u00d70.6 m recessed family with fitted 2:1 diffuser; real neutral-warm local lighting."
+      "description": "Existing 1.2×0.6 m recessed family with fitted 2:1 diffuser; real neutral-warm local lighting."
     },
     {
       "id": "arcade:blacklight_tube",
@@ -9344,7 +9344,7 @@
       "asset_type": "light",
       "source": "file",
       "model": "environments/arcade/textures/lights/blacklight_tube_01.png",
-      "description": "Operational 1.2\u00d70.15 m narrow batten with fitted 8:1 violet lens and nonemissive dark housing. Visible brightness and ultraviolet excitation are distinct."
+      "description": "Operational 1.2×0.15 m narrow batten with fitted 8:1 violet lens and nonemissive dark housing. Visible brightness and ultraviolet excitation are distinct."
     },
     {
       "id": "arcade:decal_bowling_mural_01",
@@ -11300,7 +11300,7 @@
     },
     {
       "id": "janitor:folded_towel_blue",
-      "display_name": "Folded Towel \u2014 Slate Blue",
+      "display_name": "Folded Towel — Slate Blue",
       "asset_class": "environment",
       "theme": "janitor_closet",
       "asset_type": "prop",
@@ -12515,6 +12515,87 @@
         "circuit"
       ],
       "category": "Utility Lights"
+    },
+    {
+      "id": "collection:fountain_switch_blue",
+      "display_name": "Fountain Switch / Blue",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/wall_switch.glb",
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "color": "#237eff",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "tint": [
+        0.035,
+        0.22,
+        1.0
+      ],
+      "description": "Colored fountain control preset of the canonical animated wall switch; unchanged model, PNG, UVs, alpha, pivots and toggle clip."
+    },
+    {
+      "id": "collection:fountain_switch_white",
+      "display_name": "Fountain Switch / White",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/wall_switch.glb",
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "color": "#ffffff",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "tint": [
+        1,
+        1,
+        1
+      ],
+      "description": "Colored fountain control preset of the canonical animated wall switch; unchanged model, PNG, UVs, alpha, pivots and toggle clip."
+    },
+    {
+      "id": "collection:fountain_switch_lime",
+      "display_name": "Fountain Switch / Lime",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/wall_switch.glb",
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ],
+      "color": "#b3ff2c",
+      "category": "Utility",
+      "solid": false,
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      },
+      "tint": [
+        0.45,
+        1,
+        0.025
+      ],
+      "description": "Colored fountain control preset of the canonical animated wall switch; unchanged model, PNG, UVs, alpha, pivots and toggle clip."
     }
   ]
 }

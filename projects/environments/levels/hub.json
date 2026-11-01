@@ -493,7 +493,8 @@
         0.578539,
         1.723035,
         0.316965
-      ]
+      ],
+      "rotation_degrees": 270
     },
     {
       "id": "kindness_table_0",
@@ -550,7 +551,8 @@
             }
           ]
         }
-      ]
+      ],
+      "rotation_degrees": 0
     },
     {
       "id": "kindness_keepsake_1",
@@ -581,7 +583,8 @@
             }
           ]
         }
-      ]
+      ],
+      "rotation_degrees": 0
     },
     {
       "id": "kindness_keepsake_2",
@@ -612,7 +615,8 @@
             }
           ]
         }
-      ]
+      ],
+      "rotation_degrees": 0
     },
     {
       "id": "kindness_keepsake_3",
@@ -643,7 +647,8 @@
             }
           ]
         }
-      ]
+      ],
+      "rotation_degrees": 0
     },
     {
       "id": "kindness_keepsake_4",
@@ -674,7 +679,8 @@
             }
           ]
         }
-      ]
+      ],
+      "rotation_degrees": 180
     },
     {
       "id": "kindness_keepsake_5",
@@ -705,7 +711,8 @@
             }
           ]
         }
-      ]
+      ],
+      "rotation_degrees": 180
     },
     {
       "id": "kindness_keepsake_6",
@@ -736,7 +743,8 @@
             }
           ]
         }
-      ]
+      ],
+      "rotation_degrees": 180
     },
     {
       "id": "kindness_keepsake_7",
@@ -767,7 +775,8 @@
             }
           ]
         }
-      ]
+      ],
+      "rotation_degrees": 180
     },
     {
       "id": "kindness_chair_0",
@@ -832,6 +841,40 @@
         1.4,
         0.75,
         0.8
+      ]
+    },
+    {
+      "id": "collection_clear",
+      "model": "home:wall_switch",
+      "x": 23.94,
+      "y": 1.2,
+      "z": 9,
+      "scale": 2,
+      "rotation_degrees": 270,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Clear saved collection progress / confirm twice",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/hub.luau",
+              "handler": "clear_progress"
+            }
+          ]
+        }
+      ],
+      "size": [
+        0.086,
+        0.12,
+        0.033
       ]
     }
   ],
@@ -919,10 +962,10 @@
     },
     {
       "x": 24,
-      "y": 2.9,
+      "y": 3.15,
       "z": 7,
-      "width": 4,
-      "height": 1,
+      "width": 3.2,
+      "height": 0.8,
       "material": "collection:sign_hub",
       "surface": "wall_west"
     }

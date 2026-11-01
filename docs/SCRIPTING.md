@@ -98,7 +98,10 @@ that the editor performs Luau typechecking.
 | `api.state(id, key)` | Reads an existing declared bool/integer/float/text state |
 | `api.set_state(id, key, value)` | Stages a same-type write to a declared slot; cannot grow state bags |
 | `api.change_level(id)` | Requests a declared same-package destination from this level’s `transitions`; requires complete project export |
-| `api.reset()` | Uses the shared reset-to-start action, recreates VM state and cancels pending navigation |
+| `api.reset()` | Uses the shared reset-to-start action, recreates VM state and cancels pending navigation; retains collection completions |
+| `api.completed(id)` / `api.complete()` | Queries remembered completion / records the current destination once in the attached installation's campaign |
+| `api.reset_campaign()` | Requests a separate durable collection clear; live completions clear only after successful atomic save publication |
+| `api.campaign_status()` | Returns `"saved"`, `"pending"` or `"failed"` for attached collection progress; check on a later invocation before acknowledging a clear |
 | `api.notice(text)` | Bounded diagnostic, retained/logged with `[luau]` |
 
 Identity/key/group arguments are nonempty printable UTF-8, at most 96 bytes;
@@ -375,3 +378,32 @@ buffers remain retained when execution ownership changes. See
 actions. Levels opt in with `saving: true`; every module must supply bounded
 `checkpoint_state()` / `restore_state(saved)` hooks. See [checkpoint authoring,
 supported state and limits](CHECKPOINTS.md). Existing levels remain disabled.
+
+## Collection save and explicit reset
+
+Collection completions use the existing installation-scoped campaign receipt,
+and declared project, independently of each visit's disposable scripts and physics. `api.complete()`
+is idempotent; ordinary `api.reset()` and level travel retain remembered favors.
+`api.reset_campaign()` is a separate operation and should be behind an explicit
+player confirmation. Like completion, the request is discarded if its script
+handler fails. It does not itself reset the current visit's objects or doors.
+
+After requesting a clear, wait until a later invocation reports
+`api.campaign_status() == "saved"`, then refresh the ledger and reward door from
+`api.completed(...)`. Do not acknowledge success in the requesting handler.
+`"pending"` means publication has not finished. `"failed"` retains previous live
+and durable completions on a refused clear; the native shell also displays the
+save failure. Ordinary completion write failures retain progress for the current
+session and visibly explain that it was not saved. A new level boundary retries
+ordinary failed writes. Repeating the explicit clear can retry a failed clear.
+
+A successful clear advances the persisted campaign generation. Gameplay
+checkpoints from a preceding generation are refused. The still-live visit also
+cannot capture the new generation until a fresh level load attaches its authored
+world. This prevents a same-frame save from retaining old reward doors or script
+closures under the cleared generation. Re-enter the level before saving another
+checkpoint. Invalid campaign receipts
+also refuse checkpoint resume until repaired or explicitly cleared. Freshly
+compiled scripted packages conservatively require `campaign-reset-v1`, matching
+the existing expanded-host policy; older players reject them by capability name.
+Existing packages without the new calls remain readable.

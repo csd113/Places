@@ -836,6 +836,39 @@
           "height": 2.2
         }
       ]
+    },
+    {
+      "x": -1.6,
+      "z": 14.520000000000001,
+      "width": 0.24,
+      "depth": 1.36,
+      "height": 3,
+      "material": "winter:stone_masonry_01"
+    },
+    {
+      "x": 1.3599999999999999,
+      "z": 14.520000000000001,
+      "width": 0.24,
+      "depth": 1.36,
+      "height": 3,
+      "material": "winter:stone_masonry_01"
+    },
+    {
+      "x": -1.6,
+      "z": 15.88,
+      "width": 3.2,
+      "depth": 0.24,
+      "height": 3,
+      "material": "winter:stone_masonry_01"
+    },
+    {
+      "x": -1.6800000000000002,
+      "z": 14.200000000000001,
+      "width": 3.36,
+      "depth": 2,
+      "height": 0.16,
+      "y": 3,
+      "material": "winter:stone_masonry_01"
     }
   ],
   "floor_patches": [
@@ -6628,7 +6661,7 @@
       "components": [
         {
           "component": "interactable",
-          "prompt": "Try the ice coach figure",
+          "prompt": "Begin the three-lantern ice figure",
           "reach": 2.5
         },
         {
@@ -6668,8 +6701,25 @@
       "components": [
         {
           "component": "interactable",
-          "prompt": "Ice figure / lantern 1",
-          "reach": 2.5
+          "prompt": "Ice lantern 1 of 3 / start / near left",
+          "reach": 2.5,
+          "label": "1"
+        },
+        {
+          "component": "glow",
+          "color": [
+            1,
+            0.68,
+            0.25
+          ],
+          "intensity": 0.35,
+          "range": 2,
+          "offset": [
+            0,
+            0.25,
+            0
+          ],
+          "fade": false
         }
       ],
       "bindings": [
@@ -6677,14 +6727,18 @@
           "on": "interact",
           "actions": [
             {
-              "action": "show_message",
-              "title": "ICE LANTERN 1",
-              "lines": [
-                "Glide past this lantern in the coach's order."
-              ]
+              "action": "run_script",
+              "script": "scripts/winter.luau",
+              "handler": "mark"
             }
           ]
         }
+      ],
+      "display_name": "1",
+      "size": [
+        0.65,
+        3.2,
+        0.6
       ]
     },
     {
@@ -6699,8 +6753,25 @@
       "components": [
         {
           "component": "interactable",
-          "prompt": "Ice figure / lantern 2",
-          "reach": 2.5
+          "prompt": "Ice lantern 2 of 3 / second / across right",
+          "reach": 2.5,
+          "label": "2"
+        },
+        {
+          "component": "glow",
+          "color": [
+            1,
+            0.68,
+            0.25
+          ],
+          "intensity": 0.35,
+          "range": 2,
+          "offset": [
+            0,
+            0.25,
+            0
+          ],
+          "fade": false
         }
       ],
       "bindings": [
@@ -6708,14 +6779,18 @@
           "on": "interact",
           "actions": [
             {
-              "action": "show_message",
-              "title": "ICE LANTERN 2",
-              "lines": [
-                "Glide past this lantern in the coach's order."
-              ]
+              "action": "run_script",
+              "script": "scripts/winter.luau",
+              "handler": "mark"
             }
           ]
         }
+      ],
+      "display_name": "2",
+      "size": [
+        0.65,
+        3.2,
+        0.6
       ]
     },
     {
@@ -6730,8 +6805,25 @@
       "components": [
         {
           "component": "interactable",
-          "prompt": "Ice figure / lantern 3",
-          "reach": 2.5
+          "prompt": "Ice lantern 3 of 3 / third / far left",
+          "reach": 2.5,
+          "label": "3"
+        },
+        {
+          "component": "glow",
+          "color": [
+            1,
+            0.68,
+            0.25
+          ],
+          "intensity": 0.35,
+          "range": 2,
+          "offset": [
+            0,
+            0.25,
+            0
+          ],
+          "fade": false
         }
       ],
       "bindings": [
@@ -6739,14 +6831,18 @@
           "on": "interact",
           "actions": [
             {
-              "action": "show_message",
-              "title": "ICE LANTERN 3",
-              "lines": [
-                "Glide past this lantern in the coach's order."
-              ]
+              "action": "run_script",
+              "script": "scripts/winter.luau",
+              "handler": "mark"
             }
           ]
         }
+      ],
+      "display_name": "3",
+      "size": [
+        0.65,
+        3.2,
+        0.6
       ]
     }
   ],
@@ -7756,10 +7852,10 @@
   "decals": [
     {
       "x": 0,
-      "y": 2.62,
-      "z": 14.279000000000002,
-      "width": 2.8,
-      "height": 0.7,
+      "y": 2.7,
+      "z": 14.280000000000001,
+      "width": 2.4,
+      "height": 0.6,
       "material": "collection:sign_hub",
       "surface": "wall_north"
     }
@@ -7776,6 +7872,33 @@
       "sound": "prop_bell",
       "looped": false,
       "playing": false
+    }
+  ],
+  "timers": [
+    {
+      "id": "winter_wayfinding_labels",
+      "seconds": 0.1,
+      "repeat": false,
+      "autostart": true,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "toggle_label",
+              "target": "winter_course_1"
+            },
+            {
+              "action": "toggle_label",
+              "target": "winter_course_2"
+            },
+            {
+              "action": "toggle_label",
+              "target": "winter_course_3"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -1358,8 +1358,9 @@ impl FrameLoop<'_> {
             .current_level
             .as_ref()
             .is_some_and(|loaded| !loaded.level.script_sources.is_empty())
+            && let Some(problem) = self.campaign.flush()
         {
-            self.campaign.flush();
+            self.checkpoint_notice(&problem);
         }
         let commands = self.game.entities_mut().take_commands();
         for command in commands {
@@ -4257,7 +4258,11 @@ impl FrameLoop<'_> {
             self.install_resumed_game(resumed, collision);
             self.game
                 .entities_mut()
-                .attach_campaign(self.campaign.attach(&loaded.entry.path));
+                .attach_campaign(self.campaign.attach(
+                    &loaded.entry.path,
+                    loaded.project_id.as_deref(),
+                    &loaded.level.id,
+                ));
             install_timer.step("game-reset");
             if let Some(prepared_items) = physical {
                 self.install_physical_items(&loaded.level, prepared_items);

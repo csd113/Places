@@ -728,6 +728,10 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     if !level.script_sources.is_empty() {
         required.push("luau-v1".to_string());
         required.push("campaign-progress-v1".to_string());
+        // Match the existing conservative host-API policy: a new scripted
+        // package needs this player even when a dynamic call is not visible
+        // through source text (aliases and computed table access are legal).
+        required.push("campaign-reset-v1".to_string());
         required.push("world-observations-v1".to_string());
     }
     // New host calls and reveal-only semantics must not silently disappear

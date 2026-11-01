@@ -76,7 +76,15 @@
       "width": 20.36,
       "depth": 0.24,
       "height": 3.2,
-      "material": "arcade:wall_navy_01"
+      "material": "arcade:wall_navy_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 6.44,
+          "width": 1.2,
+          "height": 2.2
+        }
+      ]
     },
     {
       "x": -0.24,
@@ -205,22 +213,6 @@
           "sill": 1.134,
           "glass": "arcade:restroom_mirror_01",
           "solid": true
-        }
-      ]
-    },
-    {
-      "x": 5.199999999999999,
-      "z": 29.08,
-      "width": 3.2,
-      "depth": 0.24,
-      "height": 3,
-      "material": "arcade:wall_navy_01",
-      "openings": [
-        {
-          "kind": "door",
-          "offset": 1,
-          "width": 1.2,
-          "height": 2.2
         }
       ]
     }
@@ -9025,12 +9017,12 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
-        "pickup": true,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
+        "pickup": false,
         "reset_group": "arcade_lane_1"
       }
     },
@@ -10399,12 +10391,12 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
-        "pickup": true,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
+        "pickup": false,
         "reset_group": "arcade_lane_1"
       }
     },
@@ -11773,12 +11765,12 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
-        "pickup": true,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
+        "pickup": false,
         "reset_group": "arcade_lane_1"
       }
     },
@@ -13147,12 +13139,12 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
-        "pickup": true,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
+        "pickup": false,
         "reset_group": "arcade_lane_1"
       }
     },
@@ -14521,12 +14513,12 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
-        "pickup": true,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
+        "pickup": false,
         "reset_group": "arcade_lane_1"
       }
     },
@@ -15895,12 +15887,12 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
-        "pickup": true,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
+        "pickup": false,
         "reset_group": "arcade_lane_1"
       }
     },
@@ -17269,12 +17261,12 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
-        "pickup": true,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
+        "pickup": false,
         "reset_group": "arcade_lane_1"
       }
     },
@@ -18643,12 +18635,12 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
-        "pickup": true,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
+        "pickup": false,
         "reset_group": "arcade_lane_1"
       }
     },
@@ -20017,12 +20009,12 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
-        "pickup": true,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
+        "pickup": false,
         "reset_group": "arcade_lane_1"
       }
     },
@@ -21391,12 +21383,12 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
-        "pickup": true,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
+        "pickup": false,
         "reset_group": "arcade_lane_1"
       }
     },
@@ -30099,11 +30091,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -31473,11 +31465,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -32847,11 +32839,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -34221,11 +34213,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -35595,11 +35587,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -36969,11 +36961,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -38343,11 +38335,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -39717,11 +39709,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -41091,11 +41083,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -42465,11 +42457,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -51173,11 +51165,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -52547,11 +52539,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -53921,11 +53913,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -55295,11 +55287,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -56669,11 +56661,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -58043,11 +58035,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -59417,11 +59409,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -60791,11 +60783,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -62165,11 +62157,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -63539,11 +63531,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -72247,11 +72239,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -73621,11 +73613,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -74995,11 +74987,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -76369,11 +76361,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -77743,11 +77735,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -79117,11 +79109,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -80491,11 +80483,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -81865,11 +81857,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -83239,11 +83231,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -84613,11 +84605,11 @@
             }
           ]
         },
-        "mass_kg": 1.5,
-        "friction": 0.6,
+        "mass_kg": 1.0,
+        "friction": 0.45,
         "restitution": 0.1,
-        "linear_damping": 0.05,
-        "angular_damping": 0.08,
+        "linear_damping": 0.03,
+        "angular_damping": 0.04,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -84651,7 +84643,27 @@
         1.81
       ],
       "solid": true,
-      "occludes": false
+      "occludes": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Return BLUE ball (keep fallen pins)",
+          "reach": 2.5
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "cooldown_seconds": 0.5,
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/arcade.luau",
+              "handler": "return_ball"
+            }
+          ]
+        }
+      ]
     },
     {
       "id": "rack_0",
@@ -84688,11 +84700,11 @@
           "kind": "sphere",
           "radius": 0.108
         },
-        "mass_kg": 5.0,
-        "friction": 0.45,
-        "restitution": 0.2,
-        "linear_damping": 0.03,
-        "angular_damping": 0.08,
+        "mass_kg": 4.0,
+        "friction": 0.22,
+        "restitution": 0.08,
+        "linear_damping": 0.01,
+        "angular_damping": 0.025,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -84717,11 +84729,11 @@
           "kind": "sphere",
           "radius": 0.108
         },
-        "mass_kg": 5.0,
-        "friction": 0.45,
-        "restitution": 0.2,
-        "linear_damping": 0.03,
-        "angular_damping": 0.08,
+        "mass_kg": 4.0,
+        "friction": 0.22,
+        "restitution": 0.08,
+        "linear_damping": 0.01,
+        "angular_damping": 0.025,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -84746,13 +84758,13 @@
           "kind": "sphere",
           "radius": 0.108
         },
-        "mass_kg": 5.0,
-        "friction": 0.45,
-        "restitution": 0.2,
-        "linear_damping": 0.03,
-        "angular_damping": 0.08,
+        "mass_kg": 4.0,
+        "friction": 0.22,
+        "restitution": 0.08,
+        "linear_damping": 0.01,
+        "angular_damping": 0.025,
         "pickup": true,
-        "reset_group": "arcade_lane_1"
+        "reset_group": "arcade_blue_ball"
       }
     },
     {
@@ -84805,11 +84817,11 @@
           "kind": "sphere",
           "radius": 0.108
         },
-        "mass_kg": 5.0,
-        "friction": 0.45,
-        "restitution": 0.2,
-        "linear_damping": 0.03,
-        "angular_damping": 0.08,
+        "mass_kg": 4.0,
+        "friction": 0.22,
+        "restitution": 0.08,
+        "linear_damping": 0.01,
+        "angular_damping": 0.025,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -84834,11 +84846,11 @@
           "kind": "sphere",
           "radius": 0.108
         },
-        "mass_kg": 5.0,
-        "friction": 0.45,
-        "restitution": 0.2,
-        "linear_damping": 0.03,
-        "angular_damping": 0.08,
+        "mass_kg": 4.0,
+        "friction": 0.22,
+        "restitution": 0.08,
+        "linear_damping": 0.01,
+        "angular_damping": 0.025,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -84863,11 +84875,11 @@
           "kind": "sphere",
           "radius": 0.108
         },
-        "mass_kg": 5.0,
-        "friction": 0.45,
-        "restitution": 0.2,
-        "linear_damping": 0.03,
-        "angular_damping": 0.08,
+        "mass_kg": 4.0,
+        "friction": 0.22,
+        "restitution": 0.08,
+        "linear_damping": 0.01,
+        "angular_damping": 0.025,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -84892,11 +84904,11 @@
           "kind": "sphere",
           "radius": 0.108
         },
-        "mass_kg": 5.0,
-        "friction": 0.45,
-        "restitution": 0.2,
-        "linear_damping": 0.03,
-        "angular_damping": 0.08,
+        "mass_kg": 4.0,
+        "friction": 0.22,
+        "restitution": 0.08,
+        "linear_damping": 0.01,
+        "angular_damping": 0.025,
         "pickup": true,
         "reset_group": "collection_items"
       }
@@ -84918,8 +84930,8 @@
       "components": [
         {
           "component": "interactable",
-          "prompt": "Reset lane",
-          "reach": 1.7
+          "prompt": "Fresh rack (unlimited retries)",
+          "reach": 2.5
         },
         {
           "component": "animation",
@@ -84941,6 +84953,10 @@
               "group": "arcade_lane_1",
               "enabled": false,
               "target": "lane_1_secret_switch"
+            },
+            {
+              "action": "reset_physics_group",
+              "group": "arcade_blue_ball"
             },
             {
               "action": "run_script",
@@ -90260,7 +90276,7 @@
       "id": "collection_item_reset",
       "model": "home:wall_switch",
       "x": 8.02,
-      "z": 29.058999999999997,
+      "z": 29.979,
       "y": 1.18,
       "rotation_degrees": 180,
       "solid": false,
@@ -90290,6 +90306,11 @@
             }
           ]
         }
+      ],
+      "size": [
+        0.086,
+        0.12,
+        0.033
       ]
     },
     {
@@ -90303,7 +90324,7 @@
       "components": [
         {
           "component": "interactable",
-          "prompt": "Take the lane attendant challenge",
+          "prompt": "Learn lane one - unlimited bowling retries",
           "reach": 2.5
         },
         {
@@ -90722,10 +90743,10 @@
     },
     {
       "x": 6.8,
-      "y": 2.62,
-      "z": 29.078999999999997,
-      "width": 2.8,
-      "height": 0.7,
+      "y": 2.7,
+      "z": 30,
+      "width": 2.4,
+      "height": 0.6,
       "material": "collection:sign_hub",
       "surface": "wall_north"
     }
@@ -91142,10 +91163,32 @@
       "uv_projection": "floor_fold"
     },
     {
+      "x": 6.2,
+      "z": 30,
+      "y": 0,
+      "length": 6.2,
+      "rotation_degrees": 180,
+      "height": 0.09,
+      "thickness": 0.018,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
+      "x": 6.2,
+      "z": 30,
+      "y": 0.09,
+      "length": 6.2,
+      "rotation_degrees": 180,
+      "height": 0.01,
+      "thickness": 0.009,
+      "material": "arcade:carpet_retro_swirl_01",
+      "uv_projection": "floor_fold"
+    },
+    {
       "x": 9.08,
       "z": 30,
       "y": 0,
-      "length": 9.08,
+      "length": 1.68,
       "rotation_degrees": 180,
       "height": 0.09,
       "thickness": 0.018,
@@ -91156,7 +91199,7 @@
       "x": 9.08,
       "z": 30,
       "y": 0.09,
-      "length": 9.08,
+      "length": 1.68,
       "rotation_degrees": 180,
       "height": 0.01,
       "thickness": 0.009,
@@ -91674,7 +91717,7 @@
     {
       "id": "return_hub_arcade",
       "x": 6.2,
-      "z": 29.2,
+      "z": 30,
       "width": 1.2,
       "height": 2.2,
       "frame_material": "core:metal_brushed_01",

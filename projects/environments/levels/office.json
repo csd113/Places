@@ -262,7 +262,7 @@
         {
           "kind": "passage",
           "offset": 2,
-          "width": 1.4,
+          "width": 2.4,
           "height": 2.35,
           "sill": 0
         },
@@ -570,9 +570,9 @@
       ]
     },
     {
-      "x": 12.12,
+      "x": 11.88,
       "z": 2.88,
-      "width": 11.76,
+      "width": 12.0,
       "depth": 0.24,
       "y": 0,
       "height": 2.8,
@@ -580,7 +580,7 @@
       "openings": [
         {
           "kind": "passage",
-          "offset": 7.9,
+          "offset": 8.14,
           "width": 1.8,
           "height": 2.35,
           "sill": 0
@@ -3845,80 +3845,81 @@
     {
       "id": "office_waste_crate",
       "model": "janitor:perforated_supply_crate",
-      "x": 6.9,
-      "y": 7.2,
-      "z": 7,
-      "scale": 2,
+      "x": -1.2,
+      "y": 0.0,
+      "z": 10.1,
+      "scale": 2.5,
       "solid": false,
-      "comment": "Open waste crate; five fitted collision slabs leave the mouth open."
+      "comment": "Wide open recycling crate in the public entry foyer, clear of the return door and the main corridor. Five fitted slabs follow the delivered crate at 2.5 scale.",
+      "display_name": "Foyer recycling crate"
     },
     {
       "id": "office_waste_bottom",
       "model": "outdoor:collision_peg",
-      "x": 6.9,
-      "y": 7.2,
-      "z": 7,
+      "x": -1.2,
+      "y": 0.0,
+      "z": 10.1,
       "solid": true,
       "size": [
-        0.6,
-        0.035,
-        0.48
+        0.85,
+        0.0625,
+        0.7125
       ],
       "occludes": false
     },
     {
       "id": "office_waste_west",
       "model": "outdoor:collision_peg",
-      "x": 6.59,
-      "y": 7.2,
-      "z": 7,
+      "x": -1.59375,
+      "y": 0.05,
+      "z": 10.1,
       "solid": true,
       "size": [
-        0.035,
-        0.48,
-        0.5
+        0.0625,
+        0.65,
+        0.7125
       ],
       "occludes": false
     },
     {
       "id": "office_waste_east",
       "model": "outdoor:collision_peg",
-      "x": 7.21,
-      "y": 7.2,
-      "z": 7,
+      "x": -0.80625,
+      "y": 0.05,
+      "z": 10.1,
       "solid": true,
       "size": [
-        0.035,
-        0.48,
-        0.5
+        0.0625,
+        0.65,
+        0.7125
       ],
       "occludes": false
     },
     {
       "id": "office_waste_north",
       "model": "outdoor:collision_peg",
-      "x": 6.9,
-      "y": 7.2,
-      "z": 6.75,
+      "x": -1.2,
+      "y": 0.05,
+      "z": 9.775,
       "solid": true,
       "size": [
-        0.6,
-        0.48,
-        0.035
+        0.725,
+        0.65,
+        0.0625
       ],
       "occludes": false
     },
     {
       "id": "office_waste_south",
       "model": "outdoor:collision_peg",
-      "x": 6.9,
-      "y": 7.2,
-      "z": 7.25,
+      "x": -1.2,
+      "y": 0.05,
+      "z": 10.425,
       "solid": true,
       "size": [
-        0.6,
-        0.48,
-        0.035
+        0.725,
+        0.65,
+        0.0625
       ],
       "occludes": false
     },
@@ -3945,15 +3946,15 @@
         "linear_damping": 0.8,
         "angular_damping": 1,
         "pickup": true,
-        "reset_group": "office_scraps"
+        "reset_group": "office_page_1"
       }
     },
     {
       "id": "office_scrap_2",
       "model": "arcade:litter_paper",
-      "x": 11.5,
-      "y": 7.96,
-      "z": 6.2,
+      "x": 2.45,
+      "y": 4.36,
+      "z": 2.6,
       "solid": false,
       "physics": {
         "motion": "dynamic",
@@ -3971,15 +3972,16 @@
         "linear_damping": 0.8,
         "angular_damping": 1,
         "pickup": true,
-        "reset_group": "office_scraps"
-      }
+        "reset_group": "office_page_2"
+      },
+      "comment": "The middle floor page rests on the tilted desk near the northwest landing."
     },
     {
       "id": "office_scrap_3",
       "model": "arcade:litter_paper",
-      "x": 17.4,
-      "y": 7.96,
-      "z": 13.7,
+      "x": 15.45,
+      "y": 0.76,
+      "z": 11.8,
       "solid": false,
       "physics": {
         "motion": "dynamic",
@@ -3997,20 +3999,21 @@
         "linear_damping": 0.8,
         "angular_damping": 1,
         "pickup": true,
-        "reset_group": "office_scraps"
-      }
+        "reset_group": "office_page_3"
+      },
+      "comment": "The basement page rests on the abandoned desk in the eastern workroom; its return requires the two existing ramps."
     },
     {
       "id": "office_scrap_restore",
       "model": "home:wall_switch",
-      "x": 7.242,
-      "y": 7.45,
-      "z": 7.0,
+      "x": -0.772,
+      "y": 0.35,
+      "z": 10.1,
       "solid": false,
       "components": [
         {
           "component": "interactable",
-          "prompt": "Recover the archivist pages",
+          "prompt": "Recover unfiled pages to their desks",
           "reach": 2.5
         }
       ],
@@ -4026,7 +4029,13 @@
           ]
         }
       ],
-      "rotation_degrees": 90
+      "rotation_degrees": 90,
+      "display_name": "Recover unfiled pages",
+      "size": [
+        0.086,
+        0.12,
+        0.033
+      ]
     }
   ],
   "ceiling_lights": [
@@ -5272,7 +5281,7 @@
     {
       "x": 7.88,
       "z": 7.88,
-      "length": 4.36,
+      "length": 3.36,
       "rotation_degrees": 180,
       "y": 7.2,
       "height": 0.09,
@@ -5280,14 +5289,15 @@
       "material": "core:baseboard_office_01"
     },
     {
-      "x": 3.52,
+      "x": 4.52,
       "z": 8.12,
-      "length": 6.6,
+      "length": 5.6,
       "rotation_degrees": 0,
       "y": 7.2,
       "height": 0.09,
       "thickness": 0.018,
-      "material": "core:baseboard_office_01"
+      "material": "core:baseboard_office_01",
+      "uv_offset": 1.0
     },
     {
       "x": 19.62,
@@ -5941,13 +5951,14 @@
     },
     {
       "x": 11.88,
-      "z": 3.12,
-      "length": 5.1,
+      "z": 2.88,
+      "length": 5.34,
       "rotation_degrees": 270,
       "y": 0,
       "height": 0.09,
       "thickness": 0.018,
-      "material": "core:baseboard_office_01"
+      "material": "core:baseboard_office_01",
+      "uv_offset": -0.24
     },
     {
       "x": 12.12,
@@ -6172,7 +6183,7 @@
     {
       "x": 17.88,
       "z": 2.88,
-      "length": 5.76,
+      "length": 6.0,
       "rotation_degrees": 180,
       "y": 0,
       "height": 0.09,
@@ -6921,7 +6932,7 @@
   ],
   "decals": [
     {
-      "x": -3.879,
+      "x": -3.88,
       "y": 9.81,
       "z": 9,
       "width": 1.2,

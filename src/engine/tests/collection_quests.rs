@@ -7,7 +7,7 @@ use glam::Vec3;
 use serde_json::{Value, json};
 
 use crate::engine::collision_index::CollisionIndex;
-use crate::engine::entities::{EntityWorld, TriggerItem, WorldContext};
+use crate::engine::entities::{EntityWorld, TriggerItem, WorldCommand, WorldContext};
 use crate::engine::level::{ActionDef, LevelDef, WalkableFloor};
 use crate::engine::project::ProjectPath;
 use crate::engine::scripting::{CampaignProgress, ScriptSource, SharedCampaign};
@@ -174,45 +174,70 @@ fn collection_physical_receipts_reject_held_wrong_and_unsettled_items() -> Resul
         "four seconds of real upright released flotation completes Pool"
     );
 
+    let page = |id: &str, group: &str| {
+        json!({"id":id,"model":"arcade:litter_paper","x":0_i32,"z":0_i32,"solid":false,
+            "physics":{"motion":"dynamic","pickup":true,"reset_group":group}})
+    };
     let mut office = Fixture::fresh(
         "office",
         &[
             actor("office_archivist"),
-            actor("office_scrap_1"),
-            actor("office_scrap_2"),
-            actor("office_scrap_3"),
+            page("office_scrap_1", "office_page_1"),
+            page("office_scrap_2", "office_page_2"),
+            page("office_scrap_3", "office_page_3"),
             actor("wrong"),
         ],
     )?;
     office.call("talk", "office_archivist")?;
-    let inside = Vec3::new(6.9, 7.24, 7.);
+    let inside = Vec3::new(-1.2, 7.28, 10.1);
+    office.items(&[("office_scrap_1", inside, 1., false, true)]);
+    office.tick();
+    // A later delivery can wake the first page or knock it out of the crate.
+    office.items(&[("office_scrap_1", inside, 1., false, false)]);
+    office.tick();
+    office.items(&[]);
+    office.tick();
+    office.call("recover", "office_archivist")?;
+    let reset_groups = office
+        .world
+        .take_commands()
+        .into_iter()
+        .filter_map(|command| {
+            let WorldCommand::ResetPhysicsGroup { group } = command else {
+                return None;
+            };
+            Some(group)
+        })
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        reset_groups,
+        std::collections::BTreeSet::from([
+            String::from("office_page_2"),
+            String::from("office_page_3"),
+        ]),
+        "recovery preserves the filed page and restores only unfiled groups"
+    );
     office.items(&[
-        ("office_scrap_1", inside, 1., false, true),
         ("office_scrap_2", inside, 1., false, true),
         ("wrong", inside, 1., false, true),
     ]);
     office.tick();
     assert!(!office.done(), "another item cannot replace the third page");
     office.items(&[
-        ("office_scrap_1", inside, 1., false, true),
         ("office_scrap_2", inside, 1., false, true),
         ("office_scrap_3", inside, 1., false, false),
     ]);
     office.tick();
     assert!(!office.done(), "a crossing page must settle in the crate");
-    // Recovery is an actual group reset action; the fixture declares the group.
-    for _ in 0_u8..2_u8 {
-        office.items(&[
-            ("office_scrap_1", inside, 1., false, true),
-            ("office_scrap_2", inside, 1., false, true),
-            ("office_scrap_3", inside, 1., false, true),
-        ]);
-        office.tick();
-    }
+    office.items(&[
+        ("office_scrap_2", inside, 1., false, true),
+        ("office_scrap_3", inside, 1., false, true),
+    ]);
+    office.tick();
     office.clean()?;
     assert!(
         office.done(),
-        "all three exact settled pages complete Office"
+        "the remaining exact pages complete Office without rescinding prior filing"
     );
     Ok(())
 }
@@ -408,7 +433,16 @@ fn collection_home_waits_for_retirement_and_aero_requires_exact_pressure() -> Re
     home.world
         .confirm_handoff("home_caretaker", "home_requested_cushion");
     home.tick();
-    for (x, z) in [(1.5, 4.3), (-1.5, 4.3), (-1.5, 1.5), (-8.0, 2.2)] {
+    for (x, z) in [
+        (1.5, 4.3),
+        (-1.5, 4.3),
+        (-1.5, 1.5),
+        (-7.5, 1.5),
+        (-7.5, -5.5),
+        (-13.5, -5.5),
+        (-13.5, 3.5),
+        (-19.5, 3.5),
+    ] {
         home.items(&[("home_caretaker", Vec3::new(x, 0.0, z), 1.0, false, false)]);
         home.tick();
     }

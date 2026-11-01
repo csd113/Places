@@ -7,7 +7,11 @@ local route = {
     { x = 1.5, z = 4.3 },
     { x = -1.5, z = 4.3 },
     { x = -1.5, z = 1.5 },
-    { x = -8.0, z = 2.2 },
+    { x = -7.5, z = 1.5 },
+    { x = -7.5, z = -5.5 },
+    { x = -13.5, z = -5.5 },
+    { x = -13.5, z = 3.5 },
+    { x = -19.5, z = 3.5 },
 }
 
 local function navigate(api)
@@ -26,7 +30,7 @@ return {
             return
         end
         if phase == "departing" or phase == "hidden_wait" then
-            api.message("THE CARETAKER", { "Thank you. That is the one.", "I will put it away." })
+            api.message("THE CARETAKER", { "Thank you. That is the one.", "I am taking it down the west halls. Keep the path clear." })
             return
         end
         if phase == "pending" then
@@ -61,7 +65,8 @@ return {
                 navigate(api)
                 api.message("THE CARETAKER", {
                     "Yes. Thank you for finding it.",
-                    "I will put this away now.",
+                    "I will put this away down the winding west halls.",
+                    "Feel free to explore; I will let you know when it is done.",
                 })
             else
                 pending_frames += 1
@@ -104,13 +109,27 @@ return {
             api.message("HOME", {
                 "Speak to the caretaker in the living room.",
                 "The checked cushion is on the bedroom chair.",
-                "The entry-hall switch resets this visit.",
+                "Lost the cushion? The entry-hall switch resets this visit.",
+            })
+        elseif phase == "departing" or phase == "pending" then
+            api.message("HOME", {
+                "The caretaker is carrying the cushion down the west halls.",
+                "Leave room to pass if you follow them.",
+                "Once they reach the end, step back around a corner.",
+                "The entry-hall switch can restart a blocked visit.",
+            })
+        elseif phase == "hidden_wait" then
+            api.message("HOME", {
+                "The cushion has reached the end of the west halls.",
+                "Step back around a solid corner to give them privacy.",
+                "Home completes once both caretaker and cushion are hidden.",
+                "Return to the Hub through the entry hall.",
             })
         else
             api.message("HOME", {
-                "The caretaker will wait while you keep them in view.",
+                "Home favour complete. The Hub has recorded your help.",
                 "Return to the Hub through the entry hall.",
-                "The entry-hall switch resets this visit.",
+                "The entry-hall switch resets this visit only.",
             })
         end
     end,

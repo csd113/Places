@@ -2660,3 +2660,14 @@ models, static doors, hollow stock, collision limits and source/hash conventions
 are documented in [the kit integration guide](../tools/props/backrooms_phase6/INTEGRATION.md).
 The unique new atlas costs 0.25 MiB decoded RGBA; summing its 25 embedded copies
 costs 6.25 MiB. The reviewed 128 MiB pack ceiling preserves original visual quality.
+
+### Collection fountain control presets (November 2026)
+
+`collection:fountain_switch_blue`, `_white` and `_lime` reuse the existing
+`environments/home/props/wall_switch.glb` and its committed fitted opaque PNG.
+Catalog linear-RGB albedo multipliers distinguish the three controls; no PNG,
+UV, geometry, alpha, node hierarchy, pivot or toggle-animation sample changes.
+These are ordinary animated-prop catalog presets, using the existing prop-tint
+contract also used by the black mannequin and slate-blue towel. Their catalog
+size remains 0.086 x 0.12 x 0.033 m; the authored three-times placement scale
+makes the wall-mounted controls easy to see and aim at.

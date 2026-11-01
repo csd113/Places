@@ -15,9 +15,17 @@ pub(super) struct Session {
 impl FrameLoop<'_> {
     pub(super) fn offer_checkpoint(&mut self, entry: LevelEntry) {
         self.checkpoints.resume = None;
-        match Identity::for_entry(&entry)
-            .and_then(|optional| optional.map_or(Ok(None), |identity| checkpoint::read(&identity)))
-        {
+        match Identity::for_entry(&entry).and_then(|optional| {
+            optional.map_or(Ok(None), |identity| {
+                let saved = checkpoint::read(&identity)?;
+                if let Some(saved_checkpoint) = saved.as_ref() {
+                    saved_checkpoint
+                        .snapshot
+                        .check_campaign_generation(self.campaign.generation_for(&entry)?)?;
+                }
+                Ok(saved)
+            })
+        }) {
             Ok(Some(saved)) => {
                 self.ui_state.resume_offer = Some((
                     format!(
@@ -77,6 +85,9 @@ impl FrameLoop<'_> {
     fn select_resume(&mut self, entry: &LevelEntry) -> Result<(), String> {
         let identity = Identity::for_entry(entry)?.ok_or("Saving is disabled for this level")?;
         let saved = checkpoint::read(&identity)?.ok_or("No checkpoint exists for this level")?;
+        saved
+            .snapshot
+            .check_campaign_generation(self.campaign.generation_for(entry)?)?;
         self.checkpoints.resume = Some((identity, saved.snapshot));
         Ok(())
     }
@@ -108,6 +119,8 @@ impl FrameLoop<'_> {
                     .into(),
             );
         }
+        snapshot
+            .check_campaign_generation(self.campaign.generation_for(&prepared.loaded.entry)?)?;
         let collision = std::mem::take(&mut prepared.collision);
         let mut candidate = crate::game::Game::new(
             crate::game::spawn_position(&prepared.loaded.level),
@@ -164,6 +177,7 @@ impl FrameLoop<'_> {
         let loaded = self.current_level.as_ref().ok_or("No active level")?;
         let identity = Identity::for_level(loaded)?;
         let snapshot = Snapshot {
+            campaign_generation: self.campaign.current_generation()?,
             player: self.game.checkpoint_player()?,
             world: self.game.entities().checkpoint()?,
             items: self.items.world.checkpoint(&self.items.authored)?,
@@ -175,7 +189,7 @@ impl FrameLoop<'_> {
         checkpoint::write(&identity, name, &snapshot)
     }
 
-    fn checkpoint_notice(&mut self, message: &str) {
+    pub(super) fn checkpoint_notice(&mut self, message: &str) {
         crate::engine::logging::info(message);
         self.subtitles.push("CHECKPOINT".into(), &[message.into()]);
     }

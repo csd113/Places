@@ -172,10 +172,22 @@ impl Game {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
+    /// Older saves precede the first explicit collection reset.
+    #[serde(default)]
+    pub campaign_generation: u64,
     pub player: Player,
     pub world: crate::engine::entities::checkpoint::Snapshot,
     pub items: Vec<(String, crate::engine::physics::checkpoint::Item)>,
     pub flashlight: bool,
+}
+
+impl Snapshot {
+    pub(super) fn check_campaign_generation(&self, current: u64) -> Result<(), String> {
+        if self.campaign_generation != current {
+            return Err("This checkpoint predates a collection reset. Start new to keep the cleared progress.".into());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Serialize, Deserialize)]

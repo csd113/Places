@@ -164,7 +164,7 @@ pub(super) fn host<'scope>(
     points: &'scope BTreeSet<String>,
     groups: &'scope BTreeSet<String>,
     calls: &'scope Cell<usize>,
-    completion: &'scope Cell<bool>,
+    completion: &'scope Cell<super::campaign::CampaignChange>,
     limit: usize,
 ) -> mlua::Result<Table> {
     let api = lua.create_table()?;
@@ -183,8 +183,26 @@ pub(super) fn host<'scope>(
         "complete",
         capability(scope, calls, move |_, ()| {
             super::campaign::validate_id(&world.campaign_level).map_err(error)?;
-            completion.set(true);
+            completion.set(super::campaign::CampaignChange::Complete);
             Ok(())
+        })?,
+    )?;
+    api.set(
+        "reset_campaign",
+        capability(scope, calls, move |_, ()| {
+            super::campaign::validate_id(&world.campaign_level).map_err(error)?;
+            completion.set(super::campaign::CampaignChange::Reset);
+            Ok(())
+        })?,
+    )?;
+    api.set(
+        "campaign_status",
+        capability(scope, calls, move |_, ()| {
+            world
+                .campaign
+                .lock()
+                .map(|progress| progress.status())
+                .map_err(|_problem| error("Campaign state unavailable"))
         })?,
     )?;
     api.set(

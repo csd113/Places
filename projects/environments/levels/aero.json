@@ -203,7 +203,15 @@
       "depth": 0.24,
       "height": 3.4,
       "y": 0,
-      "material": "frutiger_aero:white_panel_01"
+      "material": "frutiger_aero:white_panel_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 4.22,
+          "width": 1.2,
+          "height": 2.2
+        }
+      ]
     },
     {
       "x": 22.12,
@@ -305,22 +313,6 @@
       "height": 0.65,
       "y": 0,
       "material": "frutiger_aero:white_panel_01"
-    },
-    {
-      "x": 0.8999999999999999,
-      "z": 10.780000000000001,
-      "width": 3.2,
-      "depth": 0.24,
-      "height": 3,
-      "material": "frutiger_aero:white_panel_01",
-      "openings": [
-        {
-          "kind": "door",
-          "offset": 1,
-          "width": 1.2,
-          "height": 2.2
-        }
-      ]
     }
   ],
   "floor_regions": [],
@@ -11126,17 +11118,18 @@
     },
     {
       "id": "aero_valve_blue",
-      "model": "home:wall_switch",
-      "x": 3.3,
-      "y": 0.55,
-      "z": 9.4347,
-      "rotation_degrees": 180,
+      "model": "collection:fountain_switch_blue",
+      "x": 4.4,
+      "y": 1.18,
+      "z": 0.453,
+      "rotation_degrees": 0,
       "solid": false,
       "components": [
         {
           "component": "interactable",
-          "prompt": "Blue fountain valve / 1 measures",
-          "reach": 2.5
+          "prompt": "BLUE / 1 / CLOSED - E to open",
+          "reach": 2.5,
+          "label": "BLUE 1"
         },
         {
           "component": "animation",
@@ -11154,32 +11147,43 @@
               "script": "scripts/aero.luau",
               "handler": "valve"
             }
-          ]
+          ],
+          "cooldown_seconds": 0.25
         }
+      ],
+      "scale": 3,
+      "display_name": "BLUE 1",
+      "size": [
+        0.086,
+        0.12,
+        0.033
       ]
     },
     {
       "id": "aero_valve_stand_blue",
       "model": "frutiger_aero:accent_panel",
-      "x": 3.3,
-      "y": 0,
-      "z": 9.45,
-      "scale": 0.38,
-      "solid": false
+      "x": 4.4,
+      "y": 0.95,
+      "z": 0.39,
+      "scale": 0.33,
+      "solid": false,
+      "rotation_degrees": 0,
+      "comment": "Fitted backing mounted against the north atrium wall; the colored lever is in front."
     },
     {
       "id": "aero_valve_white",
-      "model": "home:wall_switch",
-      "x": 4.3,
-      "y": 0.55,
-      "z": 9.4347,
-      "rotation_degrees": 180,
+      "model": "collection:fountain_switch_white",
+      "x": 5.4,
+      "y": 1.18,
+      "z": 0.453,
+      "rotation_degrees": 0,
       "solid": false,
       "components": [
         {
           "component": "interactable",
-          "prompt": "White fountain valve / 2 measures",
-          "reach": 2.5
+          "prompt": "WHITE / 2 / CLOSED - E to open",
+          "reach": 2.5,
+          "label": "WHITE 2"
         },
         {
           "component": "animation",
@@ -11197,32 +11201,43 @@
               "script": "scripts/aero.luau",
               "handler": "valve"
             }
-          ]
+          ],
+          "cooldown_seconds": 0.25
         }
+      ],
+      "scale": 3,
+      "display_name": "WHITE 2",
+      "size": [
+        0.086,
+        0.12,
+        0.033
       ]
     },
     {
       "id": "aero_valve_stand_white",
       "model": "frutiger_aero:accent_panel",
-      "x": 4.3,
-      "y": 0,
-      "z": 9.45,
-      "scale": 0.38,
-      "solid": false
+      "x": 5.4,
+      "y": 0.95,
+      "z": 0.39,
+      "scale": 0.33,
+      "solid": false,
+      "rotation_degrees": 0,
+      "comment": "Fitted backing mounted against the north atrium wall; the colored lever is in front."
     },
     {
       "id": "aero_valve_lime",
-      "model": "home:wall_switch",
-      "x": 5.3,
-      "y": 0.55,
-      "z": 9.4347,
-      "rotation_degrees": 180,
+      "model": "collection:fountain_switch_lime",
+      "x": 6.4,
+      "y": 1.18,
+      "z": 0.453,
+      "rotation_degrees": 0,
       "solid": false,
       "components": [
         {
           "component": "interactable",
-          "prompt": "Lime fountain valve / 4 measures",
-          "reach": 2.5
+          "prompt": "LIME / 4 / CLOSED - E to open",
+          "reach": 2.5,
+          "label": "LIME 4"
         },
         {
           "component": "animation",
@@ -11240,18 +11255,28 @@
               "script": "scripts/aero.luau",
               "handler": "valve"
             }
-          ]
+          ],
+          "cooldown_seconds": 0.25
         }
+      ],
+      "scale": 3,
+      "display_name": "LIME 4",
+      "size": [
+        0.086,
+        0.12,
+        0.033
       ]
     },
     {
       "id": "aero_valve_stand_lime",
       "model": "frutiger_aero:accent_panel",
-      "x": 5.3,
-      "y": 0,
-      "z": 9.45,
-      "scale": 0.38,
-      "solid": false
+      "x": 6.4,
+      "y": 0.95,
+      "z": 0.39,
+      "scale": 0.33,
+      "solid": false,
+      "rotation_degrees": 0,
+      "comment": "Fitted backing mounted against the north atrium wall; the colored lever is in front."
     }
   ],
   "water": [
@@ -11270,7 +11295,7 @@
   ],
   "decals": [
     {
-      "x": 15.9,
+      "x": 14.0,
       "z": 4.121,
       "y": 1.65,
       "width": 2.2,
@@ -11279,13 +11304,13 @@
       "material": "frutiger_aero:decal_corridor_typography_01"
     },
     {
-      "x": 2.5,
-      "y": 2.62,
-      "z": 10.779000000000002,
-      "width": 2.8,
-      "height": 0.7,
+      "x": 17,
+      "y": 2.7,
+      "z": 4.12,
+      "width": 2.4,
+      "height": 0.6,
       "material": "collection:sign_hub",
-      "surface": "wall_north"
+      "surface": "wall_south"
     }
   ],
   "ceiling_lights": [
@@ -11589,8 +11614,8 @@
   "doors": [
     {
       "id": "return_hub_aero",
-      "x": 1.9,
-      "z": 10.9,
+      "x": 16.4,
+      "z": 4,
       "width": 1.2,
       "height": 2.2,
       "frame_material": "core:metal_brushed_01",
@@ -11674,6 +11699,33 @@
       "z": 6,
       "template": "aero_fish",
       "group": "aero_fish_group"
+    }
+  ],
+  "timers": [
+    {
+      "id": "aero_wayfinding_labels",
+      "seconds": 0.1,
+      "repeat": false,
+      "autostart": true,
+      "bindings": [
+        {
+          "on": "timer",
+          "actions": [
+            {
+              "action": "toggle_label",
+              "target": "aero_valve_blue"
+            },
+            {
+              "action": "toggle_label",
+              "target": "aero_valve_white"
+            },
+            {
+              "action": "toggle_label",
+              "target": "aero_valve_lime"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

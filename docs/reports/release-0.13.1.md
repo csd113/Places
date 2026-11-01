@@ -4131,3 +4131,112 @@ release Levels set stays deferred until final/main-stage acceptance.
 Preserved 24 release executables/debug payloads (183753216 bytes) plus build identities and all gate/audit evidence outside target before the idle-only `cargo clean`. These are build-validation artifacts, not a refreshed release bundle. Cleanup exited 0: Removed 9021 files, 13.4GiB total
 
 Publication and final target/index/process custody are recorded in `E/publication.json` and `E/handoff.json`. No main merge, force push, tag, release, credential change or deletion of unique work is authorized or performed.
+
+## 2026-11-01: Environments gameplay and collection progress
+
+Repaired the actual nine-map collection after `9d08483`, using the edited
+`projects/environments/levels/*.json` and `scripts/*.luau`. Historical map
+generators were not run. Private evidence and preserved runnable tools/package
+are under `C:/Users/Connor Dawkins/Documents/Codex/2026-11-01/task-2` (`E2`). The final runnable developer output is `E2/final-validation-v4`.
+
+- Return doors now fit real wall openings or complete grounded outdoor shelters.
+  Signs use the correct wall planes and clear their frames; Home's narrow header
+  is fitted to its wall. Arcade/Aero freestanding panels were removed. Aero's
+  existing motto was moved clear of the new opening. The Hub reward header clears
+  its door; keepsakes and host face the intended approach.
+- Bowling retains all-ten/BLUE-ball/foul-line rules and miniature mode. Separate
+  ball return preserves fallen-pin credit; fresh racks reset poses, velocities
+  and scoring, then arm automatically. Attempts are unlimited. Scoped 4 kg balls,
+  1 kg pins and ball/pin friction/damping replace the sluggish equal-weight feel.
+- Home adds 84 m² of winding corridors and expands the caretaker route from
+  16.34 to 43.8 m at 1.05 m/s. Retirement still requires whole-model occlusion of
+  the caretaker and original carried cushion. Physical crowding and local reset
+  were exercised without substituting a timer or visible teleport.
+- Office has one required page per floor, including the basement. The larger
+  open recycling crate is in the foyer with fitted collision slabs and matching
+  collection volume. The actual basement L-corner/trim gap and a tight upper
+  carry passage were repaired. Unique filed-page receipts survive later physics
+  wakeups; recovery restores only unfiled pages.
+- Winter has numbered warm lanterns, non-mutating F1 next steps, accurate 0–3
+  progress, bank retry and clear coach/completion/return guidance. Beach's crab
+  walks at 0.6 m/s along an 18.9 m route to the far parasol, with coherent walk/idle
+  clips, crowd/leave/rejoin pauses and optional saved replay.
+- Lantern Hollow keeps the search while adding a useful northeast trail/beacon
+  cue for Jun. Pool explains released upright flotation, exposes progress and
+  adds nearby duck recovery. Aero's wall-mounted BLUE/WHITE/LIME controls have
+  visible values 1/2/4, fitted independent aim boxes and matching open/closed
+  states; solving/revisit retains one reward fish. Three catalog tint aliases
+  reuse existing GLB/PNG assets without changing their image/UV contracts.
+
+The existing persistence system is retained. Canonical installation plus project
+namespace keys, bounded one-owner legacy migration and visible saved/pending/
+failed status protect normal resume and project separation. Confirmed CLEAR
+atomically publishes an empty receipt before changing live progress, increments
+the reset generation, and restarts the Hub locked. Checkpoint admission,
+reconstruction and capture-generation barriers prevent cleared unlocks returning.
+Ordinary local retry retains collection progress. Unreadable receipts are kept
+byte-for-byte until explicit clear; failed clear keeps the previous receipt/state.
+
+Validation evidence is in `E2/source-gates`, `rust-final-gates`,
+`freeze-gates-v2`, `geometry`, `native`, and `final-save-cases`:
+
+- Format, all-target/all-feature check, strict debug and release Clippy passed.
+  Debug and locked release workspace/all-feature builds passed. After the final
+  test-only extension, 429 production inputs were verified unchanged from the
+  successful release build; a redundant additional rebuild was stopped rather
+  than counted as a pass (`production-build-custody.json`).
+- Retained Rust suite: 416 Windows passes, zero failures/ignored; two Unix-only
+  source tests remain unexecuted. Two essential small save/reset regressions were
+  added; the existing Office receipt case was extended for wake/removal/recovery.
+  No shipped-map bake or redundant test inventory was added to ordinary Rust CI.
+- Python source suite: 373 discovered, 355 passed, 18 intentional skips with
+  `PLACES_SKIP_SMOKE=1`. Asset, texture and prop checks passed. Geometry checks
+  report zero errors on all nine maps; existing material-phase advisories remain.
+- All eight quests completed in actual native gameplay, producing a real eight-
+  favor receipt. Interrupted/repeated recovery flows and all eight ordinary
+  Hub→destination→Hub routes passed. Fresh sign/header views, label views and the
+  Office diagnostic corner comparison supplement the gameplay state evidence.
+- Partial/full restart, confirmed clear, cancel/re-arm, empty restart, corrupt
+  receipt preservation/explicit replacement and failed-write preservation were
+  checked in isolated native state. Other project receipt bytes remained intact.
+- The final Static package validates, verifies current and reopens all nine maps
+  and nine scripts identically. Final presentation-only refinements were compiled
+  and rechecked natively; earlier packages do not establish their acceptance.
+
+Each native run records binary/package/source hashes, input actions, runtime
+snapshots and captures. `native-image-provenance-audit.json` excludes checkpoint-
+only/stale copied PNGs from current pixel evidence; raw states and original files
+are preserved. Failed routes and a VM wall-budget fault under simultaneous
+compilation are retained as failures, not acceptance. Final gameplay acceptance
+ran with compilation idle; the existing script budget policy was not relaxed.
+
+Limits: Windows/1280×800 behavior validation with V-sync enabled is not an FPS
+claim. Collection maps disable gameplay checkpoints, so checkpoint invalidation
+uses the retained small regression fixtures. The original personal-profile loss
+was not reproduced against personal saves; moving installations, external receipt
+deletion/mutation and other OS native acceptance are not established here. No Full
+lighting solve or complete public release inventory was refreshed; that remains
+deferred to final/main-stage acceptance. Runnable developer output needs this
+checkout's assets and uses separate persistent state via its launcher.
+
+The unrelated menu remains SHA256
+`93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.
+Earlier private bundles/evidence were preserved. Exact branch publication,
+preserved-output hashes and final idle target/index/process custody are recorded
+in `E2/publication.json` and `E2/handoff.json`; no main push, force push, tag or
+public release upload is part of this work.
+
+Automatic approval review initially rejected the 39-file gameplay/source commit
+and push before execution. Explicit approval of this repair at 19:31:54 UTC
+authorized one retry. Its exact outcome is recorded in `E2/publication.json`.
+
+Final reconciliation (`E2/local-acceptance`) verifies every declared level current
+with valid package integrity, all 39 scoped source hashes, 19 project sources and
+429 production inputs. All 4,098 files in the prior private evidence manifest
+(including both release ZIPs) match their preserved hashes. Actual earned-eight
+restart opened the reward door, allowed normal entry and showed both tables'
+directional tokens facing the central aisle. Final secret miniature bowling
+passed 35 sampled checks: a normal BLUE throw produced nine miniature ragdolls;
+reset removed miniatures and restored the normal rack and zero-velocity ball.
+Repeated-reset completion was a first-throw strike; a completed spare sequence
+was not observed. The final receipt distinguishes this from older nine-pin play.

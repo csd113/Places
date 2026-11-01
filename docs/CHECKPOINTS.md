@@ -136,6 +136,16 @@ Moving/reinstalling a package intentionally creates a distinct installation scop
 The loaded visit retains its original declared project identity. Replacing a package
 during play refuses subsequent checkpoint capture until reload, even when another
 project reuses identical authored level source; it cannot adopt that project's slot.
+A snapshot also records the attached campaign generation (older snapshots default
+to generation zero). A successful explicit collection clear advances that
+generation, and offer, selection and final reconstruction all refuse an older
+snapshot. Starting a fresh visit preserves the cleared collection progress.
+A pending reset or unreadable campaign receipt refuses checkpoint admission;
+a failed clear retains the previous generation and valid checkpoints. After a
+successful clear, the still-live visit cannot capture a checkpoint with the new
+generation: its doors and script closures may still reflect the old unlocks.
+Re-enter the level through a fresh load before saving another checkpoint. A
+fresh world attach admits the current generation even at the same package path.
 The envelope also requires the exact current canonical package manifest identity
 and save version. Changed content or versions offer a fresh start, without unsafe
 compatibility guesses. New checkpoint packages declare `gameplay-checkpoints-v1`.

@@ -1,7 +1,7 @@
 //! Tiny CPU fixtures protect native query/move work limits and real label
 //! capabilities. No assets, wall-time assertions or map bake are used.
 
-use super::{MAX_NATIVE_CALLS, Module, ScriptSource, api};
+use super::{MAX_NATIVE_CALLS, Module, ScriptSource, api, campaign::CampaignChange};
 use crate::engine::entities::EntityWorld;
 use crate::engine::level::{ActionDef, LevelDef};
 use crate::engine::project::ProjectPath;
@@ -26,7 +26,7 @@ fn read_only_host_queries_have_a_hard_count_budget() -> Result<(), String> {
     let points = BTreeSet::new();
     let groups = BTreeSet::new();
     let calls = Cell::new(0usize);
-    let completion = Cell::new(false);
+    let completion = Cell::new(CampaignChange::None);
     // Isolate the hard count boundary from cooperative wall deadlines: an
     // overloaded CI worker must still exercise the native guard itself.
     let result = module.lua.scope(|scope| {
@@ -190,7 +190,7 @@ fn named_runtime_lifecycle_refuses_authored_deletion_and_queries_live_items() ->
     let groups = BTreeSet::new();
     for cycle in 0_u8..2 {
         let calls = Cell::new(0usize);
-        let completion = Cell::new(false);
+        let completion = Cell::new(CampaignChange::None);
         module
             .lua
             .scope(|scope| {
