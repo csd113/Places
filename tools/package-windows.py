@@ -74,6 +74,8 @@ def main() -> int:
     parser.add_argument('--with-compiler', action='store_true')
     parser.add_argument('--with-editor', action='store_true')
     parser.add_argument('--maps', type=Path)
+    parser.add_argument('--menu-package', type=Path,
+                        help='Current menu project export to bundle without changing the checkout')
     parser.add_argument('--build-receipt', type=Path,
                         help='Optional exact build/source identity receipt, copied into payload')
     parser.add_argument('--check-destination', action='store_true')
@@ -94,8 +96,10 @@ def main() -> int:
         binaries.append('places-compile.exe')
     if args.with_editor:
         binaries.append('places-editor.exe')
-    if args.maps and not (args.bin_dir/'places-compile.exe').is_file():
-        raise ValueError('--maps requires the matching compiler in --bin-dir')
+    if (args.maps or args.menu_package) and not (args.bin_dir/'places-compile.exe').is_file():
+        raise ValueError('--maps/--menu-package requires the matching compiler in --bin-dir')
+    if args.menu_package and not args.menu_package.is_file():
+        raise ValueError('--menu-package must be an existing project export')
     inputs = [(name, args.bin_dir/name) for name in binaries]
     inputs.extend((name, args.runtime_dir/name) for name in DLLS)
     for _, source in inputs:
@@ -132,6 +136,22 @@ def main() -> int:
         branding = assets/'shared/branding'
         if branding.is_dir():
             shutil.rmtree(branding)
+        menu = None
+        if args.menu_package:
+            compiler = (args.bin_dir/'places-compile.exe').resolve()
+            native_flags = subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS
+            validated = subprocess.run([str(compiler), 'validate', str(args.menu_package.resolve()),
+                                        '--asset-root', str(assets), '--json'], check=True,
+                                       text=True, capture_output=True, creationflags=native_flags)
+            if not json.loads(validated.stdout)['dependencies_intact']:
+                raise ValueError('Menu dependencies are not intact')
+            subprocess.run([str(compiler), 'verify', str(ROOT/'projects/menu'), '--level', 'places_menu',
+                            '--package', str(args.menu_package.resolve()), '--asset-root', str(assets),
+                            '--require-current', '--json'], check=True, text=True, capture_output=True,
+                           creationflags=native_flags)
+            shutil.copyfile(args.menu_package, assets/'shared/menu/scene.bin')
+            menu = dict(source='projects/menu', package=str(args.menu_package.resolve()),
+                        sha256=digest(args.menu_package), current=True)
         if args.maps:
             spec = importlib.util.spec_from_file_location('places_export_maps', ROOT/'tools/export-maps.py')
             module = importlib.util.module_from_spec(spec)
@@ -146,6 +166,8 @@ def main() -> int:
                                            for p in sorted(notices.rglob('*')) if p.is_file()},
                           inputs={name:dict(bytes=source.stat().st_size,sha256=digest(source))
                                   for name,source in inputs})
+        if menu is not None:
+            provenance['menu'] = menu
         if args.build_receipt:
             shutil.copyfile(args.build_receipt, stage/'BUILD_RECEIPT.json')
             provenance['build_receipt_sha256'] = digest(args.build_receipt)

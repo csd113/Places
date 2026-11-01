@@ -3866,3 +3866,143 @@ unrelated menu scene stays at SHA256
 All agent/native/build custody is released before publication; target is retained
 for subsequent queue work. `E/handoff.json` records final source publication,
 asynchronous CI, exact remote verification and index/process state.
+
+## Current private Windows and validation-only bundle (November 1, 2026)
+
+Targeted Windows feature acceptance is complete. The user deferred the complete release Levels set to final validation; no main push is authorized.
+
+Qualified runtime/compiler/editor source: `17e8575c9e6cc37e375102378757c729479e2068`. Evidence root:
+`C:/Users/Connor Dawkins/Documents/Codex/2026-10-31/task-9/packaging-current-17e8575` (`E` below). Original candidates from `98baef6` and the
+historical old-executable GUI bake remain preserved and are not counted as current acceptance.
+
+The exact retained production binaries match the redesign handoff. All 598
+qualified Rust/build input hashes are unchanged, so the ten accepted source
+gates were reused. No Rust implementation or test changed in this phase;
+the Rust-test usefulness audit remains LAST and has not started.
+
+| Payload | SHA256 |
+| --- | --- |
+| places-compile.exe | `dca3104f057486cee251a6a0825f847377c9842981565b8a76ecb94f6f7cbaa4` |
+| places-editor.exe | `a14f91fa731afb0051394905f83729b306e7d5b4f3c677f09e727e8e94c028ba` |
+| places.exe | `2175dd05a971decfc017e8b118edc6cc85bb668c34a71e3a88abac4ef3063b25` |
+
+The private Windows archive is `Places-0.13.1-Windows-17e8575-candidate.zip`:
+234175861 bytes; SHA256 `872ae6679511c0ba0f9f74acad043b8e0a4f7785a6568867bb1225bfe9188ea2`.
+All 1564 extracted payload files were checked. Its three EXEs, six DLLs,
+runtime assets, editor UI/grime assets, exact SDL/Windows notices and audio
+provenance are present; `assets/levels/` is empty. All six DLLs were observed
+loading from the extracted payload. System DLLs and GPU drivers remain OS-provided.
+
+Every one of the 18 selected gameplay members, plus the separate menu,
+reported a compiler-preparation identity change. `E/currency-audit.json`
+records the source/manifest/catalog evidence and each native current check.
+Initial exports used sequential eight-worker BelowNormal preparation. At
+08:08 UTC the user narrowed feature work to maps actually used for testing,
+deferring the complete release set. Menu and Backrooms had completed. The
+controller and unneeded Environments export were stopped without restarting
+a bake; its 168 frozen staging files (345760276 bytes) retain the six completed
+member preparations and source snapshots. Winter was stopped; Beach/Aero,
+Beam and the remaining narrative exports were skipped. That incomplete
+Environments staging directory is not a published or accepted project archive.
+The final seven-project inventory remains unchanged for the eventual final
+stage: Home retained, Annex/development fixtures excluded.
+
+The refreshed menu is current at SHA256 `d8f785baf7722ab244a16cb32a6eb2b8adb5242f272c05cc6e3d55a1941db80d`.
+The new `package-windows.py --menu-package <current-export>` input validates
+integrity, dependencies and maintained menu currency before staging it.
+This avoids changing the unrelated checkout menu, which remains at SHA256
+`93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.
+Stale/missing menu inputs and existing output products were refused without
+publishing a product. Packaging syntax and six existing packaging contracts
+pass (three Windows privilege/platform skips). An initial sandbox-account
+home traversal failure is retained separately; the same-user run passes.
+
+### Extracted current Windows acceptance
+
+- Executable-relative resource/tool discovery works from unrelated launch
+  directories with a system-only PATH and spaces/Unicode in install/project
+  paths. Isolated path/config/cache initialization, invalid resources, a
+  file obstructing storage and assets-as-user-storage refusal preserve data.
+- The map-free app opens the live menu, empty Explore, Settings and Credits,
+  then returns and shuts down normally.
+- The packaged editor creates/edits a room, tests the unsaved scene in its
+  own window, returns with document/history/view intact, applies editable
+  grime and completes a final build. Export/recovery is byte-exact; the
+  recovered document reopens and saves. Existing authored grime survives
+  repeated quick tests unchanged.
+- Forced final-build cancellation really enters compilation, reaps the
+  compiler and retains the current published package. Undo/save restores
+  the original source. Invalid scripts refuse testing without source loss.
+- The current extracted compiler GUI completes Static/Full Bake, cancels
+  a repeat on close, reports invalid JSON without changing the valid output,
+  then restarts successfully. Final integrity/current checks pass. Its
+  native inputs, unique processes, logs and output hashes are retained in
+  `E/native/gui/`; this is new current-executable evidence.
+- A tiny current fixture saves a real checkpoint and, across process
+  restart, Continue restores held ownership, script scalars and once-only
+  history. A separate current lab transfers an item to a visible hand
+  socket, releases it into a 15-body ragdoll, settles every body and resets.
+- Automatic material footsteps and repeated door sounds, world/real-time
+  audio clocks, focus/pause behavior, physical party-cup/human reset and
+  authored-voice retirement pass with actual post-mixer PCM. Actual shipped
+  duct stock produces one spatial HVAC voice, bounded falloff/cutoff, no
+  duplicate stacking, restart on return and cleanup on map removal.
+
+The older sound lifecycle harness has twelve obsolete assumptions: generic
+HVAC playback, fixed human eye height during a physical form change, and
+absence of automatic ambience after stopping authored sounds/reloading.
+Its raw failures remain in `E/native/runtime/audio-lifecycle/acceptance.json`.
+The separately recorded current-contract checks use the same raw trace and
+verify the implemented ownership, physical eye change/reset, automatic beds
+and authored-loop lifecycle. No production behavior was changed to satisfy
+the older harness. Preliminary fixture/receipt-adapter mistakes and the
+first HVAC fade sample are preserved and excluded from passing claims.
+
+### Validation-only bundle and deferred release Levels
+
+Private archive: `Places-0.13.1-ValidationOnly-17e8575.zip`, 178998226 bytes;
+SHA256 `df16074d2959155dd7824e32df940a404955fdbadb2f7857c28c0f8492b40596`.
+This is explicitly a **validation-only** bundle, not a complete release
+Levels download. Ten packages contain eleven targeted member maps.
+All extracted map hashes/dependencies, import/discovery and included
+source snapshots pass. Project-backed recovery is distinguished from
+standalone maps with separately preserved source files in VALIDATION.json.
+The existing Backrooms export passes large-world Full atlas residency
+(more than 20 million chart texels), Static without an atlas, positive
+draw submission, import/failure preservation and exact source recovery.
+A tiny new two-member **Static-only** fixture passes authored A → B → A
+transitions, three fresh-world commits and byte-exact source recovery.
+No stopped bake was restarted and no further Full solve was started.
+The full 18-map startup sweep and Hub/Home campaign check were planned
+only and were not executed; they are deferred to final release acceptance.
+FEATURE_VALIDATION_MATRIX.md identifies each actual feature, lighting
+need, existing output and redundant loader coverage.
+
+| Package | Bytes | SHA256 |
+| --- | ---: | --- |
+| backrooms.placesmap | 170399245 | `7c7a14a9f5c8f44be39bf65e9d8f0d4c068a281afe8464f4f66c4e41b2adf0ab` |
+| editor-authored-room.placesmap | 636794 | `8fb37ff64b00057cc60f5de7daba241e28d5859800107fbf35848c51aa2dff9a` |
+| gui-bake-test-room.placesmap | 2170035 | `2b8c6456b715883b6d4fd641f42f3cc4fb45f61f8c8d4c9b424e91d3618d4e56` |
+| checkpoint-enabled.placesmap | 716065 | `a51b05f337736f1400b5e8d4c196946ac1d6c9d15e3fc469d6e699e879923227` |
+| sound-native.placesmap | 2236706 | `6ed1e6e458e289eaddd4599deb6c8d58e70d0344422f3e3f8c58f4fa6b0e294d` |
+| ragdoll-lab.placesmap | 2560897 | `2fc9c6e42e1557910bf374f76de4c7ad92f0ca210b3c826ceeb1bb378d3acfce` |
+| hvac-single.placesmap | 39723 | `7fa3dad67e779b579ae480f95162cac86c90b2f9da42ef12af6c9d836d7dfe25` |
+| hvac-duplicate.placesmap | 53948 | `180c69d9eb7f91054c592b085a8788b7f227b4e62a9540515f2fc3446d4380c7` |
+| hvac-empty.placesmap | 30344 | `46f8e81dad3efe130900b9aafc1a951c8a09aff9dd76107987e3ab0fe6dee9aa` |
+| static-campaign.placesmap | 98219 | `8b782bd4fc558bbc68ca5f0db06ef7afc9329c62915389e5f19fda436cb43f16` |
+
+### Limits and custody
+
+This is the same Windows Razer/RTX 3070/DX12 machine, not clean-OS Windows
+acceptance. Native editor/player framebuffer captures were inspected;
+compiler GUI pixels remain unverified because Windows capture timed out.
+Physical listening/device comparison is unrun; PCM/voice assertions do not
+establish perceived sound quality. Linux native is unrun and Mac is deferred.
+Quick-editor approximate lighting, omitted automatic ambience and unsupported
+advanced campaign operations remain its documented limits; final-game checks
+above are distinct. No FPS/uncapped throughput claim is made.
+No public release, upload, tag or main merge occurred. Private deliverables
+and evidence stay outside target; original candidates are retained.
+One idle-only cargo clean completed after all useful target artifacts were preserved.
+Branch publication, final process/index custody and any pending work are
+recorded in the final `E/handoff.json`.

@@ -51,6 +51,23 @@ production validation and developer diagnostics remain active. Additional Rust t
 cost, live under the owning engine/game/editor/map_compiler tests folder, and
 must be wired into Rust discovery as described in `AGENTS.md`.
 
+## Feature-work map preparation budget
+
+During feature work, prepare only maps or the smallest deterministic fixtures
+actually used to validate a named behavior. Record the feature, whether the run
+was executed or merely planned, and whether Static preparation is sufficient.
+Use Full solves for lighting-dependent checks and the final-build/export contract;
+reuse already current accepted outputs instead of rebaking them. Embedded editor
+testing deliberately needs no final lighting bake.
+
+Do not refresh the complete release inventory or run a broad startup sweep just
+to assemble a feature-validation download. Defer the complete release-map set to
+the final validation stage. Such work does not itself authorize a main push, tag
+or release. Preserve completed exports and useful interrupted staging evidence
+when scope changes, and label any partial distribution **validation-only**.
+Final release packages retain their existing intact Static/Full, dependency,
+source recovery and currency requirements; this budget does not weaken them.
+
 ## Full desktop gate
 
 ```sh
