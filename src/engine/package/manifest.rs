@@ -505,6 +505,53 @@ impl Manifest {
         })
     }
 
+    /// Integrity reads use the same typed bounds as runtime decoding. Empty
+    /// role labels inherit their actual variant references; aliases obey the
+    /// smallest applicable bound. Unreferenced generic records retain their cap.
+    #[must_use]
+    pub(crate) fn entry_read_limit(&self, entry: &PackageEntry) -> u64 {
+        let mut limit = (!entry.role.is_empty()).then(|| role_read_limit(&entry.role));
+        let mut constrain = |name: Option<&str>, role: &str| {
+            if name == Some(entry.name.as_str()) {
+                let bound = role_read_limit(role);
+                limit = Some(limit.map_or(bound, |current| current.min(bound)));
+            }
+        };
+        for (name, role) in [
+            ("semantics.json", "semantics"),
+            ("materials.json", "materials"),
+            ("build-inputs.json", "compiler-inputs"),
+        ] {
+            constrain(Some(name), role);
+        }
+        for variant in &self.variants {
+            let entries = &variant.entries;
+            for (name, role) in [
+                (Some(entries.mesh.as_str()), "mesh"),
+                (Some(entries.props.as_str()), "props"),
+                (Some(entries.lighting.as_str()), "lighting"),
+                (Some(entries.collision.as_str()), "collision"),
+                (Some(entries.navigation.as_str()), "navigation"),
+                (entries.lightmaps.as_deref(), "lightmaps"),
+                (entries.lightmaps_meta.as_deref(), "lightmaps-meta"),
+                (entries.irradiance.as_deref(), "irradiance"),
+            ] {
+                constrain(name, role);
+            }
+            if let Some(off) = &entries.static_light_off {
+                constrain(Some(&off.mesh), "mesh");
+                constrain(Some(&off.props), "props");
+            }
+            for probe in &entries.probes {
+                constrain(Some(&probe.positions), "probes-meta");
+                for cubemap in &probe.cubemaps {
+                    constrain(Some(cubemap), "probes");
+                }
+            }
+        }
+        limit.unwrap_or(super::MAX_ENTRY_BYTES)
+    }
+
     fn validate_variant_entry(&self, role: &str, name: &str) -> Result<(), String> {
         let Some(entry) = self.entry(name) else {
             return Err(format!("variant {role} entry '{name}' is not declared"));
@@ -516,6 +563,23 @@ impl Manifest {
             ));
         }
         Ok(())
+    }
+}
+
+fn role_read_limit(role: &str) -> u64 {
+    match role {
+        "semantics" => super::MAX_SEMANTICS_BYTES,
+        "materials" | "probes-meta" => super::MAX_MATERIALS_BYTES,
+        "compiler-inputs" => super::MAX_MANIFEST_BYTES,
+        "mesh" | "props" => super::MAX_BINARY_BYTES,
+        "props-shared" => super::shared_props::MAX_SHARED_PROPS_SEGMENT_BYTES,
+        "lighting" => super::MAX_LIGHTING_BYTES,
+        "collision" => super::MAX_COLLISION_BYTES,
+        "navigation" => super::MAX_NAVIGATION_BYTES,
+        "lightmaps" => super::MAX_LIGHTMAP_ATLAS_BYTES,
+        "lightmaps-meta" => super::MAX_LIGHTMAP_METADATA_BYTES,
+        "texture" => super::MAX_TEXTURE_BYTES,
+        _ => super::MAX_ENTRY_BYTES,
     }
 }
 

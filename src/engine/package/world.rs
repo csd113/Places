@@ -231,7 +231,7 @@ pub(crate) fn validate_import(path: &Path) -> Result<(), String> {
     for entry in &manifest.entries {
         let (bytes, digest) = reader.copy_entry_to(
             &entry.name,
-            super::MAX_BINARY_BYTES,
+            manifest.entry_read_limit(entry),
             &mut std::io::sink(),
             &|| crate::engine::resources::checkpoint(),
         )?;

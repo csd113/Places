@@ -300,7 +300,7 @@ fn read_named(
         .iter()
         .find(|entry| entry.name == name)
         .ok_or_else(|| format!("lighting export entry '{name}' is undeclared"))?;
-    super::read_declared_entry(reader, entry)
+    super::read_declared_entry(reader, manifest, entry)
 }
 
 fn export_variant(

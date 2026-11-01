@@ -1016,7 +1016,7 @@ fn validate_reader(
     let mut warnings = Vec::new();
     let mut bytes = 0_u64;
     for entry in &manifest.entries {
-        let data = read_declared_entry(&mut reader, entry)?;
+        let data = read_declared_entry(&mut reader, &manifest, entry)?;
         bytes = bytes.saturating_add(u64::try_from(data.len()).unwrap_or(u64::MAX));
         if entry.name == "semantics.json" {
             let semantics = std::str::from_utf8(&data)
@@ -1461,9 +1461,10 @@ fn read_manifest<R: std::io::Read + std::io::Seek>(
 /// content-addressed blob, the hash embedded in its name.
 fn read_declared_entry<R: std::io::Read + std::io::Seek>(
     reader: &mut crate::engine::package::PackageReader<R>,
+    manifest: &Manifest,
     entry: &PackageEntry,
 ) -> Result<Vec<u8>, String> {
-    let bytes = reader.read_entry(&entry.name, declared_entry_limit(entry))?;
+    let bytes = reader.read_entry(&entry.name, manifest.entry_read_limit(entry))?;
     let actual = sha256_hex(&bytes);
     if actual != entry.sha256 {
         return Err(format!(
@@ -1482,20 +1483,6 @@ fn read_declared_entry<R: std::io::Read + std::io::Seek>(
         }
     }
     Ok(bytes)
-}
-
-/// Use the runtime record's existing allocation contract, including for
-/// integrity-only reads. The archive-wide total cap remains authoritative.
-fn declared_entry_limit(entry: &PackageEntry) -> u64 {
-    if entry.name == "semantics.json" {
-        crate::engine::package::MAX_SEMANTICS_BYTES
-    } else if entry.role == "lightmaps" {
-        crate::engine::package::MAX_LIGHTMAP_ATLAS_BYTES
-    } else if matches!(entry.role.as_str(), "mesh" | "props") {
-        crate::engine::package::MAX_BINARY_BYTES
-    } else {
-        crate::engine::package::MAX_ENTRY_BYTES
-    }
 }
 
 fn validate_variant<R: std::io::Read + std::io::Seek>(
@@ -2796,7 +2783,7 @@ fn reuse_prepared_lighting(
     needed.extend(shared_names.iter().map(String::as_str));
     let mut blobs: BlobMap = BTreeMap::new();
     for entry in &manifest.entries {
-        let bytes = read_declared_entry(&mut reader, entry)?;
+        let bytes = read_declared_entry(&mut reader, &manifest, entry)?;
         // Verify all old records, but carry forward only referenced static
         // data. Navigation is rebuilt; retaining its previous blobs would
         // accumulate orphan records after repeated navigation edits.
@@ -3001,7 +2988,7 @@ fn read_build_inputs(out: &Path, manifest: &Manifest) -> Result<BuildInputs, Str
     }
     let mut reader = open_package(out)?;
     crate::engine::package::project::select(&mut reader, Some(&manifest.id))?;
-    let bytes = read_declared_entry(&mut reader, entry)?;
+    let bytes = read_declared_entry(&mut reader, manifest, entry)?;
     let inputs: BuildInputs = serde_json::from_slice(&bytes)
         .map_err(|error| format!("compiler input provenance is invalid: {error}"))?;
     if !matches!(inputs.revision, 1 | 2) {
@@ -3111,7 +3098,7 @@ fn verify_declared_entries(path: &Path, manifest: &Manifest) -> Result<(), Strin
     let mut reader = open_package(path)?;
     crate::engine::package::project::select(&mut reader, Some(&manifest.id))?;
     for entry in &manifest.entries {
-        drop(read_declared_entry(&mut reader, entry)?);
+        drop(read_declared_entry(&mut reader, manifest, entry)?);
     }
     Ok(())
 }

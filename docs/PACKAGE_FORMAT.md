@@ -821,7 +821,7 @@ for current entity direct/visibility/resource behavior.
 | archive entries | 512 per ordinary map or virtual project member; 8192 physical entries in a complete project |
 | manifest | 2 MiB |
 | semantics | 64 MiB |
-| ordinary entry (decompressed) | 256 MiB; typed records may impose tighter bounds |
+| ordinary entry (decompressed) | 256 MiB; explicitly typed records use their limits below |
 | mesh / props record | 512 MiB each |
 | props expanded literal record | 512 MiB, including metadata, 81-byte vertices and u16 indices |
 | lightmap atlas payload | 640 MiB + 64 KiB container overhead |
@@ -857,6 +857,15 @@ working-memory, binary-record or typed decoder budgets. Complete export streams
 records through owned disk spools, while runtime decoding remains limited to the
 selected member. See [project distribution and recovery](PROJECT_FORMAT.md#stage-7-project-distribution-and-editable-recovery)
 for source, transport and spooling contracts.
+
+Ordinary-map integrity reads use the runtime's typed entry bounds, including
+import/no-op validation and compiler verification, reuse and lighting export
+diagnostics. An atlas retains its 640 MiB + 64 KiB allowance; mesh/props retain
+512 MiB, and smaller collision, navigation, semantic and metadata bounds still
+apply. Empty role labels inherit the actual variant references; aliases obey
+the smallest applicable bound. This does not raise the existing complete-project
+physical-record/spool envelope of 512 MiB: project admission and runtime loading
+both retain that separate limit.
 
 The reader also rejects, before decoding: absolute, drive-letter, UNC or
 `..`-traversing names; backslash separators; directory entries; duplicate

@@ -428,3 +428,198 @@ fn check_older_target_update(
     );
     Ok(())
 }
+
+// Protects import's actual stream-bound dispatch, including the supported atlas
+// range above 512 MiB and smaller runtime-specific caps. A tiny Stored ZIP has
+// only its declared length patched; allowed sizes reach framing/truncation
+// rejection, never a large allocation or bake. This catches policy drift that
+// ordinary small valid packages and pure limit-table assertions cannot expose.
+#[test]
+fn ordinary_import_integrity_uses_runtime_typed_entry_bounds() -> Result<(), String> {
+    use crate::engine::package;
+    let fixture = ImportFixture::new()?;
+    let path = fixture.root.join("typed-bounds.placesmap");
+    for (role, bound) in [
+        ("lightmaps", package::MAX_LIGHTMAP_ATLAS_BYTES),
+        ("mesh", package::MAX_BINARY_BYTES),
+        ("props", package::MAX_BINARY_BYTES),
+        ("collision", package::MAX_COLLISION_BYTES),
+        ("navigation", package::MAX_NAVIGATION_BYTES),
+        ("lighting", package::MAX_LIGHTING_BYTES),
+        ("semantics", package::MAX_SEMANTICS_BYTES),
+        ("materials", package::MAX_MATERIALS_BYTES),
+        ("lightmaps-meta", package::MAX_LIGHTMAP_METADATA_BYTES),
+        ("probes-meta", package::MAX_MATERIALS_BYTES),
+        ("compiler-inputs", package::MAX_MANIFEST_BYTES),
+        (
+            "props-shared",
+            package::shared_props::MAX_SHARED_PROPS_SEGMENT_BYTES,
+        ),
+        ("texture", package::MAX_TEXTURE_BYTES),
+        ("irradiance", package::MAX_ENTRY_BYTES),
+        ("probes", package::MAX_ENTRY_BYTES),
+        ("opaque", package::MAX_ENTRY_BYTES),
+    ] {
+        write_size_sentinel(&path, "sentinel.bin", role, bound.saturating_add(1), false)?;
+        let error = package::world::validate_import(&path)
+            .err()
+            .ok_or("Oversized entry accepted")?;
+        assert!(
+            error.contains(&format!("(limit {bound})")),
+            "{role} must enforce its runtime bound before reading: {error}"
+        );
+    }
+    for role in ["lightmaps", ""] {
+        write_size_sentinel(
+            &path,
+            "sentinel.bin",
+            role,
+            package::MAX_BINARY_BYTES.saturating_add(1),
+            true,
+        )?;
+        let error = package::world::validate_import(&path)
+            .err()
+            .ok_or("Truncated atlas accepted")?;
+        assert!(
+            !error.contains("(limit "),
+            "supported atlas size must reach bounded framing checks even without a role label: {error}"
+        );
+    }
+    write_size_sentinel(
+        &path,
+        "semantics.json",
+        "mesh",
+        package::MAX_SEMANTICS_BYTES.saturating_add(1),
+        false,
+    )?;
+    let error = package::world::validate_import(&path)
+        .err()
+        .ok_or("Oversized semantics accepted")?;
+    assert!(
+        error.contains(&format!("(limit {})", package::MAX_SEMANTICS_BYTES)),
+        "fixed semantic ownership cannot be widened by a misleading role: {error}"
+    );
+    Ok(())
+}
+
+fn write_size_sentinel(
+    path: &Path,
+    name: &str,
+    role: &str,
+    declared: u64,
+    atlas: bool,
+) -> Result<(), String> {
+    use std::io::Write as _;
+    let original = write_fixture(path, "typed_bounds")?;
+    let mut reader = crate::engine::package::PackageReader::new(std::io::Cursor::new(original))
+        .map_err(|error| error.to_string())?;
+    let mut manifest: Manifest =
+        serde_json::from_slice(&reader.read_entry("manifest.json", 65536)?)
+            .map_err(|error| error.to_string())?;
+    let mut pending = Vec::new();
+    for existing in reader.names().to_vec() {
+        if existing != "manifest.json" && existing != name {
+            pending.push(PendingEntry {
+                bytes: reader.read_entry(&existing, 65536)?,
+                name: existing,
+            });
+        }
+    }
+    manifest.entries.retain(|entry| entry.name != name);
+    manifest.entries.push(PackageEntry {
+        name: name.into(),
+        role: role.into(),
+        bytes: declared,
+        sha256: hash::sha256_hex(&[]),
+    });
+    pending.push(PendingEntry {
+        name: name.into(),
+        bytes: Vec::new(),
+    });
+    if atlas {
+        let variant = manifest.variants.first_mut().ok_or("Missing variant")?;
+        variant.entries.lightmaps = Some(name.into());
+        variant.entries.lightmaps_meta = Some("atlas-meta.bin".into());
+        manifest.entries.push(PackageEntry {
+            name: "atlas-meta.bin".into(),
+            role: "lightmaps-meta".into(),
+            bytes: 0,
+            sha256: hash::sha256_hex(&[]),
+        });
+        pending.push(PendingEntry {
+            name: "atlas-meta.bin".into(),
+            bytes: Vec::new(),
+        });
+    }
+    pending.push(PendingEntry {
+        name: "manifest.json".into(),
+        bytes: manifest.to_json()?,
+    });
+    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+    for entry in pending {
+        writer
+            .start_file(
+                &entry.name,
+                zip::write::SimpleFileOptions::default()
+                    .compression_method(zip::CompressionMethod::Stored),
+            )
+            .map_err(|error| error.to_string())?;
+        writer
+            .write_all(&entry.bytes)
+            .map_err(|error| error.to_string())?;
+    }
+    let mut bytes = writer
+        .finish()
+        .map_err(|error| error.to_string())?
+        .into_inner();
+    patch_declared_zip_size(&mut bytes, name, declared)?;
+    fs::write(path, bytes).map_err(|error| error.to_string())
+}
+
+fn zip_field<const N: usize>(bytes: &[u8], offset: usize) -> Result<[u8; N], String> {
+    bytes
+        .get(offset..offset.saturating_add(N))
+        .ok_or("Missing ZIP field")?
+        .try_into()
+        .map_err(|error: std::array::TryFromSliceError| error.to_string())
+}
+
+fn patch_declared_zip_size(bytes: &mut [u8], name: &str, declared: u64) -> Result<(), String> {
+    let end = bytes.len().checked_sub(22).ok_or("Missing ZIP footer")?;
+    let mut cursor = usize::try_from(u32::from_le_bytes(zip_field(
+        bytes,
+        end.saturating_add(16),
+    )?))
+    .map_err(|error| error.to_string())?;
+    while cursor < end {
+        let length = usize::from(u16::from_le_bytes(zip_field(
+            bytes,
+            cursor.saturating_add(28),
+        )?));
+        let extra = usize::from(u16::from_le_bytes(zip_field(
+            bytes,
+            cursor.saturating_add(30),
+        )?));
+        let comment = usize::from(u16::from_le_bytes(zip_field(
+            bytes,
+            cursor.saturating_add(32),
+        )?));
+        let start = cursor.saturating_add(46);
+        if bytes.get(start..start.saturating_add(length)) == Some(name.as_bytes()) {
+            bytes
+                .get_mut(cursor.saturating_add(24)..cursor.saturating_add(28))
+                .ok_or("Missing ZIP size")?
+                .copy_from_slice(
+                    &u32::try_from(declared)
+                        .map_err(|error| error.to_string())?
+                        .to_le_bytes(),
+                );
+            return Ok(());
+        }
+        cursor = start
+            .saturating_add(length)
+            .saturating_add(extra)
+            .saturating_add(comment);
+    }
+    Err("Missing sentinel ZIP entry".into())
+}

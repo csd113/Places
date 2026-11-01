@@ -4328,3 +4328,38 @@ fixture directly. No Full solve or complete shipped-package refresh was run;
 that remains deferred to final/main-stage acceptance. Prior evidence/private
 deliverables remain untouched. Publication/custody details live in the private
 handoff receipt; no main push, tag or release publication is included.
+
+### Ordinary-package integrity bound correction
+
+Final review found that ordinary import/no-op integrity streaming used a blanket
+512 MiB bound, although runtime atlas decoding supports 640 MiB plus 64 KiB of
+container overhead. Integrity reads now share one manifest-owned typed policy
+with compiler verification, prepared-record reuse and lighting export diagnostics.
+Empty role labels inherit variant references; fixed semantic/material/compiler
+input names and aliased references retain the smallest applicable bound. Mesh and
+props remain capped at 512 MiB, and smaller role-specific bounds remain enforced.
+No numeric limit or package contract was increased.
+
+Adjacent complete-project admission, spooling and runtime opening consistently
+enforce their existing 512 MiB opaque physical-record envelope. That separate
+restriction remains unchanged and is documented in the package-format reference.
+This correction makes no claim that a currently shipped atlas exceeds 512 MiB or
+that complete projects support physical records above that envelope.
+
+The follow-up evidence is separate from the original receipt under task-3
+`typed-limits/evidence/`. Final format, locked all-target/all-feature check, strict
+debug and release Clippy, locked release workspace/all-feature build and all 420
+Windows Rust tests passed. The release build started November 1 at 21:37:40 UTC
+and exited 0 after 668.26 seconds. All 615 frozen source inputs remained unchanged
+through acceptance. One bounded regression exercises 19 actual import stream
+boundary cases using tiny ZIPs with deliberately truncated declared lengths; it
+adds no large allocation, asset or map bake to CI.
+
+Native old/new executable comparisons confirm that explicit and roleless atlas
+sizes just above 512 MiB now reach framing checks, while oversized atlases, meshes
+and collision records retain their typed refusals. Every rejected import preserved
+installed bytes. A genuine tiny Static package passed build, validation, currency
+verification, import/no-op and native DX12 load/capture. These framing sentinels do
+not establish successful loading of a real 512+ MiB atlas. No Full solve or shipped
+map sweep was performed. The separately disclosed manual editor modal acceptance
+limit remains unchanged; the correction did not require editor changes.
