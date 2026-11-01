@@ -1134,6 +1134,33 @@
       "description": "Wall-mounted pool luminaire; author `mount: \"wall\"` and a world `y` for each placed fixture. The named PNG is the luminaire's lens face."
     },
     {
+      "id": "core:detail_floor_grime_01",
+      "display_name": "Floor-edge grime",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/detail_floor_grime_01.png",
+      "alpha_mode": "blend"
+    },
+    {
+      "id": "core:detail_vent_stain_01",
+      "display_name": "Vent condensation stain",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/detail_vent_stain_01.png",
+      "alpha_mode": "blend"
+    },
+    {
+      "id": "core:detail_door_wear_01",
+      "display_name": "Subtle door wear",
+      "asset_class": "environment",
+      "asset_type": "decal",
+      "source": "file",
+      "model": "shared/decals/detail_door_wear_01.png",
+      "alpha_mode": "blend"
+    },
+    {
       "id": "core:decal_arrow_01",
       "display_name": "Floor Arrow",
       "asset_class": "environment",

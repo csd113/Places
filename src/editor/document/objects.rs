@@ -143,19 +143,12 @@ pub(super) fn enumerate(level: &LevelDef) -> Vec<ObjectInfo> {
             )
         }));
     rooms
-        .chain(
-            level
-                .decals
-                .iter()
-                .enumerate()
-                .filter(|(_, decal)| !decal.surface.is_horizontal())
-                .map(|(index, decal)| {
-                    (
-                        ObjectId::Decal(index),
-                        format!("Wall sign / {}", decal.material),
-                    )
-                }),
-        )
+        .chain(level.decals.iter().enumerate().map(|(index, decal)| {
+            (
+                ObjectId::Decal(index),
+                format!("Decal / {}", decal.material),
+            )
+        }))
         .chain(architecture)
         .chain(walls)
         .chain(props)
@@ -700,6 +693,8 @@ pub(super) fn duplicate(
     drop(object.remove("editor_prefab"));
     drop(object.remove("editor_prefab_source"));
     drop(object.remove("editor_variation"));
+    drop(object.remove("editor_surface_detail"));
+    drop(object.remove("editor_surface_details"));
     let current = transform(level, id)?;
     let [_, y, _] = current.position;
     let offset = duplicate_offset(level, id, current.position)?;

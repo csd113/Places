@@ -203,7 +203,7 @@ fn write_intent(raw: &mut Value, intent: &PlacementIntent) -> Result<(), String>
     Ok(())
 }
 
-fn pin_identity(raw: &mut Value, id: ObjectId) -> Result<(), String> {
+pub(in crate::editor) fn pin_identity(raw: &mut Value, id: ObjectId) -> Result<(), String> {
     let (collection, index) = id.collection();
     let record = raw
         .get_mut(collection)

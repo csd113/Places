@@ -67,6 +67,149 @@ pub(in crate::editor) fn corners(decal: &DecalDef) -> Option<[Vec3; 4]> {
     })
 }
 
+fn overlaps_rect(bounds: [f32; 4], x: f32, z: f32, width: f32, depth: f32) -> bool {
+    let [x0, x1, z0, z1] = bounds;
+    x1 > x.min(x + width) + 0.00001
+        && x0 < x.max(x + width) - 0.00001
+        && z1 > z.min(z + depth) + 0.00001
+        && z0 < z.max(z + depth) - 0.00001
+}
+pub(in crate::editor) fn floor_fit(
+    level: &LevelDef,
+    candidate: &DecalDef,
+    selected: ObjectId,
+) -> bool {
+    let Some(points) = crate::engine::render::decal_quad_points(candidate) else {
+        return false;
+    };
+    let bounds = points.iter().fold(
+        [
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+            f32::INFINITY,
+            f32::NEG_INFINITY,
+        ],
+        |[x0, x1, z0, z1], point| {
+            [
+                x0.min(point[0]),
+                x1.max(point[0]),
+                z0.min(point[2]),
+                z1.max(point[2]),
+            ]
+        },
+    );
+    let [x0, x1, z0, z1] = bounds;
+    // The entire conservative rotated footprint must lie on one real room.
+    // Reject terrain/step intersections rather than projecting a quad across them.
+    let room_fits = |room: &crate::engine::level::RoomDef| {
+        room.contains(x0, z0) && room.contains(x1, z1) && (room.floor_y - candidate.y).abs() < 0.001
+    };
+    if !level.rooms.iter().any(room_fits)
+        || matches!(selected, ObjectId::Room(index) if !level.rooms.get(index).is_some_and(room_fits))
+        || level
+            .floor_regions
+            .iter()
+            .any(|r| overlaps_rect(bounds, r.x, r.z, r.width, r.depth))
+        || level
+            .ramps
+            .iter()
+            .any(|r| overlaps_rect(bounds, r.x, r.z, r.width, r.depth))
+        || level
+            .stairs
+            .iter()
+            .any(|r| overlaps_rect(bounds, r.x, r.z, r.width, r.depth))
+    {
+        return false;
+    }
+    let surfaces = LevelSurfaces::new(level);
+    if !points.iter().all(|p| {
+        surfaces
+            .floor_y_at(p[0], p[2])
+            .is_some_and(|y| (y - candidate.y).abs() < 0.001)
+    }) {
+        return false;
+    }
+    for wall in &level.walls {
+        if !overlaps_rect(bounds, wall.x, wall.z, wall.width, wall.depth) {
+            continue;
+        }
+        let (wx, wz) = wall.min_corner();
+        let (lo, hi) = if wall.axis() == WallAxis::X {
+            (x0 - wx, x1 - wx)
+        } else {
+            (z0 - wz, z1 - wz)
+        };
+        if wall_solid_slices_profiled(
+            wall,
+            |offset| surfaces.clear_ceiling_height_along(wall, offset),
+            &surfaces.wall_profile_breaks(wall),
+        )
+        .iter()
+        .any(|slice| {
+            slice.start < hi
+                && slice.end > lo
+                && slice.bottom <= candidate.y + 0.01
+                && slice.top > candidate.y
+        }) {
+            return false;
+        }
+    }
+    true
+}
+/// Real emitted horizontal planes, also used for authoring selection.
+pub(in crate::editor) fn receiving_corners(
+    level: &LevelDef,
+    decal: &DecalDef,
+) -> Option<[Vec3; 4]> {
+    let surfaces = LevelSurfaces::new(level);
+    let normal = decal.surface.normal();
+    crate::engine::render::decal_quad_points_rotated(decal, level.ceiling_decal_rotation(decal))
+        .map(|points| {
+            points.map(|mut point| {
+                if decal.surface == DecalSurface::Floor {
+                    point[1] = surfaces.floor_y_at(point[0], point[2]).unwrap_or(point[1]);
+                } else if decal.surface == DecalSurface::Ceiling {
+                    point[1] = surfaces.ceiling_y_at(point[0], point[2]);
+                }
+                Vec3::new(
+                    normal[0].mul_add(crate::engine::render::DECAL_SURFACE_OFFSET_M, point[0]),
+                    normal[1].mul_add(crate::engine::render::DECAL_SURFACE_OFFSET_M, point[1]),
+                    normal[2].mul_add(crate::engine::render::DECAL_SURFACE_OFFSET_M, point[2]),
+                )
+            })
+        })
+}
+fn receiving_plane(level: &LevelDef, decal: &DecalDef) -> f32 {
+    let surfaces = LevelSurfaces::new(level);
+    match decal.surface {
+        DecalSurface::Floor => surfaces.floor_y_at(decal.x, decal.z).unwrap_or(decal.y),
+        DecalSurface::Ceiling => surfaces.ceiling_y_at(decal.x, decal.z),
+        DecalSurface::WallNorth
+        | DecalSurface::WallSouth
+        | DecalSurface::WallWest
+        | DecalSurface::WallEast => normal_coordinate(decal),
+    }
+}
+fn duplicate_floor(level: &LevelDef, index: usize) -> Result<[f32; 3], String> {
+    let original = level.decals.get(index).ok_or("Decal no longer exists")?;
+    let (half_x, half_z) = half_span(original);
+    for (dx, dz) in [
+        (half_x.mul_add(2.0, 0.1), 0.0),
+        (-half_x.mul_add(2.0, 0.1), 0.0),
+        (0.0, half_z.mul_add(2.0, 0.1)),
+        (0.0, -half_z.mul_add(2.0, 0.1)),
+    ] {
+        let mut copy = original.clone();
+        copy.x += dx;
+        copy.z += dz;
+        copy.y = receiving_plane(level, original);
+        if floor_fit(level, &copy, ObjectId::Decal(index)) && clear_of_signs(level, &copy) {
+            return Ok([copy.x, copy.y, copy.z]);
+        }
+    }
+    Err("No clear, supported floor area fits this copy. Move or shrink the decal first.".into())
+}
+
 fn half_span(decal: &DecalDef) -> (f32, f32) {
     let (sine, cosine) = decal.rotation_degrees.to_radians().sin_cos();
     (
@@ -75,38 +218,56 @@ fn half_span(decal: &DecalDef) -> (f32, f32) {
     )
 }
 const fn normal_coordinate(decal: &DecalDef) -> f32 {
-    if decal.surface.normal()[0].abs() > 0.5 {
+    if decal.surface.is_horizontal() {
+        decal.y
+    } else if decal.surface.normal()[0].abs() > 0.5 {
         decal.x
     } else {
         decal.z
     }
 }
 const fn along_coordinate(decal: &DecalDef) -> f32 {
-    if decal.surface.normal()[0].abs() > 0.5 {
+    if decal.surface.is_horizontal() {
+        decal.x
+    } else if decal.surface.normal()[0].abs() > 0.5 {
         decal.z
     } else {
         decal.x
     }
 }
-fn clear_of_signs(level: &LevelDef, candidate: &DecalDef) -> bool {
+pub(in crate::editor) fn clear_of_signs(level: &LevelDef, candidate: &DecalDef) -> bool {
     let (width, height) = half_span(candidate);
     level
         .decals
         .iter()
         .filter(|other| {
             other.surface == candidate.surface
-                && (normal_coordinate(other) - normal_coordinate(candidate)).abs() < 0.0001
+                && (receiving_plane(level, other) - receiving_plane(level, candidate)).abs()
+                    < 0.0001
         })
         .all(|other| {
             let (other_width, other_height) = half_span(other);
+            let across = |decal: &DecalDef| {
+                if decal.surface.is_horizontal() {
+                    decal.z
+                } else {
+                    decal.y
+                }
+            };
             (along_coordinate(other) - along_coordinate(candidate)).abs()
                 >= width + other_width + 0.01
-                || (other.y - candidate.y).abs() >= height + other_height + 0.01
+                || (across(other) - across(candidate)).abs() >= height + other_height + 0.01
         })
 }
 /// A copied plate must fit its carrier without overlapping another sign.
 pub(super) fn duplicate_position(level: &LevelDef, index: usize) -> Result<[f32; 3], String> {
     let original = level.decals.get(index).ok_or("Sign no longer exists")?;
+    if original.surface == DecalSurface::Floor {
+        return duplicate_floor(level, index);
+    }
+    if original.surface == DecalSurface::Ceiling {
+        return Err("Duplicate ceiling artwork manually on a checked carrier".into());
+    }
     let (half_width, half_height) = half_span(original);
     let origin = Vec3::new(original.x, original.y, original.z);
     let wall_axis = if original.surface.normal()[0].abs() > 0.5 {
@@ -157,7 +318,7 @@ pub(super) fn duplicate_position(level: &LevelDef, index: usize) -> Result<[f32;
 }
 
 /// Fit one whole decal to a real solid wall slice. Openings are never bridged.
-fn fit(
+pub(in crate::editor) fn fit(
     level: &LevelDef,
     decal: &mut DecalDef,
     wall_index: usize,
@@ -270,6 +431,7 @@ pub(in crate::editor) fn placement(
         width: 2.4,
         height: 0.6,
         rotation_degrees: 0.0,
+        opacity: 1.0,
         material: format!("collection:sign_{art}"),
         surface: DecalSurface::WallSouth,
         align: crate::engine::level::DecalAlign::None,

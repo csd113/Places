@@ -6050,6 +6050,12 @@ pub struct DecalDef {
     /// In-plane rotation about the surface normal, in degrees.
     #[serde(default)]
     pub rotation_degrees: f32,
+    /// Straight-alpha coverage multiplier, 0..1; omitted preserves full opacity.
+    #[serde(
+        default = "default_decal_opacity",
+        skip_serializing_if = "decal_opacity_is_full"
+    )]
+    pub opacity: f32,
     /// Decal sheet id, e.g. `core:decal_test_01`.
     pub material: String,
     pub surface: DecalSurface,
@@ -6057,6 +6063,17 @@ pub struct DecalDef {
     /// omitted keeps the historical authored coordinates.
     #[serde(default, skip_serializing_if = "decal_align_is_none")]
     pub align: DecalAlign,
+}
+
+const fn default_decal_opacity() -> f32 {
+    1.0
+}
+#[expect(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "Serde skip predicates require a reference."
+)]
+const fn decal_opacity_is_full(value: &f32) -> bool {
+    value.to_bits() == 1.0_f32.to_bits()
 }
 
 impl DecalDef {

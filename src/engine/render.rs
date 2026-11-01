@@ -68,8 +68,8 @@ pub use common::{
     build_level_geometry_with_assets_and_lighting_and_materials, build_level_geometry_with_catalog,
     build_level_geometry_with_catalog_and_materials, build_level_geometry_with_materials,
     character_vertex, decal_external_sheet_ids, decal_material_slot, decal_quad_points,
-    decal_sheet_index, decal_uv_rect, decal_uv_rect_full, dequantize_unit, logical_materials,
-    relight_blend_decals, spatial_cell_grid, tiled_uv,
+    decal_quad_points_rotated, decal_sheet_index, decal_uv_rect, decal_uv_rect_full,
+    dequantize_unit, logical_materials, relight_blend_decals, spatial_cell_grid, tiled_uv,
 };
 pub use facade::{PreparedCaustics, PreparedGeometry, Renderer, RuntimeModelInfo};
 pub use wgpu::reflections::{PROBE_FACE_SIZE_FULL, PROBE_FACE_SIZE_MEDIUM, ProbeFaceReadback};

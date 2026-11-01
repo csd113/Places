@@ -3504,6 +3504,7 @@ fights its parent surface. Do not author epsilon offsets or per-decal depth tric
 | `width` | number | **yes** | — | In-plane horizontal size, `> 0`, `≤ 10` m. |
 | `height` | number | **yes** | — | In-plane vertical size, `> 0`, `≤ 10` m. |
 | `rotation_degrees` | number | no | `0.0` | In-plane rotation about the surface normal. |
+| `opacity` | number | no | `1.0` | Finite straight-alpha multiplier in 0..1; soft-alpha blend sheets use it for intensity. Omitted full opacity preserves existing decals. Lighting, RGB, emission and footprint are unchanged. |
 | `material` | string | **yes** | — | A catalog `decal` id. |
 | `surface` | enum | **yes** | — | `floor`, `ceiling`, `wall_north`, `wall_south`, `wall_west`, `wall_east`. An unknown value is a JSON parse error. |
 | `align` | enum | no | `"none"` | `none` keeps the authored centre and rotation. `ceiling_grid` snaps a **ceiling** decal's centre to the nearest panel centre of the ceiling material above it, in the room's own ceiling tile frame, and composes that frame's rotation into the decal's in-plane rotation. The panel module is the material's `grid_metres`, falling back to `tile_metres` when the sheet paints one panel per repeat. Ignored on every other surface, and on a decal that is not inside a room or whose ceiling material resolves no positive period. |
@@ -9653,3 +9654,22 @@ action. `resume_checkpoint` uses only this level’s compatible save. Script aut
 use `api.checkpoint(name)` / `api.resume_checkpoint()` and explicit scalar closure
 hooks. Read [CHECKPOINTS.md](CHECKPOINTS.md) for the supported state, stable boundary,
 identity/recovery and unsupported-state refusals before enabling a map.
+
+
+## Contextual editor details (0.13.1, issue #33)
+
+Reuse > Surface details creates ordinary fitted decals anchored to wall floor
+edges, actual vent openings/terminals and door openings. The three shared
+core:detail_*_01 sheets retain square 1:1 RGBA/soft-alpha asset contracts.
+Source positions stay on exact receiving planes; shared depth handling applies
+once. Whole rotated footprints must fit solid wall coverage or one flat room.
+Openings, steps, tiny interior recesses, unrelated receivers and existing decals
+are never bridged to force a placement.
+
+Raw editor_surface_details scope baselines/parameters and editor_surface_detail
+group/slot membership survive atomic save, history and editable project
+export/recovery. Compiled rendering uses ordinary decal fields and optional
+0..1 opacity. Regeneration replaces unchanged members, preserves manual
+overrides/locks and remembers manual deletions; manual copies are independent.
+See EDITOR.md for presets, controls, conservative receiver restrictions and
+per-scope bounds. Architecture, collision, openings and lighting stay intact.

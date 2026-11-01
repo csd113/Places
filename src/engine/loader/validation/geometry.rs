@@ -1446,6 +1446,9 @@ pub(super) fn validate_decals(level: &LevelDef) -> Result<(), String> {
                 decal.height
             ));
         }
+        if !decal.opacity.is_finite() || !(0.0..=1.0).contains(&decal.opacity) {
+            return Err(format!("Decal {i} opacity must be finite and in 0..1"));
+        }
         if decal.material.trim().is_empty() {
             return Err(format!("Decal {i} must reference a non-empty material id"));
         }

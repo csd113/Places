@@ -2105,6 +2105,7 @@ fn add_decal_quad(
     );
     for vertex in vertices.get_mut(first..).into_iter().flatten() {
         vertex.caustics_albedo = tint;
+        vertex.color[3] *= decal.opacity;
     }
 }
 

@@ -1,4 +1,5 @@
 //! Reusable room authoring uses the same source, preview and history as hand edits.
+mod details;
 mod prefabs;
 mod styles;
 mod variation;
@@ -27,6 +28,9 @@ pub(super) enum Command {
     Source,
     SourceBack,
     StyleChoice,
+    DetailPreset,
+    Details,
+    DetailsApply,
     Linked,
     Protect,
     Category(usize),
@@ -46,7 +50,7 @@ pub(super) struct Draft {
     expected: Value,
     selected: Option<ObjectId>,
     tab: usize,
-    fields: [String; 8],
+    fields: [String; 14],
     active: Option<usize>,
     source: usize,
     linked: bool,
@@ -79,6 +83,12 @@ impl Draft {
                 "10".into(),
                 "0.1".into(),
                 "0.03".into(),
+                "0.7".into(),
+                "0.35".into(),
+                "1".into(),
+                "0.2".into(),
+                "12345".into(),
+                "0".into(),
             ],
             active: None,
             source: 0,
@@ -104,6 +114,45 @@ impl Draft {
         }
         Ok(n)
     }
+    fn detail_parameters(&self) -> Result<details::Parameters, String> {
+        Ok(details::Parameters {
+            preset: self
+                .fields
+                .get(13)
+                .ok_or("Preset")?
+                .parse()
+                .map_err(|_error| "Preset must be 0..3")?,
+            density: self.number(8)?,
+            intensity: self.number(9)?,
+            scale: self.number(10)?,
+            variation: self.number(11)?,
+            seed: self
+                .fields
+                .get(12)
+                .ok_or("Seed")?
+                .parse()
+                .map_err(|_error| "Seed must be an unsigned 64-bit whole number")?,
+        })
+    }
+    fn load_detail_parameters(&mut self, doc: &Document) {
+        if let Some(parameters) = self
+            .selected
+            .and_then(|selected| details::saved(doc, selected))
+        {
+            for (index, value) in [
+                (8, parameters.density.to_string()),
+                (9, parameters.intensity.to_string()),
+                (10, parameters.scale.to_string()),
+                (11, parameters.variation.to_string()),
+                (12, parameters.seed.to_string()),
+                (13, parameters.preset.to_string()),
+            ] {
+                if let Some(field) = self.fields.get_mut(index) {
+                    *field = value;
+                }
+            }
+        }
+    }
     fn room(&self) -> Result<usize, String> {
         match self.selected {
             Some(ObjectId::Room(i)) => Ok(i),
@@ -123,6 +172,12 @@ impl Draft {
             );
         }
         match operation {
+            Command::Details => details::candidate(
+                doc,
+                self.selected.ok_or("Select a room, wall, door or vent")?,
+                self.detail_parameters()?,
+                catalog,
+            ),
             Command::Capture => prefabs::capture(
                 doc,
                 self.room()?,
@@ -183,6 +238,8 @@ impl Draft {
             | Command::Source
             | Command::SourceBack
             | Command::StyleChoice
+            | Command::DetailPreset
+            | Command::DetailsApply
             | Command::Linked
             | Command::Protect
             | Command::Category(_)
@@ -256,6 +313,10 @@ impl App {
     }
     fn reuse_command(&mut self, draft: &mut Draft, command: Command) -> Result<(), String> {
         draft.active = None;
+        if command == Command::DetailsApply {
+            self.preview_reuse(draft, Command::Details)?;
+            return self.commit_reuse(draft);
+        }
         if command == Command::Apply {
             return self.commit_reuse(draft);
         }
@@ -269,8 +330,13 @@ impl App {
         }
         match command {
             Command::Tab(tab) => {
-                draft.tab = tab.min(2);
+                draft.tab = tab.min(3);
                 draft.operation = None;
+                if draft.tab == 3
+                    && let Some(doc) = &self.document
+                {
+                    draft.load_detail_parameters(doc);
+                }
             }
             Command::Field(i) => draft.active = Some(i),
             Command::Source | Command::SourceBack => {
@@ -305,6 +371,12 @@ impl App {
                     *field = (current.saturating_add(1) % 3).to_string();
                 }
             }
+            Command::DetailPreset => {
+                if let Some(field) = draft.fields.get_mut(13) {
+                    *field =
+                        (field.parse::<usize>().unwrap_or(0).saturating_add(1) % 4).to_string();
+                }
+            }
             Command::Linked => draft.linked = !draft.linked,
             Command::Protect => draft.protect = !draft.protect,
             Command::Category(i) => {
@@ -312,7 +384,8 @@ impl App {
                     *value = !*value;
                 }
             }
-            Command::Capture
+            Command::Details
+            | Command::Capture
             | Command::Stamp
             | Command::Update
             | Command::Detach
@@ -322,7 +395,7 @@ impl App {
             | Command::Rebase => {
                 self.preview_reuse(draft, command)?;
             }
-            Command::Open | Command::Apply | Command::Edit => {}
+            Command::Open | Command::Apply | Command::Edit | Command::DetailsApply => {}
         }
         Ok(())
     }
@@ -490,15 +563,20 @@ pub(super) fn draw(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec
     ui::rect(v, [0.0, 0.0, 480.0, 272.0], [0.0, 0.0, 0.0, 0.6]);
     ui::rect(v, [116.0, 40.0, 354.0, 198.0], [0.075, 0.11, 0.14, 1.0]);
     ui::text(v, "REUSE / selected scope", 126.0, 46.0, ui::INK, 75);
-    for (i, label) in ["Room prefabs", "Room styles", "Prop variation"]
-        .into_iter()
-        .enumerate()
+    for (i, label) in [
+        "Room prefabs",
+        "Room styles",
+        "Prop variation",
+        "Surface details",
+    ]
+    .into_iter()
+    .enumerate()
     {
-        let x = f32::from(u16::try_from(i).unwrap_or(0)).mul_add(112.0, 126.0);
+        let x = f32::from(u16::try_from(i).unwrap_or(0)).mul_add(84.0, 126.0);
         ui::popup_button(
             v,
             hits,
-            [x, 58.0, 104.0, 13.0],
+            [x, 58.0, 80.0, 13.0],
             label,
             Action::Reuse(Command::Tab(i)),
         );
@@ -520,7 +598,8 @@ pub(super) fn draw(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec
     match draft.tab {
         0 => draw_prefabs(app, draft, v, hits),
         1 => draw_styles(draft, v, hits),
-        _ => draw_variation(draft, v, hits),
+        2 => draw_variation(draft, v, hits),
+        _ => draw_details(draft, v, hits),
     }
     ui::popup_button(
         v,
@@ -675,6 +754,61 @@ fn draw_styles(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         [126.0, 212.0, 328.0, 13.0],
         "Preview room style",
         Action::Reuse(Command::Style),
+    );
+}
+
+fn draw_details(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    let preset = draft
+        .fields
+        .get(13)
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(0);
+    let preset_label = [
+        "Contextual / all",
+        "Floor-edge grime",
+        "Vent stains",
+        "Subtle door wear",
+    ]
+    .get(preset)
+    .copied()
+    .unwrap_or("Choose a preset");
+    ui::popup_button(
+        v,
+        hits,
+        [126.0, 91.0, 328.0, 13.0],
+        preset_label,
+        Action::Reuse(Command::DetailPreset),
+    );
+    for (i, label, y) in [
+        (8, "Density / coverage 0..1", 108.0),
+        (9, "Intensity / opacity 0..1", 125.0),
+        (10, "Scale / 0.25..3", 142.0),
+        (11, "Size / position variation 0..1", 159.0),
+        (12, "Seed / deterministic", 176.0),
+    ] {
+        field(v, hits, draft, i, label, y);
+    }
+    ui::text(
+        v,
+        "Custom edits, locks and removed details are kept.",
+        126.0,
+        195.0,
+        ui::MUTED,
+        78,
+    );
+    ui::popup_button(
+        v,
+        hits,
+        [126.0, 209.0, 160.0, 13.0],
+        "Preview details",
+        Action::Reuse(Command::Details),
+    );
+    ui::popup_button(
+        v,
+        hits,
+        [294.0, 209.0, 160.0, 13.0],
+        "Apply / regenerate",
+        Action::Reuse(Command::DetailsApply),
     );
 }
 

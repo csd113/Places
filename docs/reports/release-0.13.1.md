@@ -3619,3 +3619,129 @@ custody and the single idle-only cleanup for GPU sharing. `P/handoff.json` recor
 the Pool continuation's publication and custody; `target` stays absent and no
 second cleanup or duplicate build is needed. The unrelated menu scene is preserved
 at SHA256 `93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.
+
+
+## Issue 33 contextual surface details, Razer acceptance 2026-11-01
+
+The approved queue continuation implements [issue 33](https://github.com/csd113/Places/issues/33)
+on `0.13.1-dev`, based on `d5dfa1fd9605be3741dc206f0e2fed801de44889`.
+Select a room, wall, door, vent prop or vent decal, then open **Reuse tools >
+Surface details**. Choose contextual mix, floor edges, vent stains or door wear;
+set density, intensity, scale, variation and seed; **Apply / regenerate** is one
+action. **Preview details** uses the existing private Reuse preview and Apply
+gateway. The new controls remain a separate module for the later editor UI work.
+
+The implementation proposes marks from solid wall runs, real door openings,
+door poses, vent opening bottoms and resolved vent-object frames. It resolves
+relative prop heights and legacy ceiling-grid alignment before choosing the
+receiving storey. It never treats an arbitrary prop containing the letters
+`vent` as a vent or places an elevated feature's stain on an unrelated downstairs
+floor. Rotated grille stains follow the actual ceiling-tile frame. All proposed
+quads pass shared whole-footprint fitting, solid coverage, opening and overlap
+checks. A floor quad must fit one flat room receiver and avoid wall stock,
+recesses, ramps and stairs. Unsupported or ambiguous candidates are skipped.
+This conservative tool does not paint curved props, moving door leaves,
+slopes, disconnected room unions or arbitrary mesh surfaces.
+
+Generated marks are ordinary editable decals. Floor and ceiling decals now use
+the emitted receiving frame for picking; floor copies seek a supported clear
+position, and unsupported ceiling copies give guidance. The existing shared
+decal pass applies one depth bias and the new finite `opacity` field multiplies
+vertex alpha. Default opacity is one, preserving old sources. Three square,
+soft-alpha 1024x1024 PNG sheets are catalogued under `assets/shared/decals/`;
+ImageGen masters, prompts, transparent-border checks and asset hashes are retained
+in the evidence. No runtime texture generation or separate renderer was added.
+
+Each scope stores generated baselines and deletion tombstones on its existing
+source carrier. Exact unchanged members may be replaced; moved, resized, rotated,
+locked or otherwise customized records remain, including unknown fields.
+Independent duplicates lose generation membership. Clearing details before
+capturing a prefab also strips stale owner identity. A repeated application is a
+no-op, A/B/A is exact, and regeneration is one undoable source transaction.
+The existing focused/locked/intentional-placement protection, source revision
+check, history, save and export pathways remain authoritative. The ownership
+registry is bounded to 1024 slots and edge sampling to 4096 proposals per run.
+
+### Seven acceptance dispositions
+
+| Issue acceptance | Disposition and evidence |
+| --- | --- |
+| Selection, one-click presets and parameters | Passed in release-native room, wall, door, vent-prop and ceiling-grille scopes; density/intensity/scale/variation/seed controls use the real text and action handlers. |
+| Contextual placement and orientation | Passed floor-edge, vent-bottom and door-threshold/jamb examples; two-storey, elevated-prop, precise vent-role and rotated ceiling-grid controls cover misleading nearby features. |
+| Receiving fit, depth and openings | Passed whole rotated footprints, tiny interior recess exclusion, solid wall slices, opening/duplicate checks and visible floor/wall captures. Unsupported receivers are skipped rather than projected. |
+| Editable results and coherent undo/redo | Passed manual pose changes, independent floor duplication, locking, deletion, single-transaction undo/redo and repeated no-op history behavior. |
+| Clean deterministic regeneration | Passed repeat, A/B/A, zero-density clear/restore, preserved manual pose/lock/copy, deletion tombstone, independent scopes and cleared-owner prefab identity. |
+| Editor and compiled lighting/material behavior | Passed native Inspect/Authored-lighting views and imported Static/Full package gameplay; the same decal/opacity/mounting code supplies both render paths. |
+| Workflows and preservation | Passed small/large scenes, invalid parameters, cancel/private-preview close, repeated flows, save/reopen, export/current verification, byte-exact source recovery and native recovered regeneration. Structural source and manual control records remain unchanged. |
+
+`E = local/verification-issue33/` holds all local acceptance evidence outside
+`target`, including reproducible scripts under `E/acceptance-scripts/`, exact
+source manifests, ordinary-handler action scripts, JSON checkpoints, real GPU
+captures, gate logs, ImageGen masters and complete executable/DLL payloads.
+`small-assertions.json`, `custom-assertions.json`, `reopen-large-assertions.json`,
+`objects-assertions.json`, `close-preview-assertions.json`,
+`export-assertions.json`, `recovered-native-assertions.json` and
+`play-assertions.json` record the checked invariants. Earlier superseded/failing
+qualification attempts remain labeled in the same evidence tree. An initial
+debug startup failed because DXC DLLs were missing beside that executable;
+restoring the already verified project runtime payload resolved it. Final
+debug/release native checks use the complete payload.
+
+The 8x8 m room has 35 saved decals, including 33 generated details before manual
+customization. The 40x40 m room has 101 props and 61 decals after parameter edits.
+Quiet release action handlers took 0.517-1.618 ms in the small campaign and
+5.117-7.590 ms in the large campaign. These are bounded authoring handler times,
+not physical input latency or a throughput comparison. Final preview preparation
+was 18.482/29.232 ms, with 977.147/852.829 ms request-to-ready, respectively;
+the existing asynchronous worker/upload path accounts for the distinction.
+Both checkpoints settle with no active/pending preview worker, no stale response,
+no preview bake and reused prop preparation. Full metrics and every action
+sample are in `authoring-timings.json`. Native functional captures used actual
+1280x800 drawables and **Fifo** presentation, including player runs requesting
+V-sync off. No FPS gain or uncapped throughput claim is made.
+
+Only the tiny disposable project was compiled, with eight workers, Static and
+Full variants: export 4.636 s, package 726306 bytes, SHA256
+`61990796d1f93d9027b3ba8f8dc7ba4218d0b3c0f3f2a00700f795944adac9be`.
+Validate, inspect and `verify --require-current` pass. Recovery preserves source
+bytes at SHA256 `90be31d1c6f52215af00be2e30abc465c89d61214f9594d645180c525394c453`;
+the recovered native editor regenerates exactly. Gameplay captures use diagnostic
+camera placement for inspection and ordinary held-W movement for collision:
+both variants move from Z=2.0 to the original wall boundary Z=0.600020 at constant
+eye Y=1.6. Static reports low/off lighting; Full reports high/full lighting with
+the prepared lightmaps resident. These functional observations support decal
+placement/material parity, without claiming pixel-identical lighting modes.
+No shipped map was rebaked or rewritten.
+
+### Final source gates and custody
+
+The 590-file production/build source manifest in `final-source-inputs.json`
+remains unchanged across final checks. Format, locked workspace/all-target/
+all-feature strict Clippy in debug and release, locked debug and release
+workspace/all-feature builds, and `cargo test --locked --workspace` all pass.
+There are 417 Rust tests: two new tiny CPU regressions protect contextual
+whole-footprint placement and atomic ownership/history/persistence. Their
+combined targeted execution is about 0.03 s, with no real catalog/image/GPU/map
+bake dependency. The full Rust-test usefulness audit remains LAST in the queue.
+373 Python contracts pass with 18 expected skips; 677 assets validate with zero
+warnings. Texture/prop checks pass with existing manifest/budget advisories.
+`rust-gates-final.json` and `validation-receipt.json` retain exact commands and
+hashes. Previous performance and worker-ownership improvements are preserved;
+their measured savings are not attributed to this feature.
+
+Final release executable SHA256 values:
+
+| Payload | SHA256 |
+| --- | --- |
+| places-editor.exe | `661cac0ba5cb1d7bc3c63731cb0e3f7320a24f9d454e629cbd843de56bb6484d` |
+| places.exe | `db5493bb737fce1b0e1b81d0cb3bcb2dc6bf72826157650afe7d0c09f103794d` |
+| places-compile.exe | `5f3429a251da2a366830eab1af36d571189d117a87df4075e1ddef64f881fad4` |
+
+Windows Razer, NVIDIA RTX 3070 Laptop and DX12 only. Linux is unrun, not passed;
+Mac validation is deferred. The separate editor UI redesign/embedded first-person
+work is not included. #18 remains closed; #29 is not a dependency. Parent owns
+issue completion after evidence review. `E/handoff.json` records the scoped
+commit, exact non-force branch publication, asynchronous CI and final process,
+index and single idle-only cleanup state. Evidence and complete runtime payloads
+are preserved before that cleanup. The unrelated menu scene remains at SHA256
+`93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.

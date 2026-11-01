@@ -985,6 +985,59 @@ update. Surface and furnishing overrides retain their ordinary three-way merge.
 This explicit refusal prevents updating children against the source's old carrier
 frame after an instance room was independently reshaped.
 
+## Contextual surface details (issue #33, 0.13.1)
+
+Select a room floor, rectangular wall, interactive door or vent object, then open
+**Reuse tools > Surface details**. Choose Contextual/all, Floor-edge grime,
+Vent stains or Subtle door wear. **Apply / regenerate** applies the configured
+preset in one click and one ordinary undo step. **Preview details** shows a
+private preview; Apply commits it, and Edit options/Esc/Cancel restores source.
+
+Density/coverage and intensity are fractions in 0..1. Scale is 0.25..3,
+variation is 0..1, and seed is an unsigned 64-bit whole number. Reopening restores
+the scope's last applied values. Changing values alone never changes source.
+Zero density clears unchanged generated details, keeping customizations.
+
+Floor grime follows solid wall runs and stops at openings. Vent streaks sit
+beneath wall openings; ceiling vent artwork and diffuser/vent props produce
+condensation marks on the supported floor below. Ceiling-grid alignment reuses
+the compiler frame calculation; world-space height chooses the receiving storey.
+Unsupported upper-floor projections are refused rather than moved downstairs.
+Thresholds and solid jambs
+receive subtle door wear. Variation adjusts size and along-edge position within
+this context. A scope with no suitable receivers explains the refusal.
+
+The full rotated footprint must fit its carrier. Wall details reuse solid wall
+coverage and opening checks and cannot move away from their feature. Floors
+require one flat room plane and reject step/ramp/floor-region intersections,
+including tiny interior recesses. Marks cannot bridge room boundaries, wall
+stock or existing same-plane decals. Source positions remain on the exact
+plane; the shared renderer supplies its 0.2 mm normal offset and depth bias once.
+
+Floor, ceiling and wall decals use ordinary scene rows and viewport selection.
+Use Pose/numeric fields to move, resize or spin; Layers to lock; Delete, Undo and
+Redo normally. Keep these fitted square sheets square when resizing. Floor
+duplicates find clear supported space and become independent manual decals.
+Ceiling artwork requires deliberate placement rather than automatic duplication.
+
+The carrier stores `editor_surface_details` baselines/parameters; ordinary
+decals identify their group/slot through `editor_surface_detail`. Reapplying
+replaces only exact unchanged generated records. Manual pose/material/opacity,
+lock and unknown-field edits survive exactly. Deleted slots remain tombstones.
+A/B/A parameter replay is deterministic. Manual copies strip ownership.
+Selecting a generated mark reopens its original scope; if that carrier was
+removed, the mark remains manually editable. Other scopes and unrelated
+authored details remain, and overlapping new candidates are skipped.
+Saved placement-intent protections may refuse automatic changes.
+
+These are ordinary `decals[]` using the shared material, lighting and native
+renderer. Real soft-alpha PNGs provide artwork; `opacity` multiplies straight
+alpha through the existing blend pass. No architecture, collision, opening,
+fixture, circuit or emission is added. Atomic save/reopen, history and editable
+project export/recovery retain ownership and customizations. A scope admits at
+most 1024 owned slots and 4096 edge samples; use one wall/vent for larger scenes.
+The controls remain modular within Reuse. Normal tests never bake a shipped map.
+
 ## Gameplay checkpoints
 
 Each level defaults to Gameplay saves: Off in Project. Add to scene > Checkpoint

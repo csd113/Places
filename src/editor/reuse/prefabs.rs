@@ -77,6 +77,9 @@ fn clean(mut value: Value) -> Value {
         drop(m.remove(MEMBER));
         drop(m.remove(SOURCE));
         drop(m.remove("editor_variation"));
+        drop(m.remove("editor_surface_detail"));
+        drop(m.remove("editor_surface_details"));
+        drop(m.remove("editor_instance_id"));
         drop(m.remove("editor_locked"));
         drop(m.remove("editor_flicker"));
     }

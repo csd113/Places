@@ -138,13 +138,8 @@ pub(super) fn objects(
 }
 
 fn decal_objects(level: &LevelDef, result: &mut Vec<PickObject>) {
-    for (index, decal) in level
-        .decals
-        .iter()
-        .enumerate()
-        .filter(|(_, decal)| !decal.surface.is_horizontal())
-    {
-        let Some(corners) = crate::editor::document::signs::corners(decal) else {
+    for (index, decal) in level.decals.iter().enumerate() {
+        let Some(corners) = crate::editor::document::signs::receiving_corners(level, decal) else {
             continue;
         };
         let mut bounds = Aabb::EMPTY;

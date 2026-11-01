@@ -289,6 +289,7 @@ impl App {
                             all: _
                         }
                         | Popup::Transform(_)
+                        | Popup::Reuse(_)
                         | Popup::AuthoringForm(_)
                         | Popup::SceneSearch(_)
                 )

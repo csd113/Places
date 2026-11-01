@@ -669,6 +669,20 @@ A new decal sheet does not need to be square, but it does need POT edges, an
 alpha cut-out and a level placement whose width/height match its proportions.
 If in doubt, author square artwork and place it square.
 
+### Contextual surface detail sheets (0.13.1)
+
+The three shared `core:detail_floor_grime_01`, `core:detail_vent_stain_01`
+and `core:detail_door_wear_01` assets are fitted **square**, 1024x1024 RGBA PNGs
+under `assets/shared/decals/`. They use the existing soft-alpha `blend` decal
+pipeline, with a fully transparent perimeter and no tiling. Keep their 1:1
+placement ratio, real alpha and albedo-only content. Image top points inward
+away from a floor edge, upward for wall streaks, and away from a threshold.
+The shared renderer supplies depth offset once; source positions stay on the
+carrier. Optional source `opacity` scales straight alpha without changing RGB,
+lighting, emission, footprint or material ownership. Omitted opacity is exactly
+1. Generated masters use built-in ImageGen; only specification-required uniform
+1024-square normalization is applied during offline asset packaging.
+
 ### 7.1 Steam effect sheets
 
 An **effect sheet** is the artwork of a level's `effects[]` billboards: the
