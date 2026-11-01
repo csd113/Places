@@ -178,16 +178,27 @@ fn repaired_bindings_preserve_valid_owners_and_native_names()
     Ok(())
 }
 
-// One tiny disk roundtrip per style uniquely protects aesthetic/quality separation,
-// backward-compatible defaults and master-zero persistence. No native audio/bake.
+// One tiny disk roundtrip per style covers presentation/audio persistence,
+// quality separation, backward-compatible defaults and master mute. No native audio/bake.
 #[test]
-fn styles_preserve_independent_quality_and_master_zero() -> Result<(), Box<dyn std::error::Error>> {
+fn presentation_choices_preserve_independent_quality_and_master_zero()
+-> Result<(), Box<dyn std::error::Error>> {
     use crate::game::settings::VisualStyle;
     let directory = SettingsDirectory::new()?;
     let path = directory.0.join("style.json");
-    let mut settings = Settings::default();
+    let mut settings = Settings {
+        spatial_audio: crate::engine::audio::SpatialMode::Headphones,
+        ..Settings::default()
+    };
     let _master_changed = settings.set_master_volume(0.0);
-    let _quality_changed = settings.set_quality(QualityLevel::High);
+    for quality in [QualityLevel::Low, QualityLevel::High] {
+        let _quality_changed = settings.set_quality(quality);
+        assert_eq!(
+            settings.spatial_audio,
+            crate::engine::audio::SpatialMode::Headphones,
+            "changing graphics presets preserves the audio mode"
+        );
+    }
     let _lighting_changed = settings.set_lightmap_quality(LightmapQuality::Full);
     let _filtering_changed = settings.set_texture_filtering("high");
     let quality = settings.graphics_spec();
@@ -202,6 +213,11 @@ fn styles_preserve_independent_quality_and_master_zero() -> Result<(), Box<dyn s
         let loaded = Settings::load_or_default_from_path(&path);
         assert_eq!(loaded.visual_style, style);
         assert_eq!(loaded.graphics_spec(), quality);
+        assert_eq!(
+            loaded.spatial_audio,
+            crate::engine::audio::SpatialMode::Headphones,
+            "graphics/style choices preserve the persisted audio mode"
+        );
         assert!(
             loaded.master_volume.abs() < f32::EPSILON,
             "zero stays muted after restart"
@@ -209,24 +225,9 @@ fn styles_preserve_independent_quality_and_master_zero() -> Result<(), Box<dyn s
     }
     let old: Settings = serde_json::from_str("{}")?;
     assert_eq!(old.visual_style, VisualStyle::Standard);
-    Ok(())
-}
-
-// Protects the new persisted choice independently of graphics presets; JSON only.
-#[test]
-fn headphone_mode_survives_serialization_and_graphics_presets()
--> Result<(), Box<dyn std::error::Error>> {
-    let mut settings: Settings = serde_json::from_str("{}")?;
     assert_eq!(
-        settings.spatial_audio,
+        old.spatial_audio,
         crate::engine::audio::SpatialMode::Speakers
-    );
-    settings.spatial_audio = crate::engine::audio::SpatialMode::Headphones;
-    let _changed = settings.set_quality(QualityLevel::Low);
-    let reopened: Settings = serde_json::from_str(&serde_json::to_string(&settings)?)?;
-    assert_eq!(
-        reopened.spatial_audio,
-        crate::engine::audio::SpatialMode::Headphones
     );
     Ok(())
 }

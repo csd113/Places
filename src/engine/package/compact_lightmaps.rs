@@ -210,38 +210,6 @@ pub fn encode_with_stats(
     })
 }
 
-/// Encode separate planes without materializing a second contiguous atlas.
-/// Every plane and the aggregate shape are checked before encoding any tile.
-#[cfg(test)]
-pub(crate) fn encode_layers_with_stats(
-    edge: u32,
-    pages: u32,
-    groups: u32,
-    layers: &[Vec<u8>],
-) -> Result<(Vec<u8>, CompactLightmapStats), String> {
-    let shape = Shape::new(edge, pages, groups)?;
-    if layers.len() != shape.pairs.saturating_mul(2)
-        || layers.iter().any(|plane| plane.len() != shape.plane_bytes)
-    {
-        return Err("compact lightmap input plane length does not match its shape".into());
-    }
-    encode_plane_pairs(shape, |pair| {
-        let first = pair
-            .checked_mul(2)
-            .ok_or("lightmap plane index overflows")?;
-        Ok((
-            layers
-                .get(first)
-                .ok_or("missing irradiance plane")?
-                .as_slice(),
-            layers
-                .get(first.saturating_add(1))
-                .ok_or("missing moment plane")?
-                .as_slice(),
-        ))
-    })
-}
-
 enum TileSource<'a> {
     Planes(&'a [u8], &'a [u8]),
     Pixels(&'a [crate::engine::lighting::lightmap::LightmapTexel]),

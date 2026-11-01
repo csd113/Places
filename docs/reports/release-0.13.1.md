@@ -4006,3 +4006,128 @@ and evidence stay outside target; original candidates are retained.
 One idle-only cargo clean completed after all useful target artifacts were preserved.
 Branch publication, final process/index custody and any pending work are
 recorded in the final `E/handoff.json`.
+
+## Rust-test usefulness audit (November 1, 2026)
+
+Reviewed every project-owned Rust test and its module wiring across the single
+`places` crate: 420 source tests in 150 files, all under the four owning test
+directories. There are no separate Rust integration targets or executable Rust
+doctests; documentation fences contain text/JSON. Developer binaries contain no
+additional Rust tests. Third-party tests and production validation/assertions
+were not changed. No numerical reduction target was used.
+
+Evidence: `C:/Users/Connor Dawkins/Documents/Codex/2026-11-01/task/rust-test-audit`
+(`E` here). `audit-ledger.json` records each reviewed test's disposition and
+fixture rationale; `baseline-inventory.json` retains the original inventory.
+
+| Area | Reviewed | Kept separately | Consolidated | Removed outright | Final source tests |
+| --- | ---: | ---: | --- | ---: | ---: |
+| Editor | 76 | 74 | 2 into 1 | 0 | 75 |
+| Engine | 282 | 279 | 2 into 1 | 1 | 280 |
+| Game | 45 | 43 | 2 into 1 | 0 | 44 |
+| Map compiler | 17 | 17 | None | 0 | 17 |
+| Total | 420 | 413 | 6 into 3 | 1 | 416 |
+
+### Decisions and retained value
+
+- Editor: merged `sideways_desk_round_trip_and_undo_preserve_intentional_intersection`
+  into `material_geometry_and_full_rotation_changes_reactivate_review`. The
+  existing project now checks all three rotation axes, deliberate embedding,
+  exact raw save/reopen and undo/redo alongside placement-context invalidation.
+  This removes duplicate project/setup/I/O. Retained tests protect author data,
+  independent histories, conflict-safe publication, safe geometry corrections,
+  compound edits and generated script/prefab/detail ownership. Repeated history
+  checks remain where a different compound operation can lose separate records.
+- Engine: removed `quiet_trace_keeps_lifecycle_evidence_and_rejects_unconsumed_snapshots`.
+  It restated selected entries in the event whitelist without observing trace
+  delivery, retained allocation or lifecycle behavior. Removed its exclusive
+  test-module hookup; production diagnostics/filtering remain intact.
+  Merged `simultaneous_domain_failures_keep_the_historical_first_error` into
+  `malformed_or_unsupported_contracts_fail_before_use`: malformed schema,
+  duplicate transitions, zero-width room and empty-model admission cases remain
+  in the existing tiny contract fixture. Only literal wording/incidental ordering
+  assertions and duplicate setup are dropped. Fresh door/route geometry checks
+  remain; production validation, messages and order are unchanged.
+- Removed the obsolete `#[cfg(test)] encode_layers_with_stats` helper and its
+  three helper-only assertions. Its only callers tested that unused wrapper.
+  The retained lightmap case still compares the production flat/page encoders
+  for editable/packed pages, rejects missing groups and verifies no packed-page
+  materialization. Constant-tile/codec framing and hostile-input tests remain.
+- Game: merged the separate headphone serialization test into the existing
+  style/quality/master-mute disk roundtrip, now named
+  `presentation_choices_preserve_independent_quality_and_master_zero`. Both Low
+  and High preset scenarios, persisted headphones and old-file speaker defaults
+  remain. Retained game tests cover input ownership, safe launch placement,
+  movement/terrain/water boundaries, reachable menu controls, save recovery and
+  world/item retirement. Similar engine/game cases remain when the native
+  adapter or filesystem boundary is distinct.
+- Compiler: retained all 17. Tiny graph/triangle/record fixtures protect exact
+  traversal, storey/headroom safety, cache invalidation, source confinement,
+  streamed publication/deduplication and trim ownership. They do not bake a
+  shipped map. Engine geometry/solver oracle cases likewise use small synthetic
+  worlds, not a full-map acceptance campaign.
+
+Fixture/dependency trace: removed cases owned no exclusive external fixture or
+dependency. Shared document/temporary-directory helpers remain referenced.
+`display_owner_only` and `order_triangles`, the other explicit test-only helper
+functions outside test directories, still support retained ownership/ordering
+regressions. No fixture, asset, Cargo dependency, test discovery policy, lint
+level or CI configuration changed; no ignored/feature-hidden tests were added.
+
+`production-equivalence.json` verifies all 443 tracked Rust/build inputs outside
+test directories against the baseline, allowing only the two exact removals of
+`#[cfg(test)]` items described above. All non-test code is unchanged. Because
+`build.rs` hashes raw engine source, those deletions change preparation identity;
+this does not establish a runtime behavior change or justify rebaking the full
+release map set. Existing qualified bundles/staging/evidence were not modified.
+The unrelated menu remains SHA256
+`93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a`.
+
+### Validation and practical limits
+
+All final gates exited 0 on Windows with the pinned Rust 1.99.1 toolchain.
+
+| Gate | Seconds, including compilation |
+| --- | ---: |
+| `cargo fmt --all --check` | 3.886 |
+| `cargo check --locked --workspace --all-targets --all-features` | 9.832 |
+| `cargo clippy --locked --workspace --all-targets --all-features -- -D warnings` | 20.689 |
+| `cargo test --locked --workspace` | 96.307 |
+| `cargo clippy --locked --release --workspace --all-targets --all-features -- -D warnings` | 39.14 |
+| `cargo build --locked --release --workspace --all-features` | 603.873 |
+| `python tools/verify-luau-release.py --compiler target/release/places-compile.exe --report E/luau-release.json` | 0.295 |
+
+The Rust harness reports **414 passed, 0 failed, 0 ignored**, with 1.21 seconds
+for the final test bodies. The earlier cold test compile took 5 minutes 20
+seconds; final gates reuse compiled dependencies. The two
+remaining Unix-only source tests are not selected on Windows. All other
+source test names are present in the run (`E/test-discovery.json`). Cargo
+reports zero doctests. The production Luau guard passed all eleven bounded
+refusals before geometry preparation; no map was baked.
+
+The initial strict-Clippy attempt found a default-then-field assignment in the
+consolidated settings fixture; it was fixed with a struct initializer, without
+suppression. Its failed log remains in `E/clippy-initial.log`; final results are
+in `E/gates.json`. The final source patch passes `git diff --check`.
+
+Retained tests are useful regression checks, not complete product acceptance:
+authored quest tests run the real Luau scripts on synthetic worlds and cannot
+prove the delivered maps' objective clarity, routes or interaction reachability.
+The requested demo-collection gameplay repair/review is the next queue item and
+was not implemented here. The pre-cancelled transport-solver test proves early
+cancellation, not mid-worker interruption/publication. CPU graphics staging and
+codec oracles do not establish rendered pixels or perceived audio quality.
+Unix FIFO/symlink tests and Unix-only subcases remain unexecuted on this Windows
+host. Clean-OS Windows, Linux/Mac native acceptance, physical listening and
+compiler GUI pixels retain the prior report's limits. No FPS claim is made.
+
+No shipped map was baked or release bundle refreshed. The retained feature-map
+matrix from the packaging handoff remains authoritative: menu/authored-room final
+export/compiler GUI and the existing Backrooms atlas witness need Full for
+their specific rendered/export contracts; checkpoints, audio, ragdoll mechanics,
+HVAC and the `validation_a`/`validation_b` campaign need only Static. The complete
+release Levels set stays deferred until final/main-stage acceptance.
+
+Preserved 24 release executables/debug payloads (183753216 bytes) plus build identities and all gate/audit evidence outside target before the idle-only `cargo clean`. These are build-validation artifacts, not a refreshed release bundle. Cleanup exited 0: Removed 9021 files, 13.4GiB total
+
+Publication and final target/index/process custody are recorded in `E/publication.json` and `E/handoff.json`. No main merge, force push, tag, release, credential change or deletion of unique work is authorized or performed.

@@ -85,10 +85,6 @@ impl LoadTrace {
     }
 }
 
-#[cfg(test)]
-#[path = "../tests/load_trace_filter.rs"]
-mod tests;
-
 /// Opt-in stage costs, including worker-side decode and main-thread installation.
 /// No per-stage clock or output is used without an explicit loading trace.
 pub struct StageTimer {

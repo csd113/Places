@@ -210,6 +210,7 @@ fn material_geometry_and_full_rotation_changes_reactivate_review() -> Result<(),
     let mut tilted = document.transform(ObjectId::Prop(0))?;
     tilted.pitch_degrees = 90.0_f32;
     tilted.roll_degrees = 12.0_f32;
+    tilted.yaw_degrees = 31.0_f32;
     *tilted.position.get_mut(1).ok_or("Y component")? = -0.4_f32;
     document.set_transform(ObjectId::Prop(0), tilted)?;
     assert_eq!(
@@ -218,7 +219,13 @@ fn material_geometry_and_full_rotation_changes_reactivate_review() -> Result<(),
         "rotation/embedding materially changes the placement context"
     );
     document.save()?;
+    let tilted_raw = document.raw().clone();
     let reopened = fixture.open()?;
+    assert_eq!(
+        reopened.raw(),
+        &tilted_raw,
+        "embedded source reopens exactly"
+    );
     assert_eq!(
         reopened.transform(ObjectId::Prop(0))?,
         tilted,
@@ -234,6 +241,16 @@ fn material_geometry_and_full_rotation_changes_reactivate_review() -> Result<(),
         active(&reviewed(document.raw())),
         1,
         "original ignore becomes active again after undo"
+    );
+    assert!(document.redo(), "the full embedded pose remains redoable");
+    assert_eq!(
+        document.raw(),
+        &tilted_raw,
+        "redo restores exact embedded source"
+    );
+    assert!(
+        document.undo(),
+        "restore original context for the floor edit"
     );
     let mut room = document.transform(ObjectId::Room(0))?;
     *room.position.get_mut(1).ok_or("floor Y component")? = 0.25_f32;

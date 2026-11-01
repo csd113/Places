@@ -136,6 +136,19 @@ fn malformed_or_unsupported_contracts_fail_before_use() -> Result<(), String> {
             "unsafe path {path} must fail portably"
         );
     }
+    for (key, value) in [
+        ("schema", serde_json::json!("other")),
+        ("transitions", serde_json::json!(["next", "next"])),
+        ("rooms", serde_json::json!([{"width":0_u32,"depth":4_u32}])),
+        ("props", serde_json::json!([{"model":""}])),
+    ] {
+        let mut invalid = scene();
+        set(&mut invalid, key, value)?;
+        let result = LevelDef::from_json(&invalid.to_string())
+            .map_err(|error| error.to_string())
+            .and_then(|level| crate::engine::loader::validate_level(&level));
+        assert!(result.is_err(), "invalid level field {key} must fail");
+    }
     let mut unsupported = scene();
     set(&mut unsupported, "format_version", 3_u32.into())?;
     let result = LevelDef::from_json(&unsupported.to_string())
