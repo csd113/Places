@@ -152,7 +152,31 @@ fn responsive_layout_keeps_hits_in_sync_with_logical_and_retina_coordinates() ->
 {
     use crate::editor::layout::{Layout, window_to_ui};
     use crate::engine::render::DrawableSize;
-    for (width, height) in [(960_u16, 544_u16), (1280, 720), (1920, 1080), (1000, 900)] {
+    // Two visible instances of one command must have independent keyboard identity.
+    // This protects the old first-action-match regression without a window or bake.
+    let mut vertices = Vec::new();
+    let mut controls = Vec::new();
+    for x in [5.0, 379.0] {
+        crate::editor::ui::button(
+            &mut vertices,
+            &mut controls,
+            [x, 80.0, 30.0, 10.0],
+            "Tools",
+            crate::editor::ui::Action::Workspace,
+            true,
+        );
+    }
+    assert_ne!(
+        controls.first().ok_or("Missing left control")?.id,
+        controls.get(1).ok_or("Missing right control")?.id
+    );
+    for (width, height) in [
+        (960_u16, 544_u16),
+        (1280, 720),
+        (1440, 816),
+        (1920, 1080),
+        (1000, 900),
+    ] {
         for density in [1_u16, 2] {
             let drawable = DrawableSize::new(
                 u32::from(width) * u32::from(density),
@@ -162,6 +186,14 @@ fn responsive_layout_keeps_hits_in_sync_with_logical_and_retina_coordinates() ->
             for content_scale in [1.0_f32, 1.25, 1.5, 2.0] {
                 let layout = Layout::new(drawable, logical, content_scale);
                 for modal in [false, true] {
+                    // A Cancel control formerly crossed a piecewise bottom anchor.
+                    // Rendering its far corner and scaling its hit must stay affine.
+                    let cancel = layout.rect([421.0, 243.0, 53.0, 8.0], modal);
+                    let far_corner = layout.point([474.0, 251.0], modal);
+                    assert!(
+                        close(cancel[0] + cancel[2], far_corner[0])
+                            && close(cancel[1] + cancel[3], far_corner[1])
+                    );
                     let point = layout.point([421.0, 66.0], modal);
                     let [left, top, right, bottom] = layout.bounds;
                     let window = [
@@ -182,9 +214,15 @@ fn responsive_layout_keeps_hits_in_sync_with_logical_and_retina_coordinates() ->
                         "controls remain inside the usable window"
                     );
                 }
+                // Both visible docks must exclude scene input at every density.
+                assert!(!layout.contains(layout.point([50.0, 140.0], false)));
+                assert!(
+                    !layout.contains(layout.point([420.0 + layout.right_offset(), 140.0], false))
+                );
+                assert!(layout.contains(layout.point([240.0, 140.0], false)));
                 let [left, top, right, bottom] = layout.viewport();
                 assert!(
-                    right - left > 300.0 && bottom - top > 180.0,
+                    right - left >= 270.0 && bottom - top > 180.0,
                     "responsive viewport retains usable editing area"
                 );
             }

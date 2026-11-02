@@ -44,39 +44,43 @@ impl Layout {
                 ),
             ]
         } else {
-            [
-                x.mul_add(self.scale, left),
-                if y >= 214.0 {
-                    f32::mul_add(272.0 - y, -self.scale, bottom)
-                } else {
-                    y.mul_add(self.scale, top)
-                },
-            ]
+            [x.mul_add(self.scale, left), y.mul_add(self.scale, top)]
         }
     }
     pub fn rect(self, [x, y, w, h]: [f32; 4], modal: bool) -> [f32; 4] {
         let [left, top] = self.point([x, y], modal);
         [left, top, w * self.scale, h * self.scale]
     }
+    /// Raw authoring-coordinate offset for an entire right-anchored control group.
+    /// Moving complete groups keeps glyphs, rounded edges and hits affine.
+    pub fn bottom_offset(self) -> f32 {
+        (self.bounds[3] - self.bounds[1]) / self.scale - 272.0
+    }
+    pub fn right_offset(self) -> f32 {
+        (self.bounds[2] - self.bounds[0]) / self.scale - 480.0
+    }
     pub fn viewport(self) -> [f32; 4] {
         let [left, top, right, bottom] = self.bounds;
         [
-            112.0_f32.mul_add(self.scale, left),
-            38.0_f32.mul_add(self.scale, top),
-            right,
-            30.0f32.mul_add(-self.scale, bottom),
+            104.0_f32.mul_add(self.scale, left),
+            32.0_f32.mul_add(self.scale, top),
+            106.0f32.mul_add(-self.scale, right),
+            20.0f32.mul_add(-self.scale, bottom),
         ]
     }
     pub fn contains(self, point: [f32; 2]) -> bool {
         let [left, top, right, bottom] = self.viewport();
         point[0] >= left && point[0] < right && point[1] >= top && point[1] < bottom
     }
-    pub fn scene_list(self, point: [f32; 2]) -> bool {
-        let [left, top] = self.point([0.0, 80.0], false);
+    pub fn left_dock(self, point: [f32; 2]) -> bool {
+        let [left, top, _, bottom] = self.bounds;
         point[0] >= left
-            && point[0] < 112.0_f32.mul_add(self.scale, left)
-            && point[1] >= top
-            && point[1] < 121.0_f32.mul_add(self.scale, self.bounds[1])
+            && point[0] < 104.0_f32.mul_add(self.scale, left)
+            && point[1] >= 32.0_f32.mul_add(self.scale, top)
+            && point[1] < 20.0_f32.mul_add(-self.scale, bottom)
+    }
+    pub fn scene_list(self, point: [f32; 2]) -> bool {
+        self.left_dock(point)
     }
 }
 pub(super) fn window_to_ui(

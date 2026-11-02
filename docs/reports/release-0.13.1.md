@@ -4437,3 +4437,76 @@ PLACES_SKIP_SMOKE=1. The two packaging checks that first hit the Windows sandbox
 home-directory permission boundary passed in an ordinary authorized process.
 The final full suite also passed in that process with Git sh on PATH. Evidence is
 retained outside the repository under task-5/editor-evidence/outdoor-contracts/.
+
+
+### Docked native editor interface
+
+The editor now uses a left Build / Assets / Lighting dock, a large central native
+map view and a right contextual inspector. All six supplied image references were
+read as actual local PNGs before implementation, then compared against the final
+native captures by an independent reviewer. The overall layout and the room,
+wall, light, prop and doorway workflows each informed the implementation. There
+is no minimap. Medium charcoal/slate panels, restrained teal/amber cues, visible
+focus outlines, unit labels and short contextual feedback replace the crowded
+combined scene/inspector strip. Active tabs also use uppercase/underline cues.
+
+Build provides Room, Wall, Door, Stairs and opening-only Doorway actions. Searchable
+inline catalogs reuse the committed material/model/fixture/door previews, bounded
+24-image cache and one visible decode per frame. The inspector shows the selected
+object's supported essentials; Advanced, Exact transform and All tools retain
+the existing precision forms and deeper authoring routes. Scene is now a paged,
+searchable modal; Layers retains hidden/locked/isolation controls. The slim top
+bar keeps undo/redo/save status, embedded Test, Here options and separate Final
+build. The footer keeps snapping/grid/step and concise status; Help holds the
+longer shortcut guide. The renderer, document formats, maps, assets, dependencies
+and established rotation/duplication shortcuts are unchanged.
+
+Chrome rendering, image bounds, hits and scene-input exclusion share affine
+layout transforms with complete right/bottom anchored groups. Keyboard identity
+includes each control's origin so duplicate commands focus independently. Hidden
+controls lose focus, modal dismissal restores a valid caller, and queued events
+rebuild visible hits. SDL text input follows the actual search field. Catalog
+wheel/arrow ownership is regional/focus-based; presentation changes preserve
+wall chains, document history and selection. Opaque progress hides underlying
+hits while keeping cancellation available; Workspace Close moved above the
+progress band. Missing previews explicitly show No image.
+
+Final-source validation passed format, locked all-target/all-feature check,
+strict debug and release Clippy, locked release workspace/all-feature build,
+all 420 retained Rust tests, asset validation, texture/prop currency checks and
+the complete 373-test source Python suite (18 intentional smoke/platform skips,
+PLACES_SKIP_SMOKE=1). The existing responsive-layout regression now also protects
+duplicate-control focus identity, affine cancellation bounds and exclusion of
+both docks at logical/drawable densities; it adds no map bake or test-count growth.
+All 143 editor Rust inputs remained byte-identical through these final gates and
+native acceptance. Git whitespace validation passed.
+
+Six final native verification runs exited 0, with 42 retained observation
+comparisons. Visible controls and world pointers create/edit rooms, chained walls,
+opening-only and functional doors, fixtures and props; checks include materials,
+invalid/cancelled values, exact undo/redo, rotation/duplication, drafts across
+tabs/search/Help, keyboard Scene selection, regional wheels, focus loss, missing
+previews and modal Escape. Test Here starts embedded without an external bake;
+stop restores source, selection, camera and undo/redo state. Final-build and local
+preview cancellation remain reachable with a popup present. The native Project
+modal accepts package version 2.3.4 and preserves it after invalid input, closing
+the earlier manual-entry acceptance gap. This uses disposable tiny fixtures;
+there is no Full solve or shipped-map sweep.
+
+Eight final screenshots cover overall, room, wall, light, prop and doorway views,
+minimum 960 x 544, default 1440 x 816 and 1920 x 1080. A 1600 x 900 resize is also
+checked. Independent pixel/checkpoint review found no material clipping or overlap
+and confirmed the six-reference intent, focus cues and reachable cancellation.
+Native acceptance used Windows at 150% display scaling with pixel density 1.0;
+the retained CPU fixture covers 2x drawable density, but native 2x, other operating
+systems, screen readers and exhaustive interaction with every advanced tool are
+not claimed. Captures use functional Fifo presentation and provide no FPS evidence.
+
+Private evidence, recipes, all eight accepted captures, the accepted tiny project
+and runnable final executables are preserved outside target under task-5, chiefly
+editor-evidence/accepted-*, source-freeze-accepted.json, gates/, content-gates/ and
+editor-runnable/. The unrelated menu scene retains SHA256
+93b92d7d6caaa9a7fc1a1bec2bb0805c17cccd25f584c730ef882ffbbcf9a27a.
+The earlier Lantern Hollow test/report correction remains a separate commit.
+Publication, exact remote/CI status, screenshot delivery and target-cleanup
+receipts are recorded in the private final handoff.

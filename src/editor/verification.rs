@@ -340,7 +340,7 @@ impl Verification {
             "visible_controls": controls.iter().map(|hit| serde_json::json!({"action":format!("{:?}",hit.action),"center":hit.center()})).collect::<Vec<_>>(),
             "input_focus": window.has_input_focus(),
             "presentation_mode": app.viewport.presentation_mode(),
-            "ui_focus": app.ui_focus.map(|action| format!("{action:?}")),
+            "ui_focus": app.focused_action().map(|action| format!("{action:?}")),
             "audio_preview": app.preview_audio.stats(),
             "editor_resources":app.document.as_ref().map(super::Document::resource_snapshot),
             "process_heaps":crate::engine::resources::heap_diagnostics(),
@@ -377,6 +377,8 @@ impl Verification {
             serde_json::json!(app.behavior.as_ref().map(|d| &d.plan)),
         ));
         for (key, entry) in [
+            ("dock",serde_json::json!({"tab":format!("{:?}",app.dock.tab),"catalog":format!("{:?}",app.dock.catalog),"page":app.dock.page,"search":app.dock.search,"advanced":app.dock.advanced})),
+            ("scene_viewport",serde_json::json!(app.viewport.layout().viewport())),
             ("runtime_active", serde_json::json!(app.runtime_active())),
             ("runtime_preparing", serde_json::json!(app.runtime_preparing())),
             ("runtime_status", serde_json::json!(app.runtime_status())),

@@ -669,13 +669,13 @@ impl App {
 }
 pub(super) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     if let Some(p) = &app.placement {
-        ui::rect(v, [118.0, 41.0, 354.0, 14.0], [0.06, 0.13, 0.17, 1.0]);
-        ui::text(v, p.tool.hint(), 122.0, 44.0, ui::INK, 81);
+        ui::rect(v, [110.0, 34.0, 258.0, 29.0], [0.06, 0.13, 0.17, 1.0]);
+        ui::text(v, p.tool.hint(), 114.0, 36.0, ui::INK, 62);
         if p.tool == Tool::Wall {
             ui::button(
                 v,
                 hits,
-                [120.0, 57.0, 87.0, 12.0],
+                [114.0, 48.0, 87.0, 12.0],
                 if p.chain { "Chain: On" } else { "Chain: Off" },
                 Action::ChainWalls,
                 true,
@@ -685,7 +685,7 @@ pub(super) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             ui::button(
                 v,
                 hits,
-                [120.0, 57.0, 100.0, 12.0],
+                [114.0, 48.0, 87.0, 12.0],
                 "Apply path",
                 Action::ApplyPlacement,
                 !p.points.is_empty(),
@@ -694,7 +694,7 @@ pub(super) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         ui::button(
             v,
             hits,
-            [402.0, 57.0, 69.0, 12.0],
+            [308.0, 48.0, 56.0, 12.0],
             "Cancel / Esc",
             Action::CancelPlacement,
             true,

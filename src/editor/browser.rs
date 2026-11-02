@@ -5,7 +5,15 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use super::{App, actions::Popup, gameplay_actions::GameplayChoice, ui::Action};
+use super::{
+    App,
+    actions::Popup,
+    gameplay_actions::GameplayChoice,
+    ui::{
+        Action,
+        dock::{Catalog, Tab},
+    },
+};
 use crate::engine::{assets::AssetType, materials::RawImage, render::UiImage};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -190,9 +198,36 @@ pub(super) fn tile_bounds(offset: usize, compact: bool) -> [f32; 4] {
     ]
 }
 
+/// Shared by inline image placement and its visible pointer target.
+pub(super) fn dock_tile_bounds(offset: usize, tab: Tab) -> [f32; 4] {
+    let col = f32::from(u16::try_from(offset.checked_rem(2).unwrap_or(0)).unwrap_or(0));
+    let row = f32::from(u16::try_from(offset.checked_div(2).unwrap_or(0)).unwrap_or(0));
+    let top = match tab {
+        Tab::Build => 158.0,
+        Tab::Assets => 100.0,
+        Tab::Lighting => 124.0,
+    };
+    [col.mul_add(48.0, 5.0), row.mul_add(40.0, top), 40.0, 30.0]
+}
+
 impl App {
     pub(super) const fn browser_page_size(&self) -> usize {
-        if self.browser.compact { 24 } else { 15 }
+        if self.popup.is_none() {
+            4
+        } else if self.browser.compact {
+            24
+        } else {
+            15
+        }
+    }
+
+    pub(super) fn dock_choices(&self) -> Rc<[String]> {
+        match self.dock.catalog {
+            Catalog::Materials => self.browser.choices(ChoiceKind::Materials),
+            Catalog::Models => self.browser.choices(ChoiceKind::Models),
+            Catalog::Fixtures => self.browser.choices(ChoiceKind::Fixtures),
+            Catalog::Doors => self.door_choices(),
+        }
     }
     pub(super) fn browser_page(&self) -> Option<(Rc<[String]>, usize)> {
         match self.popup {
@@ -202,6 +237,8 @@ impl App {
                 choice: choice @ (GameplayChoice::EntityModel | GameplayChoice::Fixture),
                 page,
             }) => Some((self.gameplay_choices(choice), page)),
+            None if self.navigation.visible => None,
+            None if !self.navigation.visible => Some((self.dock_choices(), self.dock.page)),
             _ => None,
         }
     }
@@ -223,6 +260,12 @@ impl App {
     }
 
     pub(super) fn browser_images(&mut self) -> Vec<UiImage> {
+        if self.runtime_active()
+            || self.runtime_preparing()
+            || (self.navigation.visible && self.popup.is_none())
+        {
+            return Vec::new();
+        }
         let Some((ids, page)) = self.browser_page() else {
             return Vec::new();
         };
@@ -231,15 +274,20 @@ impl App {
             .unwrap_or_default();
         let (visible, _) = remaining.split_at(remaining.len().min(self.browser_page_size()));
         self.browser.prepare_one(visible);
+        let modal = self.popup.is_some();
         visible
             .iter()
             .enumerate()
             .filter_map(|(index, id)| {
                 Some(UiImage {
-                    bounds: self
-                        .viewport
-                        .layout()
-                        .rect(tile_bounds(index, self.browser.compact), true),
+                    bounds: self.viewport.layout().rect(
+                        if modal {
+                            tile_bounds(index, self.browser.compact)
+                        } else {
+                            dock_tile_bounds(index, self.dock.tab)
+                        },
+                        modal,
+                    ),
                     image: Arc::clone(self.browser.image(id)?),
                 })
             })
@@ -263,18 +311,68 @@ impl App {
         {
             *page = 0;
         }
-        self.ui_focus = None;
+        self.dock.page = 0;
+        // Search edits and paging preserve the identity of the focused control.
+    }
+
+    pub(super) fn browser_event(
+        &mut self,
+        event: &sdl3::event::Event,
+        window: &sdl3::video::Window,
+    ) -> bool {
+        use sdl3::{event::Event, keyboard::Keycode};
+        if self.browser_page().is_none() || self.runtime_active() || self.runtime_preparing() {
+            return false;
+        }
+        let search_focused =
+            self.dock.search && self.focused_action() == Some(Action::BrowserSearch);
+        if (search_focused && self.browser_search_event(event)) || self.browser_wheel(event, window)
+        {
+            return true;
+        }
+        let catalog_focused = matches!(
+            self.focused_action(),
+            Some(
+                Action::BrowserSearch
+                    | Action::BrowserTheme
+                    | Action::ThumbnailSize
+                    | Action::MaterialTarget
+                    | Action::ChooseAsset(_)
+                    | Action::GameChoose(_, _)
+                    | Action::DockChoose(_)
+                    | Action::Page(_)
+            )
+        );
+        if let Event::KeyDown {
+            keycode: Some(key),
+            timestamp: _,
+            window_id: _,
+            scancode: _,
+            keymod: _,
+            repeat: _,
+            which: _,
+            raw: _,
+        } = event
+        {
+            if catalog_focused && matches!(key, Keycode::Left | Keycode::Right) {
+                self.page_library(*key == Keycode::Right);
+                return true;
+            }
+            // Printable shortcuts stay with the focused field; Tab and Escape
+            // retain their ordinary focus/dismissal route.
+            if search_focused && !matches!(key, Keycode::Tab | Keycode::Escape) {
+                return true;
+            }
+        }
+        false
     }
 
     #[expect(
         clippy::wildcard_enum_match_arm,
-        reason = "Asset search consumes only its text, paging and scrolling events."
+        reason = "A focused catalog search owns only text and its editing keys; unrelated SDL events retain their existing handlers."
     )]
-    pub(super) fn browser_event(&mut self, event: &sdl3::event::Event) -> bool {
+    fn browser_search_event(&mut self, event: &sdl3::event::Event) -> bool {
         use sdl3::{event::Event, keyboard::Keycode};
-        if self.browser_page().is_none() {
-            return false;
-        }
         match event {
             Event::TextInput {
                 text,
@@ -286,72 +384,88 @@ impl App {
                 }
             }
             Event::KeyDown {
-                keycode: Some(Keycode::A),
+                keycode: Some(key),
                 keymod,
                 timestamp: _,
                 window_id: _,
                 scancode: _,
-                repeat: _,
-                which: _,
-                raw: _,
-            } if super::input::command(*keymod) => self.browser.query.clear(),
-            Event::KeyDown {
-                keycode: Some(Keycode::Backspace),
-                timestamp: _,
-                window_id: _,
-                scancode: _,
-                keymod: _,
-                repeat: _,
+                repeat,
                 which: _,
                 raw: _,
             } => {
-                let _removed = self.browser.query.pop();
-            }
-            Event::KeyDown {
-                keycode: Some(Keycode::Left),
-                timestamp: _,
-                window_id: _,
-                scancode: _,
-                keymod: _,
-                repeat: _,
-                which: _,
-                raw: _,
-            } => {
-                self.page_library(false);
-                return true;
-            }
-            Event::KeyDown {
-                keycode: Some(Keycode::Right),
-                timestamp: _,
-                window_id: _,
-                scancode: _,
-                keymod: _,
-                repeat: _,
-                which: _,
-                raw: _,
-            } => {
-                self.page_library(true);
-                return true;
-            }
-            Event::MouseWheel {
-                y,
-                timestamp: _,
-                window_id: _,
-                which: _,
-                x: _,
-                direction: _,
-                mouse_x: _,
-                mouse_y: _,
-                integer_x: _,
-                integer_y: _,
-            } => {
-                self.page_library(*y < 0.0);
-                return true;
+                if *key == Keycode::A && super::input::command(*keymod) {
+                    self.browser.query.clear();
+                } else if *key == Keycode::Backspace {
+                    let _removed = self.browser.query.pop();
+                } else if *key == Keycode::Escape && self.popup.is_none() && !repeat {
+                    self.browser.query.clear();
+                    self.dock.search = false;
+                } else if *key == Keycode::Return && !repeat {
+                    self.dock.search = false;
+                    return true;
+                } else {
+                    return false;
+                }
             }
             _ => return false,
         }
         self.reset_browser_page();
         true
+    }
+
+    fn browser_wheel(&mut self, event: &sdl3::event::Event, window: &sdl3::video::Window) -> bool {
+        use sdl3::{event::Event, mouse::MouseWheelDirection};
+        let Event::MouseWheel {
+            y,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            x: _,
+            direction,
+            mouse_x,
+            mouse_y,
+            integer_x: _,
+            integer_y: _,
+        } = event
+        else {
+            return false;
+        };
+        let over_catalog =
+            super::input::ui_point(window, [*mouse_x, *mouse_y]).is_some_and(|point| {
+                if self.popup.is_none() {
+                    let top = match self.dock.tab {
+                        Tab::Build => 132.0,
+                        Tab::Assets => 74.0,
+                        Tab::Lighting => 98.0,
+                    };
+                    let [left, upper, width, height] = self
+                        .viewport
+                        .layout()
+                        .rect([4.0, top, 96.0, 230.0 - top], false);
+                    self.viewport.layout().left_dock(point)
+                        && point[0] >= left
+                        && point[0] < left + width
+                        && point[1] >= upper
+                        && point[1] < upper + height
+                } else {
+                    let [left, top, width, height] = self
+                        .viewport
+                        .layout()
+                        .rect([116.0, 43.0, 354.0, 197.0], true);
+                    point[0] >= left
+                        && point[0] < left + width
+                        && point[1] >= top
+                        && point[1] < top + height
+                }
+            });
+        if over_catalog && *y != 0.0 {
+            self.page_library(if *direction == MouseWheelDirection::Flipped {
+                *y > 0.0
+            } else {
+                *y < 0.0
+            });
+        }
+        over_catalog
     }
 }
 

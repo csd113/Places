@@ -4,15 +4,20 @@ use crate::editor::{App, document::ObjectId};
 use crate::engine::render::Vertex;
 
 pub(in crate::editor) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
-    rect(v, [130.0, 65.0, 260.0, 185.0], PANEL);
+    rect(v, [130.0, 65.0, 260.0, 177.0], PANEL);
     text(v, "CUSTOMIZE YOUR SPACE", 140.0, 74.0, ACCENT, 62);
-    text(
+    text(v, "Deeper authoring tools", 140.0, 85.0, MUTED, 68);
+    button(
         v,
-        "Optional tools / your normal build flow stays simple",
-        140.0,
-        85.0,
-        MUTED,
-        68,
+        hits,
+        [264.0, 84.0, 116.0, 11.0],
+        if app.view.simple {
+            "Precision controls >"
+        } else {
+            "< Simple form controls"
+        },
+        Action::Mode,
+        true,
     );
     text(v, "BUILD AND APPEARANCE", 140.0, 99.0, INK, 32);
     text(v, "BEHAVIOR AND PROJECT", 264.0, 99.0, INK, 32);
@@ -29,7 +34,7 @@ pub(in crate::editor) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit
     button(
         v,
         hits,
-        [330.0, 238.0, 50.0, 11.0],
+        [330.0, 70.0, 50.0, 11.0],
         "Close",
         Action::ClosePopup,
         true,

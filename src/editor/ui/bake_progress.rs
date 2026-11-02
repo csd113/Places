@@ -9,7 +9,16 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         return;
     };
     // Keep feedback and cancellation visible above popups without blocking editing.
-    rect(vertices, [0.0, 242.0, 480.0, 30.0], PANEL);
+    rect(
+        vertices,
+        [
+            0.0,
+            242.0,
+            480.0 + app.viewport.layout().right_offset(),
+            30.0,
+        ],
+        PANEL,
+    );
     text(vertices, job.scope(), 5.0, 244.0, INK, 117);
     if app.popup.is_some() {
         button(

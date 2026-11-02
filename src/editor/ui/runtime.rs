@@ -37,6 +37,7 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -
         [0.97, 0.80, 0.48, 1.0],
         132,
     );
+    let footer_start = vertices.len();
     text(
         vertices,
         app.runtime_status()
@@ -53,6 +54,11 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -
         258.0,
         MUTED,
         132,
+    );
+    super::dock::anchor_bottom(
+        app,
+        vertices.get_mut(footer_start..).unwrap_or_default(),
+        &mut [],
     );
     let modal_start = vertices.len();
     let message = app.runtime_message();

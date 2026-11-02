@@ -1,102 +1,413 @@
-//! Selection-specific transforms keep the central viewport visible.
+//! Contextual right dock: common edits first, precise and specialized work disclosed.
 
-use super::{ACCENT, Action, Hit, MUTED, button, text};
+use super::{ACCENT, Action, Hit, INK, MUTED, button, text};
 use crate::editor::App;
-use crate::editor::document::ObjectId;
-use crate::engine::level::WallAxis;
+use crate::editor::document::{GameplaySetting as Setting, ObjectId, Transform};
+use crate::editor::gameplay_actions::GameplayChoice;
 use crate::engine::render::Vertex;
 
+const LEFT: f32 = 379.0;
+const WIDTH: f32 = 96.0;
+const ROW: f32 = 11.5;
+
 pub(in crate::editor) fn inspector(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
-    let region = matches!(app.selected, Some(ObjectId::FloorRegion(_)));
-    let circle = matches!(app.selected, Some(ObjectId::Pillar(_)));
-    let prop = matches!(app.selected, Some(ObjectId::Prop(_)));
-    let marker = matches!(
-        app.selected,
-        Some(ObjectId::Light(_) | ObjectId::Audio(_) | ObjectId::SpawnPoint(_))
+    text(vertices, "PROPERTIES", LEFT, 41.0, ACCENT, 24);
+    button(
+        vertices,
+        hits,
+        [443.0, 38.0, 32.0, 10.0],
+        "Frame",
+        Action::Focus,
+        true,
     );
-    let box_only = matches!(
-        app.selected,
-        Some(ObjectId::Trigger(_) | ObjectId::FogRegion(_) | ObjectId::GroundFog(_))
+    let Some((document, id)) = app.document.as_ref().zip(app.selected) else {
+        text(vertices, "Select an object", LEFT, 69.0, INK, 24);
+        text(vertices, "Click in the scene or", LEFT, 84.0, MUTED, 24);
+        text(vertices, "choose one in Scene.", LEFT, 94.0, MUTED, 24);
+        return;
+    };
+    let object_name = document
+        .objects()
+        .iter()
+        .find(|object| object.id == id)
+        .map_or("Placed object", |object| object.label.as_str());
+    text(vertices, object_name, LEFT, 54.0, INK, 24);
+    text(
+        vertices,
+        if app.editable(id) {
+            heading(id)
+        } else {
+            "Locked / hidden"
+        },
+        LEFT,
+        64.0,
+        MUTED,
+        24,
     );
-    text(vertices, heading(app), 5.0, 131.0, ACCENT, 15);
-    if app.selected.is_some() {
-        let room = matches!(app.selected, Some(ObjectId::Room(_)));
-        button(
-            vertices,
-            hits,
-            [
-                if room { 64.0 } else { 67.0 },
-                128.0,
-                if room { 43.0 } else { 40.0 },
-                10.0,
-            ],
-            "Pose >",
-            Action::Transform,
-            true,
-        );
-    }
-    if let Some(ObjectId::Prop(index)) = app.selected
-        && app
-            .document
-            .as_ref()
-            .and_then(|document| document.level().props.get(index))
-            .is_some_and(|placed| crate::editor::ducts::supported(&placed.model))
-    {
-        button(
-            vertices,
-            hits,
-            [29.0, 128.0, 35.0, 10.0],
-            "Duct >",
-            Action::Duct(crate::editor::ducts::Command::Open),
-            true,
-        );
-    }
-    if let Some(transform) = app
-        .selected
-        .and_then(|id| app.document.as_ref()?.transform(id).ok())
-    {
-        let fields = transform_fields(app.selected, transform);
-        let mut row = 0_u16;
-        for (index, label, value) in fields {
-            if (circle && matches!(index, 5 | 6))
-                || (prop && matches!(index, 4 | 5))
-                || (region && matches!(index, 4 | 6))
-                || (matches!(app.selected, Some(ObjectId::Decal(_))) && index == 5)
-                || (!prop && matches!(index, 11 | 12))
-                || (marker && (3..=5).contains(&index))
-                || (matches!(app.selected, Some(ObjectId::Audio(_))) && index == 6)
-                || (box_only && index == 6)
-            {
-                continue;
+    let Ok(pose) = document.transform(id) else {
+        text(vertices, "Selection unavailable", LEFT, 82.0, MUTED, 24);
+        return;
+    };
+    let mut top = 77.0;
+    if matches!(id, ObjectId::Light(_)) {
+        light_essentials(app, vertices, hits, &mut top);
+    } else {
+        for (index, label, value) in transform_fields(Some(id), pose) {
+            if supported(id, index) && essential(id, index) {
+                scalar(app, vertices, hits, index, top, label, value);
+                top += ROW;
             }
-            let top = f32::from(row).mul_add(9.0, 141.0);
-            row = row.saturating_add(1);
-            scalar(vertices, hits, index, top, label, value);
         }
-        if region {
-            text(vertices, "Y relative to room base", 5.0, 197.0, MUTED, 28);
+        object_essentials(app, vertices, hits, id, &mut top);
+    }
+    row_button(
+        vertices,
+        hits,
+        &mut top,
+        "Exact transform >",
+        Action::Transform,
+        app.editable(id),
+    );
+    top += 2.0;
+    row_button(
+        vertices,
+        hits,
+        &mut top,
+        if app.dock.advanced {
+            "[-] Advanced"
+        } else {
+            "[+] Advanced"
+        },
+        Action::Advanced,
+        true,
+    );
+    advanced_controls(app, vertices, hits, id, pose, &mut top);
+    row_button(
+        vertices,
+        hits,
+        &mut top,
+        "All tools >",
+        Action::Workspace,
+        true,
+    );
+}
+
+fn advanced_controls(
+    app: &App,
+    vertices: &mut Vec<Vertex>,
+    hits: &mut Vec<Hit>,
+    id: ObjectId,
+    pose: Transform,
+    top: &mut f32,
+) {
+    if app.dock.advanced {
+        for (index, label, value) in transform_fields(Some(id), pose) {
+            if supported(id, index) && !essential(id, index) {
+                scalar(app, vertices, hits, index, *top, label, value);
+                *top += ROW;
+            }
         }
-        if marker {
-            text(
+        let (label, action) = if matches!(id, ObjectId::Light(_)) {
+            (
+                "Flicker / glow >",
+                Action::Flicker(crate::editor::flicker::Command::Open),
+            )
+        } else {
+            match id {
+                ObjectId::Column(_) => (
+                    "Pillar details >",
+                    Action::Author(crate::editor::authoring::Command::Open(
+                        crate::editor::authoring::Tool::Column,
+                    )),
+                ),
+                ObjectId::Pillar(_) => (
+                    "Pillar details >",
+                    Action::Author(crate::editor::authoring::Command::Open(
+                        crate::editor::authoring::Tool::Pillar,
+                    )),
+                ),
+                ObjectId::ArcWall(_) => (
+                    "Curve details >",
+                    Action::Author(crate::editor::authoring::Command::Open(
+                        crate::editor::authoring::Tool::ArcWall,
+                    )),
+                ),
+                ObjectId::Decal(_)
+                | ObjectId::Room(_)
+                | ObjectId::Wall(_)
+                | ObjectId::Prop(_)
+                | ObjectId::Ramp(_)
+                | ObjectId::FloorRegion(_)
+                | ObjectId::Light(_)
+                | ObjectId::Audio(_)
+                | ObjectId::Door(_)
+                | ObjectId::Trigger(_)
+                | ObjectId::FogRegion(_)
+                | ObjectId::GroundFog(_)
+                | ObjectId::SpawnPoint(_) => ("Object settings >", Action::Gameplay),
+            }
+        };
+        row_button(vertices, hits, top, label, action, app.editable(id));
+    }
+}
+
+fn object_essentials(
+    app: &App,
+    vertices: &mut Vec<Vertex>,
+    hits: &mut Vec<Hit>,
+    id: ObjectId,
+    top: &mut f32,
+) {
+    let editable = app.editable(id);
+    if matches!(
+        id,
+        ObjectId::Room(_)
+            | ObjectId::Wall(_)
+            | ObjectId::Door(_)
+            | ObjectId::Column(_)
+            | ObjectId::Pillar(_)
+            | ObjectId::ArcWall(_)
+            | ObjectId::Ramp(_)
+            | ObjectId::FloorRegion(_)
+    ) {
+        let material = object_value(app, "material").unwrap_or("Default");
+        let name = app
+            .catalog
+            .get(material)
+            .map_or(material, |entry| entry.display_name.as_str());
+        row_button(
+            vertices,
+            hits,
+            top,
+            &format!("Material: {name} >"),
+            Action::Materials,
+            editable,
+        );
+    }
+    match id {
+        ObjectId::Room(_) => {
+            row_button(vertices, hits, top, "Room shape >", Action::Shape, editable);
+        }
+        ObjectId::Wall(_) => row_button(
+            vertices,
+            hits,
+            top,
+            "Make doorway",
+            Action::Place(crate::editor::construction::Tool::Doorway),
+            editable,
+        ),
+        ObjectId::Door(_) => {
+            row_button(
                 vertices,
-                "Configure > for properties",
-                5.0,
-                194.0,
-                MUTED,
-                29,
+                hits,
+                top,
+                "Door style >",
+                Action::DoorAssets,
+                editable,
+            );
+            property(app, vertices, hits, *top, "Swing deg", Setting::Swing);
+            *top += ROW;
+        }
+        ObjectId::Prop(index) => {
+            let model = app
+                .document
+                .as_ref()
+                .and_then(|document| document.level().props.get(index))
+                .map_or("Model", |prop| prop.model.as_str());
+            row_button(
+                vertices,
+                hits,
+                top,
+                &format!("Model: {model} >"),
+                Action::Assets,
+                editable,
+            );
+            row_button(
+                vertices,
+                hits,
+                top,
+                "Mount to surface",
+                Action::MountSurface,
+                editable,
             );
         }
-    } else {
-        text(vertices, "Select an object", 5.0, 145.0, MUTED, 27);
+        ObjectId::Decal(_)
+        | ObjectId::Column(_)
+        | ObjectId::Pillar(_)
+        | ObjectId::ArcWall(_)
+        | ObjectId::Ramp(_)
+        | ObjectId::FloorRegion(_)
+        | ObjectId::Light(_)
+        | ObjectId::Audio(_)
+        | ObjectId::Trigger(_)
+        | ObjectId::FogRegion(_)
+        | ObjectId::GroundFog(_)
+        | ObjectId::SpawnPoint(_) => {}
     }
+}
+
+fn light_essentials(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>, top: &mut f32) {
+    let editable = app.selected.is_some_and(|id| app.editable(id));
+    let fixture = object_value(app, "fixture").unwrap_or("Fixture");
+    let name = app
+        .catalog
+        .get(fixture)
+        .map_or(fixture, |entry| entry.display_name.as_str());
+    row_button(
+        vertices,
+        hits,
+        top,
+        &format!("Fixture: {name} >"),
+        Action::GamePick(GameplayChoice::Fixture),
+        editable,
+    );
+    for (label, setting) in [("Power", Setting::Brightness), ("Range m", Setting::Range)] {
+        property(app, vertices, hits, *top, label, setting);
+        *top += ROW;
+    }
+    for (x, label, setting) in [
+        (LEFT, "R", Setting::Red),
+        (411.0, "G", Setting::Green),
+        (443.0, "B", Setting::Blue),
+    ] {
+        button(
+            vertices,
+            hits,
+            [x, *top, 31.0, 10.0],
+            &format!("{label} {}", setting_display(app, setting)),
+            Action::GameSetting(setting),
+            editable,
+        );
+    }
+    *top += ROW;
+    row_button(
+        vertices,
+        hits,
+        top,
+        if object_value(app, "mount") == Some("wall") {
+            "Mount: Wall >"
+        } else {
+            "Mount: Ceiling >"
+        },
+        Action::ToggleLightMount,
+        editable,
+    );
+    row_button(
+        vertices,
+        hits,
+        top,
+        "Align to surface",
+        Action::MountSurface,
+        editable,
+    );
+}
+
+fn object_value<'a>(app: &'a App, key: &str) -> Option<&'a str> {
+    let (document, id) = app.document.as_ref().zip(app.selected)?;
+    let (collection, index) = id.collection();
+    document
+        .raw()
+        .get(collection)?
+        .get(index)?
+        .get(key)?
+        .as_str()
+}
+
+fn setting_display(app: &App, setting: Setting) -> String {
+    let Some((document, id)) = app.document.as_ref().zip(app.selected) else {
+        return "-".into();
+    };
+    let value = document.gameplay_value(id, setting);
+    value.as_f64().map_or_else(
+        || {
+            value.as_bool().map_or_else(
+                || value.as_str().unwrap_or("-").into(),
+                |flag| if flag { "On" } else { "Off" }.into(),
+            )
+        },
+        |number| format!("{number:.2}"),
+    )
+}
+
+fn property(
+    app: &App,
+    vertices: &mut Vec<Vertex>,
+    hits: &mut Vec<Hit>,
+    top: f32,
+    label: &str,
+    setting: Setting,
+) {
+    text(vertices, label, LEFT, top + 2.0, MUTED, 11);
+    button(
+        vertices,
+        hits,
+        [422.0, top, 53.0, 10.0],
+        &setting_display(app, setting),
+        Action::GameSetting(setting),
+        app.selected.is_some_and(|id| app.editable(id)),
+    );
+}
+
+fn row_button(
+    vertices: &mut Vec<Vertex>,
+    hits: &mut Vec<Hit>,
+    top: &mut f32,
+    label: &str,
+    action: Action,
+    enabled: bool,
+) {
+    button(
+        vertices,
+        hits,
+        [LEFT, *top, WIDTH, 10.0],
+        label,
+        action,
+        enabled,
+    );
+    *top += ROW;
+}
+
+const fn essential(id: ObjectId, index: usize) -> bool {
+    match id {
+        ObjectId::Light(_) => false,
+        ObjectId::Prop(_) => matches!(index, 0..=3 | 6),
+        ObjectId::Audio(_) | ObjectId::SpawnPoint(_) => index <= 2,
+        ObjectId::Decal(_) | ObjectId::Ramp(_) => matches!(index, 3..=6),
+        ObjectId::Column(_)
+        | ObjectId::Pillar(_)
+        | ObjectId::ArcWall(_)
+        | ObjectId::Room(_)
+        | ObjectId::Wall(_)
+        | ObjectId::FloorRegion(_)
+        | ObjectId::Door(_)
+        | ObjectId::Trigger(_)
+        | ObjectId::FogRegion(_)
+        | ObjectId::GroundFog(_) => matches!(index, 3..=5),
+    }
+}
+
+const fn supported(id: ObjectId, index: usize) -> bool {
+    !((matches!(id, ObjectId::Pillar(_)) && matches!(index, 5 | 6))
+        || (matches!(id, ObjectId::Prop(_)) && matches!(index, 4 | 5))
+        || (matches!(id, ObjectId::FloorRegion(_)) && matches!(index, 4 | 6))
+        || (matches!(id, ObjectId::Decal(_)) && index == 5)
+        || (!matches!(id, ObjectId::Prop(_)) && matches!(index, 11 | 12))
+        || (matches!(
+            id,
+            ObjectId::Light(_) | ObjectId::Audio(_) | ObjectId::SpawnPoint(_)
+        ) && matches!(index, 3..=5))
+        || (matches!(id, ObjectId::Audio(_)) && index == 6)
+        || (matches!(
+            id,
+            ObjectId::Trigger(_) | ObjectId::FogRegion(_) | ObjectId::GroundFog(_)
+        ) && index == 6))
 }
 
 const fn transform_fields(
     id: Option<ObjectId>,
-    pose: crate::editor::document::Transform,
+    pose: Transform,
 ) -> [(usize, &'static str, f32); 9] {
     let ramp = matches!(id, Some(ObjectId::Ramp(_)));
-
     let region = matches!(id, Some(ObjectId::FloorRegion(_)));
     let prop = matches!(id, Some(ObjectId::Prop(_)));
     let circle = matches!(id, Some(ObjectId::Pillar(_)));
@@ -153,65 +464,63 @@ const fn transform_fields(
     ]
 }
 
-fn heading(app: &App) -> &'static str {
-    match app.selected {
-        Some(ObjectId::Ramp(index)) => app
-            .document
-            .as_ref()
-            .and_then(|d| d.level().ramps.get(index))
-            .map_or("RAMP", |r| match (r.axis(), r.rise > 0.0) {
-                (WallAxis::X, true) => "RAMP / UP +X",
-                (WallAxis::X, false) => "RAMP / UP -X",
-                (WallAxis::Z, true) => "RAMP / UP +Z",
-                (WallAxis::Z, false) => "RAMP / UP -Z",
-            }),
-        Some(ObjectId::Decal(_)) => "SIGN / CENTRE / SPIN",
-        Some(ObjectId::Column(_)) => "RECTANGULAR PILLAR",
-        Some(ObjectId::Pillar(_)) => "CIRCULAR PILLAR / CENTRE",
-        Some(ObjectId::ArcWall(_)) => "CURVED WALL / CENTRE",
-        Some(ObjectId::FloorRegion(_)) => "REGION / SURFACE Y",
-        Some(ObjectId::Light(_)) => "LIGHT / MOUNT PLANE",
-        Some(ObjectId::Audio(_)) => "SOUND / POSITION",
-        Some(ObjectId::SpawnPoint(_)) => "SPAWN / POSITION",
-        Some(ObjectId::Door(_)) => "DOOR / HINGE",
-        Some(ObjectId::Trigger(_)) => "TRIGGER / BOUNDS",
-        Some(ObjectId::FogRegion(_)) => "FOG / BOUNDS",
-        Some(ObjectId::GroundFog(_)) => "GROUND FOG / BASE",
-        Some(ObjectId::Room(_) | ObjectId::Wall(_) | ObjectId::Prop(_)) | None => "TRANSFORM",
+const fn heading(id: ObjectId) -> &'static str {
+    match id {
+        ObjectId::Room(_) => "Room",
+        ObjectId::Wall(_) => "Wall",
+        ObjectId::Prop(_) => "Prop / entity",
+        ObjectId::Door(_) => "Door / hinge",
+        ObjectId::Light(_) => "Light / mount plane",
+        ObjectId::Audio(_) => "Sound / position",
+        ObjectId::SpawnPoint(_) => "Spawn / position",
+        ObjectId::Column(_) => "Rectangular pillar",
+        ObjectId::Pillar(_) => "Circular pillar / centre",
+        ObjectId::ArcWall(_) => "Curved wall / centre",
+        ObjectId::Ramp(_) => "Ramp / offset and rise",
+        ObjectId::FloorRegion(_) => "Region / surface Y",
+        ObjectId::Decal(_) => "Sign / centre / spin",
+        ObjectId::Trigger(_) => "Trigger / bounds",
+        ObjectId::FogRegion(_) => "Fog / bounds",
+        ObjectId::GroundFog(_) => "Ground fog / base",
     }
 }
+
 fn scalar(
-    v: &mut Vec<Vertex>,
+    app: &App,
+    vertices: &mut Vec<Vertex>,
     hits: &mut Vec<Hit>,
     index: usize,
     top: f32,
     label: &str,
     value: f32,
 ) {
-    text(
-        v,
-        label,
-        5.0,
-        top + 3.0,
-        super::AXIS_COLORS.get(index).copied().unwrap_or(MUTED),
-        8,
-    );
+    let editable = app.selected.is_some_and(|id| app.editable(id));
+    let value_label = if matches!(index, 6 | 11 | 12) {
+        format!("{label} deg")
+    } else if matches!(app.selected, Some(ObjectId::Prop(_))) && index == 3 {
+        label.to_owned()
+    } else if label == "Diameter" {
+        "Diam m".into()
+    } else {
+        format!("{label} m")
+    };
+    text(vertices, &value_label, LEFT, top + 2.0, MUTED, 11);
     button(
-        v,
+        vertices,
         hits,
-        [33.0, top, 52.0, 8.0],
+        [416.0, top, 35.0, 10.0],
         &format!("{value:.3}"),
         Action::Field(index),
-        true,
+        editable,
     );
-    for (x, mark, positive) in [(87.0, "-", false), (98.0, "+", true)] {
+    for (x, mark, positive) in [(453.0, "-", false), (465.0, "+", true)] {
         button(
-            v,
+            vertices,
             hits,
-            [x, top, 9.0, 8.0],
+            [x, top, 10.0, 10.0],
             mark,
             Action::Nudge(index, positive),
-            true,
+            editable,
         );
     }
 }

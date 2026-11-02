@@ -20,6 +20,7 @@ pub(super) enum Pending {
 
 pub(super) enum Popup {
     Workspace,
+    Help,
     PlayOptions,
     WallSigns,
     Layers,
@@ -190,10 +191,11 @@ impl Popup {
     ) {
         match self {
             Self::Workspace => ui::workspace_popup(app, v, hits),
+            Self::Help => ui::dock::help(v, hits),
             Self::PlayOptions => super::play_here::draw(v, hits),
             Self::WallSigns => super::signs::draw(app, v, hits),
             Self::Layers => super::focus::draw(app, v, hits),
-            Self::SceneSearch(value) => super::selection::draw_search(v, hits, value),
+            Self::SceneSearch(value) => super::selection::draw_search(app, v, hits, value),
             Self::Lighting
             | Self::Flicker
             | Self::Template
@@ -404,6 +406,109 @@ impl App {
             || self.gameplay_action(action)?)
     }
 
+    #[expect(
+        clippy::wildcard_enum_match_arm,
+        reason = "Only dock presentation and its explicit selection command belong here."
+    )]
+    fn dock_action(&mut self, action: Action) -> Result<bool, String> {
+        use ui::dock::{Catalog, Tab};
+        match action {
+            Action::DockTab(tab) => {
+                self.dock.tab = tab;
+                self.dock.catalog = match tab {
+                    Tab::Build => Catalog::Materials,
+                    Tab::Assets => Catalog::Models,
+                    Tab::Lighting => Catalog::Fixtures,
+                };
+                self.dock.page = 0;
+                self.dock.search = false;
+                self.browser.query.clear();
+                self.navigation.visible = false;
+            }
+            Action::DockCatalog(catalog) => {
+                self.dock.catalog = catalog;
+                self.dock.page = 0;
+                self.dock.search = false;
+                self.browser.query.clear();
+            }
+            Action::Advanced => {
+                self.dock.advanced = !self.dock.advanced;
+                self.dock.search = false;
+            }
+            Action::BrowserSearch => self.dock.search = true,
+            Action::DockChoose(index) => {
+                if self.selected.is_some_and(|id| !self.editable(id)) {
+                    return Err("Selection is locked or hidden. Show and unlock it in Layers before editing.".into());
+                }
+                if self.placement.is_some() {
+                    self.cancel_placement();
+                }
+                let id = self
+                    .browser_page()
+                    .and_then(|(ids, _)| ids.get(index).cloned())
+                    .ok_or("Asset selection expired")?;
+                match self.dock.catalog {
+                    Catalog::Materials => {
+                        let selected = self
+                            .selected
+                            .ok_or("Select a surface to assign this material")?;
+                        let doc = self.document.as_mut().ok_or("Open a project first")?;
+                        if self.browser.material_ceiling {
+                            doc.set_ceiling_material(selected, &id)?;
+                        } else {
+                            doc.set_material(selected, &id)?;
+                        }
+                        self.changed();
+                        self.status = format!("Assigned material {id}");
+                    }
+                    Catalog::Models => {
+                        if let Some(selected @ super::document::ObjectId::Prop(_)) = self.selected {
+                            self.document
+                                .as_mut()
+                                .ok_or("Open a project first")?
+                                .set_gameplay_asset(selected, &id, &self.catalog)?;
+                            self.changed();
+                            self.status =
+                                format!("Assigned model {id}; Place chosen prop adds another.");
+                        } else {
+                            self.status = format!("Selected {id}; use Place chosen prop.");
+                        }
+                        self.prop = id;
+                    }
+                    Catalog::Fixtures => {
+                        let selected = self
+                            .selected
+                            .ok_or("Place or select a light before choosing its fixture")?;
+                        if !matches!(selected, super::document::ObjectId::Light(_)) {
+                            return Err("Select a light before choosing its fixture".into());
+                        }
+                        self.document
+                            .as_mut()
+                            .ok_or("Open a project first")?
+                            .set_gameplay_asset(selected, &id, &self.catalog)?;
+                        self.changed();
+                        self.status = format!("Assigned fixture {id}");
+                    }
+                    Catalog::Doors => {
+                        let selected = self
+                            .selected
+                            .ok_or("Place or select a door before choosing its style")?;
+                        let style = id
+                            .strip_prefix("editor:door_")
+                            .ok_or("Invalid door style")?;
+                        self.document
+                            .as_mut()
+                            .ok_or("Open a project first")?
+                            .set_door_style(selected, style)?;
+                        self.changed();
+                    }
+                }
+            }
+            _ => return Ok(false),
+        }
+        Ok(true)
+    }
+
     pub(super) fn activate(&mut self, action: Action, window: &Window) -> Result<(), String> {
         if self.runtime_active() || self.runtime_preparing() {
             if matches!(action, Action::Stop | Action::Cancel) {
@@ -413,6 +518,9 @@ impl App {
             if !matches!(action, Action::Capture | Action::New | Action::Open) {
                 return Err("Return to editing before changing the scene.".into());
             }
+        }
+        if self.dock_action(action)? {
+            return Ok(());
         }
         self.play_floor_pick = false;
         if matches!(
@@ -426,6 +534,10 @@ impl App {
                 | Action::Materials
                 | Action::Gameplay
                 | Action::Components(_)
+                | Action::GameSetting(_)
+                | Action::GamePick(_)
+                | Action::ToggleLightMount
+                | Action::MountSurface
         ) && self.selected.is_some_and(|id| !self.editable(id))
         {
             return Err(
@@ -442,6 +554,19 @@ impl App {
                     | Action::Snap
                     | Action::Step
                     | Action::Grid
+                    | Action::BrowserSearch
+                    | Action::BrowserTheme
+                    | Action::ThumbnailSize
+                    | Action::MaterialTarget
+                    | Action::Page(_)
+                    | Action::Workspace
+                    | Action::Help
+                    | Action::SceneSearch
+                    | Action::ScenePage(_)
+                    | Action::Layers
+                    | Action::Mode
+                    | Action::ClosePopup
+                    | Action::ConfirmCancel
             )
         {
             self.cancel_placement();
@@ -450,6 +575,9 @@ impl App {
             self.popup = None;
         }
         if self.contextual_action(action, window)? {
+            if self.browser_page().is_some() && self.popup.is_some() {
+                self.dock.search = true;
+            }
             return Ok(());
         }
         if !self.global_action(action, window)? {
@@ -487,6 +615,7 @@ impl App {
             Action::Save => self.save()?,
             Action::Capture => self.request_capture(),
             Action::Workspace => self.popup = Some(Popup::Workspace),
+            Action::Help => self.popup = Some(Popup::Help),
             Action::Undo | Action::Redo => self.history_action(action == Action::Redo),
             Action::Add(kind) => self.add_safely(kind)?,
             Action::Delete | Action::Duplicate => {
@@ -862,6 +991,20 @@ impl App {
     }
 
     pub(super) fn page_library(&mut self, forward: bool) {
+        if self.popup.is_none() {
+            let count = self.browser_page().map_or(0, |(ids, _)| ids.len());
+            self.dock.page = if forward {
+                self.dock.page.saturating_add(1).min(
+                    count
+                        .saturating_sub(1)
+                        .checked_div(self.browser_page_size())
+                        .unwrap_or(0),
+                )
+            } else {
+                self.dock.page.saturating_sub(1)
+            };
+            return;
+        }
         if matches!(self.popup, Some(Popup::Bakes)) {
             self.bakes.page = if forward {
                 self.bakes

@@ -45,8 +45,7 @@ Rooms/walls use minimum-corner coordinates and axis-aligned footprints. Their
 quarter-turn rotation swaps dimensions about the centre and displays zero yaw
 afterwards. Unsafe rotations of profiled/per-face/opening data are refused.
 Prop Y is relative to the room base; all scale fields change uniform scale. Prop library
-chooses the next built-in model; Material assigns a surface/wall material. Scroll
-the scene list independently. The shared renderer applies compiler trim/fixture preparation, hides ceiling faces when viewed from above and shows their textured underside
+chooses the next built-in model; Material assigns a surface/wall material. Use Scene to search and page through objects. The shared renderer applies compiler trim/fixture preparation, hides ceiling faces when viewed from above and shows their textured underside
 when looking up from inside. The real ceiling mesh, collision, bake and exported
 world remain intact. Inspect uses neutral light; Authored view previews the environment. Test in editor runs gameplay with approximate unbaked lighting.
 
@@ -78,12 +77,31 @@ standalone runnable distribution. Validate/play it in the complete project throu
 Project > Export; other member outputs need not be rebuilt for a stale-row bake.
 Finish/cancel builds or stop play before switching levels/projects or closing.
 
-The default workspace exposes New Room, Add Wall, Add Door and Add Light beside
-the scene list. Select an object for simple size/position/material edits. Precision
-controls reveal the full inspector; Customize groups geometry, surface grime,
-reuse, scripts, navigation, lighting circuits, layers, safety and project export.
-The brighter slate theme stays dark and uses quiet underlined controls, with the
-primary Test action emphasized.
+The workspace has three left-dock tabs: **Build**, **Assets** and **Lighting**.
+Build exposes Room, Wall, Door, Stairs and Doorway opening. Its material catalog
+assigns the selected surface. Assets browses props, surfaces and built-in door
+styles; choose a model, then **Place chosen prop**. Choosing a model with a prop
+already selected replaces that prop's model, as before. Lighting places fixtures
+and provides the existing circuit tools. Search edits only while its field has
+focus; wheel paging applies within the catalog, while the map wheel still zooms.
+
+The right dock shows only the selected object's relevant dimensions, material,
+prop pose, light power/range/RGB/mount, or door style/swing. **Advanced** discloses
+remaining pose fields and specialized settings; **Exact transform** opens the
+validated precision sheet. **All tools** (also **Tools** in the top bar) retains
+geometry, surface grime, reuse, components, attachments, scripts, navigation,
+circuits, safety and project export. Tools > Precision controls exposes the
+existing detailed form controls. **Scene** opens a searchable, paged object list;
+**Layers** retains hidden/locked/isolation controls. Neither competes with the map
+as a permanent object list. Tabs, catalog presentation and Advanced disclosure
+preserve unfinished placement drafts and do not create document history.
+
+Undo/redo, save status, Test in editor, Here and Final build remain in the top
+bar. The narrow footer contains grid/snap/step, view mode and current feedback;
+**Help** holds the longer shortcut guide. Tab/Shift Tab focus visible controls,
+and Enter activates the focused control; hidden Advanced controls lose focus.
+The charcoal/slate panels use restrained teal selection cues and visible focus
+outlines. These bitmap controls do not imply screen-reader support.
 
 **Test in editor** (Cmd/Ctrl P) prepares a private snapshot of the current level
 and current unsaved script buffers. It stays in the same native editor window,
@@ -151,10 +169,10 @@ generation and active/pending state. Diagnostic builds also report worker source
 image ownership and model storage; shared image/cache figures overlap live owners
 and must not be summed. OS RSS and private commit remain separate measurements.
 
-Simple mode exposes **New Room**, **Add Wall**, **Add Door** and **Add Light**
-beside the viewport. New Room reuses the adjacent-room draft: Preview and Apply
+Build exposes **Room**, **Wall**, **Door** and **Doorway opening** beside the
+viewport; Lighting exposes **Place light fixture**. New Room reuses the adjacent-room draft: Preview and Apply
 accept its room-height defaults, then the gold edge handles stretch it in place.
-Final build is available in both modes. Customize opens scripts and navigation; Precision controls reveals precise property sheets.
+Final build stays in the top bar. Tools opens scripts and navigation; Exact transform opens precise property sheets.
 
 **Add Wall**: click the start on a room floor, move the pointer to preview, then
 click the end. The segment follows X or Z and defaults to 0.20m thickness and the

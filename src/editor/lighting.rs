@@ -204,14 +204,16 @@ impl App {
 
 pub(super) fn toolbar(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     if app.popup.is_none() && app.document.is_some() {
-        if matches!(
-            app.selected,
-            Some(ObjectId::Room(_) | ObjectId::FloorRegion(_))
-        ) {
+        if !app.lighting.preview_off
+            && matches!(
+                app.selected,
+                Some(ObjectId::Room(_) | ObjectId::FloorRegion(_))
+            )
+        {
             ui::button(
                 v,
                 hits,
-                [312.0, 214.0, 154.0, 10.0],
+                [228.0, 214.0, 138.0, 10.0],
                 "Preview room / region",
                 Action::Lighting(Command::Local),
                 !app.viewport.is_preparing(),
@@ -220,7 +222,7 @@ pub(super) fn toolbar(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         ui::button(
             v,
             hits,
-            [220.0, 214.0, 88.0, 10.0],
+            [110.0, 214.0, 106.0, 10.0],
             "Light circuits >",
             Action::Lighting(Command::Open),
             true,
@@ -229,7 +231,7 @@ pub(super) fn toolbar(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             ui::button(
                 v,
                 hits,
-                [312.0, 214.0, 100.0, 10.0],
+                [228.0, 214.0, 138.0, 10.0],
                 "Restore circuit on",
                 Action::Lighting(Command::Preview),
                 true,
@@ -237,7 +239,7 @@ pub(super) fn toolbar(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             ui::text(
                 v,
                 "EDITOR CIRCUIT OFF / NOT A BAKE",
-                220.0,
+                110.0,
                 200.0,
                 ui::INK,
                 60,
@@ -247,7 +249,7 @@ pub(super) fn toolbar(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             ui::text(
                 v,
                 "PAINT FIXTURES / Circuits to apply",
-                220.0,
+                110.0,
                 188.0,
                 ui::INK,
                 60,
@@ -435,7 +437,16 @@ pub(super) fn feedback(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     if app.compile.is_none()
         && let Some(progress) = app.viewport.local_progress()
     {
-        ui::rect(v, [0.0, 242.0, 480.0, 30.0], [0.07, 0.10, 0.13, 1.0]);
+        ui::rect(
+            v,
+            [
+                0.0,
+                242.0,
+                480.0 + app.viewport.layout().right_offset(),
+                30.0,
+            ],
+            [0.07, 0.10, 0.13, 1.0],
+        );
         ui::text(
             v,
             "LOCAL PREVIEW / NON-FINAL / outside bounce approximate",

@@ -60,7 +60,7 @@ impl App {
                     which: _,
                     raw: _,
                 } => {
-                    self.popup = if *field >= 100 {
+                    self.popup = if *field >= 100 && !self.dock.numeric {
                         Some(Popup::Gameplay { page: 0 })
                     } else if (7..=10).contains(field) {
                         Some(Popup::Shape)
@@ -85,7 +85,7 @@ impl App {
                     Ok(number) => {
                         let applied = self.apply_field(edited_field, number);
                         if applied.is_ok() {
-                            self.popup = if edited_field >= 100 {
+                            self.popup = if edited_field >= 100 && !self.dock.numeric {
                                 Some(Popup::Gameplay { page: 0 })
                             } else if (7..=10).contains(&edited_field) {
                                 Some(Popup::Shape)
@@ -115,14 +115,15 @@ impl App {
         {
             return false;
         }
-        self.reuse_event(event)
-            || self.construction_event(event, window)
+        self.browser_event(event, window)
+            || (self.popup.is_none() && self.focus_event(event, window, hits))
+            || self.reuse_event(event)
+            || (self.popup.is_none() && self.construction_event(event, window))
             || self.flicker_event(event)
             || self.template_event(event)
             || self.behavior_event(event, window, hits)
             || self.stair_event(event)
             || self.drag_event(event, window)
-            || self.browser_event(event)
             || self.authoring_event(event)
             || self.project_text_event(event)
             || self.script_event(event, window)
@@ -146,9 +147,7 @@ impl App {
         } = event
         {
             if *key == Keycode::Tab {
-                let current = hits
-                    .iter()
-                    .position(|hit| Some(hit.action) == self.ui_focus);
+                let current = hits.iter().position(|hit| Some(hit.id) == self.ui_focus);
                 let index = if keymod.intersects(Mod::LSHIFTMOD | Mod::RSHIFTMOD) {
                     current
                         .unwrap_or(0)
@@ -160,11 +159,12 @@ impl App {
                         .checked_rem(hits.len().max(1))
                         .unwrap_or(0)
                 };
-                self.ui_focus = hits.get(index).map(|hit| hit.action);
+                self.ui_focus = hits.get(index).map(|hit| hit.id);
+                self.dock.search = self.focused_action() == Some(Action::BrowserSearch);
                 return true;
             }
             if *key == Keycode::Return
-                && let Some(hit) = hits.iter().find(|hit| Some(hit.action) == self.ui_focus)
+                && let Some(hit) = hits.iter().find(|hit| Some(hit.id) == self.ui_focus)
             {
                 let result = self.activate(hit.action, window);
                 self.report(result);
@@ -225,10 +225,13 @@ impl App {
             window_point,
         ) {
             if let Some(hit) = hits.iter().find(|hit| hit.contains(point)) {
-                self.ui_focus = Some(hit.action);
+                self.dock.search = hit.action == Action::BrowserSearch;
+                self.ui_focus = Some(hit.id);
                 let result = self.activate(hit.action, window);
                 self.report(result);
             } else if self.popup.is_none() && self.viewport.contains_ui(point) {
+                self.dock.search = false;
+                self.ui_focus = None;
                 if self.navigation_click(point) {
                     return;
                 }
@@ -242,11 +245,98 @@ impl App {
         }
     }
 
+    pub(super) fn event(&mut self, event: &Event, window: &Window, hits: &[Hit]) {
+        if matches!(
+            event,
+            Event::Window {
+                win_event: WindowEvent::FocusLost,
+                timestamp: _,
+                window_id: _
+            }
+        ) {
+            self.dock.search = false;
+            self.ui_focus = None;
+        }
+        if let Event::MouseButtonDown {
+            mouse_btn: MouseButton::Left,
+            x,
+            y,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            clicks: _,
+        }
+        | Event::MouseButtonUp {
+            mouse_btn: MouseButton::Left,
+            x,
+            y,
+            timestamp: _,
+            window_id: _,
+            which: _,
+            clicks: _,
+        } = event
+            && ui_point(window, [*x, *y]).is_some_and(|point| {
+                !hits
+                    .iter()
+                    .any(|hit| hit.action == Action::BrowserSearch && hit.contains(point))
+            })
+        {
+            self.dock.search = false;
+            if self.focused_action() == Some(Action::BrowserSearch) {
+                self.ui_focus = None;
+            }
+        }
+        if (self.compile.is_some() || self.viewport.local_progress().is_some())
+            && feedback_pointer(event, window, self.viewport.layout(), hits)
+        {
+            return;
+        }
+        let popup_before = self.popup.is_some();
+        let catalog_before = popup_before && self.browser_page().is_some();
+        let previous_focus = self.ui_focus;
+        self.route_event(event, window, hits);
+        let modal_now = self.popup.is_some();
+        if popup_before && !matches!(self.popup, Some(Popup::Number { field: _, value: _ })) {
+            self.dock.numeric = false;
+        }
+        if !popup_before && modal_now {
+            self.ui_return_focus = self.ui_focus.or(previous_focus);
+            self.dock.numeric = matches!(self.popup, Some(Popup::Number { field: _, value: _ }));
+            self.ui_focus = None;
+            if self.dock.search && self.browser_page().is_some() {
+                let (_, controls) = super::ui::build(self);
+                self.ui_focus = controls
+                    .iter()
+                    .find(|hit| hit.action == Action::BrowserSearch)
+                    .map(|hit| hit.id);
+            }
+        } else if popup_before && !modal_now {
+            self.ui_focus = self.ui_return_focus.take();
+            self.dock.search = self.focused_action() == Some(Action::BrowserSearch);
+        }
+        let (_, visible) = super::ui::build(self);
+        if !popup_before && matches!(self.popup, Some(Popup::SceneSearch(_))) {
+            self.ui_focus = visible
+                .iter()
+                .find(|hit| hit.action == Action::SceneSearch)
+                .map(|hit| hit.id);
+        }
+        if modal_now && !catalog_before && self.browser_page().is_some() && self.dock.search {
+            self.ui_focus = visible
+                .iter()
+                .find(|hit| hit.action == Action::BrowserSearch)
+                .map(|hit| hit.id);
+        }
+        if !visible.iter().any(|hit| Some(hit.id) == self.ui_focus) {
+            self.ui_focus = None;
+        }
+    }
+
     #[expect(
         clippy::wildcard_enum_match_arm,
         reason = "Unrelated SDL events are routed to the viewport or ignored; the editor does not own every native event."
     )]
-    pub(super) fn event(&mut self, event: &Event, window: &Window, hits: &[Hit]) {
+    fn route_event(&mut self, event: &Event, window: &Window, hits: &[Hit]) {
         if close_requested(event) {
             self.request(Pending::Close, window);
             return;
@@ -430,4 +520,34 @@ const fn close_requested(event: &Event) -> bool {
                 window_id: _
             }
     )
+}
+
+#[expect(
+    clippy::wildcard_enum_match_arm,
+    clippy::rest_pattern_accessible_field,
+    reason = "Only pointer position determines whether opaque progress chrome owns this event."
+)]
+fn feedback_pointer(
+    event: &Event,
+    window: &Window,
+    layout: super::layout::Layout,
+    hits: &[Hit],
+) -> bool {
+    let window_position = match event {
+        Event::MouseButtonDown { x, y, .. }
+        | Event::MouseButtonUp { x, y, .. }
+        | Event::MouseMotion { x, y, .. } => [*x, *y],
+        Event::MouseWheel {
+            mouse_x, mouse_y, ..
+        } => [*mouse_x, *mouse_y],
+        _ => return false,
+    };
+    ui_point(window, window_position).is_some_and(|point| {
+        let [left, _, right, bottom] = layout.bounds;
+        point[0] >= left
+            && point[0] < right
+            && point[1] >= 30.0_f32.mul_add(-layout.scale, bottom)
+            && point[1] < bottom
+            && !hits.iter().any(|hit| hit.contains(point))
+    })
 }

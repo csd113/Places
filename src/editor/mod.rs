@@ -107,7 +107,9 @@ struct App {
     wall_drag: Option<construction::WallDrag>,
     focus: focus::Focus,
     status: String,
-    ui_focus: Option<ui::Action>,
+    ui_focus: Option<ui::ControlId>,
+    ui_return_focus: Option<ui::ControlId>,
+    dock: ui::dock::State,
     thumbnail_image: Option<std::sync::Arc<crate::engine::materials::RawImage>>,
     view: ViewOptions,
     navigation: navigation::Inspection,
@@ -141,6 +143,12 @@ struct App {
 }
 
 impl App {
+    const fn focused_action(&self) -> Option<ui::Action> {
+        match self.ui_focus {
+            Some(id) => Some(id.action),
+            None => None,
+        }
+    }
     fn load(&mut self, path: &Path) -> Result<(), String> {
         let document = Document::open(path)?;
         if let Some(player) = self
@@ -174,7 +182,16 @@ impl App {
         self.viewport.select(None);
         self.object_scroll = 0;
         self.object_query.clear();
-        self.status = format!("Opened {}", path.display());
+        self.status = self.document.as_ref().map_or_else(
+            || "Opened project".into(),
+            |doc| {
+                format!(
+                    "Opened {} / {}",
+                    doc.project().manifest().name,
+                    doc.level_id()
+                )
+            },
+        );
         Ok(())
     }
 
@@ -265,18 +282,16 @@ impl App {
     }
 
     fn update_window(&self, window: &mut sdl3::video::Window, video: &sdl3::VideoSubsystem) {
-        let wants_text = matches!(self.popup, Some(Popup::Stairs(_)))
-            || self.browser_page().is_some()
+        let wants_text = (matches!(self.popup, Some(Popup::SceneSearch(_)))
+            && self.focused_action() == Some(ui::Action::SceneSearch))
+            || (self.browser_page().is_some() && self.dock.search)
+            || matches!(self.popup, Some(Popup::Stairs(_)))
             || matches!(
                 self.popup,
                 Some(
                     Popup::Template
                         | Popup::Flicker
                         | Popup::Behavior
-                        | Popup::Library {
-                            materials: _,
-                            page: _
-                        }
                         | Popup::Number { field: _, value: _ }
                         | Popup::ProjectText { field: _, value: _ }
                         | Popup::ComponentText {
@@ -293,7 +308,6 @@ impl App {
                         | Popup::Transform(_)
                         | Popup::Reuse(_)
                         | Popup::AuthoringForm(_)
-                        | Popup::SceneSearch(_)
                 )
             );
         let text_input = video.text_input();
@@ -518,6 +532,8 @@ fn create_app(
         wall_drag: None,
         focus: focus::Focus::default(),
         ui_focus: None,
+        ui_return_focus: None,
+        dock: ui::dock::State::default(),
         thumbnail_image: None,
         status: "New: choose a parent folder. Open: choose an existing project folder.".into(),
         view: ViewOptions {
@@ -638,8 +654,8 @@ fn application(options: Options) -> Result<(), String> {
     let mut outcome = Ok(());
     while !app.closing {
         trace.pump(&app.viewport, &window);
-        let (_, hits) = ui::build(&app);
         for event in events.poll_iter() {
+            let (_, hits) = ui::build(&app);
             app.event(&event, &window, &hits);
         }
         if (app.popup.is_some()
