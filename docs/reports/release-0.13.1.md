@@ -4510,3 +4510,83 @@ editor-runnable/. The unrelated menu scene retains SHA256
 The earlier Lantern Hollow test/report correction remains a separate commit.
 Publication, exact remote/CI status, screenshot delivery and target-cleanup
 receipts are recorded in the private final handoff.
+
+### Apple Silicon Mac acceptance, 2026-11-02
+
+The Mac pass started from published source
+`f5b6523c720edf4586dfb5c001caacb33e68db51` in an isolated `0.13.1-dev`
+worktree. The existing `0.13.0-staging` checkout, its two untracked Python audit
+reports, operator saves and the separate RustChan task were preserved. Hardware
+was an Apple M2 Pro MacBook Pro with 16 GB RAM, macOS 27.2 (26B123), Rust 1.99.1
+and SDL 3.4.18. Native rendering negotiated Metal and Fifo presentation.
+
+Native inspection found one shared editor layout regression: opening a modal
+made the background dock use the modal catalog's 24-item page size. Its tiles
+continued through the footer. Dock tile rendering and paging now retain their
+own four-item capacity while modal asset grids keep their existing capacities.
+Before/after native captures verify the correction. No map, PNG, dependency,
+format, version or test-suite expansion was needed.
+
+Final-source gates passed formatting, locked workspace/all-target/all-feature
+check, strict debug and release Clippy, the locked release workspace/all-feature
+build, 422 Rust tests and 373 Python source tests with three intentional Mac
+skips (`PLACES_SKIP_SMOKE=1`). Asset validation reported 680 assets and zero
+warnings. Texture and prop currency checks passed with their existing budget and
+manifest advisories. Audio checks, seven environment-source checks, the bounded
+production Luau refusal cases and complete collection source initialization also
+passed. Ordinary tests did not bake a shipped map.
+
+The editor used actual 2x drawable density: 1440 x 816 logical / 2880 x 1632
+physical, and minimum 960 x 544 / 1920 x 1088. macOS limited the requested
+1920 x 1080 window to 1920 x 838 / 3840 x 1676; native 1920 x 1080 acceptance
+is therefore not claimed. Native scripts used the ordinary SDL/editor handlers,
+real GPU framebuffer captures and authoritative document checkpoints; a manual
+Cmd-P/Escape check also entered and left embedded testing. These Fifo runs make
+no throughput or FPS claim.
+
+Accepted workflows cover room preview/apply, chained walls, exact undo/redo,
+opening-only doorway followed by a fitted functional leaf, light placement,
+prop search/placement/position, scene selection by keyboard, catalog keyboard
+paging, regional wheel ownership, numeric refusal/cancel, Advanced disclosure,
+modal Escape and save/reopen. Package version 2.3.4 survived invalid version
+input. Test Here ran inside the editor without a package or lighting bake;
+focus loss and Escape discarded runtime state while retaining source, selection,
+camera and history. E opened the fitted leaf and ordinary movement crossed its
+opening. Final-build and local-preview cancellation remained reachable over a
+modal. The prior Static package retained its exact SHA-256 after cancellation.
+A regular-file asset fixture with one absent preview showed the explicit
+`No image` fallback; committed PNGs and asset-root safety checks were retained.
+
+The tiny editor project passed Static build, complete export, validation and
+byte-exact editable recovery. Its project-package format is 3, package release
+2.3.4 and automatic Places target 0.13.1. Collection runtime checks used a
+separate clearly named validation-only package: exact current Hub and Lantern
+Hollow sources/scripts, plus seven tiny placeholders for untested destinations.
+It passed export, validation, currency, import and byte-exact recovery of its
+14 referenced files. Its release remains 1.0.1. This is not a replacement
+distribution of the complete collection.
+
+Native player observations cover fresh Hub progress, actual door travel to
+Lantern Hollow, Jun's collision-aware four-goal return, seated completion,
+durable favor save and door travel back to the Hub. A separate process showed
+one remembered favor; the two-press CLEAR flow then saved zero favors in the
+disposable profile. These runs reported no script diagnostics. Other favor
+routes, every house and all resident conversations were not exhaustively
+repeated on this Mac; Ada's three distinct lines and fourth-interaction wrap
+were observed natively. Full final lighting, packaged application distribution,
+screen readers and other operating systems remain outside this pass.
+
+The local old collection package and bundled menu scene predate the current
+package contract. They were preserved, rather than broadly rebaked or replaced.
+The checked-in menu scene retains SHA-256
+`9eb71369668ab39f88ec569bc700efe5c14afba0d8c3dfe76cf39ef0f09bbd37`.
+Initial native launches using Documents paths stalled in a file-open call before
+window creation; moving task-owned runtime files to `/tmp` resolved startup.
+No system permission or security policy was changed.
+
+Private recipes, checkpoints, real captures, gates, runnable executables and the
+disposable accepted projects are retained outside target under
+`local/verification-0.13.1-mac-20261102/`, chiefly its `gates/` and `runtime/`
+directories. Exploratory recipes and their failures are retained separately from
+accepted results. Final publication and target-cleanup receipts accompany the
+private handoff. No main merge, release or version bump was performed.

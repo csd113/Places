@@ -6,7 +6,7 @@ use super::{
 };
 use crate::editor::{
     App,
-    browser::{choice_action, dock_tile_bounds, tile_bounds},
+    browser::{DOCK_PAGE_SIZE, choice_action, dock_tile_bounds, tile_bounds},
     gameplay_actions::GameplayChoice,
 };
 use crate::engine::render::Vertex;
@@ -256,7 +256,7 @@ pub(in crate::editor) fn draw_dock(app: &App, v: &mut Vec<Vertex>, hits: &mut Ve
 }
 
 fn draw_dock_pages(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, ids: &[String], top: f32) {
-    let page_size = app.browser_page_size();
+    let page_size = DOCK_PAGE_SIZE;
     let final_page = ids
         .len()
         .saturating_sub(1)
@@ -322,7 +322,7 @@ fn search_label(app: &App, placeholder: &str) -> String {
 }
 
 fn draw_dock_tiles(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, ids: &[String]) {
-    let page_size = app.browser_page_size();
+    let page_size = DOCK_PAGE_SIZE;
     for (offset, (index, id)) in ids
         .iter()
         .enumerate()

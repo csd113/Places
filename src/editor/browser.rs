@@ -56,6 +56,7 @@ pub(super) const DOOR_PREVIEWS: [&str; 3] = [
 ];
 
 pub(super) const PAGE_SIZE: usize = 24;
+pub(super) const DOCK_PAGE_SIZE: usize = 4;
 
 #[derive(Default)]
 pub(super) struct Browser {
@@ -213,7 +214,7 @@ pub(super) fn dock_tile_bounds(offset: usize, tab: Tab) -> [f32; 4] {
 impl App {
     pub(super) const fn browser_page_size(&self) -> usize {
         if self.popup.is_none() {
-            4
+            DOCK_PAGE_SIZE
         } else if self.browser.compact {
             24
         } else {
