@@ -4363,3 +4363,42 @@ verification, import/no-op and native DX12 load/capture. These framing sentinels
 not establish successful loading of a real 512+ MiB atlas. No Full solve or shipped
 map sweep was performed. The separately disclosed manual editor modal acceptance
 limit remains unchanged; the correction did not require editor changes.
+
+
+### Lantern Hollow native editor rebuild
+
+Lantern Hollow is now a compact 48 x 50.8 m neighborhood, about 65% smaller
+than the previous ground footprint. Four homes line each side of the street.
+Eight separate fenced plots have 1.7 m gates; all eight interiors have distinct
+partition and furniture layouts. Sidewalks, streetlights and trees connect the
+street to the preserved skeleton campsite and signed Hub return door.
+
+Ten residents use only the man and woman skins, five of each, including two
+paired households. Each has three individual kind lines with an independent
+conversation cycle. Jun's original walk, sit, seated-completion and saved favor
+flow remain functional in the rebuilt campsite.
+
+Geometry was authored with native editor placement controls, transform sheets,
+fence-path forms and material selection, with staged native saves and reopen
+checks. The script module was created and linked in the editor; supporting Lua
+retargets the preserved quest to the native actor IDs. No generated replacement
+map or historical environment generator authored the rebuilt geometry. The final
+reopened editor document matches the committed source; the complete Static
+package recovers all 21 editable source files byte for byte. Collection release
+1.0.1 carries its automatic internal Places 0.13.1 target.
+
+Native ordinary-input observations cover every home's entry, interior regions,
+gate and exit, all ten visible residents and all thirty lines, plus a fourth
+Ada interaction proving cycle wrap. Focused runs complete the galley and T-plan
+coverage where coarse timed routes missed individual waypoints. Fresh Hub travel,
+Jun's return and seated completion, durable save, return to Hub, restart and
+revisit passed on the complete final package. Missed-route and exploratory
+attempts remain separately preserved in private evidence.
+
+Format, strict all-target/all-feature Clippy, locked release workspace build,
+420 Rust tests, seven environment validation checks, and asset/texture/prop
+checks passed. Project check, package validation, currency and exact recovery
+passed. Geometry has zero errors and zero terrain leaks; 44 intentional open
+outdoor carrier seams and 201 wood UV corner-phase warnings remain visible.
+Acceptance used Static preparation at 1280 x 800 and makes no Full-lighting or
+FPS claim. Other collection members and the unrelated menu asset remain intact.

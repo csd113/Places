@@ -1,11 +1,14 @@
 {
+  "package_version": "1.0.1",
   "schema": "places-project",
   "project_format": 1,
   "id": "environments",
   "name": "Places / The Quiet Collection",
   "author": "Places",
   "description": "Eight distinct NPC favors, remembered across visits. Return to the central hub after helping everyone to open the Room of Small Kindnesses.",
+  "thumbnail": "thumbnails/940872d28cb65691c07f473f4efb976b26a2a070e64128ebdbdb66a15589b642.png",
   "entry_level": "hub",
+  "menu_entry_only": true,
   "levels": [
     {
       "id": "hub",
@@ -53,7 +56,5 @@
       "source": "levels/aero.json",
       "display_name": "Frutiger Aero"
     }
-  ],
-  "thumbnail": "thumbnails/940872d28cb65691c07f473f4efb976b26a2a070e64128ebdbdb66a15589b642.png",
-  "menu_entry_only": true
+  ]
 }

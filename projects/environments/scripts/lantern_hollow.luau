@@ -1,11 +1,11 @@
 --!strict
 -- Jun walks every metre; the last authored performance backs into the stool.
 local phase, waypoint, elapsed = "hiding", 1, 0
-local route = { {x=-12.5,z=-36.5}, {x=-13.5,z=-35.2},
-    {x=-15.5,z=-34.7}, {x=-16.6067,z=-35.2918} }
+local route = { {x=-10.5,z=-24.5}, {x=-11.5,z=-23.2},
+    {x=-13.5,z=-22.7}, {x=-14.6067,z=-23.2918} }
 local function navigate(api)
     local goal = route[waypoint]
-    api.navigate("hollow_missing_friend", goal.x, 0, goal.z)
+    api.navigate("editor_prop_202", goal.x, 0, goal.z)
 end
 local function group(api)
     if phase == "seated" then
@@ -29,7 +29,7 @@ return {
         if api.completed("lantern_hollow") then
             phase = "returning"
             navigate(api)
-            api.prompt("hollow_missing_friend", "Jun is returning to the fire / speak")
+            api.prompt("editor_prop_202", "Jun is returning to the fire / speak")
         end
     end,
     group = group,
@@ -39,7 +39,7 @@ return {
             phase = "returning"
             elapsed = 0
             navigate(api)
-            api.prompt("hollow_missing_friend", "Jun is returning to the fire / speak")
+            api.prompt("editor_prop_202", "Jun is returning to the fire / speak")
             api.message("JUN", {"Found me! I could hear them laughing from here.", "I will walk back to the empty stump by the fire.", "Walk alongside me and leave a little room on the path."})
         elseif phase == "seated" then
             api.message("JUN", {"Best hiding place. Better company.", "Lantern Hollow favor complete. Thank you for bringing me home."})
@@ -54,7 +54,7 @@ return {
     update = function(api, event)
         if phase == "returning" then
             elapsed += event.dt
-            local actor, goal = api.actor("hollow_missing_friend"), route[waypoint]
+            local actor, goal = api.actor("editor_prop_202"), route[waypoint]
             local dx, dz = actor.x-goal.x, actor.z-goal.z
             if dx*dx+dz*dz <= .025 then
                 elapsed = 0
@@ -63,15 +63,15 @@ return {
                     navigate(api)
                 else
                     phase = "sitting"
-                    api.set_state("hollow_missing_friend", "seating", true)
+                    api.set_state("editor_prop_202", "seating", true)
                 end
             elseif elapsed > 6 then
                 elapsed = 0
                 navigate(api)
             end
-        elseif phase == "sitting" and api.state("hollow_missing_friend", "seated") then
+        elseif phase == "sitting" and api.state("editor_prop_202", "seated") then
             phase = "seated"
-            api.prompt("hollow_missing_friend", "Jun is home / speak")
+            api.prompt("editor_prop_202", "Jun is home / speak")
             if not api.completed("lantern_hollow") then
                 api.complete()
                 api.message("THE CAMPFIRE CIRCLE", {"One, two, three... seven. Everyone is here.", "Lantern Hollow favor complete. The Hub will remember.", "Return through the Hub door when ready."})
