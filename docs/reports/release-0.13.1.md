@@ -4402,3 +4402,38 @@ passed. Geometry has zero errors and zero terrain leaks; 44 intentional open
 outdoor carrier seams and 201 wood UV corner-phase warnings remain visible.
 Acceptance used Static preparation at 1280 x 800 and makes no Full-lighting or
 FPS claim. Other collection members and the unrelated menu asset remain intact.
+
+
+### Lantern Hollow source contracts after the native rebuild
+
+The source Python step of CI run 41383804705 failed on published outdoor commit
+3b15c3393a72b1322282c099780271f18cacdf90. Its ten Lantern Hollow tests still
+imported the retired bootstrap generator and assumed four cottages, 54 carriers,
+an 88 x 78 m footprint, historical actor IDs, 247 trees and old coordinates.
+The earlier Rust/build/asset steps of that run passed. This follow-up changes
+only source contracts and this report; the native-authored map, assets, Lua,
+generator and prior native acceptance evidence remain unchanged.
+
+The same ten bounded tests now check eight furnished homes with distinct real
+partition plans, eight fenced plots and usable gates/door approaches, floor
+coverage without duplicate surfaces, actual roof mesh joins, the held-animation
+skeleton circle, ten man/woman residents with thirty unique lines and correct
+script bindings, visible containment/tree clearances, and Jun's seat/quest/Hub
+linkage. They resolve semantic/spatial roles and current display names instead
+of depending on the old generated IDs. Empty furniture filters cannot make the
+clearance checks pass vacuously. The roof check reuses five small cached meshes;
+there is no map bake, renderer or full-map campaign in ordinary CI.
+
+The former fog volume, pond, sheet cats and real glazed wall apertures are absent
+from the already-published rebuild. The replacement contracts do not claim those
+old-layout features remain. This is an explicit scope disclosure, not a claim
+that source checks prove native traversal or every visual feature. The accepted
+outdoor traversal, dialogue cycling, campsite completion and saved Hub revisits
+remain the separate task-4 native evidence.
+
+Validation: all ten focused tests passed; the complete source Python suite ran
+373 tests successfully with 18 intentional smoke/platform skips and
+PLACES_SKIP_SMOKE=1. The two packaging checks that first hit the Windows sandbox's
+home-directory permission boundary passed in an ordinary authorized process.
+The final full suite also passed in that process with Git sh on PATH. Evidence is
+retained outside the repository under task-5/editor-evidence/outdoor-contracts/.
