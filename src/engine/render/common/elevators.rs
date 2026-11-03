@@ -1,6 +1,9 @@
 //! Compact center-opening lift geometry, using existing file-backed materials.
 use super::doors::{MeshBuilder, Paint};
-use crate::engine::elevator::{DEPTH, DOOR_HEIGHT, DOOR_WIDTH, Elevator, HEIGHT, MATERIALS, Phase};
+use crate::engine::elevator::{
+    CABIN_DOOR_Z, DEPTH, DOOR_HEIGHT, DOOR_WIDTH, Elevator, HEIGHT, LANDING_DOOR_Z, MATERIALS,
+    Phase,
+};
 use crate::engine::gltf::PropModel;
 use crate::engine::loader::RawImage;
 use crate::engine::materials::{MaterialAlpha, MaterialTable};
@@ -140,7 +143,7 @@ pub fn parts(e: &Elevator) -> Vec<(Part, [f32; 3])> {
             ),
         ]
     };
-    parts.extend(leaves(e.y, 0.07, e.opening));
+    parts.extend(leaves(e.y, CABIN_DOOR_Z, e.opening));
     for (i, stop) in e
         .def
         .stops
@@ -154,7 +157,7 @@ pub fn parts(e: &Elevator) -> Vec<(Part, [f32; 3])> {
         } else {
             0.0
         };
-        parts.extend(leaves(stop.y, -0.06, open));
+        parts.extend(leaves(stop.y, LANDING_DOOR_Z, open));
     }
     parts
 }

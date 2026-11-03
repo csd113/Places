@@ -11,6 +11,9 @@ pub const DEPTH: f32 = 2.4;
 pub const HEIGHT: f32 = 2.55;
 pub const DOOR_WIDTH: f32 = 1.35;
 pub const DOOR_HEIGHT: f32 = 2.2;
+// Both pairs slide inside the authored 0..0.2 m landing wall, not across its hall face.
+pub const CABIN_DOOR_Z: f32 = 0.07;
+pub const LANDING_DOOR_Z: f32 = 0.15;
 pub const MATERIALS: [&str; 4] = [
     "core:metal_brushed_01",
     "home:baseboard_white_01",
@@ -321,7 +324,7 @@ impl Elevator {
             self.box_collider([-0.675, DOOR_HEIGHT, 0.02], [0.675, HEIGHT, 0.14]),
         ];
         for side in [-1.0, 1.0] {
-            boxes.push(self.leaf(self.y, side, 0.07, self.opening));
+            boxes.push(self.leaf(self.y, side, CABIN_DOOR_Z, self.opening));
         }
         for (i, stop) in self
             .def
@@ -336,7 +339,7 @@ impl Elevator {
                 0.0
             };
             for side in [-1.0, 1.0] {
-                boxes.push(self.leaf(stop.y, side, -0.06, opening));
+                boxes.push(self.leaf(stop.y, side, LANDING_DOOR_Z, opening));
             }
         }
         boxes
@@ -437,7 +440,7 @@ impl Elevator {
                 let proposed = (self.opening - delta / 1.4).max(0.0);
                 let mut obstructed = false;
                 for side in [-1.0, 1.0] {
-                    for z in [-0.06, 0.07] {
+                    for z in [LANDING_DOOR_Z, CABIN_DOOR_Z] {
                         obstructed |= blocked(&self.leaf(self.y, side, z, proposed));
                     }
                 }

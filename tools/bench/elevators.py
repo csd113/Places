@@ -53,6 +53,8 @@ def actions(mode):
     add(200, "view_at", position=[-0.96, 1.08, -0.12])
     add(250, "capture", name="call_target")
     click(320)
+    add(1850, "player", position=[0, 1.6, -2.65], yaw=180, pitch=0)
+    add(1900, "view_at", position=[0, 1.15, 1.0])
     add(1950, "capture", name="open")
     add(2000, "player", position=[0, 1.6, -1], yaw=180, pitch=0)
     add(2050, "key", key="W", pressed=True)

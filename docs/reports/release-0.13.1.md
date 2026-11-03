@@ -4663,3 +4663,16 @@ not transport items or NPCs, and AI does not navigate lift shafts. See the full
 ![Static loading card over the retained game view](../images/reports/elevators-2026-11-03/loading.png)
 
 ![Elevator authoring in the native editor](../images/reports/elevators-2026-11-03/editor.png)
+
+### Door-pocket correction during screenshot capture
+
+A wider hall view exposed landing leaves sliding in front of the wall. Their
+shared render/collision depth now puts them inside the authored wall pocket;
+closed doors, swept obstruction handling and the cabin pair retain their geometry.
+The native campaign keeps a wider open-door witness for future visual review.
+Strict Clippy, all 429 Rust tests, the locked release workspace build and all four
+native acceptance cases pass again. Both lab levels verify current after the small
+fixture re-export. No production map was baked. Fresh direct-binary closed, open
+and interior captures remain in `local/elevator-validation/screenshot-deliverables-final/`;
+the matching game SHA-256 is
+`0cdd9ff5f6c3dc9d837cdbc029f103ed6a06a873f2e886cbb358f46cb04305db`.
