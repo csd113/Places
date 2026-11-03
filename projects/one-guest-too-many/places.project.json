@@ -1,4 +1,5 @@
 {
+  "package_version": "1.0.1",
   "entry_level": "one_guest_too_many",
   "id": "one_guest_too_many",
   "levels": [

@@ -14,6 +14,56 @@ Native before/after screenshots use a small temporary gallery with identical cam
 
 The source/export preservation check covers all thirteen GLBs, 4,649 unchanged non-image bufferViews and PNG parity. The fourteen affected editor catalog previews (including both aliases) are refreshed through the existing preview renderer, with current model hashes. Catalog validation, the accepted-export/texture-budget check, Halloween material contracts, animation clip boundaries and the full asset audit pass alongside strict Clippy, Rust formatting and the locked all-feature release build. The final full asset audit reports zero errors across 411 models and 447 embedded PNGs; the Python source suite passes 373 tests with three optional native/package checks skipped. After the native material refinement, all 75 targeted asset tests pass again. Every final native capture reports fourteen loaded models (the twelve NPCs plus gallery fixtures), zero model failures, and the same physical drawable and simulation frame as its baseline. The local evidence directory retains the exact commands, screenshot receipts, hashes and complete audit. No gameplay or level sources are changed. Existing compiled gameplay packages require re-export with the new asset library; older binaries/packages are not an acceptance target for changed approved exports.
 
+## Package integration
+
+The changed NPC dependency closure affects three maintained gameplay projects.
+Their content versions advance so existing installations can import a higher
+release instead of encountering conflicting bytes under the same version:
+
+| Package | Content version | Members | Exported lighting |
+| --- | --- | --- | --- |
+| Quiet Collection (`environments`) | 1.0.2 | 9 | Static |
+| It Only Exists in the Beam | 1.0.1 | 4 | Static |
+| One Guest Too Many | 1.0.1 | 1 | Static |
+| Bundled menu | 1.0.0 | 1 | Static and Full |
+
+The three gameplay exports are retained under
+`local/npc-texture-refresh/integration/packages/`. They are ignored compiled
+outputs, not Git source. All fourteen members pass dependency/integrity
+validation and `verify --require-current` against their maintained projects.
+The direct player imports all three exports into an isolated profile and lists
+all fourteen members without a skipped package. Every member then loads in a
+separate direct-binary Metal run with zero model failures or placeholder models.
+The [native scene overview](../images/npc-textures-2026-11-03/integrated-maps.png)
+records those fourteen Static scenes and the menu.
+
+`assets/shared/menu/scene.bin` is regenerated from `projects/menu/` with the
+current compiler and dependency identities. Its required Full lighting and
+native reflection capture are prepared and verified; the actual main menu
+loads with its Full atlas and reflections resident. The
+[menu capture](../images/npc-textures-2026-11-03/integrated-menu.png) records that
+normal application startup. Gameplay geometry, scripts, quest behavior and
+unaffected release projects are unchanged. No gameplay Full lighting bake was
+run. The current player/editor/compiler code is identical to the already
+validated NPC binary build; only external packages and project release metadata
+change in this integration.
+
+These are Static-only gameplay development exports. The final release Levels
+ZIP, which requires both Static and Full variants, remains future delivery work;
+no release is published here. A future export with different content must also
+use a higher content version if upgrading an installation of these exact
+development packages. The package hashes, commands, current-source checks,
+native receipts and isolated import profile are retained under
+`local/npc-texture-refresh/integration/`.
+
+To inspect the integrated game from this checkout with its disposable profile:
+
+```sh
+PLACES_ASSET_ROOT="$PWD" \
+PLACES_STATE_ROOT="$PWD/local/npc-texture-refresh/integration/player-state" \
+./local/npc-texture-refresh/runnable/places
+```
+
 ## Image-generation prompts
 
 ### Creature materials
