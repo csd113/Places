@@ -33,9 +33,10 @@ Prop sheets stay beside their GLBs; logical `core:` and theme IDs are unchanged.
 
 ## Build from source
 
-Current branches keep source and assets in ordinary Git; compiled `.placesmap`
-outputs remain ignored. CI needs no LFS hydration. When opening a historical
-revision, prefix the command with `GIT_LFS_SKIP_SMUDGE=1`, for example
+Keep source and assets in ordinary Git; do not add Git LFS tracking. Compiled
+`.placesmap` outputs remain ignored. Distribute compiled maps and game builds as
+manually uploaded GitHub Release assets. CI needs no LFS hydration. When opening a
+historical revision, prefix the command with `GIT_LFS_SKIP_SMUDGE=1`, for example
 `GIT_LFS_SKIP_SMUDGE=1 git switch --detach 0.8.0`. Use the same prefix when cloning
 an old revision. Only hydrate historical LFS packages when explicitly needed;
 keep skip behavior scoped to that command.
