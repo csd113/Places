@@ -111,7 +111,7 @@ HOVERING_ASSETS = frozenset({"sheet-ghost", "sheet-ghost-cat"})
 AUTHORED_SHA256: Dict[str, str] = {
     "carved-pumpkin": "b6f76aec463625bc09906ee9c17f7168caca34b80a5745144d5de05b2440d285",
     "pumpkin-skeleton": "5a7511b0b1c22311c43d2ef50f3762458a86c68c42ffc9f9161dda6e00653953",
-    "sheet-ghost": "ea07c5f3e89eebf426943aff688258392796917be8fc1be86571707aa0e0fe16",
+    "sheet-ghost": "5aba9897ca64f91b6b1a0e4195e8544c90fd8e2693930c6b18f1c70b1d981f5a",
     "sheet-ghost-cat": "192741197f6004506474ae0c06f514d52a279073d023172237eedcca7a78acef",
 }
 

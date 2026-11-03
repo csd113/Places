@@ -9,6 +9,20 @@ route syntax. Export, validation and preservation workflows are in
 
 ## Resource and playback conventions
 
+The November 2026 [NPC texture refresh](../art-style/npc-textures-2026-11-03.md)
+replaces the fitted albedo artwork for all twelve characters/creatures and the
+collection skeleton variant. The current standalone runtime sheet is
+`textures/surface_01.png` in each entity directory; every GLB embeds those same
+PNG pixels. Older named sheets and delivered `model/textures/` copies remain
+historical sources. The three Beach `surface_master.png` files now contain the
+refreshed 1024-square artwork, with exact box-filtered 256-square derivatives.
+Mesh, UV, vertex-colour, material, rig and animation data are unchanged.
+The cockroach sheet is uniformly enlarged from 32 to 128 square; other runtime
+dimensions, alpha behaviour, glow and preset tints are preserved. Updated exact
+export identities remain guarded by `completed-models.json` and the ghost
+contract checker. Rebuild the player/compiler after changing the ledger; an
+older binary intentionally rejects a different approved export.
+
 Every entry below has catalog class/type `entity`, one skin, metres as units,
 +Y up and +Z front at zero yaw. Beach animals also have theme `beach`; theme
 membership does not change the entity class or move a rig into the static prop

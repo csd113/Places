@@ -1,6 +1,6 @@
 {
   "entities/beach_crab/model/beach_crab.glb": {
-    "sha256": "4a47bb3b304a6b8e5a41f1b9e1aa98ec07672935590d212ea0835a49a683ec44",
+    "sha256": "8ce197a7b57c56459d8367fa8eae1ff4d444265b0bd5f019b6a5f68bccbf1975",
     "triangles": 900,
     "texture_edge": 256,
     "identities": [
@@ -18,7 +18,7 @@
     ]
   },
   "entities/beach_fish/model/beach_fish.glb": {
-    "sha256": "097c6c1959d867f4b0b262beb84a892018d48d21b1b214e5791c884fd7d89787",
+    "sha256": "2e4f6d310041d362481557e33e0c72636d973c5096d80ebf3fab0f6e2c583ad2",
     "triangles": 472,
     "texture_edge": 256,
     "identities": [
@@ -36,7 +36,7 @@
     ]
   },
   "entities/beach_seagull/model/beach_seagull.glb": {
-    "sha256": "737330a82c1c9a695b297b712d5bb15f92d5d0467ed4dedf890ba7be0c14ecc0",
+    "sha256": "a9389f44a0daaa4f7c3fc25e13f9d83e1f5875a0f9d8f161f0dc735d0ae286bf",
     "triangles": 556,
     "texture_edge": 256,
     "identities": [
@@ -54,7 +54,7 @@
     ]
   },
   "entities/carved-pumpkin/model/carved-pumpkin.glb": {
-    "sha256": "7162ef1f1499eabf39bf348f318f067cff6f12df74f597b057a58290fccc5c93",
+    "sha256": "0111a91e5581547accda95762ee2b218693b9306eb3d051b07df7f8fb6354e20",
     "triangles": 2384,
     "texture_edge": 256,
     "identities": [
@@ -72,9 +72,9 @@
     ]
   },
   "entities/cockroach/model/cockroach.glb": {
-    "sha256": "d575f219fcda8661b276e11e79893ec3cf41997fba556e55ff68a704a825562d",
+    "sha256": "4c60eae3ae36f4a5e213c3c9bd77a7f789bb0fffa637880609cedde0a5396e60",
     "triangles": 792,
-    "texture_edge": 32,
+    "texture_edge": 128,
     "identities": [
       "entity:cockroach"
     ],
@@ -90,7 +90,7 @@
     ]
   },
   "entities/mannequin/model/mannequin.glb": {
-    "sha256": "6627807d4cddf7331cc7f96b03adb43f3686af71366bc8dc257f881b6ddf1156",
+    "sha256": "a27aa5b4fda530152ba888535e06b21442bb4c05c476ba0028435a4e05291051",
     "triangles": 2412,
     "texture_edge": 1024,
     "identities": [
@@ -109,7 +109,7 @@
     ]
   },
   "entities/pumpkin-skeleton/model/pumpkin-skeleton.glb": {
-    "sha256": "ee4439721cf785d6bd19325f35d18f94bd2789ffa1463f033b89898debfb655a",
+    "sha256": "10b46046036f5f591660f0f2525ad3dd7f37393e1ec18cf90855c7bda04bab2e",
     "triangles": 5554,
     "texture_edge": 512,
     "identities": [
@@ -127,7 +127,7 @@
     ]
   },
   "entities/rat/model/rat.glb": {
-    "sha256": "22fb9e6293c01ca82a6093ed3c8763ed22f37d0d8d27b840938f7ffed131a8a0",
+    "sha256": "8ff5a200921bed790e281f2f85ce09968f7dc5adda9bca48147c472e9fdccca4",
     "triangles": 1718,
     "texture_edge": 256,
     "identities": [
@@ -145,7 +145,7 @@
     ]
   },
   "entities/sheet-ghost-cat/model/sheet-ghost-cat.glb": {
-    "sha256": "889a21177743ce91973ca7d0cb9b1280f5139c48774afd62737f60c7bb6e2b19",
+    "sha256": "2991b1680bd080137d4a1f3bc923df726f51a4ffb5ad404171646a0db6c4c938",
     "triangles": 434,
     "texture_edge": 256,
     "identities": [
@@ -163,7 +163,7 @@
     ]
   },
   "entities/skeleton/model/skeleton.glb": {
-    "sha256": "449cf146e3a1768e3cbd4f99614d4f424b08d932d66876e34c17af7fe8357e07",
+    "sha256": "5fa19f040b07eae5d2f2bb158be7501969a7377a9314731fbd5419ad64dddf31",
     "triangles": 4650,
     "texture_edge": 256,
     "identities": [
@@ -181,7 +181,7 @@
     ]
   },
   "entities/spooner-man/model/spooner-man.glb": {
-    "sha256": "e0aa64e6c7378d53e1bd08d3aca1c68f1e7beb178a54e7193abf55b232edd87f",
+    "sha256": "2871b03131db716908bbc340f097ee6d70f11576fece6e93641097cc5144556d",
     "triangles": 5688,
     "texture_edge": 512,
     "identities": [
@@ -6767,7 +6767,7 @@
     ]
   },
   "entities/skeleton/model/collection_skeleton.glb": {
-    "sha256": "6b2fbf90c18bc4cfd96888e071090cc1b8e1f620d979c2780e31827ba2a68511",
+    "sha256": "57158e52bc6444cc7fde0c7087b51c0a9da34d7e09b5d2971192fdc8fa9529fe",
     "triangles": 4650,
     "texture_edge": 256,
     "identities": [

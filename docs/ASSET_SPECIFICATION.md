@@ -978,6 +978,17 @@ normal runtime texture         256x 256 native
 
 ### 8.6 Replacing a model texture
 
+The November 2026 [NPC texture refresh](art-style/npc-textures-2026-11-03.md)
+uses each entity's `textures/surface_01.png` as the current fitted source. It
+re-embeds artwork without changing UVs or any non-image model data, including
+the collection skeleton's shared bone sheet. The cockroach now uses 128-square
+artwork at the same normalized UVs; the mannequin remains 1024-square,
+Spooner-Man 512-square, pumpkin-skeleton 512×256 and the other sheets
+256-square. All source PNGs are opaque; the existing glTF BLEND contracts for
+ghosts, their emission and the black-mannequin instance tint remain unchanged.
+Older delivered/named source PNGs are retained as history, not the current
+runtime artwork. Approved export hashes must match the newly built binaries.
+
 * **Uniform resize** (e.g. 128×128 → 256×256) keeps the layout and is safe.
   Keep the sheet square unless the model was authored otherwise.
 * **Do not re-pack the atlas.** Editing pixels in place is safe; moving
