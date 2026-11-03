@@ -21,7 +21,6 @@ jobs:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          lfs: true
           persist-credentials: false
       - name: Require source-only map checkout
         run: |

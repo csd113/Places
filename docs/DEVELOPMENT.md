@@ -33,6 +33,13 @@ Prop sheets stay beside their GLBs; logical `core:` and theme IDs are unchanged.
 
 ## Build from source
 
+Current branches keep source and assets in ordinary Git; compiled `.placesmap`
+outputs remain ignored. CI needs no LFS hydration. When opening a historical
+revision, prefix the command with `GIT_LFS_SKIP_SMUDGE=1`, for example
+`GIT_LFS_SKIP_SMUDGE=1 git switch --detach 0.8.0`. Use the same prefix when cloning
+an old revision. Only hydrate historical LFS packages when explicitly needed;
+keep skip behavior scoped to that command.
+
 `rust-toolchain.toml` pins exact Rust 1.99.1 with Clippy/rustfmt for reproducible
 CI and release builds. Cargo's `rust-version = "1.99"` declares the minimum
 supported Rust version (MSRV), not the build-toolchain pin.
