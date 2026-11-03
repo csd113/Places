@@ -130,7 +130,10 @@ def import_audio(authoring, cache, download):
     for clip in authoring["clips"]:
         path = AUDIO / relative_path(clip["file"])
         if sources[clip["source"]].get("archive") == "original":
-            from original import render
+            if clip["source"] == "places_original_elevator_0131":
+                from elevator import render
+            else:
+                from original import render
             original = encoded = render(clip["source_file"])
         else:
             original = source_bytes(sources[clip["source"]], clip, cache, download)

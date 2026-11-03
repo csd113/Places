@@ -66,6 +66,12 @@ pub fn append_world_labels_with_hint(
         && let Some(target) = game.interaction_target()
         && items.get(target).is_some()
     {
+        if let Some(item) = items
+            .get(target)
+            .filter(|item| item.id.starts_with("@elevator:"))
+        {
+            crate::game::ui::append_elevator_prompt(vertices, &item.prompt);
+        }
         crate::game::ui::append_interaction_hint(vertices, key);
     }
 }

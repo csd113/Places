@@ -599,14 +599,31 @@ impl FrameLoop<'_> {
             return;
         }
         self.refresh_interaction_target();
-        if self.game.take_interact_press() && self.window_focused {
-            self.dispatch_interaction();
-        }
         let allowed = self.game.app_state() == AppState::Playing
             && self.window_focused
             && !self.console.is_open()
             && self.load_intent.is_none()
             && !self.game.noclip_enabled();
+        let button_click = self.items.input.take_world_click(allowed)
+            && self.items.target.is_some_and(|target| match target {
+                InteractionTarget::World { index, distance: _ } => self
+                    .game
+                    .interactables()
+                    .get(index)
+                    .is_some_and(|item| item.id.starts_with("@elevator:")),
+                InteractionTarget::Item {
+                    key: _,
+                    distance: _,
+                }
+                | InteractionTarget::Activate {
+                    key: _,
+                    distance: _,
+                }
+                | InteractionTarget::Drop { key: _ } => false,
+            });
+        if (self.game.take_interact_press() || button_click) && self.window_focused {
+            self.dispatch_interaction();
+        }
         if let Some(key) = self.items.input.take_throw(allowed)
             && self.items.world.held() == Some(key)
         {

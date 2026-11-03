@@ -810,6 +810,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     {
         required.push("light-circuits-v1".to_string());
     }
+    if !level.elevators.is_empty() {
+        required.push("elevators-v1".into());
+    }
     if !level.transitions.is_empty() {
         required.push("project-transitions-v1".into());
     }

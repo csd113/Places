@@ -29,6 +29,8 @@ pub struct Snapshot {
     entities: Vec<EntityState>,
     bindings: Vec<(String, bool, f32)>,
     doors: Vec<crate::engine::door::Checkpoint>,
+    #[serde(default)]
+    elevators: Vec<crate::engine::elevator::Checkpoint>,
     timers: Vec<super::timers::Checkpoint>,
     routes: Vec<crate::engine::entity::RouteState>,
     poses: Vec<(String, crate::engine::entity::PoseCue)>,
@@ -163,6 +165,11 @@ impl EntityWorld {
                 })
                 .collect(),
             doors: self.doors.checkpoint(),
+            elevators: self
+                .elevators
+                .iter()
+                .map(crate::engine::elevator::Elevator::checkpoint)
+                .collect::<Result<_, _>>()?,
             timers: self.timers.checkpoint(),
             routes: self.route_states.clone(),
             poses: self.animation_overrides.clone(),
@@ -191,6 +198,12 @@ impl EntityWorld {
     /// Validates IDs, shape, declared state kinds and bounded data. Emits no events.
     pub fn restore_checkpoint(&mut self, snapshot: &Snapshot) -> Result<(), String> {
         number(snapshot.time, 10_000_000.0)?;
+        if snapshot.elevators.len() != self.elevators.len() {
+            return Err("Checkpoint elevator count mismatch".into());
+        }
+        for (elevator, record) in self.elevators.iter_mut().zip(&snapshot.elevators) {
+            elevator.restore(record)?;
+        }
         let entity_count_matches = snapshot.entities.len() == self.store.len();
         let route_count_matches = snapshot.routes.len() == self.route_states.len();
         if snapshot.time < 0.0

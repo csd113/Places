@@ -321,6 +321,7 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
         return Err("Animated solid mechanisms require animated-door-v1 capability".into());
     }
     for (required, capability) in [
+        (!level.elevators.is_empty(), "elevators-v1"),
         (
             level
                 .global_illuminators

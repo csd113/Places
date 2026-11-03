@@ -29,6 +29,7 @@ pub(super) enum Command {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Tool {
+    Elevator,
     Recess,
     Surround,
     RailPath,
@@ -93,6 +94,7 @@ const fn flag(path: &'static str, label: &'static str, default: &'static str) ->
 impl Tool {
     const fn title(self) -> &'static str {
         match self {
+            Self::Elevator => "Elevator / floor travel",
             Self::Recess => "Wall recess / TV niche",
             Self::Surround => "Door / window surround",
             Self::RailPath => "Railing / fence path",
@@ -119,6 +121,7 @@ impl Tool {
     }
     const fn collection(self) -> &'static str {
         match self {
+            Self::Elevator => "elevators",
             Self::Recess | Self::Surround => "openings",
             Self::Tunnel => "tunnels",
             Self::Column => "columns",
@@ -215,6 +218,7 @@ impl Tool {
                 fields
             }
             Self::Room => room_fields(),
+            Self::Elevator => elevator_fields(),
             Self::Route => vec![
                 text("/id", "Actor instance ID", ""),
                 flag("/loop", "Loop", "false"),
@@ -342,7 +346,8 @@ impl Tool {
                 flag("/bake", "Bake", "true"),
                 number("/angular_size_degrees", "Angular size degrees", "0.5"),
             ],
-            Self::Recess
+            Self::Elevator
+            | Self::Recess
             | Self::Surround
             | Self::RailPath
             | Self::Tunnel
@@ -879,7 +884,8 @@ impl App {
                 Tool::ArcWall => {
                     self.selected = Some(super::document::ObjectId::ArcWall(draft.index));
                 }
-                Tool::Recess
+                Tool::Elevator
+                | Tool::Recess
                 | Tool::Surround
                 | Tool::RailPath
                 | Tool::Tunnel
@@ -1186,4 +1192,21 @@ fn default_room(app: &App, doc: &super::document::Document) -> Value {
     serde_json::json!({"x":x,"z":anchor.map_or(0.0,|room|room.z),
                 "floor_y":anchor.map_or(0.0,|room|room.floor_y),"width":4.0_f32,"depth":anchor.map_or(4.0,|room|room.depth),
                 "height":anchor.map_or(2.7,|room|room.height)})
+}
+
+fn elevator_fields() -> Vec<Field> {
+    vec![
+        text("/id", "Unique elevator ID", "lift"),
+        number("/x", "Door centre X / world m", "0"),
+        number("/z", "Door centre Z / world m", "0"),
+        number("/rotation_degrees", "Yaw / cabin extends local +Z", "0"),
+        number("/initial_stop", "Initial landing / zero based", "0"),
+        number("/speed_mps", "Travel speed m/s (0.25..4)", "1.5"),
+        Field {
+            path: "/stops".into(),
+            label: "Stops: label, y, optional level",
+            kind: Kind::Json,
+            default: "[{\"label\":\"G\",\"y\":0},{\"label\":\"1\",\"y\":3.5}]",
+        },
+    ]
 }

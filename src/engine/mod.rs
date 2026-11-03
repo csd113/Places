@@ -13,6 +13,7 @@ pub mod collision;
 pub mod collision_index;
 pub(crate) mod diagnostics;
 pub mod door;
+pub mod elevator;
 pub mod entities;
 pub mod entity;
 pub mod environment;

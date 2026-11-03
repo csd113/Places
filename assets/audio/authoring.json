@@ -143,6 +143,17 @@
       "verified_date": "2026-10-25",
       "archive": "original",
       "recipe": "tools/audio/original.py; offline original synthesis; no sampled recordings"
+    },
+    {
+      "id": "places_original_elevator_0131",
+      "title": "Places elevator mechanism and arrival",
+      "author": "Places contributors",
+      "license": "MIT",
+      "license_url": "https://github.com/csd113/Places/blob/main/LICENSE",
+      "page_url": "https://github.com/csd113/Places",
+      "verified_date": "2026-11-03",
+      "archive": "original",
+      "recipe": "tools/audio/elevator.py; offline original synthesis; no sampled recordings"
     }
   ],
   "clips": [
@@ -500,6 +511,16 @@
       "source": "places_original_ambient_013",
       "source_file": "empty_room",
       "crossfade_seconds": 0.5
+    },
+    {
+      "file": "elevator_shaft/01.wav",
+      "source": "places_original_elevator_0131",
+      "source_file": "elevator_shaft"
+    },
+    {
+      "file": "elevator_arrive/01.wav",
+      "source": "places_original_elevator_0131",
+      "source_file": "elevator_arrive"
     }
   ]
 }

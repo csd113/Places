@@ -2682,3 +2682,14 @@ These are ordinary animated-prop catalog presets, using the existing prop-tint
 contract also used by the black mannequin and slate-blue towel. Their catalog
 size remains 0.086 x 0.12 x 0.033 m; the authored three-times placement scale
 makes the wall-mounted controls easy to see and aim at.
+
+## Passenger elevator surfaces (0.13.1)
+
+Elevator geometry is dimensioned in `engine/elevator.rs` and built beside hinged
+doors by `render/common/elevators.rs`. It introduces no image class or fitted
+atlas. The narrow frame uses `core:metal_brushed_01`; matte gray panels, cabin walls and
+dark inset geometry sample `home:baseboard_white_01` with geometry tint/shade;
+the deck samples `backrooms:carpet_cool_01`. These retain the existing square
+world-surface PNG, tiling and alpha contracts. The moving cabin and paired leaves
+use the existing dynamic-object path. Replacing those PNGs follows their existing
+surface contracts. See [elevator authoring](ELEVATORS.md) for fixed dimensions.

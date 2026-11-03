@@ -6,6 +6,7 @@ mod authoring_trace;
 mod carry_runtime;
 mod checkpoints;
 mod console_input;
+mod elevator_runtime;
 pub(super) mod flashlight;
 mod item_input;
 mod item_runtime;
@@ -725,6 +726,7 @@ struct FrameLoop<'a> {
     fatal_error: Option<String>,
     loader: loading::Loader,
     load_intent: Option<LoadIntent>,
+    elevator_arrival: Option<String>,
     pending_commit: Option<PendingCommit>,
     /// Active-world ownership is independent of the worker's bounded LRU.
     displayed_lease: Option<loading::PreparedLease>,
@@ -1036,7 +1038,7 @@ impl FrameLoop<'_> {
         // Door leaves follow the gameplay state: the drawn slab and the
         // physical collider read the same angle, so a door can never stop the
         // player where it is not drawn.
-        self.renderer.sync_doors(self.game.doors());
+        self.sync_mechanisms();
         // Fixture switches are gameplay state too: hand the renderer any state
         // that changed this frame (usually none) so it can re-light the
         // affected charts and scale the fixture's own face emission.
@@ -1407,9 +1409,15 @@ impl FrameLoop<'_> {
                             .iter()
                             .position(|entry| entry.path == path && entry.id == level)
                     {
+                        self.elevator_arrival = self
+                            .game
+                            .entities_mut()
+                            .take_elevator_departure()
+                            .map(|d| d.arrival);
                         self.load_level_at(index);
                         break;
                     }
+                    self.game.entities_mut().recover_elevators();
                     crate::engine::logging::warn(format!(
                         "Transition destination '{level}' is unavailable in this package"
                     ));
@@ -2208,8 +2216,8 @@ impl FrameLoop<'_> {
     /// next frame whenever it differs from the desired one.
     fn sync_mouse_capture(&mut self) {
         let desired = !self.console.is_open()
-            && self.load_intent.is_none()
-            && self.game.app_state() == AppState::Playing
+            && ((self.load_intent.is_none() && self.game.app_state() == AppState::Playing)
+                || self.renderer.transition_frozen())
             && self.window_focused;
         let captured = self.sdl.mouse().relative_mouse_mode(self.window);
         if !desired || !captured {
@@ -2253,6 +2261,7 @@ impl FrameLoop<'_> {
     /// viewport conversion. No desktop coordinates or hard-coded DPI factor.
     fn menu_hit(&self, x: f32, y: f32) -> Option<ui::MenuHit> {
         if !self.window_focused
+            || self.renderer.transition_frozen()
             || self.startup != StartupPhase::Ready
             || self.game.app_state() == AppState::Playing
         {
@@ -3315,6 +3324,8 @@ impl FrameLoop<'_> {
     }
 
     fn unload_world_for_menu(&mut self) {
+        self.renderer.end_transition();
+        self.elevator_arrival = None;
         self.retry_source = None;
         self.startup = StartupPhase::Preparing;
         self.track_retired_world();
@@ -3457,6 +3468,13 @@ impl FrameLoop<'_> {
         };
         match self.loader.request(request) {
             Ok(id) => {
+                if matches!(intent, LoadIntent::Play)
+                    && self.game.app_state() == AppState::Playing
+                    && self.current_level.is_some()
+                    && self.startup == StartupPhase::Ready
+                {
+                    self.renderer.freeze_transition();
+                }
                 self.renderer.set_lightmap_quality(lightmaps);
                 if self.load_intent.is_none() {
                     self.load_return_state = if matches!(intent, LoadIntent::Background) {
@@ -3489,6 +3507,9 @@ impl FrameLoop<'_> {
                 }
             }
             Err(error) => {
+                self.renderer.end_transition();
+                self.elevator_arrival = None;
+                self.game.entities_mut().recover_elevators();
                 self.ui_state.set_status(error, true);
                 // A request that cannot even be queued must not leave the
                 // startup screen gated with nothing being prepared: reveal the
@@ -3616,6 +3637,9 @@ impl FrameLoop<'_> {
         if matches!(self.load_intent, Some(LoadIntent::Graphics)) {
             return;
         }
+        self.renderer.end_transition();
+        self.elevator_arrival = None;
+        self.game.entities_mut().recover_elevators();
         self.loader.cancel();
         self.trace
             .record("cancel_disposal_begin", self.load_generation, "");
@@ -3816,6 +3840,10 @@ impl FrameLoop<'_> {
     /// remembered so the reconciliation does not retry it every frame. A
     /// failed *level* preparation still reveals the previous screen.
     fn recover_from_preparation_failure(&mut self, id: u64, error: &str) {
+        let interrupted_play = self.renderer.transition_frozen();
+        self.renderer.end_transition();
+        self.elevator_arrival = None;
+        self.game.entities_mut().recover_elevators();
         if let (Some(actions), Some(source)) = (&self.actions, &self.load_source)
             && let Err(notify_error) = actions.notify(&format!("failed:{}", source.level_id()))
         {
@@ -3850,6 +3878,18 @@ impl FrameLoop<'_> {
         } else {
             self.ui_state
                 .set_status(format!("Could not load level: {error}"), true);
+        }
+        if interrupted_play {
+            // The retained game has no error panel to dismiss. Its subtitle owns
+            // the notice; a menu-only error latch would freeze the old cabin.
+            self.ui_state.clear_status();
+            self.subtitles.push(
+                "LOAD FAILED".into(),
+                &[
+                    "The previous level was kept. Try the elevator again.".into(),
+                    error.into(),
+                ],
+            );
         }
         crate::engine::logging::warn(format!("Could not load map: {error}"));
         if self.startup != StartupPhase::Ready {
@@ -4058,6 +4098,14 @@ impl FrameLoop<'_> {
         drop(fields.insert("outcome".into(), serde_json::json!(self.outcome)));
         drop(fields.insert("guidance".into(), serde_json::json!(self.message)));
         drop(fields.insert("subtitles".into(), self.subtitles.snapshot()));
+        drop(fields.insert(
+            "elevators".into(),
+            crate::engine::elevator::diagnostic(self.game.entities().elevators()),
+        ));
+        drop(fields.insert(
+            "transition_frozen".into(),
+            self.renderer.transition_frozen().into(),
+        ));
         drop(fields.insert("loading_step".into(), self.ui_state.loading_step.into()));
     }
 
@@ -4241,6 +4289,7 @@ impl FrameLoop<'_> {
             self.console_runtime
                 .clear_given_props(self.renderer, &mut self.items.world);
         }
+        self.renderer.end_transition();
         self.close_console();
         let resuming_checkpoint = checkpoint.is_some();
         let mut install_timer = perf::loading::StageTimer::new("game-install");
@@ -4256,6 +4305,8 @@ impl FrameLoop<'_> {
             *self.spawn_pos = game::spawn_position(&loaded.level);
             *self.spawn_yaw = loaded.level.spawn.yaw_degrees.to_radians();
             self.install_resumed_game(resumed, collision);
+            self.elevator_arrival = None;
+            self.sync_mechanisms();
             self.game
                 .entities_mut()
                 .attach_campaign(self.campaign.attach(
@@ -4526,6 +4577,13 @@ impl FrameLoop<'_> {
         );
         let hand_start = self.ui_scratch.len();
         if item_hint {
+            if let Some(item_runtime::InteractionTarget::World { index, distance: _ }) =
+                self.items.target
+                && let Some(item) = self.game.interactables().get(index)
+                && item.id.starts_with("@elevator:")
+            {
+                ui::append_elevator_prompt(self.ui_scratch, &item.prompt);
+            }
             ui::append_interaction_hint(self.ui_scratch, &self.settings.bindings.interact);
         }
         if self.subtitles.active() {
@@ -4578,6 +4636,12 @@ impl FrameLoop<'_> {
             // carries the live status and the window stays responsive.
             let vertices = ui::loading_geometry(self.ui_state, APP_VERSION);
             self.renderer.render_ui(&vertices);
+            return;
+        }
+        if self.renderer.transition_frozen() {
+            self.ui_scratch.clear();
+            ui::append_transition_loading(self.ui_scratch);
+            self.renderer.render_ui(self.ui_scratch);
             return;
         }
         if self.render_guidance() {
@@ -5306,6 +5370,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         fatal_error: None,
         loader: started.loader,
         load_intent: None,
+        elevator_arrival: None,
         pending_commit: None,
         displayed_lease: None,
         retired_worlds: std::collections::VecDeque::new(),

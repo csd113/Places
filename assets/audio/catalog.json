@@ -350,6 +350,28 @@
       "spatial": true,
       "min_distance": 4,
       "max_distance": 18
+    },
+    {
+      "id": "elevator_shaft",
+      "files": [
+        "elevator_shaft/01.wav"
+      ],
+      "gain": 0.48,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.5,
+      "max_distance": 12.0
+    },
+    {
+      "id": "elevator_arrive",
+      "files": [
+        "elevator_arrive/01.wav"
+      ],
+      "gain": 0.42,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1.5,
+      "max_distance": 12.0
     }
   ]
 }

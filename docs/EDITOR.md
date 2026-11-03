@@ -1115,3 +1115,9 @@ Stop/Escape, focus loss, close, cancellation and failure discard temporary state
 Each entry creates a fresh simulation; persistent checkpoints and cross-level
 travel require testing the final exported project in the player. The Here sheet
 lists the remaining scope limits, and the runtime HUD labels approximate lighting.
+
+Passenger elevators are authored through **Space and Environment > Elevator /
+floor travel**. Preview/Apply/Undo operate on complete `elevators[]` records;
+`<`/`>` select existing records. The second page edits the stop list. Embedded
+Test supports local rides, doors and positional cues; cross-level destinations
+use Build+Play's complete project export. See [Elevators](ELEVATORS.md).

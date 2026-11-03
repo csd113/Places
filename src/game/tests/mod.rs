@@ -13,3 +13,5 @@ mod portal_movement;
 mod water;
 
 mod stair_traversal;
+
+mod elevators;

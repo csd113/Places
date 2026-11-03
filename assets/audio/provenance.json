@@ -141,6 +141,17 @@
       "verified_date": "2026-10-25",
       "archive": "original",
       "recipe": "tools/audio/original.py; offline original synthesis; no sampled recordings"
+    },
+    {
+      "id": "places_original_elevator_0131",
+      "title": "Places elevator mechanism and arrival",
+      "author": "Places contributors",
+      "license": "MIT",
+      "license_url": "https://github.com/csd113/Places/blob/main/LICENSE",
+      "page_url": "https://github.com/csd113/Places",
+      "verified_date": "2026-11-03",
+      "archive": "original",
+      "recipe": "tools/audio/elevator.py; offline original synthesis; no sampled recordings"
     }
   ],
   "files": [
@@ -870,6 +881,28 @@
       "source_file_sha256": "f13f2c0cf3181d12799cf2ee5014e9822ee348c07c4343ac64bd235dede08059",
       "sha256": "f13f2c0cf3181d12799cf2ee5014e9822ee348c07c4343ac64bd235dede08059",
       "frames": 1300950,
+      "sample_rate": 44100,
+      "channels": 1,
+      "sample_bits": 16
+    },
+    {
+      "file": "elevator_shaft/01.wav",
+      "source": "places_original_elevator_0131",
+      "source_file": "elevator_shaft",
+      "source_file_sha256": "f7b0fdb441e4170ca70a9488334f94795d3eb7cbc9380f0958e344fdb233d5bd",
+      "sha256": "f7b0fdb441e4170ca70a9488334f94795d3eb7cbc9380f0958e344fdb233d5bd",
+      "frames": 246960,
+      "sample_rate": 44100,
+      "channels": 1,
+      "sample_bits": 16
+    },
+    {
+      "file": "elevator_arrive/01.wav",
+      "source": "places_original_elevator_0131",
+      "source_file": "elevator_arrive",
+      "source_file_sha256": "2648a40cd0e1d75d1eaed3800cf89279675f62482b030467d57270fa25f37095",
+      "sha256": "2648a40cd0e1d75d1eaed3800cf89279675f62482b030467d57270fa25f37095",
+      "frames": 66150,
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16

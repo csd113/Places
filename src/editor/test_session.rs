@@ -184,7 +184,20 @@ impl Session {
                 "Throw blocked: move the item clear".into()
             };
         }
+        for (position, cue) in self.game.entities_mut().take_elevator_sounds() {
+            let _played = audio.play(
+                cue,
+                crate::engine::audio::PlayRequest {
+                    position: Some(position),
+                    spatial: Some(true),
+                    attenuation: Some([1.5, 12.0]),
+                    gain: 0.7,
+                    ..crate::engine::audio::PlayRequest::default()
+                },
+            );
+        }
         renderer.sync_doors(self.game.doors());
+        renderer.sync_elevators(self.game.entities().elevators());
         renderer.apply_light_toggles(&self.game.take_light_toggles());
         self.physics.step(&mut self.game, seconds, renderer);
         self.apply_commands(renderer, audio)?;

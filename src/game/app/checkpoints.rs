@@ -110,6 +110,9 @@ impl FrameLoop<'_> {
         &self,
         prepared: &mut loading::PreparedWorld,
     ) -> Result<(Option<Box<crate::game::Game>>, Option<Snapshot>), String> {
+        if self.elevator_arrival.is_some() {
+            return self.prepare_elevator_arrival(prepared);
+        }
         let Some((identity, snapshot)) = self.checkpoints.resume.as_ref() else {
             return Ok((None, None));
         };

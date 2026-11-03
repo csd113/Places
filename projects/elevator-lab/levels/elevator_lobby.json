@@ -1,0 +1,164 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "elevator_lobby",
+  "name": "Elevator Lobby",
+  "author": "Places",
+  "saving": true,
+  "transitions": [
+    "elevator_annex"
+  ],
+  "spawn": {
+    "x": 0,
+    "z": -2,
+    "yaw_degrees": 180
+  },
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "backrooms:carpet_cool_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": -3,
+      "z": -5,
+      "width": 6,
+      "depth": 5,
+      "floor_y": 0,
+      "height": 2.8
+    },
+    {
+      "x": -3,
+      "z": -5,
+      "width": 6,
+      "depth": 5,
+      "floor_y": 3.5,
+      "height": 2.8
+    }
+  ],
+  "walls": [
+    {
+      "x": -3.2,
+      "z": -5.2,
+      "y": 0,
+      "width": 6.4,
+      "depth": 0.2,
+      "height": 2.8
+    },
+    {
+      "x": -3.2,
+      "z": -5,
+      "y": 0,
+      "width": 0.2,
+      "depth": 5.2,
+      "height": 2.8
+    },
+    {
+      "x": 3,
+      "z": -5,
+      "y": 0,
+      "width": 0.2,
+      "depth": 5.2,
+      "height": 2.8
+    },
+    {
+      "x": -3,
+      "z": 0,
+      "y": 0,
+      "width": 6,
+      "depth": 0.2,
+      "height": 2.8,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.25,
+          "width": 1.5,
+          "height": 2.25,
+          "sill": 0
+        }
+      ]
+    },
+    {
+      "x": -3.2,
+      "z": -5.2,
+      "y": 3.5,
+      "width": 6.4,
+      "depth": 0.2,
+      "height": 2.8
+    },
+    {
+      "x": -3.2,
+      "z": -5,
+      "y": 3.5,
+      "width": 0.2,
+      "depth": 5.2,
+      "height": 2.8
+    },
+    {
+      "x": 3,
+      "z": -5,
+      "y": 3.5,
+      "width": 0.2,
+      "depth": 5.2,
+      "height": 2.8
+    },
+    {
+      "x": -3,
+      "z": 0,
+      "y": 3.5,
+      "width": 6,
+      "depth": 0.2,
+      "height": 2.8,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 2.25,
+          "width": 1.5,
+          "height": 2.25,
+          "sill": 0
+        }
+      ]
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "id": "lobby_0",
+      "fixture": "home:ceiling_light_round",
+      "x": 0,
+      "z": -2.2,
+      "y": 2.76,
+      "brightness": 1.1
+    },
+    {
+      "id": "lobby_3_5",
+      "fixture": "home:ceiling_light_round",
+      "x": 0,
+      "z": -2.2,
+      "y": 6.26,
+      "brightness": 1.1
+    }
+  ],
+  "elevators": [
+    {
+      "id": "lift",
+      "x": 0,
+      "z": 0,
+      "stops": [
+        {
+          "label": "G",
+          "y": 0
+        },
+        {
+          "label": "1",
+          "y": 3.5
+        },
+        {
+          "label": "Annex",
+          "y": 0,
+          "level": "elevator_annex",
+          "arrival_elevator": "lift"
+        }
+      ]
+    }
+  ]
+}

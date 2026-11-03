@@ -68,6 +68,7 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
     timing.step("prop-lights");
     let geometry = motion::Geometry::new(level);
     validate_doors(level, &geometry)?;
+    crate::engine::elevator::validate(level)?;
     timing.step("doors");
     validate_effects(level)?;
     timing.step("effects");

@@ -1322,3 +1322,34 @@ fn adjust_bloom(ui_state: &mut UiState, settings: &mut Settings) {
     let next = settings.toggle_bloom();
     ui_state.set_status(format!("Bloom {}", on_off(next).to_lowercase()), false);
 }
+
+/// Static Source-style transition card over the retained last gameplay image.
+pub fn append_transition_loading(vertices: &mut Vec<Vertex>) {
+    let label = "LOADING...";
+    let width = text_width(label, 1.0);
+    let left = (480.0 - width) * 0.5;
+    add_rect_rgba(
+        vertices,
+        left - 7.0,
+        125.0,
+        left + width + 7.0,
+        146.0,
+        [0.08, 0.08, 0.07, 0.94],
+    );
+    draw_text(vertices, label, left, 132.0, 1.0, [0.85, 0.84, 0.75]);
+}
+
+/// Destination feedback for the elevator control actually under the crosshair.
+pub fn append_elevator_prompt(vertices: &mut Vec<Vertex>, prompt: &str) {
+    let width = text_width(prompt, 1.0);
+    let left = (480.0 - width) * 0.5;
+    add_rect_rgba(
+        vertices,
+        left - 5.0,
+        232.0,
+        left + width + 5.0,
+        246.0,
+        [0.06, 0.07, 0.075, 0.9],
+    );
+    draw_text(vertices, prompt, left, 235.0, 1.0, [0.88, 0.88, 0.82]);
+}

@@ -6,6 +6,7 @@ pub struct CarryInput {
     left_down: bool,
     focus_guard: bool,
     pending: Option<u64>,
+    world_click: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -18,6 +19,7 @@ pub struct MouseContext {
 impl CarryInput {
     pub const fn invalidate(&mut self) {
         self.pending = None;
+        self.world_click = false;
         self.focus_guard = true;
     }
     pub const fn mouse_button(&mut self, pressed: bool, context: MouseContext) {
@@ -31,6 +33,7 @@ impl CarryInput {
         self.left_down = true;
         if context.gameplay && context.captured && !self.focus_guard {
             self.pending = context.held;
+            self.world_click = context.held.is_none();
         }
     }
 
@@ -38,8 +41,14 @@ impl CarryInput {
         self.left_down = left_down;
         self.focus_guard = true;
         self.pending = None;
+        self.world_click = false;
     }
 
+    pub const fn take_world_click(&mut self, gameplay: bool) -> bool {
+        let pressed = self.world_click;
+        self.world_click = false;
+        gameplay && pressed
+    }
     pub fn take_throw(&mut self, gameplay: bool) -> Option<u64> {
         self.focus_guard = false;
         let pending = self.pending.take();

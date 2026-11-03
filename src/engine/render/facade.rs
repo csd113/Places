@@ -589,6 +589,20 @@ impl Renderer {
     ///
     /// The drawn slab and the physical collider read the same door angle, so
     /// this is the one hand-off that keeps them in agreement.
+    pub fn sync_elevators(&mut self, elevators: &[crate::engine::elevator::Elevator]) {
+        self.renderer.sync_elevators(elevators);
+    }
+    pub fn freeze_transition(&mut self) {
+        self.renderer.freeze_transition();
+    }
+    pub fn end_transition(&mut self) {
+        self.renderer.end_transition();
+    }
+    #[must_use]
+    pub const fn transition_frozen(&self) -> bool {
+        self.renderer.transition_frozen()
+    }
+
     pub fn sync_doors(&mut self, doors: &crate::engine::door::Doors) {
         self.renderer.sync_doors(doors);
     }

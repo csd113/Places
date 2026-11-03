@@ -6670,6 +6670,18 @@ player and what is seen can never disagree. A resting leaf costs nothing; only a
 moving leaf is advanced. `reset_to_start` returns every door to its authored
 `initial_state`.
 
+### Passenger elevators (0.13.1)
+
+`elevators[]` authors a walkable passenger car, paired sliding cabin/landing
+leaves, hall call controls and cabin floor buttons. Local stops move through a
+clear side shaft; project stops load their declared destination after closure,
+arrive in a named cabin and open its doors. Editor Space and Environment includes
+an Elevator form. Checkpoints preserve settled stops; blocked doors reopen.
+See [the complete schema, dimensions and lab](ELEVATORS.md) before placement.
+In-game level loads retain the last game view beneath a static loading card;
+startup retains its separate preparation screen. Existing change-level bindings
+remain supported.
+
 ### Wiring doors and lights
 
 Doors are driven by the same typed action set as props and volumes (§29). A

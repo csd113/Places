@@ -324,6 +324,13 @@ impl CollisionWorld {
 pub fn spawn_position(level: &LevelDef) -> Vec3 {
     let floor_y = LevelSurfaces::new(level)
         .floor_y_at(level.spawn.x, level.spawn.z)
+        .or_else(|| {
+            level.elevators.iter().find_map(|def| {
+                let lift = crate::engine::elevator::Elevator::new(def);
+                lift.contains(Vec3::new(level.spawn.x, lift.y, level.spawn.z), 0.0)
+                    .then_some(lift.y)
+            })
+        })
         .unwrap_or(0.0);
     Vec3::new(level.spawn.x, floor_y + EYE_HEIGHT, level.spawn.z)
 }
@@ -622,6 +629,22 @@ impl Game {
         };
         game.world.update_entities(0.0, &routes, None);
         game
+    }
+
+    /// # Errors
+    /// Rejects a missing destination or an obstructed cabin before moving the player.
+    pub fn arrive_elevator(&mut self, id: &str) -> Result<(), String> {
+        let (feet, yaw) = self.world.arrive_elevator(id)?;
+        if !self.body_fits_for(feet, PLAYER_HEIGHT, PLAYER_RADIUS) {
+            return Err("Arrival cabin is obstructed".into());
+        }
+        self.set_benchmark_player_position(
+            Vec3::new(feet.x, feet.y + EYE_HEIGHT, feet.z),
+            yaw,
+            0.0,
+        );
+        self.refresh_ground_support();
+        Ok(())
     }
 
     /// The level's entity runtime.
@@ -1878,6 +1901,13 @@ impl Game {
             floor: &self.floor,
         };
         let _ = self.world.update_doors(&ctx);
+        let carried = self.world.update_elevators(&ctx);
+        if carried != 0.0 {
+            self.set_feet_y(self.feet_y + carried);
+            self.player_floor_y += carried;
+            self.vertical_velocity = 0.0;
+            self.grounded = true;
+        }
     }
 
     /// The collision world's boxes, for presentation-side occlusion tests.
@@ -2075,7 +2105,16 @@ impl Game {
             current_surface + CONTACT_EPS,
             &self.walls,
         );
-        let surface_y = match (support_floor, top) {
+        let cabin = crate::engine::elevator::cabin_support(
+            self.world.elevators(),
+            Vec2::new(x, z),
+            floor_ceiling,
+        );
+        let solid_support = match (top, cabin) {
+            (Some(a), Some(b)) => Some(a.max(b)),
+            (a, b) => a.or(b),
+        };
+        let surface_y = match (support_floor, solid_support) {
             (Some(floor_y), Some(prop_top)) if prop_top > floor_y => prop_top,
             (Some(floor_y), _) => floor_y,
             (None, Some(prop_top)) => prop_top,

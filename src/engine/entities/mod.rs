@@ -30,6 +30,7 @@ pub mod balloon;
 pub mod checkpoint;
 pub mod components;
 pub mod developer;
+mod elevators;
 pub mod events;
 pub mod id;
 mod light_power;
@@ -442,6 +443,9 @@ pub struct EntityWorld {
     components: ComponentTables,
     interactables: Interactables,
     doors: Doors,
+    elevators: Vec<crate::engine::elevator::Elevator>,
+    elevator_departure: Option<crate::engine::elevator::Departure>,
+    elevator_sounds: Vec<(Vec3, &'static str)>,
     animated_doors: Vec<crate::engine::animated_door::AnimatedDoor>,
     door_colliders: Vec<DoorCollider>,
     physics_actors: std::collections::BTreeMap<String, ragdoll::ActorController>,
@@ -575,6 +579,9 @@ impl EntityWorld {
             components: ComponentTables::new(),
             interactables: Interactables::new(),
             doors: Doors::default(),
+            elevators: Vec::new(),
+            elevator_departure: None,
+            elevator_sounds: Vec::new(),
             door_colliders: Vec::new(),
             animated_doors: Vec::new(),
             physics_actors: std::collections::BTreeMap::new(),
@@ -707,6 +714,7 @@ impl EntityWorld {
         self.animated_emissions
             .clone_from(&level.animated_emissions);
         self.doors = Doors::from_level(level);
+        self.resolve_elevators(level);
         self.animated_doors = crate::engine::animated_door::load(level).unwrap_or_else(|error| {
             warn_once("animated-door-load", error);
             Vec::new()
@@ -836,6 +844,7 @@ impl EntityWorld {
         }
         self.reset_audio();
         self.doors.reset();
+        self.reset_elevators();
         for door in &mut self.animated_doors {
             door.reset();
         }
@@ -1787,6 +1796,7 @@ impl EntityWorld {
             });
         }
         self.interactables = Interactables::with_items(items);
+        self.sync_elevator_controls();
         self.sync_animated_door_interactables();
     }
 
@@ -1873,6 +1883,7 @@ impl EntityWorld {
             });
         }
         self.interactables = Interactables::with_items(items);
+        self.sync_elevator_controls();
         self.sync_animated_door_interactables();
     }
 
@@ -1882,6 +1893,11 @@ impl EntityWorld {
             self.animated_doors
                 .iter()
                 .flat_map(|door| door.colliders().iter().copied()),
+        );
+        self.door_colliders.extend(
+            self.elevators
+                .iter()
+                .flat_map(crate::engine::elevator::Elevator::colliders),
         );
         self.sync_animated_door_interactables();
     }
@@ -2262,6 +2278,9 @@ impl EntityWorld {
     ) -> Option<DispatchReport> {
         let index = target?;
         let id = self.interactables.get(index)?.id.clone();
+        if let Some(report) = self.dispatch_elevator(&id, origin) {
+            return Some(report);
+        }
         let handle = self.handle_of(&id)?;
         let position = self
             .components

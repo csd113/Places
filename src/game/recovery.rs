@@ -114,7 +114,11 @@ impl Game {
     }
 
     pub(super) fn playable_feet(&self, feet: Vec3) -> bool {
-        self.playable_space.contains(feet, &self.water, &self.walls)
+        self.world
+            .elevators()
+            .iter()
+            .any(|e| e.contains(feet, -0.2))
+            || self.playable_space.contains(feet, &self.water, &self.walls)
     }
 
     pub(super) fn player_motion_is_finite(&self) -> bool {

@@ -701,6 +701,7 @@ pub struct WgpuRenderer {
     last_ui: Vec<Vertex>,
     /// The offscreen scene target, emissive pass, bloom blur and resolve.
     post: Option<PostProcess>,
+    frozen_transition: Option<super::postprocess::FrozenFrame>,
     /// The world pipeline set for the offscreen scene format (culling as the
     /// main pass).
     scene_pipeline: Option<WorldPipeline>,
@@ -813,6 +814,8 @@ pub struct WgpuRenderer {
     )>,
     /// The live dynamic objects one door draws: its static frame and its leaf.
     door_objects: Vec<DoorDraw>,
+    elevator_models: Vec<crate::engine::render::common::elevators::Models>,
+    elevator_objects: Vec<Vec<DynamicId>>,
     /// Every switchable fixture's runtime bindings: the baked light it drives
     /// and the material slot of its luminous face.
     switchable_lights: Vec<SwitchableLight>,
@@ -1225,6 +1228,7 @@ impl WgpuRenderer {
             ui_images: Vec::new(),
             last_ui: Vec::new(),
             post: None,
+            frozen_transition: None,
             scene_pipeline: None,
             emissive_pipeline: None,
             decal_scene_pipeline: None,
@@ -1278,6 +1282,8 @@ impl WgpuRenderer {
             effects_scene_pipeline: None,
             door_sources: Vec::new(),
             door_objects: Vec::new(),
+            elevator_models: Vec::new(),
+            elevator_objects: Vec::new(),
             switchable_lights: Vec::new(),
             prop_light_bindings: Vec::new(),
             lightmap_cpu: None,
@@ -2335,6 +2341,8 @@ impl WgpuRenderer {
         self.effects = EffectScene::new();
         self.prop_assets = crate::engine::props::PropAssets::load_default();
         self.runtime_objects.clear();
+        self.elevator_models.clear();
+        self.elevator_objects.clear();
         self.door_sources.clear();
         self.door_objects.clear();
         self.switchable_lights.clear();
@@ -2427,6 +2435,14 @@ impl WgpuRenderer {
         level: &crate::engine::level::LevelDef,
         materials: &crate::engine::materials::MaterialTable,
     ) {
+        self.elevator_models = level
+            .elevators
+            .iter()
+            .filter_map(|e| {
+                crate::engine::render::common::elevators::models(materials, e.stops.len())
+            })
+            .collect();
+        self.elevator_objects.clear();
         self.door_sources.clear();
         self.door_objects.clear();
         if level.doors.is_empty() {
@@ -2531,6 +2547,69 @@ impl WgpuRenderer {
             };
             let hinge = [door.def.x, door.base_y(), door.def.z];
             let _transform_changed = self.dynamic.set_transform(leaf, hinge, door.angle(), 1.0);
+        }
+    }
+
+    /// Publishes cabin and sliding-leaf transforms from authoritative gameplay poses.
+    pub fn sync_elevators(&mut self, elevators: &[crate::engine::elevator::Elevator]) {
+        let mut spawned = false;
+        for (index, elevator) in elevators.iter().enumerate() {
+            let Some(models) = self.elevator_models.get(index) else {
+                continue;
+            };
+            let parts = crate::engine::render::common::elevators::parts(elevator);
+            let existing = self.elevator_objects.get(index).filter(|ids| {
+                ids.len() == parts.len() && ids.iter().all(|id| self.dynamic.get(*id).is_some())
+            });
+            if let Some(ids) = existing {
+                for (id, (_, position)) in ids.iter().zip(&parts) {
+                    let _changed = self.dynamic.set_transform(*id, *position, 0.0, 1.0);
+                }
+            } else {
+                spawned = true;
+                if let Some(old) = self.elevator_objects.get_mut(index) {
+                    for id in old.drain(..) {
+                        let _removed = self.dynamic.despawn(id);
+                    }
+                }
+                let mut ids = Vec::new();
+                for (part, position) in &parts {
+                    let model = models.model(*part);
+                    let part_name = match part {
+                        crate::engine::render::common::elevators::Part::Cabin => "cabin",
+                        crate::engine::render::common::elevators::Part::Frame => "frame",
+                        crate::engine::render::common::elevators::Part::Leaf => "leaf",
+                    };
+                    let key = format!("elevator:{index}:{part_name}");
+                    if let Some(mesh) = self.dynamic.register_model(
+                        &key,
+                        model,
+                        models.textures.clone(),
+                        &crate::engine::render::common::elevators::Models::alphas(model),
+                    ) && let Some(id) = self.dynamic.spawn_registered(
+                        mesh,
+                        *position,
+                        SpawnOrientation {
+                            base_rotation: glam::Quat::from_rotation_y(
+                                elevator.def.rotation_degrees.to_radians(),
+                            ),
+                            spin_axis: [0.0, 1.0, 0.0],
+                        },
+                        0.0,
+                        1.0,
+                    ) {
+                        ids.push(id);
+                    }
+                }
+                if let Some(slot) = self.elevator_objects.get_mut(index) {
+                    *slot = ids;
+                } else {
+                    self.elevator_objects.push(ids);
+                }
+            }
+        }
+        if !elevators.is_empty() && (spawned || self.world_dynamic.is_none()) {
+            self.upload_dynamic();
         }
     }
 
@@ -4626,6 +4705,15 @@ impl WgpuRenderer {
         }
         mark("dynamic-sources");
         self.spawn_doors();
+        if level_changed {
+            let elevators: Vec<_> = loaded
+                .level
+                .elevators
+                .iter()
+                .map(crate::engine::elevator::Elevator::new)
+                .collect();
+            self.sync_elevators(&elevators);
+        }
         let _update_stats = self.refresh_dynamic_lighting(0.0);
         if let Some(lighting) = self.dynamic_lighting.as_ref() {
             self.characters.refresh_lighting_with_visibility(
@@ -5555,11 +5643,32 @@ impl WgpuRenderer {
     /// The camera is prepared by the renderer-neutral
     /// [`prepare_world_frame`]; the only coordinate decision made here is its
     /// one clip-space correction.
+    /// Retains exactly the last presented game view, independently of world uploads.
+    pub fn freeze_transition(&mut self) {
+        if self.frozen_transition.is_none() {
+            self.frozen_transition = self
+                .post
+                .as_ref()
+                .and_then(|post| post.freeze(&self.device, &self.queue));
+        }
+    }
+    pub fn end_transition(&mut self) {
+        self.frozen_transition = None;
+    }
+    #[must_use]
+    pub const fn transition_frozen(&self) -> bool {
+        self.frozen_transition.is_some()
+    }
+
     #[expect(
         clippy::too_many_lines,
         reason = "one cohesive frame submission: prepare, encode and present"
     )] // one cohesive frame submission: prepare, encode and present
     pub fn render_scene(&mut self, camera: RenderCamera) {
+        if self.frozen_transition.is_some() {
+            self.render_transition_frame();
+            return;
+        }
         let trace_started = render_trace_start(self.animation_seconds);
         // Per-frame submission counters: RenderStats and the bench CSV report
         // this frame's reflection captures, which is what the documented
@@ -6543,6 +6652,29 @@ impl WgpuRenderer {
         self.gpu_timer.finish_frame_submitted(&self.queue);
     }
 
+    fn render_transition_frame(&mut self) {
+        self.ensure_ready();
+        let _targets = self.ensure_post_targets();
+        if self.fatal.is_some() || self.needs_configure || self.drawable_size.is_empty() {
+            return;
+        }
+        self.gpu_timer.begin_frame(&self.queue);
+        let frame = match self.acquire_frame() {
+            Acquired::Frame(frame) => frame,
+            Acquired::Skip => return,
+        };
+        self.pending_frame = Some(frame);
+        if let (Some(post), Some(frozen)) = (&self.post, &self.frozen_transition) {
+            let mut encoder = self
+                .device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("places-frozen-transition"),
+                });
+            post.restore_frozen(&mut encoder, frozen);
+            let _submission = self.queue.submit([encoder.finish()]);
+        }
+    }
+
     /// The direct fallback path's UI: no presented target exists, so the HUD
     /// blends straight into the sRGB surface.
     fn render_ui_into_surface(&mut self, ui_vertices: &[Vertex]) {
@@ -7378,6 +7510,9 @@ impl WgpuRenderer {
         if self.startup_pipelines.is_some() {
             return self.capture_startup_frame();
         }
+        if self.frozen_transition.is_some() {
+            return self.capture_transition_frame();
+        }
         if let Ok(selector) = std::env::var("PLACES_ENTITY_LIGHT_TRACE") {
             self.trace_entity_lighting(&selector);
         }
@@ -7479,6 +7614,46 @@ impl WgpuRenderer {
         #[cfg(feature = "visual-diagnostics")]
         self.trace_gpu_resources("capture-finished");
         captured
+    }
+
+    fn capture_transition_frame(&self) -> Result<crate::engine::loader::RawImage, String> {
+        let post = self
+            .post
+            .as_ref()
+            .filter(|post| post.presented_view().is_some())
+            .ok_or("Frozen transition has no presented target")?;
+        let width = self.drawable_size.width.max(1);
+        let height = self.drawable_size.height.max(1);
+        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("places-transition-capture"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: PRESENTED_FORMAT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("places-copy-frozen-display"),
+            });
+        post.encode_present_raw_to(&mut encoder, &view);
+        let _submitted = self.queue.submit([encoder.finish()]);
+        read_back_rgba(
+            &self.device,
+            &self.queue,
+            &texture,
+            width,
+            height,
+            PRESENTED_FORMAT,
+        )
     }
 
     fn replay_capture_ui(

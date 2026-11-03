@@ -283,7 +283,7 @@ fn face_shade(normal: Vec3) -> f32 {
 /// How one appended run is painted: the material slot it samples, that
 /// material's tiling period and the surface's own shade multiplier.
 #[derive(Clone, Copy, Debug, PartialEq)]
-struct Paint {
+pub(super) struct Paint {
     slot: u16,
     tile: f32,
     shade: f32,
@@ -291,14 +291,14 @@ struct Paint {
 
 impl Paint {
     /// The paint of one part at `shade` times the face's orientation term.
-    const fn new(slot: u16, tile: f32, shade: f32) -> Self {
+    pub(super) const fn new(slot: u16, tile: f32, shade: f32) -> Self {
         Self { slot, tile, shade }
     }
 }
 
 /// An accumulating vertex/index pair, split into material slots.
 #[derive(Default)]
-struct MeshBuilder {
+pub(super) struct MeshBuilder {
     vertices: Vec<PropVertex>,
     indices: Vec<u16>,
     /// `(slot, first index, index count)` for every appended run, in order.
@@ -350,7 +350,7 @@ impl MeshBuilder {
 
     /// Appends an axis-aligned box as six quads in slot `slot`.
     // fixed, bounded dimensions
-    fn push_box(&mut self, min: [f32; 3], max: [f32; 3], paint: Paint) {
+    pub(super) fn push_box(&mut self, min: [f32; 3], max: [f32; 3], paint: Paint) {
         let [x0, y0, z0] = min;
         let [x1, y1, z1] = max;
         if x1 <= x0 || y1 <= y0 || z1 <= z0 {
@@ -550,7 +550,7 @@ impl MeshBuilder {
     /// faces are one draw and the handle chain is one more. Each submesh's
     /// `texture` is its slot index into the shared texture list.
     // bounded index counts
-    fn into_model(self) -> Option<PropModel> {
+    pub(super) fn into_model(self) -> Option<PropModel> {
         if self.indices.is_empty() || self.vertices.is_empty() {
             return None;
         }

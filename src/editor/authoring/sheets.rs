@@ -149,6 +149,7 @@ fn draw_form_navigation(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mu
 fn draw_hub(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     ui::text(v, "SPACE AND ENVIRONMENT", 126.0, 50.0, ui::INK, 80);
     for (index, tool) in [
+        Tool::Elevator,
         Tool::Ramp,
         Tool::Stairs,
         Tool::Rail,
@@ -355,7 +356,9 @@ fn draw_wall_selection(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut
 }
 
 fn form_hint(tool: Tool) -> &'static str {
-    if matches!(tool, Tool::GlobalPatch | Tool::GlobalRegion) {
+    if tool == Tool::Elevator {
+        "Clear side shaft 2.6 x 2.5 m; matching hall openings. More > stops."
+    } else if matches!(tool, Tool::GlobalPatch | Tool::GlobalRegion) {
         "GLOBAL: affects ALL overlapping storeys."
     } else if matches!(
         tool,

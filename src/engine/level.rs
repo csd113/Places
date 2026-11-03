@@ -7432,6 +7432,8 @@ const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub elevators: Vec<crate::engine::elevator::ElevatorDef>,
     /// Standalone distributable release; owning projects supply their own version.
     #[serde(default)]
     pub package_version: crate::engine::package::release::ReleaseVersion,

@@ -77,7 +77,8 @@ pub(super) fn fields(tool: Tool) -> Vec<Field> {
             number("/y", "World base Y / blank = follow floor", ""),
             number("/rise", "Section rise / blank = follow floor", ""),
         ],
-        Tool::Column
+        Tool::Elevator
+        | Tool::Column
         | Tool::Pillar
         | Tool::ArcWall
         | Tool::WallTrim
@@ -108,7 +109,8 @@ pub(super) fn owner(app: &App, tool: Tool) -> Result<Option<usize>, String> {
             Some(ObjectId::Room(i)) => Ok(Some(i)),
             _ => Err("Select the room floor for both tunnel endpoints first".into()),
         },
-        Tool::RailPath
+        Tool::Elevator
+        | Tool::RailPath
         | Tool::Column
         | Tool::Pillar
         | Tool::ArcWall

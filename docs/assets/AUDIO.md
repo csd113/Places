@@ -5,16 +5,17 @@ visual `assets/catalog.json`: maps name sound cue IDs, and sound cues name real
 WAV files under `assets/audio/`. Every shipped WAV is mono, 44,100 Hz, signed
 16-bit PCM. No microphone input or runtime sound synthesis is involved.
 
-The library has **25 cues / 63 WAV files / 5,519,032 bytes** (5.26 MiB). Its
-decoded stereo float allocation estimate is **21.04 MiB**, below the runtime's
-64 MiB library limit. One-shots range from 0.103 to 1.413 seconds. The longest
-loop is 26 seconds. Mono ambient recordings deliberately play without positional
+The library has **30 cues / 68 WAV files / 11,481,572 bytes** (10.95 MiB). Its
+decoded stereo float allocation estimate is **43.79 MiB**, below the runtime's
+64 MiB library limit. The elevator shaft one-shot lasts 5.6 seconds; ordinary impact/switch cues remain
+short. Original interior ambience includes a 29.5-second loop. Mono ambient recordings deliberately play without positional
 panning; per-cue and per-emitter gains keep the backgrounds quiet.
 
 ## Sources and redistribution
 
-Every selected source explicitly declares **CC0-1.0** on its linked primary
-page. These declarations were checked on October 16, 2026. CC0's legal reference
+Imported recordings explicitly declare **CC0-1.0** on their linked primary
+pages. Original Places interior ambience and elevator cues are MIT-licensed
+offline synthesis, with recipes retained under `tools/audio/`. These declarations were checked on October 16, 2026. CC0's legal reference
 is [Creative Commons Zero 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 The original Kenney notice wording is retained under `assets/audio/licenses/`,
 with line endings and trailing whitespace normalized for the repository.
@@ -187,3 +188,9 @@ Gain and Stop preview share the existing source/mixer lifecycle. Persistent
 already cover active and future gameplay sounds, effects and ambience. Zero is
 silent without discarding loops. The following menu stage should reuse that
 setter and normal settings persistence rather than introduce another master bus.
+
+The `elevator_shaft` and `elevator_arrive` positional cues are original committed
+WAVs rendered offline by `tools/audio/elevator.py`. Their exact output hashes,
+PCM format and recipes are tracked in the ordinary authoring/provenance records.
+Lift runtime uses 1.5 m near / 12 m far attenuation and occasional shaft passes;
+see [passenger elevators](../ELEVATORS.md).

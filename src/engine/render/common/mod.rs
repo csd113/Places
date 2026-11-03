@@ -24,6 +24,7 @@ pub mod dynamic;
 pub mod dynamic_lights;
 pub mod dynamic_visibility;
 pub mod effects;
+pub mod elevators;
 pub mod fixtures;
 pub mod framebuffer;
 pub mod geometry;

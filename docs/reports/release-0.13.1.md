@@ -4590,3 +4590,76 @@ disposable accepted projects are retained outside target under
 directories. Exploratory recipes and their failures are retained separately from
 accepted results. Final publication and target-cleanup receipts accompany the
 private handoff. No main merge, release or version bump was performed.
+
+## Passenger elevators and frozen level transitions, 2026-11-03
+
+Elevators now provide walk-in cabins, eased centre-opening doors, hall calls,
+individual cabin destinations, smooth physical travel between local floors,
+and button-triggered project-level loading. Locked landing doors remain closed
+when the car is elsewhere; an occupied threshold reverses a closing departure.
+The supplied hallway photo informed the matte gray panels, narrow brushed-metal
+surround, recessed header and call plate. Existing file-backed materials supply
+all surfaces. Original offline-authored shaft-movement and arrival WAVs use the
+ordinary positional effects path and volume controls.
+
+In-game transitions retain the exact last presented game frame with a static
+`LOADING...` card while the same window continues pumping events. Startup retains
+its normal presentation. Escape and failed destination preparation keep the old
+world and reopen a waiting cabin. Native failure injection caught an existing
+menu error latch that prevented the retained game from advancing; the in-game
+failure now reports through subtitles and resumes simulation. A destination
+candidate must contain the named elevator and a clear arrival pose before it
+can replace the old world.
+
+The native editor exposes **Space and Environment > Elevator / floor travel**
+with Preview, Apply, Undo, record navigation, deletion and stop-list editing.
+`elevators-v1` declares package compatibility; settled landing/door state survives
+checkpoints. Seven small CPU regressions protect real walking collision, carried
+floor travel at 30/120 Hz, doorway safety, single-shot departures, save refusal
+and reconstruction, and shaft/spawn admission. No default test bakes maps.
+
+### Apple Silicon native acceptance
+
+The direct release executable, without a Mac app wrapper, passed the four-case
+[`tools/bench/elevators.py`](../../tools/bench/elevators.py) campaign using fresh
+isolated state and the small [`elevator-lab`](../../projects/elevator-lab) project.
+The release game SHA-256 is
+`51482ccb483162fc750b3d42f91115eeb559ab0adaf8a9ddcfdb729af97fcce5`.
+
+- Actual mouse clicks and forward walking entered the open cabin; its controller
+  reached the 3.5 m landing with eye Y=5.1 m. Save/resume retained that position
+  and the open upper landing. Annex arrival placed the player inside its cabin;
+  the return button reached the lobby cabin and opened its doors.
+- Loading captures 180 ms apart were pixel-identical. Resize changed the retained
+  framebuffer from 1920x1280 to 2000x1400; a live checkpoint still recorded the
+  frozen transition and previous level. The window remained responsive.
+- Escape and removal of only the disposable fixture package both returned to
+  `Playing`, with the old level retained, no frozen transition and doors fully open.
+- Native spatial shaft gain fell from 0.2016 near the lift to 0.02768 at eight
+  metres and returned to 0.2016 on approach. The output device was enabled, frames
+  advanced, and audio reported zero errors or dropped voices.
+- Native editor verification exercised the real form, stop page, Preview, Apply
+  and Undo. Apply changed speed to 1.7 m/s; Undo restored the original unmodified
+  source. The project was not saved by this acceptance run.
+
+Strict workspace/all-target/all-feature Clippy, formatting, the locked release
+workspace/all-feature build, 429 Rust tests and 373 Python source tests pass
+(three expected source skips). Asset validation checked 680 assets with no
+warnings; texture and prop checks retained their existing advisories. Audio
+provenance/integrity passes for 30 cues and 68 WAVs. Both project levels verify
+as current and integrity-valid with no lighting bake required. V-sync was enabled;
+these are functional checks with no uncapped performance claim.
+
+Raw traces, captures, compiler receipts and runnable executables remain under
+`local/elevator-validation/`, outside `target/`. The fixture is outside the release
+map inventory; existing authored map placements and ordinary level-transition
+bindings remain intact. New map routes can use elevators as their normal loading
+boundary. Cross-level travel follows the existing fresh-state contract; it does
+not transport items or NPCs, and AI does not navigate lift shafts. See the full
+[authoring and validation guide](../ELEVATORS.md).
+
+![Reference-style elevator in the native game](../images/reports/elevators-2026-11-03/closed.png)
+
+![Static loading card over the retained game view](../images/reports/elevators-2026-11-03/loading.png)
+
+![Elevator authoring in the native editor](../images/reports/elevators-2026-11-03/editor.png)

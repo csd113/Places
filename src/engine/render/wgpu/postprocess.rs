@@ -490,10 +490,14 @@ struct PostTargets {
     present_bind: wgpu::BindGroup,
 }
 
+/// One display-space snapshot, kept alive through destination target replacement.
+pub struct FrozenFrame {
+    _texture: wgpu::Texture,
+    binding: wgpu::BindGroup,
+}
+
 /// The post-processing targets, pipelines and fullscreen quad.
-///
-/// Created once per renderer (`new`); the targets appear on the first
-/// [`PostProcess::ensure`] and are rebuilt only when their size changes.
+/// Created once; size-dependent targets are rebuilt by `ensure`.
 pub struct PostProcess {
     layouts: PostLayouts,
     pipelines: PostPipelines,
@@ -818,6 +822,40 @@ impl PostProcess {
                     timer,
                 );
             }
+        }
+    }
+
+    #[must_use]
+    pub fn freeze(&self, device: &wgpu::Device, queue: &wgpu::Queue) -> Option<FrozenFrame> {
+        let size = self.presented_size()?;
+        let (texture, view) = create_target_texture(
+            device,
+            "places-transition-snapshot",
+            size,
+            PRESENTED_FORMAT,
+            wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+        );
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("places-freeze-last-view"),
+        });
+        self.encode_present_raw_to(&mut encoder, &view);
+        let _submission = queue.submit([encoder.finish()]);
+        Some(FrozenFrame {
+            _texture: texture,
+            binding: self.present_bind(device, &view),
+        })
+    }
+    pub fn restore_frozen(&self, encoder: &mut wgpu::CommandEncoder, frozen: &FrozenFrame) {
+        if let Some(target) = self.presented_view() {
+            encode_fullscreen(
+                encoder,
+                "places-restore-last-view",
+                target,
+                &self.pipelines.present_raw,
+                &frozen.binding,
+                &self.quad_buffer,
+                None,
+            );
         }
     }
 

@@ -274,6 +274,18 @@ impl FrameLoop<'_> {
             }
             self.update_footsteps();
             self.update_door_sounds();
+            for (position, cue) in self.game.entities_mut().take_elevator_sounds() {
+                let _played = self.audio.system.play(
+                    cue,
+                    PlayRequest {
+                        position: Some(position),
+                        spatial: Some(true),
+                        attenuation: Some([1.5, 12.0]),
+                        gain: 0.7,
+                        ..PlayRequest::default()
+                    },
+                );
+            }
         } else {
             self.audio.last_feet = None;
             self.audio.distance = 0.0;
