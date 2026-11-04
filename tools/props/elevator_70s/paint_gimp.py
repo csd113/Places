@@ -1,0 +1,74 @@
+"""Explicit offline GIMP authoring: layered, fitted elevator material atlas."""
+from gi.repository import Gimp, Gegl, Gio
+from pathlib import Path
+import math, os, random
+ROOT=Path(os.environ['PLACES_ELEVATOR_ART'])
+S=1024; C=256
+roles=['walnut','wood_rail','linoleum','brushed_steel','charcoal','ceiling_cream','door_satin','aged_brass','warm_diffuser','indicator','button','rubber','walnut_light','linoleum_inset','vent','service_plate']
+colors=[(154,98,52),(124,73,34),(165,154,114),(168,173,168),(42,39,32),(216,205,170),(159,161,151),(185,145,77),(246,224,171),(27,27,21),(190,158,100),(50,43,31),(171,113,64),(147,143,108),(90,86,69),(215,198,147)]
+im=Gimp.Image.new(S,S,Gimp.ImageBaseType.RGB);im.undo_disable()
+Gimp.context_set_antialias(True);Gimp.context_set_feather(False)
+def color(c):return Gegl.Color.new('#%02x%02x%02x'%tuple(max(0,min(255,round(v)))for v in c))
+def layer(name):
+ global lay
+ lay=Gimp.Layer.new(im,name,S,S,Gimp.ImageType.RGBA_IMAGE,100,Gimp.LayerMode.NORMAL);im.insert_layer(lay,None,0)
+def rect(x,y,w,h,c):
+ im.select_rectangle(Gimp.ChannelOps.REPLACE,float(x),float(y),float(w),float(h));Gimp.context_set_foreground(color(c));lay.edit_fill(Gimp.FillType.FOREGROUND)
+def poly(points,c):
+ im.select_polygon(Gimp.ChannelOps.REPLACE,[float(v)for p in points for v in p]);Gimp.context_set_foreground(color(c));lay.edit_fill(Gimp.FillType.FOREGROUND)
+def line(a,b,c,w=1):
+ dx=b[0]-a[0];dy=b[1]-a[1];d=math.hypot(dx,dy)
+ if d:
+  xx=-dy/d*w/2;yy=dx/d*w/2;poly([(a[0]+xx,a[1]+yy),(b[0]+xx,b[1]+yy),(b[0]-xx,b[1]-yy),(a[0]-xx,a[1]-yy)],c)
+def ellipse(x,y,w,h,c):
+ im.select_ellipse(Gimp.ChannelOps.REPLACE,float(x),float(y),float(w),float(h));Gimp.context_set_foreground(color(c));lay.edit_fill(Gimp.FillType.FOREGROUND)
+layer('01 Material fields - neutral albedo, no baked lighting')
+for i,c in enumerate(colors):rect(i%4*C,i//4*C,C,C,c)
+layer('02 Walnut veneer - tapered long grain')
+rng=random.Random(1974)
+for role in ('walnut','wood_rail','walnut_light'):
+ i=roles.index(role);x=i%4*C;y=i//4*C;c=colors[i]
+ for k in range(100):
+  at=rng.uniform(8,248);phase=rng.uniform(0,6.28);width=rng.choice([.7,1,1.5,2.2]);delta=rng.choice([-24,-16,-9,7,12]);a=None
+  for yy in range(8,249,8):
+   xx=at+math.sin(yy/67+phase)*rng.uniform(1.5,3.0)+math.sin(yy/29+phase)*.8
+   b=(x+xx,y+yy)
+   if a:line(a,b,tuple(v+delta for v in c),width)
+   a=b
+ # Restrained elongated veneer cathedrals; no knots that read as painted lighting.
+ for xx,yy in [(77,108),(180,178)]:
+  for width in [9,17,26]:
+   points=[(x+xx+math.sin(t/28*math.pi)*width,y+yy-60+t*4)for t in range(29)]
+   for a,b in zip(points,points[1:]):line(a,b,tuple(v-15 for v in c),1)
+layer('03 Linoleum chips and restrained metal brushing')
+for i,role in enumerate(roles):
+ x=i%4*C;y=i//4*C;c=colors[i]
+ if role.startswith('linoleum'):
+  for k in range(700):
+   xx=x+rng.randrange(9,247);yy=y+rng.randrange(9,247);d=rng.choice([-25,-16,-8,10,19,27]);w=rng.randrange(1,5)
+   poly([(xx,yy),(xx+w,yy+1),(xx+w-1,yy+3),(xx-1,yy+2)],tuple(v+d for v in c))
+ if role in ('brushed_steel','door_satin','aged_brass'):
+  for k in range(170):
+   yy=y+rng.randrange(8,248);xx=x+rng.randrange(8,220);d=rng.choice([-8,-5,3,6]);line((xx,yy),(min(x+248,xx+rng.randrange(9,66)),yy),tuple(v+d for v in c),.6)
+layer('04 Fitted lamp prismatic glass, button and service details')
+i=8;x=i%4*C;y=i//4*C
+for n in range(16,246,12):
+ line((x+n,y+10),(x+n,y+246),(219,195,141),1.2)
+ line((x+10,y+n),(x+246,y+n),(233,208,153),1)
+i=9;x=i%4*C;y=i//4*C
+poly([(x+128,y+60),(x+82,y+128),(x+174,y+128)],(238,169,63));rect(x+112,y+139,32,47,(238,169,63))
+i=10;x=i%4*C;y=i//4*C
+ellipse(x+40,y+40,176,176,(78,65,43));ellipse(x+49,y+49,158,158,(205,174,108));ellipse(x+65,y+65,126,126,(226,211,169));ellipse(x+103,y+103,50,50,(159,126,68))
+i=14;x=i%4*C;y=i//4*C
+for n in range(35,228,18):rect(x+28,y+n,200,7,(35,33,26))
+i=15;x=i%4*C;y=i//4*C
+rect(x+14,y+14,228,228,(187,161,101))
+# Abstract etched service marks remain decoration, not fake controls or promises.
+for yy in [62,91,120,166,194]:rect(x+40,y+yy,176 if yy<130 else 124,4,(91,76,49))
+for xx in [28,228]:
+ for yy in [28,228]:ellipse(x+xx-3,y+yy-3,6,6,(89,78,52))
+Gimp.Selection.none(im)
+assert Gimp.file_save(Gimp.RunMode.NONINTERACTIVE,im,Gio.File.new_for_path(str(ROOT/'elevator_70s.xcf')))
+def png(path):
+ p=Gimp.get_pdb().lookup_procedure('file-png-export');cfg=p.create_config();cfg.set_property('run-mode',Gimp.RunMode.NONINTERACTIVE);cfg.set_property('image',im);cfg.set_property('file',Gio.File.new_for_path(str(path)));cfg.set_property('compression',9);cfg.set_property('include-color-profile',False);assert p.run(cfg).index(0)==Gimp.PDBStatusType.SUCCESS
+png(ROOT/'elevator_70s_master.png');im.scale(256,256);png(ROOT/'elevator_70s.png');im.delete();print('ELEVATOR_GIMP_COMPLETE',flush=True)

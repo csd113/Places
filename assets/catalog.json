@@ -12596,6 +12596,82 @@
         0.025
       ],
       "description": "Colored fountain control preset of the canonical animated wall switch; unchanged model, PNG, UVs, alpha, pivots and toggle clip."
+    },
+    {
+      "id": "core:elevator_cabin_70s",
+      "display_name": "Passenger elevator cabin",
+      "asset_class": "core",
+      "asset_type": "mechanism",
+      "source": "file",
+      "model": "shared/props/elevator_70s/elevator_cabin_70s.glb",
+      "size": [
+        2.56,
+        2.71,
+        2.64
+      ],
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "shared/props/elevator_70s/elevator_70s.blend"
+      },
+      "description": "Authored rigid component assembled by the Elevator authoring tool; collision and animation follow the passenger-lift definition."
+    },
+    {
+      "id": "core:elevator_frame_70s",
+      "display_name": "Passenger elevator surround",
+      "asset_class": "core",
+      "asset_type": "mechanism",
+      "source": "file",
+      "model": "shared/props/elevator_70s/elevator_frame_70s.glb",
+      "size": [
+        1.815,
+        2.574,
+        0.18
+      ],
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "shared/props/elevator_70s/elevator_70s.blend"
+      },
+      "description": "Authored rigid component assembled by the Elevator authoring tool; collision and animation follow the passenger-lift definition."
+    },
+    {
+      "id": "core:elevator_leaf_70s",
+      "display_name": "Passenger elevator door leaf",
+      "asset_class": "core",
+      "asset_type": "mechanism",
+      "source": "file",
+      "model": "shared/props/elevator_70s/elevator_leaf_70s.glb",
+      "size": [
+        0.672,
+        2.189,
+        0.045
+      ],
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "shared/props/elevator_70s/elevator_70s.blend"
+      },
+      "description": "Authored rigid component assembled by the Elevator authoring tool; collision and animation follow the passenger-lift definition."
+    },
+    {
+      "id": "core:elevator_button_70s",
+      "display_name": "Passenger elevator button",
+      "asset_class": "core",
+      "asset_type": "mechanism",
+      "source": "file",
+      "model": "shared/props/elevator_70s/elevator_button_70s.glb",
+      "size": [
+        0.15,
+        0.08,
+        0.034
+      ],
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "shared/props/elevator_70s/elevator_70s.blend"
+      },
+      "description": "Authored rigid component assembled by the Elevator authoring tool; collision and animation follow the passenger-lift definition."
     }
   ]
 }

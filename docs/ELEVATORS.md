@@ -7,13 +7,21 @@ Doors ease apart over 1.4 seconds. Car motion accelerates and decelerates smooth
 `speed_mps` bounds peak vertical speed. An occupied doorway reopens a closing pair
 and cancels that departure. Additional requests during a trip do not queue or reload.
 
-The visual reference is the supplied November 3 hallway photo: plain matte gray
-center-opening panels, narrow brushed-metal jambs, a recessed dark header, a small
-indicator housing and a compact hall plate. Interior geometry adds an off-white
-cabin, carpet deck, threshold grooves, handrail, ceiling diffuser and button panel.
-Every surface uses existing committed PNG material assets. No texture is generated
-at runtime. Buttons show the authored destination prompt when aimed at with the
-normal interaction key or a captured left click; the cabin panel has one button per stop in authored order.
+The exterior follows the supplied November 3 hallway photo: satin gray
+centre-opening panels, a narrow brushed-metal surround, dark header, amber
+indicator and compact hall call plate. The cabin now evokes a 1970s office lift:
+vertical walnut panels, dark reveals, softened wood rails on brass brackets,
+a muted speckled linoleum floor, cream ceiling and a warm prismatic diffuser.
+The four rigid GLB parts were authored in Blender and share a fitted GIMP PNG
+atlas; editable Blender/XCF sources remain beside them. No artwork is generated
+at runtime. The existing motion and collision poses still own every transform.
+Only the declared number of cabin buttons is assembled, and aiming shows the
+authored destination name. E or a captured left click activates that control.
+
+The diffuser has visual emission and one warm attached light that follows the
+car, including during physical floor travel. It uses the existing eight-source
+realtime light budget, after ordinary character glows; an exceptionally full
+light set can exhaust that budget. Wood rail collision matches the visible stock.
 
 ## Placement
 
@@ -126,3 +134,18 @@ The campaign asserts physical travel and return, upper-floor save/resume,
 pixel-identical loading frames, resize, cancellation, full door reopening after
 a failed load, and near/far sound attenuation. Native editor authoring can also
 use the editor's ordinary `--verify-script` control/preview/apply/undo protocol.
+
+Capture actual closed/open/interior/control views explicitly with `--mode views`:
+
+```sh
+python3 tools/bench/elevators.py --binary target/release/places \
+  --package /tmp/elevator-lab.placesmap --out /tmp/elevator-views --mode views
+```
+
+[Editable art and rebuild instructions](../tools/props/elevator_70s/README.md)
+describe the retained GIMP and Blender sources and fitted UV layout.
+
+The native tool accepts `--lightmaps full` for a package explicitly prepared
+with `--variants static,full`; this is useful for checking the moving cabin
+practical alongside baked lighting on the small lab, without rebuilding the
+release-map inventory.

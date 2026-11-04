@@ -61,6 +61,7 @@ PACK_TEXTURE_MEMORY_MAX = 128 * 1024 * 1024
 
 # Asset types the toolkit can build: entities place through the same pipeline.
 PLACEABLE_TYPES = ("prop", "entity")
+MODEL_TYPES = (*PLACEABLE_TYPES, "mechanism")
 
 
 from pathlib import Path
@@ -76,11 +77,11 @@ def load_catalog() -> dict:
 
 
 def catalog_placeables(catalog: dict) -> List[dict]:
-    """The placeable (prop/entity) entries the toolkit builds and validates."""
+    """Audited render models, including internally assembled mechanisms."""
     return [
         entry
         for entry in catalog.get("assets", [])
-        if entry.get("asset_type") in PLACEABLE_TYPES
+        if entry.get("asset_type") in MODEL_TYPES
     ]
 
 

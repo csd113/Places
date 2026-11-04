@@ -2683,13 +2683,26 @@ contract also used by the black mannequin and slate-blue towel. Their catalog
 size remains 0.086 x 0.12 x 0.033 m; the authored three-times placement scale
 makes the wall-mounted controls easy to see and aim at.
 
-## Passenger elevator surfaces (0.13.1)
+## Passenger elevator fitted assets (0.13.1)
 
-Elevator geometry is dimensioned in `engine/elevator.rs` and built beside hinged
-doors by `render/common/elevators.rs`. It introduces no image class or fitted
-atlas. The narrow frame uses `core:metal_brushed_01`; matte gray panels, cabin walls and
-dark inset geometry sample `home:baseboard_white_01` with geometry tint/shade;
-the deck samples `backrooms:carpet_cool_01`. These retain the existing square
-world-surface PNG, tiling and alpha contracts. The moving cabin and paired leaves
-use the existing dynamic-object path. Replacing those PNGs follows their existing
-surface contracts. See [elevator authoring](ELEVATORS.md) for fixed dimensions.
+Elevators use four authored, opaque, rigid GLBs under `shared/props/elevator_70s/`:
+cabin, frame, sliding leaf and repeatable passenger button. Each embeds the same
+GIMP-authored 256-square PNG; a layered XCF and 1024-square master retain editable
+art. The 4x4 fitted atlas has inset UV cells in the documented role order from
+`tools/props/elevator_70s/paint_gimp.py`; it never tiles. Walnut grain runs upright
+on wall panels, wood handrails use their own grain cell, and linoleum has muted
+chips rather than baked shadows. The warm diffuser alone has visual emission.
+
+The catalog's `mechanism` type identifies internally assembled model resources,
+not standalone props. The prop audit validates their ordinary GLB, native atlas,
+UV and geometry budgets; editor prop placement excludes them. Their Blender
+source is `elevator_70s.blend`. All four GLBs are explicit package dependencies.
+They use +Y up and metre units. Component origins deliberately remain at the
+cabin threshold, matching the existing authored lift coordinates; a leaf starts
+at its left edge, and the button module is at the first control's local anchor.
+The runtime only repeats that authored button for the declared stops and applies
+existing authoritative cabin/door transforms. Waist-height wood rails have
+matching collision stock. A bounded warm attached light follows the car through
+all floors; the existing eight-source realtime-light budget still applies.
+
+See [elevator authoring](ELEVATORS.md) for fixed dimensions and clear shafts.

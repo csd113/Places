@@ -69,7 +69,7 @@ GENERATED_CAPACITY_FIXTURES = ("capacity_beyond_former_limits.json",)
 # Architectural classification: adding a class is deliberate (it changes what
 # tooling understands), while themes are pure data and extend freely.
 KNOWN_CLASSES = {"environment", "entity", "core", "diagnostic"}
-KNOWN_TYPES = {"prop", "material", "texture", "light", "decal", "entity"}
+KNOWN_TYPES = {"prop", "material", "texture", "light", "decal", "entity", "mechanism"}
 PLACEABLE_TYPES = {"prop", "entity"}
 BUILTIN_THEMES = {"office", "pool"}
 

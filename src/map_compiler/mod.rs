@@ -2143,6 +2143,16 @@ fn collect_dependencies(
             add(DependencyKind::Model, &model)?;
         }
     }
+    if !level.elevators.is_empty() {
+        for id in crate::engine::elevator::MODEL_IDS {
+            let path = catalog
+                .assets()
+                .get(id)
+                .and_then(|entry| entry.model.as_deref())
+                .ok_or_else(|| format!("Missing elevator model {id}"))?;
+            add(DependencyKind::Model, path)?;
+        }
+    }
     for path in appearance_texture_paths(level, catalog, asset_root)? {
         add(DependencyKind::Texture, &path)?;
     }

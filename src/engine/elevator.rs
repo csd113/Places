@@ -14,11 +14,12 @@ pub const DOOR_HEIGHT: f32 = 2.2;
 // Both pairs slide inside the authored 0..0.2 m landing wall, not across its hall face.
 pub const CABIN_DOOR_Z: f32 = 0.07;
 pub const LANDING_DOOR_Z: f32 = 0.15;
-pub const MATERIALS: [&str; 4] = [
-    "core:metal_brushed_01",
-    "home:baseboard_white_01",
-    "home:baseboard_white_01",
-    "backrooms:carpet_cool_01",
+/// Authored rigid components; the catalog keeps paths out of level definitions.
+pub const MODEL_IDS: [&str; 4] = [
+    "core:elevator_cabin_70s",
+    "core:elevator_frame_70s",
+    "core:elevator_leaf_70s",
+    "core:elevator_button_70s",
 ];
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -319,9 +320,12 @@ impl Elevator {
             self.box_collider([-1.28, 0.0, 0.0], [-1.2, HEIGHT, 2.48]),
             self.box_collider([1.2, 0.0, 0.0], [1.28, HEIGHT, 2.48]),
             self.box_collider([-1.2, 0.0, 2.4], [1.2, HEIGHT, 2.48]),
-            self.box_collider([-1.2, 0.0, 0.02], [-0.675, HEIGHT, 0.14]),
-            self.box_collider([0.675, 0.0, 0.02], [1.2, HEIGHT, 0.14]),
-            self.box_collider([-0.675, DOOR_HEIGHT, 0.02], [0.675, HEIGHT, 0.14]),
+            self.box_collider([-1.2, 0.0, 0.02], [-0.675, HEIGHT, 0.26]),
+            self.box_collider([0.675, 0.0, 0.02], [1.2, HEIGHT, 0.26]),
+            self.box_collider([-0.675, DOOR_HEIGHT, 0.02], [0.675, HEIGHT, 0.26]),
+            self.box_collider([-1.14, 0.95, 0.55], [-1.06, 1.03, 2.25]),
+            self.box_collider([1.06, 0.95, 0.55], [1.14, 1.03, 2.25]),
+            self.box_collider([-1.11, 0.95, 2.26], [1.11, 1.03, 2.34]),
         ];
         for side in [-1.0, 1.0] {
             boxes.push(self.leaf(self.y, side, CABIN_DOOR_Z, self.opening));
@@ -365,7 +369,7 @@ impl Elevator {
             controls.push(self.control(
                 i,
                 true,
-                [0.94, row.mul_add(-0.11, self.y + 1.58), 0.18],
+                [0.94, row.mul_add(-0.11, self.y + 1.58), 0.30],
                 &format!("Floor {}", stop.label),
             ));
             if stop.level.is_none() {

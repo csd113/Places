@@ -4676,3 +4676,58 @@ fixture re-export. No production map was baked. Fresh direct-binary closed, open
 and interior captures remain in `local/elevator-validation/screenshot-deliverables-final/`;
 the matching game SHA-256 is
 `0cdd9ff5f6c3dc9d837cdbc029f103ed6a06a873f2e886cbb358f46cb04305db`.
+
+## 1970s passenger elevator artwork, 2026-11-04
+
+The elevator now uses original offline-authored Blender 5.2.3 models and a
+layered GIMP 3.2.6 atlas. Its walnut paneling, dark reveals, softened wood rails
+on brass brackets, muted speckled linoleum tiles, cream ceiling and prismatic
+warm diffuser evoke a 1970s office lift. The supplied exterior reference remains
+the basis for satin gray sliding panels and a narrow metal surround. Editable
+Blender/XCF sources, a 1024-square master and the ordinary 256-square runtime PNG
+remain under `assets/shared/props/elevator_70s/`; no artwork is generated at runtime.
+
+Four catalog `mechanism` resources provide cabin, frame, leaf and button stock.
+They remain outside standalone prop placement and receive the ordinary model
+budget/UV/PNG checks. The body has 952 triangles, frame 300, leaf 44 and button
+68; even eight buttons keep the assembled body below 1,500 triangles. The fitted
+atlas is shared. Only declared passenger buttons are assembled. All four model
+identities are package dependencies. The retained Blender recipe reproduces all
+four accepted GLBs byte for byte. Runtime exports omit XCF authoring documents.
+
+Wood rails have matching waist-height collision. The inner wood lining, panel
+and interaction anchors sit clear of the hall wall. Existing authoritative door
+and car transforms still drive rendering/collision, while a warm attached light
+follows the car through local floor travel. It uses the existing eight-source
+realtime budget after character glows; source saturation retains that bound.
+The diffuser supplies visual emission separately from illumination.
+
+Strict workspace/all-target/all-feature Clippy, formatting, the locked release
+workspace/all-feature build, 429 Rust tests and 373 Python source tests pass
+(three expected skips). The focused package source suite also passes 50 tests;
+its intentional duplicate-ID negative diagnostic follows the successful summary.
+Asset validation reports 684 assets with zero warnings; the 424-model audit and
+149-texture check pass, retaining 118 existing texture advisories. No new test or
+ordinary CI operation bakes a production map.
+
+Direct optimized-binary acceptance passes the full four-case elevator campaign:
+mouse/keyboard controls, walking and door collision, floor transport, upstairs
+save/resume, Annex arrival and return, pixel-identical frozen loading, resize,
+cancel/failure reopening and spatial sound. Closed/open/interior/control captures
+were visually inspected at 2400x1600. Full-lighting views and a complete Full
+travel/save/level-loading campaign pass too, with a resident lightmap page and
+warm car illumination at both landings. One earlier Full travel attempt has no
+completion receipt and is excluded; the accepted repeat and its receipts are
+kept separately. Native editor Preview, Apply and Undo pass without saving the
+project or changing its source. Both lab levels verify current and valid in the
+small explicit Static/Full package; shipped maps were not rebuilt.
+
+Raw evidence, real screenshots, package and runnable game/editor/compiler remain
+under `local/elevator-polish/`. The accepted game SHA-256 is
+`174bef9cebba59dfbe1a5db518e7183cbd522b2ec998fbdfb2c0c9e099e2157e`.
+V-sync was enabled; these are functional checks with no uncapped FPS claim.
+See the [authoring guide](../ELEVATORS.md) and
+[editable art workflow](../../tools/props/elevator_70s/README.md).
+
+The final full asset inventory reports 415 unique model files and zero errors;
+the new embedded atlas pixels match their committed standalone PNG source.

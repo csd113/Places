@@ -814,7 +814,8 @@ pub struct WgpuRenderer {
     )>,
     /// The live dynamic objects one door draws: its static frame and its leaf.
     door_objects: Vec<DoorDraw>,
-    elevator_models: Vec<crate::engine::render::common::elevators::Models>,
+    elevator_models: Vec<Option<crate::engine::render::common::elevators::Models>>,
+    elevator_lights: crate::engine::render::common::DynamicLightSet,
     elevator_objects: Vec<Vec<DynamicId>>,
     /// Every switchable fixture's runtime bindings: the baked light it drives
     /// and the material slot of its luminous face.
@@ -1283,6 +1284,7 @@ impl WgpuRenderer {
             door_sources: Vec::new(),
             door_objects: Vec::new(),
             elevator_models: Vec::new(),
+            elevator_lights: crate::engine::render::common::DynamicLightSet::new(),
             elevator_objects: Vec::new(),
             switchable_lights: Vec::new(),
             prop_light_bindings: Vec::new(),
@@ -2342,6 +2344,7 @@ impl WgpuRenderer {
         self.prop_assets = crate::engine::props::PropAssets::load_default();
         self.runtime_objects.clear();
         self.elevator_models.clear();
+        self.elevator_lights = crate::engine::render::common::DynamicLightSet::new();
         self.elevator_objects.clear();
         self.door_sources.clear();
         self.door_objects.clear();
@@ -2438,8 +2441,14 @@ impl WgpuRenderer {
         self.elevator_models = level
             .elevators
             .iter()
-            .filter_map(|e| {
-                crate::engine::render::common::elevators::models(materials, e.stops.len())
+            .map(|e| {
+                crate::engine::render::common::elevators::models(
+                    &self.prop_catalog,
+                    &mut self.prop_assets,
+                    e.stops.len(),
+                )
+                .map_err(|error| logging::warn(format!("[elevators] {}: {error}", e.id)))
+                .ok()
             })
             .collect();
         self.elevator_objects.clear();
@@ -2553,10 +2562,16 @@ impl WgpuRenderer {
     /// Publishes cabin and sliding-leaf transforms from authoritative gameplay poses.
     pub fn sync_elevators(&mut self, elevators: &[crate::engine::elevator::Elevator]) {
         let mut spawned = false;
+        self.elevator_lights = crate::engine::render::common::DynamicLightSet::new();
         for (index, elevator) in elevators.iter().enumerate() {
-            let Some(models) = self.elevator_models.get(index) else {
+            let Some(models) = self.elevator_models.get(index).and_then(Option::as_ref) else {
                 continue;
             };
+            let _accepted =
+                self.elevator_lights
+                    .insert(crate::engine::render::common::elevators::cabin_light(
+                        elevator,
+                    ));
             let parts = crate::engine::render::common::elevators::parts(elevator);
             let existing = self.elevator_objects.get(index).filter(|ids| {
                 ids.len() == parts.len() && ids.iter().all(|id| self.dynamic.get(*id).is_some())
@@ -2584,8 +2599,12 @@ impl WgpuRenderer {
                     if let Some(mesh) = self.dynamic.register_model(
                         &key,
                         model,
-                        models.textures.clone(),
-                        &crate::engine::render::common::elevators::Models::alphas(model),
+                        model.textures.clone(),
+                        &model
+                            .submeshes
+                            .iter()
+                            .map(|sub| sub.alpha)
+                            .collect::<Vec<_>>(),
                     ) && let Some(id) = self.dynamic.spawn_registered(
                         mesh,
                         *position,
@@ -5769,10 +5788,11 @@ impl WgpuRenderer {
             self.encode_flashlight_shadow(&mut encoder);
             let _submission = self.queue.submit([encoder.finish()]);
         }
-        let lights = DynamicLightsUniform::with_flashlight(
-            self.characters.dynamic_lights(),
-            self.flashlight,
-        );
+        let mut attached_lights = self.characters.dynamic_lights().clone();
+        for light in self.elevator_lights.lights() {
+            let _accepted = attached_lights.insert(light.clone());
+        }
+        let lights = DynamicLightsUniform::with_flashlight(&attached_lights, self.flashlight);
         if let Some(pipeline) = self.capture_pipeline.as_mut() {
             pipeline.update_light_uniform(&self.queue, &lights);
         }

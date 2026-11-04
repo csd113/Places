@@ -38,6 +38,25 @@ def actions(mode):
         add(delay, "mouse", after, button="left", pressed=True)
         add(delay + 70, "mouse", after, button="left", pressed=False)
 
+    if mode == "views":
+        add(100, "player", position=[0, 1.6, -2.65], yaw=180, pitch=0)
+        add(200, "view_at", position=[0, 1.15, 0])
+        add(350, "capture", name="elevator-closed")
+        add(550, "player", position=[-0.96, 1.6, -1], yaw=180, pitch=0)
+        add(650, "view_at", position=[-0.96, 1.08, -0.12])
+        click(750)
+        add(2350, "player", position=[0, 1.6, -2.65], yaw=180, pitch=0)
+        add(2450, "view_at", position=[0, 1.15, 1.0])
+        add(2600, "capture", name="elevator-open")
+        add(2850, "player", position=[0.75, 1.6, 0.45], yaw=180, pitch=0)
+        add(3000, "view_at", position=[-0.3, 1.4, 2.2])
+        add(3200, "capture", name="elevator-interior")
+        add(3400, "player", position=[-0.6, 1.6, 1.90], yaw=0, pitch=0)
+        add(3500, "view_at", position=[0.35, 1.25, 0.15])
+        add(3700, "capture", name="elevator-controls")
+        add(3900, "quit")
+        return steps
+
     if mode == "sound":
         add(100, "player", position=[0, 1.6, -0.8], yaw=180, pitch=0)
         add(8500, "checkpoint", name="near_sound")
@@ -62,7 +81,7 @@ def actions(mode):
     add(3250, "capture", name="inside")
 
     if mode == "flow":
-        add(3350, "view_at", position=[0.94, 1.47, 0.18])
+        add(3350, "view_at", position=[0.94, 1.47, 0.30])
         add(3400, "capture", name="floor_target")
         click(3500)
         add(5200, "capture", name="moving")
@@ -72,7 +91,7 @@ def actions(mode):
         add(12500, "resume_checkpoint")
         add(14800, "capture", name="upper_resumed")
         add(15000, "checkpoint", name="upper_resumed")
-        add(15100, "view_at", position=[0.94, 4.86, 0.18])
+        add(15100, "view_at", position=[0.94, 4.86, 0.30])
         click(15300)
         add(40, "capture", ANNEX_REQUEST, name="frozen_a")
         add(220, "capture", ANNEX_REQUEST, name="frozen_b")
@@ -80,14 +99,14 @@ def actions(mode):
         add(520, "capture", ANNEX_REQUEST, name="frozen_resized")
         add(700, "checkpoint", ANNEX_REQUEST, name="frozen_responsive")
         add(1800, "capture", ANNEX_READY, name="annex_arrival")
-        add(1900, "view_at", ANNEX_READY, position=[0.94, 1.47, 0.18])
+        add(1900, "view_at", ANNEX_READY, position=[0.94, 1.47, 0.30])
         click(2050, ANNEX_READY)
         add(7000, "capture", ANNEX_READY, name="return_lobby")
         add(7100, "checkpoint", ANNEX_READY, name="return_lobby")
         add(7500, "quit", ANNEX_READY)
         return steps
 
-    add(3350, "view_at", position=[0.94, 1.36, 0.18])
+    add(3350, "view_at", position=[0.94, 1.36, 0.30])
     click(3500)
     if mode == "cancel":
         add(40, "capture", ANNEX_REQUEST, name="frozen_before_cancel")
@@ -118,7 +137,13 @@ def assert_case(mode, state, rows):
     def snapshot(name):
         return next(json.loads(row["detail"]) for row in rows if row["event"] == name)
 
-    if mode in ("failure", "cancel"):
+    if mode == "views":
+        from PIL import Image
+
+        for name in ("closed", "open", "interior", "controls"):
+            with Image.open(state / f"elevator-{name}.png") as captured:
+                assert captured.width >= 1200 and captured.height >= 800
+    elif mode in ("failure", "cancel"):
         result = snapshot(f"checkpoint:{mode}_recovered")
         lift = result["elevators"][0]
         assert result["current_level_id"] == "elevator_lobby", result
@@ -159,7 +184,7 @@ def assert_case(mode, state, rows):
             assert result["audio"]["dropped"] == 0 and result["audio"]["output_frames"] > 0
 
 
-def run_case(binary, package_source, output, mode):
+def run_case(binary, package_source, output, mode, lightmaps="off"):
     out = output / mode
     out.mkdir()
     state = out / "state"
@@ -170,10 +195,12 @@ def run_case(binary, package_source, output, mode):
     settings = json.loads((ROOT / "tests/fixtures/native/hero-manifest.json").read_text())["settings"]
     settings.update(
         window_width=960, window_height=640, quality="high", texture_filtering="high",
-        lightmaps="off", reflections="off", bloom=False, vsync=True,
+        lightmaps=lightmaps, reflections="off", bloom=False, vsync=True,
         fov_degrees=65, walk_speed=2, ambient_volume=0,
         master_volume=0.75, effects_volume=0.8,
     )
+    if mode == "views":
+        settings.update(window_width=1200, window_height=800, fov_degrees=75)
     (state / "settings.json").write_text(json.dumps(settings))
     script = out / "actions.json"
     script.write_text(json.dumps(actions(mode), indent=2) + "\n")
@@ -214,7 +241,7 @@ def run_case(binary, package_source, output, mode):
             if removed:
                 unavailable.rename(package)
     receipt = {
-        "mode": mode, "binary": str(binary),
+        "mode": mode, "lightmaps": lightmaps, "binary": str(binary),
         "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
         "package_sha256": hashlib.sha256(package.read_bytes()).hexdigest(),
         "exit_code": proc.returncode, "wall_seconds": time.monotonic() - started,
@@ -235,7 +262,8 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True,
                         help="new evidence directory; existing output is refused")
-    parser.add_argument("--mode", choices=["all", "flow", "cancel", "failure", "sound"], default="all")
+    parser.add_argument("--mode", choices=["all", "flow", "cancel", "failure", "sound", "views"], default="all")
+    parser.add_argument("--lightmaps", choices=["off", "full"], default="off")
     args = parser.parse_args()
     binary = args.binary.resolve()
     package = args.package.resolve()
@@ -245,7 +273,7 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     modes = ["flow", "cancel", "failure", "sound"] if args.mode == "all" else [args.mode]
     for mode in modes:
-        run_case(binary, package, output, mode)
+        run_case(binary, package, output, mode, args.lightmaps)
 
 
 if __name__ == "__main__":

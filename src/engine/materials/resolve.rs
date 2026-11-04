@@ -380,11 +380,6 @@ pub fn referenced_material_ids(level: &LevelDef) -> Vec<String> {
     for volume in &level.water {
         push(volume.material_id());
     }
-    if !level.elevators.is_empty() {
-        for material in crate::engine::elevator::MATERIALS {
-            push(material);
-        }
-    }
     for door in &level.doors {
         let defaults = crate::engine::level::door_materials(door.kind);
         push(door.material.as_deref().unwrap_or(defaults.slab));

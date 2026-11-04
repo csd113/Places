@@ -1,13 +1,10 @@
-//! Compact center-opening lift geometry, using existing file-backed materials.
-use super::doors::{MeshBuilder, Paint};
+//! Authored passenger-lift meshes. Gameplay remains the only transform owner.
 use crate::engine::elevator::{
-    CABIN_DOOR_Z, DEPTH, DOOR_HEIGHT, DOOR_WIDTH, Elevator, HEIGHT, LANDING_DOOR_Z, MATERIALS,
-    Phase,
+    CABIN_DOOR_Z, DOOR_WIDTH, Elevator, LANDING_DOOR_Z, MODEL_IDS, Phase,
 };
-use crate::engine::gltf::PropModel;
-use crate::engine::loader::RawImage;
-use crate::engine::materials::{MaterialAlpha, MaterialTable};
-use std::sync::Arc;
+use crate::engine::gltf::{PropModel, PropSubmesh};
+use crate::engine::loader::PropCatalog;
+use crate::engine::props::PropAssets;
 
 #[derive(Clone, Copy)]
 pub enum Part {
@@ -19,7 +16,6 @@ pub struct Models {
     pub cabin: PropModel,
     pub frame: PropModel,
     pub leaf: PropModel,
-    pub textures: Vec<Arc<RawImage>>,
 }
 impl Models {
     #[must_use]
@@ -30,101 +26,130 @@ impl Models {
             Part::Leaf => &self.leaf,
         }
     }
-    #[must_use]
-    pub fn alphas(model: &PropModel) -> Vec<MaterialAlpha> {
-        vec![MaterialAlpha::default(); model.submeshes.len()]
-    }
 }
-#[must_use]
-pub fn models(materials: &MaterialTable, stops: usize) -> Option<Models> {
-    let textures = MATERIALS
-        .iter()
-        .map(|id| materials.entry_of(id)?.image.clone())
-        .collect::<Option<Vec<_>>>()?;
-    let metal = Paint::new(0, 2.0, 0.75);
-    let wall = Paint::new(1, 1.0, 0.78);
-    let dark = Paint::new(2, 1.0, 0.075);
-    let floor = Paint::new(3, 1.0, 0.65);
-    let mut cabin = MeshBuilder::default();
-    cabin.push_box([-1.2, -0.08, 0.0], [1.2, 0.0, DEPTH], floor);
-    cabin.push_box([-1.2, HEIGHT, 0.24], [1.2, HEIGHT + 0.08, DEPTH], wall);
-    for (min, max) in [
-        ([-1.28, 0.0, 0.24], [-1.2, HEIGHT, 2.48]),
-        ([1.2, 0.0, 0.24], [1.28, HEIGHT, 2.48]),
-        ([-1.2, 0.0, 2.4], [1.2, HEIGHT, 2.48]),
-        ([-1.2, 0.0, 0.02], [-0.675, HEIGHT, 0.14]),
-        ([0.675, 0.0, 0.02], [1.2, HEIGHT, 0.14]),
-        ([-0.675, DOOR_HEIGHT, 0.02], [0.675, HEIGHT, 0.14]),
-    ] {
-        cabin.push_box(min, max, wall);
+/// Resolve through the normal bounded GLB cache; package identities cover all parts.
+/// # Errors
+/// Refuses missing/malformed assets or an inconsistent shared fitted atlas.
+pub fn models(
+    catalog: &PropCatalog,
+    assets: &mut PropAssets,
+    stops: usize,
+) -> Result<Models, String> {
+    let mut resolved = Vec::new();
+    for id in MODEL_IDS {
+        let path = catalog
+            .assets()
+            .get(id)
+            .and_then(|entry| entry.model.as_deref())
+            .ok_or_else(|| format!("Elevator model {id} is absent from the catalog"))?;
+        resolved.push(assets.resolve(path)?);
     }
-    // Recessed front header, grooved threshold, base trim and waist-high rail.
-    cabin.push_box(
-        [-0.675, DOOR_HEIGHT, 0.145],
-        [0.675, HEIGHT - 0.05, 0.16],
-        dark,
-    );
-    cabin.push_box([-0.68, 0.001, -0.16], [0.68, 0.006, 0.2], metal);
-    for z in [-0.12, -0.06, 0.0, 0.06, 0.12] {
-        cabin.push_box([-0.67, 0.006, z], [0.67, 0.008, z + 0.006], dark);
-    }
-    cabin.push_box([-1.19, 0.04, 2.37], [1.19, 0.12, 2.399], metal);
-    cabin.push_box([-1.12, 0.94, 2.28], [1.12, 0.98, 2.32], metal);
-    cabin.push_box([0.79, 0.62, 0.145], [1.09, 1.74, 0.165], metal);
-    for i in 0..stops {
-        let y = f32::from(u16::try_from(i).unwrap_or(0)).mul_add(-0.11, 1.58);
-        cabin.push_box([0.865, y - 0.04, 0.166], [1.015, y + 0.04, 0.2], dark);
-        cabin.push_box([0.92, y - 0.024, 0.2], [0.96, y + 0.024, 0.208], metal);
-    }
-    // White ceiling diffuser in an inset metal housing; its texture remains file-backed.
-    cabin.push_box(
-        [-0.7, HEIGHT - 0.035, 0.7],
-        [0.7, HEIGHT - 0.02, 1.7],
-        metal,
-    );
-    cabin.push_box(
-        [-0.62, HEIGHT - 0.04, 0.78],
-        [0.62, HEIGHT - 0.036, 1.62],
-        Paint::new(1, 1.0, 1.4),
-    );
-    let mut frame = MeshBuilder::default();
-    for (x0, x1) in [(-0.755, -0.675), (0.675, 0.755)] {
-        frame.push_box([x0, -0.004, -0.17], [x1, DOOR_HEIGHT + 0.08, 0.01], metal);
-    }
-    frame.push_box(
-        [-0.755, DOOR_HEIGHT + 0.025, -0.17],
-        [0.755, DOOR_HEIGHT + 0.09, 0.01],
-        metal,
-    );
-    frame.push_box(
-        [-0.675, DOOR_HEIGHT, -0.14],
-        [0.675, DOOR_HEIGHT + 0.025, 0.0],
-        dark,
-    );
-    frame.push_box(
-        [-0.1, DOOR_HEIGHT + 0.21, -0.16],
-        [0.1, DOOR_HEIGHT + 0.36, -0.13],
-        metal,
-    );
-    frame.push_box(
-        [-0.075, DOOR_HEIGHT + 0.235, -0.165],
-        [0.075, DOOR_HEIGHT + 0.335, -0.161],
-        dark,
-    );
-    frame.push_box([-1.06, 0.98, -0.15], [-0.86, 1.18, -0.11], metal);
-    frame.push_box([-0.99, 1.05, -0.16], [-0.93, 1.11, -0.151], dark);
-    let mut leaf = MeshBuilder::default();
-    leaf.push_box(
-        [0.0, 0.006, -0.0225],
-        [DOOR_WIDTH.mul_add(0.5, -0.003), DOOR_HEIGHT - 0.005, 0.0225],
-        Paint::new(1, 2.0, 0.48),
-    );
-    Some(Models {
-        cabin: cabin.into_model()?,
-        frame: frame.into_model()?,
-        leaf: leaf.into_model()?,
-        textures,
+    let cabin = resolved
+        .first()
+        .ok_or("Missing elevator cabin")?
+        .model
+        .clone();
+    let frame = resolved
+        .get(1)
+        .ok_or("Missing elevator frame")?
+        .model
+        .clone();
+    let leaf = resolved
+        .get(2)
+        .ok_or("Missing elevator leaf")?
+        .model
+        .clone();
+    let button = &resolved.get(3).ok_or("Missing elevator button")?.model;
+    Ok(Models {
+        cabin: attach_buttons(cabin, button, stops)?,
+        frame,
+        leaf,
     })
+}
+fn attach_buttons(
+    mut cabin: PropModel,
+    button: &PropModel,
+    stops: usize,
+) -> Result<PropModel, String> {
+    if cabin.textures.len() != 1
+        || button.textures.len() != 1
+        || cabin.textures.first().map(|t| &t.rgba) != button.textures.first().map(|t| &t.rgba)
+    {
+        return Err("Elevator components must share the fitted PNG atlas".into());
+    }
+    let mut groups: Vec<(PropSubmesh, Vec<u16>)> = Vec::new();
+    let mut collect = |model: &PropModel, vertex_offset: u16| -> Result<(), String> {
+        for sub in &model.submeshes {
+            let start = usize::try_from(sub.first_index)
+                .map_err(|_conversion_error| "Invalid elevator index")?;
+            let count = usize::try_from(sub.index_count)
+                .map_err(|_conversion_error| "Invalid elevator index count")?;
+            let end = start.checked_add(count).ok_or("Elevator index overflow")?;
+            let source = model
+                .indices
+                .get(start..end)
+                .ok_or("Invalid elevator primitive range")?;
+            let existing = groups.iter().position(|(other, _)| {
+                other.texture == sub.texture
+                    && other.emission == sub.emission
+                    && other.alpha == sub.alpha
+                    && other.response == sub.response
+            });
+            let target = existing.unwrap_or_else(|| {
+                groups.push((*sub, Vec::new()));
+                groups.len().saturating_sub(1)
+            });
+            let (_, indices) = groups
+                .get_mut(target)
+                .ok_or("Missing elevator primitive group")?;
+            for index in source {
+                indices.push(
+                    index
+                        .checked_add(vertex_offset)
+                        .ok_or("Elevator vertex budget exceeded")?,
+                );
+            }
+        }
+        Ok(())
+    };
+    collect(&cabin, 0)?;
+    for row in 0..stops.min(8) {
+        let offset = u16::try_from(cabin.vertices.len())
+            .map_err(|_conversion_error| "Elevator vertex budget exceeded")?;
+        collect(button, offset)?;
+        let y =
+            f32::from(u16::try_from(row).map_err(|_conversion_error| "Elevator button overflow")?)
+                * 0.11;
+        cabin
+            .vertices
+            .extend(button.vertices.iter().copied().map(|mut vertex| {
+                vertex.pos[1] -= y;
+                vertex
+            }));
+    }
+    cabin.indices.clear();
+    cabin.submeshes.clear();
+    for (mut sub, indices) in groups {
+        sub.first_index = u32::try_from(cabin.indices.len())
+            .map_err(|_conversion_error| "Elevator index budget exceeded")?;
+        sub.index_count = u32::try_from(indices.len())
+            .map_err(|_conversion_error| "Elevator index budget exceeded")?;
+        cabin.indices.extend(indices);
+        cabin.submeshes.push(sub);
+    }
+    cabin.triangles = cabin.indices.len() / 3;
+    Ok(cabin)
+}
+/// The ceiling practical follows the car instead of being baked at a landing.
+#[must_use]
+pub fn cabin_light(elevator: &Elevator) -> super::dynamic_lights::DynamicLight {
+    super::dynamic_lights::DynamicLight {
+        key: format!("elevator:{}", elevator.def.id),
+        position: elevator.def.point(0.0, elevator.y + 2.30, 1.20),
+        color: [1.0, 0.69, 0.38],
+        intensity: 2.0,
+        radius: 3.2,
+    }
 }
 #[must_use]
 pub fn parts(e: &Elevator) -> Vec<(Part, [f32; 3])> {
