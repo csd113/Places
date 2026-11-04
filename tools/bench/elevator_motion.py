@@ -51,13 +51,17 @@ def capture(args):
                             action=dict(kind=kind, **details)))
 
     add(0, 'focus', focused=True)
-    add(20, 'player', position=position, yaw=0, pitch=0)
+    add(20, 'player', position=[0, 1.6, 1.2] if args.observe_departure else position, yaw=0, pitch=0)
     if args.arrival:
         # Stay inside throughout the sealed simulated ride and the entire arrival
         # opening. Only initial acceptance positioning bypasses ordinary input.
         add(100, 'view_at', position=[.94, 1.58, .4])
         add(200, 'mouse', button='left', pressed=True)
         add(270, 'mouse', button='left', pressed=False)
+        if args.observe_departure:
+            # An explicit acceptance observer move after an ordinary cabin
+            # button press exposes the source deck and shell throughout.
+            add(290, 'player', position=position, yaw=0, pitch=0)
         add(300, 'view_at', position=target)
         poses = (400, 1250, 2500, 3500, 3800, 4000, 4200, 4400,
                  4600, 4800, 5000, 5200, 5500, 6000)
@@ -118,15 +122,16 @@ def capture(args):
     assert final['elevators'][0]['opening'] == 1
     if args.arrival:
         assert final['elevators'][0]['stop'] == 1
-        assert abs(final['player_position'][1] - 5.1) < .01
+        assert abs(final['player_position'][1] - (1.6 if args.observe_departure else 5.1)) < .01
         # The reported floating deck must never recur at an intermediate pose.
         # The CPU replay also checks actual renderer parts at every simulation
         # tick; these checkpoints establish the same invariant in the binary.
         poses_seen = [data['elevators'][0] for data in checkpoints.values()]
         assert any(lift['phase'] == 'moving' for lift in poses_seen)
         assert all(min(abs(lift['y']), abs(lift['y']-3.5)) < .0001 for lift in poses_seen)
-        assert all(abs(data['player_position'][1]-data['elevators'][0]['y']-1.6) < .01
-                   for data in checkpoints.values())
+        if not args.observe_departure:
+            assert all(abs(data['player_position'][1]-data['elevators'][0]['y']-1.6) < .01
+                       for data in checkpoints.values())
     frames = out / 'frames'
     frames.mkdir()
     subprocess.run([args.ffmpeg, '-v', 'error', '-nostdin', '-i', str(out / 'native.mkv'),
@@ -140,7 +145,7 @@ def capture(args):
                    binary_sha256=hashlib.sha256(args.binary.read_bytes()).hexdigest(),
                    package_sha256=hashlib.sha256(args.package.read_bytes()).hexdigest(),
                    frame_count=count, checkpoints=checkpoints, frames=events,
-                   arrival=args.arrival,
+                   arrival=args.arrival, observer=args.observe_departure,
                    scope='Actual direct binary, every rendered frame, lossless FFV1/PNG; '
                          'acceptance camera, ordinary hall or cabin controls. No FPS claim.')
     (out / 'receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
@@ -160,12 +165,16 @@ def main():
     parser.add_argument('--bloom', action='store_true')
     parser.add_argument('--fov', type=float, default=80)
     parser.add_argument('--arrival', action='store_true', help='Stay inside through the sealed ride, transfer and arrival opening')
+    parser.add_argument('--observe-departure', action='store_true',
+                        help='With --arrival and an outside view, stage an exterior observer after the cabin press')
     parser.add_argument('--diagnostic', choices=['final', 'albedo', 'vertex-normal'], default='final')
     parser.add_argument('--ffmpeg', default=shutil.which('ffmpeg') or 'ffmpeg')
     args = parser.parse_args()
     if not 45 <= args.fov <= 110:
         parser.error('--fov must be between 45 and 110 degrees')
-    if args.arrival and args.view.startswith('outside'):
+    if args.observe_departure and not (args.arrival and args.view.startswith('outside')):
+        parser.error('--observe-departure requires --arrival and an outside view')
+    if args.arrival and args.view.startswith('outside') and not args.observe_departure:
         parser.error('--arrival requires an inside view to remain in the cabin')
     if not hasattr(os, 'mkfifo'):
         parser.error('This lossless capture tool requires a Unix FIFO host')
