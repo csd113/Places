@@ -5,6 +5,12 @@ includes the final flush doorway and cabin floor-skirt repair from `6e9d328f`,
 the current hub elevators, independent door control and shared quick-play audio.
 The separate editor-placement change is outside this lighting acceptance.
 
+This report records the lighting worker's retained build before the stationary
+ride integration. The later [fixed-cabin acceptance](elevator-stationary-ride-0.13.1-mac.md)
+keeps a separate enclosure and real landing receiver for every authored cabin,
+and records validation against that combined runtime. The measurements below
+remain specific to the player and packages identified here.
+
 ## Reproduced faults and correction
 
 The cabin published an unrestricted attached point light. Opaque elevator meshes

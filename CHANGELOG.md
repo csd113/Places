@@ -1,5 +1,11 @@
 ## 0.13.1 — Unreleased
 
+- Keep elevator cabins and decks stationary during sealed rides, including
+  legacy vertical landings. Preserve exact passenger poses, props/NPC ownership
+  and safe recovery; add a bounded in-car motor cue. Refresh the collection's
+  doorway dependencies and development package versions. See
+  [native travel/audio evidence and limits](docs/reports/elevator-stationary-ride-0.13.1-mac.md).
+
 - Keep elevator cabin light inside the shell and real sliding-door aperture.
   Closed exterior panels use actual landing lighting instead of the roomless
   ambient fallback; the interior stays lit and hall fixtures still light the
