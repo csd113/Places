@@ -65,14 +65,14 @@ for side in [-1,1]:
   z=.24+i*.432;x0,x1=(-1.255,-1.2)if side<0 else(1.2,1.255)
   box('Vertical walnut side panel',[x0,.13,max(z+.008,.368)],[x1,2.46,z+.424],'walnut' if i%2 else 'walnut_light')
  x0,x1=(-1.2,-1.185)if side<0 else(1.185,1.2)
- box('Side bronze skirting',[x0,.025,.368],[x1,.13,2.38],'aged_brass')
+ box('Side bronze skirting',[x0,0,.36],[x1,.13,2.385],'aged_brass')
  # Two recessed channels house the landing and cabin leaves. The folds are
  # metal, while the passenger-facing wall outside the narrow frame is wood.
  x0,x1=(-1.425,-.715)if side<0 else(.715,1.425)
  for z0,z1 in [(.02,.10),(.20,.24)]:
   box('Metal-clad door-pocket skin',[x0,0,z0],[x1,2.55,z1],'brushed_steel')
  x0,x1=(-.755,-.715)if side<0 else(.715,.755)
- box('Metal pocket mouth collar',[x0,0,.345],[x1,2.24,.36],'brushed_steel')
+ box('Metal pocket mouth collar',[x0,0,.312],[x1,2.24,.36],'brushed_steel')
  x0,x1=(-1.425,-.755)if side<0 else(.755,1.425)
  box('Walnut passenger front wall',[x0,0,.345],[x1,2.24,.36],'walnut')
  x0,x1=(-1.425,-.715)if side<0 else(.715,1.425)
@@ -90,18 +90,17 @@ for side in [-1,1]:
  for z in [.72,1.98]:
   x0,x1=(-1.2,-1.10)if side<0 else(1.10,1.2)
   box('Brass handrail bracket',[x0,.963,z-.018],[x1,1.005,z+.018],'aged_brass')
-box('Rear bronze skirting',[-1.2,.025,2.385],[1.2,.13,2.4],'aged_brass')
+box('Rear bronze skirting',[-1.2,0,2.385],[1.2,.13,2.4],'aged_brass')
 box('Softened walnut rear handrail',[-1.11,.95,2.26],[1.11,1.03,2.34],'wood_rail',.018)
 for x in [-.83,.83]:box('Rear brass rail bracket',[x-.018,.963,2.30],[x+.018,1.005,2.4],'aged_brass')
 box('Cream ceiling',[-1.2,2.55,.24],[1.2,2.63,2.48],'ceiling_cream')
-box('Metal front overhead return',[-.715,2.205,.02],[.715,2.24,.36],'brushed_steel')
+box('Metal front overhead return',[-.715,2.23,.02],[.715,2.24,.312],'brushed_steel')
 box('Walnut wall above doorway',[-.715,2.24,.02],[.715,2.55,.36],'walnut')
-box('Cabin metal recessed header',[-.715,2.205,.365],[.715,2.24,.383],'brushed_steel')
-# A fitted passenger-side stop overlaps the closed stock and metal returns.
-# The deliberately wider pocket mouth retains a dark metal track recess.
-for x0,x1 in [(-.735,-.688),(.688,.735)]:
- box('Cabin steel door stop',[x0,-.012,.385],[x1,2.2,.403],'brushed_steel')
-box('Cabin steel header stop',[-.735,2.2,.385],[.735,2.24,.403],'brushed_steel')
+# Recessed steel rebates finish on the walnut wall plane, not in front of it.
+# Seven millimetres of the open panel lip remains inside each jamb.
+for x0,x1 in [(-.715,-.688),(.688,.715)]:
+ box('Flush cabin steel jamb',[x0,-.012,.312],[x1,2.24,.36],'brushed_steel')
+box('Flush cabin steel header',[-.688,2.2,.312],[.688,2.24,.36],'brushed_steel')
 box('Brass diffuser surround',[-.76,2.515,.62],[.76,2.55,1.82],'aged_brass',.006)
 box('Warm prismatic lens',[-.70,2.506,.68],[.70,2.515,1.76],'warm_diffuser',emission=True)
 for x in [-1.18,1.13]:box('Ceiling edge batten',[x,2.475,.368],[x+.05,2.55,2.345],'wood_rail')
@@ -112,7 +111,7 @@ box('Full doorway threshold backing',[-.86,-.012,-.32],[.86,.006,.42],'brushed_s
 for x0,x1 in [(-.86,-.82),(.82,.86)]:
  box('Threshold end cap',[x0,.006,-.32],[x1,.012,.42],'brushed_steel')
 cursor=-.32
-for z0,z1 in [(-.27,-.26),(-.21,-.20),(-.15,-.14),(-.09,-.08),(-.03,-.02),(.119,.181),(.269,.331)]:
+for z0,z1 in [(-.27,-.26),(-.21,-.20),(-.15,-.14),(-.09,-.08),(-.03,-.02),(.139,.161),(.289,.311)]:
  box('Threshold steel tread',[-.82,.006,cursor],[.82,.012,z0],'brushed_steel')
  box('Recessed opaque door track',[-.82,.006,z0],[.82,.008,z1],'charcoal')
  cursor=z1
@@ -121,29 +120,26 @@ box('Recessed control surround',[.79,.62,.365],[1.09,1.74,.386],'aged_brass',.00
 box('Control panel inset',[.81,.64,.387],[1.07,1.72,.393],'charcoal')
 box('Etched service plate',[.83,.655,.394],[1.05,.73,.398],'service_plate')
 start('elevator_frame_70s')
-jambs=[]
-for x0,x1 in [(-.795,-.715),(.715,.795)]:jambs.append(box('Brushed metal jamb',[x0,-.004,-.17],[x1,2.28,-.105],'brushed_steel',.006))
-lintel=box('Brushed metal lintel',[-.795,2.225,-.17],[.795,2.29,-.105],'brushed_steel',.006)
-# Manufacture one continuous frame: remove the coplanar stock intersections,
-# preserving the fitted steel UVs on the exterior faces.
-for jamb in jambs:
- modifier=lintel.modifiers.new('Welded frame stock','BOOLEAN');modifier.operation='UNION';modifier.solver='EXACT';modifier.object=jamb
- bpy.context.view_layer.objects.active=lintel;bpy.ops.object.modifier_apply(modifier=modifier.name)
- current.remove(jamb);bpy.data.objects.remove(jamb,do_unlink=True)
-box('Recessed dark transom',[-.715,2.2,-.15],[.715,2.24,.24],'charcoal')
+# Inset frame: the hall face meets the host wall at Z=0, and the outer
+# edges fit its 1.5 x 2.25 m opening. Butt-joined stock has no Boolean slivers
+# or exposed coplanar overlaps; the returns reach the 20 mm landing leaves.
+for x0,x1 in [(-.75,-.688),(.688,.75)]:
+ box('Flush landing steel jamb',[x0,-.004,0],[x1,2.25,.138],'brushed_steel')
+box('Flush landing steel header',[-.688,2.2,0],[.688,2.25,.138],'brushed_steel')
+box('Recessed dark transom',[-.715,2.2,.162],[.715,2.24,.24],'charcoal')
 box('Landing sill',[-.795,-.014,-.17],[.795,-.002,.24],'brushed_steel')
 for x0,x1 in [(-1.425,-.675),(.675,1.425)]:
  box('Landing dark pocket liner',[x0,-.012,.195],[x1,2.23,.225],'charcoal')
-for x0,x1 in [(-.79,-.710),(.710,.79)]:
- box('Dark pocket mouth return',[x0,-.012,-.105],[x1,2.23,.025],'charcoal')
 box('Indicator brass rim',[-.105,2.41,-.16],[.105,2.57,-.13],'aged_brass',.004)
 box('Amber arrival indicator',[-.083,2.43,-.165],[.083,2.55,-.161],'indicator')
 box('Hall call plate',[-1.06,.98,-.15],[-.86,1.18,-.11],'brushed_steel',.007)
 button_cylinder('Hall call brass bezel',-.96,1.08,-.151,.036,.016,'aged_brass')
 button_cylinder('Hall call button',-.96,1.08,-.162,.026,.012,'button')
 start('elevator_leaf_70s')
-box('Satin gray sliding door',[0,-.01,-.0225],[.695,2.22,.0225],'door_satin',.003)
-box('Concealed center-edge seal',[-.004,-.01,.0225],[.004,2.22,.03],'charcoal')
+# A thin folded steel skin replaces the bulky slab; the collision envelope
+# stays conservative and the existing width/travel/vertical overlaps are kept.
+box('Satin gray sliding door',[0,-.01,-.01],[.695,2.22,.01],'door_satin',.003)
+box('Concealed center-edge seal',[-.004,-.01,.01],[.004,2.22,.014],'charcoal')
 start('elevator_button_70s')
 backing=box('Button backing',[.865,1.54,.394],[1.015,1.62,.408],'charcoal')
 # Its rear face is concealed by the opaque panel; keep three-button cabins
