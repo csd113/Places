@@ -35,9 +35,27 @@ def floor_measurements(state):
     return measurements
 
 
-def route():
+def surface_measurements(state):
+    from PIL import Image, ImageStat
+
+    boxes = dict(panel_left=(545, 160, 615, 315), panel_right=(665, 160, 735, 315),
+                 frame_left=(480, 135, 510, 465), frame_top=(510, 88, 770, 110))
+    result = {}
+    for name in ("closed-front", "dark-reference"):
+        with Image.open(state / (name + ".png")) as image:
+            result[name] = {}
+            for region, bounds in boxes.items():
+                sx, sy = image.width / 1280, image.height / 720
+                box = tuple(round(v * scale) for v, scale in zip(bounds, (sx, sy, sx, sy)))
+                patch = image.convert("RGB").crop(box)
+                result[name][region] = dict(pixel_box=box, mean_display_rgb_255=ImageStat.Stat(patch).mean,
+                                           max_display_channel=max(high for _, high in patch.getextrema()))
+    return result
+
+
+def route(level="elevator_dark"):
     steps = []
-    anchor = "ready:elevator_dark"
+    anchor = "ready:" + level
 
     def add(ms, kind, **fields):
         steps.append(dict(after=anchor, delay_ms=ms, action=dict(kind=kind, **fields)))
@@ -101,6 +119,10 @@ def main():
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--lightmaps", choices=["off", "full"], default="full")
     parser.add_argument("--bloom", action="store_true")
+    parser.add_argument("--level", default="elevator_dark")
+    parser.add_argument("--expect-hall-lit", action="store_true",
+                        help="Check the lit-landing control instead of expecting black exterior surfaces")
+    parser.add_argument("--trace-entities", action="store_true")
     parser.add_argument("--assert-sealed", action="store_true",
                         help="Require zero cabin spill in the dark fixture's exterior floor patches")
     args = parser.parse_args()
@@ -118,13 +140,15 @@ def main():
                     master_volume=0)
     (state / "settings.json").write_text(json.dumps(settings))
     actions = out / "actions.json"
-    actions.write_text(json.dumps(route()))
+    actions.write_text(json.dumps(route(args.level)))
     trace = out / "trace.jsonl"
     env = {k: v for k, v in os.environ.items() if not k.startswith("PLACES_")}
     env.update(PLACES_ASSET_ROOT=str(ROOT / "assets"), PLACES_STATE_ROOT=str(state),
-               PLACES_LEVEL="elevator_dark", PLACES_BENCH="1", PLACES_BENCH_FRAMES="6000",
+               PLACES_LEVEL=args.level, PLACES_BENCH="1", PLACES_BENCH_FRAMES="6000",
                PLACES_BENCH_WARMUP="3", PLACES_VERBOSE="1", PLACES_LOAD_TRACE=str(trace),
                PLACES_BENCH_ACTIONS=str(actions), PLACES_BENCH_OUT=str(out / "frames.csv"))
+    if args.trace_entities:
+        env["PLACES_ENTITY_LIGHT_TRACE"] = "all"
     started = time.monotonic()
     with (out / "game.log").open("w") as log:
         result = subprocess.run([str(binary)], cwd=ROOT, env=env, stdout=log,
@@ -137,6 +161,7 @@ def main():
                    lightmaps=args.lightmaps, bloom=args.bloom, exit_code=result.returncode,
                    wall_seconds=time.monotonic() - started, checkpoints=states,
                    floor_measurements=floor_measurements(state),
+                   surface_measurements=surface_measurements(state),
                    screenshots=[str(p) for p in sorted(state.glob("*.png"))])
     (out / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
     assert len(receipt["screenshots"]) == 23, receipt["screenshots"]
@@ -161,8 +186,14 @@ def main():
             assert ImageChops.difference(patch(closed), patch(opened)).getbbox() is None, closed
         means = receipt["floor_measurements"]
         assert means["open-front"]["mean_display_rgb_255"][0] > means["dark-reference"]["mean_display_rgb_255"][0] + 0.05
+        for name in ("closed-front", "dark-reference"):
+            surfaces = receipt["surface_measurements"][name]
+            if args.lightmaps == "full" and not args.expect_hall_lit:
+                assert all(sample["max_display_channel"] == 0 for sample in surfaces.values()), (name, surfaces)
+            if args.expect_hall_lit:
+                assert max(surfaces["panel_left"]["mean_display_rgb_255"]) > 1, surfaces
     print(json.dumps({k: v for k, v in receipt.items()
-                      if k not in ("checkpoints", "screenshots", "floor_measurements")}))
+                      if k not in ("checkpoints", "screenshots", "floor_measurements", "surface_measurements")}))
 
 
 if __name__ == "__main__":

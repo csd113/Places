@@ -869,7 +869,7 @@ pub fn entity_spatial_lighting_cached(
 ) -> Option<Box<EntitySpatialLighting>> {
     let context = EntitySpatialLightingContext::new(lighting, field, scene, visibility.dynamic);
     let key = context.key(model, visibility.receiver);
-    context.sample(bounds, model, visibility.receiver, key, storage)
+    context.sample(bounds, model, visibility.receiver, key, storage, false)
 }
 
 impl EntitySpatialLightingContext<'_> {
@@ -880,6 +880,7 @@ impl EntitySpatialLightingContext<'_> {
         receiver: Option<super::dynamic::DynamicId>,
         context_key: Option<EntitySpatialKey>,
         storage: Option<(&mut EntityStaticRayCache, u64)>,
+        allow_unmapped: bool,
     ) -> Option<Box<EntitySpatialLighting>> {
         let lighting = self.lighting;
         let field = self.field;
@@ -900,7 +901,14 @@ impl EntitySpatialLightingContext<'_> {
             |point| sample_receiver_irradiance(prepared, lighting, visibility, &cache, point);
         let samples = positions.world.map(|world| (world, sample(world)));
         let centre_sample = sample(positions.centre);
-        if centre_sample.is_none() && samples.iter().all(|(_, value)| value.is_none()) {
+        // Declared boundary assemblies may occupy wall/shaft stock without a
+        // mapped air cell. Their unsupported bounce is zero, while the same
+        // actual-geometry visibility still evaluates prepared direct sources.
+        // They must not recover the roomless 0.1 ambient fallback.
+        if !allow_unmapped
+            && centre_sample.is_none()
+            && samples.iter().all(|(_, value)| value.is_none())
+        {
             let has_static_support = |point| {
                 prepared
                     .sample_nonlocal_with_switchable_indirect(
