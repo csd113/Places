@@ -233,9 +233,9 @@
       "material": "core:wallpaper_yellow_01"
     },
     {
-      "x": -4.12,
+      "x": -4.08,
       "z": 7.12,
-      "width": 0.24,
+      "width": 0.2,
       "depth": 3.76,
       "y": 7.2,
       "height": 2.8,
@@ -243,9 +243,9 @@
       "openings": [
         {
           "kind": "door",
-          "offset": 1.18,
-          "width": 1.4,
-          "height": 2.35,
+          "offset": 1.13,
+          "width": 1.5,
+          "height": 2.3,
           "sill": 0
         }
       ]
@@ -710,6 +710,42 @@
       "y": 0,
       "height": 2.8,
       "material": "core:wallpaper_stained_01"
+    },
+    {
+      "x": -6.78,
+      "z": 7.4,
+      "width": 2.7,
+      "depth": 0.2,
+      "y": 7.2,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": -6.78,
+      "z": 10.4,
+      "width": 2.7,
+      "depth": 0.2,
+      "y": 7.2,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": -6.78,
+      "z": 7.6,
+      "width": 0.2,
+      "depth": 2.8,
+      "y": 7.2,
+      "height": 2.8,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": -6.78,
+      "z": 7.4,
+      "width": 2.9,
+      "depth": 3.2,
+      "y": 10.0,
+      "height": 0.16,
+      "material": "core:wallpaper_yellow_01"
     }
   ],
   "props": [
@@ -5229,10 +5265,10 @@
       "material": "core:baseboard_office_01"
     },
     {
-      "x": -4.12,
-      "z": 7.12,
-      "length": 3.76,
-      "rotation_degrees": 270,
+      "x": -3.88,
+      "z": 10.88,
+      "length": 1.13,
+      "rotation_degrees": 90,
       "y": 7.2,
       "height": 0.09,
       "thickness": 0.018,
@@ -5240,8 +5276,8 @@
     },
     {
       "x": -3.88,
-      "z": 10.88,
-      "length": 3.76,
+      "z": 8.25,
+      "length": 1.13,
       "rotation_degrees": 90,
       "y": 7.2,
       "height": 0.09,
@@ -6893,55 +6929,44 @@
       ]
     }
   ],
-  "doors": [
-    {
-      "id": "office_return_hub",
-      "x": -4,
-      "y": 0,
-      "z": 9.7,
-      "rotation_degrees": 90,
-      "width": 1.4,
-      "height": 2.35,
-      "thickness": 0.055,
-      "initial_state": "closed",
-      "swing_degrees": 90,
-      "kind": "interior",
-      "frame_material": "core:baseboard_office_01",
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Return to hub",
-          "reach": 2.4
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "change_level",
-              "level": "hub"
-            }
-          ]
-        }
-      ]
-    }
-  ],
+  "doors": [],
   "transitions": [
     "hub"
   ],
   "decals": [
     {
-      "x": -3.88,
-      "y": 9.81,
-      "z": 9,
-      "width": 1.2,
-      "height": 0.3,
+      "x": -2,
+      "y": 9.3,
+      "z": 7.12,
+      "width": 1.6,
+      "height": 0.4,
       "material": "collection:sign_hub",
-      "surface": "wall_east"
+      "surface": "wall_south"
     }
   ],
   "scripts": [
     "scripts/office.luau"
+  ],
+  "elevators": [
+    {
+      "id": "return_hub",
+      "x": -3.88,
+      "z": 9,
+      "rotation_degrees": 270,
+      "initial_stop": 0,
+      "speed_mps": 1.5,
+      "stops": [
+        {
+          "label": "Office",
+          "y": 7.2
+        },
+        {
+          "label": "Hub",
+          "y": 7.2,
+          "level": "hub",
+          "arrival_elevator": "hub_office"
+        }
+      ]
+    }
   ]
 }

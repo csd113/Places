@@ -22,9 +22,9 @@ local function ledger(api)
     else
         api.message("THE COLLECTION LEDGER", {
             tostring(total) .. " of 8 favors remembered. Reward room locked.",
-            "Find each host. F1 gives your local next step.",
-            "Home, Pool, Office, Cosmic Lanes;",
-            "Lantern Hollow, Winter, Beach, Frutiger Aero.", persistence,
+            "Call a signed elevator with E, board, then select the destination.",
+            "Each place has a Hub elevator. F1 explains its host's favor.",
+            "Home, Pool, Office, Cosmic Lanes; Lantern Hollow, Winter, Beach, Aero.", persistence,
             "The separate CLEAR switch erases this collection's save.",
         })
     end

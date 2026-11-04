@@ -1,18 +1,21 @@
 # Places / The Quiet Collection
 
 Eight environments share one central hub: Home, Pool, Office, Cosmic Lanes &
-Arcade, Lantern Hollow, Winter, Beach and Frutiger Aero. Each hub door has the
-destination's materials, a familiar prop and a name plate. A physical door in
-every destination returns to the hub.
+Arcade, Lantern Hollow, Winter, Beach and Frutiger Aero. Each signed hub bay has
+the destination's materials, a familiar prop and a passenger elevator. Call it
+with E or left click, walk inside, then select the destination button. The
+return elevator in each place brings you back to the matching hub bay.
 
 WASD moves, E interacts/picks up/puts down, left click throws, F toggles the
 flashlight and C crouches. Enter dismisses conversation. Home's caretaker asks
 for the checked cushion; bring the actual cushion and speak while holding it.
 F1 gives the Home hint. The hall switch resets that visit.
 
-Visits start fresh, including objectives, door states, scripts and held objects.
-Objects stay in their environment. Door travel requires a fresh aimed E press;
-spawning near a door never automatically sends the player back.
+Visits start fresh for local objectives, doors and scripts. Elevators retain
+the rider's cabin-relative pose through loading and open automatically on
+arrival. Ordinary supported props and NPCs fully inside can travel too; actors
+with map-bound tasks refuse travel. Destination buttons require a fresh aimed
+E press or click, so arriving never automatically sends the player back.
 
 Collection favors are saved automatically for this installed project. Open the
 same installation again to resume; the Hub ledger reports saved progress and
@@ -72,7 +75,7 @@ native acceptance, delivery commands, platform limits and package identity.
 Ordinary Cargo tests and CI never bake this collection.
 
 
-## Lantern Hollow street (collection 1.0.1)
+## Lantern Hollow street (introduced in collection 1.0.1)
 
 The outdoor member now occupies 48 by 50.8 metres, about 65% less ground than
 before. Four houses stand on each side of the street, with eight separate fenced
@@ -87,10 +90,36 @@ The two paired households have independent conversations for each person.
 
 Follow the western path to the skeleton circle. Jun is northeast of the fire,
 near the cool blue lantern and conifer. Leave space for the return walk and sit;
-the favor completes when Jun is seated. The signed door at the street's eastern
+the favor completes when Jun is seated. The signed elevator at the street's eastern
 end returns to the Hub, whose ledger remembers the favor across restarts.
 
-Collection release 1.0.1 is independent of the game version. Export records the
+Collection release 1.0.4 is independent of the game version. Export records the
 current Places target automatically. Use the complete project for travel/save
 acceptance. The command above requests Static preparation; Full lighting solves
 remain explicit feature or final-stage work.
+
+
+## Hub elevators (collection 1.0.4)
+
+All eight bays use the current walnut-surround passenger cabins with narrow metal frames, with one direct
+destination each and a matching return cabin. Home has a wider entrance alcove
+for the hall call; the Office return is in its upper entry foyer, preserving
+the existing three-floor ramps and paper route. Outdoor booths have full cabin
+depth. The eastern reward-room door, ledger, CLEAR switch and eight favors keep
+their existing behavior. Hints name the elevators.
+
+For explicit acceptance, export only this project with `--variants static`
+(as in `--variants off` above), then run the executable directly:
+
+```sh
+python3 tools/bench/collection_elevators.py --binary target/release/places \
+  --package /absolute/path/environments.placesmap --out local/collection-elevators \
+  --progress partial
+```
+
+This opt-in campaign uses isolated saves, checks all eight round trips, aimed
+controls, closed collision, walking in/out, retained loading frames, native
+audio and saved-favor/reward-lock continuity. `--progress all --only home`
+checks the unlocked reward room; `--only <level>` limits a rerun. It never
+bakes maps or starts a Mac app bundle. Static-only outputs are development
+validation packages; final release exports retain the normal lighting policy.

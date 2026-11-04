@@ -1,5 +1,11 @@
 ## 0.13.1 — Unreleased
 
+- Replace the Quiet Collection's eight hub travel doors and eight return doors
+  with signed passenger elevators. Preserve favors, saved progress and the
+  reward room; return to the matching hub bay. Collection package 1.0.4 adds
+  fitted shafts, updated guidance and an explicit direct-binary route check.
+  See [Mac acceptance and limits](docs/reports/hub-elevators-0.13.1-mac.md).
+
 - Batch ready level-upload work within a short CPU slice while retaining GPU
   queue and resource bounds. Matched Mac Metal loads improve 30-43%, and real
   cross-level elevator loads improve 45-47%. Add opt-in archive/stage attribution

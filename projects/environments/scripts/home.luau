@@ -123,12 +123,12 @@ return {
                 "The cushion has reached the end of the west halls.",
                 "Step back around a solid corner to give them privacy.",
                 "Home completes once both caretaker and cushion are hidden.",
-                "Return to the Hub through the entry hall.",
+                "Use the Hub elevator at the end of the entry hall.",
             })
         else
             api.message("HOME", {
                 "Home favour complete. The Hub has recorded your help.",
-                "Return to the Hub through the entry hall.",
+                "Use the Hub elevator at the end of the entry hall.",
                 "The entry-hall switch resets this visit only.",
             })
         end

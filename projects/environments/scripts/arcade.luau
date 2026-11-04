@@ -58,7 +58,7 @@ return {
     talk = talk,
     hint = function(api)
         if done then
-            api.message("COSMIC LANES", {"Arcade favor complete and saved. Return through the Hub door.", "You can keep bowling, return the ball or reset the rack."})
+            api.message("COSMIC LANES", {"Arcade favor complete and saved. Return using the Hub elevator.", "You can keep bowling, return the ball or reset the rack."})
         else
             api.message("COSMIC LANES", {
                 "Pins down: " .. tostring(fallen) .. " of 10.",
@@ -136,7 +136,7 @@ return {
             api.animate("arcade_attendant", "pose_arms_up", true)
             api.sound("arcade_quest_cheer", true)
             api.prompt("arcade_attendant", "Arcade favor complete - return to Hub or keep bowling")
-            api.message("THE LANE ATTENDANT", {"A constellation cleared! Ten honest fallen pins.", "Arcade favor complete and saved. Return through the Hub door.", "You can keep bowling. Ball return and fresh racks stay available."})
+            api.message("THE LANE ATTENDANT", {"A constellation cleared! Ten honest fallen pins.", "Arcade favor complete and saved. Return using the Hub elevator.", "You can keep bowling. Ball return and fresh racks stay available."})
         end
     end,
 }

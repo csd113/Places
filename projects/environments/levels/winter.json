@@ -823,51 +823,54 @@
     },
     {
       "x": -1.6,
-      "z": 14.280000000000001,
+      "z": 14.28,
       "width": 3.2,
-      "depth": 0.24,
+      "depth": 0.2,
       "height": 3,
       "material": "winter:stone_masonry_01",
       "openings": [
         {
           "kind": "door",
-          "offset": 1,
-          "width": 1.2,
-          "height": 2.2
+          "offset": 0.85,
+          "width": 1.5,
+          "height": 2.3
         }
       ]
     },
     {
       "x": -1.6,
-      "z": 14.520000000000001,
-      "width": 0.24,
-      "depth": 1.36,
+      "z": 14.48,
+      "width": 0.2,
+      "depth": 2.7,
+      "y": 0,
       "height": 3,
       "material": "winter:stone_masonry_01"
     },
     {
-      "x": 1.3599999999999999,
-      "z": 14.520000000000001,
-      "width": 0.24,
-      "depth": 1.36,
+      "x": 1.4,
+      "z": 14.48,
+      "width": 0.2,
+      "depth": 2.7,
+      "y": 0,
+      "height": 3,
+      "material": "winter:stone_masonry_01"
+    },
+    {
+      "x": -1.4,
+      "z": 16.98,
+      "width": 2.8,
+      "depth": 0.2,
+      "y": 0,
       "height": 3,
       "material": "winter:stone_masonry_01"
     },
     {
       "x": -1.6,
-      "z": 15.88,
+      "z": 14.28,
       "width": 3.2,
-      "depth": 0.24,
-      "height": 3,
-      "material": "winter:stone_masonry_01"
-    },
-    {
-      "x": -1.6800000000000002,
-      "z": 14.200000000000001,
-      "width": 3.36,
-      "depth": 2,
-      "height": 0.16,
+      "depth": 2.9,
       "y": 3,
+      "height": 0.16,
       "material": "winter:stone_masonry_01"
     }
   ],
@@ -1106,6 +1109,16 @@
       "offset_y": 0.28,
       "material": "winter:snow_01",
       "edge_material": "winter:snow_01"
+    },
+    {
+      "x": -1.4,
+      "z": 14.28,
+      "width": 2.8,
+      "depth": 2.7,
+      "offset_y": -0.12,
+      "material": "winter:snow_01",
+      "edge_material": "winter:snow_01",
+      "comment": "Elevator under-car recess: keep the existing outdoor ground 12 cm below the opaque cabin deck. The sill and enclosed side shaft cover the region boundary."
     }
   ],
   "props": [
@@ -6992,32 +7005,6 @@
           ]
         }
       ]
-    },
-    {
-      "id": "return_hub_winter",
-      "x": -0.6,
-      "z": 14.4,
-      "width": 1.2,
-      "height": 2.2,
-      "frame_material": "core:metal_brushed_01",
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Return to central hub",
-          "reach": 2.5
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "change_level",
-              "level": "hub"
-            }
-          ]
-        }
-      ]
     }
   ],
   "geometry_intent": [
@@ -7852,10 +7839,10 @@
   "decals": [
     {
       "x": 0,
-      "y": 2.7,
-      "z": 14.280000000000001,
-      "width": 2.4,
-      "height": 0.6,
+      "y": 2.8,
+      "z": 14.28,
+      "width": 1.2,
+      "height": 0.3,
       "material": "collection:sign_hub",
       "surface": "wall_north"
     }
@@ -7897,6 +7884,28 @@
               "target": "winter_course_3"
             }
           ]
+        }
+      ]
+    }
+  ],
+  "elevators": [
+    {
+      "id": "return_hub",
+      "x": 0,
+      "z": 14.28,
+      "rotation_degrees": 0,
+      "initial_stop": 0,
+      "speed_mps": 1.5,
+      "stops": [
+        {
+          "label": "Winter",
+          "y": 0
+        },
+        {
+          "label": "Hub",
+          "y": 0,
+          "level": "hub",
+          "arrival_elevator": "hub_winter"
         }
       ]
     }

@@ -11,7 +11,7 @@ local function guidance(api)
         api.message("THE SHADE KEEPER", {
             "The crab has reached the far striped parasol.",
             "Beach favor complete. Your Hub progress is saved.",
-            "The Hub door waits back by the stilt house.",
+            "The Hub elevator waits back by the stilt house.",
         })
     elseif active then
         api.message("BEACH / WALK WITH THE CRAB", {
@@ -25,7 +25,7 @@ local function guidance(api)
         api.message("THE SHADE KEEPER", {
             "Your Beach favor is already saved in the Hub.",
             "Visits start fresh. Speak to the crab for an optional walk.",
-            "The Hub door waits back by the stilt house.",
+            "The Hub elevator waits back by the stilt house.",
         })
     else
         api.message("THE SHADE KEEPER", {
@@ -122,7 +122,7 @@ return {
                 api.message("THE SHADE KEEPER", {
                     "Look! It has settled beneath the far garden parasol.",
                     "Beach favor complete. The Hub will remember.",
-                    "Return through the Hub door beside the stilt house.",
+                    "Return using the Hub elevator beside the stilt house.",
                 })
             end
         end

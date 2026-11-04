@@ -84,14 +84,14 @@
   ],
   "decals": [
     {
-      "height": 0.6000000238418579,
+      "height": 0.3,
       "material": "collection:sign_hub",
       "rotation_degrees": 0.0,
       "surface": "wall_west",
-      "width": 2.4000000953674316,
-      "x": 22.799999237060547,
-      "y": 2.8499972820281982,
-      "z": 3.000000238418579
+      "width": 1.2,
+      "x": 22.8,
+      "y": 2.8,
+      "z": 3
     }
   ],
   "defaults": {
@@ -315,35 +315,6 @@
       "x": 15.789996147155762,
       "y": 0.0,
       "z": 9.149999618530273
-    },
-    {
-      "bidirectional": true,
-      "bindings": [
-        {
-          "actions": [
-            {
-              "action": "change_level",
-              "level": "hub"
-            }
-          ],
-          "on": "interact"
-        }
-      ],
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Return to central hub"
-        }
-      ],
-      "display_name": "Return to central hub",
-      "height": 2.1500000953674316,
-      "id": "editor_17",
-      "initial_state": "closed",
-      "rotation_degrees": 90.0,
-      "width": 0.9200000166893005,
-      "x": 22.94999885559082,
-      "y": 0.0,
-      "z": 3.460005760192871
     }
   ],
   "floor_patches": [
@@ -5928,20 +5899,20 @@
       "material": "home:wall_paint_offwhite_01",
       "openings": [
         {
-          "height": 2.200000047683716,
+          "height": 2.3,
           "kind": "door",
-          "offset": 1.5000057220458984,
+          "offset": 1.25,
           "sill": 0.0,
-          "width": 1.0
+          "width": 1.5
         }
       ],
-      "width": 0.30000001192092896,
-      "x": 22.799999237060547,
+      "width": 0.2,
+      "x": 22.8,
       "y": 0.0,
       "z": 1.0
     },
     {
-      "depth": 50.400001525878906,
+      "depth": 32.799999,
       "height": 2.4000000953674316,
       "material": "home:handrail_wood_01",
       "width": 0.20000000298023224,
@@ -5975,6 +5946,84 @@
       "x": -24.0,
       "y": 0.0,
       "z": -31.799999237060547
+    },
+    {
+      "x": 23.8,
+      "z": 5,
+      "width": 0.2,
+      "depth": 13.6,
+      "height": 2.4,
+      "material": "home:handrail_wood_01"
+    },
+    {
+      "x": 23.0,
+      "z": 4.4,
+      "width": 2.7,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3.4000000953674316,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 23.0,
+      "z": 1.4,
+      "width": 2.7,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3.4000000953674316,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 25.5,
+      "z": 1.6,
+      "width": 0.2,
+      "depth": 2.8,
+      "y": 0,
+      "height": 3.4000000953674316,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 22.8,
+      "z": 1.4,
+      "width": 2.9,
+      "depth": 3.2,
+      "y": 3.4,
+      "height": 0.16,
+      "material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "elevators": [
+    {
+      "id": "return_hub",
+      "x": 22.8,
+      "z": 3,
+      "rotation_degrees": 90,
+      "initial_stop": 0,
+      "speed_mps": 1.5,
+      "stops": [
+        {
+          "label": "Lantern Hollow",
+          "y": 0
+        },
+        {
+          "label": "Hub",
+          "y": 0,
+          "level": "hub",
+          "arrival_elevator": "hub_lantern_hollow"
+        }
+      ]
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 22.8,
+      "z": 1.6,
+      "width": 2.7,
+      "depth": 2.8,
+      "offset_y": -0.12,
+      "material": "outdoor:showcase_asphalt",
+      "edge_material": "outdoor:showcase_asphalt",
+      "comment": "Elevator under-car recess: keep the existing outdoor ground 12 cm below the opaque cabin deck. The sill and enclosed side shaft cover the region boundary."
     }
   ]
 }

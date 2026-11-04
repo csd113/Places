@@ -9,7 +9,7 @@ local function safe_float(duck)
 end
 local function talk(api)
     if done then
-        api.message("THE POOL ATTENDANT", {"A champion in a very small boat.", "Pool favor complete. Return through the Hub door when ready."})
+        api.message("THE POOL ATTENDANT", {"A champion in a very small boat.", "Pool favor complete. Return using the Hub elevator when ready."})
     else
         active = true
         api.message("THE POOL ATTENDANT", {
@@ -70,7 +70,7 @@ return {
             api.message("THE POOL ATTENDANT", {
                 "Four seconds! A flawless maiden voyage.",
                 "Pool favor complete. The Hub will remember.",
-                "Return through the Hub door when ready.",
+                "Return using the Hub elevator when ready.",
             })
         end
     end,

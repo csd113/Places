@@ -198,18 +198,18 @@
     },
     {
       "x": 12.18,
-      "z": 3.88,
+      "z": 3.92,
       "width": 9.7,
-      "depth": 0.24,
+      "depth": 0.2,
       "height": 3.4,
       "y": 0,
       "material": "frutiger_aero:white_panel_01",
       "openings": [
         {
           "kind": "door",
-          "offset": 4.22,
-          "width": 1.2,
-          "height": 2.2
+          "offset": 4.07,
+          "width": 1.5,
+          "height": 2.3
         }
       ]
     },
@@ -312,6 +312,42 @@
       "depth": 0.2,
       "height": 0.65,
       "y": 0,
+      "material": "frutiger_aero:white_panel_01"
+    },
+    {
+      "x": 18.4,
+      "z": 1.22,
+      "width": 0.2,
+      "depth": 2.7,
+      "y": 0,
+      "height": 3.4,
+      "material": "frutiger_aero:white_panel_01"
+    },
+    {
+      "x": 15.4,
+      "z": 1.22,
+      "width": 0.2,
+      "depth": 2.7,
+      "y": 0,
+      "height": 3.4,
+      "material": "frutiger_aero:white_panel_01"
+    },
+    {
+      "x": 15.6,
+      "z": 1.22,
+      "width": 2.8,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3.4,
+      "material": "frutiger_aero:white_panel_01"
+    },
+    {
+      "x": 15.4,
+      "z": 1.22,
+      "width": 3.2,
+      "depth": 2.9,
+      "y": 3.4,
+      "height": 0.16,
       "material": "frutiger_aero:white_panel_01"
     }
   ],
@@ -11305,10 +11341,10 @@
     },
     {
       "x": 17,
-      "y": 2.7,
+      "y": 2.8,
       "z": 4.12,
-      "width": 2.4,
-      "height": 0.6,
+      "width": 1.2,
+      "height": 0.3,
       "material": "collection:sign_hub",
       "surface": "wall_south"
     }
@@ -11611,34 +11647,7 @@
   "transitions": [
     "hub"
   ],
-  "doors": [
-    {
-      "id": "return_hub_aero",
-      "x": 16.4,
-      "z": 4,
-      "width": 1.2,
-      "height": 2.2,
-      "frame_material": "core:metal_brushed_01",
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Return to central hub",
-          "reach": 2.5
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "change_level",
-              "level": "hub"
-            }
-          ]
-        }
-      ]
-    }
-  ],
+  "doors": [],
   "scripts": [
     "scripts/aero.luau"
   ],
@@ -11724,6 +11733,28 @@
               "target": "aero_valve_lime"
             }
           ]
+        }
+      ]
+    }
+  ],
+  "elevators": [
+    {
+      "id": "return_hub",
+      "x": 17,
+      "z": 4.12,
+      "rotation_degrees": 180,
+      "initial_stop": 0,
+      "speed_mps": 1.5,
+      "stops": [
+        {
+          "label": "Frutiger Aero",
+          "y": 0
+        },
+        {
+          "label": "Hub",
+          "y": 0,
+          "level": "hub",
+          "arrival_elevator": "hub_aero"
         }
       ]
     }

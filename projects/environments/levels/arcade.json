@@ -74,15 +74,15 @@
       "x": -0.24,
       "z": 30,
       "width": 20.36,
-      "depth": 0.24,
+      "depth": 0.2,
       "height": 3.2,
       "material": "arcade:wall_navy_01",
       "openings": [
         {
           "kind": "door",
-          "offset": 6.44,
-          "width": 1.2,
-          "height": 2.2
+          "offset": 6.29,
+          "width": 1.5,
+          "height": 2.3
         }
       ]
     },
@@ -215,6 +215,42 @@
           "solid": true
         }
       ]
+    },
+    {
+      "x": 5.2,
+      "z": 30.2,
+      "width": 0.2,
+      "depth": 2.7,
+      "y": 0,
+      "height": 3.2,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": 8.2,
+      "z": 30.2,
+      "width": 0.2,
+      "depth": 2.7,
+      "y": 0,
+      "height": 3.2,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": 5.4,
+      "z": 32.7,
+      "width": 2.8,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3.2,
+      "material": "arcade:wall_navy_01"
+    },
+    {
+      "x": 5.2,
+      "z": 30.0,
+      "width": 3.2,
+      "depth": 2.9,
+      "y": 3.2,
+      "height": 0.16,
+      "material": "arcade:wall_navy_01"
     }
   ],
   "floor_patches": [
@@ -90743,10 +90779,10 @@
     },
     {
       "x": 6.8,
-      "y": 2.7,
+      "y": 2.8,
       "z": 30,
-      "width": 2.4,
-      "height": 0.6,
+      "width": 1.2,
+      "height": 0.3,
       "material": "collection:sign_hub",
       "surface": "wall_north"
     }
@@ -91713,32 +91749,6 @@
           ]
         }
       ]
-    },
-    {
-      "id": "return_hub_arcade",
-      "x": 6.2,
-      "z": 30,
-      "width": 1.2,
-      "height": 2.2,
-      "frame_material": "core:metal_brushed_01",
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Return to central hub",
-          "reach": 2.5
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "change_level",
-              "level": "hub"
-            }
-          ]
-        }
-      ]
     }
   ],
   "thresholds": [
@@ -91767,6 +91777,28 @@
       "sound": "prop_bell",
       "looped": false,
       "playing": false
+    }
+  ],
+  "elevators": [
+    {
+      "id": "return_hub",
+      "x": 6.8,
+      "z": 30,
+      "rotation_degrees": 0,
+      "initial_stop": 0,
+      "speed_mps": 1.5,
+      "stops": [
+        {
+          "label": "Cosmic Lanes",
+          "y": 0
+        },
+        {
+          "label": "Hub",
+          "y": 0,
+          "level": "hub",
+          "arrival_elevator": "hub_arcade"
+        }
+      ]
     }
   ]
 }

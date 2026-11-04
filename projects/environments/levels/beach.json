@@ -910,6 +910,16 @@
       "offset_y": 4.595000000000001,
       "material": "beach:stucco_01",
       "edge_material": "beach:stucco_01"
+    },
+    {
+      "x": 18.6,
+      "z": 6.68,
+      "width": 2.8,
+      "depth": 2.7,
+      "offset_y": 2.08,
+      "material": "beach:sand_01",
+      "edge_material": "beach:sand_01",
+      "comment": "Elevator under-car recess: keep the existing outdoor ground 12 cm below the opaque cabin deck. The sill and enclosed side shaft cover the region boundary."
     }
   ],
   "floor_patches": [],
@@ -12358,92 +12368,90 @@
       "x": 18.4,
       "z": 6.68,
       "width": 3.2,
-      "depth": 0.24,
+      "depth": 0.2,
       "height": 3,
       "material": "beach:stucco_01",
       "openings": [
         {
           "kind": "door",
-          "offset": 1,
-          "width": 1.2,
-          "height": 2.2
+          "offset": 0.85,
+          "width": 1.5,
+          "height": 2.3
         }
       ]
     },
     {
       "x": 18.4,
-      "z": 6.92,
-      "width": 0.24,
-      "depth": 1.36,
+      "z": 6.88,
+      "width": 0.2,
+      "depth": 2.7,
+      "y": 0,
       "height": 3,
       "material": "beach:stucco_01"
     },
     {
-      "x": 21.36,
-      "z": 6.92,
-      "width": 0.24,
-      "depth": 1.36,
+      "x": 21.4,
+      "z": 6.88,
+      "width": 0.2,
+      "depth": 2.7,
+      "y": 0,
+      "height": 3,
+      "material": "beach:stucco_01"
+    },
+    {
+      "x": 18.6,
+      "z": 9.38,
+      "width": 2.8,
+      "depth": 0.2,
+      "y": 0,
       "height": 3,
       "material": "beach:stucco_01"
     },
     {
       "x": 18.4,
-      "z": 8.28,
+      "z": 6.68,
       "width": 3.2,
-      "depth": 0.24,
-      "height": 3,
-      "material": "beach:stucco_01"
-    },
-    {
-      "x": 18.32,
-      "z": 6.6,
-      "width": 3.36,
-      "depth": 2,
-      "height": 0.16,
+      "depth": 2.9,
       "y": 3,
+      "height": 0.16,
       "material": "beach:stucco_01"
     }
   ],
-  "doors": [
-    {
-      "id": "return_hub_beach",
-      "x": 19.4,
-      "z": 6.8,
-      "width": 1.2,
-      "height": 2.2,
-      "frame_material": "core:metal_brushed_01",
-      "components": [
-        {
-          "component": "interactable",
-          "prompt": "Return to central hub",
-          "reach": 2.5
-        }
-      ],
-      "bindings": [
-        {
-          "on": "interact",
-          "actions": [
-            {
-              "action": "change_level",
-              "level": "hub"
-            }
-          ]
-        }
-      ]
-    }
-  ],
+  "doors": [],
   "decals": [
     {
       "x": 20,
-      "y": 2.7,
+      "y": 2.8,
       "z": 6.68,
-      "width": 2.4,
-      "height": 0.6,
+      "width": 1.2,
+      "height": 0.3,
       "material": "collection:sign_hub",
       "surface": "wall_north"
     }
   ],
   "scripts": [
     "scripts/beach.luau"
+  ],
+  "elevators": [
+    {
+      "id": "return_hub",
+      "x": 20,
+      "z": 6.68,
+      "rotation_degrees": 0,
+      "initial_stop": 0,
+      "speed_mps": 1.5,
+      "stops": [
+        {
+          "label": "Beach",
+          "y": 0
+        },
+        {
+          "label": "Hub",
+          "y": 0,
+          "level": "hub",
+          "arrival_elevator": "hub_beach"
+        }
+      ]
+    }
   ]
 }

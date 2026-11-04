@@ -22,7 +22,7 @@ local function talk(api)
         api.message("THE NIGHT ARCHIVIST", {
             "Three less things to carry into tomorrow.",
             "Office favor complete. The Hub has your stamp.",
-            "Return through the Hub door in the entry foyer.",
+            "Return using the Hub elevator in the entry foyer.",
         })
         return
     end
@@ -96,7 +96,7 @@ return {
                 "All three are in. Thank you for leaving the good things.",
                 "You brought the last page up from the basement, too.",
                 "Office favor complete. The Hub will remember.",
-                "Return through the Hub door beside the foyer crate.",
+                "Return using the Hub elevator beside the foyer crate.",
             })
         elseif count ~= reported then
             reported = count

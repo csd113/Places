@@ -9,7 +9,7 @@ local function navigate(api)
 end
 local function group(api)
     if phase == "seated" then
-        api.message("THE CAMPFIRE CIRCLE", {"Seven friends, seven seats. Everyone is here.", "Lantern Hollow favor complete. Return through the Hub door when ready."})
+        api.message("THE CAMPFIRE CIRCLE", {"Seven friends, seven seats. Everyone is here.", "Lantern Hollow favor complete. Return using the Hub elevator when ready."})
     elseif phase == "hiding" then
         api.message("THE CAMPFIRE CIRCLE", {
             "Jun is playing hide-and-seek. One stump is empty.",
@@ -74,7 +74,7 @@ return {
             api.prompt("editor_prop_202", "Jun is home / speak")
             if not api.completed("lantern_hollow") then
                 api.complete()
-                api.message("THE CAMPFIRE CIRCLE", {"One, two, three... seven. Everyone is here.", "Lantern Hollow favor complete. The Hub will remember.", "Return through the Hub door when ready."})
+                api.message("THE CAMPFIRE CIRCLE", {"One, two, three... seven. Everyone is here.", "Lantern Hollow favor complete. The Hub will remember.", "Return using the Hub elevator when ready."})
             end
         end
     end,

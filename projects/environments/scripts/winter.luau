@@ -10,7 +10,7 @@ local function guidance(api)
     if done then
         api.message("THE ICE COACH", {
             "Winter favor complete. Your Hub progress is saved.",
-            "The Hub door is back beside the main snowy path.",
+            "The Hub elevator is back beside the main snowy path.",
         })
     elseif point == 4 then
         api.message("WINTER / THREE OF THREE", {
@@ -62,7 +62,7 @@ return {
             api.message("THE ICE COACH", {
                 "You drew the whole figure, and came back safely.",
                 "Winter favor complete. The Hub will remember.",
-                "Return through the Hub door beside the main snowy path.",
+                "Return using the Hub elevator beside the main snowy path.",
             })
         elseif active then guidance(api)
         else

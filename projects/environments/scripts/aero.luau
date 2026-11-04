@@ -23,7 +23,7 @@ local function reward(api)
 end
 local function talk(api)
     if done then
-        api.message("THE GLASS GARDENER", {"Water, air, and one very happy fish.", "Aero favor complete. Return through the Hub door when ready."})
+        api.message("THE GLASS GARDENER", {"Water, air, and one very happy fish.", "Aero favor complete. Return using the Hub elevator when ready."})
     else
         api.message("THE GLASS GARDENER", {
             "Restore the fountain with exactly FIVE measures.",
@@ -52,7 +52,7 @@ return {
             api.complete()
             reward(api)
             prompts(api)
-            api.message("THE GLASS GARDENER", {"Five measures. Listen to the fountain sing!", "Aero favor complete. The Hub will remember.", "Return through the Hub door when ready."})
+            api.message("THE GLASS GARDENER", {"Five measures. Listen to the fountain sing!", "Aero favor complete. The Hub will remember.", "Return using the Hub elevator when ready."})
         else talk(api) end
     end,
     valve = function(api, event)

@@ -254,6 +254,15 @@ iteration, sampled or not. An excluded loading or transition interval is
 therefore never charged to the next steady-state sample as one long frame; the
 transition itself is reported through the trace above.
 
+`collection_elevators.py` explicitly checks the real Quiet Collection's eight
+hub-to-destination-and-back routes with the direct executable and an existing
+complete Static export. It exercises call/destination controls, closed-door
+collision, ordinary boarding/exiting, exact arrival poses, retained loading
+frames, native audio and saved favors/reward locking. Use `--progress partial`
+for persistence and `--progress all --only home` for the unlocked reward room.
+All installation/settings/save state is isolated under `--out`; it never bakes
+or uses app bundles. See [the collection workflow](../../projects/environments/README.md#hub-elevators-collection-104).
+
 ### Comparing two builds
 
 Startup measurements drift with the machine, so alternate the two binaries
