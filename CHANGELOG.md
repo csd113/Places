@@ -13,6 +13,12 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Protect editable compiler inputs and concurrent output edits during publication.
+  Reuse verified navigation and project member streams after display metadata
+  changes, reducing the measured collection refresh from 17.27s to 3.44s. Offer
+  direct lossless compact build/export, saving 15.3% on the Low/Static collection.
+  See [Mac evidence and tradeoffs](docs/reports/compiler-safety-storage-0.13.1-mac.md).
+
 - Safely release a persistently obstructed held prop once it becomes too far
   away, preserving its current pose. Passive carry advisories appear only in
   developer mode. See [Mac validation](docs/reports/held-auto-drop-0.13.1-mac.md).

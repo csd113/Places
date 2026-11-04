@@ -112,6 +112,7 @@ impl App {
             workers: self.workers,
             force: true,
             capture_probes: true,
+            compact: false,
         };
         self.job = Some(
             std::thread::Builder::new()

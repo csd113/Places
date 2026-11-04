@@ -39,16 +39,13 @@ pub fn export(request: &BuildRequest) -> Result<BuildReport, String> {
 fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     let started = std::time::Instant::now();
     let folder = ProjectFolder::open(&request.source)?;
+    let publication_guard = super::publication::Guard::new(&request.source, &request.out)?;
     check_destination(&request.out, &folder.manifest().id)?;
-    let original_output = output_identity(&request.out)?;
     progress::stage("validating complete project sources");
     let sources = project::snapshot(&folder, &progress::check_cancelled)?;
+    publication_guard.check()?;
     if !request.force && request.out.exists() && project_is_current(request, &folder, &sources)? {
-        if project::snapshot(&folder, &progress::check_cancelled)? != sources
-            || output_identity(&request.out)? != original_output
-        {
-            return Err("Project or output changed during verification; retry export".into());
-        }
+        publication_guard.check()?;
         let mut report = operation_report(request);
         report.rebuilt = false;
         report.reuse_reason =
@@ -116,20 +113,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
             blobs,
             &temporary,
             report,
-            || {
-                if project::snapshot(&folder, &progress::check_cancelled)? != sources {
-                    return Err(
-                        "Project changed during export; previous distribution retained".into(),
-                    );
-                }
-                if output_identity(&request.out)?.as_deref() != original_output.as_deref() {
-                    return Err(
-                        "Export destination changed during compilation; external work retained"
-                            .into(),
-                    );
-                }
-                Ok(())
-            },
+            || publication_guard.check(),
             started,
         );
         publication.finish(&outcome);
@@ -182,6 +166,12 @@ fn member_current(request: &BuildRequest, source: &std::path::Path, id: &str) ->
     super::verify_selected(source, Some(id), &request.out, &request.asset_root)
         .is_ok_and(|report| report.current)
         && crate::engine::package::world::inspect_level(&request.out, id).is_ok_and(|manifest| {
+            if request.compact
+                && !super::read_build_inputs(&request.out, &manifest)
+                    .is_ok_and(|inputs| inputs.compact)
+            {
+                return false;
+            }
             manifest
                 .variants
                 .iter()
@@ -281,17 +271,6 @@ fn build_staged(
     Ok(report)
 }
 
-fn output_identity(path: &std::path::Path) -> Result<Option<String>, String> {
-    match path.symlink_metadata() {
-        Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => {
-            hash::sha256_file(path).map(Some)
-        }
-        Ok(_) => Err("Export destination is not a regular file".into()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(error.to_string()),
-    }
-}
-
 fn check_destination(output: &std::path::Path, id: &str) -> Result<(), String> {
     if output.extension().is_none_or(|e| e != "placesmap") {
         return Err("Project export requires a .placesmap output".into());
@@ -373,12 +352,22 @@ fn publish(
     started: std::time::Instant,
 ) -> Result<BuildReport, String> {
     let (entries, fingerprint) = package_entries(index, blobs, temporary)?;
-    archive::write_project_archive_files_guarded(
-        &request.out,
-        entries,
-        progress::check_cancelled,
-        publish_check,
-    )?;
+    if request.compact {
+        archive::write_project_archive_files_with_level_guarded(
+            &request.out,
+            entries,
+            progress::check_cancelled,
+            publish_check,
+            19,
+        )?;
+    } else {
+        archive::write_project_archive_files_guarded(
+            &request.out,
+            entries,
+            progress::check_cancelled,
+            publish_check,
+        )?;
+    }
     report.source = request.source.display().to_string();
     report.out = request.out.display().to_string();
     report.bytes = fs::metadata(&request.out).map_err(|e| e.to_string())?.len();

@@ -41,6 +41,7 @@ fn write_fixture(root: &Path) -> Result<(PathBuf, project::ProjectPackage), Stri
             catalog_sha256: "catalog".into(),
             tool_sha256: "tool".into(),
             capture_probes: true,
+            compact: false,
         })
         .map_err(|e| e.to_string())?;
         let blob = hash::blob_name(&inputs, ".record");

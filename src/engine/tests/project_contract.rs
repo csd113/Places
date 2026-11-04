@@ -217,6 +217,7 @@ fn project_selection_and_paths_stay_inside_the_folder() -> Result<(), String> {
         workers: 1,
         force: false,
         capture_probes: false,
+        compact: false,
     };
     let plan = crate::map_compiler::project::build_plan(&template)?;
     assert_eq!(plan.len(), 1, "planning only includes declared maps");

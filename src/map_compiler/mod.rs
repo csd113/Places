@@ -40,11 +40,13 @@ pub mod events;
 pub mod geometry_check;
 pub mod gui;
 pub mod navigation;
+mod navigation_cache;
 mod probes;
 pub mod progress;
 pub mod project;
 mod project_cache;
 mod project_spool;
+mod publication;
 pub mod source;
 mod storage;
 pub mod trim;
@@ -64,7 +66,7 @@ use std::sync::Arc;
 
 use crate::engine::level::LevelDef;
 use crate::engine::materials::{MaterialTable, TextureCache};
-use crate::engine::package::archive::{PendingEntry, write_archive_checked};
+use crate::engine::package::archive::PendingEntry;
 use crate::engine::package::collision::{CompiledCollision, write_collision};
 use crate::engine::package::hash::{blob_name, sha256_hex};
 use crate::engine::package::lighting::write_lighting;
@@ -107,6 +109,8 @@ pub struct BuildRequest {
     pub workers: usize,
     /// Rebuild even when the fingerprint matches.
     pub force: bool,
+    /// Spend more encoding time on a lossless final-delivery archive.
+    pub compact: bool,
     /// Capture reflection probes with the headless renderer.
     ///
     /// The CLI always sets this: a package without captures is refused by the
@@ -168,6 +172,8 @@ struct BuildInputs {
     compiler_code_sha256: Option<String>,
     tool_sha256: String,
     capture_probes: bool,
+    #[serde(default)]
+    compact: bool,
 }
 
 const BUILD_INPUTS_ENTRY: &str = "build-inputs.json";
@@ -314,7 +320,10 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     crate::engine::render::set_fill_workers(workers);
     let mut warnings = Vec::new();
 
+    let publication = publication::Guard::new(&request.source, &request.out)?;
     let snapshot = project::read_source(&request.source, request.project_level.as_deref())?;
+    publication::check_map_destination(&request.out, &snapshot.level.id, &snapshot.package_id)?;
+    publication.check()?;
     let source_bytes = snapshot.identity;
     let mut level = snapshot.level;
     if level.requires_full_lighting && !request.variants.contains(&LightmapQuality::Full) {
@@ -349,6 +358,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         catalog_sha256: catalog_hash.clone(),
         tool_sha256: compiler_tool_sha256()?.to_string(),
         capture_probes: request.capture_probes,
+        compact: request.compact,
     };
     record_phase(&mut phases, "compiler_tool_identity", tool_started);
     let phase_started = Instant::now();
@@ -387,6 +397,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         )
     };
     if let Ok(reason) = current.as_ref() {
+        publication.check()?;
         cache_decisions.push(CacheDecision {
             stage: "package".to_string(),
             status: "hit".to_string(),
@@ -437,7 +448,18 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     progress::stage("preparing navigation and collision inputs");
     // Navigation is variant-independent: bake and insert it once, then let
     // every variant reference the same content-addressed blob.
-    let (navigation_bytes, navigation_report) = bake_navigation(&level, workers, &mut warnings)?;
+    let (navigation_bytes, navigation_report, navigation_inputs) =
+        navigation_cache::prepare(request, &level, &mut warnings, &mut cache_decisions)?;
+    // Optional cache diagnostics must not make an otherwise valid large map
+    // exceed the compiler-metadata record limit. Such maps can still bake.
+    if u64::try_from(navigation_inputs.len()).unwrap_or(u64::MAX)
+        <= crate::engine::package::MAX_MANIFEST_BYTES
+    {
+        drop(blobs.insert(
+            navigation_cache::ENTRY.into(),
+            (navigation_inputs, "compiler-inputs".into()),
+        ));
+    }
     let navigation_name = insert_blob(&mut blobs, navigation_bytes, ".navigation", "navigation");
     record_phase(
         &mut phases,
@@ -678,7 +700,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     progress::check_cancelled()?;
     progress::variant("");
     progress::stage("sharing prepared prop records");
-    factor_prepared_props(&mut variants, &mut blobs, &request.out)?;
+    factor_prepared_props(&mut variants, &mut blobs, &request.out, request.compact)?;
     profile_blobs("factored_records", &blobs);
     record_phase(&mut phases, "share_prepared_props", sharing_started);
 
@@ -890,7 +912,13 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     let publication_started = Instant::now();
     progress::check_cancelled()?;
     progress::stage("compressing and publishing archive");
-    write_archive_checked(&request.out, entries, progress::check_cancelled)?;
+    crate::engine::package::archive::write_archive_with_level_guarded(
+        &request.out,
+        entries,
+        progress::check_cancelled,
+        || publication.check(),
+        if request.compact { 19 } else { 6 },
+    )?;
     record_phase(&mut phases, "archive_compress_publish", publication_started);
     let bytes = std::fs::metadata(&request.out).map_or(0, |metadata| metadata.len());
     Ok(BuildReport {
@@ -955,6 +983,7 @@ pub fn build_collection(
             variants: variants.to_vec(),
             workers,
             force,
+            compact: false,
             capture_probes: true,
         };
         results.push(build(&request).map_err(|error| (source.display().to_string(), error)));
@@ -1114,6 +1143,7 @@ pub fn verify_selected(
         catalog_sha256: catalog_hash,
         tool_sha256: compiler_tool_sha256()?.to_string(),
         capture_probes: true,
+        compact: false,
     };
     let current_fingerprint = fingerprint_with_build_inputs(
         &fingerprint(&sha256_hex(&source_bytes), &variants, &dependencies),
@@ -2960,6 +2990,9 @@ fn reuse_current(
         package_input_differences(out, &manifest, inputs, dependencies, variants, fingerprint);
     if !differences.is_empty() {
         return Err(differences);
+    }
+    if inputs.compact && !read_build_inputs(out, &manifest).is_ok_and(|previous| previous.compact) {
+        return Err(vec!["compact delivery encoding requested".into()]);
     }
     // A fingerprint match is not enough: a package whose declared entry hashes
     // no longer match its bytes (a corrupt or half-written artifact) must be

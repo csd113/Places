@@ -39,6 +39,7 @@ fn optimize_inner(
 ) -> Result<super::BuildReport, String> {
     use crate::engine::package::{archive, project};
     let started = std::time::Instant::now();
+    let publication = super::publication::Guard::new(&request.source, &request.out)?;
     if request.out.symlink_metadata().is_ok() || request.out == request.source {
         return Err("Storage optimization requires a new output filename".into());
     }
@@ -49,7 +50,6 @@ fn optimize_inner(
     {
         return Err("Storage output requires a .placesmap filename".into());
     }
-    let original = crate::engine::package::hash::sha256_file(&request.source)?;
     let validated = super::validate(&request.source)?;
     if !validated.dependencies_intact {
         return Err("Storage migration refuses changed or missing installed dependencies".into());
@@ -88,7 +88,7 @@ fn optimize_inner(
                     .ok_or("Project member disappeared")?;
                 member.records = records;
             } else {
-                publish_ordinary(request, &original, records, spool, compression)?;
+                publish_ordinary(request, &publication, records, spool, compression)?;
                 return storage_report(request, started);
             }
         }
@@ -103,7 +103,7 @@ fn optimize_inner(
             &request.out,
             entries,
             super::progress::check_cancelled,
-            || check_unchanged(request, &original),
+            || publication.check(),
             compression,
         )?;
         storage_report(request, started)
@@ -120,7 +120,7 @@ fn optimize_inner(
 
 fn publish_ordinary(
     request: &super::BuildRequest,
-    original: &str,
+    publication: &super::publication::Guard,
     records: std::collections::BTreeMap<String, String>,
     spool: super::project_spool::ProjectSpool,
     compression: i64,
@@ -155,7 +155,7 @@ fn publish_ordinary(
         &request.out,
         ordinary,
         super::progress::check_cancelled,
-        || check_unchanged(request, original),
+        || publication.check(),
         compression,
     )?;
     Ok(())
@@ -314,16 +314,6 @@ fn factor_lightmap_constants(
     Ok(replaced_atlases)
 }
 
-fn check_unchanged(request: &super::BuildRequest, original: &str) -> Result<(), String> {
-    if request.out.symlink_metadata().is_ok() {
-        return Err("Storage destination appeared during migration".into());
-    }
-    if crate::engine::package::hash::sha256_file(&request.source)? != original {
-        return Err("Input package changed during migration".into());
-    }
-    Ok(())
-}
-
 fn storage_report(
     request: &super::BuildRequest,
     started: std::time::Instant,
@@ -345,8 +335,16 @@ pub(super) fn factor_prepared_props(
     variants: &mut [Variant],
     blobs: &mut BlobMap,
     destination: &std::path::Path,
+    compact: bool,
 ) -> Result<(), String> {
-    factor_prepared_props_with_compression(variants, blobs, 6, destination)
+    // Keep layout searches bounded; delivery spends level 19 only once at
+    // publication, as the established compact storage migration does.
+    factor_prepared_props_with_compression(
+        variants,
+        blobs,
+        if compact { 9 } else { 6 },
+        destination,
+    )
 }
 
 fn factor_prepared_props_with_compression(

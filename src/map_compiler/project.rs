@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use crate::engine::level::LevelDef;
 use crate::engine::project::{MANIFEST_NAME, ProjectFolder, read_bounded_file};
 
-/// One validated input snapshot. Project metadata participates in compiler
-/// identity, so changing membership/references cannot silently reuse an output.
+/// One validated member snapshot. Complete project metadata/source recovery is
+/// tracked by the distribution index, independently of prepared member records.
 pub(super) struct SourceSnapshot {
     pub package_id: String,
     pub package_version: crate::engine::package::release::ReleaseVersion,
@@ -22,8 +22,12 @@ pub(super) fn read_source(input: &Path, selected: Option<&str>) -> Result<Source
         let (_, bytes, mut level) = project.read_level(selected)?;
         project.attach_scripts(&mut level)?;
         crate::engine::scripting::check_level(&level)?;
-        let mut identity =
-            serde_json::to_vec(project.manifest()).map_err(|error| error.to_string())?;
+        let mut identity = serde_json::to_vec(&(
+            "project-member-v2",
+            &project.manifest().id,
+            project.manifest().package_version,
+        ))
+        .map_err(|error| error.to_string())?;
         // JSON cannot contain a literal NUL, making the boundary unambiguous.
         identity.push(0);
         identity.extend(bytes);
@@ -58,7 +62,7 @@ pub(super) fn read_source(input: &Path, selected: Option<&str>) -> Result<Source
     }
 }
 
-fn is_project(input: &Path) -> bool {
+pub(super) fn is_project(input: &Path) -> bool {
     input.is_dir() || input.file_name().is_some_and(|name| name == MANIFEST_NAME)
 }
 

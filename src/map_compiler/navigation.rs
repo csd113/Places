@@ -120,7 +120,7 @@ impl Default for NavBakeOptions {
 }
 
 /// What one bake did.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct NavBakeReport {
     /// Cell edge length used.
     pub cell_m: f32,
@@ -137,6 +137,8 @@ pub struct NavBakeReport {
     /// Door portals recorded.
     pub portals: usize,
     /// Workers actually used.
+    /// Diagnostic only: archive identity must remain independent of CPU budget.
+    #[serde(skip)]
     pub workers: usize,
 }
 

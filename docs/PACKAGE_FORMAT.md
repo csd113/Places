@@ -66,7 +66,7 @@ not authorize wholesale removal of unrelated existing code.
 ## Transport and exact uniform tiles (0.13.0 compiler pass)
 
 New binary ZIP entries use Zstandard method 93 at the selected bounded level
-(ordinary publication 6, balanced storage migration 9, explicit compact migration 19).
+(ordinary publication 6, balanced storage migration 9, explicit compact delivery 19).
 Top-level bootstrap JSON remains Deflate at level 9 or below.
 The shared compiler, player, import and editor reader opens method 93 through
 its own raw-entry decoder: maximum history **8 MiB**, conservative live codec
@@ -1020,6 +1020,11 @@ use Zstandard-6 to keep iteration fast. Add `--compact` for Zstandard-19 final
 encoding with the same exact layout selection. It costs substantially more CPU
 time and some encoder scratch RAM; it does not change lighting quality or the
 8 MiB decoder history bound. Bootstrap JSON remains Deflate-9 or below.
+`build` and `export-project` also accept `--compact`: encode final records
+directly at level 19, avoiding a second storage migration. A fast package can
+be upgraded using the same output path; verified navigation and prepared worlds
+are reused. Project menu metadata edits retain verified member compressed streams
+while refreshing the project index and recoverable sources.
 The migration retains every variant/circuit state, exact PMP1 reconstruction
 and decoded lightmap plane identity, other payload bytes, source recovery and
 compiler provenance. Exact constant-tile compaction may change the atlas wire

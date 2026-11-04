@@ -65,7 +65,7 @@ OPTIONS:
                       (default: static,full).
   --out <path>        Build output package, or new export-lighting directory.
                       Build default: the source's sibling .placesmap.
-  --compact           optimize-storage only: spend more encoding time for a smaller lossless archive.
+  --compact           build/export-project/optimize-storage: smaller lossless delivery archive.
   --force             Rebuild even when the existing package is current.
   --json              Machine-readable result on stdout.
   --events            build/export/import/check/optimize: versioned NDJSON progress/result on stdout.
@@ -347,9 +347,11 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
         }
     }
     let options = parse_options(&option_args)?;
-    if matches!(options.storage_profile, StorageProfile::Compact) && command != "optimize-storage" {
+    if matches!(options.storage_profile, StorageProfile::Compact)
+        && !matches!(command, "build" | "export-project" | "optimize-storage")
+    {
         return Err(CliError::Usage(
-            "--compact is only supported by optimize-storage".into(),
+            "--compact supports build, export-project and optimize-storage".into(),
         ));
     }
     if options.events
@@ -428,6 +430,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                 workers: options.workers,
                 force: option_args.iter().any(|arg| arg == "--force"),
                 capture_probes: true,
+                compact: matches!(options.storage_profile, StorageProfile::Compact),
             };
             if options.events {
                 let report = compiler::events::build(
@@ -514,6 +517,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                     workers: 0,
                     force: false,
                     capture_probes: false,
+                    compact: false,
                 };
                 let report = compiler::events::build(&request, "check-project", false).map_err(
                     |failure| match failure {
@@ -564,6 +568,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                 workers: options.workers,
                 force: option_args.iter().any(|arg| arg == "--force"),
                 capture_probes: true,
+                compact: matches!(options.storage_profile, StorageProfile::Compact),
             };
             let plan = compiler::project::build_plan(&template)?;
             let session = Session::start(options.progress)?;
