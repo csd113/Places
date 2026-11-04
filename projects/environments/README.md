@@ -93,7 +93,7 @@ near the cool blue lantern and conifer. Leave space for the return walk and sit;
 the favor completes when Jun is seated. The signed elevator at the street's eastern
 end returns to the Hub, whose ledger remembers the favor across restarts.
 
-Collection release 1.0.4 is independent of the game version. Export records the
+Collection release 1.0.5 is independent of the game version. Export records the
 current Places target automatically. Use the complete project for travel/save
 acceptance. The command above requests Static preparation; Full lighting solves
 remain explicit feature or final-stage work.
@@ -123,3 +123,14 @@ audio and saved-favor/reward-lock continuity. `--progress all --only home`
 checks the unlocked reward room; `--only <level>` limits a rerun. It never
 bakes maps or starts a Mac app bundle. Static-only outputs are development
 validation packages; final release exports retain the normal lighting policy.
+
+
+## Fixed-cabin rides (collection 1.0.5)
+
+The current export includes the flush metal doorway, repaired cabin floor joins,
+enclosed lighting and a bounded in-car motor cue. Cabins and decks remain fixed;
+passengers transfer only after the sealed ride. The eight destinations, saved
+favors, return bays and reward-room progression retain their existing behavior.
+Re-export with the final current compiler and assets before using this version;
+older dependency hashes are refused by installation admission. See the
+[stationary ride evidence](../../docs/reports/elevator-stationary-ride-0.13.1-mac.md).
