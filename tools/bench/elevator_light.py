@@ -85,6 +85,10 @@ def route(level="elevator_dark"):
         ("header", [0, 1.6, 1.8], [0, 2.4, .36]),
         ("side", [2.1, 1.6, 1.25], [1.3, .5, 1.2]),
         ("rear", [0, 1.6, 3.3], [0, .5, 2.4]),
+        ("corner-front-left", [.65, 1.6, 1.75], [-1.15, .05, .4]),
+        ("corner-front-right", [-.65, 1.6, 1.75], [1.15, .05, .4]),
+        ("corner-rear-left", [.65, 1.6, .65], [-1.15, .05, 2.35]),
+        ("corner-rear-right", [-.65, 1.6, .65], [1.15, .05, 2.35]),
     ]
     for name, position, target in views:
         pose(100, position, target)
@@ -164,7 +168,7 @@ def main():
                    surface_measurements=surface_measurements(state),
                    screenshots=[str(p) for p in sorted(state.glob("*.png"))])
     (out / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
-    assert len(receipt["screenshots"]) == 23, receipt["screenshots"]
+    assert len(receipt["screenshots"]) == 31, receipt["screenshots"]
     assert states["closed-front"]["elevators"][0]["opening"] == 0
     assert states["open-front"]["elevators"][0]["opening"] == 1
     assert states["closed-departed"]["elevators"][0]["opening"] == 0
