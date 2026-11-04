@@ -1,5 +1,10 @@
 ## 0.13.1 — Unreleased
 
+- Elevator cargo supports **32 distinct authored movable props/NPCs per project
+  session**, retained across rides and checkpoints; the player is excluded.
+  Bodies must fit entirely. Runtime spawns, ragdolls/articulated or NPC-held
+  assemblies, and map-bound wiring/tasks/effects are unsupported.
+
 - Keep elevator cabins and decks stationary during sealed rides, including
   legacy vertical landings. Preserve exact passenger poses, props/NPC ownership
   and safe recovery; add a bounded in-car motor cue. Refresh the collection's
