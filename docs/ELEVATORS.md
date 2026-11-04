@@ -136,6 +136,14 @@ closed doors, centre seals, jambs, header, deck and cabin walls block it. The
 interior practical stays on during closure and travel. This visibility is shared
 by Static/Full lighting, world surfaces, props, decals and reflection captures;
 it requires no runtime bake or additional shadow-map pass.
+The factory meshes occupy wall/shaft stock, so their centres are not valid room
+receivers. They use the adjacent landing air for their environmental fallback;
+Full samples the exposed panel area and uses live visibility for direct sources,
+with zero unsupported bounce. Concealed sill/header overlaps remain intact as
+rendered geometry, colliders and shadow blockers. This preserves dark surfaces instead of adding the
+roomless 0.1 ambient fallback. Materials, emission and unrelated objects are
+unchanged. The car retains its departure receiver during travel and updates at
+arrival; its warm practical remains independent of the hall.
 See the [art workflow](../tools/props/elevator_70s/README.md).
 
 The explicit dark-room fixture is `tests/fixtures/levels/elevator_dark.json`.
@@ -146,6 +154,11 @@ Each image has an authoritative elevator-state checkpoint and measured exterior
 floor pixels. `--lightmaps off` checks Static; `--bloom` checks the normal luminous
 composition. The tool is opt-in;
 ordinary tests and CI never bake this scene or launch a native window.
+`elevator_dark_lit.json` is the positive receiver control: run with
+`--level elevator_dark_lit --expect-hall-lit` to verify that the same closed
+panels respond to an actual hall fixture. The dark acceptance measures panel and
+frame pixels as well as floor spill. `--trace-entities` records real receiver
+positions, field admission and uploaded lighting values alongside the captures.
 
 Shaft ambience occurs occasionally near a landing: an initial cue after eight
 seconds, then 14–29 seconds between cues. Movement and arrival have quiet feedback.

@@ -2593,8 +2593,16 @@ impl WgpuRenderer {
                 ids.len() == parts.len() && ids.iter().all(|id| self.dynamic.get(*id).is_some())
             });
             if let Some(ids) = existing {
-                for (id, (_, position)) in ids.iter().zip(&parts) {
+                for (id, (part, position)) in ids.iter().zip(&parts) {
                     let _changed = self.dynamic.set_transform(*id, *position, 0.0, 1.0);
+                    let _receiver_set =
+                        crate::engine::render::common::elevators::set_landing_receiver(
+                            &mut self.dynamic,
+                            *id,
+                            elevator,
+                            *part,
+                            *position,
+                        );
                 }
             } else {
                 spawned = true;
@@ -2642,6 +2650,14 @@ impl WgpuRenderer {
                         0.0,
                         1.0,
                     ) {
+                        let _receiver_set =
+                            crate::engine::render::common::elevators::set_landing_receiver(
+                                &mut self.dynamic,
+                                id,
+                                elevator,
+                                *part,
+                                *position,
+                            );
                         ids.push(id);
                     }
                 }
@@ -2653,6 +2669,9 @@ impl WgpuRenderer {
             }
         }
         if !elevators.is_empty() && (spawned || self.world_dynamic.is_none()) {
+            // Publish actual receiver samples before the first upload, avoiding
+            // a one-frame ambient flash on new/arriving closed doors.
+            let _update = self.refresh_dynamic_lighting(0.0);
             self.upload_dynamic();
         }
     }
@@ -7347,20 +7366,26 @@ impl WgpuRenderer {
                 .as_ref()
                 .and_then(|gpu| gpu.diagnostic_uniform(slot));
             #[cfg(feature = "visual-diagnostics")]
-            if object.visible() {
-                self.trace_spatial_verification(
-                    &name,
-                    object.mesh().bounds,
-                    object.transform(),
-                    Some(object.id()),
-                    object.spatial_lighting(),
+            if let Some(lighting) = self.dynamic_lighting.as_ref().filter(|_| object.visible()) {
+                let full = object.diagnostic_spatial_lighting(
+                    lighting,
+                    self.dynamic_field.as_deref(),
+                    self.dynamic_transport.as_deref(),
+                    self.dynamic_transport
+                        .as_ref()
+                        .filter(|_| self.dynamic_visibility_error.is_none())
+                        .map(|_| &self.dynamic_visibility),
                 );
+                logging::info(format!(
+                    "[entity-light-verify] {name} matches={}",
+                    object.spatial_lighting() == full.as_deref()
+                ));
             }
             self.trace_lighting_sample(
                 &name,
                 &format!("dynamic:{}", object.mesh().model_path),
                 object.transform(),
-                object.centre().to_array(),
+                object.lighting_probe_position().to_array(),
                 uniform,
             );
         }

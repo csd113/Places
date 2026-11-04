@@ -2403,6 +2403,7 @@ impl CharacterScene {
                                 spatial_key,
                                 lighting_revision
                                     .map(|revision| (&mut character.static_rays, revision)),
+                                false,
                             )
                         })
                         .flatten();

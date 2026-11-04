@@ -653,6 +653,10 @@ pub struct DynamicObject {
     emission_scale: f32,
     albedo_tint: [f32; 3],
     light_scale: [f32; 3],
+    /// Explicit adjacent air receiver for manufactured assemblies in wall stock.
+    /// Ordinary objects continue to use their geometric centre/spatial bounds.
+    lighting_probe: Option<Vec3>,
+    lighting_bounds: Option<Aabb>,
     entity_lighting: Option<super::light_transport::EntityLighting>,
     center_light_key: Option<EntityCenterLightKey>,
     lighting_refresh_key: Option<EntityLightingRefreshKey>,
@@ -905,10 +909,49 @@ impl DynamicObject {
         self.entity_lighting
     }
 
+    #[must_use]
+    pub const fn lighting_probe(&self) -> Option<Vec3> {
+        self.lighting_probe
+    }
+
+    #[must_use]
+    pub fn lighting_probe_position(&self) -> Vec3 {
+        self.lighting_probe.unwrap_or_else(|| self.centre())
+    }
+
+    fn lighting_receiver_bounds(&self) -> Aabb {
+        self.lighting_bounds.unwrap_or(self.mesh.bounds)
+    }
+
     /// Spatial irradiance/visibility, refreshed only when its inputs change.
     #[must_use]
     pub fn spatial_lighting(&self) -> Option<&super::light_transport::EntitySpatialLighting> {
         self.spatial_lighting.as_deref()
+    }
+
+    /// Capture-only uncached comparison using this object's selected receiver.
+    #[cfg(feature = "visual-diagnostics")]
+    #[must_use]
+    pub fn diagnostic_spatial_lighting(
+        &self,
+        lighting: &LevelLighting,
+        field: Option<&crate::engine::lighting::probes::ProbeField>,
+        scene: Option<&crate::engine::lighting::transport::TransportScene>,
+        visibility: Option<&super::dynamic_visibility::DynamicVisibility>,
+    ) -> Option<Box<super::light_transport::EntitySpatialLighting>> {
+        let context = super::light_transport::EntitySpatialLightingContext::new(
+            lighting, field, scene, visibility,
+        );
+        let model = self.transform();
+        let receiver = Some(self.id);
+        context.sample(
+            self.lighting_receiver_bounds(),
+            model,
+            receiver,
+            context.key(model, receiver),
+            None,
+            self.lighting_probe.is_some(),
+        )
     }
 
     /// Captures live pose and actual sampled lighting for explicit diagnostics.
@@ -1010,7 +1053,7 @@ impl DynamicObject {
         }
         #[cfg(feature = "visual-diagnostics")]
         let refresh_started = std::time::Instant::now();
-        let probe = self.centre().to_array();
+        let probe = self.lighting_probe_position().to_array();
         let mut changed = false;
         if plan.center {
             let sample = super::light_transport::entity_lighting(lighting, irradiance, probe);
@@ -1027,11 +1070,12 @@ impl DynamicObject {
             let spatial_key = spatial.key(transform, Some(self.id));
             if self.spatial_key != spatial_key || self.lighting_refresh_key.is_some() {
                 self.spatial_lighting = spatial.sample(
-                    self.mesh.bounds,
+                    self.lighting_receiver_bounds(),
                     transform,
                     Some(self.id),
                     spatial_key,
                     lighting_revision.map(|revision| (&mut self.static_rays, revision)),
+                    self.lighting_probe.is_some(),
                 );
                 self.spatial_key = spatial_key;
             }
@@ -1503,6 +1547,8 @@ impl DynamicScene {
             emission_scale: 1.0,
             albedo_tint: [1.0; 3],
             light_scale: [crate::engine::lighting::AMBIENT_LEVEL; 3],
+            lighting_probe: None,
+            lighting_bounds: None,
             entity_lighting: None,
             center_light_key: None,
             lighting_refresh_key: None,
@@ -1603,6 +1649,8 @@ impl DynamicScene {
             emission_scale: 1.0,
             albedo_tint: [1.0; 3],
             light_scale: [crate::engine::lighting::AMBIENT_LEVEL; 3],
+            lighting_probe: None,
+            lighting_bounds: None,
             entity_lighting: None,
             center_light_key: None,
             lighting_refresh_key: None,
@@ -1789,6 +1837,58 @@ impl DynamicScene {
                     current: None,
                 },
             );
+        }
+        true
+    }
+
+    /// Selects an adjacent world-space air sample for a boundary assembly.
+    /// This changes receiver lighting only; pose, bounds, materials, emission
+    /// and every ordinary object's spatial lighting remain unchanged.
+    pub fn set_lighting_receiver(
+        &mut self,
+        id: DynamicId,
+        position: Option<[f32; 3]>,
+        bounds: Option<Aabb>,
+    ) -> bool {
+        if position.is_some_and(|point| !point.iter().all(|value| value.is_finite())) {
+            return false;
+        }
+        let Some(object) = self.objects.iter_mut().find(|object| object.id == id) else {
+            return false;
+        };
+        if bounds.is_some_and(|selected| {
+            selected
+                .min
+                .into_iter()
+                .zip(selected.max)
+                .zip(
+                    object
+                        .mesh
+                        .bounds
+                        .min
+                        .into_iter()
+                        .zip(object.mesh.bounds.max),
+                )
+                .any(|((low, high), (mesh_low, mesh_high))| {
+                    !low.is_finite()
+                        || !high.is_finite()
+                        || low > high
+                        || low < mesh_low
+                        || high > mesh_high
+                })
+        }) {
+            return false;
+        }
+        let probe = position.map(Vec3::from_array);
+        if object.lighting_probe != probe || object.lighting_bounds != bounds {
+            object.lighting_probe = probe;
+            object.lighting_bounds = bounds;
+            object.center_light_key = None;
+            object.lighting_refresh_key = None;
+            object.spatial_lighting = None;
+            object.spatial_key = None;
+            object.probe_valid = false;
+            object.static_rays = super::light_transport::EntityStaticRayCache::default();
         }
         true
     }
@@ -1998,13 +2098,13 @@ impl DynamicScene {
             if !object.visible {
                 continue;
             }
-            let probe = object.centre().to_array();
+            let probe = object.lighting_probe_position().to_array();
             if !probe.iter().all(|value| value.is_finite()) {
                 continue;
             }
             let key = context.key(
                 object.transform(),
-                object.mesh.bounds,
+                object.lighting_receiver_bounds(),
                 probe,
                 Some(object.id),
                 object.lighting_refresh_key,

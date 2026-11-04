@@ -37,6 +37,52 @@ pub enum Part {
     Frame,
     Leaf,
 }
+
+/// Elevator stock lies in a wall/shaft, where a geometric-centre probe has no
+/// room and falls back to invented ambient. Receive the real landing's light
+/// from clear hall air instead. Keep a travelling car's departure receiver
+/// until arrival; the car's own practical still follows its authoritative pose.
+#[must_use]
+pub fn landing_light_probe(e: &Elevator, part: Part, position: [f32; 3]) -> Vec3 {
+    let local = e.def.local(Vec3::from_array(position));
+    let car = matches!(part, Part::Cabin) || (matches!(part, Part::Leaf) && local.z > 0.25);
+    let floor = if car {
+        e.def.stops.get(e.at).map_or(e.y, |stop| stop.y)
+    } else {
+        local.y
+    };
+    e.def.point(
+        0.0,
+        crate::engine::elevator::DOOR_HEIGHT.mul_add(0.5, floor),
+        -0.35,
+    )
+}
+
+/// Select the manufactured assembly's actual adjacent receiver, not a tint.
+pub fn set_landing_receiver(
+    scene: &mut super::dynamic::DynamicScene,
+    id: super::dynamic::DynamicId,
+    elevator: &Elevator,
+    part: Part,
+    position: [f32; 3],
+) -> bool {
+    // Concealed leaf overlaps lie inside the sill/header and cannot be used
+    // as light receivers for the entire exposed panel. This is a sampling
+    // subset only; drawing, culling and occluding geometry retain full stock.
+    let bounds = matches!(part, Part::Leaf).then_some(crate::engine::spatial::Aabb {
+        min: [0.02, 0.03, crate::engine::elevator::DOOR_LEAF_FRONT + 0.001],
+        max: [
+            crate::engine::elevator::DOOR_LEAF_WIDTH - 0.02,
+            crate::engine::elevator::DOOR_HEIGHT - 0.03,
+            crate::engine::elevator::DOOR_LEAF_BACK - 0.001,
+        ],
+    });
+    scene.set_lighting_receiver(
+        id,
+        Some(landing_light_probe(elevator, part, position).into()),
+        bounds,
+    )
+}
 pub struct Models {
     pub cabins: Vec<PropModel>,
     pub frame: PropModel,
