@@ -8,6 +8,11 @@ use crate::engine::loader::PropCatalog;
 use crate::engine::props::PropAssets;
 use glam::Vec3;
 
+/// Main rendered steel skin; collision intentionally retains wider stock.
+/// The concealed centre seal projects to +.014 without covering the panel.
+pub const LEAF_SURFACE_FRONT: f32 = -0.010;
+pub const LEAF_SURFACE_BACK: f32 = 0.010;
+
 /// Analytic visibility of the manufactured opaque shell and paired door tracks.
 /// It follows gameplay, including the eased leaf overlap, rather than the camera
 /// or a lighting-quality setting. No static light is baked into a landing.
@@ -70,11 +75,11 @@ pub fn set_landing_receiver(
     // as light receivers for the entire exposed panel. This is a sampling
     // subset only; drawing, culling and occluding geometry retain full stock.
     let bounds = matches!(part, Part::Leaf).then_some(crate::engine::spatial::Aabb {
-        min: [0.02, 0.03, crate::engine::elevator::DOOR_LEAF_FRONT + 0.001],
+        min: [0.02, 0.03, LEAF_SURFACE_FRONT + 0.001],
         max: [
             crate::engine::elevator::DOOR_LEAF_WIDTH - 0.02,
             crate::engine::elevator::DOOR_HEIGHT - 0.03,
-            crate::engine::elevator::DOOR_LEAF_BACK - 0.001,
+            LEAF_SURFACE_BACK - 0.001,
         ],
     });
     scene.set_lighting_receiver(

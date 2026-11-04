@@ -894,9 +894,9 @@ impl GpuDynamicLight {
         };
         if let Some(enclosure) = light.enclosure {
             use crate::engine::elevator::{
-                CABIN_DOOR_Z, DEPTH, DOOR_HEIGHT, DOOR_LEAF_BACK, DOOR_LEAF_FRONT, HEIGHT,
-                LANDING_DOOR_Z, WIDTH,
+                CABIN_DOOR_Z, DEPTH, DOOR_HEIGHT, HEIGHT, LANDING_DOOR_Z, WIDTH,
             };
+            use crate::engine::render::common::elevators::{LEAF_SURFACE_BACK, LEAF_SURFACE_FRONT};
             let (sin, cos) = enclosure.rotation_degrees.to_radians().sin_cos();
             result.enclosure_origin_gap = [
                 enclosure.origin.x,
@@ -904,23 +904,23 @@ impl GpuDynamicLight {
                 enclosure.origin.z,
                 enclosure.half_gap,
             ];
-            result.enclosure_right_enabled = [cos, -sin, 1.0, -0.105];
-            // The passenger-side jamb/header ends at Z=.403. Clear stock is
-            // .688 m either side, above the .012 m opaque sill.
-            result.enclosure_bounds = [WIDTH * 0.5, HEIGHT, DEPTH, 0.403];
-            result.enclosure_portal = [0.688, 0.012, DOOR_HEIGHT, 0.710];
+            result.enclosure_right_enabled = [cos, -sin, 1.0, 0.0];
+            // Both finished frame faces meet their wall planes: cabin Z=.36,
+            // hall Z=0. The clear rebate is .688 m either side of the sill.
+            result.enclosure_bounds = [WIDTH * 0.5, HEIGHT, DEPTH, 0.360];
+            result.enclosure_portal = [0.688, 0.012, DOOR_HEIGHT, 0.688];
             result.enclosure_doors = [
-                CABIN_DOOR_Z + DOOR_LEAF_BACK,
-                CABIN_DOOR_Z + DOOR_LEAF_FRONT,
+                CABIN_DOOR_Z + LEAF_SURFACE_BACK,
+                CABIN_DOOR_Z + LEAF_SURFACE_FRONT,
                 if enclosure.landing_doors {
-                    LANDING_DOOR_Z + DOOR_LEAF_BACK
+                    LANDING_DOOR_Z + LEAF_SURFACE_BACK
                 } else {
-                    CABIN_DOOR_Z + DOOR_LEAF_BACK
+                    CABIN_DOOR_Z + LEAF_SURFACE_BACK
                 },
                 if enclosure.landing_doors {
-                    LANDING_DOOR_Z + DOOR_LEAF_FRONT
+                    LANDING_DOOR_Z + LEAF_SURFACE_FRONT
                 } else {
-                    CABIN_DOOR_Z + DOOR_LEAF_FRONT
+                    CABIN_DOOR_Z + LEAF_SURFACE_FRONT
                 },
             ];
         }
