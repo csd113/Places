@@ -2733,6 +2733,7 @@ fn attached_character_light(
         color: cue.color,
         intensity: cue.intensity * fade,
         radius: cue.range,
+        enclosure: None,
     };
     light.is_well_formed().then_some(light)
 }

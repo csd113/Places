@@ -128,7 +128,22 @@ walnut paneling, wood rails on brass brackets, muted linoleum, cream ceiling and
 a warm diffuser. GIMP/XCF and Blender sources, committed PNGs and four rigid GLBs
 remain editable. No texture imagery is generated at runtime. The warm attached
 light uses the existing bounded realtime-light budget; the diffuser also emits.
+Cabin light is confined by the opaque shell and both sliding door tracks. The
+actual eased door aperture admits the warm pool only as the leaves separate;
+closed doors, centre seals, jambs, header, deck and cabin walls block it. The
+interior practical stays on during closure and travel. This visibility is shared
+by Static/Full lighting, world surfaces, props, decals and reflection captures;
+it requires no runtime bake or additional shadow-map pass.
 See the [art workflow](../tools/props/elevator_70s/README.md).
+
+The explicit dark-room fixture is `tests/fixtures/levels/elevator_dark.json`.
+Prepare just that scene with Static/Full, then use
+`tools/bench/elevator_light.py --binary <direct-game-binary> --package <fixture.placesmap> --out <new-directory> --assert-sealed`
+for closed/partial/open/closing captures from the hall, cabin and shell sides.
+Each image has an authoritative elevator-state checkpoint and measured exterior
+floor pixels. `--lightmaps off` checks Static; `--bloom` checks the normal luminous
+composition. The tool is opt-in;
+ordinary tests and CI never bake this scene or launch a native window.
 
 Shaft ambience occurs occasionally near a landing: an initial cue after eight
 seconds, then 14–29 seconds between cues. Movement and arrival have quiet feedback.

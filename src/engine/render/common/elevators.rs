@@ -6,6 +6,30 @@ use crate::engine::elevator::{
 use crate::engine::gltf::{PropModel, PropSubmesh};
 use crate::engine::loader::PropCatalog;
 use crate::engine::props::PropAssets;
+use glam::Vec3;
+
+/// Analytic visibility of the manufactured opaque shell and paired door tracks.
+/// It follows gameplay, including the eased leaf overlap, rather than the camera
+/// or a lighting-quality setting. No static light is baked into a landing.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LightEnclosure {
+    pub origin: Vec3,
+    pub rotation_degrees: f32,
+    pub half_gap: f32,
+    pub landing_doors: bool,
+}
+
+impl LightEnclosure {
+    #[must_use]
+    pub fn is_well_formed(self) -> bool {
+        self.origin.is_finite()
+            && self.rotation_degrees.is_finite()
+            && self.half_gap.is_finite()
+            && (-crate::engine::elevator::DOOR_LEAF_SEAL
+                ..=crate::engine::elevator::DOOR_LEAF_TRAVEL)
+                .contains(&self.half_gap)
+    }
+}
 
 #[derive(Clone, Copy)]
 pub enum Part {
@@ -164,6 +188,12 @@ pub fn cabin_light(elevator: &Elevator) -> super::dynamic_lights::DynamicLight {
         color: [1.0, 0.69, 0.38],
         intensity: 2.0,
         radius: 3.2,
+        enclosure: Some(LightEnclosure {
+            origin: elevator.def.point(0.0, elevator.y, 0.0),
+            rotation_degrees: elevator.def.rotation_degrees,
+            half_gap: door_leaf_x(1.0, elevator.opening) - crate::engine::elevator::DOOR_LEAF_SEAL,
+            landing_doors: elevator.phase != Phase::Moving,
+        }),
     }
 }
 #[must_use]

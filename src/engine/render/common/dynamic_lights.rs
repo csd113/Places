@@ -210,6 +210,9 @@ pub struct DynamicLight {
     pub intensity: f32,
     /// The falloff window's radius, in metres, strictly positive.
     pub radius: f32,
+    /// Opaque passenger-cabin shell and the authoritative moving door aperture.
+    /// Ordinary attached glows retain their existing unrestricted behavior.
+    pub enclosure: Option<super::elevators::LightEnclosure>,
 }
 
 impl DynamicLight {
@@ -232,6 +235,9 @@ impl DynamicLight {
             && self.radius.is_finite()
             && self.radius > 0.0
             && self.radius <= MAX_DYNAMIC_LIGHT_RADIUS
+            && self
+                .enclosure
+                .is_none_or(super::elevators::LightEnclosure::is_well_formed)
     }
 }
 

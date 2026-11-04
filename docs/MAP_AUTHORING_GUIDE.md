@@ -6690,6 +6690,12 @@ single ownership, rigid state and supported component/NPC state survive visits
 and saves. Unsupported map-bound or runtime-created owners refuse travel with
 an explanation; physical shafts currently accept the player alone. NPC boarding
 uses offline-prepared landing navigation and actual runtime door collision.
+Cabin illumination follows the car inside an opaque analytic shell. Both door
+tracks use the authoritative eased aperture and centre seal, so closed cabins
+cast no light onto the hall; the interior remains lit. This shared realtime term
+works with Static/Full and reflection/decal receivers, without a runtime bake or
+an additional shadow-map pass. The dedicated dark-room acceptance fixture and
+direct-binary capture command are documented in `ELEVATORS.md`.
 
 ### Wiring doors and lights
 
