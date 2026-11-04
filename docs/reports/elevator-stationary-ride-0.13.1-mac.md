@@ -209,6 +209,96 @@ with script diagnostics asserted. No Lua budget was relaxed or error hidden.
 The publication target is `0.13.1-dev`; no main merge or release is part of this
 work. Package files remain untracked under the repository's established policy.
 
+## Current integrated development delivery
+
+The latest published carry work through `c4cf6676` is preserved by merge
+`cbfc9874`. Conflict resolution retains the fixed-cabin renderer, per-landing
+light receivers and airborne source-retention correction. The final doorway
+art is unchanged. Task-6's volume-based wall/pillar implementation `b1f50bbb`
+and final production receipt `e658cdc0` are integrated as `43b6bdad` and
+`1b14caf4`; neither changes player, renderer, compiler or asset sources.
+
+The final placement contract has no wall-thickness-only refusal. The editor
+hollows a selected sufficiently large wall, rectangular column or circular
+pillar into saved architecture, while real cabin/pocket overlap still refuses
+placement. The dedicated final production campaign accepts eight placements,
+refuses two undersized pillars and the 2.47 m adjacent-room gap, and opens all
+eight exported cabins. Its 32 final inside/outside images and additional curved
+shell/floor views were inspected. See the
+[pillar report](elevator-pillar-fit-0.13.1-mac.md). The old 24 cm refusal above is
+historical, not a current limitation.
+
+Refreshed exports are in `local/elevator-stationary/current/`: collection 1.0.5,
+vertical lab 1.0.6 and linked lab 1.0.6. All nine collection members and both lab
+projects verify current; collection integrity reports 113 entries, 385 intact
+dependencies and no warnings. Static preparation is serialized as the `off`
+variant. No full collection bake was performed. Asset hashes match the final
+accepted task-6 art. `runtime-source-hashes.json` and a clean source comparison
+against `cbfc9874` establish that the final editor integration leaves the tested
+engine, game, compiler, Cargo and asset sources unchanged.
+
+Latest direct-binary checks use the retained carry-integrated player at
+`production-carry-core/places` (SHA-256
+`0ff8bc26e96f8ccceda11423a205d1edb77801ae857d899d4b5013f2aeb69c70`):
+
+- `current/airborne-held` passes source cancellation, grounded retry, held crate
+  and NPC vertical transfer, local/foreign save resume, cross-level travel and
+  one-instance return. Native PCM contains exactly four matching 1.8-second
+  motor cues, with minimum correlation 0.98506.
+- `current/rotated-held` passes the 90-degree, 3 m elevated destination and
+  return with ownership/state retained. Its PCM contains exactly three cues.
+- `current/blocked-vertical` retains original player/NPC/held poses on a blocked
+  arrival, reopens the source and accepts movement afterward.
+- `current/auto-drop-static` preserves the current body pose and releases it
+  safely at 2.86627 m, beyond its 2.85155 m size-adjusted limit; it remains held
+  at 2.72673 m and restores unheld after save/resume. The first harness attempt
+  requested an absent Full variant and was rejected at loading. The helper now
+  accepts `--lightmaps off`; no new bake or gameplay relaxation was needed.
+
+The complete eight-route/reward, fixed-floor film and four lighting campaigns
+above remain retained evidence for the same final art and ride/lighting code.
+After the carry merge, targeted passenger/recovery checks cover the changed
+physics path; editor-only pillar changes do not alter the collection's authored
+routes. The latest combined production editor and collection smoke receipts are
+recorded with the final build below.
+
+### Final combined gates and artifacts
+
+All **455 workspace tests**, formatting, strict workspace/all-target/all-feature
+Clippy and the locked workspace/all-feature release build pass. The release
+build completed in 6m 26s (`release-pillar-combined.log`). Final production
+executables are retained in `production-current/`.
+
+The combined production editor passes all eleven wall/pillar cases in
+`current/editor-pillars/`: eight accepted placements, two small-pillar refusals
+and one adjacent-room gap refusal. Its saved level JSON exactly equals the
+owner's accepted final production fixture, so the owner's exported geometry
+and native inside/outside evidence is reused without a duplicate geometry
+campaign. The latest player/package passes the Home round trip with all eight
+favors, unlocked/open reward room, ordinary collision/boarding/controls,
+pose-preserving arrival, identical retained loading frames, live walkout and
+return. No script diagnostic or audio-error assertion was disabled.
+
+The three latest PCM recordings contain nine matching motor cues in total,
+all unclipped. Home has exactly two for the outward and return rides. Current
+receipts and binary/package identities are in `current/accepted-manifest.json`;
+the earlier full eight-route and lighting receipts retain their precise scope.
+All nine collection members and both labs were verified again using the final
+production compiler. The compressed collection archive is 35,829,230 bytes.
+
+| Artifact relative to `local/elevator-stationary/` | SHA-256 |
+| --- | --- |
+| `production-current/places` | `a027887fdde476be183618cc54d9304992f960460f406f563da253146a412fc3` |
+| `production-current/places-compile` | `561b18deec71d73cdf37a090fb1970b1563bf7607a3b8365cc22e8190a86044c` |
+| `production-current/places-editor` | `91bad08e85d7f4775c630e696dd34b91eb83c8cb960700b115c04924040d8e04` |
+| `current/environments-1.0.5.placesmap` | `9ca1cf0140825eee1600ee2c8b37fe14e61d30028854e98dce0ccdc0ebe125ef` |
+| `current/lab-1.0.6.placesmap` | `ba8de549588c7a2f5b44f262c92715d3d36e0b5faacf702a83e3f6f6ba724587` |
+| `current/links-1.0.6.placesmap` | `3a6f2dca443429407618436e8eaf72f3afcfacd392f69d07f163935acaac5aae` |
+
+Publication is limited to `0.13.1-dev`, without force, a main merge or release.
+The operation result and verified remote commit are recorded after the push in
+`local/elevator-stationary/publication.json`.
+
 ## Scope and remaining checks
 
 No full Quiet Collection light bake is needed for this behavior and asset
