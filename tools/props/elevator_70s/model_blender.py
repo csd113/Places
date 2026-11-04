@@ -66,12 +66,17 @@ for side in [-1,1]:
   box('Vertical walnut side panel',[x0,.13,max(z+.008,.368)],[x1,2.46,z+.424],'walnut' if i%2 else 'walnut_light')
  x0,x1=(-1.2,-1.185)if side<0 else(1.185,1.2)
  box('Side bronze skirting',[x0,.025,.368],[x1,.13,2.38],'aged_brass')
- # Two actual recessed channels house the landing and cabin leaves. The
- # The complete entrance casing is metal, including the broad fascia and
- # every exposed pocket fold. Walnut belongs to the side/rear cabin walls.
+ # Two recessed channels house the landing and cabin leaves. The folds are
+ # metal, while the passenger-facing wall outside the narrow frame is wood.
  x0,x1=(-1.425,-.715)if side<0 else(.715,1.425)
- for z0,z1 in [(.02,.10),(.20,.24),(.345,.36)]:
+ for z0,z1 in [(.02,.10),(.20,.24)]:
   box('Metal-clad door-pocket skin',[x0,0,z0],[x1,2.55,z1],'brushed_steel')
+ x0,x1=(-.755,-.715)if side<0 else(.715,.755)
+ box('Metal pocket mouth collar',[x0,0,.345],[x1,2.24,.36],'brushed_steel')
+ x0,x1=(-1.425,-.755)if side<0 else(.755,1.425)
+ box('Walnut passenger front wall',[x0,0,.345],[x1,2.24,.36],'walnut')
+ x0,x1=(-1.425,-.715)if side<0 else(.715,1.425)
+ box('Walnut upper front wall',[x0,2.24,.345],[x1,2.55,.36],'walnut')
  x0,x1=(-1.45,-1.425)if side<0 else(1.425,1.45)
  box('Closed pocket outer end',[x0,0,.018],[x1,2.55,.362],'charcoal')
  x0,x1=(-1.45,-.679)if side<0 else(.679,1.45)
@@ -89,8 +94,9 @@ box('Rear bronze skirting',[-1.2,.025,2.385],[1.2,.13,2.4],'aged_brass')
 box('Softened walnut rear handrail',[-1.11,.95,2.26],[1.11,1.03,2.34],'wood_rail',.018)
 for x in [-.83,.83]:box('Rear brass rail bracket',[x-.018,.963,2.30],[x+.018,1.005,2.4],'aged_brass')
 box('Cream ceiling',[-1.2,2.55,.24],[1.2,2.63,2.48],'ceiling_cream')
-box('Metal front overhead return',[-.715,2.205,.02],[.715,2.55,.36],'brushed_steel')
-box('Cabin metal recessed header',[-.715,2.205,.365],[.715,2.48,.383],'brushed_steel')
+box('Metal front overhead return',[-.715,2.205,.02],[.715,2.24,.36],'brushed_steel')
+box('Walnut wall above doorway',[-.715,2.24,.02],[.715,2.55,.36],'walnut')
+box('Cabin metal recessed header',[-.715,2.205,.365],[.715,2.24,.383],'brushed_steel')
 # A fitted passenger-side stop overlaps the closed stock and metal returns.
 # The deliberately wider pocket mouth retains a dark metal track recess.
 for x0,x1 in [(-.735,-.688),(.688,.735)]:
@@ -155,11 +161,14 @@ for name,objects in parts.items():
   collection.objects.link(o)
 bpy.ops.wm.save_as_mainfile(filepath=str(ROOT/'elevator_70s.blend'))
 receipt={}
+export_parts=set(filter(None,os.environ.get('PLACES_ELEVATOR_EXPORT_PARTS','').split(',')))
+if export_parts-set(parts):raise ValueError('Unknown elevator export part')
 for name,objects in parts.items():
  bpy.ops.object.select_all(action='DESELECT')
  for o in objects:o.select_set(True)
  bpy.context.view_layer.objects.active=objects[0]
- bpy.ops.export_scene.gltf(filepath=str(ROOT/(name+'.glb')),export_format='GLB',use_selection=True,export_yup=True,export_texcoords=True,export_normals=True,export_materials='EXPORT',export_image_format='AUTO',export_animations=False,export_cameras=False,export_lights=False,export_extras=False)
+ if not export_parts or name in export_parts:
+  bpy.ops.export_scene.gltf(filepath=str(ROOT/(name+'.glb')),export_format='GLB',use_selection=True,export_yup=True,export_texcoords=True,export_normals=True,export_materials='EXPORT',export_image_format='AUTO',export_animations=False,export_cameras=False,export_lights=False,export_extras=False)
  for o in objects:o.data.calc_loop_triangles()
  receipt[name]={'objects':len(objects),'triangles':sum(len(o.data.loop_triangles) for o in objects),'source':'elevator_70s.blend'}
 (ROOT/'authoring.json').write_text(json.dumps({'tools':{'Blender':bpy.app.version_string,'GIMP':'3.2.6'},'license':'MIT - original offline artwork','atlas':'4x4 fitted cells, 1024 master / 256 native; opaque clamped UVs','parts':receipt},indent=2)+'\n')

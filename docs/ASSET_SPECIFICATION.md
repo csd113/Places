@@ -2721,12 +2721,14 @@ Passenger-side steel stops overlap the closed leaves and leave a visible panel
 lip at 0.681 m full retraction. The 1.72 m opaque metal sill extends beyond both
 jambs from local Z=-0.32 to +0.42 m. Tracks have recessed dark backing rather
 than holes or coplanar decals over the underlying floor. The cabin resource
-contains 1,276 triangles, before separately repeated button modules.
-The entrance fascia, pocket folds, reveals and overhead returns use the fitted
-brushed-steel cell. Deep track liners remain dark metal. Walnut is confined to
-the side/rear cabin wall panels and rails; exposed doorway
-returns must not alternate wood and metal. This is a UV/material assignment,
-not an overlay or a change to mechanism geometry.
+contains 1,336 triangles, before separately repeated button modules.
+The narrow frame, pocket folds, reveals and header use the fitted brushed-steel
+cell. Deep track liners remain dark metal. The surrounding front wall, including
+the wall above the doorway, remains walnut like the side/rear panels and rails.
+Fitted stock separates the frame from the wall: a metal collar ends at local
+X=+/-0.755 m and Y=2.24 m, with wood outside it. These are disjoint solid pieces,
+not coplanar cladding overlays. Wood must not appear in the exposed door returns;
+metal must not replace the surrounding wall.
 
 Elevator fitted UVs must remain stable on thin faces: uniform charcoal/rubber
 stock samples an existing centre texel, while elongated textured faces use an

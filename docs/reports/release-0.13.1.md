@@ -5147,3 +5147,69 @@ this pass contain Static lighting; Full coverage uses the existing elevator
 packages. Large Full atlas uploads, Windows/DX12 and Linux/Vulkan remain
 unmeasured. No claim is made for those workloads, physical disk cold starts,
 steady-state FPS, a release package or a main-branch merge.
+
+## Elevator wood surround / narrow metal frame correction
+
+The full-metal entrance treatment extended beyond the user's intended door
+frame. The passenger-facing front wall, including the wall above the doorway,
+is walnut again. Only the jambs, header, exposed pocket returns, collar and
+threshold remain metal. The wall and frame are separate, adjoining solids;
+there are no texture overlays over competing faces. The raised metal header
+now ends at Y=2.24 m and the wood starts outside |X|=0.755 m / above Y=2.24 m.
+The dark recessed door pockets and visible open leaf edges are retained.
+
+Only `elevator_cabin_70s.glb` changes among the runtime models. It has 1,336
+triangles, 60 more than the full-metal version, with identical overall bounds.
+The frame, leaf and button GLBs remain byte-identical. Door travel, clear
+opening, closed seals, threshold backing, collision, controls, lighting and
+transport code are unchanged. The Blender source and offline export script
+are updated together; `PLACES_ELEVATOR_EXPORT_PARTS` allows a cabin-only export
+without needlessly regenerating the Boolean landing frame.
+
+### Validation and evidence
+
+- Nine nearest-surface front-wall material probes find walnut and fifteen
+  frame probes find metal. The prior full-metal asset fails all nine wood
+  probes. All fourteen exposed pocket-return triangles remain metal.
+- Actual-GLB seal, UV and coplanar-surface checks pass: 7,182 closed sightlines
+  per tested door configuration without leaks, 155 clear open sightlines,
+  no visible coplanar overlaps across five door poses, and no atlas-cell
+  violations in 1,811 audited triangles. The existing 23 microscopic Boolean
+  slivers remain excluded from the UV shape check.
+- A fresh all-feature release build runs directly as a binary on macOS Metal.
+  Nine current closed/open, inside/outside and oblique views show the narrower
+  metal frame and surrounding wood. Eight lossless native opening sweeps
+  contain 1,407 rendered frames: inside left/right, header, sill, outside
+  centre/left/right under Full lighting, plus inside right with lightmaps off.
+  Inspected movement/contact views show no visible z-fighting. The last twelve
+  frames of each fully open view are pixel-identical (88 adjacent comparisons).
+  These are bounded visual observations, not a guarantee for every GPU/view.
+- Direct-binary closed-door blocking, walk-in/out clearance and obstruction
+  reopening pass. Physical-floor travel, save/resume, frozen-loading resize
+  and cross-level flow pass. A held-crate/NPC campaign passes boarding,
+  same-map and both cross-level directions, local/foreign checkpoint resume,
+  NPC custom-state preservation, outside-object exclusion and single-instance
+  return. Existing transport category limits are unchanged.
+- Strict workspace/all-target/all-feature Clippy, locked workspace/all-feature
+  release build, Python compilation, package integrity/currentness and diff
+  whitespace checks pass. The existing asset/prop/texture validators pass with
+  their preexisting texture advisories. No full shipped-map bake was performed.
+
+The temporary place-and-link demo is version 1.0.3; the physical-shaft lab is
+1.0.2. Both and the tiny passenger fixture were re-exported with Static/Full
+variants. The final local production compiler verifies the demo's Lobby and
+Annex current. Before/after comparison uses genuine historical full-metal
+captures and genuine corrected direct-binary captures at matching camera poses.
+
+Evidence remains outside `target/` under `local/elevator-wood-frame/`:
+`views-production/`, `motion-*/`, `motion-review.json`, `collision/`, `travel/`,
+`cargo-held/`, material/geometry/seal/UV/join receipts and build logs.
+`deliverables/Places-Elevator-Metal-Frame-Comparison.png` shows closed and open
+before/after views. Source base is 2b45b529, retaining the loading optimization.
+No hub maps, light logic or ambience/editor code were changed in this checkout.
+Other checkouts' hub packages must be re-exported after integrating the cabin.
+
+Corrected cabin SHA-256:
+`ba51fdca4c0d1efefbd9d052e62b397337ecf0da00acebac7a30022906d16de2`.
+Final native production binary SHA-256:
+`085808a308fbb7e3632202c8650f6bb3ffe4f1cee75c14a93dfdd264e0a6449b`.

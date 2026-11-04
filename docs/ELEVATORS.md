@@ -104,8 +104,8 @@ leaf edge beside the dark pocket when open. The opaque 1.72 m sill spans both
 jambs and both door tracks, projecting from Z=-0.32 to +0.42 m. Recessed grooves
 have backing, so underlying carpet cannot show around or through the threshold.
 The doorway's jambs, pocket folds, reveals and header are metal throughout;
-walnut belongs to the side/rear cabin wall panels, rather than the exposed
-doorway returns. Dark metal liners preserve the recessed pocket appearance.
+the surrounding front wall and wall above the doorway remain walnut, matching
+the side/rear cabin panels. Dark metal liners preserve the recessed pockets.
 
 The reference-inspired exterior surrounds an original 1970s office interior:
 walnut paneling, wood rails on brass brackets, muted linoleum, cream ceiling and

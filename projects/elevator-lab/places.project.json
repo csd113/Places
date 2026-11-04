@@ -3,7 +3,7 @@
   "project_format": 1,
   "id": "elevator_lab",
   "name": "Elevator / Travel and Loading",
-  "package_version": "1.0.1",
+  "package_version": "1.0.2",
   "entry_level": "elevator_lobby",
   "menu_entry_only": true,
   "levels": [

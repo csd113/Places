@@ -19,7 +19,7 @@ All preserve +Y up and metre dimensions. Their origin is the mechanism's
 threshold, rather than an ordinary centre-bottom prop origin. Button stock
 starts at the first control anchor and is repeated only for other destinations;
 the current stop is omitted. Its front cap selects a committed glyph in cell 14.
-The cabin shell has 1,276 triangles before button assembly; frame 386, leaf 56
+The cabin shell has 1,336 triangles before button assembly; frame 386, leaf 56
 and button 56. Each rigid resource remains below the 1,500-triangle asset limit.
 The simple linked flow currently allows two destination buttons.
 The diffuse atlas is shared; only the lamp face emits. One bounded moving light
@@ -35,6 +35,9 @@ folder and run `paint_gimp.py` through GIMP's `python-fu-eval` batch interpreter
 then `model_blender.py` through Blender's background Python mode. Use an isolated
 GIMP profile under `local/` and review scratch exports before replacing accepted
 art. The installed application executable paths differ by platform.
+For a cabin-only refinement, set
+`PLACES_ELEVATOR_EXPORT_PARTS=elevator_cabin_70s`; the retained Blender document
+still contains every rigid part, while unrelated GLB exports remain untouched.
 
 Validation uses the ordinary asset/prop checks and direct native campaign:
 
@@ -58,10 +61,11 @@ exposed coplanar faces. The front pocket assembly requires a 3 m wide footprint.
 Use check_seals.py and check_surface_joins.py here for optional real-GLB sightline,
 clearance, visible-edge and exposed-overlap checks; native moving views remain
 necessary. These checks neither bake maps nor run in ordinary CI.
-The complete entrance fascia, doorway folds/returns and overhead use brushed
-steel. Side/rear wall paneling and wood rails retain their original walnut.
-Run check_frame_materials.py for the actual-GLB doorway cell contract; changing
-UV assignments must not move the mechanism geometry or collision anchors.
+The narrow frame and doorway folds/returns use brushed steel. The surrounding
+front wall, including above the header, retains walnut like the side/rear walls.
+Disjoint solid stock provides a metal collar to X=+/-0.755 m and Y=2.24 m, with
+wood beyond it. Run check_frame_materials.py for actual-GLB metal-frame and
+wood-wall sightlines. Mechanism anchors and the clear aperture stay unchanged.
 
 The inside-facing animation exposed atlas minification bleed on skinny stock.
 Uniform charcoal/rubber faces now sample their committed centre texel; elongated
