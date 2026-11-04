@@ -4,6 +4,7 @@ mod authored_physics_removal;
 mod automatic_reset;
 mod caustics_metadata;
 mod checkpoints;
+mod elevator_items;
 mod entity_routes;
 mod entity_sequences;
 mod essential_recovery;

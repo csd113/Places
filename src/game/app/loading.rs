@@ -168,6 +168,7 @@ impl Source {
 pub struct Request {
     pub source: Source,
     pub lightmaps: LightmapQuality,
+    pub cargo: super::elevator_cargo::Visit,
 }
 
 /// Keeps all decoded records of a pending or displayed world reusable through
@@ -250,6 +251,7 @@ impl LifetimeProbe {
 /// One internally compatible decoded world. The caller installs this only while
 /// its generation is current.
 pub struct PreparedWorld {
+    pub cargo: super::elevator_cargo::Ledger,
     pub geometry: crate::engine::render::PreparedGeometry,
     pub caustics: Option<crate::engine::render::PreparedCaustics>,
     pub transport: Option<Arc<crate::engine::lighting::transport::TransportScene>>,
@@ -784,7 +786,7 @@ fn prepare_world(
     // The variant records, already read while the level's own assets resolved.
     let mut prefetched_variant: Option<crate::engine::package::world::LoadedVariant> = None;
     let prepare_physical = matches!(&request.source, Source::Entry(_, _));
-    let loaded = match request.source {
+    let mut loaded = match request.source {
         Source::Entry(entry, _) => {
             manager.refresh_catalog();
             let key = PackageKey::for_entry(&entry, request.lightmaps)?;
@@ -926,6 +928,8 @@ fn prepare_world(
     // A malformed navigation record fails the load: there is no runtime
     // bake or repair path, and a world without navigation would silently
     // disable every AI behavior.
+    let cargo = request.cargo.apply(&mut loaded.level, &loaded.catalog)?;
+    crate::engine::loader::validate_level(&loaded.level)?;
     let navigation = records.navigation.clone();
     let collision =
         CollisionWorld::from_compiled(&loaded.level, records.collision.clone(), Some(navigation))
@@ -969,6 +973,7 @@ fn prepare_world(
     }
     let transport_probe = transport.as_ref().map(Arc::downgrade);
     Ok(Some(PreparedWorld {
+        cargo,
         geometry,
         caustics,
         transport,

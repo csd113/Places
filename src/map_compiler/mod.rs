@@ -2307,7 +2307,7 @@ pub(crate) fn bake_navigation(
             }
         }
     }
-    let mut obstacles: Vec<crate::engine::collision::WallAabb> = Vec::new();
+    let mut obstacles = crate::engine::elevator::navigation_obstacles(level);
     for prop in &level.props {
         for component in &prop.components {
             let ComponentDef::NavObstacle { size, affects_nav } = component else {
@@ -2338,10 +2338,11 @@ pub(crate) fn bake_navigation(
             ));
         }
     }
+    let navigation_floor = crate::engine::level::WalkableFloor::with_elevator_landings(level);
     let input = crate::map_compiler::navigation::NavBakeInput {
         level,
         walls: &collision.walls,
-        floor: &collision.floor,
+        floor: &navigation_floor,
         ceiling: &collision.ceiling,
         doors: &doors,
         classes: &classes,

@@ -172,6 +172,8 @@ impl Game {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
+    #[serde(default)]
+    pub(super) elevator_cargo: super::app::elevator_cargo::Ledger,
     /// Older saves precede the first explicit collection reset.
     #[serde(default)]
     pub campaign_generation: u64,

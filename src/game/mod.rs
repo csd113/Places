@@ -6,6 +6,7 @@ mod campaign;
 mod checkpoint;
 pub mod console;
 pub mod display;
+mod elevator_transport;
 pub mod gameplay_actions;
 pub mod gameplay_runtime;
 pub mod input;
@@ -430,6 +431,7 @@ pub struct Game {
     /// Private with [`Game::world`] so no caller can replace it without the
     /// player-side state being re-seeded.
     world: EntityWorld,
+    local_elevator_trip: Option<elevator_transport::LocalTrip>,
     /// The installed baked navigation mesh, queried by the AI runtime. This
     /// is uploaded from the package; the player never builds or repairs it.
     navigation: Option<crate::engine::nav::NavMesh>,
@@ -592,6 +594,7 @@ impl Game {
             ice_airborne: false,
             vertical_velocity: 0.0,
             grounded,
+            local_elevator_trip: None,
             locomotion: LocomotionSnapshot::default(),
             swimming: false,
             water_exit: None,
@@ -797,6 +800,7 @@ impl Game {
     /// release, so a fresh press works immediately. A level load passes
     /// `false` because the frame loop has already released gameplay inputs.
     fn clear_run_state(&mut self, spawn_pos: Vec3, spawn_yaw: f32, suppress_held: bool) {
+        self.local_elevator_trip = None;
         self.trigger_sweep = None;
         self.noclip = None;
         self.player_shape = None;
@@ -1726,10 +1730,11 @@ impl Game {
             if self.doors().get(door_index)?.is_locked() {
                 return None;
             }
-        } else if !self
-            .world
-            .handle_of(&item.id)
-            .is_some_and(|handle| self.world.components().carries.contains(handle))
+        } else if !item.id.starts_with("@elevator:")
+            && !self
+                .world
+                .handle_of(&item.id)
+                .is_some_and(|handle| self.world.components().carries.contains(handle))
         {
             return None;
         }
@@ -1933,14 +1938,28 @@ impl Game {
                     self.player_position.z,
                 ));
                 (
-                    target.def.point(local.x, target.y, local.z),
+                    target
+                        .def
+                        .point(local.x, target.y + local.y - source.y, local.z),
                     self.player_yaw
-                        + (target.def.rotation_degrees - source.def.rotation_degrees).to_radians(),
+                        - (target.def.rotation_degrees - source.def.rotation_degrees).to_radians(),
+                    elevator_transport::LocalTrip {
+                        target_id: departure.arrival.clone(),
+                        source: departure.source.clone(),
+                        target: target.checkpoint().ok(),
+                        from: crate::engine::elevator::CabinFrame::from_elevator(source),
+                        to: crate::engine::elevator::CabinFrame::from_elevator(target),
+                        eye: self.player_position,
+                        feet_y: self.feet_y,
+                        yaw: self.player_yaw,
+                        floor_y: self.player_floor_y,
+                    },
                 )
             });
-        if let Some((feet, yaw)) = pose
+        if let Some((feet, yaw, trip)) = pose
             && self.body_fits_for(feet, self.body_height(), self.body_half())
         {
+            self.local_elevator_trip = Some(trip);
             self.world
                 .finish_local_elevator_departure(&departure.source, Some(&departure.arrival));
             self.player_position.x = feet.x;
@@ -1951,6 +1970,7 @@ impl Game {
             self.vertical_velocity = 0.0;
             self.grounded = true;
             self.refresh_ground_support();
+            self.reseed_trigger_inside();
         } else {
             self.world
                 .finish_local_elevator_departure(&departure.source, None);

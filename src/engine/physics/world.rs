@@ -259,6 +259,8 @@ pub(super) struct BodyEntry {
     pub radius: f32,
     pub shape: SharedShape,
     pub authored_pose: ItemPose,
+    /// Current rest anchor can travel without changing an authored reset group.
+    pub dormant_pose: ItemPose,
     pub reset_group: Option<Box<str>>,
     pub previous: ItemPose,
     pub current: ItemPose,
@@ -273,7 +275,7 @@ pub(super) struct BodyEntry {
 impl BodyEntry {
     fn render_pose(&self, alpha: f32, held: bool) -> ItemPose {
         if self.dormant {
-            self.authored_pose
+            self.dormant_pose
         } else if held {
             self.current
         } else {
@@ -686,6 +688,7 @@ impl ItemWorld {
                 radius,
                 shape,
                 authored_pose: initial,
+                dormant_pose: initial,
                 reset_group: def.reset_group.as_deref().map(Into::into),
                 previous: initial,
                 current: initial,
@@ -1328,6 +1331,55 @@ impl ItemWorld {
         ))
     }
 
+    /// Exact live solver shape bounds, excluding temporal trigger envelopes.
+    #[must_use]
+    pub fn body_bounds(&self, key: u64) -> Option<(Vec3, Vec3)> {
+        let runtime = self.runtime.as_ref()?;
+        let entry = runtime.entries.get(&key)?;
+        let body = runtime.world.bodies.get(entry.body)?;
+        let bounds = entry.shape.compute_aabb(body.position());
+        Some((point(bounds.mins), point(bounds.maxs)))
+    }
+
+    /// Exact upright NPC clearance against the prepared/live rigid world.
+    /// The rider is checked separately; floor contact within solver slop is legal.
+    #[must_use]
+    pub fn passenger_space_clear(&self, feet: Vec3, height: f32, radius: f32) -> bool {
+        if !feet.is_finite()
+            || !height.is_finite()
+            || !radius.is_finite()
+            || height <= 0.0
+            || radius <= 0.0
+        {
+            return false;
+        }
+        let Some(runtime) = self.runtime.as_ref() else {
+            return true;
+        };
+        let shape = SharedShape::cylinder(height * 0.5, radius);
+        let target = pose(
+            Vec3::new(feet.x, height.mul_add(0.5, feet.y), feet.z),
+            Quat::IDENTITY,
+        );
+        runtime
+            .world
+            .intersect_shape(
+                target,
+                shape.as_ref(),
+                query_filter().exclude_rigid_body(runtime.player),
+            )
+            .all(|(_, other)| {
+                shape_contact(
+                    &target,
+                    shape.as_ref(),
+                    other.position(),
+                    other.shape(),
+                    0.0,
+                )
+                .is_ok_and(|contact| contact.is_none_or(|c| c.dist >= -0.004))
+            })
+    }
+
     /// Emits interpolated model-origin poses in stable key order.
     pub fn for_each_pose(&self, mut visit: impl FnMut(u64, ItemPose)) {
         let Some(runtime) = self.runtime.as_ref() else {
@@ -1767,6 +1819,7 @@ impl Runtime {
         }
         entry.previous = entry.authored_pose;
         entry.current = entry.authored_pose;
+        entry.dormant_pose = entry.authored_pose;
         entry.solver_pose = None;
         entry.trigger_path = TriggerPath::new(entry.authored_pose, entry.center, &entry.shape);
         entry.impact_motion = ImpactMotion::default();
@@ -1971,8 +2024,8 @@ impl Runtime {
     pub(super) fn update_poses(&mut self) {
         for entry in self.entries.values_mut() {
             if entry.dormant {
-                entry.previous = entry.authored_pose;
-                entry.current = entry.authored_pose;
+                entry.previous = entry.dormant_pose;
+                entry.current = entry.dormant_pose;
                 entry.solver_pose = None;
                 continue;
             }

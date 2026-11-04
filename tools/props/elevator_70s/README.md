@@ -19,8 +19,8 @@ All preserve +Y up and metre dimensions. Their origin is the mechanism's
 threshold, rather than an ordinary centre-bottom prop origin. Button stock
 starts at the first control anchor and is repeated only for other destinations;
 the current stop is omitted. Its front cap selects a committed glyph in cell 14.
-The cabin shell has 1,096 triangles before button assembly; frame 386, leaf 56
-and button 56. Seven buttons retain the advanced body below 1,500 triangles.
+The cabin shell has 1,276 triangles before button assembly; frame 386, leaf 56
+and button 56. Each rigid resource remains below the 1,500-triangle asset limit.
 The simple linked flow currently allows two destination buttons.
 The diffuse atlas is shared; only the lamp face emits. One bounded moving light
 supplies warm illumination through the engine's existing realtime light path.
@@ -58,3 +58,15 @@ exposed coplanar faces. The front pocket assembly requires a 3 m wide footprint.
 Use check_seals.py and check_surface_joins.py here for optional real-GLB sightline,
 clearance, visible-edge and exposed-overlap checks; native moving views remain
 necessary. These checks neither bake maps nor run in ordinary CI.
+
+The inside-facing animation exposed atlas minification bleed on skinny stock.
+Uniform charcoal/rubber faces now sample their committed centre texel; elongated
+faces crop the cell using the physical face aspect, preserving wood-rail grain
+orientation. This keeps neighbouring atlas colours out of exposed pocket edges.
+The isolated UV correction preserved geometry. The subsequent fitted steel stop
+frame and full-width backed threshold add actual stock to the cabin; full-open
+leaf travel is 0.681 m, retaining a visible lip and the 1.35 m clear opening.
+Run check_uv_stability.py for the CPU UV guard and tools/bench/elevator_motion.py
+for lossless direct-binary animation evidence; static overlap checks alone cannot
+establish texture stability. Re-export elevator maps after updating the models,
+because packages retain explicit mechanism dependency identities.

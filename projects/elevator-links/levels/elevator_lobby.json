@@ -191,5 +191,49 @@
       "y": 0,
       "z": 0
     }
+  ],
+  "props": [
+    {
+      "id": "demo_crate",
+      "model": "core:cardboard_box",
+      "x": -0.55,
+      "y": 0.02,
+      "z": 1.95,
+      "scale": 0.6,
+      "physics": {
+        "motion": "dynamic",
+        "pickup": true
+      }
+    },
+    {
+      "id": "demo_guest",
+      "model": "mannequin",
+      "x": 0.55,
+      "y": 0,
+      "z": 1.85,
+      "scale": 1,
+      "rotation_degrees": 180,
+      "components": [
+        {
+          "component": "nav_agent",
+          "radius": 0.3,
+          "height": 1.8,
+          "speed_mps": 1
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "sight_range": 0,
+          "hearing_range": 0,
+          "can_open_doors": false,
+          "idle_clip": "pose_stand"
+        },
+        {
+          "component": "state",
+          "name": "demo_passenger",
+          "value": 1
+        }
+      ]
+    }
   ]
 }

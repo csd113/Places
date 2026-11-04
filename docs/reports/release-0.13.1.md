@@ -4805,3 +4805,170 @@ Full physical travel/loading route, preserved Geometry/Environment menus,
 save/reopen and advanced delete/undo checks. The production game SHA-256 is
 5e98a834be77132a2d737c91ecb139fe6caff04a3403eb6b2a7ed7992bea09ea.
 Runnable game/editor/compiler copies and accepted receipts are kept outside target.
+
+## Inside-facing opening texture sweep, 2026-11-04
+
+This subsection records the isolated UV-only diagnosis. The subsequent fitted
+frame/threshold and passenger transport acceptance below supersedes its final
+geometry and executable identities.
+
+The reported speckled pocket edge was reproduced from inside the cabin in actual
+lossless game footage. It persists in unlit albedo and with baked lighting off.
+Thin fitted faces squeezed a complete atlas cell across millimetre-wide stock;
+grazing minification sampled adjacent cells, exposing stray light colours as the
+panels retracted. Static coplanar/sightline checks did not detect this sampling
+artifact. A controlled UV-only comparison removed it without moving geometry.
+
+The Blender recipe now samples the existing centre texel for uniform charcoal
+and rubber, and uses an aspect-preserving cell crop on elongated faces. Wood-rail
+axis swaps also swap physical spans, retaining grain direction. Indexed triangles
+and bounds compare exactly with ec77121c for all four models; UV seam deduplication
+can change vertex indexing. The PNG/XCF, mechanism dimensions, render transforms,
+collision and runtime door behavior remain unchanged. No sampler/shader changes
+or runtime texture generation are involved. The separate opt-in native acceptance
+script cap increases from 128 to 512 actions, still limited to 64 KiB and 60 seconds
+per step, to accommodate frame-spaced camera input for demonstration recordings.
+It remains inert without the explicit PLACES_BENCH/action-script environment.
+A pure parser fixture verifies the exact count boundary and validation of late
+actions without any window, assets or map bake.
+
+The new opt-in elevator_motion.py retains every rendered frame as lossless
+FFV1/PNG, timestamps and door-pose checkpoints. Nine interior viewpoints cover
+centre, near/far, both obliques, close obliques, lintel and sill. Full/Off lighting
+and High/Low filtering were swept, with extra cross-combinations at both obliques.
+Six arrival captures remain inside throughout actual physical travel and the
+complete opening; bloom/Full reflections and an expanded 100-degree field of
+view receive additional checks. In total, 32 accepted sequences contain 7,161
+native frames. Their settled frames have zero pixel changes. Full-frame views
+and consecutive-frame pocket strips were inspected; no recurrence of the
+reproduced speckles was observed in those captures.
+
+Matched unlit captures give a narrower quantitative witness: a selected left-
+pocket region contains 11,944 corrected charcoal pixels; 496 were contaminated
+by bright colours before, versus zero after. This is an explicitly selected ROI,
+not a whole-screen metric. The CPU UV guard checks 1,571 triangles, with zero
+violations versus 907 in the old exports. It excludes 23 microscopic Boolean-weld
+slivers below 0.1 mm², whose derivative is ill-conditioned; native inspection
+remains necessary. Closed sightlines, visible panel lips, 1.35 m clearance and
+five static overlap poses still pass. Explicit native closed-door blocking,
+walk-in/out and obstruction reopening pass, along with physical travel/save,
+level loading, frozen-frame resize, independent linked groups and closed-cabin
+views. Earlier controlled-variant cancel/failure/audio checks pass as well.
+
+Strict workspace/all-target/all-feature Clippy and the locked release workspace/
+all-feature build passed for the artwork correction. Those production executables
+were byte-identical to the retained accepted binaries (game SHA-256
+5e98a834be77132a2d737c91ecb139fe6caff04a3403eb6b2a7ed7992bea09ea).
+Asset, prop and texture checks pass with their existing texture advisories.
+Only the tiny lab, temporary demo and linked-group fixture were exported; no
+shipped-map inventory was baked. Both refreshed demo levels verify current and
+integrity-valid. Old packages are correctly rejected for changed mechanism
+hashes, so previously exported elevator maps need rebuilding against these assets.
+The temporary demo package increments to 1.0.1, allowing an update of the previously
+delivered 1.0.0 package instead of an equal-version content conflict.
+
+A 13.8-second before/after video presents actual native frames, with timestamp-
+correct 3x slower opening and 3x pixel details; matching original PNGs and the
+refreshed playable demo are retained under local/elevator-motion-polish/deliverables.
+Raw lossless footage, timestamps, contact sheets and receipts remain alongside.
+The native demonstration recorder now captures every rendered frame, replacing
+the previous every-other-frame sample. Its route uses continuous walking and
+strafing with eased camera turns after one initial acceptance pose. This avoids
+the former recording cadence falling below the 30 fps delivery rate during
+movement. Loading pauses retain their actual game timing and game audio.
+
+For that bounded recording-input update, strict Clippy, the locked release
+workspace/all-feature build and all 433 Rust tests pass. The resulting game
+SHA-256 is 7e136dba7d4cfd0cc97e98406e26edb46385411eec4ee764635bb6a1c2e897bc;
+editor/compiler binaries remain byte-identical to the artwork-only validation.
+These observations cover Apple M2 Pro/Metal at 1280x720 for motion captures
+(and larger native seal screenshots), FOV 80/100 and the stated settings. They
+do not establish artifact absence on every driver, resolution or possible view;
+Windows/Vulkan were not exercised. No uncapped FPS claim is made.
+
+## Elevator passenger transport and fitted doorway, 2026-11-04
+
+Elevator loading now preserves the rider's cabin-relative feet, facing, pitch
+and stance. The frame transform handles rotated/elevated destinations; player
+yaw uses the opposite sign to model yaw. Exact arrival clearance is checked
+against scenery, doors, rigid props and NPCs. An obstructed pose rejects the
+candidate and reopens the source instead of recentring the rider.
+
+Linked and cross-level cabins carry fully contained authored movable rigid
+props and ordinary NPCs. A bounded, checkpointed semantic ledger assigns one
+owner across source/visitor identities, retains cargo left in visited maps and
+prevents duplicate original spawns on return. Physics pose, velocities,
+sleep/dormancy, held state and supported entity/NPC state survive transport.
+World-local solver handles and navigation paths are never copied. NPC targets
+to fellow passengers/player are remapped; map-bound targets are released.
+Destination preparation remains private until admission succeeds. Local
+transfers preflight both physical and semantic state before publication.
+
+The native campaign exposed a real dormancy bug: a transferred sleeping box
+returned to its old rest anchor on the next tick. A separate dormant-pose anchor
+now survives transport and checkpoint restore while explicit reset retains the
+authored anchor. A narrow, asset-free solver regression checks sixteen later
+steps, fresh runtime body keys, unchanged neighbours, velocity rotation and
+blocked batches. Candidate cargo is also checked against resident NPCs, whose
+controllers have no rigid proxy. Held left-clicks aimed at elevator controls are
+consumed once without throwing; ordinary throws keep their existing behavior.
+
+NPCs can board open cars using offline-prepared landing surfaces and conservative
+open-door navigation geometry. Actual doors continue gating runtime movement.
+A visitor uses its exact baked navigation class, or a larger/more restricted
+compatible class; unsupported arrivals refuse safely. These AI-only surfaces do
+not change player floors or the compiled collision-floor encoding.
+
+The supported subset deliberately refuses runtime/session spawns, ragdolls,
+articulated/NPC-carried assemblies, lifetimes/balloons and actors with map-bound
+tasks, regions, wiring, lighting or effects. Static scenery is not cargo. Up to
+32 distinct travellers are retained. Advanced continuously moving shafts remain
+player-only and now refuse occupied trips before motion, with a clear message;
+use the primary linked-cabin flow to transport props/NPCs within a map.
+
+The interior proportion problem was reproduced in wide, oblique and low actual
+game views. A fitted brushed-metal passenger stop frame now overlaps the closed
+leaf stock instead of leaving the wide dark pocket mouth to read as a gap.
+Full-open travel is 0.681 m, retaining visible metal edges in the dark pockets
+and the 1.35 m clear opening. The backed 1.72 m sill spans both jambs and door
+tracks, extending from local Z=-0.32 to +0.42 m. Its recessed grooves cover the
+underlying carpet. Blender source and all four exports remain editable; the
+cabin has 1,276 triangles and each resource remains within the asset budget.
+
+The final geometry passes 7,182 closed rays each for the assembled portal,
+independent moving cabin and landing, with zero leaks. Each also passes 155
+clear-aperture rays. Visible full-open lips, five exposed-coplanar-overlap poses
+and 1,751 UV triangles pass. Seventeen final motion sequences retain 2,818
+lossless native frames across interior/exterior views, Full/Off lighting,
+High/Low filtering, albedo, bloom/reflections and FOV 80/100. Settled comparisons
+have zero changed pixels; reviewed full-frame and consecutive native pocket
+details show no recurrence of the reported artifact. This is observed Metal
+evidence, not a claim covering every driver or viewpoint.
+
+Final direct-binary acceptance covers dormant/active/held props, actual NPC
+boarding, custom NPC state, both map/level travel directions, rotated/elevated
+cabins, local/foreign save-resume, outside-object exclusion and single-instance
+return. Six obstructed rider/cargo/resident-NPC cases, a missing package with a
+held object, cancellation and occupied-shaft refusal retain source ownership
+and live controls. Six production rider runs preserve three offsets and view
+orientations through straight and rotated round trips within 2 mm tolerance.
+The production physical-travel/save, frozen-frame resize, cancellation, failed
+load and spatial-audio checks also pass. No shipped-map inventory was baked.
+
+Strict all-target/all-feature Clippy, all 437 workspace tests, formatting,
+locked release workspace/all-feature build, and asset/prop/texture audits pass
+(existing texture advisories remain). Retained final game SHA-256:
+1d73626b62079ee2bdd8e13ea2e7c492bc419fd0ac7e7ea6eb9e971cf1087cbf.
+Both final temporary demo members verify current and integrity-valid with the
+exact final production compiler. Demo package 1.0.1 includes an NPC and pickup
+box, preserving the simple authoring flow without extra configuration.
+
+The final gameplay movie is 29.46 seconds at 1280x720/30 fps with native audio,
+1654 rendered source frames and timestamp-correct delivery. Its route uses
+ordinary walking/buttons and eased view input after one initial acceptance pose.
+All three stop checkpoints verify cargo offsets, NPC state and unique ownership.
+A 22.8-second evidence video combines the earlier controlled UV comparison with
+actual final fitted-frame, open-pocket and backed-threshold views. Four final
+production screenshots and the playable package accompany the local movies.
+Evidence, receipts and launch instructions are retained under
+local/elevator-motion-polish. No uncapped throughput claim is made.

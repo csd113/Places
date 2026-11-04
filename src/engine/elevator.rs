@@ -18,7 +18,7 @@ pub const DOOR_WIDTH: f32 = 1.35;
 pub const DOOR_HEIGHT: f32 = 2.2;
 /// Concealed stock overlaps the clear opening, then retracts past its edge.
 pub const DOOR_LEAF_WIDTH: f32 = DOOR_WIDTH * 0.5 + 0.02;
-pub const DOOR_LEAF_TRAVEL: f32 = DOOR_WIDTH * 0.5 + 0.018;
+pub const DOOR_LEAF_TRAVEL: f32 = DOOR_WIDTH * 0.5 + 0.006;
 pub const DOOR_LEAF_BOTTOM: f32 = -0.01;
 pub const DOOR_LEAF_TOP: f32 = DOOR_HEIGHT + 0.02;
 pub const DOOR_LEAF_SEAL: f32 = 0.004;
@@ -246,6 +246,117 @@ pub struct Departure {
     pub arrival: String,
     pub source: String,
 }
+
+/// Persistent cabin coordinates have no world-local handles or render data.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CabinFrame {
+    pub origin: Vec3,
+    pub rotation_degrees: f32,
+}
+
+/// Apply the cabin's rigid transform using finite f32 vector operations.
+#[must_use]
+pub fn map_cabin_point(from: Vec3, to: Vec3, turn: glam::Quat, point: Vec3) -> Vec3 {
+    let offset = turn.mul_vec3(Vec3::new(
+        point.x - from.x,
+        point.y - from.y,
+        point.z - from.z,
+    ));
+    Vec3::new(to.x + offset.x, to.y + offset.y, to.z + offset.z)
+}
+
+/// Conservative offline bounds of cabin stock with the active doorway open.
+/// Live leaves still decide whether an NPC may enter an occupied landing.
+#[must_use]
+pub fn navigation_obstacles(
+    level: &crate::engine::level::LevelDef,
+) -> Vec<crate::engine::collision::WallAabb> {
+    let mut result = Vec::new();
+    for def in &level.elevators {
+        for (index, stop) in def.stops.iter().enumerate().filter(|(_, s)| s.is_landing()) {
+            let mut lift = Elevator::new(def);
+            lift.at = index;
+            lift.y = stop.y;
+            lift.opening = 1.0;
+            lift.phase = Phase::Open;
+            for collider in lift.colliders().into_iter().filter(|c| {
+                c.hinge_y >= stop.y - 0.1 && c.hinge_y + c.height <= stop.y + HEIGHT + 0.1
+            }) {
+                let mut x0 = f32::INFINITY;
+                let mut x1 = f32::NEG_INFINITY;
+                let mut z0 = f32::INFINITY;
+                let mut z1 = f32::NEG_INFINITY;
+                for t in [0.0_f32, 1.0] {
+                    for side in [-1.0_f32, 1.0] {
+                        let (x, z) = collider.point_at(t, side);
+                        x0 = x0.min(x);
+                        x1 = x1.max(x);
+                        z0 = z0.min(z);
+                        z1 = z1.max(z);
+                    }
+                }
+                result.push(crate::engine::collision::WallAabb::with_y(
+                    x0,
+                    collider.hinge_y,
+                    z0,
+                    x1 - x0,
+                    collider.height,
+                    z1 - z0,
+                ));
+            }
+        }
+    }
+    result
+}
+
+impl CabinFrame {
+    #[must_use]
+    pub fn horizontal_bounds(&self) -> (f32, f32, f32, f32) {
+        let turn = glam::Quat::from_rotation_y(self.rotation_degrees.to_radians());
+        let mut minimum = Vec3::splat(f32::INFINITY);
+        let mut maximum = Vec3::splat(f32::NEG_INFINITY);
+        for x in [-1.2_f32, 1.2] {
+            for z in [-0.2_f32, 2.4] {
+                let point = map_cabin_point(Vec3::ZERO, self.origin, turn, Vec3::new(x, 0.0, z));
+                minimum = minimum.min(point);
+                maximum = maximum.max(point);
+            }
+        }
+        (minimum.x, maximum.x, minimum.z, maximum.z)
+    }
+    #[must_use]
+    pub fn from_elevator(elevator: &Elevator) -> Self {
+        Self {
+            origin: elevator.def.point(0.0, elevator.y, 0.0),
+            rotation_degrees: elevator.def.rotation_degrees,
+        }
+    }
+    #[must_use]
+    pub fn turn_to(&self, target: &Self) -> glam::Quat {
+        glam::Quat::from_rotation_y((target.rotation_degrees - self.rotation_degrees).to_radians())
+    }
+    #[must_use]
+    pub fn local(&self, point: Vec3) -> Vec3 {
+        map_cabin_point(
+            self.origin,
+            Vec3::ZERO,
+            glam::Quat::from_rotation_y(-self.rotation_degrees.to_radians()),
+            point,
+        )
+    }
+    #[must_use]
+    pub fn contains_bounds(&self, min: Vec3, max: Vec3) -> bool {
+        [min.x, max.x].into_iter().all(|x| {
+            [min.y, max.y].into_iter().all(|y| {
+                [min.z, max.z].into_iter().all(|z| {
+                    let p = self.local(Vec3::new(x, y, z));
+                    p.x.abs() < 1.19 && p.z > 0.365 && p.z < 2.39 && p.y >= -0.025 && p.y < HEIGHT
+                })
+            })
+        })
+    }
+}
 #[derive(Default)]
 pub struct Step {
     pub carry_y: f32,
@@ -309,6 +420,16 @@ impl Elevator {
         self.target = self.at;
         self.departure_sent = false;
         self.phase = Phase::Opening;
+    }
+    #[must_use]
+    pub fn pending_physical_trip(&self) -> bool {
+        self.phase == Phase::Closing
+            && self.target != self.at
+            && self
+                .def
+                .stops
+                .get(self.target)
+                .is_some_and(Stop::is_landing)
     }
     pub const fn finish_departure(&mut self) {
         self.phase = Phase::Closed;
@@ -388,9 +509,9 @@ impl Elevator {
             self.box_collider([-1.28, 0.0, 0.0], [-1.2, HEIGHT, 2.48]),
             self.box_collider([1.2, 0.0, 0.0], [1.28, HEIGHT, 2.48]),
             self.box_collider([-1.2, 0.0, 2.4], [1.2, HEIGHT, 2.48]),
-            self.box_collider([-1.2, 0.0, 0.02], [-0.68, HEIGHT, 0.36]),
-            self.box_collider([0.68, 0.0, 0.02], [1.2, HEIGHT, 0.36]),
-            self.box_collider([-0.68, DOOR_HEIGHT, 0.02], [0.68, HEIGHT, 0.36]),
+            self.box_collider([-1.2, 0.0, 0.02], [-0.68, HEIGHT, 0.405]),
+            self.box_collider([0.68, 0.0, 0.02], [1.2, HEIGHT, 0.405]),
+            self.box_collider([-0.68, DOOR_HEIGHT, 0.02], [0.68, HEIGHT, 0.405]),
             self.box_collider([-1.14, 0.95, 0.55], [-1.06, 1.03, 2.25]),
             self.box_collider([1.06, 0.95, 0.55], [1.14, 1.03, 2.25]),
             self.box_collider([-1.11, 0.95, 2.26], [1.11, 1.03, 2.34]),

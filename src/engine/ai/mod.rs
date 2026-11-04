@@ -41,6 +41,7 @@ pub mod movement;
 pub mod perception;
 pub mod senses;
 pub mod tasks;
+pub mod travel;
 
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
@@ -1591,7 +1592,7 @@ impl AiWorld {
             if agent.class.is_none() {
                 agent.class = ctx
                     .nav
-                    .and_then(|nav| nav.class_index(&agent.profile.class()));
+                    .and_then(|nav| nav.compatible_class_index(&agent.profile.class()));
             }
             if agent.caught {
                 agent.speed_mps = 0.0;
@@ -2223,7 +2224,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         return;
     };
     if agent.class.is_none() {
-        agent.class = nav.class_index(&agent.profile.class());
+        agent.class = nav.compatible_class_index(&agent.profile.class());
         if agent.class.is_none() && !agent.reported_unplaced {
             agent.reported_unplaced = true;
             out.unplaced = out.unplaced.saturating_add(1);

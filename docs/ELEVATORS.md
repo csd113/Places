@@ -53,6 +53,36 @@ events; Escape cancels, resize scales the retained frame, and a failed load keep
 the previous world and reopens the source. Startup retains its normal loading
 screen. Arrival opens the destination doors automatically.
 
+The rider retains their exact cabin-relative feet position, viewing direction,
+pitch and crouch across a level load, including rotated or elevated arrival
+cabins. A blocked exact position rejects the trip instead of moving the player
+to the cabin centre. Held controls remain usable while carrying a prop.
+
+## Bring props and NPCs
+
+Ordinary **authored movable rigid props and NPCs** travel automatically when
+their complete bodies fit inside the closed cabin. This works between linked
+cabins in one map and between project levels. Objects outside stay behind.
+Held props must fit completely too. Position, orientation, rigid velocities,
+sleep/dormant state, held ownership, ordinary component state and NPC intent
+are retained in the destination cabin's frame. Navigation replans there; NPC
+references to the player or fellow passengers remain semantic identities.
+An NPC's old post outside the cabin is replaced by its arrival post.
+
+Travelled objects have one owner across visits. Returning to their original
+map does not recreate a second source instance. The session ledger, including
+travellers left behind in a visited level, is saved with checkpoints. It holds
+up to 32 distinct travellers; loading an unrelated package starts a new ledger.
+An obstructed arrival, missing level or cancellation retains the source world,
+occupants and held item, and reopens the doors.
+
+The current portable subset excludes console/session-created props, runtime
+spawns, ragdolls/articulated actors, NPC-held assemblies, lifetime/balloon owners,
+and actors with map-bound tasks, regions, wiring, lights or effects. Such an
+occupant refuses travel with an explanation. Static scenery is never cargo.
+Use linked cabins for prop/NPC transport; advanced physically moving shafts
+currently accept the player alone and refuse occupied trips before movement.
+
 ## Space and artwork
 
 The placement origin is the door threshold centre. At yaw zero the hall is
@@ -69,6 +99,10 @@ seal hide the cabin and outside scenery when closed. The inner pair sits behind
 the landing wall's cabin-facing plane, so stationary walls cannot clip into the
 view during travel. Render and collision share the same eased door pose.
 An occupied doorway reopens closing doors and cancels departure.
+The inner metal stop frame overlaps the closed leaves, with a small visible
+leaf edge beside the dark pocket when open. The opaque 1.72 m sill spans both
+jambs and both door tracks, projecting from Z=-0.32 to +0.42 m. Recessed grooves
+have backing, so underlying carpet cannot show around or through the threshold.
 
 The reference-inspired exterior surrounds an original 1970s office interior:
 walnut paneling, wood rails on brass brackets, muted linoleum, cream ceiling and
@@ -97,9 +131,9 @@ a saved cabin in another map. initial_stop names a physical landing.
 Saves store each cabin's settled landing and open/closed state. Saving during
 motion or loading is refused while retaining the previous save. Resume rebuilds
 controls before restoring the passenger. Reset returns cabins to their initial
-landings. An authored cabin spawn resolves to the initial deck. Cross-level
-travel follows the existing fresh-world contract: carried items and NPCs do not
-transfer. AI does not navigate elevator shafts.
+landings. An authored cabin spawn resolves to the initial deck. NPCs can walk
+through open landing doors using prepared navigation; runtime door collision
+still gates closed cabins. Navigation is prepared offline, never during play.
 
 ## Temporary playable demo
 
@@ -107,6 +141,8 @@ projects/elevator-links is intentionally temporary and excluded from shipped-map
 preparation. Its beige Ground hall and blue Floor 1 hall are **on the same plane**,
 10 m apart. G/1 buttons move between them without reloading. A loads the separate
 Annex, whose G/1 buttons return to either hall. All routes are playable both ways.
+An ordinary NPC and a pickup box start inside Ground's cabin, demonstrating
+automatic passenger transfer. Their transport requires no extra editor setup.
 
 Export just this small fixture and launch the game executable directly:
 
@@ -121,6 +157,26 @@ The isolated playtest folder retains its saves/settings. No Mac app bundle is
 used. The older projects/elevator-lab remains the physical-shaft regression.
 
 ## Explicit validation and recording
+
+Passenger and exact-rider acceptance are opt-in and use tiny fixtures, separate
+from ordinary Cargo tests. Generate sources without baking, export the chosen
+project explicitly, then run the direct binary:
+
+```sh
+python3 tools/bench/elevator_cargo_fixture.py --out local/cargo-fixtures
+places-compile export-project local/cargo-fixtures/straight \
+  --out local/cargo.placesmap --variants static,full --asset-root assets --workers 2
+python3 tools/bench/elevator_cargo.py --binary target/release/places \
+  --package local/cargo.placesmap --out local/cargo-held --mode held
+python3 tools/bench/elevator_rider.py --binary target/release/places \
+  --package local/cargo.placesmap --out local/rider-offsets
+```
+
+Export `rotated` and pass `--rotated` to check a 90-degree cabin 3 m higher.
+The fixture generator also writes blocked rider/cargo/NPC destinations and a
+physical-shaft refusal case. Use `--mode blocked-local`, `blocked-level`,
+`failure`, `cancel` or `shaft-guard` with the corresponding package. The driver
+checks live recovery input and source ownership; it never changes installed maps.
 
 CPU regressions cover collision/reopening, physical and linked travel,
 independent groups, same-height placement, group limits, undo/save/reopen,
@@ -143,5 +199,36 @@ same-height travel, adjacent stacked rooms and an independent second group.
 
 Omit --play from elevator_demo.py and use a new output folder to capture its
 actual native renderer frames and game audio. FFmpeg is required; capture timing
-is retained when muxing. The tutorial uses captures of the actual native editor
+is retained when muxing. Recording samples every rendered frame before timestamp-
+correct 30 fps delivery, with continuous walking and eased camera turns after
+one initial acceptance pose. The temporary package is versioned 1.0.1 so it can
+replace the earlier 1.0.0 demo after the mechanism artwork changes.
+The tutorial uses captures of the actual native editor
 place/link, destination chooser, save and complete-project export workflow.
+
+The fitted artwork keeps uniform charcoal/rubber stock on a committed centre
+texel and crops elongated faces according to their physical aspect ratio. This
+prevents adjacent atlas colours from appearing on thin pocket, metal, wood and
+floor edges at grazing views. It changes UVs, not door geometry or motion.
+Previously exported elevator maps must be rebuilt against updated mechanism
+assets; installation admission rejects a package with old dependency hashes.
+
+To inspect the actual interior opening animation, capture every rendered frame
+losslessly with an explicitly prepared, current lab package:
+
+```sh
+python3 tools/bench/elevator_motion.py --binary target/release/places \
+  --package /tmp/elevator-lab.placesmap --out /tmp/new-motion-evidence \
+  --view left --arrival --lightmaps full --filtering high
+python3 tools/props/elevator_70s/check_uv_stability.py
+```
+
+The motion tool retains FFV1 footage, individual native PNG frames, timestamps
+and door-pose checkpoints. Frame timestamps are authoritative; the FFV1 stream's
+nominal 60 fps is not a performance measurement. Compare center, near/far,
+oblique, close-oblique, lintel and sill views; both lighting modes and filtering
+extremes matter. Albedo inspection separates texture sampling from lighting. --arrival remains
+inside through ordinary floor travel and the complete arrival opening; optional
+--bloom, --reflections full and --fov cover normal presentation settings.
+The CPU UV guard ignores microscopic Boolean-weld slivers below 0.1 mm², whose
+UV derivative is ill-conditioned; it does not replace native motion inspection.

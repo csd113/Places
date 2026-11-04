@@ -61,6 +61,23 @@ impl EntityWorld {
     pub fn take_elevator_sounds(&mut self) -> Vec<(Vec3, &'static str)> {
         std::mem::take(&mut self.elevator_sounds)
     }
+    pub fn rollback_elevator_arrival(
+        &mut self,
+        source: &str,
+        target_id: &str,
+        target: Option<&crate::engine::elevator::Checkpoint>,
+    ) {
+        if let Some(record) = target
+            && let Some(elevator) = self.elevators.iter_mut().find(|e| e.def.id == target_id)
+        {
+            let centre = elevator.def.point(0.0, elevator.y + 1.2, 1.2);
+            self.elevator_sounds.retain(|(point, cue)| {
+                *cue != "elevator_arrive" || point.distance_squared(centre) > 0.000_001
+            });
+            let _restored = elevator.restore(record);
+        }
+        self.finish_local_elevator_departure(source, None);
+    }
     pub fn recover_elevators(&mut self) {
         for elevator in &mut self.elevators {
             if elevator.phase == Phase::Loading {
@@ -79,6 +96,10 @@ impl EntityWorld {
             .find(|e| e.def.id == id)
             .ok_or_else(|| format!("Arrival elevator '{id}' is missing"))?;
         elevator.arrive();
+        self.elevator_sounds.push((
+            elevator.def.point(0.0, elevator.y + 1.2, 1.2),
+            "elevator_arrive",
+        ));
         let result = (
             elevator.def.point(0.0, elevator.y, 1.2),
             elevator.def.rotation_degrees.to_radians(),

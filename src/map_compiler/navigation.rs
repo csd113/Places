@@ -771,6 +771,16 @@ fn floor_bounds(level: &LevelDef) -> Result<(f32, f32, f32, f32), String> {
         max_x = max_x.max(x1);
         max_z = max_z.max(z1);
     }
+    for def in &level.elevators {
+        let frame = crate::engine::elevator::CabinFrame::from_elevator(
+            &crate::engine::elevator::Elevator::new(def),
+        );
+        let (x0, x1, z0, z1) = frame.horizontal_bounds();
+        min_x = min_x.min(x0);
+        max_x = max_x.max(x1);
+        min_z = min_z.min(z0);
+        max_z = max_z.max(z1);
+    }
     if !min_x.is_finite() || !min_z.is_finite() || !max_x.is_finite() || !max_z.is_finite() {
         return Err("level has no room footprint to bake navigation over".to_string());
     }

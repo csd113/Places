@@ -21,7 +21,16 @@ def uv(o,role,emission=False,front_role=None):
   lo=[min(p[a] for p in ps)for a in axes];hi=[max(p[a]for p in ps)for a in axes]
   for k,p in zip(f.loop_indices,ps):
    q=[(p[a]-lo[j])/max(1e-7,hi[j]-lo[j])for j,a in enumerate(axes)]
-   if role=='wood_rail' and hi[0]-lo[0]>hi[1]-lo[1]:q=q[::-1]
+   spans=[hi[j]-lo[j] for j in range(2)]
+   if role=='wood_rail' and spans[0]>spans[1]:q=q[::-1];spans=spans[::-1]
+   # Flat pocket/guide stock must not acquire neighbouring atlas colours at
+   # grazing angles. Thin hardware faces use an aspect-preserving centre crop
+   # rather than squeezing a whole cell across a millimetre-wide bevel.
+   if role in ('charcoal','rubber'):
+    q=[.5,.5]
+   elif min(spans)*8<max(spans):
+    longest=max(spans)
+    q=[.5+(value-.5)*span/max(longest,1e-7) for value,span in zip(q,spans)]
    o.data.uv_layers.active.data[k].uv=((cx+.045+q[0]*.91)/4,1-(cy+.955-q[1]*.91)/4)
  current.append(o);return o
 
@@ -81,12 +90,26 @@ for x in [-.83,.83]:box('Rear brass rail bracket',[x-.018,.963,2.30],[x+.018,1.0
 box('Cream ceiling',[-1.2,2.55,.24],[1.2,2.63,2.48],'ceiling_cream')
 box('Front overhead return',[-.715,2.205,.02],[.715,2.55,.36],'walnut')
 box('Cabin recessed header',[-.715,2.205,.365],[.715,2.48,.383],'charcoal')
+# A fitted passenger-side stop overlaps the closed stock. The wood pocket
+# mouth is deliberately wider; its dark recess must not read as a door gap.
+for x0,x1 in [(-.735,-.688),(.688,.735)]:
+ box('Cabin steel door stop',[x0,-.012,.385],[x1,2.2,.403],'brushed_steel')
+box('Cabin steel header stop',[-.735,2.2,.385],[.735,2.24,.403],'brushed_steel')
 box('Brass diffuser surround',[-.76,2.515,.62],[.76,2.55,1.82],'aged_brass',.006)
 box('Warm prismatic lens',[-.70,2.506,.68],[.70,2.515,1.76],'warm_diffuser',emission=True)
 for x in [-1.18,1.13]:box('Ceiling edge batten',[x,2.475,.368],[x+.05,2.55,2.345],'wood_rail')
 box('Rear ceiling batten',[-1.18,2.475,2.35],[1.18,2.55,2.4],'wood_rail')
-box('Door threshold',[-.68,.001,-.16],[.68,.006,.20],'brushed_steel')
-for z in [-.12,-.06,0,.06,.12]:box('Door guide groove',[-.67,.006,z],[.67,.008,z+.006],'charcoal')
+# One opaque sill projects beyond both jambs and across both door tracks.
+# Recesses have a real backing; carpet/linoleum cannot show through them.
+box('Full doorway threshold backing',[-.86,-.012,-.32],[.86,.006,.42],'brushed_steel')
+for x0,x1 in [(-.86,-.82),(.82,.86)]:
+ box('Threshold end cap',[x0,.006,-.32],[x1,.012,.42],'brushed_steel')
+cursor=-.32
+for z0,z1 in [(-.27,-.26),(-.21,-.20),(-.15,-.14),(-.09,-.08),(-.03,-.02),(.119,.181),(.269,.331)]:
+ box('Threshold steel tread',[-.82,.006,cursor],[.82,.012,z0],'brushed_steel')
+ box('Recessed opaque door track',[-.82,.006,z0],[.82,.008,z1],'charcoal')
+ cursor=z1
+box('Threshold steel tread',[-.82,.006,cursor],[.82,.012,.42],'brushed_steel')
 box('Recessed control surround',[.79,.62,.365],[1.09,1.74,.386],'aged_brass',.006)
 box('Control panel inset',[.81,.64,.387],[1.07,1.72,.393],'charcoal')
 box('Etched service plate',[.83,.655,.394],[1.05,.73,.398],'service_plate')

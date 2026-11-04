@@ -6,6 +6,7 @@ mod authoring_trace;
 mod carry_runtime;
 mod checkpoints;
 mod console_input;
+pub(super) mod elevator_cargo;
 mod elevator_runtime;
 pub(super) mod flashlight;
 mod item_input;
@@ -637,6 +638,7 @@ enum LoadIntent {
 }
 
 struct PendingCommit {
+    cargo: elevator_cargo::Ledger,
     id: u64,
     loaded: loader::LoadedLevel,
     collision: CollisionWorld,
@@ -726,7 +728,8 @@ struct FrameLoop<'a> {
     fatal_error: Option<String>,
     loader: loading::Loader,
     load_intent: Option<LoadIntent>,
-    elevator_arrival: Option<String>,
+    elevator_arrival: Option<super::elevator_transport::Arrival>,
+    elevator_cargo: elevator_cargo::Ledger,
     pending_commit: Option<PendingCommit>,
     /// Active-world ownership is independent of the worker's bounded LRU.
     displayed_lease: Option<loading::PreparedLease>,
@@ -1409,11 +1412,20 @@ impl FrameLoop<'_> {
                             .iter()
                             .position(|entry| entry.path == path && entry.id == level)
                     {
-                        self.elevator_arrival = self
-                            .game
-                            .entities_mut()
-                            .take_elevator_departure()
-                            .map(|d| d.arrival);
+                        self.elevator_arrival =
+                            match self.game.entities_mut().take_elevator_departure() {
+                                Some(departure) => {
+                                    match self.game.elevator_departure_pose(&departure) {
+                                        Ok(arrival) => Some(arrival),
+                                        Err(problem) => {
+                                            self.game.entities_mut().recover_elevators();
+                                            self.elevator_notice(&problem);
+                                            continue;
+                                        }
+                                    }
+                                }
+                                None => None,
+                            };
                         self.load_level_at(index);
                         break;
                     }
@@ -3324,6 +3336,7 @@ impl FrameLoop<'_> {
     }
 
     fn unload_world_for_menu(&mut self) {
+        self.elevator_cargo = elevator_cargo::Ledger::default();
         self.renderer.end_transition();
         self.elevator_arrival = None;
         self.retry_source = None;
@@ -3462,9 +3475,19 @@ impl FrameLoop<'_> {
             ),
         );
         let lightmaps = self.graphics_for_level(&level_id).lightmaps;
+        let cargo = match self.cargo_visit(&source) {
+            Ok(visit) => visit,
+            Err(problem) => {
+                self.elevator_arrival = None;
+                self.game.entities_mut().recover_elevators();
+                self.elevator_notice(&problem);
+                return;
+            }
+        };
         let request = loading::Request {
             source: source.clone(),
             lightmaps,
+            cargo,
         };
         match self.loader.request(request) {
             Ok(id) => {
@@ -3708,16 +3731,9 @@ impl FrameLoop<'_> {
                     else {
                         return;
                     };
-                    self.trace.record("preparation_result", id, &serde_json::json!({
-                        "level": prepared.loaded.level.id, "wall_ms": prepared.preparation_millis,
-                        "cache_hit": prepared.cache_hit,
-                        "lighting_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.timings.lighting_millis },
-                        "props_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.timings.props_millis },
-                        "surfaces_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.timings.surfaces_millis },
-                        "atlas_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.lightmap_millis },
-                        "retained_bytes": prepared.lease.retained_bytes(),
-                    }).to_string());
+                    self.trace_preparation_result(id, &prepared);
                     let loading::PreparedWorld {
+                        cargo,
                         geometry,
                         caustics,
                         transport,
@@ -3759,6 +3775,7 @@ impl FrameLoop<'_> {
                     self.renderer.set_prepared_caustics(caustics);
                     self.renderer.set_prepared_transport(transport);
                     self.pending_commit = Some(PendingCommit {
+                        cargo,
                         id,
                         loaded,
                         collision,
@@ -3788,6 +3805,18 @@ impl FrameLoop<'_> {
             }
         }
         self.update_loading_progress();
+    }
+
+    fn trace_preparation_result(&mut self, id: u64, prepared: &loading::PreparedWorld) {
+        self.trace.record("preparation_result", id, &serde_json::json!({
+            "level": prepared.loaded.level.id, "wall_ms": prepared.preparation_millis,
+            "cache_hit": prepared.cache_hit,
+            "lighting_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.timings.lighting_millis },
+            "props_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.timings.props_millis },
+            "surfaces_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.timings.surfaces_millis },
+            "atlas_ms": if prepared.cache_hit { 0.0_f64 } else { prepared.build.lightmap_millis },
+            "retained_bytes": prepared.lease.retained_bytes(),
+        }).to_string());
     }
 
     fn update_loading_progress(&mut self) {
@@ -4266,6 +4295,7 @@ impl FrameLoop<'_> {
 
     fn commit_loaded_world(&mut self) {
         let Some(PendingCommit {
+            cargo,
             id,
             loaded,
             collision,
@@ -4278,10 +4308,13 @@ impl FrameLoop<'_> {
         else {
             return;
         };
+        self.elevator_cargo = cargo;
         if !matches!(intent, LoadIntent::Graphics) {
             self.console_runtime.reset_map_presentation();
             self.audio.clear_world();
-            self.flashlight = flashlight::Power::Off;
+            if self.elevator_arrival.is_none() {
+                self.flashlight = flashlight::Power::Off;
+            }
             self.outcome = None;
             self.message = None;
             self.subtitles.clear();
@@ -5325,8 +5358,6 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut applied_filtering = settings.texture_filtering.clone();
     let mut capture_path = capture_path_from_env();
 
-    let items = item_runtime::Items::new();
-
     let audio = audio_runtime::Audio::new(started.ready.audio, &sdl_context);
     timing.step("audio");
     let mut frame_loop = FrameLoop {
@@ -5354,7 +5385,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         message: None,
         message_page: 0,
         subtitles: ui::Subtitles::default(),
-        items,
+        items: item_runtime::Items::new(),
         audio,
         video: video::Recording::from_env(),
         ui_cache: &mut ui_cache,
@@ -5375,6 +5406,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         loader: started.loader,
         load_intent: None,
         elevator_arrival: None,
+        elevator_cargo: elevator_cargo::Ledger::default(),
         pending_commit: None,
         displayed_lease: None,
         retired_worlds: std::collections::VecDeque::new(),

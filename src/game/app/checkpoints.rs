@@ -110,7 +110,10 @@ impl FrameLoop<'_> {
         &self,
         prepared: &mut loading::PreparedWorld,
     ) -> Result<(Option<Box<crate::game::Game>>, Option<Snapshot>), String> {
-        if self.elevator_arrival.is_some() {
+        if self.elevator_arrival.is_some()
+            || prepared.cargo.has_host(&prepared.loaded.level.id)
+                && self.checkpoints.resume.is_none()
+        {
             return self.prepare_elevator_arrival(prepared);
         }
         let Some((identity, snapshot)) = self.checkpoints.resume.as_ref() else {
@@ -179,7 +182,10 @@ impl FrameLoop<'_> {
     fn capture_checkpoint(&self, name: &str) -> Result<(), String> {
         let loaded = self.current_level.as_ref().ok_or("No active level")?;
         let identity = Identity::for_level(loaded)?;
+        let mut cargo = self.elevator_cargo.clone();
+        cargo.refresh(&loaded.level, self.game, &self.items)?;
         let snapshot = Snapshot {
+            elevator_cargo: cargo,
             campaign_generation: self.campaign.current_generation()?,
             player: self.game.checkpoint_player()?,
             world: self.game.entities().checkpoint()?,

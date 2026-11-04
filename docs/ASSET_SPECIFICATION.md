@@ -2717,3 +2717,16 @@ seals preserve opacity at the centre, sides and transom without obstructing the
 1.35 m opening. Exposed wood/metal faces have separated joins; contact surfaces
 inside stock do not substitute for visible coplanar overlays. The front pocket
 assembly spans 2.9 m; reserve a 3 m authoring footprint.
+Passenger-side steel stops overlap the closed leaves and leave a visible panel
+lip at 0.681 m full retraction. The 1.72 m opaque metal sill extends beyond both
+jambs from local Z=-0.32 to +0.42 m. Tracks have recessed dark backing rather
+than holes or coplanar decals over the underlying floor. The cabin resource
+contains 1,276 triangles, before separately repeated button modules.
+
+Elevator fitted UVs must remain stable on thin faces: uniform charcoal/rubber
+stock samples an existing centre texel, while elongated textured faces use an
+aspect-preserving crop inside their assigned atlas cell. Swapping wood-rail UV
+axes also swaps their physical spans so grain direction remains correct. Do not
+stretch a complete 64-pixel cell across a millimetre-wide bevel: grazing-angle
+mips can sample neighbouring cells and produce apparent depth-fighting speckles.
+No global sampler or texture-generation policy changes are required.

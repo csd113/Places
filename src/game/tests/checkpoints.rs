@@ -151,6 +151,7 @@ fn snapshot_fixture() -> Result<(LevelDef, Snapshot), String> {
         });
     let _commands = game.entities_mut().take_commands();
     let snapshot = Snapshot {
+        elevator_cargo: crate::game::app::elevator_cargo::Ledger::default(),
         campaign_generation: 0,
         player: game.checkpoint_player()?,
         world: game.entities().checkpoint()?,

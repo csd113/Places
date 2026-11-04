@@ -9,8 +9,14 @@ use std::time::{Duration, Instant};
 use sdl3::event::Event;
 use serde::Deserialize;
 
-const MAX_ACTIONS: usize = 128;
+// Allows frame-spaced camera input for native demonstration recordings while
+// retaining the 64 KiB file cap and the existing per-action validation.
+const MAX_ACTIONS: usize = 512;
 const MAX_SCRIPT_BYTES: u64 = 65_536;
+
+#[cfg(test)]
+#[path = "../tests/native_actions.rs"]
+mod tests;
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -310,7 +316,9 @@ fn valid_anchor(anchor: &str) -> bool {
 fn parse(bytes: &[u8]) -> Result<Vec<Step>, String> {
     let steps: Vec<Step> = serde_json::from_slice(bytes).map_err(|error| error.to_string())?;
     if steps.is_empty() || steps.len() > MAX_ACTIONS {
-        return Err("Native action script must contain 1..128 actions".to_string());
+        return Err(format!(
+            "Native action script must contain 1..{MAX_ACTIONS} actions"
+        ));
     }
     for step in &steps {
         if !valid_anchor(&step.after) || step.delay_ms > 60_000 {

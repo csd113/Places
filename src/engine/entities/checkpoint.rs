@@ -6,8 +6,8 @@ use std::collections::BTreeSet;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EntityState {
-    id: String,
-    transform: Option<([f32; 3], f32)>,
+    pub(super) id: String,
+    pub(super) transform: Option<([f32; 3], f32)>,
     visible: Option<bool>,
     solid: Option<bool>,
     interaction: Option<(bool, bool, String)>,
@@ -25,6 +25,8 @@ pub struct EntityState {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
+    #[serde(default)]
+    ai: Vec<(String, crate::engine::ai::travel::Record)>,
     time: f32,
     entities: Vec<EntityState>,
     bindings: Vec<(String, bool, f32)>,
@@ -75,7 +77,6 @@ impl EntityWorld {
         }
         if self.store.len() != self.checkpoint_entity_count
             || !self.live_spawns.is_empty()
-            || !self.components.ais.is_empty()
             || !self.animated_doors.is_empty()
             || !self.physics_actors.is_empty()
             || !self.components.lifetimes.is_empty()
@@ -86,7 +87,7 @@ impl EntityWorld {
                 .iter()
                 .any(|(_, carry)| carry.item.is_some() || carry.retired)
         {
-            return Err("Checkpoint does not yet support AI, live spawns, lifetimes, balloons, articulated/clip doors or transferred items".into());
+            return Err("Checkpoint does not yet support live spawns, lifetimes, balloons, articulated/clip doors or NPC-owned transferred items".into());
         }
         if self.weather_strength != 0.0 || self.weather_target != 0.0 || self.weather_cycle_enabled
         {
@@ -103,54 +104,71 @@ impl EntityWorld {
         Ok(())
     }
 
+    pub(super) fn checkpoint_entity(&self, handle: super::EntityHandle) -> EntityState {
+        let components = &self.components;
+        EntityState {
+            id: self.id_of(handle).unwrap_or_default().to_string(),
+            transform: components
+                .transforms
+                .get(handle)
+                .map(|transform| (transform.position.to_array(), transform.yaw_degrees)),
+            visible: components
+                .renderables
+                .get(handle)
+                .map(|value| value.visible),
+            solid: components.colliders.get(handle).map(|value| value.solid),
+            interaction: components
+                .interactables
+                .get(handle)
+                .map(|value| (value.enabled, value.label_visible, value.prompt.clone())),
+            state: components
+                .states
+                .get(handle)
+                .map(|value| value.values.clone()),
+            light: components.lights.get(handle).map(|value| value.enabled),
+            material: components
+                .materials
+                .get(handle)
+                .map(|value| value.variant.clone()),
+            audio: components
+                .audio
+                .get(handle)
+                .map(|value| (value.enabled, value.playing)),
+            effect: components.steam.get(handle).map(|value| value.enabled),
+            water: components.water.get(handle).map(|value| value.enabled),
+            fade: components
+                .fades
+                .get(handle)
+                .map(|value| (value.enabled, value.live_opacity, value.fading_out)),
+            glow: components.glows.get(handle).map(|value| value.enabled),
+            animation: components.animations.get(handle).cloned(),
+        }
+    }
+
     /// # Errors
     /// Refuses unsupported or unsettled state; the prior disk save remains valid.
     pub fn checkpoint(&self) -> Result<Snapshot, String> {
         self.checkpoint_ready()?;
-        let entities =
-            self.store
-                .handles()
-                .into_iter()
-                .map(|handle| {
-                    let components = &self.components;
-                    EntityState {
-                        id: self.id_of(handle).unwrap_or_default().to_string(),
-                        transform: components.transforms.get(handle).map(|transform| {
-                            (transform.position.to_array(), transform.yaw_degrees)
-                        }),
-                        visible: components
-                            .renderables
-                            .get(handle)
-                            .map(|value| value.visible),
-                        solid: components.colliders.get(handle).map(|value| value.solid),
-                        interaction: components.interactables.get(handle).map(|value| {
-                            (value.enabled, value.label_visible, value.prompt.clone())
-                        }),
-                        state: components
-                            .states
-                            .get(handle)
-                            .map(|value| value.values.clone()),
-                        light: components.lights.get(handle).map(|value| value.enabled),
-                        material: components
-                            .materials
-                            .get(handle)
-                            .map(|value| value.variant.clone()),
-                        audio: components
-                            .audio
-                            .get(handle)
-                            .map(|value| (value.enabled, value.playing)),
-                        effect: components.steam.get(handle).map(|value| value.enabled),
-                        water: components.water.get(handle).map(|value| value.enabled),
-                        fade: components
-                            .fades
-                            .get(handle)
-                            .map(|value| (value.enabled, value.live_opacity, value.fading_out)),
-                        glow: components.glows.get(handle).map(|value| value.enabled),
-                        animation: components.animations.get(handle).cloned(),
-                    }
-                })
-                .collect();
+        let entities = self
+            .store
+            .handles()
+            .into_iter()
+            .map(|handle| self.checkpoint_entity(handle))
+            .collect();
         Ok(Snapshot {
+            ai: self
+                .ai
+                .agents()
+                .iter()
+                .map(|agent| {
+                    Ok((
+                        agent.instance_id.clone(),
+                        crate::engine::ai::travel::Record::capture(agent, |owner| {
+                            self.id_of(owner).map(str::to_string)
+                        })?,
+                    ))
+                })
+                .collect::<Result<_, String>>()?,
             time: self.sim_time,
             entities,
             bindings: self
@@ -222,6 +240,7 @@ impl EntityWorld {
             }
             self.restore_entity(record)?;
         }
+        self.restore_checkpoint_ai(snapshot)?;
         for (binding, (owner, fired, remaining)) in self.bindings.iter_mut().zip(&snapshot.bindings)
         {
             if self.names.id_of(binding.owner).map(super::EntityId::as_str) != Some(owner.as_str())
@@ -331,7 +350,34 @@ impl EntityWorld {
         }
     }
 
-    fn restore_entity(&mut self, record: &EntityState) -> Result<(), String> {
+    fn restore_checkpoint_ai(&mut self, snapshot: &Snapshot) -> Result<(), String> {
+        if snapshot.ai.len() != self.ai.agents().len() {
+            return Err("Checkpoint NPC count mismatch".into());
+        }
+        let mut npc_ids = BTreeSet::new();
+        for (id, record) in &snapshot.ai {
+            if !npc_ids.insert(id) {
+                return Err("Duplicate checkpoint NPC".into());
+            }
+            let handle = self.handle_of(id).ok_or("Checkpoint NPC is missing")?;
+            let transform = self
+                .components
+                .transforms
+                .get(handle)
+                .ok_or("NPC transform is missing")?;
+            let names = &self.names;
+            self.ai.restore_passenger(
+                id,
+                record,
+                transform.position,
+                transform.yaw_degrees,
+                |name| names.get(name),
+            )?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn restore_entity(&mut self, record: &EntityState) -> Result<(), String> {
         let handle = self
             .handle_of(&record.id)
             .ok_or("Unknown checkpoint entity")?;

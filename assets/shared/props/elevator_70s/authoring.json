@@ -8,7 +8,7 @@
   "parts": {
     "elevator_cabin_70s": {
       "objects": 1,
-      "triangles": 1096,
+      "triangles": 1276,
       "source": "elevator_70s.blend"
     },
     "elevator_frame_70s": {

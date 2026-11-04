@@ -54,4 +54,11 @@ impl CarryInput {
         let pending = self.pending.take();
         gameplay.then_some(pending).flatten()
     }
+    pub const fn take_elevator_click(&mut self, eligible: bool) -> bool {
+        eligible && self.pending.take().is_some()
+    }
 }
+
+#[cfg(test)]
+#[path = "../tests/elevator_input.rs"]
+mod tests;

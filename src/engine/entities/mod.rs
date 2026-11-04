@@ -34,6 +34,7 @@ mod elevators;
 pub mod events;
 pub mod id;
 mod light_power;
+pub mod passengers;
 mod ragdoll;
 mod sequence_runtime;
 pub mod sequences;
@@ -709,7 +710,7 @@ impl EntityWorld {
         self.sim_time = 0.0;
         self.water = WaterVolumes::from_level(level);
         self.ladders = Ladders::from_level(level);
-        self.floor = WalkableFloor::from_level(level);
+        self.floor = WalkableFloor::with_elevator_landings(level);
         self.ceiling = WalkableCeiling::from_level(level);
         self.animated_emissions
             .clone_from(&level.animated_emissions);
@@ -4386,7 +4387,7 @@ impl EntityWorld {
             door_version: self.doors.version(),
             walls: ctx.walls,
             index: ctx.index,
-            floor: ctx.floor,
+            floor: &self.floor,
             ceiling: &self.ceiling,
             leaves: &self.door_colliders,
             targets: &targets,

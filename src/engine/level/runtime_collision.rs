@@ -176,6 +176,8 @@ struct WalkableRoom {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct WalkableFloor {
     rooms: Vec<WalkableRoom>,
+    /// AI-only landing surfaces; omitted from the player/compiled collision floor.
+    cabins: Vec<crate::engine::elevator::CabinFrame>,
 }
 
 /// Which vertical surface a staircase answers with.
@@ -195,29 +197,36 @@ impl WalkableFloor {
     /// Retained room and nested surface storage for the prepared-world cache.
     #[must_use]
     pub(crate) fn retained_heap_bytes(&self) -> usize {
-        self.rooms.iter().fold(
-            self.rooms
-                .capacity()
-                .saturating_mul(std::mem::size_of::<WalkableRoom>()),
-            |bytes, room| {
-                bytes
-                    .saturating_add(
-                        room.ramps
-                            .capacity()
-                            .saturating_mul(std::mem::size_of::<WalkableRamp>()),
-                    )
-                    .saturating_add(
-                        room.stairs
-                            .capacity()
-                            .saturating_mul(std::mem::size_of::<WalkableStair>()),
-                    )
-                    .saturating_add(
-                        room.regions
-                            .capacity()
-                            .saturating_mul(std::mem::size_of::<WalkableRegion>()),
-                    )
-            },
-        )
+        self.rooms
+            .iter()
+            .fold(
+                self.rooms
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<WalkableRoom>()),
+                |bytes, room| {
+                    bytes
+                        .saturating_add(
+                            room.ramps
+                                .capacity()
+                                .saturating_mul(std::mem::size_of::<WalkableRamp>()),
+                        )
+                        .saturating_add(
+                            room.stairs
+                                .capacity()
+                                .saturating_mul(std::mem::size_of::<WalkableStair>()),
+                        )
+                        .saturating_add(
+                            room.regions
+                                .capacity()
+                                .saturating_mul(std::mem::size_of::<WalkableRegion>()),
+                        )
+                },
+            )
+            .saturating_add(
+                self.cabins
+                    .capacity()
+                    .saturating_mul(std::mem::size_of::<crate::engine::elevator::CabinFrame>()),
+            )
     }
 
     /// Builds the walkable surface model for a level.
@@ -273,7 +282,26 @@ impl WalkableFloor {
                 regions,
             });
         }
-        Self { rooms }
+        Self {
+            rooms,
+            cabins: Vec::new(),
+        }
+    }
+
+    /// Navigation may walk into an open cabin. Live door colliders gate each
+    /// landing; the player still uses the actual car floor at its current Y.
+    #[must_use]
+    pub fn with_elevator_landings(level: &LevelDef) -> Self {
+        let mut floor = Self::from_level(level);
+        for def in &level.elevators {
+            for stop in def.stops.iter().filter(|s| s.is_landing()) {
+                floor.cabins.push(crate::engine::elevator::CabinFrame {
+                    origin: def.point(0.0, stop.y, 0.0),
+                    rotation_degrees: def.rotation_degrees,
+                });
+            }
+        }
+        floor
     }
 
     /// True when the level contains no rooms at all.
@@ -350,6 +378,12 @@ impl WalkableFloor {
         for room in &self.rooms {
             if let Some(height) = Self::room_height_at(room, x, z, StairSampling::PitchLine) {
                 visit(height);
+            }
+        }
+        for cabin in &self.cabins {
+            let local = cabin.local(glam::Vec3::new(x, cabin.origin.y, z));
+            if local.x.abs() <= 1.2 && local.z >= -0.2 && local.z <= 2.4 {
+                visit(cabin.origin.y);
             }
         }
     }
@@ -814,7 +848,10 @@ impl WalkableFloor {
         for _ in 0..room_count {
             rooms.push(read_walkable_room(reader)?);
         }
-        Ok(Self { rooms })
+        Ok(Self {
+            rooms,
+            cabins: Vec::new(),
+        })
     }
 }
 

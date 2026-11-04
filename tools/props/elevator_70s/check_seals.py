@@ -33,7 +33,7 @@ def assembly(opened, revision, car_only=False, landing_only=False):
     cabin_z = .07 if revision else .30
     for z in ((.15,) if landing_only else (cabin_z,) if car_only else (cabin_z, .15)):
         for side in (-1, 1):
-            travel = width if revision else .693
+            travel = width if revision else .681
             x = -width-travel*opened if side < 0 else travel*opened
             if revision and side > 0:
                 x += .003
@@ -87,13 +87,13 @@ def visible_edges():
     body=np.concatenate([triangles('cabin'),triangles('frame')])
     leaf=triangles('leaf')
     for side in (-1,1):
-        x=.702*side
-        pose=-.695-.693 if side<0 else .693
-        outside=(x,1.1,-.5);inside=(x,1.1,.8)
-        assert blocked(leaf+[pose,0,.15],outside,(x,1.1,.128))
-        assert not blocked(body,outside,(x,1.1,.128))
-        assert blocked(leaf+[pose,0,.30],inside,(x,1.1,.3224))
-        assert not blocked(body,inside,(x,1.1,.3224))
+        pose=-.695-.681 if side<0 else .681
+        hall_x=.702*side;car_x=.684*side
+        outside=(hall_x,1.1,-.5);inside=(car_x,1.1,.8)
+        assert blocked(leaf+[pose,0,.15],outside,(hall_x,1.1,.128))
+        assert not blocked(body,outside,(hall_x,1.1,.128))
+        assert blocked(leaf+[pose,0,.30],inside,(car_x,1.1,.3224))
+        assert not blocked(body,inside,(car_x,1.1,.3224))
     return 'Both full-open panel lips visible from cabin and hall; clear aperture checked separately'
 
 def main():

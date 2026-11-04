@@ -6673,14 +6673,23 @@ moving leaf is advanced. `reset_to_start` returns every door to its authored
 ### Passenger elevators (0.13.1)
 
 `elevators[]` authors a walkable passenger car, paired sliding cabin/landing
-leaves, hall call controls and cabin floor buttons. Local stops move through a
-clear side shaft; project stops load their declared destination after closure,
-arrive in a named cabin and open its doors. Editor Space and Environment includes
-an Elevator form. Checkpoints preserve settled stops; blocked doors reopen.
+leaves, hall call controls and cabin floor buttons. **Build > Elevator** provides
+click-to-place, place another, and bidirectional linking. A linked group has up
+to three cabins, with the current stop omitted from its destination buttons.
+Logical floor names/order do not depend on world height; independent groups
+remain isolated. **Load another level** chooses a saved project map and arrival
+cabin. Advanced preserves physical shaft configuration. Checkpoints preserve
+settled stops; blocked doors reopen.
 See [the complete schema, dimensions and lab](ELEVATORS.md) before placement.
 In-game level loads retain the last game view beneath a static loading card;
 startup retains its separate preparation screen. Existing change-level bindings
 remain supported.
+Linked and cross-level travel retain the rider's exact cabin-relative pose and
+carry ordinary authored movable props and NPCs fully inside the cabin. Their
+single ownership, rigid state and supported component/NPC state survive visits
+and saves. Unsupported map-bound or runtime-created owners refuse travel with
+an explanation; physical shafts currently accept the player alone. NPC boarding
+uses offline-prepared landing navigation and actual runtime door collision.
 
 ### Wiring doors and lights
 

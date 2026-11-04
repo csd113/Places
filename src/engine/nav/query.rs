@@ -278,6 +278,20 @@ impl NavMesh {
         self.grid.class_index(profile)
     }
 
+    /// Exact classes win; a larger, more restricted baked body is also safe
+    /// for a visitor. The physical mover retains its actual dimensions.
+    #[must_use]
+    pub fn compatible_class_index(&self, profile: &NavClass) -> Option<usize> {
+        self.class_index(profile).or_else(|| {
+            self.grid.classes.iter().position(|class| {
+                class.radius >= profile.radius
+                    && class.height >= profile.height
+                    && class.step_height <= profile.step_height
+                    && class.max_slope <= profile.max_slope
+            })
+        })
+    }
+
     /// One region's statistics.
     #[must_use]
     pub fn region_stat(&self, class: usize, region: u16) -> Option<&RegionStat> {

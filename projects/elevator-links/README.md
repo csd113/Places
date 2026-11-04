@@ -9,6 +9,9 @@ buttons, excluding the current stop. G / 1 / A identify the destinations.
 Call the ground cabin, walk inside, then aim at a button and click or press E.
 1 travels inside this map; G returns. A closes the doors and loads the Annex
 over the frozen game view. The Annex offers both G and 1 as return destinations.
+The NPC and pickup box inside Ground travel with you on either route and return
+without duplicate source instances. Try moving the box or holding it before
+selecting a destination. Keep each passenger completely inside the cabin.
 
 Open places.project.json in the native editor. Build > Elevator starts click
 placement. Place two cabins and Link them; no coordinates or JSON are required.

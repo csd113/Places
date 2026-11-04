@@ -216,6 +216,28 @@ impl RecoverySpace {
                 Some(ladder.top_y),
             ));
         }
+        for def in &level.elevators {
+            let frame = crate::engine::elevator::CabinFrame::from_elevator(
+                &crate::engine::elevator::Elevator::new(def),
+            );
+            let bottom = def
+                .stops
+                .iter()
+                .filter(|s| s.is_landing())
+                .map(|s| s.y)
+                .fold(f32::INFINITY, f32::min);
+            let top = def
+                .stops
+                .iter()
+                .filter(|s| s.is_landing())
+                .map(|s| s.y + crate::engine::elevator::HEIGHT)
+                .fold(f32::NEG_INFINITY, f32::max);
+            areas.push(rectangular_area(
+                frame.horizontal_bounds(),
+                bottom,
+                Some(top),
+            ));
+        }
         for wall in walls {
             areas.push(rectangular_area(
                 (wall.min_x, wall.max_x, wall.min_z, wall.max_z),
@@ -628,6 +650,7 @@ impl Runtime {
         let target = destination.unwrap_or(fallback);
         let suspended = destination.is_none();
         entry.dormant = !suspended && entry.authored && target == entry.authored_pose;
+        entry.dormant_pose = target;
         let motion = if entry.dormant {
             RigidBodyType::Fixed
         } else {

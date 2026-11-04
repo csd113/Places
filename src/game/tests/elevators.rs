@@ -304,7 +304,9 @@ fn linked_ports_preserve_view_and_isolate_groups_at_any_height() -> Result<(), S
         "same-plane transfer uses the linked cabin pose"
     );
     assert!(
-        (game.player_yaw - (0.35 + std::f32::consts::FRAC_PI_2)).abs() < 0.002
+        (game.player_yaw - (0.35 - std::f32::consts::FRAC_PI_2).rem_euclid(std::f32::consts::TAU))
+            .abs()
+            < 0.002
             && (game.player_pitch + 0.1).abs() < 0.002,
         "view is preserved relative to the identical cabin"
     );
@@ -372,6 +374,73 @@ fn local_departure_reopens_when_an_advanced_arrival_is_busy() -> Result<(), Stri
         Phase::Open,
         "only the source safely reopens"
     );
+    Ok(())
+}
+
+// Cross-world admission cannot be covered by the existing same-world ride
+// test: exercise exact offsets/view/stance and reject a blocked private target.
+// Twelve tiny candidates need no assets, solver, renderer or lighting bake.
+#[test]
+fn cross_level_rider_admission_preserves_cabin_pose_or_rejects() -> Result<(), String> {
+    for rotation in [0.0_f32, 90.0, 37.0, -135.0] {
+        for (x, z, crouched) in [
+            (-0.3_f32, 1.15_f32, false),
+            (0.3, 1.6, false),
+            (0.0, 1.3, true),
+        ] {
+            let mut def = ports()?;
+            def.elevators
+                .get_mut(2)
+                .ok_or("Missing target")?
+                .rotation_degrees = rotation;
+            let mut source = port_game(&def);
+            source.set_benchmark_player_position(Vec3::new(x, EYE_HEIGHT, z), 0.6, -0.2);
+            if crouched {
+                source.stance = super::super::Stance::Crouched;
+                source.eye_offset_current = super::super::CROUCH_EYE_HEIGHT;
+                source.duck_fraction = 1.0;
+                source.set_feet_y(0.0);
+            }
+            let departure = crate::engine::elevator::Departure {
+                source: "a".into(),
+                arrival: "c".into(),
+                level: Some("next".into()),
+            };
+            let arrival = source.elevator_departure_pose(&departure)?;
+            let mut target = port_game(&def);
+            target
+                .arrive_elevator_from(&arrival)
+                .map_err(|e| format!("rotation={rotation} x={x} z={z} crouched={crouched}: {e}"))?;
+            let lift = def.elevators.get(2).ok_or("Missing target")?;
+            let expected = lift.point(x, 7.0, z);
+            assert!((target.player_position.x - expected.x).abs() < 0.0001);
+            assert!((target.player_position.z - expected.z).abs() < 0.0001);
+            assert!((target.feet_y() - 7.0).abs() < 0.0001);
+            let expected_view =
+                glam::Quat::from_rotation_y(rotation.to_radians()) * source.view_direction();
+            assert!((target.view_direction() - expected_view).length() < 0.0001);
+            assert_eq!(source.is_crouched(), target.is_crouched());
+            assert!((source.eye_offset() - target.eye_offset()).abs() < 0.0001);
+            // The same record must reject a blocked exact position, rather
+            // than silently moving the player to the cabin centre.
+            let mut blocked = port_game(&def);
+            blocked.walls.push(crate::engine::collision::WallAabb {
+                min_x: expected.x - 0.2,
+                max_x: expected.x + 0.2,
+                min_z: expected.z - 0.2,
+                max_z: expected.z + 0.2,
+                min_y: 7.0,
+                max_y: 9.0,
+                step_up: 0.0,
+            });
+            blocked.collision_index =
+                crate::engine::collision_index::CollisionIndex::build(&blocked.walls);
+            let previous = blocked.player_position;
+            assert!(blocked.arrive_elevator_from(&arrival).is_err());
+            assert_eq!(blocked.player_position, previous);
+            assert!((source.player_position.x - x).abs() < 0.0001);
+        }
+    }
     Ok(())
 }
 

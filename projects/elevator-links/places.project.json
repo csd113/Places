@@ -14,5 +14,6 @@
       "id": "elevator_annex",
       "source": "levels/elevator_annex.json"
     }
-  ]
+  ],
+  "package_version": "1.0.1"
 }

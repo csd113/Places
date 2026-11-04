@@ -604,23 +604,28 @@ impl FrameLoop<'_> {
             && !self.console.is_open()
             && self.load_intent.is_none()
             && !self.game.noclip_enabled();
-        let button_click = self.items.input.take_world_click(allowed)
-            && self.items.target.is_some_and(|target| match target {
-                InteractionTarget::World { index, distance: _ } => self
-                    .game
-                    .interactables()
-                    .get(index)
-                    .is_some_and(|item| item.id.starts_with("@elevator:")),
-                InteractionTarget::Item {
-                    key: _,
-                    distance: _,
-                }
-                | InteractionTarget::Activate {
-                    key: _,
-                    distance: _,
-                }
-                | InteractionTarget::Drop { key: _ } => false,
-            });
+        let raw_click = self.items.input.take_world_click(allowed);
+        let elevator_target = self.items.target.is_some_and(|target| match target {
+            InteractionTarget::World { index, distance: _ } => self
+                .game
+                .interactables()
+                .get(index)
+                .is_some_and(|item| item.id.starts_with("@elevator:")),
+            InteractionTarget::Item {
+                key: _,
+                distance: _,
+            }
+            | InteractionTarget::Activate {
+                key: _,
+                distance: _,
+            }
+            | InteractionTarget::Drop { key: _ } => false,
+        });
+        let held_click = self
+            .items
+            .input
+            .take_elevator_click(allowed && elevator_target);
+        let button_click = elevator_target && (raw_click || held_click);
         if (self.game.take_interact_press() || button_click) && self.window_focused {
             self.dispatch_interaction();
         }
@@ -642,6 +647,7 @@ impl FrameLoop<'_> {
         }
         self.apply_move_script();
         self.observe_held_item();
+        self.refuse_occupied_physical_shaft_trip();
         self.game
             .entities_mut()
             .set_navigation_obstacles(self.items.world.navigation_obstacles());
@@ -679,6 +685,7 @@ impl FrameLoop<'_> {
             .sync_context(player_context(self.game), self.game.door_colliders());
     }
     pub(super) fn apply_live_scene_commands(&mut self) {
+        self.finish_local_elevator_cargo();
         self.apply_world_commands();
         self.apply_bench_lighting_actions();
         self.update_physical_items();

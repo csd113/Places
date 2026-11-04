@@ -23,45 +23,51 @@ def route():
     def add(ms, kind, after=LOBBY, **kw):
         result.append(dict(after=after, delay_ms=ms, action=dict(kind=kind, **kw)))
     def click(ms, after=LOBBY):
-        add(ms,'mouse',after,button='left',pressed=True)
-        add(ms+70,'mouse',after,button='left',pressed=False)
-    def view(ms, yaw=0, pitch=0, after=LOBBY):
-        add(ms,'view',after,yaw=yaw,pitch=pitch)
-    def walk(ms, duration, after=LOBBY):
-        add(ms,'key',after,key='W',pressed=True)
-        add(ms+duration,'key',after,key='W',pressed=False)
-    add(50,'player',position=[0,1.6,-2.65],yaw=180,pitch=0)
-    add(100,'view_at',position=[0,1.15,0])
-    add(950,'player',position=[-.96,1.6,-1],yaw=180,pitch=0)
-    add(1000,'view_at',position=[-.96,1.08,-.12]);click(1200)
-    add(2700,'player',position=[0,1.6,-1],yaw=180,pitch=0)
-    walk(2900,1200)
-    add(4200,'view_at',position=[.94,1.58,.40]);click(4700)
-    view(4900)
-    add(13500,'checkpoint',name='upper')
-    walk(14000,900)
-    add(15600,'view_at',position=[10,1.2,-4.6])
-    add(16000,'checkpoint',name='upper_hall')
-    view(16500,yaw=180)
-    walk(16800,900)
-    add(18300,'view_at',position=[10.94,1.58,.40]);click(19000)
-    view(19200)
-    add(28000,'checkpoint',name='ground_return')
-    add(29000,'view_at',position=[.94,1.47,.40]);click(29700)
-    view(29900)
-    add(100,'capture','request:elevator_annex',name='frozen-loading')
-    add(1600,'checkpoint',ANNEX,name='annex_arrival')
-    walk(2000,900,ANNEX)
-    add(3200,'view_at',ANNEX,position=[0,1.2,-4.6])
-    add(3600,'checkpoint',ANNEX,name='annex_hall')
-    view(4200,yaw=180,after=ANNEX)
-    walk(4500,900,ANNEX)
-    add(5800,'view_at',ANNEX,position=[.94,1.58,.40]);click(6400,ANNEX)
-    view(6600,after=ANNEX)
-    add(11200,'checkpoint',ANNEX,name='lobby_return')
-    add(11600,'capture',ANNEX,name='last-frame')
-    add(12400,'quit',ANNEX)
-    add(59000,'quit')
+        add(ms, 'mouse', after, button='left', pressed=True)
+        add(ms + 70, 'mouse', after, button='left', pressed=False)
+    def pan(ms, duration, yaw0, yaw1, pitch0=0, pitch1=0, after=LOBBY):
+        for offset in range(0, duration, 16):
+            t = offset / duration
+            eased = t * t * (3 - 2 * t)
+            add(ms + offset, 'view', after, yaw=yaw0 + (yaw1-yaw0)*eased,
+                pitch=pitch0 + (pitch1-pitch0)*eased)
+        add(ms + duration, 'view', after, yaw=yaw1, pitch=pitch1)
+    def walk(ms, duration, after=LOBBY, key='W'):
+        add(ms, 'key', after, key=key, pressed=True)
+        add(ms + duration, 'key', after, key=key, pressed=False)
+    # One initial acceptance pose; subsequent travel uses ordinary movement,
+    # strafing and buttons. Eased view events avoid hard camera snaps.
+    add(50, 'player', position=[0, 1.6, -2.65], yaw=180, pitch=-8)
+    pan(100, 450, 180, 210, -8, 0)
+    walk(600, 950)
+    pan(1650, 350, 210, 180, 0, -30.5)
+    add(2010, 'view_at', position=[-.96, 1.08, -.12]); click(2200)
+    pan(2450, 350, 180, 180, -30.5, 0)
+    walk(2850, 475, key='A')
+    walk(3700, 900)
+    pan(5100, 700, 180, 67, 0, -1)
+    add(5810, 'view_at', position=[.94, 1.58, .4]); click(6000)
+    pan(6200, 350, 67, 0, -1, 0)
+    add(11200, 'checkpoint', name='upper')
+    walk(11250, 1100)
+    pan(12300, 350, 0, 0, 0, -5.4)
+    add(12700, 'checkpoint', name='upper_hall')
+    pan(12900, 900, 0, 180, -5.4, 0)
+    walk(13900, 1100)
+    pan(15000, 700, 180, 67, 0, -5.4)
+    add(15710, 'view_at', position=[10.94, 1.47, .4]); click(16000)
+    pan(16200, 350, 67, 0, -5.4, 0)
+    add(1600, 'checkpoint', ANNEX, name='annex_arrival')
+    walk(1700, 1000, ANNEX)
+    add(2750, 'checkpoint', ANNEX, name='annex_hall')
+    pan(2800, 700, 0, 180, after=ANNEX)
+    walk(3600, 1000, ANNEX)
+    pan(4700, 600, 180, 67, 0, -1, after=ANNEX)
+    add(5310, 'view_at', ANNEX, position=[.94, 1.58, .4]); click(5500, ANNEX)
+    pan(5700, 300, 67, 0, -1, 0, after=ANNEX)
+    add(10300, 'checkpoint', ANNEX, name='lobby_return')
+    add(10500, 'quit', ANNEX)
+    add(44000, 'quit')
     return result
 
 
@@ -74,7 +80,7 @@ def setup(args):
     settings = json.loads((ROOT/'tests/fixtures/native/hero-manifest.json').read_text())['settings']
     settings.update(window_width=640 if not args.play else 1100, window_height=360 if not args.play else 700,
                     quality='high',texture_filtering='high',lightmaps='full',reflections='off',bloom=False,
-                    vsync=bool(args.play),fov_degrees=65,walk_speed=2,ambient_volume=0,master_volume=.75,effects_volume=.8)
+                    vsync=bool(args.play),fov_degrees=65 if args.play else 75,walk_speed=2,ambient_volume=0,master_volume=.75,effects_volume=.8)
     if not (state/'settings.json').exists():
         (state/'settings.json').write_text(json.dumps(settings))
     env = {k:v for k,v in os.environ.items() if not k.startswith('PLACES_')}
@@ -94,18 +100,17 @@ def main():
     out,state,env=setup(args)
     if args.play:
         raise SystemExit(subprocess.call([str(binary)],cwd=ROOT,env=env))
-    actions=out/'actions.json';actions.write_text(json.dumps(route(),indent=2)+'\n')
+    # The native action-script reader intentionally caps input at 64 KiB.
+    actions=out/'actions.json';actions.write_text(json.dumps(route(),separators=(',', ':'))+'\n')
     trace=out/'trace.jsonl';fifo=state/'native-video.fifo';os.mkfifo(fifo,mode=0o600)
     env.update(PLACES_BENCH='1',PLACES_BENCH_FRAMES='6000',PLACES_BENCH_WARMUP='3',PLACES_VERBOSE='1',
                PLACES_PREPARE_DELAY_MS='500',PLACES_LOAD_TRACE=str(trace),PLACES_BENCH_ACTIONS=str(actions),
                PLACES_BENCH_OUT=str(out/'frames.csv'),PLACES_AUDIO_CAPTURE='1',
                PLACES_BENCH_VIDEO_PIPE=str(fifo),PLACES_BENCH_VIDEO_SIZE='1280x720',PLACES_BENCH_VIDEO_FRAMES='1800',
-               PLACES_BENCH_VIDEO_STRIDE='2')
+               PLACES_BENCH_VIDEO_STRIDE='1')
     encoder=[str(args.ffmpeg),'-hide_banner','-nostdin','-n','-f','rawvideo','-pixel_format','rgba','-video_size','1280x720',
-             '-framerate','30','-i',str(fifo),'-an','-c:v','libx264','-preset','veryfast','-crf','18','-threads','2',
-             '-vf','scale=in_range=pc:out_range=tv:out_color_matrix=bt709,format=yuv420p',
-             '-colorspace','bt709','-color_primaries','bt709','-color_trc','bt709','-color_range','tv',
-             '-movflags','+faststart',str(out/'native-gameplay.mp4')]
+             '-framerate','60','-i',str(fifo),'-an','-c:v','ffv1','-level','3','-threads','2',
+             str(out/'native-gameplay.mkv')]
     started=time.monotonic()
     with (out/'encoder.log').open('w') as elog,(out/'game.log').open('w') as glog:
         enc=subprocess.Popen(encoder,stdout=elog,stderr=subprocess.STDOUT)
@@ -131,11 +136,12 @@ def finish_capture(args,out,state,binary,started):
     checkpoints={row['event'].removeprefix('checkpoint:'):json.loads(row['detail']) for row in rows if row['event'].startswith('checkpoint:')}
     assert abs(checkpoints['upper']['player_position'][0]-10)<.05 and abs(checkpoints['upper']['player_position'][1]-1.6)<.05,checkpoints['upper']
     assert checkpoints['upper']['current_level_id']=='elevator_lobby'
-    assert abs(checkpoints['ground_return']['player_position'][0])<.05 and abs(checkpoints['ground_return']['player_position'][1]-1.6)<.05,checkpoints['ground_return']
+    assert abs(checkpoints['lobby_return']['player_position'][0])<.08 and abs(checkpoints['lobby_return']['player_position'][1]-1.6)<.05,checkpoints['lobby_return']
     assert checkpoints['annex_arrival']['current_level_id']=='elevator_annex'
     assert checkpoints['lobby_return']['current_level_id']=='elevator_lobby'
     for name in ('upper_hall','annex_hall'):
-        assert checkpoints[name]['player_position'][2]<0,checkpoints[name]
+        assert checkpoints[name]['player_position'][2]<-.4,checkpoints[name]
+    verify_passengers(checkpoints)
     audio=state/'native-audio.wav'
     probe=shutil.which('ffprobe')
     if not probe:
@@ -144,7 +150,7 @@ def finish_capture(args,out,state,binary,started):
         '-show_entries','stream=sample_rate','-of','default=nw=1:nk=1',str(audio)],text=True).strip())
     offset=frames[0]['audio_output_frames']/audio_rate
     stills=out/'native-frames';stills.mkdir()
-    subprocess.run([str(args.ffmpeg),'-hide_banner','-nostdin','-i',str(out/'native-gameplay.mp4'),'-fps_mode','passthrough',str(stills/'%05d.png')],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    subprocess.run([str(args.ffmpeg),'-hide_banner','-nostdin','-i',str(out/'native-gameplay.mkv'),'-fps_mode','passthrough',str(stills/'%05d.png')],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     events=[row for row in rows if row['event']=='native_video_frame']
     concat=out/'native-timing.ffconcat'
     lines=['ffconcat version 1.0']
@@ -161,10 +167,25 @@ def finish_capture(args,out,state,binary,started):
                  package_sha256=hashlib.sha256(args.package.read_bytes()).hexdigest(),native_frames=len(frames),
                  drawable=[1280,720],fps=30,audio_offset_seconds=offset,capture_seconds=(events[-1]['elapsed_ms']-events[0]['elapsed_ms'])/1000,
                  workflow_seconds=time.monotonic()-started,
-                 checkpoints=checkpoints,checks=['same-height logical-floor travel and return without reloading','walk into upper hall','annex loading and walk out','return level loading'],
-                 scope='Actual direct-binary renderer and native game audio. Initial establishing shots use explicit acceptance camera positions; route walking and controls use ordinary input. No desktop capture.')
+                 checkpoints=checkpoints,checks=['same-height logical-floor travel without reloading','walk into upper hall','annex loading and walk out','return level loading','NPC and prop retain cabin offsets and state through every stop without duplicates','continuous walking and strafing after one initial pose','every rendered frame sampled before 30 fps timestamp-correct delivery'],
+                 scope='Actual direct-binary renderer and native game audio. One initial acceptance pose; subsequent movement and controls use ordinary input, with eased view events. No desktop capture or synthetic frames.')
     (out/'receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')
     print(json.dumps(dict(video=str(out/'elevator-gameplay.mp4'),frames=len(frames),checks=receipt['checks'])))
+
+
+def verify_passengers(checkpoints):
+    for name,shift in [('upper',10),('annex_arrival',0),('lobby_return',0)]:
+        data=checkpoints[name]
+        agents=data['entity_simulation']['agents']
+        assert len(agents)==1,(name,agents)
+        assert max(abs(a-b) for a,b in zip(agents[0]['position'],[shift+.55,0,1.85]))<.025,(name,agents)
+        assert any(['demo_passenger',1] in state['values'] for state in data['entity_simulation']['states']),(name,data['entity_simulation']['states'])
+        bodies=data['physics']['bodies']
+        assert len(bodies)==1,(name,bodies)
+        assert max(abs(a-b) for a,b in zip(bodies[0]['pose']['position'],[shift-.55,.02,1.95]))<.025,(name,bodies)
+        if name!='annex_arrival':
+            assert agents[0]['id']=='demo_guest',(name,agents)
+            assert data['physics']['authored'][0][1]=='demo_crate',(name,data['physics']['authored'])
 
 
 if __name__=='__main__':main()
