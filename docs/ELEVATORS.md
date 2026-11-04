@@ -297,3 +297,19 @@ inside through the sealed ride, passenger transfer and complete arrival opening;
 --bloom, --reflections full and --fov cover normal presentation settings.
 The CPU UV guard ignores microscopic Boolean-weld slivers below 0.1 mm², whose
 UV derivative is ill-conditioned; it does not replace native motion inspection.
+
+`--arrival --observe-departure --view outside-left` stages a separate exterior
+observer after the ordinary cabin press, exposing the source deck throughout
+the trip. `--arrival` without that option retains the passenger inside.
+
+Actual motor output can be checked from the native PCM recorded by the motion,
+cargo and door-control tools (NumPy and FFmpeg required):
+
+```sh
+python3 tools/bench/elevator_audio.py --wav <motion-state>/native-audio.wav \
+  --expected-rides 1 --idle-after-last-ride 2 --out <new-audio-receipt.json>
+```
+
+For the complete cargo or three-stop door campaign, expect three motor cues.
+Door-only cycles must not add cues. The native PCM clock includes startup;
+cue-relative silence checks account for first-use shader preparation.
