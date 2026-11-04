@@ -71,8 +71,8 @@ the sealed ride interval before emitting one departure.
 
 A native held-crate/NPC campaign passed vertical transfer, exact rider and NPC
 height, save/resume upstairs, cross-level ownership, foreign save/resume, custom
-NPC state and one-instance return. The final integrated campaign, package
-currency and publication status are recorded below when complete.
+NPC state and one-instance return. The final accepted campaign and package
+currency are recorded below.
 
 ## Combined production runtime
 
@@ -81,7 +81,7 @@ The retained production player is
 `e93e39af5171ee686759dcd6052dbb1805d332d3e1c3e2bbcd262e0e10002561`.
 Its engine includes stationary transport, final doorway art, enclosed lighting,
 the motor source fix and published predator-search work. Later editor-only
-targeting corrections do not change this runtime or compiler preparation
+targeting corrections do not change ride/renderer behavior or compiler preparation
 identity. Exact final editor-source checks and publication remain separate.
 
 - `final/inside-motion`: 318 native lossless frames; cabin selection changes
@@ -140,6 +140,71 @@ and continues the existing save/cross-level/return campaign. This final engine
 change affects the advanced vertical `Moving` branch. The collection's eight
 cross-level routes use the unchanged `Loading` branch. Source-current exports
 must nevertheless be refreshed against the updated compiler identity.
+
+## Final accepted delivery
+
+The airborne correction is `2fa0437b`. The editor review correction
+`0b107bbd` is integrated through the identical tested source candidate
+`5f0e25e3` and its final evidence cherry-pick `0852edf3`. Only the separate
+changelog commit `8fffa7b4` was imported, as `2673cd29`; its inherited branch
+history was not merged. The root `CHANGELOG.md`, under **0.13.1 — Unreleased**,
+records the actual 32-distinct-traveller project/session ledger cap, including
+travellers left in visited levels and checkpoint persistence, excluding the
+player. Its main portable-subset exclusions are explicit.
+
+Accepted artifacts are under `local/elevator-stationary/`:
+
+| Artifact | Relative path | SHA-256 |
+| --- | --- | --- |
+| Direct player | `production-accepted/places` | `eb3f722f1e466480d724386d67f01430f005b2e286f93ef471ed2b85a1bd4e1e` |
+| Direct compiler | `production-accepted/places-compile` | `e4838f18786ba538c1a367d63d4580c5d56d8aef99c1a3d37fe35f4288927ab6` |
+| Direct editor | `production-accepted/places-editor` | `9fb186ffb274104487f1e71ba965019458fde42b10ca7918cecba76cd9d17164` |
+| Collection 1.0.5 | `final-airborne/environments-1.0.5.placesmap` | `d5faa999e7a9fd12ff089cb239136a65fc62e264ca7a4e0a69d968304575b027` |
+| Vertical lab 1.0.6 | `final-airborne/lab-1.0.6.placesmap` | `72081ab4ffa725da2c4b4a379128d881111806e8ac46f4f504d9b1f985baff73` |
+| Linked lab 1.0.6 | `final-airborne/links-1.0.6.placesmap` | `47c0fe63e241dabac2325825ec57e235d658c22cff4b62eeef6d46d17ff7f8a2` |
+
+The final collection archive is 35,829,235 bytes. Package validation reports
+385 intact dependencies. All nine collection members and both lab projects
+pass `verify --require-current` with the accepted compiler. The collection was
+prepared with Static only; no full collection lighting solve was performed.
+
+- All 450 workspace tests pass, including the bounded airborne/source-retention
+  extension to an existing controller test. Strict workspace/all-target/all-feature
+  Clippy and the locked all-feature workspace release build pass.
+- The final player/package pass all eight native round trips with two saved
+  favors, ordinary boarding/exiting and aimed controls, exact arrival offsets,
+  collision, both loading directions, identical retained loading frames,
+  reachable return calls and matching hub bays. All diagnostic assertions remain
+  enabled. A separate all-eight-favors Home round trip retains the unlocked,
+  fully open reward room. Receipts: `final-airborne/collection-{partial,all}`.
+- The final airborne held-cargo campaign retains the player at
+  `[-0.45,1.6,1.05]`, the held-body owner and the NPC at the source, with reachable
+  controls. The grounded retry arrives upstairs, then saves/resumes, travels
+  cross-level, saves/resumes there and returns without duplicates or lost state.
+  Receipt: `final-airborne/airborne-held/passed.json`.
+- Latest inside/exterior recordings retain 405 and 409 lossless native frames.
+  The source threshold/floor patch is identical across all 385 compared frames
+  after the exterior camera settles, including the upper arrival. The normal
+  passenger has only endpoint heights, without an intermediate ascent.
+- Eleven final native PCM recordings contain 23 matching motor events: one
+  normal vertical ride, four events across the interrupted/retried cargo campaign,
+  and two per collection round trip. Minimum normalized waveform correlation is
+  0.98075. All recordings are unclipped, and the inside-motion post-arrival
+  witness is silent. Per-route audio errors/drops are zero.
+- The final production editor passes the four-facing native wall-fit campaign,
+  exact-gap acceptance, undersized-gap refusal and thick-wall refusal.
+
+`final-airborne/accepted-manifest.json`, `motor-summary.json`, per-case
+`passed.json`, source-currency receipts and raw recordings retain exact evidence.
+The first collection attempt was rejected for premature startup/return sampling
+and a Home script wall-time diagnostic during concurrent compilation. The driver
+now settles startup and return loading, and both subsequent full campaigns pass
+with script diagnostics asserted. No Lua budget was relaxed or error hidden.
+
+The publication target is `0.13.1-dev`; no main merge or release is part of this
+work. The post-operation remote receipt is retained in
+`local/elevator-stationary/publication.json`. Package files remain untracked under
+the repository's established policy.
 
 ## Scope and remaining checks
 
