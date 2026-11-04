@@ -142,8 +142,8 @@ Full samples the exposed panel area and uses live visibility for direct sources,
 with zero unsupported bounce. Concealed sill/header overlaps remain intact as
 rendered geometry, colliders and shadow blockers. This preserves dark surfaces instead of adding the
 roomless 0.1 ambient fallback. Materials, emission and unrelated objects are
-unchanged. The car retains its departure receiver during travel and updates at
-arrival; its warm practical remains independent of the hall.
+unchanged. Each fixed cabin retains its own landing receiver and enclosed warm
+practical throughout a ride, including cabins that are not currently selected.
 See the [art workflow](../tools/props/elevator_70s/README.md).
 
 The explicit dark-room fixture is `tests/fixtures/levels/elevator_dark.json`.
