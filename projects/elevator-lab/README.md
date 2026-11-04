@@ -15,7 +15,8 @@ Build > Elevator provides click placement and linking for normal authoring;
 Advanced retains fixed-landing elevations and detailed destinations.
 See [authoring, direct launch and validation](../../docs/ELEVATORS.md).
 
-The refreshed development package is version 1.0.3, adding the separate green
+The refreshed development package is version 1.0.4, retaining the separate green
 door-toggle control beneath the floor buttons while retaining the wood wall and
-metal frame. It replaces older exports without an equal-version content
-conflict. Export this project explicitly; it is outside the shipped map lineup.
+metal frame and current AI preparation identity. It replaces older exports
+without an equal-version content conflict. Export this project explicitly; it is
+outside the shipped map lineup.

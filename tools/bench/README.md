@@ -138,6 +138,26 @@ Use fresh output directories and serialize native players. These captures are
 correctness/visual evidence, not throughput measurements. AI hearing and
 last-known searches remain active; the baseline predator has no player damage.
 
+## Predator lost-sight search
+
+`predator_search.py` provides explicit tiny native acceptance for baseline
+predator investigation, outward searching and renewed pursuit. It writes source
+fixtures only; export each chosen fixture separately before running the binary.
+The default and short-delay elevator cases retain real walking into the cabin;
+ordinary and disconnected-room cases use logged acceptance player poses.
+
+```sh
+python3 tools/bench/predator_search.py --write-fixtures local/search-fixtures
+target/release/places-compile export-project local/search-fixtures/elevator \
+    --out local/search-elevator.placesmap --variants static,full --workers 1
+python3 tools/bench/predator_search.py --binary target/release/places \
+    --package local/search-elevator.placesmap --out local/search-check --mode elevator
+```
+
+Use the matching `fast`, `ordinary` or `blocked` source and mode for the other
+cases. All runs preserve actions, trace snapshots and package/binary identities.
+Serialize native sessions; this is correctness evidence, not an FPS benchmark.
+
 ## Offline map compiler
 
 Use optimized release binaries from the baseline and candidate revisions. Run

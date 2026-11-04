@@ -4207,6 +4207,10 @@ impl FrameLoop<'_> {
                     "position": agent.position.to_array(), "yaw_degrees": agent.yaw_degrees,
                     "speed_mps": agent.speed_mps, "clock": agent.clock,
                     "last_seen_at": agent.last_seen_at,
+                    "search": agent.search.as_ref().map(|memory| serde_json::json!({
+                        "stage": if agent.clock < memory.until { "investigate" } else { "search" },
+                        "point": memory.point.to_array(), "until": memory.until,
+                    })),
                     "last_known": agent.last_known.as_ref().map(|seen| seen.position.to_array()),
                     "contact": agent.contact.as_ref().map(|contact| serde_json::json!({
                         "position": contact.position.to_array(), "heard_only": contact.heard_only,

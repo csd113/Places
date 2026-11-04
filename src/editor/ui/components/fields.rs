@@ -168,6 +168,20 @@ pub(super) fn ai() -> Vec<F> {
         F::new(T::Component("ai"), "run_speed", "Run m/s", K::Number, "2.0"),
         F::new(
             T::Component("ai"),
+            "search_after_seconds",
+            "Predator search delay s",
+            K::Number,
+            "8.0",
+        ),
+        F::new(
+            T::Component("ai"),
+            "search_radius",
+            "Predator search radius m",
+            K::Number,
+            "12.0",
+        ),
+        F::new(
+            T::Component("ai"),
             "sight_range",
             "Sight range m",
             K::Number,
