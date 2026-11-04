@@ -91,9 +91,13 @@ fn cabin_light_keeps_the_interior_on_and_tracks_the_actual_seal() -> Result<(), 
         receiver.distance(definition.point(0.0, 5.1, -0.35)) < 0.0001,
         "A sealed ride must retain the fixed landing receiver"
     );
-    // The stationary-ride fix retains both cabins. This bounded extension
-    // protects the unique integration regression: selecting an upper landing
-    // must neither move the lower light nor give its sealed doors the upper gap.
+    assert_unselected_cabin_lighting(elevator, receiver)
+}
+
+// The stationary-ride fix retains both cabins. This bounded extension protects
+// the unique integration regression: selecting an upper landing must neither
+// move the lower light nor give its sealed doors the upper gap.
+fn assert_unselected_cabin_lighting(mut elevator: Elevator, receiver: Vec3) -> Result<(), String> {
     elevator.def.stops.push(Stop {
         label: "1".into(),
         y: 9.0,
@@ -114,8 +118,8 @@ fn cabin_light_keeps_the_interior_on_and_tracks_the_actual_seal() -> Result<(), 
         .ok_or("Missing upper light")?
         .enclosure
         .ok_or("Missing upper enclosure")?;
-    assert_eq!(lower.origin, definition.point(0.0, 4.0, 0.0));
-    assert_eq!(upper.origin, definition.point(0.0, 9.0, 0.0));
+    assert_eq!(lower.origin, elevator.def.point(0.0, 4.0, 0.0));
+    assert_eq!(upper.origin, elevator.def.point(0.0, 9.0, 0.0));
     assert!((lower.half_gap + 0.004).abs() < 0.00001);
     assert!((upper.half_gap - 0.3365).abs() < 0.00001);
     assert!(
