@@ -12,6 +12,7 @@ parser.add_argument('--package',type=Path,required=True)
 parser.add_argument('--out',type=Path,required=True)
 parser.add_argument('--mode',choices=['dormant','held','active','failure','cancel','blocked-local','blocked-level'],default='dormant')
 parser.add_argument('--vertical',action='store_true',help='Use the physical-source fixture, now fixed vertical cabins with sealed passenger teleport')
+parser.add_argument('--airborne',action='store_true',help='With --vertical --mode held, jump at transfer, retain source passengers, then retry')
 parser.add_argument('--lightmaps',choices=['off','full'],default='full')
 parser.add_argument('--rotated',action='store_true',help='Package uses the fixture\'s 90 degree / 3 m elevated Annex')
 parser.add_argument('--held',action='store_true',help='Combine held ownership with another case, such as failure')
@@ -19,6 +20,8 @@ args=parser.parse_args()
 ROOT=Path(__file__).resolve().parents[2];ROTATED=args.rotated;OUT=args.out.resolve();OUT.mkdir(parents=True);state=OUT/'state';state.mkdir();(state/'levels').mkdir();shutil.copy2(args.package,state/'levels/cargo.placesmap')
 settings=json.loads((ROOT/'tests/fixtures/native/hero-manifest.json').read_text())['settings'];settings.update(window_width=640,window_height=360,quality='high',texture_filtering='high',lightmaps=args.lightmaps,reflections='off',bloom=False,vsync=True,ambient_volume=0)
 MODE=args.mode
+if args.airborne and not (args.vertical and MODE=='held'):
+ parser.error('--airborne requires --vertical --mode held')
 HELD=MODE=='held' or args.held
 (state/'settings.json').write_text(json.dumps(settings));actions=[]
 L='ready:elevator_lobby';A='ready:elevator_annex'
@@ -38,6 +41,12 @@ add(1800,'checkpoint',A,name='annex');add(1900,'capture',A,name='annex')
 add(2200,'save_checkpoint',A,name='cargo_annex');add(2600,'resume_checkpoint',A)
 add(5000,'checkpoint',A,name='annex_resumed');add(5200,'view_at',A,position=[.4,4.58,-.94] if ROTATED else [.94,1.58,.4]);click(5400,A)
 add(10600,'checkpoint',A,name='returned');add(10800,'capture',A,name='returned');add(11000,'quit',A);add(35000,'quit')
+if args.airborne:
+ for action in actions:
+  if action['after']==L and action['delay_ms']>=11200:action['delay_ms']+=6800
+ add(9200,'key',key='Space',pressed=True);add(9350,'key',key='Space',pressed=False)
+ add(11200,'checkpoint',name='airborne_cancelled')
+ add(12000,'view_at',position=[.94,1.58,.4]);click(12100)
 if MODE=='blocked-local':
  actions=[v for v in actions if v['after']==L and v['delay_ms']<11400]
  add(11500,'view',yaw=0,pitch=0);add(11600,'key',key='W',pressed=True);add(12300,'key',key='W',pressed=False);add(12400,'checkpoint',name='live');add(12600,'quit')
@@ -65,7 +74,15 @@ r=[json.loads(l) for l in trace.read_text().splitlines()];c={x['event'][11:]:jso
 for name,d in c.items():
  print(name,d['current_level_id'],d['player_position'],[(a['id'],a['position']) for a in d['entity_simulation']['agents']],d['physics']['authored'],flush=True)
 (OUT/'checkpoints.json').write_text(json.dumps(c,indent=2)+'\n')
-(OUT/'provenance.json').write_text(json.dumps(dict(binary_sha256=hashlib.sha256(args.binary.read_bytes()).hexdigest(),package_sha256=hashlib.sha256(args.package.read_bytes()).hexdigest(),mode=MODE,held=HELD,rotated=ROTATED),indent=2)+'\n')
+(OUT/'provenance.json').write_text(json.dumps(dict(binary_sha256=hashlib.sha256(args.binary.read_bytes()).hexdigest(),package_sha256=hashlib.sha256(args.package.read_bytes()).hexdigest(),mode=MODE,held=HELD,rotated=ROTATED,airborne=args.airborne),indent=2)+'\n')
+if args.airborne:
+ before=c['before_local'];cancelled=c['airborne_cancelled']
+ assert cancelled['elevators'][0]['stop']==0 and cancelled['elevators'][0]['phase']=='open'
+ assert max(abs(a-b) for a,b in zip(before['player_position'],cancelled['player_position']))<.01
+ assert before['physics']['held']==cancelled['physics']['held'] and before['physics']['held'] is not None
+ assert len(before['physics']['bodies'])==len(cancelled['physics']['bodies'])
+ assert max(abs(a-b) for a,b in zip(before['entity_simulation']['agents'][0]['position'],cancelled['entity_simulation']['agents'][0]['position']))<.01
+ target=cancelled['interaction_target'];assert target and target['id'].endswith(':floor:1'),target
 if MODE in ['blocked-local','failure','blocked-level','cancel']:
  before=c['before_local' if MODE=='blocked-local' else 'before_annex'];after=c['local' if MODE=='blocked-local' else 'recovered'];live=c['live']
  assert before['current_level_id']==after['current_level_id']=='elevator_lobby'

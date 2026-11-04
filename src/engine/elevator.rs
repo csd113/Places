@@ -788,6 +788,11 @@ impl Elevator {
                             source: self.def.id.clone(),
                             landing: Some(self.target),
                         });
+                    } else if CabinFrame::from_elevator(self).contains_bounds(feet, feet) {
+                        // An airborne rider is still inside the source cabin.
+                        // Preserve it and reopen, matching linked-trip admission;
+                        // treating this as a hall call strands its passengers.
+                        self.reopen();
                     } else {
                         // A hall call opens its fixed cabin; nothing is carried.
                         let _arrived = self.arrive_at(self.target);

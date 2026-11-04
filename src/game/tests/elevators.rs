@@ -150,6 +150,45 @@ fn obstructed_departure_reopens_and_never_moves_the_car() -> Result<(), String> 
         lift(&game)?.y.abs() < 0.001,
         "blocked departure stays at its landing"
     );
+    airborne_rider_reopens_at_source()
+}
+
+// Native Space input at the sealed transfer exposed a new stationary-ride
+// regression: an airborne rider became a hall call and recovered to spawn.
+// This reuses the tiny controller fixture (<800 ticks, no assets/bake), checks
+// source pose/control continuity, and proves an ordinary grounded retry works.
+fn airborne_rider_reopens_at_source() -> Result<(), String> {
+    let mut game = game()?;
+    game.set_benchmark_player_position(Vec3::new(0.0, EYE_HEIGHT, 1.2), 0.0, 0.0);
+    interact(&mut game, "@elevator:lift:floor:1")?;
+    settle(&mut game, 100);
+    assert_eq!(lift(&game)?.phase, Phase::Moving);
+    let mut jump = InputState::default();
+    jump.apply_move_script(
+        &[ScriptedHold {
+            control: Control::Jump,
+            first_seconds: 0.0,
+            last_seconds: 1.0,
+        }],
+        0.5,
+    );
+    tick(&mut game, 1.0 / 60.0, &mut jump);
+    settle(&mut game, 200);
+    assert_eq!(lift(&game)?.at, 0, "Airborne admission retains the source");
+    assert_eq!(lift(&game)?.phase, Phase::Open);
+    assert!(
+        game.player_position
+            .distance(Vec3::new(0.0, EYE_HEIGHT, 1.2))
+            < 0.002
+    );
+    assert_eq!(game.world_reset_count(), 0);
+    interact(&mut game, "@elevator:lift:floor:1")?;
+    settle(&mut game, 420);
+    assert_eq!(lift(&game)?.at, 1);
+    assert!(
+        (game.feet_y() - 3.5).abs() < 0.002,
+        "Grounded retry still travels"
+    );
     Ok(())
 }
 
