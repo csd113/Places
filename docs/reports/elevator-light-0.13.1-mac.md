@@ -50,9 +50,9 @@ Values below are display RGB on a 0–255 scale, not radiometric units.
 | Previous bright closed left panel, dark hall | 50.92 / 51.81 / 47.80 mean |
 | Final closed left/right panels and sampled frame left/top | 0 / 0 / 0 mean; maximum channel 0 |
 | Final closed hall floor below sill | 0.000/0.000/0.000 |
-| Same floor, early opening | 2.349/0.869/0.012 |
+| Same floor, early opening | 2.647/0.981/0.014 |
 | Same floor, fully open | 7.675/2.675/0.029 |
-| Same floor, partially closing | 2.448/0.905/0.012 |
+| Same floor, partially closing | 2.360/0.873/0.012 |
 | Same floor after seal | 0.000/0.000/0.000 |
 | Final closed left panel with real cool hall lamp | 31.48 / 40.43 / 48.00 mean |
 
@@ -64,16 +64,16 @@ Static retains ordinary ambient throughout the hall: closed and source-absent
 floor RGB match exactly at 37.734 / 30.488 / 17.944. Bloom retains zero closed
 panel/frame samples.
 
-The final-art travel/loading/save/resume/return campaign passes in 27.5 seconds,
+The final-art travel/loading/save/resume/return campaign passes in 28.5 seconds,
 using the doorway task's already prepared lab package. No other map was baked.
-The clean demonstration records 399 native 1280×720 frames over
-7.413 seconds, preserving source timing in a 30 fps MP4. Ordinary
+The clean demonstration records 369 native 1280×720 frames over
+7.418 seconds, preserving source timing in a 30 fps MP4. Ordinary
 mouse controls open the elevator, close it and send it upstairs. The camera is
 fixed for comparison. No generated imagery or overlays are added.
 
 ## Geometry and shader checks
 
-- 443 workspace tests, strict all-target/all-feature Clippy, formatting and
+- 446 workspace tests, strict all-target/all-feature Clippy, formatting and
   locked all-feature workspace release build pass.
 - Actual-GLB doorway sightlines: 21,546 closed rays, zero leaks. The corner audit
   checks 302 shell and 27 floor-join rays, zero leaks. Frame-fit audit passes.
@@ -101,6 +101,9 @@ draws. The baseline is the integrated pre-light-fix player
 | Closed | 1.425 | 1.477 | 4.529 / 4.714 |
 | Open | 1.410 | 1.627 | 4.696 / 4.571 |
 
+Timing uses the earlier final-doorway player
+`3630ccdfc9ce021c0163b4552ad6f62cfcb5a76699581161fb9f6948df203049`; its renderer/art
+objects are identical to the combined development version.
 The local GPU cost is approximately +0.05 ms closed and +0.22 ms open. Loop tails
 are noisy on the shared host; these are bounded fixture measurements, not a
 whole-game FPS claim. Timestamp spans include scheduling stalls. Before the
@@ -132,16 +135,33 @@ Repeat the dark command with `--lightmaps off` and `--bloom`. These are opt-in
 manual tools; normal tests and CI never bake or open a game window.
 
 Local evidence is retained outside `target`, under ignored `evidence/`:
-`doorway-full`, `doorway-lit`, `doorway-static`, `doorway-bloom` contain captures,
-checkpoints, measurements, logs and receipts; `doorway-video/elevator-dark-room.mp4`
-is the native demo; `doorway-transport/flow` retains the lab and transport proof;
+`development-final-full`, `development-final-lit`, `development-final-static`, `development-final-bloom` contain captures,
+checkpoints, measurements, logs and receipts; `development-final-video/elevator-dark-room.mp4`
+is the native demo; `development-final-transport/flow` retains the lab and transport proof;
 `performance-doorway` contains presentation/identity and raw frame/GPU receipts.
-`doorway-integrated` retains the exact direct player and compiler. Historical
+`development-integrated` retains the exact direct player and compiler. Historical
 `receiver-*` captures predate the final doorway and are superseded.
 
-Final player SHA-256: `3630ccdfc9ce021c0163b4552ad6f62cfcb5a76699581161fb9f6948df203049`.
-Dark package SHA-256: `b2ca6a6579c9b696bf89cfc284a929132dd118558cea6bbc97381a95a94e2e52`.
-Lit package SHA-256: `6b949fe2f67bc64975dcf6a3309d5287309e3540e5986748ff86b2920bd55963`.
+Final player SHA-256: `a22e1eefe8a35a000c1a53564c3949b29ca0b5bfc276b5f8ba49bae7ff9a8f47`.
+Dark package SHA-256: `27efa2892cedd09234f6730d44f09744146244cff41dbe244ce0fe39399b0fe7`.
+Lit package SHA-256: `1e96b5dc5fd7eeb5ff337bb41fce7ffc5f225a6b4e634325aadea176cb6fabcd`.
 Both packages pass current-source verification. The validated source includes
 `6e9d328f` art and the lighting integration based on `9a771f1b`; the development
-branch's later predator-search work is kept separate for parent integration.
+merge also preserves predator-search commit `3fee560e`. Git object checks confirm
+that renderer, elevator code, final art and fixture sources remain byte-identical
+to the original lighting acceptance. Both current-source packages and all native
+runs were refreshed with the combined release executable.
+
+The explicit capture tool now separates aim, mouse press and mouse release by
+checkpoint boundaries. Short 70 ms clicks could be delivered and released in one
+delayed update under shared-host/PNG load. The failed lit run and supplementary
+old-player run are retained but excluded from accepted open/travel/reference
+results; the revised tool keeps every state assertion and all final runs pass.
+Only the supplementary old player's valid initial closed capture is used for
+the matching final-art before image.
+
+Existing hub exports need refreshing after the final GLB dependency changes;
+their stale-asset guard remains intact. Hub/collection export is owned by the
+parent hub task. This campaign prepares only the two dedicated lighting fixtures
+and reuses the doorway task's accepted lab for transport. No release or main
+merge is performed.
