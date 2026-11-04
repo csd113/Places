@@ -23,6 +23,41 @@ ROOT = Path(__file__).resolve().parents[2]
 MARK = re.compile(r"\[startup\]\s+(.+?): \+([\d.]+) ms \(([\d.]+) ms\)")
 
 
+def stage_metrics(log: str, events: list[dict]) -> dict:
+    """Retain stage attribution without adding overlapping worker wall times.
+
+    Archive read/seek observations include the OS cache, never physical-disk
+    latency alone. The residual includes decompression, CRC, copies and checks.
+    GPU installation spans scheduling, worker mip preparation and fences as well
+    as submission; CPU submission time is reported independently.
+    """
+    stages = {}
+    for scope, stage, value in re.findall(
+            r"\[loading-stage\] scope=(\S+) stage=(\S+) ms=([\d.]+)", log):
+        key = f"{scope}:{stage}"
+        stages[key] = stages.get(key, 0.0) + float(value)
+    uploads = {}
+    for phase, value in re.findall(r"\[loading-upload\] phase=(\S+) ms=([\d.]+)", log):
+        item = uploads.setdefault(phase, {"units": 0, "cpu_submission_ms": 0.0})
+        item["units"] += 1
+        item["cpu_submission_ms"] += float(value)
+    archive = [json.loads(value) for value in re.findall(r"^\[loading-archive\] (.+)$", log, re.MULTILINE)]
+    cpu = re.search(r"([\d.]+) real\s+([\d.]+) user\s+([\d.]+) sys", log)
+    installs = []
+    pending = {}
+    for event in events:
+        if event["event"] == "cpu_ready":
+            pending[event["request"]] = event["elapsed_ms"]
+        elif event["event"] == "gpu_ready" and event["request"] in pending:
+            installs.append(event["elapsed_ms"] - pending.pop(event["request"]))
+    return {"stage_wall_ms": stages, "upload_phases": uploads,
+            "gpu_install_wall_ms": installs, "archive_entries": archive,
+            "preparation_results": [json.loads(event["detail"]) for event in events
+                                    if event["event"] == "preparation_result"],
+            "process_user_seconds": float(cpu[2]) if cpu else None,
+            "process_system_seconds": float(cpu[3]) if cpu else None}
+
+
 def trace_metrics(events: list[dict]) -> dict:
     """Summarize real trace observations; missing samples remain unavailable.
 
@@ -183,6 +218,8 @@ def main() -> int:
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--timeout", type=float, default=1800)
     parser.add_argument("--workers", type=int, choices=(1, 2, 3), help="runtime chart workers; defaults to the bounded hardware choice")
+    parser.add_argument("--lightmaps", choices=("off", "full"), default="full",
+                        help="measure the existing package's Static or Full variant; never bakes a map")
     parser.add_argument("--install-package", type=Path, action="append", default=[],
                         metavar="PATH",
                         help="install this compiled .placesmap into every isolated run's "
@@ -199,6 +236,7 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=False)
     report = {"binary": str(binary), "binary_sha256": hashlib.sha256(binary.read_bytes()).hexdigest(),
               "root": str(root), "platform": platform.platform(), "window_size": f"{args.window_size[0]}x{args.window_size[1]}",
+              "lightmaps": args.lightmaps,
               "cache_definition": "application only; OS/GPU caches untouched",
               "installed_packages": [package_identity(package) for package in args.install_package],
               "runs": []}
@@ -210,7 +248,7 @@ def main() -> int:
                 if source.is_file():
                     shutil.copy2(source, state / "levels" / source.name)
             install_packages(args.install_package, state / "levels")
-            (state / "settings.json").write_text(json.dumps({"bindings": {"forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D", "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"}, "window_mode": "windowed", "window_width": args.window_size[0], "window_height": args.window_size[1], "quality": "high", "vsync": True}))
+            (state / "settings.json").write_text(json.dumps({"bindings": {"forward": "W", "backward": "S", "strafe_left": "A", "strafe_right": "D", "look_up": "UP", "look_down": "DOWN", "look_left": "LEFT", "look_right": "RIGHT"}, "window_mode": "windowed", "window_width": args.window_size[0], "window_height": args.window_size[1], "quality": "high", "lightmaps": args.lightmaps, "vsync": True}))
             for cache in ("cold", "warm"):
                 env = {k: v for k, v in os.environ.items() if not k.startswith("PLACES_")}
                 env.update(PLACES_STATE_ROOT=str(state), PLACES_ASSET_ROOT=str(root / "assets"),
@@ -259,6 +297,12 @@ def main() -> int:
                 run["lightmap_workers"] = int(worker_counts[-1]) if worker_counts else None
                 run["trace_error"] = trace_error
                 run.update(trace_metrics(events))
+                run.update(stage_metrics(text, events))
+                run["observed_variants"] = re.findall(
+                    r"^\[loading\] package identity level=(\S+) variant=(\S+) sha256=([0-9a-f]{64}) source=",
+                    text, re.MULTILINE)
+                run["requested_variant_found"] = bool(run["observed_variants"]) and all(
+                    variant == args.lightmaps for _, variant, _ in run["observed_variants"])
                 if events and level != "menu":
                     run["requested_level_found"] = run["requested_level_found"] and any(
                         event["event"] == "scene_presented" and event["detail"] == level for event in events)
@@ -267,7 +311,8 @@ def main() -> int:
                 report["runs"].append(run)
                 (out / "timings.json").write_text(json.dumps(report, indent=2) + "\n")
                 print(f"{level} {cache}: {elapsed:.3f}s, exit={code}", flush=True)
-                if code != 0 or trace_error is not None or not run["requested_level_found"]:
+                if (code != 0 or trace_error is not None or not run["requested_level_found"]
+                        or not run["requested_variant_found"]):
                     return 1
     return 0
 

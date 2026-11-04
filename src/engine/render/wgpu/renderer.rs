@@ -362,6 +362,18 @@ struct PreparedInstall {
 }
 
 impl PreparedInstall {
+    fn fence_upload(&mut self, queue: &wgpu::Queue) {
+        // At most two bounded units can be in flight. The callback owns only
+        // a flag, so cancellation never retains a map.
+        let complete = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let completed = Arc::clone(&complete);
+        let _submission = queue.submit([]);
+        queue.on_submitted_work_done(move || {
+            completed.store(true, std::sync::atomic::Ordering::Release);
+        });
+        self.upload_complete.push_back(complete);
+    }
+
     fn upload_window_available(&mut self, device: &wgpu::Device) -> Result<bool, String> {
         if self.upload_complete.is_empty() {
             return Ok(true);
@@ -420,6 +432,12 @@ enum UploadPhase {
     Caustics,
     Decals,
     Commit,
+}
+
+enum UploadStep {
+    Waiting,
+    Advanced,
+    Committed,
 }
 
 impl UploadPhase {
@@ -3829,27 +3847,52 @@ impl WgpuRenderer {
         }
     }
 
-    /// Advances one upload family, or a bounded batch of prop buffers.
+    /// Spend a short CPU slice on ready upload work before presenting again.
+    /// Every unit still uses the two-submission GPU window; pending mip workers
+    /// and fences yield immediately, and commit waits for all queued writes.
     pub fn advance_prepared_install(&mut self) -> bool {
+        let started = std::time::Instant::now();
+        for _ in 0..32_u8 {
+            match self.advance_prepared_unit() {
+                UploadStep::Waiting => return false,
+                UploadStep::Committed => return true,
+                UploadStep::Advanced => {}
+            }
+            if started.elapsed() >= std::time::Duration::from_millis(4)
+                || self.prepared_install.as_ref().is_some_and(|pending| {
+                    pending.texture_job.is_some() && pending.texture_ready.is_empty()
+                })
+            {
+                break;
+            }
+        }
+        false
+    }
+
+    fn advance_prepared_unit(&mut self) -> UploadStep {
         if self.check_device_lost() {
-            return false;
+            return UploadStep::Waiting;
         }
         let Some(mut pending) = self.prepared_install.take() else {
-            return false;
+            return UploadStep::Waiting;
         };
         match pending.upload_window_available(&self.device) {
             Ok(true) => {}
             Ok(false) => {
                 self.prepared_install = Some(pending);
-                return false;
+                return UploadStep::Waiting;
             }
             Err(error) => {
                 self.mark_fatal(error);
-                return false;
+                return UploadStep::Waiting;
             }
         }
         if matches!(pending.phase, UploadPhase::Commit) {
-            return self.commit_prepared_install(pending);
+            return if self.commit_prepared_install(pending) {
+                UploadStep::Committed
+            } else {
+                UploadStep::Waiting
+            };
         }
         let mut uploaded = match pending.phase {
             UploadPhase::Transport => false,
@@ -3912,7 +3955,7 @@ impl WgpuRenderer {
             matches!(pending.phase, UploadPhase::Commit) || phase.completes_bank(pending.phase);
         if let Some(error) = pending.upload_error.take() {
             self.mark_fatal(error);
-            return false;
+            return UploadStep::Waiting;
         }
         if let Some(started) = upload_started {
             logging::info(format!(
@@ -3921,20 +3964,12 @@ impl WgpuRenderer {
             ));
         }
         if uploaded {
-            // At most two bounded units can be in flight. The callback owns
-            // only a flag, so cancellation never retains a map.
-            let complete = Arc::new(std::sync::atomic::AtomicBool::new(false));
-            let completed = Arc::clone(&complete);
-            let _submission = self.queue.submit([]);
-            self.queue.on_submitted_work_done(move || {
-                completed.store(true, std::sync::atomic::Ordering::Release);
-            });
-            pending.upload_complete.push_back(complete);
+            pending.fence_upload(&self.queue);
         }
         self.prepared_install = Some(pending);
         #[cfg(feature = "visual-diagnostics")]
         self.trace_gpu_resources("install-upload");
-        false
+        UploadStep::Advanced
     }
 
     fn upload_prepared_step(&mut self, pending: &mut PreparedInstall) {

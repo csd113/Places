@@ -1,5 +1,11 @@
 ## 0.13.1 — Unreleased
 
+- Batch ready level-upload work within a short CPU slice while retaining GPU
+  queue and resource bounds. Matched Mac Metal loads improve 30-43%, and real
+  cross-level elevator loads improve 45-47%. Add opt-in archive/stage attribution
+  to the loading harness; preserve exact scene output and save/recovery behavior.
+  See [measurements and limits](docs/reports/release-0.13.1.md#level-loading-audit-and-bounded-upload-batching-2026-11-04).
+
 - Simplify the editor workspace with a brighter dark slate palette, quieter
   controls, common building tools and progressive customization. Test the current
   unsaved scene in first person inside the editor window without a lightmap bake

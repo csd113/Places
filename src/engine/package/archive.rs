@@ -7,6 +7,7 @@ use sha2::{Digest as _, Sha256};
 
 mod bounded_zstd;
 mod compressed;
+mod read_trace;
 pub(crate) use compressed::CompressedRecord;
 
 use super::{MAX_ENTRIES, MAX_PROJECT_TOTAL_BYTES, MAX_TOTAL_BYTES, OpenError, hash, project};
@@ -50,7 +51,8 @@ pub(crate) fn open_file(path: &Path) -> Result<std::fs::File, String> {
 /// hash. Lookups are exact after normalization: duplicate normalized names are
 /// rejected at open, so a name can never resolve ambiguously.
 pub struct PackageReader<R: Read + Seek> {
-    archive: zip::ZipArchive<R>,
+    archive: zip::ZipArchive<read_trace::Reader<R>>,
+    read_trace: Option<std::sync::Arc<read_trace::Counters>>,
     names: Vec<String>,
     view: Option<std::collections::BTreeMap<String, String>>,
     project_ids: Option<std::collections::BTreeSet<String>>,
@@ -70,7 +72,10 @@ impl<R: Read + Seek> PackageReader<R> {
     ///
     /// # Errors
     /// Returns an error when the input is malformed, out of bounds or unsupported.
-    pub fn new(mut reader: R) -> Result<Self, OpenError> {
+    pub fn new(input: R) -> Result<Self, OpenError> {
+        let read_trace = std::env::var_os("PLACES_LOAD_TRACE")
+            .map(|_| std::sync::Arc::new(read_trace::Counters::default()));
+        let mut reader = read_trace::Reader::new(input, read_trace.clone());
         // The raw central directory is validated before the ZIP crate builds
         // its name-keyed index: that index silently collapses exact duplicate
         // names, so a duplicate can only be seen here.
@@ -86,6 +91,7 @@ impl<R: Read + Seek> PackageReader<R> {
         }
         let mut opened = Self {
             archive,
+            read_trace,
             names: directory.names,
             view: None,
             project_ids: None,
@@ -181,6 +187,7 @@ impl<R: Read + Seek> PackageReader<R> {
     /// # Errors
     /// Returns an error when the input is malformed, out of bounds or unsupported.
     pub fn read_entry(&mut self, name: &str, limit: u64) -> Result<Vec<u8>, String> {
+        let timing = self.read_trace.as_ref().map(read_trace::Counters::start);
         let actual = self
             .view
             .as_ref()
@@ -240,6 +247,9 @@ impl<R: Read + Seek> PackageReader<R> {
         }
         if actual != name && hash::sha256_from_blob_name(actual) != Some(hash::sha256_hex(&bytes)) {
             return Err(format!("project record hash mismatch: {actual}"));
+        }
+        if let Some(observation) = timing {
+            observation.report(name, bytes.len());
         }
         Ok(bytes)
     }

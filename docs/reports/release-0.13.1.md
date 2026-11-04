@@ -5006,3 +5006,144 @@ unchanged. Only tiny fixtures were re-exported. Temporary demo 1.0.2 permits
 updating the previous 1.0.1 package; both members verify current and intact.
 Older exported elevator maps require re-exporting for the cabin asset hash.
 Evidence and the updated playable package are under local/elevator-metal-frame.
+
+## Level-loading audit and bounded upload batching, 2026-11-04
+
+Measured direct release executables on Apple M2 Pro / Metal, using source and
+assets at `f949eaaa`. An isolated checkout and build directory preserved the
+concurrent elevator package work. Every playable input was an existing compiled
+package; no maps, lightmaps, probes or unrelated levels were baked.
+
+The largest repeatable cost was GPU installation spread over one upload unit
+per presented frame. Ready work now advances for up to 32 units within a soft
+4 ms CPU slice, yielding to the existing mip worker and GPU backpressure. The
+two-submission window, per-unit size limits, texture scratch bound, nonblocking
+device polling and final completion fence remain. Each transaction still owns
+its resources separately until commit. No asset/package/save format changes.
+
+### Matched results
+
+Three rounds alternated before/after order (before-after, after-before,
+before-after). Each scene/build has six observations: three fresh application
+cache roots, each immediately rerun with the same root. OS and GPU caches were
+untouched. Runs were serial with no concurrent owned build/bake/game. Settings
+were High textures, native 1280x720 drawable (640x360 logical), Fifo/VSync on.
+These are normal presented loading measurements, not FPS throughput tests.
+No capture readbacks, injected delays or fixed simulation delta entered timings.
+
+All 60 runs verified package member manifest identity, lighting variant, actual
+Metal backend, Fifo presentation and drawable. Medians below span the request
+to the first correct presented scene, excluding pre-request window/bootstrap
+work and post-ready shutdown.
+
+| Scene | Lighting | Before (ms) | After (ms) | Reduction |
+| --- | --- | ---: | ---: | ---: |
+| home | Static | 1369.2 | 785.6 | 42.6% |
+| arcade | Static | 2860.6 | 1853.9 | 35.2% |
+| lantern_hollow | Static | 1694.7 | 1162.4 | 31.4% |
+| elevator_lobby | Full | 505.2 | 351.6 | 30.4% |
+| elevator_annex | Full | 455.2 | 318.7 | 30.0% |
+
+Fresh/reused application-cache medians show the same direction in every scene.
+For example, Home improves from 1379.3/1359.0 to 788.0/779.8 ms, and Arcade from
+2866.0/2843.0 to 1836.6/1872.9 ms. The final cohort excludes the preliminary
+first-use shader warm-up rather than silently averaging it into one build.
+
+Actual elevator buttons also drove three round trips per build through normal
+frozen transitions, without injected preparation delays or screenshots. Doors
+and normal arrival/return state were verified. These request-to-present medians
+exclude door travel and opening animation:
+
+| Cross-level elevator load | Before (ms) | After (ms) | Reduction |
+| --- | ---: | ---: | ---: |
+| Lobby to Annex | 251.7 | 138.4 | 45.0% |
+| Annex to Lobby | 276.7 | 147.3 | 46.8% |
+
+### Ranked costs and attribution
+
+1. **One first-use shader observation:** world pipeline construction took
+   4964.5 ms, including 2917.0 ms for the surface pipeline and 1978.0 ms for the
+   capture pipeline. The initial elevator request took 6963.2 ms. Later world
+   pipeline construction was roughly 140-150 ms. This is consistent with driver
+   warm-up, but no controlled cold-OS/GPU campaign or improvement is claimed.
+   The pinned wgpu 30.0.1 PipelineCache API documents Vulkan-only support, so it
+   cannot provide a persistent Metal pipeline cache through the current API.
+2. **Repeatable GPU installation/pacing:** before batching, Home spent 1128.7 ms
+   in the installation window for 40.3 ms of measured CPU upload submission;
+   Arcade 2173.6/335.5 ms; Hollow 1180.7/60.8 ms; elevator Lobby 304.1/9.8 ms.
+   This window includes worker mip readiness, fences and frame scheduling;
+   subtracting CPU submission does not isolate GPU execution or pure idle time.
+   The same upload work and queue limits with the new scheduler reduce those
+   installation windows to 541.1, 1166.9, 643.2 and 144.5 ms respectively.
+3. **CPU world preparation:** worker wall medians were 217.4 ms for Home,
+   635.1 ms for Arcade and 495.8 ms for Hollow (80.9/52.6 ms for the two elevator
+   scenes). Nested measured costs include model/texture resolution at
+   56.0/157.8/88.9 ms; prop-record parsing at 6.8/37.9/116.6 ms; and
+   prop-record read/reconstruction at 6.9/31.6/88.1 ms. Arcade additionally
+   spends 87.0 ms preparing runtime visibility and 71.3 ms preparing physical
+   items. These are nested/overlapping wall observations and must not be added
+   into a CPU total. Semantic/dependency validation and parallel architecture
+   material resolution are included in worker wall time, not separately isolated.
+4. **Package transport/decode:** the added opt-in archive counters observe
+   only 0.15-0.83 ms of package read/seek time per startup in the optimized
+   cohort, including OS cache access. Decode/check/copy residual is about
+   2.0-40.6 ms across the five scenes, processing 1.2-37.7 MiB of decoded
+   package entries including metadata rereads. It includes decompression, CRC,
+   memory copies and alias-integrity checks; it is not a decompressor-only CPU
+   figure. External GLB/PNG reads remain inside asset-resolution stages. No
+   physical-disk-cold claim is made. Transport compression was left intact.
+
+The measured return is therefore in scheduling existing bounded uploads.
+Larger prop reconstruction/model parsing remains a possible follow-up, but this
+audit does not introduce an unmeasured parser/format rewrite or relax validation.
+
+### Correctness and verification
+
+- Strict all-target/all-feature Clippy passes; locked release workspace/all-feature
+  build passes; all 437 workspace Rust tests pass; formatting, Python compilation
+  and diff whitespace checks pass. No tests or full-map bakes were added to CI.
+- Before/after authored first-frame captures at fixed simulation delta match
+  pixel for pixel in all five scenes. Committed gameplay semantics, player pose,
+  fixed instances, entity state, geometry counts and lighting configuration match.
+- Direct-binary elevator flow, save/resume, frozen-frame resize, cancellation,
+  failed-load rollback/reopened doors and spatial audio all pass.
+- A held-crate/NPC campaign passes actual doorway boarding, same-map travel,
+  local and foreign checkpoint resume, both cross-level directions, NPC custom
+  state retention, outside-object exclusion and single-instance return.
+- Traced whole-process median peak RSS stays within 6.2 MiB of baseline in
+  each scene; this is neither an exact heap delta nor VRAM attribution. The
+  production resource bounds are unchanged.
+
+### Identity, reproduction and limits
+
+Baseline executable SHA-256:
+`1d73626b62079ee2bdd8e13ea2e7c492bc419fd0ac7e7ea6eb9e971cf1087cbf`.
+Optimized all-feature release game:
+`7f06a7bef8ec9d5a30b1c8efd0eeeb0f5adecb8b144f7274be45c36d6c51dbe4`.
+Both use the same f949eaaa asset tree. The inherited baseline executable is the
+accepted elevator production build; f949eaaa changed only the cabin asset.
+
+| Existing input | Bytes | SHA-256 |
+| --- | ---: | --- |
+| environments.placesmap (Static collection) | 35759378 | `bfd821590ff61d4b5ad5fa7413b7cd702d366af663ea3fb609496540ed891abf` |
+| demo-1.0.2.placesmap (Full loading cohort) | 1272760 | `6bfe7a02ed146978f50e477b2d1427fc59601eb5c08754c6f66d821fbba0fb74` |
+| lab.placesmap (Full travel/recovery) | 1235617 | `087873dc63a7d0dc935c06d51affa81526429cda5ffe7806c0320ec8c42313ce` |
+| cargo.placesmap (Full passenger checks) | 1254092 | `cc27ce62174691ff7154bf56f54f175e5887ac1b42bcfe193bcb6cdbda8a0c3f` |
+
+Run `tools/bench/loading.py --binary <binary> --install-package <existing-package>`
+with `--levels home arcade lantern_hollow --lightmaps off` for the collection,
+or `--levels elevator_lobby elevator_annex --lightmaps full` for the demo.
+Alternate binaries across three rounds at `--repeat 1`; use fresh output paths.
+The harness now records selected variants, worker preparation results, CPU
+user/system time, upload phase counts/costs and archive attribution alongside
+the existing milestones. Archive clocks/counters are disabled without an
+explicit `PLACES_LOAD_TRACE`. Raw traces, logs, timing receipts, exact-pixel/state
+comparisons and executable copies remain under `local/loading-audit/` outside
+`target/`; `summary.json`, `identities.json`, `matched/`, `transitions/`,
+`visuals/`, `elevator-regressions/` and `passenger-held/` retain the evidence.
+
+Coverage is macOS Metal. Larger preexisting collection packages available for
+this pass contain Static lighting; Full coverage uses the existing elevator
+packages. Large Full atlas uploads, Windows/DX12 and Linux/Vulkan remain
+unmeasured. No claim is made for those workloads, physical disk cold starts,
+steady-state FPS, a release package or a main-branch merge.

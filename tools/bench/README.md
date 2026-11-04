@@ -212,6 +212,22 @@ cancellation or failure), `first_usable_scene_ms` (the first
 immediate apply or to the world commit a rebuild required). Missing
 observations are reported as unavailable, never as zero.
 
+`--lightmaps off|full` selects an existing Static or Full variant (default Full).
+The harness verifies the observed variant and requested scene; it never compiles
+or bakes content. Cold/warm refers only to the application cache. OS and driver
+caches are left intact, so record a first-launch shader warm-up separately.
+
+`timings.json` also retains `stage_wall_ms`, per-phase upload unit counts and CPU
+submission costs, `gpu_install_wall_ms`, and macOS process user/system CPU time.
+Worker stages overlap and must not be added to infer total load time. GPU install
+wall time includes worker mip preparation, frame scheduling and completion
+fences; CPU submission time is a separate observation, not GPU execution time.
+With `PLACES_LOAD_TRACE`, `[loading-archive]` records package entry read/seek time,
+bytes read and the remaining decode/check/copy cost. Read/seek includes OS cache
+access; the residual includes decompression, CRC, copies and integrity checks,
+and must not be described as decompression alone. These records exclude external
+GLB/PNG reads, which remain inside their measured asset-resolution stages.
+
 The run window defaults to the pinned 640x360 logical size; `--window-size WxH`
 overrides it. A window the compositor reports as occluded never presents, so the
 trace has no `scene_presented` and the harness fails honestly instead of
