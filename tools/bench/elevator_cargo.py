@@ -10,7 +10,7 @@ parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--binary',type=Path,required=True)
 parser.add_argument('--package',type=Path,required=True)
 parser.add_argument('--out',type=Path,required=True)
-parser.add_argument('--mode',choices=['dormant','held','active','failure','cancel','blocked-local','blocked-level','shaft-guard'],default='dormant')
+parser.add_argument('--mode',choices=['dormant','held','active','failure','cancel','blocked-local','blocked-level'],default='dormant')
 parser.add_argument('--vertical',action='store_true',help='Use the physical-source fixture, now fixed vertical cabins with sealed passenger teleport')
 parser.add_argument('--lightmaps',choices=['off','full'],default='full')
 parser.add_argument('--rotated',action='store_true',help='Package uses the fixture\'s 90 degree / 3 m elevated Annex')
@@ -38,7 +38,7 @@ add(1800,'checkpoint',A,name='annex');add(1900,'capture',A,name='annex')
 add(2200,'save_checkpoint',A,name='cargo_annex');add(2600,'resume_checkpoint',A)
 add(5000,'checkpoint',A,name='annex_resumed');add(5200,'view_at',A,position=[.4,4.58,-.94] if ROTATED else [.94,1.58,.4]);click(5400,A)
 add(10600,'checkpoint',A,name='returned');add(10800,'capture',A,name='returned');add(11000,'quit',A);add(35000,'quit')
-if MODE in ['blocked-local','shaft-guard']:
+if MODE=='blocked-local':
  actions=[v for v in actions if v['after']==L and v['delay_ms']<11400]
  add(11500,'view',yaw=0,pitch=0);add(11600,'key',key='W',pressed=True);add(12300,'key',key='W',pressed=False);add(12400,'checkpoint',name='live');add(12600,'quit')
 elif MODE in ['failure','blocked-level','cancel']:
@@ -66,8 +66,8 @@ for name,d in c.items():
  print(name,d['current_level_id'],d['player_position'],[(a['id'],a['position']) for a in d['entity_simulation']['agents']],d['physics']['authored'],flush=True)
 (OUT/'checkpoints.json').write_text(json.dumps(c,indent=2)+'\n')
 (OUT/'provenance.json').write_text(json.dumps(dict(binary_sha256=hashlib.sha256(args.binary.read_bytes()).hexdigest(),package_sha256=hashlib.sha256(args.package.read_bytes()).hexdigest(),mode=MODE,held=HELD,rotated=ROTATED),indent=2)+'\n')
-if MODE in ['blocked-local','shaft-guard','failure','blocked-level','cancel']:
- before=c['before_local' if MODE in ['blocked-local','shaft-guard'] else 'before_annex'];after=c['local' if MODE in ['blocked-local','shaft-guard'] else 'recovered'];live=c['live']
+if MODE in ['blocked-local','failure','blocked-level','cancel']:
+ before=c['before_local' if MODE=='blocked-local' else 'before_annex'];after=c['local' if MODE=='blocked-local' else 'recovered'];live=c['live']
  assert before['current_level_id']==after['current_level_id']=='elevator_lobby'
  assert max(abs(a-b) for a,b in zip(before['player_position'],after['player_position']))<.002
  assert after['state']=='Playing' and not after['transition_frozen']

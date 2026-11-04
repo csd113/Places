@@ -45,20 +45,14 @@ pub enum Part {
 
 /// Elevator stock lies in a wall/shaft, where a geometric-centre probe has no
 /// room and falls back to invented ambient. Receive the real landing's light
-/// from clear hall air instead. Keep a travelling car's departure receiver
-/// until arrival; the car's own practical still follows its authoritative pose.
+/// from clear hall air instead. Each fixed cabin samples its own landing even
+/// while passengers are using another cabin in the same authored group.
 #[must_use]
-pub fn landing_light_probe(e: &Elevator, part: Part, position: [f32; 3]) -> Vec3 {
+pub fn landing_light_probe(e: &Elevator, _part: Part, position: [f32; 3]) -> Vec3 {
     let local = e.def.local(Vec3::from_array(position));
-    let car = matches!(part, Part::Cabin) || (matches!(part, Part::Leaf) && local.z > 0.25);
-    let floor = if car {
-        e.def.stops.get(e.at).map_or(e.y, |stop| stop.y)
-    } else {
-        local.y
-    };
     e.def.point(
         0.0,
-        crate::engine::elevator::DOOR_HEIGHT.mul_add(0.5, floor),
+        crate::engine::elevator::DOOR_HEIGHT.mul_add(0.5, local.y),
         -0.35,
     )
 }
@@ -230,23 +224,6 @@ fn attach_buttons(
     cabin.triangles = cabin.indices.len() / 3;
     Ok(cabin)
 }
-/// The ceiling practical follows the car instead of being baked at a landing.
-#[must_use]
-pub fn cabin_light(elevator: &Elevator) -> super::dynamic_lights::DynamicLight {
-    super::dynamic_lights::DynamicLight {
-        key: format!("elevator:{}", elevator.def.id),
-        position: elevator.def.point(0.0, elevator.y + 2.30, 1.20),
-        color: [1.0, 0.69, 0.38],
-        intensity: 2.0,
-        radius: 3.2,
-        enclosure: Some(LightEnclosure {
-            origin: elevator.def.point(0.0, elevator.y, 0.0),
-            rotation_degrees: elevator.def.rotation_degrees,
-            half_gap: door_leaf_x(1.0, elevator.opening) - crate::engine::elevator::DOOR_LEAF_SEAL,
-            landing_doors: elevator.phase != Phase::Moving,
-        }),
-    }
-}
 /// Every authored landing owns a fixed cabin practical as well as fixed geometry.
 #[must_use]
 pub fn cabin_lights(e: &Elevator) -> Vec<super::dynamic_lights::DynamicLight> {
@@ -256,10 +233,20 @@ pub fn cabin_lights(e: &Elevator) -> Vec<super::dynamic_lights::DynamicLight> {
         .enumerate()
         .filter(|(_, stop)| stop.is_landing())
         .map(|(index, stop)| {
-            let mut light = cabin_light(e);
-            light.key = format!("elevator:{}:{index}", e.def.id);
-            light.position = e.def.point(0.0, stop.y + 2.30, 1.20);
-            light
+            let opening = if index == e.at { e.opening } else { 0.0 };
+            super::dynamic_lights::DynamicLight {
+                key: format!("elevator:{}:{index}", e.def.id),
+                position: e.def.point(0.0, stop.y + 2.30, 1.20),
+                color: [1.0, 0.69, 0.38],
+                intensity: 2.0,
+                radius: 3.2,
+                enclosure: Some(LightEnclosure {
+                    origin: e.def.point(0.0, stop.y, 0.0),
+                    rotation_degrees: e.def.rotation_degrees,
+                    half_gap: door_leaf_x(1.0, opening) - crate::engine::elevator::DOOR_LEAF_SEAL,
+                    landing_doors: true,
+                }),
+            }
         })
         .collect()
 }

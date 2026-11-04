@@ -34,14 +34,14 @@ def main():
              z=-2, scale=.35, physics=dict(motion='dynamic', pickup=True))]
     for case in ('straight', 'rotated', 'blocked-local', 'blocked-level',
                  'blocked-rider-local', 'blocked-rider-level',
-                 'blocked-npc-local', 'blocked-npc-level', 'physical'):
+                 'blocked-npc-local', 'blocked-npc-level', 'physical', 'blocked-vertical'):
         project = args.out / case
         (project / 'levels').mkdir(parents=True)
         document = copy.deepcopy(manifest)
         document['id'] = f'elevator_cargo_{case.replace("-", "_")}'
         (project / 'places.project.json').write_text(json.dumps(document, indent=2)+'\n')
         authored = copy.deepcopy(levels)
-        if case == 'physical':
+        if case in ('physical', 'blocked-vertical'):
             lab = ROOT / 'projects/elevator-lab'
             authored = {name: json.loads((lab / f'levels/{name}.json').read_text())
                         for name in levels}
@@ -59,9 +59,9 @@ def main():
             annex['ceiling_lights'] = []
             annex['spawn'] = dict(x=3, z=0, yaw_degrees=270)
         if case.startswith('blocked'):
-            local = case.endswith('local')
+            local = case.endswith('local') or case == 'blocked-vertical'
             level = authored['elevator_lobby' if local else 'elevator_annex']
-            shift = 10 if local else 0
+            shift = 10 if local and case != 'blocked-vertical' else 0
             if 'npc' in case:
                 guest = copy.deepcopy(levels['elevator_lobby']['props'][1])
                 guest.update(id='resident_guest', x=shift-.55, z=2.05)
@@ -69,7 +69,8 @@ def main():
             else:
                 level.setdefault('props', []).append(dict(
                     id='arrival_blocker', model='core:cardboard_box',
-                    x=shift-.45 if 'rider' in case else shift+.5, y=.02,
+                    x=shift-.45 if 'rider' in case else shift+.5,
+                    y=3.52 if case == 'blocked-vertical' else .02,
                     z=1.05 if 'rider' in case else 1.65,
                     scale=.8, physics=dict(motion='dynamic', pickup=True)))
         for name, level in authored.items():

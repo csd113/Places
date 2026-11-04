@@ -133,7 +133,7 @@ python3 tools/bench/elevator_doors.py --binary target/release/places \
 
 Export/run `two` and `three` the same way with their matching `--mode`.
 `--mode shaft` instead accepts an explicitly exported `projects/elevator-lab`
-package and checks door presses during physical motion and at the upper floor.
+package and checks door presses during the sealed ride and at the upper floor.
 Use fresh output directories and serialize native players. These captures are
 correctness/visual evidence, not throughput measurements. AI hearing and
 last-known searches remain active; the baseline predator has no player damage.

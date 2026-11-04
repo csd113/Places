@@ -5,7 +5,7 @@
 use crate::engine::{
     elevator::{Elevator, ElevatorDef, Phase, Stop},
     render::{
-        common::elevators::cabin_light,
+        common::elevators::cabin_lights,
         wgpu::world::{DynamicLightsUniform, GpuDynamicLight},
     },
 };
@@ -30,7 +30,10 @@ fn cabin_light_keeps_the_interior_on_and_tracks_the_actual_seal() -> Result<(), 
     let mut elevator = Elevator::new(&definition);
     for (opening, gap) in [(0.0, -0.004), (0.5, 0.3365), (1.0, 0.677)] {
         elevator.opening = opening;
-        let light = cabin_light(&elevator);
+        let light = cabin_lights(&elevator)
+            .into_iter()
+            .next()
+            .ok_or("Missing fixed cabin light")?;
         assert!(light.is_well_formed());
         assert_eq!(
             light.intensity, 2.0,
@@ -62,12 +65,14 @@ fn cabin_light_keeps_the_interior_on_and_tracks_the_actual_seal() -> Result<(), 
     }
     elevator.phase = Phase::Moving;
     elevator.opening = 0.0;
-    elevator.y = 5.0;
-    let light = cabin_light(&elevator);
+    let light = cabin_lights(&elevator)
+        .into_iter()
+        .next()
+        .ok_or("Missing fixed cabin light")?;
     let gpu = GpuDynamicLight::new(&light);
-    assert_eq!(gpu.enclosure_origin_gap[1], 5.0);
-    assert_eq!(gpu.enclosure_doors[0], gpu.enclosure_doors[2]);
-    assert_eq!(gpu.enclosure_doors[1], gpu.enclosure_doors[3]);
+    assert_eq!(gpu.enclosure_origin_gap[1], 4.0);
+    assert!(gpu.enclosure_doors[0] > gpu.enclosure_doors[2]);
+    assert!(gpu.enclosure_doors[1] > gpu.enclosure_doors[3]);
     let mut ordinary_glow = light;
     ordinary_glow.enclosure = None;
     assert_eq!(
@@ -79,12 +84,49 @@ fn cabin_light_keeps_the_interior_on_and_tracks_the_actual_seal() -> Result<(), 
     assert_eq!(std::mem::offset_of!(DynamicLightsUniform, flashlight), 912);
     let receiver = crate::engine::render::common::elevators::landing_light_probe(
         &elevator,
-        crate::engine::render::common::elevators::Part::Cabin,
-        [7.0, 5.0, -3.0],
+        crate::engine::render::common::elevators::Part::Cabin(0),
+        [7.0, 4.0, -3.0],
     );
     assert!(
         receiver.distance(definition.point(0.0, 5.1, -0.35)) < 0.0001,
-        "Moving through unsupported shaft air must retain the departure landing receiver"
+        "A sealed ride must retain the fixed landing receiver"
+    );
+    // The stationary-ride fix retains both cabins. This bounded extension
+    // protects the unique integration regression: selecting an upper landing
+    // must neither move the lower light nor give its sealed doors the upper gap.
+    elevator.def.stops.push(Stop {
+        label: "1".into(),
+        y: 9.0,
+        level: None,
+        arrival_elevator: None,
+    });
+    assert!(elevator.arrive_at(1));
+    elevator.opening = 0.5;
+    let fixed = cabin_lights(&elevator);
+    assert_eq!(fixed.len(), 2);
+    let lower = fixed
+        .first()
+        .ok_or("Missing lower light")?
+        .enclosure
+        .ok_or("Missing lower enclosure")?;
+    let upper = fixed
+        .get(1)
+        .ok_or("Missing upper light")?
+        .enclosure
+        .ok_or("Missing upper enclosure")?;
+    assert_eq!(lower.origin, definition.point(0.0, 4.0, 0.0));
+    assert_eq!(upper.origin, definition.point(0.0, 9.0, 0.0));
+    assert!((lower.half_gap + 0.004).abs() < 0.00001);
+    assert!((upper.half_gap - 0.3365).abs() < 0.00001);
+    assert!(
+        crate::engine::render::common::elevators::landing_light_probe(
+            &elevator,
+            crate::engine::render::common::elevators::Part::Cabin(0),
+            [7.0, 4.0, -3.0],
+        )
+        .distance(receiver)
+            < 0.0001,
+        "Unselected fixed cabins retain their own real landing receiver"
     );
     Ok(())
 }
