@@ -39,6 +39,14 @@ impl EntityWorld {
         }
     }
     pub fn finish_local_elevator_departure(&mut self, source: &str, arrival: Option<&str>) {
+        self.finish_local_elevator_departure_at(source, arrival, None);
+    }
+    pub fn finish_local_elevator_departure_at(
+        &mut self,
+        source: &str,
+        arrival: Option<&str>,
+        landing: Option<usize>,
+    ) {
         if let Some(elevator) = self.elevators.iter_mut().find(|e| e.def.id == source) {
             if arrival.is_some() {
                 elevator.finish_departure();
@@ -49,7 +57,11 @@ impl EntityWorld {
         if let Some(id) = arrival
             && let Some(elevator) = self.elevators.iter_mut().find(|e| e.def.id == id)
         {
-            elevator.arrive();
+            if let Some(index) = landing {
+                let _arrived = elevator.arrive_at(index);
+            } else {
+                elevator.arrive();
+            }
             self.elevator_sounds.push((
                 elevator.def.point(0.0, elevator.y + 1.2, 1.2),
                 "elevator_arrive",
@@ -162,11 +174,10 @@ impl EntityWorld {
         }
         self.interactables = crate::engine::interact::Interactables::with_items(items);
     }
-    pub fn update_elevators(&mut self, ctx: &WorldContext<'_>) -> f32 {
+    pub fn update_elevators(&mut self, ctx: &WorldContext<'_>) {
         if self.elevators.is_empty() {
-            return 0.0;
+            return;
         }
-        let mut carry = 0.0;
         let mut changed = false;
         for elevator in &mut self.elevators {
             let before = (elevator.y, elevator.opening, elevator.at, elevator.phase);
@@ -189,7 +200,6 @@ impl EntityWorld {
                 || (elevator.opening - before.1).abs() > f32::EPSILON
                 || elevator.at != before.2
                 || elevator.phase != before.3;
-            carry += step.carry_y;
             if let Some(sound) = step.sound {
                 let source_y = if elevator.settled() {
                     elevator
@@ -222,6 +232,5 @@ impl EntityWorld {
             self.rebuild_door_colliders();
             self.sync_elevator_controls();
         }
-        carry
     }
 }

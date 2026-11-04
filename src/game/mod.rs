@@ -1907,15 +1907,9 @@ impl Game {
             floor: &self.floor,
         };
         let _ = self.world.update_doors(&ctx);
-        let carried = self.world.update_elevators(&ctx);
+        self.world.update_elevators(&ctx);
         if let Some(departure) = self.world.take_local_elevator_departure() {
             self.transfer_local_elevator(&departure);
-        }
-        if carried != 0.0 {
-            self.set_feet_y(self.feet_y + carried);
-            self.player_floor_y += carried;
-            self.vertical_velocity = 0.0;
-            self.grounded = true;
         }
     }
 
@@ -1931,38 +1925,61 @@ impl Game {
                     .iter()
                     .find(|e| e.def.id == departure.arrival),
             )
-            .filter(|(_, target)| target.settled())
-            .map(|(source, target)| {
+            .filter(|(source, target)| {
+                target.settled() || (departure.landing.is_some() && source.def.id == target.def.id)
+            })
+            .and_then(|(source, target)| {
+                let target_y = match departure.landing {
+                    Some(index) => {
+                        target
+                            .def
+                            .stops
+                            .get(index)
+                            .filter(|stop| stop.is_landing())?
+                            .y
+                    }
+                    None => target.y,
+                };
                 let local = source.def.local(Vec3::new(
                     self.player_position.x,
                     self.feet_y,
                     self.player_position.z,
                 ));
-                (
+                Some((
                     target
                         .def
-                        .point(local.x, target.y + local.y - source.y, local.z),
+                        .point(local.x, target_y + local.y - source.y, local.z),
                     self.player_yaw
                         - (target.def.rotation_degrees - source.def.rotation_degrees).to_radians(),
                     elevator_transport::LocalTrip {
                         target_id: departure.arrival.clone(),
                         source: departure.source.clone(),
-                        target: target.checkpoint().ok(),
+                        target: if departure.landing.is_some() {
+                            Some(target.recovery_checkpoint())
+                        } else {
+                            target.checkpoint().ok()
+                        },
                         from: crate::engine::elevator::CabinFrame::from_elevator(source),
-                        to: crate::engine::elevator::CabinFrame::from_elevator(target),
+                        to: crate::engine::elevator::CabinFrame {
+                            origin: target.def.point(0.0, target_y, 0.0),
+                            rotation_degrees: target.def.rotation_degrees,
+                        },
                         eye: self.player_position,
                         feet_y: self.feet_y,
                         yaw: self.player_yaw,
                         floor_y: self.player_floor_y,
                     },
-                )
+                ))
             });
         if let Some((feet, yaw, trip)) = pose
             && self.body_fits_for(feet, self.body_height(), self.body_half())
         {
             self.local_elevator_trip = Some(trip);
-            self.world
-                .finish_local_elevator_departure(&departure.source, Some(&departure.arrival));
+            self.world.finish_local_elevator_departure_at(
+                &departure.source,
+                Some(&departure.arrival),
+                departure.landing,
+            );
             self.player_position.x = feet.x;
             self.player_position.z = feet.z;
             self.player_yaw = yaw;

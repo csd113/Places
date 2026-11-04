@@ -11,11 +11,13 @@ parser.add_argument('--binary',type=Path,required=True)
 parser.add_argument('--package',type=Path,required=True)
 parser.add_argument('--out',type=Path,required=True)
 parser.add_argument('--mode',choices=['dormant','held','active','failure','cancel','blocked-local','blocked-level','shaft-guard'],default='dormant')
+parser.add_argument('--vertical',action='store_true',help='Use the physical-source fixture, now fixed vertical cabins with sealed passenger teleport')
+parser.add_argument('--lightmaps',choices=['off','full'],default='full')
 parser.add_argument('--rotated',action='store_true',help='Package uses the fixture\'s 90 degree / 3 m elevated Annex')
 parser.add_argument('--held',action='store_true',help='Combine held ownership with another case, such as failure')
 args=parser.parse_args()
 ROOT=Path(__file__).resolve().parents[2];ROTATED=args.rotated;OUT=args.out.resolve();OUT.mkdir(parents=True);state=OUT/'state';state.mkdir();(state/'levels').mkdir();shutil.copy2(args.package,state/'levels/cargo.placesmap')
-settings=json.loads((ROOT/'tests/fixtures/native/hero-manifest.json').read_text())['settings'];settings.update(window_width=640,window_height=360,quality='high',texture_filtering='high',lightmaps='full',reflections='off',bloom=False,vsync=True,ambient_volume=0)
+settings=json.loads((ROOT/'tests/fixtures/native/hero-manifest.json').read_text())['settings'];settings.update(window_width=640,window_height=360,quality='high',texture_filtering='high',lightmaps=args.lightmaps,reflections='off',bloom=False,vsync=True,ambient_volume=0)
 MODE=args.mode
 HELD=MODE=='held' or args.held
 (state/'settings.json').write_text(json.dumps(settings));actions=[]
@@ -30,7 +32,7 @@ if HELD:
 if MODE=='active':add(5800,'item_velocity',id='travel_crate',linear=[.02,0,0],angular=[0,.01,0])
 add(6200,'checkpoint',name='before_local')
 add(11200,'checkpoint',name='local');add(11400,'save_checkpoint',name='cargo_upper');add(11800,'resume_checkpoint')
-add(14500,'checkpoint',name='resumed');add(14700,'view_at',position=[10.94,1.47,.4]);click(14900)
+add(14500,'checkpoint',name='resumed');add(14700,'view_at',position=[.94,4.97,.4] if args.vertical else [10.94,1.47,.4]);click(14900)
 add(16000,'checkpoint',name='before_annex');add(50,'checkpoint',A,name='annex_first')
 add(1800,'checkpoint',A,name='annex');add(1900,'capture',A,name='annex')
 add(2200,'save_checkpoint',A,name='cargo_annex');add(2600,'resume_checkpoint',A)
@@ -43,8 +45,10 @@ elif MODE in ['failure','blocked-level','cancel']:
  anchor='failed:elevator_annex' if MODE!='cancel' else 'request:elevator_annex'
  if MODE=='cancel':add(150,'escape',anchor)
  add(2200,'checkpoint',anchor,name='recovered');add(2300,'view',anchor,yaw=0,pitch=0);add(2400,'key',anchor,key='W',pressed=True);add(3100,'key',anchor,key='W',pressed=False);add(3200,'checkpoint',anchor,name='live');add(3400,'quit',anchor)
+actions.insert(0,dict(after=L,delay_ms=0,action=dict(kind='focus',focused=True)))
+actions.insert(0,dict(after=A,delay_ms=0,action=dict(kind='focus',focused=True)))
 script=OUT/'actions.json';script.write_text(json.dumps(actions));trace=OUT/'trace.jsonl'
-env={k:v for k,v in os.environ.items() if not k.startswith('PLACES_')};env.update(PLACES_ASSET_ROOT=str(ROOT/'assets'),PLACES_STATE_ROOT=str(state),PLACES_LEVEL='elevator_lobby',PLACES_BENCH='1',PLACES_BENCH_FRAMES='6000',PLACES_BENCH_WARMUP='3',PLACES_PREPARE_DELAY_MS='500',PLACES_LOAD_TRACE=str(trace),PLACES_BENCH_ACTIONS=str(script),PLACES_BENCH_OUT=str(OUT/'frames.csv'),PLACES_PHYSICS_TRACE='1')
+env={k:v for k,v in os.environ.items() if not k.startswith('PLACES_')};env.update(PLACES_ASSET_ROOT=str(ROOT/'assets'),PLACES_STATE_ROOT=str(state),PLACES_LEVEL='elevator_lobby',PLACES_BENCH='1',PLACES_BENCH_FRAMES='6000',PLACES_BENCH_WARMUP='3',PLACES_PREPARE_DELAY_MS='500',PLACES_LOAD_TRACE=str(trace),PLACES_BENCH_ACTIONS=str(script),PLACES_BENCH_OUT=str(OUT/'frames.csv'),PLACES_PHYSICS_TRACE='1',PLACES_AUDIO_CAPTURE='1')
 with (OUT/'game.log').open('w') as log:
  proc=subprocess.Popen([str(args.binary.resolve(strict=True))],cwd=ROOT,env=env,stdout=log,stderr=subprocess.STDOUT);started=time.monotonic();removed=False;package=state/'levels/cargo.placesmap';hidden=package.with_suffix('.unavailable')
  try:
@@ -73,14 +77,17 @@ if MODE in ['blocked-local','shaft-guard','failure','blocked-level','cancel']:
  assert abs(live['player_position'][2]-after['player_position'][2])>.1,(live['player_position'],after['player_position'])
  if HELD:assert before['physics']['held'] is not None and after['physics']['held'] is not None
  (OUT/'passed.json').write_text(json.dumps(dict(passed=True,kind=MODE,held=HELD,checks=['source player/occupant poses retained','no lost or duplicate bodies','doors reopened','gameplay movement remains live']),indent=2)+'\n');raise SystemExit(0)
-for name,x,level in [('local',9.45,'elevator_lobby'),('resumed',9.45,'elevator_lobby'),('annex',-.55,'elevator_annex'),('annex_resumed',-.55,'elevator_annex'),('returned',-.55,'elevator_lobby')]:
+for name,x,level in [('local',-.55 if args.vertical else 9.45,'elevator_lobby'),('resumed',-.55 if args.vertical else 9.45,'elevator_lobby'),('annex',-.55,'elevator_annex'),('annex_resumed',-.55,'elevator_annex'),('returned',-.55,'elevator_lobby')]:
  d=c[name];assert d['current_level_id']==level,(name,d['current_level_id'])
  wanted='travel_crate' if level=='elevator_lobby' else next(a[1] for a in d['physics']['authored'] if a[1].startswith('travel_'))
  key=next(a[0] for a in d['physics']['authored'] if a[1]==wanted);b=next(b for b in d['physics']['bodies'] if b['key']==key)
  if HELD:assert b['held'],(name,b)
  elif MODE!='active':
-  expected=[2.05,3.02,.55] if ROTATED and level=='elevator_annex' else [x,.02,2.05]
+  expected=[2.05,3.02,.55] if ROTATED and level=='elevator_annex' else [x,3.52 if args.vertical and name in ['local','resumed'] else .02,2.05]
   assert max(abs(a-e) for a,e in zip(b['pose']['position'],expected))<.025,(name,b['pose'],expected)
+ if args.vertical and name in ['local','resumed']:
+  assert abs(d['player_position'][1]-5.1)<.025,(name,d['player_position'])
+  assert abs(d['entity_simulation']['agents'][0]['position'][1]-3.5)<.025,(name,d['entity_simulation']['agents'])
  assert len(d['entity_simulation']['agents'])==1,(name,d['entity_simulation']['agents'])
  assert len(d['physics']['bodies'])==(1 if level=='elevator_annex' else 2),(name,d['physics']['bodies'])
  assert any(['cargo_health',61] in state['values'] for state in d['entity_simulation']['states']),(name,d['entity_simulation']['states'])

@@ -6678,7 +6678,7 @@ click-to-place, place another, and bidirectional linking. A linked group has up
 to three cabins, with the current stop omitted from its destination buttons.
 Logical floor names/order do not depend on world height; independent groups
 remain isolated. **Load another level** chooses a saved project map and arrival
-cabin. Advanced preserves physical shaft configuration. Checkpoints preserve
+cabin. Advanced retains fixed vertical landing sets. Checkpoints preserve
 settled stops; blocked doors reopen.
 See [the complete schema, dimensions and lab](ELEVATORS.md) before placement.
 In-game level loads retain the last game view beneath a static loading card;
@@ -6688,7 +6688,7 @@ Linked and cross-level travel retain the rider's exact cabin-relative pose and
 carry ordinary authored movable props and NPCs fully inside the cabin. Their
 single ownership, rigid state and supported component/NPC state survive visits
 and saves. Unsupported map-bound or runtime-created owners refuse travel with
-an explanation; physical shafts currently accept the player alone. NPC boarding
+an explanation; fixed vertical landings use the same passenger admission. NPC boarding
 uses offline-prepared landing navigation and actual runtime door collision.
 
 ### Wiring doors and lights

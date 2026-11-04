@@ -10,7 +10,7 @@ RATE = 44100
 
 
 def render(name):
-    seconds = 5.6 if name == 'elevator_shaft' else 1.5
+    seconds = 1.8 if name == 'elevator_travel' else 5.6 if name == 'elevator_shaft' else 1.5
     rng = random.Random(20261103)
     low = slow = 0.0
     values = []
@@ -18,7 +18,15 @@ def render(name):
         t = frame / RATE
         low += 0.055 * (rng.uniform(-1, 1) - low)
         slow += 0.006 * (low - slow)
-        if name == 'elevator_shaft':
+        if name == 'elevator_travel':
+            # A bounded in-car motor rise and brake release, exactly one simulated ride.
+            attack = min(1., t / .12)
+            release = min(1., (seconds-t) / .28)
+            envelope = attack*release
+            motor = math.sin(math.tau*(48*t + 1.4*t*t))
+            bearing = math.sin(math.tau*(116*t + .3*math.sin(t*4)))
+            value = envelope*(.13*motor + .025*bearing + .8*slow + .20*(low-slow))
+        elif name == 'elevator_shaft':
             # A passing traction motor, pulley rumble and quiet cable resonance.
             envelope = math.sin(math.pi * t / seconds) ** 1.4
             motor = math.sin(math.tau * (43 * t + 1.8 * t * t))

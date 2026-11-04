@@ -833,7 +833,6 @@ pub struct WgpuRenderer {
     /// The live dynamic objects one door draws: its static frame and its leaf.
     door_objects: Vec<DoorDraw>,
     elevator_models: Vec<Option<crate::engine::render::common::elevators::Models>>,
-    elevator_landings: Vec<usize>,
     elevator_lights: crate::engine::render::common::DynamicLightSet,
     elevator_objects: Vec<Vec<DynamicId>>,
     /// Every switchable fixture's runtime bindings: the baked light it drives
@@ -1303,7 +1302,6 @@ impl WgpuRenderer {
             door_sources: Vec::new(),
             door_objects: Vec::new(),
             elevator_models: Vec::new(),
-            elevator_landings: Vec::new(),
             elevator_lights: crate::engine::render::common::DynamicLightSet::new(),
             elevator_objects: Vec::new(),
             switchable_lights: Vec::new(),
@@ -2364,7 +2362,6 @@ impl WgpuRenderer {
         self.prop_assets = crate::engine::props::PropAssets::load_default();
         self.runtime_objects.clear();
         self.elevator_models.clear();
-        self.elevator_landings.clear();
         self.elevator_lights = crate::engine::render::common::DynamicLightSet::new();
         self.elevator_objects.clear();
         self.door_sources.clear();
@@ -2588,16 +2585,12 @@ impl WgpuRenderer {
             let Some(models) = self.elevator_models.get(index).and_then(Option::as_ref) else {
                 continue;
             };
-            let _accepted =
-                self.elevator_lights
-                    .insert(crate::engine::render::common::elevators::cabin_light(
-                        elevator,
-                    ));
+            for light in crate::engine::render::common::elevators::cabin_lights(elevator) {
+                let _accepted = self.elevator_lights.insert(light);
+            }
             let parts = crate::engine::render::common::elevators::parts(elevator);
             let existing = self.elevator_objects.get(index).filter(|ids| {
-                self.elevator_landings.get(index) == Some(&elevator.at)
-                    && ids.len() == parts.len()
-                    && ids.iter().all(|id| self.dynamic.get(*id).is_some())
+                ids.len() == parts.len() && ids.iter().all(|id| self.dynamic.get(*id).is_some())
             });
             if let Some(ids) = existing {
                 for (id, (_, position)) in ids.iter().zip(&parts) {
@@ -2616,12 +2609,15 @@ impl WgpuRenderer {
                         continue;
                     };
                     let part_name = match part {
-                        crate::engine::render::common::elevators::Part::Cabin => "cabin",
+                        crate::engine::render::common::elevators::Part::Cabin(_) => "cabin",
                         crate::engine::render::common::elevators::Part::Frame => "frame",
                         crate::engine::render::common::elevators::Part::Leaf => "leaf",
                     };
-                    let key = if part_name == "cabin" {
-                        format!("elevator:{index}:{part_name}:{}", elevator.at)
+                    let key = if let crate::engine::render::common::elevators::Part::Cabin(
+                        landing,
+                    ) = part
+                    {
+                        format!("elevator:{index}:{part_name}:{landing}")
                     } else {
                         format!("elevator:{index}:{part_name}")
                     };
@@ -2648,11 +2644,6 @@ impl WgpuRenderer {
                     ) {
                         ids.push(id);
                     }
-                }
-                if let Some(landing) = self.elevator_landings.get_mut(index) {
-                    *landing = elevator.at;
-                } else {
-                    self.elevator_landings.push(elevator.at);
                 }
                 if let Some(slot) = self.elevator_objects.get_mut(index) {
                     *slot = ids;

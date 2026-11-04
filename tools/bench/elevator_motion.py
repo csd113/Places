@@ -50,9 +50,10 @@ def capture(args):
         actions.append(dict(after='ready:elevator_lobby', delay_ms=ms,
                             action=dict(kind=kind, **details)))
 
+    add(0, 'focus', focused=True)
     add(20, 'player', position=position, yaw=0, pitch=0)
     if args.arrival:
-        # Stay inside throughout real physical travel and the entire arrival
+        # Stay inside throughout the sealed simulated ride and the entire arrival
         # opening. Only initial acceptance positioning bypasses ordinary input.
         add(100, 'view_at', position=[.94, 1.58, .4])
         add(200, 'mouse', button='left', pressed=True)
@@ -81,7 +82,7 @@ def capture(args):
     env.update(PLACES_ASSET_ROOT=str(args.asset_root.resolve()),
                PLACES_STATE_ROOT=str(state), PLACES_LEVEL='elevator_lobby',
                PLACES_BENCH='1', PLACES_BENCH_FRAMES='6000', PLACES_BENCH_WARMUP='3',
-               PLACES_VERBOSE='1', PLACES_LOAD_TRACE=str(out / 'trace.jsonl'),
+               PLACES_VERBOSE='1', PLACES_AUDIO_CAPTURE='1', PLACES_LOAD_TRACE=str(out / 'trace.jsonl'),
                PLACES_BENCH_ACTIONS=str(out / 'actions.json'),
                PLACES_BENCH_VIDEO_PIPE=str(fifo), PLACES_BENCH_VIDEO_SIZE='1280x720',
                PLACES_BENCH_VIDEO_FRAMES='600', PLACES_BENCH_VIDEO_STRIDE='1')
@@ -150,7 +151,7 @@ def main():
     parser.add_argument('--reflections', choices=['off', 'full'], default='off')
     parser.add_argument('--bloom', action='store_true')
     parser.add_argument('--fov', type=float, default=80)
-    parser.add_argument('--arrival', action='store_true', help='Stay inside through real floor travel and arrival opening')
+    parser.add_argument('--arrival', action='store_true', help='Stay inside through the sealed ride, transfer and arrival opening')
     parser.add_argument('--diagnostic', choices=['final', 'albedo', 'vertex-normal'], default='final')
     parser.add_argument('--ffmpeg', default=shutil.which('ffmpeg') or 'ffmpeg')
     args = parser.parse_args()

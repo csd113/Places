@@ -2,8 +2,8 @@
 
 Build > Elevator is the normal way to add a level-loading boundary or connect
 rooms that should feel like different floors. The cabin has sliding doors,
-a walkable interior, numbered destination buttons, warm lighting and occasional
-spatial shaft-movement sounds. E or left click activates the aimed control.
+a walkable interior, numbered destination buttons, warm lighting and a bounded
+in-car motor sound during each simulated ride. E or left click activates the aimed control.
 
 The separate green door-arrow button below the destination buttons opens or
 closes the cabin at its current floor. It never selects a destination. You can
@@ -96,8 +96,8 @@ The current portable subset excludes console/session-created props, runtime
 spawns, ragdolls/articulated actors, NPC-held assemblies, lifetime/balloon owners,
 and actors with map-bound tasks, regions, wiring, lights or effects. Such an
 occupant refuses travel with an explanation. Static scenery is never cargo.
-Use linked cabins for prop/NPC transport; advanced physically moving shafts
-currently accept the player alone and refuse occupied trips before movement.
+Fixed vertical landings use the same passenger admission and rollback as
+linked cabins; ordinary supported occupants travel with the rider.
 
 ## Space and artwork
 
@@ -136,16 +136,23 @@ Spatial sound uses a 1.5 m near distance and fades to silence at 12 m, through t
 normal master/effects controls and occlusion. The original offline-authored WAV
 cues retain their audio provenance records.
 
-## Advanced physical shafts and saves
+## Fixed vertical landings and saves
 
-Advanced preserves the existing physical shaft mode: one cabin moves vertically
-between local landing elevations, accelerating and decelerating within speed_mps.
-Physical landings must be separated by at least 2.75 m and share a clear shaft.
-The data retains capacity for eight physical stops; linked cabins and loading
-routes use the initial three-stop/two-destination limit. In source data, a stop
-without level or arrival_elevator is a physical landing. arrival_elevator alone
-references another cabin in the current map; level plus arrival_elevator targets
-a saved cabin in another map. initial_stop names a physical landing.
+Advanced vertical landing sets also keep one fixed cabin at each authored
+landing. After the doors seal, a 1.8-second motor cue presents a ride, then the
+normal passenger-transfer path teleports the rider, supported props and NPCs to
+the selected landing. No cabin, floor, frame or practical translates upward.
+Linked cabins and separate-level destinations use the same sealed ride interval;
+loading begins after it. An independent door close never starts a ride sound.
+
+Vertical landings retain at least 2.75 m separation and the existing clear side
+shaft admission. A map supports eight actual fixed cabins in total; default
+linked groups retain three stops/two destinations. In source data, a stop
+without level or arrival_elevator names a fixed landing. arrival_elevator alone
+references another cabin in the map; level plus arrival_elevator targets a
+saved cabin in another map. initial_stop selects the initially active landing.
+The legacy speed_mps field remains accepted in existing sources but no longer
+moves geometry or controls ride timing.
 
 Saves store each cabin's settled landing and open/closed state. Saving during
 motion or loading is refused while retaining the previous save. Resume rebuilds
@@ -173,7 +180,7 @@ python3 tools/bench/elevator_demo.py --play --binary target/release/places \
 ```
 
 The isolated playtest folder retains its saves/settings. No Mac app bundle is
-used. The older projects/elevator-lab remains the physical-shaft regression.
+used. The older projects/elevator-lab now checks fixed vertical landings too.
 
 ## Explicit validation and recording
 
@@ -193,11 +200,11 @@ python3 tools/bench/elevator_rider.py --binary target/release/places \
 
 Export `rotated` and pass `--rotated` to check a 90-degree cabin 3 m higher.
 The fixture generator also writes blocked rider/cargo/NPC destinations and a
-physical-shaft refusal case. Use `--mode blocked-local`, `blocked-level`,
-`failure`, `cancel` or `shaft-guard` with the corresponding package. The driver
+vertical-landing passenger case. Use `--mode blocked-local`, `blocked-level`,
+`failure`, `cancel` with the corresponding package. The driver
 checks live recovery input and source ownership; it never changes installed maps.
 
-CPU regressions cover collision/reopening, physical and linked travel,
+CPU regressions cover collision/reopening, fixed vertical and linked travel,
 independent groups, same-height placement, group limits, undo/save/reopen,
 arrival admission and save restoration. They do not bake maps. Native tools
 are opt-in and use disposable state. No shipped-map bake is required:
@@ -210,7 +217,7 @@ python3 tools/bench/elevators.py --binary target/release/places \
   --package /tmp/elevator-lab.placesmap --out /tmp/new-native-evidence --lightmaps full
 ```
 
-The physical-lab campaign verifies both directions, collision, saves, identical
+The vertical-landing campaign verifies both directions, collision, saves, identical
 frozen loading frames, resize, cancel/failure reopening and sound falloff.
 Use --mode views or --mode seals for visual checks. The separate --mode links
 uses the groups fixture produced by elevator_links.py --mode groups, covering
@@ -247,7 +254,7 @@ and door-pose checkpoints. Frame timestamps are authoritative; the FFV1 stream's
 nominal 60 fps is not a performance measurement. Compare center, near/far,
 oblique, close-oblique, lintel and sill views; both lighting modes and filtering
 extremes matter. Albedo inspection separates texture sampling from lighting. --arrival remains
-inside through ordinary floor travel and the complete arrival opening; optional
+inside through the sealed ride, passenger transfer and complete arrival opening; optional
 --bloom, --reflections full and --fov cover normal presentation settings.
 The CPU UV guard ignores microscopic Boolean-weld slivers below 0.1 mm², whose
 UV derivative is ill-conditioned; it does not replace native motion inspection.

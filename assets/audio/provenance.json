@@ -906,6 +906,17 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16
+    },
+    {
+      "file": "elevator_travel/01.wav",
+      "source": "places_original_elevator_0131",
+      "source_file": "elevator_travel",
+      "source_file_sha256": "850b9ab33bb4210476332c9fcb91682ff1e94df2df4d46c9d248672a7818de67",
+      "sha256": "850b9ab33bb4210476332c9fcb91682ff1e94df2df4d46c9d248672a7818de67",
+      "frames": 79380,
+      "sample_rate": 44100,
+      "channels": 1,
+      "sample_bits": 16
     }
   ]
 }

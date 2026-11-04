@@ -526,49 +526,6 @@ impl Visit {
 }
 
 impl FrameLoop<'_> {
-    /// Linked cabins are the passenger transport path. Advanced moving shafts
-    /// cannot yet carry independent physics/AI owners; refuse before movement
-    /// rather than allowing the rider to silently leave them behind.
-    pub(super) fn refuse_occupied_physical_shaft_trip(&mut self) {
-        let blocked = self
-            .game
-            .entities()
-            .elevators()
-            .iter()
-            .find(|elevator| {
-                elevator.pending_physical_trip() && {
-                    let frame = CabinFrame::from_elevator(elevator);
-                    self.items.world.snapshots().iter().any(|body| {
-                        body.motion.is_movable()
-                            && self
-                                .items
-                                .world
-                                .body_bounds(body.key)
-                                .is_some_and(|(min, max)| frame.contains_bounds(min, max))
-                    }) || self.game.entities().ai().agents().iter().any(|agent| {
-                        let (min, max) = agent_bounds(agent);
-                        frame.contains_bounds(min, max)
-                    }) || self.items.world.ragdoll_snapshots().iter().any(|actor| {
-                        actor.world_positions.iter().any(|p| {
-                            let local = frame.local(Vec3::from_array(*p));
-                            local.x.abs() < 1.2
-                                && local.z > 0.36
-                                && local.z < 2.4
-                                && local.y >= 0.0
-                                && local.y < crate::engine::elevator::HEIGHT
-                        })
-                    })
-                }
-            })
-            .map(|elevator| elevator.def.id.clone());
-        if let Some(id) = blocked {
-            self.game
-                .entities_mut()
-                .finish_local_elevator_departure(&id, None);
-            self.elevator_notice("Use linked elevator cabins to carry props and NPCs. Advanced moving shafts currently support the player alone.");
-        }
-    }
-
     pub(super) fn finish_local_elevator_cargo(&mut self) {
         let Some(trip) = self.game.take_local_elevator_trip() else {
             return;

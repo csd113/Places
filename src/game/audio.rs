@@ -12,10 +12,12 @@ use glam::{Mat4, Vec3};
 mod tests;
 
 pub const HVAC_CUE: &str = "ambience_hvac";
+const ELEVATOR_RIDE_SOURCE: SourceId = SourceId(u64::MAX - 4);
 
 #[derive(Default)]
 pub struct WorldAudio {
     doors: Vec<DoorState>,
+    elevator_ride: Option<(String, Vec3)>,
     last_feet: Option<Vec3>,
     distance: f32,
     environment_ready: bool,
@@ -33,6 +35,50 @@ struct DoorState {
 }
 
 impl WorldAudio {
+    /// A short in-car motor cue follows the sealed ride, never idle door closure.
+    pub fn update_elevator_ride(&mut self, game: &Game, active: bool, system: &mut AudioSystem) {
+        let feet = Vec3::new(
+            game.player_position.x,
+            game.feet_y(),
+            game.player_position.z,
+        );
+        let next = active
+            .then(|| {
+                game.entities().elevators().iter().find(|e| {
+                    matches!(
+                        e.phase,
+                        crate::engine::elevator::Phase::Moving
+                            | crate::engine::elevator::Phase::Loading
+                    ) && e.contains(feet, 0.25)
+                })
+            })
+            .flatten()
+            .map(|e| e.def.id.as_str());
+        if self.elevator_ride.as_ref().map(|(id, _)| id.as_str()) == next {
+            if let Some((_, position)) = &mut self.elevator_ride {
+                *position = game.player_position;
+            }
+            return;
+        }
+        system.stop_source(ELEVATOR_RIDE_SOURCE);
+        self.elevator_ride = None;
+        if let Some(id) = next
+            && system.play(
+                "elevator_travel",
+                PlayRequest {
+                    source: Some(ELEVATOR_RIDE_SOURCE),
+                    spatial: Some(false),
+                    looping: Some(false),
+                    gain: 0.8,
+                    time_domain: TimeDomain::Real,
+                    ..PlayRequest::default()
+                },
+            )
+        {
+            self.elevator_ride = Some((id.into(), game.player_position));
+        }
+    }
+
     pub const fn ready(&self) -> bool {
         self.environment_ready
     }
@@ -243,6 +289,9 @@ impl WorldAudio {
     }
 
     pub fn source_position(&self, source: SourceId) -> Option<Vec3> {
+        if source == ELEVATOR_RIDE_SOURCE {
+            return self.elevator_ride.as_ref().map(|(_, position)| *position);
+        }
         ENVIRONMENT
             .iter()
             .position(|spec| spec.source == source)

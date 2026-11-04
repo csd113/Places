@@ -2713,8 +2713,7 @@ at its left edge, and the button module is at the first control's local anchor.
 The runtime repeats that authored button for declared destinations and the
 separate door control, then applies
 existing authoritative cabin/door transforms. Waist-height wood rails have
-matching collision stock. A bounded warm attached light follows the car through
-all floors; the existing eight-source realtime-light budget still applies.
+matching collision stock. A bounded warm practical stays in each fixed cabin; the existing eight-source realtime-light budget still applies.
 
 See [elevator authoring](ELEVATORS.md) for fixed dimensions and clear shafts.
 

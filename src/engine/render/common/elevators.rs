@@ -9,7 +9,7 @@ use crate::engine::props::PropAssets;
 
 #[derive(Clone, Copy)]
 pub enum Part {
-    Cabin,
+    Cabin(usize),
     Frame,
     Leaf,
 }
@@ -20,9 +20,9 @@ pub struct Models {
 }
 impl Models {
     #[must_use]
-    pub fn model(&self, part: Part, landing: usize) -> Option<&PropModel> {
+    pub fn model(&self, part: Part, _landing: usize) -> Option<&PropModel> {
         match part {
-            Part::Cabin => self.cabins.get(landing),
+            Part::Cabin(index) => self.cabins.get(index),
             Part::Frame => Some(&self.frame),
             Part::Leaf => Some(&self.leaf),
         }
@@ -166,9 +166,25 @@ pub fn cabin_light(elevator: &Elevator) -> super::dynamic_lights::DynamicLight {
         radius: 3.2,
     }
 }
+/// Every authored landing owns a fixed cabin practical as well as fixed geometry.
+#[must_use]
+pub fn cabin_lights(e: &Elevator) -> Vec<super::dynamic_lights::DynamicLight> {
+    e.def
+        .stops
+        .iter()
+        .enumerate()
+        .filter(|(_, stop)| stop.is_landing())
+        .map(|(index, stop)| {
+            let mut light = cabin_light(e);
+            light.key = format!("elevator:{}:{index}", e.def.id);
+            light.position = e.def.point(0.0, stop.y + 2.30, 1.20);
+            light
+        })
+        .collect()
+}
 #[must_use]
 pub fn parts(e: &Elevator) -> Vec<(Part, [f32; 3])> {
-    let mut parts = vec![(Part::Cabin, e.def.point(0.0, e.y, 0.0).into())];
+    let mut parts = Vec::new();
     let leaves = |y, z, progress: f32| {
         [
             (
@@ -181,7 +197,6 @@ pub fn parts(e: &Elevator) -> Vec<(Part, [f32; 3])> {
             ),
         ]
     };
-    parts.extend(leaves(e.y, CABIN_DOOR_Z, e.opening));
     for (i, stop) in e
         .def
         .stops
@@ -189,12 +204,14 @@ pub fn parts(e: &Elevator) -> Vec<(Part, [f32; 3])> {
         .enumerate()
         .filter(|(_, s)| s.is_landing())
     {
+        parts.push((Part::Cabin(i), e.def.point(0.0, stop.y, 0.0).into()));
         parts.push((Part::Frame, e.def.point(0.0, stop.y, 0.0).into()));
         let open = if i == e.at && e.phase != Phase::Moving {
             e.opening
         } else {
             0.0
         };
+        parts.extend(leaves(stop.y, CABIN_DOOR_Z, open));
         parts.extend(leaves(stop.y, LANDING_DOOR_Z, open));
     }
     parts

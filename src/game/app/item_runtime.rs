@@ -647,7 +647,6 @@ impl FrameLoop<'_> {
         }
         self.apply_move_script();
         self.observe_held_item();
-        self.refuse_occupied_physical_shaft_trip();
         self.game
             .entities_mut()
             .set_navigation_obstacles(self.items.world.navigation_obstacles());

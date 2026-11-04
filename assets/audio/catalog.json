@@ -372,6 +372,15 @@
       "spatial": true,
       "min_distance": 1.5,
       "max_distance": 12.0
+    },
+    {
+      "id": "elevator_travel",
+      "files": [
+        "elevator_travel/01.wav"
+      ],
+      "gain": 0.7,
+      "looping": false,
+      "spatial": false
     }
   ]
 }

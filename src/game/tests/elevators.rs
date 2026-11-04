@@ -55,10 +55,29 @@ fn floor_ride_carries_real_controller_without_escape_recovery() -> Result<(), St
         interact(&mut game, "@elevator:lift:floor:1")?;
         for _ in 0..usize::from(hz).saturating_mul(7) {
             tick(&mut game, 1.0 / f32::from(hz), &mut InputState::default());
+            // Protect the reported rising floor: real render parts stay fixed on
+            // every ride tick, and the rider changes landing in one sealed step.
+            // This extends the existing tiny replay; no assets or bake are added.
+            let cabins: Vec<_> = crate::engine::render::elevator_parts(lift(&game)?)
+                .into_iter()
+                .filter_map(|(part, position)| {
+                    matches!(part, crate::engine::render::ElevatorPart::Cabin(_))
+                        .then_some(position[1])
+                })
+                .collect();
+            assert_eq!(
+                cabins,
+                vec![0.0, 3.5],
+                "Both cabin decks remain at their authored positions"
+            );
+            assert!(
+                game.feet_y().abs() < 0.002 || (game.feet_y() - 3.5).abs() < 0.002,
+                "No intermediate physical ascent"
+            );
         }
         assert!(
             (game.feet_y() - 3.5).abs() < 0.002,
-            "rider stays on the moving cabin at both rates"
+            "rider teleports between fixed cabins at both rates"
         );
         assert_eq!(
             lift(&game)?.phase,
@@ -151,6 +170,16 @@ fn level_button_requires_cabin_and_emits_once_after_door_closure() -> Result<(),
     assert!(
         game.entities_mut().take_elevator_departure().is_none(),
         "loading waits for real leaf closure"
+    );
+    settle(&mut game, 100);
+    assert_eq!(
+        lift(&game)?.phase,
+        Phase::Loading,
+        "Closed doors retain the simulated ride before loading"
+    );
+    assert!(
+        game.entities_mut().take_elevator_departure().is_none(),
+        "The motor cue has a real presentation interval"
     );
     settle(&mut game, 100);
     let departure = game
@@ -402,6 +431,7 @@ fn cross_level_rider_admission_preserves_cabin_pose_or_rejects() -> Result<(), S
                 source.set_feet_y(0.0);
             }
             let departure = crate::engine::elevator::Departure {
+                landing: None,
                 source: "a".into(),
                 arrival: "c".into(),
                 level: Some("next".into()),

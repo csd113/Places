@@ -12,7 +12,6 @@ pub(super) fn fields(record: Option<&Value>) -> Vec<Field> {
             kind: Kind::InitialStop,
             ..number("/initial_stop", "Start at / click to choose", "0")
         },
-        number("/speed_mps", "Travel speed m/s (0.25..4)", "1.5"),
     ];
     let count = record
         .and_then(|r| r.get("stops"))
@@ -191,9 +190,7 @@ pub(super) fn edit_stop(draft: &mut Draft, add: bool) -> Result<(), String> {
         .ok_or("Invalid destinations")?;
     if add {
         if stops.len() >= crate::engine::elevator::MAX_STOPS {
-            return Err(
-                "At most eight physical shaft stops; linked groups support three cabins".into(),
-            );
+            return Err("At most eight fixed landings; linked groups support three cabins".into());
         }
         let y = stops
             .iter()

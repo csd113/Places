@@ -101,6 +101,9 @@ impl FrameLoop<'_> {
 
     pub(super) fn update_game_audio(&mut self) {
         let active = self.gameplay_active();
+        self.audio
+            .world
+            .update_elevator_ride(self.game, active, &mut self.audio.system);
         if active {
             let swimming = self.game.is_swimming();
             if self

@@ -187,6 +187,7 @@ impl Session {
                 "Throw blocked: move the item clear".into()
             };
         }
+        self.audio.update_elevator_ride(&self.game, true, audio);
         for (position, cue) in self.game.entities_mut().take_elevator_sounds() {
             let _played = audio.play(
                 cue,

@@ -521,6 +521,11 @@
       "file": "elevator_arrive/01.wav",
       "source": "places_original_elevator_0131",
       "source_file": "elevator_arrive"
+    },
+    {
+      "file": "elevator_travel/01.wav",
+      "source": "places_original_elevator_0131",
+      "source_file": "elevator_travel"
     }
   ]
 }
