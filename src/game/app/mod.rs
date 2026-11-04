@@ -4124,6 +4124,13 @@ impl FrameLoop<'_> {
     }
 
     fn trace_communication(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        drop(fields.insert(
+            "item_hint".into(),
+            serde_json::json!({
+                "held_movement_blocked": self.items.world.held_movement_blocked(),
+                "text": self.items.release_hint(self.settings.developer_console),
+            }),
+        ));
         drop(fields.insert("outcome".into(), serde_json::json!(self.outcome)));
         drop(fields.insert("guidance".into(), serde_json::json!(self.message)));
         drop(fields.insert("subtitles".into(), self.subtitles.snapshot()));
@@ -4635,7 +4642,8 @@ impl FrameLoop<'_> {
             }
         }
         let release_start = self.ui_scratch.len();
-        self.items.append_release_hint(self.ui_scratch);
+        self.items
+            .append_release_hint(self.ui_scratch, self.settings.developer_console);
         if self.subtitles.active() {
             for vertex in self.ui_scratch.iter_mut().skip(release_start) {
                 vertex.pos[1] -= 64.0;

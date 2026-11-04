@@ -249,6 +249,12 @@ for historical context. The [0.11.0 console stage](reports/release-0.11.0.md#dev
 defines current commands, curated pickup eligibility, world clocks and `/become`.
 The opt-in `tools/bench/developer_console.py` acceptance tool reuses installed
 packages and exercises the normal SDL event path; it does not bake maps.
+The carrying advisory **The item cannot follow here.** is also opt-in through
+this setting. It reports sustained collision-limited hand movement, not a failed
+level load. Disabling the setting hides it immediately without changing item
+collision or ownership. An explicit failed release still shows the actionable
+**Make room to set this down.** feedback in ordinary gameplay.
+
 `tools/bench/console_stage.py` exercises the current controls, independent
 clocks, representative models and all 58 pickups in four catalog chunks. Supply
 an explicitly compiled `tests/fixtures/native/developer-console.level.json`
