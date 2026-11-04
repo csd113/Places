@@ -232,7 +232,7 @@ def run(args):
     state=out/'state';(state/'levels').mkdir(parents=True)
     shutil.copy2(args.package,state/'levels/doors.placesmap')
     settings=json.loads((ROOT/'tests/fixtures/native/hero-manifest.json').read_text())['settings']
-    settings.update(window_width=640,window_height=360,quality='high',lightmaps='full',
+    settings.update(window_width=640,window_height=360,quality='high',lightmaps=args.lightmaps,
                     texture_filtering='high',reflections='off',bloom=False,vsync=True,
                     walk_speed=3,fov_degrees=90)
     (state/'settings.json').write_text(json.dumps(settings))
@@ -267,6 +267,7 @@ def main():
     parser.add_argument('--package',type=Path)
     parser.add_argument('--out',type=Path)
     parser.add_argument('--mode',choices=['two','three','monster','shaft'],default='three')
+    parser.add_argument('--lightmaps',choices=['off','full'],default='full')
     args=parser.parse_args()
     if args.write_fixtures:
         fixtures(args.write_fixtures)
