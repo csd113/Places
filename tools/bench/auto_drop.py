@@ -115,6 +115,7 @@ def main():
     parser.add_argument('--package', type=Path, required=True)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--mode', choices=['normal', 'obstructed'], required=True)
+    parser.add_argument('--lightmaps', choices=['off', 'full'], default='full')
     args = parser.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -123,7 +124,7 @@ def main():
     shutil.copy2(args.package, state / 'levels/cargo.placesmap')
     settings = json.loads((ROOT / 'tests/fixtures/native/hero-manifest.json').read_text())['settings']
     settings.update(window_width=640, window_height=360, quality='high',
-                    texture_filtering='high', lightmaps='full', reflections='off',
+                    texture_filtering='high', lightmaps=args.lightmaps, reflections='off',
                     bloom=False, vsync=True, developer_console=False, ambient_volume=0, walk_speed=3)
     (state / 'settings.json').write_text(json.dumps(settings))
     plan = out / 'actions.json'
@@ -143,7 +144,7 @@ def main():
                    if row['event'].startswith('checkpoint:')}
     (out / 'checkpoints.json').write_text(json.dumps(checkpoints, indent=2) + '\n')
     result = verify(args.mode, rows, checkpoints)
-    result.update(passed=True, mode=args.mode,
+    result.update(passed=True, mode=args.mode, lightmaps=args.lightmaps,
                   binary_sha256=hashlib.sha256(args.binary.read_bytes()).hexdigest(),
                   package_sha256=hashlib.sha256(args.package.read_bytes()).hexdigest(),
                   scope='macOS Metal direct binary; diagnostic starts, ordinary input; paced correctness capture')

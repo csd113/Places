@@ -33,6 +33,9 @@ and linked reports retain historical implementation and validation details.
   floor-skirt gaps, and automatically align editor placements with real wall
   faces. Fit openings in one undoable edit and reject insufficient space. See
   [art, placement and review evidence](docs/reports/elevator-doorway-fit-0.13.1-mac.md).
+  Hollow thick walls and sufficiently large rectangular or circular pillars
+  around the actual cabin volume; wall depth alone does not reject placement.
+  See [pillar acceptance](docs/reports/elevator-pillar-fit-0.13.1-mac.md).
 
 - Keep elevator cabin light inside the shell and real sliding-door aperture.
   Closed exterior panels use actual landing lighting instead of the roomless

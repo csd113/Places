@@ -141,7 +141,7 @@ change affects the advanced vertical `Moving` branch. The collection's eight
 cross-level routes use the unchanged `Loading` branch. Source-current exports
 must nevertheless be refreshed against the updated compiler identity.
 
-## Final accepted delivery
+## Accepted pre-carry snapshot
 
 This validation snapshot predates the later `c4cf6676` carry integration and
 the user's thick-pillar placement clarification. Its artifact identities and
@@ -207,9 +207,7 @@ now settles startup and return loading, and both subsequent full campaigns pass
 with script diagnostics asserted. No Lua budget was relaxed or error hidden.
 
 The publication target is `0.13.1-dev`; no main merge or release is part of this
-work. The post-operation remote receipt is retained in
-`local/elevator-stationary/publication.json`. Package files remain untracked under
-the repository's established policy.
+work. Package files remain untracked under the repository's established policy.
 
 ## Scope and remaining checks
 
