@@ -49,26 +49,34 @@ def main():
     parser.add_argument('--wav', type=Path, required=True)
     parser.add_argument('--cue', type=Path, default=ROOT/'assets/audio/elevator_travel/01.wav')
     parser.add_argument('--expected-rides', type=int, required=True)
-    parser.add_argument('--idle-after', type=float,
-                        help='Optional start of a known silent tail, in native audio seconds')
+    idle_group = parser.add_mutually_exclusive_group()
+    idle_group.add_argument('--idle-after', type=float,
+                            help='Start of a known silent tail, in absolute native audio seconds')
+    idle_group.add_argument('--idle-after-last-ride', type=float,
+                            help='Start of a known silent tail, seconds after the final motor cue ends')
     parser.add_argument('--out', type=Path, required=True)
     args = parser.parse_args()
     samples, cue = decode(args.wav), decode(args.cue)
     rides = matches(samples, cue)
+    idle_after = args.idle_after
+    if args.idle_after_last_ride is not None:
+        assert rides, 'A cue-relative tail requires a matched ride'
+        idle_after = rides[-1]['start_seconds'] + rides[-1]['seconds'] + args.idle_after_last_ride
     report = dict(recording_sha256=hashlib.sha256(args.wav.read_bytes()).hexdigest(),
                   cue_sha256=hashlib.sha256(args.cue.read_bytes()).hexdigest(),
                   recording_seconds=len(samples)/RATE, rides=rides,
                   recording_peak=float(np.max(np.abs(samples))),
                   scope='Actual native PCM waveform identity and timing; no listening or SPL claim')
-    if args.idle_after is not None:
-        idle = samples[round(args.idle_after*RATE):]
+    if idle_after is not None:
+        idle = samples[round(idle_after*RATE):]
         assert len(idle) >= RATE//2, 'Silent-tail witness must be at least half a second'
         report['idle_rms'] = float(np.sqrt(np.mean(idle*idle)))
+        report['idle_after_seconds'] = idle_after
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2)+'\n')
     assert len(rides) == args.expected_rides, (len(rides), args.expected_rides)
     assert report['recording_peak'] < 1, 'Native recording clips'
-    if args.idle_after is not None:
+    if idle_after is not None:
         assert report['idle_rms'] < .00001, report['idle_rms']
     print(f'{len(rides)} native motor cues, {len(cue)/RATE:.2f} s each; waveform and timing verified')
 
