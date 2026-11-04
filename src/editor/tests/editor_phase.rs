@@ -42,6 +42,40 @@ impl Drop for Fixture {
     }
 }
 
+// The named search controls must persist valid tuning and reject invalid edits
+// atomically; one source-only document checks that designer-facing boundary.
+#[test]
+fn predator_search_controls_save_reopen_and_reject_invalid_timers() -> Result<(), String> {
+    use crate::editor::document::components::{Field, Kind, Target};
+    let (fixture, mut doc) = Fixture::new()?;
+    let id = ObjectId::Prop(0);
+    let delay = Field::new(
+        Target::Component("ai"),
+        "search_after_seconds",
+        "Search delay",
+        Kind::Number,
+        "8.0",
+    );
+    let radius = Field::new(
+        Target::Component("ai"),
+        "search_radius",
+        "Search radius",
+        Kind::Number,
+        "12.0",
+    );
+    doc.set_component_field(id, delay, "5.5")?;
+    doc.set_component_field(id, radius, "18.0")?;
+    let before = doc.raw().clone();
+    assert!(doc.set_component_field(id, delay, "-1").is_err());
+    assert!(doc.set_component_field(id, radius, "1").is_err());
+    assert_eq!(doc.raw(), &before);
+    doc.save_all()?;
+    let reopened = Document::open(&fixture.0.join("project"))?;
+    assert_eq!(reopened.component_value(id, delay), json!(5.5_f32));
+    assert_eq!(reopened.component_value(id, radius), json!(18.0_f32));
+    Ok(())
+}
+
 #[test]
 fn room_edge_keeps_opening_world_position_and_history_atomic() -> Result<(), String> {
     let (_fixture, mut doc) = Fixture::new()?;

@@ -692,6 +692,12 @@ Every creation writes a uniquely named editable module. It never overwrites an
 existing source. `Blank module` starts custom code. Check reports the module and
 Luau error location. Save, undo and source editing use the existing script editor.
 
+The AI component form includes **Predator search delay s** (default 8) and
+**Predator search radius m** (default 12). These tune baseline lost-sight
+investigation and reachable outward search. Closed elevators block sight and
+entry; fresh sight or noise can still redirect the actor. Authored routines
+retain priority and are not silently replaced by the baseline search policy.
+
 Select a placed NPC and choose `NPC behaviors`. `Enable AI` fits a navigation
 body only for a new unconfigured actor; it does not replace an existing setup.
 Drag or click blocks into an ordered routine. Drag sibling rows to reorder.

@@ -39,6 +39,7 @@ pub mod authoring;
 pub mod controller;
 pub mod movement;
 pub mod perception;
+mod search;
 pub mod senses;
 pub mod tasks;
 pub mod travel;
@@ -59,6 +60,7 @@ use crate::engine::nav::{
 
 use movement::{AgentMove, MoveStep};
 use perception::Stimulus;
+pub use search::Memory as PredatorSearchMemory;
 
 pub use perception::{Perceived, Stimulus as AiStimulus, sight_clear};
 
@@ -189,6 +191,12 @@ pub struct AiDef {
     /// Pursue only while the target is within this range, in metres.
     #[serde(default = "default_pursue_distance")]
     pub pursue_distance: f32,
+    /// Seconds without a visual sighting before a predator searches elsewhere.
+    #[serde(default = "default_search_after_seconds")]
+    pub search_after_seconds: f32,
+    /// Radius of each reachable outward search leg, constrained by home bounds.
+    #[serde(default = "default_search_radius")]
+    pub search_radius: f32,
     /// Reach radius for a catch, in metres.
     #[serde(default = "default_catch_radius")]
     pub catch_radius: f32,
@@ -237,6 +245,8 @@ impl Default for AiDef {
             hearing_range: default_hearing_range(),
             flee_distance: default_flee_distance(),
             pursue_distance: default_pursue_distance(),
+            search_after_seconds: default_search_after_seconds(),
+            search_radius: default_search_radius(),
             catch_radius: default_catch_radius(),
             catch_height: default_catch_height(),
             wander_radius: default_wander_radius(),
@@ -270,6 +280,10 @@ impl AiDef {
             && self.flee_distance >= 0.0
             && self.pursue_distance.is_finite()
             && self.pursue_distance >= 0.0
+            && self.search_after_seconds.is_finite()
+            && (0.25..=120.0).contains(&self.search_after_seconds)
+            && self.search_radius.is_finite()
+            && (2.0..=128.0).contains(&self.search_radius)
             && self.catch_radius.is_finite()
             && self.catch_radius > 0.0
             && self.catch_height.is_finite()
@@ -345,6 +359,12 @@ fn default_flee_distance() -> f32 {
     5.0
 }
 fn default_pursue_distance() -> f32 {
+    12.0
+}
+const fn default_search_after_seconds() -> f32 {
+    8.0
+}
+const fn default_search_radius() -> f32 {
     12.0
 }
 fn default_catch_radius() -> f32 {
@@ -472,6 +492,8 @@ pub struct AiAgent {
     /// Bounded last-known target memory; never updated from live target lookup.
     pub last_known: Option<Perceived>,
     pub last_seen_at: f32,
+    /// Bounded observed search intent; contains no live target position/handle.
+    pub search: Option<PredatorSearchMemory>,
     pub task_clip: Option<String>,
     pub(crate) pose_dirty: controller::PoseInvalidation,
     pub next_task_sense: f32,
@@ -938,6 +960,7 @@ impl AiWorld {
             sequence_state: None,
             last_known: None,
             last_seen_at: 0.0,
+            search: None,
             task_clip: None,
             pose_dirty: controller::PoseInvalidation::default(),
             next_task_sense: PERCEPTION_INTERVAL_S + perception_baseline(phase),
@@ -1055,6 +1078,7 @@ impl AiWorld {
             agent.sense_memory.clear();
             agent.sequence_state = None;
             agent.last_known = None;
+            agent.search = None;
             agent.state = AiState::Idle;
             agent.path.clear();
             agent.path_goal = None;
@@ -1765,6 +1789,8 @@ fn decide_predator(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
             && target_ok
             && contact.position.distance(agent.position) <= agent.def.pursue_distance
         {
+            search::observe_visual(agent, contact.position);
+            agent.interest = None;
             if !matches!(agent.state, AiState::Pursue { target } if target == contact.handle) {
                 set_state(
                     agent,
@@ -1779,49 +1805,7 @@ fn decide_predator(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
             return;
         }
     }
-    if matches!(agent.state, AiState::Pursue { target: _ }) {
-        if let Some(contact) = agent
-            .last_known
-            .as_ref()
-            .filter(|_| agent.clock - agent.last_seen_at < 6.0)
-        {
-            let point = contact.position;
-            out.task_requests.push((
-                agent.handle,
-                authoring::TaskRequest {
-                    key: "__lost_target".to_string(),
-                    priority: 50,
-                    definition: authoring::TaskDef::Investigate {
-                        point: point.to_array(),
-                        seconds: 6.0,
-                        radius: 1.0,
-                    },
-                },
-            ));
-            set_state(agent, AiState::Investigate { point }, out);
-            agent.interest = None;
-        } else {
-            set_state(agent, AiState::Idle, out);
-        }
-        return;
-    }
-    if matches!(agent.state, AiState::Investigate { point: _ }) {
-        if investigation_done(agent) {
-            set_state(agent, AiState::Idle, out);
-            agent.interest = None;
-        }
-        return;
-    }
-    if let Some(point) = agent.interest.take() {
-        set_state(agent, AiState::Investigate { point }, out);
-        agent.path.clear();
-        agent.path_goal = None;
-        agent.path_age = 0.0;
-        agent.path_failed_at = None;
-        agent.path_done_goal = None;
-        return;
-    }
-    decide_idler(agent, ctx, out);
+    search::decide(agent, ctx, out);
 }
 
 /// True when an investigate goal has been reached or abandoned.
@@ -2153,9 +2137,8 @@ fn decide_wanderer(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
 /// Idler: after a wait, walks back to its post, then wanders (a wanderer) or
 /// stands (an idler).
 ///
-/// Returning to the authored post is what makes an encounter repeatable: a
-/// predator that chased its prey across the map walks back to where the map
-/// placed it, so a second activation of the same switch finds it in place.
+/// Returning to the authored post makes an idle encounter repeatable.
+/// Predators with observed lost-target memory use their separate search policy.
 fn decide_idler(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
     match agent.state {
         AiState::Wander { destination: _ } => {

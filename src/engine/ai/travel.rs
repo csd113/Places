@@ -15,6 +15,8 @@ pub struct Record {
     caught: bool,
     home: Vec3,
     home_yaw: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    search: Option<super::PredatorSearchMemory>,
 }
 
 impl Record {
@@ -86,6 +88,7 @@ impl Record {
             caught: agent.caught,
             home: agent.home,
             home_yaw: agent.home_yaw,
+            search: agent.search.clone(),
         })
     }
 
@@ -94,6 +97,10 @@ impl Record {
             .point
             .map(|p| crate::engine::elevator::map_cabin_point(from, to, rotation, p));
         self.home = crate::engine::elevator::map_cabin_point(from, to, rotation, self.home);
+        if let Some(memory) = self.search.as_mut() {
+            memory.point =
+                crate::engine::elevator::map_cabin_point(from, to, rotation, memory.point);
+        }
         let facing = rotation.mul_quat(Quat::from_rotation_y(self.home_yaw.to_radians()));
         self.home_yaw = facing.to_euler(glam::EulerRot::YXZ).0.to_degrees();
     }
@@ -138,6 +145,9 @@ impl Record {
         agent: &mut AiAgent,
         resolve: impl Fn(&str) -> Option<EntityHandle>,
     ) -> Result<(), String> {
+        if self.search.as_ref().is_some_and(|memory| !memory.valid()) {
+            return Err("Invalid transported NPC search memory".into());
+        }
         for v in [self.clock, self.wait, self.cooldown] {
             crate::engine::entities::checkpoint::number(v, 10_000_000.0)?;
         }
@@ -184,6 +194,7 @@ impl Record {
         agent.current_waypoint = 0;
         agent.speed_mps = 0.0;
         agent.last_known = None;
+        agent.search.clone_from(&self.search);
         agent.contact = None;
         agent.interest = None;
         agent.class = None;

@@ -1,5 +1,5 @@
 //! Focused CPU regressions for stopped clocks, sequence ownership, escape
-//! retries and live navigation topology. Fixtures have at most 25 cells and
+//! retries and live navigation topology. Fixtures have at most 81 cells and
 //! eight agents; they load no assets, bake no maps and need no native device.
 
 use glam::Vec3;
@@ -82,6 +82,7 @@ struct Fixture {
     ceiling: WalkableCeiling,
     obstacles: Vec<WallAabb>,
     targets: Vec<AiTarget>,
+    noises: Vec<crate::engine::ai::AiStimulus>,
 }
 
 impl Fixture {
@@ -94,6 +95,7 @@ impl Fixture {
             ceiling: WalkableCeiling::default(),
             obstacles: Vec::new(),
             targets: Vec::new(),
+            noises: Vec::new(),
         })
     }
 
@@ -110,7 +112,7 @@ impl Fixture {
             floor: &self.floor,
             ceiling: &self.ceiling,
             targets: &self.targets,
-            stimuli: &[],
+            stimuli: &self.noises,
             scripted,
             obstacles: &self.obstacles,
             objects: &[],
@@ -983,5 +985,172 @@ fn scripted_run_speed_is_bounded_and_plain_navigation_restores_walking() -> Resu
             .navigation_speed
             .is_none()
     );
+    Ok(())
+}
+
+// These two tiny fixtures protect the outward-search deadline, genuine observed
+// memory and completed-route admission, absent from ordinary chase coverage.
+// They use at most 81 synthetic cells, no assets/bakes/GPU and bounded CPU ticks.
+#[test]
+fn predator_search_deadline_uses_observations_and_completed_routes() -> Result<(), String> {
+    let mut f = Fixture::new(grid(9, 9, &(0..81).collect::<Vec<_>>()))?;
+    let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"search_floor","name":"Search floor","spawn":{"x":1,"z":1},"rooms":[{"x":0,"z":0,"width":9,"depth":9,"height":3}]}"#).map_err(|error| error.to_string())?;
+    f.floor = WalkableFloor::from_level(&level);
+    f.ceiling = WalkableCeiling::from_level(&level);
+    let mut world = AiWorld::new();
+    let def = AiDef {
+        behavior: AiBehavior::Predator,
+        reacts_to: vec!["player".into()],
+        sight_fov_degrees: 360.0,
+        search_after_seconds: 1.0,
+        search_radius: 6.0,
+        ..AiDef::default()
+    };
+    let _handle = register(&mut world, 0, def.clone(), Vec3::new(4.5, 0.0, 4.5));
+    let seen = Vec3::new(4.5, 0.0, 6.5);
+    f.targets.push(AiTarget {
+        handle: crate::engine::ai::PLAYER_TARGET_HANDLE,
+        instance_id: "player".into(),
+        role: Some("player".into()),
+        behavior: AiBehavior::Idler,
+        position: seen,
+        radius: 0.3,
+        height: 1.8,
+        caught: false,
+    });
+    world.tick(&f.context(0.25, &[]), &mut AiOutcome::default());
+    f.targets.first_mut().ok_or("target")?.position = Vec3::splat(99.0);
+    world.tick(&f.context(0.25, &[]), &mut AiOutcome::default());
+    let investigating = world.agent("agent_0").ok_or("agent")?;
+    assert!(matches!(investigating.state, AiState::Investigate { point } if point == seen));
+    assert!(
+        investigating.controller.runs.is_empty(),
+        "baseline memory must not pin a task owner"
+    );
+    for _ in 0_u8..5 {
+        world.tick(&f.context(0.25, &[]), &mut AiOutcome::default());
+    }
+    let searching = world.agent("agent_0").ok_or("agent")?;
+    let AiState::Wander { destination } = searching.state else {
+        return Err("No outward search".into());
+    };
+    assert!(destination.distance(seen) >= 2.0);
+    assert!(
+        searching.path.complete,
+        "partial/unreachable routes cannot become search goals"
+    );
+    assert!(
+        destination.x < 9.0 && destination.z < 9.0,
+        "hidden live target is never a search goal"
+    );
+    let memory = searching.search.as_ref().ok_or("search memory")?;
+    let until = memory.until;
+    assert_eq!(memory.point, seen);
+    let mut record = crate::engine::ai::travel::Record::capture(searching, |_| None)?;
+    let turn = glam::Quat::from_rotation_y(std::f32::consts::FRAC_PI_2);
+    record.transform(Vec3::ZERO, Vec3::new(20.0, 0.0, 0.0), turn);
+    let mut restored = AiWorld::new();
+    let _restored_handle = register(&mut restored, 0, def, Vec3::ZERO);
+    restored.restore_passenger("agent_0", &record, Vec3::ZERO, 0.0, |_| None)?;
+    let restored_memory = restored
+        .agent("agent_0")
+        .ok_or("restored")?
+        .search
+        .as_ref()
+        .ok_or("restored memory")?;
+    assert_eq!(restored_memory.until, until);
+    assert!(
+        restored_memory
+            .point
+            .distance(turn * seen + Vec3::new(20.0, 0.0, 0.0))
+            < 0.001
+    );
+    Ok(())
+}
+
+#[test]
+fn predator_search_refuses_unavailable_areas_and_reacts_to_fresh_noise_and_sight()
+-> Result<(), String> {
+    for limited in [false, true] {
+        let mut f = Fixture::new(grid(1, 1, &[0]))?;
+        let mut world = AiWorld::new();
+        let mut def = AiDef {
+            behavior: AiBehavior::Predator,
+            reacts_to: vec!["player".into()],
+            sight_fov_degrees: 360.0,
+            search_after_seconds: 0.5,
+            ..AiDef::default()
+        };
+        assert!(def.is_valid());
+        def.search_radius = 1.0;
+        assert!(!def.is_valid());
+        def.search_radius = 12.0;
+        if limited {
+            def.home_bounds = Some(crate::engine::ai::AiHomeBounds {
+                x: 0.0,
+                z: 0.0,
+                width: 0.1,
+                depth: 0.1,
+                min_y: 0.0,
+                max_y: 0.0,
+            });
+        }
+        let _handle = register(&mut world, 0, def, Vec3::new(0.5, 0.0, 0.5));
+        f.targets.push(AiTarget {
+            handle: crate::engine::ai::PLAYER_TARGET_HANDLE,
+            instance_id: "player".into(),
+            role: Some("player".into()),
+            behavior: AiBehavior::Idler,
+            position: Vec3::new(0.5, 0.0, 2.5),
+            radius: 0.3,
+            height: 1.8,
+            caught: false,
+        });
+        world.tick(&f.context(0.25, &[]), &mut AiOutcome::default());
+        f.targets.first_mut().ok_or("target")?.position = Vec3::splat(99.0);
+        for _ in 0_u8..8 {
+            world.tick(&f.context(0.25, &[]), &mut AiOutcome::default());
+        }
+        let actor = world.agent("agent_0").ok_or("actor")?;
+        assert!(matches!(actor.state, AiState::Idle));
+        assert!(
+            actor.path_goal.is_none(),
+            "a trapped monster must not install an unreachable route"
+        );
+        let last_seen = actor.last_seen_at;
+        f.noises.push(crate::engine::ai::AiStimulus {
+            position: Vec3::new(0.5, 0.0, 1.5),
+            radius: 6.0,
+            loudness: 1.0,
+            category: "movement".into(),
+            source: None,
+            age: 0.0,
+        });
+        world.tick(&f.context(0.25, &[]), &mut AiOutcome::default());
+        let heard = world.agent("agent_0").ok_or("actor")?;
+        assert!(matches!(heard.state, AiState::Investigate { point: _ }));
+        let until = heard.search.as_ref().ok_or("memory")?.until;
+        for _ in 0_u8..12 {
+            f.noises.first_mut().ok_or("noise")?.age += 0.25;
+            world.tick(&f.context(0.25, &[]), &mut AiOutcome::default());
+        }
+        let quiet = world.agent("agent_0").ok_or("actor")?;
+        assert_eq!(
+            quiet.last_seen_at, last_seen,
+            "hearing must never become a visual sighting"
+        );
+        assert_eq!(
+            quiet.search.as_ref().ok_or("memory")?.until,
+            until,
+            "one retained noise cannot rearm the timer"
+        );
+        assert!(matches!(quiet.state, AiState::Idle));
+        f.noises.clear();
+        f.targets.first_mut().ok_or("target")?.position = Vec3::new(0.5, 0.0, 1.5);
+        world.tick(&f.context(0.25, &[]), &mut AiOutcome::default());
+        let reacquired = world.agent("agent_0").ok_or("actor")?;
+        assert!(matches!(reacquired.state, AiState::Pursue { target: _ }));
+        assert!(reacquired.last_seen_at > last_seen);
+    }
     Ok(())
 }
