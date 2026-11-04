@@ -13,8 +13,20 @@ pub(super) struct Placement {
     pub rotation: f32,
     pub host: Option<usize>,
     opening: Option<(Option<usize>, f32)>,
+    embedding: Option<super::embedding::Embedding>,
 }
 impl Placement {
+    pub const fn is_fitted(&self) -> bool {
+        self.host.is_some() || self.embedding.is_some()
+    }
+    fn check_host(&self) -> Result<(), String> {
+        if let Some(host) = &self.embedding
+            && !host.contains(&self.definition(), self.at[1])
+        {
+            return Err("Not enough space: this pillar cannot contain the elevator cabin and sliding-door pockets.".into());
+        }
+        Ok(())
+    }
     pub const fn definition(&self) -> ElevatorDef {
         ElevatorDef {
             id: String::new(),
@@ -26,7 +38,10 @@ impl Placement {
             stops: Vec::new(),
         }
     }
-    pub fn fit_opening(&self, raw: &mut Value) -> Result<(), String> {
+    pub fn fit_opening(&self, doc: &Document, raw: &mut Value) -> Result<(), String> {
+        if let Some(embedding) = &self.embedding {
+            return embedding.apply(doc, raw, &self.definition(), self.at[1]);
+        }
         let (Some(host), Some((existing, offset))) = (self.host, self.opening) else {
             return Ok(());
         };
@@ -78,27 +93,53 @@ fn nearby_wall(doc: &Document, at: [f32; 3]) -> Option<usize> {
 /// `at` is the unsnapped floor hit. The face coordinate is never grid-rounded.
 pub(super) fn resolve(
     doc: &Document,
-    mut at: [f32; 3],
+    at: [f32; 3],
     rotation: f32,
     eye: Option<Vec3>,
     hint: Option<usize>,
     grid: Option<f32>,
 ) -> Result<Placement, String> {
+    resolve_internal(doc, at, rotation, eye, hint, grid, None)
+}
+
+pub(super) fn resolve_embedded(
+    doc: &Document,
+    at: [f32; 3],
+    eye: Vec3,
+    grid: Option<f32>,
+    embedding: super::embedding::Embedding,
+) -> Result<Placement, String> {
+    resolve_internal(doc, at, 0.0, Some(eye), None, grid, Some(embedding))
+}
+
+fn resolve_internal(
+    doc: &Document,
+    mut at: [f32; 3],
+    rotation: f32,
+    eye: Option<Vec3>,
+    hint: Option<usize>,
+    grid: Option<f32>,
+    embedding: Option<super::embedding::Embedding>,
+) -> Result<Placement, String> {
     let level = doc.level();
-    let host = hint.or_else(|| nearby_wall(doc, at));
+    let host = if embedding.is_some() {
+        None
+    } else {
+        hint.or_else(|| nearby_wall(doc, at))
+    };
     let mut result = Placement {
         at,
         rotation,
         host,
         opening: None,
+        embedding,
     };
-    if let Some(index) = host {
-        let wall = level.walls.get(index).ok_or("Missing host wall")?;
-        // The retained rear cabin body starts at Z=.24; the shared shaft
-        // admission starts at .25. Keep host walls inside the front pockets.
-        if wall.thickness() > 0.24 + EPSILON {
-            return Err("Not enough space: this wall is too thick for the elevator doorway (maximum 0.24 m). Use a thinner landing wall.".into());
-        }
+    let surface = result
+        .embedding
+        .as_ref()
+        .map(|item| &item.surface)
+        .or_else(|| host.and_then(|index| level.walls.get(index)));
+    if let Some(wall) = surface {
         let (x, z) = wall.min_corner();
         let (start, cross, coordinate, eye_cross) = match wall.axis() {
             WallAxis::X => (x, z, at[0], eye.map(|p| p.z)),
@@ -136,26 +177,7 @@ pub(super) fn resolve(
         if offset < -EPSILON || offset + WIDTH > wall.length() + EPSILON {
             return Err("Not enough space: the elevator needs a 1.50 m doorway within this wall. Move the pointer away from the wall end.".into());
         }
-        if wall
-            .height
-            .unwrap_or_else(|| LevelSurfaces::new(level).clear_ceiling_height_along(wall, along))
-            < HEIGHT - EPSILON
-        {
-            return Err(
-                "Not enough space: the elevator doorway needs a wall at least 2.25 m high.".into(),
-            );
-        }
-        for (other, opening) in wall.openings.iter().enumerate() {
-            if existing.is_some_and(|(selected, _)| selected == other) {
-                continue;
-            }
-            if offset < opening.end() + 0.01 && offset + WIDTH > opening.offset - 0.01 {
-                return Err(
-                    "Not enough space: the fitted elevator doorway would overlap another opening."
-                        .into(),
-                );
-            }
-        }
+        check_aperture(level, wall, along, offset, existing.map(|(index, _)| index))?;
         let face = if positive {
             cross
         } else {
@@ -173,12 +195,49 @@ pub(super) fn resolve(
             (WallAxis::Z, false) => 270.0,
         };
         result.opening = Some((existing.map(|(i, _)| i), offset));
+        if result.embedding.is_none() && wall.thickness() > 0.24 {
+            result.embedding = Some(super::embedding::Embedding::from_wall(
+                doc,
+                host.ok_or("Missing host wall")?,
+            )?);
+        }
     } else if let Some(step) = grid {
         result.at[0] = (at[0] / step).round() * step;
         result.at[2] = (at[2] / step).round() * step;
     }
+    result.check_host()?;
     clearance(doc, &result)?;
     Ok(result)
+}
+
+fn check_aperture(
+    level: &crate::engine::level::LevelDef,
+    wall: &crate::engine::level::WallDef,
+    along: f32,
+    offset: f32,
+    existing: Option<usize>,
+) -> Result<(), String> {
+    if wall
+        .height
+        .unwrap_or_else(|| LevelSurfaces::new(level).clear_ceiling_height_along(wall, along))
+        < HEIGHT - EPSILON
+    {
+        return Err(
+            "Not enough space: the elevator doorway needs a wall at least 2.25 m high.".into(),
+        );
+    }
+    for (other, opening) in wall.openings.iter().enumerate() {
+        if existing == Some(other) {
+            continue;
+        }
+        if offset < opening.end() + 0.01 && offset + WIDTH > opening.offset - 0.01 {
+            return Err(
+                "Not enough space: the fitted elevator doorway would overlap another opening."
+                    .into(),
+            );
+        }
+    }
+    Ok(())
 }
 
 /// Separating axes retain the real narrow rear body, including rotated free
@@ -298,6 +357,55 @@ fn clearance(doc: &Document, placement: &Placement) -> Result<(), String> {
                     index.saturating_add(1)
                 ));
             }
+        }
+    }
+    check_other_hosts(doc, placement, &def, &sections)?;
+
+    Ok(())
+}
+
+fn check_other_hosts(
+    doc: &Document,
+    placement: &Placement,
+    def: &ElevatorDef,
+    sections: &[(Vec3, Vec3)],
+) -> Result<(), String> {
+    let level = doc.level();
+    let surfaces = LevelSurfaces::new(level);
+    let selected = placement.embedding.as_ref().map(|host| host.host);
+    let check_solid = |solid: crate::engine::level::ArchitectureBox| -> Result<(), String> {
+        if sections.iter().any(|&(low, high)| {
+            intersects(
+                def,
+                low,
+                high,
+                Vec3::from_array(solid.min),
+                Vec3::from_array(solid.max),
+            )
+        }) {
+            return Err("Not enough space: another architectural solid intersects the elevator cabin or door pockets.".into());
+        }
+        Ok(())
+    };
+    for (index, column) in level.columns.iter().enumerate() {
+        if selected == Some(crate::editor::document::ObjectId::Column(index)) {
+            continue;
+        }
+        if let Some(solid) = column.solid_box(&surfaces) {
+            check_solid(solid)?;
+        }
+    }
+    for (index, pillar) in level.pillars.iter().enumerate() {
+        if selected == Some(crate::editor::document::ObjectId::Pillar(index)) {
+            continue;
+        }
+        for solid in pillar.collision_boxes(&surfaces) {
+            check_solid(solid)?;
+        }
+    }
+    for curve in &level.arc_walls {
+        for solid in curve.collision_boxes(&surfaces) {
+            check_solid(solid)?;
         }
     }
     Ok(())

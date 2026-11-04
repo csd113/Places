@@ -113,10 +113,17 @@ least 2.25 m high in a landing wall at local Z=0..0.2. The editor creates or fit
 placement when the real cabin would enter an adjacent room, intersect another
 wall, overlap another elevator or hit the ceiling, and explains the shortage.
 A gap exactly 2.48 m deep behind the landing face fits; the rear body is 2.56 m
-wide, while the shallow front pockets need 2.90 m. Host walls up to 0.24 m thick
-fit the fixed front assembly; thicker walls receive an explicit refusal rather
-than burying the cabin. Room floors and ceilings are not cut. Build/export
-retains the shared shaft and collision validation.
+wide, while the shallow front pockets need 2.90 m. Wall thickness is not a
+placement limit. The editor hollows a deeper host where the cabin and pockets
+need space, preserving the flush landing face. A rectangular column or circular
+pillar can contain a lift when its real volume is large enough; smaller hosts
+receive an insufficient-space explanation. Circular hosts gain a fitted flat
+entry and retain a curved outer shell. The selected host becomes ordinary saved
+wall/column/arc pieces, and one Undo restores the original solid. An in-room cab
+gets a 12 mm floor recess beneath its deck where that cannot affect a different
+storey, to avoid coincident floor surfaces.
+Other rooms, walls, columns and curved solids remain clearance boundaries;
+room ceilings are not cut. Build/export retains normal shaft/collision validation.
 
 Satin gray leaves retract into hollow dark recessed pockets, retaining a narrow
 visible panel lip at full opening. Concealed top/side overlaps and a rear centre

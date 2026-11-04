@@ -1140,3 +1140,15 @@ floor travel**. Preview/Apply/Undo operate on complete `elevators[]` records;
 `<`/`>` select existing records. The second page edits the stop list. Embedded
 Test supports local rides, doors and positional cues; cross-level destinations
 use Build+Play's complete project export. See [Elevators](ELEVATORS.md).
+
+
+### Elevators embedded in pillars
+
+**Build > Elevator** fits its entry to the selected wall or pillar automatically.
+Wall depth alone does not reject placement. A sufficiently large rectangular
+column or circular pillar is hollowed for the actual cabin and sliding pockets;
+a smaller pillar or a gap that intrudes into an adjacent room is refused with
+**Not enough space**. Circular hosts receive a flat fitted entrance and a curved
+shell. The edit saves ordinary architectural pieces and the elevator together;
+one Undo restores the original solid host. Existing links and other rooms are
+preserved. See [dimensions and clearance](ELEVATORS.md#space-and-artwork).

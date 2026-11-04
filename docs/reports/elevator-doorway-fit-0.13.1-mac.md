@@ -1,3 +1,6 @@
+> The wall-thickness refusal recorded in this earlier campaign is superseded
+> by the [pillar embedding revision](elevator-pillar-fit-0.13.1-mac.md).
+
 # Elevator doorway fit, cabin seams and automatic editor placement
 
 The metal doorway now meets both wall planes. The landing frame finishes at

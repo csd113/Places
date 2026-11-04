@@ -162,18 +162,7 @@ fn actual_cabin_depth_width_and_height_gate_placement() -> Result<(), String> {
         );
         dispose(&doc)?;
     }
-    let mut thick = walls;
-    set(
-        thick.get_mut(0).ok_or("missing wall")?,
-        "depth",
-        json!(0.25_f32),
-    )?;
-    let doc = document("wall_thick", &thick, &json!([]))?;
-    assert!(
-        placement::resolve(&doc, [0.0, 0.0, 0.0], 0.0, None, None, None).is_err(),
-        "host wall cannot bury passenger-facing wood and controls"
-    );
-    dispose(&doc)?;
+
     Ok(())
 }
 
@@ -247,4 +236,116 @@ fn occupied_doorway_is_refused_without_touching_its_leaf() -> Result<(), String>
         "the existing door and opening are preserved"
     );
     dispose(&doc)
+}
+
+type HostFixture = (&'static str, &'static str, &'static str, bool);
+const EMBEDDING_FIXTURES: [HostFixture; 6] = [
+    (
+        "thick_wall",
+        "walls",
+        r#"{"x":-3,"z":0,"width":6,"depth":0.6,"height":3.2}"#,
+        true,
+    ),
+    (
+        "large_column",
+        "columns",
+        r#"{"x":-1.7,"z":0,"width":3.4,"depth":3.0,"height":3.2}"#,
+        true,
+    ),
+    (
+        "stacked_column",
+        "columns",
+        r#"{"x":-1.7,"z":0,"width":3.4,"depth":3.0,"height":3.2,"y":0}"#,
+        true,
+    ),
+    (
+        "small_column",
+        "columns",
+        r#"{"x":-1.4,"z":0,"width":2.8,"depth":2.4,"height":3.2}"#,
+        false,
+    ),
+    (
+        "large_round",
+        "pillars",
+        r#"{"x":0,"z":3,"radius":3,"height":3.2,"segments":24}"#,
+        true,
+    ),
+    (
+        "small_round",
+        "pillars",
+        r#"{"x":0,"z":1,"radius":1,"height":3.2,"segments":24}"#,
+        false,
+    ),
+];
+
+#[test]
+fn thick_hosts_are_hollowed_atomically_and_small_pillars_refuse() -> Result<(), String> {
+    // One tiny source scene per authored host shape. This protects a real
+    // regression: wall depth is not cab clearance, and accepting a solid host
+    // without hollowing it would leave both collision and rendered blockage.
+    let eye = Vec3::new(0.0, 1.6, -3.0);
+    let ray = Vec3::Z;
+    for (name, kind, source, accepted) in EMBEDDING_FIXTURES {
+        let mut doc = document(
+            name,
+            &json!([]),
+            &json!([{"x":-8_f32,"z":-8_f32,"width":16_f32,"depth":16_f32,"height":3.2_f32}]),
+        )?;
+        if name == "stacked_column" {
+            let base = doc.raw().clone();
+            let mut stacked = base.clone();
+            stacked.get_mut("rooms").and_then(Value::as_array_mut).ok_or("missing rooms")?.push(json!({"x":-8_f32,"z":-8_f32,"width":16_f32,"depth":16_f32,"height":3.2_f32,"floor_y":3.5_f32}));
+            doc.apply_authoring_edit(&base, stacked)?;
+        }
+        let initial = doc.raw().clone();
+        let mut host_source = initial.clone();
+        drop(
+            host_source
+                .as_object_mut()
+                .ok_or("missing fixture")?
+                .insert(kind.into(), json!([parse(source)?])),
+        );
+        doc.apply_authoring_edit(&initial, host_source)?;
+        let before = doc.raw().clone();
+        let resolved = if kind == "walls" {
+            placement::resolve(&doc, [0.0, 0.0, 0.0], 0.0, Some(eye), Some(0), None)
+        } else {
+            let (host, _, at) = super::embedding::under_ray(&doc, eye, ray, |_| true)
+                .ok_or("pillar was not targetable")?;
+            placement::resolve_embedded(&doc, at, eye, None, host)
+        };
+        if !accepted {
+            assert!(
+                resolved
+                    .err()
+                    .is_some_and(|error| error.contains("Not enough space")),
+                "undersized host refusal"
+            );
+            assert_eq!(doc.raw(), &before);
+            dispose(&doc)?;
+            continue;
+        }
+        let fitted = resolved?;
+        let raw = links::place(&doc, &fitted)?;
+        doc.apply_authoring_edit(&before, raw)?;
+        if name == "stacked_column" {
+            assert!(
+                doc.level().floor_regions.is_empty(),
+                "embedding never changes another storey's floor"
+            );
+        }
+        assert_eq!(
+            doc.level().elevators.len(),
+            1,
+            "hollow host passes real shaft admission"
+        );
+        assert!(
+            doc.undo() && doc.raw() == &before,
+            "one undo restores the complete original solid host"
+        );
+        assert!(doc.redo());
+        doc.save()?;
+        dispose(&doc)?;
+    }
+    Ok(())
 }

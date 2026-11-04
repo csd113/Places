@@ -56,7 +56,7 @@ pub(super) fn place(
         number = number.saturating_add(1);
     };
     let mut raw = doc.raw().clone();
-    placement.fit_opening(&mut raw)?;
+    placement.fit_opening(doc, &mut raw)?;
     lifts(&mut raw)?.push(json!({"id":id,"x":at[0],"z":at[2],"rotation_degrees":rotation,"stops":[{"label":format!("Elevator {number}"),"y":at[1]}]}));
     Ok(raw)
 }

@@ -2,7 +2,7 @@
 """Opt-in direct editor wall-fit/space campaign; tiny sources, no automatic bake.
 
 Four cardinal walls receive elevators by eye-level wall clicks. The same pointer
-workflow refuses a short room gap and excessive wall depth. Coordinates deliberately
+workflow refuses a short room gap and accepts a deeper wall by hollowing its cab volume. Coordinates deliberately
 miss the world grid. A complete saved project remains available for an explicit export.
 """
 import argparse
@@ -30,7 +30,7 @@ def author(out):
         level['rooms'].extend([dict(**rectangle(-3,-5,6,5),height=2.8),dict(**rectangle(-3,gap,6,5),height=2.8)])
         level['walls'].append(dict(**rectangle(-3,0,6,(.10,.20,.24,.20,.20,.35)[i]),height=2.8))
         level['ceiling_lights'].append(dict(id=f'fit_light_{i}',fixture='home:ceiling_light_round',x=point(0,0,-2)[0],z=point(0,0,-2)[2],y=2.76,brightness=1.1))
-        cases.append(dict(origin=point(.25,0,0),rotation=rotation,accepted=i<4))
+        cases.append(dict(origin=point(.25,0,0),rotation=rotation,accepted=i!=4))
         add('control',action='Elevator(Place)');add('camera',eye=point(0,1.6,-3.5),yaw=180-rotation,pitch=0)
         # Horizontal ray directly at wall, no floor ray and no coordinate fields.
         target=point(.17,1.6,0)
@@ -48,15 +48,18 @@ def main():
     out=a.out.resolve();project,script,cases=author(out)
     with (out/'editor.log').open('w') as log:
         subprocess.run([str(a.editor.resolve()),str(project),'--asset-root',str(ROOT/'assets'),'--compiler',str(a.compiler.resolve()),'--verify-script',str(script)],stdout=log,stderr=subprocess.STDOUT,check=True,timeout=120)
+    count=0
     for i,case in enumerate(cases):
         result=json.loads((out/f'captures/{i}-result.json').read_text());lifts=result['document'].get('elevators',[])
-        assert len(lifts)==min(i+1,4),(i,result['status'])
         if case['accepted']:
+            count+=1
+            assert len(lifts)==count,(i,result['status'])
             lift=lifts[-1];assert abs(lift['x']-case['origin'][0])<.001 and abs(lift['z']-case['origin'][2])<.001,(i,lift)
             assert abs(lift['rotation_degrees']-case['rotation'])<.001,(i,lift)
-            opening=result['document']['walls'][i]['openings'][0];assert abs(opening['width']-1.5)<.001 and abs(opening['height']-2.25)<.001
-        else:assert 'Not enough space' in result['status'],result['status']
+            if i<4:
+                opening=result['document']['walls'][i]['openings'][0];assert abs(opening['width']-1.5)<.001 and abs(opening['height']-2.25)<.001
+        else:assert len(lifts)==count and 'Not enough space' in result['status'],result['status']
     saved=json.loads((out/'captures/saved.json').read_text());assert not saved['dirty']
-    save(out/'passed.json',dict(cardinal_wall_faces=4,refused_short_gap=True,refused_thick_wall=True,eye_level_wall_clicks=True))
+    save(out/'passed.json',dict(cardinal_wall_faces=4,refused_short_gap=True,accepted_thick_wall=True,eye_level_wall_clicks=True))
     print('Native elevator wall-fit and clearance passed')
 if __name__=='__main__':main()

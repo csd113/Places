@@ -1,4 +1,5 @@
 //! Place two cabins and link them. Detailed shaft authoring remains optional.
+mod embedding;
 mod links;
 mod placement;
 use super::{
@@ -147,8 +148,14 @@ impl App {
             .ray(point)
             .ok_or("Click a floor or elevator")?;
         let at = place_point(self, point);
-        let wall_distance =
-            wall_under_pointer(self, origin, direction).map(|(_, distance)| distance);
+        let wall_distance = wall_under_pointer(self, origin, direction)
+            .map(|(_, distance)| distance)
+            .into_iter()
+            .chain(
+                embedding::under_ray(doc, origin, direction, |host| self.focus.visible(host))
+                    .map(|(_, distance, _)| distance),
+            )
+            .min_by(f32::total_cmp);
         let picked = pick(doc, origin, direction)
             .filter(|(_, distance)| {
                 wall_distance.is_none_or(|wall| *distance <= wall + 0.05)
@@ -241,7 +248,7 @@ impl App {
                             }),
                             &[],
                         );
-                        self.status = if fitted.host.is_some() {
+                        self.status = if fitted.is_fitted() {
                             "Fits flush to this wall. Click to place the elevator and doorway."
                                 .into()
                         } else {
@@ -418,7 +425,31 @@ fn wall_under_ray(
 fn placement_at(app: &App, point: [f32; 2]) -> Result<placement::Placement, String> {
     let doc = app.document.as_ref().ok_or("Open a project")?;
     let (origin, direction) = app.viewport.ray(point).ok_or("Point at a wall or floor")?;
-    let hint = wall_under_pointer(app, origin, direction).map(|(index, _)| index);
+    let wall_hit = wall_under_pointer(app, origin, direction);
+    let floor_hit = app.viewport.floor_distance(origin, direction);
+    if let Some((embedding, _, at)) =
+        embedding::under_ray(doc, origin, direction, |host| app.focus.visible(host)).filter(
+            |(host, distance, _)| {
+                app.focus.visible(host.host)
+                    && wall_hit.is_none_or(|(_, wall)| *distance < wall)
+                    && floor_hit.is_none_or(|floor| *distance <= floor + 0.0005)
+            },
+        )
+    {
+        let fitted = placement::resolve_embedded(
+            doc,
+            at,
+            origin,
+            app.view.snap.then_some(app.step),
+            embedding,
+        )?;
+        let raw = links::place(doc, &fitted)?;
+        let _level = doc
+            .validate_candidate(&raw)
+            .map_err(|error| format!("Not enough space for this elevator: {error}"))?;
+        return Ok(fitted);
+    }
+    let hint = wall_hit.map(|(index, _)| index);
     let at = if let Some(wall) = hint.and_then(|index| doc.level().walls.get(index)) {
         let (x, z) = wall.min_corner();
         let (cross, source, delta) = match wall.axis() {
