@@ -69,9 +69,9 @@ def check(revision=None, car_only=False, landing_only=False):
                 # Continue the sightline beyond both door pairs.
                 target = np.asarray((x, y, -.25 if inside else .45))
                 origin = np.asarray(camera)
-                entry_z = .36 if inside else -.17
+                entry_z = .36 if inside else 0
                 entry = origin + (target - origin) * ((entry_z - origin[2]) / (target[2] - origin[2]))
-                if abs(entry[0]) > (.675 if revision else .715) or not 0 < entry[1] < 2.2:
+                if abs(entry[0]) > (.675 if revision else .688) or not 0 < entry[1] < 2.2:
                     continue
                 checked += 1
                 if not blocked(closed, origin, target):
@@ -88,12 +88,12 @@ def visible_edges():
     leaf=triangles('leaf')
     for side in (-1,1):
         pose=-.695-.681 if side<0 else .681
-        hall_x=.702*side;car_x=.684*side
+        hall_x=.684*side;car_x=.684*side
         outside=(hall_x,1.1,-.5);inside=(car_x,1.1,.8)
-        assert blocked(leaf+[pose,0,.15],outside,(hall_x,1.1,.128))
-        assert not blocked(body,outside,(hall_x,1.1,.128))
-        assert blocked(leaf+[pose,0,.30],inside,(car_x,1.1,.3224))
-        assert not blocked(body,inside,(car_x,1.1,.3224))
+        assert blocked(leaf+[pose,0,.15],outside,(hall_x,1.1,.1401))
+        assert not blocked(body,outside,(hall_x,1.1,.1401))
+        assert blocked(leaf+[pose,0,.30],inside,(car_x,1.1,.3099))
+        assert not blocked(body,inside,(car_x,1.1,.3099))
     return 'Both full-open panel lips visible from cabin and hall; clear aperture checked separately'
 
 def main():

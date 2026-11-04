@@ -115,8 +115,10 @@ seal hide the cabin and outside scenery when closed. The inner pair sits behind
 the landing wall's cabin-facing plane, so stationary walls cannot clip into the
 view during travel. Render and collision share the same eased door pose.
 An occupied doorway reopens closing doors and cancels departure.
-The inner metal stop frame overlaps the closed leaves, with a small visible
-leaf edge beside the dark pocket when open. The opaque 1.72 m sill spans both
+The flush inner metal frame overlaps the closed leaves, with a 7 mm visible
+leaf edge beside the dark pocket when open. Its rear face meets the walnut wall
+at local Z=0.360 m; the exterior frame meets the landing wall at Z=0. The steel
+leaves are 20 mm thick, plus a concealed 4 mm centre seal. The opaque 1.72 m sill spans both
 jambs and both door tracks, projecting from Z=-0.32 to +0.42 m. Recessed grooves
 have backing, so underlying carpet cannot show around or through the threshold.
 The doorway's jambs, pocket folds, reveals and header are metal throughout;
