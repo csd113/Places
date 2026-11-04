@@ -1,5 +1,11 @@
 ## 0.13.1 — Unreleased
 
+- Keep elevator cabin light inside the shell and real sliding-door aperture.
+  Closed exterior panels use actual landing lighting instead of the roomless
+  ambient fallback; the interior stays lit and hall fixtures still light the
+  panels. Add explicit dark-room and lit-hall controls. See
+  [Mac validation and limits](docs/reports/elevator-light-0.13.1-mac.md).
+
 - Include automatic HVAC, room/pool/fluorescent ambience, material footsteps and
   moving-door sounds in editor quick testing through the player's shared audio
   policies. Preserve authored emitters and quiet chooser auditions; clear test
