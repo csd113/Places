@@ -67,10 +67,11 @@ for side in [-1,1]:
  x0,x1=(-1.2,-1.185)if side<0 else(1.185,1.2)
  box('Side bronze skirting',[x0,.025,.368],[x1,.13,2.38],'aged_brass')
  # Two actual recessed channels house the landing and cabin leaves. The
- # passenger/hall skins leave a narrow mouth with an edge still visible open.
+ # The complete entrance casing is metal, including the broad fascia and
+ # every exposed pocket fold. Walnut belongs to the side/rear cabin walls.
  x0,x1=(-1.425,-.715)if side<0 else(.715,1.425)
  for z0,z1 in [(.02,.10),(.20,.24),(.345,.36)]:
-  box('Wood door-pocket skin',[x0,0,z0],[x1,2.55,z1],'walnut')
+  box('Metal-clad door-pocket skin',[x0,0,z0],[x1,2.55,z1],'brushed_steel')
  x0,x1=(-1.45,-1.425)if side<0 else(1.425,1.45)
  box('Closed pocket outer end',[x0,0,.018],[x1,2.55,.362],'charcoal')
  x0,x1=(-1.45,-.679)if side<0 else(.679,1.45)
@@ -88,10 +89,10 @@ box('Rear bronze skirting',[-1.2,.025,2.385],[1.2,.13,2.4],'aged_brass')
 box('Softened walnut rear handrail',[-1.11,.95,2.26],[1.11,1.03,2.34],'wood_rail',.018)
 for x in [-.83,.83]:box('Rear brass rail bracket',[x-.018,.963,2.30],[x+.018,1.005,2.4],'aged_brass')
 box('Cream ceiling',[-1.2,2.55,.24],[1.2,2.63,2.48],'ceiling_cream')
-box('Front overhead return',[-.715,2.205,.02],[.715,2.55,.36],'walnut')
-box('Cabin recessed header',[-.715,2.205,.365],[.715,2.48,.383],'charcoal')
-# A fitted passenger-side stop overlaps the closed stock. The wood pocket
-# mouth is deliberately wider; its dark recess must not read as a door gap.
+box('Metal front overhead return',[-.715,2.205,.02],[.715,2.55,.36],'brushed_steel')
+box('Cabin metal recessed header',[-.715,2.205,.365],[.715,2.48,.383],'brushed_steel')
+# A fitted passenger-side stop overlaps the closed stock and metal returns.
+# The deliberately wider pocket mouth retains a dark metal track recess.
 for x0,x1 in [(-.735,-.688),(.688,.735)]:
  box('Cabin steel door stop',[x0,-.012,.385],[x1,2.2,.403],'brushed_steel')
 box('Cabin steel header stop',[-.735,2.2,.385],[.735,2.24,.403],'brushed_steel')

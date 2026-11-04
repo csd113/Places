@@ -4972,3 +4972,37 @@ actual final fitted-frame, open-pocket and backed-threshold views. Four final
 production screenshots and the playable package accompany the local movies.
 Evidence, receipts and launch instructions are retained under
 local/elevator-motion-polish. No uncapped throughput claim is made.
+
+## Continuous metal elevator entrance, 2026-11-04
+
+Fresh native interior/exterior views reproduced the alternating metal/wood
+bands: pocket skins and the overhead return still assigned walnut to exposed
+doorway stock. The complete entrance fascia, pocket folds and header now use
+the existing brushed-steel atlas cell. Deep track liners remain dark metal;
+side/rear walnut panels and rails retain their original appearance. No texture
+imagery is generated, and the existing GIMP atlas is unchanged.
+
+All four models' indexed triangle positions compare exactly with d11c924f.
+The frame, leaves and button GLBs are byte-identical; only the cabin's fitted
+UV assignments and retained Blender source change. Mechanism dimensions,
+motion, collision, lighting and transport code remain unchanged. The new
+opt-in actual-GLB material guard checks 24 doorway/fascia triangles, with zero
+nonmetal assignments versus 24 in the baseline; 180 walnut cabin triangles
+remain. UV stability, closed sightlines, clear aperture, visible panel lips and
+five-pose exposed-overlap audits pass.
+
+Eight direct-binary animation sequences retain 1,404 native frames: interior
+left/right, header and sill; exterior centre/left/right; and an unbaked interior
+control. FOV 100, native 1280x720 and Full/Off lighting were exercised. Reviewed
+consecutive frames show metal throughout the entrance without observed
+z-fighting; settled comparisons have zero changed pixels. Closed/open oblique
+screenshots confirm the cabin's side/rear wood remains. Native closed-door
+blocking, walk-in/out, obstruction reopening, held prop/NPC same-map and
+cross-level travel, save/resume and frozen loading/resize checks pass again.
+
+Strict Clippy, locked all-feature release build and asset/prop/texture audits
+pass (existing texture advisories remain). The production executables are
+unchanged. Only tiny fixtures were re-exported. Temporary demo 1.0.2 permits
+updating the previous 1.0.1 package; both members verify current and intact.
+Older exported elevator maps require re-exporting for the cabin asset hash.
+Evidence and the updated playable package are under local/elevator-metal-frame.

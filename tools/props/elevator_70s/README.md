@@ -58,6 +58,10 @@ exposed coplanar faces. The front pocket assembly requires a 3 m wide footprint.
 Use check_seals.py and check_surface_joins.py here for optional real-GLB sightline,
 clearance, visible-edge and exposed-overlap checks; native moving views remain
 necessary. These checks neither bake maps nor run in ordinary CI.
+The complete entrance fascia, doorway folds/returns and overhead use brushed
+steel. Side/rear wall paneling and wood rails retain their original walnut.
+Run check_frame_materials.py for the actual-GLB doorway cell contract; changing
+UV assignments must not move the mechanism geometry or collision anchors.
 
 The inside-facing animation exposed atlas minification bleed on skinny stock.
 Uniform charcoal/rubber faces now sample their committed centre texel; elongated
