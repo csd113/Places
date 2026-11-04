@@ -48,11 +48,15 @@ def actions(source, arrival, destination):
     def walk(ms, duration, after=hub):
         add(ms, 'key', after, key='W', pressed=True)
         add(ms+duration, 'key', after, key='W', pressed=False)
-    add(100, 'key', key='F1', pressed=True)
-    add(150, 'key', key='F1', pressed=False)
-    add(250, 'checkpoint', name='campaign-start')
-    add(50, 'key', key='Return', pressed=True)
-    add(100, 'key', key='Return', pressed=False)
+    # Let startup presentation settle, dismiss its message, then hold F1 long
+    # enough that a first-use shader/readback stall cannot swallow both edges.
+    add(300, 'key', key='Return', pressed=True)
+    add(500, 'key', key='Return', pressed=False)
+    add(800, 'key', key='F1', pressed=True)
+    add(1000, 'key', key='F1', pressed=False)
+    add(1200, 'checkpoint', name='campaign-start')
+    add(1300, 'key', key='Return', pressed=True)
+    add(1500, 'key', key='Return', pressed=False)
     add(150, 'player', position=point(source, 0, 1.6, -1), yaw=0, pitch=0)
     aim(200, source, (0, 1.6, 2)); walk(250, 450)
     add(750, 'checkpoint', name='closed_collision')
@@ -82,16 +86,16 @@ def actions(source, arrival, destination):
     add(6200, 'checkpoint', target, name='return-boarded')
     aim(6300, arrival, (.94, 1.58, .4), target); click(6450, target)
     add(6650, 'checkpoint', target, name='return-settled')
-    add(12700, 'checkpoint', target, name='hub-return')
-    aim(12800, source, (0, 1.6, -2), target)
-    walk(13000, 1450, target)
-    add(14700, 'checkpoint', target, name='hub-hall')
-    add(14800, 'capture', target, name='hub-return-hall')
-    add(15200, 'quit', target)
+    add(15700, 'checkpoint', target, name='hub-return')
+    aim(15800, source, (0, 1.6, -2), target)
+    walk(16000, 1450, target)
+    add(17700, 'checkpoint', target, name='hub-hall')
+    add(17800, 'capture', target, name='hub-return-hall')
+    add(18200, 'quit', target)
     add(38000, 'quit')
     for step in steps:
-        if step['after'] == hub and step['action'].get('name') != 'campaign-start' and not (step['action'].get('key') == 'F1'):
-            step['delay_ms'] += 300
+        if step['after'] == hub and step['action'].get('name') != 'campaign-start' and step['action'].get('key') not in ('F1', 'Return'):
+            step['delay_ms'] += 1800
     for anchor in (hub, target):
         steps.insert(0, dict(after=anchor, delay_ms=0, action=dict(kind='focus', focused=True)))
     return steps
