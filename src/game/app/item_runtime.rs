@@ -800,6 +800,13 @@ impl FrameLoop<'_> {
             );
         });
         let stats = self.items.world.stats();
+        if stats.auto_dropped_held.is_some() {
+            self.items.input.invalidate();
+            self.items.target = None;
+            self.items.release_blocked = false;
+            self.observe_held_item();
+            self.trace_world("item_auto_dropped");
+        }
         if self.items.trace_bodies {
             self.trace.record("physics_frame", self.load_generation, &serde_json::json!({"frame": self.game.frame_count(), "held": self.items.world.held(), "stats": stats, "bodies": self.items.world.snapshots(), "contacts": self.items.world.contact_pairs(), "contact_impulses": self.items.world.contact_impulses()}).to_string());
         }

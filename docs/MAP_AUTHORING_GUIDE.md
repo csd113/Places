@@ -4613,6 +4613,14 @@ away or aiming at a locked door selects ordinary safe set-down. Walls, other doo
 physical body still obstruct the target ray. Only the owned held body is omitted
 from that sight test. The existing swept door motion continues to stop on the
 player, held/loose physical items and other solids, without forcing a release.
+If carrying remains collision-blocked for over 0.35 seconds and the eye is more
+than `2.7 + bounding_radius` metres from the body's centre, the item automatically
+releases at its checked pose with zero added linear/angular velocity. This is
+pickup reach (2.2 m) plus a 0.5 m margin and conservative shape-size allowance.
+Ordinary following and nearby blockage retain ownership. A current pose that
+fails the normal safe-release clearance check stays held and is retried; there
+is no teleport or forced overlapping drop. Checkpoints/transport restore held
+ownership with a fresh obstruction grace. This shared policy needs no map field.
 GLB material emission remains a visual property. Box/sphere/cylinder shapes are
 contact approximations. A `compound` shape adds 1..8 primitive parts for objects
 such as bowling pins:

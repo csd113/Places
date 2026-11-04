@@ -255,6 +255,13 @@ level load. Disabling the setting hides it immediately without changing item
 collision or ownership. An explicit failed release still shows the actionable
 **Make room to set this down.** feedback in ordinary gameplay.
 
+An item that stays collision-blocked for more than 0.35 s automatically releases
+when its body centre is farther from the eye than 2.7 m plus its bounding radius.
+The 2.7 m is pickup reach plus a 0.5 m margin. Nearby obstruction and ordinary
+following retain custody. Release keeps the checked pose and clears motion;
+an unsafe current pose waits for clearance. The developer trace records
+`item_auto_dropped`; no diagnostic text is added to normal play.
+
 `tools/bench/console_stage.py` exercises the current controls, independent
 clocks, representative models and all 58 pickups in four catalog chunks. Supply
 an explicitly compiled `tests/fixtures/native/developer-console.level.json`

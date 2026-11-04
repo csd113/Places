@@ -4128,6 +4128,7 @@ impl FrameLoop<'_> {
             "item_hint".into(),
             serde_json::json!({
                 "held_movement_blocked": self.items.world.held_movement_blocked(),
+                "auto_drop_distance": self.items.world.held_auto_drop_distance(),
                 "text": self.items.release_hint(self.settings.developer_console),
             }),
         ));
