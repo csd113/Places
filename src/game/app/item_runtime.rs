@@ -997,28 +997,27 @@ impl Items {
             );
         }
     }
+    pub(super) fn release_hint(&self, developer_enabled: bool) -> Option<&'static str> {
+        let _held_key = self.world.held()?;
+        if self.release_blocked {
+            Some("Make room to set this down.")
+        } else if developer_enabled && self.world.held_movement_blocked() {
+            Some("The item cannot follow here.")
+        } else {
+            None
+        }
+    }
+
     pub(super) fn append_release_hint(
         &mut self,
         vertices: &mut Vec<crate::engine::render::Vertex>,
+        developer_enabled: bool,
     ) {
         if self.release_blocked && (self.world.held().is_none() || self.world.can_drop()) {
             self.release_blocked = false;
         }
-        if (self.release_blocked || self.world.held_movement_blocked())
-            && self.world.held().is_some()
-        {
-            crate::game::ui::draw_text(
-                vertices,
-                if self.release_blocked {
-                    "Make room to set this down."
-                } else {
-                    "The item cannot follow here."
-                },
-                24.0,
-                238.0,
-                0.75,
-                [0.9, 0.75, 0.5],
-            );
+        if let Some(hint) = self.release_hint(developer_enabled) {
+            crate::game::ui::draw_text(vertices, hint, 24.0, 238.0, 0.75, [0.9, 0.75, 0.5]);
         }
     }
 }

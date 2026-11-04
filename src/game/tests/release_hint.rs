@@ -52,7 +52,7 @@ fn release_hint_clears_after_contact_ends_without_releasing_item() -> Result<(),
     assert!(!items.world.drop(), "overlapping releases must still fail");
     items.release_blocked = true;
     let mut vertices = Vec::new();
-    items.append_release_hint(&mut vertices);
+    items.append_release_hint(&mut vertices, false);
     assert!(items.release_blocked);
     assert!(
         !vertices.is_empty(),
@@ -62,7 +62,7 @@ fn release_hint_clears_after_contact_ends_without_releasing_item() -> Result<(),
 
     items.world.sync_context(clear, &[]);
     vertices.clear();
-    items.append_release_hint(&mut vertices);
+    items.append_release_hint(&mut vertices, false);
     assert!(
         !items.release_blocked,
         "clearance must clear the stale warning"
@@ -70,5 +70,73 @@ fn release_hint_clears_after_contact_ends_without_releasing_item() -> Result<(),
     assert_eq!(vertices, []);
     assert_eq!(items.world.held(), Some(1), "HUD checks preserve custody");
     assert!(items.world.drop(), "a clear release still succeeds");
+    Ok(())
+}
+
+// A one-body collision fixture protects the developer-only advisory at its
+// actual physics boundary. Toggling visibility must retain custody and collision
+// refusal; removing the obstacle must restore normal carrying. No bake or GPU.
+#[test]
+fn carry_obstruction_advisory_requires_developer_mode_and_retains_custody() -> Result<(), String> {
+    let mut items = Items::new();
+    items.world.spawn(
+        1,
+        &PhysicsDef {
+            motion: BodyMotion::Dynamic,
+            pickup: true,
+            shape: Some(ShapeDef::Sphere { radius: 0.1 }),
+            ..PhysicsDef::default()
+        },
+        (Vec3::splat(-0.1), Vec3::splat(0.1)),
+        Vec3::new(0.0, 2.0, -1.3),
+        0.0,
+        1.0,
+    )?;
+    let player = PlayerContext {
+        half: crate::engine::collision::PLAYER_RADIUS,
+        eye: Vec3::new(0.0, 2.0, 0.0),
+        feet: Vec3::new(0.0, 0.2, 0.0),
+        height: 1.8,
+        view: Vec3::NEG_Z,
+        yaw: 0.0,
+        active: true,
+    };
+    items.world.sync_context(player, &[]);
+    assert!(items.world.pickup(1, player.eye, player.view, player.yaw));
+    items.world.pause();
+    let door = crate::engine::collision::DoorCollider::from_pose(
+        [-1.0, 0.0, -1.05],
+        [1.0, 0.0],
+        2.0,
+        0.1,
+        3.0,
+    );
+    for _ in 0_u8..20 {
+        items.world.step(0.05, player, &[door]);
+    }
+    assert!(items.world.held_movement_blocked());
+    for enabled in [false, true, false] {
+        let mut vertices = Vec::new();
+        items.append_release_hint(&mut vertices, enabled);
+        assert_eq!(vertices.is_empty(), !enabled);
+        assert_eq!(items.world.held(), Some(1));
+        assert!(
+            items
+                .world
+                .snapshots()
+                .first()
+                .is_some_and(|body| body.pose.position.z < -1.2),
+            "visibility must not let the held body cross the door"
+        );
+    }
+    for _ in 0_u8..20 {
+        items.world.step(0.05, player, &[]);
+    }
+    assert!(!items.world.held_movement_blocked());
+    let mut vertices = Vec::new();
+    items.append_release_hint(&mut vertices, true);
+    assert_eq!(vertices, []);
+    assert_eq!(items.world.held(), Some(1));
+    assert!(items.world.drop());
     Ok(())
 }
