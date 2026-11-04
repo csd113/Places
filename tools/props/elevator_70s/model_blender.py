@@ -145,7 +145,10 @@ start('elevator_leaf_70s')
 box('Satin gray sliding door',[0,-.01,-.0225],[.695,2.22,.0225],'door_satin',.003)
 box('Concealed center-edge seal',[-.004,-.01,.0225],[.004,2.22,.03],'charcoal')
 start('elevator_button_70s')
-box('Button backing',[.865,1.54,.394],[1.015,1.62,.408],'charcoal')
+backing=box('Button backing',[.865,1.54,.394],[1.015,1.62,.408],'charcoal')
+# Its rear face is concealed by the opaque panel; keep three-button cabins
+# inside the ordinary assembled art budget without adding competing faces.
+mesh=bmesh.new();mesh.from_mesh(backing.data);mesh.normal_update();bmesh.ops.delete(mesh,geom=[f for f in mesh.faces if f.normal.y>.8],context='FACES');mesh.to_mesh(backing.data);mesh.free()
 button_cylinder('Brass octagonal bezel',.94,1.58,.410,.035,.018,'aged_brass',hide_back=True)
 button_cylinder('Cream passenger button',.94,1.58,.423,.027,.010,'button','vent',True)
 # Join each rigid part so the runtime receives two primitives, not dozens of nodes.

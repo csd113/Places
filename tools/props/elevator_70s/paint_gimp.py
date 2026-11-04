@@ -79,6 +79,13 @@ for glyph,active in enumerate(glyphs):
  for name in active:
   xx,yy,ww,hh=segments[name];rect(gx+xx,gy+yy,ww,hh,(49,39,24))
  if glyph==10:rect(gx+31,gy+29,18,6,(49,39,24))
+# Last glyph is reserved for the distinct door-only control, never a floor.
+layer('06 Door toggle / contrasting green field and etched outward arrows')
+gx=2*C+3*64;gy=3*C+3*64
+rect(gx,gy,64,64,(73,91,69))
+for xx in (27,34):rect(gx+xx,gy+15,4,34,(238,228,192))
+for a,b in [((20,20),(8,32)),((8,32),(20,44)),((44,20),(56,32)),((56,32),(44,44))]:
+ line((gx+a[0],gy+a[1]),(gx+b[0],gy+b[1]),(238,228,192),5)
 Gimp.Selection.none(im)
 assert Gimp.file_save(Gimp.RunMode.NONINTERACTIVE,im,Gio.File.new_for_path(str(ROOT/'elevator_70s.xcf')))
 def png(path):

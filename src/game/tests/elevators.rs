@@ -453,3 +453,103 @@ fn port_game(def: &LevelDef) -> Game {
     game.set_app_state(AppState::Playing);
     game
 }
+
+fn named_lift<'a>(game: &'a Game, id: &str) -> Result<&'a Elevator, String> {
+    game.entities()
+        .elevators()
+        .iter()
+        .find(|e| e.def.id == id)
+        .ok_or_else(|| "Missing cabin".into())
+}
+
+// Door-only closure used to enter the generic trip path. These small real-game
+// regressions guard against unintended local/foreign departures, obstruction
+// bypass and opening a moving car. No renderer, assets or map bake is involved.
+#[test]
+fn separate_door_control_stays_put_and_preserves_obstruction_safety() -> Result<(), String> {
+    for (id, x, destinations) in [("a", 0.0, 2), ("d", 16.0, 1)] {
+        let mut game = port_game(&ports()?);
+        game.set_benchmark_player_position(Vec3::new(x, EYE_HEIGHT, 1.2), 0.0, 0.0);
+        let door = format!("@elevator:{id}:door");
+        let cabin = named_lift(&game, id)?;
+        let buttons = cabin.controls();
+        let toggle = buttons
+            .iter()
+            .find(|b| b.id == door)
+            .ok_or("Missing door button")?;
+        let floors: Vec<_> = buttons
+            .iter()
+            .filter(|b| b.id.contains(":floor:"))
+            .collect();
+        assert_eq!(floors.len(), destinations);
+        assert!(floors.iter().all(|b| b.anchor.y - toggle.anchor.y > 0.1));
+        interact(&mut game, &door)?;
+        settle(&mut game, 100);
+        assert_eq!(named_lift(&game, id)?.phase, Phase::Open);
+        interact(&mut game, &door)?;
+        settle(&mut game, 200);
+        assert_eq!(named_lift(&game, id)?.phase, Phase::Closed);
+        assert_eq!(named_lift(&game, id)?.at, 0);
+        assert_eq!(game.player_position, Vec3::new(x, EYE_HEIGHT, 1.2));
+        assert!(game.entities_mut().take_elevator_departure().is_none());
+        assert!(
+            game.entities_mut().take_commands().is_empty(),
+            "door operation cannot issue a level change"
+        );
+        assert!(
+            game.entities_mut()
+                .take_elevator_sounds()
+                .iter()
+                .all(|(_, cue)| *cue == "switch_click")
+        );
+        // A cabin control cannot be operated from the hall, even by ID.
+        game.set_benchmark_player_position(Vec3::new(x, EYE_HEIGHT, -1.0), 0.0, 0.0);
+        interact(&mut game, &door)?;
+        assert_eq!(named_lift(&game, id)?.phase, Phase::Closed);
+        game.set_benchmark_player_position(Vec3::new(x, EYE_HEIGHT, 1.2), 0.0, 0.0);
+        interact(&mut game, &door)?;
+        settle(&mut game, 100);
+        interact(&mut game, &door)?;
+        game.set_benchmark_player_position(Vec3::new(x, EYE_HEIGHT, 0.4), 0.0, 0.0);
+        settle(&mut game, 100);
+        assert_eq!(named_lift(&game, id)?.phase, Phase::Open);
+        assert!(game.entities_mut().take_elevator_departure().is_none());
+    }
+    Ok(())
+}
+
+#[test]
+fn door_control_cancels_unstarted_trips_but_never_opens_during_travel() -> Result<(), String> {
+    for destination in [1_usize, 2] {
+        let mut game = game()?;
+        game.set_benchmark_player_position(Vec3::new(0.0, EYE_HEIGHT, 1.2), 0.0, 0.0);
+        interact(&mut game, "@elevator:lift:door")?;
+        settle(&mut game, 100);
+        interact(&mut game, &format!("@elevator:lift:floor:{destination}"))?;
+        settle(&mut game, 10);
+        interact(&mut game, "@elevator:lift:door")?;
+        settle(&mut game, 100);
+        assert_eq!(lift(&game)?.phase, Phase::Open);
+        assert_eq!(lift(&game)?.at, 0);
+        assert!(game.entities_mut().take_elevator_departure().is_none());
+        assert!(
+            game.entities_mut().take_commands().is_empty(),
+            "door operation cannot issue a level change"
+        );
+        interact(&mut game, &format!("@elevator:lift:floor:{destination}"))?;
+        settle(&mut game, 85);
+        let phase = lift(&game)?.phase;
+        assert_eq!(
+            phase,
+            if destination == 1 {
+                Phase::Moving
+            } else {
+                Phase::Loading
+            }
+        );
+        interact(&mut game, "@elevator:lift:door")?;
+        assert_eq!(lift(&game)?.phase, phase);
+        assert_eq!(lift(&game)?.opening, 0.0);
+    }
+    Ok(())
+}

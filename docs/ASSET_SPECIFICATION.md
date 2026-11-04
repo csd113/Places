@@ -2690,9 +2690,15 @@ cabin, frame, sliding leaf and repeatable passenger button. Each embeds the same
 GIMP-authored 256-square PNG; a layered XCF and 1024-square master retain editable
 art. The 4x4 fitted atlas has inset UV cells in the documented role order from
 `tools/props/elevator_70s/paint_gimp.py`; it never tiles. Previously unused cell
-14 holds a nested 4x4 grid of opaque number/letter glyphs. The passenger-button
+14 holds a nested 4x4 grid of opaque number/letter glyphs. Its last slot (15)
+is reserved for the green door-arrow icon, distinct from numbered destinations.
+The passenger-button
 front cap alone uses that cell; runtime UV selection chooses committed glyph
-pixels without generating imagery. Each cabin omits its current-stop button.
+pixels without generating imagery. Each cabin omits its current-stop button
+and adds one independent door button below its destination rows. The control
+is at local Y=1.30 m for ordinary two/three-stop cabins, lowering only for the
+advanced longer panel. Its 54-triangle stock omits the concealed rear backing
+face; a three-stop assembled cabin has 1,498 triangles.
 Walnut grain runs upright
 on wall panels, wood handrails use their own grain cell, and linoleum has muted
 chips rather than baked shadows. The warm diffuser alone has visual emission.
@@ -2704,7 +2710,8 @@ source is `elevator_70s.blend`. All four GLBs are explicit package dependencies.
 They use +Y up and metre units. Component origins deliberately remain at the
 cabin threshold, matching the existing authored lift coordinates; a leaf starts
 at its left edge, and the button module is at the first control's local anchor.
-The runtime only repeats that authored button for the declared stops and applies
+The runtime repeats that authored button for declared destinations and the
+separate door control, then applies
 existing authoritative cabin/door transforms. Waist-height wood rails have
 matching collision stock. A bounded warm attached light follows the car through
 all floors; the existing eight-source realtime-light budget still applies.

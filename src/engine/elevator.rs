@@ -28,6 +28,15 @@ pub const DOOR_LEAF_BACK: f32 = 0.03;
 // so hall lintels/floors cannot clip into the closed cabin while it travels.
 pub const CABIN_DOOR_Z: f32 = 0.30;
 pub const LANDING_DOOR_Z: f32 = 0.15;
+/// A separate, authored door icon follows the dynamic destination rows.
+pub const DOOR_BUTTON_GLYPH: u16 = 15;
+#[must_use]
+pub fn door_button_height(destinations: usize) -> f32 {
+    let rows = u16::try_from(destinations.min(MAX_STOPS.saturating_sub(1))).unwrap_or(0);
+    f32::from(rows.saturating_sub(1))
+        .mul_add(-0.11, 1.44)
+        .min(1.30)
+}
 /// Authored rigid components; the catalog keeps paths out of level definitions.
 pub const MODEL_IDS: [&str; 4] = [
     "core:elevator_cabin_70s",
@@ -416,6 +425,23 @@ impl Elevator {
         };
         true
     }
+    /// Operate the doors at this landing without queuing a destination.
+    /// Reopening cancels an unstarted trip; moving/loading cabins stay sealed.
+    pub fn toggle_doors(&mut self, feet: Option<Vec3>) -> bool {
+        if matches!(self.phase, Phase::Moving | Phase::Loading)
+            || feet.is_none_or(|point| !self.contains(point, 0.25))
+        {
+            return false;
+        }
+        self.target = self.at;
+        self.departure_sent = false;
+        self.phase = match self.phase {
+            Phase::Closed | Phase::Closing => Phase::Opening,
+            Phase::Open | Phase::Opening => Phase::Closing,
+            Phase::Moving | Phase::Loading => return false,
+        };
+        true
+    }
     pub const fn reopen(&mut self) {
         self.target = self.at;
         self.departure_sent = false;
@@ -596,6 +622,19 @@ impl Elevator {
                 ));
             }
         }
+        let prompt = match self.phase {
+            Phase::Closed | Phase::Closing => "Open doors",
+            Phase::Open | Phase::Opening => "Close doors",
+            Phase::Moving | Phase::Loading => "Doors locked during travel",
+        };
+        let mut doors = self.control(
+            self.at,
+            true,
+            [0.94, self.y + door_button_height(usize::from(row)), 0.40],
+            prompt,
+        );
+        doors.id = format!("@elevator:{}:door", self.def.id);
+        controls.push(doors);
         controls
     }
     fn control(&self, i: usize, cabin: bool, local: [f32; 3], prompt: &str) -> Interactable {
@@ -693,7 +732,9 @@ impl Elevator {
                 } else {
                     self.opening = proposed;
                     if proposed <= 0.0 {
-                        if self
+                        if self.target == self.at {
+                            self.phase = Phase::Closed;
+                        } else if self
                             .def
                             .stops
                             .get(self.target)
@@ -709,7 +750,9 @@ impl Elevator {
                             });
                             self.phase = Phase::Moving;
                         }
-                        result.sound = Some("elevator_shaft");
+                        if self.target != self.at {
+                            result.sound = Some("elevator_shaft");
+                        }
                     }
                 }
             }

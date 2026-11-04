@@ -116,21 +116,30 @@ impl EntityWorld {
         let spec = id.strip_prefix("@elevator:")?;
         let mut parts = spec.split(':');
         let name = parts.next()?;
-        let cabin = parts.next()? == "floor";
-        let stop = parts.next()?.parse::<usize>().ok()?;
+        let action = parts.next()?;
         let elevator = self.elevators.iter_mut().find(|e| e.def.id == name)?;
-        let accepted = elevator.request(
-            stop,
-            cabin,
-            origin
-                .filter(|eye| eye.y > elevator.y + 0.4 && eye.y < elevator.y + 2.5)
-                .map(|eye| Vec3::new(eye.x, elevator.y, eye.z)),
-        );
+        let feet = origin
+            .filter(|eye| eye.y > elevator.y + 0.4 && eye.y < elevator.y + 2.5)
+            .map(|eye| Vec3::new(eye.x, elevator.y, eye.z));
+        let accepted = match action {
+            "door" if parts.next().is_none() => elevator.toggle_doors(feet),
+            "floor" | "call" => {
+                let stop = parts.next()?.parse::<usize>().ok()?;
+                if parts.next().is_some() {
+                    return None;
+                }
+                elevator.request(stop, action == "floor", feet)
+            }
+            _ => return None,
+        };
         if accepted {
-            self.elevator_sounds.push((
-                elevator.def.point(0.94, elevator.y + 1.1, 0.0),
-                "switch_click",
-            ));
+            let point = elevator
+                .controls()
+                .into_iter()
+                .find(|button| button.id == id)?
+                .anchor;
+            self.elevator_sounds.push((point, "switch_click"));
+            self.sync_elevator_controls();
         }
         Some(DispatchReport {
             actions_run: usize::from(accepted),
@@ -160,7 +169,7 @@ impl EntityWorld {
         let mut carry = 0.0;
         let mut changed = false;
         for elevator in &mut self.elevators {
-            let before = (elevator.y, elevator.opening, elevator.at);
+            let before = (elevator.y, elevator.opening, elevator.at, elevator.phase);
             let step = elevator.advance(ctx.delta_seconds, ctx.feet, |leaf| {
                 door_pose_hits_player(leaf, ctx.feet, ctx.body_height, ctx.body_half)
                     || self
@@ -178,7 +187,8 @@ impl EntityWorld {
             });
             changed |= (elevator.y - before.0).abs() > f32::EPSILON
                 || (elevator.opening - before.1).abs() > f32::EPSILON
-                || elevator.at != before.2;
+                || elevator.at != before.2
+                || elevator.phase != before.3;
             carry += step.carry_y;
             if let Some(sound) = step.sound {
                 let source_y = if elevator.settled() {

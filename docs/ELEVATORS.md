@@ -5,6 +5,21 @@ rooms that should feel like different floors. The cabin has sliding doors,
 a walkable interior, numbered destination buttons, warm lighting and occasional
 spatial shaft-movement sounds. E or left click activates the aimed control.
 
+The separate green door-arrow button below the destination buttons opens or
+closes the cabin at its current floor. It never selects a destination. You can
+close the doors to break a pursuing monster's sight without leaving the map or
+floor. The prompt reads **Open doors** or **Close doors**; during travel it reads
+**Doors locked during travel**. Pressing while a trip's doors are still closing
+cancels that unstarted trip and reopens them. Presses during movement/loading
+are ignored and are not queued. Occupants or props in the doorway still cause
+safe reopening. A nearby monster can therefore prevent closure if it reaches
+the opening before the doors seal.
+
+Closed doors block the shared AI's vision and physical traversal. They do not
+erase last-known-position memory or silence hearing: a monster may investigate
+or wait outside. The baseline predator pursues the player but has no built-in
+player damage/catch action; custom attacks must honor visibility/collision.
+
 ## Place, place, link
 
 1. Make a hall with an opening for the elevator. Choose **Build > Elevator**
@@ -18,7 +33,8 @@ spatial shaft-movement sounds. E or left click activates the aimed control.
    link or name change as one edit.
 
 A group supports **three cabins, with two destination buttons per cabin** for
-now. Two linked cabins show one button each; three show two. The current stop
+now. Two linked cabins show one destination button each; three show two, plus
+the independent door button in either case. The current stop
 is omitted. Linking existing groups would combine them, so the editor refuses
 merges above the limit without changing either group. Independently linked
 groups do not affect one another. There can be eight cabins in a map.

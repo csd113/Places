@@ -1,6 +1,7 @@
 //! Authored passenger-lift meshes. Gameplay remains the only transform owner.
 use crate::engine::elevator::{
-    CABIN_DOOR_Z, Elevator, LANDING_DOOR_Z, MODEL_IDS, Phase, Stop, door_leaf_x,
+    CABIN_DOOR_Z, DOOR_BUTTON_GLYPH, Elevator, LANDING_DOOR_Z, MODEL_IDS, Phase, Stop,
+    door_button_height, door_leaf_x,
 };
 use crate::engine::gltf::{PropModel, PropSubmesh};
 use crate::engine::loader::PropCatalog;
@@ -116,23 +117,28 @@ fn attach_buttons(
         Ok(())
     };
     collect(&cabin, 0)?;
-    for (row, (stop_index, stop)) in stops
+    let destinations = stops
         .iter()
         .enumerate()
         .filter(|(i, _)| *i != current)
         .enumerate()
-    {
+        .map(|(row, (index, stop))| {
+            let y = f32::from(u16::try_from(row).unwrap_or(0)) * 0.11;
+            (y, panel_symbol(&stop.label, index))
+        });
+    let door = (
+        1.58 - door_button_height(stops.len().saturating_sub(1)),
+        DOOR_BUTTON_GLYPH,
+    );
+    for (y, glyph) in destinations.chain(std::iter::once(door)) {
         let offset = u16::try_from(cabin.vertices.len())
             .map_err(|_conversion_error| "Elevator vertex budget exceeded")?;
         collect(button, offset)?;
-        let y =
-            f32::from(u16::try_from(row).map_err(|_conversion_error| "Elevator button overflow")?)
-                * 0.11;
         cabin
             .vertices
             .extend(button.vertices.iter().copied().map(|mut vertex| {
                 vertex.pos[1] -= y;
-                number_uv(&mut vertex.uv, panel_symbol(&stop.label, stop_index));
+                number_uv(&mut vertex.uv, glyph);
                 vertex
             }));
     }

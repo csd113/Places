@@ -12,6 +12,9 @@ over the frozen game view. The Annex offers both G and 1 as return destinations.
 The NPC and pickup box inside Ground travel with you on either route and return
 without duplicate source instances. Try moving the box or holding it before
 selecting a destination. Keep each passenger completely inside the cabin.
+The separate green arrow button below G/1/A toggles the doors at the current
+stop without travelling. It also reopens/cancels a trip before departure;
+moving/loading cabins stay sealed and doorway obstructions safely reopen them.
 
 Open places.project.json in the native editor. Build > Elevator starts click
 placement. Place two cabins and Link them; no coordinates or JSON are required.

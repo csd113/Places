@@ -115,6 +115,29 @@ roots and isolated settings. `[present-probe]` logs the former and selected
 production copy's byte results. This opt-in one-texel control runs before normal
 rendering; it is outside routine GPU tests and adds no work to a default build.
 
+## Elevator door control and hiding acceptance
+
+The opt-in `elevator_doors.py` checks the independent green door control with
+two/three-stop panels and a chasing pumpkin-skeleton. It records real player
+boarding, same-floor closure, obstruction reopening, checkpoint resume,
+predeparture cancellation, linked/cross-level routes and AI sight memory.
+It never builds Rust or bakes shipped maps. Prepare only the tiny sources:
+
+```sh
+python3 tools/bench/elevator_doors.py --write-fixtures local/door-fixtures
+target/release/places-compile export-project local/door-fixtures/monster \
+    --out local/door-monster.placesmap --variants static,full --workers 1
+python3 tools/bench/elevator_doors.py --binary target/release/places \
+    --package local/door-monster.placesmap --out local/door-monster-check --mode monster
+```
+
+Export/run `two` and `three` the same way with their matching `--mode`.
+`--mode shaft` instead accepts an explicitly exported `projects/elevator-lab`
+package and checks door presses during physical motion and at the upper floor.
+Use fresh output directories and serialize native players. These captures are
+correctness/visual evidence, not throughput measurements. AI hearing and
+last-known searches remain active; the baseline predator has no player damage.
+
 ## Offline map compiler
 
 Use optimized release binaries from the baseline and candidate revisions. Run

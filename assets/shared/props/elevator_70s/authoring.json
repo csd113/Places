@@ -23,7 +23,7 @@
     },
     "elevator_button_70s": {
       "objects": 1,
-      "triangles": 56,
+      "triangles": 54,
       "source": "elevator_70s.blend"
     }
   }

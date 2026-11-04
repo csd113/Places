@@ -4206,6 +4206,12 @@ impl FrameLoop<'_> {
                     "id": agent.instance_id, "state": agent.state.name(),
                     "position": agent.position.to_array(), "yaw_degrees": agent.yaw_degrees,
                     "speed_mps": agent.speed_mps, "clock": agent.clock,
+                    "last_seen_at": agent.last_seen_at,
+                    "last_known": agent.last_known.as_ref().map(|seen| seen.position.to_array()),
+                    "contact": agent.contact.as_ref().map(|contact| serde_json::json!({
+                        "position": contact.position.to_array(), "heard_only": contact.heard_only,
+                        "age": contact.age, "role": contact.role,
+                    })),
                     "path_age": agent.path_age, "waypoint": agent.current_waypoint,
                     "path_goal": agent.path_goal.map(|point| point.to_array()),
                     "path_waypoints": agent.path.waypoints.iter().map(Vec3::to_array).collect::<Vec<_>>(),

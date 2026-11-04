@@ -20,8 +20,10 @@ threshold, rather than an ordinary centre-bottom prop origin. Button stock
 starts at the first control anchor and is repeated only for other destinations;
 the current stop is omitted. Its front cap selects a committed glyph in cell 14.
 The cabin shell has 1,336 triangles before button assembly; frame 386, leaf 56
-and button 56. Each rigid resource remains below the 1,500-triangle asset limit.
-The simple linked flow currently allows two destination buttons.
+and button 54. Each rigid resource remains below the 1,500-triangle asset limit.
+The simple linked flow allows two destination buttons plus the separate green
+door-arrow button, for 1,498 assembled triangles. Glyph slot 15 is reserved for
+the committed door icon. The backing's concealed rear face is omitted.
 The diffuse atlas is shared; only the lamp face emits. One bounded moving light
 supplies warm illumination through the engine's existing realtime light path.
 
