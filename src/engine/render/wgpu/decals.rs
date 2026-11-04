@@ -248,7 +248,7 @@ pub struct DecalPipeline {
     flashlight_shadow_bound: bool,
     /// The last uploaded camera state, so a still camera writes nothing.
     uploaded: Option<DecalCamera>,
-    uploaded_lights: Option<super::world::DynamicLightsUniform>,
+    uploaded_lights: Option<Box<super::world::DynamicLightsUniform>>,
 }
 
 #[repr(C)]
@@ -560,9 +560,12 @@ impl DecalPipeline {
         queue: &wgpu::Queue,
         uniform: &super::world::DynamicLightsUniform,
     ) {
-        if self.uploaded_lights.as_ref() != Some(uniform) {
+        if self.uploaded_lights.as_deref() != Some(uniform) {
             queue.write_buffer(&self.lights_buffer, 0, bytemuck::bytes_of(uniform));
-            self.uploaded_lights = Some(*uniform);
+            *self
+                .uploaded_lights
+                .get_or_insert_with(|| Box::new(*uniform))
+                .as_mut() = *uniform;
         }
     }
 

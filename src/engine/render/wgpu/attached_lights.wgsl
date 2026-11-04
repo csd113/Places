@@ -13,6 +13,11 @@ struct DynamicLight {
     color: vec3<f32>,
     // Additive intensity.
     intensity: f32,
+    enclosure_origin_gap: vec4<f32>,
+    enclosure_right_enabled: vec4<f32>,
+    enclosure_bounds: vec4<f32>,
+    enclosure_portal: vec4<f32>,
+    enclosure_doors: vec4<f32>,
 };
 
 struct Flashlight {
@@ -41,6 +46,107 @@ var<uniform> dynamic_lights: DynamicLights;
 var flashlight_depth: texture_depth_2d;
 @group(4) @binding(2)
 var flashlight_sampler: sampler_comparison;
+
+fn cabin_local(light: DynamicLight, position: vec3<f32>) -> vec3<f32> {
+    let relative = position - light.enclosure_origin_gap.xyz;
+    let right = light.enclosure_right_enabled.xy;
+    return vec3<f32>(dot(relative.xz, right), relative.y,
+                     dot(relative.xz, vec2<f32>(-right.y, right.x)));
+}
+
+fn cabin_section_visible(source: vec3<f32>, point: vec3<f32>, section: vec4<f32>, floor_y: f32) -> bool {
+    if (point.z >= section.x - 0.0001) { return true; }
+    let ray = point - source;
+    // Clip to the receiver when it lies inside the stock's depth, so an
+    // oblique ray cannot enter the side of a leaf/pocket between its faces.
+    let planes = vec2<f32>(section.x, max(point.z, section.y));
+    for (var face = 0u; face < 2u; face = face + 1u) {
+        let crossing = source + ray * ((planes[face] - source.z) / ray.z);
+        // Keep boundary rays on the opaque side under rotated f32 transforms.
+        if (abs(crossing.x) >= section.z - 0.0001 || crossing.y < floor_y || crossing.y > section.w) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Trace the finite source/receiver segment through the opaque convex cabin and
+// both faces of both sliding door pairs. The aperture follows exactly the same
+// eased pose and centre seal as render/collision; a closed gap admits no ray.
+// This runs in the shared world/decal/reflection shader, in every quality mode.
+fn cabin_light_visible(light: DynamicLight, world_position: vec3<f32>) -> bool {
+    if (light.enclosure_right_enabled.z == 0.0) { return true; }
+    let point = cabin_local(light, world_position);
+    let bounds = light.enclosure_bounds;
+    if (point.z >= bounds.w - 0.0001) {
+        return abs(point.x) <= bounds.x + 0.0001 && point.y >= -0.0001 &&
+               point.y <= bounds.y + 0.0001 && point.z <= bounds.z + 0.0001;
+    }
+    // The broad passenger-facing pocket skin ends at Z=.36. The control
+    // surround projects from it outside the narrow .735 m stop stock, and
+    // the walnut above its 2.24 m header is exposed to the cabin. These are
+    // interior receivers, not passages through the front enclosure.
+    if (point.z >= 0.36 - 0.0001 && (abs(point.x) > 0.735 || point.y >= 2.24) && abs(point.x) <= bounds.x &&
+        point.y >= 0.0 && point.y <= bounds.y) { return true; }
+    let panel_back = max(light.enclosure_doors.x, light.enclosure_doors.z) - 0.0075;
+    if (light.enclosure_origin_gap.w <= 0.0 && point.z < panel_back - 0.0001) {
+        return false;
+    }
+    let source = cabin_local(light, light.position);
+    let ray = point - source;
+    let aperture = light.enclosure_portal;
+    // Opaque sill stock spans both tracks and extends into the hall. Reject
+    // rays that enter its top before reaching a lower receiver.
+    if (point.y < aperture.y - 0.0001) {
+        let sill = source + ray * ((aperture.y - source.y) / ray.y);
+        if (abs(sill.x) <= 0.86 && sill.z >= -0.32 && sill.z <= 0.42) {
+            return false;
+        }
+    }
+    let hall_front = light.enclosure_right_enabled.w;
+    if (point.z < hall_front) {
+        // Beyond the hall mouth, a centred source's complete aperture stack
+        // reduces to one angular interval. The hall mouth bounds the fixed
+        // stock, the furthest door face bounds the moving gap, the nearest
+        // header bounds the top, and the hall mouth bounds the bottom. Keep
+        // the full finite sections below for receivers within the tracks.
+        let depth = source.z - point.z;
+        let door_front = min(light.enclosure_doors.y, light.enclosure_doors.w);
+        let centre_margin = abs(source.x) + 0.0001;
+        let horizontal = min((aperture.w - centre_margin) / (source.z - hall_front),
+                             (light.enclosure_origin_gap.w - centre_margin) / (source.z - door_front));
+        let down = -ray.y / depth;
+        let minimum_down = (source.y - aperture.z) / (source.z - bounds.w);
+        let maximum_down = (source.y - aperture.y) / (source.z - hall_front);
+        return abs(ray.x) < horizontal * depth && down >= minimum_down && down <= maximum_down;
+    }
+    // Manufactured jamb, pocket liners and hall mouth from the rigid GLB
+    // contract: back/front Z, clear half-width, clear height. Trace complete
+    // depth intervals, including receivers within the recessed channels.
+    let sections = array<vec4<f32>, 4>(
+        vec4<f32>(bounds.w, 0.385, aperture.x, aperture.z),
+        vec4<f32>(0.260, 0.235, 0.679, aperture.z),
+        vec4<f32>(0.225, 0.195, 0.675, aperture.z),
+        vec4<f32>(0.025, light.enclosure_right_enabled.w, aperture.w, aperture.z));
+    for (var section = 0u; section < 4u; section = section + 1u) {
+        if (!cabin_section_visible(source, point, sections[section], aperture.y)) {
+            return false;
+        }
+    }
+    for (var track = 0u; track < 2u; track = track + 1u) {
+        // The full collider includes a .0075 m projecting centre seal. Use
+        // the actual panel back face for receiver clipping: the conservative
+        // clear half-gap already includes that seal. Otherwise the seal's
+        // bounding slab would shadow the entire passenger-facing door panel.
+        let back = light.enclosure_doors[track * 2u] - 0.0075;
+        let front = light.enclosure_doors[track * 2u + 1u];
+        let section = vec4<f32>(back, front, light.enclosure_origin_gap.w, aperture.z);
+        if (!cabin_section_visible(source, point, section, aperture.y)) {
+            return false;
+        }
+    }
+    return true;
+}
 
 fn flashlight_visibility(world_position: vec3<f32>, normal: vec3<f32>, direction: vec3<f32>) -> f32 {
     let light = dynamic_lights.flashlight;
@@ -83,7 +189,7 @@ fn dynamic_light_term(normal: vec3<f32>, world_position: vec3<f32>) -> vec3<f32>
         let light = dynamic_lights.lights[slot];
         let to_light = light.position - world_position;
         let distance = length(to_light);
-        if (distance >= light.radius) {
+        if (distance >= light.radius || !cabin_light_visible(light, world_position)) {
             continue;
         }
         let direction = to_light / max(distance, 1.0e-6);

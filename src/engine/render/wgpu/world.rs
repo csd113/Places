@@ -67,6 +67,10 @@ use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec4};
 use wgpu::util::DeviceExt;
 
+#[cfg(test)]
+#[path = "../../tests/elevator_light.rs"]
+mod elevator_light_tests;
+
 use super::material::WorldMaterials;
 use super::surface::DEPTH_FORMAT;
 use super::texture::{
@@ -855,11 +859,11 @@ impl EnvironmentUniform {
 /// Bytes one environment uniform occupies.
 pub const ENVIRONMENT_UNIFORM_SIZE: u64 = super::buffer_element_bytes::<EnvironmentUniform>();
 
-/// One GPU attached light: the WGSL `DynamicLight`, 32 bytes.
+/// One GPU attached light, including optional analytic cabin visibility.
 ///
 /// The neutral [`crate::engine::render::common::dynamic_lights::DynamicLight`] keeps a
 /// key for replacement; the key never reaches the shader, so the GPU value
-/// carries only the position, radius, colour and intensity.
+/// carries the light and its optional manufactured enclosure, without identity.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
 pub struct GpuDynamicLight {
@@ -871,6 +875,57 @@ pub struct GpuDynamicLight {
     pub color: [f32; 3],
     /// Additive intensity.
     pub intensity: f32,
+    pub enclosure_origin_gap: [f32; 4],
+    pub enclosure_right_enabled: [f32; 4],
+    pub enclosure_bounds: [f32; 4],
+    pub enclosure_portal: [f32; 4],
+    pub enclosure_doors: [f32; 4],
+}
+
+impl GpuDynamicLight {
+    #[must_use]
+    pub fn new(light: &crate::engine::render::common::DynamicLight) -> Self {
+        let mut result = Self {
+            position: light.position.into(),
+            radius: light.radius,
+            color: light.color,
+            intensity: light.intensity,
+            ..Self::zeroed()
+        };
+        if let Some(enclosure) = light.enclosure {
+            use crate::engine::elevator::{
+                CABIN_DOOR_Z, DEPTH, DOOR_HEIGHT, DOOR_LEAF_BACK, DOOR_LEAF_FRONT, HEIGHT,
+                LANDING_DOOR_Z, WIDTH,
+            };
+            let (sin, cos) = enclosure.rotation_degrees.to_radians().sin_cos();
+            result.enclosure_origin_gap = [
+                enclosure.origin.x,
+                enclosure.origin.y,
+                enclosure.origin.z,
+                enclosure.half_gap,
+            ];
+            result.enclosure_right_enabled = [cos, -sin, 1.0, -0.105];
+            // The passenger-side jamb/header ends at Z=.403. Clear stock is
+            // .688 m either side, above the .012 m opaque sill.
+            result.enclosure_bounds = [WIDTH * 0.5, HEIGHT, DEPTH, 0.403];
+            result.enclosure_portal = [0.688, 0.012, DOOR_HEIGHT, 0.710];
+            result.enclosure_doors = [
+                CABIN_DOOR_Z + DOOR_LEAF_BACK,
+                CABIN_DOOR_Z + DOOR_LEAF_FRONT,
+                if enclosure.landing_doors {
+                    LANDING_DOOR_Z + DOOR_LEAF_BACK
+                } else {
+                    CABIN_DOOR_Z + DOOR_LEAF_BACK
+                },
+                if enclosure.landing_doors {
+                    LANDING_DOOR_Z + DOOR_LEAF_FRONT
+                } else {
+                    CABIN_DOOR_Z + DOOR_LEAF_FRONT
+                },
+            ];
+        }
+        result
+    }
 }
 
 /// The one shadowed attached spotlight, packed alongside the existing lights.
@@ -917,7 +972,7 @@ impl GpuFlashlight {
 /// [`MAX_DYNAMIC_LIGHTS`]-entry light array.
 ///
 /// WGSL layout, pinned by tests: `count: u32` then three pad words (16 bytes),
-/// then `array<DynamicLight, 8>` at a 32-byte stride. Every unused slot is
+/// then `array<DynamicLight, 8>` at a 112-byte stride. Every unused slot is
 /// zero, so a shader that read past `count` would add nothing.
 #[repr(C, align(16))]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
@@ -951,12 +1006,7 @@ impl DynamicLightsUniform {
         let count = live.len().min(MAX_DYNAMIC_LIGHTS);
         uniform.count = u32::try_from(count).unwrap_or(u32::MAX);
         for (slot, light) in uniform.lights.iter_mut().zip(live.iter()) {
-            *slot = GpuDynamicLight {
-                position: [light.position.x, light.position.y, light.position.z],
-                radius: light.radius,
-                color: light.color,
-                intensity: light.intensity,
-            };
+            *slot = GpuDynamicLight::new(light);
         }
         uniform
     }
@@ -2926,7 +2976,7 @@ pub struct WorldPipeline {
     format: wgpu::TextureFormat,
     /// The last uploaded camera state, so a still camera writes nothing.
     uploaded: Option<CameraUniform>,
-    uploaded_lights: Option<DynamicLightsUniform>,
+    uploaded_lights: Option<Box<DynamicLightsUniform>>,
     transparent_scratch: std::cell::RefCell<Vec<TransparentEntry>>,
     #[cfg(feature = "visual-diagnostics")]
     visual_diagnostic: super::diagnostics::VisualDiagnosticMode,
@@ -3219,9 +3269,12 @@ impl WorldPipeline {
 
     /// Uploads only changed light state, including transitions to an empty set.
     pub fn update_light_uniform(&mut self, queue: &wgpu::Queue, uniform: &DynamicLightsUniform) {
-        if self.uploaded_lights.as_ref() != Some(uniform) {
+        if self.uploaded_lights.as_deref() != Some(uniform) {
             queue.write_buffer(&self.lights_buffer, 0, bytemuck::bytes_of(uniform));
-            self.uploaded_lights = Some(*uniform);
+            *self
+                .uploaded_lights
+                .get_or_insert_with(|| Box::new(*uniform))
+                .as_mut() = *uniform;
         }
     }
 
