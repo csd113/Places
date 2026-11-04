@@ -13,6 +13,10 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Safely release a persistently obstructed held prop once it becomes too far
+  away, preserving its current pose. Passive carry advisories appear only in
+  developer mode. See [Mac validation](docs/reports/held-auto-drop-0.13.1-mac.md).
+
 - Elevator cargo supports **32 distinct authored movable props/NPCs per project
   session**, including travellers left in visited levels, across rides and
   checkpoints; the player is excluded.

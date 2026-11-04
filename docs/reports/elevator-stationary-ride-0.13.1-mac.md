@@ -143,6 +143,11 @@ must nevertheless be refreshed against the updated compiler identity.
 
 ## Final accepted delivery
 
+This validation snapshot predates the later `c4cf6676` carry integration and
+the user's thick-pillar placement clarification. Its artifact identities and
+results remain retained evidence; current-source delivery is being refreshed
+after that follow-up. The old 24 cm placement refusal is not the final contract.
+
 The airborne correction is `2fa0437b`. The editor review correction
 `0b107bbd` is integrated through the identical tested source candidate
 `5f0e25e3` and its final evidence cherry-pick `0852edf3`. Only the separate
