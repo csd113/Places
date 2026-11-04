@@ -150,15 +150,23 @@ pub fn tick(
                         )
                     });
                 let candidates = actors.chain(props);
-                let count = candidates.clone().count();
+                let previous_handle = memory.and_then(|previous| previous.handle);
+                // Recheck the remembered target every pass. Skipping it in a
+                // rotating batch is not evidence that sight has been lost.
+                let tracked = candidates
+                    .clone()
+                    .find(|(handle, _, _, _)| Some(*handle) == previous_handle);
+                let budget = 8_usize.saturating_sub(usize::from(tracked.is_some()));
+                let others =
+                    candidates.filter(|(handle, _, _, _)| Some(*handle) != previous_handle);
+                let count = others.clone().count();
                 let first = memory
                     .map_or(0, |previous| previous.cursor)
                     .checked_rem(count)
                     .unwrap_or(0);
-                let sighting = candidates
-                    .cycle()
-                    .skip(first)
-                    .take(count.min(8))
+                let sighting = tracked
+                    .into_iter()
+                    .chain(others.cycle().skip(first).take(count.min(budget)))
                     .filter(|(_, gaze, _, object)| {
                         visible_geometry(agent, ctx, *gaze, *range, *fov_degrees, *object)
                     })
@@ -168,7 +176,7 @@ pub fn tick(
                     })
                     .map(|(handle, _, point, _)| (Some(handle), point, ctx.sim_time));
                 if let Some(updated) = agent.sense_memory.get_mut(index) {
-                    updated.cursor = first.saturating_add(8);
+                    updated.cursor = first.saturating_add(budget);
                 }
                 sighting
             }

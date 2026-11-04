@@ -15,6 +15,10 @@ pub struct Record {
     caught: bool,
     home: Vec3,
     home_yaw: f32,
+    // Legacy records inherit the exact authored definition. New captures also
+    // retain the current map's shelter coordinates through visits/checkpoints.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    shelters: Option<Vec<[f32; 3]>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     search: Option<super::PredatorSearchMemory>,
 }
@@ -88,6 +92,7 @@ impl Record {
             caught: agent.caught,
             home: agent.home,
             home_yaw: agent.home_yaw,
+            shelters: Some(agent.def.hide_anchors.clone()),
             search: agent.search.clone(),
         })
     }
@@ -97,6 +102,17 @@ impl Record {
             .point
             .map(|p| crate::engine::elevator::map_cabin_point(from, to, rotation, p));
         self.home = crate::engine::elevator::map_cabin_point(from, to, rotation, self.home);
+        if let Some(shelters) = self.shelters.as_mut() {
+            for anchor in shelters {
+                *anchor = crate::engine::elevator::map_cabin_point(
+                    from,
+                    to,
+                    rotation,
+                    Vec3::from_array(*anchor),
+                )
+                .to_array();
+            }
+        }
         if let Some(memory) = self.search.as_mut() {
             memory.point =
                 crate::engine::elevator::map_cabin_point(from, to, rotation, memory.point);
@@ -105,18 +121,36 @@ impl Record {
         self.home_yaw = facing.to_euler(glam::EulerRot::YXZ).0.to_degrees();
     }
 
-    /// A post outside the cabin belongs to the departing map. The visitor's
-    /// arrival becomes its new post; an in-cabin post retains its exact offset.
+    /// Posts/shelters outside the cabin belong to the departing map. Replace
+    /// them with the passenger's arrival post; cabin-local points travel intact.
     pub fn cabin_home(
         &mut self,
         frame: &crate::engine::elevator::CabinFrame,
         position: Vec3,
         yaw: f32,
     ) {
-        let home = frame.local(self.home);
-        if home.x.abs() >= 1.2 || home.z <= 0.36 || home.z >= 2.4 || home.y.abs() > 0.25 {
+        let inside = |point| {
+            let local = frame.local(point);
+            local.x.abs() < 1.2 && local.z > 0.36 && local.z < 2.4 && local.y.abs() <= 0.25
+        };
+        if !inside(self.home) {
             self.home = position;
             self.home_yaw = yaw;
+        }
+        if let Some(shelters) = self.shelters.as_mut() {
+            let mut normalized = Vec::with_capacity(shelters.len());
+            for &anchor in shelters.iter() {
+                let point = Vec3::from_array(anchor);
+                let retained = if inside(point) {
+                    anchor
+                } else {
+                    position.to_array()
+                };
+                if !normalized.contains(&retained) {
+                    normalized.push(retained);
+                }
+            }
+            *shelters = normalized;
         }
     }
 
@@ -157,6 +191,16 @@ impl Record {
         {
             return Err("Invalid transported NPC destination".into());
         }
+        if let Some(shelters) = &self.shelters
+            && (shelters.len() > 16
+                || (agent.def.behavior == super::AiBehavior::Skittish && shelters.is_empty())
+                || shelters.iter().any(|anchor| {
+                    let point = Vec3::from_array(*anchor);
+                    !point.is_finite() || point.abs().max_element() > 100_000.0
+                }))
+        {
+            return Err("Invalid transported NPC shelters".into());
+        }
         let resolved_target = self.target.as_deref().and_then(|id| {
             if id == "@player" {
                 Some(PLAYER_TARGET_HANDLE)
@@ -186,6 +230,10 @@ impl Record {
         agent.caught = self.caught;
         agent.home = self.home;
         agent.home_yaw = self.home_yaw;
+        if let Some(shelters) = &self.shelters {
+            agent.def.hide_anchors.clone_from(shelters);
+        }
+        agent.shelter_search = None;
         agent.path.clear();
         agent.path_goal = None;
         agent.path_done_goal = None;

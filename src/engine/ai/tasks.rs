@@ -356,20 +356,23 @@ fn step(
     if p.elapsed > 120.0
         && !matches!(
             def,
-            TaskDef::Routine {
-                steps: _,
-                looped: _
-            } | TaskDef::Follow {
-                target: _,
-                distance: _,
-                memory_seconds: _
-            } | TaskDef::Patrol {
-                points: _,
-                speed: _,
-                memory_seconds: _,
-                track_player: _,
-                decision_seconds: _
-            }
+            TaskDef::Wait { seconds: _ }
+                | TaskDef::Routine {
+                    steps: _,
+                    looped: _
+                }
+                | TaskDef::Follow {
+                    target: _,
+                    distance: _,
+                    memory_seconds: _
+                }
+                | TaskDef::Patrol {
+                    points: _,
+                    speed: _,
+                    memory_seconds: _,
+                    track_player: _,
+                    decision_seconds: _
+                }
         )
     {
         return Step::Failed("timeout");
@@ -633,6 +636,10 @@ fn step(
                 ) {
                     Step::Complete => {
                         if object.carried_by.is_none() && object.loose {
+                            // A routine keeps its token across child steps. The
+                            // delivered parcel must leave that operation now.
+                            reservations.retain(|_, owner| *owner != token);
+                            p.item = None;
                             return Step::Complete;
                         }
                         if child.stage_seconds > 5.0 {

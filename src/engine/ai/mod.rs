@@ -44,8 +44,13 @@ pub mod senses;
 pub mod tasks;
 pub mod travel;
 
+#[cfg(test)]
+#[path = "../tests/actor_collision.rs"]
+mod actor_collision_tests;
+
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::engine::collision::WallAabb;
 use crate::engine::collision_index::CollisionIndex;
@@ -576,9 +581,19 @@ pub struct AiAgent {
     pub hidden_remaining: f32,
     /// Prevents immediate re-entry while emerging from a shelter.
     pub shelter_cooldown: f32,
+    /// A budgeted shelter sweep, held at one origin until every anchor is compared.
+    shelter_search: Option<ShelterSearch>,
     /// Shared visible-light response temporarily holds locomotion and faces this point.
     /// The original behavior state, path and timers remain intact.
     pub light_look_target: Option<Vec3>,
+}
+
+#[derive(Debug)]
+struct ShelterSearch {
+    origin: Vec3,
+    door_version: u64,
+    cursor: usize,
+    best: Option<(f32, Vec3, Path)>,
 }
 
 impl AiAgent {
@@ -818,6 +833,8 @@ pub struct AiWorld {
     next_tick_agent: usize,
     // Queries execute serially: retain one full-grid workspace for the world.
     scratch: NavScratch,
+    // Full generation-safe handles index only transforms already published this tick.
+    actor_positions: HashMap<EntityHandle, Vec3>,
 }
 
 static NEXT_AI_EPOCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
@@ -840,6 +857,7 @@ impl Default for AiWorld {
             catches_total: 0,
             next_tick_agent: 0,
             scratch: NavScratch::new(),
+            actor_positions: HashMap::new(),
         }
     }
 }
@@ -1003,6 +1021,7 @@ impl AiWorld {
             shelter_return: None,
             hidden_remaining: 0.0,
             shelter_cooldown: 0.0,
+            shelter_search: None,
             light_look_target: None,
         });
         for request in initial_tasks {
@@ -1104,6 +1123,7 @@ impl AiWorld {
             agent.shelter_return = None;
             agent.hidden_remaining = 0.0;
             agent.shelter_cooldown = 0.0;
+            agent.shelter_search = None;
             agent.light_look_target = None;
         }
         let requests: Vec<_> = self
@@ -1564,8 +1584,16 @@ impl AiWorld {
         let count = self.agents.len();
         let first = self.next_tick_agent.checked_rem(count).unwrap_or(0);
         self.next_tick_agent = first.saturating_add(1).checked_rem(count).unwrap_or(0);
+        self.actor_positions.clear();
+        let mut published = 0;
         let (before, after) = self.agents.split_at_mut(first);
         for agent in after.iter_mut().chain(before.iter_mut()) {
+            // Consume each output once. Repeated updates retain the last pose,
+            // including caller-supplied moves and early-return light responses.
+            for &(handle, position, _, _) in out.moved.iter().skip(published) {
+                let _previous = self.actor_positions.insert(handle, position);
+            }
+            published = out.moved.len();
             let previous_speed = agent.speed_mps;
             out.cues_changed |= agent.pose_dirty.take();
             let previous_owner = agent.controller.owner;
@@ -1661,7 +1689,7 @@ impl AiWorld {
             } else {
                 decide(agent, ctx, out);
             }
-            advance(agent, ctx, out);
+            advance(agent, ctx, out, &self.actor_positions);
             out.cues_changed |= agent.pose_dirty.take();
             out.cues_changed |= agent.speed_mps != previous_speed;
             noise = noise.saturating_add(release_noise(agent, out));
@@ -1997,7 +2025,17 @@ fn decide_skittish(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
             set_state(agent, AiState::Hide { destination }, out);
             return;
         }
+        if agent.shelter_search.is_some() {
+            // Keep all candidate routes comparable across budgeted passes.
+            set_state(agent, AiState::Idle, out);
+            agent.path.clear();
+            agent.path_goal = None;
+            agent.speed_mps = 0.0;
+            return;
+        }
         agent.shelter_cooldown = PATH_RETRY_S;
+    } else {
+        agent.shelter_search = None;
     }
     decide_wanderer(agent, ctx, out);
 }
@@ -2024,9 +2062,19 @@ fn choose_shelter(
     let class = agent.class?;
     let bounds = agent.bounds();
     let mut trial = Path::new();
-    let mut best: Option<(f32, Vec3, Path)> = None;
-    for anchor_index in 0..agent.def.hide_anchors.len() {
-        let Some(anchor) = agent.def.hide_anchors.get(anchor_index).copied() else {
+    let mut search = agent
+        .shelter_search
+        .take()
+        .filter(|search| search.origin == agent.position)
+        .filter(|search| search.door_version == ctx.door_version)
+        .unwrap_or(ShelterSearch {
+            origin: agent.position,
+            door_version: ctx.door_version,
+            cursor: 0,
+            best: None,
+        });
+    while search.cursor < agent.def.hide_anchors.len() {
+        let Some(anchor) = agent.def.hide_anchors.get(search.cursor).copied() else {
             continue;
         };
         let authored = Vec3::from_array(anchor);
@@ -2038,9 +2086,11 @@ fn choose_shelter(
             ctx,
             agent.profile.can_open_doors,
         ) else {
+            search.cursor = search.cursor.saturating_add(1);
             continue;
         };
         if bounds.is_some_and(|volume| !volume.contains(point.position)) {
+            search.cursor = search.cursor.saturating_add(1);
             continue;
         }
         let query = PathQuery {
@@ -2052,8 +2102,10 @@ fn choose_shelter(
             doors: ctx,
         };
         if !reserve_path_query(agent, out) {
-            break;
+            agent.shelter_search = Some(search);
+            return None;
         }
+        search.cursor = search.cursor.saturating_add(1);
         let result = nav.path_into_bounded(&query, &mut agent.scratch, &mut trial, bounds);
         if result.is_err() || !trial.complete {
             continue;
@@ -2063,17 +2115,20 @@ fn choose_shelter(
             .windows(2)
             .filter_map(|pair| pair.first().zip(pair.get(1)).map(|(a, b)| a.distance(*b)))
             .sum::<f32>();
-        if best
+        if search
+            .best
             .as_ref()
             .is_none_or(|(length, _, _)| distance < *length)
         {
             let selected = std::mem::take(&mut trial);
-            if let Some((_, _, previous)) = best.replace((distance, point.position, selected)) {
+            if let Some((_, _, previous)) =
+                search.best.replace((distance, point.position, selected))
+            {
                 trial = previous;
             }
         }
     }
-    let (_, destination, path) = best?;
+    let (_, destination, path) = search.best?;
     agent.path = path;
     agent.path_age = 0.0;
     agent.path_door_version = ctx.door_version;
@@ -2197,7 +2252,12 @@ fn decide_idler(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcom
 }
 
 /// Moves one agent along its route, replanning when needed.
-fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
+fn advance(
+    agent: &mut AiAgent,
+    ctx: &AiTickContext<'_>,
+    out: &mut AiOutcome,
+    actor_positions: &HashMap<EntityHandle, Vec3>,
+) {
     let Some(nav) = ctx.nav else {
         if !agent.reported_unplaced {
             agent.reported_unplaced = true;
@@ -2348,7 +2408,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         if (near_dynamic
             || (agent.controller.active.is_some() && agent.position.distance(goal_position) < 0.8))
             && let Some((position, yaw, speed_mps)) =
-                physical_approach(agent, ctx, out, goal_position, speed)
+                physical_approach(agent, ctx, actor_positions, goal_position, speed)
         {
             agent.position = position;
             agent.yaw_degrees = yaw;
@@ -2395,7 +2455,15 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         agent.speed_mps = 0.0;
         return;
     };
-    match local_move_step(agent, ctx, out, nav, class, next_waypoint, speed) {
+    match local_move_step(
+        agent,
+        ctx,
+        actor_positions,
+        nav,
+        class,
+        next_waypoint,
+        speed,
+    ) {
         MoveStep::Moved {
             position,
             yaw_degrees,
@@ -2481,7 +2549,7 @@ fn advance(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
 fn physical_approach(
     agent: &AiAgent,
     ctx: &AiTickContext<'_>,
-    out: &AiOutcome,
+    actor_positions: &HashMap<EntityHandle, Vec3>,
     goal: Vec3,
     speed: f32,
 ) -> Option<(Vec3, f32, f32)> {
@@ -2520,7 +2588,7 @@ fn physical_approach(
         ) && agent
             .bounds()
             .is_none_or(|bounds| bounds.contains(position))
-            && actor_segment_clear(agent, agent.position, position, ctx, out)
+            && actor_segment_clear(agent, agent.position, position, ctx, actor_positions)
         {
             return Some((position, yaw_degrees, speed_mps));
         }
@@ -2534,7 +2602,7 @@ fn physical_approach(
 fn local_move_step(
     agent: &AiAgent,
     ctx: &AiTickContext<'_>,
-    out: &AiOutcome,
+    actor_positions: &HashMap<EntityHandle, Vec3>,
     nav: &NavMesh,
     class: usize,
     waypoint: Vec3,
@@ -2584,7 +2652,7 @@ fn local_move_step(
             let probe = Vec3::new(x, y, z);
             if agent.bounds().is_some_and(|bounds| !bounds.contains(probe))
                 || !nav.segment_clear(class, agent.position, probe, ctx, false)
-                || !actor_segment_clear(agent, agent.position, probe, ctx, out)
+                || !actor_segment_clear(agent, agent.position, probe, ctx, actor_positions)
             {
                 continue;
             }
@@ -2605,7 +2673,7 @@ fn local_move_step(
                 speed_mps: _,
             } = result
                 && nav.segment_clear(class, agent.position, position, ctx, false)
-                && actor_segment_clear(agent, agent.position, position, ctx, out)
+                && actor_segment_clear(agent, agent.position, position, ctx, actor_positions)
                 && agent
                     .bounds()
                     .is_none_or(|bounds| bounds.contains(position))
@@ -2626,7 +2694,7 @@ fn actor_segment_clear(
     from: Vec3,
     to: Vec3,
     ctx: &AiTickContext<'_>,
-    out: &AiOutcome,
+    actor_positions: &HashMap<EntityHandle, Vec3>,
 ) -> bool {
     let origin = glam::Vec2::new(from.x, from.z);
     let motion = glam::Vec2::new(to.x - from.x, to.z - from.z);
@@ -2636,12 +2704,10 @@ fn actor_segment_clear(
         }
         // Earlier movers in this tick have already published their pose. Use
         // that pose so processing order cannot let two bodies enter one gap.
-        let target_position = out
-            .moved
-            .iter()
-            .rev()
-            .find(|(handle, _, _, _)| *handle == target.handle)
-            .map_or(target.position, |(_, position, _, _)| *position);
+        let target_position = actor_positions
+            .get(&target.handle)
+            .copied()
+            .unwrap_or(target.position);
         if target_position.y + target.height <= from.y.min(to.y) + 0.01
             || target_position.y >= from.y.max(to.y) + agent.profile.height - 0.01
         {

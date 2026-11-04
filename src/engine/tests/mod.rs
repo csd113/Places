@@ -53,3 +53,5 @@ mod constant_lightmap_tiles;
 mod acoustics;
 
 mod gpu_probe;
+
+mod ai_travel;

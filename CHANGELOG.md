@@ -13,6 +13,13 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Remove repeated handle scans from actor collision avoidance. Keep sight alerts
+  stable across perception batches, compare every shelter within the shared path
+  budget, release delivered-item reservations between routine steps, and honor
+  authored long waits. Elevator NPCs retain cabin-local shelters through rotation;
+  departure-map shelters become the passenger's arrival post. Home regions remain
+  map-bound and cannot travel.
+
 - Protect editable compiler inputs and concurrent output edits during publication.
   Reuse verified navigation and project member streams after display metadata
   changes, reducing the measured collection refresh from 17.27s to 3.44s. Offer

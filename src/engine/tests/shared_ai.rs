@@ -21,6 +21,7 @@ use glam::Vec3;
 struct Fixture {
     world: AiWorld,
     time: f32,
+    acks: Vec<crate::engine::ai::tasks::UseAck>,
     objects: Vec<AiObject>,
     targets: Vec<AiTarget>,
     noises: Vec<crate::engine::ai::AiStimulus>,
@@ -36,6 +37,7 @@ impl Fixture {
         Self {
             world: AiWorld::new(),
             time: 0.0,
+            acks: Vec::new(),
             objects: Vec::new(),
             targets: Vec::new(),
             noises: Vec::new(),
@@ -81,7 +83,7 @@ impl Fixture {
                 obstacles: &self.obstacles,
                 objects: &self.objects,
                 player_visible: &[],
-                use_acks: &[],
+                use_acks: &self.acks,
             },
             &mut out,
         );
@@ -813,4 +815,287 @@ fn shared_ai_physical_observation_uses_shape_center_after_rotation() -> Result<(
         Some(center)
     );
     Ok(())
+}
+
+// Sixteen candidates exceed a sight batch. This protects persistent sight,
+// real loss/reacquisition and several visible candidates at constant CPU cost.
+#[test]
+fn sight_batches_keep_visible_targets_until_actual_loss() -> Result<(), String> {
+    let mut f = Fixture::new();
+    let _observer = f.add(
+        "observer",
+        1,
+        Vec3::ZERO,
+        AiDef {
+            sight_range: 0.0,
+            hearing_range: 0.0,
+            senses: vec![SenseRule {
+                filter: SenseFilter::See {
+                    player: false,
+                    entities: true,
+                    objects: vec![],
+                    object_types: vec![],
+                    range: 5.0,
+                    fov_degrees: 360.0,
+                },
+                response: SenseResponse::Alert {
+                    radius: 5.0,
+                    hops: 1,
+                },
+            }],
+            ..AiDef::default()
+        },
+    );
+    for n in 0_u16..16 {
+        f.targets.push(AiTarget {
+            handle: EntityHandle::from_parts(u32::from(n).saturating_add(10), 0),
+            instance_id: format!("target_{n}"),
+            role: None,
+            behavior: AiBehavior::Idler,
+            position: if n == 0 {
+                Vec3::Z
+            } else {
+                Vec3::new(100.0 + f32::from(n), 0.0, 0.0)
+            },
+            radius: 0.2,
+            height: 1.0,
+            caught: false,
+        });
+    }
+    for _ in 0_u8..20 {
+        let _out = f.tick(0.21, &[]);
+    }
+    assert_eq!(
+        f.world
+            .resource_snapshot()
+            .get("alerts")
+            .and_then(serde_json::Value::as_u64),
+        Some(1)
+    );
+    f.targets.first_mut().ok_or("target")?.position = Vec3::Z * 100.0;
+    for _ in 0_u8..3 {
+        let _out = f.tick(0.21, &[]);
+    }
+    f.targets.first_mut().ok_or("target")?.position = Vec3::Z;
+    for _ in 0_u8..3 {
+        let _out = f.tick(0.21, &[]);
+    }
+    assert_eq!(
+        f.world
+            .resource_snapshot()
+            .get("alerts")
+            .and_then(serde_json::Value::as_u64),
+        Some(2),
+        "real loss permits one reacquisition alert"
+    );
+    // Several farther visible candidates must not evict the nearest remembered
+    // actor as batches rotate. Old alert records expire during this phase.
+    for (index, target) in f.targets.iter_mut().enumerate().skip(1) {
+        let offset = f32::from(u16::try_from(index).map_err(|e| e.to_string())?) * 0.1;
+        target.position = Vec3::new(0.0, 0.0, 2.0 + offset);
+    }
+    for _ in 0_u8..35 {
+        let _out = f.tick(0.21, &[]);
+    }
+    assert_eq!(
+        f.world
+            .resource_snapshot()
+            .get("alerts")
+            .and_then(serde_json::Value::as_u64),
+        Some(0),
+        "stable visibility publishes no new alerts"
+    );
+    Ok(())
+}
+
+// A completed child shares the routine token with its successor. Two parcels
+// protect the actual native-contact lookup, then a wait/second NPC proves that
+// successful delivery releases ownership before the parent routine ends.
+#[test]
+fn routine_deliveries_release_each_parcel_before_the_next_step() -> Result<(), String> {
+    let mut f = Fixture::new();
+    let owner = f.add("a", 1, Vec3::ZERO, AiDef::default());
+    f.object("parcel", 10, Vec3::new(0.0, 0.0, 0.6), true);
+    f.object("shelf", 11, Vec3::Y, false);
+    f.object("parcel2", 12, Vec3::new(0.0, 0.0, 0.6), true);
+    f.object("shelf2", 13, Vec3::new(1.0, 1.0, 0.0), false);
+    let first = nearby_fetch("parcel", "shelf", [0.0, 1.0, 0.0]);
+    let second = nearby_fetch("parcel2", "shelf2", [1.0, 1.0, 0.0]);
+    assert!(f.world.request_task(
+        "a",
+        request(
+            "routine",
+            80,
+            TaskDef::Routine {
+                steps: vec![first, second, TaskDef::Wait { seconds: 60.0 }],
+                looped: false,
+            }
+        )
+    ));
+    let _start = f.tick(0.1, &[]);
+    let token = f
+        .world
+        .agent("a")
+        .and_then(|a| a.controller.active)
+        .ok_or("token")?;
+    for (index, slot, shelf) in [(0, 10, "shelf"), (2, 12, "shelf2")] {
+        assert_eq!(
+            f.world.reserved_item(token),
+            Some(EntityHandle::from_parts(slot, 0)),
+            "native contact resolves only this delivery's parcel"
+        );
+        let item = f.objects.get_mut(index).ok_or("parcel")?;
+        item.carried_by = Some(owner);
+        item.loose = false;
+        let out = f.tick(0.1, &[]);
+        assert!(out.task_effects.iter().any(|effect| matches!(
+            effect,
+            crate::engine::ai::tasks::TaskEffect::Putdown {
+                token: _,
+                contact: _
+            }
+        )));
+        assert!(
+            f.world
+                .item_reserved(EntityHandle::from_parts(slot, 0), token),
+            "custody survives until physical release and acknowledgement"
+        );
+        let released = f.objects.get_mut(index).ok_or("parcel")?;
+        released.carried_by = None;
+        released.loose = true;
+        released.position = if slot == 10 {
+            Vec3::Y
+        } else {
+            Vec3::new(1.0, 1.0, 0.0)
+        };
+        let contact = f.tick(0.2, &[]);
+        assert!(contact.task_effects.iter().any(|effect| matches!(
+            effect,
+            crate::engine::ai::tasks::TaskEffect::Use { token: _, point: _ }
+        )));
+        f.acks.push(crate::engine::ai::tasks::UseAck {
+            token,
+            target: shelf.into(),
+            completed_at: f.time,
+        });
+        let _complete = f.tick(0.1, &[]);
+        assert!(
+            !f.world
+                .item_reserved(EntityHandle::from_parts(slot, 0), token)
+        );
+        let _next = f.tick(0.1, &[]);
+    }
+    assert_eq!(f.world.reserved_item(token), None);
+    let run = f
+        .world
+        .agent("a")
+        .and_then(|a| a.controller.runs.first())
+        .ok_or("routine")?;
+    assert_eq!(run.progress.child.as_ref().ok_or("wait")?.status, "waiting");
+    let _second_owner = f.add("b", 2, Vec3::ZERO, AiDef::default());
+    assert!(f.world.request_task("b", request("collect", 80, fetch())));
+    let _collect = f.tick(0.21, &[]);
+    let next = f
+        .world
+        .agent("b")
+        .and_then(|a| a.controller.active)
+        .ok_or("collector")?;
+    assert!(f.world.item_reserved(EntityHandle::from_parts(10, 0), next));
+    Ok(())
+}
+
+// Simulated seconds cost only 600 tiny ticks. Explicit waits finish at their
+// authored duration while an unreachable move retains the generic stuck guard.
+#[test]
+fn long_waits_complete_but_stuck_moves_still_timeout() -> Result<(), String> {
+    let mut f = Fixture::new();
+    let _waiter = f.add("waiter", 1, Vec3::ZERO, AiDef::default());
+    let _mover = f.add("mover", 2, Vec3::ZERO, AiDef::default());
+    assert!(f.world.request_task(
+        "waiter",
+        request("long_wait", 80, TaskDef::Wait { seconds: 300.0 })
+    ));
+    assert!(f.world.request_task(
+        "mover",
+        request(
+            "stuck",
+            80,
+            TaskDef::Move {
+                point: [20.0, 0.0, 0.0],
+                speed: None
+            }
+        )
+    ));
+    for _ in 0_u16..599 {
+        let _out = f.tick(0.5, &[]);
+    }
+    let waiter = f.world.agent("waiter").ok_or("waiter")?;
+    assert_eq!(waiter.controller.last_result, None);
+    assert_eq!(waiter.controller.runs.len(), 1);
+    assert_eq!(
+        f.world
+            .agent("mover")
+            .ok_or("mover")?
+            .controller
+            .last_result
+            .as_deref(),
+        Some("stuck:timeout")
+    );
+    let _last = f.tick(0.5, &[]);
+    let finished = f.world.agent("waiter").ok_or("waiter")?;
+    assert_eq!(
+        finished.controller.last_result.as_deref(),
+        Some("long_wait:complete")
+    );
+    assert!(finished.controller.runs.is_empty());
+    Ok(())
+}
+
+// Preempting a fetch must release its item, then re-observe and reserve on
+// resumption. Cancellation invalidates that same token at native contact.
+#[test]
+fn preempted_fetch_reacquires_then_cancellation_releases_custody() -> Result<(), String> {
+    let mut f = Fixture::new();
+    let _actor = f.add("a", 1, Vec3::ZERO, AiDef::default());
+    f.object("parcel", 10, Vec3::Z, true);
+    f.object("shelf", 11, Vec3::Z * 3.0, false);
+    assert!(f.world.request_task("a", request("fetch", 80, fetch())));
+    let _initial = f.tick(0.1, &[]);
+    let token = f
+        .world
+        .agent("a")
+        .and_then(|a| a.controller.active)
+        .ok_or("token")?;
+    let item = EntityHandle::from_parts(10, 0);
+    assert!(f.world.item_reserved(item, token));
+    assert!(
+        f.world
+            .request_task("a", request("urgent", 100, TaskDef::Wait { seconds: 0.5 }))
+    );
+    let _preempt = f.tick(0.1, &[]);
+    assert!(!f.world.item_reserved(item, token));
+    for _ in 0_u8..5 {
+        let _out = f.tick(0.1, &[]);
+    }
+    assert!(f.world.item_reserved(item, token));
+    assert!(f.world.cancel_task("a", "fetch"));
+    assert!(!f.world.native_contact_valid(token));
+    assert_eq!(f.world.reserved_item(token), None);
+    Ok(())
+}
+
+fn nearby_fetch(item_id: &str, shelf: &str, contact: [f32; 3]) -> TaskDef {
+    let mut definition = fetch();
+    if let TaskDef::Fetch {
+        item,
+        destination,
+        search_radius: _,
+    } = &mut definition
+    {
+        *item = ItemSelector::Id(item_id.into());
+        destination.target = shelf.into();
+        destination.approach = [0.0, 0.0, 0.0];
+        destination.contact = contact;
+    }
+    definition
 }

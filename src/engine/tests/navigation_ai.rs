@@ -1154,3 +1154,92 @@ fn predator_search_refuses_unavailable_areas_and_reacts_to_fresh_noise_and_sight
     }
     Ok(())
 }
+
+// Nine anchors force a continuation beyond the eight-query frame budget. The
+// disconnected case protects liveness; the other cases protect shortest-route
+// and authored tie order across batches. Two agents also exercise budget fairness.
+#[test]
+fn shelter_sweeps_finish_fairly_and_compare_later_reachable_routes() -> Result<(), String> {
+    let cells: Vec<usize> = (0..60).filter(|i| ![3, 4].contains(&(i % 20))).collect();
+    let mut record = grid(20, 3, &cells);
+    for &cell in &cells {
+        if cell % 20 >= 5 {
+            *record
+                .region
+                .first_mut()
+                .and_then(|r| r.get_mut(cell))
+                .ok_or("region")? = 1;
+        }
+    }
+    let mut fixture = Fixture::new(record)?;
+    fixture.targets.push(AiTarget {
+        handle: EntityHandle::from_parts(100, 0),
+        instance_id: "threat".into(),
+        role: Some("threat".into()),
+        behavior: AiBehavior::Predator,
+        position: Vec3::new(0.5, 0.0, 2.5),
+        radius: 0.2,
+        height: 1.0,
+        caught: false,
+    });
+    let nearest = [1.5, 0.0, 1.5];
+    let mut disconnected: Vec<_> = (5_u16..13)
+        .map(|x| [f32::from(x) + 0.5, 0.0, 1.5])
+        .collect();
+    disconnected.push(nearest);
+    let mut later_nearer = vec![[2.5, 0.0, 1.5]; 8];
+    later_nearer.push(nearest);
+    let first_tie = [1.5, 0.0, 0.5];
+    let mut tied = vec![[2.5, 0.0, 1.5]; 9];
+    *tied.first_mut().ok_or("first tie")? = first_tie;
+    *tied.last_mut().ok_or("last tie")? = [1.5, 0.0, 2.5];
+    for (anchors, expected) in [
+        (disconnected, nearest),
+        (later_nearer, nearest),
+        (tied, first_tie),
+    ] {
+        let mut world = AiWorld::new();
+        for slot in 1..=2 {
+            let _handle = register(
+                &mut world,
+                slot,
+                AiDef {
+                    behavior: AiBehavior::Skittish,
+                    reacts_to: vec!["threat".into()],
+                    hide_anchors: anchors.clone(),
+                    sight_fov_degrees: 360.0,
+                    hearing_range: 0.0,
+                    ..AiDef::default()
+                },
+                Vec3::new(0.5, 0.0, 1.5),
+            );
+        }
+        let mut selected = [false; 2];
+        for tick in 0_u8..50 {
+            let mut out = AiOutcome::default();
+            world.tick(&fixture.context(0.1, &[]), &mut out);
+            assert!(out.path_queries <= crate::engine::ai::MAX_PATH_QUERIES_PER_TICK);
+            for (index, agent) in world.agents().iter().enumerate() {
+                if let AiState::Hide { destination } = agent.state {
+                    assert!(destination.distance(Vec3::from_array(expected)) < 0.001);
+                    *selected.get_mut(index).ok_or("agent")? = true;
+                }
+                if tick == 0 {
+                    assert_eq!(
+                        agent.position,
+                        Vec3::new(0.5, 0.0, 1.5),
+                        "pending routes share one stationary origin"
+                    );
+                }
+            }
+            if selected.iter().all(|done| *done) {
+                break;
+            }
+        }
+        assert!(
+            selected.iter().all(|done| *done),
+            "both agents eventually reach their ninth candidate"
+        );
+    }
+    Ok(())
+}
