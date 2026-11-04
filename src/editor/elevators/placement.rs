@@ -309,6 +309,9 @@ fn check_ceiling(
     room: &crate::engine::level::RoomDef,
     index: usize,
 ) -> Result<(), String> {
+    if room.ceiling.is_open() {
+        return Ok(());
+    }
     let (left, right, front, back) = room.bounds();
     let floor = room.floor_y;
     for &(low, high) in sections {

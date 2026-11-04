@@ -262,6 +262,10 @@ impl Viewport {
         self.camera.ray(point, self.size)
     }
 
+    pub fn floor_distance(&self, origin: Vec3, direction: Vec3) -> Option<f32> {
+        picking::floor_distance(&self.objects, origin, direction)
+    }
+
     /// Native verification still dispatches an ordinary screen click.
     pub fn project(&self, position: Vec3) -> Option<[f32; 2]> {
         let guide = overlay::Guides::new(

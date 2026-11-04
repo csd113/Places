@@ -1,6 +1,6 @@
 //! Small source-only regressions: flush four-face fitting, atomic opening edits,
 //! and real cabin clearance at sub-centimetre gap boundaries. No rendering/bake.
-use super::{links, placement};
+use super::{links, placement, wall_under_ray};
 use crate::editor::document::Document;
 use glam::Vec3;
 use serde_json::{Value, json};
@@ -139,15 +139,26 @@ fn actual_cabin_depth_width_and_height_gate_placement() -> Result<(), String> {
         );
         dispose(&doc)?;
     }
-    for (name, height, accepted) in [("roof_exact", 2.63_f32, true), ("roof_short", 2.62, false)] {
+    for (name, height, open, accepted) in [
+        ("roof_exact", 2.63_f32, false, true),
+        ("roof_short", 2.62, false, false),
+        ("open_low_eave", 2.0, true, true),
+    ] {
         let mut room = parse(r#"{"x":-4,"z":-4,"width":8,"depth":8,"height":3}"#)?;
         set(&mut room, "height", json!(height))?;
+        if open {
+            drop(
+                room.as_object_mut()
+                    .ok_or("missing room object")?
+                    .insert("ceiling".into(), json!({"kind":"open"})),
+            );
+        }
         let doc = document(name, &json!([]), &json!([room]))?;
         let result = placement::resolve(&doc, [0.0, 0.0, 0.0], 35.0, None, None, None);
         assert_eq!(
             result.is_ok(),
             accepted,
-            "free rotated placement respects its source room ceiling"
+            "free rotated placement respects solid ceilings and permits open sky"
         );
         dispose(&doc)?;
     }
@@ -164,6 +175,48 @@ fn actual_cabin_depth_width_and_height_gate_placement() -> Result<(), String> {
     );
     dispose(&doc)?;
     Ok(())
+}
+
+#[test]
+fn visible_storey_floor_blocks_lower_wall_but_not_horizontal_doorway_picking() -> Result<(), String>
+{
+    // Three source-only rays protect against editing the storey below an opaque
+    // floor while retaining nearer walls and aperture-aware horizontal picking.
+    let walls = parse(
+        r#"[{"x":-3,"z":0,"width":6,"depth":0.2,"height":2.8,"openings":[{"kind":"door","offset":2.25,"width":1.5,"height":2.25}]}]"#,
+    )?;
+    let rooms = parse(
+        r#"[{"x":-3,"z":-5,"width":6,"depth":5,"height":2.8},{"x":-3,"z":-5,"width":6,"depth":5,"floor_y":3.5,"height":2.8}]"#,
+    )?;
+    let doc = document("floor_occludes_wall", &walls, &rooms)?;
+    let focus = crate::editor::focus::Focus::default();
+    let eye = Vec3::new(0.0, 5.1, -4.0);
+    let direction = (Vec3::new(0.0, 3.5, -2.0) - eye).normalize();
+    let floor_distance = Some((3.5 - eye.y) / direction.y);
+    assert!(
+        wall_under_ray(doc.level(), &focus, eye, direction, floor_distance).is_none(),
+        "the upper floor at z=-2 hides the lower wall at z=0"
+    );
+    let horizontal = wall_under_ray(
+        doc.level(),
+        &focus,
+        Vec3::new(0.0, 1.6, -4.0),
+        Vec3::Z,
+        None,
+    )
+    .ok_or("horizontal doorway did not pick its host wall")?;
+    assert_eq!(horizontal.0, 0, "empty apertures retain their host wall");
+    let mut level = doc.level().clone();
+    let mut nearer = level.walls.first().cloned().ok_or("missing wall")?;
+    nearer.y = 3.5;
+    nearer.z = -3.0;
+    level.walls.push(nearer);
+    assert_eq!(
+        wall_under_ray(&level, &focus, eye, direction, floor_distance).map(|(index, _)| index),
+        Some(1),
+        "a wall in front of the upper floor remains pickable"
+    );
+    dispose(&doc)
 }
 
 #[test]

@@ -355,12 +355,30 @@ impl App {
 // through an existing doorway still fits its host rather than a distant wall.
 fn wall_under_pointer(app: &App, origin: Vec3, direction: Vec3) -> Option<(usize, f32)> {
     let doc = app.document.as_ref()?;
-    let surfaces = crate::engine::level::LevelSurfaces::new(doc.level());
-    doc.level()
+    wall_under_ray(
+        doc.level(),
+        &app.focus,
+        origin,
+        direction,
+        app.viewport.floor_distance(origin, direction),
+    )
+}
+
+fn wall_under_ray(
+    level: &crate::engine::level::LevelDef,
+    focus: &super::focus::Focus,
+    origin: Vec3,
+    direction: Vec3,
+    floor_distance: Option<f32>,
+) -> Option<(usize, f32)> {
+    // Use the viewport's emitted terrain triangles, including recesses/ramps.
+    // The free-placement fallback plane is not geometry and cannot occlude walls.
+    let surfaces = crate::engine::level::LevelSurfaces::new(level);
+    level
         .walls
         .iter()
         .enumerate()
-        .filter(|(index, _)| app.focus.visible(super::document::ObjectId::Wall(*index)))
+        .filter(|(index, _)| focus.visible(super::document::ObjectId::Wall(*index)))
         .filter_map(|(index, wall)| {
             let (x, z) = wall.min_corner();
             let (minimum, source, delta) = match wall.axis() {
@@ -373,7 +391,10 @@ fn wall_under_pointer(app: &App, origin: Vec3, direction: Vec3) -> Option<(usize
                 minimum + wall.thickness()
             };
             let distance = (face - source) / delta;
-            if !distance.is_finite() || !(0.0..=500.0).contains(&distance) {
+            if !distance.is_finite()
+                || !(0.0..=500.0).contains(&distance)
+                || floor_distance.is_some_and(|floor| distance > floor + 0.0005)
+            {
                 return None;
             }
             let hit = Vec3::new(

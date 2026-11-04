@@ -2,7 +2,7 @@
 //! never the obsolete original room plane. No renderer, assets, bake or I/O;
 //! one tiny scene and four rays cost well below a millisecond.
 
-use super::terrain_objects;
+use super::{floor_distance, terrain_objects};
 use crate::editor::document::ObjectId;
 use crate::engine::level::LevelDef;
 use glam::Vec3;
@@ -36,7 +36,11 @@ fn picking_tracks_recess_depth_and_signed_ramp_surface() -> Result<(), String> {
             "Picking must select the emitted terrain owner"
         );
         assert!(
-            (found.1 - distance).abs() < 0.0001_f32,
+            (floor_distance(&objects, Vec3::new(x, 10.0_f32, z), -Vec3::Y)
+                .ok_or("No floor occluder picked")?
+                - distance)
+                .abs()
+                < 0.0001_f32,
             "Picking must respect actual surface height"
         );
     }

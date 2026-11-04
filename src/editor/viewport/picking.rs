@@ -50,6 +50,24 @@ impl PickObject {
     }
 }
 
+pub(super) fn floor_distance(objects: &[PickObject], origin: Vec3, direction: Vec3) -> Option<f32> {
+    // Floors are single-sided in the viewport. The cached pick triangles follow
+    // actual region/ramp surfaces and already carry the current visibility filter.
+    if direction.y >= -0.0001 {
+        return None;
+    }
+    objects
+        .iter()
+        .filter(|object| {
+            matches!(
+                object.id,
+                ObjectId::Room(_) | ObjectId::FloorRegion(_) | ObjectId::Ramp(_)
+            )
+        })
+        .filter_map(|object| object.distance(origin, direction))
+        .min_by(f32::total_cmp)
+}
+
 pub(super) fn objects(
     level: &LevelDef,
     catalog: &PropCatalog,
