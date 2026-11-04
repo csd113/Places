@@ -72,8 +72,9 @@ def actions(mode):
     if mode == 'shaft':
         add(50, 'player', position=[0, 1.6, 1.2], yaw=0, pitch=0)
         click(200, [.94, 1.58, .4])
-        # Aim before vertical movement, then retain the cabin-relative view.
-        add(1500, 'view_at', position=[.94, 1.30, .4])
+        # This starts closed, so departure is immediate. Aim near the origin,
+        # then retain the cabin-relative view throughout vertical movement.
+        add(220, 'view_at', position=[.94, 1.30, .4])
         add(1900, 'mouse', button='left', pressed=True)
         add(1970, 'mouse', button='left', pressed=False)
         checkpoint(2050, 'moving-sealed')
@@ -176,6 +177,8 @@ def verify(mode, rows):
     if mode == 'shaft':
         assert lift('moving-sealed')['phase']=='moving'
         assert lift('moving-sealed')['opening']==0
+        target=checkpoints['moving-sealed']['interaction_target']
+        assert target and target['id'].endswith(':door'), target
         for name,phase in [('upper-arrived','open'),('upper-closed','closed'),('upper-reopened','open')]:
             assert lift(name)['phase']==phase, (name,lift(name))
             assert lift(name)['stop']==lift(name)['target']==1

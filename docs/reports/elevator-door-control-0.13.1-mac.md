@@ -82,6 +82,12 @@ The first monster attempt is explicitly excluded: its timed strafe coasted past
 the walking aperture, so the test player never boarded or activated a cabin
 control. The corrected route is accepted in `native-monster-v3/`; the earlier
 valid hiding run remains in `native-monster-v2/`.
+The first shaft capture exercised travel but missed the moving door button:
+that closed-cabin trip departed immediately, before the camera aimed at its
+original world height. `native-shaft-v2/` corrects the aim and additionally
+requires the real door interaction target during movement. That accepted press
+leaves the car sealed. The earlier attempt is retained and marked as excluded
+evidence for that specific press.
 
 ## Reproduction, deliverables and limits
 
