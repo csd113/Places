@@ -7446,6 +7446,8 @@ finite and positive. An entity that authors `ai` **must** also author a
 | `hearing_range` | `6.0` | metres; `0` disables hearing |
 | `flee_distance` | `5.0` | preferred separation a fleeing agent seeks |
 | `pursue_distance` | `12.0` | a predator gives up beyond this range |
+| `search_after_seconds` | `8.0` | finite `0.25..=120`; baseline predator investigation deadline after the last visual sighting |
+| `search_radius` | `12.0` | finite `2..=128` metres per outward search leg; complete reachable routes only, respecting `home_bounds` |
 | `catch_radius` | `0.45` | reach added to the target's radius, in metres |
 | `catch_height` | `0.8` | largest vertical separation a catch accepts |
 | `wander_radius` | `4.0` | wander destinations stay inside this radius |
@@ -7460,6 +7462,20 @@ Behavior is data, never a model or map name: a `prey` flees every agent whose
 `role` appears in its `reacts_to`; a `predator` pursues and catches such an
 agent; a `follower` keeps one in sight; a `wanderer` picks navigable
 destinations around its post; an `idler` stands and reacts.
+
+A baseline predator that loses sight investigates its actual last observed
+position for `search_after_seconds`, then searches other reachable areas. Each
+search leg stays within `search_radius` of its starting position, at least 2 m
+from the remembered location, and uses a complete path within its authored home
+bounds. It never samples the hidden player's current coordinates. Closed doors
+still block vision and movement. Fresh sound can prompt a short investigation
+(up to 2 seconds) without becoming visual knowledge; continuing noise can keep
+attracting attention. Fresh sight resumes pursuit immediately on the normal
+perception cadence. A trapped agent with no alternative route waits safely and
+retries within the shared planning budget. These are baseline behavior settings;
+authored tasks, scripts, sequences and their priorities keep their own control.
+The editor's AI component form exposes Predator search delay/radius. Search
+memory and its remaining deadline survive checkpoints and cabin transport.
 
 `skittish` wanders until a reacting contact approaches, walks at run speed to
 the nearest reachable shelter, becomes invisible only after physically entering
