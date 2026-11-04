@@ -19,10 +19,10 @@ All preserve +Y up and metre dimensions. Their origin is the mechanism's
 threshold, rather than an ordinary centre-bottom prop origin. Button stock
 starts at the first control anchor and is repeated only for other destinations;
 the current stop is omitted. Its front cap selects a committed glyph in cell 14.
-The cabin shell has 1,336 triangles before button assembly; frame 386, leaf 56
+The cabin shell has 1,324 triangles before button assembly; frame 240, leaf 56
 and button 54. Each rigid resource remains below the 1,500-triangle asset limit.
 The simple linked flow allows two destination buttons plus the separate green
-door-arrow button, for 1,498 assembled triangles. Glyph slot 15 is reserved for
+door-arrow button, for 1,486 assembled triangles. Glyph slot 15 is reserved for
 the committed door icon. The backing's concealed rear face is omitted.
 The diffuse atlas is shared; only the lamp face emits. One bounded moving light
 supplies warm illumination through the engine's existing realtime light path.
@@ -80,3 +80,16 @@ Run check_uv_stability.py for the CPU UV guard and tools/bench/elevator_motion.p
 for lossless direct-binary animation evidence; static overlap checks alone cannot
 establish texture stability. Re-export elevator maps after updating the models,
 because packages retain explicit mechanism dependency identities.
+
+Doorway fit refinement: the landing frame is inset into the exact 1.50 × 2.25 m
+host opening, with its hall face at local Z=0. The cabin frame finishes on the
+walnut wall plane at Z=0.360 m. Both jamb apertures end at X=±0.688 m; 7 mm of
+each open leaf remains visible. The sliding steel faces are 20 mm apart (24 mm
+including the concealed centre seal), retaining the original conservative
+collision envelope and all transform anchors. The frame has 240 triangles;
+its formerly projecting, Boolean-welded stock is replaced by fitted returns.
+Side/rear bronze skirts reach the floor and meet continuously at the corners,
+closing the former 25 mm floor-wall gap without changing the cabin finishes.
+`check_doorway_fit.py --baseline 9a771f1b` protects unchanged geometry/UVs outside
+the doorway and specifically authorized floor skirts; `check_cabin_corners.py`
+probes every shell edge and the floor joins. These are explicit offline checks.
