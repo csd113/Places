@@ -82,13 +82,7 @@ fn cabin_light_visible(light: DynamicLight, world_position: vec3<f32>) -> bool {
         return abs(point.x) <= bounds.x + 0.0001 && point.y >= -0.0001 &&
                point.y <= bounds.y + 0.0001 && point.z <= bounds.z + 0.0001;
     }
-    // The broad passenger-facing pocket skin ends at Z=.36. The control
-    // surround projects from it outside the narrow .735 m stop stock, and
-    // the walnut above its 2.24 m header is exposed to the cabin. These are
-    // interior receivers, not passages through the front enclosure.
-    if (point.z >= 0.36 - 0.0001 && (abs(point.x) > 0.735 || point.y >= 2.24) && abs(point.x) <= bounds.x &&
-        point.y >= 0.0 && point.y <= bounds.y) { return true; }
-    let panel_back = max(light.enclosure_doors.x, light.enclosure_doors.z) - 0.0075;
+    let panel_back = max(light.enclosure_doors.x, light.enclosure_doors.z);
     if (light.enclosure_origin_gap.w <= 0.0 && point.z < panel_back - 0.0001) {
         return false;
     }
@@ -124,21 +118,19 @@ fn cabin_light_visible(light: DynamicLight, world_position: vec3<f32>) -> bool {
     // contract: back/front Z, clear half-width, clear height. Trace complete
     // depth intervals, including receivers within the recessed channels.
     let sections = array<vec4<f32>, 4>(
-        vec4<f32>(bounds.w, 0.385, aperture.x, aperture.z),
+        vec4<f32>(bounds.w, 0.312, aperture.x, aperture.z),
         vec4<f32>(0.260, 0.235, 0.679, aperture.z),
         vec4<f32>(0.225, 0.195, 0.675, aperture.z),
-        vec4<f32>(0.025, light.enclosure_right_enabled.w, aperture.w, aperture.z));
+        vec4<f32>(0.138, light.enclosure_right_enabled.w, aperture.w, aperture.z));
     for (var section = 0u; section < 4u; section = section + 1u) {
         if (!cabin_section_visible(source, point, sections[section], aperture.y)) {
             return false;
         }
     }
     for (var track = 0u; track < 2u; track = track + 1u) {
-        // The full collider includes a .0075 m projecting centre seal. Use
-        // the actual panel back face for receiver clipping: the conservative
-        // clear half-gap already includes that seal. Otherwise the seal's
-        // bounding slab would shadow the entire passenger-facing door panel.
-        let back = light.enclosure_doors[track * 2u] - 0.0075;
+        // Trace the main rendered skin, not the wider conservative collider or
+        // the concealed centre seal. The clear half-gap includes that seal.
+        let back = light.enclosure_doors[track * 2u];
         let front = light.enclosure_doors[track * 2u + 1u];
         let section = vec4<f32>(back, front, light.enclosure_origin_gap.w, aperture.z);
         if (!cabin_section_visible(source, point, section, aperture.y)) {
@@ -189,11 +181,16 @@ fn dynamic_light_term(normal: vec3<f32>, world_position: vec3<f32>) -> vec3<f32>
         let light = dynamic_lights.lights[slot];
         let to_light = light.position - world_position;
         let distance = length(to_light);
-        if (distance >= light.radius || !cabin_light_visible(light, world_position)) {
+        if (distance >= light.radius) {
             continue;
         }
         let direction = to_light / max(distance, 1.0e-6);
         let ndl = max(dot(normal, direction), 0.0);
+        // A back-facing receiver contributes exactly zero. Avoid tracing the
+        // cabin stock for that lobe, especially the exterior landing wall.
+        if (ndl <= 0.0 || !cabin_light_visible(light, world_position)) {
+            continue;
+        }
         let window = clamp(1.0 - distance / light.radius, 0.0, 1.0);
         sum += light.color * light.intensity * ndl * window * window;
     }

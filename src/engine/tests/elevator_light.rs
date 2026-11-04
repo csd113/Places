@@ -49,6 +49,16 @@ fn cabin_light_keeps_the_interior_on_and_tracks_the_actual_seal() -> Result<(), 
         assert_eq!(gpu.enclosure_right_enabled[1], -1.0);
         assert_eq!(gpu.enclosure_right_enabled[2], 1.0);
         assert!(gpu.enclosure_doors[2] < gpu.enclosure_doors[0]);
+        for (actual, expected) in gpu
+            .enclosure_doors
+            .into_iter()
+            .zip([0.31, 0.29, 0.16, 0.14])
+        {
+            assert!(
+                (actual - expected).abs() < 0.00001,
+                "Light tracks follow the rendered 20 mm skin, not collision stock"
+            );
+        }
     }
     elevator.phase = Phase::Moving;
     elevator.opening = 0.0;
