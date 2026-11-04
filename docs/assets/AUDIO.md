@@ -194,3 +194,9 @@ WAVs rendered offline by `tools/audio/elevator.py`. Their exact output hashes,
 PCM format and recipes are tracked in the ordinary authoring/provenance records.
 Lift runtime uses 1.5 m near / 12 m far attenuation and occasional shaft passes;
 see [passenger elevators](../ELEVATORS.md).
+
+`elevator_travel` is an original 1.8-second mono traction-motor rise and release,
+rendered offline by the same tool. It plays once at the passenger's ears during
+the sealed simulated ride, before either local transfer or level preparation.
+Its source anchor remains live until that interval ends; ordinary closed doors
+and idle cabins do not play it. The catalog applies the normal effects volume.

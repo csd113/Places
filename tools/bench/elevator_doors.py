@@ -72,12 +72,12 @@ def actions(mode):
     if mode == 'shaft':
         add(50, 'player', position=[0, 1.6, 1.2], yaw=0, pitch=0)
         click(200, [.94, 1.58, .4])
-        # This starts closed, so departure is immediate. Aim near the origin,
-        # then retain the cabin-relative view throughout vertical movement.
+        # This starts closed, so the sealed ride starts immediately. Aim at
+        # the fixed control and press well before its 1.8-second transfer.
         add(220, 'view_at', position=[.94, 1.30, .4])
-        add(1900, 'mouse', button='left', pressed=True)
-        add(1970, 'mouse', button='left', pressed=False)
-        checkpoint(2050, 'moving-sealed')
+        add(1300, 'mouse', button='left', pressed=True)
+        add(1370, 'mouse', button='left', pressed=False)
+        checkpoint(1450, 'moving-sealed')
         checkpoint(7000, 'upper-arrived')
         click(7200, [.94, 4.80, .4])
         checkpoint(8900, 'upper-closed')
@@ -236,12 +236,16 @@ def run(args):
                     texture_filtering='high',reflections='off',bloom=False,vsync=True,
                     walk_speed=3,fov_degrees=90)
     (state/'settings.json').write_text(json.dumps(settings))
-    script=out/'actions.json';script.write_text(json.dumps(actions(args.mode),indent=2)+'\n')
+    scripted=actions(args.mode)
+    for anchor in (LOBBY,ANNEX):
+        scripted.insert(0,dict(after=anchor,delay_ms=0,action=dict(kind='focus',focused=True)))
+    script=out/'actions.json';script.write_text(json.dumps(scripted,indent=2)+'\n')
     trace=out/'trace.jsonl'
     env={k:v for k,v in os.environ.items() if not k.startswith('PLACES_')}
     env.update(PLACES_ASSET_ROOT=str(ROOT/'assets'),PLACES_STATE_ROOT=str(state),
                PLACES_LEVEL='elevator_lobby',PLACES_BENCH='1',PLACES_BENCH_FRAMES='6000',
-               PLACES_BENCH_WARMUP='3',PLACES_LOAD_TRACE=str(trace),PLACES_BENCH_ACTIONS=str(script))
+               PLACES_BENCH_WARMUP='3',PLACES_LOAD_TRACE=str(trace),PLACES_BENCH_ACTIONS=str(script),
+               PLACES_AUDIO_CAPTURE='1')
     with (out/'game.log').open('w') as log:
         subprocess.run([str(args.binary.resolve())],cwd=ROOT,env=env,stdout=log,
                        stderr=subprocess.STDOUT,check=True,timeout=60)

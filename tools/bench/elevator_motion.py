@@ -119,6 +119,14 @@ def capture(args):
     if args.arrival:
         assert final['elevators'][0]['stop'] == 1
         assert abs(final['player_position'][1] - 5.1) < .01
+        # The reported floating deck must never recur at an intermediate pose.
+        # The CPU replay also checks actual renderer parts at every simulation
+        # tick; these checkpoints establish the same invariant in the binary.
+        poses_seen = [data['elevators'][0] for data in checkpoints.values()]
+        assert any(lift['phase'] == 'moving' for lift in poses_seen)
+        assert all(min(abs(lift['y']), abs(lift['y']-3.5)) < .0001 for lift in poses_seen)
+        assert all(abs(data['player_position'][1]-data['elevators'][0]['y']-1.6) < .01
+                   for data in checkpoints.values())
     frames = out / 'frames'
     frames.mkdir()
     subprocess.run([args.ffmpeg, '-v', 'error', '-nostdin', '-i', str(out / 'native.mkv'),
