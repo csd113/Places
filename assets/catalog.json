@@ -12605,7 +12605,7 @@
       "source": "file",
       "model": "shared/props/elevator_70s/elevator_cabin_70s.glb",
       "size": [
-        2.56,
+        2.9,
         2.71,
         2.64
       ],
@@ -12624,9 +12624,9 @@
       "source": "file",
       "model": "shared/props/elevator_70s/elevator_frame_70s.glb",
       "size": [
-        1.815,
-        2.574,
-        0.18
+        2.85,
+        2.584,
+        0.41
       ],
       "solid": false,
       "authoring": {
@@ -12643,9 +12643,9 @@
       "source": "file",
       "model": "shared/props/elevator_70s/elevator_leaf_70s.glb",
       "size": [
-        0.672,
-        2.189,
-        0.045
+        0.699,
+        2.23,
+        0.0525
       ],
       "solid": false,
       "authoring": {

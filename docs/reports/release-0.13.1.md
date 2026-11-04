@@ -4731,3 +4731,77 @@ See the [authoring guide](../ELEVATORS.md) and
 
 The final full asset inventory reports 415 unique model files and zero errors;
 the new embedded atlas pixels match their committed standalone PNG source.
+
+## Sealed door pockets and simple linked cabins, 2026-11-04
+
+The front assembly now has hollow dark channels for both sliding pairs. Narrow
+panel lips remain visible at full opening, with the full 1.35 m aperture clear.
+Wider/taller leaf stock, concealed rear centre seals and opaque pocket liners
+close side, top and centre sightlines. Moving the inner pair behind the landing
+wall's cabin-facing plane prevents fixed hall walls appearing inside a travelling
+car. Welded fascia joints and separated panel, skirt and ceiling joins remove
+exposed coplanar faces. Blender/XCF sources and all runtime exports are retained.
+Current triangle counts are cabin 1,096, frame 386, leaf 56 and button 56; the
+advanced eight-stop cabin omits its current button and stays below 1,500 triangles.
+
+Build > Elevator now starts click placement. Place another cabin, select the
+first, choose Link and click the second. Names are optional; detailed shaft
+settings are behind Advanced. A level destination needs only a project map and
+its saved arrival cabin. Source edits include allowed transitions atomically.
+Simple groups have at most three stops/two destinations; larger merges are
+refused without mutation. Independent groups retain independent state. Labels
+and button order do not depend on elevation. Legacy physical shafts retain their
+eight-stop advanced capacity. The cabin panel omits the current stop and selects
+committed GIMP number/letter pixels rather than generating texture imagery.
+
+The explicitly temporary projects/elevator-links fixture contains side-by-side
+Ground and logical Floor 1 halls at the same elevation, plus a separate Annex
+level. Every route has a return button. Actual native editor placement, linking,
+level choice, saving and complete-project export produced the retained package;
+both source levels verify current and integrity-valid. The older elevator-lab
+remains the physical-shaft regression. Neither is in shipped-map preparation.
+
+Real-GLB probes cover 7,182 closed sightlines per assembly (complete portal,
+moving cabin and isolated landing): zero leaks, against 420 in the old complete
+portal. All 155 full-open aperture rays are clear. Separate probes confirm both
+visible full-open panel lips. Five opening poses have zero exposed coplanar
+triangle overlaps. These explicit developer tools do not run in default CI.
+
+Direct native Full-lighting closed/open/interior, close-edge, motion and oblique
+views were inspected. The final physical campaign passed floor travel/return,
+walking, save/resume, identical frozen loading frames, responsive resize,
+cancellation, failed-load reopening and sound falloff. Another native route passed
+same-height travel, elevated arrival/save/resume and a separate two-stop group,
+verifying that the first group's state remained unchanged. Native editor
+save/reopen, delete/undo and group-limit refusal also passed.
+
+Local deliverables under local/elevator-door-seals/deliverables include a
+45-second 1280x720 gameplay video with actual game audio, a 40-second 1920x1080
+captioned tutorial made from actual native editor captures, the complete playable
+Static/Full project package and four fresh game screenshots. The gameplay receipt
+records real frame intervals and both same-map and cross-level return routes.
+The opt-in capture helper handles the engine's float WAV and FFmpeg 9 timing.
+Earlier incomplete build/test attempts and unsuccessful capture packaging attempts
+are excluded from accepted receipts. See docs/ELEVATORS.md for direct launch and
+repeatable validation. V-sync was used for visual/regression runs; there is no
+uncapped performance claim.
+
+Final validation: strict workspace/all-target/all-feature Clippy, formatting,
+the locked release workspace/all-feature build and all 432 Rust tests pass.
+The source Python suite passes 373 checks with its three expected skips. The
+optional native smoke campaign exposed stale harness assumptions from earlier
+installation, batching, dedicated-menu and cache-lifetime changes. Its fixture
+now uses contained regular model files and the sound payload, rejects unknown
+built-in materials before publication, accounts for staged/cached texture and
+normal bindings without hardcoding batch counts, and checks the current menu
+and revisit state contracts. Twenty-five checks passed in the final full native
+run; the two remaining stale assertions were corrected and both pass on their
+focused repeat. Product installation validation was not weakened. The ordinary
+asset check reports 684 assets/zero warnings; 424-model and 149-texture audits
+pass, retaining the 118 existing texture advisories.
+
+The retained production game and editor also pass the final linked-group route,
+Full physical travel/loading route, preserved Geometry/Environment menus,
+save/reopen and advanced delete/undo checks. The production game SHA-256 is
+5e98a834be77132a2d737c91ecb139fe6caff04a3403eb6b2a7ed7992bea09ea.
+Runnable game/editor/compiler copies and accepted receipts are kept outside target.

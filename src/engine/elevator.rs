@@ -9,10 +9,24 @@ use crate::engine::spatial::Aabb;
 pub const WIDTH: f32 = 2.4;
 pub const DEPTH: f32 = 2.4;
 pub const HEIGHT: f32 = 2.55;
+/// Initial authoring limit; format and numbered-button assets allow future expansion.
+pub const MAX_STOPS: usize = 8;
+/// Default linked-cabin groups; physical shafts retain their advanced stop capacity.
+pub const MAX_LINKED_STOPS: usize = 3;
+pub const MAX_LINK_DESTINATIONS: usize = MAX_LINKED_STOPS.saturating_sub(1);
 pub const DOOR_WIDTH: f32 = 1.35;
 pub const DOOR_HEIGHT: f32 = 2.2;
-// Both pairs slide inside the authored 0..0.2 m landing wall, not across its hall face.
-pub const CABIN_DOOR_Z: f32 = 0.07;
+/// Concealed stock overlaps the clear opening, then retracts past its edge.
+pub const DOOR_LEAF_WIDTH: f32 = DOOR_WIDTH * 0.5 + 0.02;
+pub const DOOR_LEAF_TRAVEL: f32 = DOOR_WIDTH * 0.5 + 0.018;
+pub const DOOR_LEAF_BOTTOM: f32 = -0.01;
+pub const DOOR_LEAF_TOP: f32 = DOOR_HEIGHT + 0.02;
+pub const DOOR_LEAF_SEAL: f32 = 0.004;
+pub const DOOR_LEAF_FRONT: f32 = -0.0225;
+pub const DOOR_LEAF_BACK: f32 = 0.03;
+// The inner pair stays behind the landing wall from the passenger viewpoint,
+// so hall lintels/floors cannot clip into the closed cabin while it travels.
+pub const CABIN_DOOR_Z: f32 = 0.30;
 pub const LANDING_DOOR_Z: f32 = 0.15;
 /// Authored rigid components; the catalog keeps paths out of level definitions.
 pub const MODEL_IDS: [&str; 4] = [
@@ -31,6 +45,13 @@ pub struct Stop {
     pub level: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub arrival_elevator: Option<String>,
+}
+
+impl Stop {
+    #[must_use]
+    pub const fn is_landing(&self) -> bool {
+        self.level.is_none() && self.arrival_elevator.is_none()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -94,16 +115,19 @@ pub fn validate(level: &crate::engine::level::LevelDef) -> Result<(), String> {
             .any(|v| !v.is_finite() || v.abs() > 100_000.0)
             || !def.speed_mps.is_finite()
             || !(0.25..=4.0).contains(&def.speed_mps)
-            || !(1..=8).contains(&def.stops.len())
+            || !(1..=MAX_STOPS).contains(&def.stops.len())
             || def
                 .stops
                 .get(def.initial_stop)
-                .is_none_or(|stop| stop.level.is_some())
+                .is_none_or(|stop| !stop.is_landing())
         {
             return Err(format!(
                 "Elevator {}: invalid position, speed, stops or initial landing",
                 def.id
             ));
+        }
+        if def.stops.iter().filter(|stop| !stop.is_landing()).count() > MAX_LINK_DESTINATIONS {
+            return Err("Each elevator can link to at most two other cabins for now".into());
         }
         for (i, stop) in def.stops.iter().enumerate() {
             if stop.label.is_empty()
@@ -118,7 +142,7 @@ pub fn validate(level: &crate::engine::level::LevelDef) -> Result<(), String> {
                 || stop
                     .arrival_elevator
                     .as_ref()
-                    .is_some_and(|id| id.is_empty() || id.len() > 64 || stop.level.is_none())
+                    .is_some_and(|id| id.is_empty() || id.len() > 64)
             {
                 return Err(format!(
                     "Elevator {}: invalid stop {} or undeclared destination",
@@ -127,11 +151,21 @@ pub fn validate(level: &crate::engine::level::LevelDef) -> Result<(), String> {
                 ));
             }
             if stop.level.is_none()
+                && let Some(arrival) = &stop.arrival_elevator
+                && (arrival == &def.id
+                    || level.elevators.iter().all(|target| &target.id != arrival))
+            {
+                return Err(format!(
+                    "Elevator {}: unknown local arrival {arrival}",
+                    def.id
+                ));
+            }
+            if stop.is_landing()
                 && def
                     .stops
                     .iter()
                     .take(i)
-                    .any(|other| other.level.is_none() && (other.y - stop.y).abs() < HEIGHT + 0.2)
+                    .any(|other| other.is_landing() && (other.y - stop.y).abs() < HEIGHT + 0.2)
             {
                 return Err(format!(
                     "Elevator {}: local landings need at least 2.75 m separation",
@@ -140,7 +174,35 @@ pub fn validate(level: &crate::engine::level::LevelDef) -> Result<(), String> {
             }
         }
     }
+    validate_link_groups(level)?;
     validate_shafts(level)
+}
+
+fn validate_link_groups(level: &crate::engine::level::LevelDef) -> Result<(), String> {
+    for lift in &level.elevators {
+        let mut group = std::collections::BTreeSet::from([lift.id.as_str()]);
+        loop {
+            let before = group.len();
+            for source in &level.elevators {
+                for stop in &source.stops {
+                    if stop.level.is_none()
+                        && let Some(target) = stop.arrival_elevator.as_deref()
+                        && (group.contains(source.id.as_str()) || group.contains(target))
+                    {
+                        let _source = group.insert(source.id.as_str());
+                        let _target = group.insert(target);
+                    }
+                }
+            }
+            if group.len() > MAX_LINKED_STOPS {
+                return Err("Elevator groups support three stops for now (two destination buttons per cabin)".into());
+            }
+            if before == group.len() {
+                break;
+            }
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -180,8 +242,9 @@ pub struct Elevator {
 
 #[derive(Clone, Debug)]
 pub struct Departure {
-    pub level: String,
+    pub level: Option<String>,
     pub arrival: String,
+    pub source: String,
 }
 #[derive(Default)]
 pub struct Step {
@@ -229,19 +292,13 @@ impl Elevator {
                     .def
                     .stops
                     .get(stop)
-                    .is_some_and(|sin| sin.level.is_some()))
+                    .is_some_and(|sin| !sin.is_landing()))
         {
             return false;
         }
         self.target = stop;
         self.departure_sent = false;
-        self.phase = if stop == self.at
-            && self
-                .def
-                .stops
-                .get(stop)
-                .is_some_and(|sin| sin.level.is_none())
-        {
+        self.phase = if stop == self.at && self.def.stops.get(stop).is_some_and(Stop::is_landing) {
             Phase::Opening
         } else {
             Phase::Closing
@@ -252,6 +309,12 @@ impl Elevator {
         self.target = self.at;
         self.departure_sent = false;
         self.phase = Phase::Opening;
+    }
+    pub const fn finish_departure(&mut self) {
+        self.phase = Phase::Closed;
+        self.opening = 0.0;
+        self.target = self.at;
+        self.departure_sent = false;
     }
     pub const fn arrive(&mut self) {
         self.opening = 0.0;
@@ -282,7 +345,7 @@ impl Elevator {
             .def
             .stops
             .get(record.stop)
-            .filter(|sin| sin.level.is_none())
+            .filter(|sin| sin.is_landing())
             .ok_or("Invalid elevator checkpoint landing")?;
         if record.id != self.def.id {
             return Err("Elevator checkpoint identity mismatch".into());
@@ -301,17 +364,22 @@ impl Elevator {
         Ok(())
     }
     fn leaf(&self, y: f32, side: f32, z: f32, opening: f32) -> DoorCollider {
-        let half = DOOR_WIDTH * 0.5;
-        let fraction = slide_fraction(opening);
-        let x = if side < 0.0 {
-            half.mul_add(-fraction, -half)
-        } else {
-            half.mul_add(fraction, 0.003)
-        };
-        let hinge = self.def.point(x, y, z);
+        let x = door_leaf_x(side, opening) - DOOR_LEAF_SEAL;
+        let hinge = self.def.point(
+            x,
+            y + DOOR_LEAF_BOTTOM,
+            z + f32::midpoint(DOOR_LEAF_FRONT, DOOR_LEAF_BACK),
+        );
         let (sin, cos) = self.def.rotation_degrees.to_radians().sin_cos();
-        DoorCollider::from_pose(hinge.into(), [cos, -sin], half - 0.003, 0.045, DOOR_HEIGHT)
+        DoorCollider::from_pose(
+            hinge.into(),
+            [cos, -sin],
+            DOOR_LEAF_WIDTH + DOOR_LEAF_SEAL,
+            DOOR_LEAF_BACK - DOOR_LEAF_FRONT,
+            DOOR_LEAF_TOP - DOOR_LEAF_BOTTOM,
+        )
     }
+
     #[must_use]
     pub fn colliders(&self) -> Vec<DoorCollider> {
         let mut boxes = vec![
@@ -320,13 +388,15 @@ impl Elevator {
             self.box_collider([-1.28, 0.0, 0.0], [-1.2, HEIGHT, 2.48]),
             self.box_collider([1.2, 0.0, 0.0], [1.28, HEIGHT, 2.48]),
             self.box_collider([-1.2, 0.0, 2.4], [1.2, HEIGHT, 2.48]),
-            self.box_collider([-1.2, 0.0, 0.02], [-0.675, HEIGHT, 0.26]),
-            self.box_collider([0.675, 0.0, 0.02], [1.2, HEIGHT, 0.26]),
-            self.box_collider([-0.675, DOOR_HEIGHT, 0.02], [0.675, HEIGHT, 0.26]),
+            self.box_collider([-1.2, 0.0, 0.02], [-0.68, HEIGHT, 0.36]),
+            self.box_collider([0.68, 0.0, 0.02], [1.2, HEIGHT, 0.36]),
+            self.box_collider([-0.68, DOOR_HEIGHT, 0.02], [0.68, HEIGHT, 0.36]),
             self.box_collider([-1.14, 0.95, 0.55], [-1.06, 1.03, 2.25]),
             self.box_collider([1.06, 0.95, 0.55], [1.14, 1.03, 2.25]),
             self.box_collider([-1.11, 0.95, 2.26], [1.11, 1.03, 2.34]),
         ];
+        boxes.push(self.box_collider([-1.45, 0.0, 0.02], [-1.2, HEIGHT, 0.36]));
+        boxes.push(self.box_collider([1.2, 0.0, 0.02], [1.45, HEIGHT, 0.36]));
         for side in [-1.0, 1.0] {
             boxes.push(self.leaf(self.y, side, CABIN_DOOR_Z, self.opening));
         }
@@ -335,8 +405,28 @@ impl Elevator {
             .stops
             .iter()
             .enumerate()
-            .filter(|(_, sin)| sin.level.is_none())
+            .filter(|(_, sin)| sin.is_landing())
         {
+            let offset = stop.y - self.y;
+            for (x0, x1) in [(-0.795, -0.715), (0.715, 0.795)] {
+                boxes.push(
+                    self.box_collider([x0, offset - 0.004, -0.17], [x1, offset + 2.28, -0.105]),
+                );
+            }
+            for (x0, x1) in [(-1.425, -0.675), (0.675, 1.425)] {
+                boxes.push(
+                    self.box_collider([x0, offset - 0.012, 0.195], [x1, offset + 2.23, 0.225]),
+                );
+            }
+            for (x0, x1) in [(-0.79, -0.710), (0.710, 0.79)] {
+                boxes.push(
+                    self.box_collider([x0, offset - 0.012, -0.105], [x1, offset + 2.23, 0.025]),
+                );
+            }
+            boxes.push(self.box_collider(
+                [-0.715, offset + DOOR_HEIGHT, -0.15],
+                [0.715, offset + 2.29, 0.24],
+            ));
             let opening = if i == self.at && self.phase != Phase::Moving {
                 self.opening
             } else {
@@ -364,15 +454,19 @@ impl Elevator {
     #[must_use]
     pub fn controls(&self) -> Vec<Interactable> {
         let mut controls = Vec::new();
+        let mut row = 0_u16;
         for (i, stop) in self.def.stops.iter().enumerate() {
-            let row = f32::from(u16::try_from(i).unwrap_or(0));
-            controls.push(self.control(
-                i,
-                true,
-                [0.94, row.mul_add(-0.11, self.y + 1.58), 0.30],
-                &format!("Floor {}", stop.label),
-            ));
-            if stop.level.is_none() {
+            if i != self.at {
+                let row_height = f32::from(row);
+                controls.push(self.control(
+                    i,
+                    true,
+                    [0.94, row_height.mul_add(-0.11, self.y + 1.58), 0.40],
+                    &format!("Floor {}", stop.label),
+                ));
+                row = row.saturating_add(1);
+            }
+            if stop.is_landing() {
                 controls.push(self.control(
                     i,
                     false,
@@ -419,6 +513,26 @@ impl Elevator {
             enabled: true,
         }
     }
+    fn advance_loading(&mut self, delta: f32, feet: Vec3) -> Option<Departure> {
+        self.travel_elapsed += delta;
+        if !self.contains(feet, 0.25) {
+            self.reopen();
+            return None;
+        }
+        let stop = self.def.stops.get(self.target)?;
+        if self.departure_sent || (stop.level.is_none() && self.travel_elapsed < 1.8) {
+            return None;
+        }
+        self.departure_sent = true;
+        Some(Departure {
+            level: stop.level.clone(),
+            source: self.def.id.clone(),
+            arrival: stop
+                .arrival_elevator
+                .clone()
+                .unwrap_or_else(|| self.def.id.clone()),
+        })
+    }
     /// Continuous smoothstep ride and swept leaf closure; capped steps prevent crushing.
     pub fn advance(
         &mut self,
@@ -462,9 +576,10 @@ impl Elevator {
                             .def
                             .stops
                             .get(self.target)
-                            .is_some_and(|stop| stop.level.is_some())
+                            .is_some_and(|stop| !stop.is_landing())
                         {
                             self.phase = Phase::Loading;
+                            self.travel_elapsed = 0.0;
                         } else {
                             self.travel_start = self.y;
                             self.travel_elapsed = 0.0;
@@ -472,8 +587,8 @@ impl Elevator {
                                 ((sin.y - self.y).abs() / self.def.speed_mps * 1.5).max(1.0)
                             });
                             self.phase = Phase::Moving;
-                            result.sound = Some("elevator_shaft");
                         }
+                        result.sound = Some("elevator_shaft");
                     }
                 }
             }
@@ -495,22 +610,7 @@ impl Elevator {
                     result.sound = Some("elevator_arrive");
                 }
             }
-            Phase::Loading => {
-                if !self.departure_sent {
-                    if let Some(stop) = self.def.stops.get(self.target)
-                        && let Some(level) = &stop.level
-                    {
-                        result.departure = Some(Departure {
-                            level: level.clone(),
-                            arrival: stop
-                                .arrival_elevator
-                                .clone()
-                                .unwrap_or_else(|| self.def.id.clone()),
-                        });
-                    }
-                    self.departure_sent = true;
-                }
-            }
+            Phase::Loading => result.departure = self.advance_loading(delta, feet),
             Phase::Closed | Phase::Open => {}
         }
         self.ambience -= delta;
@@ -553,11 +653,7 @@ fn validate_shafts(level: &crate::engine::level::LevelDef) -> Result<(), String>
     let ceiling = crate::engine::level::WalkableCeiling::from_level(level);
     let mut objects = level.doors.len().saturating_mul(2);
     for def in &level.elevators {
-        let local: Vec<_> = def
-            .stops
-            .iter()
-            .filter(|stop| stop.level.is_none())
-            .collect();
+        let local: Vec<_> = def.stops.iter().filter(|stop| stop.is_landing()).collect();
         objects = objects.saturating_add(3_usize.saturating_add(local.len().saturating_mul(3)));
         if objects > 128 {
             return Err(
@@ -621,4 +717,15 @@ fn validate_shafts(level: &crate::engine::level::LevelDef) -> Result<(), String>
 pub fn slide_fraction(progress: f32) -> f32 {
     let bounded = progress.clamp(0.0, 1.0);
     bounded * bounded * 2.0_f32.mul_add(-bounded, 3.0)
+}
+
+/// Shared visible/collision slide origin, including concealed jamb overlap.
+#[must_use]
+pub fn door_leaf_x(side: f32, opening: f32) -> f32 {
+    let fraction = slide_fraction(opening);
+    if side < 0.0 {
+        -DOOR_LEAF_TRAVEL.mul_add(fraction, DOOR_LEAF_WIDTH)
+    } else {
+        DOOR_LEAF_TRAVEL * fraction
+    }
 }

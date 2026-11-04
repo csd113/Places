@@ -1,151 +1,147 @@
 # Passenger elevators
 
-Elevators are authored in `elevators[]`, with a walkable cabin, two sliding cabin
-leaves, locked landing doors at every local stop, hall call buttons, and individual
-cabin destination buttons. The engine advances one pose for rendering and collision.
-Doors ease apart over 1.4 seconds. Car motion accelerates and decelerates smoothly;
-`speed_mps` bounds peak vertical speed. An occupied doorway reopens a closing pair
-and cancels that departure. Additional requests during a trip do not queue or reload.
+Build > Elevator is the normal way to add a level-loading boundary or connect
+rooms that should feel like different floors. The cabin has sliding doors,
+a walkable interior, numbered destination buttons, warm lighting and occasional
+spatial shaft-movement sounds. E or left click activates the aimed control.
 
-The exterior follows the supplied November 3 hallway photo: satin gray
-centre-opening panels, a narrow brushed-metal surround, dark header, amber
-indicator and compact hall call plate. The cabin now evokes a 1970s office lift:
-vertical walnut panels, dark reveals, softened wood rails on brass brackets,
-a muted speckled linoleum floor, cream ceiling and a warm prismatic diffuser.
-The four rigid GLB parts were authored in Blender and share a fitted GIMP PNG
-atlas; editable Blender/XCF sources remain beside them. No artwork is generated
-at runtime. The existing motion and collision poses still own every transform.
-Only the declared number of cabin buttons is assembled, and aiming shows the
-authored destination name. E or a captured left click activates that control.
+## Place, place, link
 
-The diffuser has visual emission and one warm attached light that follows the
-car, including during physical floor travel. It uses the existing eight-source
-realtime light budget, after ordinary character glows; an exceptionally full
-light set can exhaust that budget. Wood rail collision matches the visible stock.
+1. Make a hall with an opening for the elevator. Choose **Build > Elevator**
+   beside Room, point at the floor at the centre of the doorway and click.
+   **R** rotates the placement by 90 degrees. The preview shows its footprint.
+2. Choose **Place another** and click the second location. Names are optional;
+   use **Name** for labels such as G, 1 or 8.
+3. Select the first cabin, choose **Link selected**, then click the second cabin.
+   The link works in both directions. Repeat with a third cabin if needed.
+4. Save with Cmd/Ctrl+S. Reopening retains the links. Undo reverses each placement,
+   link or name change as one edit.
 
-## Placement
+A group supports **three cabins, with two destination buttons per cabin** for
+now. Two linked cabins show one button each; three show two. The current stop
+is omitted. Linking existing groups would combine them, so the editor refuses
+merges above the limit without changing either group. Independently linked
+groups do not affect one another. There can be eight cabins in a map.
 
-`x,z` is the centre of the door threshold. At yaw zero the hall is toward **-Z**
-and the cabin extends toward **+Z**. The cabin interior is 2.4 m wide, 2.4 m deep
-and 2.55 m high. Its 1.35 m doorway is 2.2 m high. Reserve a clear side shaft
-at least 2.6 m wide and 2.5 m deep; put local halls outside the cabin footprint.
-Place matching 1.5 m wide, at least 2.25 m high openings in each landing wall.
-A wall at local Z=0..0.2 fits the supplied surround and call plate. The cabin
-front return and door pockets occupy that thickness.
+Floor labels and their order are independent of world height. Two linked halls
+can sit side by side on the same plane, separated by a wall. Stops in adjacent
+stacked buildings can form one apparent continuous building. The current
+three-stop limit still applies. The engine closes the cabin, plays movement
+feedback, then transfers the player to the linked cabin while the doors remain
+opaque. It preserves position within the cabin and relative viewing direction.
+It does not reload the map. A blocked or busy arrival reopens the source safely.
 
-Room floors and ceilings cannot be cut into shafts. Keep the shaft beside stacked
-rooms, as the lab does. Admission rejects static geometry, floors and ceilings
-crossing the car's usable travel space. Build/export checks this; never rely on
-an elevator to cut a room floor or a wall automatically. Local stops must be at
-least 2.75 m apart. Use the same rotation for the hall openings and shaft.
+## Load another level
 
-```json
-"transitions": ["annex"],
-"elevators": [{
-  "id": "lift",
-  "x": 0, "z": 0, "rotation_degrees": 0,
-  "initial_stop": 0, "speed_mps": 1.5,
-  "stops": [
-    {"label": "G", "y": 0},
-    {"label": "1", "y": 3.5},
-    {"label": "Annex", "y": 0, "level": "annex", "arrival_elevator": "lift"}
-  ]
-}]
-```
+Place an arrival elevator in the other project map and **save that map first**.
+Select the source cabin, choose **Load another level**, choose the project map
+and its saved arrival elevator, then **Add destination**. The editor also adds
+the allowed level transition. Configure a return destination in the other map
+in the same way. A cabin supports two destinations in the simple flow, including
+both local and separate-level destinations.
 
-`y` is absolute world elevation. A stop without `level` is a physical landing;
-a stop with `level` is a project destination. `initial_stop` is zero-based and
-must name a local landing. Stops are ordered as buttons top to bottom. There
-are at most eight stops per lift and eight lifts per level. Elevators and hinged
-doors share a reserved 128-object budget, leaving space for items and effects.
+Save the maps, then use **Project > Export all levels + sources**. Play the
+complete exported project for cross-level travel; embedded Test retains its
+existing cross-level limitation. Existing ordinary level transitions remain
+supported. Advanced configuration is optional and stays behind **Advanced**.
 
-## Editor and loading
+Loading starts only when the passenger is inside and the doors are fully closed.
+The engine prepares and checks the destination cabin and arrival space before
+replacing the old world. In-game loading retains the last presented game view
+with a small static **LOADING...** card. The game window remains open and pumps
+events; Escape cancels, resize scales the retained frame, and a failed load keeps
+the previous world and reopens the source. Startup retains its normal loading
+screen. Arrival opens the destination doors automatically.
 
-Open **Space and Environment > Elevator / floor travel**. The form creates and
-edits complete elevator records with Preview, Apply, Undo, record navigation and
-delete. Position, orientation, initial stop, speed and the complete stop list are
-editable. Existing records are selected with the form's `<` and `>` controls.
-The scene preview shows the authored closed car. Embedded Test supports physical
-floor travel and positional cues. Use Build+Play / Export project for cross-level
-travel; embedded Test retains its existing cross-level limitation.
+## Space and artwork
 
-Declare each external destination in Project's allowed transitions. Export the
-**complete project**, so every destination is installed in the same package.
-An elevator button can trigger loading only from inside the cabin and only after
-the doors close. `arrival_elevator` defaults to the departing lift's ID. A fresh
-private destination world is checked for that cabin and a clear arrival pose
-before it replaces the current world. The player arrives inside its initial
-landing, facing the doors, and the doors open. Old ordinary `change_level`
-bindings remain supported.
+The placement origin is the door threshold centre. At yaw zero the hall is
+along -Z and the cabin extends along +Z. Reserve a **3 m wide front pocket
+assembly**, a clear **2.6 m wide, 2.5 m deep shaft** behind it, and a height of
+at least 2.75 m. The usable cabin is 2.4 m wide, 2.4 m deep and 2.55 m high;
+the clear doorway is 1.35 m wide and 2.2 m high. Use a 1.5 m wide opening at
+least 2.25 m high in a landing wall at local Z=0..0.2. The elevator does not
+cut walls, room floors or ceilings for you. Build/export validates clearance.
 
-In-game level loads freeze the exact last presented game view, with a small
-static `LOADING...` card, while asynchronous preparation and GPU upload continue.
-The window remains open and pumps events; Escape cancels and resumes the old
-world. The cursor stays captured during this brief pause. Resize scales the
-retained image. Startup keeps its normal preparation screen. Failure keeps the
-previous world, reports the error and reopens a waiting elevator. Graphics-only
-changes keep their existing loading policy.
+Satin gray leaves retract into hollow dark recessed pockets, retaining a narrow
+visible panel lip at full opening. Concealed top/side overlaps and a rear centre
+seal hide the cabin and outside scenery when closed. The inner pair sits behind
+the landing wall's cabin-facing plane, so stationary walls cannot clip into the
+view during travel. Render and collision share the same eased door pose.
+An occupied doorway reopens closing doors and cancels departure.
 
-Shaft movement occasionally sounds near the nearest landing (14–29 seconds
-between later cues; an initial cue after eight seconds). Movement and arrival
-also have quiet feedback. The preloaded spatial sources use a 1.5 m near distance
-and fade to silence at 12 m, with the normal master/effects controls and occlusion.
-The two new mono PCM WAV cues are original offline-authored assets under MIT;
-recipes and hashes are in the audio authoring/provenance records.
+The reference-inspired exterior surrounds an original 1970s office interior:
+walnut paneling, wood rails on brass brackets, muted linoleum, cream ceiling and
+a warm diffuser. GIMP/XCF and Blender sources, committed PNGs and four rigid GLBs
+remain editable. No texture imagery is generated at runtime. The warm attached
+light uses the existing bounded realtime-light budget; the diffuser also emits.
+See the [art workflow](../tools/props/elevator_70s/README.md).
 
-## Saves, reset and validation
+Shaft ambience occurs occasionally near a landing: an initial cue after eight
+seconds, then 14–29 seconds between cues. Movement and arrival have quiet feedback.
+Spatial sound uses a 1.5 m near distance and fades to silence at 12 m, through the
+normal master/effects controls and occlusion. The original offline-authored WAV
+cues retain their audio provenance records.
 
-A checkpoint stores each elevator's settled local landing and open/closed state.
-A save during door motion, travel or loading is refused with a useful message;
-the previous valid save remains. Resume reconstructs the cabin and its controls
-before accepting the player's pose. Reset returns the car to its authored initial
-landing. An authored spawn inside a cabin resolves to that initial landing's deck.
-Linked level travel follows the existing fresh-runtime-state contract and does
-not transfer carried items or NPCs between levels. AI does not navigate elevator
-shafts; passenger lift travel is for the player.
+## Advanced physical shafts and saves
 
-`projects/elevator-lab` is the small maintained demonstration: a two-floor lobby,
-an Annex button, and a return lift. It is outside the release-map inventory.
-Build it explicitly with Static lighting for mechanism acceptance:
+Advanced preserves the existing physical shaft mode: one cabin moves vertically
+between local landing elevations, accelerating and decelerating within speed_mps.
+Physical landings must be separated by at least 2.75 m and share a clear shaft.
+The data retains capacity for eight physical stops; linked cabins and loading
+routes use the initial three-stop/two-destination limit. In source data, a stop
+without level or arrival_elevator is a physical landing. arrival_elevator alone
+references another cabin in the current map; level plus arrival_elevator targets
+a saved cabin in another map. initial_stop names a physical landing.
 
-```sh
-places-compile export-project projects/elevator-lab \
-  --out /tmp/elevator-lab.placesmap --variants static --asset-root assets --workers 4
-places-compile validate /tmp/elevator-lab.placesmap --asset-root assets
-```
+Saves store each cabin's settled landing and open/closed state. Saving during
+motion or loading is refused while retaining the previous save. Resume rebuilds
+controls before restoring the passenger. Reset returns cabins to their initial
+landings. An authored cabin spawn resolves to the initial deck. Cross-level
+travel follows the existing fresh-world contract: carried items and NPCs do not
+transfer. AI does not navigate elevator shafts.
 
-Seven deterministic CPU regressions under `src/game/tests/elevators.rs` protect
-walking/door collision, doorway reopening, physical floor transport at two frame
-rates, single-shot loading after closure, safe save reconstruction destination
-admission and upper-cabin spawning. They perform no map bake or GPU work. Native screenshots and trace
-receipts establish visual, input, loading and audio behavior separately.
+## Temporary playable demo
 
-The explicit native regression campaign uses the direct game executable and a
-fresh evidence directory. It never builds, bakes, wraps a Mac app, or touches an
-existing installed map. The controlled failure renames only its own isolated
-fixture installation. Allow about a minute for its four bounded cases:
+projects/elevator-links is intentionally temporary and excluded from shipped-map
+preparation. Its beige Ground hall and blue Floor 1 hall are **on the same plane**,
+10 m apart. G/1 buttons move between them without reloading. A loads the separate
+Annex, whose G/1 buttons return to either hall. All routes are playable both ways.
+
+Export just this small fixture and launch the game executable directly:
 
 ```sh
+places-compile export-project projects/elevator-links \
+  --out /tmp/elevator-demo.placesmap --variants static,full --asset-root assets --workers 2
+python3 tools/bench/elevator_demo.py --play --binary target/release/places \
+  --package /tmp/elevator-demo.placesmap --out local/elevator-demo-play
+```
+
+The isolated playtest folder retains its saves/settings. No Mac app bundle is
+used. The older projects/elevator-lab remains the physical-shaft regression.
+
+## Explicit validation and recording
+
+CPU regressions cover collision/reopening, physical and linked travel,
+independent groups, same-height placement, group limits, undo/save/reopen,
+arrival admission and save restoration. They do not bake maps. Native tools
+are opt-in and use disposable state. No shipped-map bake is required:
+
+```sh
+python3 tools/props/elevator_70s/check_seals.py
+python3 tools/props/elevator_70s/check_surface_joins.py
+python3 tools/bench/elevator_links.py --mode demo --out /tmp/new-editor-evidence --run
 python3 tools/bench/elevators.py --binary target/release/places \
-  --package /tmp/elevator-lab.placesmap --out /tmp/new-elevator-evidence
+  --package /tmp/elevator-lab.placesmap --out /tmp/new-native-evidence --lightmaps full
 ```
 
-The campaign asserts physical travel and return, upper-floor save/resume,
-pixel-identical loading frames, resize, cancellation, full door reopening after
-a failed load, and near/far sound attenuation. Native editor authoring can also
-use the editor's ordinary `--verify-script` control/preview/apply/undo protocol.
+The physical-lab campaign verifies both directions, collision, saves, identical
+frozen loading frames, resize, cancel/failure reopening and sound falloff.
+Use --mode views or --mode seals for visual checks. The separate --mode links
+uses the groups fixture produced by elevator_links.py --mode groups, covering
+same-height travel, adjacent stacked rooms and an independent second group.
 
-Capture actual closed/open/interior/control views explicitly with `--mode views`:
-
-```sh
-python3 tools/bench/elevators.py --binary target/release/places \
-  --package /tmp/elevator-lab.placesmap --out /tmp/elevator-views --mode views
-```
-
-[Editable art and rebuild instructions](../tools/props/elevator_70s/README.md)
-describe the retained GIMP and Blender sources and fitted UV layout.
-
-The native tool accepts `--lightmaps full` for a package explicitly prepared
-with `--variants static,full`; this is useful for checking the moving cabin
-practical alongside baked lighting on the small lab, without rebuilding the
-release-map inventory.
+Omit --play from elevator_demo.py and use a new output folder to capture its
+actual native renderer frames and game audio. FFmpeg is required; capture timing
+is retained when muxing. The tutorial uses captures of the actual native editor
+place/link, destination chooser, save and complete-project export workflow.

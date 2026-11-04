@@ -158,7 +158,8 @@ fn level_button_requires_cabin_and_emits_once_after_door_closure() -> Result<(),
         .take_elevator_departure()
         .ok_or("No departure")?;
     assert_eq!(
-        departure.level, "annex",
+        departure.level.as_deref(),
+        Some("annex"),
         "declared project destination is retained"
     );
     assert_eq!(
@@ -231,6 +232,27 @@ fn invalid_stops_and_undeclared_loading_targets_are_rejected() -> Result<(), Str
         crate::engine::elevator::validate(&def).is_err(),
         "spawn cannot put a car at an external stop"
     );
+    let mut advanced = level()?;
+    advanced.elevators.first_mut().ok_or("No lift")?.stops = (0_u16..8)
+        .map(|i| crate::engine::elevator::Stop {
+            label: i.to_string(),
+            y: f32::from(i) * 3.5,
+            level: None,
+            arrival_elevator: None,
+        })
+        .collect();
+    crate::engine::elevator::validate(&advanced)?;
+    let mut too_many = ports()?;
+    too_many
+        .elevators
+        .first_mut()
+        .and_then(|e| e.stops.get_mut(2))
+        .ok_or("No link")?
+        .arrival_elevator = Some("d".into());
+    assert!(
+        crate::engine::elevator::validate(&too_many).is_err(),
+        "raw data cannot merge independent groups beyond three cabins"
+    );
     Ok(())
 }
 
@@ -255,4 +277,110 @@ fn upper_cabin_spawn_and_crossed_shaft_have_explicit_contracts() -> Result<(), S
         "a room ceiling cannot be silently passed through by the car"
     );
     Ok(())
+}
+
+// These two small controller regressions cover linked-port behavior absent from
+// shaft travel: same-height transfer/independent groups and busy-target rollback.
+// They use no model loading, renderer or map bake; only a few hundred CPU ticks.
+fn ports() -> Result<LevelDef, String> {
+    LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"ports","name":"Ports","spawn":{"x":0,"z":-1},"rooms":[],"elevators":[
+      {"id":"a","x":0,"z":0,"stops":[{"label":"1","y":0},{"label":"4","y":0,"arrival_elevator":"b"},{"label":"8","y":7,"arrival_elevator":"c"}]},
+      {"id":"b","x":8,"z":0,"rotation_degrees":90,"initial_stop":1,"stops":[{"label":"1","y":0,"arrival_elevator":"a"},{"label":"4","y":0},{"label":"8","y":7,"arrival_elevator":"c"}]},
+      {"id":"c","x":8,"z":0,"initial_stop":2,"stops":[{"label":"1","y":0,"arrival_elevator":"a"},{"label":"4","y":0,"arrival_elevator":"b"},{"label":"8","y":7}]},
+      {"id":"d","x":16,"z":0,"stops":[{"label":"A","y":0},{"label":"B","y":3.5,"arrival_elevator":"e"}]},
+      {"id":"e","x":16,"z":0,"initial_stop":1,"stops":[{"label":"A","y":0,"arrival_elevator":"d"},{"label":"B","y":3.5}]}]}"#).map_err(|e|e.to_string())
+}
+#[test]
+fn linked_ports_preserve_view_and_isolate_groups_at_any_height() -> Result<(), String> {
+    let def = ports()?;
+    let mut game = port_game(&def);
+    interact(&mut game, "@elevator:a:call:0")?;
+    settle(&mut game, 100);
+    game.set_benchmark_player_position(Vec3::new(0.0, EYE_HEIGHT, 1.2), 0.35, -0.1);
+    interact(&mut game, "@elevator:a:floor:1")?;
+    settle(&mut game, 360);
+    assert!(
+        (game.player_position.x - 9.2).abs() < 0.002 && game.feet_y().abs() < 0.002,
+        "same-plane transfer uses the linked cabin pose"
+    );
+    assert!(
+        (game.player_yaw - (0.35 + std::f32::consts::FRAC_PI_2)).abs() < 0.002
+            && (game.player_pitch + 0.1).abs() < 0.002,
+        "view is preserved relative to the identical cabin"
+    );
+    interact(&mut game, "@elevator:b:floor:2")?;
+    settle(&mut game, 360);
+    assert!(
+        (game.player_position.x - 8.0).abs() < 0.002 && (game.feet_y() - 7.0).abs() < 0.002,
+        "labels 1,4,8 do not encode world height"
+    );
+    for lift in game.entities().elevators() {
+        let buttons = lift
+            .controls()
+            .into_iter()
+            .filter(|control| control.id.contains(":floor:"))
+            .collect::<Vec<_>>();
+        assert_eq!(buttons.len(), lift.def.stops.len().saturating_sub(1));
+        assert!(
+            buttons
+                .iter()
+                .all(|button| button.id != format!("@elevator:{}:floor:{}", lift.def.id, lift.at)),
+            "current stop has no destination button"
+        );
+        if lift.def.id == "d" || lift.def.id == "e" {
+            assert_eq!(
+                lift.phase,
+                Phase::Closed,
+                "unrelated network stays untouched"
+            );
+        }
+    }
+    assert!(
+        game.entities_mut().take_commands().is_empty(),
+        "same-map transfer never reloads a level"
+    );
+    Ok(())
+}
+#[test]
+fn local_departure_reopens_when_an_advanced_arrival_is_busy() -> Result<(), String> {
+    let mut level = ports()?;
+    level.elevators.truncate(2);
+    let source = level.elevators.first_mut().ok_or("Missing source")?;
+    source.stops.truncate(2);
+    let target = level.elevators.get_mut(1).ok_or("Missing target")?;
+    target.rotation_degrees = 0.0;
+    target.initial_stop = 0;
+    target.stops=serde_json::from_value(serde_json::json!([{"label":"G","y":0.0_f32},{"label":"Upper","y":7.0_f32},{"label":"Return","y":0.0_f32,"arrival_elevator":"a"}])).map_err(|e|e.to_string())?;
+    crate::engine::elevator::validate(&level)?;
+    let mut game = port_game(&level);
+    interact(&mut game, "@elevator:a:call:0")?;
+    settle(&mut game, 100);
+    game.set_benchmark_player_position(Vec3::new(0.0, EYE_HEIGHT, 1.2), 0.0, 0.0);
+    interact(&mut game, "@elevator:b:call:1")?;
+    interact(&mut game, "@elevator:a:floor:1")?;
+    settle(&mut game, 360);
+    assert!(
+        game.player_position.x.abs() < 0.002 && game.feet_y().abs() < 0.002,
+        "busy arrival leaves the player in the source cabin"
+    );
+    assert_eq!(
+        game.entities()
+            .elevators()
+            .first()
+            .ok_or("Missing source")?
+            .phase,
+        Phase::Open,
+        "only the source safely reopens"
+    );
+    Ok(())
+}
+
+fn port_game(def: &LevelDef) -> Game {
+    let mut game = Game::new(
+        Vec3::new(0.0, EYE_HEIGHT, -1.0),
+        0.0,
+        CollisionWorld::from_level(def),
+    );
+    game.set_app_state(AppState::Playing);
+    game
 }

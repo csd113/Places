@@ -27,6 +27,37 @@ impl EntityWorld {
     pub const fn take_elevator_departure(&mut self) -> Option<Departure> {
         self.elevator_departure.take()
     }
+    pub fn take_local_elevator_departure(&mut self) -> Option<crate::engine::elevator::Departure> {
+        if self
+            .elevator_departure
+            .as_ref()
+            .is_some_and(|departure| departure.level.is_none())
+        {
+            self.elevator_departure.take()
+        } else {
+            None
+        }
+    }
+    pub fn finish_local_elevator_departure(&mut self, source: &str, arrival: Option<&str>) {
+        if let Some(elevator) = self.elevators.iter_mut().find(|e| e.def.id == source) {
+            if arrival.is_some() {
+                elevator.finish_departure();
+            } else {
+                elevator.reopen();
+            }
+        }
+        if let Some(id) = arrival
+            && let Some(elevator) = self.elevators.iter_mut().find(|e| e.def.id == id)
+        {
+            elevator.arrive();
+            self.elevator_sounds.push((
+                elevator.def.point(0.0, elevator.y + 1.2, 1.2),
+                "elevator_arrive",
+            ));
+        }
+        self.rebuild_door_colliders();
+        self.sync_elevator_controls();
+    }
     pub fn take_elevator_sounds(&mut self) -> Vec<(Vec3, &'static str)> {
         std::mem::take(&mut self.elevator_sounds)
     }
@@ -134,7 +165,7 @@ impl EntityWorld {
                         .def
                         .stops
                         .iter()
-                        .filter(|stop| stop.level.is_none())
+                        .filter(|stop| stop.is_landing())
                         .min_by(|a, b| {
                             (a.y - ctx.feet.y)
                                 .abs()
@@ -148,9 +179,11 @@ impl EntityWorld {
                     .push((elevator.def.point(0.0, source_y + 1.2, 0.3), sound));
             }
             if let Some(departure) = step.departure {
-                self.commands.push(WorldCommand::ChangeLevel {
-                    level: departure.level.clone(),
-                });
+                if let Some(level) = &departure.level {
+                    self.commands.push(WorldCommand::ChangeLevel {
+                        level: level.clone(),
+                    });
+                }
                 self.elevator_departure = Some(departure);
             }
         }

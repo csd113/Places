@@ -1,0 +1,18 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "elevator_links",
+  "name": "TEMPORARY / Elevator place and link",
+  "entry_level": "elevator_lobby",
+  "menu_entry_only": true,
+  "levels": [
+    {
+      "id": "elevator_lobby",
+      "source": "levels/elevator_lobby.json"
+    },
+    {
+      "id": "elevator_annex",
+      "source": "levels/elevator_annex.json"
+    }
+  ]
+}

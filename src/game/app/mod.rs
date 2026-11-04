@@ -4761,6 +4761,10 @@ impl FrameLoop<'_> {
             self.ready_frames = self.ready_frames.saturating_add(1);
             self.capture_item_frame();
             self.record_video_frame(frame_begin);
+        } else if self.renderer.transition_frozen() {
+            // A native demonstration keeps the real frozen loading presentation.
+            // Benchmark ready-world counters still exclude preparation time.
+            self.record_video_frame(frame_begin);
         }
         self.capture_if_due(capture_ready);
     }

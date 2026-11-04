@@ -1902,11 +1902,61 @@ impl Game {
         };
         let _ = self.world.update_doors(&ctx);
         let carried = self.world.update_elevators(&ctx);
+        if let Some(departure) = self.world.take_local_elevator_departure() {
+            self.transfer_local_elevator(&departure);
+        }
         if carried != 0.0 {
             self.set_feet_y(self.feet_y + carried);
             self.player_floor_y += carried;
             self.vertical_velocity = 0.0;
             self.grounded = true;
+        }
+    }
+
+    fn transfer_local_elevator(&mut self, departure: &crate::engine::elevator::Departure) {
+        let pose = self
+            .world
+            .elevators()
+            .iter()
+            .find(|e| e.def.id == departure.source)
+            .zip(
+                self.world
+                    .elevators()
+                    .iter()
+                    .find(|e| e.def.id == departure.arrival),
+            )
+            .filter(|(_, target)| target.settled())
+            .map(|(source, target)| {
+                let local = source.def.local(Vec3::new(
+                    self.player_position.x,
+                    self.feet_y,
+                    self.player_position.z,
+                ));
+                (
+                    target.def.point(local.x, target.y, local.z),
+                    self.player_yaw
+                        + (target.def.rotation_degrees - source.def.rotation_degrees).to_radians(),
+                )
+            });
+        if let Some((feet, yaw)) = pose
+            && self.body_fits_for(feet, self.body_height(), self.body_half())
+        {
+            self.world
+                .finish_local_elevator_departure(&departure.source, Some(&departure.arrival));
+            self.player_position.x = feet.x;
+            self.player_position.z = feet.z;
+            self.player_yaw = yaw;
+            self.set_feet_y(feet.y);
+            self.player_floor_y = feet.y;
+            self.vertical_velocity = 0.0;
+            self.grounded = true;
+            self.refresh_ground_support();
+        } else {
+            self.world
+                .finish_local_elevator_departure(&departure.source, None);
+            crate::engine::logging::warn(
+                "Elevator destination is busy or obstructed; departure reopened",
+            );
         }
     }
 

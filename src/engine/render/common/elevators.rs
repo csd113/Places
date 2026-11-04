@@ -1,6 +1,6 @@
 //! Authored passenger-lift meshes. Gameplay remains the only transform owner.
 use crate::engine::elevator::{
-    CABIN_DOOR_Z, DOOR_WIDTH, Elevator, LANDING_DOOR_Z, MODEL_IDS, Phase,
+    CABIN_DOOR_Z, Elevator, LANDING_DOOR_Z, MODEL_IDS, Phase, Stop, door_leaf_x,
 };
 use crate::engine::gltf::{PropModel, PropSubmesh};
 use crate::engine::loader::PropCatalog;
@@ -13,17 +13,17 @@ pub enum Part {
     Leaf,
 }
 pub struct Models {
-    pub cabin: PropModel,
+    pub cabins: Vec<PropModel>,
     pub frame: PropModel,
     pub leaf: PropModel,
 }
 impl Models {
     #[must_use]
-    pub const fn model(&self, part: Part) -> &PropModel {
+    pub fn model(&self, part: Part, landing: usize) -> Option<&PropModel> {
         match part {
-            Part::Cabin => &self.cabin,
-            Part::Frame => &self.frame,
-            Part::Leaf => &self.leaf,
+            Part::Cabin => self.cabins.get(landing),
+            Part::Frame => Some(&self.frame),
+            Part::Leaf => Some(&self.leaf),
         }
     }
 }
@@ -33,7 +33,7 @@ impl Models {
 pub fn models(
     catalog: &PropCatalog,
     assets: &mut PropAssets,
-    stops: usize,
+    stops: &[Stop],
 ) -> Result<Models, String> {
     let mut resolved = Vec::new();
     for id in MODEL_IDS {
@@ -61,7 +61,9 @@ pub fn models(
         .clone();
     let button = &resolved.get(3).ok_or("Missing elevator button")?.model;
     Ok(Models {
-        cabin: attach_buttons(cabin, button, stops)?,
+        cabins: (0..stops.len())
+            .map(|current| attach_buttons(cabin.clone(), button, stops, current))
+            .collect::<Result<Vec<_>, _>>()?,
         frame,
         leaf,
     })
@@ -69,7 +71,8 @@ pub fn models(
 fn attach_buttons(
     mut cabin: PropModel,
     button: &PropModel,
-    stops: usize,
+    stops: &[Stop],
+    current: usize,
 ) -> Result<PropModel, String> {
     if cabin.textures.len() != 1
         || button.textures.len() != 1
@@ -113,7 +116,12 @@ fn attach_buttons(
         Ok(())
     };
     collect(&cabin, 0)?;
-    for row in 0..stops.min(8) {
+    for (row, (stop_index, stop)) in stops
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| *i != current)
+        .enumerate()
+    {
         let offset = u16::try_from(cabin.vertices.len())
             .map_err(|_conversion_error| "Elevator vertex budget exceeded")?;
         collect(button, offset)?;
@@ -124,6 +132,7 @@ fn attach_buttons(
             .vertices
             .extend(button.vertices.iter().copied().map(|mut vertex| {
                 vertex.pos[1] -= y;
+                number_uv(&mut vertex.uv, panel_symbol(&stop.label, stop_index));
                 vertex
             }));
     }
@@ -154,17 +163,15 @@ pub fn cabin_light(elevator: &Elevator) -> super::dynamic_lights::DynamicLight {
 #[must_use]
 pub fn parts(e: &Elevator) -> Vec<(Part, [f32; 3])> {
     let mut parts = vec![(Part::Cabin, e.def.point(0.0, e.y, 0.0).into())];
-    let half = DOOR_WIDTH * 0.5;
     let leaves = |y, z, progress: f32| {
-        let open = crate::engine::elevator::slide_fraction(progress);
         [
             (
                 Part::Leaf,
-                e.def.point(half.mul_add(-open, -half), y, z).into(),
+                e.def.point(door_leaf_x(-1.0, progress), y, z).into(),
             ),
             (
                 Part::Leaf,
-                e.def.point(half.mul_add(open, 0.003), y, z).into(),
+                e.def.point(door_leaf_x(1.0, progress), y, z).into(),
             ),
         ]
     };
@@ -174,7 +181,7 @@ pub fn parts(e: &Elevator) -> Vec<(Part, [f32; 3])> {
         .stops
         .iter()
         .enumerate()
-        .filter(|(_, s)| s.level.is_none())
+        .filter(|(_, s)| s.is_landing())
     {
         parts.push((Part::Frame, e.def.point(0.0, stop.y, 0.0).into()));
         let open = if i == e.at && e.phase != Phase::Moving {
@@ -185,4 +192,29 @@ pub fn parts(e: &Elevator) -> Vec<(Part, [f32; 3])> {
         parts.extend(leaves(stop.y, LANDING_DOOR_Z, open));
     }
     parts
+}
+
+fn panel_symbol(label: &str, index: usize) -> u16 {
+    if let Some(digit) = label.chars().find_map(|letter| letter.to_digit(10)) {
+        return u16::try_from(digit).unwrap_or(0);
+    }
+    match label.chars().next().map(|c| c.to_ascii_uppercase()) {
+        Some('G') => 10,
+        Some('A') => 11,
+        Some('B') => 12,
+        Some('C') => 13,
+        Some('D') => 14,
+        _ => u16::try_from(index.saturating_add(1).min(9)).unwrap_or(1),
+    }
+}
+fn number_uv(uv: &mut [f32; 2], glyph: u16) {
+    let [u, v] = *uv;
+    if (0.5..0.75).contains(&u) && (0.75..1.0).contains(&v) {
+        let x = (u - 0.5) * 4.0;
+        let y = (v - 0.75) * 4.0;
+        *uv = [
+            (f32::from(glyph % 4) + x).mul_add(0.0625, 0.5),
+            (f32::from(glyph / 4) + y).mul_add(0.0625, 0.75),
+        ];
+    }
 }

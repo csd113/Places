@@ -1,0 +1,113 @@
+{
+  "author": "Places",
+  "ceiling_lights": [
+    {
+      "brightness": 1.1,
+      "fixture": "home:ceiling_light_round",
+      "id": "lobby_0",
+      "x": 0,
+      "y": 2.76,
+      "z": -2.2
+    }
+  ],
+  "defaults": {
+    "ceiling": "core:ceiling_panel_01",
+    "floor": "backrooms:carpet_cool_01",
+    "wall": "home:wall_paint_warm_01"
+  },
+  "elevators": [
+    {
+      "id": "annex",
+      "initial_stop": 0,
+      "rotation_degrees": 0.0,
+      "speed_mps": 1.5,
+      "stops": [
+        {
+          "label": "A / Annex",
+          "y": 0.0
+        },
+        {
+          "arrival_elevator": "lift_1",
+          "label": "G / Ground lobby",
+          "level": "elevator_lobby",
+          "y": 0.0
+        },
+        {
+          "arrival_elevator": "lift_2",
+          "label": "1 / Upper office",
+          "level": "elevator_lobby",
+          "y": 0.0
+        }
+      ],
+      "x": 0.0,
+      "z": 0.0
+    }
+  ],
+  "format_version": 1,
+  "id": "elevator_annex",
+  "name": "Temporary elevator demo / Separate annex",
+  "rooms": [
+    {
+      "depth": 5,
+      "floor_y": 0,
+      "height": 2.8,
+      "material": "core:linoleum_polished_01",
+      "width": 6,
+      "x": -3,
+      "z": -5
+    }
+  ],
+  "saving": true,
+  "schema": "places-level",
+  "spawn": {
+    "x": 0,
+    "yaw_degrees": 180,
+    "z": -2
+  },
+  "transitions": [
+    "elevator_lobby"
+  ],
+  "walls": [
+    {
+      "depth": 0.2,
+      "height": 2.8,
+      "width": 6.4,
+      "x": -3.2,
+      "y": 0,
+      "z": -5.2
+    },
+    {
+      "depth": 5.2,
+      "height": 2.8,
+      "width": 0.2,
+      "x": -3.2,
+      "y": 0,
+      "z": -5
+    },
+    {
+      "depth": 5.2,
+      "height": 2.8,
+      "width": 0.2,
+      "x": 3,
+      "y": 0,
+      "z": -5
+    },
+    {
+      "depth": 0.2,
+      "height": 2.8,
+      "openings": [
+        {
+          "height": 2.25,
+          "kind": "door",
+          "offset": 2.25,
+          "sill": 0,
+          "width": 1.5
+        }
+      ],
+      "width": 6,
+      "x": -3,
+      "y": 0,
+      "z": 0
+    }
+  ]
+}

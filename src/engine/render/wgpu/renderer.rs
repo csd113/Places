@@ -815,6 +815,7 @@ pub struct WgpuRenderer {
     /// The live dynamic objects one door draws: its static frame and its leaf.
     door_objects: Vec<DoorDraw>,
     elevator_models: Vec<Option<crate::engine::render::common::elevators::Models>>,
+    elevator_landings: Vec<usize>,
     elevator_lights: crate::engine::render::common::DynamicLightSet,
     elevator_objects: Vec<Vec<DynamicId>>,
     /// Every switchable fixture's runtime bindings: the baked light it drives
@@ -1284,6 +1285,7 @@ impl WgpuRenderer {
             door_sources: Vec::new(),
             door_objects: Vec::new(),
             elevator_models: Vec::new(),
+            elevator_landings: Vec::new(),
             elevator_lights: crate::engine::render::common::DynamicLightSet::new(),
             elevator_objects: Vec::new(),
             switchable_lights: Vec::new(),
@@ -2344,6 +2346,7 @@ impl WgpuRenderer {
         self.prop_assets = crate::engine::props::PropAssets::load_default();
         self.runtime_objects.clear();
         self.elevator_models.clear();
+        self.elevator_landings.clear();
         self.elevator_lights = crate::engine::render::common::DynamicLightSet::new();
         self.elevator_objects.clear();
         self.door_sources.clear();
@@ -2445,7 +2448,7 @@ impl WgpuRenderer {
                 crate::engine::render::common::elevators::models(
                     &self.prop_catalog,
                     &mut self.prop_assets,
-                    e.stops.len(),
+                    &e.stops,
                 )
                 .map_err(|error| logging::warn(format!("[elevators] {}: {error}", e.id)))
                 .ok()
@@ -2574,7 +2577,9 @@ impl WgpuRenderer {
                     ));
             let parts = crate::engine::render::common::elevators::parts(elevator);
             let existing = self.elevator_objects.get(index).filter(|ids| {
-                ids.len() == parts.len() && ids.iter().all(|id| self.dynamic.get(*id).is_some())
+                self.elevator_landings.get(index) == Some(&elevator.at)
+                    && ids.len() == parts.len()
+                    && ids.iter().all(|id| self.dynamic.get(*id).is_some())
             });
             if let Some(ids) = existing {
                 for (id, (_, position)) in ids.iter().zip(&parts) {
@@ -2589,13 +2594,19 @@ impl WgpuRenderer {
                 }
                 let mut ids = Vec::new();
                 for (part, position) in &parts {
-                    let model = models.model(*part);
+                    let Some(model) = models.model(*part, elevator.at) else {
+                        continue;
+                    };
                     let part_name = match part {
                         crate::engine::render::common::elevators::Part::Cabin => "cabin",
                         crate::engine::render::common::elevators::Part::Frame => "frame",
                         crate::engine::render::common::elevators::Part::Leaf => "leaf",
                     };
-                    let key = format!("elevator:{index}:{part_name}");
+                    let key = if part_name == "cabin" {
+                        format!("elevator:{index}:{part_name}:{}", elevator.at)
+                    } else {
+                        format!("elevator:{index}:{part_name}")
+                    };
                     if let Some(mesh) = self.dynamic.register_model(
                         &key,
                         model,
@@ -2619,6 +2630,11 @@ impl WgpuRenderer {
                     ) {
                         ids.push(id);
                     }
+                }
+                if let Some(landing) = self.elevator_landings.get_mut(index) {
+                    *landing = elevator.at;
+                } else {
+                    self.elevator_landings.push(elevator.at);
                 }
                 if let Some(slot) = self.elevator_objects.get_mut(index) {
                     *slot = ids;

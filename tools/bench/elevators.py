@@ -38,6 +38,26 @@ def actions(mode):
         add(delay, "mouse", after, button="left", pressed=True)
         add(delay + 70, "mouse", after, button="left", pressed=False)
 
+    if mode == "links":
+        anchor = "ready:elevator_groups"
+        def put(ms, kind, **kw): add(ms, kind, anchor, **kw)
+        def tap(ms): click(ms, anchor)
+        put(100,"player",position=[0,1.6,1.2],yaw=0,pitch=0)
+        put(180,"view_at",position=[.94,1.58,.4]);put(250,"capture",name="three-stop-two-buttons");tap(400)
+        put(4500,"checkpoint",name="links_same_height")
+        put(4600,"view_at",position=[10.94,1.47,.4]);tap(4800)
+        put(10300,"checkpoint",name="links_upper")
+        put(10500,"save_checkpoint",name="linked_upper");put(10900,"resume_checkpoint")
+        put(13200,"checkpoint",name="links_resumed")
+        put(13400,"view_at",position=[10.94,8.58,.4]);tap(13600)
+        put(19300,"checkpoint",name="links_ground")
+        put(19500,"player",position=[20,1.6,1.2],yaw=0,pitch=0)
+        put(19600,"view_at",position=[20.94,1.58,.4]);put(19800,"capture",name="two-stop-one-button");tap(20000)
+        put(24400,"checkpoint",name="links_other_upper")
+        put(24600,"view_at",position=[20.94,5.08,.4]);tap(24800)
+        put(30400,"checkpoint",name="links_other_ground");put(30700,"capture",name="independent-group-return");put(31000,"quit")
+        return steps
+
     if mode == "views":
         add(100, "player", position=[0, 1.6, -2.65], yaw=180, pitch=0)
         add(200, "view_at", position=[0, 1.15, 0])
@@ -55,6 +75,36 @@ def actions(mode):
         add(3500, "view_at", position=[0.35, 1.25, 0.15])
         add(3700, "capture", name="elevator-controls")
         add(3900, "quit")
+        return steps
+
+    if mode == "seals":
+        add(100, "player", position=[0, 1.6, .82], yaw=0, pitch=0)
+        add(200, "capture", name="inside-closed-center")
+        add(350, "player", position=[-.5, 2.05, .82], yaw=0, pitch=0)
+        add(400, "view_at", position=[.66, 2.195, .1])
+        add(500, "capture", name="inside-closed-top-right")
+        add(650, "player", position=[.5, 1.6, .82], yaw=0, pitch=0)
+        add(700, "view_at", position=[-.66, 1.3, .1])
+        add(800, "capture", name="inside-closed-left")
+        add(950, "player", position=[0, 1.6, 1.2], yaw=0, pitch=0)
+        add(1000, "view_at", position=[.94, 1.58, .40])
+        click(1100)
+        add(1250, "view", yaw=0, pitch=0)
+        add(1500, "capture", name="travel-start")
+        add(1800, "capture", name="travel-closed")
+        add(2200, "capture", name="travel-closed-upper")
+        add(2600, "capture", name="travel-arrival")
+        add(5200, "capture", name="doors-opening-early")
+        add(5700, "capture", name="doors-opening-middle")
+        add(6200, "capture", name="doors-opening-late")
+        add(8300, "checkpoint", name="sealed-upper")
+        add(8400, "player", position=[-.48, 5.1, -.65], yaw=180, pitch=0)
+        add(8500, "view_at", position=[.25, 4.7, 1.5])
+        add(8600, "capture", name="open-oblique-left")
+        add(8750, "player", position=[.48, 5.1, -.65], yaw=180, pitch=0)
+        add(8800, "view_at", position=[-.25, 4.7, 1.5])
+        add(8900, "capture", name="open-oblique-right")
+        add(9100, "quit")
         return steps
 
     if mode == "sound":
@@ -81,7 +131,7 @@ def actions(mode):
     add(3250, "capture", name="inside")
 
     if mode == "flow":
-        add(3350, "view_at", position=[0.94, 1.47, 0.30])
+        add(3350, "view_at", position=[0.94, 1.58, 0.40])
         add(3400, "capture", name="floor_target")
         click(3500)
         add(5200, "capture", name="moving")
@@ -91,7 +141,7 @@ def actions(mode):
         add(12500, "resume_checkpoint")
         add(14800, "capture", name="upper_resumed")
         add(15000, "checkpoint", name="upper_resumed")
-        add(15100, "view_at", position=[0.94, 4.86, 0.30])
+        add(15100, "view_at", position=[0.94, 4.97, 0.40])
         click(15300)
         add(40, "capture", ANNEX_REQUEST, name="frozen_a")
         add(220, "capture", ANNEX_REQUEST, name="frozen_b")
@@ -99,14 +149,14 @@ def actions(mode):
         add(520, "capture", ANNEX_REQUEST, name="frozen_resized")
         add(700, "checkpoint", ANNEX_REQUEST, name="frozen_responsive")
         add(1800, "capture", ANNEX_READY, name="annex_arrival")
-        add(1900, "view_at", ANNEX_READY, position=[0.94, 1.47, 0.30])
+        add(1900, "view_at", ANNEX_READY, position=[0.94, 1.58, 0.40])
         click(2050, ANNEX_READY)
         add(7000, "capture", ANNEX_READY, name="return_lobby")
         add(7100, "checkpoint", ANNEX_READY, name="return_lobby")
         add(7500, "quit", ANNEX_READY)
         return steps
 
-    add(3350, "view_at", position=[0.94, 1.36, 0.30])
+    add(3350, "view_at", position=[0.94, 1.47, 0.40])
     click(3500)
     if mode == "cancel":
         add(40, "capture", ANNEX_REQUEST, name="frozen_before_cancel")
@@ -137,7 +187,20 @@ def assert_case(mode, state, rows):
     def snapshot(name):
         return next(json.loads(row["detail"]) for row in rows if row["event"] == name)
 
-    if mode == "views":
+    if mode == "links":
+        expected = {"links_same_height":(10,1.6),"links_upper":(10,8.6),"links_resumed":(10,8.6),"links_ground":(0,1.6),"links_other_upper":(20,5.1),"links_other_ground":(20,1.6)}
+        for name,(x,y) in expected.items():
+            value=snapshot("checkpoint:"+name)
+            assert value["current_level_id"]=="elevator_groups" and not value["transition_frozen"],value
+            assert abs(value["player_position"][0]-x)<.02 and abs(value["player_position"][1]-y)<.02,value
+        first=snapshot("checkpoint:links_ground");last=snapshot("checkpoint:links_other_ground")
+        assert first["elevators"][:3]==last["elevators"][:3],"unrelated three-stop network changed"
+        assert [e["phase"] for e in last["elevators"]][3:]==["open","closed"],last["elevators"]
+    elif mode == "seals":
+        result = snapshot("checkpoint:sealed-upper")
+        assert result["elevators"][0]["phase"] == "open" and result["elevators"][0]["stop"] == 1, result
+        assert len(list(state.glob("*.png"))) == 12
+    elif mode == "views":
         from PIL import Image
 
         for name in ("closed", "open", "interior", "controls"):
@@ -199,16 +262,23 @@ def run_case(binary, package_source, output, mode, lightmaps="off"):
         fov_degrees=65, walk_speed=2, ambient_volume=0,
         master_volume=0.75, effects_volume=0.8,
     )
-    if mode == "views":
+    if mode in ("views", "seals"):
         settings.update(window_width=1200, window_height=800, fov_degrees=75)
     (state / "settings.json").write_text(json.dumps(settings))
     script = out / "actions.json"
-    script.write_text(json.dumps(actions(mode), indent=2) + "\n")
+    sequence = actions(mode)
+    if mode in ("flow", "cancel", "failure"):
+        # PNG readback can clamp a simulation step. Walk fully past the new
+        # inner door stock before asking it to close around the passenger.
+        for step in sequence:
+            if step["after"] == LOBBY_READY and step["delay_ms"] >= 3050:
+                step["delay_ms"] += 300
+    script.write_text(json.dumps(sequence, indent=2) + "\n")
     trace = out / "trace.jsonl"
     env = {key: value for key, value in os.environ.items() if not key.startswith("PLACES_")}
     env.update(
         PLACES_ASSET_ROOT=str(ROOT / "assets"), PLACES_STATE_ROOT=str(state),
-        PLACES_LEVEL="elevator_lobby", PLACES_BENCH="1", PLACES_BENCH_FRAMES="6000",
+        PLACES_LEVEL="elevator_groups" if mode == "links" else "elevator_lobby", PLACES_BENCH="1", PLACES_BENCH_FRAMES="6000",
         PLACES_BENCH_WARMUP="3", PLACES_VERBOSE="1", PLACES_PREPARE_DELAY_MS="500",
         PLACES_LOAD_TRACE=str(trace), PLACES_BENCH_ACTIONS=str(script),
         PLACES_BENCH_OUT=str(out / "frames.csv"), PLACES_AUDIO_CAPTURE="1",
@@ -262,7 +332,7 @@ def main():
     parser.add_argument("--package", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True,
                         help="new evidence directory; existing output is refused")
-    parser.add_argument("--mode", choices=["all", "flow", "cancel", "failure", "sound", "views"], default="all")
+    parser.add_argument("--mode", choices=["all", "flow", "cancel", "failure", "sound", "views", "seals", "links"], default="all")
     parser.add_argument("--lightmaps", choices=["off", "full"], default="off")
     args = parser.parse_args()
     binary = args.binary.resolve()

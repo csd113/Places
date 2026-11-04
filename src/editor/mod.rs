@@ -12,6 +12,7 @@ mod construction;
 pub mod document;
 mod dragging;
 mod ducts;
+mod elevators;
 mod flicker;
 mod focus;
 mod gameplay_actions;
@@ -104,6 +105,7 @@ struct App {
     selected: Option<ObjectId>,
     translation: Option<dragging::Translation>,
     placement: Option<construction::Placement>,
+    elevators: elevators::State,
     wall_drag: Option<construction::WallDrag>,
     focus: focus::Focus,
     status: String,
@@ -529,6 +531,7 @@ fn create_app(
         selected: None,
         translation: None,
         placement: None,
+        elevators: elevators::State::default(),
         wall_drag: None,
         focus: focus::Focus::default(),
         ui_focus: None,

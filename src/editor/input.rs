@@ -117,6 +117,7 @@ impl App {
         }
         self.browser_event(event, window)
             || (self.popup.is_none() && self.focus_event(event, window, hits))
+            || self.elevator_event(event, window)
             || self.reuse_event(event)
             || (self.popup.is_none() && self.construction_event(event, window))
             || self.flicker_event(event)

@@ -2,7 +2,7 @@
   "schema": "places-level",
   "format_version": 1,
   "id": "elevator_lobby",
-  "name": "Elevator Lobby",
+  "name": "Temporary elevator demo / Ground and upper office",
   "author": "Places",
   "saving": true,
   "transitions": [
@@ -25,7 +25,8 @@
       "width": 6,
       "depth": 5,
       "floor_y": 0,
-      "height": 2.8
+      "height": 2.8,
+      "material": "core:carpet_beige_01"
     },
     {
       "x": -3,
@@ -33,7 +34,8 @@
       "width": 6,
       "depth": 5,
       "floor_y": 3.5,
-      "height": 2.8
+      "height": 2.8,
+      "material": "backrooms:carpet_cool_01"
     }
   ],
   "walls": [
@@ -145,15 +147,15 @@
       "z": 0,
       "stops": [
         {
-          "label": "G",
+          "label": "G / Ground lobby",
           "y": 0
         },
         {
-          "label": "1",
+          "label": "1 / Upper office",
           "y": 3.5
         },
         {
-          "label": "Annex",
+          "label": "Annex / separate level",
           "y": 0,
           "level": "elevator_annex",
           "arrival_elevator": "lift"

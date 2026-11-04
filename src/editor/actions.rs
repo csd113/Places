@@ -31,6 +31,7 @@ pub(super) enum Popup {
     Stairs(Box<super::stairs::Wizard>),
     DoorAssets,
     Bakes,
+    Elevators,
     Authoring,
     AuthoringForm(Box<super::authoring::Draft>),
     SceneSearch(String),
@@ -115,6 +116,10 @@ impl Popup {
         }
         if matches!(self, Self::Bakes) {
             super::bakes::draw(app, v, hits);
+            return;
+        }
+        if matches!(self, Self::Elevators) {
+            super::elevators::draw(app, v, hits);
             return;
         }
         if matches!(self, Self::Authoring | Self::AuthoringForm(_)) {
@@ -202,6 +207,7 @@ impl Popup {
             | Self::Behavior
             | Self::Stairs(_)
             | Self::Bakes
+            | Self::Elevators
             | Self::Authoring
             | Self::AuthoringForm(_)
             | Self::Transform(_)
@@ -392,6 +398,7 @@ impl App {
             || self.template_action(action)?
             || self.behavior_action(action)?
             || self.stair_action(action)?
+            || self.elevator_action(action)?
             || self.authoring_action(action)?
             || self.project_action(action, window)?
             || self.script_action(action)?

@@ -1,7 +1,7 @@
 """Author the four elevator mechanism models in Blender; explicit offline export."""
-import bpy, math, json, os
+import bpy, bmesh, math, json, os
 from pathlib import Path
-ROOT=Path(os.environ['PLACES_ELEVATOR_ART']); ROLES=['walnut','wood_rail','linoleum','brushed_steel','charcoal','ceiling_cream','door_satin','aged_brass','warm_diffuser','indicator','button','rubber','walnut_light','linoleum_inset','vent','service_plate']
+ROOT=Path(os.environ.get('PLACES_ELEVATOR_ART', Path(__file__).resolve().parents[3]/'assets/shared/props/elevator_70s')); ROLES=['walnut','wood_rail','linoleum','brushed_steel','charcoal','ceiling_cream','door_satin','aged_brass','warm_diffuser','indicator','button','rubber','walnut_light','linoleum_inset','vent','service_plate']
 bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
 image=bpy.data.images.load(str(ROOT/'elevator_70s.png'));image.pack()
 def material(name,emission=False):
@@ -11,11 +11,11 @@ def material(name,emission=False):
 surface=material('Satin wood, linoleum and hardware');luminous=material('Warm prismatic diffuser',True)
 parts={};current=[]
 def xyz(p):return(p[0],-p[2],p[1])
-def uv(o,role,emission=False):
+def uv(o,role,emission=False,front_role=None):
  o.data.materials.append(luminous if emission else surface)
  if not o.data.uv_layers:o.data.uv_layers.new()
- cell=ROLES.index(role);cx=cell%4;cy=cell//4
  for f in o.data.polygons:
+  cell=ROLES.index(front_role if front_role and f.normal.y<-.8 else role);cx=cell%4;cy=cell//4
   n=f.normal;axes=(0,1) if abs(n.z)>.8 else ((0,2) if abs(n.y)>.7 else (1,2))
   ps=[o.data.vertices[o.data.loops[k].vertex_index].co for k in f.loop_indices]
   lo=[min(p[a] for p in ps)for a in axes];hi=[max(p[a]for p in ps)for a in axes]
@@ -31,8 +31,11 @@ def box(name,lo,hi,role,bevel=0,emission=False):
  if bevel:
   m=o.modifiers.new('Low-poly softened manufactured edges','BEVEL');m.width=bevel;m.segments=1;bpy.ops.object.modifier_apply(modifier=m.name)
  return uv(o,role,emission)
-def button_cylinder(name,x,y,z,r,depth,role):
- bpy.ops.mesh.primitive_cylinder_add(vertices=8,radius=r,depth=depth,location=xyz((x,y,z)));o=bpy.context.object;o.name=name;o.rotation_euler.x=math.pi/2;bpy.ops.object.transform_apply(location=False,rotation=True,scale=True);return uv(o,role)
+def button_cylinder(name,x,y,z,r,depth,role,front_role=None,hide_back=False):
+ bpy.ops.mesh.primitive_cylinder_add(vertices=8,radius=r,depth=depth,location=xyz((x,y,z)));o=bpy.context.object;o.name=name;o.rotation_euler.x=math.pi/2;bpy.ops.object.transform_apply(location=False,rotation=True,scale=True)
+ if hide_back:
+  mesh=bmesh.new();mesh.from_mesh(o.data);mesh.normal_update();bmesh.ops.delete(mesh,geom=[f for f in mesh.faces if f.normal.y>.8],context='FACES');mesh.to_mesh(o.data);mesh.free()
+ return uv(o,role,front_role=front_role)
 
 def start(name):
  global current
@@ -43,7 +46,7 @@ for ix in range(4):
  for iz in range(4):
   x=-1.2+ix*.6;z=iz*.6
   box('Warm speckled resilient flooring',[x+.001,-.003,z+.001],[x+.599,0,z+.599],'linoleum' if (ix+iz)%2 else 'linoleum_inset')
-box('Back reveal backing',[-1.28,0,2.43],[1.28,2.55,2.48],'charcoal')
+box('Back reveal backing',[-1.23,0,2.43],[1.23,2.55,2.48],'charcoal')
 for i in range(5):
  x=-1.2+i*.48;box('Book-matched walnut rear panel',[x+.008,.13,2.4],[x+.472,2.46,2.455],'walnut' if i%2 else 'walnut_light')
 for side in [-1,1]:
@@ -51,11 +54,21 @@ for side in [-1,1]:
  box('Side reveal backing',[x0,0,.24],[x1,2.55,2.48],'charcoal')
  for i in range(5):
   z=.24+i*.432;x0,x1=(-1.255,-1.2)if side<0 else(1.2,1.255)
-  box('Vertical walnut side panel',[x0,.13,z+.008],[x1,2.46,z+.424],'walnut' if i%2 else 'walnut_light')
+  box('Vertical walnut side panel',[x0,.13,max(z+.008,.368)],[x1,2.46,z+.424],'walnut' if i%2 else 'walnut_light')
  x0,x1=(-1.2,-1.185)if side<0 else(1.185,1.2)
- box('Side bronze skirting',[x0,.025,.25],[x1,.13,2.4],'aged_brass')
- x0,x1=(-1.2,-.675)if side<0 else(.675,1.2)
- box('Veneered front return',[x0,0,.02],[x1,2.55,.26],'walnut')
+ box('Side bronze skirting',[x0,.025,.368],[x1,.13,2.38],'aged_brass')
+ # Two actual recessed channels house the landing and cabin leaves. The
+ # passenger/hall skins leave a narrow mouth with an edge still visible open.
+ x0,x1=(-1.425,-.715)if side<0 else(.715,1.425)
+ for z0,z1 in [(.02,.10),(.20,.24),(.345,.36)]:
+  box('Wood door-pocket skin',[x0,0,z0],[x1,2.55,z1],'walnut')
+ x0,x1=(-1.45,-1.425)if side<0 else(1.425,1.45)
+ box('Closed pocket outer end',[x0,0,.018],[x1,2.55,.362],'charcoal')
+ x0,x1=(-1.45,-.679)if side<0 else(.679,1.45)
+ box('Pocket lower rail',[x0,-.04,.02],[x1,-.015,.36],'charcoal')
+ box('Pocket top enclosure',[x0,2.55,.02],[x1,2.57,.36],'charcoal')
+ x0,x1=(-1.425,-.679)if side<0 else(.679,1.425)
+ box('Cabin dark pocket return',[x0,-.012,.235],[x1,2.23,.26],'charcoal')
  # Wood rails align with their separate waist-height collision stock.
  x0,x1=(-1.14,-1.06)if side<0 else(1.06,1.14)
  box('Softened walnut side handrail',[x0,.95,.55],[x1,1.03,2.25],'wood_rail',.018)
@@ -66,32 +79,45 @@ box('Rear bronze skirting',[-1.2,.025,2.385],[1.2,.13,2.4],'aged_brass')
 box('Softened walnut rear handrail',[-1.11,.95,2.26],[1.11,1.03,2.34],'wood_rail',.018)
 for x in [-.83,.83]:box('Rear brass rail bracket',[x-.018,.963,2.30],[x+.018,1.005,2.4],'aged_brass')
 box('Cream ceiling',[-1.2,2.55,.24],[1.2,2.63,2.48],'ceiling_cream')
-box('Front overhead return',[-.675,2.2,.02],[.675,2.55,.26],'walnut')
-box('Cabin recessed header',[-.675,2.2,.265],[.675,2.48,.283],'charcoal')
+box('Front overhead return',[-.715,2.205,.02],[.715,2.55,.36],'walnut')
+box('Cabin recessed header',[-.715,2.205,.365],[.715,2.48,.383],'charcoal')
 box('Brass diffuser surround',[-.76,2.515,.62],[.76,2.55,1.82],'aged_brass',.006)
 box('Warm prismatic lens',[-.70,2.506,.68],[.70,2.515,1.76],'warm_diffuser',emission=True)
-for x in [-1.18,1.13]:box('Ceiling edge batten',[x,2.475,.25],[x+.05,2.55,2.4],'wood_rail')
+for x in [-1.18,1.13]:box('Ceiling edge batten',[x,2.475,.368],[x+.05,2.55,2.345],'wood_rail')
 box('Rear ceiling batten',[-1.18,2.475,2.35],[1.18,2.55,2.4],'wood_rail')
 box('Door threshold',[-.68,.001,-.16],[.68,.006,.20],'brushed_steel')
 for z in [-.12,-.06,0,.06,.12]:box('Door guide groove',[-.67,.006,z],[.67,.008,z+.006],'charcoal')
-box('Recessed control surround',[.79,.62,.265],[1.09,1.74,.286],'aged_brass',.006)
-box('Control panel inset',[.81,.64,.287],[1.07,1.72,.293],'charcoal')
-box('Etched service plate',[.83,.655,.294],[1.05,.73,.298],'service_plate')
+box('Recessed control surround',[.79,.62,.365],[1.09,1.74,.386],'aged_brass',.006)
+box('Control panel inset',[.81,.64,.387],[1.07,1.72,.393],'charcoal')
+box('Etched service plate',[.83,.655,.394],[1.05,.73,.398],'service_plate')
 start('elevator_frame_70s')
-for x0,x1 in [(-.755,-.675),(.675,.755)]:box('Brushed metal jamb',[x0,-.004,-.17],[x1,2.28,.01],'brushed_steel',.006)
-box('Brushed metal lintel',[-.755,2.225,-.17],[.755,2.29,.01],'brushed_steel',.006)
-box('Recessed dark transom',[-.675,2.2,-.14],[.675,2.225,0],'charcoal')
+jambs=[]
+for x0,x1 in [(-.795,-.715),(.715,.795)]:jambs.append(box('Brushed metal jamb',[x0,-.004,-.17],[x1,2.28,-.105],'brushed_steel',.006))
+lintel=box('Brushed metal lintel',[-.795,2.225,-.17],[.795,2.29,-.105],'brushed_steel',.006)
+# Manufacture one continuous frame: remove the coplanar stock intersections,
+# preserving the fitted steel UVs on the exterior faces.
+for jamb in jambs:
+ modifier=lintel.modifiers.new('Welded frame stock','BOOLEAN');modifier.operation='UNION';modifier.solver='EXACT';modifier.object=jamb
+ bpy.context.view_layer.objects.active=lintel;bpy.ops.object.modifier_apply(modifier=modifier.name)
+ current.remove(jamb);bpy.data.objects.remove(jamb,do_unlink=True)
+box('Recessed dark transom',[-.715,2.2,-.15],[.715,2.24,.24],'charcoal')
+box('Landing sill',[-.795,-.014,-.17],[.795,-.002,.24],'brushed_steel')
+for x0,x1 in [(-1.425,-.675),(.675,1.425)]:
+ box('Landing dark pocket liner',[x0,-.012,.195],[x1,2.23,.225],'charcoal')
+for x0,x1 in [(-.79,-.710),(.710,.79)]:
+ box('Dark pocket mouth return',[x0,-.012,-.105],[x1,2.23,.025],'charcoal')
 box('Indicator brass rim',[-.105,2.41,-.16],[.105,2.57,-.13],'aged_brass',.004)
 box('Amber arrival indicator',[-.083,2.43,-.165],[.083,2.55,-.161],'indicator')
 box('Hall call plate',[-1.06,.98,-.15],[-.86,1.18,-.11],'brushed_steel',.007)
 button_cylinder('Hall call brass bezel',-.96,1.08,-.151,.036,.016,'aged_brass')
 button_cylinder('Hall call button',-.96,1.08,-.162,.026,.012,'button')
 start('elevator_leaf_70s')
-box('Satin gray sliding door',[0,.006,-.0225],[.672,2.195,.0225],'door_satin',.003)
+box('Satin gray sliding door',[0,-.01,-.0225],[.695,2.22,.0225],'door_satin',.003)
+box('Concealed center-edge seal',[-.004,-.01,.0225],[.004,2.22,.03],'charcoal')
 start('elevator_button_70s')
-box('Button backing',[.865,1.54,.294],[1.015,1.62,.308],'charcoal')
-button_cylinder('Brass octagonal bezel',.94,1.58,.310,.035,.018,'aged_brass')
-button_cylinder('Cream passenger button',.94,1.58,.323,.027,.010,'button')
+box('Button backing',[.865,1.54,.394],[1.015,1.62,.408],'charcoal')
+button_cylinder('Brass octagonal bezel',.94,1.58,.410,.035,.018,'aged_brass',hide_back=True)
+button_cylinder('Cream passenger button',.94,1.58,.423,.027,.010,'button','vent',True)
 # Join each rigid part so the runtime receives two primitives, not dozens of nodes.
 for name,objects in list(parts.items()):
  bpy.ops.object.select_all(action='DESELECT')

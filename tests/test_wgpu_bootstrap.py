@@ -405,9 +405,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                 f"the wgpu smoke test has no expected backend for {sys.platform!r}"
             )
         os.makedirs(SMOKE_ROOT, exist_ok=True)
-        # Share one runtime catalog snapshot across the bounded native fixtures.
-        # File links avoid copying artwork; platforms without symlink permission
-        # copy each catalog file once. Installed maps cannot choose a background.
+        # Share one complete runtime snapshot across the bounded fixtures.
+        # Installation admission requires regular model files contained inside
+        # its asset root, plus the sound library; external symlinks are invalid.
+        # Installed maps cannot choose a background.
         cls.asset_root = os.path.join(SMOKE_ROOT, "payload")
         runtime_assets = os.path.join(cls.asset_root, "assets")
         shutil.rmtree(cls.asset_root, ignore_errors=True)
@@ -425,10 +426,9 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                 continue
             os.makedirs(os.path.dirname(destination), exist_ok=True)
             source = os.path.join(ROOT, "assets", relative)
-            try:
-                os.symlink(source, destination)
-            except OSError:
-                shutil.copy2(source, destination)
+            shutil.copy2(source, destination)
+        shutil.copytree(os.path.join(ROOT, "assets", "audio"),
+                        os.path.join(runtime_assets, "audio"))
         _write_level(os.path.join(SMOKE_ROOT, "primary"), _primary_level())
 
     def run_binary(self, extra_env=None, timeout=240, *, memory_report=None):
@@ -609,7 +609,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertIn("present mode: Fifo", output, output)
         self.assertIn("depth format: Depth32Float", output, output)
         self.assertIn("drawable: ", output, output)
-        self.assertIn("[wgpu] world pipeline for surface format", output, output)
+        self.assertIn("[wgpu] prepared world pipelines for", output, output)
         self.assert_no_gpu_failure(output)
 
         drawable = re.search(r"drawable: (\d+)x(\d+)", output)
@@ -652,7 +652,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         # uploaded count is at most the unique count and fallbacks are
         # legitimate here.
         self.assertGreaterEqual(unique, 6, output)
-        self.assertGreaterEqual(uploaded, 6, "the first load uploads the control's distinct sheets")
+        self.assertGreaterEqual(uploaded + _hits, unique,
+                                "prepared staging or final binding resolves every sheet")
         self.assertLessEqual(
             uploaded, unique, "an identity is never uploaded twice on one load"
         )
@@ -678,7 +679,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(len(self.world_uploads(output)), 1, output)
         loads = self.texture_loads(output)
         self.assertEqual(len(loads), 1, f"100 frames, one texture load:\n{output}")
-        self.assertGreater(loads[0][1], 0, "the load uploaded the world's sheets")
+        self.assertGreater(loads[0][1] + loads[0][2], 0,
+                           "prepared staging may upload before final world accounting")
         self.assertLessEqual(
             loads[0][1], loads[0][0], "an identity is never uploaded twice"
         )
@@ -1010,11 +1012,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
                          ["wgpu_smoke_primary", SECOND_LEVEL_ID])
 
     @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
-    def test_selecting_the_preparing_background_level_reuses_its_preparation(self):
-        # No PLACES_LEVEL: the ordinary startup prepares the menu background.
-        # Selecting that same world from the level list while it is preparing
-        # must promote the request, never cancel and restart the expensive
-        # build.
+    def test_selecting_a_level_during_menu_preparation_commits_only_selection(self):
+        # No PLACES_LEVEL prepares the dedicated menu world. Selecting an
+        # installed map while it is preparing must supersede that menu request
+        # and present only the selected world.
         events, output = self.run_loading_actions(
             "background-promote-state", [], "", [
                 {"after": "start", "delay_ms": 300,
@@ -1025,8 +1026,9 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         )
         self.assert_no_gpu_failure(output)
         requests = [event for event in events if event["event"] == "request"]
-        self.assertEqual([event["detail"] for event in requests], ["wgpu_smoke_primary"],
-                         "selecting the preparing background level must reuse its request")
+        self.assertEqual([event["detail"] for event in requests],
+                         ["places_menu", "wgpu_smoke_primary"],
+                         "the installed map supersedes the dedicated menu")
         self.assertEqual([event["detail"] for event in events
                           if event["event"] == "cpu_ready"], ["wgpu_smoke_primary"])
         commits = [json.loads(event["detail"]) for event in events if event["event"] == "world_committed"]
@@ -1253,7 +1255,7 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(sum(event["event"] == "scene_presented" for event in events), 1)
 
     @unittest.skipIf(DISPLAY_LOCKED, LOCKED_REASON)
-    def test_repeated_visits_reuse_prepared_geometry_but_reset_new_world_spawn(self):
+    def test_repeated_visits_reset_new_world_spawn_and_entities(self):
         with open(os.path.join(ROOT, "tests", "fixtures", "levels", "entity_showcase.json"),
                   encoding="utf-8") as stream:
             first = json.load(stream)
@@ -1264,7 +1266,8 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             {"after": f"ready:{second['id']}", "delay_ms": 0,
              "action": {"kind": "load", "level": first["id"]}},
         ], extra_env={"PLACES_SPAWN": "13,2,180", "PLACES_PAUSE": "1"})
-        self.assertIn(f"[loading] compiled-cache hit level={first['id']}", output)
+        # Worker caches may be deliberately released at commit to bound map
+        # lifetime. A revisit must restore authored state regardless of reuse.
         commits = [json.loads(event["detail"]) for event in events if event["event"] == "world_committed"]
         self.assertEqual([snapshot["current_level_id"] for snapshot in commits],
                          [first["id"], second["id"], first["id"]])
@@ -1411,8 +1414,10 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         # the replacement and its identical repeat must reuse them; neither
         # fallback draws nor missing textures may disguise a cache failure.
         for load in loads[1:]:
-            self.assertEqual(load[:6], (2, 0, 2, 0, 0, 2),
-                             f"both real sheets must be cached for both draws:\n{output}")
+            self.assertEqual((load[0], load[1], load[3], load[4]), (2, 0, 0, 0),
+                             f"both real sheets must be cached without fallbacks:\n{output}")
+            self.assertEqual(load[2], load[5], "every final draw uses a cached sheet")
+            self.assertGreaterEqual(load[5], 2, "batch splitting may add draws")
             self.assertEqual(load[6:8], (11184808, 1024),
                              "both 1024px sheets retain their complete native mip chains")
             self.assertEqual(load[8], "high", "replacement retains texture filtering")
@@ -1427,7 +1432,9 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
             self.assert_material_resolution_is_sane(load, output)
         self.assertGreaterEqual(material_loads[1][0], 1, output)
         for load in material_loads[1:]:
-            self.assertEqual(load[3:6], (1, 0, 1), "the shared plastic normal map stays cached")
+            self.assertGreaterEqual(load[3], 1, "the plastic normal map remains present")
+            self.assertEqual(load[4], 0, "no normal map is uploaded twice")
+            self.assertEqual(load[5], load[3], "every normal-map binding uses the cache")
             self.assertEqual(load[10:], ("enabled", "high"), "replacement retains material quality")
         self.assertEqual(material_loads[1], material_loads[2], "the repeat resolves identical materials")
         self.assert_no_gpu_failure(output)
@@ -1517,36 +1524,18 @@ class WgpuRuntimeSmokeTests(unittest.TestCase):
         self.assertEqual(material_loads[0][7:9], (0, 0), "no cut-out or translucent range")
         self.assert_no_gpu_failure(output)
 
-    def test_an_unknown_material_resolves_to_the_diagnostic_texture(self):
+    def test_an_unknown_builtin_material_is_rejected_before_runtime(self):
+        # Strict built-in reference admission supersedes the old diagnostic
+        # fallback. This tiny negative source must never publish a package.
         state = os.path.join(SMOKE_ROOT, "missing-state")
         shutil.rmtree(state, ignore_errors=True)
-        _write_level(state, _missing_level())
-
-        code, output = self.run_binary(
-            {
-                "PLACES_STATE_ROOT": state,
-                "PLACES_LEVEL": MISSING_LEVEL_ID,
-            }
-        )
-
-        self.assertEqual(code, 0, f"wgpu missing-material run failed:\n{output}")
-        loads = self.texture_loads(output)
-        self.assertEqual(len(loads), 1, output)
-        unique, uploaded, _hits, fallbacks, missing, draws, _resident, edge, _mode = loads[0]
-        self.assertEqual(unique, 1, "every broken material shares one diagnostic sheet")
-        self.assertEqual(uploaded, 1, output)
-        self.assertEqual(fallbacks, 0, "a broken material still names a texture")
-        self.assertEqual(missing, draws, "every draw reports the missing pattern")
-        self.assertEqual(edge, 64, "the diagnostic pattern is 64x64")
-
-        # The diagnostic material is opaque and carries no response, so the
-        # degraded whole-material rule is visible in the material line.
-        material_loads = self.material_loads(output)
-        self.assertEqual(len(material_loads), 1, output)
-        self.assert_material_resolution_is_sane(material_loads[0], output)
-        self.assertEqual(material_loads[0][1], 0, "a broken material loses its response")
-        self.assertEqual(material_loads[0][3], 0, "and its normal map")
-        self.assert_no_gpu_failure(output)
+        with self.assertRaisesRegex(
+            AssertionError, "unknown or incompatible built-in Material ID"
+        ):
+            _write_level(state, _missing_level())
+        self.assertFalse(os.path.exists(os.path.join(
+            state, "levels", f"{MISSING_LEVEL_ID}.placesmap"
+        )))
 
     # --------------------------------------------------------- baked lighting
 

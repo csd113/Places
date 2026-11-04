@@ -2689,7 +2689,11 @@ Elevators use four authored, opaque, rigid GLBs under `shared/props/elevator_70s
 cabin, frame, sliding leaf and repeatable passenger button. Each embeds the same
 GIMP-authored 256-square PNG; a layered XCF and 1024-square master retain editable
 art. The 4x4 fitted atlas has inset UV cells in the documented role order from
-`tools/props/elevator_70s/paint_gimp.py`; it never tiles. Walnut grain runs upright
+`tools/props/elevator_70s/paint_gimp.py`; it never tiles. Previously unused cell
+14 holds a nested 4x4 grid of opaque number/letter glyphs. The passenger-button
+front cap alone uses that cell; runtime UV selection chooses committed glyph
+pixels without generating imagery. Each cabin omits its current-stop button.
+Walnut grain runs upright
 on wall panels, wood handrails use their own grain cell, and linoleum has muted
 chips rather than baked shadows. The warm diffuser alone has visual emission.
 
@@ -2706,3 +2710,10 @@ matching collision stock. A bounded warm attached light follows the car through
 all floors; the existing eight-source realtime-light budget still applies.
 
 See [elevator authoring](ELEVATORS.md) for fixed dimensions and clear shafts.
+
+The passenger-elevator front assembly has hollow dark door-pocket channels,
+with a narrow visible panel edge at full retraction. Concealed overlapping rear
+seals preserve opacity at the centre, sides and transom without obstructing the
+1.35 m opening. Exposed wood/metal faces have separated joins; contact surfaces
+inside stock do not substitute for visible coplanar overlays. The front pocket
+assembly spans 2.9 m; reserve a 3 m authoring footprint.

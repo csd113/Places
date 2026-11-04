@@ -225,8 +225,32 @@ fn primary_tools(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                 (101.0, "Stairs >", Action::StairWizard),
                 (115.0, "Doorway opening", Action::Place(Tool::Doorway)),
             ] {
-                button(v, hits, [5.0, y, 94.0, 11.0], label, action, open);
+                button(
+                    v,
+                    hits,
+                    [
+                        5.0,
+                        y,
+                        if action == Action::Add(ObjectKind::Room) {
+                            45.0
+                        } else {
+                            94.0
+                        },
+                        11.0,
+                    ],
+                    label,
+                    action,
+                    open,
+                );
             }
+            button(
+                v,
+                hits,
+                [54.0, 59.0, 45.0, 11.0],
+                "Elevator",
+                Action::Elevator(crate::editor::elevators::Command::Place),
+                open,
+            );
         }
         Tab::Assets => {
             for (x, width, label, catalog) in [
@@ -337,7 +361,7 @@ pub(in crate::editor) fn help(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     rect(v, [118.0, 49.0, 268.0, 182.0], super::PANEL);
     text(v, "EDITOR HELP", 128.0, 59.0, ACCENT, 60);
     for (row, line) in [
-        "Build: Room, Wall, Door, Stairs and doorway openings.",
+        "Build: Room, Elevator, Wall, Door, Stairs and openings.",
         "Assets: choose a prop, then Place chosen prop.",
         "A selected prop receives the chosen model immediately.",
         "Select an object for dimensions, surfaces and settings.",

@@ -47,7 +47,9 @@ fn draw_form(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>)
         ui::INK,
         85,
     );
-    if draft.tool == Tool::WallTrim && draft.page > 0 {
+    if draft.tool == Tool::Elevator {
+        super::elevators::draw(draft, v, hits);
+    } else if draft.tool == Tool::WallTrim && draft.page > 0 {
         draw_wall_selection(app, draft, v, hits);
     } else {
         for (index, (field, value)) in draft
@@ -104,7 +106,7 @@ fn draw_form(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>)
                 Action::Author(Command::RouteStep(kind)),
             );
         }
-    } else {
+    } else if draft.tool != Tool::Elevator {
         ui::text(v, form_hint(draft.tool), 126.0, 197.0, ui::INK, 90);
     }
     for (x, label, action) in [
@@ -118,6 +120,9 @@ fn draw_form(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>)
 }
 
 fn draw_form_navigation(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    if draft.tool == Tool::Elevator {
+        return;
+    }
     if draft.tool == Tool::WallTrim {
         let count = app
             .document
@@ -174,7 +179,11 @@ fn draw_hub(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             hits,
             [x, y, 160.0, 18.0],
             tool.title(),
-            Action::Author(Command::Open(tool)),
+            if tool == Tool::Elevator {
+                Action::Elevator(crate::editor::elevators::Command::Place)
+            } else {
+                Action::Author(Command::Open(tool))
+            },
         );
     }
     ui::text(

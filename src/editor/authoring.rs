@@ -1,4 +1,5 @@
 //! Focused source forms: complete records are validated before admission.
+mod elevators;
 mod generators;
 mod sheets;
 use super::{
@@ -26,6 +27,8 @@ pub(super) enum Command {
     Delete,
     Slice,
     RouteStep(&'static str),
+    ElevatorStop(bool),
+    EditElevator(usize),
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Tool {
@@ -59,6 +62,9 @@ enum Kind {
     Number,
     Text,
     Bool,
+    Level,
+    Arrival,
+    InitialStop,
 }
 #[derive(Clone)]
 struct Field {
@@ -218,7 +224,7 @@ impl Tool {
                 fields
             }
             Self::Room => room_fields(),
-            Self::Elevator => elevator_fields(),
+            Self::Elevator => elevators::fields(None),
             Self::Route => vec![
                 text("/id", "Actor instance ID", ""),
                 flag("/loop", "Loop", "false"),
@@ -477,11 +483,10 @@ impl Draft {
         if tool == Tool::WallTrim && original.is_none() {
             return Err("Select a wall before opening Automatic trim".into());
         }
-        let definitions = if tool == Tool::Route {
-            route_fields(original.as_ref())
-        } else {
-            tool.fields()
-        };
+        if tool == Tool::Elevator && original.is_none() {
+            original = Some(elevators::new_record(app));
+        }
+        let definitions = form_fields(tool, original.as_ref());
         let original_light = original.as_ref().and_then(|value| {
             serde_json::from_value::<crate::engine::level::GlobalIlluminatorDef>(value.clone()).ok()
         });
@@ -583,8 +588,10 @@ impl Draft {
                 Some(match field.kind {
                     Kind::Json => serde_json::from_str(content)
                         .map_err(|e| format!("{}: {e}", field.label))?,
-                    Kind::Text => Value::String(content.trim().into()),
-                    Kind::Number => {
+                    Kind::Text | Kind::Level | Kind::Arrival => {
+                        Value::String(content.trim().into())
+                    }
+                    Kind::Number | Kind::InitialStop => {
                         let value: Value = serde_json::from_str(content)
                             .map_err(|_error| format!("{} needs a finite number", field.label))?;
                         if !value.is_number() {
@@ -600,6 +607,9 @@ impl Draft {
                 })
             };
             set_path(&mut record, &field.path, value)?;
+        }
+        if self.tool == Tool::Elevator {
+            elevators::normalize(&record)?;
         }
         if self.tool == Tool::Sun {
             let object = record.as_object_mut().ok_or("Invalid directional source")?;
@@ -672,6 +682,9 @@ impl Draft {
             return doc.local_floor_candidate(self.index, &record);
         }
         let mut raw = self.expected.clone();
+        if self.tool == Tool::Elevator {
+            elevators::link_destinations(doc, &record, &mut raw)?;
+        }
         if self.tool.singleton() {
             drop(
                 raw.as_object_mut()
@@ -737,6 +750,13 @@ impl App {
     )]
     pub(super) fn authoring_action(&mut self, action: Action) -> Result<bool, String> {
         match action {
+            Action::Author(Command::EditElevator(index)) => {
+                self.popup = Some(Popup::AuthoringForm(Box::new(Draft::new(
+                    self,
+                    Tool::Elevator,
+                    Some(index),
+                )?)));
+            }
             Action::Author(Command::Hub) => self.popup = Some(Popup::Authoring),
             Action::Author(Command::Create(tool)) => {
                 self.popup = Some(Popup::AuthoringForm(Box::new(Draft::new(
@@ -756,25 +776,12 @@ impl App {
                     draft.slice_z = !draft.slice_z;
                 }
             }
-            Action::Author(Command::Field(index)) => {
+            Action::Author(Command::ElevatorStop(add)) => {
                 if let Some(Popup::AuthoringForm(draft)) = &mut self.popup {
-                    if let Some((field, value)) = draft.fields.get_mut(index)
-                        && field.path.as_ref() == "/trim/placement"
-                    {
-                        *value = match value.as_str() {
-                            "none" => "bottom",
-                            "bottom" => "top",
-                            "top" => "both",
-                            _ => "none",
-                        }
-                        .into();
-                        draft.active = None;
-                    } else {
-                        draft.active = Some(index);
-                    }
-                    draft.preview = false;
+                    elevators::edit_stop(draft, add)?;
                 }
             }
+            Action::Author(Command::Field(index)) => self.select_authoring_field(index)?,
             Action::Author(Command::ToggleWall(index)) => {
                 if let Some(Popup::AuthoringForm(draft)) = &mut self.popup {
                     draft.toggle_wall(index);
@@ -826,6 +833,32 @@ impl App {
             _ => return Ok(false),
         }
         Ok(true)
+    }
+    fn select_authoring_field(&mut self, index: usize) -> Result<(), String> {
+        if let Some(Popup::AuthoringForm(draft)) = &mut self.popup
+            && let Some(doc) = &self.document
+            && elevators::choose(doc, draft, index)?
+        {
+            return Ok(());
+        }
+        if let Some(Popup::AuthoringForm(draft)) = &mut self.popup {
+            if let Some((field, value)) = draft.fields.get_mut(index)
+                && field.path.as_ref() == "/trim/placement"
+            {
+                *value = match value.as_str() {
+                    "none" => "bottom",
+                    "bottom" => "top",
+                    "top" => "both",
+                    _ => "none",
+                }
+                .into();
+                draft.active = None;
+            } else {
+                draft.active = Some(index);
+            }
+            draft.preview = false;
+        }
+        Ok(())
     }
     fn checked_authoring_form(&mut self, apply: bool) -> Result<(), String> {
         let result = self.apply_authoring_form(apply);
@@ -986,7 +1019,12 @@ impl App {
             return Err("Use scene Delete for a room".into());
         }
         let mut raw = draft.expected.clone();
-        if draft.tool == Tool::Surround {
+        if draft.tool == Tool::Elevator {
+            raw = crate::editor::elevators::remove_candidate(
+                self.document.as_ref().ok_or("Open a project")?,
+                draft.index,
+            )?;
+        } else if draft.tool == Tool::Surround {
             let values = generators::collection_mut(&mut raw, draft.tool, draft.owner)?;
             let opening = values
                 .get_mut(draft.index)
@@ -1194,19 +1232,12 @@ fn default_room(app: &App, doc: &super::document::Document) -> Value {
                 "height":anchor.map_or(2.7,|room|room.height)})
 }
 
-fn elevator_fields() -> Vec<Field> {
-    vec![
-        text("/id", "Unique elevator ID", "lift"),
-        number("/x", "Door centre X / world m", "0"),
-        number("/z", "Door centre Z / world m", "0"),
-        number("/rotation_degrees", "Yaw / cabin extends local +Z", "0"),
-        number("/initial_stop", "Initial landing / zero based", "0"),
-        number("/speed_mps", "Travel speed m/s (0.25..4)", "1.5"),
-        Field {
-            path: "/stops".into(),
-            label: "Stops: label, y, optional level",
-            kind: Kind::Json,
-            default: "[{\"label\":\"G\",\"y\":0},{\"label\":\"1\",\"y\":3.5}]",
-        },
-    ]
+fn form_fields(tool: Tool, record: Option<&Value>) -> Vec<Field> {
+    if tool == Tool::Elevator {
+        elevators::fields(record)
+    } else if tool == Tool::Route {
+        route_fields(record)
+    } else {
+        tool.fields()
+    }
 }

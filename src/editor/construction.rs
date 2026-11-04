@@ -76,6 +76,7 @@ pub(super) fn floor_point(app: &App, point: [f32; 2], height: f32) -> Option<[f3
 }
 impl App {
     pub(super) fn start_placement(&mut self, tool: Tool) -> Result<(), String> {
+        self.elevators.mode = None;
         let _document = self
             .document
             .as_ref()
