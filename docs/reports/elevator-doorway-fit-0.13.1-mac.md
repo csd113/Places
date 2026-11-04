@@ -103,9 +103,34 @@ wall when no floor ray existed. Selection now stops at the nearest wall, and
 the complete corrected v3 campaign passes. The test suite remains source-only;
 none of these explicit map exports or native runs enter ordinary CI.
 
-Strict workspace/all-target/all-feature Clippy and all **444 workspace tests**
-pass on the final editor source. Three small placement regressions protect
-four-face/off-grid fit plus atomic Undo, actual depth/width/height boundaries,
-and refusal of an existing hinged door without source mutation. The existing
-linked-group regression still passes. Asset, prop, texture and formatting
-checks pass, with the existing 17 source/asset and 118 texture advisories.
+At the implementation checkpoint before final review, strict
+workspace/all-target/all-feature Clippy and all **444 workspace tests** passed.
+Three small placement regressions protected four-face/off-grid fit plus atomic
+Undo, actual depth/width/height boundaries, and refusal of an existing hinged
+door without source mutation. The existing linked-group regression also passed.
+Asset, prop, texture and formatting checks passed, with the existing 17
+source/asset and 118 texture advisories.
+
+## Final editor review
+
+The final review corrected two placement edge cases. A nearer visible floor now
+occludes wall fitting on the storey below, using the viewport's actual terrain
+triangles so recessed floors and ramps retain their real heights. Horizontal
+doorway rays and walls nearer than the floor remain pickable. An open-ceiling
+room also no longer rejects a cabin above its nominal eave height: there is no
+ceiling surface to intersect.
+
+The source-only regressions cover the stacked-floor ray, nearer wall and empty
+horizontal aperture, actual recessed/ramped floor distances, and a low-eave open
+room. All 445 workspace tests pass; strict all-target/all-feature Clippy and
+formatting checks pass. Their final logs are `tests-sol-final.log` and
+`clippy-sol-final.log` under `local/doorway-polish/`.
+
+The final `cargo build --locked --release --workspace --all-features` passes
+(9m 33s; `build-sol-final.log`). The existing native four-wall harness was then
+rerun against that exact release editor in `native-editor-sol-final/`: all four
+wall facings fit, the 2.47 m gap and 0.35 m host wall are refused, and the project
+saves successfully. `passed.json`, raw pointer checkpoints and captures are
+retained; representative accepted previews and the insufficient-space result
+were visually inspected. The stacked-floor and open-sky corrections have focused
+source-only coverage; the final native rerun covers the cardinal-wall workflow.
