@@ -1,5 +1,6 @@
 //! Place two cabins and link them. Detailed shaft authoring remains optional.
 mod links;
+mod placement;
 use super::{
     App,
     actions::Popup,
@@ -70,7 +71,7 @@ impl App {
                 self.cancel_placement();
                 self.popup = None;
                 self.elevators.mode = Some(Mode::Place);
-                self.status="Click the floor where the elevator doors should go. R rotates; Esc cancels. Click a cabin to select it.".into();
+                self.status="Point at a wall or its doorway to fit the elevator automatically. R rotates free placement; Esc cancels.".into();
             }
             Command::Select(index) => {
                 self.elevators.selected = Some(index);
@@ -146,9 +147,14 @@ impl App {
             .ray(point)
             .ok_or("Click a floor or elevator")?;
         let at = place_point(self, point);
+        let wall_distance =
+            wall_under_pointer(self, origin, direction).map(|(_, distance)| distance);
         let picked = pick(doc, origin, direction)
             .filter(|(_, distance)| {
-                at.is_none_or(|floor| *distance <= origin.distance(Vec3::from_array(floor)) + 0.05)
+                wall_distance.is_none_or(|wall| *distance <= wall + 0.05)
+                    && at.is_none_or(|floor| {
+                        *distance <= origin.distance(Vec3::from_array(floor)) + 0.05
+                    })
             })
             .map(|(index, _)| index);
         match self.elevators.mode {
@@ -157,9 +163,9 @@ impl App {
                     self.elevators.selected = Some(index);
                     self.elevators.mode = None;
                 } else {
-                    let position = at.ok_or("Click a visible floor")?;
+                    let fitted = placement_at(self, point)?;
                     let index = doc.level().elevators.len();
-                    let raw = links::place(doc, position, self.elevators.rotation)?;
+                    let raw = links::place(doc, &fitted)?;
                     self.apply_elevator_edit(raw)?;
                     self.elevators.selected = Some(index);
                     self.status =
@@ -218,29 +224,36 @@ impl App {
                 true
             }
             Event::MouseMotion { x, y, .. } => {
-                if let Some(point) = convert(*x, *y).filter(|p| self.viewport.contains_ui(*p))
-                    && let Some(at) = place_point(self, point)
-                {
-                    let def = ElevatorDef {
-                        id: String::new(),
-                        x: at[0],
-                        z: at[2],
-                        rotation_degrees: self.elevators.rotation,
-                        initial_stop: 0,
-                        speed_mps: 1.5,
-                        stops: Vec::new(),
-                    };
-                    let centre = def.point(0.0, at[1] + 1.3, 1.25);
-                    self.viewport.highlight(
-                        Some(crate::engine::spatial::Aabb {
-                            min: [centre.x - 1.5, centre.y - 1.3, centre.z - 1.5],
-                            max: [centre.x + 1.5, centre.y + 1.3, centre.z + 1.5],
-                        }),
-                        &[],
-                    );
-                    return true;
+                let Some(point) = convert(*x, *y).filter(|p| self.viewport.contains_ui(*p)) else {
+                    return false;
+                };
+                match placement_at(self, point) {
+                    Ok(fitted) => {
+                        let def = fitted.definition();
+                        let centre = def.point(0.0, fitted.at[1] + 1.315, 1.249);
+                        let (sin, cos) = fitted.rotation.to_radians().sin_cos();
+                        let dx = cos.abs().mul_add(1.45, sin.abs() * 1.231);
+                        let dz = sin.abs().mul_add(1.45, cos.abs() * 1.231);
+                        self.viewport.highlight(
+                            Some(crate::engine::spatial::Aabb {
+                                min: [centre.x - dx, fitted.at[1], centre.z - dz],
+                                max: [centre.x + dx, fitted.at[1] + 2.63, centre.z + dz],
+                            }),
+                            &[],
+                        );
+                        self.status = if fitted.host.is_some() {
+                            "Fits flush to this wall. Click to place the elevator and doorway."
+                                .into()
+                        } else {
+                            "Space available. Click to place; R rotates; Esc cancels.".into()
+                        };
+                    }
+                    Err(error) => {
+                        self.viewport.highlight(None, &[]);
+                        self.status = error;
+                    }
                 }
-                false
+                true
             }
             Event::MouseButtonDown {
                 mouse_btn: MouseButton::Left,
@@ -338,6 +351,90 @@ impl App {
     }
 }
 
+// Include an opening's empty aperture in wall picking, so a horizontal ray
+// through an existing doorway still fits its host rather than a distant wall.
+fn wall_under_pointer(app: &App, origin: Vec3, direction: Vec3) -> Option<(usize, f32)> {
+    let doc = app.document.as_ref()?;
+    let surfaces = crate::engine::level::LevelSurfaces::new(doc.level());
+    doc.level()
+        .walls
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| app.focus.visible(super::document::ObjectId::Wall(*index)))
+        .filter_map(|(index, wall)| {
+            let (x, z) = wall.min_corner();
+            let (minimum, source, delta) = match wall.axis() {
+                crate::engine::level::WallAxis::X => (z, origin.z, direction.z),
+                crate::engine::level::WallAxis::Z => (x, origin.x, direction.x),
+            };
+            let face = if source <= wall.thickness().mul_add(0.5, minimum) {
+                minimum
+            } else {
+                minimum + wall.thickness()
+            };
+            let distance = (face - source) / delta;
+            if !distance.is_finite() || !(0.0..=500.0).contains(&distance) {
+                return None;
+            }
+            let hit = Vec3::new(
+                direction.x.mul_add(distance, origin.x),
+                direction.y.mul_add(distance, origin.y),
+                direction.z.mul_add(distance, origin.z),
+            );
+            let along = match wall.axis() {
+                crate::engine::level::WallAxis::X => hit.x - x,
+                crate::engine::level::WallAxis::Z => hit.z - z,
+            };
+            let height = wall
+                .height
+                .unwrap_or_else(|| surfaces.clear_ceiling_height_along(wall, along));
+            (along >= 0.0 && along <= wall.length() && hit.y >= wall.y && hit.y <= wall.y + height)
+                .then_some((index, distance))
+        })
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+}
+
+fn placement_at(app: &App, point: [f32; 2]) -> Result<placement::Placement, String> {
+    let doc = app.document.as_ref().ok_or("Open a project")?;
+    let (origin, direction) = app.viewport.ray(point).ok_or("Point at a wall or floor")?;
+    let hint = wall_under_pointer(app, origin, direction).map(|(index, _)| index);
+    let at = if let Some(wall) = hint.and_then(|index| doc.level().walls.get(index)) {
+        let (x, z) = wall.min_corner();
+        let (cross, source, delta) = match wall.axis() {
+            crate::engine::level::WallAxis::X => {
+                (wall.thickness().mul_add(0.5, z), origin.z, direction.z)
+            }
+            crate::engine::level::WallAxis::Z => {
+                (wall.thickness().mul_add(0.5, x), origin.x, direction.x)
+            }
+        };
+        let distance = (cross - source) / delta;
+        if distance.is_finite() && (0.0..=500.0).contains(&distance) {
+            [
+                direction.x.mul_add(distance, origin.x),
+                wall.y,
+                direction.z.mul_add(distance, origin.z),
+            ]
+        } else {
+            return Err("Face the wall before placing the elevator".into());
+        }
+    } else {
+        place_point(app, point).ok_or("Point at a wall or visible floor")?
+    };
+    let fitted = placement::resolve(
+        doc,
+        at,
+        app.elevators.rotation,
+        Some(origin),
+        hint,
+        app.view.snap.then_some(app.step),
+    )?;
+    let raw = links::place(doc, &fitted)?;
+    let _level = doc
+        .validate_candidate(&raw)
+        .map_err(|error| format!("Not enough space for this elevator: {error}"))?;
+    Ok(fitted)
+}
 fn place_point(app: &App, point: [f32; 2]) -> Option<[f32; 3]> {
     let doc = app.document.as_ref()?;
     let (origin, direction) = app.viewport.ray(point)?;
@@ -354,7 +451,7 @@ fn place_point(app: &App, point: [f32; 2]) -> Option<[f32; 3]> {
             choices.push((Vec3::from_array(at).distance_squared(origin), at));
         }
     }
-    let mut at = choices
+    let at = choices
         .into_iter()
         .min_by(|a, b| a.0.total_cmp(&b.0))
         .map(|(_, at)| at)
@@ -375,10 +472,6 @@ fn place_point(app: &App, point: [f32; 2]) -> Option<[f32; 3]> {
         })?;
     if direction.y.abs() < 0.0001 {
         return None;
-    }
-    if app.view.snap {
-        at[0] = (at[0] / app.step).round() * app.step;
-        at[2] = (at[2] / app.step).round() * app.step;
     }
     Some(at)
 }
@@ -602,3 +695,7 @@ pub(super) fn remove_candidate(doc: &Document, index: usize) -> Result<serde_jso
 #[cfg(test)]
 #[path = "tests/elevator_links.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "tests/elevator_placement.rs"]
+mod placement_tests;

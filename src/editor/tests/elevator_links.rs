@@ -16,7 +16,8 @@ fn linked_groups_are_height_independent_bounded_and_atomic() -> Result<(), Strin
         [16.0, 0.0, 0.0],
         [16.0, 3.5, 0.0],
     ] {
-        let raw = links::place(&doc, point, 0.0)?;
+        let fitted = super::placement::resolve(&doc, point, 0.0, None, None, None)?;
+        let raw = links::place(&doc, &fitted)?;
         let before = doc.raw().clone();
         doc.apply_authoring_edit(&before, raw)?;
     }

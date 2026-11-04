@@ -22,9 +22,12 @@ player damage/catch action; custom attacks must honor visibility/collision.
 
 ## Place, place, link
 
-1. Make a hall with an opening for the elevator. Choose **Build > Elevator**
-   beside Room, point at the floor at the centre of the doorway and click.
-   **R** rotates the placement by 90 degrees. The preview shows its footprint.
+1. Choose **Build > Elevator**, then point at the landing wall or its doorway.
+   The preview automatically faces the wall and fits its metal frame flush to
+   the actual wall face, even between grid lines. Click to add the cabin and
+   its fitted 1.50 × 2.25 m opening together. An existing clear doorway keeps
+   its centre and is resized to fit; occupied openings are refused. One Undo
+   restores both the cabin and opening. **R** rotates free floor placement.
 2. Choose **Place another** and click the second location. Names are optional;
    use **Name** for labels such as G, 1 or 8.
 3. Select the first cabin, choose **Link selected**, then click the second cabin.
@@ -106,8 +109,14 @@ along -Z and the cabin extends along +Z. Reserve a **3 m wide front pocket
 assembly**, a clear **2.6 m wide, 2.5 m deep shaft** behind it, and a height of
 at least 2.75 m. The usable cabin is 2.4 m wide, 2.4 m deep and 2.55 m high;
 the clear doorway is 1.35 m wide and 2.2 m high. Use a 1.5 m wide opening at
-least 2.25 m high in a landing wall at local Z=0..0.2. The elevator does not
-cut walls, room floors or ceilings for you. Build/export validates clearance.
+least 2.25 m high in a landing wall at local Z=0..0.2. The editor creates or fits the host-wall opening automatically. It refuses
+placement when the real cabin would enter an adjacent room, intersect another
+wall, overlap another elevator or hit the ceiling, and explains the shortage.
+A gap exactly 2.48 m deep behind the landing face fits; the rear body is 2.56 m
+wide, while the shallow front pockets need 2.90 m. Host walls up to 0.24 m thick
+fit the fixed front assembly; thicker walls receive an explicit refusal rather
+than burying the cabin. Room floors and ceilings are not cut. Build/export
+retains the shared shaft and collision validation.
 
 Satin gray leaves retract into hollow dark recessed pockets, retaining a narrow
 visible panel lip at full opening. Concealed top/side overlaps and a rear centre

@@ -8,7 +8,12 @@ fn lifts(raw: &mut Value) -> Result<&mut Vec<Value>, String> {
 fn encode(lift: &ElevatorDef) -> Result<Value, String> {
     serde_json::to_value(lift).map_err(|e| e.to_string())
 }
-pub(super) fn place(doc: &Document, at: [f32; 3], rotation: f32) -> Result<Value, String> {
+pub(super) fn place(
+    doc: &Document,
+    placement: &super::placement::Placement,
+) -> Result<Value, String> {
+    let at = placement.at;
+    let rotation = placement.rotation;
     if doc.level().elevators.len() >= 8 {
         return Err("At most eight elevators per level".into());
     }
@@ -51,6 +56,7 @@ pub(super) fn place(doc: &Document, at: [f32; 3], rotation: f32) -> Result<Value
         number = number.saturating_add(1);
     };
     let mut raw = doc.raw().clone();
+    placement.fit_opening(&mut raw)?;
     lifts(&mut raw)?.push(json!({"id":id,"x":at[0],"z":at[2],"rotation_degrees":rotation,"stops":[{"label":format!("Elevator {number}"),"y":at[1]}]}));
     Ok(raw)
 }

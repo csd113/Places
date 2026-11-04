@@ -1129,6 +1129,12 @@ Each entry creates a fresh simulation; persistent checkpoints and cross-level
 travel require testing the final exported project in the player. The Here sheet
 lists the remaining scope limits, and the runtime HUD labels approximate lighting.
 
+The **Build > Elevator** placement tool fits a doorway to the actual wall face
+and automatically chooses its facing direction. The preview and click share
+that fitted pose, including off-grid wall positions. It creates/fits the host
+opening in the same undoable edit and refuses insufficient room gaps, occupied
+openings, thick host walls and cabin/ceiling intersections with an explanation.
+
 Passenger elevators are authored through **Space and Environment > Elevator /
 floor travel**. Preview/Apply/Undo operate on complete `elevators[]` records;
 `<`/`>` select existing records. The second page edits the stop list. Embedded
