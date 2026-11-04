@@ -5213,3 +5213,83 @@ Corrected cabin SHA-256:
 `ba51fdca4c0d1efefbd9d052e62b397337ecf0da00acebac7a30022906d16de2`.
 Final native production binary SHA-256:
 `085808a308fbb7e3632202c8650f6bb3ffe4f1cee75c14a93dfdd264e0a6449b`.
+
+
+## Editor quick-play automatic audio (2026-11-04)
+
+Embedded **Test in editor** and **Here** now include the player's automatic
+HVAC, fluorescent/blacklight hum, pool lapping, room bed, material footsteps and
+moving-door cues. This supersedes the earlier quick-test audio omissions recorded
+above. Ordinary authoring remains silent except for explicit cue auditions.
+
+The existing policies moved from `game::app::audio_runtime` to the shared
+`game::audio::WorldAudio`; the player retains its mixer, water-transition,
+authored-source, impact and trace adapters. Quick-test preparation derives the
+same fixture/pool/fixed-duct anchors from its private current scene and catalog.
+It installs the existing acoustic scene, forwards current light states and live
+toggles, resolves automatic source positions before entity sources, and shares
+the production distance/stride, door movement/cooldown and source-retirement
+rules. There is one automatic loop per family, including one nearest-surface
+HVAC voice across all eligible ducts. No duplicated environment mixer or sample
+library was introduced.
+
+Legacy authored `ambience_hvac` requests retain their entities/actions and remain
+silent, matching the player: fixed catalog duct stock owns the audible HVAC.
+Other authored emitters retain their source identities, positional/ambient
+settings, clocks and stop controls. Quick-test audio follows the physical world's
+time scale; instruction pauses reset pending foot travel. Stop, Escape, focus
+loss and a fresh session clear temporary sources. The existing quiet,
+listener-centred, non-looping three-second chooser audition remains separate.
+The obsolete automatic-audio warning/refusal was removed; final-lighting and
+other gameplay limitations remain visible.
+
+### Verification
+
+All checks used this task's separate checkout/target at base `2b45b529`; other
+Places checkout contents and build outputs were left untouched. Native runs
+started after checking that no other Places window was active. No shipped maps,
+packages or lightmaps were built. Embedded navigation preparation still follows
+the normal quick-test path. Formatting, strict workspace/all-target/all-feature
+Clippy, the locked release workspace/all-feature build and **439 Rust tests** pass.
+Two tiny device-free regressions protect current fixture/water anchors and
+footstep suppression across start, pause, teleport and airborne movement; the
+existing rotated/elevated duct regression moved with its owner. The complete
+Rust test execution takes 1.63 seconds after compilation.
+
+`tools/editor/quickplay_audio.py` drives ordinary visible controls and SDL input
+on the direct release editor binary, using six disposable source projects and
+isolated state/config/cache roots. **All six native scenarios exit successfully**,
+retaining 75 source/runtime/voice checkpoints and genuine post-mixer stereo PCM.
+The hardware was Apple M2 Pro/Metal; audio was CoreAudio, MacBook Pro Speakers,
+48 kHz stereo, 1024 device buffer frames. Accepted checkpoints use Fifo and a
+1920x1088 drawable. These are correctness checks, not FPS/latency measurements.
+
+| Check | Accepted evidence |
+| --- | --- |
+| All families plus authored audio | Exactly four automatic loops plus one spatial authored water emitter; no duplicate HVAC from the legacy global emitter or repeated play commands. |
+| Light and door controls | Switching off retires fluorescent hum while other beds remain; switching on restores it. Actual door movement starts `door_open`/`door_close`. |
+| Placement and falloff | A duct's actual nearest envelope supplies the anchor. Left/right listener positions produce pan +0.618/-0.618 and opposite channel-energy balance. Near stereo RMS is 0.001867 per channel; the 5 m X-offset sample is 0.000994/0.000275. |
+| Duplicate ducts | Twelve overlapping modules still create one voice. Duplicate/single near RMS ratio is 1.000065; targets agree within 0.001. |
+| Live departure and return | Walking past the HVAC cutoff fades and retires the live source; rest RMS is below 1e-7. Returning restarts one audible loop, RMS about 0.001556 per channel. |
+| Footsteps | Ordinary D movement across wood and carpet starts the corresponding mixer voices; idle/rest remain silent. |
+| Session and audition lifecycle | Stop, Escape and synthetic focus loss clear test voices; restarting recreates only eligible sources. Chooser playback remains nonspatial/nonlooping and retires after three seconds. |
+| Empty scene and document custody | No inherited ambience. Every checkpoint preserves the source document and clean state; no external player/compiler job runs. |
+
+All snapshots report zero audio errors, rejected play requests and dropped tap
+frames. Stop's measured post-mixer RMS is exactly zero. The first preflight
+reached the intended audio/lifecycle checks but failed because its script tried
+to open sound settings before expanding Advanced. That attempt remains intact;
+the corrected final matrix supplies the passing claims.
+
+Raw scripts, projects, voice snapshots, WAVs, framebuffer capture and receipts
+are retained under `local/quickplay-ambience/native-final/`; build/check logs,
+queue status, `receipt.json` and runnable editor/player/compiler copies remain
+under `local/quickplay-ambience/`, outside `target/`. The accepted editor SHA256 is
+`f94959d65b2428afc633eddb1aaf09c10055d2c0ec2c5259137c77927a032879`.
+
+Coverage is this Mac's native stereo mixer and direct editor path. The retained
+PCM establishes nonzero output, channel balance and silence, not subjective
+physical-speaker/headphone or HRTF quality. Windows/DX12, Linux/Vulkan, physical
+device changes and a complete packaged player campaign were not exercised here.
+Quick lighting remains approximate; this work makes no release or main-merge
+claim.

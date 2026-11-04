@@ -18,7 +18,7 @@ use crate::game::play_spawn::Pose;
 use crate::game::settings::Settings;
 use crate::game::{AppState, Game};
 
-const LIMITATIONS: &str = "Quick test: approximate lighting. Cross-level travel, saved checkpoints, player forms, ragdolls, mannequin pin games, actor carry/use assemblies and automatic environment audio require a final package test.";
+const LIMITATIONS: &str = "Quick test: approximate lighting. Cross-level travel, saved checkpoints, player forms, ragdolls, mannequin pin games, actor carry/use assemblies require a final package test.";
 
 // The authoring schema bounds each message's text. This additional session cap
 // bounds the backlog when one handler emits several messages in a single tick.
@@ -51,6 +51,7 @@ pub(super) struct Session {
     world_reset: u64,
     seen_diagnostics: usize,
     audio_stats: crate::engine::audio::AudioStats,
+    audio: crate::game::audio::WorldAudio,
 }
 
 impl Session {
@@ -100,7 +101,9 @@ impl Session {
             world_reset: 0,
             seen_diagnostics: 0,
             audio_stats: audio.stats(),
+            audio: prepared.audio,
         };
+        session.audio.light_toggles(&session.game.light_states());
         session.physics.update_triggers(&mut session.game, true);
         session.apply_commands(renderer, audio)?;
         session.update_script_status()?;
@@ -198,7 +201,9 @@ impl Session {
         }
         renderer.sync_doors(self.game.doors());
         renderer.sync_elevators(self.game.entities().elevators());
-        renderer.apply_light_toggles(&self.game.take_light_toggles());
+        let toggles = self.game.take_light_toggles();
+        renderer.apply_light_toggles(&toggles);
+        self.audio.light_toggles(&toggles);
         self.physics.step(&mut self.game, seconds, renderer);
         self.apply_commands(renderer, audio)?;
         self.update_script_status()?;
@@ -206,6 +211,24 @@ impl Session {
             return Ok(());
         }
         self.advance_presentation(seconds, renderer);
+        if let Some((cue, gain)) = self.audio.footstep(&mut self.game, &self.physics.world) {
+            let _played = audio.play(
+                cue,
+                crate::engine::audio::PlayRequest {
+                    gain,
+                    time_domain: crate::engine::audio::TimeDomain::Real,
+                    ..crate::engine::audio::PlayRequest::default()
+                },
+            );
+        }
+        self.audio.update_doors(
+            self.game.doors(),
+            self.game.delta_seconds(),
+            audio,
+            |_, _, _| {},
+        );
+        self.audio
+            .update_environment(self.game.player_position, seconds, audio);
         self.update_audio(audio, false);
         self.update_script_status()?;
         if !self.game.is_running() {
@@ -267,6 +290,7 @@ impl Session {
         self.input.clear_gameplay_inputs();
         self.throw_requested = false;
         self.game.reset_timing();
+        self.audio.reset_movement();
         self.update_audio(audio, true);
         true
     }
@@ -331,11 +355,14 @@ impl Session {
                 up: Vec3::Y,
             },
             paused,
-            1.0,
+            self.physics.world.simulation_state().time_scale,
             AudioSettings::default(),
         );
-        audio
-            .update_source_positions(|source| self.game.entities().audio_source_position(source.0));
+        audio.update_source_positions(|source| {
+            self.audio
+                .source_position(source)
+                .or_else(|| self.game.entities().audio_source_position(source.0))
+        });
         audio.update_acoustic_doors(self.game.doors());
         audio.drain_events(|event| self.game.entities_mut().observe_audio_start(event));
         self.audio_stats = audio.stats();
@@ -411,6 +438,7 @@ impl Session {
         self.throw_requested = false;
         self.messages.clear();
         audio.clear_world();
+        self.audio = crate::game::audio::WorldAudio::default();
         self.audio_stats = audio.stats();
         self.game.stop();
     }

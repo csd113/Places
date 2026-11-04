@@ -139,7 +139,7 @@ pub(super) fn draw(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         (181.0, "Quick test: approximate light; no lightmap bake."),
         (194.0, "Final package: travel, checkpoints, player forms,"),
         (207.0, "ragdolls, mannequin games and actor carry/use."),
-        (220.0, "Automatic ambient/footstep/door audio is omitted."),
+        (220.0, "Includes ambience, footsteps and door audio."),
     ] {
         ui::text(v, line, 140.0, y, ui::MUTED, 60);
     }

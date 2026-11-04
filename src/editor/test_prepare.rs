@@ -9,6 +9,7 @@ pub(super) struct PreparedTest {
     pub level: LevelDef,
     pub world: CollisionWorld,
     pub physics: super::test_session::PreparedPhysics,
+    pub audio: crate::game::audio::WorldAudio,
     pub warning: String,
 }
 
@@ -56,10 +57,13 @@ impl PreparedTest {
             warning.push_str(message);
         }
         crate::engine::progress::stage("Gameplay ready / uploading scene");
+        let mut audio = crate::game::audio::WorldAudio::default();
+        audio.prepare(&loaded.level, &loaded.catalog, &[]);
         Ok(Self {
             level: loaded.level.clone(),
             world,
             physics,
+            audio,
             warning,
         })
     }

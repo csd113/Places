@@ -1,5 +1,10 @@
 ## 0.13.1 — Unreleased
 
+- Include automatic HVAC, room/pool/fluorescent ambience, material footsteps and
+  moving-door sounds in editor quick testing through the player's shared audio
+  policies. Preserve authored emitters and quiet chooser auditions; clear test
+  voices on Stop, Escape and focus loss. See [Mac evidence and limits](docs/reports/release-0.13.1.md#editor-quick-play-automatic-audio-2026-11-04).
+
 - Replace the Quiet Collection's eight hub travel doors and eight return doors
   with signed passenger elevators. Preserve favors, saved progress and the
   reward room; return to the matching hub bay. Collection package 1.0.4 adds

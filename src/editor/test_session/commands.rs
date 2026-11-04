@@ -182,8 +182,10 @@ impl Session {
             WorldCommand::SetDynamicEmission { entity, scale } => { let _changed = renderer.set_runtime_emission(entity, scale); }
             WorldCommand::PlaySound { entity, sound, gain, looped, time_domain } => {
                 let spatial = self.game.entities().audio_source_spatial(entity);
-                if sound == "ambience_hvac" {
-                    return Err("HVAC automatic environment audio is not part of quick testing; use final package testing for its spatial duct mix.".into());
+                // Match player ownership: legacy HVAC actions retain their
+                // entity identity; only placed duct stock supplies the hum.
+                if sound == crate::game::audio::HVAC_CUE {
+                    return Ok(());
                 }
                 let _played = audio.play(&sound, PlayRequest {
                     source: Some(SourceId(entity)), position: self.game.entities().audio_source_position(entity), spatial,

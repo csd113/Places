@@ -51,6 +51,18 @@ and hypothetical per-variant delivery tools do not analyze project bundles.
 | `lightmap_report.py` | runs the bake/lighting shot list and writes a `report.json` |
 | `check_holes.py` | counts near-black pixels in captures, to catch holes in a level shell |
 
+## Editor quick-play audio acceptance
+
+`python3 tools/editor/quickplay_audio.py --binary target/release/places-editor
+--out local/quickplay-audio` runs disposable source projects through ordinary
+editor controls, directly on the executable. Run it serially after other native
+acceptance work. It never builds a package or bakes lightmaps. It requires an actual SDL output
+device, records opt-in post-mixer float WAVs and voice snapshots, and checks
+ambience locality, one voice per family, duplicate-duct volume, light switching,
+footsteps, doors, start/stop/focus loss, and bounded chooser auditions. The mixer
+tap does not establish physical speaker/headphone quality or other-platform
+acceptance. Each output directory must be new; failed preflights remain intact.
+
 ## Direct native validation
 
 Run Places executables directly on `0.11.0-staging`; do not package or launch a

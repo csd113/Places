@@ -123,3 +123,112 @@ fn rotation_cases() -> [(f32, f32, Vec3, Vec3); 6] {
         ),
     ]
 }
+
+// These CPU-only checks protect the editor/player seam: a new snapshot must
+// resolve current fixture state, and pausing/restarting/teleporting must not
+// invent footsteps. Two tiny rooms, no models, device, renderer or map bake.
+#[test]
+fn scene_snapshot_respects_switched_fixtures_and_water_edges() -> Result<(), String> {
+    use super::{WorldAudio, water_point};
+    let level = LevelDef::from_json(
+        r#"{
+        "schema":"places-level","format_version":1,"id":"audio_snapshot","name":"Audio snapshot",
+        "spawn":{"x":1,"z":1},"rooms":[{"width":10,"depth":10,"floor_y":4,"height":3}],
+        "ceiling_lights":[{"fixture":"core:fluorescent_panel_01","x":2,"z":3}],
+        "water":[{"x":4,"z":4,"width":2,"depth":3,"surface_y":4,"bottom_y":3}]
+    }"#,
+    )
+    .map_err(|error| error.to_string())?;
+    let catalog = PropCatalog::from_json_str(r#"{"format_version":2,"assets":[]}"#)?;
+    let mut audio = WorldAudio::default();
+    audio.prepare(&level, &catalog, &[(0, false)]);
+    let (_, anchor, initially_on) = audio.fluorescents.first().ok_or("Missing fixture")?;
+    assert!(
+        !initially_on,
+        "snapshot must include already switched-off state"
+    );
+    assert!(
+        anchor.distance(Vec3::new(2.0, 7.0, 3.0)) < 0.0001,
+        "fixture must retain elevated ceiling anchor"
+    );
+    audio.light_toggles(&[(0, true)]);
+    assert!(
+        audio.fluorescents.first().is_some_and(|(_, _, on)| *on),
+        "live switching must update the shared hum policy"
+    );
+    let water = audio.pools.first().ok_or("Missing water")?;
+    assert!(
+        water_point(water, Vec3::new(9.0, 5.6, 9.0)).distance(Vec3::new(6.0, 4.0, 7.0)) < 0.0001,
+        "pool sound must stop at the real surface edge"
+    );
+    let empty = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"empty_audio","name":"Empty","rooms":[{"width":4,"depth":4}],"spawn":{"x":1,"z":1}}"#).map_err(|error| error.to_string())?;
+    audio.prepare(&empty, &catalog, &[]);
+    assert!(
+        audio.fluorescents.is_empty() && audio.pools.is_empty() && audio.ducts.is_empty(),
+        "fresh snapshot must drop old environment sources"
+    );
+    Ok(())
+}
+
+#[test]
+fn footsteps_require_real_grounded_travel_and_reset_across_pauses() -> Result<(), String> {
+    use super::WorldAudio;
+    use crate::engine::physics::ItemWorld;
+    use crate::game::{CollisionWorld, EYE_HEIGHT, Game};
+    let level = LevelDef::from_json(
+        r#"{
+        "schema":"places-level","format_version":1,"id":"stride","name":"Stride",
+        "spawn":{"x":1,"z":1},"rooms":[{"width":16,"depth":4}],
+        "floor_patches":[{"x":0,"z":0,"width":16,"depth":4,"material":"core:carpet_beige_01"}]
+    }"#,
+    )
+    .map_err(|error| error.to_string())?;
+    let mut game = Game::new(
+        Vec3::new(1.0, EYE_HEIGHT, 1.0),
+        0.0,
+        CollisionWorld::from_level(&level),
+    );
+    game.grounded = true;
+    let items = ItemWorld::from_level(&level, &[]);
+    let mut audio = WorldAudio::default();
+    assert!(
+        audio.footstep(&mut game, &items).is_none(),
+        "start cannot create a step"
+    );
+    for _ in 0_u8..2 {
+        game.player_position.x += 0.7;
+        let step = audio.footstep(&mut game, &items);
+        if game.player_position.x > 2.0 {
+            assert!(
+                step.is_some_and(
+                    |(cue, gain)| cue == "footstep_carpet" && (gain - 0.65).abs() < 0.001
+                ),
+                "stride must select actual floor material"
+            );
+        }
+    }
+    audio.reset_movement();
+    game.player_position.x += 0.8;
+    assert!(
+        audio.footstep(&mut game, &items).is_none(),
+        "resume cannot inherit travel during pause"
+    );
+    game.player_position.x += 4.0;
+    assert!(
+        audio.footstep(&mut game, &items).is_none(),
+        "teleports cannot emit steps"
+    );
+    game.grounded = false;
+    game.player_position.x += 0.8;
+    assert!(
+        audio.footstep(&mut game, &items).is_none(),
+        "airborne movement must remain silent"
+    );
+    game.grounded = true;
+    game.player_position.x += 0.8;
+    assert!(
+        audio.footstep(&mut game, &items).is_none(),
+        "landing must not inherit airborne stride"
+    );
+    Ok(())
+}

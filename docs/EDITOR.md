@@ -128,12 +128,19 @@ and keep all production validation and output-currency requirements.
 Quick test supports ordinary doors, player item pickup/drop/throw, authored sound
 emitters/actions, scripts, triggers, navigation agents and weather commands.
 Cross-level travel, persistent checkpoints, player forms, ragdolls/mannequin pin
-games, actor carry/use assemblies, complete world reset and automatic HVAC
-ambience require testing the exported project in the player. Encountering these
-operations stops quick testing with a visible diagnostic. Automatic room/pool/
-fluorescent ambience, footsteps and door movement audio are not mirrored in quick
-testing. Authored audio uses the shared spatial/audio engine and is cleared on
-return. Export the complete project through Project for full campaign acceptance.
+games, actor carry/use assemblies and complete world reset require testing the
+exported project in the player. Encountering these operations stops quick testing
+with a visible diagnostic.
+
+Automatic HVAC from placed fixed ducts, room/pool/fluorescent ambience,
+material footsteps and door movement sounds use the player's shared policies and
+spatial mixer. Light switching updates the hum; walking, crouching and wet floors
+select the same footsteps. One automatic loop per family prevents stacked ducts
+or fixtures from multiplying volume. Legacy HVAC emitter actions remain silent,
+as in the player; other authored emitters/actions retain their source identities,
+spatial settings and stop controls. All test audio clears on return to editing;
+chooser previews keep their separate, quiet three-second audition. Export the
+complete project through Project for full campaign acceptance.
 
 Compiler `build --events --progress off` emits versioned NDJSON `started`,
 `progress`, `finished` events on stdout. Final outcomes are `success`, `failed`,

@@ -1,6 +1,7 @@
 //! Places gameplay, player controls, menus and native application.
 
 mod app;
+pub(crate) mod audio;
 pub mod bench;
 mod campaign;
 mod checkpoint;

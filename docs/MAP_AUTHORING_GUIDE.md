@@ -9610,7 +9610,7 @@ quality and validation contract. See [the editor controls](EDITOR.md#light-circu
 ### Decorative duct audio ownership (0.13.1)
 
 Fixed catalog props explicitly tagged `hvac-duct` provide the HVAC acoustic
-surfaces. The player uses their catalog dimensions and ordinary placement
+surfaces. The player and in-editor quick test share their catalog dimensions and ordinary placement
 transform (floor offset, scale, yaw/pitch/roll and optional fit), rather than
 an enlarged collision override. Movable physics items are excluded.
 One nearest-surface voice covers the complete duct family; overlapping modules
@@ -9618,7 +9618,7 @@ do not stack. It has a 0.75 m near distance, squared falloff and an 8 m cutoff.
 The anchor switches directly between real envelopes; only gain fades.
 World reset/map change clears derived envelopes and the voice.
 
-`ambience_hvac` is reserved for that player-owned duct voice. Generic authored
+`ambience_hvac` is reserved for that automatic duct voice. Generic authored
 audio requests for it do not create separate room/global voices. New standalone
 Audio objects instead default to positional `empty_room`; the standalone cue
 picker excludes the automatic HVAC bed. Its explicit, three-second samples
@@ -9641,8 +9641,9 @@ solid placement boxes. Five Add Light variants provide the same fluorescent
 housings with actual measured emitter/mount offsets and existing circuit tools;
 use these instead of overlapping a passive housing with another fixture.
 See the [kit placement and source guide](../tools/props/backrooms_phase6/INTEGRATION.md)
-and its non-release `showcase/` editor project. The editor viewport is silent;
-Play owns one nearby spatial HVAC voice, which clears when pipes are removed.
+and its non-release `showcase/` editor project. Ordinary authoring remains silent;
+in-editor quick testing and the player share one nearby spatial HVAC voice.
+Stopping a test, switching snapshots or removing the pipes clears it.
 
 ## Reusable editor room authoring (0.13.1)
 

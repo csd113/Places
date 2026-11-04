@@ -377,6 +377,8 @@ impl Verification {
             serde_json::json!(app.behavior.as_ref().map(|d| &d.plan)),
         ));
         for (key, entry) in [
+            ("audio_capture_frames", serde_json::json!(app.audio_capture.as_ref().map(crate::game::audio::Capture::frames))),
+            ("audio_voices", serde_json::json!(app.preview_audio.voice_snapshot())),
             ("dock",serde_json::json!({"tab":format!("{:?}",app.dock.tab),"catalog":format!("{:?}",app.dock.catalog),"page":app.dock.page,"search":app.dock.search,"advanced":app.dock.advanced})),
             ("scene_viewport",serde_json::json!(app.viewport.layout().viewport())),
             ("runtime_active", serde_json::json!(app.runtime_active())),

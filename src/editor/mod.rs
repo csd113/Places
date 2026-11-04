@@ -123,6 +123,7 @@ struct App {
     prop: String,
     sound_cues: Vec<String>,
     preview_audio: crate::engine::audio::AudioSystem,
+    audio_capture: Option<crate::game::audio::Capture>,
     sound_preview_until: Option<std::time::Instant>,
     popup: Option<Popup>,
     script_feedback: String,
@@ -351,8 +352,13 @@ impl App {
             browser_images
         };
         self.viewport.set_ui_images(images);
-        self.viewport
-            .draw(window, &vertices, &mut self.preview_audio)
+        let presented = self
+            .viewport
+            .draw(window, &vertices, &mut self.preview_audio);
+        if let Some(capture) = &mut self.audio_capture {
+            capture.drain(&mut self.preview_audio);
+        }
+        presented
     }
 
     fn poll_background(&mut self) {
@@ -555,6 +561,7 @@ fn create_app(
             .map(str::to_string)
             .collect(),
         preview_audio: crate::engine::audio::AudioSystem::new(paths::assets()?, sdl),
+        audio_capture: crate::game::audio::Capture::new(),
         sound_preview_until: None,
         popup: None,
         script_feedback: String::new(),
