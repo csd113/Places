@@ -74,6 +74,49 @@ height, save/resume upstairs, cross-level ownership, foreign save/resume, custom
 NPC state and one-instance return. The final integrated campaign, package
 currency and publication status are recorded below when complete.
 
+## Combined production runtime
+
+The retained production player is
+`local/elevator-stationary/production/places`, SHA-256
+`e93e39af5171ee686759dcd6052dbb1805d332d3e1c3e2bbcd262e0e10002561`.
+Its engine includes stationary transport, final doorway art, enclosed lighting,
+the motor source fix and published predator-search work. Later editor-only
+targeting corrections do not change this runtime or compiler preparation
+identity. Exact final editor-source checks and publication remain separate.
+
+- `final/inside-motion`: 318 native lossless frames; cabin selection changes
+  only from 0 to 3.5 m, and rider eye height only from 1.6 to 5.1 m.
+- `final/exterior-motion`: 298 native lossless frames, with an explicit
+  acceptance observer staged outside after an ordinary cabin-button press.
+  The source threshold and adjoining floor pixels are exactly identical in all
+  261 compared frames after the camera settles, through the complete ride and
+  upper arrival. The source cabin does not rise or disappear.
+- `final/vertical-held` and `final/rotated-held`: supported crate/NPC ownership,
+  held state, saves, state retention and return pass; the rotated destination is
+  90 degrees and 3 m higher. `final/blocked-vertical` rejects an obstructed upper
+  arrival, restores the original floor/poses/owners, reopens and accepts live
+  movement afterward.
+- `final/door-three` and `final/door-vertical`: ordinary independent open/close,
+  obstruction, save/resume, predeparture cancellation, locked ride controls,
+  linked/cross-level travel and return pass. Actual PCM contains exactly three
+  and two motor cues respectively, despite the additional door-only cycles.
+- `final/light-{full,static,lit,bloom}`: all four 31-image campaigns pass with
+  the fixed cabins. Full and bloom closed panel/frame/floor witnesses are zero;
+  the open floor receives 7.675/2.675/0.029 display RGB. Static closed exterior
+  floor matches its reference at 37.734/30.488/17.944. A real cool hall fixture
+  lights the closed left panel at 31.478/40.427/48.003. Cabin interior, floor
+  joins, metal returns and the exposed thin panels were visually inspected.
+
+The final motion PCM contains one matching 1.8-second cue (correlation 0.9962)
+and a silent post-arrival witness. Vertical and rotated passenger recordings
+contain three matching motor cues each. `tools/bench/elevator_audio.py` reproduces
+the waveform/count checks, including the original missing-source negative
+control. Use `--idle-after-last-ride 2` for the short inside-motion fixture;
+its cue-relative witness accounts for variable startup/shader time. Recorded
+native audio includes startup, so absolute capture seconds are not action
+timestamps. Occasional existing spatial shaft ambience remains independent of
+the bounded rider motor; no continuous idle motor loop is introduced.
+
 ## Scope and remaining checks
 
 No full Quiet Collection light bake is needed for this behavior and asset
