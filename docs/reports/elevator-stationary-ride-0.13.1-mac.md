@@ -117,6 +117,30 @@ native audio includes startup, so absolute capture seconds are not action
 timestamps. Occasional existing spatial shaft ambience remains independent of
 the bounded rider motor; no continuous idle motor loop is introduced.
 
+## Airborne admission follow-up
+
+After all eight collection routes and the final editor campaign passed, ordinary
+Space input exposed a vertical-only admission edge. At 1.9 seconds the rider
+was still inside the sealed source cabin with eye Y=2.109 m. The floor-only
+arrival test treated that airborne rider as an outside hall caller, selected the
+upper cabin, and eventually recovered the player to the lobby spawn at Z=-2
+instead of retaining their cabin-relative Z=1.2. The actual direct-binary
+checkpoints are retained in `final/jump-before`.
+
+The source now reopens if the rider still occupies its interior but cannot be
+admitted at the transfer boundary. It preserves the source selection and all
+occupants, matching the safe refusal used by linked/cross-level rides. Real
+outside hall calls retain their fixed-destination behavior. An existing tiny
+controller regression now includes this case and a successful grounded retry;
+the workspace still has 450 tests. No models or map bake enter that test.
+
+`elevator_cargo.py --vertical --mode held --airborne` checks ordinary jump input,
+unchanged source rider/NPC/held ownership and reachable controls, then retries
+and continues the existing save/cross-level/return campaign. This final engine
+change affects the advanced vertical `Moving` branch. The collection's eight
+cross-level routes use the unchanged `Loading` branch. Source-current exports
+must nevertheless be refreshed against the updated compiler identity.
+
 ## Scope and remaining checks
 
 No full Quiet Collection light bake is needed for this behavior and asset
