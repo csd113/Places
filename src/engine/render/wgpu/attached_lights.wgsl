@@ -47,6 +47,77 @@ var flashlight_depth: texture_depth_2d;
 @group(4) @binding(2)
 var flashlight_sampler: sampler_comparison;
 
+// The same immutable opaque world in all quality modes and material passes.
+struct VisibilityNode {
+    minimum: vec3<f32>, first: u32,
+    maximum: vec3<f32>, count: u32,
+    escape: u32, ready: u32, _pad0: u32, _pad1: u32,
+};
+struct VisibilityTriangle { a_solid: vec4<f32>, b: vec4<f32>, c: vec4<f32> };
+@group(4) @binding(3) var<storage, read> visibility_nodes: array<VisibilityNode>;
+@group(4) @binding(4) var<storage, read> visibility_triangles: array<VisibilityTriangle>;
+
+fn visibility_box(node: VisibilityNode, origin: vec3<f32>, ray: vec3<f32>) -> bool {
+    var near = 0.0;
+    var far = 1.0;
+    for (var axis = 0u; axis < 3u; axis += 1u) {
+        if (abs(ray[axis]) < 1.0e-12) {
+            if (origin[axis] < node.minimum[axis] || origin[axis] > node.maximum[axis]) { return false; }
+        } else {
+            let a = (node.minimum[axis] - origin[axis]) / ray[axis];
+            let b = (node.maximum[axis] - origin[axis]) / ray[axis];
+            near = max(near, min(a, b));
+            far = min(far, max(a, b));
+            if (near > far) { return false; }
+        }
+    }
+    return true;
+}
+
+fn visibility_triangle(triangle: VisibilityTriangle, origin: vec3<f32>, ray: vec3<f32>) -> bool {
+    if (triangle.a_solid.w == 0.0) { return false; }
+    let edge0 = triangle.b.xyz - triangle.a_solid.xyz;
+    let edge1 = triangle.c.xyz - triangle.a_solid.xyz;
+    let p = cross(ray, edge1);
+    let determinant = dot(edge0, p);
+    if (abs(determinant) < 1.0e-10) { return false; }
+    let offset = origin - triangle.a_solid.xyz;
+    let u = dot(offset, p) / determinant;
+    let q = cross(offset, edge0);
+    let v = dot(ray, q) / determinant;
+    let t = dot(edge1, q) / determinant;
+    return u >= -1.0e-6 && v >= -1.0e-6 && u + v <= 1.000001 && t > 1.0e-5 && t < 0.99999;
+}
+
+// Stackless preorder traversal has fixed work limits. Exhaustion or unavailable
+// geometry rejects the ray rather than admitting light through untested walls.
+fn static_world_visible(origin: vec3<f32>, receiver: vec3<f32>) -> bool {
+    if (visibility_nodes[0u].ready == 0u) { return false; }
+    let ray = receiver - origin;
+    var index = 0u;
+    let count = arrayLength(&visibility_nodes);
+    for (var visit = 0u; visit < 512u; visit += 1u) {
+        if (index >= count) { return true; }
+        let node = visibility_nodes[index];
+        if (!visibility_box(node, origin, ray)) {
+            index = node.escape;
+            continue;
+        }
+        if (node.count == 0u) {
+            index = node.first;
+            continue;
+        }
+        if (node.count > 64u) { return false; }
+        for (var slot = 0u; slot < node.count; slot += 1u) {
+            let triangle_index = node.first + slot;
+            if (triangle_index >= arrayLength(&visibility_triangles)) { return false; }
+            if (visibility_triangle(visibility_triangles[triangle_index], origin, ray)) { return false; }
+        }
+        index = node.escape;
+    }
+    return index >= count;
+}
+
 fn cabin_local(light: DynamicLight, position: vec3<f32>) -> vec3<f32> {
     let relative = position - light.enclosure_origin_gap.xyz;
     let right = light.enclosure_right_enabled.xy;
@@ -189,6 +260,12 @@ fn dynamic_light_term(normal: vec3<f32>, world_position: vec3<f32>) -> vec3<f32>
         // A back-facing receiver contributes exactly zero. Avoid tracing the
         // cabin stock for that lobe, especially the exterior landing wall.
         if (ndl <= 0.0 || !cabin_light_visible(light, world_position)) {
+            continue;
+        }
+        // Enclosure clipping still owns the shell, door leaves and closed
+        // seal. Static geometry only adds blockers beyond that exact aperture.
+        if (light.enclosure_right_enabled.z != 0.0 &&
+            !static_world_visible(world_position + normal * 0.001, light.position)) {
             continue;
         }
         let window = clamp(1.0 - distance / light.radius, 0.0, 1.0);

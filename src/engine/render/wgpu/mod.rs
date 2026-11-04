@@ -67,6 +67,7 @@ pub mod effects;
 pub mod environment;
 mod flashlight;
 mod gpu_timing;
+mod lighting_visibility;
 pub mod lightmap;
 pub mod material;
 pub mod postprocess;

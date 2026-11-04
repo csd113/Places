@@ -895,6 +895,9 @@ pub struct WgpuRenderer {
     /// Exact prepared triangles and alpha for moving-source visibility; no solve.
     dynamic_transport: Option<std::sync::Arc<crate::engine::lighting::transport::TransportScene>>,
     visibility_materials: Option<crate::engine::materials::MaterialTable>,
+    static_visibility: super::lighting_visibility::StaticVisibility,
+    contact_shadows: [crate::engine::render::common::dynamic_lights::ContactShadowUniform; 8],
+    contact_shadow_count: usize,
     blacklights: crate::engine::render::common::blacklight::BlacklightSet,
     dynamic_visibility: crate::engine::render::common::dynamic_visibility::DynamicVisibility,
     dynamic_visibility_error: Option<String>,
@@ -1195,6 +1198,7 @@ impl WgpuRenderer {
             config.desired_maximum_frame_latency
         ));
         let gpu_timer = GpuTimer::new(&adapter, &device, &queue);
+        let static_visibility = super::lighting_visibility::StaticVisibility::new(&device, None);
         let renderer = Self {
             window: None,
             surface,
@@ -1319,6 +1323,10 @@ impl WgpuRenderer {
             dynamic_field: None,
             dynamic_transport: None,
             visibility_materials: None,
+            static_visibility,
+            contact_shadows:
+                [crate::engine::render::common::dynamic_lights::ContactShadowUniform::ZERO; 8],
+            contact_shadow_count: 0,
             blacklights: crate::engine::render::common::blacklight::BlacklightSet::default(),
             dynamic_visibility:
                 crate::engine::render::common::dynamic_visibility::DynamicVisibility::new(),
@@ -1867,6 +1875,19 @@ impl WgpuRenderer {
         shadow
             .pipeline
             .upload_camera(&self.queue, shadow.frame.view_projection, shadow.frame.eye);
+    }
+
+    fn bind_lighting_visibility(&mut self) {
+        let view = self
+            .flashlight_shadow
+            .as_ref()
+            .map_or(&self.static_visibility.fallback_depth, |shadow| {
+                &shadow.view
+            });
+        let key = (
+            self.entity_lighting_revision,
+            self.flashlight_shadow.is_some(),
+        );
         for pipeline in [
             &mut self.world_pipeline,
             &mut self.scene_pipeline,
@@ -1876,7 +1897,7 @@ impl WgpuRenderer {
         .into_iter()
         .flatten()
         {
-            pipeline.bind_flashlight_shadow(&self.device, &shadow.view);
+            pipeline.bind_lighting_visibility(&self.device, view, &self.static_visibility, key);
         }
         for pipeline in [
             &mut self.decal_pipeline,
@@ -1886,7 +1907,7 @@ impl WgpuRenderer {
         .into_iter()
         .flatten()
         {
-            pipeline.bind_flashlight_shadow(&self.device, &shadow.view);
+            pipeline.bind_lighting_visibility(&self.device, view, &self.static_visibility, key);
         }
     }
 
@@ -2350,6 +2371,10 @@ impl WgpuRenderer {
         self.dynamic_transport = None;
         self.clear_blood();
         self.visibility_materials = None;
+        self.contact_shadow_count = 0;
+        self.static_visibility =
+            super::lighting_visibility::StaticVisibility::new(&self.device, None);
+        self.entity_lighting_revision = self.entity_lighting_revision.wrapping_add(1);
         self.world_dynamic = None;
         self.world_characters = None;
         self.world_effects = None;
@@ -4745,6 +4770,20 @@ impl WgpuRenderer {
                 .map(|(scene, _)| std::sync::Arc::new(scene))
             })
         });
+        if self.dynamic_transport.is_none() {
+            self.dynamic_transport =
+                crate::engine::render::common::light_transport::build_surface_scene(
+                    &loaded.level,
+                    &build.mesh,
+                    &build.batches,
+                    &loaded.materials,
+                );
+        }
+        self.static_visibility = super::lighting_visibility::StaticVisibility::new(
+            &self.device,
+            self.dynamic_transport.as_deref(),
+        );
+        self.contact_shadow_count = 0;
         // The GPU side of the previous level's dynamic scene dies with it. The
         // neutral scene is level content too: a graphics rebuild keeps its
         // objects, while a reload starts from the newly installed definition,
@@ -5197,19 +5236,23 @@ impl WgpuRenderer {
             .effects
             .snow()
             .map_or_else(Default::default, |snow| snow.storm);
-        let (shadows, count) = self.contact_shadow_subjects();
-        result = result.with_contact_shadows(shadows.get(..count).unwrap_or(&[]));
+        result = result.with_contact_shadows(
+            self.contact_shadows
+                .get(..self.contact_shadow_count)
+                .unwrap_or(&[]),
+        );
         result = result.with_blacklights(&self.blacklights, self.dynamic_lighting.as_ref());
         result
     }
 
     fn contact_shadow_subjects(
         &self,
+        frame: &super::world::WorldFrame,
     ) -> (
         [crate::engine::render::common::dynamic_lights::ContactShadowUniform; 8],
         usize,
     ) {
-        let mut shadows =
+        let shadows =
             [crate::engine::render::common::dynamic_lights::ContactShadowUniform::ZERO; 8];
         let Some(level) = self.installed_level.as_ref() else {
             return (shadows, 0);
@@ -5257,13 +5300,16 @@ impl WgpuRenderer {
                     sample.map_or([0.0, 1.0, 0.0], |texel| texel.direction),
                 )
             })
-            .take(8);
-        let mut count: usize = 0;
-        for (slot, subject) in shadows.iter_mut().zip(subjects) {
-            *slot = subject;
-            count = count.saturating_add(1);
-        }
-        (shadows, count)
+            .filter_map(|shadow| {
+                crate::engine::render::common::dynamic_lights::contact_relevance(
+                    shadow,
+                    frame.eye,
+                    &frame.frustum,
+                    self.dynamic_transport.as_deref(),
+                )
+                .map(|distance| (shadow, distance))
+            });
+        crate::engine::render::common::dynamic_lights::select_contact_shadows(subjects)
     }
 
     /// Creates the group-3 environment bindings from the current atlas, probe
@@ -5839,7 +5885,9 @@ impl WgpuRenderer {
         } else {
             0
         };
+        (self.contact_shadows, self.contact_shadow_count) = self.contact_shadow_subjects(&frame);
         self.prepare_flashlight_shadow();
+        self.bind_lighting_visibility();
         if self.flashlight.is_some() {
             let mut encoder = self
                 .device
@@ -7329,7 +7377,8 @@ impl WgpuRenderer {
                 "runtime_visibility_scene": self.dynamic_transport.is_some(),
                 "movable_visibility": self.dynamic_visibility.stats(),
                 "movable_visibility_error": self.dynamic_visibility_error,
-                "contact_subjects": self.contact_shadow_subjects().1,
+                "contact_subjects": self.contact_shadow_count,
+                "contact_shadows": self.contact_shadows.get(..self.contact_shadow_count).unwrap_or(&[]).iter().map(|shadow| shadow.position_floor).collect::<Vec<_>>(),
                 "entity_uniform_bytes": std::mem::size_of::<EnvironmentUniform>(),
             },
             "frame": {"drawable": [self.drawable_size.width, self.drawable_size.height],

@@ -13,6 +13,11 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Clip movable contact shadows to supported floor receivers and solid world geometry,
+  select the nearest visible footprints within eight slots, and block open-cabin
+  light behind opaque hall geometry. Preserve valid doorway illumination and
+  closed seals. See [Mac validation and frame cost](docs/reports/runtime-lighting-0.13.1-mac.md).
+
 - Remove repeated handle scans from actor collision avoidance. Keep sight alerts
   stable across perception batches, compare every shelter within the shared path
   budget, release delivered-item reservations between routine steps, and honor

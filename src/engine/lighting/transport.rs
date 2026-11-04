@@ -83,6 +83,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 mod alpha;
 mod bvh;
 pub(crate) mod probe_audit;
+pub mod runtime_visibility;
 
 pub use alpha::{TransportAlphaSurface, TransportTextureAddress};
 

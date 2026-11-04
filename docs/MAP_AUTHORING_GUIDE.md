@@ -6700,7 +6700,11 @@ an explanation; fixed vertical landings use the same passenger admission. NPC bo
 uses offline-prepared landing navigation and actual runtime door collision.
 Each fixed cabin has illumination inside an opaque analytic shell. Both door
 tracks use the authoritative eased aperture and centre seal, so closed cabins
-cast no light onto the hall; the interior remains lit. This shared realtime term
+cast no light onto the hall; the interior remains lit. Beyond the aperture,
+opaque static world triangles also block the cabin light. Movable contact
+footprints follow their support plane, clip against that same solid world, and
+select up to eight camera-relevant floor footprints with stable distance ordering.
+This shared realtime term
 works with Static/Full and reflection/decal receivers, without a runtime bake or
 an additional shadow-map pass. The dedicated dark-room acceptance fixture and
 direct-binary capture command are documented in `ELEVATORS.md`.

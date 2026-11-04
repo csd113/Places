@@ -539,12 +539,12 @@ impl FogRegionUniform {
 /// offset 2912 entity_bounds_extent vec4           16 bytes
 /// offset 2928 entity_anchors      [Anchor; 8]   1408 bytes
 /// offset 4336 entity_direct       [Source; 8]    896 bytes
-/// offset 5232 contact_shadows     [Shadow; 8]    384 bytes
-/// offset 5616 contact_shadow_count vec4<u32>      16 bytes
-/// offset 5632 blacklights          [Source; 4]    448 bytes
-/// offset 6080 uv_receiver          Receiver       160 bytes
-/// offset 6240 caustics_receiver    Receiver       160 bytes
-/// ------------------------------------------------------ 6400 bytes, align 16
+/// offset 5232 contact_shadows     [Shadow; 8]    512 bytes
+/// offset 5744 contact_shadow_count vec4<u32>      16 bytes
+/// offset 5760 blacklights          [Source; 4]    448 bytes
+/// offset 6208 uv_receiver          Receiver       160 bytes
+/// offset 6368 caustics_receiver    Receiver       160 bytes
+/// ------------------------------------------------------ 6528 bytes, align 16
 /// ```
 ///
 /// Every field is the reference's own frame uniform: `u_light_scale`,
@@ -556,7 +556,7 @@ impl FogRegionUniform {
 /// `opacity` is the per-instance fade multiplier the character path installs
 /// (`1.0` for the static world and every prop, so static output is unchanged);
 /// the regional fog block is the level's authored volumes, bounded by the
-/// live count word. The struct is 6400 bytes on the wire and in Rust
+/// live count word. The struct is 6528 bytes on the wire and in Rust
 /// (`ENVIRONMENT_UNIFORM_SIZE`). `#[repr(C, align(16))]` makes the Rust layout
 /// the WGSL uniform layout explicitly; the unit tests pin it.
 #[repr(C, align(16))]
@@ -1101,6 +1101,26 @@ pub fn dynamic_lights_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGrou
                 binding: 2,
                 visibility: wgpu::ShaderStages::FRAGMENT,
                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 3,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: wgpu::BufferSize::new(48),
+                },
+                count: None,
+            },
+            wgpu::BindGroupLayoutEntry {
+                binding: 4,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Storage { read_only: true },
+                    has_dynamic_offset: false,
+                    min_binding_size: wgpu::BufferSize::new(48),
+                },
                 count: None,
             },
         ],
@@ -2970,7 +2990,7 @@ pub struct WorldPipeline {
     lights_bind_group: wgpu::BindGroup,
     lights_layout: wgpu::BindGroupLayout,
     lights_sampler: wgpu::Sampler,
-    flashlight_shadow_bound: bool,
+    lighting_visibility_bound: Option<(u64, bool)>,
     /// The colour target format the pipelines were built for. A changed surface
     /// format (a recreated surface) rebuilds only this resource.
     format: wgpu::TextureFormat,
@@ -3105,7 +3125,7 @@ impl WorldPipeline {
             lights_bind_group,
             lights_layout,
             lights_sampler,
-            flashlight_shadow_bound: false,
+            lighting_visibility_bound: None,
             format,
             uploaded: None,
             uploaded_lights: None,
@@ -3253,8 +3273,14 @@ impl WorldPipeline {
     }
 
     /// Bind the shared shadow texture once per pipeline lifetime.
-    pub fn bind_flashlight_shadow(&mut self, device: &wgpu::Device, view: &wgpu::TextureView) {
-        if self.flashlight_shadow_bound {
+    pub fn bind_lighting_visibility(
+        &mut self,
+        device: &wgpu::Device,
+        view: &wgpu::TextureView,
+        visibility: &super::lighting_visibility::StaticVisibility,
+        key: (u64, bool),
+    ) {
+        if self.lighting_visibility_bound == Some(key) {
             return;
         }
         self.lights_bind_group = dynamic_lights_binding(
@@ -3263,8 +3289,9 @@ impl WorldPipeline {
             &self.lights_buffer,
             view,
             &self.lights_sampler,
+            visibility,
         );
-        self.flashlight_shadow_bound = true;
+        self.lighting_visibility_bound = Some(key);
     }
 
     /// Uploads only changed light state, including transitions to an empty set.
@@ -3432,12 +3459,14 @@ pub(super) fn create_dynamic_lights_binding(
         min_filter: wgpu::FilterMode::Linear,
         ..Default::default()
     });
+    let visibility = super::lighting_visibility::StaticVisibility::new(device, None);
     let lights_bind_group = dynamic_lights_binding(
         device,
         layout,
         &lights_buffer,
         &fallback_view,
         &lights_sampler,
+        &visibility,
     );
     (lights_buffer, lights_bind_group, lights_sampler)
 }
@@ -3448,6 +3477,7 @@ pub(super) fn dynamic_lights_binding(
     buffer: &wgpu::Buffer,
     shadow: &wgpu::TextureView,
     sampler: &wgpu::Sampler,
+    visibility: &super::lighting_visibility::StaticVisibility,
 ) -> wgpu::BindGroup {
     device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("places-wgpu-world-lights-binding"),
@@ -3464,6 +3494,14 @@ pub(super) fn dynamic_lights_binding(
             wgpu::BindGroupEntry {
                 binding: 2,
                 resource: wgpu::BindingResource::Sampler(sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 3,
+                resource: visibility.nodes.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 4,
+                resource: visibility.triangles.as_entire_binding(),
             },
         ],
     })

@@ -245,7 +245,7 @@ pub struct DecalPipeline {
     lights_buffer: wgpu::Buffer,
     lights_bind_group: wgpu::BindGroup,
     lights_sampler: wgpu::Sampler,
-    flashlight_shadow_bound: bool,
+    lighting_visibility_bound: Option<(u64, bool)>,
     /// The last uploaded camera state, so a still camera writes nothing.
     uploaded: Option<DecalCamera>,
     uploaded_lights: Option<Box<super::world::DynamicLightsUniform>>,
@@ -525,7 +525,7 @@ impl DecalPipeline {
             lights_buffer,
             lights_bind_group,
             lights_sampler,
-            flashlight_shadow_bound: false,
+            lighting_visibility_bound: None,
             uploaded: None,
             uploaded_lights: None,
         }
@@ -540,8 +540,14 @@ impl DecalPipeline {
         self.caustics_bind_group = caustics_binding(device, &self.caustics_layout, caustics, cache);
     }
 
-    pub fn bind_flashlight_shadow(&mut self, device: &wgpu::Device, view: &wgpu::TextureView) {
-        if self.flashlight_shadow_bound {
+    pub fn bind_lighting_visibility(
+        &mut self,
+        device: &wgpu::Device,
+        view: &wgpu::TextureView,
+        visibility: &super::lighting_visibility::StaticVisibility,
+        key: (u64, bool),
+    ) {
+        if self.lighting_visibility_bound == Some(key) {
             return;
         }
         self.lights_bind_group = super::world::dynamic_lights_binding(
@@ -550,8 +556,9 @@ impl DecalPipeline {
             &self.lights_buffer,
             view,
             &self.lights_sampler,
+            visibility,
         );
-        self.flashlight_shadow_bound = true;
+        self.lighting_visibility_bound = Some(key);
     }
 
     /// Uploads only changed light state; an empty set still clears old lights.
