@@ -10,6 +10,7 @@ mod entity_sequences;
 mod essential_recovery;
 mod fog_volumes;
 mod gameplay_authoring;
+mod held_auto_drop;
 mod held_obstacle;
 mod level_import;
 mod navigation_ai;

@@ -799,6 +799,13 @@ impl FrameLoop<'_> {
             );
         });
         let stats = self.items.world.stats();
+        if stats.auto_dropped_held.is_some() {
+            self.items.input.invalidate();
+            self.items.target = None;
+            self.items.release_blocked = false;
+            self.observe_held_item();
+            self.trace_world("item_auto_dropped");
+        }
         if self.items.trace_bodies {
             self.trace.record("physics_frame", self.load_generation, &serde_json::json!({"frame": self.game.frame_count(), "held": self.items.world.held(), "stats": stats, "bodies": self.items.world.snapshots(), "contacts": self.items.world.contact_pairs(), "contact_impulses": self.items.world.contact_impulses()}).to_string());
         }
@@ -996,28 +1003,27 @@ impl Items {
             );
         }
     }
+    pub(super) fn release_hint(&self, developer_enabled: bool) -> Option<&'static str> {
+        let _held_key = self.world.held()?;
+        if self.release_blocked {
+            Some("Make room to set this down.")
+        } else if developer_enabled && self.world.held_movement_blocked() {
+            Some("The item cannot follow here.")
+        } else {
+            None
+        }
+    }
+
     pub(super) fn append_release_hint(
         &mut self,
         vertices: &mut Vec<crate::engine::render::Vertex>,
+        developer_enabled: bool,
     ) {
         if self.release_blocked && (self.world.held().is_none() || self.world.can_drop()) {
             self.release_blocked = false;
         }
-        if (self.release_blocked || self.world.held_movement_blocked())
-            && self.world.held().is_some()
-        {
-            crate::game::ui::draw_text(
-                vertices,
-                if self.release_blocked {
-                    "Make room to set this down."
-                } else {
-                    "The item cannot follow here."
-                },
-                24.0,
-                238.0,
-                0.75,
-                [0.9, 0.75, 0.5],
-            );
+        if let Some(hint) = self.release_hint(developer_enabled) {
+            crate::game::ui::draw_text(vertices, hint, 24.0, 238.0, 0.75, [0.9, 0.75, 0.5]);
         }
     }
 }

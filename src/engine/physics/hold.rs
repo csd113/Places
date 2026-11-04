@@ -16,6 +16,8 @@ use super::{FIXED_STEP, HOLD_DISTANCE, PICKUP_REACH};
 const HOLD_SPEED: f32 = 4.0;
 const SWEEP_MARGIN: f32 = 0.006;
 const CAMERA_RADIUS: f32 = 0.10;
+const OBSTRUCTED_SECONDS: f32 = 0.35;
+const AUTO_DROP_MARGIN: f32 = 0.5;
 
 pub(super) struct HeldItem {
     pub key: u64,
@@ -349,7 +351,35 @@ impl ItemWorld {
         self.runtime
             .as_ref()
             .and_then(|runtime| runtime.held.as_ref())
-            .is_some_and(|held| held.obstructed_seconds > 0.35)
+            .is_some_and(|held| held.obstructed_seconds > OBSTRUCTED_SECONDS)
+    }
+
+    /// Eye-to-body-centre limit for sustained obstructed carrying, adjusted
+    /// conservatively for the carried shape's bounding radius.
+    #[must_use]
+    pub fn held_auto_drop_distance(&self) -> Option<f32> {
+        let runtime = self.runtime.as_ref()?;
+        let held = runtime.held.as_ref()?;
+        let entry = runtime.entries.get(&held.key)?;
+        Some(PICKUP_REACH + AUTO_DROP_MARGIN + entry.radius)
+    }
+
+    pub(super) fn auto_drop_obstructed(&mut self, player: PlayerContext) -> Option<u64> {
+        let limit = self.held_auto_drop_distance()?;
+        let runtime = self.runtime.as_ref()?;
+        let held = runtime.held.as_ref()?;
+        if held.obstructed_seconds <= OBSTRUCTED_SECONDS {
+            return None;
+        }
+        let key = held.key;
+        let entry = runtime.entries.get(&key)?;
+        let body = runtime.world.bodies.get(entry.body)?;
+        if point(body.position().translation).distance_squared(player.eye) <= limit * limit {
+            return None;
+        }
+        // A moving obstacle may have occupied this pose since its last sweep.
+        // Retry safely rather than forcing an overlapping release or teleport.
+        (self.can_drop() && self.release_held_at_rest()).then_some(key)
     }
 
     #[must_use]
@@ -493,6 +523,12 @@ impl ItemWorld {
     /// motion is cleared; the world clock still determines when gravity resumes.
     /// Unlike an ordinary drop, this does not validate against the new player.
     pub fn release_held_for_reset(&mut self) -> bool {
+        self.release_held_at_rest()
+    }
+
+    /// Retain the current pose without inheriting remote player motion. Callers
+    /// must validate clearance or own an authoritative player-reset boundary.
+    fn release_held_at_rest(&mut self) -> bool {
         let Some(runtime) = self.runtime.as_mut() else {
             return true;
         };

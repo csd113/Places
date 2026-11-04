@@ -64,7 +64,9 @@ with (OUT/'game.log').open('w') as log:
   while proc.poll() is None:
    if time.monotonic()-started>70:raise RuntimeError('Native cargo case timed out')
    if MODE=='failure' and not removed and trace.exists():
-    if any(json.loads(l).get('event')=='request' and json.loads(l).get('detail')=='elevator_annex' for l in trace.read_text().splitlines()):package.rename(hidden);removed=True
+    # The trace is live: its final JSON record may still be mid-write.
+    complete_rows=(json.loads(line) for line in trace.read_bytes().split(b'\n')[:-1])
+    if any(row.get('event')=='request' and row.get('detail')=='elevator_annex' for row in complete_rows):package.rename(hidden);removed=True
    time.sleep(.03)
   assert proc.returncode==0,proc.returncode
  finally:

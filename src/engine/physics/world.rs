@@ -192,6 +192,8 @@ pub struct PhysicsStats {
     pub static_colliders: usize,
     pub recovered_bodies: usize,
     pub suspended_bodies: usize,
+    /// A safe obstructed-carry release this frame; never a removed body.
+    pub auto_dropped_held: Option<u64>,
 }
 
 impl Default for PhysicsStats {
@@ -209,6 +211,7 @@ impl Default for PhysicsStats {
             static_colliders: 0,
             recovered_bodies: 0,
             suspended_bodies: 0,
+            auto_dropped_held: None,
         }
     }
 }
@@ -1239,7 +1242,10 @@ impl ItemWorld {
             }
             self.accumulator = remaining;
         }
-        runtime.populate_counts(&mut self.stats);
+        self.stats.auto_dropped_held = self.auto_drop_obstructed(player);
+        if let Some(updated) = self.runtime.as_ref() {
+            updated.populate_counts(&mut self.stats);
+        }
         self.stats.step_millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
     }
 

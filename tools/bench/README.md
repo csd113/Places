@@ -139,6 +139,29 @@ Use fresh output directories and serialize native players. These captures are
 correctness/visual evidence, not throughput measurements. AI hearing and
 last-known searches remain active; the baseline predator has no player damage.
 
+The opt-in `carry_hint.py` accepts the exported `straight` source from
+`elevator_cargo_fixture.py`. It uses an actual pickup and obstructed carry in a
+closed cabin to check normal/developer visibility, immediate disabling, retained
+collision/custody and ordinary release. It never builds Rust or bakes maps:
+
+```sh
+python3 tools/bench/carry_hint.py --binary target/release/places \
+    --package local/cargo-straight.placesmap --out local/carry-hint-check
+```
+
+`auto_drop.py` uses that same straight fixture with `--mode normal` or
+`--mode obstructed`. It checks ordinary following/manual release, held and
+released save/resume, and real walking across the automatic-release limit.
+The obstruction setup prescribes the player beyond a closed door; subsequent
+movement uses normal keys. Capture receipts compare the exact release pose,
+zero added velocity, one ownership change and the reported size-aware limit.
+Use a fresh output directory and serialize native players:
+
+```sh
+python3 tools/bench/auto_drop.py --binary target/release/places \
+    --package local/cargo-straight.placesmap --out local/auto-drop-check --mode obstructed
+```
+
 ## Predator lost-sight search
 
 `predator_search.py` provides explicit tiny native acceptance for baseline

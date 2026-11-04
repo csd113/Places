@@ -56,6 +56,7 @@ def surface_measurements(state):
 def route(level="elevator_dark"):
     steps = []
     anchor = "ready:" + level
+    click_index = 0
 
     def add(ms, kind, **fields):
         steps.append(dict(after=anchor, delay_ms=ms, action=dict(kind=kind, **fields)))
@@ -74,8 +75,20 @@ def route(level="elevator_dark"):
         anchor = "checkpoint:" + name + "_done"
 
     def click(ms):
-        add(ms, "mouse", button="left", pressed=True)
-        add(ms + 70, "mouse", button="left", pressed=False)
+        nonlocal anchor, click_index
+        click_index += 1
+        name = "input-" + str(click_index)
+        # A delayed frame may deliver all elapsed actions together. Hold the
+        # aim, press and release across real checkpoint boundaries so an input
+        # cannot disappear between two game updates under build/PNG load.
+        add(ms, "checkpoint", name=name + "-aimed")
+        anchor = "checkpoint:" + name + "-aimed"
+        add(150, "mouse", button="left", pressed=True)
+        add(160, "checkpoint", name=name + "-pressed")
+        anchor = "checkpoint:" + name + "-pressed"
+        add(200, "mouse", button="left", pressed=False)
+        add(220, "checkpoint", name=name + "-released")
+        anchor = "checkpoint:" + name + "-released"
 
     views = [
         ("front", [0, 1.6, -2.5], [0, .9, .1]),
@@ -95,8 +108,8 @@ def route(level="elevator_dark"):
         capture(280, "closed-" + name)
     pose(100, [-.96, 1.6, -.9], [-.96, 1.08, -.12])
     click(300)
-    pose(400, views[0][1], views[0][2])
-    capture(650, "opening-early")
+    pose(40, views[0][1], views[0][2])
+    capture(120, "opening-early")
     capture(200, "opening-middle")
     capture(200, "opening-late")
     for name, position, target in views:
@@ -104,8 +117,8 @@ def route(level="elevator_dark"):
         capture(1800 if name == "front" else 280, "open-" + name)
     pose(100, [0, 1.6, 1.2], [.94, 1.58, .4])
     click(300)
-    pose(400, views[0][1], views[0][2])
-    capture(650, "closing-early")
+    pose(40, views[0][1], views[0][2])
+    capture(120, "closing-early")
     capture(200, "closing-middle")
     capture(200, "closing-late")
     capture(1000, "closed-departed")
