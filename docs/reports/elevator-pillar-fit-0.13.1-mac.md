@@ -46,5 +46,25 @@ hidden host geometry is filtered by the active editor focus.
 - The fixture uses Static preparation and macOS Metal. These are geometry and
   behavior checks, with V-sync enabled; no throughput/FPS improvement is claimed.
 
-Final production build and production-editor rerun are recorded below when
-complete. All local evidence is under `local/doorway-polish/` in task-6/places.
+## Final production acceptance
+
+The locked all-feature workspace release build passed in 6m 13s
+(`pillar-release-final.log`). The final production editor passed the complete
+11-case native campaign (`pillar-native-final/passed.json`): eight placements,
+two small-pillar refusals and one short-gap refusal, with exact automatic wall
+facing/face alignment. Its saved source equals the preliminary fixture source.
+The saved project was exported again with zero warnings
+(`pillar-export-final.json`, `pillar-final.placesmap`) and run in the final
+production game. All eight lifts reach fully open in actual game checkpoints;
+32 final inside/outside open/closed images are retained. Binary/package SHA-256
+identities and checkpoint results are in `pillar-game-final/passed.json`.
+`pillar-final-all-views.png` and `pillar-contact-sheet.png` summarize those views.
+The additional wider-shell and floor-corner views remain in `pillar-side-run/`.
+
+Native coverage is macOS Metal with a small Static fixture; it is not an FPS
+comparison or a cross-platform campaign. This revision introduces no new map
+schema or runtime boolean operation: the hollowed host is editable saved
+architecture. Circular hosts gain a flat fitted doorway facade; their remaining
+interior clearance is measured against the actual polygon and retained shell.
+Existing specialized wall attachments remain explicit occupied-host refusals.
+All local evidence is under `local/doorway-polish/` in task-6/places.
