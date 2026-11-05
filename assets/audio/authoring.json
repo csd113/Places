@@ -154,6 +154,20 @@
       "verified_date": "2026-11-03",
       "archive": "original",
       "recipe": "tools/audio/elevator.py; offline original synthesis; no sampled recordings"
+    },
+    {
+      "id": "grimmreapersounds_intercom",
+      "title": "The intercom of nothingness",
+      "author": "GrimmReaperSounds",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "page_url": "https://freesound.org/people/GrimmReaperSounds/sounds/560697/",
+      "cache_file": "560697__grimmreapersounds__the-intercom-of-nothingness.mp3",
+      "sha256": "67435c649540d60fdbf38771b73d7a47961202aaad83b85e48e8ebdbcaa2e1c8",
+      "size_bytes": 792259,
+      "verified_date": "2026-11-05",
+      "delivery": "user_attachment",
+      "notice": "CC0 displayed on the primary sound page, verified for this import. The user supplied this exact MP3; no site preview or replacement was downloaded. Courtesy credit: The intercom of nothingness by GrimmReaperSounds. Restore the supplied file at cache_file for offline regeneration; there is no download fallback."
     }
   ],
   "clips": [
@@ -526,6 +540,15 @@
       "file": "elevator_travel/01.wav",
       "source": "places_original_elevator_0131",
       "source_file": "elevator_travel"
+    },
+    {
+      "file": "ambience_intercom/01.wav",
+      "source": "grimmreapersounds_intercom",
+      "source_file": "560697__grimmreapersounds__the-intercom-of-nothingness.mp3",
+      "start_seconds": 10,
+      "end_seconds": 40,
+      "crossfade_seconds": 0.5,
+      "peak": 16000
     }
   ]
 }

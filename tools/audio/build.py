@@ -44,6 +44,9 @@ def write_json(path, value):
 def source_bytes(source, clip, cache, download):
     path = cache / source["cache_file"]
     if not path.exists():
+        if source.get("delivery") == "user_attachment":
+            raise ValueError(f"missing attached source {path}; restore the supplied file, "
+                             "not a site preview or replacement download")
         if not download:
             raise ValueError(f"missing {path}; pass --download to fetch pinned sources")
         with urllib.request.urlopen(source["download_url"], timeout=60) as response:

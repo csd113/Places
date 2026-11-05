@@ -5,8 +5,8 @@ visual `assets/catalog.json`: maps name sound cue IDs, and sound cues name real
 WAV files under `assets/audio/`. Every shipped WAV is mono, 44,100 Hz, signed
 16-bit PCM. No microphone input or runtime sound synthesis is involved.
 
-The library has **30 cues / 68 WAV files / 11,481,572 bytes** (10.95 MiB). Its
-decoded stereo float allocation estimate is **43.79 MiB**, below the runtime's
+The library has **32 cues / 70 WAV files / 14,242,320 bytes** (13.58 MiB). Its
+decoded stereo float allocation estimate is **54.32 MiB**, below the runtime's
 64 MiB library limit. The elevator shaft one-shot lasts 5.6 seconds; ordinary impact/switch cues remain
 short. Original interior ambience includes a 29.5-second loop. Mono ambient recordings deliberately play without positional
 panning; per-cue and per-emitter gains keep the backgrounds quiet.
@@ -15,7 +15,7 @@ panning; per-cue and per-emitter gains keep the backgrounds quiet.
 
 Imported recordings explicitly declare **CC0-1.0** on their linked primary
 pages. Original Places interior ambience and elevator cues are MIT-licensed
-offline synthesis, with recipes retained under `tools/audio/`. These declarations were checked on October 16, 2026. CC0's legal reference
+offline synthesis, with recipes retained under `tools/audio/`. The original imports were checked on October 16, 2026; the intercom addition was checked on November 5, 2026. CC0's legal reference
 is [Creative Commons Zero 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 The original Kenney notice wording is retained under `assets/audio/licenses/`,
 with line endings and trailing whitespace normalized for the repository.
@@ -32,6 +32,15 @@ with line endings and trailing whitespace normalized for the repository.
 | [Airvent Loop — Longor](https://opengameart.org/content/airvent-loop) | A recorded home air vent, crossfaded into a quiet HVAC loop |
 | [Ambient Bird Sounds — isaiah658](https://opengameart.org/content/ambient-bird-sounds) | A cleaned outdoor camera recording, shortened and crossfaded for the garden |
 | [rubber duck -CsG-.wav — csaszi](https://freesound.org/people/csaszi/sounds/350917/) | Two isolated squeaks from the publicly offered HQ MP3 preview; the login-only original WAV was not downloaded |
+
+[The intercom of nothingness — GrimmReaperSounds](https://freesound.org/people/GrimmReaperSounds/sounds/560697/)
+was added under CC0 on November 5, 2026, using the exact user-supplied
+`560697__grimmreapersounds__the-intercom-of-nothingness.mp3` (792,259 bytes).
+Its full source is approximately 85.746 s. The runtime keeps the existing
+30 s per-clip limit: seconds 10–40 become a 29.5 s loop after a 0.5 s
+tail/head crossfade. The complete attachment remains the hash-pinned offline
+source; no preview or replacement was downloaded. Courtesy credit goes to
+GrimmReaperSounds. This file has its own decoder version in provenance.
 
 `assets/audio/provenance.json` is the exact per-file mapping: destination WAV,
 source id, original archive member/file name, original member SHA-256 and final
@@ -63,6 +72,7 @@ and their provenance ship. No unrelated pack previews or third-party artwork shi
 | `ambience_hvac` | 1 / 7.239 s | Quiet room ventilation |
 | `ambience_outdoors` | 1 / 26.000 s | Daytime garden birds |
 | `ambience_water` | 1 / 6.167 s | Flowing water in the pool hall |
+| `ambience_intercom` | 1 / 29.500 s | Optional quiet, non-positional intercom bed by GrimmReaperSounds (CC0) |
 | `water_emitter` | Shares `ambience_water` WAV | Positional world-time water source for native distance/pan checks; no extra WAV or decoded allocation |
 
 Source files were decoded once offline, downmixed/resampled to the fixed WAV
@@ -198,3 +208,25 @@ rendered offline by the same tool. It plays once at the passenger's ears during
 the sealed simulated ride, before either local transfer or level preparation.
 Its source anchor remains live until that interval ends; ordinary closed doors
 and idle cabins do not play it. The catalog applies the normal effects volume.
+
+### Optional intercom ambience
+
+`ambience_intercom` appears in the ordinary editor sound picker. Map authors
+can opt in with a `sound_emitters[]` entry such as:
+
+```json
+{ "id": "intercom_bed", "x": 0, "y": 1, "z": 0,
+  "sound": "ambience_intercom", "gain": 1, "spatial": false,
+  "looped": true, "enabled": true, "playing": true, "time_domain": "real" }
+```
+
+Catalog gain 0.03 keeps the layer quiet before the ordinary master and
+ambience controls. One emitter is sufficient for a non-positional bed; avoid
+stacking copies. Existing tracks, authored maps, movement cues and hearing
+behavior are unchanged. The measured file and loop checks establish technical
+playback suitability; subjective listening and cue masking need a separate
+listening review.
+
+To regenerate, supply that exact MP3 under its recorded `cache_file` name in
+the import cache alongside the other pinned sources. The importer refuses
+a missing attachment even with `--download`, preventing site substitution.

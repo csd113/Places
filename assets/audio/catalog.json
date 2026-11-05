@@ -381,6 +381,17 @@
       "gain": 0.7,
       "looping": false,
       "spatial": false
+    },
+    {
+      "id": "ambience_intercom",
+      "files": [
+        "ambience_intercom/01.wav"
+      ],
+      "gain": 0.03,
+      "looping": true,
+      "spatial": false,
+      "min_distance": 1.0,
+      "max_distance": 24.0
     }
   ]
 }

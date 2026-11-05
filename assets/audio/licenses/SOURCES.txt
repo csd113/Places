@@ -40,3 +40,10 @@ Original Places quiet interior ambience (2026-10-25)
 Fluorescent ballast, pool surface/lapping and soft empty-room partials.
 Original offline synthesis, no recordings or third-party music; repository MIT license.
 Recipe: tools/audio/original.py. Runtime loads only the committed WAV files.
+
+The intercom of nothingness — GrimmReaperSounds
+https://freesound.org/people/GrimmReaperSounds/sounds/560697/
+CC0-1.0 displayed on the source page; checked 2026-11-05.
+Courtesy credit to GrimmReaperSounds. Uses the user-supplied MP3, not a downloaded replacement.
+A 10–40 s excerpt is downmixed/resampled and crossfaded into a 29.5 s loop;
+the source filename, original hash and processing recipe are retained in the manifests.
