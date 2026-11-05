@@ -3,6 +3,7 @@
 mod activation;
 mod collision;
 pub mod config;
+mod contact_solver;
 mod contacts;
 mod hold;
 mod impacts;

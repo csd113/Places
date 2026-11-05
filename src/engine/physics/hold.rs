@@ -1,12 +1,15 @@
 //! Collision-aware carrying and safe release, with no teleport-derived velocity.
 
 use glam::{Quat, Vec3};
+use rapier3d::parry::bounding_volume::BoundingVolume;
 use rapier3d::parry::query::{
-    NonlinearRigidMotion, ShapeCastOptions, contact, distance, intersection_test,
+    NonlinearRigidMotion, ShapeCastHit, ShapeCastOptions, cast_shapes, cast_shapes_nonlinear,
+    contact, distance, intersection_test,
 };
-use rapier3d::parry::shape::Ball;
+use rapier3d::parry::shape::{Ball, Shape};
 use rapier3d::prelude::{
-    ColliderHandle, Pose, QueryFilter, QueryFilterFlags, Ray, RigidBodyType, SharedShape, Vector,
+    Collider, ColliderHandle, Pose, QueryFilter, QueryFilterFlags, Ray, RigidBodyType, SharedShape,
+    Vector,
 };
 
 use super::collision::{add, point, pose, quaternion, query_filter, scaled, subtract, vector};
@@ -27,6 +30,16 @@ pub(super) struct HeldItem {
     block_dynamic: bool,
     angular_velocity: Vec3,
     obstructed_seconds: f32,
+    solver_anchor: Option<CarryAnchor>,
+    // Opposed static-friction contacts retain their decision until retreat or
+    // separation; control previews and clock changes do not release hand lag.
+    jammed: Vec<ColliderHandle>,
+}
+
+struct CarryAnchor {
+    pose: Pose,
+    route: Option<CarryRoute>,
+    obstructed_seconds: f32,
 }
 
 impl HeldItem {
@@ -42,6 +55,8 @@ impl HeldItem {
             block_dynamic: false,
             angular_velocity: Vec3::ZERO,
             obstructed_seconds: 0.0,
+            solver_anchor: None,
+            jammed: Vec::new(),
         }
     }
 }
@@ -68,6 +83,71 @@ fn camera_clear(candidate: &Pose, shape: &SharedShape, eye: Vec3) -> bool {
         &camera,
     )
     .is_ok_and(|overlap| !overlap.intersecting)
+}
+
+fn translated_pose(start: &Pose, movement: Vector, time: f32) -> Pose {
+    Pose::from_parts(
+        vector(add(point(start.translation), scaled(point(movement), time))),
+        start.rotation,
+    )
+}
+
+fn carry_contact_normal(
+    start: &Pose,
+    shape: &dyn Shape,
+    movement: Vector,
+    other: &Collider,
+    hit: &ShapeCastHit,
+    skin: f32,
+) -> Vector {
+    // Near the contact skin a support-map sweep can return an unstable
+    // starting normal. Use the exact shape contact at its impact pose, and
+    // test the resulting normal before allowing a separating movement.
+    contact(
+        &translated_pose(start, movement, hit.time_of_impact),
+        shape,
+        other.position(),
+        other.shape(),
+        skin + 0.001,
+    )
+    .ok()
+    .flatten()
+    .map_or_else(
+        || vector(quaternion(start.rotation).mul_vec3(point(hit.normal1))),
+        |contact| contact.normal1,
+    )
+}
+
+fn clear_carry_translation(
+    start: &Pose,
+    shape: &dyn Shape,
+    movement: Vector,
+    other: &Collider,
+    clearance: f32,
+    limit: f32,
+) -> f32 {
+    if limit <= f32::EPSILON {
+        return 0.0;
+    }
+    let mut clear = 0.0_f32;
+    let mut blocked = limit;
+    for _ in 0_u8..12 {
+        let middle = clear.midpoint(blocked);
+        if contact(
+            &translated_pose(start, movement, middle),
+            shape,
+            other.position(),
+            other.shape(),
+            clearance,
+        )
+        .is_ok_and(|contact| contact.is_none())
+        {
+            clear = middle;
+        } else {
+            blocked = middle;
+        }
+    }
+    clear
 }
 
 fn carry_waypoint(
@@ -421,6 +501,8 @@ impl ItemWorld {
             block_dynamic: false,
             angular_velocity: Vec3::ZERO,
             obstructed_seconds: 0.0,
+            solver_anchor: None,
+            jammed: Vec::new(),
         });
         true
     }
@@ -508,6 +590,7 @@ impl ItemWorld {
         released_body.set_angvel(vector(angular_velocity.clamp_length_max(3.0)), true);
         released_body.set_next_kinematic_position(candidate);
         entry.previous = entry.current;
+        runtime.restore_carry_contacts();
         runtime.held = None;
         true
     }
@@ -551,6 +634,7 @@ impl ItemWorld {
         body.reset_forces(true);
         body.reset_torques(true);
         body.set_next_kinematic_position(retained);
+        runtime.restore_carry_contacts();
         runtime.held = None;
         runtime.clear_item_contacts(key);
         runtime.update_poses();
@@ -604,10 +688,37 @@ impl ItemWorld {
 }
 
 impl Runtime {
+    pub(super) fn restore_carry_contacts(&mut self) {
+        self.contact_solver.restore_contact_hooks(&mut self.world);
+    }
+
+    pub(super) const fn accept_held_preview(&mut self) {
+        if let Some(held) = self.held.as_mut() {
+            held.solver_anchor = None;
+        }
+    }
+
+    pub(super) fn preview_held(&mut self, player: PlayerContext, delta: f32) {
+        if let Some(held) = self.held.as_mut()
+            && held.solver_anchor.is_none()
+        {
+            held.solver_anchor = self
+                .entries
+                .get(&held.key)
+                .and_then(|entry| self.world.bodies.get(entry.body))
+                .map(|body| CarryAnchor {
+                    pose: *body.position(),
+                    route: held.route,
+                    obstructed_seconds: held.obstructed_seconds,
+                });
+        }
+        self.advance_held(player, delta, true);
+    }
+
     fn carry_filter(&self, collider: ColliderHandle) -> QueryFilter<'static> {
         let mut filter = query_filter().exclude_collider(collider);
-        // Solver ticks push active items normally. Between ticks those same
-        // bodies are immobile obstacles to independently controlled carrying.
+        // Physical ticks push active items normally. Swept control previews
+        // and stopped-world updates treat those bodies as immobile obstacles.
         if self.held.as_ref().is_some_and(|held| !held.block_dynamic) {
             filter.flags |= QueryFilterFlags::EXCLUDE_DYNAMIC;
         }
@@ -620,7 +731,27 @@ impl Runtime {
             .map_or(FIXED_STEP, |held| held.control_delta)
     }
 
+    fn restore_held_anchor(&mut self) {
+        if let Some(held) = self.held.as_mut()
+            && let Some(anchor) = held.solver_anchor.take()
+            && let Some(entry) = self.entries.get(&held.key)
+            && let Some(body) = self.world.bodies.get_mut(entry.body)
+        {
+            // Swept control previews are query/release poses. Restore the last
+            // solved anchor so Rapier sees the entire fixed-interval motion.
+            body.set_position(anchor.pose, false);
+            body.set_next_kinematic_position(anchor.pose);
+            held.route = anchor.route;
+            held.obstructed_seconds = anchor.obstructed_seconds;
+            self.update_poses();
+            self.refresh_queries();
+        }
+    }
+
     pub(super) fn advance_held(&mut self, player: PlayerContext, delta: f32, immediate: bool) {
+        if !immediate {
+            self.restore_held_anchor();
+        }
         if let Some(held) = self.held.as_mut() {
             held.control_delta = delta;
             held.block_dynamic = immediate;
@@ -667,7 +798,7 @@ impl Runtime {
                 return;
             }
         }
-        let (target, route) = self.routed_carried_pose(
+        let (routed_target, route) = self.routed_carried_pose(
             entry,
             start,
             desired_center,
@@ -675,8 +806,16 @@ impl Runtime {
             player,
             held.route,
         );
+        let (target, jammed) = if immediate {
+            (routed_target, Vec::new())
+        } else {
+            self.swept_dynamic_carry(entry, start, routed_target, player.eye)
+        };
         let body_handle = entry.body;
         if let Some(current_held) = self.held.as_mut() {
+            if !immediate {
+                current_held.jammed = jammed;
+            }
             current_held.route = route;
             current_held.obstructed_seconds =
                 if point(target.translation).distance_squared(point(start.translation)) < 1.0e-8
@@ -793,7 +932,13 @@ impl Runtime {
         };
         let nearest = add(point(start.translation), scaled(motion, closest_time));
         let camera_clearance = entry.radius + CAMERA_RADIUS + SWEEP_MARGIN;
-        crosses_capsule || nearest.distance_squared(player.eye) < camera_clearance.powi(2)
+        // A slow-world solver anchor can begin beside the current camera
+        // after swept previews have already followed the moving controller.
+        // Moving away from that initial proximity is not a path crossing;
+        // the destination still has to pass the exact camera/shape check.
+        crosses_capsule
+            || (closest_time > 0.0
+                && nearest.distance_squared(player.eye) < camera_clearance.powi(2))
     }
 
     fn clipped_hand_center(
@@ -979,13 +1124,298 @@ impl Runtime {
         let candidate = rotation_motion.position_at_time(rotational_travel);
         // A query can begin within its contact tolerance. Refuse a true
         // overlapping destination instead of allowing a ghosted carry pose.
-        let accepted = self
-            .world
-            .intersect_shape(candidate, entry.shape.as_ref(), filter)
-            .next()
-            .is_none()
-            && camera_clear(&candidate, &entry.shape, eye);
+        let accepted = self.carry_pose_clear(entry, candidate, eye);
         accepted.then_some(candidate)
+    }
+
+    fn carry_pose_clear(
+        &self,
+        entry: &super::world::BodyEntry,
+        candidate: Pose,
+        eye: Vec3,
+    ) -> bool {
+        camera_clear(&candidate, &entry.shape, eye)
+            && self
+                .world
+                .intersect_shape(
+                    candidate,
+                    entry.shape.as_ref(),
+                    self.carry_filter(entry.collider),
+                )
+                .next()
+                .is_none()
+    }
+
+    fn swept_dynamic_carry(
+        &self,
+        entry: &super::world::BodyEntry,
+        start: Pose,
+        target: Pose,
+        eye: Vec3,
+    ) -> (Pose, Vec<ColliderHandle>) {
+        // Let free dynamics receive the full hand velocity. If the contact's
+        // normal response is blocked by scenery, stop the hand at the actual
+        // contact skins instead of forcing a prop into an immovable wedge.
+        let mut dynamic_filter = query_filter().exclude_collider(entry.collider);
+        dynamic_filter.flags |=
+            QueryFilterFlags::EXCLUDE_FIXED | QueryFilterFlags::EXCLUDE_KINEMATIC;
+        let movement = vector(subtract(
+            point(target.translation),
+            point(start.translation),
+        ));
+        let destination = Pose::from_parts(target.translation, start.rotation);
+        let bounds = entry
+            .shape
+            .compute_aabb(&start)
+            .merged(&entry.shape.compute_aabb(&destination))
+            .loosened(0.004);
+        let skin = self
+            .world
+            .colliders
+            .get(entry.collider)
+            .map_or(0.0, Collider::contact_skin);
+        let mut travel = 1.0_f32;
+        let mut jammed = Vec::new();
+        for (handle, other) in self
+            .world
+            .intersect_aabb_conservative(bounds, dynamic_filter)
+        {
+            let options = ShapeCastOptions {
+                max_time_of_impact: 1.0,
+                target_distance: skin + other.contact_skin(),
+                stop_at_penetration: true,
+                ..ShapeCastOptions::default()
+            };
+            let Ok(Some(hit)) = cast_shapes(
+                &start,
+                movement,
+                entry.shape.as_ref(),
+                other.position(),
+                Vector::ZERO,
+                other.shape(),
+                options,
+            ) else {
+                continue;
+            };
+            let normal = carry_contact_normal(
+                &start,
+                entry.shape.as_ref(),
+                movement,
+                other,
+                &hit,
+                skin + other.contact_skin(),
+            );
+            if movement.dot(normal) <= 0.0 {
+                continue;
+            }
+            let contact_time = hit.time_of_impact.clamp(0.0, 1.0);
+            let response = vector(scaled(
+                point(normal),
+                (1.0 - contact_time) * movement.dot(normal).max(0.0),
+            ));
+            let fraction = self.dynamic_response_fraction(entry.collider, handle, other, response);
+            if fraction < 1.0 {
+                jammed.push(handle);
+            }
+            let mut candidate_time = (1.0 - contact_time).mul_add(fraction, contact_time);
+            if fraction < 1.0 {
+                // Refine the sweep's approximate impact against actual shape
+                // separation. Retain the same clearance used for immovable
+                // carry obstacles; a jam may stop before a solver impulse.
+                candidate_time = clear_carry_translation(
+                    &start,
+                    entry.shape.as_ref(),
+                    movement,
+                    other,
+                    (skin + other.contact_skin()).max(SWEEP_MARGIN),
+                    candidate_time,
+                );
+            }
+            travel = travel.min(candidate_time);
+        }
+        let translated = translated_pose(&start, movement, travel);
+        let rotation = quaternion(target.rotation).mul_quat(quaternion(start.rotation).inverse());
+        let shortest = if rotation.w < 0.0 {
+            Quat::from_xyzw(-rotation.x, -rotation.y, -rotation.z, -rotation.w)
+        } else {
+            rotation
+        };
+        let motion = NonlinearRigidMotion::new(
+            translated,
+            Vector::ZERO,
+            Vector::ZERO,
+            vector(shortest.to_scaled_axis()),
+        );
+        let angular_travel =
+            self.jammed_rotation_fraction(entry, &motion, dynamic_filter, &mut jammed);
+        let candidate = motion.position_at_time(angular_travel);
+        // A clipped translation changes the pivot of the earlier static
+        // rotation sweep. Revalidate that endpoint against scenery/player.
+        if self.carry_pose_clear(entry, candidate, eye) {
+            (candidate, jammed)
+        } else {
+            (start, jammed)
+        }
+    }
+
+    fn jammed_rotation_fraction(
+        &self,
+        entry: &super::world::BodyEntry,
+        motion: &NonlinearRigidMotion,
+        filter: QueryFilter<'_>,
+        jammed: &mut Vec<ColliderHandle>,
+    ) -> f32 {
+        if motion.angvel.length_squared() < 1.0e-12 {
+            return 1.0;
+        }
+        let start = motion.position_at_time(0.0);
+        let destination = motion.position_at_time(1.0);
+        let bounds = Ball::new(entry.radius + 0.004).compute_aabb(&start);
+        let skin = self
+            .world
+            .colliders
+            .get(entry.collider)
+            .map_or(0.0, Collider::contact_skin);
+        let mut travel = 1.0_f32;
+        for (handle, other) in self.world.intersect_aabb_conservative(bounds, filter) {
+            let stationary = NonlinearRigidMotion::new(
+                *other.position(),
+                Vector::ZERO,
+                Vector::ZERO,
+                Vector::ZERO,
+            );
+            let Ok(Some(hit)) = cast_shapes_nonlinear(
+                motion,
+                entry.shape.as_ref(),
+                &stationary,
+                other.shape(),
+                0.0,
+                1.0,
+                false,
+            ) else {
+                continue;
+            };
+            let impact = motion.position_at_time(hit.time_of_impact);
+            let normal = vector(quaternion(impact.rotation).mul_vec3(point(hit.normal1)));
+            let movement = vector(subtract(
+                point(destination.transform_point(hit.witness1)),
+                point(impact.transform_point(hit.witness1)),
+            ));
+            let response = vector(scaled(point(normal), movement.dot(normal).max(0.0)));
+            if self.dynamic_response_fraction(entry.collider, handle, other, response) >= 1.0 {
+                continue;
+            }
+            jammed.push(handle);
+            // Nonlinear casts find core contact. Bisect just that interval to
+            // retain the authored skins before a blocked rotational contact.
+            let mut clear = 0.0_f32;
+            let mut blocked = hit.time_of_impact.clamp(0.0, 1.0);
+            for _ in 0_u8..12 {
+                let middle = clear.midpoint(blocked);
+                let candidate = motion.position_at_time(middle);
+                if contact(
+                    &candidate,
+                    entry.shape.as_ref(),
+                    other.position(),
+                    other.shape(),
+                    skin + other.contact_skin(),
+                )
+                .is_ok_and(|contact| contact.is_none())
+                {
+                    clear = middle;
+                } else {
+                    blocked = middle;
+                }
+            }
+            travel = travel.min(clear);
+        }
+        travel
+    }
+
+    fn dynamic_response_fraction(
+        &self,
+        held: ColliderHandle,
+        pushed: ColliderHandle,
+        body: &Collider,
+        movement: Vector,
+    ) -> f32 {
+        let Some(direction) = movement.try_normalize() else {
+            return 1.0;
+        };
+        let Some(hand) = self.world.colliders.get(held) else {
+            return 1.0;
+        };
+        let hand_friction =
+            self.floor_contacts
+                .friction_at(hand, body, point(body.position().translation));
+        let destination = Pose::from_parts(
+            vector(add(point(body.position().translation), point(movement))),
+            body.position().rotation,
+        );
+        let bounds = body
+            .compute_aabb()
+            .merged(&body.shape().compute_aabb(&destination))
+            .loosened(0.004);
+        let mut filter = query_filter().exclude_collider(held);
+        filter.flags |= QueryFilterFlags::EXCLUDE_DYNAMIC;
+        let mut fraction = 1.0_f32;
+        for (handle, obstacle) in self.world.intersect_aabb_conservative(bounds, filter) {
+            if handle == pushed {
+                continue;
+            }
+            let options = ShapeCastOptions {
+                max_time_of_impact: 1.0,
+                target_distance: body.contact_skin() + obstacle.contact_skin(),
+                stop_at_penetration: true,
+                ..ShapeCastOptions::default()
+            };
+            match cast_shapes(
+                body.position(),
+                movement,
+                body.shape(),
+                obstacle.position(),
+                Vector::ZERO,
+                obstacle.shape(),
+                options,
+            ) {
+                Ok(Some(hit)) => {
+                    let support_friction = self.floor_contacts.friction_at(
+                        body,
+                        obstacle,
+                        point(obstacle.position().transform_point(hit.witness2)),
+                    );
+                    // A nearly tangent floor response is free to slide. Limit
+                    // only potential self-locking wedges, where the authored
+                    // contact friction cones can support opposing forces.
+                    let normal = carry_contact_normal(
+                        body.position(),
+                        body.shape(),
+                        movement,
+                        obstacle,
+                        &hit,
+                        body.contact_skin() + obstacle.contact_skin(),
+                    );
+                    let opposition = normal.dot(direction);
+
+                    let persistent = self
+                        .held
+                        .as_ref()
+                        .is_some_and(|carried| carried.jammed.contains(&pushed));
+                    // Static friction persists while both contacts remain
+                    // opposed. A tiny solver-driven tip must not release all
+                    // accumulated hand lag in a single catch-up tick.
+                    if opposition > 0.0
+                        && (persistent
+                            || opposition >= (hand_friction.atan() + support_friction.atan()).cos())
+                    {
+                        fraction = fraction.min(hit.time_of_impact.clamp(0.0, 1.0));
+                    }
+                }
+                Err(_) => return 0.0,
+                _ => {}
+            }
+        }
+        fraction
     }
 
     fn recover_carried_pose(

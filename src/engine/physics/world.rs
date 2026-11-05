@@ -24,6 +24,7 @@ use super::collision::{
     query_filter, refresh_collider, scaled, subtract, vector,
 };
 use super::config::{BodyMotion, PhysicsDef, validate_reset_group};
+use super::contact_solver::ContactSolver;
 use super::contacts::ContactOnsets;
 use super::hold::HeldItem;
 use super::impacts::{ImpactBudget, ImpactEvent, ImpactMotion, SurfaceMaterial};
@@ -290,7 +291,7 @@ impl BodyEntry {
 
 pub(super) struct Runtime {
     pub world: PhysicsWorld,
-    floor_contacts: FloorContactHooks,
+    pub(super) floor_contacts: FloorContactHooks,
     pub entries: BTreeMap<u64, BodyEntry>,
     pub ragdolls: BTreeMap<String, super::ragdoll::Ragdoll>,
     pub contact_aliases: std::collections::HashMap<ColliderHandle, u64>,
@@ -302,6 +303,10 @@ pub(super) struct Runtime {
     doors: Vec<RigidBodyHandle>,
     pub player_velocity: Vec3,
     previous_player: Option<Vec3>,
+    // Interaction queries may sync last_player several times before a step.
+    // Keep the preceding control sample and unsolved real time independently.
+    control_player: Option<PlayerContext>,
+    control_remainder: f32,
     pub last_player: Option<PlayerContext>,
     static_count: usize,
     impacts: VecDeque<ImpactEvent>,
@@ -313,6 +318,7 @@ pub(super) struct Runtime {
     pub wake_targets: Vec<WakeTarget>,
     pub recovery: RecoveryState,
     pub water_work: Vec<WaterWork>,
+    pub(super) contact_solver: ContactSolver,
     #[cfg(not(target_arch = "wasm32"))]
     pub worker_pool: Option<Arc<rayon::ThreadPool>>,
     #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
@@ -419,6 +425,8 @@ impl ItemWorld {
 
     fn publish_current_poses(&mut self) {
         if let Some(runtime) = self.runtime.as_mut() {
+            runtime.control_remainder = 0.0;
+            runtime.accept_held_preview();
             for entry in runtime.entries.values_mut() {
                 entry.previous = entry.current;
             }
@@ -545,6 +553,8 @@ impl ItemWorld {
                 doors: Vec::new(),
                 player_velocity: Vec3::ZERO,
                 previous_player: None,
+                control_player: None,
+                control_remainder: 0.0,
                 last_player: None,
                 static_count,
                 impacts: VecDeque::with_capacity(MAX_IMPACTS),
@@ -556,6 +566,7 @@ impl ItemWorld {
                 wake_targets: Vec::with_capacity(MAX_BODIES),
                 recovery: RecoveryState::default(),
                 water_work: Vec::new(),
+                contact_solver: ContactSolver::default(),
                 #[cfg(not(target_arch = "wasm32"))]
                 worker_pool: self.worker_pool.clone(),
                 #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
@@ -565,6 +576,7 @@ impl ItemWorld {
             };
             if let Some(context) = self.pending_player {
                 initialized.previous_player = Some(context.feet);
+                initialized.control_player = Some(context);
                 initialized.last_player = Some(context);
                 initialized.update_player(context);
                 initialized.update_doors(&self.pending_doors, true);
@@ -969,6 +981,7 @@ impl ItemWorld {
             .impacts
             .retain(|impact| impact.key != key && impact.other_key != Some(key));
         if runtime.held.as_ref().is_some_and(|held| held.key == key) {
+            runtime.restore_carry_contacts();
             runtime.held = None;
         }
         true
@@ -1010,6 +1023,7 @@ impl ItemWorld {
             runtime.restore_authored_body(key);
         }
         if released_held.is_some() {
+            runtime.restore_carry_contacts();
             runtime.held = None;
         }
         for &key in &keys {
@@ -1200,6 +1214,8 @@ impl ItemWorld {
             })
             .clamp_length_max(2.0);
         runtime.previous_player = Some(player.feet);
+        let previous_control = runtime.control_player.unwrap_or(player);
+        runtime.control_player = Some(player);
         runtime.last_player = Some(player);
         runtime.update_player(player);
         runtime.update_doors(doors, interval <= 0.0);
@@ -1217,6 +1233,7 @@ impl ItemWorld {
         }
         #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
         runtime.configure_solver_pool(interval);
+        let previous_accumulator = self.accumulator;
         self.accumulator += interval;
         let mut remaining = self.accumulator;
         let mut planned_steps = 0_u16;
@@ -1224,14 +1241,25 @@ impl ItemWorld {
             remaining = (remaining - FIXED_STEP).max(0.0);
             planned_steps = planned_steps.saturating_add(1);
         }
-        if planned_steps == 0 {
+        if interval <= 0.0 {
+            runtime.control_remainder = 0.0;
+            runtime.accept_held_preview();
             runtime.advance_held(player, control_interval, true);
-        } else {
-            // Hand motion follows real time at every scale. Rapier still owns
-            // ordinary pushes; frames without a solver tick sweep frozen items.
-            let carry_delta = control_interval / f32::from(planned_steps);
+        } else if planned_steps > 0 {
+            // Sample this control segment where each fixed tick ends. Ordinary
+            // fractional frames never overwrite kinematic motion history.
+            let mut tick_time = FIXED_STEP - previous_accumulator;
+            let mut previous_alpha = 0.0;
             for _ in 0..planned_steps {
-                runtime.advance_held(player, carry_delta, false);
+                let alpha = (tick_time / interval).clamp(0.0, 1.0);
+                let sample = previous_control.sample(player, alpha, delta);
+                let carry_delta =
+                    (alpha - previous_alpha).mul_add(control_interval, runtime.control_remainder);
+                runtime.control_remainder = 0.0;
+                runtime.update_player(sample);
+                runtime.refresh_queries();
+                runtime.activate_player_contacts();
+                runtime.advance_held(sample, carry_delta.max(f32::EPSILON), false);
                 runtime.advance_world(
                     &self.recovery_space,
                     &self.water,
@@ -1239,8 +1267,20 @@ impl ItemWorld {
                     &mut self.stats,
                 );
                 self.simulation.fixed_steps = self.simulation.fixed_steps.saturating_add(1);
+                previous_alpha = alpha;
+                tick_time += FIXED_STEP;
             }
+            runtime.control_remainder = (1.0 - previous_alpha) * control_interval;
             self.accumulator = remaining;
+            // Queries and release checks use the actual controller output.
+            runtime.update_player(player);
+            runtime.refresh_queries();
+            if runtime.control_remainder > f32::EPSILON {
+                runtime.preview_held(player, runtime.control_remainder);
+            }
+        } else {
+            runtime.control_remainder += control_interval;
+            runtime.preview_held(player, control_interval);
         }
         self.stats.auto_dropped_held = self.auto_drop_obstructed(player);
         if let Some(updated) = self.runtime.as_ref() {
@@ -1268,6 +1308,7 @@ impl ItemWorld {
         self.stats = PhysicsStats::default();
         if let Some(runtime) = self.runtime.as_mut() {
             let started = Instant::now();
+            runtime.control_player = Some(player);
             runtime.begin_frame(&mut self.stats);
             #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
             runtime.configure_solver_pool(FIXED_STEP);
@@ -1298,6 +1339,9 @@ impl ItemWorld {
             return;
         };
         runtime.last_player = Some(player);
+        if runtime.control_player.is_none() {
+            runtime.control_player = Some(player);
+        }
         runtime.update_player(player);
         runtime.update_doors(doors, true);
         runtime.refresh_queries();
@@ -1621,6 +1665,39 @@ impl ItemWorld {
 }
 
 impl PlayerContext {
+    fn sample(self, next: Self, alpha: f32, delta: f32) -> Self {
+        let yaw_delta = next.yaw - self.yaw;
+        // Resets, teleports and form changes are prescribed discontinuities,
+        // not a swept player journey through the intervening world.
+        if delta > MAX_FRAME_SECONDS
+            || self.feet.distance_squared(next.feet) > 4.0
+            || self.eye.distance_squared(next.eye) > 4.0
+            || !yaw_delta.is_finite()
+            || self.active != next.active
+            || (self.height - next.height).abs() > 1.0e-4
+            || (self.half - next.half).abs() > 1.0e-4
+        {
+            return next;
+        }
+        let yaw = yaw_delta
+            .sin()
+            .atan2(yaw_delta.cos())
+            .mul_add(alpha, self.yaw);
+        let view = self
+            .view
+            .try_normalize()
+            .zip(next.view.try_normalize())
+            .map_or(next.view, |(start, end)| start.slerp(end, alpha));
+        let sampled = Self {
+            eye: self.eye.lerp(next.eye, alpha),
+            feet: self.feet.lerp(next.feet, alpha),
+            view,
+            yaw,
+            ..next
+        };
+        if sampled.valid() { sampled } else { next }
+    }
+
     pub(super) fn valid(self) -> bool {
         self.eye.is_finite()
             && self.feet.is_finite()
@@ -1662,6 +1739,11 @@ impl Runtime {
         self.update_ragdolls(true);
         self.apply_water(water);
         self.activate_impacts();
+        self.contact_solver.configure(
+            &mut self.world,
+            &self.entries,
+            self.held.as_ref().map(|held| held.key),
+        );
         self.prepare_impact_step();
         self.world.step_with_events(&self.floor_contacts, &());
         self.update_poses();

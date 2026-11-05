@@ -13,6 +13,10 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Keep held-prop pushes consistent across control rates and improve heavy/light
+  resting contacts while guarding supported jams. Correct the native contact
+  fixture. See [Mac validation and remaining costs](docs/reports/prop-physics-0.13.1-mac.md).
+
 - Archive five retired projects with all editable sources, scripts and thumbnails.
   Keep Beam, Backrooms and Quiet Collection active; refuse archived identities in
   new desktop exports and retain useful development controls.

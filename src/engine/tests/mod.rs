@@ -19,6 +19,7 @@ mod paths;
 mod physics_clock;
 mod player_item_contact;
 mod project_contract;
+mod prop_interactions;
 mod prop_rotation;
 mod release_contact;
 mod shared_ai;

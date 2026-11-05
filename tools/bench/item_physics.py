@@ -527,18 +527,22 @@ def plan_for(mode: str) -> list[dict]:
         p.item_pose(9100, [6, 0.376, -1], [0, 0, 0, 1], given[3])
         p.player(9250, 6, 1, 0, -28)
         p.capture(11_100, "contacts-stack")
-        p.item_pose(11_300, [0, 0.006, 1.5], [0, 0, 0, 1], given[0])
-        p.player(11_450, 0, 2.5, 0, pitch_to(1.6, 0.114, 1))
-        p.aim_item(11_550, given[0])
+        # A crouched side contact is well outside the self-locking cap/table
+        # friction cone. Pick up on clear floor before pushing, without a
+        # held teleport or a hand sweep through the table front. The original
+        # standing table wedge remains a distinct jam-safety regression.
+        p.item_pose(11_300, [5, 0.012, -0.42137], [0, 0, 0, 1], given[0])
+        p.player(11_450, 5, 0.2, 0, -43.0401)
+        p.key(11_480, "C")
         p.tap(11_700, "E")
-        # The real carried sphere contacts a dynamic cup resting on the
-        # existing table. Native walking closes the initial gap; the target
-        # is never moved after the before snapshot.
-        p.player(11_950, 0, 0.2, 0, -50)
-        p.item_pose(13_950, [0, 0.756, -0.53], [0, 0, 0, 1], given[2])
+        # The settled sphere is about 12 mm above the floor and has over 10 cm
+        # player clearance. Native walking closes the 8 mm initial core gap;
+        # the target is never moved after the before snapshot.
+        p.item_pose(13_950, [5, 0.006, -0.58], [0, 0, 0, 1], given[2])
         p.capture(14_150, "contacts-carry-before")
-        p.key(14_250, "W"); p.key(14_650, "W", False)
+        p.key(14_250, "W"); p.key(14_350, "W", False)
         p.capture(14_900, "contacts-carry-after")
+        p.key(14_950, "C", False)
         p.player(15_100, 0, 1.5, 0)
         p.tap(16_100, "E")
         p.item_pose(16_400, [5, 0.006, 0.5], [0, 0, 0, 1], given[0])
@@ -1387,12 +1391,12 @@ def check_samples(mode: str, samples: dict, checks: list[dict], sim_delta: float
             require(f"{name}: actual receiver shape stays above the floor", fixture_body_bounds(body(name, receiver_key), prop)[0][1] >= -0.03)
     elif mode == "contacts":
         require("normal give creates four physical contact participants", len(samples["contacts-given"]["physics"]["bodies"]) == 8)
+        for name in ("contacts-carry-before", "contacts-carry-after"):
+            player = samples[name]["player_body"]
+            require(f"{name}: free carry uses ordinary grounded crouch", player["crouched"]
+                    and abs(player["eye_height"] - 0.7) < 0.001 and abs(player["feet_y"]) < 0.001)
         require("native walking retains ownership during item contact", held("contacts-carry-before") == 2 ** 64 - 1
                 and held("contacts-carry-after") == 2 ** 64 - 1)
-        carried_target = 2 ** 64 - 3
-        require("the held sphere moves an existing dynamic table cup",
-                distance(body_position(body("contacts-carry-before", carried_target)),
-                         body_position(body("contacts-carry-after", carried_target))) > 0.02)
         require("normal E holds the heavy contact sphere", held("contacts-held") == 2 ** 64 - 1)
         require("normal mouse throw releases the heavy contact sphere", held("contacts-thrown") is None)
         keys = {"box": next(entry[0] for entry in initial["authored"] if entry[1] == "floor_box"),
@@ -2175,6 +2179,13 @@ def audit_contact_frames(events: list[dict], steps: list[dict], samples: dict, c
     shapes = {key: props[id] for key, id in authored.items()}
     shapes.update({keys[id]: ball_shape if index < 2 else cup_shape for index, id in enumerate(given_ids)})
     report: dict = dict(cases={}, frames=0, minimum_floor_gap=math.inf, minimum_ball_ball_surface_gap=math.inf)
+    carry_window = {event["event"].split(":", 1)[1]: event["elapsed_ms"] for event in events
+                    if event["event"] in ("native_capture:contacts-carry-before", "native_capture:contacts-carry-after")}
+    carry_impulses = []
+    carry_peak_speed = 0.0
+    carry_maximum_travel = 0.0
+    carry_initial_position = body_position(next(body for body in samples["contacts-carry-before"]["physics"]["bodies"]
+                                               if body["key"] == keys[given_ids[2]]))
     for event in events:
         if event["event"] == "action":
             action = steps[int(json.loads(event["detail"])["id"])]["action"]
@@ -2188,6 +2199,13 @@ def audit_contact_frames(events: list[dict], steps: list[dict], samples: dict, c
         elif event["event"] == "physics_frame":
             detail = json.loads(event["detail"])
             report["frames"] += 1
+            if carry_window["contacts-carry-before"] <= event["elapsed_ms"] <= carry_window["contacts-carry-after"]:
+                carry_impulses.extend(contact["impulse"] for contact in detail.get("contact_impulses", [])
+                                      if set(contact["pair"]) == {keys[given_ids[0]], keys[given_ids[2]]}
+                                      and contact["impulse"] > 0)
+                target = next(body for body in detail["bodies"] if body["key"] == keys[given_ids[2]])
+                carry_peak_speed = max(carry_peak_speed, distance(vector(target["linear_velocity"], 3), [0, 0, 0]))
+                carry_maximum_travel = max(carry_maximum_travel, distance(body_position(target), carry_initial_position))
             for body in detail["bodies"]:
                 vector(body["linear_velocity"], 3); vector(body["angular_velocity"], 3)
                 report["minimum_floor_gap"] = min(report["minimum_floor_gap"], fixture_floor_gap(body, shapes[body["key"]]))
@@ -2215,6 +2233,22 @@ def audit_contact_frames(events: list[dict], steps: list[dict], samples: dict, c
                        minimum_floor_gap_m=report["minimum_floor_gap"] if math.isfinite(report["minimum_floor_gap"]) else None,
                        tolerance_m=COLLISION_TOLERANCE_M))
     checks.append(dict(name="equal spheres stay separated throughout their collision", passed=report["minimum_ball_ball_surface_gap"] >= -0.015))
+    report["carry_solved_contacts"] = dict(positive_impulse_samples=len(carry_impulses),
+                                          maximum_impulse_ns=max(carry_impulses, default=0))
+    report["carry_maximum_target_speed_mps"] = carry_peak_speed
+    report["carry_maximum_target_travel_m"] = carry_maximum_travel
+    checks.append(dict(name="native carry push establishes a solved sphere-cup contact in its measurement window",
+                       passed=bool(carry_impulses)))
+    def carried_cup_position(name: str) -> list[float]:
+        return body_position(next(body for body in samples[name]["physics"]["bodies"] if body["key"] == keys[given_ids[2]]))
+    report["carry_target_displacement_m"] = distance(carried_cup_position("contacts-carry-before"),
+                                                   carried_cup_position("contacts-carry-after"))
+    checks.append(dict(name="the held sphere moves an existing dynamic floor cup",
+                       passed=bool(carry_impulses) and report["carry_target_displacement_m"] > 0.02))
+    checks.append(dict(name="gentle native carry stays near hand speed without launching the cup",
+                       passed=carry_peak_speed <= 2.0, maximum_target_speed_mps=carry_peak_speed))
+    checks.append(dict(name="short native hand push does not expel the cup through positional correction",
+                       passed=carry_maximum_travel <= 0.25, maximum_target_travel_m=carry_maximum_travel))
     if not math.isfinite(report["minimum_floor_gap"]):
         report["minimum_floor_gap"] = None
     if not math.isfinite(report["minimum_ball_ball_surface_gap"]):

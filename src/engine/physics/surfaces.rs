@@ -1,7 +1,9 @@
 //! Material regions independent of geometry, sampled at real support contacts.
 
 use glam::Vec3;
-use rapier3d::prelude::{ContactModificationContext, PhysicsHooks};
+use rapier3d::prelude::{
+    CoefficientCombineRule, Collider, ContactModificationContext, PhysicsHooks,
+};
 
 use crate::engine::level::{LevelDef, ROOM_EDGE_EPS_M, RampSurface, StairSurface};
 use crate::engine::materials::MaterialTable;
@@ -78,6 +80,26 @@ pub(super) struct FloorContactHooks {
 }
 
 impl FloorContactHooks {
+    pub(super) fn friction_at(&self, first: &Collider, second: &Collider, point: Vec3) -> f32 {
+        self.material(first.user_data)
+            .map(|material| (material, second.friction()))
+            .or_else(|| {
+                self.material(second.user_data)
+                    .map(|material| (material, first.friction()))
+            })
+            .map_or_else(
+                || {
+                    CoefficientCombineRule::combine(
+                        first.friction(),
+                        second.friction(),
+                        first.friction_combine_rule(),
+                        second.friction_combine_rule(),
+                    )
+                },
+                |(material, item_friction)| material.friction_at(point.x, point.z) * item_friction,
+            )
+    }
+
     pub fn register(&mut self, material: FloorMaterial) -> Option<u128> {
         if material.patches.is_empty() {
             return None;

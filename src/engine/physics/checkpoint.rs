@@ -305,6 +305,7 @@ impl ItemWorld {
             .as_ref()
             .is_some_and(|held| authored.iter().any(|(key, _, _)| *key == held.key))
         {
+            runtime.restore_carry_contacts();
             runtime.held = None;
         }
         for (id, item) in records {
@@ -365,6 +366,8 @@ impl ItemWorld {
             }
         }
         self.accumulator = 0.0;
+        runtime.control_player = None;
+        runtime.control_remainder = 0.0;
         for (key, _, _) in authored {
             runtime.clear_item_contacts(*key);
         }

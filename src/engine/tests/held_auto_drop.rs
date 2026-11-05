@@ -137,3 +137,54 @@ fn held_auto_drop_leaves_ordinary_following_and_manual_release_intact() -> Resul
     assert_eq!(world.held(), None);
     Ok(())
 }
+
+// Fractional control previews must not charge obstruction grace twice. Three
+// one-sphere/slab runs protect live auto-drop timing, safe pose and zero release
+// impulse across rates; the older tests only exercise explicitly paused carry.
+#[test]
+fn live_auto_drop_grace_counts_real_control_time_once() -> Result<(), String> {
+    let mut earliest = f32::MAX;
+    let mut latest = 0.0_f32;
+    for rate in [30_u16, 120, 480] {
+        let mut world = held_world(0.1)?;
+        world.resume();
+        let far = player(Vec3::new(0.0, 2.0, 2.0));
+        let mut dropped_at = None;
+        for frame in 1..=rate {
+            let retained = body(&world)?.pose;
+            world.sync_context(far, &[barrier()]);
+            world.step(1.0 / f32::from(rate), far, &[barrier()]);
+            if world.stats().auto_dropped_held == Some(1) {
+                let released = body(&world)?;
+                assert!(
+                    released.pose.position.distance(retained.position) < 0.001,
+                    "automatic drop retains its checked obstructed pose"
+                );
+                assert_eq!(
+                    released.linear_velocity,
+                    Vec3::ZERO,
+                    "automatic drop must not inherit the remote player's motion"
+                );
+                assert_eq!(
+                    released.angular_velocity,
+                    Vec3::ZERO,
+                    "automatic drop must clear hand angular motion"
+                );
+                dropped_at = Some(f32::from(frame) / f32::from(rate));
+                break;
+            }
+        }
+        let elapsed = dropped_at.ok_or("live obstruction never released")?;
+        assert!(
+            (0.35..0.5).contains(&elapsed),
+            "{rate} Hz must honor one real grace interval ({elapsed})"
+        );
+        earliest = earliest.min(elapsed);
+        latest = latest.max(elapsed);
+    }
+    assert!(
+        latest - earliest <= 1.0 / 30.0,
+        "control cadence may quantize release by at most one slow frame"
+    );
+    Ok(())
+}
