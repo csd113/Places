@@ -42,7 +42,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
                 self.skipTest('Windows directory-symlink privilege is unavailable; no host policy is changed')
             raise
 
-    def test_map_free_export_needs_only_the_player_and_runtime_assets(self):
+    def test_map_free_export_validates_menu_without_baking_gameplay_maps(self):
         # A tiny fake release player protects script dependency boundaries on
         # every CI run, without Rust compilation, SDL or a production-map bake.
         with tempfile.TemporaryDirectory() as directory:
@@ -50,6 +50,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             source = root / 'source'
             (source / 'tools').mkdir(parents=True)
             shutil.copyfile(PACKAGE_SH, source / 'tools/package.sh')
+            shutil.copyfile(ROOT / 'tools/verify-menu.py', source / 'tools/verify-menu.py')
             # Script-only payload fixture: native dependency relocation is
             # checked separately with mocked otool and by explicit macOS QA.
             (source / 'tools/bundle-macos.py').write_text('import sys\nassert len(sys.argv) == 3\n')
@@ -90,6 +91,14 @@ class PackageDestinationGuardTests(unittest.TestCase):
             player.parent.mkdir(parents=True)
             player.write_text('#!/bin/sh\nexit 0\n')
             player.chmod(0o755)
+            # LSR-01: script-level admission/rollback gate, not a fake claim of
+            # native package validity. The real compiler is exercised explicitly.
+            menu = source / 'assets/shared/menu/scene.bin'
+            menu.parent.mkdir(parents=True)
+            menu.write_bytes(b'menu fixture')
+            compiler = source / 'target/release/places-compile'
+            compiler.write_text('#!/bin/sh\nprintf \'%s\\n\' \'{"dependencies_intact":true}\'\n')
+            compiler.chmod(0o755)
             output = root / 'export'
             output.mkdir()
             (output / 'keep.txt').write_text('unique sibling')
@@ -98,7 +107,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual((output / 'keep.txt').read_text(), 'unique sibling')
             self.assertFalse((source / 'levels').exists())
-            self.assertFalse((source / 'target/release/places-compile').exists())
+            self.assertFalse((output / 'Places/places-compile').exists(), 'validator need not be exported')
             for payload in (output / 'Places', output / 'Places.app/Contents/Resources'):
                 for name, data in runtime_metadata.items():
                     self.assertEqual((payload / 'assets' / name).read_bytes(), data)
@@ -114,7 +123,14 @@ class PackageDestinationGuardTests(unittest.TestCase):
                 self.assertEqual((payload / 'docs/INSTALLATION.md').read_text(), 'installation fixture')
                 self.assertEqual(list(payload.rglob('*.placesmap')), [])
             compiler = source / 'target/release/places-compile'
-            compiler.write_text('#!/bin/sh\nexit 0\n')
+            previous_menu = (output / 'Places/assets/shared/menu/scene.bin').read_bytes()
+            compiler.write_text('#!/bin/sh\nexit 9\n')
+            rejected = subprocess.run(['sh', str(source / 'tools/package.sh'), str(output)],
+                                      text=True, capture_output=True, timeout=30, check=False)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertEqual((output / 'Places/assets/shared/menu/scene.bin').read_bytes(), previous_menu)
+            self.assertEqual((output / 'keep.txt').read_text(), 'unique sibling')
+            compiler.write_text('#!/bin/sh\nprintf \'%s\\n\' \'{"dependencies_intact":true}\'\n')
             compiler.chmod(0o755)
             with_compiler = subprocess.run(['sh', str(source / 'tools/package.sh'), '--with-compiler', str(output)],
                                            text=True, capture_output=True, timeout=30, check=False)

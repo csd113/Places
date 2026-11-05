@@ -94,7 +94,10 @@ from the process working directory. No writes are required in the installation.
 `sh tools/package.sh [--with-compiler | --with-editor] [--maps <directory>] <export-parent>`
 stages the flat layout and Mac bundle from existing release binaries. It copies
 licenses, sound credits and runtime resources, excludes source artwork/masters,
-and includes no maps unless explicitly requested. `--maps` validates existing
+and includes no maps unless explicitly requested. Every export needs the matching
+release compiler to validate the bundled menu against final staged assets and
+current menu source. The compiler is included in the payload only when requested.
+`--maps` validates existing
 packages against the staged assets; it does not bake maps. `--with-editor` includes
 the compiler, player and editor instructions. On macOS the exporter copies the
 linked SDL3 runtime and its license, rewrites player/tool load commands to relative

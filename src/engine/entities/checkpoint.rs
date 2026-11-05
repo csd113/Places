@@ -13,6 +13,9 @@ pub struct EntityState {
     interaction: Option<(bool, bool, String)>,
     state: Option<Vec<(String, StateValue)>>,
     light: Option<bool>,
+    // Missing in legacy checkpoints: retain the authored inactive default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    light_response: Option<(bool, f32)>,
     material: Option<String>,
     audio: Option<(bool, bool)>,
     effect: Option<bool>,
@@ -126,6 +129,10 @@ impl EntityWorld {
                 .get(handle)
                 .map(|value| value.values.clone()),
             light: components.lights.get(handle).map(|value| value.enabled),
+            light_response: components
+                .light_responses
+                .get(handle)
+                .map(|value| (value.active, value.release_remaining)),
             material: components
                 .materials
                 .get(handle)
@@ -350,6 +357,16 @@ impl EntityWorld {
         }
     }
 
+    /// Reconnect saved light holds to AI before the first resumed step. Current
+    /// illumination is sampled normally without restarting the saved dark tail.
+    pub fn restore_checkpoint_light_holds(&mut self, player_eye: glam::Vec3) {
+        for (handle, response) in self.components.light_responses.iter() {
+            let _changed = self
+                .ai
+                .set_light_response(handle, response.active.then_some(player_eye));
+        }
+    }
+
     fn restore_checkpoint_ai(&mut self, snapshot: &Snapshot) -> Result<(), String> {
         if snapshot.ai.len() != self.ai.agents().len() {
             return Err("Checkpoint NPC count mismatch".into());
@@ -405,6 +422,19 @@ impl EntityWorld {
         shape!(fade, fades);
         shape!(glow, glows);
         shape!(animation, animations);
+        if let Some((active, remaining)) = record.light_response {
+            let response = components
+                .light_responses
+                .get_mut(handle)
+                .ok_or("Checkpoint light response component mismatch")?;
+            number(remaining, response.def.release_seconds)?;
+            if remaining < 0.0 || (!active && remaining != 0.0) {
+                return Err("Invalid checkpoint light release hold".into());
+            }
+            response.active = active;
+            response.release_remaining = remaining;
+            response.intensity = 0.0;
+        }
         if let Some((position, yaw)) = record.transform {
             for value in position {
                 number(value, 100_000.0)?;

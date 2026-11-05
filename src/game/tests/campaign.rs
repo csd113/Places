@@ -1,8 +1,8 @@
 //! One tiny save guards the actual disk round trip, bounded admission and
 //! idempotence across app restarts. No environment mutation, asset load or bake.
 use super::{
-    CampaignProgress, CampaignSave, legacy_path, migration_path, read, read_installed, save_path,
-    write,
+    CampaignProgress, CampaignSave, CampaignSession, legacy_path, migration_path, read,
+    read_installed, save_path, write,
 };
 
 #[test]
@@ -74,17 +74,18 @@ fn collection_clear_commits_only_after_publication_and_survives_restart() -> Res
     }
     write(&path, &progress)?;
     let shared = std::sync::Arc::new(std::sync::Mutex::new(read(&path)?));
-    let mut save = CampaignSave {
+    let mut save = CampaignSave::default();
+    save.active = CampaignSession {
         save: Some(path.clone()),
         progress: shared.clone(),
         saved_count: 8,
         receipt_valid: true,
-        ..CampaignSave::default()
+        ..CampaignSession::default()
     };
     // A directory at the publication target produces a deterministic disk error.
     let blocked = folder.join("blocked.json");
     std::fs::create_dir(&blocked).map_err(|problem| problem.to_string())?;
-    save.save = Some(blocked.clone());
+    save.active.save = Some(blocked.clone());
     shared
         .lock()
         .map_err(|problem| problem.to_string())?
@@ -116,7 +117,7 @@ fn collection_clear_commits_only_after_publication_and_survives_restart() -> Res
         8,
         "failed clear preserves durable favors"
     );
-    save.save = Some(path.clone());
+    save.active.save = Some(path.clone());
     shared
         .lock()
         .map_err(|problem| problem.to_string())?
@@ -318,5 +319,91 @@ fn preserve_corrupt_receipt_until_clear(
         0,
         "authorized clear repairs the receipt as empty progress"
     );
+    Ok(())
+}
+
+// LSR-02: failed writes must outlive a project switch and retry after recovery.
+// Three tiny independent receipts and an injected Instant avoid sleeps/assets.
+#[test]
+fn failed_progress_survives_switch_and_retries_without_frame_writes() -> Result<(), String> {
+    let folder = std::env::temp_dir().join(format!("places-campaign-retry-{}", std::process::id()));
+    std::fs::create_dir(&folder).map_err(|e| e.to_string())?;
+    let canonical = folder.join("installed.placesmap");
+    let path = save_path(&folder, &canonical, "project:first");
+    let bind = |save: &mut CampaignSave, project: &str| {
+        save.attach_resolved(
+            &canonical,
+            canonical.clone(),
+            project.into(),
+            Ok(save_path(&folder, &canonical, project)),
+        )
+    };
+    let mut save = CampaignSave::default();
+    let progress = bind(&mut save, "project:first");
+    progress
+        .lock()
+        .map_err(|e| e.to_string())?
+        .complete("home")?;
+    std::fs::create_dir(&path).map_err(|e| e.to_string())?;
+    let now = std::time::Instant::now();
+    assert!(save.flush_at(now).is_some());
+    let other = bind(&mut save, "project:other");
+    assert_eq!(other.lock().map_err(|e| e.to_string())?.count(), 0);
+    assert_eq!(save.retained.len(), 1, "dirty owner survives departure");
+    std::fs::remove_dir(&path).map_err(|e| e.to_string())?;
+    assert!(save.flush_at(now).is_none());
+    assert!(!path.exists(), "retry is bounded, not attempted each frame");
+    assert!(
+        save.flush_at(now + std::time::Duration::from_secs(2))
+            .is_none()
+    );
+    assert!(
+        read(&path)?.completed("home"),
+        "inactive project retries too"
+    );
+    assert!(
+        save.retained.is_empty(),
+        "durable inactive owners can be released"
+    );
+    let returned = bind(&mut save, "project:first");
+    assert!(
+        returned
+            .lock()
+            .map_err(|e| e.to_string())?
+            .completed("home")
+    );
+    returned
+        .lock()
+        .map_err(|e| e.to_string())?
+        .complete("pool")?;
+    std::fs::remove_file(&path).map_err(|e| e.to_string())?;
+    std::fs::create_dir(&path).map_err(|e| e.to_string())?;
+    assert!(save.flush().is_some());
+    let _other = bind(&mut save, "project:other");
+    let retained = bind(&mut save, "project:first");
+    assert!(
+        std::sync::Arc::ptr_eq(&returned, &retained),
+        "return before recovery reuses the dirty owner"
+    );
+    assert!(
+        retained
+            .lock()
+            .map_err(|e| e.to_string())?
+            .completed("pool")
+    );
+    std::fs::remove_dir(&path).map_err(|e| e.to_string())?;
+    assert!(
+        save.flush_at(std::time::Instant::now() + std::time::Duration::from_secs(2))
+            .is_none()
+    );
+    let mut restart = CampaignSave::default();
+    assert_eq!(
+        bind(&mut restart, "project:first")
+            .lock()
+            .map_err(|e| e.to_string())?
+            .count(),
+        2
+    );
+    std::fs::remove_dir_all(&folder).map_err(|e| e.to_string())?;
     Ok(())
 }

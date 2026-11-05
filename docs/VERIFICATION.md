@@ -167,7 +167,9 @@ platform conventions and tool limits. Ordinary unit tests never run this tool;
 `PLACES_SKIP_SMOKE=1` excludes other optional native suites in source checks.
 A skip is not native acceptance.
 
-`sh tools/package.sh OUTPUT_DIRECTORY` exports the map-free player. Explicit
+`sh tools/package.sh OUTPUT_DIRECTORY` exports the map-free player. Every export
+validates the bundled menu against final staged assets and current menu source
+using the matching release compiler; it does not bake maps. Explicit
 `--maps PACKAGE_DIRECTORY` includes external packages after validation/discovery
 checks; packaging never bakes maps or consults the source lineup. Destination
 and symlink guards protect existing source and user data. See

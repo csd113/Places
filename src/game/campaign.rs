@@ -11,15 +11,22 @@ mod tests;
 
 #[derive(Default)]
 pub(super) struct CampaignSave {
+    active: CampaignSession,
+    retained: Vec<CampaignSession>,
+    visit_generation: u64,
+}
+
+#[derive(Default)]
+struct CampaignSession {
     package: Option<PathBuf>,
     project: String,
-    visit_generation: u64,
     save: Option<PathBuf>,
     progress: SharedCampaign,
     saved_count: usize,
     saved_generation: u64,
     receipt_valid: bool,
     failed_count: Option<(u64, usize)>,
+    retry_after: Option<std::time::Instant>,
 }
 
 impl CampaignSave {
@@ -50,16 +57,32 @@ impl CampaignSave {
     ) -> SharedCampaign {
         // This method is called only when a fresh world is committed. Its
         // invocation admits the new visit's authored state for checkpoints.
-        self.failed_count = None;
+        self.active.retry_after = None;
         let _prior_flush_notice = self.flush();
-        if self.package.as_deref() == Some(canonical.as_path()) && self.project == project {
+        if self.active.package.as_deref() == Some(canonical.as_path())
+            && self.active.project == project
+        {
+            return self.enter_visit();
+        }
+        if self.active.package.is_some() && self.active.needs_retention() {
+            self.retained.push(std::mem::take(&mut self.active));
+        }
+        if let Some(index) = self.retained.iter().position(|session| {
+            session.package.as_deref() == Some(canonical.as_path()) && session.project == project
+        }) {
+            self.active = self.retained.swap_remove(index);
+            if let Ok(path) = save {
+                self.active.save = Some(path);
+            }
+            self.active.retry_after = None;
+            let _retry_notice = self.flush();
             return self.enter_visit();
         }
         let restoration = save
             .as_ref()
             .map_err(ToString::to_string)
             .and_then(|path| read_installed(path, &canonical, package, &project));
-        self.receipt_valid = restoration.is_ok();
+        let receipt_valid = restoration.is_ok();
         let (progress, migrated) = match restoration {
             Ok(restored) => restored,
             Err(problem) => {
@@ -71,17 +94,20 @@ impl CampaignSave {
                 (empty, false)
             }
         };
-        self.saved_count = if migrated {
-            usize::MAX
-        } else {
-            progress.count()
+        self.active = CampaignSession {
+            saved_count: if migrated {
+                usize::MAX
+            } else {
+                progress.count()
+            },
+            saved_generation: progress.generation(),
+            receipt_valid,
+            package: Some(canonical),
+            project,
+            save: save.ok(),
+            progress: std::sync::Arc::new(std::sync::Mutex::new(progress)),
+            ..CampaignSession::default()
         };
-        self.saved_generation = progress.generation();
-        self.failed_count = None;
-        self.package = Some(canonical);
-        self.project = project;
-        self.save = save.ok();
-        self.progress = std::sync::Arc::new(std::sync::Mutex::new(progress));
         if migrated {
             // Copy exactly one owned legacy receipt; retain it for recovery.
             let _migration_flush_notice = self.flush();
@@ -91,10 +117,11 @@ impl CampaignSave {
 
     fn enter_visit(&mut self) -> SharedCampaign {
         self.visit_generation = self
+            .active
             .progress
             .lock()
             .map_or(u64::MAX, |progress| progress.generation());
-        self.progress.clone()
+        self.active.progress.clone()
     }
 
     /// # Errors
@@ -105,8 +132,15 @@ impl CampaignSave {
         let project_id = crate::engine::package::project::inspect(&entry.path)?
             .map(|package| package.project.id);
         let project = project_scope(project_id.as_deref(), &entry.id);
-        if self.package.as_deref() == Some(canonical.as_path()) && self.project == project {
+        if self.active.package.as_deref() == Some(canonical.as_path())
+            && self.active.project == project
+        {
             return self.retained_generation();
+        }
+        if let Some(session) = self.retained.iter().find(|session| {
+            session.package.as_deref() == Some(canonical.as_path()) && session.project == project
+        }) {
+            return session.retained_generation();
         }
         let path = save_path(&crate::engine::paths::user()?.saves(), &canonical, &project);
         read_installed(&path, &canonical, &entry.path, &project)
@@ -127,6 +161,39 @@ impl CampaignSave {
     }
 
     fn retained_generation(&self) -> Result<u64, String> {
+        self.active.retained_generation()
+    }
+
+    /// Retry failed publications at most once per second, including departed
+    /// projects. Repeated failures stay quiet; the first failure remains visible.
+    pub fn flush(&mut self) -> Option<String> {
+        self.flush_at(std::time::Instant::now())
+    }
+
+    fn flush_at(&mut self, now: std::time::Instant) -> Option<String> {
+        let mut notice = self.active.flush_at(now);
+        for session in &mut self.retained {
+            let problem = session.flush_at(now);
+            if notice.is_none() {
+                notice = problem;
+            }
+        }
+        self.retained.retain(CampaignSession::needs_retention);
+        notice
+    }
+}
+
+impl CampaignSession {
+    fn needs_retention(&self) -> bool {
+        !self.receipt_valid
+            || self.progress.lock().map_or(true, |progress| {
+                progress.reset_pending()
+                    || progress.count() != self.saved_count
+                    || progress.generation() != self.saved_generation
+            })
+    }
+
+    fn retained_generation(&self) -> Result<u64, String> {
         if !self.receipt_valid {
             return Err("Collection save is unavailable; repair it or clear progress before resuming a checkpoint".into());
         }
@@ -141,7 +208,7 @@ impl CampaignSave {
     }
 
     /// Returns a newly encountered failure for the player's visible notice.
-    pub fn flush(&mut self) -> Option<String> {
+    fn flush_at(&mut self, now: std::time::Instant) -> Option<String> {
         let Ok(mut progress) = self.progress.lock() else {
             return None;
         };
@@ -159,10 +226,12 @@ impl CampaignSave {
             return Some(notice);
         }
         if !resetting
-            && ((progress.count() == self.saved_count
-                && progress.generation() == self.saved_generation)
-                || self.failed_count == Some(identity))
+            && progress.count() == self.saved_count
+            && progress.generation() == self.saved_generation
         {
+            return None;
+        }
+        if !resetting && self.retry_after.is_some_and(|deadline| now < deadline) {
             return None;
         }
         let prepared_reset = if resetting {
@@ -188,9 +257,12 @@ impl CampaignSave {
                 self.saved_count = progress.count();
                 self.saved_generation = progress.generation();
                 self.failed_count = None;
+                self.retry_after = None;
                 None
             }
             Err(problem) => {
+                let newly_failed = resetting || self.failed_count != Some(identity);
+                self.retry_after = now.checked_add(std::time::Duration::from_secs(1));
                 self.failed_count = Some(identity);
                 progress.mark_failed();
                 let notice = if resetting {
@@ -198,8 +270,12 @@ impl CampaignSave {
                 } else {
                     format!("Progress kept for this session; saving failed: {problem}")
                 };
-                crate::engine::logging::warn(&notice);
-                Some(notice)
+                if newly_failed {
+                    crate::engine::logging::warn(&notice);
+                    Some(notice)
+                } else {
+                    None
+                }
             }
         }
     }

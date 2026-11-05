@@ -155,6 +155,8 @@ if [ ! -x "$BIN" ]; then
     echo "package.sh: $BIN not found; run 'cargo build --release' first" >&2
     exit 1
 fi
+# Every export validates its application-owned menu, even with zero gameplay maps.
+[ -x "$REPO/target/release/places-compile" ] || fail "menu validation needs the matching release places-compile binary"
 if [ "$WITH_COMPILER" = 1 ]; then
     [ -x "$REPO/target/release/places-compile" ] || fail "release places-compile not found; build the workspace first"
 fi
@@ -223,6 +225,8 @@ for directory in shared environments entities diagnostic; do
 done
 rm -rf "$STAGE/Places/assets/shared/branding"
 find "$STAGE/Places/assets" -type f \( -name '*_master.png' -o -name '*.blend' -o -name '*.blend1' -o -name '*.xcf' -o -name 'CABINET_ARTWORK_PROMPTS.md' \) -delete
+python3 "$REPO/tools/verify-menu.py" --compiler "$REPO/target/release/places-compile" \
+    --assets "$STAGE/Places/assets" --project "$REPO/projects/menu"
 if [ -n "$MAPS" ]; then
     python3 "$REPO/tools/export-maps.py" "$MAPS" "$STAGE/Places" \
         "$REPO/target/release/places-compile"
@@ -256,6 +260,8 @@ cp -R "$STAGE/Places/assets" "$STAGE/Places.app/Contents/Resources/assets"
 cp -R "$STAGE/Places/docs" "$STAGE/Places.app/Contents/Resources/docs"
 cp "$REPO/README.md" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places.app/Contents/Resources/"
 
+python3 "$REPO/tools/verify-menu.py" --compiler "$REPO/target/release/places-compile" \
+    --assets "$STAGE/Places.app/Contents/Resources/assets" --project "$REPO/projects/menu"
 if [ "$(uname -s)" = Darwin ]; then
     python3 "$REPO/tools/bundle-macos.py" "$STAGE/Places" "$STAGE/Places.app"
 fi

@@ -137,6 +137,8 @@ impl FrameLoop<'_> {
             .entities_mut()
             .restore_checkpoint(&snapshot.world)?;
         candidate.restore_checkpoint_player(&snapshot.player)?;
+        let eye = candidate.player_position;
+        candidate.entities_mut().restore_checkpoint_light_holds(eye);
         if let Some(items) = prepared.physical.as_mut() {
             items
                 .world

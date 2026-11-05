@@ -217,7 +217,8 @@ the compiled lineup, package tests and native smoke checks. See
 [verification](VERIFICATION.md) for the explicit diagnostic gates.
 
 Export the map-free player with `sh tools/package.sh OUTPUT_DIRECTORY`. It requires
-only the release player and runtime assets. To include external maps explicitly,
+the release player, runtime assets and matching release compiler to validate the
+bundled menu. The validator is exported only with `--with-compiler`. To include external maps explicitly,
 use `sh tools/package.sh --maps PACKAGE_DIRECTORY OUTPUT_DIRECTORY`. That directory
 may contain any supported `.placesmap` files; no curated names are required.
 Optional map inclusion uses the release compiler to validate records and the player

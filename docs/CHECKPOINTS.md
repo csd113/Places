@@ -67,6 +67,12 @@ renderer, physics or VM handles. It restores:
 - Authored rigid item poses, velocities, dormant/sleeping state and held ownership.
   New solver/render keys are resolved from the saved authored item IDs. The hold
   controller replans from the saved pose; contact caches are rebuilt by the solver.
+- Bounded authored NPC intent, semantic targets/home/shelter coordinates and
+  active authored navigation goals with their optional 0.05–8 m/s speed. Paths
+  are replanned. Legacy records without an override retain their saved ordinary
+  intent and use the authored default pace. Light-response hysteresis retains
+  its active state and remaining release hold; current illumination is resampled
+  without restarting a saved dark release tail.
 - Explicit script closure data through the hooks below. Module started/disabled
   status is retained. Startup actions and one-shot sounds are not replayed; desired
   looping audio and existing effects publish once after installation. Trigger
@@ -78,7 +84,7 @@ weapon inventory or dialogue-choice system exists in the current game; none is
 invented by the save format. Physical held objects are the supported held items.
 
 Capture refuses active event tails, object moves, sequences, one-shot animation,
-AI, live spawns/despawns, lifetime components, balloons, articulated actors, clip-driven compound doors, transferred
+map-bound NPC tasks/sequences/home regions, live spawns/despawns, lifetime components, balloons, articulated actors, clip-driven compound doors, transferred
 carry assemblies, alternate/cycling weather, session-created developer props,
 swimming/climbing/airborne players, transformed/noclip players and modified world
 time. A refusal retains the prior valid save and explains the unsupported state.
@@ -128,6 +134,14 @@ quest demonstrates flattened local-state hooks while its level remains disabled
 by default.
 
 ## Storage, identity and recovery
+
+Failed collection writes retain session progress per installation/project across
+map, menu and project switches. Dirty receipts retry quietly at most once per
+second during normal operation, and on a fresh visit. A successful retry becomes
+durable; quitting before recovery still loses progress that never reached disk.
+Unreadable receipts are never replaced by an ordinary retry: repair and restart,
+or explicitly confirm CLEAR. A failed CLEAR retains favors and generation and
+requires another explicit CLEAR to try that reset again.
 
 Saves live below the existing user state root's `saves/` directory. The slot key
 hashes declared project identity, canonical installed package path and level ID;

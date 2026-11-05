@@ -148,3 +148,79 @@ fn sphere(key: u64) -> Result<ItemWorld, String> {
     )?;
     Ok(world)
 }
+
+// LSR-04: light hysteresis is gameplay time, independent of navigation state.
+// One asset-free entity covers direct hold, dark tail, expiry, legacy and bounds.
+#[test]
+fn checkpoint_light_hold_preserves_remaining_time_and_rejects_invalid_tails() -> Result<(), String>
+{
+    let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"light_save","name":"Light","spawn":{"x":2,"z":2},"rooms":[{"width":8,"depth":8}],"props":[{"id":"npc","model":"core:chair","x":4,"z":4,"components":[{"component":"nav_agent","radius":0.3,"height":1.8,"speed_mps":1},{"component":"ai","behavior":"idler"},{"component":"light_response","release_seconds":1}]}]}"#).map_err(|e| e.to_string())?;
+    let eye = Vec3::new(2.0, 1.6, 2.0);
+    for elapsed in [0.0, 0.12, 1.0] {
+        let mut original = EntityWorld::from_level(&level);
+        original.update_light_observations(0.0, eye, |_, _| 1.0);
+        if elapsed > 0.0 {
+            original.update_light_observations(elapsed, eye, |_, _| 0.0);
+        }
+        let encoded = serde_json::to_value(original.checkpoint()?).map_err(|e| e.to_string())?;
+        let saved = serde_json::from_value(encoded.clone()).map_err(|e| e.to_string())?;
+        let mut fresh = EntityWorld::from_level(&level);
+        fresh.restore_checkpoint(&saved)?;
+        fresh.restore_checkpoint_light_holds(eye);
+        let handle = fresh.handle_of("npc").ok_or("NPC")?;
+        let response = fresh
+            .components()
+            .light_responses
+            .get(handle)
+            .ok_or("response")?;
+        assert_eq!(response.active, elapsed < 1.0);
+        assert!((response.release_remaining - (1.0 - elapsed)).abs() < 0.0001);
+        assert_eq!(
+            fresh
+                .ai()
+                .agent("npc")
+                .ok_or("AI")?
+                .light_look_target
+                .is_some(),
+            elapsed < 1.0
+        );
+        for delta in [0.2, 0.3, 0.4, 0.3] {
+            original.update_light_observations(delta, eye, |_, _| 0.0);
+            fresh.update_light_observations(delta, eye, |_, _| 0.0);
+            assert_eq!(
+                fresh.components().light_responses.get(handle),
+                original.components().light_responses.get(handle)
+            );
+        }
+        for invalid in [
+            serde_json::json!([true, -0.1_f32]),
+            serde_json::json!([true, 1.01_f32]),
+            serde_json::json!([false, 0.5_f32]),
+        ] {
+            let mut malformed = encoded.clone();
+            drop(checkpoint_entity_json(&mut malformed)?.insert("light_response".into(), invalid));
+            let bad = serde_json::from_value(malformed).map_err(|e| e.to_string())?;
+            assert!(
+                EntityWorld::from_level(&level)
+                    .restore_checkpoint(&bad)
+                    .is_err()
+            );
+        }
+        let mut legacy = encoded;
+        let _removed = checkpoint_entity_json(&mut legacy)?.remove("light_response");
+        let old = serde_json::from_value(legacy).map_err(|e| e.to_string())?;
+        EntityWorld::from_level(&level).restore_checkpoint(&old)?;
+    }
+    Ok(())
+}
+
+fn checkpoint_entity_json(
+    value: &mut serde_json::Value,
+) -> Result<&mut serde_json::Map<String, serde_json::Value>, String> {
+    value
+        .get_mut("entities")
+        .and_then(serde_json::Value::as_array_mut)
+        .and_then(|entities| entities.first_mut())
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or_else(|| "Missing checkpoint entity".to_string())
+}

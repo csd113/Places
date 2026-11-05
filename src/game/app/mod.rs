@@ -1359,12 +1359,9 @@ impl FrameLoop<'_> {
         reason = "one command dispatcher, one arm per command"
     )] // one command dispatcher, one arm per command
     fn apply_world_commands(&mut self) {
-        if self
-            .current_level
-            .as_ref()
-            .is_some_and(|loaded| !loaded.level.script_sources.is_empty())
-            && let Some(problem) = self.campaign.flush()
-        {
+        // Departed projects may still own dirty progress even in a script-free
+        // visit. CampaignSave bounds retries and keeps repeated failures quiet.
+        if let Some(problem) = self.campaign.flush() {
             self.checkpoint_notice(&problem);
         }
         let commands = self.game.entities_mut().take_commands();

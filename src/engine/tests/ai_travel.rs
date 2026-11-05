@@ -158,3 +158,73 @@ fn shelter_transform_roundtrip_legacy_records_and_map_bounds_are_explicit() -> R
     );
     Ok(())
 }
+
+// LSR-03: actual checkpoint/JSON reconstruction must retain authored goal
+// ownership and pace, including repeats, legacy input and malformed overrides.
+// Small CPU worlds only; no map bake or renderer.
+#[test]
+fn checkpoint_navigation_retains_speed_bounds_and_legacy_defaults() -> Result<(), String> {
+    let source = level()?;
+    let goal = Vec3::new(6.0, 0.0, 6.0);
+    for speed in [0.05, 0.1, 2.8, 8.0] {
+        let mut world = EntityWorld::from_level(&source);
+        assert!(
+            world
+                .ai_mut()
+                .set_navigation_goal_with_speed("npc", goal, Some(speed))
+        );
+        for _ in 0..3_u8 {
+            let json = serde_json::to_vec(&world.checkpoint()?).map_err(|e| e.to_string())?;
+            let snapshot = serde_json::from_slice(&json).map_err(|e| e.to_string())?;
+            world = EntityWorld::from_level(&source);
+            world.restore_checkpoint(&snapshot)?;
+            let agent = world.ai().agent("npc").ok_or("NPC")?;
+            assert_eq!(agent.navigation_goal, Some(goal));
+            assert_eq!(agent.navigation_speed, Some(speed));
+            assert!(
+                agent.path.waypoints.is_empty(),
+                "world-local path is reconstructed"
+            );
+        }
+        let record = Record::capture(world.ai().agent("npc").ok_or("NPC")?, |_| None)?;
+        let mut encoded = serde_json::to_value(&record).map_err(|e| e.to_string())?;
+        let _removed = encoded
+            .as_object_mut()
+            .ok_or("record")?
+            .remove("navigation");
+        let legacy = serde_json::from_value(encoded).map_err(|e| e.to_string())?;
+        world
+            .ai_mut()
+            .restore_passenger("npc", &legacy, Vec3::ZERO, 0.0, |_| None)?;
+        let agent = world.ai().agent("npc").ok_or("NPC")?;
+        assert!(agent.navigation_goal.is_none());
+        assert!(agent.navigation_speed.is_none());
+        assert!(
+            matches!(agent.state, crate::engine::ai::AiState::Investigate { point } if point == goal)
+        );
+        for invalid in [-1.0_f32, 0.0, 0.049, 8.01] {
+            let mut malformed = serde_json::to_value(&record).map_err(|e| e.to_string())?;
+            *malformed
+                .get_mut("navigation")
+                .and_then(|value| value.get_mut("speed"))
+                .ok_or("navigation speed")? = serde_json::json!(invalid);
+            let bad = serde_json::from_value(malformed).map_err(|e| e.to_string())?;
+            assert!(
+                world
+                    .ai_mut()
+                    .restore_passenger("npc", &bad, Vec3::ZERO, 0.0, |_| None)
+                    .is_err()
+            );
+        }
+        let mut moved = record;
+        moved.transform(Vec3::ZERO, Vec3::X * 10.0, Quat::IDENTITY);
+        world
+            .ai_mut()
+            .restore_passenger("npc", &moved, Vec3::ZERO, 0.0, |_| None)?;
+        assert_eq!(
+            world.ai().agent("npc").ok_or("NPC")?.navigation_goal,
+            Some(goal + Vec3::X * 10.0)
+        );
+    }
+    Ok(())
+}

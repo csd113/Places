@@ -96,8 +96,8 @@ def main() -> int:
         binaries.append('places-compile.exe')
     if args.with_editor:
         binaries.append('places-editor.exe')
-    if (args.maps or args.menu_package) and not (args.bin_dir/'places-compile.exe').is_file():
-        raise ValueError('--maps/--menu-package requires the matching compiler in --bin-dir')
+    if not (args.bin_dir/'places-compile.exe').is_file():
+        raise ValueError('Bundled menu validation requires the matching compiler in --bin-dir')
     if args.menu_package and not args.menu_package.is_file():
         raise ValueError('--menu-package must be an existing project export')
     inputs = [(name, args.bin_dir/name) for name in binaries]
@@ -136,22 +136,14 @@ def main() -> int:
         branding = assets/'shared/branding'
         if branding.is_dir():
             shutil.rmtree(branding)
-        menu = None
         if args.menu_package:
-            compiler = (args.bin_dir/'places-compile.exe').resolve()
-            native_flags = subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS
-            validated = subprocess.run([str(compiler), 'validate', str(args.menu_package.resolve()),
-                                        '--asset-root', str(assets), '--json'], check=True,
-                                       text=True, capture_output=True, creationflags=native_flags)
-            if not json.loads(validated.stdout)['dependencies_intact']:
-                raise ValueError('Menu dependencies are not intact')
-            subprocess.run([str(compiler), 'verify', str(ROOT/'projects/menu'), '--level', 'places_menu',
-                            '--package', str(args.menu_package.resolve()), '--asset-root', str(assets),
-                            '--require-current', '--json'], check=True, text=True, capture_output=True,
-                           creationflags=native_flags)
             shutil.copyfile(args.menu_package, assets/'shared/menu/scene.bin')
-            menu = dict(source='projects/menu', package=str(args.menu_package.resolve()),
-                        sha256=digest(args.menu_package), current=True)
+        spec = importlib.util.spec_from_file_location('places_verify_menu', ROOT/'tools/verify-menu.py')
+        menu_validation = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(menu_validation)
+        menu_validation.verify_menu((args.bin_dir/'places-compile.exe').resolve(), assets.resolve(), ROOT/'projects/menu')
+        menu = dict(source='projects/menu', package=str(args.menu_package.resolve()) if args.menu_package else 'assets/shared/menu/scene.bin',
+                    sha256=digest(assets/'shared/menu/scene.bin'), current=True)
         if args.maps:
             spec = importlib.util.spec_from_file_location('places_export_maps', ROOT/'tools/export-maps.py')
             module = importlib.util.module_from_spec(spec)

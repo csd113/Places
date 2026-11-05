@@ -7,6 +7,9 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct Record {
     intent: String,
+    // Authored motion ownership survives; cached paths and handles do not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    navigation: Option<Navigation>,
     point: Option<Vec3>,
     target: Option<String>,
     clock: f32,
@@ -21,6 +24,13 @@ pub struct Record {
     shelters: Option<Vec<[f32; 3]>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     search: Option<super::PredatorSearchMemory>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Navigation {
+    goal: Vec3,
+    speed: Option<f32>,
 }
 
 impl Record {
@@ -84,6 +94,10 @@ impl Record {
         });
         Ok(Self {
             intent: agent.state.name().into(),
+            navigation: agent.navigation_goal.map(|goal| Navigation {
+                goal,
+                speed: agent.navigation_speed,
+            }),
             point,
             target,
             clock: agent.clock,
@@ -98,6 +112,10 @@ impl Record {
     }
 
     pub fn transform(&mut self, from: Vec3, to: Vec3, rotation: Quat) {
+        if let Some(navigation) = &mut self.navigation {
+            navigation.goal =
+                crate::engine::elevator::map_cabin_point(from, to, rotation, navigation.goal);
+        }
         self.point = self
             .point
             .map(|p| crate::engine::elevator::map_cabin_point(from, to, rotation, p));
@@ -201,6 +219,15 @@ impl Record {
         {
             return Err("Invalid transported NPC shelters".into());
         }
+        if self.navigation.as_ref().is_some_and(|navigation| {
+            !navigation.goal.is_finite()
+                || navigation.goal.abs().max_element() > 100_000.0
+                || navigation
+                    .speed
+                    .is_some_and(|speed| !speed.is_finite() || !(0.05..=8.0).contains(&speed))
+        }) {
+            return Err("Invalid transported NPC navigation override".into());
+        }
         let resolved_target = self.target.as_deref().and_then(|id| {
             if id == "@player" {
                 Some(PLAYER_TARGET_HANDLE)
@@ -238,7 +265,11 @@ impl Record {
         agent.path_goal = None;
         agent.path_done_goal = None;
         agent.path_failed_at = None;
-        agent.navigation_goal = None;
+        agent.navigation_goal = self.navigation.as_ref().map(|navigation| navigation.goal);
+        agent.navigation_speed = self
+            .navigation
+            .as_ref()
+            .and_then(|navigation| navigation.speed);
         agent.current_waypoint = 0;
         agent.speed_mps = 0.0;
         agent.last_known = None;

@@ -5293,3 +5293,96 @@ physical-speaker/headphone or HRTF quality. Windows/DX12, Linux/Vulkan, physical
 device changes and a complete packaged player campaign were not exercised here.
 Quick lighting remains approximate; this work makes no release or main-merge
 claim.
+
+
+## Phase-one lifecycle audit repairs — macOS, 2026-11-05
+
+The four reproduced transition/save/recovery findings from the audit at
+`1d41a54fe70d18d7e5e8dc55d9d758cdc087016c` are repaired and natively validated.
+This is gameplay checkpoint/campaign work. Maintained levels retain their
+authored saving policy: all 14 remain disabled. Backrooms, Quiet Collection and
+Beam inventory, published physics, selected Office audio and janitor assets are
+preserved. No later audit phase or creature integration is included.
+
+| Finding | Repair and acceptance |
+| --- | --- |
+| LSR-01, P1: bundled menu rejected stale janitor catalog paths | Rebuilt `projects/menu` into the fixed application resource with Static and Full variants. Both exporters now validate the final staged menu's dependency closure and current-source identity, even with zero gameplay maps. Both real Mac layouts commit/render the ordinary menu without asset/level overrides; empty Explore, Settings, Credits and gameplay → Main Menu → gameplay pass. The old catalog mismatch still rejects. |
+| LSR-02, P1: failed campaign writes dropped session progress on project switch and never retried | Retain dirty receipt owners by canonical installation/project, including inactive projects. Retry quietly at most once per second during normal operation and on fresh attachment, including script-free visits. Native fault → other project → original, menu switching, same-visit recovery and full restart retain favors and durable receipts. Failed CLEAR retains favors/generation; explicit successful CLEAR persists a new generation and rejects old checkpoints. Unreadable receipts remain protected. |
+| LSR-03, P2: authored NPC pace lost on resume | Retain semantic authored goal ownership and optional 0.05–8 m/s speed, transform the goal during transport, validate bounds and rebuild path caches. Native 0.1 and 2.8 m/s controls match resumed pace, including repeated resume; ordinary destination continuation also passes. Legacy records retain ordinary intent/default pace. Existing map-bound task/sequence/home-region refusals remain. |
+| LSR-04, P2: remaining light-release hold lost on resume | Persist/validate active state and remaining hold separately from navigation. Reconnect the AI hold before the first resumed step and resample illumination normally. The saved dark tail was 0.8821183 simulation seconds; it remains active before that deadline and expires afterward. Direct illumination, expired state, legacy records and malformed bounds are covered. |
+
+Three narrow CPU regressions protect the actual disk/project-switch failure,
+navigation reconstruction and light hysteresis. They use tiny receipts/value
+worlds, no model decode, renderer or production-map bake. Checkpoint documentation
+now describes bounded authored AI support and its remaining refusals accurately.
+
+Validation on Rust/Cargo 1.99.1: the unchanged stock `sh tools/check-rust.sh`
+passed format, locked all-target/all-feature check, strict debug/release Clippy,
+484 Rust tests, locked release workspace/all-feature build and 11 bounded
+production Luau refusals. Explicit global strict Clippy and 484 all-feature
+tests also passed. Asset, texture, prop and audio checks passed. The complete
+373-test Python suite with real export enabled passed, with two explicit skips:
+packaged weather and broad wgpu smoke; neither is counted as native acceptance.
+The final Python suite passed again after installation-helper corrections (373 tests, two explicit skips).
+
+The final acceptance set comprises 50 native sessions: 49 normal exits and one
+intentional process interruption after observing a checkpoint temporary file.
+One normal session deliberately uses the preserved prior-release binary to seed
+save compatibility; the new binary resumes that exact installed package/save.
+The focused verifier passed 107 checks. Separate acceptance passed all
+30 installation checks, eight held-cargo round-trip checks, four checks each for
+failed and cancelled cargo loads, and 11 maintained Hub–Office–Hub checks. Cargo
+save/resume is observed in both source and foreign worlds; runtime solver keys
+are remapped from stable authored identities, without duplicated bodies.
+
+Core controls include restart/closure restoration without startup replay,
+previous-copy recovery, both copies corrupt, orphan temporary file, checksum-valid
+semantic rejection retaining the live world, cancellation, quit during preparation,
+repeated/superseded loads, and actual Continue/Start new. The controlled interrupted
+writer recovered a valid save. Its exact syscall at death and power-loss durability
+are unproven. No actual user save was modified.
+
+The menu rebuild took 108.1 seconds outside CI. Current-source checks passed for
+all focused fixtures, both cargo members and all nine Quiet Collection members;
+only the selected feature-validation packages were prepared. The menu resource
+SHA-256 is `6ba107c1b104ae71eaf31dd859af11f2aebfed60543c9a30f4a4e8fe876f3980`.
+The final player SHA-256 is
+`9dc06071300dc7e6223994505ac48c5ba2a8102a7bab3c11bbb2098b473f05d4`.
+The 635-file runtime-source inventory fingerprint is
+`da0366474f9d93409c64981364b1d1fe133368f3c7b0b46d6eb28250625f8d12`;
+all runtime source hashes remained unchanged through native acceptance.
+
+The recovery timing probe published 0.517 seconds after removing the
+disposable filesystem obstruction, sampled every 20 ms. Deterministic tests
+also prove no frame-by-frame retry before the deadline. The captured navigation
+and light fixtures add 77 and 34 JSON payload bytes respectively. These are
+bounded retry/metadata observations, not CPU-throughput or FPS gains. Native
+functional checks used Fifo on Apple M2 Pro/Metal, macOS 27.2; presentation was
+paced. Windows/Linux native runtime and clean-OS installation were not exercised.
+The Windows exporter was source-reviewed and Python-validated.
+
+Earlier installation attempts are preserved and excluded from acceptance. The
+helper had obsolete expectations for identical renamed imports (now verifies
+stable-owner reuse, no duplicate file and unchanged bytes) and missing dependency
+validation (now verifies `dependencies_intact=false` and the named warning).
+A Static-only fixture was also correctly refused under default Full settings;
+the accepted tiny fixture provides both variants. No production check or lint
+was weakened. Initial new-test lint failures were corrected with checked JSON
+access and explicit types; all final strict checks passed.
+
+Remaining limits: quitting before a failed write recovers cannot make unwritten
+progress durable. Unreadable campaign receipts require repair/restart or explicit
+CLEAR; ordinary retries never overwrite them. Semantically invalid checkpoint
+primaries fail safely without automatically trying the previous semantic snapshot.
+Unsupported runtime-created entities, active map-bound AI tasks/sequences/home
+regions, unsafe poses, transferred carry assemblies and other documented bounds
+remain explicit refusals. Legacy records cannot recover information never stored
+by their writer. Existing physics stress/settling limits remain unchanged; this
+work does not reopen them or claim universal save/durability coverage.
+
+Raw scripts, snapshots, package/source/binary identities, failed-attempt receipts,
+native captures and gate logs are retained outside `target` under
+`/Users/connordawkins/Documents/Codex/2026-11-05/task-4/lifecycle-repair-evidence/`.
+Publication, exact remote/CI status and idle-only cleanup/custody release are
+recorded in that directory's final handoff. No main merge, tag or release is part
+of this repair. Phase two remains for the parent to dispatch after acceptance.

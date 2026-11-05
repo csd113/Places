@@ -45,21 +45,24 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
     base['PLACES_STATE_ROOT'] = str(state)
     checks = []
 
-    def run(label, args, *, changes=None, cwd=launch, expected=0, native=False):
+    def run(label, args, *, changes=None, cwd=launch, expected=0, native=False, expected_level=None):
         environment = {**base, **(changes or {})}
         if native:
             # Use wall-clock actions after the actual world is ready. A fast
             # menu can render several frames before an import keypress runs.
             steps = json.loads(Path(environment['PLACES_BENCH_ACTIONS']).read_text()) if environment.get('PLACES_BENCH_ACTIONS') else []
-            anchor = 'ready:' + environment.get('PLACES_LEVEL', 'places_menu')
+            expected_level = expected_level or environment.get('PLACES_LEVEL', 'places_menu')
+            anchor = 'ready:' + expected_level
             steps.extend([
+                {'after': anchor, 'delay_ms': 1400, 'action': {'kind': 'checkpoint', 'name': label}},
                 {'after': anchor, 'delay_ms': 1500, 'action': {'kind': 'capture', 'name': label}},
                 {'after': anchor, 'delay_ms': 2000, 'action': {'kind': 'quit'}},
             ])
             actions_file = output / (label + '-actions.json')
             actions_file.write_text(json.dumps(steps))
             environment.update({'PLACES_BENCH': '1', 'PLACES_BENCH_FRAMES': '0',
-                                'PLACES_BENCH_ACTIONS': str(actions_file), 'PLACES_VERBOSE': '1'})
+                                'PLACES_BENCH_ACTIONS': str(actions_file), 'PLACES_VERBOSE': '1',
+                                'PLACES_LOAD_TRACE': str(output / (label + '-trace.jsonl'))})
         result = subprocess.run(list(map(str, args)), cwd=cwd, env=environment,
                                 text=True, capture_output=True, timeout=120, check=False)
         (output / (label + '.log')).write_text(result.stdout + result.stderr)
@@ -69,6 +72,11 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
             assert captured.is_file(), (label, 'missing native capture')
             shutil.copyfile(captured, output / (label + '.png'))
             assert 'fatal device error' not in result.stdout + result.stderr
+            rows = [json.loads(line) for line in (output / (label + '-trace.jsonl')).read_text().splitlines()]
+            ready = [json.loads(row['detail']) for row in rows if row['event'] == 'checkpoint:' + label]
+            assert ready and ready[-1]['current_level_id'] == expected_level, (label, 'world did not commit')
+            assert ready[-1]['renderer_level_id'] == expected_level, (label, 'renderer has wrong world')
+            assert any(row['event'] == 'present' and row['detail'] == 'ready' for row in rows), (label, 'world was not presented')
         checks.append({'check': label, 'exit_code': result.returncode})
         return result
 
@@ -79,6 +87,7 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
         for key in ('levels', 'import', 'projects', 'cache', 'saves'):
             assert Path(paths[key]).is_dir()
         assert run('empty-discovery', [player, '--list-levels']).stdout == ''
+        run('native-ordinary-menu', [player], native=True)
         run('native-empty-explore', [player], changes={'PLACES_SCREEN': 'explore'}, native=True)
         settings = state / 'settings.json'
         saved_settings = settings.read_bytes()
@@ -117,7 +126,9 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
         assert digest(installed_map) == imported_hash
         duplicate = incoming / 'duplicate.placesmap'
         shutil.copyfile(original, duplicate)
-        run('import-duplicate-id', [player, '--import', duplicate], expected=1)
+        run('import-identical-renamed', [player, '--import', duplicate])
+        assert not (state / 'levels' / duplicate.name).exists(), 'identical import must reuse its stable owner'
+        assert digest(installed_map) == imported_hash, 'renamed import must preserve installed bytes'
         original.write_bytes(b'not a package')
         run('import-corrupt-preserves', [player, '--import', original], expected=1)
         assert digest(installed_map) == imported_hash
@@ -126,6 +137,16 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
         level_id = discovery.split('\t')[0]
         assert str(installed_map) in discovery
         run('native-imported-play', [player], changes={'PLACES_LEVEL': level_id}, cwd=other_launch, native=True)
+        return_actions = work / 'return-actions.json'
+        return_actions.write_text(json.dumps([
+            {'after': 'ready:' + level_id, 'delay_ms': 250, 'action': {'kind': 'escape'}},
+            *[{'after': 'ready:' + level_id, 'delay_ms': delay, 'action': {'kind': 'key', 'key': key, 'pressed': pressed}}
+              for delay, key, pressed in [(400, 'Down', True), (450, 'Down', False), (550, 'Down', True), (600, 'Down', False), (750, 'Return', True), (800, 'Return', False)]],
+        ]))
+        # Ready anchor changes to the menu after the authored return commits.
+        run('native-return-menu', [player], changes={'PLACES_LEVEL': level_id,
+            'PLACES_BENCH_ACTIONS': str(return_actions)}, native=True, expected_level='places_menu')
+        run('native-play-after-return', [player], changes={'PLACES_LEVEL': level_id}, native=True)
         assert settings.read_bytes() == saved_settings
         assert save_file.read_bytes() == saved_data
         assert not list((state / 'levels').glob('*.partial*'))
@@ -140,8 +161,10 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
         missing.rename(backup)
         try:
             run('missing-required-model', [player, '--paths'], expected=1)
-            rejected = run('missing-dependency-validation', [compiler, 'validate', original, '--json'], expected=1)
-            assert 'dependency' in rejected.stderr and chair_resource in rejected.stderr
+            rejected = run('missing-dependency-validation', [compiler, 'validate', original, '--json'])
+            dependency_report = json.loads(rejected.stdout)
+            assert not dependency_report['dependencies_intact']
+            assert any(chair_resource in warning for warning in dependency_report['warnings'])
             assert digest(installed_map) == imported_hash
         finally:
             backup.rename(missing)
