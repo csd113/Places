@@ -438,3 +438,64 @@ fn configure_play(command: &mut Command, state_root: &Path) {
 #[cfg(test)]
 #[path = "tests/process.rs"]
 mod tests;
+
+// Verification has no cooperative cancellation protocol. Own and reap its child
+// just like Build/Play, with bounded output, a 60s deadline and immediate kill on
+// cancel/shutdown. No detached verifier can hold Planner::drop indefinitely.
+pub(super) fn verify_output(
+    command: &mut Command,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Result<Vec<u8>, String> {
+    verify_output_with_timeout(command, cancel, std::time::Duration::from_secs(60))
+}
+
+fn verify_output_with_timeout(
+    command: &mut Command,
+    cancel: &std::sync::atomic::AtomicBool,
+    timeout: std::time::Duration,
+) -> Result<Vec<u8>, String> {
+    use std::sync::atomic::Ordering;
+    use std::time::{Duration, Instant};
+    let mut process = CapturedChild::spawn_json(command)?;
+    let started = Instant::now();
+    let mut stopped = None;
+    let mut failure = None;
+    loop {
+        if let Some(status) = process.poll()? {
+            let capture = process.capture();
+            if let Some(error) = failure.or(capture.protocol_error) {
+                return Err(error);
+            }
+            return if status.success() {
+                Ok(capture.output)
+            } else {
+                Err(capture.diagnostics.chars().take(300).collect())
+            };
+        }
+        if stopped.is_none() {
+            let stop_reason = if cancel.load(Ordering::Relaxed) {
+                Some("Bake status check cancelled".into())
+            } else if started.elapsed() >= timeout {
+                Some("Bake status verifier exceeded 60 second deadline".into())
+            } else {
+                process.capture().protocol_error
+            };
+            if let Some(error) = stop_reason {
+                failure = Some(error);
+                process.stop();
+                stopped = Some(Instant::now());
+            }
+        }
+        // A child can exit while a broken descendant retains its output pipe.
+        // The child itself is reaped by poll/drop; pipe completion cannot hold
+        // editor shutdown beyond the existing tool ownership grace.
+        if stopped.is_some_and(|when| when.elapsed() >= Duration::from_secs(8)) {
+            return Err(failure.unwrap_or_else(|| "Verifier output did not close".into()));
+        }
+        std::thread::sleep(Duration::from_millis(25));
+    }
+}
+
+#[cfg(test)]
+#[path = "tests/verifier.rs"]
+mod verifier_tests;

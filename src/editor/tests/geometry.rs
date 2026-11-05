@@ -461,6 +461,17 @@ fn room_drag_moves_contained_fog_and_refuses_shared_boxes() -> Result<(), String
     let object = raw.as_object_mut().ok_or("Invalid scene")?;
     drop(object.insert("fog_regions".into(), serde_json::from_str(r#"[{"id":"mist", "min":[1,0,1], "max":[2,2,2], "density":0.02, "ground_y":0, "top_y":2}]"#).map_err(|error| error.to_string())?));
     drop(object.insert("ground_fog".into(), serde_json::from_str(r#"[{"id":"low_mist", "min":[1,1], "max":[2,2], "density":0.02,"ground_y":0,"height":0.5}]"#).map_err(|error| error.to_string())?));
+    drop(object.insert(
+        "spawn_templates".into(),
+        serde_json::json!([{"id":"box","model":"core:cardboard_box","scale":0.2_f32}]),
+    ));
+    drop(object.insert(
+        "spawn_points".into(),
+        serde_json::json!([
+        {"id":"explicit","template":"box","x":1.0_f32,"y":0.25_f32,"z":1.0_f32},
+        {"id":"implicit","template":"box","x":2.0_f32,"z":1.0_f32},
+        {"id":"null","template":"box","x":2.0_f32,"y":null,"z":2.0_f32}]),
+    ));
     doc.apply_checked_edit(&doc.raw().clone(), raw)?;
     let before = doc.raw().clone();
     let mut pose = doc.transform(ObjectId::Room(0))?;
@@ -488,6 +499,31 @@ fn room_drag_moves_contained_fog_and_refuses_shared_boxes() -> Result<(), String
             .and_then(Value::as_f64),
         Some(1.0_f64)
     );
+    assert_eq!(
+        doc.raw().pointer("/spawn_points/0/y"),
+        Some(&serde_json::json!(1.25_f32))
+    );
+    assert!(doc.raw().pointer("/spawn_points/1/y").is_none());
+    assert_eq!(doc.raw().pointer("/spawn_points/2/y"), Some(&Value::Null));
+    check_spawned_heights(doc.level())?;
+    let moved = doc.raw().clone();
+    assert!(doc.undo());
+    assert_eq!(doc.raw(), &before);
+    assert!(doc.redo());
+    assert_eq!(doc.raw(), &moved);
+    doc.save_all()?;
+    assert_eq!(Document::open(&fixture.0)?.raw(), &moved);
+    pose.position = [-1.0_f32, -2.0_f32, -1.0_f32];
+    doc.apply_drag(
+        ObjectId::Room(0),
+        pose,
+        &crate::engine::assets::AssetCatalog::default(),
+    )?;
+    assert_eq!(
+        doc.raw().pointer("/spawn_points/0/y"),
+        Some(&serde_json::json!(-1.75_f32))
+    );
+    assert!(doc.undo());
     assert!(doc.undo());
     assert_eq!(doc.raw(), &before);
     let mut shared = before.clone();
@@ -503,6 +539,122 @@ fn room_drag_moves_contained_fog_and_refuses_shared_boxes() -> Result<(), String
             &crate::engine::assets::AssetCatalog::default()
         )
         .is_err()
+    );
+    assert_eq!(doc.raw(), &unchanged);
+    Ok(())
+}
+
+fn check_spawned_heights(level: &crate::engine::level::LevelDef) -> Result<(), String> {
+    // Exercise the engine's actual spawn action, not just the serialized Y.
+    let mut world = crate::engine::entities::EntityWorld::from_level(level);
+    for (point, expected_y) in [
+        ("explicit", 1.25_f32),
+        ("implicit", 1.0_f32),
+        ("null", 1.0_f32),
+    ] {
+        let name = format!("spawned_{point}");
+        let _spawn = world.dispatch_actions(
+            &[crate::engine::level::ActionDef::SpawnEntity {
+                point: Some(point.into()),
+                template: None,
+                group: None,
+                name: Some(name.clone()),
+            }],
+            None,
+        );
+        let handle = world.handle_of(&name).ok_or("Spawn failed")?;
+        let actual = world
+            .components()
+            .transforms
+            .get(handle)
+            .ok_or("Spawn pose missing")?;
+        assert!((actual.position.y - expected_y).abs() < 0.0001_f32);
+    }
+    Ok(())
+}
+
+// Tiny linked cabins prove ownership translation and incoming height updates;
+// an adjacent shared shaft must refuse without affecting unrelated elevators.
+// This adds one small CPU-only document, no renderer/assets or bake.
+#[test]
+fn room_drag_moves_owned_elevator_and_links_without_claiming_shared_shafts() -> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut doc = Document::open(&fixture.0)?;
+    let mut raw = doc.raw().clone();
+    drop(raw.as_object_mut().ok_or("Missing scene")?.insert("elevators".into(), serde_json::json!([
+        {"id":"owned","x":4.0_f32,"z":2.0_f32,"stops":[{"label":"Here","y":0.0_f32},{"label":"Remote","y":0.0_f32,"arrival_elevator":"remote"}]},
+        {"id":"remote","x":20.0_f32,"z":2.0_f32,"stops":[{"label":"Remote","y":0.0_f32},{"label":"Here","y":0.0_f32,"arrival_elevator":"owned"}]}
+    ])));
+    doc.apply_checked_edit(&doc.raw().clone(), raw)?;
+    let before = doc.raw().clone();
+    let mut pose = doc.transform(ObjectId::Room(0))?;
+    pose.position = [2.0_f32, 1.0_f32, 3.0_f32];
+    doc.apply_drag(
+        ObjectId::Room(0),
+        pose,
+        &crate::engine::assets::AssetCatalog::default(),
+    )?;
+    assert_eq!(
+        doc.raw().pointer("/elevators/0/x"),
+        Some(&serde_json::json!(6.0_f32))
+    );
+    assert_eq!(
+        doc.raw().pointer("/elevators/0/z"),
+        Some(&serde_json::json!(5.0_f32))
+    );
+    assert_eq!(
+        doc.raw().pointer("/elevators/0/stops/0/y"),
+        Some(&serde_json::json!(1.0_f32))
+    );
+    assert_eq!(
+        doc.raw().pointer("/elevators/1/stops/1/y"),
+        Some(&serde_json::json!(1.0_f32))
+    );
+    assert_eq!(
+        doc.raw().pointer("/elevators/1/x"),
+        before.pointer("/elevators/1/x")
+    );
+    assert_eq!(
+        doc.raw().pointer("/elevators/0/stops/1"),
+        before.pointer("/elevators/0/stops/1")
+    );
+    let moved = doc.raw().clone();
+    assert!(doc.undo());
+    assert_eq!(doc.raw(), &before);
+    assert!(doc.redo());
+    assert_eq!(doc.raw(), &moved);
+    doc.save_all()?;
+    assert_eq!(Document::open(&fixture.0)?.raw(), &moved);
+    assert!(doc.undo());
+    let mut adjacent = before;
+    *adjacent
+        .pointer_mut("/elevators/0/z")
+        .ok_or("Missing lift")? = serde_json::json!(8.0_f32);
+    doc.apply_checked_edit(&doc.raw().clone(), adjacent)?;
+    doc.apply_drag(
+        ObjectId::Room(0),
+        pose,
+        &crate::engine::assets::AssetCatalog::default(),
+    )?;
+    assert_eq!(
+        doc.raw().pointer("/elevators/0/z"),
+        Some(&serde_json::json!(11.0_f32)),
+        "sole landing hall owns its side cabin"
+    );
+    assert!(doc.undo());
+    let mut shared = doc.raw().clone();
+    *shared
+        .pointer_mut("/elevators/0/stops/1")
+        .ok_or("Missing stop")? = serde_json::json!({"label":"Other hall","y":4.0_f32});
+    doc.apply_checked_edit(&doc.raw().clone(), shared)?;
+    let unchanged = doc.raw().clone();
+    assert!(
+        doc.apply_drag(
+            ObjectId::Room(0),
+            pose,
+            &crate::engine::assets::AssetCatalog::default()
+        )
+        .is_err_and(|e| e.contains("landings outside"))
     );
     assert_eq!(doc.raw(), &unchanged);
     Ok(())

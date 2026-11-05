@@ -483,9 +483,7 @@ impl App {
                     .ok_or("Unknown level")?
                     .to_string();
                 doc.select_level(&id)?;
-                self.object_query.clear();
-                self.selected = None;
-                self.object_scroll = 0;
+                self.reset_map_selection();
                 self.changed();
                 self.viewport.frame_all();
             }
@@ -571,14 +569,12 @@ impl App {
             Field::Thumbnail => doc.attach_thumbnail(Path::new(&value))?,
             Field::AddLevel => {
                 doc.add_level(&value)?;
-                self.selected = None;
+                self.reset_map_selection();
                 self.changed();
             }
             Field::ImportJson => {
                 let _imported_id = doc.import_level(Path::new(&value))?;
-                self.object_query.clear();
-                self.selected = None;
-                self.object_scroll = 0;
+                self.reset_map_selection();
                 self.changed();
                 self.viewport.frame_all();
             }

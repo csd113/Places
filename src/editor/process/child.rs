@@ -11,6 +11,7 @@ use crate::map_compiler::events::{Event, Outcome, PROTOCOL, Progress};
 
 const DIAGNOSTIC_BYTES: usize = 16 * 1024;
 const EVENT_BYTES: usize = 4 * 1024 * 1024;
+const JSON_BYTES: usize = 1024 * 1024;
 const CANCEL_GRACE: Duration = Duration::from_secs(8);
 
 #[derive(Clone, Copy)]
@@ -26,6 +27,7 @@ pub(super) struct Capture {
     pub started: bool,
     pub protocol_error: Option<String>,
     pub diagnostics: String,
+    pub output: Vec<u8>,
 }
 
 impl Capture {
@@ -99,6 +101,13 @@ impl Capture {
     }
 }
 
+#[derive(Clone, Copy)]
+enum Output {
+    Events,
+    Diagnostics,
+    Json,
+}
+
 pub(super) struct CapturedChild {
     child: Option<Child>,
     stdin: Option<ChildStdin>,
@@ -114,6 +123,26 @@ impl CapturedChild {
         command: &mut Command,
         policy: StopPolicy,
         protocol: bool,
+    ) -> Result<Self, String> {
+        Self::spawn_output(
+            command,
+            policy,
+            if protocol {
+                Output::Events
+            } else {
+                Output::Diagnostics
+            },
+        )
+    }
+
+    pub fn spawn_json(command: &mut Command) -> Result<Self, String> {
+        Self::spawn_output(command, StopPolicy::Terminate, Output::Json)
+    }
+
+    fn spawn_output(
+        command: &mut Command,
+        policy: StopPolicy,
+        output_kind: Output,
     ) -> Result<Self, String> {
         let _configured = command
             .stdin(Stdio::piped())
@@ -136,12 +165,12 @@ impl CapturedChild {
         };
         process.reader(
             output.ok_or("Tool stdout was not piped")?,
-            protocol,
+            output_kind,
             Arc::clone(&process.stdout_done),
         )?;
         process.reader(
             errors.ok_or("Tool stderr was not piped")?,
-            false,
+            Output::Diagnostics,
             Arc::clone(&process.stderr_done),
         )?;
         Ok(process)
@@ -150,14 +179,18 @@ impl CapturedChild {
     fn reader(
         &self,
         stream: impl Read + Send + 'static,
-        protocol: bool,
+        output: Output,
         done: Arc<AtomicBool>,
     ) -> Result<(), String> {
         let capture = Arc::clone(&self.capture);
         let _reader = std::thread::Builder::new()
             .name("editor-tool-output".into())
             .spawn(move || {
-                read_stream(stream, protocol, &capture);
+                match output {
+                    Output::Json => read_json(stream, &capture),
+                    Output::Events => read_stream(stream, true, &capture),
+                    Output::Diagnostics => read_stream(stream, false, &capture),
+                }
                 done.store(true, Ordering::Release);
             })
             .map_err(|error| format!("Could not read tool output: {error}"))?;
@@ -255,6 +288,33 @@ impl Drop for CapturedChild {
             {
                 let _killed = process.kill();
                 let _reaped = process.wait();
+            }
+        }
+    }
+}
+
+fn read_json(mut stream: impl Read, capture: &Mutex<Capture>) {
+    let mut buffer = [0_u8; 8192];
+    loop {
+        match stream.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(count) => {
+                if let Ok(mut state) = capture.lock() {
+                    let remaining = JSON_BYTES.saturating_sub(state.output.len());
+                    state
+                        .output
+                        .extend_from_slice(buffer.get(..count.min(remaining)).unwrap_or_default());
+                    if count > remaining {
+                        state.protocol_error = Some("Tool JSON exceeds 1 MiB limit".into());
+                    }
+                }
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(error) => {
+                if let Ok(mut state) = capture.lock() {
+                    state.protocol_error = Some(format!("Could not read tool JSON: {error}"));
+                }
+                break;
             }
         }
     }

@@ -229,7 +229,7 @@ pub(super) fn rename(doc: &Document, index: usize, name: &str) -> Result<Value, 
     Ok(raw)
 }
 
-fn footprint(def: &ElevatorDef, low: f32, high: f32) -> [(f32, f32); 3] {
+pub(in crate::editor) fn footprint(def: &ElevatorDef, low: f32, high: f32) -> [(f32, f32); 3] {
     let centre = def.point(0.0, 0.0, 1.155);
     let (sin, cos) = def.rotation_degrees.to_radians().sin_cos();
     let x = cos.abs().mul_add(1.45, sin.abs() * 1.325);

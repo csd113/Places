@@ -30,7 +30,7 @@ fn move_contained_records(raw: &mut Value, bounds: (f32, f32, f32, f32), delta: 
                 };
                 drop(object.insert("x".into(), json!(px + f64::from(delta[0]))));
                 drop(object.insert("z".into(), json!(pz + f64::from(delta[2]))));
-                let vertical = if matches!(key, "props" | "doors" | "spawn_points") {
+                let vertical = if matches!(key, "props" | "doors") {
                     &[][..]
                 } else {
                     &["y", "bottom_y", "top_y"][..]
@@ -44,6 +44,164 @@ fn move_contained_records(raw: &mut Value, bounds: (f32, f32, f32, f32), delta: 
         }
     }
 }
+// A cabin is owned by its containing room or by its sole landing hall. Linked
+// destination IDs remain stable; their cached local heights follow moved targets.
+// A multi-storey shaft shared with another hall cannot be inferred as one room.
+fn move_elevators(
+    raw: &mut Value,
+    level: &crate::engine::level::LevelDef,
+    room: &crate::engine::level::RoomDef,
+    delta: [f32; 3],
+) -> Result<(), String> {
+    let (left, right, near, far) = room.bounds();
+    let inside = |x: f32, z: f32| {
+        x >= left - 0.01 && x <= right + 0.01 && z >= near - 0.01 && z <= far + 0.01
+    };
+    let mut moved = std::collections::BTreeMap::new();
+    for lift in &level.elevators {
+        let corners = [-1.45_f32, 1.45]
+            .into_iter()
+            .flat_map(|x| [-0.32_f32, 2.48].map(|z| lift.point(x, 0.0, z)))
+            .collect::<Vec<_>>();
+        let contained = corners.iter().all(|p| inside(p.x, p.z));
+        let local: Vec<_> = lift.stops.iter().filter(|s| s.is_landing()).collect();
+        let owned = local
+            .iter()
+            .filter(|stop| {
+                let hall = lift.point(0.0, stop.y, -0.3);
+                (contained
+                    && stop.y >= room.floor_y - 0.05
+                    && (room.ceiling.is_open()
+                        || stop.y + crate::engine::elevator::HEIGHT <= room.eave_y() + 0.05))
+                    || (inside(hall.x, hall.z) && (stop.y - room.floor_y).abs() < 0.05)
+            })
+            .count();
+        if owned == 0 {
+            let overlaps = corners.iter().map(|p| p.x).fold(f32::INFINITY, f32::min) < right
+                && corners
+                    .iter()
+                    .map(|p| p.x)
+                    .fold(f32::NEG_INFINITY, f32::max)
+                    > left
+                && corners.iter().map(|p| p.z).fold(f32::INFINITY, f32::min) < far
+                && corners
+                    .iter()
+                    .map(|p| p.z)
+                    .fold(f32::NEG_INFINITY, f32::max)
+                    > near;
+            if overlaps
+                && local.iter().any(|s| {
+                    s.y < room.eave_y() && s.y + crate::engine::elevator::HEIGHT > room.floor_y
+                })
+            {
+                return Err(format!(
+                    "Elevator {} crosses this room boundary. Review its shaft ownership before moving the room.",
+                    lift.id
+                ));
+            }
+            continue;
+        }
+        if owned != local.len() {
+            return Err(format!(
+                "Elevator {} has landings outside this room. Move its shared shaft and rooms explicitly; an isolated-room drag cannot infer their ownership.",
+                lift.id
+            ));
+        }
+        let landing = lift
+            .stops
+            .get(lift.initial_stop)
+            .ok_or("Missing elevator landing")?;
+        let _previous = moved.insert(lift.id.as_str(), landing.y + delta[1]);
+    }
+    check_elevator_destinations(level, &moved, delta)?;
+    for (index, lift) in level.elevators.iter().enumerate() {
+        let relocating = moved.contains_key(lift.id.as_str());
+        let record = raw
+            .get_mut("elevators")
+            .and_then(|v| v.get_mut(index))
+            .and_then(Value::as_object_mut)
+            .ok_or("Missing elevator")?;
+        if relocating {
+            drop(record.insert("x".into(), json!(lift.x + delta[0])));
+            drop(record.insert("z".into(), json!(lift.z + delta[2])));
+        }
+        for (stop_index, stop) in lift.stops.iter().enumerate() {
+            let height = if relocating && stop.is_landing() {
+                Some(stop.y + delta[1])
+            } else if stop.level.is_none() {
+                stop.arrival_elevator
+                    .as_deref()
+                    .and_then(|id| moved.get(id))
+                    .copied()
+            } else {
+                None
+            };
+            if let Some(y) = height {
+                let target = record
+                    .get_mut("stops")
+                    .and_then(|s| s.get_mut(stop_index))
+                    .and_then(Value::as_object_mut)
+                    .ok_or("Missing elevator stop")?;
+                drop(target.insert("y".into(), json!(y)));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn check_elevator_destinations(
+    level: &crate::engine::level::LevelDef,
+    moved: &std::collections::BTreeMap<&str, f32>,
+    delta: [f32; 3],
+) -> Result<(), String> {
+    let bounds = |lift: &crate::engine::elevator::ElevatorDef| {
+        let low = lift
+            .stops
+            .iter()
+            .filter(|s| s.is_landing())
+            .map(|s| s.y)
+            .fold(f32::INFINITY, f32::min);
+        let high = lift
+            .stops
+            .iter()
+            .filter(|s| s.is_landing())
+            .map(|s| s.y)
+            .fold(f32::NEG_INFINITY, f32::max);
+        crate::editor::elevators::footprint(lift, low, high)
+    };
+    let overlaps = |a: [(f32, f32); 3], b: [(f32, f32); 3]| {
+        a.into_iter()
+            .zip(b)
+            .all(|(x, y)| x.0 < y.1 + 0.01 && x.1 > y.0 - 0.01)
+    };
+    for lift in level
+        .elevators
+        .iter()
+        .filter(|l| moved.contains_key(l.id.as_str()))
+    {
+        let before = bounds(lift);
+        let mut after = before;
+        for (range, distance) in after.iter_mut().zip(delta) {
+            range.0 += distance;
+            range.1 += distance;
+        }
+        for other in level
+            .elevators
+            .iter()
+            .filter(|l| !moved.contains_key(l.id.as_str()))
+        {
+            let occupied = bounds(other);
+            if overlaps(after, occupied) && !overlaps(before, occupied) {
+                return Err(format!(
+                    "Room move would overlap elevators {} and {}. Move the room clear of the other cabin or shaft.",
+                    lift.id, other.id
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn move_fog(raw: &mut Value, bounds: (f32, f32, f32, f32), delta: [f32; 3]) -> Result<(), String> {
     let (left, right, near, far) = bounds;
     for (key, z_axis) in [("fog_regions", 2_usize), ("ground_fog", 1_usize)] {
@@ -212,6 +370,7 @@ impl Document {
             check_crossing_objects(self.level(), room, catalog)?;
             let [x, y, z] = pose.position;
             let delta = [x - room.x, y - room.floor_y, z - room.z];
+            move_elevators(&mut raw, self.level(), room, delta)?;
             move_contained_records(&mut raw, room.bounds(), delta);
             move_fog(&mut raw, room.bounds(), delta)?;
             if let Some(spawn) = raw.get_mut("spawn").and_then(Value::as_object_mut)

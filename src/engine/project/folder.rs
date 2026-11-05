@@ -101,9 +101,18 @@ impl ProjectFolder {
     /// # Errors
     /// Rejects unsupported/invalid maps, path errors and mismatching level IDs.
     pub fn read_level(&self, id: Option<&str>) -> Result<(PathBuf, Vec<u8>, LevelDef), String> {
+        self.read_level_with_admission(id, |_| Ok(()))
+    }
+
+    pub(crate) fn read_level_with_admission(
+        &self,
+        id: Option<&str>,
+        admit: impl FnOnce(&[u8]) -> Result<(), String>,
+    ) -> Result<(PathBuf, Vec<u8>, LevelDef), String> {
         let selected = self.manifest.level(id)?;
         let path = self.resolve(&selected.source)?;
         let bytes = read_bounded_file(&path, crate::engine::level::MAX_LEVEL_JSON_BYTES)?;
+        admit(&bytes)?;
         let text =
             std::str::from_utf8(&bytes).map_err(|error| format!("{}: {error}", path.display()))?;
         super::check_editable_source(&bytes)?;

@@ -1,6 +1,7 @@
 //! Place two cabins and link them. Detailed shaft authoring remains optional.
 mod embedding;
 mod links;
+pub(super) use links::footprint;
 mod placement;
 use super::{
     App,

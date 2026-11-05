@@ -13,6 +13,15 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Protect hidden and isolated attachments during numeric/exact transforms and
+  room-edge edits; move explicit spawn heights and owned elevator landings/links
+  with isolated rooms, refusing shared shafts with a cause. Reset map
+  isolation and authoring drafts on map/project changes, and allow source recovery
+  from an empty editor.
+- Bound bake verification output, cancellation and shutdown; enforce document
+  memory admission on initial Open and map loads. Preflight script creation before
+  publishing files, source links or history, including generated templates.
+
 - Count eligible and visible geometry in matching world, prop, dynamic, character,
   decal and effect scopes; keep resident storage and actual draw commands separate.
 - Gate water optics on the installed water triangles and conservative opaque

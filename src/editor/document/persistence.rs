@@ -26,15 +26,26 @@ pub(super) struct LevelDocument {
 }
 
 impl LevelDocument {
-    pub(super) fn open(project: &ProjectFolder, id: Option<&str>) -> Result<Self, String> {
-        let (path, disk_bytes, level) = project.read_level(id)?;
+    pub(super) fn open(
+        project: &ProjectFolder,
+        id: Option<&str>,
+        mut admit: impl FnMut(usize) -> Result<(), String>,
+    ) -> Result<Self, String> {
+        let (path, disk_bytes, level) = project
+            .read_level_with_admission(id, |bytes| admit(super::source::opening_charge(bytes)?))?;
         super::source::check_editable_source(&disk_bytes)?;
         let raw: Value = serde_json::from_slice(&disk_bytes)
             .map_err(|error| format!("{}: {error}", path.display()))?;
         super::intent::validate_raw(&raw)?;
         // The typed view is read through ProjectFolder, but never serialized.
         let byte_count = disk_bytes.len();
-        Ok(Self {
+        admit(
+            super::history::value_heap_charge(&raw)
+                .saturating_mul(2)
+                .saturating_add(disk_bytes.capacity())
+                .saturating_add(byte_count.saturating_mul(2)),
+        )?;
+        let opened = Self {
             objects: super::objects::enumerate(&level),
             dirty: false,
             saved: raw.clone(),
@@ -44,7 +55,9 @@ impl LevelDocument {
             history: History::default(),
             path,
             disk_bytes,
-        })
+        };
+        admit(opened.heap_charge())?;
+        Ok(opened)
     }
 
     pub(super) fn update_view(&mut self) {

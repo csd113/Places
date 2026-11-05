@@ -634,14 +634,19 @@ prepared lighting, and stale results require a rebake. Integrity failure or
 missing output remains invalid/unknown with its cause. Both the project export
 and individual outputs are considered, so an old individual file cannot hide a
 valid project member. The panel pages through all levels and gives a cause per row. Select an individual row
-to build that level. Cancellation retains the last published package. Entry-byte
-breakdowns are after ZIP decoding and before internal codecs; installed cache
+to build that level. Verification output is bounded, each check has a 60-second
+deadline, and cancel/close terminates and reaps the active verifier with an
+eight-second maximum shutdown grace. Cancellation retains the last published
+package. Entry-byte breakdowns are after ZIP decoding and before internal codecs; installed cache
 and runtime RAM are separate and are not inferred from package size.
 
 Drag the selected prop, light or isolated room's colored viewport axis. Toolbar
 snapping applies, Escape/focus loss cancels, release commits one undo step, and
 numeric controls remain. Isolated-room dragging carries supported contained
-records; shared/stacked boundaries and coordinate-bearing global terrain/scripts
+records, explicit spawn heights and elevators owned by that room or its sole
+landing hall. Local landing heights and incoming same-map links follow together;
+destination identities remain stable. Shared elevator shafts, shared/stacked room
+boundaries and coordinate-bearing global terrain/scripts
 receive a refusal requiring explicit numeric/group review. It does not guess
 which neighboring authored room should move.
 

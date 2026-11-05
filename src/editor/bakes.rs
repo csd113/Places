@@ -119,7 +119,8 @@ impl App {
                         if cancellation.load(Ordering::Relaxed) {
                             break;
                         }
-                        let checked = verify(&compiler, &source, &id, &package, &assets);
+                        let checked =
+                            verify(&compiler, &source, &id, &package, &assets, &cancellation);
                         let rank = |value: &Result<VerifyReport, String>| {
                             value
                                 .as_ref()
@@ -170,6 +171,7 @@ impl App {
             .as_mut()
             .ok_or("Open a project first")?
             .select_level(&id)?;
+        self.reset_map_selection();
         self.changed();
         self.popup = None;
         self.start_build(false)
@@ -181,8 +183,10 @@ fn verify(
     id: &str,
     package: &std::path::Path,
     assets: &std::path::Path,
+    cancel: &AtomicBool,
 ) -> Result<VerifyReport, String> {
-    let output = std::process::Command::new(compiler)
+    let mut command = std::process::Command::new(compiler);
+    let _configured = command
         .arg("verify")
         .arg(source)
         .arg("--level")
@@ -191,17 +195,9 @@ fn verify(
         .arg(package)
         .arg("--asset-root")
         .arg(assets)
-        .arg("--json")
-        .output()
-        .map_err(|error| error.to_string())?;
-    if output.status.success() {
-        serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr)
-            .chars()
-            .take(300)
-            .collect())
-    }
+        .arg("--json");
+    let output = super::process::verify_output(&mut command, cancel)?;
+    serde_json::from_slice(&output).map_err(|error| error.to_string())
 }
 
 fn package_size(path: &PathBuf) -> Vec<String> {
@@ -289,7 +285,7 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     ui::text(
         vertices,
         if app.bakes.busy() {
-            "Checking hashes/integrity. Cancel stops after the current level."
+            "Checking hashes/integrity. Cancel terminates the active check (8s shutdown grace)."
         } else if app.bakes.rows.is_empty() {
             "Unknown until checked. Save edits, then check saved levels."
         } else {

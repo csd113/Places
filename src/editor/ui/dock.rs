@@ -88,7 +88,7 @@ fn toolbar(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     for (x, width, label, action, enabled) in [
         (5.0, 24.0, "New", Action::New, idle),
         (32.0, 26.0, "Open", Action::Open, idle),
-        (61.0, 42.0, "Project >", Action::Project, idle && open),
+        (61.0, 42.0, "Project >", Action::Project, idle),
         (
             115.0,
             28.0,

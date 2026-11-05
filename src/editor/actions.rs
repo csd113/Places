@@ -319,8 +319,8 @@ impl App {
         let name = path.file_name().unwrap_or_default().to_string_lossy();
         let document = Document::create(path, &id, &name)?;
         self.document = Some(document);
-        self.selected = None;
-        self.object_scroll = 0;
+        self.focus = super::focus::Focus::default();
+        self.reset_map_selection();
         self.changed();
         self.viewport.frame_all();
         self.status = format!("Created {name}. Add geometry or props; click values to edit.");
@@ -1172,10 +1172,15 @@ impl App {
             .and_then(|index| super::document::room_resize::Edge::ALL.get(index))
             .copied()
         {
+            let doc = self.document.as_ref().ok_or("Open a project first")?;
+            let expected = doc.raw().clone();
+            let (candidate, _) =
+                doc.room_edge_candidate(self.selected.ok_or("Select a room")?, edge, value)?;
+            self.check_focused_edit(&candidate)?;
             self.document
                 .as_mut()
                 .ok_or("Open a project first")?
-                .resize_room_edge(self.selected.ok_or("Select a room")?, edge, value)?;
+                .apply_authoring_edit(&expected, candidate)?;
             self.changed();
             self.status = "Room edge applied as one undo step.".into();
             return Ok(());
@@ -1200,7 +1205,7 @@ impl App {
             return Ok(());
         }
         let id = self.selected.ok_or("Select an object")?;
-        let doc = self.document.as_mut().ok_or("Open a project first")?;
+        let doc = self.document.as_ref().ok_or("Open a project first")?;
         let mut transform = doc.transform(id)?;
         match field {
             0..=2 => {
@@ -1241,7 +1246,13 @@ impl App {
         if matches!(id, super::document::ObjectId::Prop(_)) && (3..=5).contains(&field) {
             transform.size = [value; 3];
         }
-        doc.set_transform(id, transform)?;
+        let expected = doc.raw().clone();
+        let (candidate, _) = doc.transform_candidate(id, transform)?;
+        self.check_focused_edit(&candidate)?;
+        self.document
+            .as_mut()
+            .ok_or("Open a project first")?
+            .apply_authoring_edit(&expected, candidate)?;
         self.changed();
         self.status = "Transform updated. Cmd/Ctrl Z to undo.".into();
         Ok(())

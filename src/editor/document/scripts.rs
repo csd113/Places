@@ -4,8 +4,7 @@
 use super::{Document, persistence};
 use crate::engine::project::{ProjectPath, read_bounded_file};
 use crate::engine::scripting::{MAX_SOURCE_BYTES, ScriptSource};
-use std::fs::{self, OpenOptions};
-use std::io::Write as _;
+use std::fs;
 
 pub(super) struct ScriptDocument {
     path: std::path::PathBuf,
@@ -71,16 +70,22 @@ impl Document {
         if source.len() > usize::try_from(MAX_SOURCE_BYTES).unwrap_or(0) {
             return Err("Script exceeds 64 KiB".into());
         }
+        self.admit_script_buffer()?;
         let directory = self.root().join("scripts");
         fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
         let canonical = fs::canonicalize(&directory).map_err(|e| e.to_string())?;
-        if !canonical.starts_with(self.root()) {
-            return Err("Scripts directory escapes project".into());
+        if canonical != directory
+            || fs::symlink_metadata(&directory)
+                .map_err(|e| e.to_string())?
+                .file_type()
+                .is_symlink()
+        {
+            return Err("Scripts directory must be a real directory inside this project".into());
         }
         for number in 1..=1000u16 {
             let relative = format!("scripts/{}_{number}.luau", self.level_id());
             let path = self.root().join(&relative);
-            if path.exists() {
+            if path.exists() || self.scripts.contains_key(&relative) {
                 continue;
             }
             let mut raw = base.clone();
@@ -96,27 +101,39 @@ impl Document {
             }
             paths.push(serde_json::json!(relative));
             configure(&mut raw, &relative)?;
-            let _validated = persistence::validate_raw(&raw, self.level_id())?;
+            let buffer = ScriptDocument {
+                path: path.clone(),
+                disk: source.as_bytes().to_vec(),
+                text: source.into(),
+                undo: std::collections::VecDeque::new(),
+                redo: Vec::new(),
+            };
             self.admit_document_bytes(
-                source
-                    .len()
-                    .saturating_mul(4)
-                    .saturating_add(super::history::value_heap_charge(&raw).saturating_mul(2)),
+                buffer
+                    .heap_charge()
+                    .saturating_add(super::history::value_heap_charge(&raw))
+                    .saturating_add(self.selected.byte_count.saturating_mul(2)),
             )?;
-            match OpenOptions::new().write(true).create_new(true).open(&path) {
-                Ok(mut file) => {
-                    file.write_all(source.as_bytes())
-                        .and_then(|()| file.sync_all())
-                        .map_err(|e| e.to_string())?;
-                    self.accept_edit(raw)?;
-                    self.open_script(&relative)?;
-                    return Ok(relative);
-                }
-                Err(problem) if problem.kind() == std::io::ErrorKind::AlreadyExists => {}
-                Err(problem) => return Err(problem.to_string()),
-            }
+            let (level, byte_count) = self.prepare_edit(&raw)?;
+            // The existing atomic publisher cleans failed staging writes and
+            // never replaces another author's file. Installation below cannot
+            // fail: no buffer reopen or second admission follows publication.
+            persistence::atomic_create(&path, source.as_bytes())?;
+            self.install_edit(raw, level, byte_count);
+            drop(self.scripts.insert(relative.clone(), buffer));
+            return Ok(relative);
         }
         Err("No unique script filename available".into())
+    }
+
+    fn admit_script_buffer(&self) -> Result<(), String> {
+        if self.scripts.len() >= 64 {
+            return Err(
+                "At most 64 source buffers may be open; save and reopen project to release buffers"
+                    .into(),
+            );
+        }
+        Ok(())
     }
 
     /// # Errors
@@ -128,12 +145,7 @@ impl Document {
         if self.scripts.contains_key(name) {
             return Ok(());
         }
-        if self.scripts.len() >= 64 {
-            return Err(
-                "At most 64 source buffers may be open; save and reopen project to release buffers"
-                    .into(),
-            );
-        }
+        self.admit_script_buffer()?;
         self.admit_document_bytes(
             usize::try_from(MAX_SOURCE_BYTES)
                 .unwrap_or(usize::MAX)

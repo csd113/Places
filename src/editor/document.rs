@@ -53,9 +53,14 @@ pub struct Document {
     manifest_bytes: Vec<u8>,
     selected: LevelDocument,
     other_levels: BTreeMap<String, LevelDocument>,
+    heap_budget: usize,
 }
 
 const MAX_DOCUMENT_HEAP_CHARGE: usize = 256 * 1024 * 1024;
+
+fn document_memory_error() -> String {
+    "Editor document memory budget reached (256 MiB charged heap). Unsaved maps and undo/redo are preserved; save and reopen the project to release history before opening or editing more content.".into()
+}
 
 impl Document {
     fn heap_charge(&self) -> usize {
@@ -71,14 +76,14 @@ impl Document {
     }
 
     fn admit_document_bytes(&mut self, additional: usize) -> Result<(), String> {
-        while self.heap_charge().saturating_add(additional) > MAX_DOCUMENT_HEAP_CHARGE {
+        while self.heap_charge().saturating_add(additional) > self.heap_budget {
             let clean = self
                 .other_levels
                 .iter()
                 .find(|(_, document)| !document.is_dirty() && document.history.usage().0 == 0)
                 .map(|(id, _)| id.clone());
             let Some(id) = clean else {
-                return Err("Editor document memory budget reached (256 MiB charged heap). Unsaved maps and undo/redo are preserved; save and reopen the project to release history before opening or editing more content.".into());
+                return Err(document_memory_error());
             };
             drop(self.other_levels.remove(&id));
         }
@@ -89,15 +94,26 @@ impl Document {
     /// # Errors
     /// Rejects unsupported schemas, malformed scenes and unsafe project paths.
     pub fn open(path: &Path) -> Result<Self, String> {
+        Self::open_with_budget(path, MAX_DOCUMENT_HEAP_CHARGE)
+    }
+
+    fn open_with_budget(path: &Path, heap_budget: usize) -> Result<Self, String> {
         let project = ProjectFolder::open(path)?;
         let manifest_bytes = persistence::read_manifest(&project)?;
-        let selected = LevelDocument::open(&project, None)?;
+        let selected = LevelDocument::open(&project, None, |charge| {
+            if charge > heap_budget {
+                Err(document_memory_error())
+            } else {
+                Ok(())
+            }
+        })?;
         Ok(Self {
             project,
             scripts: BTreeMap::new(),
             manifest_bytes,
             selected,
             other_levels: BTreeMap::new(),
+            heap_budget,
         })
     }
 
@@ -150,18 +166,10 @@ impl Document {
         let next = if let Some(cached) = self.other_levels.remove(id) {
             cached
         } else {
-            let source = &self.project.manifest().level(Some(id))?.source;
-            let bytes = std::fs::metadata(self.project.resolve(source)?)
-                .map_err(|error| error.to_string())?
-                .len();
-            self.admit_document_bytes(
-                usize::try_from(bytes)
-                    .unwrap_or(usize::MAX)
-                    .saturating_mul(8),
-            )?;
-            let opened = LevelDocument::open(&self.project, Some(id))?;
-            self.admit_document_bytes(opened.heap_charge())?;
-            opened
+            let project = self.project.clone();
+            LevelDocument::open(&project, Some(id), |charge| {
+                self.admit_document_bytes(charge)
+            })?
         };
         let previous = std::mem::replace(&mut self.selected, next);
         drop(
@@ -185,7 +193,7 @@ impl Document {
                     )
                 },
             );
-        serde_json::json!({"documents":documents,"history_revisions":revisions,"history_serialized_bytes":history_bytes,"document_heap_charge":self.heap_charge(),"document_heap_budget":MAX_DOCUMENT_HEAP_CHARGE,"history_policy":"64 revisions / 32 MiB per stack; 256 MiB aggregate document admission; unsaved work and histories pinned"})
+        serde_json::json!({"documents":documents,"history_revisions":revisions,"history_serialized_bytes":history_bytes,"document_heap_charge":self.heap_charge(),"document_heap_budget":self.heap_budget,"history_policy":"64 revisions / 32 MiB per stack; 256 MiB aggregate document admission; unsaved work and histories pinned"})
     }
 
     #[must_use]
@@ -244,20 +252,11 @@ impl Document {
     /// # Errors
     /// Rejects invalid numbers, unsupported rotations and invalid scene edits.
     pub fn set_transform(&mut self, id: ObjectId, transform: Transform) -> Result<(), String> {
-        let mut edited = if let ObjectId::Wall(index) = id {
-            wall_edit::edit_raw(self.raw(), self.level(), index, transform)?
-        } else {
-            self.selected.raw.clone()
-        };
-        if !matches!(id, ObjectId::Wall(_)) {
-            objects::set_transform(&mut edited, self.level(), id, transform)?;
-        }
+        let (edited, _) = self.transform_candidate(id, transform)?;
         self.accept_edit(edited)
     }
 
-    /// Validates a complete proposed transform without changing source or history.
-    /// The preview uses the same scene admission as an ordinary edit.
-    ///
+    /// Validates the complete attachment edit without changing source/history.
     /// # Errors
     /// Rejects unsupported transforms and invalid resulting scene geometry.
     pub fn preview_transform(
@@ -265,6 +264,15 @@ impl Document {
         id: ObjectId,
         transform: Transform,
     ) -> Result<LevelDef, String> {
+        self.transform_candidate(id, transform)
+            .map(|(_, level)| level)
+    }
+
+    pub(in crate::editor) fn transform_candidate(
+        &self,
+        id: ObjectId,
+        transform: Transform,
+    ) -> Result<(Value, LevelDef), String> {
         let mut edited = if let ObjectId::Wall(index) = id {
             wall_edit::edit_raw(self.raw(), self.level(), index, transform)?
         } else {
@@ -273,7 +281,7 @@ impl Document {
         if !matches!(id, ObjectId::Wall(_)) {
             objects::set_transform(&mut edited, self.level(), id, transform)?;
         }
-        persistence::validate_raw(&edited, self.level_id()).map(|(level, _bytes)| level)
+        self.validated_preview(edited)
     }
 
     /// Adds one room, wall or built-in prop at authored coordinates.
@@ -453,20 +461,23 @@ impl Document {
         }
         Ok(())
     }
-    fn accept_edit(&mut self, edited: Value) -> Result<(), String> {
+    fn prepare_edit(&mut self, edited: &Value) -> Result<(LevelDef, usize), String> {
         let mut timing = crate::engine::perf::loading::StageTimer::new("editor-edit");
-        if edited == self.selected.raw {
-            return Ok(());
-        }
-        self.check_locked_edit(&edited)?;
+        self.check_locked_edit(edited)?;
         timing.step("equality-locks");
         self.admit_document_bytes(
-            history::value_heap_charge(&edited)
+            history::value_heap_charge(edited)
                 .saturating_add(self.selected.byte_count.saturating_mul(2)),
         )?;
         timing.step("admission");
-        let (level, byte_count) = persistence::validate_raw(&edited, self.level_id())?;
+        let validated = persistence::validate_raw(edited, self.level_id())?;
         timing.step("validation");
+        Ok(validated)
+    }
+
+    // Every fallible check precedes installation (and script-file publication).
+    fn install_edit(&mut self, edited: Value, level: LevelDef, byte_count: usize) {
+        let mut timing = crate::engine::perf::loading::StageTimer::new("editor-edit-install");
         let old = std::mem::replace(&mut self.selected.raw, edited);
         self.selected.history.edit(old, self.selected.byte_count);
         self.selected.byte_count = byte_count;
@@ -474,6 +485,13 @@ impl Document {
         timing.step("history-install");
         self.selected.update_view();
         timing.step("dirty-enumerate");
+    }
+
+    fn accept_edit(&mut self, edited: Value) -> Result<(), String> {
+        if edited != self.selected.raw {
+            let (level, byte_count) = self.prepare_edit(&edited)?;
+            self.install_edit(edited, level, byte_count);
+        }
         Ok(())
     }
 
@@ -589,3 +607,7 @@ impl Document {
 #[cfg(test)]
 #[path = "tests/document_memory.rs"]
 mod memory_tests;
+
+#[cfg(test)]
+#[path = "tests/script_publication.rs"]
+mod script_publication_tests;

@@ -100,13 +100,14 @@ impl App {
                     return Err("The scene changed; reopen the transform sheet".into());
                 }
                 let pose = draft.transform()?;
-                let preview = document.preview_transform(draft.id, pose)?;
+                let (candidate, preview) = document.transform_candidate(draft.id, pose)?;
+                self.check_focused_edit(&candidate)?;
                 if action == Action::TransformApply {
-                    let id = draft.id;
+                    let expected = draft.expected.clone();
                     self.document
                         .as_mut()
                         .ok_or("Open a project first")?
-                        .set_transform(id, pose)?;
+                        .apply_authoring_edit(&expected, candidate)?;
                     self.popup = None;
                     self.changed();
                     self.status = "Complete transform applied as one undo step.".into();

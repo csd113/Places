@@ -168,10 +168,12 @@ impl App {
         self.preview_audio.clear_world();
         self.sound_preview_until = None;
         self.invalidate_navigation();
+        self.focus = focus::Focus::default();
+        self.reset_map_selection();
+        self.viewport.set_focus(self.focus.clone());
         self.viewport.rebuild(document.level());
         self.viewport.frame_next_preview();
         self.document = Some(document);
-        self.focus = focus::Focus::default();
         self.placement = None;
         self.wall_drag = None;
         self.cancel_safety();
@@ -196,6 +198,29 @@ impl App {
             },
         );
         Ok(())
+    }
+
+    // Object indices and authoring drafts belong to one map identity. Layer
+    // visibility is a session preference, but isolation never crosses maps.
+    fn reset_map_selection(&mut self) {
+        self.focus.isolated = None;
+        self.selected = None;
+        self.object_scroll = 0;
+        self.object_query.clear();
+        self.ui_focus = None;
+        self.ui_return_focus = None;
+        self.popup = None;
+        self.translation = None;
+        self.elevators = elevators::State::default();
+        self.placement = None;
+        self.wall_drag = None;
+        self.behavior = None;
+        self.template = None;
+        self.flicker = None;
+        self.component_selection = component_actions::Selection::default();
+        self.lighting = lighting::Draft::default();
+        self.preview_audio.clear_world();
+        self.sound_preview_until = None;
     }
 
     fn changed(&mut self) {
