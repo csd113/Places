@@ -9290,8 +9290,8 @@ for UI operations and source-only gaps.
 
 The `janitor_closet` theme registers 15 models as `janitor:<name>` plus the
 `janitor:folded_towel_blue` shared-mesh tint preset. The delivered
-`assets/janitor_closet/{models,textures}/` paths use the ordinary prop class;
-there is no new runtime subsystem. See `assets/janitor_closet/README.md` for
+`assets/environments/janitor_closet/{models,textures}/` paths use the ordinary prop class;
+there is no new runtime subsystem. See `assets/environments/janitor_closet/README.md` for
 base pivots, shelf contacts, open-compound item collision, player collision and
 portable item profiles in the strict gameplay sidecar.
 

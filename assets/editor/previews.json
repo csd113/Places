@@ -1765,82 +1765,82 @@
   "janitor:cardboard_supply_box": {
     "path": "editor/previews/2ff5b6b0278f8bd8eb728c47.png",
     "sha256": "ffb9d36d3286003fa4c3fb624894e444ae98fb977f7bc1a88240039826ae8663",
-    "source": "janitor_closet/models/cardboard_supply_box.glb"
+    "source": "environments/janitor_closet/models/cardboard_supply_box.glb"
   },
   "janitor:cleaner_jug": {
     "path": "editor/previews/9d450c43e52353e9a132e808.png",
     "sha256": "62f7ff12b77a871c4a53b4d10a8f04b46779962e2d1916d2bddf330351b27595",
-    "source": "janitor_closet/models/cleaner_jug.glb"
+    "source": "environments/janitor_closet/models/cleaner_jug.glb"
   },
   "janitor:detergent_bottle": {
     "path": "editor/previews/9d26ecafa5139c29b03e4453.png",
     "sha256": "62fe70065cb9d91bd3cf26bf318c1a4b992cd383cfca4d054aee16d624aa95f6",
-    "source": "janitor_closet/models/detergent_bottle.glb"
+    "source": "environments/janitor_closet/models/detergent_bottle.glb"
   },
   "janitor:folded_towel": {
     "path": "editor/previews/afa895280f3b6ed1b739159d.png",
     "sha256": "86bd98e9bc6192857aec39b43839088ba77c8e5a83cbcd34949b417e4b23d624",
-    "source": "janitor_closet/models/folded_towel.glb"
+    "source": "environments/janitor_closet/models/folded_towel.glb"
   },
   "janitor:folded_towel_blue": {
     "path": "editor/previews/22e1a6bfbcf16e8408f9eb84.png",
     "sha256": "86bd98e9bc6192857aec39b43839088ba77c8e5a83cbcd34949b417e4b23d624",
-    "source": "janitor_closet/models/folded_towel.glb"
+    "source": "environments/janitor_closet/models/folded_towel.glb"
   },
   "janitor:janitor_cart": {
     "path": "editor/previews/ec14d6bb781cd7152e4b1e2e.png",
     "sha256": "81d5e3bdd5f20933a1f62088821e5add7f15623c92f7353c40985edacdd22d34",
-    "source": "janitor_closet/models/janitor_cart.glb"
+    "source": "environments/janitor_closet/models/janitor_cart.glb"
   },
   "janitor:lidded_storage_bin": {
     "path": "editor/previews/1802145987df9d6f1650bdd1.png",
     "sha256": "f8f6253523c85510ce28d906f03b54b16e28d8b57bacb0f5ecedf070536711a3",
-    "source": "janitor_closet/models/lidded_storage_bin.glb"
+    "source": "environments/janitor_closet/models/lidded_storage_bin.glb"
   },
   "janitor:metal_storage_rack": {
     "path": "editor/previews/01e48ff5d49729f4ae35c763.png",
     "sha256": "2476c851c0e816f8d7b249881733d8ca4ddcc741f046bcc85b85203d59bab110",
-    "source": "janitor_closet/models/metal_storage_rack.glb"
+    "source": "environments/janitor_closet/models/metal_storage_rack.glb"
   },
   "janitor:mop_wringer_bucket": {
     "path": "editor/previews/5a09271669385a7573ead9a2.png",
     "sha256": "c3509e06139a035aa6730f573b577b91a1cf957c974efe4beaaa573afc808a69",
-    "source": "janitor_closet/models/mop_wringer_bucket.glb"
+    "source": "environments/janitor_closet/models/mop_wringer_bucket.glb"
   },
   "janitor:paper_towel_roll": {
     "path": "editor/previews/5f73613259e19ab2da61d087.png",
     "sha256": "9e4f26bb556bf3bd5dd4750e4d0cb6d018ea159d1328d1485d2b89a454d993b4",
-    "source": "janitor_closet/models/paper_towel_roll.glb"
+    "source": "environments/janitor_closet/models/paper_towel_roll.glb"
   },
   "janitor:perforated_supply_crate": {
     "path": "editor/previews/2b893a8eeb5fc4e457ff8b9a.png",
     "sha256": "6dec6657ff84543c9a20ff46e9de04c0d1aa7d72a859c8083dcd9f51e9b4e297",
-    "source": "janitor_closet/models/perforated_supply_crate.glb"
+    "source": "environments/janitor_closet/models/perforated_supply_crate.glb"
   },
   "janitor:spray_cleaner_bottle": {
     "path": "editor/previews/25024f38fcc5aaa2324d1ada.png",
     "sha256": "d5ef9b2a29a498eb3dcc0881debd092c865cdaf4ac81354bd29e30a96efb1159",
-    "source": "janitor_closet/models/spray_cleaner_bottle.glb"
+    "source": "environments/janitor_closet/models/spray_cleaner_bottle.glb"
   },
   "janitor:string_mop": {
     "path": "editor/previews/e6746bfe603390b801fdcd99.png",
     "sha256": "0a95047faf0f070fd9f285010ca6f38e0a383616b6fb57f257acc1ddf4d8a2c4",
-    "source": "janitor_closet/models/string_mop.glb"
+    "source": "environments/janitor_closet/models/string_mop.glb"
   },
   "janitor:toilet_paper_roll": {
     "path": "editor/previews/e56759c6956695c393af3ca0.png",
     "sha256": "58077c83fba7ffff4fb8897f83a0bf27664153ad7d8040bfdded3866e177ef97",
-    "source": "janitor_closet/models/toilet_paper_roll.glb"
+    "source": "environments/janitor_closet/models/toilet_paper_roll.glb"
   },
   "janitor:utility_sink": {
     "path": "editor/previews/3990badfd9799b9d6ab5d7d6.png",
     "sha256": "adca3c9d023a9e120637ccb87cf756430cfbcbe869b3bf54f6c7fd21b487fc47",
-    "source": "janitor_closet/models/utility_sink.glb"
+    "source": "environments/janitor_closet/models/utility_sink.glb"
   },
   "janitor:wet_floor_sign": {
     "path": "editor/previews/f12a7b1b402846503a470b9a.png",
     "sha256": "3063fcf0a7c0b27a361838d879c8a65bb4f5fb303957d752644ad297e44fbc2d",
-    "source": "janitor_closet/models/wet_floor_sign.glb"
+    "source": "environments/janitor_closet/models/wet_floor_sign.glb"
   },
   "mannequin": {
     "path": "editor/previews/0e41c7d8c0dbe214604fe5b0.png",

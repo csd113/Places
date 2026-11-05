@@ -232,7 +232,7 @@ readability/crosshair/safety implementation is included.
 | Replaced | 32 Home | `assets/environments/home/props/` |
 | Replaced | 5 shared | `assets/shared/props/`: cardboard box, ceiling diffuser, crate, EXIT and STOP signs |
 | Replaced, material metadata adapted | 1 duck | `assets/environments/pool/props/rubber_duck.{glb,png}` |
-| New | 15 Janitor / Supplies | `assets/janitor_closet/{models,textures}/`, `janitor:` catalogue IDs |
+| New | 15 Janitor / Supplies | `assets/environments/janitor_closet/{models,textures}/`, `janitor:` catalogue IDs |
 | Already adopted, exact hashes reverified | 4 | Drinks R2, snack machine, winter straight/corner railing **assemblies** |
 | Replaced after motion approval | 1 mannequin | `assets/entities/mannequin/{model,textures}/`; both existing presets |
 | Excluded | 1 candidate | Rejected newer Spoonerman; current in-game export retained |
@@ -283,7 +283,7 @@ and the Pool showcase's scale/mass/profile are unchanged. No analytic bobbing
 replaces physical water response.
 
 Janitor models use the ordinary supported GLB/PNG/catalogue architecture.
-`assets/janitor_closet/README.md` documents shelf contacts, source pivots and
+`assets/environments/janitor_closet/README.md` documents shelf contacts, source pivots and
 economical item colliders. `assets/gameplay.json` holds reusable profiles:
 fixed open rack/sink compounds, movable cart/bucket without pickup, and portable
 supplies with pickup. Sign hull points are relative to the model bounds centre;
@@ -3032,7 +3032,7 @@ sources. CI and desktop source checks use the collection manifest and Luau link
 checks instead of requiring retired generator-owned JSON. No full-map bake was
 added to CI. Root `levels/*.json` stays ignored to prevent accidental reintroduction.
 
-Runtime packaging now includes `assets/janitor_closet/`, required by Pool.
+Runtime packaging now includes `assets/environments/janitor_closet/`, required by Pool.
 External-map export validates discovery against every declared package member,
 rather than assuming one playable ID per file. Both flat and macOS bundle
 exports retain every janitor resource and the exact accepted collection archive.

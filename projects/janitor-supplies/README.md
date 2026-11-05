@@ -16,5 +16,5 @@ The sink's player height is the .89 m rim, below its decorative faucet.
 
 Build/export explicitly with `places-compile export-project`; this project is
 never a required test or CI bake. Runtime assets live under
-`assets/janitor_closet/`, profiles under `assets/gameplay.json`, and editable
+`assets/environments/janitor_closet/`, profiles under `assets/gameplay.json`, and editable
 Blender/GIMP source/checklists are preserved in the Downloads integration folder.

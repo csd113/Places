@@ -2534,7 +2534,7 @@ art-budget review, below the ordinary 6,000 engine ceiling. Existing collision,
 mass and physical buoyancy are unchanged. The supplied 51e672fc… checksum is the
 raw GLB checksum; the original ZIP checksum is e57c3bb9….
 
-`assets/janitor_closet/models/` and `textures/` preserve the new delivery's
+`assets/environments/janitor_closet/models/` and `textures/` preserve the new delivery's
 structure. These are existing model/prop classes with opaque fitted, clamped
 PNGs, metre scale, +Y up, +Z front and delivered base pivots. The shared
 1024² atlas retains surface grain and small fitted labels; the caution print

@@ -6117,7 +6117,7 @@
       0.10499999672174454
     ]
   },
-  "janitor_closet/models/cardboard_supply_box.glb": {
+  "environments/janitor_closet/models/cardboard_supply_box.glb": {
     "sha256": "ffb9d36d3286003fa4c3fb624894e444ae98fb977f7bc1a88240039826ae8663",
     "triangles": 80,
     "texture_edge": 1024,
@@ -6135,7 +6135,7 @@
       0.13700000941753387
     ]
   },
-  "janitor_closet/models/cleaner_jug.glb": {
+  "environments/janitor_closet/models/cleaner_jug.glb": {
     "sha256": "62f7ff12b77a871c4a53b4d10a8f04b46779962e2d1916d2bddf330351b27595",
     "triangles": 266,
     "texture_edge": 1024,
@@ -6153,7 +6153,7 @@
       0.060499999672174454
     ]
   },
-  "janitor_closet/models/detergent_bottle.glb": {
+  "environments/janitor_closet/models/detergent_bottle.glb": {
     "sha256": "62fe70065cb9d91bd3cf26bf318c1a4b992cd383cfca4d054aee16d624aa95f6",
     "triangles": 204,
     "texture_edge": 1024,
@@ -6171,7 +6171,7 @@
       0.047970000654459
     ]
   },
-  "janitor_closet/models/folded_towel.glb": {
+  "environments/janitor_closet/models/folded_towel.glb": {
     "sha256": "86bd98e9bc6192857aec39b43839088ba77c8e5a83cbcd34949b417e4b23d624",
     "triangles": 112,
     "texture_edge": 1024,
@@ -6190,7 +6190,7 @@
       0.1379999965429306
     ]
   },
-  "janitor_closet/models/janitor_cart.glb": {
+  "environments/janitor_closet/models/janitor_cart.glb": {
     "sha256": "81d5e3bdd5f20933a1f62088821e5add7f15623c92f7353c40985edacdd22d34",
     "triangles": 1616,
     "texture_edge": 1024,
@@ -6208,7 +6208,7 @@
       0.23100000619888306
     ]
   },
-  "janitor_closet/models/lidded_storage_bin.glb": {
+  "environments/janitor_closet/models/lidded_storage_bin.glb": {
     "sha256": "f8f6253523c85510ce28d906f03b54b16e28d8b57bacb0f5ecedf070536711a3",
     "triangles": 304,
     "texture_edge": 1024,
@@ -6226,7 +6226,7 @@
       0.1770000010728836
     ]
   },
-  "janitor_closet/models/metal_storage_rack.glb": {
+  "environments/janitor_closet/models/metal_storage_rack.glb": {
     "sha256": "2476c851c0e816f8d7b249881733d8ca4ddcc741f046bcc85b85203d59bab110",
     "triangles": 1784,
     "texture_edge": 1024,
@@ -6244,7 +6244,7 @@
       0.27250000834465027
     ]
   },
-  "janitor_closet/models/mop_wringer_bucket.glb": {
+  "environments/janitor_closet/models/mop_wringer_bucket.glb": {
     "sha256": "c3509e06139a035aa6730f573b577b91a1cf957c974efe4beaaa573afc808a69",
     "triangles": 2578,
     "texture_edge": 1024,
@@ -6262,7 +6262,7 @@
       0.19099999964237213
     ]
   },
-  "janitor_closet/models/paper_towel_roll.glb": {
+  "environments/janitor_closet/models/paper_towel_roll.glb": {
     "sha256": "9e4f26bb556bf3bd5dd4750e4d0cb6d018ea159d1328d1485d2b89a454d993b4",
     "triangles": 524,
     "texture_edge": 1024,
@@ -6280,7 +6280,7 @@
       0.07540000230073929
     ]
   },
-  "janitor_closet/models/perforated_supply_crate.glb": {
+  "environments/janitor_closet/models/perforated_supply_crate.glb": {
     "sha256": "6dec6657ff84543c9a20ff46e9de04c0d1aa7d72a859c8083dcd9f51e9b4e297",
     "triangles": 2508,
     "texture_edge": 1024,
@@ -6298,7 +6298,7 @@
       0.14249999821186066
     ]
   },
-  "janitor_closet/models/spray_cleaner_bottle.glb": {
+  "environments/janitor_closet/models/spray_cleaner_bottle.glb": {
     "sha256": "d5ef9b2a29a498eb3dcc0881debd092c865cdaf4ac81354bd29e30a96efb1159",
     "triangles": 242,
     "texture_edge": 1024,
@@ -6316,7 +6316,7 @@
       0.039500001817941666
     ]
   },
-  "janitor_closet/models/string_mop.glb": {
+  "environments/janitor_closet/models/string_mop.glb": {
     "sha256": "0a95047faf0f070fd9f285010ca6f38e0a383616b6fb57f257acc1ddf4d8a2c4",
     "triangles": 1060,
     "texture_edge": 1024,
@@ -6334,7 +6334,7 @@
       0.1260540783405304
     ]
   },
-  "janitor_closet/models/toilet_paper_roll.glb": {
+  "environments/janitor_closet/models/toilet_paper_roll.glb": {
     "sha256": "58077c83fba7ffff4fb8897f83a0bf27664153ad7d8040bfdded3866e177ef97",
     "triangles": 524,
     "texture_edge": 1024,
@@ -6352,7 +6352,7 @@
       0.06239999830722809
     ]
   },
-  "janitor_closet/models/utility_sink.glb": {
+  "environments/janitor_closet/models/utility_sink.glb": {
     "sha256": "adca3c9d023a9e120637ccb87cf756430cfbcbe869b3bf54f6c7fd21b487fc47",
     "triangles": 964,
     "texture_edge": 1024,
@@ -6370,7 +6370,7 @@
       0.26499998569488525
     ]
   },
-  "janitor_closet/models/wet_floor_sign.glb": {
+  "environments/janitor_closet/models/wet_floor_sign.glb": {
     "sha256": "3063fcf0a7c0b27a361838d879c8a65bb4f5fb303957d752644ad297e44fbc2d",
     "triangles": 606,
     "texture_edge": 1024,

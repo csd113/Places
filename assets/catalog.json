@@ -10975,7 +10975,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/cardboard_supply_box.glb",
+      "model": "environments/janitor_closet/models/cardboard_supply_box.glb",
       "size": [
         0.340001,
         0.282501,
@@ -10988,7 +10988,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:cleaner_jug",
@@ -10997,7 +10997,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/cleaner_jug.glb",
+      "model": "environments/janitor_closet/models/cleaner_jug.glb",
       "size": [
         0.166,
         0.315501,
@@ -11010,7 +11010,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:detergent_bottle",
@@ -11019,7 +11019,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/detergent_bottle.glb",
+      "model": "environments/janitor_closet/models/detergent_bottle.glb",
       "size": [
         0.116,
         0.2655,
@@ -11032,7 +11032,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:folded_towel",
@@ -11041,7 +11041,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/folded_towel.glb",
+      "model": "environments/janitor_closet/models/folded_towel.glb",
       "size": [
         0.360001,
         0.057001,
@@ -11054,7 +11054,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:janitor_cart",
@@ -11063,7 +11063,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/janitor_cart.glb",
+      "model": "environments/janitor_closet/models/janitor_cart.glb",
       "size": [
         0.730001,
         0.9375,
@@ -11076,7 +11076,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:lidded_storage_bin",
@@ -11085,7 +11085,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/lidded_storage_bin.glb",
+      "model": "environments/janitor_closet/models/lidded_storage_bin.glb",
       "size": [
         0.445,
         0.345,
@@ -11098,7 +11098,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:metal_storage_rack",
@@ -11107,7 +11107,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/metal_storage_rack.glb",
+      "model": "environments/janitor_closet/models/metal_storage_rack.glb",
       "size": [
         1.230001,
         1.9,
@@ -11120,7 +11120,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:mop_wringer_bucket",
@@ -11129,7 +11129,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/mop_wringer_bucket.glb",
+      "model": "environments/janitor_closet/models/mop_wringer_bucket.glb",
       "size": [
         0.480001,
         0.978944,
@@ -11142,7 +11142,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:paper_towel_roll",
@@ -11151,7 +11151,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/paper_towel_roll.glb",
+      "model": "environments/janitor_closet/models/paper_towel_roll.glb",
       "size": [
         0.151551,
         0.280001,
@@ -11164,7 +11164,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:perforated_supply_crate",
@@ -11173,7 +11173,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/perforated_supply_crate.glb",
+      "model": "environments/janitor_closet/models/perforated_supply_crate.glb",
       "size": [
         0.340001,
         0.281,
@@ -11186,7 +11186,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:spray_cleaner_bottle",
@@ -11195,7 +11195,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/spray_cleaner_bottle.glb",
+      "model": "environments/janitor_closet/models/spray_cleaner_bottle.glb",
       "size": [
         0.126001,
         0.253,
@@ -11208,7 +11208,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:string_mop",
@@ -11217,7 +11217,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/string_mop.glb",
+      "model": "environments/janitor_closet/models/string_mop.glb",
       "size": [
         0.256564,
         1.513582,
@@ -11230,7 +11230,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:toilet_paper_roll",
@@ -11239,7 +11239,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/toilet_paper_roll.glb",
+      "model": "environments/janitor_closet/models/toilet_paper_roll.glb",
       "size": [
         0.125628,
         0.105,
@@ -11252,7 +11252,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:utility_sink",
@@ -11261,7 +11261,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/utility_sink.glb",
+      "model": "environments/janitor_closet/models/utility_sink.glb",
       "size": [
         0.670001,
         1.114001,
@@ -11274,7 +11274,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:wet_floor_sign",
@@ -11283,7 +11283,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/wet_floor_sign.glb",
+      "model": "environments/janitor_closet/models/wet_floor_sign.glb",
       "size": [
         0.305001,
         0.61041,
@@ -11296,7 +11296,7 @@
         "tool": "completed",
         "source": "completed-models.json"
       },
-      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/janitor_closet/README.md for placement and collider approximations."
+      "description": "Delivered static utility-room model; +Y up, +Z front, metre scale and original base pivot. See assets/environments/janitor_closet/README.md for placement and collider approximations."
     },
     {
       "id": "janitor:folded_towel_blue",
@@ -11305,7 +11305,7 @@
       "theme": "janitor_closet",
       "asset_type": "prop",
       "source": "file",
-      "model": "janitor_closet/models/folded_towel.glb",
+      "model": "environments/janitor_closet/models/folded_towel.glb",
       "size": [
         0.360001,
         0.057001,

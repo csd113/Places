@@ -218,7 +218,7 @@ if [ "$WITH_EDITOR" = 1 ]; then
     cp -R "$REPO/assets/editor" "$STAGE/Places/assets/editor"
 fi
 # References and master source artwork belong to authoring, not runtime exports.
-for directory in shared environments entities diagnostic janitor_closet; do
+for directory in shared environments entities diagnostic; do
     cp -R "$REPO/assets/$directory" "$STAGE/Places/assets/$directory"
 done
 rm -rf "$STAGE/Places/assets/shared/branding"

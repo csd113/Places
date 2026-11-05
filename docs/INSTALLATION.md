@@ -80,7 +80,7 @@ Places/
   MACOS_RUNTIME.json         runtime identity and ad-hoc signing receipt
   assets/
     catalog.json, gameplay.json
-    shared/, environments/, entities/, diagnostic/, janitor_closet/, audio/
+    shared/, environments/, entities/, diagnostic/, audio/
     levels/                  optional compiled .placesmap files
   docs/INSTALLATION.md
   THIRD_PARTY_LICENSES.txt
@@ -218,7 +218,7 @@ PLACES_ASSET_ROOT="$PWD/assets" PLACES_LEVEL=hub ./target/release/places
 For an installation export, use `sh tools/package.sh --maps assets/levels
 <export-parent>` after the existing verified collection is installed in that
 directory. This validates and copies packages without baking. Include the
-`janitor_closet/` resources used by Pool; the exporter now carries them alongside
+`environments/janitor_closet/` resources used by Pool; the exporter now carries them alongside
 the other catalog resources. Keep user-imported maps and recovery copies intact;
 the repository retirement does not delete anyone's installed user maps.
 

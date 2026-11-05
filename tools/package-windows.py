@@ -127,7 +127,7 @@ def main() -> int:
         (assets/'levels').mkdir(parents=True)
         for name in ('catalog.json', 'gameplay.json'):
             shutil.copyfile(ROOT/'assets'/name, assets/name)
-        for name in ('audio', 'shared', 'environments', 'entities', 'diagnostic', 'janitor_closet'):
+        for name in ('audio', 'shared', 'environments', 'entities', 'diagnostic'):
             shutil.copytree(ROOT/'assets'/name, assets/name,
                             ignore=shutil.ignore_patterns('*_master.png', '*.blend', '*.blend1',
                                                          'CABINET_ARTWORK_PROMPTS.md', '__pycache__'))
