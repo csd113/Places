@@ -212,15 +212,8 @@ impl Session {
             return Ok(());
         }
         self.advance_presentation(seconds, renderer);
-        if let Some((cue, gain)) = self.audio.footstep(&mut self.game, &self.physics.world) {
-            let _played = audio.play(
-                cue,
-                crate::engine::audio::PlayRequest {
-                    gain,
-                    time_domain: crate::engine::audio::TimeDomain::Real,
-                    ..crate::engine::audio::PlayRequest::default()
-                },
-            );
+        if let Some(step) = self.audio.footstep(&mut self.game, &self.physics.world) {
+            let _played = audio.play(step.cue, step.request());
         }
         self.audio.update_doors(
             self.game.doors(),
@@ -404,7 +397,21 @@ impl Session {
         )
     }
     pub fn snapshot(&self) -> serde_json::Value {
+        let stimuli: Vec<_> = self.game.entities().stimuli().iter().map(|noise| serde_json::json!({
+            "position":noise.position.to_array(),"radius":noise.audible_radius(0.0),
+            "category":noise.category,"source":noise.source.map(|handle|[handle.index(),handle.generation()]),
+            "age":noise.age,"stance":noise.player_movement,"serial":noise.movement_serial,
+        })).collect();
+        let agents: Vec<_> = self.game.entities().ai().agents().iter().map(|agent| serde_json::json!({
+            "id":agent.instance_id,"position":agent.position.to_array(),"clock":agent.clock,
+            "perception_phase_time":agent.last_perception_at,
+            "typed_sense_sample_time":agent.next_task_sense - crate::engine::ai::PERCEPTION_INTERVAL_S,
+            "contact":agent.contact.as_ref().map(|contact|serde_json::json!({"position":contact.position.to_array(),"heard_only":contact.heard_only,"age":contact.age,"role":contact.role})),
+            "tasks":agent.controller.runs.iter().map(|run|serde_json::json!({"key":run.request.key,"serial":run.token.serial})).collect::<Vec<_>>(),
+        })).collect();
+        let hearing = serde_json::json!({"time":self.game.entities().sim_time(),"stimuli":stimuli,"agents":agents});
         serde_json::json!({
+            "hearing": hearing,
             "eye": self.game.player_position.to_array(),
             "yaw": self.game.player_yaw,
             "pitch": self.game.player_pitch,

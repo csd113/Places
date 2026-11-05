@@ -74,6 +74,16 @@ pub enum AudioBus {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SourceId(pub u64);
 
+/// Which system publishes this playback's gameplay perception event.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+pub enum PerceptionOwner {
+    /// Ordinary sounds are observed when the backend accepts playback.
+    #[default]
+    Playback,
+    /// Gameplay has already published the semantic event, even if playback fails.
+    Gameplay { event: u64 },
+}
+
 /// One preloaded cue playback request. No paths are accepted at playback time.
 #[derive(Clone, Copy, Debug)]
 pub struct PlayRequest {
@@ -93,6 +103,8 @@ pub struct PlayRequest {
     pub time_domain: TimeDomain,
     /// Volume category.
     pub bus: AudioBus,
+    /// Explicit provenance; prevents a semantic event acquiring a backend echo.
+    pub perception: PerceptionOwner,
 }
 
 impl Default for PlayRequest {
@@ -106,6 +118,7 @@ impl Default for PlayRequest {
             attenuation: None,
             time_domain: TimeDomain::World,
             bus: AudioBus::Effects,
+            perception: PerceptionOwner::Playback,
         }
     }
 }
@@ -290,6 +303,7 @@ pub struct SoundEvent {
     pub gain: f32,
     pub max_distance: f32,
     pub looping: bool,
+    pub perception: PerceptionOwner,
 }
 
 /// Device-free library ownership, transferable to the existing preparation worker.

@@ -304,15 +304,22 @@ impl EntityWorld {
         }
     }
     pub fn observe_audio_start(&mut self, event: crate::engine::audio::SoundEvent) {
-        if event.looping || event.gain <= 0.0 {
+        if matches!(
+            event.perception,
+            crate::engine::audio::PerceptionOwner::Gameplay { event: _ }
+        ) || event.looping
+            || event.gain <= 0.0
+        {
             return;
         }
         let position = Vec3::from_array(event.position);
-        if self
-            .stimuli
-            .iter()
-            .any(|noise| noise.age < 0.05 && noise.position.distance_squared(position) < 0.04)
-        {
+        if self.stimuli.iter().any(|noise| {
+            // Player footsteps own their backend echo explicitly. They
+            // cannot serve as proximity keys for a different sound.
+            noise.player_movement.is_none()
+                && noise.age < 0.05
+                && noise.position.distance_squared(position) < 0.04
+        }) {
             return;
         }
         let source = event

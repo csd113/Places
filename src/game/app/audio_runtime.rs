@@ -99,6 +99,25 @@ impl FrameLoop<'_> {
         false
     }
 
+    fn play_player_footstep(&mut self) {
+        if let Some(step) = self.audio.world.footstep(self.game, &self.items.world) {
+            let request = step.request();
+            let played = self.audio.system.play(step.cue, request);
+            if self.bench.enabled() {
+                self.trace.record(
+                    "player_footstep",
+                    self.load_generation,
+                    &serde_json::json!({
+                        "cue":step.cue,"origin":step.origin.to_array(),"stance":step.movement,"serial":step.serial,
+                        "radius":step.movement.radius(),"gain":request.gain,"played":played,
+                        "sim_time":self.game.entities().sim_time(),
+                    })
+                    .to_string(),
+                );
+            }
+        }
+    }
+
     pub(super) fn update_game_audio(&mut self) {
         let active = self.gameplay_active();
         self.audio
@@ -127,9 +146,7 @@ impl FrameLoop<'_> {
                     TimeDomain::Real,
                 );
             }
-            if let Some((cue, gain)) = self.audio.world.footstep(self.game, &self.items.world) {
-                self.play_game_sound(cue, None, gain, TimeDomain::Real);
-            }
+            self.play_player_footstep();
             self.audio.world.update_doors(
                 self.game.doors(),
                 self.game.delta_seconds(),
@@ -269,6 +286,7 @@ impl FrameLoop<'_> {
                     } else {
                         AudioBus::Effects
                     },
+                    perception: crate::engine::audio::PerceptionOwner::Playback,
                 },
             );
         if self.bench.enabled() {

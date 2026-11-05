@@ -696,6 +696,7 @@ impl NativeAudio {
             gain,
             max_distance,
             looping,
+            perception: request.perception,
         });
     }
 

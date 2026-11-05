@@ -9743,3 +9743,37 @@ export/recovery. Compiled rendering uses ordinary decal fields and optional
 overrides/locks and remembers manual deletions; manual copies are independent.
 See EDITOR.md for presets, controls, conservative receiver restrictions and
 per-scope bounds. Architecture, collision, openings and lighting stay intact.
+
+
+### Player movement sound and hearing (0.13.1)
+
+Normal walking emits a gameplay `movement` footstep with a hard 15 m outer
+radius; crouch walking emits one with a hard 1 m outer radius. Both remain audible,
+with the existing quieter crouch mix. Detection radius is independent of playback
+gain, master/effects volume, device availability and voice admission. The event
+origin is the actual collision hull center (feet plus half its current height),
+not the camera. Receivers retain their existing agent-position anchor and use
+inclusive three-dimensional distance, with no collider/sight padding or new
+hearing occlusion raycast.
+
+These are emission maxima. Authored generic `hearing_range` and typed Hear
+`radius` remain capability caps; zero generic hearing stays disabled, while an
+explicit typed Hear rule can independently enable its selected categories.
+No shipped AI hearing is automatically enabled. Generic and typed listeners use
+the same geometric eligibility and one player-sourced event. Backend playback
+is explicitly marked as already owned by gameplay. A player footstep is never
+a proximity key for suppressing an unrelated sound, even at the same center.
+Unrelated sounds keep their
+existing categories, fading, looping and source behavior.
+
+Stance is sampled from the actual collision hull at each footstep. Ground duck
+uses its existing transition; blocked expansion remains crouched after key
+release. A past step retains its emitted stance, center and fixed radius for
+the existing three-second stimulus lifetime, so crouching/stopping is not an
+instant erasure of an earlier walking sound. Stopping and wall-blocked movement
+produce no new footsteps without actual planar travel. World-local event IDs shared with playback provenance and typed response memory
+prevent repeated evaluation from creating another task for that old step, even
+when a long-running world’s floating-point clock loses timestamp precision;
+already perceived AI investigation/task memory can outlive the sound. Pausing
+resets travel accumulation; recovery and world replacement discard stale events.
+NPC footsteps and all non-player sounds retain their existing age falloff.

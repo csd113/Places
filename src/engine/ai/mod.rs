@@ -3095,6 +3095,8 @@ fn release_noise(agent: &mut AiAgent, out: &mut AiOutcome) -> u64 {
         category: "movement".to_string(),
         source: Some(agent.handle),
         age: 0.0,
+        player_movement: None,
+        movement_serial: None,
     });
     1
 }

@@ -34,6 +34,33 @@ struct DoorState {
     cooldown: f32,
 }
 
+/// One semantic footstep, shared by player playback and editor Play/Test.
+#[derive(Debug, Clone, Copy)]
+pub struct PlayerFootstep {
+    pub cue: &'static str,
+    pub origin: Vec3,
+    pub movement: crate::engine::ai::perception::PlayerMovement,
+    pub serial: u64,
+}
+
+impl PlayerFootstep {
+    /// Preserve surface mix/cadence, with walking louder than crouch walking.
+    #[must_use]
+    pub fn request(self) -> PlayRequest {
+        PlayRequest {
+            position: Some(self.origin),
+            spatial: Some(false),
+            gain: match self.movement {
+                crate::engine::ai::perception::PlayerMovement::Walking => 0.65,
+                crate::engine::ai::perception::PlayerMovement::Crouched => 0.35,
+            },
+            time_domain: TimeDomain::Real,
+            perception: crate::engine::audio::PerceptionOwner::Gameplay { event: self.serial },
+            ..PlayRequest::default()
+        }
+    }
+}
+
 impl WorldAudio {
     /// A short in-car motor cue follows the sealed ride, never idle door closure.
     pub fn update_elevator_ride(&mut self, game: &Game, active: bool, system: &mut AudioSystem) {
@@ -185,6 +212,7 @@ impl WorldAudio {
                         attenuation: Some([spec.near, spec.far]),
                         time_domain: TimeDomain::Real,
                         bus: AudioBus::Ambient,
+                        perception: crate::engine::audio::PerceptionOwner::Playback,
                     },
                 );
             }
@@ -198,7 +226,7 @@ impl WorldAudio {
         }
     }
 
-    pub fn footstep(&mut self, game: &mut Game, items: &ItemWorld) -> Option<(&'static str, f32)> {
+    pub fn footstep(&mut self, game: &mut Game, items: &ItemWorld) -> Option<PlayerFootstep> {
         let feet = Vec3::new(
             game.player_position.x,
             game.feet_y(),
@@ -216,6 +244,10 @@ impl WorldAudio {
             self.distance = 0.0;
             return None;
         }
+        // A shorter crouch stride cannot release buffered travel while at rest.
+        if travel <= 0.0 {
+            return None;
+        }
         self.distance += travel;
         let stride = if game.is_crouched() { 0.8 } else { 1.35 };
         if self.distance < stride {
@@ -229,17 +261,19 @@ impl WorldAudio {
                 .floor_material_at(feet)
                 .map_or(SurfaceMaterial::Hard, SurfaceMaterial::from_material_id)
         };
-        let crouched = game.is_crouched();
-        game.entities_mut().note_stimulus(
-            feet,
-            if crouched { 1.5 } else { 6.0 },
-            "movement",
-            Some(crate::engine::ai::PLAYER_TARGET_HANDLE),
-        );
-        Some((
-            footstep_cue(surface),
-            if game.is_crouched() { 0.35 } else { 0.65 },
-        ))
+        let movement = if game.is_crouched() {
+            crate::engine::ai::perception::PlayerMovement::Crouched
+        } else {
+            crate::engine::ai::perception::PlayerMovement::Walking
+        };
+        let origin = Vec3::new(feet.x, game.body_height().mul_add(0.5, feet.y), feet.z);
+        let serial = game.entities_mut().note_player_footstep(origin, movement);
+        Some(PlayerFootstep {
+            cue: footstep_cue(surface),
+            origin,
+            movement,
+            serial,
+        })
     }
 
     pub fn update_doors(

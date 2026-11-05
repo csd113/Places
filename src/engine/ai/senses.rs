@@ -11,6 +11,7 @@ pub struct SenseMemory {
     handle: Option<EntityHandle>,
     stamp: f32,
     cursor: usize,
+    movement_serial: Option<u64>,
 }
 impl Default for SenseMemory {
     fn default() -> Self {
@@ -18,6 +19,7 @@ impl Default for SenseMemory {
             handle: None,
             stamp: f32::NEG_INFINITY,
             cursor: 0,
+            movement_serial: None,
         }
     }
 }
@@ -87,25 +89,35 @@ pub fn tick(
         .resize_with(agent.def.senses.len(), SenseMemory::default);
     for (index, rule) in agent.def.senses.iter().enumerate() {
         let memory = agent.sense_memory.get(index);
+        let mut observed_movement = None;
         let observation = match &rule.filter {
             SenseFilter::Hear { categories, radius } => ctx
                 .stimuli
                 .iter()
                 .filter(|noise| {
                     noise.source != Some(agent.handle)
+                        && noise.movement_serial.is_none_or(|serial| {
+                            memory
+                                .is_none_or(|m| m.movement_serial.is_none_or(|seen| serial > seen))
+                        })
                         && (categories.is_empty()
                             || categories.iter().any(|kind| kind.matches(&noise.category)))
-                        && noise.position.distance(agent.position)
-                            <= radius.min(noise.audible_radius(0.0))
+                        && noise.heard_at(agent.position, *radius)
                 })
                 .min_by(|a, b| a.age.total_cmp(&b.age))
                 .and_then(|noise| {
                     let stamp = ctx.sim_time - noise.age;
-                    memory.is_none_or(|m| stamp > m.stamp + 0.01).then_some((
-                        noise.source,
-                        noise.position,
-                        stamp,
-                    ))
+                    // Movement identity is explicit: reconstructing it from
+                    // f32 time-age drifts in long-running worlds. Ordinary noises
+                    // retain their existing timestamp-based response policy.
+                    let fresh = noise.movement_serial.map_or_else(
+                        || memory.is_none_or(|m| stamp > m.stamp + 0.01),
+                        |serial| {
+                            observed_movement = Some(serial);
+                            true
+                        },
+                    );
+                    fresh.then_some((noise.source, noise.position, stamp))
                 }),
             SenseFilter::See {
                 player,
@@ -218,6 +230,7 @@ pub fn tick(
         if let Some(updated_memory) = agent.sense_memory.get_mut(index) {
             updated_memory.handle = handle;
             updated_memory.stamp = stamp;
+            updated_memory.movement_serial = observed_movement.or(updated_memory.movement_serial);
         }
         match &rule.response {
             SenseResponse::Investigate { seconds, radius } => out.task_requests.push((

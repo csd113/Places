@@ -526,6 +526,7 @@ pub struct EntityWorld {
     ai: AiWorld,
     /// Bounded gameplay stimuli the AI can hear.
     stimuli: std::collections::VecDeque<AiStimulus>,
+    player_step_serial: u64,
     /// Simulation seconds since the world was resolved.
     sim_time: f32,
 }
@@ -643,6 +644,7 @@ impl EntityWorld {
             animated_emissions: Vec::new(),
             ai: AiWorld::new(),
             stimuli: std::collections::VecDeque::new(),
+            player_step_serial: 0,
             sim_time: 0.0,
         }
     }
@@ -4496,6 +4498,22 @@ impl EntityWorld {
         self.stimuli.push_back(stimulus);
     }
 
+    /// Publishes a player footstep once, with one world-local identity shared by
+    /// typed hearing memory and playback provenance. Queue reset never replays it.
+    pub fn note_player_footstep(
+        &mut self,
+        position: Vec3,
+        movement: crate::engine::ai::perception::PlayerMovement,
+    ) -> u64 {
+        self.player_step_serial = self.player_step_serial.saturating_add(1);
+        self.push_stimulus(AiStimulus::player_footstep(
+            position,
+            movement,
+            self.player_step_serial,
+        ));
+        self.player_step_serial
+    }
+
     /// Convenience publisher for a stimulus at a position.
     pub fn note_stimulus(
         &mut self,
@@ -4511,6 +4529,8 @@ impl EntityWorld {
             category: category.to_string(),
             source,
             age: 0.0,
+            player_movement: None,
+            movement_serial: None,
         });
     }
 

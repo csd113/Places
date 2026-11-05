@@ -2590,9 +2590,13 @@ impl Game {
     fn solid_step_height(&self, from: Vec2, to: Vec2, feet: f32) -> Option<f32> {
         let mut top: Option<f32> = None;
         let mut too_tall = false;
-        self.collision_index
-            .for_each_disc(to.x, to.y, self.body_half(), &self.walls, |wall| {
-                if !wall.overlaps_disc(to.x, to.y, self.body_half())
+        self.collision_index.for_each_disc(
+            to.x,
+            to.y,
+            self.body_half() * std::f32::consts::SQRT_2,
+            &self.walls,
+            |wall| {
+                if !crate::engine::collision::square_overlaps_wall(to, self.body_half(), wall)
                     || wall.max_y <= feet + CONTACT_EPS
                     || wall.min_y >= feet + self.body_height() - CONTACT_EPS
                 {
@@ -2600,7 +2604,8 @@ impl Game {
                 }
                 too_tall |= wall.max_y > feet + PLAYER_STEP_HEIGHT + STEP_EPS;
                 top = Some(top.map_or(wall.max_y, |height| height.max(wall.max_y)));
-            });
+            },
+        );
         let accepted_top = top.filter(|_| !too_tall);
         if self.movement_debug {
             crate::engine::logging::warn(format_args!(

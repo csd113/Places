@@ -38,6 +38,24 @@ pub const STIMULUS_TTL_S: f32 = 3.0;
 /// Largest number of stimuli one world retains.
 pub const MAX_STIMULI: usize = 64;
 
+/// Collision stance sampled when the player actually makes a footstep.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+pub enum PlayerMovement {
+    Walking,
+    Crouched,
+}
+
+impl PlayerMovement {
+    /// Hard outer emission radius, independent of output gain and event age.
+    #[must_use]
+    pub const fn radius(self) -> f32 {
+        match self {
+            Self::Walking => 15.0,
+            Self::Crouched => 1.0,
+        }
+    }
+}
+
 /// One gameplay stimulus an agent can hear.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stimulus {
@@ -53,9 +71,37 @@ pub struct Stimulus {
     pub source: Option<EntityHandle>,
     /// Age in seconds when it was published.
     pub age: f32,
+    /// Explicit player-footstep policy; other movement/noises retain their fade.
+    pub player_movement: Option<PlayerMovement>,
+    /// World-local identity for an explicitly published player footstep.
+    pub movement_serial: Option<u64>,
 }
 
 impl Stimulus {
+    /// One player-owned footstep at the actual hull center. The emitted stance
+    /// and origin remain fixed for the existing TTL, including after rest/duck.
+    #[must_use]
+    pub fn player_footstep(position: Vec3, movement: PlayerMovement, serial: u64) -> Self {
+        Self {
+            position,
+            radius: movement.radius(),
+            loudness: 1.0,
+            category: "movement".into(),
+            source: Some(super::PLAYER_TARGET_HANDLE),
+            age: 0.0,
+            player_movement: Some(movement),
+            movement_serial: Some(serial),
+        }
+    }
+
+    /// Shared 3D eligibility for generic and typed listeners. Authored receiver
+    /// caps still apply, including zero; neither collider nor sight adds padding.
+    #[must_use]
+    pub fn heard_at(&self, listener: Vec3, cap: f32) -> bool {
+        let radius = self.audible_radius(0.0);
+        cap > 0.0 && radius > 0.0 && self.position.distance(listener) <= cap.min(radius)
+    }
+
     /// True when the stimulus is still worth hearing.
     #[must_use]
     pub fn is_fresh(&self, extra_age: f32) -> bool {
@@ -65,6 +111,13 @@ impl Stimulus {
     /// The audible radius after aging and loudness.
     #[must_use]
     pub fn audible_radius(&self, extra_age: f32) -> f32 {
+        if let Some(movement) = self.player_movement {
+            return if self.is_fresh(extra_age) {
+                movement.radius()
+            } else {
+                0.0
+            };
+        }
         let fade = (1.0 - (self.age + extra_age) / STIMULUS_TTL_S).clamp(0.0, 1.0);
         self.radius * self.loudness.max(0.0) * fade
     }
@@ -184,9 +237,8 @@ fn heard(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
         if stimulus.source == Some(agent.handle) {
             continue;
         }
-        let distance = stimulus.position.distance(agent.position);
         let radius = stimulus.audible_radius(0.0);
-        if radius <= 0.0 || distance > agent.def.hearing_range.min(radius) {
+        if !stimulus.heard_at(agent.position, agent.def.hearing_range) {
             continue;
         }
         // Prefer the freshest stimulus, then the loudest proximity.

@@ -200,9 +200,8 @@ fn footsteps_require_real_grounded_travel_and_reset_across_pauses() -> Result<()
         let step = audio.footstep(&mut game, &items);
         if game.player_position.x > 2.0 {
             assert!(
-                step.is_some_and(
-                    |(cue, gain)| cue == "footstep_carpet" && (gain - 0.65).abs() < 0.001
-                ),
+                step.is_some_and(|emission| emission.cue == "footstep_carpet"
+                    && (emission.request().gain - 0.65).abs() < 0.001),
                 "stride must select actual floor material"
             );
         }

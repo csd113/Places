@@ -4201,17 +4201,18 @@ impl FrameLoop<'_> {
 
     /// Snapshot existing entity state only for explicit developer trace events.
     fn entity_simulation_snapshot(&self) -> serde_json::Value {
-        serde_json::json!({
-            "states": self.game.entities().components().states.iter().map(|(handle,state)|serde_json::json!({"id":self.game.entities().id_of(handle),"values":state.values})).collect::<Vec<_>>(),
-            "time": self.game.entities().sim_time(),
-            "sequences": self.game.entities().active_sequences(),
-            "ai_runtime":self.game.entities().ai().resource_snapshot(),
-            "agents": self.game.entities().ai().agents().iter().map(|agent| {
+        let stimuli: Vec<_> = self.game.entities().stimuli().iter().map(|noise| serde_json::json!({
+            "position":noise.position.to_array(),"radius":noise.audible_radius(0.0),
+            "category":noise.category,"source":noise.source.map(|handle| [handle.index(), handle.generation()]),"age":noise.age,"stance":noise.player_movement,"serial":noise.movement_serial,
+        })).collect();
+        let agents = self.game.entities().ai().agents().iter().map(|agent| {
                 serde_json::json!({
                     "id": agent.instance_id, "state": agent.state.name(),
                     "position": agent.position.to_array(), "yaw_degrees": agent.yaw_degrees,
                     "speed_mps": agent.speed_mps, "clock": agent.clock,
                     "last_seen_at": agent.last_seen_at,
+                    "perception_phase_time": agent.last_perception_at,
+                    "typed_sense_sample_time": agent.next_task_sense - crate::engine::ai::PERCEPTION_INTERVAL_S,
                     "search": agent.search.as_ref().map(|memory| serde_json::json!({
                         "stage": if agent.clock < memory.until { "investigate" } else { "search" },
                         "point": memory.point.to_array(), "until": memory.until,
@@ -4234,7 +4235,14 @@ impl FrameLoop<'_> {
                     "senses":agent.def.senses,"sight_range":agent.def.sight_range,"body_radius":agent.profile.radius,
                     "tasks":agent.controller.runs.iter().map(|run|serde_json::json!({"key":run.request.key,"priority":run.request.priority,"serial":run.token.serial,"active":agent.controller.active==Some(run.token),"paused":run.paused,"progress":run.progress.snapshot()})).collect::<Vec<_>>(),
                 })
-            }).collect::<Vec<_>>(),
+            }).collect::<Vec<_>>();
+        serde_json::json!({
+            "states": self.game.entities().components().states.iter().map(|(handle,state)|serde_json::json!({"id":self.game.entities().id_of(handle),"values":state.values})).collect::<Vec<_>>(),
+            "time": self.game.entities().sim_time(),
+            "stimuli": stimuli,
+            "sequences": self.game.entities().active_sequences(),
+            "ai_runtime":self.game.entities().ai().resource_snapshot(),
+            "agents": agents,
         })
     }
 

@@ -1125,6 +1125,8 @@ fn predator_search_refuses_unavailable_areas_and_reacts_to_fresh_noise_and_sight
             category: "movement".into(),
             source: None,
             age: 0.0,
+            player_movement: None,
+            movement_serial: None,
         });
         world.tick(&f.context(0.25, &[]), &mut AiOutcome::default());
         let heard = world.agent("agent_0").ok_or("actor")?;

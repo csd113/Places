@@ -340,6 +340,8 @@ fn typed_hearing_filters_and_alert_hops_do_not_form_a_feedback_loop() {
         category: "movement".into(),
         source: None,
         age: 0.0,
+        player_movement: None,
+        movement_serial: None,
     });
     let _tick_10105 = f.tick(0.25, &[]);
     assert!(
@@ -1098,4 +1100,209 @@ fn nearby_fetch(item_id: &str, shelf: &str, contact: [f32; 3]) -> TaskDef {
         destination.contact = contact;
     }
     definition
+}
+
+// Unique value: shared inclusive player-center boundaries survive age/stagger
+// and authored receiver caps; a retained step cannot issue a new task again.
+// Three axes and tiny registered actors; no device, assets or bake.
+#[test]
+fn player_movement_hearing_boundaries_caps_and_past_event_tasks_agree() -> Result<(), String> {
+    use crate::engine::ai::{AiStimulus, perception::PlayerMovement};
+    for movement in [PlayerMovement::Walking, PlayerMovement::Crouched] {
+        for axis in [Vec3::X, Vec3::new(0.6, 0.0, 0.8), Vec3::Y] {
+            for age in [0.0_f32, 0.19, 1.5, 3.0, 3.01] {
+                for offset in [-0.01_f32, 0.0, 0.01] {
+                    let origin = Vec3::new(0.0, 6.0, 0.0);
+                    let distance = movement.radius() + offset;
+                    let listener = origin + axis * distance;
+                    let expected = offset <= 0.0 && age <= 3.0;
+                    let mut f = Fixture::new();
+                    let _actor = f.add(
+                        "listener",
+                        1,
+                        listener,
+                        AiDef {
+                            sight_range: 0.0,
+                            hearing_range: 30.0,
+                            senses: vec![SenseRule {
+                                filter: SenseFilter::Hear {
+                                    categories: vec![NoiseKind::Movement],
+                                    radius: 30.0,
+                                },
+                                response: SenseResponse::Task {
+                                    request: TaskRequest {
+                                        key: "heard_step".into(),
+                                        priority: 100,
+                                        definition: TaskDef::Wait { seconds: 10.0 },
+                                    },
+                                },
+                            }],
+                            ..AiDef::default()
+                        },
+                    );
+                    let mut noise = AiStimulus::player_footstep(origin, movement, 1);
+                    noise.age = age;
+                    assert_eq!(
+                        noise.heard_at(listener, 30.0),
+                        expected,
+                        "hard inclusive 3D boundary {movement:?} {axis:?} {age} {offset}"
+                    );
+                    assert!(!noise.heard_at(listener, 0.0), "zero receiver stays deaf");
+                    assert!(
+                        !noise.heard_at(listener, distance * 0.5),
+                        "short authored cap remains a capability limit"
+                    );
+                    f.noises.push(noise);
+                    let _first_tick = f.tick(0.25, &[]);
+                    let agent = f
+                        .world
+                        .agent("listener")
+                        .ok_or("missing boundary listener")?;
+                    assert_eq!(
+                        agent
+                            .contact
+                            .as_ref()
+                            .is_some_and(|contact| contact.heard_only),
+                        expected,
+                        "generic hearing must use the same boundary"
+                    );
+                    assert_eq!(
+                        !agent.controller.runs.is_empty(),
+                        expected,
+                        "typed movement hearing must use the same boundary"
+                    );
+                    let token = agent.controller.runs.first().map(|run| run.token);
+                    for _ in 0_u8..3 {
+                        let _later_tick = f.tick(0.25, &[]);
+                    }
+                    assert_eq!(
+                        f.world.agent("listener").and_then(|later| later
+                            .controller
+                            .runs
+                            .first()
+                            .map(|run| run.token)),
+                        token,
+                        "old event cannot retrigger the task"
+                    );
+                    // Preserve ordinary noise/NPC movement age falloff.
+                    let mut ordinary = AiStimulus::player_footstep(origin, movement, 1);
+                    ordinary.player_movement = None;
+                    ordinary.age = 1.5;
+                    assert!(
+                        movement
+                            .radius()
+                            .mul_add(-0.5, ordinary.audible_radius(0.0))
+                            .abs()
+                            < 0.0001,
+                        "non-player policies keep existing fade"
+                    );
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+// Capability limits are separate from the emission sphere. A typed rule can
+// explicitly enable hearing even when the generic listener is intentionally deaf.
+#[test]
+fn movement_listener_caps_and_typed_enablement_remain_authored() -> Result<(), String> {
+    use crate::engine::ai::{AiStimulus, perception::PlayerMovement};
+    for (generic, typed, distance, want_generic, want_typed) in [
+        (0.0_f32, 30.0_f32, 14.99_f32, false, true),
+        (6.0, 6.0, 6.01, false, false),
+        (6.0, 6.0, 6.0, true, true),
+        (30.0, 0.0, 1.0, true, false),
+        (0.0, 0.0, 0.5, false, false),
+    ] {
+        let mut f = Fixture::new();
+        let _actor = f.add(
+            "cap",
+            1,
+            Vec3::X * distance,
+            AiDef {
+                sight_range: 0.0,
+                hearing_range: generic,
+                senses: vec![SenseRule {
+                    filter: SenseFilter::Hear {
+                        categories: vec![],
+                        radius: typed,
+                    },
+                    response: SenseResponse::Task {
+                        request: request("cap_heard", 100, TaskDef::Wait { seconds: 10.0 }),
+                    },
+                }],
+                ..AiDef::default()
+            },
+        );
+        f.noises.push(AiStimulus::player_footstep(
+            Vec3::ZERO,
+            PlayerMovement::Walking,
+            1,
+        ));
+        let _tick = f.tick(0.25, &[]);
+        let listener = f.world.agent("cap").ok_or("missing cap actor")?;
+        assert_eq!(
+            listener.contact.is_some(),
+            want_generic,
+            "generic capability cap"
+        );
+        assert_eq!(
+            !listener.controller.runs.is_empty(),
+            want_typed,
+            "typed capability is independent of generic hearing"
+        );
+    }
+    Ok(())
+}
+
+// Regression value: at a long-running world's f32 clock, reconstructing event
+// identity from time-age can drift enough to restart an already heard task.
+// One actor, one past step and 200 tiny CPU ticks; no assets/device/bake.
+#[test]
+fn retained_player_step_does_not_retrigger_after_long_world_clock_rounding() -> Result<(), String> {
+    use crate::engine::ai::{AiStimulus, perception::PlayerMovement};
+    let mut f = Fixture::new();
+    f.time = 65_536.0;
+    let _actor = f.add(
+        "clock_listener",
+        1,
+        Vec3::ZERO,
+        AiDef {
+            sight_range: 0.0,
+            hearing_range: 0.0,
+            senses: vec![SenseRule {
+                filter: SenseFilter::Hear {
+                    categories: vec![NoiseKind::Movement],
+                    radius: 30.0,
+                },
+                response: SenseResponse::Task {
+                    request: request("once", 100, TaskDef::Wait { seconds: 0.1 }),
+                },
+            }],
+            ..AiDef::default()
+        },
+    );
+    f.noises.push(AiStimulus::player_footstep(
+        Vec3::ZERO,
+        PlayerMovement::Walking,
+        1,
+    ));
+    let _first_tick = f.tick(0.015, &[]);
+    let token = f
+        .world
+        .agent("clock_listener")
+        .and_then(|agent| agent.controller.runs.first().map(|run| run.token))
+        .ok_or("past step must be heard once")?;
+    for _ in 0_u16..200 {
+        let _later_tick = f.tick(0.015, &[]);
+        assert!(
+            f.world
+                .agent("clock_listener")
+                .and_then(|agent| agent.controller.runs.first().map(|run| run.token))
+                .is_none_or(|current| current == token),
+            "a completed response must not restart from the same old footstep when f32 timestamps drift"
+        );
+    }
+    Ok(())
 }
