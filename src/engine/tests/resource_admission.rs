@@ -13,6 +13,7 @@ fn shared_reservations_refuse_overflow_and_release_on_drop() -> Result<(), Strin
         refused: AtomicBool::new(false),
         reserved: AtomicU64::new(0),
         limit: 1024,
+        measured_usage: None,
     });
     budget.reserve(128, 896)?;
     let owner = Reservation {
@@ -85,5 +86,37 @@ fn unload_retry_is_offered_only_when_incoming_world_fits() {
             ..overlap
         }
         .can_retry_after_unload()
+    );
+}
+
+// A tiny low-budget nested Value parse proves collection reservations propagate
+// below the root. Uses the shared real parser, no large fixture or OS pressure.
+#[test]
+fn nested_semantic_allocations_refuse_without_losing_outer_cancellation() {
+    let budget = Arc::new(DecodeBudget {
+        cancelled: Arc::new(AtomicBool::new(false)),
+        decoded: AtomicU64::new(0),
+        refused: AtomicBool::new(false),
+        reserved: AtomicU64::new(0),
+        limit: 4096,
+        measured_usage: Some(0),
+    });
+    let _scope = enter(Some(Arc::clone(&budget)));
+    assert_eq!(
+        crate::engine::package::semantics::decode::<serde_json::Value>("[[1]]").ok(),
+        Some(serde_json::json!([[1_u32]])),
+        "small nested values still fit"
+    );
+    let text = format!("[[{}]]", vec!["{}"; 128].join(","));
+    let result = crate::engine::package::semantics::decode::<serde_json::Value>(&text);
+    assert!(
+        result.is_err(),
+        "nested object slots must be admitted before growth"
+    );
+    assert!(budget.refused.load(Ordering::Relaxed));
+    assert_eq!(budget.reserved.load(Ordering::Acquire), 0);
+    assert!(
+        super::checkpoint().is_err(),
+        "refusal remains sticky in the worker"
     );
 }

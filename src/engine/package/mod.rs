@@ -243,3 +243,5 @@ pub fn is_package_path(path: &Path) -> bool {
     path.extension()
         .is_some_and(|extension| extension == PACKAGE_EXTENSION)
 }
+
+pub(crate) mod semantics;

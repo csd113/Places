@@ -260,6 +260,8 @@ fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
     mut reader: PackageReader<R>,
     root: Option<&Path>,
 ) -> Result<OpenedPackage, String> {
+    // CLI import and menu discovery need the same admission as worker loads.
+    let _scope = crate::engine::resources::admission_scope();
     let manifest = read_manifest(&mut reader)?;
     let semantics = read_named_entry(
         &mut reader,
@@ -269,7 +271,7 @@ fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
     )?;
     let text = std::str::from_utf8(&semantics)
         .map_err(|error| format!("semantics.json is not UTF-8: {error}"))?;
-    let level = LevelDef::from_json(text)
+    let level = super::semantics::parse(text)
         .map_err(|error| format!("package semantics are not valid: {error}"))?;
     validate_semantics(&reader, &manifest, &level)?;
     check_catalog_build_input(&mut reader, &manifest, &level, root)?;

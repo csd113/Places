@@ -307,6 +307,7 @@ pub fn menu_thumbnail(
 /// # Errors
 /// Returns corrupt record, script, dependency or index errors.
 pub fn validate(path: &Path, check: &impl Fn() -> Result<(), String>) -> Result<(), String> {
+    let _scope = crate::engine::resources::admission_scope();
     let mut reader =
         PackageReader::new(super::archive::open_file(path)?).map_err(|e| e.to_string())?;
     if let Some(index) = read_index(&mut reader)? {
@@ -368,12 +369,11 @@ fn validate_sources<R: Read + Seek>(
             .get(record.source.as_str())
             .ok_or("Missing editable level")?;
         crate::engine::project::check_editable_source(bytes)?;
-        let raw: serde_json::Value = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
+        let text = std::str::from_utf8(bytes).map_err(|e| e.to_string())?;
+        let raw: serde_json::Value = super::semantics::decode(text)?;
         crate::engine::project::metadata::validate_raw(&raw)?;
         crate::engine::project::metadata::validate_drafts(&raw)?;
-        let text = std::str::from_utf8(bytes).map_err(|e| e.to_string())?;
-        let mut level =
-            crate::engine::level::LevelDef::from_json(text).map_err(|e| e.to_string())?;
+        let mut level = super::semantics::parse(text)?;
         crate::engine::loader::validate_level(&level)?;
         if level.id != record.id || !level.script_sources.is_empty() {
             return Err("Invalid editable level identity or inline script snapshots".into());

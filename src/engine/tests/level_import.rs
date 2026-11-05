@@ -623,3 +623,30 @@ fn patch_declared_zip_size(bytes: &mut [u8], name: &str, declared: u64) -> Resul
     }
     Err("Missing sentinel ZIP entry".into())
 }
+
+// Essential synchronization boundary: a second independent handle/manager must
+// fail promptly, then retry once the first OS owner closes. No bake or sleeps.
+#[test]
+fn concurrent_installer_lock_refuses_and_recovers_without_stale_lock_cleanup() -> Result<(), String>
+{
+    let fixture = ImportFixture::new()?;
+    let levels = fixture.path("levels")?;
+    let source = fixture.path("source")?.join("map.placesmap");
+    let expected = write_fixture(&source, "locked")?;
+    let lock = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .read(true)
+        .write(true)
+        .open(levels.join(".places-import.lock"))
+        .map_err(|e| e.to_string())?;
+    lock.try_lock().map_err(|e| e.to_string())?;
+    let mut manager = fixture.manager()?;
+    let error = manager.import_file(&source).err().unwrap_or_default();
+    assert!(error.contains("Another package import"), "{error}");
+    assert!(!levels.join("map.placesmap").exists());
+    drop(lock);
+    let installed = manager.import_file(&source)?.path;
+    assert_eq!(fs::read(installed).map_err(|e| e.to_string())?, expected);
+    Ok(())
+}

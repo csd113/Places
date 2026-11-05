@@ -714,6 +714,9 @@ impl LevelManager {
         fs::create_dir_all(&self.levels_dir)
             .map_err(|error| format!("Failed to create levels directory: {error}"))?;
         let target_path = self.levels_dir.join(file_name);
+        // One directory-wide OS lock protects stable IDs even when incoming names
+        // differ. The kernel releases it on crash; never unlink the lock inode.
+        let _installation = InstallationLock::acquire(&self.levels_dir)?;
         for result in fs::read_dir(&self.levels_dir).map_err(|error| error.to_string())? {
             let candidate = result.map_err(|error| error.to_string())?;
             if candidate.file_name() != file_name
@@ -1025,4 +1028,40 @@ fn stage_import(
     crate::engine::package::world::validate_import(temporary)?;
     crate::engine::package::world::open(temporary)
         .map_err(|error| format!("Imported map validation failed: {error}"))
+}
+
+/// Serializes admission through publication across threads and processes.
+struct InstallationLock(fs::File);
+impl InstallationLock {
+    fn acquire(directory: &Path) -> Result<Self, String> {
+        let path = directory.join(".places-import.lock");
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&path)
+            .map_err(|error| {
+                format!(
+                    "Cannot open package installation lock {}: {error}",
+                    path.display()
+                )
+            })?;
+        if !file
+            .metadata()
+            .map_err(|error| error.to_string())?
+            .is_file()
+        {
+            return Err("Package installation lock is not a regular file".into());
+        }
+        // Fail promptly instead of blocking the menu behind another process.
+        file.try_lock().map_err(|error| format!("Another package import is active, or the installation lock is unavailable: {error}. Retry after it finishes."))?;
+        Ok(Self(file))
+    }
+}
+impl Drop for InstallationLock {
+    fn drop(&mut self) {
+        // Closing also releases the OS lock, including during unwinding/crash.
+        let _released = self.0.unlock();
+    }
 }

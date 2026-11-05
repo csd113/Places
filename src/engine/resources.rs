@@ -53,6 +53,8 @@ pub struct DecodeBudget {
     refused: AtomicBool,
     reserved: AtomicU64,
     limit: u64,
+    #[cfg(test)]
+    measured_usage: Option<u64>,
 }
 impl DecodeBudget {
     pub fn new(cancelled: Arc<AtomicBool>) -> Arc<Self> {
@@ -62,6 +64,8 @@ impl DecodeBudget {
             refused: AtomicBool::new(false),
             reserved: AtomicU64::new(0),
             limit: cpu_budget(),
+            #[cfg(test)]
+            measured_usage: None,
         })
     }
 }
@@ -79,6 +83,12 @@ pub fn current() -> Option<Arc<DecodeBudget>> {
 }
 pub fn enter(budget: Option<Arc<DecodeBudget>>) -> DecodeScope {
     DecodeScope(CURRENT.with(|current| current.replace(budget)))
+}
+/// Reuse worker cancellation/reservations, or admit synchronous CLI/menu work.
+pub fn admission_scope() -> DecodeScope {
+    enter(Some(current().unwrap_or_else(|| {
+        DecodeBudget::new(Arc::new(AtomicBool::new(false)))
+    })))
 }
 pub fn checkpoint() -> Result<(), String> {
     CURRENT.with(|current| {
@@ -116,12 +126,29 @@ pub fn allocation(bytes: usize) -> Result<Reservation, String> {
     let budget = current();
     let requested_bytes = u64::try_from(bytes).map_err(|error| error.to_string())?;
     if let Some(state) = &budget {
-        state.reserve(process_memory_bytes().unwrap_or(0), requested_bytes)?;
+        state.reserve(measured_usage(state), requested_bytes)?;
     }
     Ok(Reservation {
         budget,
         bytes: requested_bytes,
     })
+}
+
+impl Reservation {
+    /// Extend a parser's reservation before deserializing another retained item.
+    pub(crate) fn grow(&mut self, bytes: usize) -> Result<(), String> {
+        checkpoint()?;
+        let additional = u64::try_from(bytes).map_err(|error| error.to_string())?;
+        let total = self
+            .bytes
+            .checked_add(additional)
+            .ok_or("Semantic allocation overflow")?;
+        if let Some(budget) = &self.budget {
+            budget.reserve(measured_usage(budget), additional)?;
+        }
+        self.bytes = total;
+        Ok(())
+    }
 }
 
 /// Windows private commit; Linux/macOS resident bytes where available. These are
@@ -187,6 +214,17 @@ pub fn decode<T>(bytes: &[u8], read: impl FnOnce(&[u8]) -> Result<T, String>) ->
     read(bytes)
 }
 
+// Fixed usage makes nested parser admission independent of parallel test RSS.
+#[cfg(test)]
+fn measured_usage(budget: &DecodeBudget) -> u64 {
+    budget
+        .measured_usage
+        .unwrap_or_else(|| process_memory_bytes().unwrap_or(0))
+}
+#[cfg(not(test))]
+fn measured_usage(_: &DecodeBudget) -> u64 {
+    process_memory_bytes().unwrap_or(0)
+}
 impl DecodeBudget {
     fn reserve(&self, used: u64, requested_bytes: u64) -> Result<(), String> {
         let result = self
