@@ -338,7 +338,7 @@ production map bakes.
 | Map publication | `tools/levels/compile.py`, `tools/build-maps.sh`; explicit distribution allowlist, complete `projects/environments/` export under ignored `assets/levels/` |
 | Source contract / wall repair | [Project format](PROJECT_FORMAT.md) defines revision 1; the obsolete pre-release converter is retired. `repair_alignment.py` checks source hashes/old values and only applies with post-validation and rollback |
 | Generated scenes | The collection is editor-owned; `build_fixture_levels.py`, `build_outdoor_fixture.py`, `build_lighting_quality.py`, `build_capacity_fixtures.py` own focused controls |
-| Historical source reconstruction | Former environment builders, `build_model_zoo.py`, `build_outdoor_route.py`, `refine_home.py`, `refine_pool.py`; explicit scratch inputs/outputs, never migrated projects or the frozen archive as output |
+| Explicit developer reconstruction | `build_model_zoo.py`, `build_outdoor_route.py`; focused consumers still use these tools. Retired environment builders are in Git history, never current project owners |
 | PNG / GLB authoring | `tools/textures/` saved-art readers and explicit exporters; `tools/props/build.py` dispatches registered `parts/` constructors; `mesh`, `tex`, `glb`, `geometry`, `glyphs` and `refreshed` are shared libraries |
 | Distinct source owners | Office/Winter texture derivatives, Arcade/Bepsi artwork, Beach animals, original entity constructors and Spoonerman animation; accepted delivered models use `completed-models.json` and the `build.py --check` guard |
 | Asset inspection / repair | `audit.py`, `preview.py`, `validate_domestic_remake.py`, `repair_geometry.py`, `resize_embedded_textures.py`, seam tools, entity validators/contact sheets and `inspect_arcade_vending.py`; reports or explicit selected writes, no default map bake |
@@ -349,20 +349,17 @@ production map bakes.
 
 ### Historical tooling and cleanup decisions
 
-The Home, Pool and Outdoors capture commands keep their original frozen Demo
-cameras, options, settings, failure checks and receipt format. Their identical
-runner now lives in `tools/bench/capture_demo_views.py`; Outdoors still appends its
-manifest while Home/Pool begin a new one. A matching preserved Demo payload is
-required. These cameras are not valid substitutes for today's standalone maps.
+The retired environment bootstrap builders, Home/Pool dressing migrations,
+commercial-restroom bootstrap helper, five frozen camera journals and prohibited
+macOS bundle launcher were removed in 0.13.1. Current environment sources belong
+to `projects/environments/`; edit them in the native editor or with reviewed,
+precise source changes. Exact retired paths and the last preserved revision are
+listed in the [cleanup record](reports/python-cleanup-0.13.1.md).
 
-Home/Pool concept dressing now requires `--source PATH --out PATH`. This removes
-the broken implicit `levels/places_demo.json` lookup while retaining the authored
-transformation. Archive output is refused. For example, reconstruct in scratch:
-
-```sh
-python3 tools/levels/refine_home.py --source docs/archive/levels/places_demo.json \
-    --out /tmp/home-demo-working.json
-```
+`tools/levels/winter_weather.py` retains the independently useful severe-control
+derivation used by source tests and explicit native Winter acceptance. Shared
+shore, party, railing and terrain helpers remain available, as do all source art,
+completed-model ledgers, production validation and historical native evidence.
 
 `measure_capacity.sh` defaults to the maintained capacity fixture. Optional Demo
 and Zoo measurements require `PLACES_CAPACITY_DEMO_PACKAGE` and

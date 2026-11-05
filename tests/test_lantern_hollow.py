@@ -296,32 +296,49 @@ class LanternHollowTests(unittest.TestCase):
         boundary = [wall for wall in self.level['walls']
                     if wall.get('material') == 'home:handrail_wood_01'
                     and wall.get('height', 0) >= 2.4 - EPSILON]
-        self.assertEqual(len(boundary), 4)
-        self.assertEqual(sum(wall['width'] > wall['depth'] for wall in boundary), 2)
-        self.assertEqual(sum(wall['width'] < wall['depth'] for wall in boundary), 2)
+        self.assertTrue(boundary)
         rooms = self.level['rooms']
         west = min(room['x'] for room in rooms)
         east = max(room['x'] + room['width'] for room in rooms)
         north = min(room['z'] for room in rooms)
         south = max(room['z'] + room['depth'] for room in rooms)
-        sides = set()
+        sides = {side: [] for side in ('north', 'south', 'west', 'east')}
         for wall in boundary:
             if wall['width'] > wall['depth']:
-                self.assertAlmostEqual(wall['x'], west, places=3)
-                self.assertAlmostEqual(wall['x'] + wall['width'], east, places=3)
                 if abs(wall['z'] - north) < EPSILON:
-                    sides.add('north')
+                    side = 'north'
                 elif abs(wall['z'] + wall['depth'] - south) < EPSILON:
-                    sides.add('south')
+                    side = 'south'
+                else:
+                    self.fail(('interior perimeter wall', wall))
+                sides[side].append((wall['x'], wall['x'] + wall['width']))
             else:
-                self.assertLessEqual(wall['z'], north + .2 + EPSILON)
-                self.assertGreaterEqual(wall['z'] + wall['depth'], south - .2 - EPSILON)
                 if abs(wall['x'] - west) < EPSILON:
-                    sides.add('west')
+                    side = 'west'
                 elif abs(wall['x'] + wall['width'] - east) < EPSILON:
-                    sides.add('east')
-        self.assertEqual(sides, {'north', 'south', 'west', 'east'},
-                         'Four arbitrary walls cannot satisfy visible perimeter containment')
+                    side = 'east'
+                else:
+                    self.fail(('interior perimeter wall', wall))
+                sides[side].append((wall['z'], wall['z'] + wall['depth']))
+        lift = next(lift for lift in self.level['elevators'] if lift['id'] == 'return_hub')
+        self.assertEqual(lift['rotation_degrees'], 90)
+        # The east fence is split around the authored four-metre lift surround.
+        # Compare occupied intervals, allowing subdivision but no missing stock
+        # or extra openings elsewhere. This replaces the obsolete segment count.
+        expected = {'north': [(west, east)], 'south': [(west, east)],
+                    'west': [(north + .2, south - .2)],
+                    'east': [(north + .2, lift['z'] - 2), (lift['z'] + 2, south - .2)]}
+        for side, intervals in sides.items():
+            merged = []
+            for low, high in sorted(intervals):
+                if merged and low <= merged[-1][1] + EPSILON:
+                    merged[-1] = (merged[-1][0], max(merged[-1][1], high))
+                else:
+                    merged.append((low, high))
+            self.assertEqual(len(merged), len(expected[side]), side)
+            for actual, wanted in zip(merged, expected[side]):
+                for value, endpoint in zip(actual, wanted):
+                    self.assertAlmostEqual(value, endpoint, places=3, msg=side)
         for intent in self.level.get('geometry_intent', []):
             self.assertIn(intent['check'], ('missing-wall', 'room-leak'))
             if intent['check'] == 'missing-wall':
@@ -378,9 +395,9 @@ class LanternHollowTests(unittest.TestCase):
         self.assertTrue(actor_links)
         self.assertEqual(set(actor_links), {friend['id']}, 'Every quest actor reference must be retargeted')
         self.assertIn('hub', self.level['transitions'])
-        returns = [door for door in self.level['doors'] if any(
-            action.get('action') == 'change_level' and action.get('level') == 'hub'
-            for binding in door.get('bindings', []) for action in binding['actions'])]
+        returns = [lift for lift in self.level['elevators'] if any(
+            stop.get('level') == 'hub' and stop.get('arrival_elevator') == 'hub_lantern_hollow'
+            for stop in lift['stops'])]
         self.assertEqual(len(returns), 1)
         self.assertTrue(any(decal['material'] == 'collection:sign_hub' for decal in self.level['decals']))
 

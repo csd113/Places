@@ -142,8 +142,6 @@ From the repository root:
 python3 tools/audio/build.py --check
 python3 tools/levels/soundscapes.py --check
 python3 tools/levels/build_sound_fixture.py --check
-python3 tools/levels/build_office.py --check
-python3 tools/levels/build_frutiger_aero.py --check
 python3 tools/assets/validate.py
 ```
 

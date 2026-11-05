@@ -1,8 +1,8 @@
 # Benchmark and capture suite
 
-These tools drive release binaries on this development machine. Historical Demo
-camera suites require an explicit matching preserved package/asset payload;
-the active lineup does not provide Demo or Zoo. Most suites
+These tools drive release binaries on this development machine. The active
+lineup does not provide Demo or Zoo. Retired camera journals are available at
+the revision linked in the [Python cleanup record](../../docs/reports/python-cleanup-0.13.1.md). Most suites
 default to `target/agent-work/`; the compiler harnesses require an explicit
 output directory. Local measurements belong in ignored `tools/bench/results/`.
 Preserve custom map sources, packages, assets and runnable builds in a durable
@@ -22,7 +22,6 @@ and hypothetical per-variant delivery tools do not analyze project bundles.
 
 | tool | what it does |
 | --- | --- |
-| `native_app.py` | historical macOS bundle launcher; prohibited for current staging validation |
 | `entity_navigation.py` | direct-binary Office mannequin/roach, stopped-clock, pause and Office/Home reload acceptance; uses existing packages and retains screenshots/snapshots |
 | `navigation_acceptance.py` | opt-in compact layered-floor native actor acceptance: ramp travel, body clearance, AI-operated live doors, movable blockers/recovery, local avoidance, unreachable goals and uncapped timing; uses an explicitly compiled fixture |
 | `compiler_bench.py` | measures complete clean offline builds, phase timings, CPU, peak RAM and deterministic package hashes |
@@ -66,7 +65,7 @@ acceptance. Each output directory must be new; failed preflights remain intact.
 
 ## Direct native validation
 
-Run Places executables directly on `0.11.0-staging`; do not package or launch a
+Run Places executables directly on `0.13.1-dev`; do not package or launch a
 `.app` or use `open`. `frame_time.py` executes the selected player with repository
 working directory, explicit `PLACES_ASSET_ROOT` and isolated state/settings. Its
 receipts record the actual child PID, binary/package hashes, presentation mode,
@@ -82,9 +81,8 @@ Native permission waits have no automatic timeout or retry. Verify the existing
 process and output before resuming an interrupted runner. RSS is sampled once
 per second and is not an exact high-water mark or total GPU memory. A denied
 RSS query records unavailable sampling without abandoning the live child.
-No launcher changes permissions, TCC settings or identities. `native_app.py`
-and earlier bundle artifacts remain historical tooling/evidence and must not be
-used for this staging campaign.
+No launcher changes permissions, TCC settings or identities. The retired bundle
+launcher has been removed; preserved earlier bundle evidence remains historical.
 
 The navigation acceptance fixture stays outside routine tests and CI. Compile
 its Static variant explicitly, then supply the package and a direct player.
@@ -655,11 +653,10 @@ zero-draw window summaries establish ordinary gameplay FPS or fragment overdraw.
 
 ## Historical camera journals and capacity controls
 
-`capture_home.py`, `capture_pool.py` and `capture_outdoors.py` preserve frozen
-Places Demo camera tables through `capture_demo_views.py`. Their CLI paths,
-settings and receipts are unchanged; Outdoors appends receipts for additional
-views. Supply a preserved compatible payload through `--root` and a real native
-binary through `--binary`. They do not capture today's standalone Home/Pool maps.
+The frozen Demo and Winter style journals were removed after the collection
+became editor-owned. Their exact camera tables, settings and receipts remain in
+Git history and dated native evidence; see the [cleanup record](../../docs/reports/python-cleanup-0.13.1.md).
+Current collection acceptance uses `tools/authoring/environment_acceptance.py`.
 
 `measure_capacity.sh` uses the explicit capacity fixture package by default.
 Optional historical Demo/Zoo cases require `PLACES_CAPACITY_DEMO_PACKAGE` /

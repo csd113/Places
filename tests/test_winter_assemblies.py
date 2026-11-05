@@ -9,13 +9,16 @@ from tools.levels.curated_maps import environment_source
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/props'))
-sys.path.insert(0, str(ROOT / 'tools/levels'))
-import build_winter as author
 import geometry
 import glb
 from mesh import PropBuilder
 from parts import winter, winter_village
 from string_lights import SPANS, attachment_height
+
+
+# Independent source witness for the three maintained cottage mounts.
+# x, z, floor_y and stock roof family; no historical map generator is imported.
+HOMES = ((-16, -16, .6, '02'), (8, -30, 0, '01'), (-17, 4, 0, '04'))
 
 
 def built_model(name, kit=winter):
@@ -142,7 +145,7 @@ class WinterAssemblyTests(unittest.TestCase):
         self.assertEqual(len(blankets), 6)
         self.assertFalse(any(p['model'] in ('winter:snow_roof_slope', 'winter:snow_roof_edge')
                              for p in self.level['props']))
-        for home, (_, _, _, family) in enumerate(author.HOMES):
+        for home, (_, _, _, family) in enumerate(HOMES):
             roof_props = [p for p in self.level['props'] if p['id'].startswith(f'home_{home}_roof_')]
             roof_model = stock_model(f'house_{family}_roof_slope')
             roofs = [triangle for p in roof_props for triangle in
@@ -184,7 +187,7 @@ class WinterAssemblyTests(unittest.TestCase):
                             self.assertGreater(q[1]-support, .02)
 
     def test_every_ridge_rim_sinks_into_shingles_and_gables_use_exterior_floor(self):
-        for home, (_, _, floor, family) in enumerate(author.HOMES):
+        for home, (_, _, floor, family) in enumerate(HOMES):
             roofs = [triangle for p in self.level['props'] if p['id'].startswith(f'home_{home}_roof_')
                      for triangle in world_triangles(self.level, p, stock_model(f'house_{family}_roof_slope'))]
             ridge = stock_model(f'house_{family}_roof_ridge')
@@ -214,7 +217,7 @@ class WinterAssemblyTests(unittest.TestCase):
                     for side in (-1, 1)]
             if prop['id'].startswith('home_'):
                 home = int(prop['id'].split('_')[1])
-                _, z, floor, family = author.HOMES[home]
+                _, z, floor, family = HOMES[home]
                 _, _, fascia_z, fascia_top = winter.roof_support_profile(family)
                 roof_front = z+3+1.82+fascia_z*winter.ROOF_SCALE
                 self.assertGreaterEqual(prop['z']-.045-roof_front, .0149)

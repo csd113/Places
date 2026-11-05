@@ -182,8 +182,8 @@ class ShippedLevelTests(unittest.TestCase):
         self.assertEqual(showcase["name"], "Lantern Hollow")
         self.assertEqual(showcase["format_version"], 1)
 
-        # Protect actual travel links as well as inventory, without compiling
-        # worlds. A declared destination alone does not make its door usable.
+        # Protect every authored elevator route and its reciprocal arrival cabin
+        # using nine small sources; no package bake or native launch is needed.
         self.assertEqual(project["entry_level"], "hub")
         self.assertTrue(project["menu_entry_only"])
         destinations = set(shipped) - {"hub"}
@@ -191,14 +191,21 @@ class ShippedLevelTests(unittest.TestCase):
             expected = destinations if identity == "hub" else {"hub"}
             self.assertEqual(set(level["transitions"]), expected, identity)
             links = []
-            for door in level.get("doors", []):
-                for binding in door.get("bindings", []):
-                    for action in binding.get("actions", []):
-                        if action["action"] == "change_level":
-                            self.assertEqual(binding["on"], "interact", door["id"])
-                            self.assertTrue(any(component["component"] == "interactable"
-                                                for component in door.get("components", [])), door["id"])
-                            links.append(action["level"])
+            for lift in level.get("elevators", []):
+                self.assertTrue(any(not stop.get("level") and not stop.get("arrival_elevator")
+                                    for stop in lift["stops"]), lift["id"])
+                for stop in lift["stops"]:
+                    if not stop.get("level"):
+                        continue
+                    destination = stop["level"]
+                    self.assertIn(destination, expected, lift["id"])
+                    arrivals = [arrival for arrival in shipped[destination].get("elevators", [])
+                                if arrival["id"] == stop.get("arrival_elevator")]
+                    self.assertEqual(len(arrivals), 1, (identity, lift["id"], stop))
+                    self.assertTrue(any(back.get("level") == identity
+                                        and back.get("arrival_elevator") == lift["id"]
+                                        for back in arrivals[0]["stops"]), (identity, stop))
+                    links.append(destination)
             self.assertCountEqual(links, expected, identity)
 
     def test_retired_maps_preserve_historical_content_outside_active_discovery(self):

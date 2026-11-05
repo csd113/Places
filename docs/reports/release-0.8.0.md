@@ -2704,7 +2704,7 @@ Two ramps and shared landings physically connect every floor. Existing Office
 concept art, materials and modular furniture supply the visual language.
 
 The source is [projects/environments/levels/office.json](../../projects/environments/levels/office.json), maintained
-by [build_office.py](../../tools/levels/build_office.py). The normal compiler
+by [build_office.py](https://github.com/csd113/Places/blob/124f6c85003a74d6cfefbd123f3ffa3db0a6ab11/tools/levels/build_office.py). The normal compiler
 creates the ignored `assets/levels/office_demo.placesmap`; the curated lineup
 and generated model zoo register the map and new cockroach through existing
 external discovery. Other authored maps retain their layouts and content.
@@ -3348,7 +3348,7 @@ verification are recorded below.
 ### Play and reuse
 
 The source is [`projects/environments/levels/arcade.json`](../../projects/environments/levels/arcade.json),
-maintained by [`tools/levels/build_retro_arcade.py`](../../tools/levels/build_retro_arcade.py).
+maintained by [`tools/levels/build_retro_arcade.py`](https://github.com/csd113/Places/blob/124f6c85003a74d6cfefbd123f3ffa3db0a6ab11/tools/levels/build_retro_arcade.py).
 The local compiled package is `assets/levels/retro_arcade_demo.placesmap`.
 Launch `target/release/places` and select **Cosmic Lanes & Arcade**. Use the
 existing movement/look controls and **E** on the wall switch beside the vending

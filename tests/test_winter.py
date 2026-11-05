@@ -1,14 +1,11 @@
 """Winter authoring invariants that complement the actual controller audits."""
 import json
 from pathlib import Path
-import sys
 import unittest
 
 from tools.levels.curated_maps import environment_source
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'tools/levels'))
-import build_winter as author
 
 
 class WinterTests(unittest.TestCase):

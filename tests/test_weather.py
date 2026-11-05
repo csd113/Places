@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools/assets'))
 sys.path.insert(0, str(ROOT / 'tools/props'))
 sys.path.insert(0, str(ROOT / 'tools/levels'))
-import build_winter
+import winter_weather
 import validate
 from tex import decode_png
 
@@ -219,10 +219,10 @@ class WeatherTests(unittest.TestCase):
     def test_derived_severe_control_preserves_winter_content(self):
         original = json.loads((environment_source('winter')).read_text())
         snapshot = copy.deepcopy(original)
-        review = build_winter.build_severe_review(original)
+        review = winter_weather.build_severe_review(original)
         self.assertEqual(original, snapshot, 'deriving the control must not mutate Winter')
         self.assertEqual(original['weather_alternate'],
-                         json.loads(build_winter.SEVERE_WEATHER.read_text()))
+                         json.loads(winter_weather.SEVERE_WEATHER.read_text()))
         for key in original.keys() - {'id', 'name', 'weather', 'weather_alternate',
                                      'weather_cycle', 'props'}:
             self.assertEqual(original[key], review[key], key)
@@ -288,7 +288,7 @@ class PackagedWeatherTests(unittest.TestCase):
                 self.assertEqual(level['id'], identity, path)
                 if identity == 'winter':
                     self.assertEqual(level['weather']['kind'], 'snow')
-                    for key, value in json.loads(build_winter.SEVERE_WEATHER.read_text()).items():
+                    for key, value in json.loads(winter_weather.SEVERE_WEATHER.read_text()).items():
                         self.assert_stored_weather(level['weather_alternate'][key], value, (path, key))
                     self.assert_stored_weather(level['weather_cycle'],
                                                json.loads(sources[identity].read_text())['weather_cycle'], path)

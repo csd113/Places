@@ -121,8 +121,8 @@ operable map door merely by placement.
 
 `pool:decal_lane_01` is a fitted 1024×32 RGBA sheet placed at 32:1 on one
 flat basin floor. Coping caps are 45 mm deep with 2–4 mm joints; submerged
-walking treads have real floor support and 300 mm risers. `refine_pool.py`
-owns tagged Demo dressing, separate from water/climb mechanics.
+walking treads have real floor support and 300 mm risers. Tagged Demo dressing
+is historical; the current Pool is owned by `projects/environments/levels/pool.json`.
 [Pool reconstruction](../style-upgrade-20261007/pool/README.md) preserves
 matched captures and validation; later duck geometry/art provenance is in
 [the duck report](../reports/release-0.7.0.md#rubber-duck-remake).
@@ -155,7 +155,7 @@ Cabinet doors have real recesses and construction joints. The optional
 existing native chair atlas; its softened stock is documented in
 [Stage 6](../art-style/stage6/README.md).
 
-`refine_home.py` owns tagged Demo dressing. The paired Adam/Eve frame and
+Tagged Demo dressing is historical; current Home placement is editor-owned. The paired Adam/Eve frame and
 wall decal follow specification §7.2; the full 900×546 photograph remains
 inside transparent 1024-square padding.
 [Home reconstruction](../style-upgrade-20261007/home/README.md) preserves
@@ -203,7 +203,8 @@ Reference: [Winter Expansion Environment Concept Sheet](../../assets/references/
 The [historical prompts](../../assets/references/winter/prompts/Winter%20Place%20Prompt.txt)
 are preserved source material. The kit supplies supported snow, frozen-water
 art, a stone/timber village, icicles, string lights and the aurora panorama.
-`build_winter.py` owns the maintained map; the compiler prepares its lighting.
+`projects/environments/levels/winter.json` owns the maintained map; the compiler
+prepares its lighting.
 
 Square 1024-pixel snow/ice/masonry/timber masters remain committed. Snow
 terrain is an 8 m repeat, packed snow 5 m with restrained compaction tint;
@@ -262,7 +263,7 @@ accepted evidence and limits; dated timings are not current performance claims.
 ## Beach
 
 Reference: [Tropical Beach Concept Board](../../assets/references/beach/Low-Poly%20Tropical%20Beach%20Concept%20Board.png).
-`build_beach.py` owns `levels/beach_demo.json`. The kit reconstructs the cove,
+`projects/environments/levels/beach.json` owns the maintained map. The kit reconstructs the cove,
 pier and raised town, with three independently rigged animals described in
 [entity profiles](ENTITIES.md#beach-animals).
 
@@ -315,7 +316,7 @@ retains original board hashes, coverage and native acceptance.
 ## Frutiger Aero
 
 Reference: [Frutiger Aero Concept Sheet](../../assets/references/frutiger_aero/Frutiger%20Aero%20Places%20Concept%20Sheet.png).
-`build_frutiger_aero.py` owns `levels/frutiger_aero_demo.json`.
+`projects/environments/levels/aero.json` owns the maintained map.
 
 | Reference | Reusable `frutiger_aero:` resources |
 | --- | --- |

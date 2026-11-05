@@ -18,7 +18,7 @@ import capture_snowfall as native
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools/levels'))
-from build_winter import build_severe_review
+from winter_weather import build_severe_review
 EXTRA = {
     'walk-rock': ([5, -18, 90], [90, -8], 'forward@0-2,backward@2.2-2.8', 3),
     'walk-rail': ([15.2, -10, 90], [90, -8], 'forward@0-2,backward@2.2-2.8', 3),
