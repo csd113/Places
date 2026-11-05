@@ -146,7 +146,12 @@ fn collection_physical_receipts_reject_held_wrong_and_unsettled_items() -> Resul
         "pool",
         &[actor("pool_attendant"), actor("pool_physics_duck")],
     )?;
+    // SP-01: actual early guidance used to disable the favor VM. Reuse the
+    // physical receipt fixture; a length-only assertion would miss that failure.
+    pool.call("hint", "pool_attendant")?;
+    pool.call("hint", "pool_attendant")?;
     pool.call("talk", "pool_attendant")?;
+    pool.call("hint", "pool_attendant")?;
     for _ in 0_u8..45_u8 {
         pool.items(&[(
             "pool_physics_duck",
@@ -173,6 +178,8 @@ fn collection_physical_receipts_reject_held_wrong_and_unsettled_items() -> Resul
         pool.done(),
         "four seconds of real upright released flotation completes Pool"
     );
+
+    pool.call("talk", "pool_attendant")?;
 
     let page = |id: &str, group: &str| {
         json!({"id":id,"model":"arcade:litter_paper","x":0_i32,"z":0_i32,"solid":false,

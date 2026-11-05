@@ -5386,3 +5386,54 @@ native captures and gate logs are retained outside `target` under
 Publication, exact remote/CI status and idle-only cleanup/custody release are
 recorded in that directory's final handoff. No main merge, tag or release is part
 of this repair. Phase two remains for the parent to dispatch after acceptance.
+
+
+## Phase-two scripts, triggers and progression repairs — 2026-11-05
+
+Four audited failures are repaired. Maintained-content findings: Pool's first
+hint now stays within the unchanged 72-byte message bound (67 bytes), allowing
+hint-before-talk progression; the three nonfinal Beam chapters retain a live,
+retryable source visit after cancelled/failed travel. The final Arcade seal and
+outcome guards remain unchanged. Supported-authoring findings: reset restores
+authored interaction enablement and prompts while retaining label/explicit state
+policy; every timer start uses its explicit repeat override or authored default.
+The latter two patterns had no demonstrated maintained-quest failure or duplicate
+maintained reward.
+
+Three tiny CPU regressions plus the existing Pool receipt extension cover the
+actual modules and reset/rearm/checkpoint contracts without GPU work or map baking.
+Final-source Rust 1.99.1 gates pass format, locked all-target/all-feature check,
+strict debug/release/global Clippy, 487 default and 487 all-feature tests, locked
+release workspace/all-feature build and 11 bounded Luau refusals. Asset and
+texture/prop/audio checks pass. Python passes 373 tests with two explicit skips
+(packaged weather and broad wgpu smoke); real export is enabled.
+
+All three maintained projects check; 13 collection/Beam package members verify
+current after focused Static exports. The matching menu was rebuilt and validated
+with Static/Full variants; both Mac layouts export and natively start without
+asset/level overrides, and packaged Home→Main Menu→Home passes.
+
+24 native sessions were recorded, 23 accepted, all normal exits; 136 evidence
+assertions pass (including administrative checks). Native Pool hint-first and
+talk-first controls complete one favor using the real physical duck. Beam cancel
+and failed-package rollback permit removal/recredit, hint, patrol and direct retry
+without reset; all three forward transitions install once under rapid repeats.
+Actual final beam seal/win remains guarded. Reset enablement, timer defaults,
+atomic failure, sequence replacement, checkpoint continuation/occupancy and
+Jun/Winter/Aero/Beach controls pass. One early final observation is excluded and
+repeated with a destination-ready anchor; its original successful commit/normal
+exit remain preserved.
+
+Runtime fingerprint (636 files): `7971a00437756d35a7a03badecd08c2f6d90531958696004bceea27fa1297d59`.
+Player SHA256: `b1d15cebbb8e21a0a29058838a9bd2c0b3ae877c8c6d47fc08c4a2d414e96f8a`.
+All prior physics/audio/janitor/phase-one fixes and all project JSON bytes are
+preserved. All 14 maintained levels keep gameplay saves disabled; campaign
+completion is separate. No archived modes, creatures or phase-three changes are
+included; Drift Lung is deferred.
+
+Acceptance is this M2 Pro/macOS 27.2/Metal host, paced Fifo. It establishes no FPS
+gain or Windows/Linux native result. Diagnostic placement/activation is explicit;
+this is not a complete natural-input quest campaign or final-release Full map
+inventory. Raw evidence, matching tools and validation-only exports are retained
+in the local task-6 `script-repair-evidence` directory; its repair report and
+publication handoff record exact limits, remote/CI status and resource release.

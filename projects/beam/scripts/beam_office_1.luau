@@ -80,13 +80,14 @@ return {
     exit = function(api)
         if finished then return end
         if count() ~= 3 or (C.final and not sealed) then hint(api); return end
-        finished = true
-        api.set_state('exit', 'won', true)
-        api.sound('store_hum', false)
         api.sound('exit_cue', true)
         if C.final then
+            finished = true
+            api.set_state('exit', 'won', true)
+            api.sound('store_hum', false)
             api.finish(true, 'YOU ESCAPED', 'You escaped. Press Enter to play Arcade again.')
         else
+            -- A cancelled/failed preparation keeps this visit; leave it retryable.
             api.change_level(C.next_level)
         end
     end,

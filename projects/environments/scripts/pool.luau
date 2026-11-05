@@ -44,7 +44,7 @@ return {
     hint = function(api)
         if done then talk(api)
         elseif not active then
-            api.message("POOL", {"Speak to the attendant beside the FIRST pool to start.", "The yellow duck waits on a table through the pool door, in the SECOND room."})
+            api.message("POOL", {"Speak to the attendant beside the FIRST pool to start.", "The yellow duck is on a table through the door, in the SECOND room."})
         else
             local duck = api.actor("pool_physics_duck")
             local detail = if duck.held then "You are holding the duck. E puts it down."

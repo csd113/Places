@@ -6209,8 +6209,12 @@ reaches zero; the event key is the timer's id.
 | `autostart` | boolean | no | `false` | Start counting at load (and on every reset) instead of waiting for `start_timer`. |
 | `bindings` | array | no | `[]` | Usually one `on: "timer"` binding. |
 
-`start_timer` may override the period and repeat flag for the current arm;
-`stop_timer` halts it; `reset_to_start` restores the authored values.
+`start_timer` may override the period and repeat flag for the current arm and
+its automatic repeats. Every new start uses its explicit overrides or the
+authored defaults for omitted fields, even after an earlier override.
+`stop_timer` halts it; `reset_to_start` restores the authored values. A checkpoint
+continues the saved active arm, including its remaining time and effective mode;
+a later start still derives omitted fields from the authored defaults.
 
 ### Sequences
 

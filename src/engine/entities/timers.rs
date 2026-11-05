@@ -233,9 +233,7 @@ impl Timers {
             return false;
         }
         timer.period = period;
-        if let Some(repeat_mode) = repeat {
-            timer.repeat = repeat_mode;
-        }
+        timer.repeat = repeat.unwrap_or(timer.def.repeat);
         timer.remaining = period;
         timer.running = true;
         true

@@ -509,8 +509,8 @@ pub struct EntityWorld {
     circuit_power: Vec<light_power::CircuitPower>,
     /// Authored state bags, restored by a reset.
     authored_states: Vec<(EntityHandle, ObjectState)>,
-    /// Authored interaction prompts, restored with the other map controls.
-    authored_prompts: Vec<(EntityHandle, String)>,
+    /// Authored interaction prompts and enablement, restored with map controls.
+    authored_interactions: Vec<(EntityHandle, String, bool)>,
     /// Authored emitter state, restored on reset.
     authored_audio: Vec<(EntityHandle, AudioEmitter)>,
     /// Reused bounded trigger work buffers; stationary occupancy allocates no strings.
@@ -631,7 +631,7 @@ impl EntityWorld {
             light_circuits: Vec::new(),
             circuit_power: Vec::new(),
             authored_states: Vec::new(),
-            authored_prompts: Vec::new(),
+            authored_interactions: Vec::new(),
             authored_audio: Vec::new(),
             trigger_sweeps: Vec::new(),
             trigger_edges: Vec::new(),
@@ -702,7 +702,7 @@ impl EntityWorld {
         self.spawns_this_tick = 0;
         self.authored_lights.clear();
         self.authored_states.clear();
-        self.authored_prompts.clear();
+        self.authored_interactions.clear();
         self.authored_audio.clear();
         self.ai.clear();
 
@@ -747,11 +747,11 @@ impl EntityWorld {
             .iter()
             .map(|(handle, state)| (handle, state.clone()))
             .collect();
-        self.authored_prompts = self
+        self.authored_interactions = self
             .components
             .interactables
             .iter()
-            .map(|(handle, component)| (handle, component.prompt.clone()))
+            .map(|(handle, component)| (handle, component.prompt.clone(), component.enabled))
             .collect();
         self.rebuild_interactables(level);
         self.rebuild_door_colliders();
@@ -815,11 +815,7 @@ impl EntityWorld {
                 state.clone_from(authored);
             }
         }
-        for (handle, authored) in &self.authored_prompts {
-            if let Some(component) = self.components.interactables.get_mut(*handle) {
-                component.prompt.clone_from(authored);
-            }
-        }
+        self.reset_interactions();
         self.rebuild_interactables_from_tables();
         self.sequence_runs.clear();
         let controls: Vec<EntityHandle> = self
@@ -884,6 +880,28 @@ impl EntityWorld {
         self.sync_routed_interactables();
         self.rebuild_interactables_from_tables();
         self.rebuild_entity_frames();
+    }
+
+    fn reset_interactions(&mut self) {
+        for (handle, prompt, enabled) in &self.authored_interactions {
+            if let Some(component) = self.components.interactables.get_mut(*handle) {
+                component.prompt.clone_from(prompt);
+                component.enabled = *enabled;
+            }
+            // Enable/disable can create this synthetic state on an otherwise
+            // stateless control. Keep it consistent without emitting reset events.
+            // Explicit authored state fields retain their original values above.
+            let declared_enabled = self
+                .authored_states
+                .iter()
+                .any(|(candidate, state)| candidate == handle && state.get("enabled").is_some());
+            if !declared_enabled
+                && let Some(state) = self.components.states.get_mut(*handle)
+                && state.get("enabled").is_some()
+            {
+                let _changed = state.set("enabled", StateValue::Bool(*enabled));
+            }
+        }
     }
 
     fn discard_scene_commands(&mut self) {
@@ -3974,8 +3992,8 @@ impl EntityWorld {
             .retain(|(candidate, _)| *candidate != handle);
         self.authored_states
             .retain(|(candidate, _)| *candidate != handle);
-        self.authored_prompts
-            .retain(|(candidate, _)| *candidate != handle);
+        self.authored_interactions
+            .retain(|(candidate, _, _)| *candidate != handle);
         self.authored_audio
             .retain(|(candidate, _)| *candidate != handle);
         for circuit in &mut self.light_circuits {

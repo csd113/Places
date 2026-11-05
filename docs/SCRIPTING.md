@@ -134,8 +134,10 @@ callbacks expire after each invocation. Store ordinary Luau values instead.
 
 A fresh map load owns fresh VMs. Reset/replay drops VMs, closures, globals,
 scoped callbacks, diagnostics and disabled status, restores authored world state,
-and re-runs initialization; `start` runs again on the next playing tick. Changing
-levels drops the previous runtime. Editing source during Play affects the next
+and re-runs initialization; `start` runs again on the next playing tick.
+Interaction prompts and enabled flags return to their authored values, including
+authored-disabled controls; floating-label visibility keeps its existing reset
+policy. Changing levels drops the previous runtime. Editing source during Play affects the next
 save/build/play, never the running package; there is no live hot reload.
 
 | Resource | Hard admission bound / cooperative execution limit |
