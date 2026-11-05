@@ -2750,10 +2750,24 @@ concrete or glass. Graphics quality does not change the listening preference.
 Room dimensions, authored wall/floor/ceiling materials, floor patches, openings
 and live door aperture influence a bounded Sabine/early-reflection approximation.
 This is not wave simulation or diffraction. Occlusion uses sliced walls, panes,
-canonical solid scenery proxies and actual oriented door leaves. Thin rails or
-model detail inherit their existing collision proxy, rather than triangle-exact
-acoustics. Static geometry is installed once; moving emitters/listeners and door
-poses invalidate staggered cached paths. Room response transitions smoothly.
+canonical solid scenery proxies, shared physical floor/ceiling terrain prisms,
+and actual hinged and elevator sliding leaves/shells. Floor backing, ramp wedges,
+stair treads and real shaft/open-room footprints retain their shared collision
+ownership. Thin rails or model detail inherit their existing collision proxy,
+rather than triangle-exact acoustics. Static geometry is installed once; moving
+emitters/listeners and door poses invalidate staggered cached paths. Room wall
+materials and openings contribute only their actual overlapping storey/face area.
+Room response transitions smoothly.
+
+A new spatial clip holds its source cursor silently until its first geometry
+query, then fades into the verified filter. This preserves short cues behind
+barriers without an unchecked clear-path transient. The existing eight queries
+per eligible update and 48-voice limit remain: a full burst needs up to six
+nominal 20 ms query opportunities, plus device buffering. This is a scheduling
+tradeoff, not a wall-clock latency guarantee; a stalled main thread can delay
+admission. Already admitted paths keep their existing stale fade/recovery policy.
+Gameplay hearing observations remain independent of playback/admission/device
+availability.
 
 Audio > Output persists `spatial_audio: "speakers" | "headphones"`; the default
 is stereo speakers. Headphones convolve complete measured MIT KEMAR responses,

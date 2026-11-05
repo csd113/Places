@@ -204,6 +204,9 @@ impl FrameLoop<'_> {
             );
         });
         self.audio.system.update_acoustic_doors(self.game.doors());
+        self.audio
+            .system
+            .update_acoustic_elevators(self.game.world().elevators());
         self.audio.system.drain_events(|event| {
             if active {
                 self.game.entities_mut().observe_audio_start(event);

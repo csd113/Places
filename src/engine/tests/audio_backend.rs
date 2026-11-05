@@ -311,3 +311,55 @@ fn prepared_library_cancellation_allows_restart_and_drop_releases_shared_samples
     );
     Ok(())
 }
+
+// Protects the native source-replacement policy at the actual Kira lifecycle
+// boundary. Three full batches of held loops must free all 48 slots before a
+// query; audible loops retain their 12 ms fade. No SDL/assets/map bake.
+#[test]
+fn held_loop_replacements_retire_without_waiting_for_path_admission() -> Result<(), String> {
+    use kira::backend::mock::{MockBackend, MockBackendSettings};
+    let mut manager = AudioManager::<MockBackend>::new(AudioManagerSettings {
+        main_track_builder: MainTrackBuilder::new().sound_capacity(MAX_VOICES),
+        backend_settings: MockBackendSettings {
+            sample_rate: 48_000,
+        },
+        ..AudioManagerSettings::default()
+    })
+    .map_err(|()| "replacement mock setup")?;
+    let data = StaticSoundData::from_cursor(Cursor::new(tiny_wav(1)))
+        .map_err(|e| e.to_string())?
+        .loop_region(..);
+    let mut initial = Parameters::new(
+        &[kira::Frame::ZERO; super::super::hrtf::TAPS],
+        false,
+        AcousticPath::default(),
+    );
+    initial.admitted = false;
+    initial.transmission = 0.0;
+    for _ in 0_u8..3 {
+        let mut handles = Vec::with_capacity(MAX_VOICES);
+        for _ in 0..MAX_VOICES {
+            let (prepared, _writer) = dsp::spatial(data.clone(), &initial, None);
+            handles.push(manager.play(prepared).map_err(|e| format!("{e:?}"))?);
+        }
+        for handle in &mut handles {
+            handle.stop(retirement_tween(true, false));
+        }
+        manager.backend_mut().on_start_processing();
+        for _ in 0_u16..128 {
+            manager.backend_mut().process();
+        }
+        manager.backend_mut().on_start_processing();
+        assert_eq!(
+            manager.main_track().num_sounds(),
+            0,
+            "held source replacements must not pin retired mixer slots behind an unadvancing fade"
+        );
+    }
+    assert_eq!(
+        retirement_tween(true, true).duration,
+        Duration::from_millis(12)
+    );
+    assert_eq!(retirement_tween(false, true).duration, Duration::ZERO);
+    Ok(())
+}

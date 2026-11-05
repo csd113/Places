@@ -543,6 +543,11 @@ impl Elevator {
     #[must_use]
     pub fn colliders(&self) -> Vec<DoorCollider> {
         let mut boxes = Vec::new();
+        self.visit_colliders(|collider| boxes.push(collider));
+        boxes
+    }
+    /// Visits the authoritative fixed-cabin and sliding-leaf poses without allocating.
+    pub fn visit_colliders(&self, mut visit: impl FnMut(DoorCollider)) {
         for (landing, stop) in self
             .def
             .stops
@@ -550,14 +555,15 @@ impl Elevator {
             .enumerate()
             .filter(|(_, stop)| stop.is_landing())
         {
-            boxes.extend(self.cabin_colliders(
+            self.visit_cabin_colliders(
                 stop.y,
                 if landing == self.at {
                     self.opening
                 } else {
                     0.0
                 },
-            ));
+                &mut visit,
+            );
         }
         for (i, stop) in self
             .def
@@ -567,32 +573,27 @@ impl Elevator {
             .filter(|(_, sin)| sin.is_landing())
         {
             for (x0, x1) in [(-0.795, -0.715), (0.715, 0.795)] {
-                boxes.push(self.box_collider_at(stop.y, [x0, -0.004, -0.17], [x1, 2.28, -0.105]));
+                visit(self.box_collider_at(stop.y, [x0, -0.004, -0.17], [x1, 2.28, -0.105]));
             }
             for (x0, x1) in [(-1.425, -0.675), (0.675, 1.425)] {
-                boxes.push(self.box_collider_at(stop.y, [x0, -0.012, 0.195], [x1, 2.23, 0.225]));
+                visit(self.box_collider_at(stop.y, [x0, -0.012, 0.195], [x1, 2.23, 0.225]));
             }
             for (x0, x1) in [(-0.79, -0.710), (0.710, 0.79)] {
-                boxes.push(self.box_collider_at(stop.y, [x0, -0.012, -0.105], [x1, 2.23, 0.025]));
+                visit(self.box_collider_at(stop.y, [x0, -0.012, -0.105], [x1, 2.23, 0.025]));
             }
-            boxes.push(self.box_collider_at(
-                stop.y,
-                [-0.715, DOOR_HEIGHT, -0.15],
-                [0.715, 2.29, 0.24],
-            ));
+            visit(self.box_collider_at(stop.y, [-0.715, DOOR_HEIGHT, -0.15], [0.715, 2.29, 0.24]));
             let opening = if i == self.at && self.phase != Phase::Moving {
                 self.opening
             } else {
                 0.0
             };
             for side in [-1.0, 1.0] {
-                boxes.push(self.leaf(stop.y, side, LANDING_DOOR_Z, opening));
+                visit(self.leaf(stop.y, side, LANDING_DOOR_Z, opening));
             }
         }
-        boxes
     }
-    fn cabin_colliders(&self, y: f32, opening: f32) -> Vec<DoorCollider> {
-        let mut boxes = vec![
+    fn visit_cabin_colliders(&self, y: f32, opening: f32, visit: &mut impl FnMut(DoorCollider)) {
+        for collider in [
             self.box_collider_at(y, [-1.2, -0.08, 0.0], [1.2, 0.0, 2.4]),
             self.box_collider_at(y, [-1.2, HEIGHT, 0.0], [1.2, HEIGHT + 0.08, 2.4]),
             self.box_collider_at(y, [-1.28, 0.0, 0.0], [-1.2, HEIGHT, 2.48]),
@@ -604,13 +605,14 @@ impl Elevator {
             self.box_collider_at(y, [-1.14, 0.95, 0.55], [-1.06, 1.03, 2.25]),
             self.box_collider_at(y, [1.06, 0.95, 0.55], [1.14, 1.03, 2.25]),
             self.box_collider_at(y, [-1.11, 0.95, 2.26], [1.11, 1.03, 2.34]),
-        ];
-        boxes.push(self.box_collider_at(y, [-1.45, 0.0, 0.02], [-1.2, HEIGHT, 0.36]));
-        boxes.push(self.box_collider_at(y, [1.2, 0.0, 0.02], [1.45, HEIGHT, 0.36]));
-        for side in [-1.0, 1.0] {
-            boxes.push(self.leaf(y, side, CABIN_DOOR_Z, opening));
+        ] {
+            visit(collider);
         }
-        boxes
+        visit(self.box_collider_at(y, [-1.45, 0.0, 0.02], [-1.2, HEIGHT, 0.36]));
+        visit(self.box_collider_at(y, [1.2, 0.0, 0.02], [1.45, HEIGHT, 0.36]));
+        for side in [-1.0, 1.0] {
+            visit(self.leaf(y, side, CABIN_DOOR_Z, opening));
+        }
     }
     fn box_collider_at(&self, y: f32, min: [f32; 3], max: [f32; 3]) -> DoorCollider {
         let hinge = self

@@ -16,12 +16,14 @@ pub(super) struct Parameters {
     pub binaural: f32,
     pub transmission: f32,
     pub lowpass: f32,
+    pub admitted: bool,
     pub valid_until: Option<std::time::Instant>,
 }
 impl Parameters {
     pub fn new(kernel: &Kernel, binaural: bool, path: AcousticPath) -> Self {
         Self {
             kernel: *kernel,
+            admitted: true,
             valid_until: None,
             binaural: if binaural { 1.0 } else { 0.0 },
             transmission: path.transmission,
@@ -105,12 +107,24 @@ impl Sound for SpatialSound {
             if self.target.kernel != value.kernel {
                 self.ramp = 576;
             }
+            if !self.current.admitted && value.admitted {
+                // Start with the verified filter, fading gain from digital silence.
+                self.current = value;
+                self.current.transmission = 0.0;
+            }
             self.target = value;
         }
     }
 
     fn process(&mut self, out: &mut [Frame], dt: f64, info: &Info) {
         if self.epoch.as_ref().is_some_and(WorldEpoch::retired) {
+            out.fill(Frame::ZERO);
+            return;
+        }
+        if !self.target.admitted {
+            // Hold the source cursor: even a short clip survives bounded query admission.
+            // Settle immediate stop/pause controls without advancing a sample.
+            self.inner.process(&mut [], dt, info);
             out.fill(Frame::ZERO);
             return;
         }
@@ -199,7 +213,8 @@ impl Sound for SpatialSound {
     fn finished(&self) -> bool {
         self.epoch.as_ref().is_some_and(WorldEpoch::retired)
             || (self.inner.finished()
-                && (self.silent_frames >= 2048
+                && (!self.target.admitted
+                    || self.silent_frames >= 2048
                     || (self.silent_frames >= TAPS && digital_zero(self.filtered))))
     }
 }

@@ -449,6 +449,16 @@ impl AudioSystem {
         let _ = doors;
     }
 
+    /// Synchronize the shared elevator shells and sliding leaves on the game thread.
+    pub fn update_acoustic_elevators(&mut self, elevators: &[crate::engine::elevator::Elevator]) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(audio) = &mut self.native {
+            audio.update_elevators(elevators);
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = elevators;
+    }
+
     /// Moves every active voice belonging to a source; ignores nonfinite poses.
     pub fn set_source_position(&mut self, source: SourceId, position: Vec3) {
         #[cfg(not(target_arch = "wasm32"))]

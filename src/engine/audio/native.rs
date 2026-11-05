@@ -37,7 +37,7 @@ const MAX_CALLBACK_SAMPLES: usize = 16_384;
 const MAX_CLIP_SECONDS: u32 = 30;
 const CAPTURE_FRAMES: usize = 96_000;
 // Six nominal query opportunities fit within 120 ms. Under a longer dirty
-// interval, fade an unverified path rather than keep an old open doorway audible.
+// interval, fade a stale cached path rather than keep an old open doorway audible.
 // This is an age policy, not an OS/callback scheduling deadline.
 const MAX_STALE_PATH_AGE: Duration = Duration::from_millis(150);
 
@@ -618,14 +618,12 @@ impl NativeAudio {
             .hrtf_kernel_queries
             .saturating_add(u64::from(direction.is_some()));
         let path_started = std::time::Instant::now();
-        let mut initial = Parameters::new(
+        let initial = admission_parameters(
             &kernel,
             spatial && self.mix.settings.spatial_mode == SpatialMode::Headphones,
-            AcousticPath::default(),
+            spatial,
+            path_started,
         );
-        initial.valid_until = spatial
-            .then(|| path_started.checked_add(MAX_STALE_PATH_AGE))
-            .flatten();
         let (prepared, parameters) = dsp::spatial(
             sound,
             &initial,
@@ -641,7 +639,10 @@ impl NativeAudio {
                 }
                 *slot = Some(Voice {
                     parameters,
-                    path: AcousticPath::default(),
+                    path: AcousticPath {
+                        transmission: initial.transmission,
+                        ..AcousticPath::default()
+                    },
                     last_parameters: initial,
                     last_direction: direction,
                     dirty_since: spatial.then_some(path_started),
@@ -761,15 +762,25 @@ impl NativeAudio {
         }
     }
     pub fn update_doors(&mut self, doors: &crate::engine::door::Doors) {
-        let revision = self.scene.revision;
+        let previous_revision = self.scene.revision;
         self.scene.update_doors(doors);
-        if revision != self.scene.revision {
-            for voice in self.voices.iter_mut().flatten() {
-                self.stats.parameter_updates = self
-                    .stats
-                    .parameter_updates
-                    .saturating_add(u64::from(mark_path_dirty(voice, std::time::Instant::now())));
-            }
+        self.invalidate_changed_geometry(previous_revision);
+    }
+    pub fn update_elevators(&mut self, elevators: &[crate::engine::elevator::Elevator]) {
+        let previous_revision = self.scene.revision;
+        self.scene.update_elevators(elevators);
+        self.invalidate_changed_geometry(previous_revision);
+    }
+    fn invalidate_changed_geometry(&mut self, previous_revision: u64) {
+        if previous_revision == self.scene.revision {
+            return;
+        }
+        let changed_at = std::time::Instant::now();
+        for voice in self.voices.iter_mut().flatten() {
+            self.stats.parameter_updates = self
+                .stats
+                .parameter_updates
+                .saturating_add(u64::from(mark_path_dirty(voice, changed_at)));
         }
     }
     fn update_acoustics(&mut self) {
@@ -845,6 +856,7 @@ impl NativeAudio {
                     voice.spatial && self.mix.settings.spatial_mode == SpatialMode::Headphones,
                     voice.path,
                 );
+                parameters.admitted = voice.last_parameters.admitted || voice.revision != 0;
                 parameters.valid_until = voice
                     .dirty_since
                     .and_then(|since| since.checked_add(MAX_STALE_PATH_AGE));
@@ -951,11 +963,10 @@ impl NativeAudio {
                 .is_some_and(|voice| voice.source == Some(source))
             {
                 if let Some(voice) = slot {
-                    voice.handle.stop(if voice.looping {
-                        short_tween()
-                    } else {
-                        immediate()
-                    });
+                    voice.handle.stop(retirement_tween(
+                        voice.looping,
+                        voice.last_parameters.admitted,
+                    ));
                 }
                 *slot = None;
             }
@@ -1198,6 +1209,21 @@ fn prepare_sound(
     sound
 }
 
+fn admission_parameters(
+    kernel: &super::hrtf::Kernel,
+    binaural: bool,
+    spatial: bool,
+    started: std::time::Instant,
+) -> Parameters {
+    let mut initial = Parameters::new(kernel, binaural, AcousticPath::default());
+    initial.admitted = !spatial;
+    initial.transmission = if spatial { 0.0 } else { 1.0 };
+    initial.valid_until = spatial
+        .then(|| started.checked_add(MAX_STALE_PATH_AGE))
+        .flatten();
+    initial
+}
+
 fn mark_path_dirty(voice: &mut Voice, now: std::time::Instant) -> bool {
     if !voice.spatial {
         return false;
@@ -1340,6 +1366,16 @@ fn decibels(amplitude: f32) -> Decibels {
         Decibels(20.0 * amplitude.log10())
     }
 }
+// An unadmitted source has no audible signal or advancing playback clock.
+// Its retirement must not wait for a fade that its held cursor cannot advance.
+fn retirement_tween(looping: bool, admitted: bool) -> Tween {
+    if looping && admitted {
+        short_tween()
+    } else {
+        immediate()
+    }
+}
+
 fn immediate() -> Tween {
     Tween {
         duration: Duration::ZERO,

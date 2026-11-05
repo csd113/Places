@@ -149,6 +149,9 @@ pub struct RoomResponse {
 struct Surface {
     bounds: WallAabb,
     material: AcousticMaterial,
+    // Exact sloped prism face, y = x*slope.x + z*slope.z + slope.y.
+    // The bool selects solid above (ceiling) or below (floor), inside bounds.
+    plane: Option<(Vec3, bool)>,
 }
 struct Node {
     bounds: WallAabb,
@@ -168,6 +171,7 @@ pub struct AcousticScene {
     surfaces: Vec<Surface>,
     nodes: Vec<Node>,
     doors: Vec<DoorCollider>,
+    elevators: Vec<DoorCollider>,
     rooms: Vec<Room>,
     door_closed: Vec<f32>,
     pub revision: u64,
@@ -178,6 +182,7 @@ impl Default for AcousticScene {
             surfaces: Vec::new(),
             nodes: Vec::new(),
             doors: Vec::new(),
+            elevators: Vec::new(),
             rooms: Vec::new(),
             door_closed: Vec::new(),
             revision: 1,
@@ -225,6 +230,7 @@ impl AcousticScene {
                 scene.surfaces.push(Surface {
                     bounds,
                     material: mat,
+                    plane: None,
                 });
             }
             for opening in &wall.openings {
@@ -234,6 +240,7 @@ impl AcousticScene {
                     scene.surfaces.push(Surface {
                         bounds,
                         material: material(glass),
+                        plane: None,
                     });
                 }
             }
@@ -250,9 +257,11 @@ impl AcousticScene {
                 scene.surfaces.push(Surface {
                     bounds,
                     material: AcousticMaterial::default(),
+                    plane: None,
                 });
             }
         }
+        append_horizontals(&mut scene.surfaces, level, &surfaces, &material);
         if !scene.surfaces.is_empty() {
             let _root = build_node(&mut scene.nodes, &mut scene.surfaces, 0);
         }
@@ -272,6 +281,13 @@ impl AcousticScene {
                     .abs()
             })
             .collect();
+        let elevators: Vec<_> = level
+            .elevators
+            .iter()
+            .map(crate::engine::elevator::Elevator::new)
+            .collect();
+        scene.elevators.reserve(192); // Authored maximum: eight landings, 24 shared boxes each.
+        scene.update_elevators(&elevators);
         scene.rooms = build_rooms(level, &material);
         scene
     }
@@ -291,19 +307,43 @@ impl AcousticScene {
             }
         }
     }
+    /// Reuses fixed-capacity storage and the collision visitor, with no per-voice geometry.
+    pub fn update_elevators(&mut self, elevators: &[crate::engine::elevator::Elevator]) {
+        let mut index = 0_usize;
+        let mut changed = false;
+        for elevator in elevators {
+            elevator.visit_colliders(|pose| {
+                if let Some(saved) = self.elevators.get_mut(index) {
+                    changed |= *saved != pose;
+                    *saved = pose;
+                } else {
+                    self.elevators.push(pose);
+                    changed = true;
+                }
+                index = index.saturating_add(1);
+            });
+        }
+        changed |= self.elevators.len() != index;
+        self.elevators.truncate(index);
+        if changed {
+            self.revision = self.revision.wrapping_add(1).max(1);
+        }
+    }
     #[must_use]
     pub const fn counts(&self) -> [usize; 3] {
         [self.surfaces.len(), self.nodes.len(), self.doors.len()]
     }
-    /// At most 256 BVH nodes and 256 door tests, no allocations or queued work.
+    /// At most 256 BVH nodes, 256 hinged leaves and 192 shared elevator boxes.
+    /// Fixed hit storage merges touching solids; queries allocate no memory.
     /// Exhaustion returns conservative muffling; it never grows a backlog.
     #[must_use]
     pub fn path(&self, from: Vec3, to: Vec3) -> AcousticPath {
         let mut path = AcousticPath::default();
+        let mut hits = Hits::default();
         let mut stack = [0_usize; 64];
         let mut len = usize::from(!self.nodes.is_empty());
         let mut work = 0_usize;
-        while len > 0 && work < 256 && path.transmission > 0.025 {
+        while len > 0 && work < 256 {
             len = len.saturating_sub(1);
             work = work.saturating_add(1);
             let Some(node) = stack.get(len).and_then(|index| self.nodes.get(*index)) else {
@@ -321,8 +361,8 @@ impl AcousticScene {
                 }
             } else {
                 for surface in self.surfaces.get(node.range.clone()).unwrap_or_default() {
-                    if segment_box(from, to, surface.bounds) {
-                        block(&mut path, surface.material);
+                    if let Some(span) = surface_span(from, to, surface) {
+                        hits.insert(span, surface.material);
                     }
                 }
             }
@@ -331,34 +371,37 @@ impl AcousticScene {
             path.budget_exhausted = true;
             block(&mut path, AcousticMaterial::default());
         }
-        for door in self.doors.iter().take(256) {
-            let local = |v: Vec3| {
-                Vec3::new(
-                    (v.x - door.hinge_x).mul_add(door.dir_x, (v.z - door.hinge_z) * door.dir_z),
-                    v.y,
-                    (v.z - door.hinge_z).mul_add(door.dir_x, -(v.x - door.hinge_x) * door.dir_z),
-                )
-            };
-            if segment_box(
-                local(from),
-                local(to),
-                WallAabb::with_y(
-                    0.0,
-                    door.hinge_y,
-                    -door.thickness * 0.5,
-                    door.width,
-                    door.height,
-                    door.thickness,
-                ),
-            ) {
-                block(
-                    &mut path,
+        for (door, material) in self
+            .doors
+            .iter()
+            .take(256)
+            .map(|door| {
+                (
+                    door,
                     AcousticMaterial {
                         absorption: [0.15, 0.3, 0.55],
                         transmission: 0.23,
                     },
-                );
+                )
+            })
+            .chain(
+                self.elevators
+                    .iter()
+                    .take(192)
+                    .map(|door| (door, AcousticMaterial::default())),
+            )
+        {
+            if let Some(span) = door_span(from, to, door) {
+                hits.insert(span, material);
             }
+        }
+        for hit in hits.entries.into_iter().flatten() {
+            block(&mut path, hit.material);
+        }
+        if hits.overflow {
+            path.budget_exhausted = true;
+            path.transmission = 0.025;
+            path.cutoff_hz = path.cutoff_hz.min(450.0);
         }
         path
     }
@@ -404,6 +447,9 @@ fn contains(b: WallAabb, p: Vec3) -> bool {
         && p.z <= b.max_z + 0.02
 }
 fn segment_box(from: Vec3, to: Vec3, b: WallAabb) -> bool {
+    segment_span(from, to, b).is_some()
+}
+fn segment_span(from: Vec3, to: Vec3, b: WallAabb) -> Option<(f32, f32)> {
     let mut enter = 0.001_f32;
     let mut leave = 0.999_f32;
     for (origin, end, low, high) in [
@@ -414,7 +460,7 @@ fn segment_box(from: Vec3, to: Vec3, b: WallAabb) -> bool {
         let delta = end - origin;
         if delta.abs() < 1.0e-6 {
             if origin < low || origin > high {
-                return false;
+                return None;
             }
         } else {
             let a = (low - origin) / delta;
@@ -422,11 +468,11 @@ fn segment_box(from: Vec3, to: Vec3, b: WallAabb) -> bool {
             enter = enter.max(a.min(c));
             leave = leave.min(a.max(c));
             if enter > leave {
-                return false;
+                return None;
             }
         }
     }
-    true
+    Some((enter, leave))
 }
 fn build_node(nodes: &mut Vec<Node>, surfaces: &mut [Surface], base: usize) -> usize {
     let bounds = surfaces.iter().fold(
@@ -456,14 +502,23 @@ fn build_node(nodes: &mut Vec<Node>, surfaces: &mut [Surface], base: usize) -> u
         children: None,
     });
     if surfaces.len() > 4 {
-        let x_axis = bounds.max_x - bounds.min_x >= bounds.max_z - bounds.min_z;
+        let extent = Vec3::new(
+            bounds.max_x - bounds.min_x,
+            bounds.max_y - bounds.min_y,
+            bounds.max_z - bounds.min_z,
+        );
+        let axis: u8 = if extent.y > extent.x.max(extent.z) {
+            1
+        } else if extent.x >= extent.z {
+            0
+        } else {
+            2
+        };
         surfaces.sort_unstable_by(|a, b| {
-            let center = |s: &Surface| {
-                if x_axis {
-                    s.bounds.min_x + s.bounds.max_x
-                } else {
-                    s.bounds.min_z + s.bounds.max_z
-                }
+            let center = |s: &Surface| match axis {
+                0 => s.bounds.min_x + s.bounds.max_x,
+                1 => s.bounds.min_y + s.bounds.max_y,
+                _ => s.bounds.min_z + s.bounds.max_z,
             };
             center(a).total_cmp(&center(b))
         });
@@ -482,9 +537,11 @@ fn build_node(nodes: &mut Vec<Node>, surfaces: &mut [Surface], base: usize) -> u
 
 fn build_rooms(level: &LevelDef, material: &impl Fn(&str) -> AcousticMaterial) -> Vec<Room> {
     let mut rooms = Vec::with_capacity(level.rooms.len());
-    for room in &level.rooms {
-        let w = room.width.abs();
-        let d = room.depth.abs();
+    let surfaces = LevelSurfaces::new(level);
+    for room in surfaces.rooms() {
+        let (x0, x1, z0, z1) = room.bounds();
+        let w = x1 - x0;
+        let d = z1 - z0;
         let h = f32::mul_add(room.ceiling.ridge_rise_m(), 0.5, room.height);
         let floor = material(room.material.as_deref().unwrap_or(&level.defaults.floor));
         let ceiling = material(
@@ -505,18 +562,19 @@ fn build_rooms(level: &LevelDef, material: &impl Fn(&str) -> AcousticMaterial) -
                         + ceiling.absorption.get(i).copied().unwrap_or_default()),
             );
         }
-        apply_material_overrides(level, room, material, &mut weighted, floor, wall);
+        apply_material_overrides(level, room, &surfaces, material, &mut weighted, floor, wall);
         let mut aperture = 0.0;
         for wall_def in &level.walls {
-            if wall_def.x >= room.x - 0.5
-                && wall_def.x <= room.x + w + 0.5
-                && wall_def.z >= room.z - 0.5
-                && wall_def.z <= room.z + d + 0.5
-            {
-                for opening in &wall_def.openings {
-                    if opening.glass.is_none() {
-                        aperture = f32::mul_add(opening.width, opening.height, aperture);
-                    }
+            for opening in &wall_def.openings {
+                if opening.glass_material().is_none() {
+                    aperture += wall_room_area(
+                        room,
+                        wall_def,
+                        opening.offset,
+                        opening.end(),
+                        opening.bottom(wall_def.y),
+                        opening.top(wall_def.y),
+                    );
                 }
             }
         }
@@ -532,7 +590,7 @@ fn build_rooms(level: &LevelDef, material: &impl Fn(&str) -> AcousticMaterial) -
         let area = 2.0f32.mul_add(floor_area, wall_area);
         let volume = w * d * h;
         rooms.push(Room {
-            bounds: WallAabb::with_y(room.x, room.floor_y, room.z, w, h, d),
+            bounds: WallAabb::with_y(x0, room.floor_y, z0, w, h, d),
             response: RoomResponse {
                 wet: if room.ceiling.is_open() {
                     0.0
@@ -557,34 +615,43 @@ fn build_rooms(level: &LevelDef, material: &impl Fn(&str) -> AcousticMaterial) -
 fn apply_material_overrides(
     level: &LevelDef,
     room: &crate::engine::level::RoomDef,
+    surfaces: &LevelSurfaces<'_>,
     material: &impl Fn(&str) -> AcousticMaterial,
     weighted: &mut [f32; 3],
     floor: AcousticMaterial,
     wall: AcousticMaterial,
 ) {
-    let w = room.width.abs();
-    let d = room.depth.abs();
-    let h = room.height;
-    // Openings leak energy; closed leaves restore absorption dynamically.
+    let (x0, x1, z0, z1) = room.bounds();
+    // Only the solid face area actually inside this room replaces its default.
     for wall_def in &level.walls {
-        let overlap_x = (wall_def.x + wall_def.width).min(room.x + w) - wall_def.x.max(room.x);
-        let overlap_z = (wall_def.z + wall_def.depth).min(room.z + d) - wall_def.z.max(room.z);
-        if overlap_x >= -0.1 && overlap_z >= -0.1 {
-            let surface_area = (overlap_x.max(0.0) + overlap_z.max(0.0)) * h;
-            let authored = wall_material(wall_def, &level.defaults.wall, material);
-            for (i, total) in weighted.iter_mut().enumerate() {
-                *total = f32::mul_add(
-                    surface_area,
-                    authored.absorption.get(i).copied().unwrap_or_default()
-                        - wall.absorption.get(i).copied().unwrap_or_default(),
-                    *total,
-                );
-            }
+        let surface_area = surfaces
+            .wall_solid_slices(wall_def)
+            .iter()
+            .map(|slice| {
+                wall_room_area(
+                    room,
+                    wall_def,
+                    slice.start,
+                    slice.end,
+                    slice.bottom,
+                    slice.top,
+                )
+            })
+            .sum::<f32>();
+        let authored = wall_material(wall_def, &level.defaults.wall, material);
+        for (i, total) in weighted.iter_mut().enumerate() {
+            *total = f32::mul_add(
+                surface_area,
+                authored.absorption.get(i).copied().unwrap_or_default()
+                    - wall.absorption.get(i).copied().unwrap_or_default(),
+                *total,
+            );
         }
     }
     for patch in &level.floor_patches {
-        let area = ((patch.x + patch.width).min(room.x + w) - patch.x.max(room.x)).max(0.0)
-            * ((patch.z + patch.depth).min(room.z + d) - patch.z.max(room.z)).max(0.0);
+        // Like the floor emitter, ignore malformed non-positive patch extents.
+        let area = ((patch.x + patch.width).min(x1) - patch.x.max(x0)).max(0.0)
+            * ((patch.z + patch.depth).min(z1) - patch.z.max(z0)).max(0.0);
         let authored = material(&patch.material);
         for (i, total) in weighted.iter_mut().enumerate() {
             *total = f32::mul_add(
@@ -633,4 +700,333 @@ fn wall_material(
         }),
         transmission: f32::midpoint(front.transmission, back.transmission),
     }
+}
+
+/// Use the same convex terrain patches as rendered backing and rigid bodies.
+/// Material-only cuts subdivide these prisms without changing their geometry.
+fn append_horizontals(
+    output: &mut Vec<Surface>,
+    level: &LevelDef,
+    surfaces: &LevelSurfaces<'_>,
+    material: &impl Fn(&str) -> AcousticMaterial,
+) {
+    use crate::engine::level::{WalkableCeiling, WalkableFloor};
+    let floors = WalkableFloor::from_level(level).structural_patches();
+    let ceilings = WalkableCeiling::from_level(level).physical_patches(&floors);
+    let grids: Vec<_> = surfaces
+        .rooms()
+        .iter()
+        .map(|room| surfaces.floor_grid(room))
+        .collect();
+    for patch in floors.iter().chain(&ceilings) {
+        let [origin, along_x, opposite, along_z] = patch.corners;
+        let (centre_x, centre_z) = (
+            f32::midpoint(origin.x, opposite.x),
+            f32::midpoint(origin.z, opposite.z),
+        );
+        let Some((owner, room)) = surfaces.rooms().iter().enumerate().find(|(_, room)| {
+            (room.floor_y - patch.room_floor_y).abs() < 1.0e-4
+                && room.contains(centre_x, centre_z)
+                && (!patch.ceiling
+                    || (room.ceiling_y_at(centre_x, centre_z)
+                        - f32::midpoint(origin.y, opposite.y))
+                    .abs()
+                        < 1.0e-4)
+        }) else {
+            continue;
+        };
+        let sx = (along_x.y - origin.y) / (along_x.x - origin.x);
+        let sz = (along_z.y - origin.y) / (along_z.z - origin.z);
+        let height = |(px, pz)| sx.mul_add(px - origin.x, sz.mul_add(pz - origin.z, origin.y));
+        if patch.ceiling {
+            push_plane(
+                output,
+                (origin.x, opposite.x, origin.z, opposite.z),
+                height,
+                patch.backing,
+                true,
+                material(
+                    room.ceiling_material
+                        .as_deref()
+                        .unwrap_or(&level.defaults.ceiling),
+                ),
+            );
+            continue;
+        }
+        let Some(grid) = grids.get(owner) else {
+            continue;
+        };
+        for z_span in grid.zs.windows(2) {
+            let &[z0, z1] = z_span else {
+                continue;
+            };
+            for x_span in grid.xs.windows(2) {
+                let &[x0, x1] = x_span else {
+                    continue;
+                };
+                let bounds = (
+                    x0.max(origin.x),
+                    x1.min(opposite.x),
+                    z0.max(origin.z),
+                    z1.min(opposite.z),
+                );
+                if bounds.0 >= bounds.1 || bounds.2 >= bounds.3 {
+                    continue;
+                }
+                let centre = (
+                    f32::midpoint(bounds.0, bounds.1),
+                    f32::midpoint(bounds.2, bounds.3),
+                );
+                let id = floor_material(level, surfaces, room, centre);
+                push_plane(output, bounds, height, patch.backing, false, material(id));
+            }
+        }
+    }
+}
+
+fn floor_material<'a>(
+    level: &'a LevelDef,
+    surfaces: &LevelSurfaces<'a>,
+    room: &'a crate::engine::level::RoomDef,
+    (x, z): (f32, f32),
+) -> &'a str {
+    let base = room.material.as_deref().unwrap_or(&level.defaults.floor);
+    if let Some(ramp) = surfaces.ramp_at(x, z) {
+        return ramp.material.as_deref().unwrap_or(base);
+    }
+    if let Some(stair) = surfaces.stair_at(x, z) {
+        return stair.material.as_deref().unwrap_or(base);
+    }
+    surfaces
+        .region_at(x, z)
+        .and_then(|region| region.material.as_deref())
+        .or_else(|| {
+            level
+                .floor_patches
+                .iter()
+                .rev()
+                .find(|patch| {
+                    x >= patch.x
+                        && x <= patch.x + patch.width
+                        && z >= patch.z
+                        && z <= patch.z + patch.depth
+                })
+                .map(|patch| patch.material.as_str())
+        })
+        .unwrap_or(base)
+}
+
+fn push_plane(
+    output: &mut Vec<Surface>,
+    (x0, x1, z0, z1): (f32, f32, f32, f32),
+    y_at: impl Fn((f32, f32)) -> f32,
+    backing: f32,
+    ceiling: bool,
+    material: AcousticMaterial,
+) {
+    if x1 <= x0 || z1 <= z0 {
+        return;
+    }
+    let y = y_at((x0, z0));
+    let sx = (y_at((x1, z0)) - y) / (x1 - x0);
+    let sz = (y_at((x0, z1)) - y) / (z1 - z0);
+    let plane = Vec3::new(sx, sz.mul_add(-z0, sx.mul_add(-x0, y)), sz);
+    let heights = [y, y_at((x1, z0)), y_at((x0, z1)), y_at((x1, z1))];
+    let mut bounds = WallAabb::with_y(
+        x0,
+        heights.into_iter().fold(f32::INFINITY, f32::min),
+        z0,
+        x1 - x0,
+        0.0,
+        z1 - z0,
+    );
+    bounds.max_y = heights.into_iter().fold(f32::NEG_INFINITY, f32::max);
+    if ceiling {
+        bounds.max_y = backing;
+    } else {
+        bounds.min_y = backing;
+    }
+    // Remove grid subdivisions only when their exact material and plane agree.
+    // Each room owns a small build-time list; queries never merge or allocate.
+    loop {
+        let adjacent = output.iter().position(|saved| {
+            saved.material == material
+                && saved.plane == Some((plane, ceiling))
+                && if ceiling {
+                    saved.bounds.max_y.to_bits() == backing.to_bits()
+                } else {
+                    saved.bounds.min_y.to_bits() == backing.to_bits()
+                }
+                && ((saved.bounds.min_x.to_bits() == bounds.min_x.to_bits()
+                    && saved.bounds.max_x.to_bits() == bounds.max_x.to_bits()
+                    && (saved.bounds.max_z.to_bits() == bounds.min_z.to_bits()
+                        || saved.bounds.min_z.to_bits() == bounds.max_z.to_bits()))
+                    || (saved.bounds.min_z.to_bits() == bounds.min_z.to_bits()
+                        && saved.bounds.max_z.to_bits() == bounds.max_z.to_bits()
+                        && (saved.bounds.max_x.to_bits() == bounds.min_x.to_bits()
+                            || saved.bounds.min_x.to_bits() == bounds.max_x.to_bits())))
+        });
+        let Some(index) = adjacent else { break };
+        let saved = output.swap_remove(index).bounds;
+        bounds.min_x = bounds.min_x.min(saved.min_x);
+        bounds.max_x = bounds.max_x.max(saved.max_x);
+        bounds.min_y = bounds.min_y.min(saved.min_y);
+        bounds.max_y = bounds.max_y.max(saved.max_y);
+        bounds.min_z = bounds.min_z.min(saved.min_z);
+        bounds.max_z = bounds.max_z.max(saved.max_z);
+    }
+    output.push(Surface {
+        bounds,
+        material,
+        plane: Some((plane, ceiling)),
+    });
+}
+
+fn surface_span(from: Vec3, to: Vec3, surface: &Surface) -> Option<(f32, f32)> {
+    let (mut enter, mut leave) = segment_span(from, to, surface.bounds)?;
+    let Some((plane, ceiling)) = surface.plane else {
+        return Some((enter, leave));
+    };
+    let sign = if ceiling { 1.0 } else { -1.0 };
+    let distance = |p: Vec3| sign * (p.y - plane.x.mul_add(p.x, plane.z.mul_add(p.z, plane.y)));
+    let start = distance(from);
+    let delta = distance(to) - start;
+    if delta.abs() < 1.0e-6 {
+        return (start >= 0.0).then_some((enter, leave));
+    }
+    let crossing = -start / delta;
+    if delta > 0.0 {
+        enter = enter.max(crossing);
+    } else {
+        leave = leave.min(crossing);
+    }
+    (enter <= leave).then_some((enter, leave))
+}
+
+fn door_span(from: Vec3, to: Vec3, door: &DoorCollider) -> Option<(f32, f32)> {
+    let local = |v: Vec3| {
+        Vec3::new(
+            (v.x - door.hinge_x).mul_add(door.dir_x, (v.z - door.hinge_z) * door.dir_z),
+            v.y,
+            (v.z - door.hinge_z).mul_add(door.dir_x, -(v.x - door.hinge_x) * door.dir_z),
+        )
+    };
+    segment_span(
+        local(from),
+        local(to),
+        WallAabb::with_y(
+            0.0,
+            door.hinge_y,
+            -door.thickness * 0.5,
+            door.width,
+            door.height,
+            door.thickness,
+        ),
+    )
+}
+
+#[derive(Clone, Copy)]
+struct Hit {
+    span: (f32, f32),
+    material: AcousticMaterial,
+}
+#[derive(Default)]
+struct Hits {
+    entries: [Option<Hit>; 32],
+    overflow: bool,
+}
+impl Hits {
+    fn insert(&mut self, mut span: (f32, f32), mut material: AcousticMaterial) {
+        // Touching leaves, coincident carrier cells and slabs are one barrier.
+        // Merge intervals transitively, independently of BVH traversal order.
+        loop {
+            let overlap = self.entries.iter().position(|entry| {
+                entry.is_some_and(|hit| {
+                    hit.span.0 <= span.1 + 1.0e-6 && hit.span.1 >= span.0 - 1.0e-6
+                })
+            });
+            let Some(index) = overlap else { break };
+            if let Some(hit) = self.entries.get_mut(index).and_then(Option::take) {
+                span = (span.0.min(hit.span.0), span.1.max(hit.span.1));
+                material.transmission = material.transmission.min(hit.material.transmission);
+                for (value, other) in material.absorption.iter_mut().zip(hit.material.absorption) {
+                    *value = value.max(other);
+                }
+            }
+        }
+        if let Some(slot) = self.entries.iter_mut().find(|entry| entry.is_none()) {
+            *slot = Some(Hit { span, material });
+        } else {
+            self.overflow = true;
+        }
+    }
+}
+
+/// Project one actual wall face/opening onto this room, clipping both length
+/// and height. Normalized footprints permit walls beginning outside the room.
+fn wall_room_area(
+    room: &crate::engine::level::RoomDef,
+    wall: &crate::engine::level::WallDef,
+    start: f32,
+    end: f32,
+    bottom: f32,
+    top: f32,
+) -> f32 {
+    let (x0, x1, z0, z1) = room.bounds();
+    let (wx, wz) = wall.min_corner();
+    if wx + wall.width.abs() < x0 || wx > x1 || wz + wall.depth.abs() < z0 || wz > z1 {
+        return 0.0;
+    }
+    let (origin, low, high, across) = match wall.axis() {
+        WallAxis::X => (wx, x0, x1, wall.depth.abs().mul_add(0.5, wz).clamp(z0, z1)),
+        WallAxis::Z => (wz, z0, z1, wall.width.abs().mul_add(0.5, wx).clamp(x0, x1)),
+    };
+    let a = (origin + start.min(end)).max(low).max(origin);
+    let b = (origin + start.max(end))
+        .min(high)
+        .min(origin + wall.length());
+    let clipped_bottom = bottom.max(room.floor_y).max(wall.y);
+    let clipped_top = wall.height.map_or(top, |height| top.min(wall.y + height));
+    if a >= b || clipped_bottom >= clipped_top {
+        return 0.0;
+    }
+    let ceiling_at = |along| match wall.axis() {
+        WallAxis::X => room.ceiling_y_at(along, across),
+        WallAxis::Z => room.ceiling_y_at(across, along),
+    };
+    let ridge = room
+        .ridge_across()
+        .filter(|_| {
+            room.ceiling
+                .ridge_axis()
+                .is_some_and(|axis| axis != wall.axis())
+        })
+        .unwrap_or(a)
+        .clamp(a, b);
+    [(a, ridge), (ridge, b)]
+        .into_iter()
+        .map(|(left, right)| {
+            let (y0, y1) = (ceiling_at(left), ceiling_at(right));
+            let mut cuts = [left, right, left, right];
+            if (y1 - y0).abs() > 1.0e-6 {
+                for (slot, height) in cuts.iter_mut().skip(2).zip([clipped_bottom, clipped_top]) {
+                    *slot = ((height - y0) / (y1 - y0))
+                        .clamp(0.0, 1.0)
+                        .mul_add(right - left, left);
+                }
+            }
+            cuts.sort_unstable_by(f32::total_cmp);
+            cuts.windows(2)
+                .map(|span| {
+                    let l = span.first().copied().unwrap_or(left);
+                    let r = span.get(1).copied().unwrap_or(right);
+                    (r - l)
+                        * f32::midpoint(
+                            (ceiling_at(l).min(clipped_top) - clipped_bottom).max(0.0),
+                            (ceiling_at(r).min(clipped_top) - clipped_bottom).max(0.0),
+                        )
+                })
+                .sum::<f32>()
+        })
+        .sum()
 }

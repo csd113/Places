@@ -243,3 +243,136 @@ fn stale_path_fades_recovers_and_world_disposal_discards_its_tail() -> Result<()
     );
     Ok(())
 }
+
+// Unique onset regression: held 80 ms sources must remain exactly silent for
+// six simulated query opportunities, then retain the entire clip and verified
+// filter. This exercises 1/48 voice bursts without sleeps, devices or assets.
+#[test]
+fn unverified_short_sources_hold_their_cursor_until_bounded_admission() -> Result<(), String> {
+    use kira::sound::static_sound::StaticSoundSettings;
+    use kira::{AudioManager, AudioManagerSettings};
+    for count in [1_usize, 48] {
+        let mut energies = Vec::new();
+        for transmission in [1.0_f32, 0.23] {
+            let mut manager = AudioManager::<TailBackend>::new(AudioManagerSettings {
+                internal_buffer_size: 128,
+                ..AudioManagerSettings::default()
+            })
+            .map_err(|()| "admission backend setup")?;
+            let mut writers = Vec::new();
+            let data = StaticSoundData {
+                sample_rate: 48_000,
+                frames: vec![Frame::from_mono(0.01); 3840].into(),
+                settings: StaticSoundSettings::default(),
+                slice: None,
+            };
+            let mut parameters =
+                Parameters::new(&[Frame::ZERO; TAPS], false, AcousticPath::default());
+            parameters.admitted = false;
+            parameters.transmission = 0.0;
+            // Even an expired admission deadline cannot consume an unchecked clip.
+            parameters.valid_until = Some(std::time::Instant::now());
+            for _ in 0..count {
+                let (prepared, writer) = spatial(data.clone(), &parameters, None);
+                let _handle = manager.play(prepared).map_err(|e| format!("{e:?}"))?;
+                writers.push(writer);
+            }
+            let mut output = [0.0_f32; 256];
+            for _ in 0_u8..64 {
+                manager.backend_mut().render(&mut output)?;
+                assert!(
+                    output.iter().all(|v| v.to_bits() == 0),
+                    "unverified source emitted before geometry admission"
+                );
+            }
+            assert_eq!(
+                manager.main_track().num_sounds(),
+                count,
+                "short clips must survive a wait longer than their duration"
+            );
+            parameters.admitted = true;
+            parameters.valid_until = None;
+            parameters.transmission = transmission;
+            let mut energy = 0.0_f32;
+            for batch in writers.chunks_mut(8) {
+                for writer in batch {
+                    writer.write(parameters);
+                }
+                for _ in 0_u8..10 {
+                    manager.backend_mut().render(&mut output)?;
+                    energy += output.iter().map(|v| v * v).sum::<f32>();
+                }
+            }
+            for _ in 0_u8..80 {
+                manager.backend_mut().render(&mut output)?;
+                energy += output.iter().map(|v| v * v).sum::<f32>();
+            }
+            assert_eq!(
+                manager.main_track().num_sounds(),
+                0,
+                "admitted one-shots must retire normally"
+            );
+            assert!(
+                energy > 0.001,
+                "clear-path admission must keep short cues useful"
+            );
+            energies.push(energy);
+        }
+        assert!(
+            energies.get(1).copied().unwrap_or_default()
+                < energies.first().copied().unwrap_or_default() * 0.1,
+            "closed admission cannot reproduce the clear-path onset waveform"
+        );
+    }
+    Ok(())
+}
+
+// Held sounds have no filter tail: explicit stop and world disposal must reclaim
+// them even without a first query. Two 4-frame clips, four blocks, no device.
+#[test]
+fn unverified_voices_retire_on_stop_and_world_disposal() -> Result<(), String> {
+    use kira::sound::static_sound::StaticSoundSettings;
+    use kira::{AudioManager, AudioManagerSettings};
+    let mut manager = AudioManager::<TailBackend>::new(AudioManagerSettings {
+        internal_buffer_size: 128,
+        ..AudioManagerSettings::default()
+    })
+    .map_err(|()| "admission stop backend setup")?;
+    let data = StaticSoundData {
+        sample_rate: 48_000,
+        frames: vec![Frame::from_mono(0.5); 4].into(),
+        settings: StaticSoundSettings::default(),
+        slice: None,
+    };
+    let epoch = Arc::new(AtomicU64::new(1));
+    let mut parameters = Parameters::new(&[Frame::ZERO; TAPS], false, AcousticPath::default());
+    parameters.admitted = false;
+    let (first, _first_writer) = spatial(data.clone(), &parameters, None);
+    let (second, _second_writer) = spatial(
+        data,
+        &parameters,
+        Some(WorldEpoch {
+            current: Arc::clone(&epoch),
+            voice: 1,
+        }),
+    );
+    let mut handle = manager.play(first).map_err(|e| format!("{e:?}"))?;
+    let _other = manager.play(second).map_err(|e| format!("{e:?}"))?;
+    let mut output = [0.0_f32; 256];
+    manager.backend_mut().render(&mut output)?;
+    handle.stop(kira::Tween {
+        duration: std::time::Duration::ZERO,
+        ..kira::Tween::default()
+    });
+    epoch.store(2, Ordering::Release);
+    for _ in 0_u8..4 {
+        manager.backend_mut().render(&mut output)?;
+    }
+    assert!(output.iter().all(|v| v.to_bits() == 0));
+    assert_eq!(
+        manager.main_track().num_sounds(),
+        0,
+        "unverified retirement must not wait for source playback or a path query"
+    );
+    Ok(())
+}

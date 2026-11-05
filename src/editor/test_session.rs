@@ -358,6 +358,7 @@ impl Session {
                 .or_else(|| self.game.entities().audio_source_position(source.0))
         });
         audio.update_acoustic_doors(self.game.doors());
+        audio.update_acoustic_elevators(self.game.world().elevators());
         audio.drain_events(|event| self.game.entities_mut().observe_audio_start(event));
         self.audio_stats = audio.stats();
     }
