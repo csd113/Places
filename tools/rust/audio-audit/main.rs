@@ -132,7 +132,7 @@ fn main() -> Result<(), String> {
         return witnesses::scene(&mut audio, &out);
     }
     if disposal {
-        return witnesses::run(&mut audio, &out);
+        return witnesses::run(&mut audio, &assets, &out);
     }
     if lifetime {
         return lifetime_probe(&mut audio, &sdl, &assets, &out);
@@ -632,6 +632,156 @@ fn control_probe(audio: &mut AudioSystem, out: &std::path::Path) -> Result<(), S
     Ok(())
 }
 
+// Establish successful real loading before a baseline-relative lifetime check.
+// Every declared cue must be admitted, including the required gameplay cues;
+// an empty/partial/failed library therefore cannot validate itself after clear.
+fn loaded_baseline(
+    audio: &mut AudioSystem,
+    assets: &std::path::Path,
+) -> Result<places::engine::audio::AudioStats, String> {
+    let catalog = places::engine::audio::AudioCatalog::load(assets)?;
+    let cues: Vec<_> = catalog.cue_ids().collect();
+    let baseline = audio.stats();
+    for required in [
+        "footstep_hard",
+        "switch_click",
+        "door_open",
+        "fluorescent_buzz",
+        "ambience_intercom",
+    ] {
+        if !cues.contains(&required) {
+            return Err(format!(
+                "required audio cue missing: {required}; observed cues={cues:?}"
+            ));
+        }
+    }
+    if !baseline.enabled
+        || baseline.errors != 0
+        || baseline.loaded_clips == 0
+        || baseline.decoded_bytes == 0
+        || baseline.decoded_bytes > places::engine::audio::MAX_DECODED_BYTES
+    {
+        return Err(format!(
+            "invalid loaded audio baseline: {baseline:?}; expected enabled, no errors, nonempty clips/bytes within 64 MiB"
+        ));
+    }
+    let mut scratch = [[0.0_f32; 2]; 2048];
+    // Catalogs may contain 64 cues while the unchanged voice limit is 48.
+    // Audition bounded batches, then wait for each clear to reach the device.
+    for batch in cues.chunks(16) {
+        for cue in batch {
+            if !audio.play(cue, PlayRequest::default()) {
+                return Err(format!(
+                    "loaded library refused declared cue {cue}; observed {:?}",
+                    audio.stats()
+                ));
+            }
+        }
+        if !drain_for(audio, AudioSettings::default(), &mut scratch, 100) {
+            return Err(format!(
+                "loaded baseline produced no actual PCM; observed {:?}",
+                audio.stats()
+            ));
+        }
+        audio.clear_world();
+        validate_clear(&baseline, &audio.stats())?;
+        let mut events = 0_u16;
+        audio.drain_events(|_| events = events.saturating_add(1));
+        if events != 0 {
+            return Err(format!(
+                "audio clear retained {events} world sound events; expected 0"
+            ));
+        }
+        let settling = Instant::now();
+        while audio.stats().output_epoch != audio.stats().world_epoch
+            && settling.elapsed() < Duration::from_secs(2)
+        {
+            let _drained = drain_for(audio, AudioSettings::default(), &mut scratch, 10);
+        }
+        if audio.stats().output_epoch != audio.stats().world_epoch {
+            return Err(format!(
+                "audio clear did not reach actual device; observed {:?}",
+                audio.stats()
+            ));
+        }
+        // The native mixer retires stopped sound handles asynchronously after
+        // consuming the clear. Give its ordinary update/queue drain a callback.
+        let _quiet = drain_for(audio, AudioSettings::default(), &mut scratch, 60);
+    }
+    Ok(baseline)
+}
+
+fn validate_clear(
+    baseline: &places::engine::audio::AudioStats,
+    cleared: &places::engine::audio::AudioStats,
+) -> Result<(), String> {
+    if !cleared.enabled
+        || cleared.active_voices != 0
+        || cleared.pending_voices != 0
+        || cleared.acoustic_surfaces != 0
+        || cleared.acoustic_nodes != 0
+        || cleared.stale_paths != 0
+        || cleared.world_epoch <= baseline.world_epoch
+        || cleared.loaded_clips != baseline.loaded_clips
+        || cleared.decoded_bytes != baseline.decoded_bytes
+        || cleared.decoded_bytes > places::engine::audio::MAX_DECODED_BYTES
+    {
+        return Err(format!(
+            "scene clear lost shared cues or retained world owners; observed={cleared:?}; expected clips={}, bytes={}, enabled=true, voices/pending/surfaces/nodes=0",
+            baseline.loaded_clips, baseline.decoded_bytes
+        ));
+    }
+    Ok(())
+}
+
+fn start_capacity(
+    audio: &mut AudioSystem,
+    settings: AudioSettings,
+    scratch: &mut [[f32; 2]],
+    milliseconds: u64,
+) -> Result<places::engine::audio::AudioStats, String> {
+    for source in 0_u16..48 {
+        if !audio.play(
+            "fluorescent_buzz",
+            PlayRequest {
+                source: Some(SourceId(u64::from(source))),
+                position: Some(Vec3::new(4.0, 2.0, 7.0)),
+                looping: Some(true),
+                gain: 0.5,
+                ..PlayRequest::default()
+            },
+        ) {
+            return Err(format!(
+                "full-capacity start refused at source {source}; observed {:?}",
+                audio.stats()
+            ));
+        }
+    }
+    let settling = Instant::now();
+    while (audio.stats().active_voices != places::engine::audio::MAX_VOICES
+        || audio.stats().pending_voices != 0)
+        && settling.elapsed() < Duration::from_secs(2)
+    {
+        let _drained = drain_for(audio, settings, scratch, 10);
+    }
+    if !drain_for(audio, settings, scratch, milliseconds) {
+        return Err(format!(
+            "full-capacity playback lacked native PCM; observed {:?}",
+            audio.stats()
+        ));
+    }
+    let settled = audio.stats();
+    if settled.active_voices != places::engine::audio::MAX_VOICES
+        || settled.pending_voices != 0
+        || settled.errors != 0
+    {
+        return Err(format!(
+            "full-capacity playback did not settle at 48 active/0 pending voices with no errors; observed {settled:?}"
+        ));
+    }
+    Ok(settled)
+}
+
 // Explicit device/lifetime campaign, separate from ordinary tests and timing.
 // Every reload's preparation thread is joined before main-thread SDL ownership.
 fn lifetime_probe(
@@ -640,7 +790,7 @@ fn lifetime_probe(
     assets: &std::path::Path,
     out: &std::path::Path,
 ) -> Result<(), String> {
-    let mut rows: Vec<(u16, u64, u64, places::engine::audio::AudioStats)> = Vec::with_capacity(48);
+    let mut rows = Vec::with_capacity(48);
     let mut scratch = vec![[0.0_f32; 2]; 8192];
     audio.unload();
     let started = Instant::now();
@@ -657,6 +807,7 @@ fn lifetime_probe(
         if !audio.stats().enabled {
             return Err("reload did not restore the actual native device".into());
         }
+        let baseline = loaded_baseline(audio, assets)?;
         let settings = AudioSettings {
             spatial_mode: if cycle % 2 == 0 {
                 SpatialMode::Speakers
@@ -672,23 +823,7 @@ fn lifetime_probe(
         })?;
         audio.set_acoustic_scene(AcousticScene::build(&level));
         audio.update(Listener::default(), false, 1.0, settings);
-        for source in 0_u16..48 {
-            if !audio.play(
-                "fluorescent_buzz",
-                PlayRequest {
-                    source: Some(SourceId(u64::from(source))),
-                    position: Some(Vec3::new(4.0, 2.0, 7.0)),
-                    looping: Some(true),
-                    gain: 0.5,
-                    ..PlayRequest::default()
-                },
-            ) {
-                return Err("lifetime full-capacity start refused".into());
-            }
-        }
-        if !drain_for(audio, settings, &mut scratch, 200) {
-            return Err("lifetime playback lacked native PCM".into());
-        }
+        let settled = start_capacity(audio, settings, &mut scratch, 200)?;
         if cycle == 0 {
             freshness_probe(audio, settings, out)?;
         }
@@ -709,13 +844,13 @@ fn lifetime_probe(
         let pressure = audio.stats();
         audio.clear_world();
         let cleared = audio.stats();
-        if cleared.active_voices != 0
-            || cleared.pending_voices != 0
-            || cleared.acoustic_surfaces != 0
-            || cleared.loaded_clips != 66
-            || cleared.decoded_bytes != 43_409_440
-        {
-            return Err("scene clear lost shared cues or retained world owners".into());
+        validate_clear(&baseline, &cleared)?;
+        let mut events = 0_u16;
+        audio.drain_events(|_| events = events.saturating_add(1));
+        if events != 0 {
+            return Err(format!(
+                "lifetime cycle {cycle} clear retained {events} sound events; expected 0"
+            ));
         }
         let _drained = drain_for(audio, settings, &mut scratch, 60);
         audio.unload();
@@ -723,7 +858,13 @@ fn lifetime_probe(
             return Err("unload retained native ownership".into());
         }
         drop(level);
-        rows.push((cycle, before, LIVE_BYTES.load(Ordering::Relaxed), pressure));
+        rows.push(serde_json::json!({"cycle":cycle,"before_rust_bytes":before,"after_unload_rust_bytes":LIVE_BYTES.load(Ordering::Relaxed),"baseline":baseline,"settled":settled,"pressure":pressure,"cleared":cleared,"unloaded":audio.stats(),"full_capacity_admitted":true,"native_pcm":true}));
+        // Preserve completed cycles even if a later boundary fails.
+        std::fs::write(
+            out.join("reload-owners.json"),
+            serde_json::to_vec_pretty(&rows).map_err(|error| error.to_string())?,
+        )
+        .map_err(|error| error.to_string())?;
     }
     std::fs::write(
         out.join("reload-owners.json"),

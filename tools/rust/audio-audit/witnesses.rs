@@ -44,7 +44,12 @@ fn capture_only(audio: &mut AudioSystem, milliseconds: u64) -> Vec<Window> {
     }
     rows
 }
-pub fn run(audio: &mut AudioSystem, out: &std::path::Path) -> Result<(), String> {
+pub fn run(
+    audio: &mut AudioSystem,
+    assets: &std::path::Path,
+    out: &std::path::Path,
+) -> Result<(), String> {
+    let baseline = super::loaded_baseline(audio, assets)?;
     let mut trials = Vec::new();
     let mut scratch = vec![[0.0_f32; 2]; 8192];
     let listener = Listener {
@@ -101,13 +106,7 @@ pub fn run(audio: &mut AudioSystem, out: &std::path::Path) -> Result<(), String>
         // Intentionally no update, play, door or source control until capture ends.
         let clear_stall = capture_only(audio, 600);
         let cleared = audio.stats();
-        if cleared.active_voices != 0
-            || cleared.pending_voices != 0
-            || cleared.acoustic_surfaces != 0
-            || cleared.loaded_clips != 66
-        {
-            return Err("clear retained owners or discarded shared cues".into());
-        }
+        super::validate_clear(&baseline, &cleared)?;
         let _restart = begin_sustained_mode(audio, settings, listener, &mut scratch)?;
         if !drain_for(audio, settings, &mut scratch, 250) {
             return Err("restart produced no native PCM".into());

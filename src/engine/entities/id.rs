@@ -129,6 +129,9 @@ pub struct EntityStore {
     free: Vec<u32>,
     live: usize,
     generation: u64,
+    /// Floor above every generation from a previous clear, including holes.
+    initial_generation: u32,
+    exhausted: bool,
 }
 
 impl EntityStore {
@@ -140,34 +143,51 @@ impl EntityStore {
             free: Vec::new(),
             live: 0,
             generation: 0,
+            initial_generation: 0,
+            exhausted: false,
         }
     }
 
     /// Creates a slot and returns its handle.
+    ///
+    /// # Panics
+    /// Panics when the finite eight-byte identity space is exhausted. Call
+    /// [`Self::try_insert`] to handle this boundary without a panic.
+    #[expect(
+        clippy::expect_used,
+        reason = "the legacy infallible API must fail before aliasing finite identities; try_insert exposes recoverable exhaustion"
+    )]
     pub fn insert(&mut self) -> EntityHandle {
+        self.try_insert().expect("entity identity space exhausted")
+    }
+
+    /// Creates a slot, or returns `None` without mutation when no fresh identity
+    /// is representable. Generations and slot indices never wrap.
+    pub fn try_insert(&mut self) -> Option<EntityHandle> {
+        if self.exhausted {
+            return None;
+        }
         if let Some(index) = self.free.pop()
             && let Ok(slot_index) = usize::try_from(index)
             && let Some(slot) = self.slots.get_mut(slot_index)
         {
             slot.live = true;
             self.live = self.live.saturating_add(1);
-            return EntityHandle {
+            return Some(EntityHandle {
                 index,
                 generation: slot.generation,
-            };
+            });
         }
-        // A store with more than `u32::MAX` slots cannot address one; the
-        // engine's own level budgets are orders of magnitude below this.
-        let index = u32::try_from(self.slots.len()).unwrap_or(u32::MAX);
+        let index = u32::try_from(self.slots.len()).ok()?;
         self.slots.push(Slot {
-            generation: 0,
+            generation: self.initial_generation,
             live: true,
         });
         self.live = self.live.saturating_add(1);
-        EntityHandle {
+        Some(EntityHandle {
             index,
-            generation: 0,
-        }
+            generation: self.initial_generation,
+        })
     }
 
     /// Drops one slot and returns whether it was live.
@@ -185,8 +205,12 @@ impl EntityStore {
             return false;
         }
         slot.live = false;
-        slot.generation = slot.generation.wrapping_add(1);
-        self.free.push(handle.index);
+        // A slot at the last generation is permanently retired until clear;
+        // clear then refuses insertion if no higher generation is representable.
+        if let Some(next) = slot.generation.checked_add(1) {
+            slot.generation = next;
+            self.free.push(handle.index);
+        }
         self.live = self.live.saturating_sub(1);
         true
     }
@@ -222,12 +246,37 @@ impl EntityStore {
         self.generation
     }
 
-    /// Drops every slot and advances the world generation.
+    /// Drops every slot and advances the world generation. New slots start
+    /// above every prior slot generation, including removed/reused slots, so
+    /// clearing cannot resurrect any handle. No retired-handle set is retained.
+    ///
+    /// # Panics
+    /// Panics before mutation if the `u64` world generation is exhausted.
+    #[expect(
+        clippy::expect_used,
+        reason = "world epoch exhaustion cannot be represented by this infallible API; fail before mutating instead of wrapping stale events"
+    )]
     pub fn clear(&mut self) {
+        let generation = self
+            .generation
+            .checked_add(1)
+            .expect("entity world generation exhausted");
+        let highest = self
+            .slots
+            .iter()
+            .map(|slot| slot.generation)
+            .max()
+            .unwrap_or(self.initial_generation)
+            .max(self.initial_generation);
+        if let Some(next) = highest.checked_add(1) {
+            self.initial_generation = next;
+        } else {
+            self.exhausted = true;
+        }
         self.slots.clear();
         self.free.clear();
         self.live = 0;
-        self.generation = self.generation.wrapping_add(1);
+        self.generation = generation;
     }
 
     /// The live handles, in slot order.
@@ -325,3 +374,9 @@ impl EntityNames {
         self.by_handle.clear();
     }
 }
+
+// Private numeric-boundary fixtures exercise exhaustion without billions of
+// allocations; public lifetime/component regressions live with the engine tests.
+#[cfg(test)]
+#[path = "../tests/entity_identity_limits.rs"]
+mod tests;

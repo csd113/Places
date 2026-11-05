@@ -1,7 +1,7 @@
 //! Explicit allocator census. Fixed atomic storage; no callback locks or I/O.
 use super::{
     AcousticScene, AudioSettings, AudioSystem, CALLBACK_ALLOCS, CALLBACK_FREES, LIVE_BYTES,
-    Listener, PlayRequest, SourceId, Vec3, drain_for, fixture,
+    Listener, fixture,
 };
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 
@@ -128,19 +128,8 @@ pub fn run(assets: &std::path::Path, out: &std::path::Path) -> Result<(), String
         let settings = AudioSettings::default();
         audio.update(Listener::default(), false, 1.0, settings);
         PHASE.store(5, Ordering::Relaxed);
-        for source in 0_u16..48 {
-            let _accepted = audio.play(
-                "fluorescent_buzz",
-                PlayRequest {
-                    source: Some(SourceId(u64::from(source))),
-                    position: Some(Vec3::new(4.0, 2.0, 7.0)),
-                    looping: Some(true),
-                    gain: 0.5,
-                    ..PlayRequest::default()
-                },
-            );
-        }
-        let _signal = drain_for(&mut audio, settings, &mut scratch, 100);
+        let _settled = super::start_capacity(&mut audio, settings, &mut scratch, 100)
+            .map_err(|error| format!("owner cycle {cycle}: {error}"))?;
         audio.clear_world();
         audio.unload();
         drop(level);
@@ -169,7 +158,7 @@ pub fn run(assets: &std::path::Path, out: &std::path::Path) -> Result<(), String
     }
     PHASE.store(0, Ordering::Relaxed);
     let allocations: Vec<_> = ALLOCATIONS.iter().filter(|slot| slot.pointer.load(Ordering::Acquire) > 1).map(|slot| serde_json::json!({"bytes":slot.bytes.load(Ordering::Relaxed),"phase":slot.phase.load(Ordering::Relaxed)})).collect();
-    let result = serde_json::json!({"samples":samples,"surviving_tracked_allocations":allocations,"overflow":OVERFLOW.load(Ordering::Relaxed),"phases":["untracked harness/pre-audio","stdout warmup","catalog/decode preparation","native mixer/device installation","scene construction","voice/control playback","cancelled prepare","single-file decoder warmup"],"callback_allocations":CALLBACK_ALLOCS.load(Ordering::Relaxed),"callback_deallocations":CALLBACK_FREES.load(Ordering::Relaxed),"native_caveat":"SDL counts are allocation counts, not bytes; driver/CRT/process memory is outside Rust allocator accounting"});
+    let result = serde_json::json!({"samples":samples,"surviving_tracked_allocations":allocations,"overflow":OVERFLOW.load(Ordering::Relaxed),"phases":["untracked harness/pre-audio","stdout warmup","catalog/decode preparation","native mixer/device installation","scene construction","voice/control playback","cancelled prepare","single-file decoder warmup"],"callback_allocations":CALLBACK_ALLOCS.load(Ordering::Relaxed),"callback_deallocations":CALLBACK_FREES.load(Ordering::Relaxed),"full_capacity_admitted_cycles":12_u8,"native_pcm_cycles":12_u8,"native_caveat":"SDL counts of -1 are unavailable; nonnegative counts are allocation counts, not bytes; driver/CRT/process memory is outside Rust allocator accounting"});
     std::fs::write(
         out.join("owners.json"),
         serde_json::to_vec_pretty(&result).map_err(|error| error.to_string())?,

@@ -58,3 +58,5 @@ mod gpu_probe;
 mod ai_travel;
 
 mod script_progression;
+
+mod entity_identity;

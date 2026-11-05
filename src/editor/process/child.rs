@@ -13,6 +13,28 @@ const DIAGNOSTIC_BYTES: usize = 16 * 1024;
 const EVENT_BYTES: usize = 4 * 1024 * 1024;
 const JSON_BYTES: usize = 1024 * 1024;
 const CANCEL_GRACE: Duration = Duration::from_secs(8);
+const OUTPUT_DRAIN_GRACE: Duration = Duration::from_secs(1);
+
+#[cfg(unix)]
+#[path = "containment_unix.rs"]
+mod containment;
+#[cfg(windows)]
+#[path = "containment_windows.rs"]
+mod containment;
+
+#[cfg(not(any(unix, windows)))]
+#[path = "containment_unsupported.rs"]
+mod containment;
+
+struct InterruptiblePipe<R> {
+    stream: R,
+    stop: Arc<AtomicBool>,
+}
+impl<R: containment::Pipe> Read for InterruptiblePipe<R> {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        containment::read(&mut self.stream, buffer, &self.stop)
+    }
+}
 
 #[derive(Clone, Copy)]
 pub(super) enum StopPolicy {
@@ -112,8 +134,11 @@ pub(super) struct CapturedChild {
     child: Option<Child>,
     stdin: Option<ChildStdin>,
     capture: Arc<Mutex<Capture>>,
-    stdout_done: Arc<AtomicBool>,
-    stderr_done: Arc<AtomicBool>,
+    readers: Vec<std::thread::JoinHandle<()>>,
+    reader_stop: Arc<AtomicBool>,
+    tree: Option<containment::Containment>,
+    exited: Option<Instant>,
+    terminated: Option<Instant>,
     policy: StopPolicy,
     stopped: Option<Instant>,
 }
@@ -148,52 +173,62 @@ impl CapturedChild {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
+        containment::configure(command);
         let mut child = command
             .spawn()
             .map_err(|error| format!("Could not start tool: {error}"))?;
+        let tree = match containment::Containment::new(&child) {
+            Ok(tree) => tree,
+            Err(error) => {
+                let _killed = child.kill();
+                let _reaped = child.wait();
+                return Err(format!("Could not contain tool: {error}"));
+            }
+        };
         let input = child.stdin.take();
         let output = child.stdout.take();
         let errors = child.stderr.take();
-        let process = Self {
+        let mut process = Self {
             child: Some(child),
             stdin: input,
             capture: Arc::new(Mutex::new(Capture::default())),
-            stdout_done: Arc::new(AtomicBool::new(false)),
-            stderr_done: Arc::new(AtomicBool::new(false)),
+            readers: Vec::with_capacity(2),
+            reader_stop: Arc::new(AtomicBool::new(false)),
+            tree: Some(tree),
+            exited: None,
+            terminated: None,
             policy,
             stopped: None,
         };
-        process.reader(
-            output.ok_or("Tool stdout was not piped")?,
-            output_kind,
-            Arc::clone(&process.stdout_done),
-        )?;
+        process.reader(output.ok_or("Tool stdout was not piped")?, output_kind)?;
         process.reader(
             errors.ok_or("Tool stderr was not piped")?,
             Output::Diagnostics,
-            Arc::clone(&process.stderr_done),
         )?;
         Ok(process)
     }
 
     fn reader(
-        &self,
-        stream: impl Read + Send + 'static,
+        &mut self,
+        stream: impl containment::Pipe + Send + 'static,
         output: Output,
-        done: Arc<AtomicBool>,
     ) -> Result<(), String> {
+        containment::configure_pipe(&stream)
+            .map_err(|error| format!("Could not configure tool output: {error}"))?;
+        let interruptible = InterruptiblePipe {
+            stream,
+            stop: Arc::clone(&self.reader_stop),
+        };
         let capture = Arc::clone(&self.capture);
-        let _reader = std::thread::Builder::new()
+        let reader = std::thread::Builder::new()
             .name("editor-tool-output".into())
-            .spawn(move || {
-                match output {
-                    Output::Json => read_json(stream, &capture),
-                    Output::Events => read_stream(stream, true, &capture),
-                    Output::Diagnostics => read_stream(stream, false, &capture),
-                }
-                done.store(true, Ordering::Release);
+            .spawn(move || match output {
+                Output::Json => read_json(interruptible, &capture),
+                Output::Events => read_stream(interruptible, true, &capture),
+                Output::Diagnostics => read_stream(interruptible, false, &capture),
             })
             .map_err(|error| format!("Could not read tool output: {error}"))?;
+        self.readers.push(reader);
         Ok(())
     }
 
@@ -221,33 +256,115 @@ impl CapturedChild {
                 let _sent = input.write_all(b"{\"command\":\"cancel\"}\n");
             }
             drop(self.stdin.take());
-        } else if let Some(child) = self.child.as_mut() {
-            let _killed = child.kill();
+        } else {
+            // Termination itself is nonblocking; poll drains and joins readers.
+            let _terminated = self.terminate();
         }
+    }
+
+    fn terminate(&mut self) -> Result<(), String> {
+        if self.terminated.is_none() {
+            if let Some(tree) = &self.tree {
+                tree.terminate()
+                    .map_err(|error| format!("Could not terminate tool operation: {error}"))?;
+            }
+            self.terminated = Some(Instant::now());
+        }
+        Ok(())
     }
 
     pub fn poll(&mut self) -> Result<Option<ExitStatus>, String> {
         let Some(child) = self.child.as_mut() else {
             return Ok(None);
         };
+        if self.exited.is_none()
+            && let Some(tree) = &self.tree
+            && tree
+                .exited(child)
+                .map_err(|error| format!("Could not inspect tool: {error}"))?
+        {
+            self.exited = Some(Instant::now());
+        }
+        let readers_done = self
+            .readers
+            .iter()
+            .all(std::thread::JoinHandle::is_finished);
         if self
             .stopped
             .is_some_and(|stopped| stopped.elapsed() >= CANCEL_GRACE)
+            || self
+                .exited
+                .is_some_and(|exited| readers_done || exited.elapsed() >= OUTPUT_DRAIN_GRACE)
         {
-            let _killed = child.kill();
+            self.terminate()?;
         }
-        let status = child
-            .try_wait()
-            .map_err(|error| format!("Could not reap tool: {error}"))?;
-        if status.is_some()
-            && self.stdout_done.load(Ordering::Acquire)
-            && self.stderr_done.load(Ordering::Acquire)
+        if !readers_done
+            && self
+                .terminated
+                .is_some_and(|terminated| terminated.elapsed() >= OUTPUT_DRAIN_GRACE)
         {
+            if let Ok(mut capture) = self.capture.lock() {
+                let _recorded = capture.protocol_error.get_or_insert_with(||
+                    "Tool output remained open after operation termination; output forcibly closed".into());
+                capture.diagnostic(b"Tool output forcibly closed after bounded drain; captured diagnostics may be incomplete");
+            }
+            self.reader_stop.store(true, Ordering::Release);
+        }
+        if self.exited.is_some() && readers_done {
+            // Signal the still-anchored group even when pipes already closed:
+            // descendants which redirected their output are owned too.
+            self.terminate()?;
+            let status = self
+                .child
+                .as_mut()
+                .ok_or("Tool ownership lost")?
+                .wait()
+                .map_err(|error| format!("Could not reap tool: {error}"))?;
             drop(self.child.take());
+            self.tree = None;
             drop(self.stdin.take());
-            Ok(status)
+            for reader in self.readers.drain(..) {
+                reader
+                    .join()
+                    .map_err(|_panic| "Tool output reader panicked".to_string())?;
+            }
+            Ok(Some(status))
         } else {
             Ok(None)
+        }
+    }
+}
+
+struct Cleanup {
+    child: Child,
+    tree: Option<containment::Containment>,
+    readers: Vec<std::thread::JoinHandle<()>>,
+    reader_stop: Arc<AtomicBool>,
+    stopped: Instant,
+}
+impl Cleanup {
+    fn retire(mut self) {
+        // All reads are interruptible, and only this bounded reaper owns them.
+        // The UI never joins a live reader or waits through cancellation grace.
+        loop {
+            let exited = self
+                .tree
+                .as_ref()
+                .is_none_or(|tree| tree.exited(&mut self.child).unwrap_or(true));
+            if exited || self.stopped.elapsed() >= CANCEL_GRACE {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        if let Some(tree) = &self.tree {
+            let _terminated = tree.terminate();
+        }
+        // Direct kill is also a fallback for an OS containment failure.
+        let _killed = self.child.kill();
+        let _reaped = self.child.wait();
+        self.reader_stop.store(true, Ordering::Release);
+        for reader in self.readers {
+            let _joined = reader.join();
         }
     }
 }
@@ -256,38 +373,35 @@ impl Drop for CapturedChild {
     fn drop(&mut self) {
         self.stop();
         if let Some(child) = self.child.take() {
-            let deadline = self.stopped.unwrap_or_else(Instant::now);
-            // Reaping never blocks a rendered editor frame. Retain ownership
-            // across a rare thread-start error so a child cannot escape.
-            let pending = Arc::new(Mutex::new(Some(child)));
+            let pending_cleanup = Cleanup {
+                child,
+                tree: self.tree.take(),
+                readers: std::mem::take(&mut self.readers),
+                reader_stop: Arc::clone(&self.reader_stop),
+                stopped: self.stopped.unwrap_or_else(Instant::now),
+            };
+            // Preserve ownership if starting the bounded cleanup thread fails.
+            let pending = Arc::new(Mutex::new(Some(pending_cleanup)));
             let background = Arc::clone(&pending);
             let reaper = std::thread::Builder::new()
                 .name("editor-tool-reaper".into())
                 .spawn(move || {
                     if let Ok(mut owned) = background.lock()
-                        && let Some(mut process) = owned.take()
+                        && let Some(cleanup) = owned.take()
                     {
-                        loop {
-                            match process.try_wait() {
-                                Ok(Some(_)) => break,
-                                Ok(None) if deadline.elapsed() < CANCEL_GRACE => {
-                                    std::thread::sleep(Duration::from_millis(25));
-                                }
-                                Ok(None) | Err(_) => {
-                                    let _killed = process.kill();
-                                    let _reaped = process.wait();
-                                    break;
-                                }
-                            }
-                        }
+                        cleanup.retire();
                     }
                 });
             if reaper.is_err()
                 && let Ok(mut owned) = pending.lock()
-                && let Some(mut process) = owned.take()
+                && let Some(mut cleanup) = owned.take()
             {
-                let _killed = process.kill();
-                let _reaped = process.wait();
+                // Rare OS thread-start failure: force immediate cleanup rather
+                // than wait through the normal cooperative grace on the UI.
+                cleanup.stopped = Instant::now()
+                    .checked_sub(CANCEL_GRACE)
+                    .unwrap_or_else(Instant::now);
+                cleanup.retire();
             }
         }
     }
@@ -376,3 +490,7 @@ fn consume_line(line: &[u8], overflow: bool, protocol: bool, capture: &Mutex<Cap
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/child_lifetime.rs"]
+mod tests;
