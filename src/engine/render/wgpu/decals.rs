@@ -1226,3 +1226,22 @@ fn halve(source: &RawImage) -> RawImage {
 
 mod staged;
 pub use staged::DecalUpload;
+
+impl WgpuDecals {
+    /// Source geometry visibility, independent of instancing and alpha-class commands.
+    pub fn geometry_visibility(
+        &self,
+        frame: &super::world::WorldFrame,
+        cull: bool,
+    ) -> crate::engine::render::common::stats::GeometryVisibility {
+        let mut result = crate::engine::render::common::stats::GeometryVisibility::default();
+        for draw in self.draws.iter().filter(|draw| draw.index_count > 0) {
+            result.record(
+                usize::try_from(draw.vertex_count).unwrap_or(usize::MAX),
+                1,
+                !cull || frame.visible(&draw.bounds),
+            );
+        }
+        result
+    }
+}

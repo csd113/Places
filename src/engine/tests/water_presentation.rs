@@ -162,6 +162,7 @@ fn water_visibility_and_copy_region_preserve_conservative_edges() -> Result<(), 
     );
 
     let size = crate::engine::render::DrawableSize::new(1280, 720);
+    assert!(state.visible(&clip(matrix)));
     let ([x, y], extent) = state.copy_region(matrix, size);
     assert!(
         x.saturating_add(extent.width) <= size.width
@@ -178,4 +179,139 @@ fn water_visibility_and_copy_region_preserve_conservative_edges() -> Result<(), 
         "near/invalid projections fall back to the full safe copy"
     );
     Ok(())
+}
+
+/// Regression value: a union can cover a dry gap while every real surface is
+/// outside the view. This also checks visible-only copy bounds and cached
+/// camera-away/return transitions with two boxes, no assets/GPU/bake (<1 ms).
+#[test]
+fn disconnected_water_does_not_activate_the_gap_or_expand_a_visible_copy() {
+    use crate::engine::render::common::occlusion::OcclusionView;
+    use crate::engine::render::wgpu::world::WorldFrame;
+    use crate::engine::spatial::{DepthRange, Frustum};
+    let frame = |matrix| WorldFrame {
+        view_projection: matrix,
+        frustum: Frustum::from_view_projection(&matrix, DepthRange::NegativeOneToOne),
+        eye: glam::Vec3::ZERO,
+        occlusion: OcclusionView::EMPTY,
+    };
+    let left = Aabb {
+        min: [-3.0, -0.01, -0.5],
+        max: [-2.0, 0.01, 0.5],
+    };
+    let right = Aabb {
+        min: [2.0, -0.01, -0.5],
+        max: [3.0, 0.01, 0.5],
+    };
+    let mut state = Interactions {
+        surfaces: vec![
+            super::Surface::from_bounds(left),
+            super::Surface::from_bounds(right),
+        ],
+        ..Interactions::default()
+    };
+    let gap = frame(glam::Mat4::IDENTITY);
+    assert!(
+        gap.visible(&left.union(&right)),
+        "the old union produces a false positive"
+    );
+    assert!(
+        !state.visible(&gap),
+        "there is no real water in the dry gap"
+    );
+    let toward = frame(glam::Mat4::from_translation(glam::Vec3::new(
+        -2.5, 0.0, 0.0,
+    )));
+    assert!(state.visible(&toward));
+    assert_eq!(state.visible_bounds, Some(right));
+    let size = crate::engine::render::DrawableSize::new(1280, 720);
+    let region = state.copy_region(toward.view_projection, size);
+    assert!(
+        region.1.width < size.width,
+        "invisible water must not expand the copy"
+    );
+    assert!(!state.visible(&gap));
+    assert!(state.visible(&toward));
+    assert_eq!(state.copy_region(toward.view_projection, size), region);
+    // A dry triangle inside the gap must not activate optics merely because
+    // it shares the uploaded chunk with two disconnected wet triangles.
+    let vertex = |position, water_surface| super::super::world::WorldVertex {
+        position,
+        water_surface,
+        ..bytemuck::Zeroable::zeroed()
+    };
+    let vertices = [
+        vertex(left.min, 1.0),
+        vertex(left.max, 1.0),
+        vertex([-2.0, 0.0, -0.5], 1.0),
+        vertex(right.min, 1.0),
+        vertex(right.max, 1.0),
+        vertex([3.0, 0.0, -0.5], 1.0),
+        vertex([-0.5, 0.0, -0.5], 0.0),
+        vertex([0.5, 0.0, -0.5], 0.0),
+        vertex([0.0, 0.0, 0.5], 0.0),
+    ];
+    let prepared = super::surface_bounds(&vertices, &[0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    assert_eq!(prepared.len(), 2);
+    state.install_surfaces(prepared);
+    assert!(!state.visible(&gap));
+    assert!(state.visible(&toward));
+    // Intersecting the water/near plane must retain the safe full-copy fallback.
+    let surface_eye = glam::Vec3::new(2.5, 0.0, 0.0);
+    let projection = glam::camera::rh::proj::opengl::perspective(1.0, 1.0, 0.05, 100.0);
+    for y in [0.0, -0.2] {
+        let eye = surface_eye + glam::Vec3::Y * y;
+        let view =
+            glam::camera::rh::view::look_at_mat4(eye, eye + glam::Vec3::NEG_Z, glam::Vec3::Y);
+        let matrix = projection.mul_mat4(&view);
+        assert!(
+            state.visible(&frame(matrix)),
+            "near/underwater visibility remains conservative"
+        );
+        assert_eq!(state.copy_region(matrix, size), ([0, 0], size));
+    }
+}
+
+/// One triangle/occluder guards the offscreen-point visibility regression.
+/// No assets/GPU/bake; the clipped convex coverage proof costs microseconds.
+#[test]
+fn clipped_water_keeps_visible_patches_and_rejects_covered_screen_portion() {
+    use crate::engine::render::common::occlusion::OcclusionView;
+    let size = crate::engine::render::DrawableSize::new(1280, 720);
+    let vertex = |position, water_surface| super::super::world::WorldVertex {
+        position,
+        water_surface,
+        ..bytemuck::Zeroable::zeroed()
+    };
+    // Unique clipping regression: an offscreen vertex defeats the whole-box
+    // proof, although every on-screen part is behind one solid triangle.
+    let wet = [
+        vertex([-5.0, -0.1, -1.0], 1.0),
+        vertex([0.1, -0.1, -1.0], 1.0),
+        vertex([0.0, 0.1, -1.0], 1.0),
+    ];
+    let clipped_surfaces = super::surface_bounds(&wet, &[0, 1, 2]);
+    assert_eq!(clipped_surfaces.len(), 1);
+    let camera =
+        crate::engine::render::RenderCamera::new(glam::Vec3::new(0.0, 0.0, 3.0), 0.0, 0.0, 30.0);
+    let mut clipped = crate::engine::render::wgpu::world::prepare_world_frame(camera, size);
+    let solid = crate::engine::render::common::occlusion::Occluders::new(
+        [[[-4.0, -4.0, 0.0], [4.0, -4.0, 0.0], [0.0, 4.0, 0.0]]].into_iter(),
+    );
+    clipped.occlusion = solid.view(clipped.eye, clipped.view_projection);
+    for surface in clipped_surfaces {
+        assert!(
+            clipped.visible(&surface.bounds),
+            "the original box extends beyond the blocker"
+        );
+        assert!(
+            surface.visible_bounds(&clipped).is_none(),
+            "the clipped polygon is fully hidden"
+        );
+        clipped.occlusion = OcclusionView::EMPTY;
+        assert!(
+            surface.visible_bounds(&clipped).is_some(),
+            "an unobstructed water patch must remain visible"
+        );
+    }
 }

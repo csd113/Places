@@ -833,3 +833,29 @@ impl WgpuDynamic {
 #[cfg(test)]
 #[path = "../../tests/rigid_instance_lighting.rs"]
 mod instance_tests;
+
+impl WgpuDynamic {
+    /// Source geometry visibility, independent of instancing and alpha-class commands.
+    pub fn geometry_visibility(
+        &self,
+        frame: &super::world::WorldFrame,
+        cull: bool,
+    ) -> crate::engine::render::common::stats::GeometryVisibility {
+        let mut result = crate::engine::render::common::stats::GeometryVisibility::default();
+        for (index, object) in self
+            .objects
+            .iter()
+            .enumerate()
+            .filter(|(_, object)| object.visible)
+        {
+            if let Some(mesh) = self.meshes.get(object.mesh) {
+                result.record(
+                    self.object_vertex_count(index),
+                    mesh.submeshes.len(),
+                    !cull || frame.visible(&object.world_bounds),
+                );
+            }
+        }
+        result
+    }
+}

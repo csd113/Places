@@ -4619,7 +4619,7 @@ impl WgpuRenderer {
         mark("transport");
         let materials = MaterialRenderState::from_table(&loaded.materials);
         let fixture_sheets = uploaded_sheets.unwrap_or_else(|| self.upload_fixture_sheets(loaded));
-        let world = uploaded_world.unwrap_or_else(|| {
+        let mut world = uploaded_world.unwrap_or_else(|| {
             WgpuWorldGeometry::upload_with_blacklight(
                 &self.device,
                 &self.queue,
@@ -4906,6 +4906,8 @@ impl WgpuRenderer {
         );
         mark("caustics");
         self.environment = Some(self.create_environment());
+        self.water_interactions
+            .install_surfaces(world.take_water_surfaces());
         self.world = Some(world);
         self.world_props = Some(world_props);
         self.world_textures = Some(world_textures);
@@ -6074,7 +6076,7 @@ impl WgpuRenderer {
                     trace_submitted,
                 ]);
                 self.pending_frame = Some(texture);
-                self.record_render_stats(totals);
+                self.record_render_stats(totals, &frame);
             }
             Acquired::Skip => {}
         }
@@ -6461,6 +6463,7 @@ impl WgpuRenderer {
             blood.encode(pass, blood_pipeline, self.filtering);
             if blood.vertex_count() > 0 {
                 totals.draw_calls = totals.draw_calls.saturating_add(1);
+                totals.effect_geometry.record(blood.vertex_count(), 1, true);
                 totals.visible_vertices =
                     totals.visible_vertices.saturating_add(blood.vertex_count());
             }
@@ -6470,6 +6473,9 @@ impl WgpuRenderer {
             return;
         };
         let effect_totals = effects.encode(pass, effects_pipeline, self.filtering);
+        totals
+            .effect_geometry
+            .record(effect_totals.vertices, effect_totals.draws, true);
         totals.draw_calls = totals.draw_calls.saturating_add(effect_totals.draws);
         totals.visible_batches = totals.visible_batches.saturating_add(effect_totals.draws);
         totals.visible_vertices = totals
@@ -7207,7 +7213,7 @@ impl WgpuRenderer {
     }
 
     /// Records one frame's world submission into the neutral counters.
-    fn record_render_stats(&mut self, totals: WorldDrawTotals) {
+    fn record_render_stats(&mut self, totals: WorldDrawTotals, frame: &super::world::WorldFrame) {
         let world = self
             .world
             .as_ref()
@@ -7223,32 +7229,69 @@ impl WgpuRenderer {
             .as_ref()
             .map(WgpuDynamic::stats)
             .unwrap_or_default();
-        let total_vertices = world
-            .uploaded_vertices
-            .saturating_add(props.vertices)
-            .saturating_add(dynamic.vertices);
-        let total_batches = world
-            .draws
-            .saturating_add(props.cullable_draws)
-            .saturating_add(dynamic.draws);
+        let geometry = crate::engine::render::common::stats::SceneVisibility {
+            world: self.world.as_ref().map_or_else(Default::default, |scene| {
+                scene.geometry_visibility(frame, self.culling)
+            }),
+            props: self
+                .world_props
+                .as_ref()
+                .map_or_else(Default::default, |scene| {
+                    scene.geometry_visibility(frame, self.culling)
+                }),
+            dynamic: self
+                .world_dynamic
+                .as_ref()
+                .map_or_else(Default::default, |scene| {
+                    scene.geometry_visibility(frame, self.culling)
+                }),
+            characters: self
+                .world_characters
+                .as_ref()
+                .map_or_else(Default::default, |scene| {
+                    scene.geometry_visibility(frame, self.culling)
+                }),
+            decals: self.decals.as_ref().map_or_else(Default::default, |scene| {
+                scene.geometry_visibility(frame, self.culling)
+            }),
+            effects: totals.effect_geometry,
+        };
+        let visibility = geometry.total();
+        let characters = self
+            .world_characters
+            .as_ref()
+            .map(WgpuCharacters::stats)
+            .unwrap_or_default();
+        let decals = self
+            .decals
+            .as_ref()
+            .map(super::decals::WgpuDecals::stats)
+            .unwrap_or_default();
         self.render_stats = RenderStats {
-            total_vertices,
-            visible_vertices: totals.visible_vertices,
+            geometry,
+            total_vertices: visibility.eligible_vertices,
+            visible_vertices: visibility.visible_vertices,
             visible_indices: totals.visible_indices,
-            culled_vertices: total_vertices.saturating_sub(totals.visible_vertices),
-            total_batches,
-            visible_batches: totals.visible_batches,
+            culled_vertices: visibility
+                .eligible_vertices
+                .saturating_sub(visibility.visible_vertices),
+            total_batches: visibility.eligible_batches,
+            visible_batches: visibility.visible_batches,
             draw_calls: totals.draw_calls,
             dynamic_draws: totals.dynamic_draws,
             dynamic_vertices: dynamic.vertices,
             vbo_bytes: world
                 .vertex_bytes
                 .saturating_add(props.vertex_bytes)
-                .saturating_add(dynamic.vertex_bytes),
+                .saturating_add(dynamic.vertex_bytes)
+                .saturating_add(characters.vertex_bytes)
+                .saturating_add(decals.vertex_bytes),
             index_bytes: world
                 .index_bytes
                 .saturating_add(props.index_bytes)
-                .saturating_add(dynamic.index_bytes),
+                .saturating_add(dynamic.index_bytes)
+                .saturating_add(characters.index_bytes)
+                .saturating_add(decals.index_bytes),
             texture_binds: totals.texture_binds,
             material_changes: totals.material_binds,
             reflection_passes: u32::try_from(self.reflection_passes).unwrap_or(u32::MAX),
@@ -7349,6 +7392,7 @@ impl WgpuRenderer {
             "applied": self.graphics_applied.diagnostic_state(),
             "capture_submission": capture_totals.map(super::diagnostics::capture_submission),
             "surface_submission": {"source": "last surface RenderStats; may remain zero or stale when acquisition is skipped",
+                "geometry": self.render_stats.geometry,
                 "draw_calls": self.render_stats.draw_calls, "visible_batches": self.render_stats.visible_batches,
                 "visible_vertices": self.render_stats.visible_vertices, "texture_binds": self.render_stats.texture_binds,
                 "material_changes": self.render_stats.material_changes},

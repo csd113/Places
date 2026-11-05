@@ -19,8 +19,8 @@ pub struct Node {
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Triangle {
     pub a_solid: [f32; 4],
-    pub b: [f32; 4],
-    pub c: [f32; 4],
+    pub edge0: [f32; 4],
+    pub edge1: [f32; 4],
 }
 
 impl TransportScene {
@@ -70,8 +70,8 @@ impl TransportScene {
                         .is_none_or(Option::is_none);
                 Triangle {
                     a_solid: [a[0], a[1], a[2], f32::from(u8::from(opaque))],
-                    b: [b[0], b[1], b[2], 0.0],
-                    c: [c[0], c[1], c[2], 0.0],
+                    edge0: [b[0] - a[0], b[1] - a[1], b[2] - a[2], 0.0],
+                    edge1: [c[0] - a[0], c[1] - a[1], c[2] - a[2], 0.0],
                 }
             })
             .collect();

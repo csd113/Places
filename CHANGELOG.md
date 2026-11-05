@@ -13,6 +13,14 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Count eligible and visible geometry in matching world, prop, dynamic, character,
+  decal and effect scopes; keep resident storage and actual draw commands separate.
+- Gate water optics on the installed water triangles and conservative opaque
+  coverage. The Pool dry-gap control removes a 7,372,800-byte snapshot and the
+  extra water pass with identical pixels, while retaining visible-water effects.
+- Reuse ray reciprocals and prepared triangle edges for runtime contact/cabin
+  visibility without reducing ray budgets or relaxing solid-world checks.
+
 - Clip movable contact shadows to supported floor receivers and solid world geometry,
   select the nearest visible footprints within eight slots, and block open-cabin
   light behind opaque hall geometry. Preserve valid doorway illumination and

@@ -116,24 +116,85 @@ pub struct LevelBuildStats {
     pub lightmap_fallback: bool,
 }
 
+/// Source geometry in one family, before/after the main view's conservative
+/// culling. Vertices count each placement once (props count primitive-instance
+/// ranges); batches count source ranges before transparency splitting/merging.
+/// Resident bytes and actual commands are deliberately separate.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub struct GeometryVisibility {
+    pub eligible_vertices: usize,
+    pub visible_vertices: usize,
+    pub eligible_batches: usize,
+    pub visible_batches: usize,
+}
+
+impl GeometryVisibility {
+    pub const fn record(&mut self, vertices: usize, batches: usize, visible: bool) {
+        self.eligible_vertices = self.eligible_vertices.saturating_add(vertices);
+        self.eligible_batches = self.eligible_batches.saturating_add(batches);
+        if visible {
+            self.visible_vertices = self.visible_vertices.saturating_add(vertices);
+            self.visible_batches = self.visible_batches.saturating_add(batches);
+        }
+    }
+
+    pub const fn absorb(&mut self, other: Self) {
+        self.eligible_vertices = self
+            .eligible_vertices
+            .saturating_add(other.eligible_vertices);
+        self.visible_vertices = self.visible_vertices.saturating_add(other.visible_vertices);
+        self.eligible_batches = self.eligible_batches.saturating_add(other.eligible_batches);
+        self.visible_batches = self.visible_batches.saturating_add(other.visible_batches);
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+pub struct SceneVisibility {
+    pub world: GeometryVisibility,
+    pub props: GeometryVisibility,
+    pub dynamic: GeometryVisibility,
+    pub characters: GeometryVisibility,
+    pub decals: GeometryVisibility,
+    pub effects: GeometryVisibility,
+}
+
+impl SceneVisibility {
+    pub fn total(self) -> GeometryVisibility {
+        let mut total = GeometryVisibility::default();
+        for family in [
+            self.world,
+            self.props,
+            self.dynamic,
+            self.characters,
+            self.decals,
+            self.effects,
+        ] {
+            total.absorb(family);
+        }
+        total
+    }
+}
+
 /// Geometry counters for the frame that was most recently submitted.
 ///
 /// Filled in by [`Renderer::render_scene`] and read by the debug-only benchmark
-/// harness, so the numbers describe the actual draw path rather than a
-/// reconstruction of it.
+/// harness. Source visibility describes the main-view cull decisions; actual
+/// indices and commands describe encoding, including transparency splits.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RenderStats {
-    /// Vertices the level holds in total (static + props), visible or not.
+    /// Matching eligible/visible scopes per family.
+    pub geometry: SceneVisibility,
+    /// Eligible source vertex placements in the same scope as `visible_vertices`.
     pub total_vertices: usize,
-    /// Vertices inside the batches that were actually submitted this frame.
+    /// Source vertex placements surviving main-view culling, counted once per source.
     pub visible_vertices: usize,
     /// Indices submitted by the base scene, including repeated indexed vertices.
     pub visible_indices: usize,
-    /// Vertices belonging to batches the frustum rejected this frame.
+    /// Eligible source vertex placements rejected by frustum/occlusion culling.
     pub culled_vertices: usize,
-    /// Render batches the level is split into.
+    /// Eligible source ranges before command splitting/merging.
     pub total_batches: usize,
-    /// Batches that survived culling and were submitted.
+    /// Source ranges surviving culling, independent of actual draw command count.
     pub visible_batches: usize,
     /// Draw calls issued for the scene.
     pub draw_calls: usize,
@@ -142,7 +203,7 @@ pub struct RenderStats {
     pub dynamic_draws: usize,
     /// Distinct vertices the dynamic objects hold this frame.
     pub dynamic_vertices: usize,
-    /// Bytes resident in static vertex buffers (level + props).
+    /// Bytes resident in world, prop, dynamic, character and decal vertex buffers.
     pub vbo_bytes: usize,
     /// Bytes resident in element (index) buffers.
     pub index_bytes: usize,

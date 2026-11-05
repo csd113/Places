@@ -75,7 +75,8 @@ struct Track {
 #[derive(Default)]
 pub struct Interactions {
     volumes: WaterVolumes,
-    bounds: Option<Aabb>,
+    surfaces: Vec<Surface>,
+    visible_bounds: Option<Aabb>,
     tracks: HashMap<DynamicId, Track>,
     ripples: Vec<Ripple>,
     player: Option<Aabb>,
@@ -85,36 +86,134 @@ pub struct Interactions {
     replaced: u64,
 }
 
+/// Conservative source box plus the actual installed triangle when available.
+#[derive(Clone, Copy)]
+pub struct Surface {
+    bounds: Aabb,
+    triangle: Option<[[f32; 3]; 3]>,
+}
+
+impl Surface {
+    pub const fn from_bounds(bounds: Aabb) -> Self {
+        Self {
+            bounds,
+            triangle: None,
+        }
+    }
+
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Finite vector plane clipping uses floating-point arithmetic only"
+    )]
+    fn visible_bounds(self, frame: &super::world::WorldFrame) -> Option<Aabb> {
+        if !frame.visible(&self.bounds) {
+            return None;
+        }
+        if !frame.view_projection.is_finite() {
+            return Some(self.bounds);
+        }
+        let Some(triangle) = self.triangle else {
+            return Some(self.bounds);
+        };
+        let matrix = frame.view_projection.transpose();
+        let [x, y, z, w] = matrix.to_cols_array_2d().map(glam::Vec4::from_array);
+        let Some(clipped) = crate::engine::render::common::occlusion::clip_polygon(
+            &triangle.map(Vec3::from_array),
+            &[w + x, w - x, w + y, w - y, z, w - z],
+        ) else {
+            return Some(self.bounds);
+        };
+        let points = clipped.points();
+        if points.is_empty() || frame.occlusion.hides_polygon(points) {
+            return None;
+        }
+        // Preserve the established full-copy safety fallback when the source
+        // triangle crosses the eye/near plane, even after visibility clipping.
+        if triangle.iter().any(|point| {
+            frame
+                .view_projection
+                .mul_vec4(Vec3::from_array(*point).extend(1.0))
+                .w
+                <= 0.0001
+        }) {
+            return Some(self.bounds);
+        }
+        Some(points.iter().fold(Aabb::EMPTY, |bounds, point| {
+            bounds.expanded(point.to_array())
+        }))
+    }
+}
+
+/// Prepare only actual tagged water triangles at upload, never per frame.
+/// Any tagged corner conservatively retains the entire installed triangle.
+pub fn surface_bounds(vertices: &[super::world::WorldVertex], indices: &[u16]) -> Vec<Surface> {
+    indices
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .filter_map(|[a, b, c]| {
+            let corners = [
+                vertices.get(usize::from(*a))?,
+                vertices.get(usize::from(*b))?,
+                vertices.get(usize::from(*c))?,
+            ];
+            if !corners.iter().any(|vertex| vertex.water_surface > 0.5) {
+                return None;
+            }
+            let triangle = corners.map(|vertex| vertex.position);
+            let bounds = triangle
+                .iter()
+                .fold(Aabb::EMPTY, |bounds, point| bounds.expanded(*point));
+            Some(Surface {
+                bounds,
+                triangle: Some(triangle),
+            })
+        })
+        .collect()
+}
+
 impl Interactions {
     pub const fn has_water(&self) -> bool {
-        self.bounds.is_some()
+        !self.surfaces.is_empty()
     }
 
     pub fn install(&mut self, level: &LevelDef) {
         let volumes = WaterVolumes::from_level(level);
-        let bounds = (!volumes.is_empty()).then(|| {
-            volumes
-                .volumes()
-                .iter()
-                .fold(Aabb::EMPTY, |bounds, volume| {
-                    bounds.union(&Aabb {
-                        min: [volume.x0, volume.surface_y - 0.01, volume.z0],
-                        max: [volume.x1, volume.surface_y + 0.01, volume.z1],
-                    })
+        let surfaces = volumes
+            .volumes()
+            .iter()
+            .map(|volume| {
+                Surface::from_bounds(Aabb {
+                    min: [volume.x0, volume.surface_y - 0.01, volume.z0],
+                    max: [volume.x1, volume.surface_y + 0.01, volume.z1],
                 })
-        });
+            })
+            .collect();
         *self = Self {
             volumes,
-            bounds,
+            surfaces,
             ripples: Vec::with_capacity(MAX_RIPPLES),
             tracks: HashMap::with_capacity(super::super::common::dynamic::MAX_DYNAMIC_OBJECTS),
             ..Self::default()
         };
     }
 
-    /// One conservative cached box test, not a per-frame water/scenery scan.
-    pub fn visible(&self, frame: &super::world::WorldFrame) -> bool {
-        self.bounds.is_some_and(|bounds| frame.visible(&bounds))
+    /// Runtime installation replaces source fallback boxes with the actual
+    /// tagged mesh footprint, retaining allocation across camera turns.
+    pub fn install_surfaces(&mut self, surfaces: Vec<Surface>) {
+        self.surfaces = surfaces;
+        self.visible_bounds = None;
+    }
+
+    /// Test prepared surface boxes, never the empty space between separate pools.
+    /// Cache their visible union once for the copy; no geometry scan or allocation.
+    pub fn visible(&mut self, frame: &super::world::WorldFrame) -> bool {
+        self.visible_bounds = self
+            .surfaces
+            .iter()
+            .filter_map(|surface| surface.visible_bounds(frame))
+            .reduce(|left, right| left.union(&right));
+        self.visible_bounds.is_some()
     }
 
     /// Copy only colour texels water can read. Resources remain full-size and
@@ -122,7 +221,7 @@ impl Interactions {
     /// the three-pixel distortion, bilinear footprint and projection rounding.
     pub fn copy_region(&self, matrix: Mat4, size: DrawableSize) -> ([u32; 2], DrawableSize) {
         let full = ([0, 0], size);
-        let Some(bounds) = self.bounds else {
+        let Some(bounds) = self.visible_bounds else {
             return full;
         };
         let mut minimum = [1.0_f32; 2];
@@ -318,7 +417,7 @@ impl Interactions {
 
     #[cfg(feature = "visual-diagnostics")]
     pub fn diagnostics(&self) -> serde_json::Value {
-        serde_json::json!({"active":self.ripples.len(),"capacity":MAX_RIPPLES,"tracked":self.tracks.len(),"event_allocation":self.ripples.capacity(),"track_allocation":self.tracks.capacity(),"emitted":self.emitted,"replaced":self.replaced})
+        serde_json::json!({"surface_bounds": self.surfaces.iter().take(64).map(|surface| [surface.bounds.min, surface.bounds.max]).collect::<Vec<_>>(), "surface_count": self.surfaces.len(), "visible_bounds": self.visible_bounds.map(|bounds| [bounds.min, bounds.max]), "active":self.ripples.len(),"capacity":MAX_RIPPLES,"tracked":self.tracks.len(),"event_allocation":self.ripples.capacity(),"track_allocation":self.tracks.capacity(),"emitted":self.emitted,"replaced":self.replaced})
     }
 }
 

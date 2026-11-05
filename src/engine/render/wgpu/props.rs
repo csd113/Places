@@ -764,3 +764,36 @@ impl WgpuProps {
         self.chunks.get(slot)
     }
 }
+
+impl WgpuProps {
+    /// Source geometry visibility, independent of instancing and alpha-class commands.
+    pub fn geometry_visibility(
+        &self,
+        frame: &super::world::WorldFrame,
+        cull: bool,
+    ) -> crate::engine::render::common::stats::GeometryVisibility {
+        let mut result = crate::engine::render::common::stats::GeometryVisibility::default();
+        for draw in self.draws.iter().filter(|draw| draw.index_count > 0) {
+            let shared = self
+                .chunk(draw.chunk)
+                .and_then(|chunk| chunk.shared.as_ref());
+            let group_visible = !cull || frame.visible(&draw.bounds);
+            for instance in draw.instances.clone() {
+                let visible = group_visible
+                    && (!cull
+                        || shared.is_none_or(|instances| {
+                            instances
+                                .bounds
+                                .get(usize::try_from(instance).unwrap_or(usize::MAX))
+                                .is_none_or(|bounds| frame.visible(bounds))
+                        }));
+                result.record(
+                    usize::try_from(draw.vertex_count).unwrap_or(usize::MAX),
+                    1,
+                    visible,
+                );
+            }
+        }
+        result
+    }
+}

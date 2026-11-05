@@ -1385,3 +1385,29 @@ mod audit;
 #[cfg(test)]
 #[path = "../../tests/character_preparation.rs"]
 mod preparation_tests;
+
+impl WgpuCharacters {
+    /// Source geometry visibility, independent of instancing and alpha-class commands.
+    pub fn geometry_visibility(
+        &self,
+        frame: &super::world::WorldFrame,
+        cull: bool,
+    ) -> crate::engine::render::common::stats::GeometryVisibility {
+        let mut result = crate::engine::render::common::stats::GeometryVisibility::default();
+        for (index, character) in self
+            .characters
+            .iter()
+            .enumerate()
+            .filter(|(_, character)| character.visible)
+        {
+            if let Some(mesh) = self.meshes.get(character.mesh) {
+                result.record(
+                    self.character_vertex_count(index),
+                    mesh.submeshes.len(),
+                    !cull || frame.visible(&character.world_bounds),
+                );
+            }
+        }
+        result
+    }
+}

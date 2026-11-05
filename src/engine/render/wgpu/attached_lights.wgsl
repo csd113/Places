@@ -53,31 +53,25 @@ struct VisibilityNode {
     maximum: vec3<f32>, count: u32,
     escape: u32, ready: u32, _pad0: u32, _pad1: u32,
 };
-struct VisibilityTriangle { a_solid: vec4<f32>, b: vec4<f32>, c: vec4<f32> };
+struct VisibilityTriangle { a_solid: vec4<f32>, edge0: vec4<f32>, edge1: vec4<f32> };
 @group(4) @binding(3) var<storage, read> visibility_nodes: array<VisibilityNode>;
 @group(4) @binding(4) var<storage, read> visibility_triangles: array<VisibilityTriangle>;
 
-fn visibility_box(node: VisibilityNode, origin: vec3<f32>, ray: vec3<f32>) -> bool {
-    var near = 0.0;
-    var far = 1.0;
-    for (var axis = 0u; axis < 3u; axis += 1u) {
-        if (abs(ray[axis]) < 1.0e-12) {
-            if (origin[axis] < node.minimum[axis] || origin[axis] > node.maximum[axis]) { return false; }
-        } else {
-            let a = (node.minimum[axis] - origin[axis]) / ray[axis];
-            let b = (node.maximum[axis] - origin[axis]) / ray[axis];
-            near = max(near, min(a, b));
-            far = min(far, max(a, b));
-            if (near > far) { return false; }
-        }
-    }
-    return true;
+// One reciprocal per ray, reused by every visited node. Parallel axes use
+// explicit slab membership rather than infinities (0 * infinity yields NaN).
+fn visibility_box(node: VisibilityNode, origin: vec3<f32>, inverse: vec3<f32>, parallel: vec3<bool>) -> bool {
+    if (any(parallel & ((origin < node.minimum) | (origin > node.maximum)))) { return false; }
+    let a = (node.minimum - origin) * inverse;
+    let b = (node.maximum - origin) * inverse;
+    let near = select(min(a, b), vec3<f32>(0.0), parallel);
+    let far = select(max(a, b), vec3<f32>(1.0), parallel);
+    return max(max(near.x, near.y), max(near.z, 0.0)) <= min(min(far.x, far.y), min(far.z, 1.0));
 }
 
 fn visibility_triangle(triangle: VisibilityTriangle, origin: vec3<f32>, ray: vec3<f32>) -> bool {
     if (triangle.a_solid.w == 0.0) { return false; }
-    let edge0 = triangle.b.xyz - triangle.a_solid.xyz;
-    let edge1 = triangle.c.xyz - triangle.a_solid.xyz;
+    let edge0 = triangle.edge0.xyz;
+    let edge1 = triangle.edge1.xyz;
     let p = cross(ray, edge1);
     let determinant = dot(edge0, p);
     if (abs(determinant) < 1.0e-10) { return false; }
@@ -94,12 +88,14 @@ fn visibility_triangle(triangle: VisibilityTriangle, origin: vec3<f32>, ray: vec
 fn static_world_visible(origin: vec3<f32>, receiver: vec3<f32>) -> bool {
     if (visibility_nodes[0u].ready == 0u) { return false; }
     let ray = receiver - origin;
+    let parallel = abs(ray) < vec3<f32>(1.0e-12);
+    let inverse = 1.0 / select(ray, vec3<f32>(1.0), parallel);
     var index = 0u;
     let count = arrayLength(&visibility_nodes);
     for (var visit = 0u; visit < 512u; visit += 1u) {
         if (index >= count) { return true; }
         let node = visibility_nodes[index];
-        if (!visibility_box(node, origin, ray)) {
+        if (!visibility_box(node, origin, inverse, parallel)) {
             index = node.escape;
             continue;
         }

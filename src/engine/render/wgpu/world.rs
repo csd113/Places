@@ -1524,6 +1524,7 @@ pub struct WgpuWorldGeometry {
     chunks: Vec<WorldChunk>,
     draws: Vec<WorldDraw>,
     pass_indices: WorldPassIndices,
+    water_surfaces: Vec<super::water::Surface>,
     pub occluders: crate::engine::render::common::occlusion::Occluders,
     stats: WorldGeometryStats,
 }
@@ -1592,6 +1593,7 @@ impl WorldUpload {
             chunks,
             draws,
             pass_indices,
+            water_surfaces: Vec::new(),
             occluders,
             stats,
         };
@@ -1646,6 +1648,12 @@ impl WorldUpload {
             self.water_hints.as_deref().unwrap_or_default(),
             water_source,
         );
+        self.world
+            .water_surfaces
+            .extend(super::water::surface_bounds(&self.vertices, &chunk.indices));
+        if !self.world.water_surfaces.is_empty() {
+            self.world.occluders.enable_water_quads();
+        }
         let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-wgpu-world-vertices"),
             size: u64::try_from(self.vertices.len())
@@ -1727,6 +1735,11 @@ impl WorldPassIndices {
 }
 
 impl WgpuWorldGeometry {
+    /// Transfer the exact uploaded water footprint to its presentation owner.
+    pub fn take_water_surfaces(&mut self) -> Vec<super::water::Surface> {
+        std::mem::take(&mut self.water_surfaces)
+    }
+
     /// Uploads the world draw set of one renderer-neutral static mesh.
     #[cfg(feature = "visual-diagnostics")]
     #[must_use]
@@ -2141,6 +2154,7 @@ fn mark_water_surfaces(
 /// [`RenderStats`]: crate::engine::render::RenderStats
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct WorldDrawTotals {
+    pub effect_geometry: crate::engine::render::common::stats::GeometryVisibility,
     /// `draw_indexed` calls issued.
     pub draw_calls: usize,
     /// Actual dynamic path submissions, including compatible instance runs.
@@ -2182,6 +2196,7 @@ impl WorldDrawTotals {
     /// `translucent_draws`) stay with the class that produced them; the
     /// splice-in paths accumulate only the totals.
     pub const fn absorb(&mut self, other: Self) {
+        self.effect_geometry.absorb(other.effect_geometry);
         self.draw_calls = self.draw_calls.saturating_add(other.draw_calls);
         self.dynamic_draws = self.dynamic_draws.saturating_add(other.dynamic_draws);
         self.visible_batches = self.visible_batches.saturating_add(other.visible_batches);
@@ -4419,3 +4434,22 @@ impl WorldPipeline {
 #[cfg(test)]
 #[path = "../../tests/transparency_sort.rs"]
 mod transparency_tests;
+
+impl WgpuWorldGeometry {
+    /// Source geometry visibility, independent of instancing and alpha-class commands.
+    pub fn geometry_visibility(
+        &self,
+        frame: &super::world::WorldFrame,
+        cull: bool,
+    ) -> crate::engine::render::common::stats::GeometryVisibility {
+        let mut result = crate::engine::render::common::stats::GeometryVisibility::default();
+        for draw in self.draws.iter().filter(|draw| draw.index_count > 0) {
+            result.record(
+                usize::try_from(draw.vertex_count).unwrap_or(usize::MAX),
+                1,
+                !cull || frame.visible(&draw.bounds),
+            );
+        }
+        result
+    }
+}
