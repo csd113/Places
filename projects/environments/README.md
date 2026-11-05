@@ -37,6 +37,13 @@ Each destination has a host and F1 guidance:
 - Beach: escort the crab past the first parasol to the far garden shade.
 - Aero: open controls totaling five measures, then speak to the gardener.
 
+Office’s middle and basement floors carry the quiet “The intercom of
+nothingness” bed by GrimmReaperSounds (CC0). Descending starts one regional
+loop; returning upstairs stops it while preserving the existing HVAC setup. The
+recording’s source credits and unchanged 29.5-second excerpt recipe are in
+`assets/audio/`. This is a technical integration; subjective listening remains
+to be reviewed.
+
 The JSON and Luau in this project are the editable authority. The original
 environment generators are historical construction tools and must not overwrite
 these edited maps. The complete package retains these exact sources and the

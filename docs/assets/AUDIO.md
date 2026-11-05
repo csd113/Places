@@ -93,6 +93,7 @@ directly; the helper restores its mug interaction when requested.
 | Map | Authored behavior |
 | --- | --- |
 | Office: After Hours | The existing upper vending machine owns a non-positional, real-time HVAC emitter. An aggregate player region covers only the upper floor/vestibule and stops it on descent. It starts playing because the authored spawn is already inside. The existing top-floor mug supports E → `play_sound`, with a 0.45 s cooldown |
+| Office: After Hours, lower floors | One sound-only `office_intercom_bed` plays `ambience_intercom` on the middle/basement floors through `audio_office_lower`. It stops before the existing upper-floor HVAC region, retaining that track and avoiding two non-positional beds. The normal upper-floor spawn leaves the intercom stopped until descent |
 | Pool Showcase | The existing water-demo control owns quiet world-time water ambience. The pool-hall player region stops it outside the hall and restarts on entry. The spawn is inside, so the authored initial emitter state is playing |
 | Home Showcase | The existing coffee-table mug supports E → `play_sound`, with a 0.45 s cooldown and a measured aim box |
 | Frutiger Aero | The existing terrace bench owns non-positional birds. The garden region starts/stops the loop on player entry/exit, leaving the indoor route quiet |
@@ -222,7 +223,8 @@ can opt in with a `sound_emitters[]` entry such as:
 
 Catalog gain 0.03 keeps the layer quiet before the ordinary master and
 ambience controls. One emitter is sufficient for a non-positional bed; avoid
-stacking copies. Existing tracks, authored maps, movement cues and hearing
+stacking copies. The maintained Office map uses this cue on its middle and
+basement floors. Its existing upper-floor HVAC remains. Movement cues and hearing
 behavior are unchanged. The measured file and loop checks establish technical
 playback suitability; subjective listening and cue masking need a separate
 listening review.
@@ -230,3 +232,10 @@ listening review.
 To regenerate, supply that exact MP3 under its recorded `cache_file` name in
 the import cache alongside the other pinned sources. The importer refuses
 a missing attachment even with `--download`, preventing site substitution.
+
+The playable assignment is `projects/environments/levels/office.json` in The Quiet
+Collection. It uses one regional emitter at gain 1 before catalog gain 0.03. The
+player region spans X −8..36, Z 0..18 and Y −0.1..6.9; the existing upper HVAC
+region starts at Y 7.0. Crossing the regions stops one bed before starting the
+other. Map unload retires the source through ordinary audio ownership. The
+current 29.5 s WAV and original attachment/provenance are unchanged.

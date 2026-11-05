@@ -34,5 +34,6 @@ float samples, within the 64 MiB budget. No runtime synthesis is involved.
 not a replacement download. The 10–40 s selection is downmixed to mono,
 resampled to 44.1 kHz and crossfaded by 0.5 s into a 29.5 s loop. Its
 catalog gain is 0.03. It is an optional non-positional ambient cue available
-to map authors and the editor sound picker; existing map beds are unchanged.
+to map authors and the editor sound picker. The Quiet Collection’s Office uses
+it on the middle/basement floors, separately from its retained upper-floor HVAC bed.
 See the audio guide for an emitter example and the source hash/recipe.

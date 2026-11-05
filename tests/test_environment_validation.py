@@ -42,6 +42,30 @@ class EnvironmentValidationTests(unittest.TestCase):
             VALIDATE.validate_interactions(changed, 'fixture', errors)
             self.assertTrue(errors, transitions)
 
+    def test_standalone_audio_targets_resolve_and_share_the_instance_namespace(self):
+        # Office's regional bed exposed a false unknown-target rejection. This
+        # tiny CPU-only source protects resolution, missing targets and duplicate
+        # ownership without loading samples, starting a device or baking a map.
+        source = dict(sound_emitters=[dict(id='bed', sound='ambience_hvac')],
+            props=[dict(id='control', model='home:wall_switch',
+                components=[dict(component='interactable', prompt='Audio')],
+                bindings=[dict(on='interact', actions=[
+                    dict(action='play_sound', target='bed', loop=True),
+                    dict(action='stop_sound', target='bed')])])])
+        errors = []
+        VALIDATE.validate_interactions(source, 'fixture', errors)
+        self.assertEqual(errors, [])
+        changed = copy.deepcopy(source)
+        changed['props'][0]['bindings'][0]['actions'][0]['target'] = 'missing'
+        errors = []
+        VALIDATE.validate_interactions(changed, 'fixture', errors)
+        self.assertTrue(any("unknown entity 'missing'" in error for error in errors))
+        changed = copy.deepcopy(source)
+        changed['sound_emitters'][0]['id'] = 'control'
+        errors = []
+        VALIDATE.validate_interactions(changed, 'fixture', errors)
+        self.assertTrue(any('duplicates' in error for error in errors))
+
     def check_environment(self, environment):
         errors = []
         VALIDATE.validate_environment(dict(environment=environment), "fixture", errors)

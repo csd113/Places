@@ -2107,8 +2107,8 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
     """Every addressable id and capability set the action/condition checks read.
 
     One instance namespace covers props, doors, ceiling fixtures, trigger
-    volumes, timers and spawn points; sequences, spawn templates and spawn
-    groups are separate resource namespaces, exactly as ``loader::LevelIndex``
+    volumes, timers, sound emitters and spawn points; sequences, spawn templates
+    and spawn groups are separate resource namespaces, exactly as ``loader::LevelIndex``
     resolves them.
     """
     entities: Dict[str, Dict] = {}
@@ -2209,6 +2209,19 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
         resolved = _validate_instance_id(seen, ident, context, "instance", errors)
         if resolved is not None:
             entities[resolved] = _entity_facts("effect")
+
+    # Standalone audio owns the same addressable identity as component audio.
+    # Region play/stop actions must resolve it just as the native loader does.
+    for index, emitter in enumerate(level.get("sound_emitters") or []):
+        if not isinstance(emitter, dict):
+            continue
+        authored = emitter.get("id")
+        context = f"sound emitter {index} ('{authored}')"
+        ident = _validate_instance_id(seen, authored, context, "instance", errors)
+        if ident is not None:
+            facts = _entity_facts("sound emitter")
+            facts["has_audio"] = True
+            entities[ident] = facts
 
     for index, timer in enumerate(level.get("timers") or []):
         if not isinstance(timer, dict):
