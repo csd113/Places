@@ -145,7 +145,7 @@ def environment():
     p.finish()
     p=Phase('18-luau')
     p.click('Scripts');p.click('ScriptNew');p.add('key',key='A',command=True)
-    source=(ROOT/'projects/closing-time/scripts/closing_time_1.luau').read_text()
+    source=(ROOT/'archive/projects/closing-time/scripts/closing_time_1.luau').read_text()
     for offset in range(0,len(source),240):p.add('text',text=source[offset:offset+240],delay=500)
     p.click('Save');p.click('ScriptCheck');p.add('capture',name='luau-source',delay=1000)
     p.add('checkpoint',name='luau-check');p.click('ClosePopup');p.finish()

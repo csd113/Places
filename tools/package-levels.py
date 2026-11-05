@@ -103,8 +103,8 @@ def package_levels(source: Path, output: Path, compiler: Path, assets: Path) -> 
                 'with the application. Do not extract the individual .placesmap archives.\n'
                 'Each package contains recoverable editable project sources; use\n'
                 'places-compile import-project <package> --out <new-project-folder>.\n'
-                'The application already bundles its main menu. Annex and developer\n'
-                'fixtures are excluded. This archive contains no application binaries.\n')
+                'The application already bundles its main menu. Archived projects and\n'
+                'developer fixtures are excluded. This archive contains no application binaries.\n')
         # A hard-link publication is atomic and refuses a concurrent existing file.
         os.link(staged, output)
     return dict(path=str(output), bytes=output.stat().st_size, sha256=digest(output), **receipt)

@@ -29,7 +29,7 @@ def run(name):
         recording=subprocess.Popen(['/usr/sbin/screencapture','-v','-D','1',str(video)],
                                    stdout=log,stderr=log)
         try:
-            result=subprocess.run([str(PAYLOAD/'places-editor'),str(ROOT/'projects/closing-time'),
+            result=subprocess.run([str(PAYLOAD/'places-editor'),str(ROOT/'archive/projects/closing-time'),
                 '--compiler',str(PAYLOAD/'places-compile'),'--game',str(PAYLOAD/'places'),
                 '--verify-script',str(script)],env=env,stdout=log,stderr=log,timeout=900)
         finally:

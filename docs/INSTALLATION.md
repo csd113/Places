@@ -30,10 +30,12 @@ editable project packages: compiler `import-project <package> --out <new-folder>
 recovers their authoring sources. Shared textures, models and audio stay with
 the app and are not duplicated in the levels download.
 
-The exact gameplay inventory is `tools/release-projects.json`: seven packages,
-18 member maps and 36 Static/Full variants. It includes Home in the nine-member
-Quiet Collection and all four Beam chapters. Relay Annex source stays in the
-repository and is excluded, together with development gyms, labs and fixtures.
+The current gameplay inventory is `tools/release-projects.json`: three packages,
+14 member maps and 28 Static/Full variants: Backrooms, the nine-member Quiet
+Collection and all four Beam chapters. Five retired projects retain their complete
+editable content in the [tracked archive](../archive/projects/README.md). They are
+excluded together with development gyms, labs and fixtures. Existing user imports
+and published 0.13.0 downloads are preserved; archiving source does not uninstall maps.
 The application-owned menu is separate from this gameplay inventory.
 
 Prepare current maps explicitly with the matching compiler when `verify
@@ -137,7 +139,8 @@ Many**, **The Shape of an Exit**, and **After Hours - Rooms Beyond**. Relay Anne
 source remains in the repository and is excluded from release downloads.
 Development gyms, labs and review fixtures are excluded too.
 
-The release inventory is explicit in `tools/release-projects.json`;
+The original seven-package inventory above describes the published 0.13.0 payload.
+The current three-project release inventory is explicit in `tools/release-projects.json`;
 `levels/lineup.txt` describes the smaller curated developer build. Complete release
 exports retain their normal Static and Full variants. Explore lists project
 entries, and authored transitions reach their internal members.
@@ -201,8 +204,9 @@ The maintained environment distribution is `environments.placesmap`: Central
 Hub plus eight destinations, with only the hub exposed in Explore. Each
 destination has a physical return door. The former eight standalone environment
 packages are retired; [the retirement inventory](reports/release-0.12.0.md#environment-collection-0120-retirement)
-records their exact IDs. Closing Time and It Only Exists in the Beam remain separate optional project
-packages. Relay Annex is preserved as source and excluded from 0.13.0 downloads.
+records their exact IDs. It Only Exists in the Beam and Backrooms remain separate
+active optional project packages. Closing Time and the other four retired projects
+are preserved in the [project archive](../archive/projects/README.md).
 
 Import an existing collection package using the matching player and resources:
 

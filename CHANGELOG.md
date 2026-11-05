@@ -13,6 +13,10 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Archive five retired projects with all editable sources, scripts and thumbnails.
+  Keep Beam, Backrooms and Quiet Collection active; refuse archived identities in
+  new desktop exports and retain useful development controls.
+
 - Protect hidden and isolated attachments during numeric/exact transforms and
   room-edge edits; move explicit spawn heights and owned elevator landings/links
   with isolated rooms, refusing shared shafts with a cause. Reset map

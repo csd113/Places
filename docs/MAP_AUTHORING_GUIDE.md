@@ -9565,7 +9565,8 @@ interaction-prompt action. These calls retain invocation-start snapshots,
 atomic action publication and all sandbox budgets; newly exported script
 packages require `world-observations-v1`. See `SCRIPTING.md` for exact bounds.
 
-`projects/one-guest-too-many` is an explicit standalone native-editor project.
+`archive/projects/one-guest-too-many` is a preserved standalone native-editor project,
+excluded from current releases; see the [project archive](../archive/projects/README.md).
 Its saved rooms, regions, walls, furnishings, lights, door, spawn markers and
 volumes were placed through visible native editor controls. Supported source
 components/bindings and project-local Luau then orchestrate the six bounded

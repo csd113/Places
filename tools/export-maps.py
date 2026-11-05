@@ -9,9 +9,17 @@ import sys
 import tempfile
 import zipfile
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 def export_maps(source: Path, payload: Path, compiler: Path) -> None:
     packages = sorted(source.glob('*.placesmap'))
+    archived = json.loads((ROOT / 'tools/release-projects.json').read_text(encoding='utf8'))['archived_projects']
+    archived_names = {row['package'] for row in archived}
+    archived_projects = {row['project_id'] for row in archived}
+    archived_levels = {identity for row in archived for identity in row['level_ids']}
+    if any(package.name in archived_names for package in packages):
+        raise ValueError('Archived project packages are excluded from new exports')
     env = dict(os.environ)
     # Validate against the actual exported runtime assets, with isolated state.
     env['PLACES_ASSET_ROOT'] = str(payload)
@@ -31,9 +39,14 @@ def export_maps(source: Path, payload: Path, compiler: Path) -> None:
             with zipfile.ZipFile(package) as archive:
                 if 'project.json' in archive.namelist():
                     index = json.loads(archive.read('project.json'))
-                    expected_ids.extend(level['id'] for level in index['levels'])
+                    identities = [level['id'] for level in index['levels']]
+                    if index['project']['id'] in archived_projects:
+                        raise ValueError(f'{package.name}: archived project is excluded from new exports')
                 else:
-                    expected_ids.append(json.loads(archive.read('manifest.json'))['id'])
+                    identities = [json.loads(archive.read('manifest.json'))['id']]
+                if archived_levels.intersection(identities):
+                    raise ValueError(f'{package.name}: archived level is excluded from new exports')
+                expected_ids.extend(identities)
             shutil.copyfile(package, payload / 'assets/levels' / package.name)
         # Ordinary player discovery also checks catalog provenance and semantic
         # compatibility. A stale, duplicate or malformed optional map must not

@@ -16,6 +16,7 @@ Use these ownership boundaries, then select the source, package or native workfl
 | `assets/catalog.json` | Logical asset/material registry; paths are relative to `assets/` |
 | `levels/` | Explicit compiler/export `lineup.txt` distribution allowlist |
 | `projects/environments/` | Maintained editor project containing the hub and eight environments |
+| `archive/projects/` | Retired editable projects and recovery instructions; excluded from new exports |
 | `tests/fixtures/levels/` | Focused movement, lighting, geometry, entity and capacity controls |
 | `tests/fixtures/native/` | Camera, controller and reference-image inputs |
 | `tools/{levels,textures,props,entities}/` | Offline authoring generators and checks |
@@ -101,8 +102,12 @@ visible rows for the background choice. Internal members remain available to
 For Windows distribution, use `python tools/package-windows.py --with-editor`
 with explicit runtime DLL/license and map-directory inputs; see
 [installation](INSTALLATION.md#windows-portable-game-and-authoring-tools).
-`tools/release-projects.json` is the authoritative seven-project release
-inventory retained for 0.13.1 development; it excludes Relay Annex and development fixtures. The curated lineup
+`tools/release-projects.json` is the authoritative three-project release
+inventory for 0.13.1: Backrooms, Quiet Collection and all four Beam chapters.
+The five [archived projects](../archive/projects/README.md) and development fixtures
+are excluded. Desktop exports also refuse archived package/project/member IDs,
+including renamed packages. Keep selected package directories free of stale exports.
+The curated lineup
 below is intentionally smaller and does not define the release upload inventory.
 
 To author the optional curated content, run `sh tools/build-maps.sh --workers 8`.
@@ -159,7 +164,9 @@ Hub connects Home, Pool, Office, Lantern Hollow, Winter, Beach, Frutiger Aero an
 Cosmic Lanes & Arcade. One `environments.placesmap` carries all nine sub-maps,
 editable sources, scripts and menu artwork. The old standalone distribution is
 retired. Places Demo and Model Zoo remain historical JSON in `docs/archive/levels/`;
-Relay Annex, Closing Time, Beam and unrelated projects remain separate.
+Beam and Backrooms remain active independent projects. Closing Time, One Guest Too
+Many, The Shape of an Exit, After Hours - Rooms Beyond and Relay Annex now live in
+the [tracked project archive](../archive/projects/README.md).
 
 Obsolete local dev maps, historical compiler/renderer review snapshots and their
 public discovery paths were retired. Eleven superseded Hero-stage source maps

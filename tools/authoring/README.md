@@ -1,7 +1,11 @@
 # Explicit Closing Time authoring and acceptance
 
-These tools are opt-in desktop workflows, never Cargo or CI fixtures. Run from
-the checkout on `0.12.0-staging`. Native SDL windows require a real display.
+These tools are opt-in desktop workflows, never Cargo or CI fixtures. Native SDL
+windows require a real display. Closing Time now lives in
+`archive/projects/closing-time`; its source-reading/recording tools use that path.
+Its original stage recipes and immutable payloads remain historical evidence.
+The shared recipe helpers stay here because active Beam and Shadow Gallery tools
+import them. See [archive recovery](../../archive/projects/README.md).
 
 - `cargo run --bin environment-import-audit -- NEW_DIRECTORY old-map.json ...`
   imports each standalone map through the same `Document::import_level` operation

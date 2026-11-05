@@ -22,6 +22,9 @@ and eight collection destinations; [regression scenes](../tests/fixtures/levels/
 are separate developer controls. Places Demo and Model Zoo remain frozen JSON in
 `archive/levels/`, outside discovery and default compilation.
 
+The [tracked project archive](../archive/projects/README.md) preserves five retired
+games and documents recovery, release exclusions and the retained development spaces.
+
 ## Project evolution and visual history
 
 The [release report index](reports/README.md) provides one canonical report per version.
