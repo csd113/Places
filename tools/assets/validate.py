@@ -3486,6 +3486,55 @@ def validate_prop_emission_overrides(prop: dict, where: str, errors: List[str]) 
             errors.append(f"{context} intensity must be a finite number in 0..8")
 
 
+def validate_tall_guests(level: dict, where: str, errors: List[str]) -> None:
+    """Static capability mirror; actual rig/clips and native ownership load in Rust."""
+    guests = [prop for prop in level.get("props", []) if isinstance(prop, dict)
+              and prop.get("tall_guest") is not None]
+    if len(guests) > 8:
+        errors.append(f"{where}: at most eight Tall Guests are supported")
+
+    def point(value):
+        return (isinstance(value, list) and len(value) == 3
+                and all(is_finite_number(x) and abs(x) <= 100_000 for x in value))
+
+    def refuge(value):
+        return (isinstance(value, dict) and set(value) == {"min", "max"}
+                and point(value["min"]) and point(value["max"])
+                and all(a < b for a, b in zip(value["min"], value["max"])))
+
+    for prop in guests:
+        context = f"{where}: Tall Guest {prop.get('id', '<generated>')}"
+        definition = prop["tall_guest"]
+        tags = {c.get("component") for c in prop.get("components", []) if isinstance(c, dict)}
+        route = any(r.get("id") == prop.get("id") for r in level.get("routes", [])
+                    if isinstance(r, dict) and prop.get("id") is not None)
+        if (prop.get("scale", 1) != 1 or prop.get("solid", False)
+                or prop.get("pitch_degrees", 0) != 0 or prop.get("roll_degrees", 0) != 0
+                or any(prop.get(k) is not None for k in ("physics", "float", "span", "animated_door"))
+                or prop.get("shadow_only", False) or prop.get("material_overrides")
+                or prop.get("emission_overrides") or route or tags.intersection({"ai", "animation"})):
+            errors.append(f"{context} requires upright scale-one exclusive motion/pose ownership")
+        if not isinstance(definition, dict) or set(definition) - {"patrol", "passages"}:
+            errors.append(f"{context} requires only bounded patrol/passages fields")
+            continue
+        patrol, passages = definition.get("patrol", []), definition.get("passages", [])
+        if not isinstance(patrol, list) or len(patrol) > 32 or not all(point(x) for x in patrol):
+            errors.append(f"{context} patrol requires at most32finite bounded3D points")
+        if not isinstance(passages, list) or len(passages) > 16:
+            errors.append(f"{context} passages requires at most16records")
+            continue
+        for passage in passages:
+            if (not isinstance(passage, dict) or set(passage) - {"id", "entry", "exit", "crouch_only", "protected"}
+                    or not isinstance(passage.get("id"), str)
+                    or not 1 <= len(passage["id"].encode("utf-8")) <= 64
+                    or not point(passage.get("entry")) or not point(passage.get("exit"))
+                    or not .1 < math.dist(passage["entry"], passage["exit"]) <= 12
+                    or not isinstance(passage.get("crouch_only", False), bool)
+                    or (passage.get("protected") is not None and not refuge(passage["protected"]))
+                    or (passage.get("crouch_only", False) and not refuge(passage.get("protected")))):
+                errors.append(f"{context} passage requires a finite bounded path and crouch-only protected volume")
+
+
 def validate_static_prop_options(level: dict, where: str, errors: List[str]) -> None:
     """Mirror bounded offline span fitting and numeric glTF material slots."""
     slices = 0
@@ -3620,6 +3669,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             validate_weather(level, relative, errors)
             validate_water_shapes(level, relative, errors)
             validate_floats(level, relative, errors)
+            validate_tall_guests(level, relative, errors)
             validate_static_prop_options(level, relative, errors)
             validate_prop_light_circuits(level, relative, errors)
             validate_surface_shine(level, relative, errors)

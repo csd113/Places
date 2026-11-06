@@ -23,6 +23,7 @@ fn settle(world: &mut EntityWorld, level: &LevelDef) {
     let floor = WalkableFloor::from_level(level);
     let index = CollisionIndex::build(&[]);
     let _tick = world.tick(&WorldContext {
+        player_walk_speed: 3.75,
         delta_seconds: 0.016,
         feet_from: Vec3::ZERO,
         feet: Vec3::ZERO,

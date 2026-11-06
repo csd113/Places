@@ -412,6 +412,7 @@ pub struct Game {
     /// agree about the local floor.
     pub player_floor_y: f32,
     pub player_yaw: f32,
+    configured_walk_speed: f32,
     pub player_pitch: f32,
     pub walls: Vec<WallAabb>,
     /// The spatial index over [`Game::walls`], rebuilt whenever the wall list
@@ -571,6 +572,7 @@ impl Game {
             sim_delta_seconds: 0.0,
             world_time_scale: 1.0,
             frame_count: 0,
+            configured_walk_speed: portal_movement::WALK_SPEED,
             player_floor_y: spawn_pos.y - EYE_HEIGHT,
             player_position: spawn_pos,
             feet_y: spawn_pos.y - EYE_HEIGHT,
@@ -867,6 +869,31 @@ impl Game {
         self.world.update_entities(0.0, &routes, None);
     }
 
+    /// # Errors
+    /// Validate a private resumed articulated world after restoring physical items.
+    pub fn validate_restored_guests(&mut self) -> Result<(), String> {
+        let feet = Vec3::new(
+            self.player_position.x,
+            self.feet_y(),
+            self.player_position.z,
+        );
+        let ctx = WorldContext {
+            delta_seconds: 0.0,
+            player_walk_speed: self.configured_walk_speed,
+            feet_from: feet,
+            feet,
+            eye: self.player_position,
+            body_height: self.body_height(),
+            body_half: self.body_half(),
+            form_model: self.form_model.as_deref(),
+            walls: &self.walls,
+            index: &self.collision_index,
+            floor: &self.floor,
+            nav: self.navigation.as_ref(),
+        };
+        self.world.validate_restored_guests(&ctx)
+    }
+
     /// Advances the entity runtime by one frame and applies its outcome.
     fn update_world(&mut self, feet_from: Vec3) {
         let delta = self.world_delta_seconds();
@@ -876,6 +903,7 @@ impl Game {
             self.player_position.z,
         );
         let ctx = WorldContext {
+            player_walk_speed: self.configured_walk_speed,
             delta_seconds: delta,
             feet_from,
             feet,
@@ -1231,6 +1259,7 @@ impl Game {
             return;
         }
 
+        self.configured_walk_speed = settings.walk_speed;
         let trigger_origin = self.update_playing_frame_checked(
             &frame_input,
             settings,
@@ -1894,6 +1923,7 @@ impl Game {
             self.player_position.z,
         );
         let ctx = WorldContext {
+            player_walk_speed: self.configured_walk_speed,
             delta_seconds: delta,
             feet_from: feet,
             feet,

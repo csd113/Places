@@ -13,7 +13,8 @@
       "looping": false,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.10198071610886782
     },
     {
       "id": "footstep_wood",
@@ -27,7 +28,8 @@
       "looping": false,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.08592803814790963
     },
     {
       "id": "footstep_carpet",
@@ -41,7 +43,8 @@
       "looping": false,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.09137332032414103
     },
     {
       "id": "footstep_grass",
@@ -55,7 +58,8 @@
       "looping": false,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.051178373430118274
     },
     {
       "id": "footstep_snow",
@@ -69,7 +73,8 @@
       "looping": false,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.10459293223748013
     },
     {
       "id": "footstep_gravel",
@@ -80,7 +85,8 @@
       "looping": false,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.033503737968513136
     },
     {
       "id": "footstep_sand",
@@ -94,7 +100,8 @@
       "looping": false,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.09286934154161974
     },
     {
       "id": "footstep_water",
@@ -107,7 +114,8 @@
       "looping": false,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.07877585664094265
     },
     {
       "id": "impact_hard",
@@ -120,7 +128,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.09815871060644375
     },
     {
       "id": "impact_wood",
@@ -133,7 +142,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.06761966742922186
     },
     {
       "id": "impact_metal",
@@ -146,7 +156,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.09240569177736742
     },
     {
       "id": "impact_glass",
@@ -159,7 +170,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.09988221600871587
     },
     {
       "id": "impact_soft",
@@ -172,7 +184,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.172447969391344
     },
     {
       "id": "switch_click",
@@ -185,7 +198,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.09890527056069871
     },
     {
       "id": "door_open",
@@ -197,7 +211,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.07003382257148348
     },
     {
       "id": "door_close",
@@ -209,7 +224,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.11140615873799743
     },
     {
       "id": "prop_plastic",
@@ -222,7 +238,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.044341808716215035
     },
     {
       "id": "prop_ceramic",
@@ -235,7 +252,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.056190019580705436
     },
     {
       "id": "prop_bell",
@@ -247,7 +265,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.08363245581922184
     },
     {
       "id": "prop_duck",
@@ -259,7 +278,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.21798395875553286
     },
     {
       "id": "ambience_hvac",
@@ -270,7 +290,8 @@
       "looping": true,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.09025088224566645
     },
     {
       "id": "ambience_outdoors",
@@ -281,7 +302,8 @@
       "looping": true,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.0357577556259404
     },
     {
       "id": "ambience_water",
@@ -292,7 +314,8 @@
       "looping": true,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.09533001596990197
     },
     {
       "id": "water_emitter",
@@ -303,7 +326,8 @@
       "looping": true,
       "spatial": true,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.09533001596990197
     },
     {
       "id": "water_transition",
@@ -316,7 +340,8 @@
       "looping": false,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.07877585664094265
     },
     {
       "id": "fluorescent_buzz",
@@ -327,7 +352,8 @@
       "looping": true,
       "spatial": true,
       "min_distance": 0.5,
-      "max_distance": 6.5
+      "max_distance": 6.5,
+      "rms_amplitude": 0.10707639749432293
     },
     {
       "id": "pool_lapping",
@@ -338,7 +364,8 @@
       "looping": true,
       "spatial": true,
       "min_distance": 1.5,
-      "max_distance": 11
+      "max_distance": 11,
+      "rms_amplitude": 0.034595773126980346
     },
     {
       "id": "empty_room",
@@ -349,7 +376,8 @@
       "looping": true,
       "spatial": true,
       "min_distance": 4,
-      "max_distance": 18
+      "max_distance": 18,
+      "rms_amplitude": 0.03842618189244747
     },
     {
       "id": "elevator_shaft",
@@ -360,7 +388,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.5,
-      "max_distance": 12.0
+      "max_distance": 12.0,
+      "rms_amplitude": 0.04195920376680332
     },
     {
       "id": "elevator_arrive",
@@ -371,7 +400,8 @@
       "looping": false,
       "spatial": true,
       "min_distance": 1.5,
-      "max_distance": 12.0
+      "max_distance": 12.0,
+      "rms_amplitude": 0.0395479282264154
     },
     {
       "id": "elevator_travel",
@@ -380,7 +410,8 @@
       ],
       "gain": 0.7,
       "looping": false,
-      "spatial": false
+      "spatial": false,
+      "rms_amplitude": 0.08999941410883415
     },
     {
       "id": "ambience_intercom",
@@ -391,7 +422,188 @@
       "looping": true,
       "spatial": false,
       "min_distance": 1.0,
-      "max_distance": 24.0
+      "max_distance": 24.0,
+      "rms_amplitude": 0.16163749289636986
+    },
+    {
+      "id": "tg_echolocation_howl_01",
+      "files": [
+        "tall_guest/tg_echolocation_howl_01.wav"
+      ],
+      "gain": 0.55,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.14603836821132107
+    },
+    {
+      "id": "tg_pursuit_shriek_loop",
+      "files": [
+        "tall_guest/tg_pursuit_shriek_loop.wav"
+      ],
+      "gain": 0.55,
+      "looping": true,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.12644878247054075
+    },
+    {
+      "id": "tg_lost_prey_voice",
+      "files": [
+        "tall_guest/tg_lost_prey_voice.wav"
+      ],
+      "gain": 0.55,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.18324918639193424
+    },
+    {
+      "id": "tg_stomp_01",
+      "files": [
+        "tall_guest/tg_stomp_01.wav"
+      ],
+      "gain": 0.35,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.14088553030556303
+    },
+    {
+      "id": "tg_foot_slow_front",
+      "files": [
+        "tall_guest/tg_foot_slow_front.wav"
+      ],
+      "gain": 0.35,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.08323032473049993
+    },
+    {
+      "id": "tg_foot_slow_left",
+      "files": [
+        "tall_guest/tg_foot_slow_left.wav"
+      ],
+      "gain": 0.35,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.09429756817612671
+    },
+    {
+      "id": "tg_foot_slow_right",
+      "files": [
+        "tall_guest/tg_foot_slow_right.wav"
+      ],
+      "gain": 0.35,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.07607451203619181
+    },
+    {
+      "id": "tg_foot_fast_front",
+      "files": [
+        "tall_guest/tg_foot_fast_front.wav"
+      ],
+      "gain": 0.35,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.10728667463387798
+    },
+    {
+      "id": "tg_foot_fast_left",
+      "files": [
+        "tall_guest/tg_foot_fast_left.wav"
+      ],
+      "gain": 0.35,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.12566263421481477
+    },
+    {
+      "id": "tg_foot_fast_right",
+      "files": [
+        "tall_guest/tg_foot_fast_right.wav"
+      ],
+      "gain": 0.35,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.11452319631693614
+    },
+    {
+      "id": "tg_doorway_scrape_01",
+      "files": [
+        "tall_guest/tg_doorway_scrape_01.wav"
+      ],
+      "gain": 0.35,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.07664037604490863
+    },
+    {
+      "id": "tg_echolocation_howl_02",
+      "files": [
+        "tall_guest/tg_echolocation_howl_02.wav"
+      ],
+      "gain": 0.55,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.14866601450729156
+    },
+    {
+      "id": "tg_click_single_01",
+      "files": [
+        "tall_guest/tg_click_single_01.wav"
+      ],
+      "gain": 0.35,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.02201679265266043
+    },
+    {
+      "id": "tg_click_single_02",
+      "files": [
+        "tall_guest/tg_click_single_02.wav"
+      ],
+      "gain": 0.35,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.01390028050171864
+    },
+    {
+      "id": "tg_click_single_03",
+      "files": [
+        "tall_guest/tg_click_single_03.wav"
+      ],
+      "gain": 0.35,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 24,
+      "rms_amplitude": 0.02186818972354815
     }
   ]
 }

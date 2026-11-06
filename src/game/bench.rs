@@ -39,7 +39,7 @@
 
 use std::io::Write;
 use std::path::PathBuf;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use crate::engine::quality::{LightmapQuality, ReflectionQuality};
 use crate::engine::render::{GpuTiming, RenderStats};
@@ -722,6 +722,51 @@ impl Bench {
     #[must_use]
     pub const fn skip_render(&self) -> bool {
         self.config.switches.contains(BenchSwitches::SKIP_RENDER)
+    }
+
+    /// Explicit real-time cadence campaign; never changes simulation delta.
+    /// Throughput comparisons must leave `PLACES_BENCH_PACE_HZ` unset.
+    pub fn pace_frame(&self, began: Instant) {
+        static PACE: std::sync::OnceLock<Option<Duration>> = std::sync::OnceLock::new();
+        if !self.enabled() {
+            return;
+        }
+        let configured = PACE.get_or_init(|| {
+            std::env::var("PLACES_BENCH_PACE_HZ")
+                .ok()
+                .and_then(|value| value.parse::<u32>().ok())
+                .filter(|hz| matches!(hz, 30 | 60 | 120))
+                .map(|hz| Duration::from_secs_f64(1.0_f64 / f64::from(hz)))
+        });
+        if let Some(duration) = configured {
+            std::thread_local! {
+                static NEXT: std::cell::Cell<Option<Instant>> = const { std::cell::Cell::new(None) };
+            }
+            let now = Instant::now();
+            let scheduled = NEXT.with(|next| {
+                let target = next
+                    .get()
+                    .filter(|prior| now.saturating_duration_since(*prior) <= *duration)
+                    .or_else(|| began.checked_add(*duration));
+                next.set(target.and_then(|instant| instant.checked_add(*duration)));
+                target
+            });
+            let Some(deadline) = scheduled else {
+                return;
+            };
+            // Carry the deadline across frames, including input/outer-loop work.
+            // This explicit diagnostic spends at most3ms spinning after sleep;
+            // it never supplies simulation delta and is unset for performance.
+            let coarse = deadline
+                .saturating_duration_since(now)
+                .saturating_sub(Duration::from_millis(3));
+            if !coarse.is_zero() {
+                std::thread::sleep(coarse);
+            }
+            while Instant::now() < deadline {
+                std::hint::spin_loop();
+            }
+        }
     }
 
     /// Whether presentation should be skipped for this run.

@@ -212,3 +212,10 @@ name = "places-lighting-gpu-probe"
 path = "tools/rust/lighting-gpu-probe/main.rs"
 test = false
 bench = false
+
+# Explicit native Tall Guest geometry/aim evidence; never a Cargo test or map bake.
+[[bin]]
+name = "places-tall-guest-pose-check"
+path = "tools/rust/tall-guest-pose-check/main.rs"
+test = false
+bench = false

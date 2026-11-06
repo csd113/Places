@@ -704,6 +704,44 @@ impl NavMesh {
         out: &mut Path,
         bounds: Option<NavBounds>,
     ) -> Result<(), PathResult> {
+        self.path_into_constrained(query, scratch, out, bounds, &[])
+    }
+
+    /// Excludes semantic no-entry volumes from cells, transitions and shortcuts.
+    /// Volumes include the caller's body margins and apply to walking surfaces.
+    ///
+    /// # Errors
+    /// Rejects malformed volumes and returns the same path errors as `path_into`.
+    pub fn path_into_avoiding(
+        &self,
+        query: &PathQuery<'_>,
+        scratch: &mut NavScratch,
+        out: &mut Path,
+        excluded: &[NavBounds],
+    ) -> Result<(), PathResult> {
+        if excluded.len() > 32
+            || excluded.iter().any(|volume| {
+                !volume.min.is_finite()
+                    || !volume.max.is_finite()
+                    || !volume.max.cmpgt(volume.min).all()
+            })
+        {
+            out.clear();
+            return Err(PathResult::Invalid(
+                "invalid excluded navigation volumes".into(),
+            ));
+        }
+        self.path_into_constrained(query, scratch, out, None, excluded)
+    }
+
+    fn path_into_constrained(
+        &self,
+        query: &PathQuery<'_>,
+        scratch: &mut NavScratch,
+        out: &mut Path,
+        bounds: Option<NavBounds>,
+        excluded: &[NavBounds],
+    ) -> Result<(), PathResult> {
         out.clear();
         let Some(profile) = self.grid.classes.get(query.class).copied() else {
             return Err(PathResult::Invalid(format!(
@@ -718,6 +756,12 @@ impl NavMesh {
         }
         if bounds
             .is_some_and(|volume| !volume.contains(query.start) || !volume.contains(query.goal))
+        {
+            return Err(PathResult::Unreachable);
+        }
+        if excluded
+            .iter()
+            .any(|volume| volume.contains(query.start) || volume.contains(query.goal))
         {
             return Err(PathResult::Unreachable);
         }
@@ -748,6 +792,9 @@ impl NavMesh {
         if bounds.is_some_and(|volume| {
             !volume.contains(start.position) || !volume.contains(goal.position)
         }) {
+            return Err(PathResult::Unreachable);
+        }
+        if !self.cell_avoids(start.cell, excluded) || !self.cell_avoids(goal.cell, excluded) {
             return Err(PathResult::Unreachable);
         }
         let cells = self.grid.cell_count();
@@ -805,7 +852,7 @@ impl NavMesh {
                 let Some(next) = self.grid.link(query.class, cell, direction) else {
                     continue;
                 };
-                if !self.cell_in_bounds(next, bounds) {
+                if !self.cell_in_bounds(next, bounds) || !self.cell_avoids(next, excluded) {
                     continue;
                 }
                 if self
@@ -829,6 +876,13 @@ impl NavMesh {
                     query.doors,
                     query.can_open_doors,
                     bounds,
+                ) {
+                    continue;
+                }
+                if !self.segment_avoids(
+                    clamp_to_surface(&self.grid, cell, query.start),
+                    clamp_to_surface(&self.grid, next, query.goal),
+                    excluded,
                 ) {
                     continue;
                 }
@@ -934,6 +988,7 @@ impl NavMesh {
                     query.can_open_doors,
                     bounds,
                 ) && self.segment_in_bounds(anchor, point, bounds)
+                    && self.segment_avoids(anchor, point, excluded)
                 {
                     next = candidate;
                     break;
@@ -961,6 +1016,7 @@ impl NavMesh {
                 query.can_open_doors,
                 bounds,
             ) && self.segment_in_bounds(anchor, query.goal, bounds)
+                && self.segment_avoids(anchor, query.goal, excluded)
             {
                 query.goal
             } else {
@@ -975,6 +1031,51 @@ impl NavMesh {
         }
         collect_door_requests(self, query, &chain, out);
         Ok(())
+    }
+
+    fn cell_avoids(&self, cell: usize, excluded: &[NavBounds]) -> bool {
+        let point = clamp_to_surface(&self.grid, cell, Vec3::ZERO);
+        excluded.iter().all(|volume| !volume.contains(point))
+    }
+
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        clippy::cast_sign_loss,
+        clippy::as_conversions,
+        reason = "Finite surface sample count is clamped to 1..=4096; all indices are exactly representable."
+    )]
+    fn segment_avoids(&self, from: Vec3, to: Vec3, excluded: &[NavBounds]) -> bool {
+        if excluded.is_empty() {
+            return true;
+        }
+        let steps = ((to.x - from.x).hypot(to.z - from.z) / (self.grid.cell_m * 0.5))
+            .ceil()
+            .clamp(1.0, 4096.0) as u32;
+        let mut previous = from;
+        for step in 0..=steps {
+            let sample = from.lerp(to, step as f32 / steps as f32);
+            let Some((cx, cz)) = self.grid.cell_at(sample.x, sample.z) else {
+                return false;
+            };
+            let Some(height) = self
+                .grid
+                .column_range(cx, cz)
+                .filter_map(|node| self.grid.surface(node))
+                .min_by(|a, b| (a - sample.y).abs().total_cmp(&(b - sample.y).abs()))
+            else {
+                return false;
+            };
+            let point = Vec3::new(sample.x, height, sample.z);
+            if excluded
+                .iter()
+                .any(|volume| segment_enters(previous, point, *volume))
+            {
+                return false;
+            }
+            previous = point;
+        }
+        true
     }
 
     fn cell_in_bounds(&self, cell: usize, bounds: Option<NavBounds>) -> bool {
@@ -1635,3 +1736,31 @@ pub fn cell_is_surface(flags: u8) -> bool {
 
 /// The sentinel for "no region" is re-exported for tests and diagnostics.
 pub const NO_REGION_CELL: u16 = NO_REGION;
+
+/// Inclusive slab intersection prevents a narrow excluded volume being skipped
+/// between samples, while each segment follows the actual selected floor.
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Finite metre-space slab arithmetic; parallel axes are handled before division."
+)]
+fn segment_enters(from: Vec3, to: Vec3, volume: NavBounds) -> bool {
+    let delta = to - from;
+    let mut near = 0.0_f32;
+    let mut far = 1.0_f32;
+    for axis in 0..3 {
+        if delta[axis].abs() <= f32::EPSILON {
+            if from[axis] < volume.min[axis] || from[axis] > volume.max[axis] {
+                return false;
+            }
+        } else {
+            let first = (volume.min[axis] - from[axis]) / delta[axis];
+            let last = (volume.max[axis] - from[axis]) / delta[axis];
+            near = near.max(first.min(last));
+            far = far.min(first.max(last));
+            if near > far {
+                return false;
+            }
+        }
+    }
+    true
+}

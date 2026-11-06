@@ -402,6 +402,7 @@ struct Voice {
     handle: StaticSoundHandle,
     source: Option<SourceId>,
     position: Option<Vec3>,
+    direction: Option<Vec3>,
     gain: f32,
     time_domain: TimeDomain,
     bus: AudioBus,
@@ -534,9 +535,17 @@ impl NativeAudio {
     }
 
     pub fn play(&mut self, id: &str, request: PlayRequest) -> bool {
-        if request.attenuation.is_some_and(|[near, far]| {
-            !near.is_finite() || !far.is_finite() || near < 0.0 || far <= near || far > 1_000.0
-        }) || !valid_gain(request.gain)
+        if !request.cursor_seconds.is_finite()
+            || !(0.0_f64..=10_000_000.0_f64).contains(&request.cursor_seconds)
+            || !request.replacement_fade.is_finite()
+            || !(0.0..=1.0).contains(&request.replacement_fade)
+            || request.attenuation.is_some_and(|[near, far]| {
+                !near.is_finite() || !far.is_finite() || near < 0.0 || far <= near || far > 1_000.0
+            })
+            || request
+                .direction
+                .is_some_and(|axis| !axis.is_finite() || axis.length_squared() < 1.0e-12)
+            || !valid_gain(request.gain)
             || request
                 .position
                 .is_some_and(|position| !valid_position(position))
@@ -548,7 +557,11 @@ impl NativeAudio {
             return self.reject();
         };
         if let Some(source) = request.source {
-            self.stop_source(source);
+            if request.replacement_fade > 0.0 {
+                self.stop_source_with_fade(source, request.replacement_fade);
+            } else {
+                self.stop_source(source);
+            }
         }
         if self
             .voices
@@ -597,19 +610,19 @@ impl NativeAudio {
             return false;
         };
         let looping = request.looping.unwrap_or(cue.looping);
-        let (amplitude, pan) = spatial_mix(
-            self.mix,
-            request.position,
-            request.spatial.unwrap_or(cue.spatial),
-            request
-                .attenuation
-                .map_or(cue.min_distance, |[near, _]| near),
-            request.attenuation.map_or(cue.max_distance, |[_, far]| far),
-            request.gain * cue.gain,
-            request.bus,
-        );
+        let duration = data.duration().as_secs_f64();
+        if duration <= 0.0_f64 || (!looping && request.cursor_seconds >= duration) {
+            return false;
+        }
+        let cursor = if looping {
+            request.cursor_seconds.rem_euclid(duration)
+        } else {
+            request.cursor_seconds
+        };
+        let (amplitude, pan) = voice_mix(cue, request, self.mix);
         let paused = world_paused(self.mix, request.time_domain);
-        let sound = prepare_sound(data, looping, self.mix, amplitude, pan, request.time_domain);
+        let sound = prepare_sound(data, looping, self.mix, amplitude, pan, request.time_domain)
+            .start_position(cursor);
         let spatial = request.spatial.unwrap_or(cue.spatial);
         let direction = kernel_direction(self.mix, request.position);
         let kernel = select_kernel(direction);
@@ -652,6 +665,7 @@ impl NativeAudio {
                     handle,
                     source: request.source,
                     position: request.position,
+                    direction: request.direction,
                     gain: request.gain * cue.gain,
                     time_domain: request.time_domain,
                     bus: request.bus,
@@ -948,7 +962,57 @@ impl NativeAudio {
         }
     }
 
+    pub fn set_source_direction(&mut self, source: SourceId, direction: Vec3) {
+        let Some(unit_axis) = direction.try_normalize().filter(|value| value.is_finite()) else {
+            return;
+        };
+        for voice in self
+            .voices
+            .iter_mut()
+            .flatten()
+            .filter(|v| v.source == Some(source))
+        {
+            voice.direction = Some(unit_axis);
+            update_voice(voice, self.mix);
+        }
+        for play in self
+            .pending
+            .iter_mut()
+            .flatten()
+            .filter(|p| p.request.source == Some(source))
+        {
+            play.request.direction = Some(unit_axis);
+        }
+    }
+
+    pub fn source_playing(&self, source: SourceId, cue: &str) -> bool {
+        self.voices.iter().flatten().any(|voice| {
+            voice.source == Some(source)
+                && voice.handle.state() != PlaybackState::Stopped
+                && self
+                    .cues
+                    .get(voice.cue_index)
+                    .is_some_and(|entry| entry.id == cue)
+        }) || self.pending.iter().flatten().any(|pending| {
+            pending.request.source == Some(source)
+                && self
+                    .cues
+                    .get(pending.cue_index)
+                    .is_some_and(|entry| entry.id == cue)
+        })
+    }
+
     pub fn stop_source(&mut self, source: SourceId) {
+        self.stop_source_fade(source, None);
+    }
+
+    pub fn stop_source_with_fade(&mut self, source: SourceId, seconds: f32) {
+        if seconds.is_finite() && (0.0..=1.0).contains(&seconds) {
+            self.stop_source_fade(source, Some(Duration::from_secs_f32(seconds)));
+        }
+    }
+
+    fn stop_source_fade(&mut self, source: SourceId, fade: Option<Duration>) {
         for pending in &mut self.pending {
             if pending
                 .as_ref()
@@ -963,10 +1027,18 @@ impl NativeAudio {
                 .is_some_and(|voice| voice.source == Some(source))
             {
                 if let Some(voice) = slot {
-                    voice.handle.stop(retirement_tween(
-                        voice.looping,
-                        voice.last_parameters.admitted,
-                    ));
+                    let tween = if voice.last_parameters.admitted {
+                        fade.map_or_else(
+                            || retirement_tween(voice.looping, true),
+                            |duration| Tween {
+                                duration,
+                                ..short_tween()
+                            },
+                        )
+                    } else {
+                        immediate()
+                    };
+                    voice.handle.stop(tween);
                 }
                 *slot = None;
             }
@@ -1111,13 +1183,14 @@ impl NativeAudio {
                     voice.spatial,
                     voice.min_distance,
                     voice.max_distance,
-                    voice.gain,
+                    voice.gain * directional_gain(self.mix, voice.position, voice.direction),
                     voice.bus,
                 );
                 snapshots.push(AudioVoiceSnapshot {
                     cue: cue.id.clone(),
                     source: voice.source.map(|source| source.0),
                     position: voice.position.as_ref().map(Vec3::to_array),
+                    direction: voice.direction.as_ref().map(Vec3::to_array),
                     spatial: voice.spatial,
                     gain: if world_paused(self.mix, voice.time_domain) {
                         0.0
@@ -1126,6 +1199,7 @@ impl NativeAudio {
                     },
                     pan,
                     playback_rate: playback_rate(self.mix, voice.time_domain),
+                    cursor_seconds: voice.handle.position(),
                     looping: voice.looping,
                     time_domain: voice.time_domain,
                     paused: world_paused(self.mix, voice.time_domain),
@@ -1145,13 +1219,14 @@ impl NativeAudio {
                         .attenuation
                         .map_or(cue.min_distance, |[near, _]| near),
                     request.attenuation.map_or(cue.max_distance, |[_, far]| far),
-                    request.gain * cue.gain,
+                    request_mix_gain(self.mix, request, cue.gain),
                     request.bus,
                 );
                 snapshots.push(AudioVoiceSnapshot {
                     cue: cue.id.clone(),
                     source: request.source.map(|source| source.0),
                     position: request.position.as_ref().map(Vec3::to_array),
+                    direction: request.direction.as_ref().map(Vec3::to_array),
                     spatial: request.spatial.unwrap_or(cue.spatial),
                     gain: if world_paused(self.mix, request.time_domain) {
                         0.0
@@ -1160,6 +1235,7 @@ impl NativeAudio {
                     },
                     pan,
                     playback_rate: playback_rate(self.mix, request.time_domain),
+                    cursor_seconds: request.cursor_seconds,
                     looping: request.looping.unwrap_or(cue.looping),
                     time_domain: request.time_domain,
                     paused: world_paused(self.mix, request.time_domain),
@@ -1185,6 +1261,20 @@ impl NativeAudio {
         }
         written
     }
+}
+
+fn voice_mix(cue: &LoadedCue, request: PlayRequest, mix: Mix) -> (f32, f32) {
+    spatial_mix(
+        mix,
+        request.position,
+        request.spatial.unwrap_or(cue.spatial),
+        request
+            .attenuation
+            .map_or(cue.min_distance, |[near, _]| near),
+        request.attenuation.map_or(cue.max_distance, |[_, far]| far),
+        request_mix_gain(mix, request, cue.gain),
+        request.bus,
+    )
 }
 
 fn prepare_sound(
@@ -1246,7 +1336,7 @@ fn update_voice(voice: &mut Voice, mix: Mix) {
         voice.spatial,
         voice.min_distance,
         voice.max_distance,
-        voice.gain,
+        voice.gain * directional_gain(mix, voice.position, voice.direction),
         voice.bus,
     );
     voice.handle.set_volume(
@@ -1387,6 +1477,27 @@ fn short_tween() -> Tween {
         duration: Duration::from_millis(12),
         ..Tween::default()
     }
+}
+
+fn request_mix_gain(mix: Mix, request: PlayRequest, cue_gain: f32) -> f32 {
+    request.gain * cue_gain * directional_gain(mix, request.position, request.direction)
+}
+
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "Finite metre-space vector subtraction has no checked-vector alternative; no integer arithmetic occurs here."
+)]
+fn directional_gain(mix: Mix, position: Option<Vec3>, axis: Option<Vec3>) -> f32 {
+    let Some(forward) = axis.and_then(Vec3::try_normalize) else {
+        return 1.0;
+    };
+    let Some(toward_listener) =
+        position.and_then(|point| (mix.listener.position - point).try_normalize())
+    else {
+        return 1.0;
+    };
+    let facing = toward_listener.dot(forward).max(0.0);
+    0.75_f32.mul_add(facing * facing, 0.25)
 }
 
 fn spatial_mix(

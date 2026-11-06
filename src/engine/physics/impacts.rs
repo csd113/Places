@@ -12,7 +12,7 @@ const GLOBAL_BURST: f32 = 8.0;
 const GLOBAL_EVENTS_PER_SECOND: f32 = 24.0;
 
 /// Broad physical surface family, independent of any playback backend.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SurfaceMaterial {
     #[default]
     Hard,
@@ -56,10 +56,35 @@ impl SurfaceMaterial {
     }
 }
 
+/// Authoritative release intent retained across every bounce of one release.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImpactRelease {
+    #[default]
+    Natural,
+    Dropped,
+    Thrown,
+}
+
+/// One body's own release identity, independent of inherited contact causes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReleaseIdentity {
+    pub key: u64,
+    pub generation: u64,
+    pub kind: ImpactRelease,
+}
+
 /// A meaningful solved contact onset. At most 32 events wait for a consumer.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ImpactEvent {
     pub key: u64,
+    pub release: ImpactRelease,
+    /// Original release source, retained when it knocks another body.
+    pub causal_source: u64,
+    /// Together with key, identifies one release through arbitrarily late bounces.
+    pub incident: u64,
     pub other_key: Option<u64>,
     pub position: Vec3,
     /// Solved normal impulse in newton seconds.

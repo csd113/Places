@@ -6505,6 +6505,9 @@ const fn default_prop_occludes() -> bool {
 /// A placed prop / furniture / appliance instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PropDef {
+    /// Explicit blind hunter capability; ordinary instances remain scenery.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tall_guest: Option<crate::engine::tall_guest::Definition>,
     /// Stable per-instance id, distinct from the shared `model`/catalog id.
     ///
     /// Omitted means the deterministic default `<model short name>_<n>`, where

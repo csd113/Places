@@ -36,6 +36,27 @@ use crate::engine::level::{
 };
 use crate::engine::logging;
 
+/// A finite local joint pose owned by authoritative gameplay.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JointPose {
+    pub translation: Vec3,
+    pub rotation: glam::Quat,
+    pub scale: Vec3,
+}
+impl JointPose {
+    #[must_use]
+    pub fn is_valid(&self) -> bool {
+        self.translation.is_finite()
+            && self.translation.abs().max_element() <= 100.0
+            && self.rotation.is_finite()
+            && (self.rotation.length_squared() - 1.0).abs() < 0.001
+            && self.scale.is_finite()
+            && self.scale.min_element() > 0.001
+            && self.scale.max_element() <= 10.0
+    }
+}
+
 /// One explicit pose request for an entity-driven character.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum PoseCue {
@@ -60,6 +81,21 @@ pub enum PoseCue {
     /// Exact gameplay-owned clip fraction. No renderer clock or crossfade is
     /// permitted: moving solid nodes and their picture share this sample.
     Sample { name: String, progress: f32 },
+    /// Final gameplay-owned local pose. The renderer applies no second clock,
+    /// IK solver or aim calculation to these exact samples.
+    Articulated {
+        name: String,
+        progress: f32,
+        joints: Vec<JointPose>,
+    },
+    /// Gameplay-owned blended sample shared by collision and rendering.
+    SampleBlend {
+        name: String,
+        progress: f32,
+        from: String,
+        from_progress: f32,
+        weight: f32,
+    },
 }
 
 impl PoseCue {
@@ -73,7 +109,19 @@ impl PoseCue {
                 paused: _,
             }
             | Self::Scrub { name, target: _ }
-            | Self::Sample { name, progress: _ } => Some(name),
+            | Self::Sample { name, progress: _ }
+            | Self::Articulated {
+                name,
+                progress: _,
+                joints: _,
+            }
+            | Self::SampleBlend {
+                name,
+                progress: _,
+                from: _,
+                from_progress: _,
+                weight: _,
+            } => Some(name),
             Self::Idle | Self::Walk { speed_mps: _ } => None,
         }
     }

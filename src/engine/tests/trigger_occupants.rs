@@ -180,6 +180,7 @@ fn tick(world: &mut EntityWorld, delta: f32) {
     let floor = WalkableFloor::default();
     let index = CollisionIndex::build(&walls);
     let _tick = world.tick(&WorldContext {
+        player_walk_speed: 3.75,
         delta_seconds: delta,
         feet_from: point(),
         feet: point(),

@@ -333,6 +333,48 @@ impl AcousticScene {
     pub const fn counts(&self) -> [usize; 3] {
         [self.surfaces.len(), self.nodes.len(), self.doors.len()]
     }
+    /// Strict static geometry visibility for gameplay evidence. Includes sliced
+    /// walls, glazing, fixed props, floors and ceilings. It applies no default
+    /// transmission, and budget exhaustion blocks evidence. Live leaves remain
+    /// the caller's responsibility.
+    #[must_use]
+    pub fn static_clear(&self, from: Vec3, to: Vec3) -> bool {
+        if !from.is_finite() || !to.is_finite() {
+            return false;
+        }
+        let mut stack = [0_usize; 64];
+        let mut len = usize::from(!self.nodes.is_empty());
+        let mut work = 0_usize;
+        while len > 0 && work < 256 {
+            len = len.saturating_sub(1);
+            work = work.saturating_add(1);
+            let Some(node) = stack.get(len).and_then(|index| self.nodes.get(*index)) else {
+                return false;
+            };
+            if !segment_box(from, to, node.bounds) {
+                continue;
+            }
+            if let Some(children) = node.children {
+                for child in children {
+                    let Some(slot) = stack.get_mut(len) else {
+                        return false;
+                    };
+                    *slot = child;
+                    len = len.saturating_add(1);
+                }
+            } else if self
+                .surfaces
+                .get(node.range.clone())
+                .unwrap_or_default()
+                .iter()
+                .any(|surface| surface_span(from, to, surface).is_some())
+            {
+                return false;
+            }
+        }
+        len == 0
+    }
+
     /// At most 256 BVH nodes, 256 hinged leaves and 192 shared elevator boxes.
     /// Fixed hit storage merges touching solids; queries allocate no memory.
     /// Exhaustion returns conservative muffling; it never grows a backlog.

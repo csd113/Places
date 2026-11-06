@@ -1,0 +1,25 @@
+{
+  "library_file_id": "libfile_d908a1076348819198b001257034611f",
+  "zip_sha256": "ab0f6d8abf4336d15cfc64486935b257aad14ba62379ac55017ccaa808013390",
+  "runtime_glb_sha256": "a2d5f54c79bc9842428b1948c04175101d69d60adb51111d5f389b51d266ad92",
+  "runtime_audio_cues": [
+    "tg_click_single_01",
+    "tg_click_single_02",
+    "tg_click_single_03",
+    "tg_doorway_scrape_01",
+    "tg_echolocation_howl_01",
+    "tg_echolocation_howl_02",
+    "tg_foot_fast_front",
+    "tg_foot_fast_left",
+    "tg_foot_fast_right",
+    "tg_foot_slow_front",
+    "tg_foot_slow_left",
+    "tg_foot_slow_right",
+    "tg_lost_prey_voice",
+    "tg_pursuit_shriek_loop",
+    "tg_stomp_01"
+  ],
+  "other_audio": "Reference composites, gait loops, patterns and optional attack/release stay in the original pack; never layered with runtime stems.",
+  "decoded_catalog_bytes": 66221488,
+  "art_budget_review": "Exact-hash5970triangle/1024texture exception; see docs/reports/tall-guest-integration.md for final native visual/performance evidence and limitations."
+}

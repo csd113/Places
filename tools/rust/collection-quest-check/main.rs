@@ -30,6 +30,7 @@ fn tick(
     player: Vec3,
 ) {
     let _tick = world.tick(&WorldContext {
+        player_walk_speed: 3.75,
         delta_seconds: 0.05,
         feet_from: player,
         feet: player,

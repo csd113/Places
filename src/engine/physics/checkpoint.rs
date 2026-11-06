@@ -14,6 +14,31 @@ pub struct Item {
     sleeping: bool,
     dormant: bool,
     held_rotation: Option<[f32; 4]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    provenance: Option<Provenance>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Provenance {
+    originating: crate::engine::physics::ImpactRelease,
+    serial: u64,
+    inherited: crate::engine::physics::ImpactRelease,
+    source: u64,
+    incident: u64,
+}
+impl Provenance {
+    fn validate(&self) -> Result<(), String> {
+        if self.source == 0
+            || (self.originating != crate::engine::physics::ImpactRelease::Natural
+                && self.serial == 0)
+            || (self.inherited != crate::engine::physics::ImpactRelease::Natural
+                && self.incident == 0)
+        {
+            return Err("Invalid saved item release provenance".into());
+        }
+        Ok(())
+    }
 }
 
 impl Item {
@@ -67,6 +92,9 @@ fn validate_records(
             number(value, 1000.0)?;
         }
         let _checked = rotation(item.rotation)?;
+        if let Some(provenance) = &item.provenance {
+            provenance.validate()?;
+        }
         if let Some(relative) = item.held_rotation {
             let _checked_relative = rotation(relative)?;
             held_count = held_count.saturating_add(1);
@@ -279,6 +307,13 @@ impl ItemWorld {
                     sleeping: body.is_sleeping(),
                     dormant: entry.dormant,
                     held_rotation,
+                    provenance: Some(Provenance {
+                        originating: entry.originating_release,
+                        serial: entry.release_serial,
+                        inherited: entry.release,
+                        source: entry.release_source,
+                        incident: entry.release_incident,
+                    }),
                 },
             ));
         }
@@ -360,6 +395,21 @@ impl ItemWorld {
             entry.trigger_path = super::TriggerPath::new(target, entry.center, &entry.shape);
             entry.impact_motion = super::ImpactMotion::default();
             entry.impact_cooldown = 0.0;
+            entry.originating_release = item
+                .provenance
+                .as_ref()
+                .map_or(crate::engine::physics::ImpactRelease::Natural, |p| {
+                    p.originating
+                });
+            entry.release_serial = item.provenance.as_ref().map_or(0, |p| p.serial);
+            entry.release = item
+                .provenance
+                .as_ref()
+                .map_or(crate::engine::physics::ImpactRelease::Natural, |p| {
+                    p.inherited
+                });
+            entry.release_source = item.provenance.as_ref().map_or(key, |p| p.source);
+            entry.release_incident = item.provenance.as_ref().map_or(0, |p| p.incident);
             entry.recovery.reset(target);
             if let Some(relative) = item.held_rotation {
                 runtime.held = Some(HeldItem::from_checkpoint(key, relative));

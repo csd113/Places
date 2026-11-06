@@ -144,6 +144,7 @@ fn move_caretaker(world: &mut EntityWorld, floor: &WalkableFloor) {
     let index = CollisionIndex::empty();
     for _ in 0_u8..2 {
         let _tick = world.tick(&WorldContext {
+            player_walk_speed: 3.75,
             delta_seconds: 1.0,
             feet_from: Vec3::ZERO,
             feet: Vec3::ZERO,
@@ -218,6 +219,7 @@ fn explicit_actor_pose_releases_to_locomotion_and_reset() -> Result<(), String> 
     let index = CollisionIndex::empty();
     let floor = WalkableFloor::from_level(&level);
     let context = WorldContext {
+        player_walk_speed: 3.75,
         delta_seconds: 0.01,
         feet_from: Vec3::new(4.0, 0.0, 4.0),
         feet: Vec3::new(4.0, 0.0, 4.0),

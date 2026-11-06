@@ -91,6 +91,8 @@ pub struct PlayRequest {
     pub source: Option<SourceId>,
     /// World metres; absent means listener-centred playback.
     pub position: Option<Vec3>,
+    /// Optional actual emitter forward axis. None preserves omnidirectional cues.
+    pub direction: Option<Vec3>,
     /// Override the cue's positional/ambient mode for a standalone emitter.
     pub spatial: Option<bool>,
     /// Explicit loop override; absent uses the catalog's authored default.
@@ -105,6 +107,10 @@ pub struct PlayRequest {
     pub bus: AudioBus,
     /// Explicit provenance; prevents a semantic event acquiring a backend echo.
     pub perception: PerceptionOwner,
+    /// Resume position in the source waveform, in simulation seconds.
+    pub cursor_seconds: f64,
+    /// Retire a replaced source with a bounded fade. Zero retains existing policy.
+    pub replacement_fade: f32,
 }
 
 impl Default for PlayRequest {
@@ -112,6 +118,7 @@ impl Default for PlayRequest {
         Self {
             source: None,
             position: None,
+            direction: None,
             spatial: None,
             looping: None,
             gain: 1.0,
@@ -119,6 +126,8 @@ impl Default for PlayRequest {
             time_domain: TimeDomain::World,
             bus: AudioBus::Effects,
             perception: PerceptionOwner::Playback,
+            cursor_seconds: 0.0,
+            replacement_fade: 0.0,
         }
     }
 }
@@ -274,6 +283,7 @@ pub struct AudioVoiceSnapshot {
     pub source: Option<u64>,
     /// Current world position, or listener-centred playback.
     pub position: Option<[f32; 3]>,
+    pub direction: Option<[f32; 3]>,
     /// Actual positional/ambient mixer mode, including authored overrides.
     pub spatial: bool,
     /// Linear target amplitude after distance, categories, mute and pause.
@@ -282,6 +292,8 @@ pub struct AudioVoiceSnapshot {
     pub pan: f32,
     /// Speed/pitch multiplier.
     pub playback_rate: f64,
+    /// Current waveform cursor, or requested cursor while pending admission.
+    pub cursor_seconds: f64,
     /// Whether playback repeats the complete sample.
     pub looping: bool,
     /// Clock policy.
@@ -421,6 +433,18 @@ impl AudioSystem {
         let _ = (listener, paused, world_scale, settings);
     }
 
+    /// Includes admitted and pending replacement voices; silent fallback is false.
+    #[must_use]
+    pub fn source_playing(&self, source: SourceId, cue: &str) -> bool {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(audio) = &self.native {
+            return audio.source_playing(source, cue);
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = (source, cue);
+        false
+    }
+
     /// Drains at most 64 source observations, retiring them on the game thread.
     pub fn drain_events(&mut self, mut consume: impl FnMut(SoundEvent)) {
         #[cfg(not(target_arch = "wasm32"))]
@@ -477,6 +501,26 @@ impl AudioSystem {
             audio.update_source_positions(&mut resolve);
         }
         let _ = &mut resolve;
+    }
+
+    /// Update a directional voice from its actual final posed emitter axis.
+    pub fn set_source_direction(&mut self, source: SourceId, direction: Vec3) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(audio) = &mut self.native {
+            audio.set_source_direction(source, direction);
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = (source, direction);
+    }
+
+    /// Release a threat voice without cutting its tail or changing other sources.
+    pub fn stop_source_with_fade(&mut self, source: SourceId, seconds: f32) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(audio) = &mut self.native {
+            audio.stop_source_with_fade(source, seconds);
+        }
+        #[cfg(target_arch = "wasm32")]
+        let _ = (source, seconds);
     }
 
     /// Smoothly adjusts an existing source without restarting or decoding it.

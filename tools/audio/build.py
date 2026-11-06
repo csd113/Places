@@ -81,6 +81,18 @@ def edit_pcm(data, clip):
     values.frombytes(raw)
     if sys.byteorder != "little":
         values.byteswap()
+    if clip.get("edit_mode") == "format_only":
+        if any(key in clip for key in ("start_seconds", "end_seconds", "crossfade_seconds", "peak", "post_peak_gain")):
+            raise ValueError(f"format-only import cannot edit authored timing or gain: {clip['file']}")
+        result = io.BytesIO()
+        with wave.open(result, "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(2)
+            wav.setframerate(RATE)
+            wav.writeframes(raw)
+        return result.getvalue()
+    if clip.get("edit_mode", "polish") != "polish":
+        raise ValueError(f"unknown audio edit mode: {clip['file']}")
     start = round(clip.get("start_seconds", 0) * RATE)
     stop = round(clip["end_seconds"] * RATE) if "end_seconds" in clip else len(values)
     samples = list(values[start:stop])
@@ -154,6 +166,22 @@ def import_audio(authoring, cache, download):
         imported_with=version, sources=authoring["sources"], files=records))
 
 
+
+def waveform_rms(name):
+    with wave.open(str(AUDIO / name), "rb") as wav:
+        values = array("h", wav.readframes(wav.getnframes()))
+    if sys.byteorder != "little":
+        values.byteswap()
+    return math.sqrt(sum(value * value for value in values) / max(1, len(values))) / 32768
+
+
+def refresh_hearing_profiles():
+    catalog = json.loads((AUDIO / "catalog.json").read_text())
+    for cue in catalog["cues"]:
+        cue["rms_amplitude"] = max(map(waveform_rms, cue["files"]))
+    write_json(AUDIO / "catalog.json", catalog)
+
+
 def audit(authoring):
     catalog = json.loads((AUDIO / "catalog.json").read_text())
     provenance = json.loads((AUDIO / "provenance.json").read_text())
@@ -181,6 +209,9 @@ def audit(authoring):
             if name not in records:
                 raise ValueError(f"untracked cue file: {name}")
             used.add(name)
+        measured = max(map(waveform_rms, cue["files"]))
+        if abs(cue.get("rms_amplitude", -1) - measured) > 1e-6:
+            raise ValueError(f"cue hearing RMS differs from WAVs: {cue['id']}")
     if used != set(records) or used != {p.relative_to(AUDIO).as_posix() for p in AUDIO.rglob("*.wav")}:
         raise ValueError("unreferenced WAV asset or provenance record")
     encoded_bytes = frames_total = 0
@@ -245,6 +276,7 @@ def main():
         parser.error("--download requires --import")
     if args.import_sources:
         import_audio(authoring, args.cache, args.download)
+        refresh_hearing_profiles()
     audit(authoring)
 
 

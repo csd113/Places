@@ -137,6 +137,7 @@ fn snapshot_fixture() -> Result<(LevelDef, Snapshot), String> {
     let _tick = game
         .entities_mut()
         .tick(&crate::engine::entities::WorldContext {
+            player_walk_speed: 3.75,
             delta_seconds: 0.016,
             feet_from: glam::Vec3::new(2.0, 0.0, 2.0),
             feet: glam::Vec3::new(2.0, 0.0, 2.0),

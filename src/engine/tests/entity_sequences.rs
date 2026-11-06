@@ -30,6 +30,7 @@ fn fixture(sequences: &str, bindings: &str) -> Result<(EntityWorld, WalkableFloo
 fn tick(world: &mut EntityWorld, seconds: f32, floor: &WalkableFloor) -> WorldTick {
     let index = CollisionIndex::build(&[]);
     world.tick(&WorldContext {
+        player_walk_speed: 3.75,
         delta_seconds: seconds,
         feet_from: Vec3::new(3.0, 0.0, 3.0),
         feet: Vec3::new(3.0, 0.0, 3.0),

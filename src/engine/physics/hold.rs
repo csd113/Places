@@ -590,6 +590,11 @@ impl ItemWorld {
         released_body.set_angvel(vector(angular_velocity.clamp_length_max(3.0)), true);
         released_body.set_next_kinematic_position(candidate);
         entry.previous = entry.current;
+        entry.release = super::ImpactRelease::Dropped;
+        entry.originating_release = super::ImpactRelease::Dropped;
+        entry.release_serial = entry.release_serial.saturating_add(1);
+        entry.release_source = key;
+        entry.release_incident = entry.release_serial;
         runtime.restore_carry_contacts();
         runtime.held = None;
         true
@@ -640,6 +645,11 @@ impl ItemWorld {
         runtime.update_poses();
         if let Some(released_entry) = runtime.entries.get_mut(&key) {
             released_entry.previous = released_entry.current;
+            released_entry.release = super::ImpactRelease::Dropped;
+            released_entry.originating_release = super::ImpactRelease::Dropped;
+            released_entry.release_serial = released_entry.release_serial.saturating_add(1);
+            released_entry.release_source = key;
+            released_entry.release_incident = released_entry.release_serial;
         }
         runtime.populate_counts(&mut self.stats);
         true
@@ -683,6 +693,10 @@ impl ItemWorld {
         };
         let speed = 8.0 / mass_kg.sqrt().max(1.0);
         body.apply_impulse(vector(scaled(aim, mass_kg * speed)), true);
+        if let Some(released) = runtime.entries.get_mut(&key) {
+            released.release = super::ImpactRelease::Thrown;
+            released.originating_release = super::ImpactRelease::Thrown;
+        }
         true
     }
 }

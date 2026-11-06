@@ -4909,6 +4909,7 @@ impl FrameLoop<'_> {
                 std::thread::sleep(pause);
             }
         }
+        self.bench.pace_frame(frame_begin);
         presented
     }
 

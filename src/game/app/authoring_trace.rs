@@ -9,6 +9,10 @@ impl super::FrameLoop<'_> {
             "trigger_query".into(),
             json!(self.game.entities().trigger_query_stats()),
         ));
+        drop(fields.insert(
+            "tall_guests".into(),
+            self.game.entities().guest_diagnostics(),
+        ));
         let Some(loaded) = &self.current_level else {
             return;
         };

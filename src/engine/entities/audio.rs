@@ -50,6 +50,13 @@ impl EntityWorld {
     #[must_use]
     pub fn audio_source_position(&self, key: u64) -> Option<Vec3> {
         let handle = self.audio_handle(key)?;
+        if let Some(guest) = self
+            .guests
+            .iter()
+            .find(|guest| self.handle_of(&guest.state.id) == Some(handle))
+        {
+            return Some(guest.acoustic_position());
+        }
         self.components
             .transforms
             .get(handle)
@@ -61,10 +68,7 @@ impl EntityWorld {
     #[must_use]
     pub fn audio_source_anchor(&self, key: u64) -> Option<(&str, Vec3)> {
         let handle = self.audio_handle(key)?;
-        Some((
-            self.id_of(handle)?,
-            self.components.transforms.get(handle)?.position,
-        ))
+        Some((self.id_of(handle)?, self.audio_source_position(key)?))
     }
 
     /// Per-emitter near/far distance override, resolved by generation-safe source.
@@ -96,7 +100,18 @@ impl EntityWorld {
         } else {
             self.handle_for_dynamic_key(key)?
         };
-        self.components.audio.get(handle).map(|_| handle)
+        let inactive_guest = self
+            .guests
+            .iter()
+            .any(|guest| self.names.get(&guest.state.id) == Some(handle) && !guest.enabled());
+        (self.store.contains(handle)
+            && !inactive_guest
+            && (self.components.audio.get(handle).is_some()
+                || self
+                    .guests
+                    .iter()
+                    .any(|guest| self.handle_of(&guest.state.id) == Some(handle))))
+        .then_some(handle)
     }
 
     pub(super) fn queue_audio_start(&mut self, handle: EntityHandle) {
@@ -111,6 +126,9 @@ impl EntityWorld {
         let Some(key) = self.dynamic_key(handle).or_else(|| self.stable_key(handle)) else {
             return;
         };
+        if self.audio_handle(key).is_none() {
+            return;
+        }
         let sound = emitter.sound.clone();
         let gain = emitter.gain;
         let looped = emitter.looped;

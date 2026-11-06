@@ -108,6 +108,7 @@ fn authored_physics_deletion_resolves_ids_and_survives_pending_events_and_reset(
     let index = CollisionIndex::build(&[]);
     let floor = WalkableFloor::default();
     let context = WorldContext {
+        player_walk_speed: 3.75,
         delta_seconds: 0.0,
         feet_from: Vec3::ZERO,
         feet: Vec3::ZERO,

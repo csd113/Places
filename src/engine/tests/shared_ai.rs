@@ -791,6 +791,7 @@ fn shared_ai_physical_observation_uses_shape_center_after_rotation() -> Result<(
     let floor = WalkableFloor::from_level(&level);
     let index = CollisionIndex::empty();
     let _tick = world.tick(&WorldContext {
+        player_walk_speed: 3.75,
         delta_seconds: 0.25,
         feet_from: Vec3::splat(3.0),
         feet: Vec3::splat(3.0),

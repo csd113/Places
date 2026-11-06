@@ -172,6 +172,8 @@ impl PreparedPhysics {
         });
         game.entities_mut()
             .observe_physical_items(occupants.clone());
+        game.entities_mut()
+            .observe_item_releases(&self.trigger_bodies);
         if seed {
             game.seed_volume_occupants_iter(occupants);
         } else {

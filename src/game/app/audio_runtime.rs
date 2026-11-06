@@ -2,6 +2,8 @@
 
 use glam::Vec3;
 
+mod guest_delivery;
+
 use super::FrameLoop;
 use crate::engine::audio::{
     AudioBus, AudioSettings, AudioSystem, Listener, PlayRequest, SourceId, TimeDomain,
@@ -14,6 +16,8 @@ pub(super) struct Audio {
     pub system: AudioSystem,
     world: WorldAudio,
     world_reset: u64,
+    guest_fence: crate::engine::tall_guest::audio_fence::Fence,
+    guest_delivery: guest_delivery::Delivery,
     swimming: Option<bool>,
     last_water_sound: Option<std::time::Instant>,
     capture: Option<Capture>,
@@ -28,6 +32,8 @@ impl Audio {
             system: AudioSystem::from_prepared(prepared, sdl),
             world: WorldAudio::default(),
             world_reset: 0,
+            guest_fence: crate::engine::tall_guest::audio_fence::Fence::default(),
+            guest_delivery: guest_delivery::Delivery::new(),
             swimming: None,
             last_water_sound: None,
             capture: Capture::new(),
@@ -36,6 +42,8 @@ impl Audio {
 
     pub fn clear_world(&mut self) {
         self.system.clear_world();
+        self.guest_fence.clear();
+        self.guest_delivery = guest_delivery::Delivery::new();
         self.world = WorldAudio::default();
         self.world_reset = 0;
         self.swimming = None;
@@ -118,6 +126,59 @@ impl FrameLoop<'_> {
         }
     }
 
+    fn update_guest_audio(&mut self) {
+        let audio = &mut self.audio.system;
+        let entities = self.game.entities_mut();
+        let sounds = self
+            .audio
+            .guest_delivery
+            .apply(entities.take_guest_sounds());
+        for (key, sound) in sounds {
+            if !self
+                .audio
+                .guest_fence
+                .admit(key, entities.guest_audio_epoch(&sound.owner), &sound)
+            {
+                continue;
+            }
+            let source = SourceId(key);
+            if sound.stop {
+                audio.stop_source_with_fade(source, 0.12);
+            } else if sound.update && audio.source_playing(source, &sound.cue) {
+                audio.set_source_position(source, sound.position);
+                if let Some(direction) = sound.forward {
+                    audio.set_source_direction(source, direction);
+                }
+            } else {
+                let _played = audio.play(
+                    &sound.cue,
+                    PlayRequest {
+                        source: sound.forward.map(|_| source),
+                        position: Some(sound.position),
+                        direction: sound.forward,
+                        spatial: Some(true),
+                        looping: Some(sound.looping),
+                        gain: sound.gain,
+                        cursor_seconds: sound.cursor,
+                        replacement_fade: 0.12,
+                        perception: crate::engine::audio::PerceptionOwner::Gameplay {
+                            event: sound.generation,
+                        },
+                        ..PlayRequest::default()
+                    },
+                );
+            }
+        }
+        // Authoritative silence also retires a voice whose cosmetic stop was lost.
+        for key in self.audio.guest_fence.sources() {
+            if entities.guest_voice_cue(key).is_none()
+                && audio.source_playing(SourceId(key), "tg_pursuit_shriek_loop")
+            {
+                audio.stop_source_with_fade(SourceId(key), 0.12);
+            }
+        }
+    }
+
     pub(super) fn update_game_audio(&mut self) {
         let active = self.gameplay_active();
         self.audio
@@ -185,24 +246,12 @@ impl FrameLoop<'_> {
                 .source_position(source)
                 .or_else(|| source_position(source.0, self.game.entities(), &self.items))
         });
+        self.update_guest_audio();
         let audio = &mut self.audio.system;
         let entities = self.game.entities_mut();
-        self.items.world.drain_impacts(|impact| {
-            entities.note_stimulus(
-                impact.position,
-                impact.strength.clamp(0.0, 1.0) * 8.0,
-                "impact",
-                None,
-            );
-            let _played = audio.play(
-                impact_cue(impact.surface),
-                PlayRequest {
-                    position: Some(impact.position),
-                    gain: impact.strength,
-                    ..PlayRequest::default()
-                },
-            );
-        });
+        self.items
+            .world
+            .drain_impacts(|impact| play_prop_impact(audio, entities, impact));
         self.audio.system.update_acoustic_doors(self.game.doors());
         self.audio
             .system
@@ -280,6 +329,7 @@ impl FrameLoop<'_> {
                     source: Some(SourceId(entity)),
                     attenuation: self.game.entities().audio_source_attenuation(entity),
                     position,
+                    direction: None,
                     spatial,
                     gain,
                     looping: Some(looping),
@@ -290,6 +340,8 @@ impl FrameLoop<'_> {
                         AudioBus::Effects
                     },
                     perception: crate::engine::audio::PerceptionOwner::Playback,
+                    cursor_seconds: 0.0,
+                    replacement_fade: 0.0,
                 },
             );
         if self.bench.enabled() {
@@ -331,6 +383,58 @@ impl FrameLoop<'_> {
             0.7,
             TimeDomain::Real,
         );
+    }
+}
+
+fn play_prop_impact(
+    audio: &mut AudioSystem,
+    entities: &mut crate::engine::entities::EntityWorld,
+    impact: crate::engine::physics::ImpactEvent,
+) {
+    entities.note_guest_impact(impact);
+    let dropped = impact.release == crate::engine::physics::ImpactRelease::Dropped;
+    let radius = if dropped {
+        1.0
+    } else {
+        impact.strength.clamp(0.0, 1.0) * 8.0
+    };
+    entities.note_stimulus(impact.position, radius, "impact", None);
+    let _played = audio.play(
+        if dropped {
+            dropped_impact_cue(impact.surface)
+        } else {
+            impact_cue(impact.surface)
+        },
+        PlayRequest {
+            perception: crate::engine::audio::PerceptionOwner::Gameplay {
+                event: impact.incident,
+            },
+            position: Some(impact.position),
+            spatial: Some(true),
+            attenuation: dropped.then_some([0.01, 1.0]),
+            gain: if dropped {
+                0.35 * impact.strength
+            } else {
+                impact.strength
+            },
+            ..PlayRequest::default()
+        },
+    );
+}
+
+// A dropped item uses the same surface footstep sample and at most the
+// crouch request gain, with a one-metre spatial falloff. It cannot become a
+// louder impact merely because a heavy object fell farther or bounced later.
+const fn dropped_impact_cue(surface: SurfaceMaterial) -> &'static str {
+    match surface {
+        SurfaceMaterial::Wood => "footstep_wood",
+        SurfaceMaterial::Carpet => "footstep_carpet",
+        SurfaceMaterial::Grass => "footstep_grass",
+        SurfaceMaterial::Gravel => "footstep_gravel",
+        SurfaceMaterial::Sand => "footstep_sand",
+        SurfaceMaterial::Snow => "footstep_snow",
+        SurfaceMaterial::Water => "footstep_water",
+        SurfaceMaterial::Hard | SurfaceMaterial::Metal | SurfaceMaterial::Glass => "footstep_hard",
     }
 }
 

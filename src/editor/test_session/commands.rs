@@ -187,11 +187,12 @@ impl Session {
                 if sound == crate::game::audio::HVAC_CUE {
                     return Ok(());
                 }
-                let _played = audio.play(&sound, PlayRequest {
+                let _played = audio.play(&sound, PlayRequest { direction: None,
                     source: Some(SourceId(entity)), position: self.game.entities().audio_source_position(entity), spatial,
                     attenuation: self.game.entities().audio_source_attenuation(entity), gain, looping: Some(looped), time_domain,
                     bus: if looped || spatial == Some(false) { AudioBus::Ambient } else { AudioBus::Effects },
                     perception: crate::engine::audio::PerceptionOwner::Playback,
+                    cursor_seconds: 0.0, replacement_fade: 0.0,
                 });
             }
             WorldCommand::StopSound { entity } => audio.stop_source(SourceId(entity)),

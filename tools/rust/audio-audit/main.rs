@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 mod allocation_owners;
+mod tall_guest_cues;
 mod witnesses;
 
 struct AuditAllocator;
@@ -92,6 +93,9 @@ fn main() -> Result<(), String> {
         .as_ref()
         .is_some_and(|value| value == "--disposal-probe");
     let scene = mode.as_ref().is_some_and(|value| value == "--scene-probe");
+    let tall_guest = mode
+        .as_ref()
+        .is_some_and(|value| value == "--tall-guest-cues");
     if mode.is_some()
         && !probe
         && !lifetime
@@ -100,6 +104,7 @@ fn main() -> Result<(), String> {
         && !owners
         && !disposal
         && !scene
+        && !tall_guest
     {
         return Err("Unknown audit mode".into());
     }
@@ -127,6 +132,9 @@ fn main() -> Result<(), String> {
     }
     if !audio.stats().enabled {
         return Err("Native output unavailable; inspect actual device log".into());
+    }
+    if tall_guest {
+        return tall_guest_cues::run(&mut audio, &assets, &out);
     }
     if scene {
         return witnesses::scene(&mut audio, &out);

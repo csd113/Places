@@ -12672,6 +12672,28 @@
         "source": "shared/props/elevator_70s/elevator_70s.blend"
       },
       "description": "Authored rigid component assembled by the Elevator authoring tool; collision and animation follow the passenger-lift definition."
+    },
+    {
+      "id": "tall-guest",
+      "display_name": "The Tall Guest",
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/tall_guest/model/tall_guest.glb",
+      "size": [
+        1.47907389,
+        3.47695804,
+        0.94433427
+      ],
+      "color": "#c3bba2",
+      "category": "Characters",
+      "solid": false,
+      "description": "Original blind three-legged acoustic hunter. Explicit tall_guest placement capability enables behavior.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     }
   ]
 }

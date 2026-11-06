@@ -30,6 +30,8 @@ pub struct EntityState {
 pub struct Snapshot {
     #[serde(default)]
     ai: Vec<(String, crate::engine::ai::travel::Record)>,
+    #[serde(default)]
+    guests: Vec<crate::engine::tall_guest::Record>,
     time: f32,
     entities: Vec<EntityState>,
     bindings: Vec<(String, bool, f32)>,
@@ -176,6 +178,11 @@ impl EntityWorld {
                     ))
                 })
                 .collect::<Result<_, String>>()?,
+            guests: self
+                .guests
+                .iter()
+                .map(crate::engine::tall_guest::Guest::checkpoint)
+                .collect(),
             time: self.sim_time,
             entities,
             bindings: self
@@ -248,6 +255,7 @@ impl EntityWorld {
             self.restore_entity(record)?;
         }
         self.restore_checkpoint_ai(snapshot)?;
+        self.restore_checkpoint_guests(&snapshot.guests)?;
         for (binding, (owner, fired, remaining)) in self.bindings.iter_mut().zip(&snapshot.bindings)
         {
             if self.names.id_of(binding.owner).map(super::EntityId::as_str) != Some(owner.as_str())
@@ -598,6 +606,36 @@ fn validate_pose(cue: &crate::engine::entity::PoseCue) -> Result<(), String> {
         PoseCue::Walk { speed_mps } => number(*speed_mps, 1000.0),
         PoseCue::Scrub { name: _, target } => unit(*target),
         PoseCue::Sample { name: _, progress } => unit(*progress),
+        PoseCue::Articulated {
+            name: _,
+            progress,
+            joints,
+        } => {
+            unit(*progress)?;
+            if joints.is_empty()
+                || joints.len() > 512
+                || !joints
+                    .iter()
+                    .all(crate::engine::entity::JointPose::is_valid)
+            {
+                return Err("Invalid checkpoint articulated pose".into());
+            }
+            Ok(())
+        }
+        PoseCue::SampleBlend {
+            progress,
+            from,
+            from_progress,
+            weight,
+            name: _,
+        } => {
+            if from.is_empty() || from.len() > 96 || from.chars().any(char::is_control) {
+                return Err("Invalid checkpoint blend clip".into());
+            }
+            unit(*progress)?;
+            unit(*from_progress)?;
+            unit(*weight)
+        }
     }
 }
 

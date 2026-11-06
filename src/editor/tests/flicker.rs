@@ -186,6 +186,7 @@ fn tick(world: &mut EntityWorld, level: &LevelDef, seconds: f32) {
     let index = CollisionIndex::build(&[]);
     let floor = WalkableFloor::from_level(level);
     let _tick = world.tick(&WorldContext {
+        player_walk_speed: 3.75,
         delta_seconds: seconds,
         feet_from: Vec3::splat(3.0),
         feet: Vec3::splat(3.0),

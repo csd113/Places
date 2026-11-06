@@ -18,7 +18,7 @@ pub use activation::ActivationReport;
 pub use config::{
     BodyMotion, CompoundPart, PhysicsDef, PrimitiveShapeDef, ShapeDef, WaterPhysicsDef,
 };
-pub use impacts::{ImpactEvent, SurfaceMaterial};
+pub use impacts::{ImpactEvent, ImpactRelease, ReleaseIdentity, SurfaceMaterial};
 pub use recovery::{EscapeReason, RecoveryEvent, RecoveryOutcome};
 pub use trigger_path::ItemTriggerBody;
 pub use world::checkpoint;

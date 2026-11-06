@@ -44,6 +44,7 @@ fn tick(world: &mut EntityWorld, level: &LevelDef) {
     let index = CollisionIndex::build(&[]);
     let floor = WalkableFloor::from_level(level);
     let _tick = world.tick(&WorldContext {
+        player_walk_speed: 3.75,
         delta_seconds: 0.016,
         feet_from: Vec3::splat(3.0),
         feet: Vec3::splat(3.0),
@@ -565,6 +566,7 @@ fn script_actor_sight_uses_collision_and_navigation_keeps_its_goal() -> Result<(
     let index = CollisionIndex::build(&walls);
     let floor = WalkableFloor::from_level(&level);
     let mut context = WorldContext {
+        player_walk_speed: 3.75,
         delta_seconds: 0.016,
         feet_from: Vec3::new(3.0, 0.0, 1.0),
         feet: Vec3::new(3.0, 0.0, 1.0),

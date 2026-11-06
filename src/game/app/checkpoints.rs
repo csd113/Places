@@ -143,9 +143,13 @@ impl FrameLoop<'_> {
             items
                 .world
                 .restore_checkpoint(&items.authored, &snapshot.items)?;
+            candidate
+                .entities_mut()
+                .set_navigation_obstacles(items.world.navigation_obstacles());
         } else if !snapshot.items.is_empty() {
             return Err("Checkpoint needs a fresh physical world".into());
         }
+        candidate.validate_restored_guests()?;
         Ok((Some(Box::new(candidate)), Some(snapshot.clone())))
     }
 

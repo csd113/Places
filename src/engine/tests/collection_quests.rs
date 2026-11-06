@@ -84,6 +84,7 @@ impl Fixture {
         let index = CollisionIndex::build(&[]);
         let floor = WalkableFloor::from_level(&self.level);
         let _tick = self.world.tick(&WorldContext {
+            player_walk_speed: 3.75,
             delta_seconds: 0.1,
             feet_from: self.player,
             feet: self.player,

@@ -272,6 +272,11 @@ pub(super) struct BodyEntry {
     trigger_path: TriggerPath,
     impact_motion: ImpactMotion,
     impact_cooldown: f32,
+    pub(super) release: super::ImpactRelease,
+    pub(super) release_serial: u64,
+    pub(super) originating_release: super::ImpactRelease,
+    pub(super) release_source: u64,
+    pub(super) release_incident: u64,
     pub recovery: RecoveryTracker,
     pub water: Option<WaterBody>,
 }
@@ -711,6 +716,11 @@ impl ItemWorld {
                 trigger_path,
                 impact_motion: ImpactMotion::default(),
                 impact_cooldown: 0.0,
+                release: super::ImpactRelease::Natural,
+                release_serial: 0,
+                originating_release: super::ImpactRelease::Natural,
+                release_source: key,
+                release_incident: 0,
                 recovery: RecoveryTracker::new(initial),
                 water,
             },
@@ -1466,6 +1476,11 @@ impl ItemWorld {
                 &entry.shape,
                 entry.radius,
             );
+            snapshot.release = Some(super::ReleaseIdentity {
+                key,
+                generation: entry.release_serial,
+                kind: entry.originating_release,
+            });
             snapshot.held = runtime.held.as_ref().is_some_and(|held| held.key == key);
             snapshot.sleeping = entry.motion == BodyMotion::Dynamic
                 && !entry.dormant
@@ -2199,16 +2214,24 @@ impl Runtime {
             let Some(strength) = self.impact_budget.take(speed, impulse, cooldown) else {
                 continue;
             };
-            for item_key in [first, second].into_iter().flatten() {
-                if let Some(entry) = self.entries.get_mut(&item_key) {
-                    entry.impact_cooldown = ImpactBudget::item_cooldown();
-                }
-            }
+            inherit_release(&mut self.entries, key, [first, second]);
             if self.impacts.len() == MAX_IMPACTS {
                 let _oldest = self.impacts.pop_front();
             }
             self.impacts.push_back(ImpactEvent {
                 key,
+                release: self
+                    .entries
+                    .get(&key)
+                    .map_or(super::ImpactRelease::Natural, |entry| entry.release),
+                causal_source: self
+                    .entries
+                    .get(&key)
+                    .map_or(key, |entry| entry.release_source),
+                incident: self
+                    .entries
+                    .get(&key)
+                    .map_or(0, |entry| entry.release_incident),
                 other_key: if first == Some(key) { second } else { first },
                 position,
                 impulse,
@@ -2220,5 +2243,30 @@ impl Runtime {
             });
         }
         self.contact_onsets.finish_step();
+    }
+}
+
+fn inherit_release(entries: &mut BTreeMap<u64, BodyEntry>, key: u64, keys: [Option<u64>; 2]) {
+    if let Some(entry) = entries.get_mut(&key)
+        && entry.release == super::ImpactRelease::Natural
+    {
+        entry.release_serial = entry.release_serial.saturating_add(1);
+        entry.release_source = key;
+        entry.release_incident = entry.release_serial;
+    }
+    let cause = entries
+        .get(&key)
+        .map(|entry| (entry.release, entry.release_source, entry.release_incident));
+    for item_key in keys.into_iter().flatten() {
+        if let Some(entry) = entries.get_mut(&item_key) {
+            entry.impact_cooldown = ImpactBudget::item_cooldown();
+            if let Some((release, source, incident)) =
+                cause.filter(|(release, _, _)| *release != super::ImpactRelease::Natural)
+            {
+                entry.release = release;
+                entry.release_source = source;
+                entry.release_incident = incident;
+            }
+        }
     }
 }

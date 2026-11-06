@@ -32,6 +32,9 @@ pub mod components;
 pub mod developer;
 mod elevators;
 pub mod events;
+mod guest_acoustics;
+mod guest_lifecycle;
+mod guest_sensing;
 pub mod id;
 mod light_power;
 pub mod passengers;
@@ -94,6 +97,8 @@ pub const DEFAULT_MOVE_SPEED_MPS: f32 = 1.5;
 pub struct WorldContext<'a> {
     /// Simulation delta in seconds, already clamped.
     pub delta_seconds: f32,
+    /// Configured ordinary walking speed, independent of current hidden motion.
+    pub player_walk_speed: f32,
     /// The player's feet at the start of the frame.
     pub feet_from: Vec3,
     /// The player's feet now.
@@ -448,7 +453,12 @@ pub struct EntityWorld {
     elevator_departure: Option<crate::engine::elevator::Departure>,
     elevator_sounds: Vec<(Vec3, &'static str)>,
     animated_doors: Vec<crate::engine::animated_door::AnimatedDoor>,
+    pub(super) guests: Vec<crate::engine::tall_guest::Guest>,
+    guest_error: Option<String>,
+    guest_acoustics: guest_acoustics::Layout,
+    retired_guest_frames: Vec<EntityFrame>,
     door_colliders: Vec<DoorCollider>,
+    guest_collider_start: usize,
     physics_actors: std::collections::BTreeMap<String, ragdoll::ActorController>,
     authored_transforms: Vec<(EntityHandle, components::Transform)>,
     routes: EntityRoutes,
@@ -585,7 +595,12 @@ impl EntityWorld {
             elevator_departure: None,
             elevator_sounds: Vec::new(),
             door_colliders: Vec::new(),
+            guest_collider_start: 0,
             animated_doors: Vec::new(),
+            guests: Vec::new(),
+            guest_error: None,
+            guest_acoustics: guest_acoustics::Layout::default(),
+            retired_guest_frames: Vec::new(),
             physics_actors: std::collections::BTreeMap::new(),
             authored_transforms: Vec::new(),
             routes: EntityRoutes::new(),
@@ -657,6 +672,24 @@ impl EntityWorld {
         world
     }
 
+    fn resolve_posed_actors(&mut self, level: &LevelDef) {
+        self.animated_doors = crate::engine::animated_door::load(level).unwrap_or_else(|error| {
+            warn_once("animated-door-load", error);
+            Vec::new()
+        });
+        self.guest_error = None;
+        self.guests = crate::engine::tall_guest::load(level).unwrap_or_else(|error| {
+            warn_once("tall-guest-load", error.clone());
+            self.guest_error = Some(error);
+            Vec::new()
+        });
+        self.guest_acoustics = if self.guests.is_empty() {
+            guest_acoustics::Layout::default()
+        } else {
+            guest_acoustics::Layout::build(level)
+        };
+    }
+
     /// Rebuilds this world from a level, invalidating every previous handle.
     pub fn resolve(&mut self, level: &LevelDef) {
         self.transition_targets = level.transitions.iter().cloned().collect();
@@ -664,6 +697,7 @@ impl EntityWorld {
         self.campaign_level.clone_from(&level.id);
         self.script_event = None;
         self.store.clear();
+        self.retired_guest_frames.clear();
         self.names.clear();
         self.components.clear();
         self.generation = self.store.generation();
@@ -718,10 +752,7 @@ impl EntityWorld {
             .clone_from(&level.animated_emissions);
         self.doors = Doors::from_level(level);
         self.resolve_elevators(level);
-        self.animated_doors = crate::engine::animated_door::load(level).unwrap_or_else(|error| {
-            warn_once("animated-door-load", error);
-            Vec::new()
-        });
+        self.resolve_posed_actors(level);
         self.timers = Timers::from_level(level);
         self.sequences = Sequences::from_level(level);
         self.spawn_groups = SpawnGroups::from_level(level);
@@ -1920,7 +1951,18 @@ impl EntityWorld {
                 .iter()
                 .flat_map(crate::engine::elevator::Elevator::colliders),
         );
+        self.guest_collider_start = self.door_colliders.len();
+        self.refresh_guest_colliders();
         self.sync_animated_door_interactables();
+    }
+
+    fn refresh_guest_colliders(&mut self) {
+        self.door_colliders.truncate(self.guest_collider_start);
+        self.door_colliders.extend(
+            self.guests
+                .iter()
+                .flat_map(crate::engine::tall_guest::Guest::body_colliders),
+        );
     }
 
     fn sync_animated_door_interactables(&mut self) {
@@ -3295,7 +3337,7 @@ impl EntityWorld {
         let Some(handle) = self.handle_of(id) else {
             return false;
         };
-        let mut changed = false;
+        let mut changed = self.set_guest_enabled(id, enable);
         changed |= self
             .components
             .interactables
@@ -3425,6 +3467,18 @@ impl EntityWorld {
                     | PoseCue::Sample {
                         name: _,
                         progress: _,
+                    }
+                    | PoseCue::Articulated {
+                        name: _,
+                        progress: _,
+                        joints: _,
+                    }
+                    | PoseCue::SampleBlend {
+                        name: _,
+                        progress: _,
+                        from: _,
+                        from_progress: _,
+                        weight: _,
                     }
                     | PoseCue::Walk { speed_mps: _ }
                     | PoseCue::Clip {
@@ -3948,6 +4002,11 @@ impl EntityWorld {
             return false;
         }
         let id = self.id_of(handle).map(str::to_string);
+        if self.retire_guest(handle) {
+            let removed = self.remove_entity_handle(handle);
+            self.rebuild_entity_frames();
+            return removed;
+        }
         let dynamic = self
             .components
             .renderables
@@ -3975,6 +4034,7 @@ impl EntityWorld {
     /// Releases component ownership after the caller handles render lifetime.
     /// Binding slots stay stable until the current event wave has finished.
     fn remove_entity_handle(&mut self, handle: EntityHandle) -> bool {
+        let _retired_guest = self.retire_guest(handle);
         let id = self.id_of(handle).map(str::to_string);
         if self.components.audio.contains(handle)
             && let Some(key) = self.dynamic_key(handle).or_else(|| self.stable_key(handle))
@@ -4178,6 +4238,7 @@ impl EntityWorld {
                 let _old = self.ai_physical.insert(
                     handle,
                     ai_runtime::PhysicalObservation {
+                        key: item.key,
                         center: item
                             .centre_path
                             .and_then(|path| path.last())
@@ -4185,12 +4246,34 @@ impl EntityWorld {
                             .unwrap_or(item.to),
                         half: item.half_extents,
                         held: item.held,
+                        release: None,
+                        bounds: None,
+                        sleeping: item.sleeping,
                     },
                 );
                 if observing {
                     self.script_physical
                         .push((handle, item.up_y, item.held, item.sleeping));
                 }
+            }
+        }
+    }
+
+    /// Enrich the existing bounded physical cache without increasing the hot
+    /// trigger-volume snapshot size. Only the trusted echo scene consumes it.
+    pub fn observe_item_releases(&mut self, bodies: &[crate::engine::physics::ItemTriggerBody]) {
+        if self.guests.is_empty() {
+            return;
+        }
+        for body in bodies {
+            if let Some(item) = self
+                .ai_physical
+                .values_mut()
+                .find(|item| item.key == body.key)
+            {
+                item.release = body.release;
+                item.bounds = Some(body.current_bounds);
+                item.sleeping = body.sleeping;
             }
         }
     }
@@ -4334,6 +4417,27 @@ impl EntityWorld {
                 return tick;
             }
             self.tick_ai(ctx, &mut tick);
+            self.tick_guests(ctx);
+            let transforms: Vec<_> = self
+                .guests
+                .iter()
+                .map(|guest| {
+                    (
+                        guest.state.id.clone(),
+                        guest.state.position,
+                        guest.state.yaw,
+                    )
+                })
+                .collect();
+            for (id, position, yaw) in transforms {
+                if let Some(handle) = self.handle_of(&id)
+                    && let Some(transform) = self.components.transforms.get_mut(handle)
+                {
+                    transform.position = position;
+                    transform.yaw_degrees = yaw.to_degrees();
+                }
+            }
+            tick.frames_dirty |= !self.guests.is_empty();
             self.tick_moves(ctx, &mut tick);
             self.tick_lifetimes(ctx.delta_seconds, &mut tick);
         }
@@ -4463,6 +4567,113 @@ impl EntityWorld {
         tick.events_processed = tick
             .events_processed
             .saturating_add(outcome.transitions.min(MAX_EVENTS_PER_TICK));
+    }
+
+    fn tick_guests(&mut self, ctx: &WorldContext<'_>) {
+        let stimuli: Vec<_> = self.stimuli.iter().cloned().collect();
+        let mut bodies: Vec<_> = self
+            .guests
+            .iter()
+            .map(crate::engine::tall_guest::Guest::body_colliders)
+            .collect();
+        let base = self
+            .door_colliders
+            .get(..self.guest_collider_start)
+            .unwrap_or(&[]);
+        let creature_handles: Vec<_> = self
+            .guests
+            .iter()
+            .filter_map(|guest| self.handle_of(&guest.state.id))
+            .collect();
+        let ambient: Vec<_> = self
+            .components
+            .audio
+            .iter()
+            .filter(|(handle, emitter)| {
+                !creature_handles.contains(handle)
+                    && emitter.enabled
+                    && emitter.playing
+                    && emitter.looped
+            })
+            .take(128)
+            .filter_map(|(handle, emitter)| {
+                let profile = self
+                    .guest_acoustics
+                    .catalog
+                    .as_ref()?
+                    .hearing_profile(&emitter.sound)?;
+                Some(guest_acoustics::Ambient {
+                    position: self.components.transforms.get(handle)?.position,
+                    amplitude: profile.0 * emitter.gain,
+                    attenuation: emitter.attenuation.unwrap_or(profile.1),
+                    spatial: emitter.spatial.unwrap_or(profile.2),
+                })
+            })
+            .collect();
+        let mut catches = Vec::new();
+        for (index, guest) in self.guests.iter_mut().enumerate() {
+            let mut leaves = base.to_vec();
+            for (other, body) in bodies.iter().enumerate() {
+                if other != index {
+                    leaves.extend_from_slice(body);
+                }
+            }
+            let scene = guest_sensing::PropScene {
+                items: &self.ai_physical,
+                layout: &self.guest_acoustics,
+                ambient: &ambient,
+                doors: &self.doors,
+                leaves: &leaves,
+                solids: &self.navigation_obstacles,
+            };
+            guest.tick(ctx, &leaves, &self.navigation_obstacles, &stimuli, &scene);
+            // Later actors must see earlier accepted motion from this same tick.
+            if let Some(body) = bodies.get_mut(index) {
+                *body = guest.body_colliders();
+            }
+            if guest.take_attack_request() {
+                catches.push(guest.state.id.clone());
+            }
+        }
+        self.refresh_guest_colliders();
+        for id in catches {
+            if let Some(handle) = self.handle_of(&id) {
+                let _queued = self.emit_depth(EventKind::Caught, handle, "player", Some(handle), 0);
+            }
+        }
+    }
+
+    /// Physical evidence remains independent of audio-device admission.
+    pub fn note_guest_impact(&mut self, impact: crate::engine::physics::ImpactEvent) {
+        for guest in &mut self.guests {
+            guest.hear_impact(impact);
+        }
+    }
+
+    pub fn guest_diagnostics(&self) -> serde_json::Value {
+        serde_json::Value::Array(
+            self.guests
+                .iter()
+                .map(crate::engine::tall_guest::Guest::diagnostics)
+                .collect(),
+        )
+    }
+
+    pub fn take_guest_sounds(&mut self) -> Vec<(u64, crate::engine::tall_guest::Sound)> {
+        let sounds: Vec<_> = self
+            .guests
+            .iter_mut()
+            .flat_map(crate::engine::tall_guest::Guest::take_sounds)
+            .collect();
+        sounds
+            .into_iter()
+            .filter_map(|sound| {
+                let key = self
+                    .handle_of(&sound.owner)
+                    .and_then(|handle| self.stable_key(handle))?;
+                Some((key, sound))
+            })
+            .collect()
     }
 
     /// Ages every queued stimulus and drops the stale ones.
@@ -4599,8 +4810,10 @@ impl EntityWorld {
         let walls = ctx.walls;
         let agents = self.ai.agents();
         let obstacles = &self.navigation_obstacles;
+        let guests = &self.guests;
         let mut moved = self.doors.advance(ctx.delta_seconds, |_, candidate| {
             door_pose_hits_player(candidate, player, body, ctx.body_half)
+                || guests.iter().any(|guest| guest.door_intersects(candidate))
                 || door_pose_hits_static(index, walls, candidate)
                 || agents.iter().any(|agent| {
                     !matches!(agent.state, crate::engine::ai::AiState::Hidden)
@@ -4640,6 +4853,7 @@ impl EntityWorld {
             };
             if door.advance(ctx.delta_seconds, |candidate| {
                 door_pose_hits_player(candidate, player, body, ctx.body_half)
+                    || guests.iter().any(|guest| guest.door_intersects(candidate))
                     || walls.iter().any(|wall| door_pose_hits_box(candidate, wall))
                     || obstacles
                         .iter()
@@ -5088,6 +5302,20 @@ impl EntityWorld {
         }
         self.append_visual_frames();
         self.append_animated_door_frames();
+        for guest in &self.guests {
+            self.entity_frames
+                .retain(|frame| frame.instance_id != guest.state.id);
+            let mut frame = guest.frame();
+            let (opacity, glow) = self.frame_visuals(&guest.state.id);
+            frame.opacity *= opacity;
+            frame.glow = if guest.enabled() { glow } else { None };
+            frame.shadow_only = guest.enabled() && self.frame_shadow_only(&guest.state.id);
+            self.entity_frames.push(frame);
+        }
+        self.retired_guest_frames
+            .retain(|frame| self.names.get(&frame.instance_id).is_none());
+        self.entity_frames
+            .extend(self.retired_guest_frames.iter().cloned());
     }
 
     fn append_animated_door_frames(&mut self) {

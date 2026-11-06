@@ -83,6 +83,7 @@ pub(super) fn validate_props(level: &LevelDef) -> Result<(), String> {
         return Err("A level supports at most 64 animated doors".into());
     }
     let _validated_doors = crate::engine::animated_door::load(level)?;
+    let _validated_guests = crate::engine::tall_guest::load(level)?;
     Ok(())
 }
 

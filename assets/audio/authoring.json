@@ -168,6 +168,17 @@
       "verified_date": "2026-11-05",
       "delivery": "user_attachment",
       "notice": "CC0 displayed on the primary sound page, verified for this import. The user supplied this exact MP3; no site preview or replacement was downloaded. Courtesy credit: The intercom of nothingness by GrimmReaperSounds. Restore the supplied file at cache_file for offline regeneration; there is no download fallback."
+    },
+    {
+      "id": "places_tall_guest_original",
+      "title": "The Tall Guest original frozen audio",
+      "author": "Original Tall Guest asset/design task",
+      "license": "MIT",
+      "delivery": "user_attachment",
+      "cache_file": "The_Tall_Guest_Asset_Pack.zip",
+      "sha256": "ab0f6d8abf4336d15cfc64486935b257aad14ba62379ac55017ccaa808013390",
+      "archive": "zip",
+      "library_file_id": "libfile_d908a1076348819198b001257034611f"
     }
   ],
   "clips": [
@@ -549,6 +560,96 @@
       "end_seconds": 40,
       "crossfade_seconds": 0.5,
       "peak": 16000
+    },
+    {
+      "file": "tall_guest/tg_echolocation_howl_01.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_echolocation_howl_01.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_pursuit_shriek_loop.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_pursuit_shriek_loop.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_lost_prey_voice.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_lost_prey_voice.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_stomp_01.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_stomp_01.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_foot_slow_front.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_foot_slow_front.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_foot_slow_left.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_foot_slow_left.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_foot_slow_right.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_foot_slow_right.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_foot_fast_front.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_foot_fast_front.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_foot_fast_left.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_foot_fast_left.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_foot_fast_right.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_foot_fast_right.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_doorway_scrape_01.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_doorway_scrape_01.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_echolocation_howl_02.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_echolocation_howl_02.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_click_single_01.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_click_single_01.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_click_single_02.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_click_single_02.wav",
+      "edit_mode": "format_only"
+    },
+    {
+      "file": "tall_guest/tg_click_single_03.wav",
+      "source": "places_tall_guest_original",
+      "source_file": "The_Tall_Guest/audio/final/wav/tg_click_single_03.wav",
+      "edit_mode": "format_only"
     }
   ]
 }

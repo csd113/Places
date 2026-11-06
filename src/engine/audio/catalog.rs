@@ -24,6 +24,9 @@ pub(super) struct Cue {
     pub files: Vec<String>,
     #[serde(default = "unit_gain")]
     pub gain: f32,
+    /// Measured maximum per-variant RMS; legacy catalogs use nominal0.1.
+    #[serde(default)]
+    pub rms_amplitude: Option<f32>,
     #[serde(default)]
     pub looping: bool,
     #[serde(default = "spatial_default")]
@@ -49,6 +52,18 @@ impl AudioCatalog {
     pub fn cue_ids(&self) -> impl Iterator<Item = &str> {
         self.cues.iter().map(|cue| cue.id.as_str())
     }
+    /// Device-independent authored gain, attenuation and spatial metadata.
+    #[must_use]
+    pub fn hearing_profile(&self, id: &str) -> Option<(f32, [f32; 2], bool)> {
+        self.cues.iter().find(|cue| cue.id == id).map(|cue| {
+            (
+                cue.gain.mul_add(cue.rms_amplitude.unwrap_or(0.1), 0.0),
+                [cue.min_distance, cue.max_distance],
+                cue.spatial,
+            )
+        })
+    }
+
     /// Reads and validates `asset_root/audio/catalog.json` within fixed limits.
     ///
     /// # Errors
@@ -128,6 +143,7 @@ impl AudioCatalog {
             if cue.files.is_empty()
                 || cue.files.len() > 8
                 || !valid_gain(cue.gain)
+                || cue.rms_amplitude.is_some_and(|value| !valid_gain(value))
                 || !cue.min_distance.is_finite()
                 || !cue.max_distance.is_finite()
                 || cue.min_distance < 0.01

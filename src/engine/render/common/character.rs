@@ -1317,13 +1317,13 @@ impl Character {
     /// Explicit visibility, independent of a model's material alpha behavior.
     #[must_use]
     pub const fn is_visible(&self) -> bool {
-        self.runtime_visible && !self.shadow_only
+        self.runtime_visible && self.opacity > 0.0 && !self.shadow_only
     }
 
     /// Live presence for the real flashlight depth/visibility pass.
     #[must_use]
     pub const fn casts_flashlight_shadow(&self) -> bool {
-        self.runtime_visible
+        self.runtime_visible && self.opacity > 0.0
     }
 
     /// Authored colour suppression, independent of suspension and fade.
@@ -2556,6 +2556,11 @@ impl CharacterScene {
                         .transform_point3(global.transform_point3(Vec3::ZERO))
                         .to_array()
                 });
+                let sockets:std::collections::BTreeMap<_,_>=["acoustic_origin","foot_front","foot_left","foot_right","head","hand_L","hand_R"].into_iter().filter_map(|name| {
+                    let local=animator.node_global(name)?;
+                    let world=character.transform.mul_mat4(&local);
+                    Some((name,serde_json::json!({"position":world.transform_point3(Vec3::ZERO),"local_y_axis":world.transform_vector3(Vec3::Y).normalize_or_zero()})))
+                }).collect();
                 let installed_light = instance_id.and_then(|light_id| {
                     self.dynamic_lights
                         .get(&format!("{GLOW_KEY_PREFIX}{light_id}"))
@@ -2563,7 +2568,7 @@ impl CharacterScene {
                 // Explicit native trace only: inspect every posed vertex so
                 // acceptance can audit full-body containment, not a root point.
                 let posed = character.posed_bounds();
-                serde_json::json!({"id":instance_id, "cue":cue, "revision":animator.revision,
+                serde_json::json!({"id":instance_id, "cue":cue, "revision":animator.revision,"pose_sockets":sockets,"native_pose_globals":(std::env::var_os("PLACES_BENCH").is_some() && std::env::var_os("PLACES_TALL_GUEST_DUMP_POSE").is_some()).then(||animator.named_globals().into_iter().map(|(name,matrix)|(name,character.transform.mul_mat4(&matrix))).collect::<Vec<_>>()),
                     "posed_bounds":{"min":posed.min,"max":posed.max},
                     "ragdoll_owned":character.ragdoll_owned,
                     "lighting": {"ray_cache":character.static_rays.diagnostic_snapshot(),
@@ -2585,6 +2590,27 @@ impl CharacterScene {
             })
             .collect();
         characters.into()
+    }
+
+    fn apply_frame_transform(character: &mut Character, frame: &EntityFrame) {
+        if let Some((position, yaw)) = frame.transform
+            && (matches!(
+                frame.cue,
+                Some(PoseCue::Articulated {
+                    name: _,
+                    progress: _,
+                    joints: _
+                })
+            ) || !transforms_agree(
+                character.transform,
+                position,
+                character.scale,
+                yaw,
+                character.pose_tilt,
+            ))
+        {
+            character.set_pose(position, yaw);
+        }
     }
 
     /// Advances one character against this frame's handoff.
@@ -2626,17 +2652,7 @@ impl CharacterScene {
             if character.ragdoll_owned {
                 return false;
             }
-            if let Some((position, yaw)) = entity_frame.transform
-                && !transforms_agree(
-                    character.transform,
-                    position,
-                    character.scale,
-                    yaw,
-                    character.pose_tilt,
-                )
-            {
-                character.set_pose(position, yaw);
-            }
+            Self::apply_frame_transform(character, entity_frame);
             if let Some(balloon) = entity_frame.balloon {
                 return character.set_balloon_pose(balloon);
             }
@@ -2648,6 +2664,16 @@ impl CharacterScene {
                         PoseCue::Sample {
                             name: _,
                             progress: _
+                        } | PoseCue::Articulated {
+                            name: _,
+                            progress: _,
+                            joints: _
+                        } | PoseCue::SampleBlend {
+                            name: _,
+                            progress: _,
+                            from: _,
+                            from_progress: _,
+                            weight: _
                         }
                     )
                 {
@@ -3090,6 +3116,18 @@ fn scrub_target_for(cue: &PoseCue, duration: f32) -> Option<f32> {
             name: _,
             progress: _,
         }
+        | PoseCue::Articulated {
+            name: _,
+            progress: _,
+            joints: _,
+        }
+        | PoseCue::SampleBlend {
+            name: _,
+            progress: _,
+            from: _,
+            from_progress: _,
+            weight: _,
+        }
         | PoseCue::Clip {
             name: _,
             once: _,
@@ -3483,6 +3521,139 @@ impl CharacterAnimator {
         self.node_globals.get(index).copied()
     }
 
+    /// Restore authoritative local transforms on this same rig. Invalid counts,
+    /// nonfinite values or singular scales leave the pose unchanged.
+    pub fn restore_physical_pose(
+        &mut self,
+        name: &str,
+        progress: f32,
+        joints: &[crate::engine::entity::JointPose],
+    ) -> bool {
+        self.apply_joint_pose(name, progress, joints)
+    }
+
+    fn apply_joint_pose(
+        &mut self,
+        name: &str,
+        progress: f32,
+        joints: &[crate::engine::entity::JointPose],
+    ) -> bool {
+        if joints.len() != self.pose.len()
+            || !joints
+                .iter()
+                .all(crate::engine::entity::JointPose::is_valid)
+        {
+            return false;
+        }
+        let _base = self.sample_fraction(name, progress);
+        for (target, source) in self.pose.iter_mut().zip(joints) {
+            *target = LocalTrs {
+                translation: source.translation,
+                rotation: source.rotation,
+                scale: source.scale,
+            };
+        }
+        self.compose_globals();
+        self.compute_deltas();
+        self.revision = self.revision.wrapping_add(1);
+        true
+    }
+
+    /// Distributed authored upper-body blend for an isolated native aim gate.
+    /// It does not apply a direct head yaw/pitch overlay or move the root/legs.
+    pub fn blend_upper_inspection(&mut self, weight: f32) -> bool {
+        self.blend_upper_clip("inspect_prop", 2.0 / 4.8, weight)
+    }
+
+    /// Layer a named authored upper body over the current lower-body gait.
+    pub fn blend_upper_clip(&mut self, name: &str, progress: f32, weight: f32) -> bool {
+        if !weight.is_finite() || !(0.0..=1.0).contains(&weight) || weight <= 0.0 {
+            return false;
+        }
+        let base = self.pose.clone();
+        let _reference = self.sample_fraction(name, progress);
+        for ((pose, original), node) in self.pose.iter_mut().zip(base).zip(&self.rig.nodes) {
+            *pose = if node.name.starts_with("spine_")
+                || matches!(node.name.as_str(), "neck" | "head")
+            {
+                original.blend(*pose, weight)
+            } else {
+                original
+            };
+        }
+        self.compose_globals();
+        self.compute_deltas();
+        self.revision = self.revision.wrapping_add(1);
+        self.cue = None;
+        true
+    }
+
+    /// Native diagnostic sample; no pose is advanced by inspection.
+    #[must_use]
+    pub fn named_globals(&self) -> Vec<(String, Mat4)> {
+        self.rig
+            .nodes
+            .iter()
+            .zip(&self.node_globals)
+            .map(|(node, matrix)| (node.name.clone(), *matrix))
+            .collect()
+    }
+
+    /// Copies the exact local pose for a gameplay-owned presentation frame.
+    #[must_use]
+    pub fn joint_pose(&self) -> Vec<crate::engine::entity::JointPose> {
+        self.pose
+            .iter()
+            .map(|p| crate::engine::entity::JointPose {
+                translation: p.translation,
+                rotation: p.rotation,
+                scale: p.scale,
+            })
+            .collect()
+    }
+
+    /// Changes one model-space joint transform, preserving parent ownership.
+    /// Invalid or singular transforms leave the current pose intact.
+    pub fn set_node_global(&mut self, name: &str, global: Mat4) -> bool {
+        let Some(index) = self.rig.nodes.iter().position(|node| node.name == name) else {
+            return false;
+        };
+        if !global.is_finite() {
+            return false;
+        }
+        let parent = self
+            .rig
+            .parent
+            .get(index)
+            .copied()
+            .flatten()
+            .and_then(|i| self.node_globals.get(usize::from(i)))
+            .copied()
+            .unwrap_or(Mat4::IDENTITY);
+        let local = parent.inverse().mul_mat4(&global);
+        let (scale, rotation, translation) = local.to_scale_rotation_translation();
+        let value = crate::engine::entity::JointPose {
+            translation,
+            rotation,
+            scale,
+        };
+        if !value.is_valid() {
+            return false;
+        }
+        if let Some(pose) = self.pose.get_mut(index) {
+            *pose = LocalTrs {
+                translation,
+                rotation,
+                scale,
+            };
+        }
+        self.compose_globals();
+        self.compute_deltas();
+        self.revision = self.revision.wrapping_add(1);
+        self.cue = None;
+        true
+    }
+
     /// Duration of an explicitly named clip, without a fallback selection.
     #[must_use]
     pub fn clip_duration(&self, name: &str) -> Option<f32> {
@@ -3524,6 +3695,42 @@ impl CharacterAnimator {
         self.cue_fade = None;
         if !self.sample_active_cue() {
             return false;
+        }
+        self.compose_globals();
+        self.compute_deltas();
+        self.revision = self.revision.wrapping_add(1);
+        true
+    }
+
+    /// Exact authoritative blend. Both gameplay sweeps and the visible actor
+    /// use these same samples; no second renderer clock advances this pose.
+    pub fn sample_blended_fraction(
+        &mut self,
+        name: &str,
+        progress: f32,
+        from: &str,
+        from_progress: f32,
+        weight: f32,
+    ) -> bool {
+        if !weight.is_finite() || !progress.is_finite() || !from_progress.is_finite() {
+            return false;
+        }
+        if weight >= 1.0 {
+            return self.sample_fraction(name, progress);
+        }
+        if self.clip_index(name).is_none() || self.clip_index(from).is_none() {
+            return false;
+        }
+        let _previous = self.sample_fraction(from, from_progress);
+        let previous = self.pose.clone();
+        let previous_morphs = self.morphs.clone();
+        let _next = self.sample_fraction(name, progress);
+        let blend_weight = weight.clamp(0.0, 1.0);
+        for (pose, old) in self.pose.iter_mut().zip(previous) {
+            *pose = old.blend(*pose, blend_weight);
+        }
+        for (value, old) in self.morphs.iter_mut().zip(previous_morphs) {
+            *value = (*value - old).mul_add(blend_weight, old);
         }
         self.compose_globals();
         self.compute_deltas();
@@ -3652,8 +3859,26 @@ impl CharacterAnimator {
     /// completion through [`Self::take_cue_finished`].
     // bounded pose arithmetic
     pub fn update_cued(&mut self, delta_seconds: f32, cue: &PoseCue) -> bool {
+        if let PoseCue::Articulated {
+            name,
+            progress,
+            joints,
+        } = cue
+        {
+            return self.apply_joint_pose(name, *progress, joints);
+        }
         if let PoseCue::Sample { name, progress } = cue {
             return self.sample_fraction(name, *progress);
+        }
+        if let PoseCue::SampleBlend {
+            name,
+            progress,
+            from,
+            from_progress,
+            weight,
+        } = cue
+        {
+            return self.sample_blended_fraction(name, *progress, from, *from_progress, *weight);
         }
         let Some(clips) = self.clips.as_ref() else {
             return false;
@@ -3868,9 +4093,19 @@ impl CharacterAnimator {
             PoseCue::Scrub { name, target: _ } => {
                 (self.clip_index(name).unwrap_or(0), true, false, 1.0)
             }
-            PoseCue::Sample { name, progress: _ } => {
-                (self.clip_index(name).unwrap_or(0), true, true, 1.0)
+            PoseCue::Sample { name, progress: _ }
+            | PoseCue::Articulated {
+                name,
+                progress: _,
+                joints: _,
             }
+            | PoseCue::SampleBlend {
+                name,
+                progress: _,
+                from: _,
+                from_progress: _,
+                weight: _,
+            } => (self.clip_index(name).unwrap_or(0), true, true, 1.0),
         }
     }
 

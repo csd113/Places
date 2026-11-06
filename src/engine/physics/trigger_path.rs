@@ -13,6 +13,8 @@ pub(super) const MAX_TRIGGER_PATH_POINTS: usize = 14;
 #[derive(Debug, Clone, Copy)]
 pub struct ItemTriggerBody {
     pub key: u64,
+    pub release: Option<super::ReleaseIdentity>,
+    pub current_bounds: crate::engine::collision::WallAabb,
     pub previous: Vec3,
     pub current: Vec3,
     /// Fixed-orientation bodies retain their actual world AABB half extents.
@@ -139,8 +141,18 @@ impl TriggerPath {
             }
             point(bounds.half_extents())
         };
+        let bounds = shape.compute_aabb(&pose(origin, current.rotation));
         ItemTriggerBody {
             key,
+            release: None,
+            current_bounds: crate::engine::collision::WallAabb::with_y(
+                bounds.mins.x,
+                bounds.mins.y,
+                bounds.mins.z,
+                bounds.maxs.x - bounds.mins.x,
+                bounds.maxs.y - bounds.mins.y,
+                bounds.maxs.z - bounds.mins.z,
+            ),
             previous: path.first().copied().unwrap_or(origin),
             current: path
                 .get(usize::from(path_len.saturating_sub(1)))

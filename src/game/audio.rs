@@ -206,6 +206,7 @@ impl WorldAudio {
                     PlayRequest {
                         source: Some(spec.source),
                         position: Some(position),
+                        direction: None,
                         spatial: Some(true),
                         looping: Some(true),
                         gain: voice.gain,
@@ -213,6 +214,8 @@ impl WorldAudio {
                         time_domain: TimeDomain::Real,
                         bus: AudioBus::Ambient,
                         perception: crate::engine::audio::PerceptionOwner::Playback,
+                        cursor_seconds: 0.0,
+                        replacement_fade: 0.0,
                     },
                 );
             }

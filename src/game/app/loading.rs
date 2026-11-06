@@ -934,6 +934,7 @@ fn prepare_world(
     let collision =
         CollisionWorld::from_compiled(&loaded.level, records.collision.clone(), Some(navigation))
             .with_ground_materials(&loaded.level, &loaded.materials);
+    collision.world.validate_guest_capability()?;
     let mut physical_timer = crate::engine::perf::loading::StageTimer::new("prepare");
     let physical = if prepare_physical {
         Some(super::item_runtime::PreparedItems::prepare(
@@ -955,6 +956,18 @@ fn prepare_world(
         &records.build.lighting,
         records.build.probes.as_deref(),
     );
+    for (prop, id) in loaded
+        .level
+        .props
+        .iter()
+        .zip(loaded.level.prop_instance_ids())
+    {
+        if prop.tall_guest.is_some() && characters.character(&id).is_none() {
+            return Err(format!(
+                "{id}: Tall Guest has no native character render owner"
+            ));
+        }
+    }
     if !control.checkpoint(Phase::Visibility) {
         return Ok(None);
     }

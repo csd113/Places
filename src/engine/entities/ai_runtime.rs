@@ -10,9 +10,13 @@ use glam::Vec3;
 
 #[derive(Debug, Clone, Copy)]
 pub(super) struct PhysicalObservation {
+    pub key: u64,
     pub center: Vec3,
     pub half: Vec3,
     pub held: bool,
+    pub release: Option<crate::engine::physics::ReleaseIdentity>,
+    pub bounds: Option<crate::engine::collision::WallAabb>,
+    pub sleeping: bool,
 }
 
 impl EntityWorld {

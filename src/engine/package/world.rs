@@ -323,6 +323,10 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
         return Err("Animated solid mechanisms require animated-door-v1 capability".into());
     }
     for (required, capability) in [
+        (
+            level.props.iter().any(|prop| prop.tall_guest.is_some()),
+            "tall-guest-v1",
+        ),
         (!level.elevators.is_empty(), "elevators-v1"),
         (
             level

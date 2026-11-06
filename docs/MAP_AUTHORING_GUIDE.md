@@ -9791,3 +9791,38 @@ when a long-running world’s floating-point clock loses timestamp precision;
 already perceived AI investigation/task memory can outlive the sound. Pausing
 resets travel accumulation; recovery and world replacement discard stale events.
 NPC footsteps and all non-player sounds retain their existing age falloff.
+
+
+### Tall Guest capability
+
+A `tall-guest` prop enables its blind controller with `tall_guest: {"patrol": [], "passages": []}`.
+Use `solid:false`, scale1 and upright yaw. The controller owns translation,
+32-node pose, full posed collision, footsteps and directional head audio.
+Do not attach an `animation` or `ai` component, rigid physics, float, span,
+route, shadow-only or material replacement. Up to eight Guests share the
+existing character/audio budgets; missing native rig/render ownership fails load.
+No player coordinates are exposed to its decision layer except sampled justified
+hearing/echolocation evidence. Direct head overlay remains disabled.
+
+`patrol` contains at most32finite `[x,y,z]` world-space waypoints. Up to16
+`passages` each require a1..64byte `id`, `entry` and `exit` separated by
+more than0.1m and no more than12m. Coordinates are bounded to100000m.
+`crouch_only:true` requires `protected:{"min":[x,y,z],"max":[x,y,z]}` with
+strictly increasing finite bounds; this passage always excludes the creature.
+Physical doorway traversal additionally checks the complete actual posed trajectory
+and live occupancy, including exit room. These authoring bounds do not promise a
+minimum doorway size. Nav-agent defaults do not replace the measured standing
+clearance class. Player walking determines the base cap at1.1times configured
+walk speed and pursuit at1.2times; animation/contact timing follows actual travel.
+These multipliers are integration tuning, not immutable level-design instructions.
+
+Actual audible thrown landings establish a causal source. Delayed valid acoustic
+returns may then follow that known body to final rest for inspection; silent
+unrelated bodies do not expose coordinates. Dropped landings retain quiet crouch
+semantics. Save/load retains original evidence times, causal releases and exact
+accepted physical pose, revalidated privately after other restored bodies. Disable
+clears sensing/audio and hides collision/render ownership; re-enable waits until
+that retained pose is unoccupied. Fixed authored membership still governs saves
+following despawn. Keep final-world native validation separate from offline files.
+
+Compiled levels declaring this capability require `tall-guest-v1`. Older players reject the package by capability name; the current reader also rejects a source declaring Tall Guest without that requirement. Existing levels without the creature retain their requirements.

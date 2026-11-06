@@ -16,6 +16,7 @@ output, never a microphone. Output directories must be new.
 
 | Mode | Purpose |
 | --- | --- |
+| `--tall-guest-cues` | Sequential isolated 23-original-cue bank: front/rear/closed/muted stereo and HRTF, natural tails and two 12.3 s pursuit loops; never layer reference composites with runtime stems |
 | omitted | Existing 32-cycle cue/mode/control/latency campaign |
 | `--owner-probe` | Fixed-storage Rust allocation census across decode warmup, native installation, scene, voice, cancel/error and unload phases |
 | `--disposal-probe` | Movement followed by no updates, bounded query recovery, clear followed by no updates, then restart |
@@ -46,3 +47,5 @@ Use matched settings/assets/features and alternating quiet processes for timing.
 Keep rejected preflights, raw PCM/counters, source/binary hashes and process
 samples. These observations establish neither an OS deadline nor physical
 latency, subjective quality/localization, or cross-platform acceptance.
+
+The Tall Guest mode requires its explicit isolated bank with exactly 23 `tg_` cues. It protects native cue admission, directional/occluded signal, mute, natural voice retirement and repeat-loop continuity beyond offline WAV checks. Measured cost about eight minutes (472 s for 186 trials) and under 200 MiB temporary PCM; no map bake or default test/CI execution. Receipts distinguish device PCM from physical localization and subjective listening.
