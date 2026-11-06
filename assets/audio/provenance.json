@@ -177,6 +177,14 @@
       "sha256": "ab0f6d8abf4336d15cfc64486935b257aad14ba62379ac55017ccaa808013390",
       "archive": "zip",
       "library_file_id": "libfile_d908a1076348819198b001257034611f"
+    },
+    {
+      "id": "places_original_feltling_0131",
+      "title": "Original Feltling nonverbal babble and warbles",
+      "author": "Places contributors",
+      "license": "MIT",
+      "archive": "original",
+      "recipe": "tools/audio/feltling.py; editable deterministic additive/formant scores; no recordings or runtime synthesis"
     }
   ],
   "files": [
@@ -1149,6 +1157,42 @@
       "sample_bits": 16,
       "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
+    },
+    {
+      "file": "feltling/feltling_babble.wav",
+      "source": "places_original_feltling_0131",
+      "source_file": "feltling_babble",
+      "source_file_sha256": "e4884fe93d6ba443a0552bd67cc796674d5e7e924f0e60610c5043486f831da3",
+      "sha256": "e4884fe93d6ba443a0552bd67cc796674d5e7e924f0e60610c5043486f831da3",
+      "frames": 23814,
+      "sample_rate": 44100,
+      "channels": 1,
+      "sample_bits": 16,
+      "imported_with": "tools/audio/feltling.py original deterministic synthesis"
+    },
+    {
+      "file": "feltling/feltling_attention.wav",
+      "source": "places_original_feltling_0131",
+      "source_file": "feltling_attention",
+      "source_file_sha256": "53a5163247ac2b9b86f85faf450a13b4bbb208b3188863f2118dd36ef38cf69f",
+      "sha256": "53a5163247ac2b9b86f85faf450a13b4bbb208b3188863f2118dd36ef38cf69f",
+      "frames": 29106,
+      "sample_rate": 44100,
+      "channels": 1,
+      "sample_bits": 16,
+      "imported_with": "tools/audio/feltling.py original deterministic synthesis"
+    },
+    {
+      "file": "feltling/feltling_cheer.wav",
+      "source": "places_original_feltling_0131",
+      "source_file": "feltling_cheer",
+      "source_file_sha256": "aa11d020811082fefd88ca7571df227e6a9269497118294647a7db3cf5218ffb",
+      "sha256": "aa11d020811082fefd88ca7571df227e6a9269497118294647a7db3cf5218ffb",
+      "frames": 27342,
+      "sample_rate": 44100,
+      "channels": 1,
+      "sample_bits": 16,
+      "imported_with": "tools/audio/feltling.py original deterministic synthesis"
     }
   ]
 }

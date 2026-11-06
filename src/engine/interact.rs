@@ -214,6 +214,14 @@ pub struct Interactables {
 }
 
 impl Interactables {
+    /// A controller may temporarily suppress a retained interaction while its
+    /// physical owner waits for safe activation. The authored flag stays intact.
+    pub(crate) fn set_controller_enabled(&mut self, id: &str, enabled: bool) {
+        if let Some(item) = self.items.iter_mut().find(|item| item.id == id) {
+            item.enabled = enabled;
+        }
+    }
+
     /// Bind a compound target to its actual live leaves and fixed frame stock.
     pub fn sync_leaves(&mut self, id: &str, start: usize, end: usize, doors: &[DoorCollider]) {
         let Some(item) = self.items.iter_mut().find(|item| item.id == id) else {

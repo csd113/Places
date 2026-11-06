@@ -1,0 +1,1001 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "feltling_guide",
+  "name": "Feltling focused guide fixture",
+  "author": "Places Team",
+  "spawn": {
+    "x": 0,
+    "z": 0,
+    "yaw_degrees": 180
+  },
+  "scripts": [
+    "scripts/feltling_fixture.luau"
+  ],
+  "defaults": {
+    "wall": "home:wall_paint_offwhite_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": -4,
+      "z": -22,
+      "width": 8,
+      "depth": 54,
+      "height": 3.2
+    },
+    {
+      "x": 4,
+      "z": -2,
+      "width": 8,
+      "depth": 10,
+      "height": 4.5
+    }
+  ],
+  "walls": [
+    {
+      "x": -4.2,
+      "z": -22.2,
+      "width": 8.4,
+      "depth": 0.2,
+      "height": 3.2
+    },
+    {
+      "x": -4.2,
+      "z": 32,
+      "width": 8.4,
+      "depth": 0.2,
+      "height": 3.2
+    },
+    {
+      "x": -4.2,
+      "z": -22,
+      "width": 0.2,
+      "depth": 54,
+      "height": 3.2
+    },
+    {
+      "x": 4,
+      "z": -22,
+      "width": 0.2,
+      "depth": 54,
+      "height": 4.5
+    },
+    {
+      "x": 4.2,
+      "z": -2.2,
+      "width": 8,
+      "depth": 0.2,
+      "height": 4.5
+    },
+    {
+      "x": 4.2,
+      "z": 8,
+      "width": 8,
+      "depth": 0.2,
+      "height": 4.5
+    },
+    {
+      "x": 12,
+      "z": -2,
+      "width": 0.2,
+      "depth": 10,
+      "height": 4.5
+    },
+    {
+      "x": -4,
+      "z": 16,
+      "width": 8,
+      "depth": 0.2,
+      "height": 3.2,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 3.3,
+          "width": 1.4,
+          "height": 2.1
+        }
+      ]
+    }
+  ],
+  "doors": [
+    {
+      "id": "route_door",
+      "x": -0.6,
+      "z": 16.1,
+      "width": 1.2,
+      "height": 2.1,
+      "rotation_degrees": 0,
+      "initial_state": "open",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Open / close",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stairs": [
+    {
+      "x": -1,
+      "z": 23,
+      "width": 2,
+      "depth": 2.4,
+      "rise": 0.6,
+      "steps": 4,
+      "offset_y": 0,
+      "material": "home:hardwood_oak_01",
+      "riser_material": "home:wall_paint_offwhite_01",
+      "side_material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": -1.2,
+      "z": 25.4,
+      "width": 2.4,
+      "depth": 5.6,
+      "offset_y": 0.6,
+      "material": "home:hardwood_oak_01",
+      "edge_material": "home:wall_paint_offwhite_01"
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "id": "light_0",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0,
+      "z": -18,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "light_1",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0,
+      "z": -12,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "light_2",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0,
+      "z": -6,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "light_3",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0,
+      "z": 0,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "light_4",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0,
+      "z": 6,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "light_5",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0,
+      "z": 12,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "light_6",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0,
+      "z": 18,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "light_7",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0,
+      "z": 24,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "light_8",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 0,
+      "z": 30,
+      "rotation_degrees": 0
+    },
+    {
+      "id": "guest_light",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 8,
+      "z": 3,
+      "y": 4.4,
+      "rotation_degrees": 0
+    }
+  ],
+  "props": [
+    {
+      "id": "guide",
+      "model": "feltling",
+      "x": 0,
+      "z": 4,
+      "rotation_degrees": 180,
+      "solid": false,
+      "occludes": false,
+      "feltling": {
+        "mode": "guide",
+        "routes": [
+          {
+            "id": "outbound",
+            "points": [
+              [
+                0,
+                0,
+                10
+              ],
+              [
+                0,
+                0,
+                18
+              ],
+              [
+                0,
+                0,
+                22
+              ],
+              [
+                0,
+                0.6,
+                27
+              ],
+              [
+                0,
+                0.6,
+                29
+              ]
+            ]
+          },
+          {
+            "id": "return",
+            "points": [
+              [
+                0,
+                0.6,
+                27
+              ],
+              [
+                0,
+                0,
+                22
+              ],
+              [
+                0,
+                0,
+                18
+              ],
+              [
+                0,
+                0,
+                10
+              ],
+              [
+                0,
+                0,
+                4
+              ]
+            ]
+          }
+        ]
+      },
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "guide"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": "outbound"
+        },
+        {
+          "component": "state",
+          "name": "feltling_status",
+          "value": "greeting"
+        },
+        {
+          "component": "interactable",
+          "prompt": "Talk to Feltling",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/feltling_fixture.luau",
+              "handler": "interact"
+            }
+          ]
+        },
+        {
+          "on": "object_state",
+          "key": "feltling_status",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/feltling_fixture.luau",
+              "handler": "status"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "feltling_1",
+      "model": "feltling",
+      "x": -1.4,
+      "z": 3.3,
+      "rotation_degrees": 180,
+      "solid": false,
+      "occludes": false,
+      "feltling": {
+        "mode": "talk",
+        "routes": [],
+        "look_at": [
+          0,
+          0,
+          4.5
+        ]
+      },
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": ""
+        },
+        {
+          "component": "state",
+          "name": "feltling_status",
+          "value": "greeting"
+        }
+      ],
+      "bindings": []
+    },
+    {
+      "id": "feltling_2",
+      "model": "feltling",
+      "x": 1.4,
+      "z": 3.3,
+      "rotation_degrees": 180,
+      "solid": false,
+      "occludes": false,
+      "feltling": {
+        "mode": "talk",
+        "routes": [],
+        "look_at": [
+          0,
+          0,
+          4.5
+        ]
+      },
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": ""
+        },
+        {
+          "component": "state",
+          "name": "feltling_status",
+          "value": "greeting"
+        }
+      ],
+      "bindings": []
+    },
+    {
+      "id": "feltling_3",
+      "model": "feltling",
+      "x": -2.5,
+      "z": 5,
+      "rotation_degrees": 180,
+      "solid": false,
+      "occludes": false,
+      "feltling": {
+        "mode": "talk",
+        "routes": [],
+        "look_at": [
+          0,
+          0,
+          4.5
+        ]
+      },
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": ""
+        },
+        {
+          "component": "state",
+          "name": "feltling_status",
+          "value": "greeting"
+        }
+      ],
+      "bindings": []
+    },
+    {
+      "id": "feltling_4",
+      "model": "feltling",
+      "x": 2.5,
+      "z": 5,
+      "rotation_degrees": 180,
+      "solid": false,
+      "occludes": false,
+      "feltling": {
+        "mode": "talk",
+        "routes": [],
+        "look_at": [
+          0,
+          0,
+          4.5
+        ]
+      },
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": ""
+        },
+        {
+          "component": "state",
+          "name": "feltling_status",
+          "value": "greeting"
+        }
+      ],
+      "bindings": []
+    },
+    {
+      "id": "feltling_5",
+      "model": "feltling",
+      "x": 0,
+      "z": 6.2,
+      "rotation_degrees": 180,
+      "solid": false,
+      "occludes": false,
+      "feltling": {
+        "mode": "talk",
+        "routes": [],
+        "look_at": [
+          0,
+          0,
+          4.5
+        ]
+      },
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": ""
+        },
+        {
+          "component": "state",
+          "name": "feltling_status",
+          "value": "greeting"
+        }
+      ],
+      "bindings": []
+    },
+    {
+      "id": "guest",
+      "model": "tall-guest",
+      "x": 8,
+      "z": 4,
+      "rotation_degrees": 90,
+      "solid": false,
+      "occludes": false,
+      "tall_guest": {
+        "patrol": [
+          [
+            8,
+            0,
+            4
+          ],
+          [
+            9,
+            0,
+            4
+          ]
+        ]
+      }
+    },
+    {
+      "id": "control_talk",
+      "model": "core:crate",
+      "x": -2.7,
+      "z": -3.0,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "talk",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "set_state",
+              "target": "guide",
+              "name": "feltling_mode",
+              "value": "talk"
+            },
+            {
+              "action": "set_state",
+              "target": "feltling_1",
+              "name": "feltling_mode",
+              "value": "talk"
+            },
+            {
+              "action": "set_state",
+              "target": "feltling_2",
+              "name": "feltling_mode",
+              "value": "talk"
+            },
+            {
+              "action": "set_state",
+              "target": "feltling_3",
+              "name": "feltling_mode",
+              "value": "talk"
+            },
+            {
+              "action": "set_state",
+              "target": "feltling_4",
+              "name": "feltling_mode",
+              "value": "talk"
+            },
+            {
+              "action": "set_state",
+              "target": "feltling_5",
+              "name": "feltling_mode",
+              "value": "talk"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_cheer",
+      "model": "core:crate",
+      "x": -2.7,
+      "z": -3.9,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "cheer",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "set_state",
+              "target": "guide",
+              "name": "feltling_mode",
+              "value": "cheer"
+            },
+            {
+              "action": "set_state",
+              "target": "feltling_1",
+              "name": "feltling_mode",
+              "value": "cheer"
+            },
+            {
+              "action": "set_state",
+              "target": "feltling_2",
+              "name": "feltling_mode",
+              "value": "cheer"
+            },
+            {
+              "action": "set_state",
+              "target": "feltling_3",
+              "name": "feltling_mode",
+              "value": "cheer"
+            },
+            {
+              "action": "set_state",
+              "target": "feltling_4",
+              "name": "feltling_mode",
+              "value": "cheer"
+            },
+            {
+              "action": "set_state",
+              "target": "feltling_5",
+              "name": "feltling_mode",
+              "value": "cheer"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_guide",
+      "model": "core:crate",
+      "x": -2.7,
+      "z": -4.8,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "guide",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "set_state",
+              "target": "guide",
+              "name": "feltling_mode",
+              "value": "guide"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_wave",
+      "model": "core:crate",
+      "x": -2.7,
+      "z": -5.7,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "wave",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "target": "guide",
+              "clip": "Waving_Both_Arms",
+              "loop": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_point",
+      "model": "core:crate",
+      "x": -2.7,
+      "z": -6.6,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "point",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "target": "guide",
+              "clip": "Pointing",
+              "loop": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_disable",
+      "model": "core:crate",
+      "x": -2.7,
+      "z": -7.5,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "disable",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "disable",
+              "target": "guide"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_enable",
+      "model": "core:crate",
+      "x": -2.7,
+      "z": -8.4,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "enable",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "enable",
+              "target": "guide"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_despawn",
+      "model": "core:crate",
+      "x": -2.7,
+      "z": -9.3,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "despawn",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "despawn_entity",
+              "target": "guide"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_door_close",
+      "model": "core:crate",
+      "x": -2.7,
+      "z": -10.2,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "door_close",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "close",
+              "target": "route_door"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_door_open",
+      "model": "core:crate",
+      "x": -2.7,
+      "z": -11.1,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "door_open",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "open",
+              "target": "route_door"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_return",
+      "model": "core:crate",
+      "x": -2.7,
+      "z": -12.0,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "return",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "set_state",
+              "target": "guide",
+              "name": "feltling_route",
+              "value": "return"
+            },
+            {
+              "action": "set_state",
+              "target": "guide",
+              "name": "feltling_mode",
+              "value": "guide"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_walk",
+      "model": "core:crate",
+      "x": 2.7,
+      "z": -4.0,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Walk",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "target": "guide",
+              "clip": "Walk",
+              "loop": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_run",
+      "model": "core:crate",
+      "x": 2.7,
+      "z": -5.2,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Run",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "target": "guide",
+              "clip": "Run",
+              "loop": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "control_excited_jumping",
+      "model": "core:crate",
+      "x": 2.7,
+      "z": -6.4,
+      "scale": 0.35,
+      "solid": false,
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Excited_Jumping",
+          "reach": 2.0
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "play_animation",
+              "target": "guide",
+              "clip": "Excited_Jumping",
+              "loop": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "saving": true
+}

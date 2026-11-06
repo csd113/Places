@@ -16,6 +16,7 @@ enum Scene {
     Rear,
     Closed,
     Muted,
+    MasterZero,
     Loop,
 }
 impl Scene {
@@ -25,12 +26,13 @@ impl Scene {
             Self::Rear => "rear",
             Self::Closed => "closed",
             Self::Muted => "muted",
+            Self::MasterZero => "master_zero",
             Self::Loop => "loop",
         }
     }
     const fn forced_seconds(self) -> Option<f64> {
         match self {
-            Self::Muted => Some(0.3_f64),
+            Self::Muted | Self::MasterZero => Some(0.3_f64),
             Self::Loop => Some(12.3_f64),
             Self::Front | Self::Rear | Self::Closed => None,
         }
@@ -75,12 +77,16 @@ impl Capture<'_> {
             AcousticScene::default()
         });
         let settings = AudioSettings {
-            master_volume: 0.12,
+            master_volume: if scene == Scene::MasterZero {
+                0.0
+            } else {
+                0.12
+            },
             muted: scene == Scene::Muted,
             spatial_mode: mode,
             ..AudioSettings::default()
         };
-        let (foot, position, listener) = emitters(cue, scene);
+        let (omni, position, listener) = emitters(cue, scene);
         self.settle(listener, settings);
         let _old_capture = self.audio.drain_capture(&mut self.scratch);
         let source = SourceId(42);
@@ -89,7 +95,7 @@ impl Capture<'_> {
             PlayRequest {
                 source: Some(source),
                 position: Some(position),
-                direction: (!foot).then_some(Vec3::Z),
+                direction: (!omni).then_some(Vec3::Z),
                 spatial: Some(true),
                 looping: Some(scene == Scene::Loop),
                 perception: PerceptionOwner::Gameplay { event: 1 },
@@ -134,8 +140,8 @@ impl Capture<'_> {
                 .iter()
                 .flatten()
                 .any(|sample| !sample.is_finite() || sample.abs() > 1.0)
-            || (scene == Scene::Muted && peak > 0.000_001)
-            || (scene != Scene::Muted && peak < 0.000_000_001)
+            || (matches!(scene, Scene::Muted | Scene::MasterZero) && peak > 0.000_001)
+            || (!matches!(scene, Scene::Muted | Scene::MasterZero) && peak < 0.000_000_001)
         {
             return Err(format!(
                 "Native cue signal failed:{cue}/{} peak={peak} frames={}",
@@ -164,7 +170,10 @@ impl Capture<'_> {
 }
 fn emitters(cue: &str, scene: Scene) -> (bool, Vec3, Listener) {
     let foot = cue.contains("_foot_") || cue.contains("stomp") || cue.contains("gait");
-    let position = if foot {
+    let feltling = cue.starts_with("feltling_");
+    let position = if feltling {
+        Vec3::new(0.0, 0.5, 0.0)
+    } else if foot {
         Vec3::new(0.0, 0.055, 0.0)
     } else {
         Vec3::new(0.0, 3.1, 0.0)
@@ -173,7 +182,7 @@ fn emitters(cue: &str, scene: Scene) -> (bool, Vec3, Listener) {
         position: Vec3::new(0.0, 1.6, if scene == Scene::Rear { -4.0 } else { 4.0 }),
         ..Listener::default()
     };
-    (foot, position, listener)
+    (foot || feltling, position, listener)
 }
 fn closed_scene() -> Result<AcousticScene, String> {
     let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"tg_cue_occlusion","name":"Native original cue occlusion","spawn":{"x":0,"z":4},"defaults":{"wall":"core:wallpaper_yellow_01","floor":"home:tile_home_01","ceiling":"core:ceiling_panel_01"},"rooms":[{"x":-8,"z":-8,"width":16,"depth":16,"height":5}],"walls":[{"x":-8,"z":2,"width":16,"depth":0.24,"height":5}]}"#).map_err(|e|e.to_string())?;
@@ -222,4 +231,54 @@ pub fn run(audio: &mut AudioSystem, assets: &Path, out: &Path) -> Result<(), Str
         serde_json::to_vec_pretty(&receipt).map_err(|e| e.to_string())?,
     )
     .map_err(|e| e.to_string())
+}
+
+/// Three finite original Feltling phrases, thirty bounded native trials. This
+/// protects device admission, native tails, spatial output, master zero and
+/// mute beyond WAV format checks. No map, bake, window or human review claim.
+pub fn run_feltling(audio: &mut AudioSystem, assets: &Path, out: &Path) -> Result<(), String> {
+    let catalog = AudioCatalog::load(assets)?;
+    let cues: Vec<_> = catalog
+        .cue_ids()
+        .filter(|id| id.starts_with("feltling_"))
+        .collect();
+    if cues.len() != 3 {
+        return Err("Feltling audition requires its exact three-cue bank".into());
+    }
+    let initial = audio.stats();
+    if initial.decoded_bytes > places::engine::audio::MAX_DECODED_BYTES {
+        return Err("Feltling bank exceeds the unchanged library cap".into());
+    }
+    let mut capture = Capture {
+        audio,
+        out,
+        scratch: vec![[0.0; 2]; 8192],
+    };
+    let mut results = Vec::new();
+    for mode in [SpatialMode::Speakers, SpatialMode::Headphones] {
+        for cue in &cues {
+            for scene in [
+                Scene::Front,
+                Scene::Rear,
+                Scene::Closed,
+                Scene::Muted,
+                Scene::MasterZero,
+            ] {
+                results.push(capture.trial(cue, mode, scene)?);
+            }
+        }
+    }
+    capture.audio.clear_world();
+    capture.settle(Listener::default(), AudioSettings::default());
+    let settled = capture.audio.stats();
+    capture.audio.unload();
+    let report = json!({"scope":"Actual native SDL/Kira output and internal stereo PCM; three original finite Feltling cues, 30 trials. HRTF mode is technical output, not proof of physical headphones or human localization. Gameplay ownership and six-actor mix are separate checks.",
+        "initial":initial,"settled":settled,"unloaded":capture.audio.stats(),
+        "callback_allocations":super::CALLBACK_ALLOCS.load(std::sync::atomic::Ordering::Relaxed),
+        "callback_deallocations":super::CALLBACK_FREES.load(std::sync::atomic::Ordering::Relaxed),"results":results});
+    std::fs::write(
+        out.join("feltling-cues.json"),
+        serde_json::to_vec_pretty(&report).map_err(|error| error.to_string())?,
+    )
+    .map_err(|error| error.to_string())
 }

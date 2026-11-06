@@ -881,6 +881,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     if level.props.iter().any(|prop| prop.tall_guest.is_some()) {
         required.push("tall-guest-v1".into());
     }
+    if level.props.iter().any(|prop| prop.feltling.is_some()) {
+        required.push("feltling-v1".into());
+    }
     if crate::engine::ai::authoring::level_requires_shared_ai(&level) {
         required.push("shared-ai-v1".into());
     }
@@ -2327,6 +2330,9 @@ pub(crate) fn bake_navigation(
         None
     };
     for prop in &level.props {
+        if prop.feltling.is_some() {
+            register_profile(&mut classes, crate::engine::feltling::navigation_class())?;
+        }
         if prop.tall_guest.is_some() {
             register_profile(&mut classes, crate::engine::tall_guest::navigation_class())?;
         }

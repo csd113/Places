@@ -2756,3 +2756,25 @@ closing the former 25 mm floor-wall gap without changing the cabin finishes.
 `check_doorway_fit.py --baseline 9a771f1b` protects unchanged geometry/UVs outside
 the doorway and specifically authorized floor skirts; `check_cabin_corners.py`
 probes every shell edge and the floor joins. These are explicit offline checks.
+
+
+### Feltling runtime export
+
+`entities/feltling/model/feltling.glb` is an exact pinned derivative of the
+approved Feltling: 2,990 triangles, 16 joints, five original clips rebased to zero,
+and one fitted opaque 1024² unlit albedo PNG with its exact standalone copy.
+The 1024 edge preserves the supplied felt grain and facial artwork at close
+range and costs 4 MiB decoded; the ordinary 128 MiB pack cap is unchanged.
+Scalar roughness supplies the supported felt/eye response; no normal-map,
+roughness-map, extension or painted-lighting workaround is introduced. Geometry
+meets the ordinary character budget, with no triangle exception. The approved
+rig pivot is retained rather than recentering its projecting nose: catalog size
+0.331083 × 0.609820 × 0.439302 m is a conservative root-centred envelope,
+while measured bind depth is 0.328484 m. The exact bounds and hash are pinned in
+`completed-models.json`; provenance identifies the editable Library source.
+
+The committed import adapter losslessly consolidates five identity sibling mesh
+nodes from that delivery into the one skinned mesh node Places requires. It
+retains the complete BIN chunk, primitive order, joint hierarchy and animation
+values byte for byte. Provenance records both delivered and normalized hashes;
+reproduce the runtime with `tools/entities/normalize_feltling.py` after re-export.

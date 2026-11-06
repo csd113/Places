@@ -13,6 +13,10 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Integrate the benevolent Feltling guide with authored routes, wait/resume and
+  strictly-over-20-metre attention gestures, reusable conversation/celebration
+  hooks, native animation ownership, checkpoints and original spatial babble.
+
 - Keep held-prop pushes consistent across control rates and improve heavy/light
   resting contacts while guarding supported jams. Correct the native contact
   fixture. See [Mac validation and remaining costs](docs/reports/prop-physics-0.13.1-mac.md).

@@ -100,6 +100,7 @@ impl EntityWorld {
         &mut self,
         ctx: &super::WorldContext<'_>,
     ) -> Result<(), String> {
+        self.validate_restored_feltlings(ctx)?;
         let bodies: Vec<_> = self
             .guests
             .iter()
@@ -111,6 +112,11 @@ impl EntityWorld {
             .unwrap_or(&[]);
         for (index, guest) in self.guests.iter_mut().enumerate() {
             let mut leaves = base.to_vec();
+            leaves.extend(
+                self.feltlings
+                    .iter()
+                    .filter_map(crate::engine::feltling::Feltling::collider),
+            );
             for (other, body) in bodies.iter().enumerate() {
                 if other != index {
                     leaves.extend_from_slice(body);

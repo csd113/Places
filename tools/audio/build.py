@@ -147,6 +147,8 @@ def import_audio(authoring, cache, download):
         if sources[clip["source"]].get("archive") == "original":
             if clip["source"] == "places_original_elevator_0131":
                 from elevator import render
+            elif clip["source"] == "places_original_feltling_0131":
+                from feltling import render
             else:
                 from original import render
             original = encoded = render(clip["source_file"])

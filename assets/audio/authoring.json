@@ -179,6 +179,14 @@
       "sha256": "ab0f6d8abf4336d15cfc64486935b257aad14ba62379ac55017ccaa808013390",
       "archive": "zip",
       "library_file_id": "libfile_d908a1076348819198b001257034611f"
+    },
+    {
+      "id": "places_original_feltling_0131",
+      "title": "Original Feltling nonverbal babble and warbles",
+      "author": "Places contributors",
+      "license": "MIT",
+      "archive": "original",
+      "recipe": "tools/audio/feltling.py; editable deterministic additive/formant scores; no recordings or runtime synthesis"
     }
   ],
   "clips": [
@@ -650,6 +658,21 @@
       "source": "places_tall_guest_original",
       "source_file": "The_Tall_Guest/audio/final/wav/tg_click_single_03.wav",
       "edit_mode": "format_only"
+    },
+    {
+      "file": "feltling/feltling_babble.wav",
+      "source": "places_original_feltling_0131",
+      "source_file": "feltling_babble"
+    },
+    {
+      "file": "feltling/feltling_attention.wav",
+      "source": "places_original_feltling_0131",
+      "source_file": "feltling_attention"
+    },
+    {
+      "file": "feltling/feltling_cheer.wav",
+      "source": "places_original_feltling_0131",
+      "source_file": "feltling_cheer"
     }
   ]
 }

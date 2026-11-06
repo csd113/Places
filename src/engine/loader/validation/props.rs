@@ -84,6 +84,7 @@ pub(super) fn validate_props(level: &LevelDef) -> Result<(), String> {
     }
     let _validated_doors = crate::engine::animated_door::load(level)?;
     let _validated_guests = crate::engine::tall_guest::load(level)?;
+    let _validated_feltlings = crate::engine::feltling::load(level)?;
     Ok(())
 }
 

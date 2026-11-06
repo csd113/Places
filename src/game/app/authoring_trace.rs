@@ -13,6 +13,10 @@ impl super::FrameLoop<'_> {
             "tall_guests".into(),
             self.game.entities().guest_diagnostics(),
         ));
+        drop(fields.insert(
+            "feltlings".into(),
+            self.game.entities().feltling_diagnostics(),
+        ));
         let Some(loaded) = &self.current_level else {
             return;
         };

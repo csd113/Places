@@ -8,6 +8,7 @@ mod elevator_items;
 mod entity_routes;
 mod entity_sequences;
 mod essential_recovery;
+mod feltling;
 mod fog_volumes;
 mod gameplay_authoring;
 mod held_auto_drop;

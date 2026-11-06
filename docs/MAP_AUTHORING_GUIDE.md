@@ -9826,3 +9826,50 @@ that retained pose is unoccupied. Fixed authored membership still governs saves
 following despawn. Keep final-world native validation separate from offline files.
 
 Compiled levels declaring this capability require `tall-guest-v1`. Older players reject the package by capability name; the current reader also rejects a source declaring Tall Guest without that requirement. Existing levels without the creature retain their requirements.
+
+
+### Feltling capability
+
+An upright scale-one `feltling` model may declare
+`"feltling":{"mode":"guide","routes":[{"id":"outbound","points":[[0,0,4],[0,0,12]]}]}`.
+It is a benevolent guide with one controller owning movement, animation and
+finite spatial voice. Use `solid:false`, no ordinary route, AI, nav-agent,
+animation, physics, float, span or material override. Up to sixteen actors share
+the existing character/audio limits. Missing native asset/render ownership fails
+loading. Packages require `feltling-v1`; ordinary imports and global budgets are
+unchanged. Routes contain at most 32 world-space feet points, at most eight named
+routes per actor. Names are unique printable strings of 1–64 bytes.
+
+An optional `look_at:[x,y,z]` gives talk mode an authored conversation focus;
+otherwise it faces the player. This lets a group address each other while a
+separate guide responds to the player.
+
+Initial guide mode waves and waits for approach within 2.5 m, then points and
+leads. The integration tuning is 1.3 times the current player walking setting,
+above Tall Guest's 1.2-times-player pursuit cap. Guidance waits beyond 10 m and
+resumes within 6 m. Only distance strictly greater than 20 m permits the guide's
+jump/then-both-arms attention sequence; returning to 20 m cancels it. Explicit
+authored party cheering is separate. Blocked paths and closed doors stall and
+retry; a route never bypasses physical clearance or floor support. Rendered
+tread support uses the delivered rig's limb lengths without rescaling bones;
+checkpoints retain that terrain correction alongside the animation continuation.
+
+Declare ordinary text states `feltling_mode`, `feltling_route` and
+`feltling_status` on an actor when scripts/actions address them. `set_state`
+selects modes `guide`, `wait`, `talk`, `cheer`, or a named route. Changing routes
+starts that route; temporary modes retain its waypoint. The controller publishes
+`object_state` for status changes (`greeting`, `pointing`, `leading`, `waiting`,
+`attention_jump`, `attention_wave`, `arrived`, `talking`, `cheering`, `blocked`).
+Use existing bindings/`run_script`/`api.message` for authored interaction and
+subtitle hooks. Existing `play_animation` presents any of the five named delivered clips at its authored
+rate while pausing route travel; explicit looping is supported and one-shots
+emit `animation_complete`. Mode/route commands return control to guidance.
+Disable stops audio and hides motion/render/collision ownership; enabling waits
+for clearance at the retained location. Checkpoints retain route/gesture
+continuations; save following despawn retains the existing fixed-membership
+restriction. Source/native acceptance is separate from this authoring contract.
+
+`tests/fixtures/feltling` is the owning project for the explicit small guide/door/stair,
+six-actor conversation/cheering and lifecycle control. It is outside the shipped
+lineup and ordinary CI never bakes it. It constructs no final demo, elevator
+quest, party room or cinematic.

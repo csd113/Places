@@ -1,0 +1,13 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "feltling_acceptance",
+  "name": "Focused Feltling acceptance",
+  "entry_level": "feltling_guide",
+  "levels": [
+    {
+      "id": "feltling_guide",
+      "source": "levels/feltling_guide.json"
+    }
+  ]
+}

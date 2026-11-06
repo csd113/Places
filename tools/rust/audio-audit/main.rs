@@ -96,7 +96,11 @@ fn main() -> Result<(), String> {
     let tall_guest = mode
         .as_ref()
         .is_some_and(|value| value == "--tall-guest-cues");
+    let feltling = mode
+        .as_ref()
+        .is_some_and(|value| value == "--feltling-cues");
     if mode.is_some()
+        && !feltling
         && !probe
         && !lifetime
         && !sustained
@@ -135,6 +139,9 @@ fn main() -> Result<(), String> {
     }
     if tall_guest {
         return tall_guest_cues::run(&mut audio, &assets, &out);
+    }
+    if feltling {
+        return tall_guest_cues::run_feltling(&mut audio, &assets, &out);
     }
     if scene {
         return witnesses::scene(&mut audio, &out);

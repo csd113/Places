@@ -103,6 +103,7 @@ struct EntityFacts<'a> {
     interactable_enabled: bool,
     /// The entity carries an `animation` component.
     has_animation: bool,
+    is_feltling: bool,
     /// The entity carries a `light` component.
     has_light: bool,
     /// The entity's light (or fixture) can be switched at runtime.
@@ -324,6 +325,8 @@ pub(super) fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, 
         let mut facts = EntityFacts::of("prop");
         facts.is_prop = true;
         validate_components(&context, &prop.components, &mut facts)?;
+        facts.has_animation |= prop.feltling.is_some();
+        facts.is_feltling = prop.feltling.is_some();
         validate_carry_items(&context, &prop.components, level, &prop_ids)?;
         if prop.light_control().is_some()
             && (prop.float.is_some()
@@ -1605,8 +1608,28 @@ fn validate_action(
                 target.as_deref(),
                 implicit,
                 index,
-                "a target with an `animation` component",
-                |facts| facts.has_animation,
+                "an animation owner; Feltling supports explicit Pointing, Waving_Both_Arms or Excited_Jumping play actions",
+                |facts| {
+                    facts.has_animation
+                        && (!facts.is_feltling
+                            || (matches!(
+                                action,
+                                ActionDef::PlayAnimation {
+                                    target: _,
+                                    clip: _,
+                                    looped: _
+                                }
+                            ) && clip.as_deref().is_some_and(|name| {
+                                matches!(
+                                    name,
+                                    "Pointing"
+                                        | "Waving_Both_Arms"
+                                        | "Excited_Jumping"
+                                        | "Walk"
+                                        | "Run"
+                                )
+                            })))
+                },
             )?;
             if clip
                 .as_deref()

@@ -962,9 +962,11 @@ fn prepare_world(
         .iter()
         .zip(loaded.level.prop_instance_ids())
     {
-        if prop.tall_guest.is_some() && characters.character(&id).is_none() {
+        if (prop.tall_guest.is_some() || prop.feltling.is_some())
+            && characters.character(&id).is_none()
+        {
             return Err(format!(
-                "{id}: Tall Guest has no native character render owner"
+                "{id}: creature has no native character render owner"
             ));
         }
     }

@@ -47,6 +47,7 @@ def compare(model, a, b, label):
 def main():
     for name in (
         'rat',
+        'feltling',
         'mannequin',
         'skeleton',
         'spooner-man',

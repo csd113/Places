@@ -32,6 +32,7 @@ pub mod components;
 pub mod developer;
 mod elevators;
 pub mod events;
+mod feltlings;
 mod guest_acoustics;
 mod guest_lifecycle;
 mod guest_sensing;
@@ -455,6 +456,8 @@ pub struct EntityWorld {
     animated_doors: Vec<crate::engine::animated_door::AnimatedDoor>,
     pub(super) guests: Vec<crate::engine::tall_guest::Guest>,
     guest_error: Option<String>,
+    pub(super) feltlings: Vec<crate::engine::feltling::Feltling>,
+    retired_feltling_frames: Vec<EntityFrame>,
     guest_acoustics: guest_acoustics::Layout,
     retired_guest_frames: Vec<EntityFrame>,
     door_colliders: Vec<DoorCollider>,
@@ -599,6 +602,8 @@ impl EntityWorld {
             animated_doors: Vec::new(),
             guests: Vec::new(),
             guest_error: None,
+            feltlings: Vec::new(),
+            retired_feltling_frames: Vec::new(),
             guest_acoustics: guest_acoustics::Layout::default(),
             retired_guest_frames: Vec::new(),
             physics_actors: std::collections::BTreeMap::new(),
@@ -683,6 +688,11 @@ impl EntityWorld {
             self.guest_error = Some(error);
             Vec::new()
         });
+        self.feltlings = crate::engine::feltling::load(level).unwrap_or_else(|error| {
+            warn_once("feltling-load", error.clone());
+            self.guest_error = Some(error);
+            Vec::new()
+        });
         self.guest_acoustics = if self.guests.is_empty() {
             guest_acoustics::Layout::default()
         } else {
@@ -698,6 +708,7 @@ impl EntityWorld {
         self.script_event = None;
         self.store.clear();
         self.retired_guest_frames.clear();
+        self.retired_feltling_frames.clear();
         self.names.clear();
         self.components.clear();
         self.generation = self.store.generation();
@@ -1962,6 +1973,11 @@ impl EntityWorld {
             self.guests
                 .iter()
                 .flat_map(crate::engine::tall_guest::Guest::body_colliders),
+        );
+        self.door_colliders.extend(
+            self.feltlings
+                .iter()
+                .filter_map(crate::engine::feltling::Feltling::collider),
         );
     }
 
@@ -3236,6 +3252,17 @@ impl EntityWorld {
         let Some(handle) = self.handle_of(entity_id) else {
             return false;
         };
+        if matches!(name, "feltling_mode" | "feltling_route")
+            && let Some(feltling) = self
+                .feltlings
+                .iter_mut()
+                .find(|feltling| feltling.state.id == entity_id)
+            && !value
+                .as_text()
+                .is_some_and(|text| feltling.command(name, text))
+        {
+            return false;
+        }
         if let Some(state) = self.components.states.get_mut(handle) {
             if !state.set(name, value) {
                 return true;
@@ -3338,6 +3365,7 @@ impl EntityWorld {
             return false;
         };
         let mut changed = self.set_guest_enabled(id, enable);
+        changed |= self.set_feltling_enabled(id, enable);
         changed |= self
             .components
             .interactables
@@ -3426,6 +3454,7 @@ impl EntityWorld {
         }
         if changed {
             self.rebuild_interactables_from_tables();
+            self.sync_feltling_interactables();
             self.rebuild_entity_frames();
             let _event_queued =
                 self.emit_state(id, "enabled", StateValue::Bool(enable), None, depth);
@@ -3439,6 +3468,14 @@ impl EntityWorld {
     }
 
     fn set_animation_cue(&mut self, instance_id: &str, clip: &str, looped: bool, toggle: bool) {
+        if let Some(feltling) = self
+            .feltlings
+            .iter_mut()
+            .find(|actor| actor.state.id == instance_id)
+        {
+            let _accepted = feltling.request_animation(clip, looped, toggle);
+            return;
+        }
         if self
             .ai
             .agents()
@@ -4002,7 +4039,7 @@ impl EntityWorld {
             return false;
         }
         let id = self.id_of(handle).map(str::to_string);
-        if self.retire_guest(handle) {
+        if self.retire_guest(handle) || self.retire_feltling(handle) {
             let removed = self.remove_entity_handle(handle);
             self.rebuild_entity_frames();
             return removed;
@@ -4035,6 +4072,7 @@ impl EntityWorld {
     /// Binding slots stay stable until the current event wave has finished.
     fn remove_entity_handle(&mut self, handle: EntityHandle) -> bool {
         let _retired_guest = self.retire_guest(handle);
+        let _retired_feltling = self.retire_feltling(handle);
         let id = self.id_of(handle).map(str::to_string);
         if self.components.audio.contains(handle)
             && let Some(key) = self.dynamic_key(handle).or_else(|| self.stable_key(handle))
@@ -4418,6 +4456,7 @@ impl EntityWorld {
             }
             self.tick_ai(ctx, &mut tick);
             self.tick_guests(ctx);
+            self.tick_feltlings(ctx);
             let transforms: Vec<_> = self
                 .guests
                 .iter()
@@ -4437,7 +4476,7 @@ impl EntityWorld {
                     transform.yaw_degrees = yaw.to_degrees();
                 }
             }
-            tick.frames_dirty |= !self.guests.is_empty();
+            tick.frames_dirty |= !self.guests.is_empty() || !self.feltlings.is_empty();
             self.tick_moves(ctx, &mut tick);
             self.tick_lifetimes(ctx.delta_seconds, &mut tick);
         }
@@ -4613,6 +4652,11 @@ impl EntityWorld {
         let mut catches = Vec::new();
         for (index, guest) in self.guests.iter_mut().enumerate() {
             let mut leaves = base.to_vec();
+            leaves.extend(
+                self.feltlings
+                    .iter()
+                    .filter_map(crate::engine::feltling::Feltling::collider),
+            );
             for (other, body) in bodies.iter().enumerate() {
                 if other != index {
                     leaves.extend_from_slice(body);
@@ -4811,9 +4855,14 @@ impl EntityWorld {
         let agents = self.ai.agents();
         let obstacles = &self.navigation_obstacles;
         let guests = &self.guests;
+        let feltlings = &self.feltlings;
         let mut moved = self.doors.advance(ctx.delta_seconds, |_, candidate| {
             door_pose_hits_player(candidate, player, body, ctx.body_half)
                 || guests.iter().any(|guest| guest.door_intersects(candidate))
+                || feltlings
+                    .iter()
+                    .filter_map(crate::engine::feltling::Feltling::collider)
+                    .any(|occupancy| candidate.overlaps_leaf(&occupancy))
                 || door_pose_hits_static(index, walls, candidate)
                 || agents.iter().any(|agent| {
                     !matches!(agent.state, crate::engine::ai::AiState::Hidden)
@@ -4854,6 +4903,10 @@ impl EntityWorld {
             if door.advance(ctx.delta_seconds, |candidate| {
                 door_pose_hits_player(candidate, player, body, ctx.body_half)
                     || guests.iter().any(|guest| guest.door_intersects(candidate))
+                    || feltlings
+                        .iter()
+                        .filter_map(crate::engine::feltling::Feltling::collider)
+                        .any(|occupancy| candidate.overlaps_leaf(&occupancy))
                     || walls.iter().any(|wall| door_pose_hits_box(candidate, wall))
                     || obstacles
                         .iter()
@@ -5312,6 +5365,19 @@ impl EntityWorld {
             frame.shadow_only = guest.enabled() && self.frame_shadow_only(&guest.state.id);
             self.entity_frames.push(frame);
         }
+        for feltling in &self.feltlings {
+            self.entity_frames
+                .retain(|frame| frame.instance_id != feltling.state.id);
+            let mut frame = feltling.frame();
+            let (opacity, glow) = self.frame_visuals(&feltling.state.id);
+            frame.opacity *= opacity;
+            frame.glow = if feltling.enabled() { glow } else { None };
+            self.entity_frames.push(frame);
+        }
+        self.retired_feltling_frames
+            .retain(|frame| self.names.get(&frame.instance_id).is_none());
+        self.entity_frames
+            .extend(self.retired_feltling_frames.iter().cloned());
         self.retired_guest_frames
             .retain(|frame| self.names.get(&frame.instance_id).is_none());
         self.entity_frames

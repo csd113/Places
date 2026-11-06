@@ -6505,6 +6505,9 @@ const fn default_prop_occludes() -> bool {
 /// A placed prop / furniture / appliance instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PropDef {
+    /// Optional benevolent guide with authored routes and one movement/pose owner.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feltling: Option<crate::engine::feltling::Definition>,
     /// Explicit blind hunter capability; ordinary instances remain scenery.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tall_guest: Option<crate::engine::tall_guest::Definition>,

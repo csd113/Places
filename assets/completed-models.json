@@ -7404,5 +7404,23 @@
       "tall-guest"
     ],
     "justification": "Retain the approved frozen three-legged hunter: continuous hood/throat, ridged pink inner roll, seam-free ivory stalk and pressed palms. Exact export exception to3000triangle/256texture art defaults; unchanged6000triangle/1024edge engine limits. Native material/deformation/contact/audio review and bounded final0/1/8instance release-cost gate documented in docs/reports/tall-guest-integration.md. No authoring master or global budget increase."
+  },
+  "entities/feltling/model/feltling.glb": {
+    "sha256": "f89602b39812c5112007e324ee358bdef523a8ba9bc697d2636824aea4ee1d7b",
+    "triangles": 2990,
+    "texture_edge": 1024,
+    "identities": [
+      "feltling"
+    ],
+    "bounds_min": [
+      -0.1653217077255249,
+      0.0010000000474974513,
+      -0.108833447098732
+    ],
+    "bounds_max": [
+      0.16554144024848938,
+      0.6098197102546692,
+      0.21965087950229645
+    ]
   }
 }

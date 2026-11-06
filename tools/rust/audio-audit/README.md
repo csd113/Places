@@ -49,3 +49,11 @@ samples. These observations establish neither an OS deadline nor physical
 latency, subjective quality/localization, or cross-platform acceptance.
 
 The Tall Guest mode requires its explicit isolated bank with exactly 23 `tg_` cues. It protects native cue admission, directional/occluded signal, mute, natural voice retirement and repeat-loop continuity beyond offline WAV checks. Measured cost about eight minutes (472 s for 186 trials) and under 200 MiB temporary PCM; no map bake or default test/CI execution. Receipts distinguish device PCM from physical localization and subjective listening.
+
+
+`--feltling-cues` uses the ordinary full runtime catalog and three finite
+Feltling phrases in 30 sequential front/rear/closed/muted/master-zero trials,
+in both speakers and HRTF modes. It reuses the native device/PCM audit, uses
+the 0.5 m voice origin, and never loops a finite phrase. Expected cost is under
+one minute, with no map bake or automatic CI execution. Gameplay lifecycle,
+six-actor mixing, and human listening remain separate evidence.

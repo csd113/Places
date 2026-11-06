@@ -604,6 +604,42 @@
       "min_distance": 1,
       "max_distance": 24,
       "rms_amplitude": 0.02186818972354815
+    },
+    {
+      "id": "feltling_babble",
+      "files": [
+        "feltling/feltling_babble.wav"
+      ],
+      "gain": 0.28,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 14,
+      "rms_amplitude": 0.12448806276791695
+    },
+    {
+      "id": "feltling_attention",
+      "files": [
+        "feltling/feltling_attention.wav"
+      ],
+      "gain": 0.28,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 28,
+      "rms_amplitude": 0.135987280209354
+    },
+    {
+      "id": "feltling_cheer",
+      "files": [
+        "feltling/feltling_cheer.wav"
+      ],
+      "gain": 0.28,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 1,
+      "max_distance": 14,
+      "rms_amplitude": 0.14362717933021815
     }
   ]
 }

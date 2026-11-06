@@ -32,6 +32,8 @@ pub struct Snapshot {
     ai: Vec<(String, crate::engine::ai::travel::Record)>,
     #[serde(default)]
     guests: Vec<crate::engine::tall_guest::Record>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    feltlings: Vec<crate::engine::feltling::Record>,
     time: f32,
     entities: Vec<EntityState>,
     bindings: Vec<(String, bool, f32)>,
@@ -183,6 +185,11 @@ impl EntityWorld {
                 .iter()
                 .map(crate::engine::tall_guest::Guest::checkpoint)
                 .collect(),
+            feltlings: self
+                .feltlings
+                .iter()
+                .map(crate::engine::feltling::Feltling::checkpoint)
+                .collect(),
             time: self.sim_time,
             entities,
             bindings: self
@@ -256,6 +263,7 @@ impl EntityWorld {
         }
         self.restore_checkpoint_ai(snapshot)?;
         self.restore_checkpoint_guests(&snapshot.guests)?;
+        self.restore_checkpoint_feltlings(&snapshot.feltlings)?;
         for (binding, (owner, fired, remaining)) in self.bindings.iter_mut().zip(&snapshot.bindings)
         {
             if self.names.id_of(binding.owner).map(super::EntityId::as_str) != Some(owner.as_str())
@@ -511,16 +519,25 @@ impl EntityWorld {
         }
         for (key, value) in values {
             let declared = original.and_then(|bag| bag.get(key));
-            let derived =
-                (key == "light" && self.components.lights.contains(handle)) || key == "enabled";
+            let derived = ((key == "light" && self.components.lights.contains(handle))
+                || key == "enabled")
+                && matches!(value, StateValue::Bool(_));
+            let feltling_status = key == "feltling_status"
+                && self
+                    .feltlings
+                    .iter()
+                    .any(|actor| actor.state.id == record.id)
+                && value
+                    .as_text()
+                    .and_then(crate::engine::feltling::Stage::parse)
+                    .is_some();
             if key.is_empty()
                 || key.len() > 64
                 || key.chars().any(char::is_control)
                 || !keys.insert(key)
-                || declared.map_or(
-                    !(headless || derived && matches!(value, StateValue::Bool(_))),
-                    |initial| initial.kind() != value.kind(),
-                )
+                || declared.map_or(!(headless || derived || feltling_status), |initial| {
+                    initial.kind() != value.kind()
+                })
             {
                 return Err("Checkpoint state kind mismatch".into());
             }

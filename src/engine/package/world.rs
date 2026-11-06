@@ -327,6 +327,10 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
             level.props.iter().any(|prop| prop.tall_guest.is_some()),
             "tall-guest-v1",
         ),
+        (
+            level.props.iter().any(|prop| prop.feltling.is_some()),
+            "feltling-v1",
+        ),
         (!level.elevators.is_empty(), "elevators-v1"),
         (
             level

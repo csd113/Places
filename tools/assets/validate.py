@@ -2139,6 +2139,8 @@ def _index_level_entities(level: dict, where: str, errors: List[str]) -> Dict:
         ):
             errors.append(f"{context} display_name must not be blank when specified")
         _validate_components(context, prop.get("components"), facts, errors)
+        facts["has_animation"] |= prop.get("feltling") is not None
+        facts["is_feltling"] = prop.get("feltling") is not None
         _validate_ai_body(context, facts, errors)
         _validate_carry_item(context, facts, pickup_ids, errors)
         if facts.get("has_balloon") and (
@@ -2459,7 +2461,8 @@ def _validate_actions(
                 lambda facts: facts["is_light_fixture"] or facts["has_light"],
             )
         elif tag in ("play_animation", "toggle_animation"):
-            require("a target with an `animation` component", lambda facts: facts["has_animation"])
+            require("an animation owner (Feltling permits explicit gesture play only)", lambda facts: facts["has_animation"] and (
+                not facts.get("is_feltling") or tag == "play_animation" and action.get("clip") in ("Pointing", "Waving_Both_Arms", "Excited_Jumping", "Walk", "Run")))
             clip = action.get("clip")
             if clip is not None and (not isinstance(clip, str) or not clip.strip()):
                 errors.append(f"{entry} ('{tag}') clip must not be blank when specified")
@@ -3486,6 +3489,49 @@ def validate_prop_emission_overrides(prop: dict, where: str, errors: List[str]) 
             errors.append(f"{context} intensity must be a finite number in 0..8")
 
 
+def validate_feltlings(level: dict, where: str, errors: List[str]) -> None:
+    """Bounded source admission; actual rig/pose ownership is checked by Rust."""
+    actors = [p for p in level.get("props", []) if isinstance(p, dict) and p.get("feltling") is not None]
+    if len(actors) > 16:
+        errors.append(f"{where}: at most sixteen Feltlings are supported")
+    for prop in actors:
+        label = f"{where}: Feltling {prop.get('id', '<generated>')}"
+        definition = prop["feltling"]
+        if not isinstance(definition, dict) or set(definition) - {"mode", "routes", "look_at"}:
+            errors.append(f"{label}: malformed controller definition")
+            continue
+        focus = definition.get("look_at")
+        if focus is not None and (not isinstance(focus, list) or len(focus) != 3 or any(not is_finite_number(v) or abs(v) > 100000 for v in focus)):
+            errors.append(f"{label}: look_at must be a finite bounded world point")
+        mode = definition.get("mode", "guide")
+        routes = definition.get("routes", [])
+        if mode not in ("guide", "wait", "talk", "cheer") or not isinstance(routes, list) or len(routes) > 8 or mode == "guide" and not routes:
+            errors.append(f"{label}: invalid mode or route count")
+            continue
+        ids = set()
+        for route in routes:
+            if not isinstance(route, dict) or set(route) != {"id", "points"}:
+                errors.append(f"{label}: routes require id and points")
+                continue
+            ident, points = route["id"], route["points"]
+            if not isinstance(ident, str) or not ident or len(ident.encode()) > 64 or any(ord(c) < 32 for c in ident) or ident in ids:
+                errors.append(f"{label}: invalid or duplicate route id")
+            else:
+                ids.add(ident)
+            if not isinstance(points, list) or not 1 <= len(points) <= 32 or any(
+                    not isinstance(point, list) or len(point) != 3 or any(not is_finite_number(v) or abs(v) > 100000 for v in point) for point in points):
+                errors.append(f"{label}: route points must be bounded finite world feet positions")
+        tags = {c.get("component") for c in prop.get("components", []) if isinstance(c, dict)}
+        if (prop.get("solid", False) or prop.get("scale", 1) != 1 or prop.get("physics") is not None
+                or prop.get("float") is not None or prop.get("span") is not None or prop.get("tall_guest") is not None
+                or prop.get("animated_door") is not None or prop.get("shadow_only", False)
+                or prop.get("pitch_degrees", 0) != 0 or prop.get("roll_degrees", 0) != 0
+                or prop.get("material_overrides") or prop.get("emission_overrides")
+                or tags & {"ai", "animation", "nav_agent"}
+                or any(r.get("id") == prop.get("id") for r in level.get("routes", []) if isinstance(r, dict))):
+            errors.append(f"{label}: requires one upright scale-one motion/pose owner")
+
+
 def validate_tall_guests(level: dict, where: str, errors: List[str]) -> None:
     """Static capability mirror; actual rig/clips and native ownership load in Rust."""
     guests = [prop for prop in level.get("props", []) if isinstance(prop, dict)
@@ -3670,6 +3716,7 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
             validate_water_shapes(level, relative, errors)
             validate_floats(level, relative, errors)
             validate_tall_guests(level, relative, errors)
+            validate_feltlings(level, relative, errors)
             validate_static_prop_options(level, relative, errors)
             validate_prop_light_circuits(level, relative, errors)
             validate_surface_shine(level, relative, errors)

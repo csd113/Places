@@ -17,6 +17,7 @@ pub mod elevator;
 pub mod entities;
 pub mod entity;
 pub mod environment;
+pub mod feltling;
 pub mod font;
 pub mod gltf;
 pub mod input;

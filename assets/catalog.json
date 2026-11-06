@@ -39,7 +39,7 @@
     {
       "id": "arcade",
       "display_name": "Retro Bowling & Arcade",
-      "description": "Empty operational 1995–2005 cosmic bowling: navy interiors, warm maple lanes, CRT cabinets and masked blacklight-reactive carpet."
+      "description": "Empty operational 1995\u20132005 cosmic bowling: navy interiors, warm maple lanes, CRT cabinets and masked blacklight-reactive carpet."
     },
     {
       "id": "janitor_closet",
@@ -9334,7 +9334,7 @@
       "asset_type": "light",
       "source": "file",
       "model": "environments/arcade/textures/lights/fluorescent_panel_01.png",
-      "description": "Existing 1.2×0.6 m recessed family with fitted 2:1 diffuser; real neutral-warm local lighting."
+      "description": "Existing 1.2\u00d70.6 m recessed family with fitted 2:1 diffuser; real neutral-warm local lighting."
     },
     {
       "id": "arcade:blacklight_tube",
@@ -9344,7 +9344,7 @@
       "asset_type": "light",
       "source": "file",
       "model": "environments/arcade/textures/lights/blacklight_tube_01.png",
-      "description": "Operational 1.2×0.15 m narrow batten with fitted 8:1 violet lens and nonemissive dark housing. Visible brightness and ultraviolet excitation are distinct."
+      "description": "Operational 1.2\u00d70.15 m narrow batten with fitted 8:1 violet lens and nonemissive dark housing. Visible brightness and ultraviolet excitation are distinct."
     },
     {
       "id": "arcade:decal_bowling_mural_01",
@@ -11300,7 +11300,7 @@
     },
     {
       "id": "janitor:folded_towel_blue",
-      "display_name": "Folded Towel — Slate Blue",
+      "display_name": "Folded Towel \u2014 Slate Blue",
       "asset_class": "environment",
       "theme": "janitor_closet",
       "asset_type": "prop",
@@ -12690,6 +12690,28 @@
       "category": "Characters",
       "solid": false,
       "description": "Original blind three-legged acoustic hunter. Explicit tall_guest placement capability enables behavior.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "feltling",
+      "display_name": "Feltling",
+      "asset_class": "entity",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/feltling/model/feltling.glb",
+      "size": [
+        0.331083,
+        0.60982,
+        0.439302
+      ],
+      "color": "#bb8190",
+      "category": "Characters",
+      "solid": false,
+      "description": "Small benevolent omen. Explicit feltling capability enables authored guidance, conversation and celebration.",
       "authoring": {
         "tool": "completed",
         "source": "completed-models.json"

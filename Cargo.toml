@@ -219,3 +219,11 @@ name = "places-tall-guest-pose-check"
 path = "tools/rust/tall-guest-pose-check/main.rs"
 test = false
 bench = false
+
+
+# Explicit native CPU Feltling import/lifecycle replay; no map bake or Cargo test.
+[[bin]]
+name = "places-feltling-check"
+path = "tools/rust/feltling-check/main.rs"
+test = false
+bench = false

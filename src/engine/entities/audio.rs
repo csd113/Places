@@ -57,6 +57,13 @@ impl EntityWorld {
         {
             return Some(guest.acoustic_position());
         }
+        if let Some(feltling) = self
+            .feltlings
+            .iter()
+            .find(|actor| self.handle_of(&actor.state.id) == Some(handle))
+        {
+            return Some(feltling.acoustic_position());
+        }
         self.components
             .transforms
             .get(handle)
@@ -106,11 +113,19 @@ impl EntityWorld {
             .any(|guest| self.names.get(&guest.state.id) == Some(handle) && !guest.enabled());
         (self.store.contains(handle)
             && !inactive_guest
+            && !self
+                .feltlings
+                .iter()
+                .any(|actor| self.names.get(&actor.state.id) == Some(handle) && !actor.enabled())
             && (self.components.audio.get(handle).is_some()
                 || self
                     .guests
                     .iter()
-                    .any(|guest| self.handle_of(&guest.state.id) == Some(handle))))
+                    .any(|guest| self.handle_of(&guest.state.id) == Some(handle))
+                || self
+                    .feltlings
+                    .iter()
+                    .any(|actor| self.handle_of(&actor.state.id) == Some(handle))))
         .then_some(handle)
     }
 

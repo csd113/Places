@@ -1,0 +1,33 @@
+{
+  "source_glb_library_file_id": "libfile_fde3_f-a57ab718680081918ead036dd1b8a065_2e37728cdad08191acacf8a0401feb09",
+  "source_glb_version": 0,
+  "sha256": "f89602b39812c5112007e324ee358bdef523a8ba9bc697d2636824aea4ee1d7b",
+  "editable_bundle_library_file_id": "libfile_fde3_f-de0c560b4cc88191981fb35a3d7dc2f9_2e37728cdad08191acacf8a0401feb09",
+  "editable_bundle_sha256": "f6eb92cddf8b6fcb0249ae101867acfe705a97c986a6d7cbc475afa26b427e53",
+  "approved_input_sha256": "755ad2aaf44e9e1fc5ea9bf3230adfd37f10ae5fa6dbf3e687d4033a6a69a068",
+  "triangles": 2990,
+  "joints": 16,
+  "pivot": "Approved rig/foot origin retained; catalog envelope is conservative in Z",
+  "corrections": "Normalized fitted albedo, ordinary-budget geometry and repaired raised-arm weights; five original motion outputs preserved with rebased keys",
+  "runtime_texture_sha256": "2feee1c27bdd7524893278f10e28792e0940b7015b55c25deabfa27bb257191b",
+  "source_glb_sha256": "d13ccb3fa1c86e132914e9ee549c228e1ff9b055ded6b824bf2886197d4bbb0a",
+  "import_normalization": {
+    "tool": "tools/entities/normalize_feltling.py",
+    "source_sha256": "d13ccb3fa1c86e132914e9ee549c228e1ff9b055ded6b824bf2886197d4bbb0a",
+    "runtime_sha256": "f89602b39812c5112007e324ee358bdef523a8ba9bc697d2636824aea4ee1d7b",
+    "runtime_bytes": 925156,
+    "unchanged_bin_chunk_sha256": "a9d873a8e9010b2298bd6cea6952f6d4b1da65c71416a412e307b6494c29b76f",
+    "unchanged": [
+      "geometry",
+      "UVs",
+      "weights",
+      "inverse binds",
+      "joint hierarchy",
+      "animation outputs/times",
+      "PNG pixels",
+      "materials"
+    ],
+    "skinned_mesh_nodes_before": 5,
+    "skinned_mesh_nodes_after": 1
+  }
+}

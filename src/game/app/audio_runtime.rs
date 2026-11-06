@@ -319,6 +319,11 @@ impl FrameLoop<'_> {
         time_domain: TimeDomain,
     ) {
         let position = source_position(entity, self.game.entities(), &self.items);
+        // An expired/disabled owner cannot turn a queued positional voice into
+        // listener-centred audio after disable, despawn or a world transition.
+        if position.is_none() {
+            return;
+        }
         let spatial = self.game.entities().audio_source_spatial(entity);
         // Existing room/vending emitters retain their authored identity and
         // actions, but HVAC playback is derived only from placed duct stock.
