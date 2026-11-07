@@ -219,6 +219,7 @@ impl CaptureFrame {
             frustum: self.frustum,
             eye: self.eye,
             occlusion: crate::engine::render::common::occlusion::OcclusionView::EMPTY,
+            clip_plane: [0.0; 4],
         }
     }
 }

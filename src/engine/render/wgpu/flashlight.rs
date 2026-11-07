@@ -124,22 +124,11 @@ pub struct FlashlightShadow {
 }
 
 impl FlashlightShadow {
-    pub fn new(
-        device: &wgpu::Device,
-        texture_layout: &wgpu::BindGroupLayout,
-        material_layout: &wgpu::BindGroupLayout,
-        environment_layout: &wgpu::BindGroupLayout,
-        flashlight: Flashlight,
-    ) -> Self {
+    pub fn new(device: &wgpu::Device, pipeline: WorldPipeline, flashlight: Flashlight) -> Self {
         let texture = depth_texture(device, SHADOW_EDGE);
         Self {
             view: texture.create_view(&wgpu::TextureViewDescriptor::default()),
-            pipeline: WorldPipeline::shadow(
-                device,
-                texture_layout,
-                material_layout,
-                environment_layout,
-            ),
+            pipeline,
             frame: flashlight_frame(flashlight),
         }
     }
@@ -186,5 +175,6 @@ pub fn flashlight_frame(light: Flashlight) -> WorldFrame {
         frustum: Frustum::from_view_projection(&matrix, DepthRange::NegativeOneToOne),
         eye: light.position,
         occlusion: crate::engine::render::common::occlusion::OcclusionView::EMPTY,
+        clip_plane: [0.0; 4],
     }
 }

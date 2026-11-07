@@ -56,6 +56,7 @@ pub(super) struct CharacterTransparency {
     revision: Option<u64>,
     view: Option<(Vec3, Mat4, bool)>,
     pub order: Vec<OrderedTriangle>,
+    pub order_revision: u64,
     indices: Vec<u16>,
 }
 
@@ -74,6 +75,7 @@ impl CharacterTransparency {
             revision: None,
             view: None,
             order: vec![OrderedTriangle::default(); triangles],
+            order_revision: 0,
             // u16 index writes must also satisfy wgpu's four-byte alignment.
             indices: vec![0; triangles.saturating_mul(3).next_multiple_of(2)],
         }
@@ -124,6 +126,7 @@ impl CharacterTransparency {
             return;
         }
         triangle_keys(triangles, &self.positions, transform, eye, &mut self.order);
+        self.order_revision = self.order_revision.wrapping_add(1);
         if !separate_indices {
             self.view = Some((eye, transform, separate_indices));
             return;

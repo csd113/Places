@@ -645,6 +645,7 @@ pub struct WgpuRenderer {
     startup_pipelines: Option<startup::StartupPipelines>,
     flashlight: Option<crate::engine::render::common::Flashlight>,
     flashlight_shadow: Option<super::flashlight::FlashlightShadow>,
+    flashlight_pipeline: Option<WorldPipeline>,
     flashlight_characters: std::cell::RefCell<Vec<super::flashlight::CharacterVisibility>>,
     /// The static world mesh uploaded for the loaded level, if any.
     world: Option<WgpuWorldGeometry>,
@@ -1215,6 +1216,7 @@ impl WgpuRenderer {
             startup_pipelines: None,
             flashlight: None,
             flashlight_shadow: None,
+            flashlight_pipeline: None,
             flashlight_characters: std::cell::RefCell::new(Vec::new()),
             world: None,
             world_props: None,
@@ -1860,11 +1862,17 @@ impl WgpuRenderer {
             return;
         };
         if self.flashlight_shadow.is_none() {
+            let pipeline = self.flashlight_pipeline.take().unwrap_or_else(|| {
+                WorldPipeline::shadow(
+                    &self.device,
+                    self.textures.layout(),
+                    &self.material_layout,
+                    &self.environment_layout,
+                )
+            });
             self.flashlight_shadow = Some(super::flashlight::FlashlightShadow::new(
                 &self.device,
-                self.textures.layout(),
-                &self.material_layout,
-                &self.environment_layout,
+                pipeline,
                 light,
             ));
         }
@@ -6364,13 +6372,22 @@ impl WgpuRenderer {
         pass: &mut wgpu::RenderPass<'a>,
         frame: &'a super::world::WorldFrame,
     ) -> WorldDrawTotals {
-        let (Some(pipeline), Some(world), Some(textures), Some(materials), Some(environment)) = (
+        let (
+            Some(pipeline),
+            Some(scene),
+            Some(world),
+            Some(textures),
+            Some(materials),
+            Some(environment),
+        ) = (
             self.emissive_pipeline.as_ref(),
+            self.scene_pipeline.as_ref(),
             self.world.as_ref(),
             self.world_textures.as_ref(),
             self.world_materials.as_ref(),
             self.environment.as_ref(),
-        ) else {
+        )
+        else {
             return WorldDrawTotals::default();
         };
         pipeline.encode_emissive(
@@ -6389,6 +6406,7 @@ impl WgpuRenderer {
                 frame,
                 cull: self.culling,
             },
+            scene,
         )
     }
 
@@ -8725,7 +8743,12 @@ impl WgpuRenderer {
         .into_iter()
         .flatten()
         .filter_map(WorldPipeline::character_blend_preparation)
-        .collect()
+        .fold(Vec::new(), |mut unique, preparation| {
+            if !unique.contains(&preparation) {
+                unique.push(preparation);
+            }
+            unique
+        })
     }
 
     fn poll_character_pipeline(&mut self, blend: bool) -> Result<bool, String> {

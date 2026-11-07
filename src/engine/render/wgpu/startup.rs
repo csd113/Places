@@ -86,6 +86,7 @@ impl Drop for CharacterPipelineWorker {
 }
 
 pub(super) struct WorldPipelines {
+    shadow: WorldPipeline,
     surface: WorldPipeline,
     capture: WorldPipeline,
     scene: WorldPipeline,
@@ -140,10 +141,26 @@ impl WorldPipelines {
             true,
         );
         timer.step("world-scene");
-        let emissive = WorldPipeline::with_state(
+        let emissive = if SCENE_FORMAT == super::EMISSIVE_FORMAT {
+            scene.fork(device)
+        } else {
+            WorldPipeline::with_state(
+                device,
+                &shader,
+                super::EMISSIVE_FORMAT,
+                textures,
+                materials,
+                environment,
+                wgpu::FrontFace::Ccw,
+                false,
+                true,
+            )
+        };
+        timer.step("world-emissive");
+        let shadow = WorldPipeline::with_state(
             device,
             &shader,
-            super::EMISSIVE_FORMAT,
+            super::super::surface::DEPTH_FORMAT,
             textures,
             materials,
             environment,
@@ -151,8 +168,9 @@ impl WorldPipelines {
             false,
             true,
         );
-        timer.step("world-emissive");
+        timer.step("world-shadow");
         Self {
+            shadow,
             surface,
             capture,
             scene,
@@ -161,6 +179,7 @@ impl WorldPipelines {
     }
 
     pub(super) fn install(self, renderer: &mut WgpuRenderer) {
+        renderer.flashlight_pipeline = Some(self.shadow);
         renderer.world_pipeline = Some(self.surface);
         renderer.capture_pipeline = Some(self.capture);
         renderer.scene_pipeline = Some(self.scene);

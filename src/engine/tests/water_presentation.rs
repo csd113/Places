@@ -137,6 +137,7 @@ fn water_visibility_and_copy_region_preserve_conservative_edges() -> Result<(), 
         ),
         eye: glam::Vec3::ZERO,
         occlusion: crate::engine::render::common::occlusion::OcclusionView::EMPTY,
+        clip_plane: [0.0; 4],
     };
     assert!(state.visible(&clip(glam::Mat4::IDENTITY)));
     assert!(
@@ -194,6 +195,7 @@ fn disconnected_water_does_not_activate_the_gap_or_expand_a_visible_copy() {
         frustum: Frustum::from_view_projection(&matrix, DepthRange::NegativeOneToOne),
         eye: glam::Vec3::ZERO,
         occlusion: OcclusionView::EMPTY,
+        clip_plane: [0.0; 4],
     };
     let left = Aabb {
         min: [-3.0, -0.01, -0.5],

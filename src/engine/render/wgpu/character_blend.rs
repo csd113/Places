@@ -27,6 +27,8 @@ pub(in crate::engine::render::wgpu) struct BlendBatch {
     members: Vec<usize>,
     births: Vec<u64>,
     copied_poses: Vec<Option<(usize, Option<u64>, u64)>>,
+    prepared_orders: Vec<Option<u64>>,
+    order_initialized: bool,
     pub vertices: wgpu::Buffer,
     pub attributes: wgpu::Buffer,
     pub indices: wgpu::Buffer,
@@ -169,6 +171,7 @@ impl BlendBatch {
             })
         };
         let copied_poses = vec![None; members.len()];
+        let prepared_orders = vec![None; members.len()];
         Some(Self {
             births: members
                 .iter()
@@ -176,6 +179,8 @@ impl BlendBatch {
                 .collect(),
             members,
             copied_poses,
+            prepared_orders,
+            order_initialized: false,
             vertices: allocate(
                 "places-character-blend-vertices",
                 vertex_bytes,
@@ -213,15 +218,41 @@ impl BlendBatch {
         frame: &super::super::world::WorldFrame,
         cull: bool,
     ) {
+        let mut order_changed = !self.order_initialized;
+        let mut uniforms_changed = false;
+        for (actor, index) in self.members.iter().enumerate() {
+            let entry = characters.get(*index);
+            let key = entry
+                .filter(|character| {
+                    character.visible && (!cull || frame.visible(&character.world_bounds))
+                })
+                .and_then(|character| character.transparency.as_ref())
+                .map(|state| state.order_revision);
+            if let Some(previous) = self.prepared_orders.get_mut(actor) {
+                order_changed |= *previous != key;
+                *previous = key;
+            }
+            if let (Some(character), Some(uniform)) = (entry, self.uniforms.get_mut(actor)) {
+                let current = character.environment.uploaded_uniform();
+                if bytemuck::bytes_of(uniform) != bytemuck::bytes_of(current) {
+                    *uniform = *current;
+                    uniforms_changed = true;
+                }
+            }
+        }
+        if uniforms_changed {
+            queue.write_buffer(&self.environments, 0, bytemuck::cast_slice(&self.uniforms));
+        }
+        if !order_changed {
+            return;
+        }
+        self.order_initialized = true;
         self.triangles.clear();
         self.visible_vertices = 0;
         for (actor, index) in self.members.iter().enumerate() {
             let Some(character) = characters.get(*index) else {
                 continue;
             };
-            if let Some(uniform) = self.uniforms.get_mut(actor) {
-                *uniform = *character.environment.uploaded_uniform();
-            }
             if !character.visible || (cull && !frame.visible(&character.world_bounds)) {
                 continue;
             }
@@ -267,7 +298,6 @@ impl BlendBatch {
                 bytemuck::cast_slice(&self.ordered_indices),
             );
         }
-        queue.write_buffer(&self.environments, 0, bytemuck::cast_slice(&self.uniforms));
     }
 
     fn copy_poses(&mut self, encoder: &mut wgpu::CommandEncoder, characters: &[CharacterGpu]) {
@@ -403,6 +433,7 @@ impl WgpuCharacters {
                 retained.members = members;
                 // Owner slots may have changed even though these batch members survived.
                 retained.copied_poses.fill(None);
+                retained.order_initialized = false;
                 Some(retained)
             } else {
                 BlendBatch::new(

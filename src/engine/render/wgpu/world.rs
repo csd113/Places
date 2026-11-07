@@ -333,6 +333,24 @@ pub struct WorldFrame {
     /// sort (the reference sorts by squared distance from the body camera).
     pub eye: glam::Vec3,
     pub occlusion: crate::engine::render::common::occlusion::OcclusionView,
+    pub clip_plane: [f32; 4],
+}
+
+/// Reject only boxes wholly outside the shader's retained half-space. The
+/// support point is exact for an AABB; rounding/touching/crossing stays visible.
+fn retained_by_clip_plane(bounds: &Aabb, coefficients: [f32; 4]) -> bool {
+    let plane = Vec4::from_array(coefficients);
+    if !plane.is_finite() || bounds.is_empty() {
+        return true;
+    }
+    let normal = plane.truncate();
+    let minimum = glam::Vec3::from_array(bounds.min);
+    let maximum = glam::Vec3::from_array(bounds.max);
+    let support = glam::Vec3::select(normal.cmpge(glam::Vec3::ZERO), maximum, minimum);
+    let magnitude = normal.abs().dot(minimum.abs().max(maximum.abs())) + plane.w.abs();
+    let margin = magnitude.mul_add(8.0 * f32::EPSILON, 1.0e-4 * normal.length());
+    let distance = plane.dot(support.extend(1.0));
+    !distance.is_finite() || distance >= -margin
 }
 
 impl WorldFrame {
@@ -348,6 +366,7 @@ impl WorldFrame {
         clip_plane: [f32; 4],
     ) -> Self {
         static DISABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        self.clip_plane = clip_plane;
         let diagnostic_disabled = *DISABLED.get_or_init(|| {
             std::env::var("PLACES_BENCH").as_deref() == Ok("1")
                 && std::env::var("PLACES_BENCH_OCCLUSION").as_deref() == Ok("off")
@@ -370,7 +389,9 @@ impl WorldFrame {
     }
 
     pub fn visible(&self, bounds: &Aabb) -> bool {
-        self.frustum.intersects_aabb(bounds) && !self.occlusion.hides(bounds)
+        retained_by_clip_plane(bounds, self.clip_plane)
+            && self.frustum.intersects_aabb(bounds)
+            && !self.occlusion.hides(bounds)
     }
 }
 
@@ -394,6 +415,7 @@ pub fn prepare_world_frame(camera: RenderCamera, render_size: DrawableSize) -> W
         frustum,
         eye: camera.position,
         occlusion: crate::engine::render::common::occlusion::OcclusionView::EMPTY,
+        clip_plane: [0.0; 4],
     }
 }
 
@@ -3050,6 +3072,7 @@ impl PosedReceiverPipelines {
 
 /// Immutable device/layout snapshot for the existing character worker. It
 /// owns no map, surface, upload queue or SDL state.
+#[derive(PartialEq)]
 pub(super) struct CharacterBlendPreparation {
     camera: wgpu::BindGroupLayout,
     lights: wgpu::BindGroupLayout,
@@ -3080,6 +3103,26 @@ impl CharacterBlendPreparation {
     }
 }
 
+/// Immutable programs/layouts shared only by identical target/raster families.
+/// Cameras, lighting bindings, water and sorting remain private to each view.
+struct WorldPrograms {
+    posed_receivers: Option<PosedReceiverPipelines>,
+    character_blend: std::sync::OnceLock<Option<[wgpu::RenderPipeline; 2]>>,
+    front_face: wgpu::FrontFace,
+    raw_target: bool,
+    instanced: Option<InstancePipelines>,
+    models: ModelPipelines,
+    opaque: wgpu::RenderPipeline,
+    cutout: wgpu::RenderPipeline,
+    translucent: wgpu::RenderPipeline,
+    emission: wgpu::RenderPipeline,
+    emission_cutout: wgpu::RenderPipeline,
+    emission_blend: wgpu::RenderPipeline,
+    camera_layout: wgpu::BindGroupLayout,
+    lights_layout: wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+}
+
 /// The world material render pipelines and their camera + texture + material
 /// bindings.
 ///
@@ -3100,21 +3143,9 @@ impl CharacterBlendPreparation {
 ///   into the raw bloom source.
 /// * **emission-blend** — straight coverage blending for transparent emission.
 pub struct WorldPipeline {
-    posed_receivers: Option<PosedReceiverPipelines>,
-    character_blend: Option<[wgpu::RenderPipeline; 2]>,
-    front_face: wgpu::FrontFace,
-    raw_target: bool,
-    instanced: Option<InstancePipelines>,
-    models: ModelPipelines,
-    opaque: wgpu::RenderPipeline,
-    cutout: wgpu::RenderPipeline,
-    translucent: wgpu::RenderPipeline,
-    emission: wgpu::RenderPipeline,
-    emission_cutout: wgpu::RenderPipeline,
-    emission_blend: wgpu::RenderPipeline,
+    programs: std::sync::Arc<WorldPrograms>,
     bind_group: wgpu::BindGroup,
     camera_buffer: wgpu::Buffer,
-    camera_layout: wgpu::BindGroupLayout,
     water_buffer: wgpu::Buffer,
     _water_fallback: super::water::Snapshot,
     water_binding: Option<wgpu::BindGroup>,
@@ -3123,12 +3154,8 @@ pub struct WorldPipeline {
     lights_buffer: wgpu::Buffer,
     /// The group-4 binding over `lights_buffer`.
     lights_bind_group: wgpu::BindGroup,
-    lights_layout: wgpu::BindGroupLayout,
     lights_sampler: wgpu::Sampler,
     lighting_visibility_bound: Option<(u64, bool, u64)>,
-    /// The colour target format the pipelines were built for. A changed surface
-    /// format (a recreated surface) rebuilds only this resource.
-    format: wgpu::TextureFormat,
     /// The last uploaded camera state, so a still camera writes nothing.
     uploaded: Option<CameraUniform>,
     uploaded_lights: Option<Box<DynamicLightsUniform>>,
@@ -3136,7 +3163,6 @@ pub struct WorldPipeline {
     #[cfg(feature = "visual-diagnostics")]
     visual_diagnostic: super::diagnostics::VisualDiagnosticMode,
 }
-
 impl WorldPipeline {
     /// One validated shader module shared by all four target/raster sets.
     /// It is dropped after construction; no process/global shader cache is added.
@@ -3201,19 +3227,6 @@ impl WorldPipeline {
             ],
             immediate_size: 0,
         });
-        let camera_buffer = Self::camera_buffer(device);
-        let water_buffer = super::water::uniform_buffer(device);
-        let water_fallback = super::water::Snapshot::fallback(device);
-        let bind_group = Self::camera_binding(
-            device,
-            &bind_group_layout,
-            &camera_buffer,
-            &water_buffer,
-            &water_fallback,
-        );
-        // Zero-initialized capture buffers see no attached lights.
-        let (lights_buffer, lights_bind_group, lights_sampler) =
-            create_dynamic_lights_binding(device, &lights_layout);
         let models = build_model_pipelines(
             device,
             &pipeline_layout,
@@ -3256,32 +3269,59 @@ impl WorldPipeline {
             shader,
             (format, front_face, raw_target, cull_opaque),
         );
+        Self::from_programs(
+            device,
+            std::sync::Arc::new(WorldPrograms {
+                posed_receivers,
+                character_blend: std::sync::OnceLock::new(),
+                front_face,
+                raw_target,
+                instanced,
+                models,
+                opaque,
+                cutout,
+                translucent,
+                emission,
+                emission_cutout,
+                emission_blend,
+                camera_layout: bind_group_layout,
+                lights_layout,
+                format,
+            }),
+        )
+    }
+
+    /// Reuse immutable GPU programs while allocating independent view state.
+    pub(super) fn fork(&self, device: &wgpu::Device) -> Self {
+        Self::from_programs(device, std::sync::Arc::clone(&self.programs))
+    }
+
+    fn from_programs(device: &wgpu::Device, programs: std::sync::Arc<WorldPrograms>) -> Self {
+        let camera_buffer = Self::camera_buffer(device);
+        let water_buffer = super::water::uniform_buffer(device);
+        let water_fallback = super::water::Snapshot::fallback(device);
+        let bind_group = Self::camera_binding(
+            device,
+            &programs.camera_layout,
+            &camera_buffer,
+            &water_buffer,
+            &water_fallback,
+        );
+        // Zero-initialized capture buffers see no attached lights.
+        let (lights_buffer, lights_bind_group, lights_sampler) =
+            create_dynamic_lights_binding(device, &programs.lights_layout);
         Self {
-            posed_receivers,
-            character_blend: None,
-            front_face,
-            raw_target,
-            instanced,
-            models,
-            opaque,
-            cutout,
-            translucent,
-            emission,
-            emission_cutout,
-            emission_blend,
+            programs,
             bind_group,
             camera_buffer,
-            camera_layout: bind_group_layout,
             water_buffer,
             _water_fallback: water_fallback,
             water_binding: None,
             water_views: None,
             lights_buffer,
             lights_bind_group,
-            lights_layout,
             lights_sampler,
             lighting_visibility_bound: None,
-            format,
             uploaded: None,
             uploaded_lights: None,
             transparent_scratch: std::cell::RefCell::new(Vec::new()),
@@ -3291,38 +3331,59 @@ impl WorldPipeline {
     }
 
     pub(super) fn character_blend_preparation(&self) -> Option<CharacterBlendPreparation> {
-        (self.character_blend.is_none() && self.format != DEPTH_FORMAT).then(|| {
-            CharacterBlendPreparation {
-                camera: self.camera_layout.clone(),
-                lights: self.lights_layout.clone(),
-                state: (self.format, self.front_face, self.raw_target),
-            }
-        })
+        (self.programs.character_blend.get().is_none() && self.programs.format != DEPTH_FORMAT)
+            .then(|| CharacterBlendPreparation {
+                camera: self.programs.camera_layout.clone(),
+                lights: self.programs.lights_layout.clone(),
+                state: (
+                    self.programs.format,
+                    self.programs.front_face,
+                    self.programs.raw_target,
+                ),
+            })
     }
 
-    pub(super) fn install_character_blend(&mut self, prepared: &PreparedCharacterBlend) {
-        if self.camera_layout == prepared.preparation.camera
-            && self.lights_layout == prepared.preparation.lights
-            && (self.format, self.front_face, self.raw_target) == prepared.preparation.state
+    pub(super) fn install_character_blend(&self, prepared: &PreparedCharacterBlend) {
+        if self.programs.camera_layout == prepared.preparation.camera
+            && self.programs.lights_layout == prepared.preparation.lights
+            && (
+                self.programs.format,
+                self.programs.front_face,
+                self.programs.raw_target,
+            ) == prepared.preparation.state
         {
-            self.character_blend.clone_from(&prepared.pipelines);
+            let _installed = self
+                .programs
+                .character_blend
+                .set(prepared.pipelines.clone());
         }
     }
 
     /// Compile the dedicated shader only for scenes with compatible BLEND
     /// characters; ordinary worlds retain their existing pipeline set.
     pub fn prepare_character_blend(
-        &mut self,
+        &self,
         device: &wgpu::Device,
         texture: &wgpu::BindGroupLayout,
         material: &wgpu::BindGroupLayout,
     ) {
-        if self.character_blend.is_none() && self.format != DEPTH_FORMAT {
-            self.character_blend = build_character_blend_pipelines(
-                device,
-                [&self.camera_layout, texture, material, &self.lights_layout],
-                (self.format, self.front_face, self.raw_target),
-            );
+        if self.programs.character_blend.get().is_none() && self.programs.format != DEPTH_FORMAT {
+            let _prepared = self.programs.character_blend.get_or_init(|| {
+                build_character_blend_pipelines(
+                    device,
+                    [
+                        &self.programs.camera_layout,
+                        texture,
+                        material,
+                        &self.programs.lights_layout,
+                    ],
+                    (
+                        self.programs.format,
+                        self.programs.front_face,
+                        self.programs.raw_target,
+                    ),
+                )
+            });
         }
     }
 
@@ -3381,7 +3442,7 @@ impl WorldPipeline {
         self.water_binding = snapshot.map(|image| {
             Self::camera_binding(
                 device,
-                &self.camera_layout,
+                &self.programs.camera_layout,
                 &self.camera_buffer,
                 &self.water_buffer,
                 image,
@@ -3440,7 +3501,7 @@ impl WorldPipeline {
         }
         self.lights_bind_group = dynamic_lights_binding(
             device,
-            &self.lights_layout,
+            &self.programs.lights_layout,
             &self.lights_buffer,
             view,
             &self.lights_sampler,
@@ -3462,8 +3523,8 @@ impl WorldPipeline {
 
     /// The colour target format these pipelines' fragment state was built for.
     #[must_use]
-    pub const fn format(&self) -> wgpu::TextureFormat {
-        self.format
+    pub fn format(&self) -> wgpu::TextureFormat {
+        self.programs.format
     }
 
     /// The pipeline one material pass submits through.
@@ -3476,10 +3537,11 @@ impl WorldPipeline {
             (BatchPass::Translucent, true) => 4,
             (BatchPass::Cutout, true) => 5,
         };
-        self.instanced
+        self.programs
+            .instanced
             .as_ref()
             .and_then(|pipelines| pipelines.passes.get(index))
-            .unwrap_or(&self.opaque)
+            .unwrap_or(&self.programs.opaque)
     }
 
     fn rigid_pipeline_for(
@@ -3498,32 +3560,33 @@ impl WorldPipeline {
         };
         index
             .and_then(|slot| {
-                self.instanced
+                self.programs
+                    .instanced
                     .as_ref()
                     .and_then(|pipelines| pipelines.entities.get(slot))
             })
             .unwrap_or_else(|| self.prop_pipeline_for(pass, emission))
     }
 
-    const fn pipeline_for(&self, pass: BatchPass) -> &wgpu::RenderPipeline {
+    fn pipeline_for(&self, pass: BatchPass) -> &wgpu::RenderPipeline {
         match pass {
-            BatchPass::Opaque => &self.opaque,
-            BatchPass::Cutout => &self.cutout,
-            BatchPass::Translucent => &self.translucent,
+            BatchPass::Opaque => &self.programs.opaque,
+            BatchPass::Cutout => &self.programs.cutout,
+            BatchPass::Translucent => &self.programs.translucent,
         }
     }
 
     /// The emissive-pass pipeline matching one material pass.
-    const fn emission_pipeline_for(&self, pass: BatchPass) -> &wgpu::RenderPipeline {
+    fn emission_pipeline_for(&self, pass: BatchPass) -> &wgpu::RenderPipeline {
         match pass {
-            BatchPass::Cutout => &self.emission_cutout,
-            BatchPass::Opaque => &self.emission,
-            BatchPass::Translucent => &self.emission_blend,
+            BatchPass::Cutout => &self.programs.emission_cutout,
+            BatchPass::Opaque => &self.programs.emission,
+            BatchPass::Translucent => &self.programs.emission_blend,
         }
     }
 
     /// Selects sidedness only for opaque entity materials with a safe transform.
-    const fn entity_pipeline_for(
+    fn entity_pipeline_for(
         &self,
         pass: BatchPass,
         emission: bool,
@@ -3531,14 +3594,18 @@ impl WorldPipeline {
         reflected: Option<bool>,
     ) -> &wgpu::RenderPipeline {
         match entity_cull_mode(pass, double_sided, reflected) {
-            EntityCullMode::Regular if emission => &self.models.emission_culled,
-            EntityCullMode::Regular => &self.models.opaque_culled,
-            EntityCullMode::Reflected if emission => &self.models.emission_culled_reflected,
-            EntityCullMode::Reflected => &self.models.opaque_culled_reflected,
-            EntityCullMode::TwoSided if matches!(pass, BatchPass::Opaque) && emission => {
-                &self.models.emission
+            EntityCullMode::Regular if emission => &self.programs.models.emission_culled,
+            EntityCullMode::Regular => &self.programs.models.opaque_culled,
+            EntityCullMode::Reflected if emission => {
+                &self.programs.models.emission_culled_reflected
             }
-            EntityCullMode::TwoSided if matches!(pass, BatchPass::Opaque) => &self.models.opaque,
+            EntityCullMode::Reflected => &self.programs.models.opaque_culled_reflected,
+            EntityCullMode::TwoSided if matches!(pass, BatchPass::Opaque) && emission => {
+                &self.programs.models.emission
+            }
+            EntityCullMode::TwoSided if matches!(pass, BatchPass::Opaque) => {
+                &self.programs.models.opaque
+            }
             EntityCullMode::TwoSided if emission => self.emission_pipeline_for(pass),
             EntityCullMode::TwoSided => self.pipeline_for(pass),
         }
@@ -3796,11 +3863,21 @@ impl WorldPipeline {
         emission_only: bool,
     ) -> WorldDrawTotals {
         let mut items = self.transparent_scratch.borrow_mut();
-        Self::transparent_items(inputs, &mut items, self.format == DEPTH_FORMAT);
+        Self::transparent_items(inputs, &mut items, self.programs.format == DEPTH_FORMAT);
         sort_transparency(&mut items);
         coalesce_character_triangles(&mut items);
+        self.encode_transparent_items(pass, inputs, &items, emission_only)
+    }
+
+    fn encode_transparent_items<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        inputs: WorldEncodeInputs<'a>,
+        items: &[TransparentEntry],
+        emission_only: bool,
+    ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
-        for entry in items.iter() {
+        for entry in items {
             let item = entry.item;
             let submitted = match item {
                 TransparentItem::World(index) => self.encode_class(
@@ -4199,7 +4276,7 @@ impl WorldPipeline {
         let reflected = characters.culling_reflected(character);
         if !emission
             && characters.has_posed_visibility(character)
-            && let Some(pipelines) = &self.posed_receivers
+            && let Some(pipelines) = &self.programs.posed_receivers
         {
             return pipelines.select(wanted, sided, reflected);
         }
@@ -4229,6 +4306,7 @@ impl WorldPipeline {
                 emission_only,
             );
         }
+        let depth = self.programs.format == DEPTH_FORMAT;
         let character = selection.character;
         let Some(bounds) = characters.world_bounds(character) else {
             return totals;
@@ -4284,7 +4362,7 @@ impl WorldPipeline {
             }
             let Some((vertex_buffer, index_buffer, first_index, index_count)) =
                 selection.span.map_or_else(
-                    || characters.geometry(character, submesh, self.format == DEPTH_FORMAT),
+                    || characters.geometry(character, submesh, depth),
                     |span| {
                         characters
                             .transparent_geometry(character)
@@ -4333,8 +4411,10 @@ impl WorldPipeline {
             return totals;
         };
         let Some(pipeline) = self
+            .programs
             .character_blend
-            .as_ref()
+            .get()
+            .and_then(Option::as_ref)
             .and_then(|pipelines| pipelines.get(usize::from(emission)))
         else {
             return totals;
@@ -4379,6 +4459,7 @@ impl WorldPipeline {
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,
         inputs: WorldEncodeInputs<'a>,
+        scene: &Self,
     ) -> WorldDrawTotals {
         let mut totals = WorldDrawTotals::default();
         for pass_kind in [BatchPass::Opaque, BatchPass::Cutout] {
@@ -4403,7 +4484,10 @@ impl WorldPipeline {
                 totals.absorb(self.encode_extra_class(pass, inputs, true, pass_kind));
             }
         }
-        totals.absorb(self.encode_transparency(pass, inputs, true));
+        // The caller has completed this view's scene/water transparency. Reuse
+        // that exact order, including nonemitters that cover emission behind them.
+        let items = scene.transparent_scratch.borrow();
+        totals.absorb(self.encode_transparent_items(pass, inputs, &items, true));
         totals
     }
 
@@ -4542,7 +4626,8 @@ impl WorldPipeline {
             }
             if inputs.cull
                 && (!frustum.intersects_aabb(&draw.bounds)
-                    || inputs.frame.occlusion.hides(&draw.bounds))
+                    || inputs.frame.occlusion.hides(&draw.bounds)
+                    || !retained_by_clip_plane(&draw.bounds, inputs.frame.clip_plane))
             {
                 continue;
             }
@@ -4631,3 +4716,7 @@ impl WgpuWorldGeometry {
         result
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/capture_visibility.rs"]
+mod capture_visibility_tests;
