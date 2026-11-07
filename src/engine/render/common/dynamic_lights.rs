@@ -419,30 +419,47 @@ mod tests;
 pub fn select_contact_shadows(
     candidates: impl Iterator<Item = (ContactShadowUniform, f32)>,
 ) -> ([ContactShadowUniform; 8], usize) {
-    let mut ranked: Vec<_> = candidates.collect();
-    ranked.sort_by(|a, b| {
-        a.1.total_cmp(&b.1).then_with(|| {
-            a.0.position_floor
-                .iter()
-                .chain(&a.0.half_height)
-                .chain(&a.0.incoming)
-                .zip(
-                    b.0.position_floor
-                        .iter()
-                        .chain(&b.0.half_height)
-                        .chain(&b.0.incoming),
-                )
-                .map(|(left, right)| left.total_cmp(right))
-                .find(|ordering| !ordering.is_eq())
-                .unwrap_or(std::cmp::Ordering::Equal)
-        })
-    });
+    let mut ranked: [Option<(ContactShadowUniform, f32)>; 8] = [None; 8];
+    for candidate in candidates {
+        let insertion = ranked.iter().position(|entry| {
+            entry
+                .as_ref()
+                .is_none_or(|current| contact_order(&candidate, current).is_lt())
+        });
+        if let Some(tail) = insertion.and_then(|index| ranked.get_mut(index..)) {
+            tail.rotate_right(1);
+            if let Some(first) = tail.first_mut() {
+                *first = Some(candidate);
+            }
+        }
+    }
     let mut shadows = [ContactShadowUniform::ZERO; 8];
-    let count = ranked.len().min(shadows.len());
-    for (slot, (shadow, _distance)) in shadows.iter_mut().zip(ranked) {
+    let count = ranked.iter().flatten().count();
+    for (slot, (shadow, _distance)) in shadows.iter_mut().zip(ranked.into_iter().flatten()) {
         *slot = shadow;
     }
     (shadows, count)
+}
+
+fn contact_order(
+    a: &(ContactShadowUniform, f32),
+    b: &(ContactShadowUniform, f32),
+) -> std::cmp::Ordering {
+    a.1.total_cmp(&b.1).then_with(|| {
+        a.0.position_floor
+            .iter()
+            .chain(&a.0.half_height)
+            .chain(&a.0.incoming)
+            .zip(
+                b.0.position_floor
+                    .iter()
+                    .chain(&b.0.half_height)
+                    .chain(&b.0.incoming),
+            )
+            .map(|(left, right)| left.total_cmp(right))
+            .find(|ordering| !ordering.is_eq())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    })
 }
 
 #[cfg(test)]

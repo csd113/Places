@@ -1,7 +1,13 @@
+struct DecalFog {
+    color_density: vec4<f32>,
+    height: vec4<f32>,
+    count: vec4<u32>,
+    regions: array<FogRegion, 16>,
+};
+
 override display_target: bool = false;
 
-// Decals: the reference's local surface markings, drawn as the last scene pass
-// with a depth bias.
+// Surface markings draw with a depth bias between opaque and transparent geometry.
 //
 // sRGB sheets decode at sampling and multiply linear vertex factors.
 // Straight alpha stays numeric; HDR targets retain the linear product.
@@ -9,15 +15,14 @@ override display_target: bool = false;
 struct Camera {
     // Clip-space view-projection; wgpu depth range (z in [0, 1]).
     view_projection: mat4x4<f32>,
-    // World-space eye position, the reference's `u_camera_pos`. The decal
-    // fragment stage never reads it; it is declared because these are
-    // `render::wgpu::world::CameraUniform`'s exact bytes, including the planar half-space.
+    // World-space eye for fog and realtime lighting; CameraUniform prefix.
     position: vec3<f32>,
     // Explicit tail padding so the struct starts with 80 bytes, 16-byte aligned.
     _padding: f32,
     // World-space capture half-space; zero for ordinary/probe/UI views.
     clip_plane: vec4<f32>,
     storm: Storm,
+    fog: DecalFog,
 };
 
 // Group 0 is the frame camera: the same uniform the world pass uploads, in the
@@ -60,9 +65,7 @@ struct VsOut {
 @vertex
 fn vs_main(vertex: WorldVertex) -> VsOut {
     var out: VsOut;
-    // The reference never sets the decal program's `u_model`, and no decal
-    // fragment term reads world position: decal geometry is already in world
-    // space.
+    // Decal geometry is already in world space.
     out.clip = camera.view_projection * vec4<f32>(vertex.position, 1.0);
     out.uv = vertex.uv;
     out.color = vertex.color;
@@ -115,7 +118,7 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
     }
     let alpha = base.a * in.color.a;
     // Base RGB is already linear; numeric alpha stays unchanged.
-    return vec4<f32>(storm_fog(camera.position, in.world_position, base.rgb * light), alpha);
+    return vec4<f32>(storm_fog(camera.position, in.world_position, fogged(base.rgb * light, in.world_position)), alpha);
 }
 
 // The same fragment for a raw (non-sRGB) scene or reflection target: the
@@ -129,7 +132,7 @@ fn fs_main_raw(in: VsOut) -> @location(0) vec4<f32> {
         discard;
     }
     let alpha = base.a * in.color.a;
-    return vec4<f32>(target_color(storm_fog(camera.position, in.world_position, base.rgb * light)), alpha);
+    return vec4<f32>(target_color(storm_fog(camera.position, in.world_position, fogged(base.rgb * light, in.world_position))), alpha);
 }
 
 // A soft-edged decal (a path-to-grass feather strip): the same texture
@@ -146,7 +149,7 @@ fn fs_blend(in: VsOut) -> @location(0) vec4<f32> {
         discard;
     }
     // Base RGB is already linear; numeric alpha stays unchanged.
-    return vec4<f32>(storm_fog(camera.position, in.world_position, base.rgb * light), alpha);
+    return vec4<f32>(storm_fog(camera.position, in.world_position, fogged(base.rgb * light, in.world_position)), alpha);
 }
 
 // The blended fragment for a raw (non-sRGB) scene target.
@@ -159,7 +162,7 @@ fn fs_blend_raw(in: VsOut) -> @location(0) vec4<f32> {
     if (alpha == 0.0) {
         discard;
     }
-    return vec4<f32>(target_color(storm_fog(camera.position, in.world_position, base.rgb * light)), alpha);
+    return vec4<f32>(target_color(storm_fog(camera.position, in.world_position, fogged(base.rgb * light, in.world_position))), alpha);
 }
 
 // Read weather directly from uniform storage. Passing the complete shelter
@@ -177,3 +180,10 @@ fn target_color(color: vec3<f32>) -> vec3<f32> {
 fn linear_to_srgb(color: vec3<f32>) -> vec3<f32> {
     return select(1.055 * pow(max(color, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.4)) - 0.055, color * 12.92, color <= vec3<f32>(0.0031308));
 }
+
+fn ordinary_fog_density() -> f32 { return camera.fog.color_density.w; }
+fn ordinary_fog_region_count() -> u32 { return camera.fog.count.x; }
+fn ordinary_fog_reference_y() -> f32 { return camera.fog.height.x; }
+fn ordinary_fog_height_gain() -> f32 { return camera.fog.height.y; }
+fn ordinary_fog_color() -> vec3<f32> { return camera.fog.color_density.rgb; }
+fn ordinary_fog_region(index: u32) -> FogRegion { return camera.fog.regions[index]; }

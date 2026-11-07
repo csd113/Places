@@ -72,12 +72,7 @@ struct Material {
 // zero at; `color_density.rgb` the colour the layer mixes towards and `.a` its
 // density per metre; `ground_pad.x` the world Y the full-density ground layer
 // starts at. 64 bytes, matching `FogRegionUniform`.
-struct FogRegion {
-    min_falloff: vec4<f32>,
-    max_top: vec4<f32>,
-    color_density: vec4<f32>,
-    ground_pad: vec4<f32>,
-};
+
 
 // The whole frame/level environment: the baked-light switch and scale, the
 // global fog constants and the level's regional fog volumes, the prepared
@@ -857,97 +852,6 @@ fn surface_reflection(in: VsOut, normal: vec3<f32>, view: vec3<f32>, water_refle
 // Eye-to-surface extinction through authored fog boxes. Slab clipping keeps
 // work local to intersecting rays; four fixed Gauss quadrature samples retain
 // horizontal softness and ground-height fade without a volume marching pass.
-fn fog_interval(eye: vec3<f32>, delta: vec3<f32>, lower: vec3<f32>, upper: vec3<f32>) -> vec2<f32> {
-    var near = 0.0;
-    var far = 1.0;
-    for (var axis = 0u; axis < 3u; axis = axis + 1u) {
-        if (abs(delta[axis]) <= 1.0e-6) {
-            if (eye[axis] < lower[axis] || eye[axis] > upper[axis]) {
-                return vec2<f32>(1.0, 0.0);
-            }
-        } else {
-            let first = (lower[axis] - eye[axis]) / delta[axis];
-            let last = (upper[axis] - eye[axis]) / delta[axis];
-            near = max(near, min(first, last));
-            far = min(far, max(first, last));
-            if (far <= near) {
-                return vec2<f32>(1.0, 0.0);
-            }
-        }
-    }
-    return vec2<f32>(near, far);
-}
-
-fn region_density(region: FogRegion, point: vec3<f32>) -> f32 {
-    let lower = region.min_falloff.xyz;
-    let upper = region.max_top.xyz;
-    if (point.y < lower.y || point.y > upper.y) {
-        return 0.0;
-    }
-    let horizontal = min(min(point.x - lower.x, upper.x - point.x), min(point.z - lower.z, upper.z - point.z));
-    var edge = 0.0;
-    if (horizontal > 0.0) {
-        edge = clamp(horizontal / max(region.min_falloff.w, 1.0e-6), 0.0, 1.0);
-    }
-    let ground_y = region.ground_pad.x;
-    let top_y = region.max_top.w;
-    var vertical = 0.0;
-    if (point.y <= ground_y) {
-        vertical = 1.0;
-    } else if (top_y > ground_y && point.y < top_y) {
-        vertical = clamp((top_y - point.y) / (top_y - ground_y), 0.0, 1.0);
-    }
-    return region.color_density.a * edge * vertical;
-}
-
-fn atmosphere(world_position: vec3<f32>) -> vec4<f32> {
-    if (environment.fog_density == 0.0 && environment.fog_region_count == 0u) {
-        return vec4<f32>(0.0);
-    }
-    let delta = world_position - camera.position;
-    let distance = length(delta);
-    let below = max(0.0, environment.fog_reference_y - world_position.y);
-    let global_density = environment.fog_density * (1.0 + environment.fog_height_gain * min(below, 12.0));
-    let global_depth = global_density * distance;
-    var layer_depth = 0.0;
-    var layer_color = environment.fog_color;
-    let quadrature = array<vec2<f32>, 4u>(
-        vec2<f32>(0.06943184, 0.17392743), vec2<f32>(0.3300095, 0.32607257),
-        vec2<f32>(0.66999054, 0.32607257), vec2<f32>(0.93056816, 0.17392743)
-    );
-    let region_count = min(environment.fog_region_count, 16u);
-    for (var index = 0u; index < region_count; index = index + 1u) {
-        let region = environment.fog_regions[index];
-        if (region.color_density.a <= 0.0) {
-            continue;
-        }
-        let interval = fog_interval(camera.position, delta, region.min_falloff.xyz, region.max_top.xyz);
-        if (interval.y <= interval.x) {
-            continue;
-        }
-        var average = 0.0;
-        for (var sample = 0u; sample < 4u; sample = sample + 1u) {
-            let point = camera.position + delta * mix(interval.x, interval.y, quadrature[sample].x);
-            average = average + region_density(region, point) * quadrature[sample].y;
-        }
-        let depth = average * distance * (interval.y - interval.x);
-        // Preserve the strongest-volume overlap policy and stable tie order.
-        if (depth > layer_depth) {
-            layer_depth = depth;
-            layer_color = region.color_density.rgb;
-        }
-    }
-    let depth = global_depth + layer_depth;
-    let color = mix(srgb_to_linear(environment.fog_color), srgb_to_linear(layer_color), layer_depth / max(depth, 1.0e-6));
-    let amount = 1.0 - exp(-depth * depth);
-    return vec4<f32>(color, clamp(amount, 0.0, 1.0));
-}
-
-fn fogged(color: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
-    let fog = atmosphere(world_position);
-    return mix(color, fog.rgb, fog.a);
-}
-
 // The emissive term, in linear light: `mix(u_emission_color, v_color.rgb,
 // u_emission_vertex) * mask * tex_color.rgb * u_emission_scale`.
 fn surface_emission(in: VsOut, base_linear: vec3<f32>) -> vec3<f32> {
@@ -1076,7 +980,6 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let modulation = caustic_modulation(in.world_position, selected, dpdx(in.world_position.xz * 0.45), dpdy(in.world_position.xz * 0.45), beam, caustic_receiver_light(in, selected));
     let baked = surface_light(in, normal) * movable_contact_visibility(in, normal);
     let attached = dynamic_light_term(normal, in.world_position);
-    let light = baked + attached + beam;
     let view = normalize(camera.position - in.world_position);
     var incident = baked + attached + beam;
     if (water_blend_pass && in.water_surface > 0.5
@@ -1090,7 +993,10 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
     let sheen = surface_sheen(in, normal, view, incident, water_reflectance);
     let reflection = surface_reflection(in, normal, view, water_reflectance);
     let emission = surface_emission(in, base_linear);
-    let lit = lit_linear(base_linear * material.albedo_tint.rgb, in.color.rgb, light, material.emission_vertex);
+    // Baked vertex colour already carries static illumination. Realtime
+    // sources multiply the independent unlit material factor instead.
+    let lit = lit_linear(base_linear * material.albedo_tint.rgb, in.color.rgb, baked, material.emission_vertex)
+        + lit_linear(base_linear * material.albedo_tint.rgb, in.caustics_albedo, attached + beam, material.emission_vertex);
     let focused = lit_linear(base_linear * material.albedo_tint.rgb, in.caustics_albedo, modulation * movable_contact_visibility(in, normal), material.emission_vertex);
     let pigment = base_linear * material.uv_tint.rgb;
     let fluorescence = ultraviolet_response(in, normal, pigment);
@@ -1212,3 +1118,10 @@ fn fs_shadow_blend(in: VsOut) {
     if (alpha < 0.95) { discard; }
 }
 
+
+fn ordinary_fog_density() -> f32 { return environment.fog_density; }
+fn ordinary_fog_region_count() -> u32 { return environment.fog_region_count; }
+fn ordinary_fog_reference_y() -> f32 { return environment.fog_reference_y; }
+fn ordinary_fog_height_gain() -> f32 { return environment.fog_height_gain; }
+fn ordinary_fog_color() -> vec3<f32> { return environment.fog_color; }
+fn ordinary_fog_region(index: u32) -> FogRegion { return environment.fog_regions[index]; }

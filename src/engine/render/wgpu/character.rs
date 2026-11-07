@@ -918,6 +918,17 @@ impl WgpuCharacters {
             );
     }
 
+    /// Rewrites only weather, preserving each actor's placement and baked lighting.
+    pub fn update_storm(
+        &mut self,
+        queue: &wgpu::Queue,
+        storm: &crate::engine::render::common::storm::StormUniform,
+    ) {
+        for entry in &mut self.characters {
+            entry.environment.update_storm(queue, storm);
+        }
+    }
+
     /// Prepares GPU palettes or CPU fallback vertices when a pose revision changes,
     /// and rewrites the environment matrix of every character whose route
     /// moved it.

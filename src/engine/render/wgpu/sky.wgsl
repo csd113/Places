@@ -96,8 +96,8 @@ fn sample_sky(ndc: vec2<f32>) -> vec4<f32> {
 
 // Immutable level projections; no generated imagery, geometry rebuild or lighting solve.
 fn background(ndc: vec2<f32>) -> vec3<f32> {
-    let sheet = sample_sky(ndc).rgb * sky.params.x;
-    var color = select(sky.clear_color.rgb, sheet, sky.params.y > 0.5);
+    var color = sky.clear_color.rgb;
+    if (sky.params.y > 0.5) { color = sample_sky(ndc).rgb * sky.params.x; }
     let ray = view_direction(ndc);
     for (var i = 0u; i < min(u32(sky.params.z), 8u); i = i + 1u) {
         let body = sky.celestial[i];

@@ -264,11 +264,11 @@ fn flashlight_term(normal: vec3<f32>, world_position: vec3<f32>) -> vec3<f32> {
             let direction = to_light / distance;
             let angular = dot(beam.direction_inner.xyz, -direction);
             let cone = smoothstep(beam.outer_enabled.x, beam.direction_inner.w, angular);
-            if (cone > 0.0) {
+            let ndl = max(dot(normal, direction), 0.0);
+            if (cone > 0.0 && ndl > 0.0) {
                 let relative = distance / beam.position_range.w;
                 let window = max(1.0 - relative * relative * relative * relative, 0.0);
                 let falloff = window * window / (1.0 + distance * distance);
-                let ndl = max(dot(normal, direction), 0.0);
                 let visibility = flashlight_visibility(world_position, normal, direction);
                 sum += beam.color_strength.rgb * beam.color_strength.w * cone * falloff * ndl * visibility;
             }

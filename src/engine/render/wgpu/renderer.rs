@@ -164,6 +164,14 @@ fn render_trace_finish(stamps: [Option<std::time::Instant>; 6]) {
     }
 }
 
+fn presentation_only_benchmark() -> bool {
+    static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ENABLED.get_or_init(|| {
+        std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+            && std::env::var("PLACES_BENCH_NORENDER").as_deref() == Ok("1")
+    })
+}
+
 /// Explicit swap-stage diagnosis; bounded logs are never timing acceptance.
 fn present_trace_finish(
     start_stamp: Option<std::time::Instant>,
@@ -782,6 +790,7 @@ pub struct WgpuRenderer {
     capture_pipeline: Option<WorldPipeline>,
     /// The mirror plane selected for the last rendered frame, if any.
     active_plane: Option<usize>,
+    capture_weather_active: bool,
     /// The nearest probe cubemap selected for the last rendered frame, as an
     /// index into the level's probe list.
     active_probe: usize,
@@ -1174,7 +1183,7 @@ impl WgpuRenderer {
         let caustics = super::caustics::Caustics::empty(&device, &textures);
         let (probe_fallback, probe_fallback_view) = fallback_probe(&device);
         let (planar_fallback, planar_fallback_view) = fallback_planar(&device, &queue);
-        let lightmaps = LightmapAtlas::upload(&device, &queue, None);
+        let lightmaps = LightmapAtlas::empty(&device, &queue);
 
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -1282,6 +1291,7 @@ impl WgpuRenderer {
             packaged_probes: None,
             capture_pipeline: None,
             active_plane: None,
+            capture_weather_active: false,
             active_probe: 0,
             probe_max_mip: 0,
             reflection_passes: 0,
@@ -2446,7 +2456,7 @@ impl WgpuRenderer {
         if let Some(shadow) = self.flashlight_shadow.as_mut() {
             shadow.pipeline.release_frame_scratch();
         }
-        self.lightmaps = LightmapAtlas::upload(&self.device, &self.queue, None);
+        self.lightmaps = LightmapAtlas::empty(&self.device, &self.queue);
         self.lightmaps_resident = false;
         self.reflection_targets = ReflectionTargets::default();
         self.reflections.routing =
@@ -4328,7 +4338,13 @@ impl WgpuRenderer {
     /// Share resident handles only for the exact immutable prepared atlas.
     fn upload_atlas_step(&self, pending: &mut PreparedInstall) {
         if pending.atlas.is_none() {
-            let (atlas, upload) = self.prepare_atlas(&pending.build);
+            let (atlas, upload) = match self.prepare_atlas(&pending.build) {
+                Ok(prepared) => prepared,
+                Err(error) => {
+                    pending.upload_error = Some(error);
+                    return;
+                }
+            };
             pending.atlas = Some(atlas);
             pending.atlas_cursor = upload.then_some(0);
         }
@@ -4343,7 +4359,7 @@ impl WgpuRenderer {
         }
     }
 
-    fn prepare_atlas(&self, build: &LevelBuild) -> (LightmapAtlas, bool) {
+    fn prepare_atlas(&self, build: &LevelBuild) -> Result<(LightmapAtlas, bool), String> {
         if resident_atlas_matches(
             self.lightmaps.is_resident(),
             self.lightmap_cpu.as_ref(),
@@ -4353,12 +4369,10 @@ impl WgpuRenderer {
                 "[lightmaps] reuse resident immutable atlas: {} bytes; no upload",
                 self.lightmaps.stats().resident_bytes
             ));
-            (self.lightmaps.clone(), false)
+            Ok((self.lightmaps.clone(), false))
         } else {
-            (
-                LightmapAtlas::begin_upload(&self.device, &self.queue, build.lightmaps.as_deref()),
-                true,
-            )
+            LightmapAtlas::begin_upload(&self.device, &self.queue, build.lightmaps.as_deref())
+                .map(|atlas| (atlas, true))
         }
     }
 
@@ -4620,9 +4634,17 @@ impl WgpuRenderer {
         }
         let options = LightmapBuildOptions::for_lightmaps(lightmaps_quality);
         if upload_atlas {
-            let mut atlas = uploaded_atlas.unwrap_or_else(|| {
-                LightmapAtlas::upload(&self.device, &self.queue, build.lightmaps.as_deref())
-            });
+            let prepared_atlas = uploaded_atlas.map_or_else(
+                || LightmapAtlas::upload(&self.device, &self.queue, build.lightmaps.as_deref()),
+                Ok,
+            );
+            let mut atlas = match prepared_atlas {
+                Ok(atlas) => atlas,
+                Err(error) => {
+                    self.mark_fatal(error);
+                    return build;
+                }
+            };
             // A plan or fill failure never reaches this branch: the neutral build
             // has already returned a vertex-lit mesh with the same baked
             // lighting (`build.lightmaps.is_none()`). A missing atlas therefore
@@ -4646,7 +4668,7 @@ impl WgpuRenderer {
                 );
                 fallback.lightmap_failure = Some(LightmapFailure::Upload);
                 build = Arc::new(fallback);
-                atlas = LightmapAtlas::upload(&self.device, &self.queue, None);
+                atlas = LightmapAtlas::empty(&self.device, &self.queue);
             }
             self.lightmaps = atlas;
             self.lightmaps_resident = self.lightmaps.is_resident();
@@ -6000,6 +6022,10 @@ impl WgpuRenderer {
                 false,
             );
         }
+        if self.capture_weather_active {
+            self.update_actor_weather(&self.level_environment().storm);
+            self.capture_weather_active = false;
+        }
         if let Some(characters) = self.world_characters.as_mut() {
             characters.prepare_transparency(&self.queue, &self.characters, &frame, self.culling);
         }
@@ -6030,11 +6056,10 @@ impl WgpuRenderer {
             pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
         }
         if let Some(pipeline) = self.decal_pipeline.as_mut() {
-            pipeline.upload_camera_with_storm(
+            pipeline.upload_camera(
                 &self.queue,
-                frame.view_projection,
-                frame.eye,
-                &environment_template.storm,
+                super::world::CameraUniform::new(frame.view_projection, frame.eye),
+                &environment_template,
             );
         }
         if let Some(pipeline) = self.scene_pipeline.as_mut() {
@@ -6058,11 +6083,10 @@ impl WgpuRenderer {
             pipeline.update_light_uniform(&self.queue, &lights);
         }
         if let Some(pipeline) = self.decal_scene_pipeline.as_mut() {
-            pipeline.upload_camera_with_storm(
+            pipeline.upload_camera(
                 &self.queue,
-                frame.view_projection,
-                frame.eye,
-                &environment_template.storm,
+                super::world::CameraUniform::new(frame.view_projection, frame.eye),
+                &environment_template,
             );
         }
         if let Some(sky) = self.sky.as_ref()
@@ -6484,9 +6508,8 @@ impl WgpuRenderer {
             cull: self.culling,
         };
         totals = match phase {
-            1 => pipeline.encode_opaque(pass, inputs),
             2 => pipeline.encode_transparency(pass, inputs, false),
-            _ => pipeline.encode(pass, inputs),
+            _ => pipeline.encode_opaque(pass, inputs),
         };
         if phase == 2 {
             totals.translucent_draws = totals.visible_batches;
@@ -6511,8 +6534,13 @@ impl WgpuRenderer {
             }
             return (totals, totals.draw_calls.saturating_add(additional_draws));
         }
-        if phase == 0 && !self.visual_diagnostic_active() {
-            self.encode_decals(pass, self.decal_scene_pipeline.as_ref(), frame, &mut totals);
+        if phase == 0 {
+            if !self.visual_diagnostic_active() {
+                self.encode_decals(pass, self.decal_scene_pipeline.as_ref(), frame, &mut totals);
+            }
+            let transparent = pipeline.encode_transparency(pass, inputs, false);
+            totals.translucent_draws = transparent.visible_batches;
+            totals.absorb(transparent);
         }
         // Ambient effects blend over the finished world body, depth-testing
         // against it with depth writes off. Drawn after the decals: a decal
@@ -6667,23 +6695,21 @@ impl WgpuRenderer {
                 sky_pipeline.encode_surface(&mut pass, sky, self.filtering);
                 additional_draws = additional_draws.saturating_add(1);
             }
-            totals = pipeline.encode(
-                &mut pass,
-                super::world::WorldEncodeInputs {
-                    water: false,
-                    geometry: world,
-                    textures,
-                    materials,
-                    environment: environment.bind_group_for_probe(self.active_probe),
-                    props: self.world_props.as_ref(),
-                    dynamic: self.world_dynamic.as_ref(),
-                    characters: self.world_characters.as_ref(),
-                    capture_plane: None,
-                    filtering: self.filtering,
-                    frame,
-                    cull: self.culling,
-                },
-            );
+            let inputs = super::world::WorldEncodeInputs {
+                water: false,
+                geometry: world,
+                textures,
+                materials,
+                environment: environment.bind_group_for_probe(self.active_probe),
+                props: self.world_props.as_ref(),
+                dynamic: self.world_dynamic.as_ref(),
+                characters: self.world_characters.as_ref(),
+                capture_plane: None,
+                filtering: self.filtering,
+                frame,
+                cull: self.culling,
+            };
+            totals = pipeline.encode_opaque(&mut pass, inputs);
             #[cfg(feature = "visual-diagnostics")]
             {
                 additional_draws =
@@ -6699,6 +6725,9 @@ impl WgpuRenderer {
             if !self.visual_diagnostic_active() {
                 self.encode_decals(&mut pass, self.decal_pipeline.as_ref(), frame, &mut totals);
             }
+            let transparent = pipeline.encode_transparency(&mut pass, inputs, false);
+            totals.translucent_draws = transparent.visible_batches;
+            totals.absorb(transparent);
             self.encode_effects(&mut pass, self.effects_pipeline.as_ref(), &mut totals);
         }
         drop(pass);
@@ -6963,9 +6992,20 @@ impl WgpuRenderer {
         ));
     }
 
+    fn update_actor_weather(&mut self, storm: &crate::engine::render::common::storm::StormUniform) {
+        if let Some(characters) = self.world_characters.as_mut() {
+            characters.update_storm(&self.queue, storm);
+        }
+        if let Some(dynamic) = self.world_dynamic.as_mut() {
+            dynamic.update_storm(&self.queue, storm);
+        }
+    }
+
     fn clear_capture_weather(&mut self) {
         let mut clear_atmosphere = self.level_environment();
         clear_atmosphere.storm = crate::engine::render::common::storm::StormUniform::default();
+        self.update_actor_weather(&clear_atmosphere.storm);
+        self.capture_weather_active = true;
         if let Some(binding) = self.environment.as_mut() {
             let _updated = binding.update(&self.queue, &clear_atmosphere);
         }
@@ -7054,7 +7094,11 @@ impl WgpuRenderer {
                     );
                 }
                 if let Some(decal_pipeline) = self.decal_reflection_pipeline.as_mut() {
-                    decal_pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
+                    decal_pipeline.upload_camera(
+                        &self.queue,
+                        super::world::CameraUniform::new(frame.view_projection, frame.eye),
+                        environment.uploaded_uniform(),
+                    );
                 }
                 let mut encoder =
                     self.device
@@ -7099,23 +7143,21 @@ impl WgpuRenderer {
                     {
                         sky_pipeline.encode_scene(&mut pass, sky, self.filtering);
                     }
-                    let _draw_stats = pipeline.encode(
-                        &mut pass,
-                        super::world::WorldEncodeInputs {
-                            water: false,
-                            geometry: world,
-                            textures,
-                            materials,
-                            environment: environment.capture_bind_group(),
-                            props: self.world_props.as_ref(),
-                            dynamic: self.world_dynamic.as_ref(),
-                            characters: self.world_characters.as_ref(),
-                            capture_plane: None,
-                            filtering: self.filtering,
-                            frame: &world_frame,
-                            cull: self.culling,
-                        },
-                    );
+                    let inputs = super::world::WorldEncodeInputs {
+                        water: false,
+                        geometry: world,
+                        textures,
+                        materials,
+                        environment: environment.capture_bind_group(),
+                        props: self.world_props.as_ref(),
+                        dynamic: self.world_dynamic.as_ref(),
+                        characters: self.world_characters.as_ref(),
+                        capture_plane: None,
+                        filtering: self.filtering,
+                        frame: &world_frame,
+                        cull: self.culling,
+                    };
+                    let _opaque_stats = pipeline.encode_opaque(&mut pass, inputs);
                     // Probe captures include the scene's decals.
                     if let (Some(decals), Some(decal_pipeline)) = (
                         self.decals.as_ref(),
@@ -7131,6 +7173,7 @@ impl WgpuRenderer {
                             },
                         );
                     }
+                    let _transparent_stats = pipeline.encode_transparency(&mut pass, inputs, false);
                 }
                 let _submission = self.queue.submit([encoder.finish()]);
                 baked = baked.saturating_add(1);
@@ -7165,6 +7208,9 @@ impl WgpuRenderer {
         self.clear_capture_weather();
         let plane = self.reflections.routing.planes.get(plane_index)?;
         let capture = CaptureFrame::planar(frame, plane);
+        if let (Some(sky), Some(pipeline)) = (self.sky.as_ref(), self.sky_pipeline.as_mut()) {
+            pipeline.upload_camera_with_storm(&self.queue, capture.view_projection, sky, [0.0; 4]);
+        }
         if let Some(characters) = self.world_characters.as_mut() {
             characters.prepare_transparency(
                 &self.queue,
@@ -7187,14 +7233,12 @@ impl WgpuRenderer {
             capture.eye,
             capture.clip_plane,
         );
-        self.decal_reflection_pipeline
-            .as_mut()?
-            .upload_clipped_camera(
-                &self.queue,
-                capture.view_projection,
-                capture.eye,
-                capture.clip_plane,
-            );
+        self.decal_reflection_pipeline.as_mut()?.upload_camera(
+            &self.queue,
+            super::world::CameraUniform::new(capture.view_projection, capture.eye)
+                .with_clip_plane(capture.clip_plane),
+            self.environment.as_ref()?.uploaded_uniform(),
+        );
         Some(capture)
     }
 
@@ -7264,23 +7308,25 @@ impl WgpuRenderer {
                 occlusion_query_set: None,
                 multiview_mask: None,
             });
-            let mut capture_draws = capture_pipeline.encode(
-                &mut pass,
-                super::world::WorldEncodeInputs {
-                    water: false,
-                    geometry: world,
-                    textures,
-                    materials: capture_materials,
-                    environment: environment.capture_bind_group(),
-                    props: self.world_props.as_ref(),
-                    dynamic: self.world_dynamic.as_ref(),
-                    characters: self.world_characters.as_ref(),
-                    capture_plane: Some(plane_index),
-                    filtering: self.filtering,
-                    frame: &capture_frame,
-                    cull: self.culling,
-                },
-            );
+            if let (Some(sky), Some(sky_pipeline)) = (self.sky.as_ref(), self.sky_pipeline.as_ref())
+            {
+                sky_pipeline.encode_scene(&mut pass, sky, self.filtering);
+            }
+            let inputs = super::world::WorldEncodeInputs {
+                water: false,
+                geometry: world,
+                textures,
+                materials: capture_materials,
+                environment: environment.capture_bind_group(),
+                props: self.world_props.as_ref(),
+                dynamic: self.world_dynamic.as_ref(),
+                characters: self.world_characters.as_ref(),
+                capture_plane: Some(plane_index),
+                filtering: self.filtering,
+                frame: &capture_frame,
+                cull: self.culling,
+            };
+            let mut capture_draws = capture_pipeline.encode_opaque(&mut pass, inputs);
             // Planar captures include the scene's decals.
             self.encode_decals(
                 &mut pass,
@@ -7288,7 +7334,10 @@ impl WgpuRenderer {
                 &capture_frame,
                 &mut capture_draws,
             );
-            pass_draws = capture_draws.draw_calls;
+            capture_draws.absorb(capture_pipeline.encode_transparency(&mut pass, inputs, false));
+            pass_draws = capture_draws
+                .draw_calls
+                .saturating_add(usize::from(self.sky.is_some()));
         }
         self.gpu_timer.record_pass_draws(checkpoint, pass_draws);
         let _submission = self.queue.submit([encoder.finish()]);
@@ -7402,6 +7451,12 @@ impl WgpuRenderer {
             self.poll_device();
             present_trace_finish(trace_started, trace_presented);
             return true;
+        }
+        // Only the explicit presentation-only diagnostic may cycle an undrawn
+        // surface. A failed render acquisition must remain a skipped frame.
+        if !presentation_only_benchmark() {
+            self.poll_device();
+            return false;
         }
         self.ensure_ready();
         if self.fatal.is_some() || self.needs_configure || self.drawable_size.is_empty() {

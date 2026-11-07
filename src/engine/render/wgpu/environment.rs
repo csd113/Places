@@ -226,6 +226,22 @@ impl EnvironmentBindings {
         &self.capture_bind_group
     }
 
+    /// Changes only transient sightline weather between already serialized views.
+    pub fn update_storm(
+        &mut self,
+        queue: &wgpu::Queue,
+        storm: &crate::engine::render::common::storm::StormUniform,
+    ) {
+        if self.uploaded.storm != *storm {
+            queue.write_buffer(
+                &self.buffer,
+                u64::try_from(std::mem::offset_of!(EnvironmentUniform, storm)).unwrap_or(0),
+                bytemuck::bytes_of(storm),
+            );
+            self.uploaded.storm = *storm;
+        }
+    }
+
     /// Writes a changed uniform value.
     ///
     /// Returns true when the buffer was written. The predicate compares every

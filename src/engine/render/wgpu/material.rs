@@ -1047,7 +1047,7 @@ impl GpuMaterial {
     /// True when the material emits anything at all.
     #[must_use]
     pub const fn is_emissive(&self) -> bool {
-        self.emissive
+        self.emissive && self.emission_scale.applied > 0.0
     }
 
     /// Writes a new animated emission scale into the material's uniform.
@@ -1055,10 +1055,11 @@ impl GpuMaterial {
     /// Called at most once per frame per animated material; only the four bytes
     /// at the field's offset move, and a scale that did not change is skipped by
     /// the caller.
-    pub fn write_emission_scale(&self, queue: &wgpu::Queue, scale: f32) {
+    pub fn write_emission_scale(&mut self, queue: &wgpu::Queue, scale: f32) {
         let offset = u64::try_from(std::mem::offset_of!(MaterialUniform, emission_scale))
             .unwrap_or(u64::MAX);
         queue.write_buffer(&self.uniform_buffer, offset, &scale.to_le_bytes());
+        self.emission_scale.applied = scale;
     }
 
     /// Writes a new frame reflection mode into the material's uniform.

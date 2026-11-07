@@ -313,6 +313,30 @@ pub fn upload_stats(lightmaps: Option<&LevelLightmaps>) -> LightmapUploadStats {
     stats
 }
 
+/// Reject an unsupported physical allocation before touching the device.
+/// Logical pairs may alias, so only the immutable deduplicated plan is charged.
+///
+/// # Errors
+/// Returns a descriptive load error for malformed shapes or unsupported dimensions.
+pub fn validate_limits(
+    lightmaps: Option<&LevelLightmaps>,
+    maximum_edge: u32,
+    maximum_layers: u32,
+) -> Result<(), String> {
+    let stats = upload_stats(lightmaps);
+    if lightmaps.is_some_and(|maps| !maps.pages.is_empty()) && stats.pages == 0 {
+        return Err("The prepared lightmap pages cannot form a valid square array".into());
+    }
+    let layers = stats.physical_pairs.saturating_mul(2);
+    if stats.page_edge > maximum_edge || layers > usize::try_from(maximum_layers).unwrap_or(0) {
+        return Err(format!(
+            "The prepared lightmap atlas needs {}-pixel pages and {layers} physical array layers; this device supports {maximum_edge} pixels and {maximum_layers} layers. Recompile this map with a supported atlas configuration.",
+            stats.page_edge
+        ));
+    }
+    Ok(())
+}
+
 /// The GPU lightmaps of one level: its page array, or the white fallback.
 ///
 /// The struct keeps the page array alive alongside its view; the environment
@@ -339,13 +363,32 @@ impl LightmapAtlas {
     /// Allocates a prepared atlas as one array of layer pairs, or the fallback
     /// for the vertex-lit path.
     ///
-    /// A page set that cannot be one array ([`upload_stats`] rejects a page
-    /// with a different edge, a non-square page, disagreeing switchable groups
-    /// or an empty base set) uploads no pages and binds the fallback instead;
-    /// the renderer's `needs_upload_fallback` rule then rebuilds the level
-    /// vertex-lit, so a rejected set is a named fallback, never a dropped page.
-    #[must_use]
+    /// Malformed or unsupported imported atlases fail before device allocation.
+    /// An absent/empty atlas retains the explicit vertex-lighting fallback.
+    ///
+    /// # Errors
+    /// Returns a load error when physical layers or dimensions exceed the device.
     pub fn begin_upload(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        lightmaps: Option<&LevelLightmaps>,
+    ) -> Result<Self, String> {
+        let limits = device.limits();
+        validate_limits(
+            lightmaps,
+            limits.max_texture_dimension_2d,
+            limits.max_texture_array_layers,
+        )?;
+        Ok(Self::begin_validated(device, queue, lightmaps))
+    }
+
+    /// The fixed one-pixel/two-layer fallback fits every supported device.
+    #[must_use]
+    pub fn empty(device: &wgpu::Device, queue: &wgpu::Queue) -> Self {
+        Self::begin_validated(device, queue, None)
+    }
+
+    fn begin_validated(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         lightmaps: Option<&LevelLightmaps>,
@@ -409,16 +452,18 @@ impl LightmapAtlas {
     }
 
     /// Uploads all pages immediately for compiler/tool callers.
-    #[must_use]
+    ///
+    /// # Errors
+    /// Returns the same atlas validation errors as [`Self::begin_upload`].
     pub fn upload(
         device: &wgpu::Device,
         queue: &wgpu::Queue,
         lightmaps: Option<&LevelLightmaps>,
-    ) -> Self {
-        let atlas = Self::begin_upload(device, queue, lightmaps);
+    ) -> Result<Self, String> {
+        let atlas = Self::begin_upload(device, queue, lightmaps)?;
         let mut cursor = 0;
         while atlas.upload_next_page(queue, lightmaps, &mut cursor) {}
-        atlas
+        Ok(atlas)
     }
 
     /// Copies one complete page pair. A pending renderer install publishes the
@@ -590,3 +635,7 @@ impl LightmapAtlas {
         self.stats
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/lightmap_limits.rs"]
+mod limit_tests;

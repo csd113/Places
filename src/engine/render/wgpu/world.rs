@@ -99,6 +99,7 @@ pub const WORLD_SHADER_SRC: &str = concat!(
     include_str!("attached_lights.wgsl"),
     "\n",
     include_str!("world.wgsl"),
+    include_str!("atmosphere.wgsl"),
     "\n",
     include_str!("caustics.wgsl"),
     include_str!("water.wgsl")
@@ -4529,7 +4530,10 @@ impl WorldPipeline {
             if draw.index_count == 0 {
                 continue;
             }
-            if emission_only && wanted != BatchPass::Translucent && !draw.emissive {
+            let emissive = props
+                .material(draw.material)
+                .is_some_and(super::material::GpuMaterial::is_emissive);
+            if emission_only && wanted != BatchPass::Translucent && !emissive {
                 continue;
             }
             if inputs.cull && !inputs.frame.visible(&draw.bounds) {
@@ -4555,7 +4559,7 @@ impl WorldPipeline {
                 bound_texture = None;
                 bound_material = None;
             }
-            totals.emissive_visible |= draw.emissive;
+            totals.emissive_visible |= emissive;
             if bound_material != Some(draw.material) {
                 let Some(material) = props.material(draw.material) else {
                     continue;

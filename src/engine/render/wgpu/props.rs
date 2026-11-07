@@ -124,10 +124,10 @@ impl PropEmissionControl {
         }
     }
 
-    fn apply(&mut self, queue: &wgpu::Queue, materials: &[GpuMaterial], seconds: f32) {
+    fn apply(&mut self, queue: &wgpu::Queue, materials: &mut [GpuMaterial], seconds: f32) {
         let scale = self.desired_scale(seconds);
         if scale.to_bits() != self.applied.to_bits() {
-            if let Some(material) = materials.get(self.material) {
+            if let Some(material) = materials.get_mut(self.material) {
                 material.write_emission_scale(queue, scale);
             }
             self.applied = scale;
@@ -653,7 +653,7 @@ impl WgpuProps {
                 control.enabled = enabled;
                 control.scale = scale;
                 control.animation = animation;
-                control.apply(queue, &self.materials, self.animation_seconds);
+                control.apply(queue, &mut self.materials, self.animation_seconds);
             }
         }
     }
@@ -663,7 +663,7 @@ impl WgpuProps {
         if let Some(controls) = self.emission_controls.get_mut(&controller) {
             for control in controls {
                 control.enabled = enabled;
-                control.apply(queue, &self.materials, self.animation_seconds);
+                control.apply(queue, &mut self.materials, self.animation_seconds);
             }
         }
     }
@@ -674,7 +674,7 @@ impl WgpuProps {
         for controller in &self.animated_controllers {
             if let Some(controls) = self.emission_controls.get_mut(controller) {
                 for control in controls {
-                    control.apply(queue, &self.materials, seconds);
+                    control.apply(queue, &mut self.materials, seconds);
                 }
             }
         }

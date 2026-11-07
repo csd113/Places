@@ -32,8 +32,6 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use glam::Mat4;
-
 use super::surface::DEPTH_FORMAT;
 use super::texture::{TextureCache, TextureFiltering};
 use super::world::{
@@ -59,6 +57,7 @@ pub const DECAL_SHADER_SRC: &str = concat!(
     include_str!("attached_lights.wgsl"),
     "\n",
     include_str!("decals.wgsl"),
+    include_str!("atmosphere.wgsl"),
     "\n",
     include_str!("caustics.wgsl")
 );
@@ -248,7 +247,7 @@ pub struct DecalPipeline {
     lights_sampler: wgpu::Sampler,
     lighting_visibility_bound: Option<(u64, bool, u64)>,
     /// The last uploaded camera state, so a still camera writes nothing.
-    uploaded: Option<DecalCamera>,
+    uploaded: Option<Box<DecalCamera>>,
     uploaded_lights: Option<Box<super::world::DynamicLightsUniform>>,
 }
 
@@ -257,6 +256,32 @@ pub struct DecalPipeline {
 struct DecalCamera {
     camera: CameraUniform,
     storm: crate::engine::render::common::storm::StormUniform,
+    fog: DecalFog,
+}
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+struct DecalFog {
+    color_density: [f32; 4],
+    height: [f32; 4],
+    count: [u32; 4],
+    regions: [super::world::FogRegionUniform; crate::engine::level::MAX_FOG_REGIONS],
+}
+
+impl DecalFog {
+    const fn new(environment: &super::world::EnvironmentUniform) -> Self {
+        let [red, green, blue] = environment.fog_color;
+        Self {
+            color_density: [red, green, blue, environment.fog_density],
+            height: [
+                environment.fog_reference_y,
+                environment.fog_height_gain,
+                0.0,
+                0.0,
+            ],
+            count: [environment.fog_region_count, 0, 0, 0],
+            regions: environment.fog_regions,
+        }
+    }
 }
 const DECAL_CAMERA_SIZE: u64 = super::buffer_element_bytes::<DecalCamera>();
 
@@ -593,55 +618,22 @@ impl DecalPipeline {
     /// [`super::world::WorldPipeline::upload_camera`]: a still camera never
     /// touches the buffer, and any change to either the matrix or the eye
     /// reaches the shader.
-    pub fn upload_camera(&mut self, queue: &wgpu::Queue, view_projection: Mat4, eye: glam::Vec3) {
-        self.upload_camera_with_storm(
-            queue,
-            view_projection,
-            eye,
-            &crate::engine::render::common::storm::StormUniform::default(),
-        );
-    }
-
-    pub fn upload_camera_with_storm(
-        &mut self,
-        queue: &wgpu::Queue,
-        view_projection: Mat4,
-        eye: glam::Vec3,
-        storm: &crate::engine::render::common::storm::StormUniform,
-    ) {
-        self.upload_camera_state(queue, CameraUniform::new(view_projection, eye), storm);
-    }
-
-    /// Planar captures share the world's half-space, including cut decals.
-    pub fn upload_clipped_camera(
-        &mut self,
-        queue: &wgpu::Queue,
-        view_projection: Mat4,
-        eye: glam::Vec3,
-        clip_plane: [f32; 4],
-    ) {
-        self.upload_camera_state(
-            queue,
-            CameraUniform::new(view_projection, eye).with_clip_plane(clip_plane),
-            &crate::engine::render::common::storm::StormUniform::default(),
-        );
-    }
-
-    fn upload_camera_state(
+    pub fn upload_camera(
         &mut self,
         queue: &wgpu::Queue,
         camera: CameraUniform,
-        storm: &crate::engine::render::common::storm::StormUniform,
+        environment: &super::world::EnvironmentUniform,
     ) {
         let uniform = DecalCamera {
             camera,
-            storm: *storm,
+            storm: environment.storm,
+            fog: DecalFog::new(environment),
         };
-        if self.uploaded == Some(uniform) {
+        if self.uploaded.as_deref() == Some(&uniform) {
             return;
         }
         queue.write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&uniform));
-        self.uploaded = Some(uniform);
+        **self.uploaded.get_or_insert_with(|| Box::new(uniform)) = uniform;
     }
 }
 

@@ -580,7 +580,7 @@ impl WgpuDynamic {
             .zip(&mut object.emissive)
             .zip(&mesh.submeshes)
         {
-            let Some(material) = self.materials.get(*slot) else {
+            let Some(material) = self.materials.get_mut(*slot) else {
                 continue;
             };
             material.write_emission_scale(queue, scale);
@@ -668,6 +668,20 @@ impl WgpuDynamic {
                     .saturating_mul(std::mem::size_of::<u16>())
             })
             .sum();
+    }
+
+    /// Rewrites only weather, preserving each actor's placement and baked lighting.
+    pub fn update_storm(
+        &mut self,
+        queue: &wgpu::Queue,
+        storm: &crate::engine::render::common::storm::StormUniform,
+    ) {
+        for entry in &mut self.objects {
+            entry.environment.update_storm(queue, storm);
+        }
+        for group in &mut self.instance_groups {
+            group.environment.update_storm(queue, storm);
+        }
     }
 
     /// Writes every object's transform and baked-light probe into its
