@@ -139,7 +139,7 @@ pub(super) fn build_level_geometry_mesh_with_fixture_models(
     // The wall emission plan: coincident walls already resolved into single
     // units, plus every wall's solid volume for the cross-section coverage
     // test. Built once and shared by the wall emitter.
-    let wall_layout = wall_layout(level, &surfaces, &lookup);
+    let wall_layout = wall_layout(level, &surfaces, &lookup, lightmaps.is_some());
     // The plan is lent to the emit context as a `RefCell` so the emitters can
     // stamp quads through `&EmitContext` without an extra `&mut` parameter on
     // every function; `plan_cell` outlives `context` in this scope.
@@ -659,7 +659,12 @@ fn emit_wall_unit(
 /// Selects the parent from the complete wall's contact area, before openings
 /// and material runs split it. A small adjoining corridor must not steal a
 /// tall lintel just because its doorway happens to cross the wall midpoint.
-fn wall_parent_room(level: &LevelDef, wall: &WallDef, bottom: f32, top: f32) -> Option<usize> {
+pub(super) fn wall_parent_room(
+    level: &LevelDef,
+    wall: &WallDef,
+    bottom: f32,
+    top: f32,
+) -> Option<usize> {
     let (wx0, wx1) = (
         wall.x.min(wall.x + wall.width),
         wall.x.max(wall.x + wall.width),

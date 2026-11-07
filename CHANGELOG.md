@@ -13,6 +13,11 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Simplify compatible touching wall sections and continuous recessed-floor edges
+  in Full-lighting preparation without merging their editable sources. Preserve
+  openings, material boundaries and Static lighting detail. Keep tall recessed
+  edges' shading continuous when they span multiple lightmap sections.
+
 - Avoid unused translucent-character batch copies and lighting uploads when no
   main, mirror or probe view consumes them. Skip UV receiver sampling while all
   UV sources are off, and defer fully faded actors' receiving-light refreshes

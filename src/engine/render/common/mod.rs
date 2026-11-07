@@ -743,7 +743,7 @@ fn merge_light_runs(
 const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 
 /// Current pre-release geometry revision; superseded layouts require recompilation.
-pub const GEOMETRY_REVISION: u32 = 7;
+pub const GEOMETRY_REVISION: u32 = 8;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.
@@ -1058,11 +1058,40 @@ pub(in crate::engine::render) fn wall_layout<'a>(
     level: &'a LevelDef,
     surfaces: &LevelSurfaces<'_>,
     materials: &MaterialLookup<'_>,
+    connect_sections: bool,
 ) -> WallLayout<'a> {
     let default_wall = level.defaults.wall_ref();
     let walls = &level.walls;
     let slabs: Vec<Option<WallSlab>> = walls.iter().map(|wall| wall_slab(wall, surfaces)).collect();
-    let groups = wall_groups(&slabs);
+    // Connecting touching sections is safe only on the atlas path: the
+    // vertex-lit path must retain its original lighting interpolation grid.
+    let joins: Vec<_> = walls
+        .iter()
+        .zip(&slabs)
+        .enumerate()
+        .map(|(index, (wall, slab_option))| {
+            if !connect_sections {
+                return None;
+            }
+            let slab = slab_option.as_ref()?;
+            let height = wall.height?;
+            if wall_has_cap_contacts(index, slab, &slabs) {
+                return None;
+            }
+            Some(WallJoinKey {
+                frame: [
+                    wall.y.to_bits(),
+                    height.to_bits(),
+                    slab.thickness.0.to_bits(),
+                    slab.thickness.1.to_bits(),
+                ],
+                room: geometry::wall_parent_room(level, wall, slab.base, slab.top),
+                rooms: wall_join_rooms(level, slab)?,
+                materials: wall_material_keys(wall, default_wall, materials),
+            })
+        })
+        .collect();
+    let groups = wall_groups(&slabs, connect_sections.then_some(joins.as_slice()));
 
     let mut units: Vec<WallUnit<'a>> = Vec::with_capacity(groups.len());
     for group in groups {
@@ -1107,6 +1136,104 @@ pub(in crate::engine::render) fn wall_layout<'a>(
     WallLayout { units, coverages }
 }
 
+// Matching parent frames preserve both texture V phase and material shade.
+// Ceiling-following walls deliberately have no key: coalescing them into a
+// rigid synthetic slab would discard their roof profile.
+#[derive(PartialEq, Eq)]
+struct WallJoinKey {
+    frame: [u32; 4],
+    room: Option<usize>,
+    rooms: Vec<usize>,
+    materials: ([SurfaceKey; 2], SurfaceKey),
+}
+
+/// A new unit inherits its earliest member's cap priority. Keep sections
+/// with intersecting wall footprints separate so interleaved authored walls
+/// retain the exact material ownership of every coplanar cap intersection.
+fn wall_has_cap_contacts(index: usize, slab: &WallSlab, slabs: &[Option<WallSlab>]) -> bool {
+    let bounds = |value: &WallSlab| match value.axis {
+        WallAxis::X => (value.length, value.thickness),
+        WallAxis::Z => (value.thickness, value.length),
+    };
+    let (x, z) = bounds(slab);
+    slabs.iter().enumerate().any(|(other_index, candidate)| {
+        let Some(other) = candidate else { return false };
+        let (ox, oz) = bounds(other);
+        index != other_index
+            && x.0.max(ox.0) < x.1.min(ox.1)
+            && z.0.max(oz.0) < z.1.min(oz.1)
+            && slab.base <= other.top + WALL_COINCIDENCE_EPS
+            && slab.top >= other.base - WALL_COINCIDENCE_EPS
+    })
+}
+
+/// A merged strip must not change the strict face-room selection made at
+/// its midpoint. Require the same complete room memberships along its length;
+/// partial contacts and pitched roofs remain separate rather than guessing.
+fn wall_join_rooms(level: &LevelDef, slab: &WallSlab) -> Option<Vec<usize>> {
+    let overlaps = |(x0, x1, z0, z1): (f32, f32, f32, f32)| {
+        let (along, across) = match slab.axis {
+            WallAxis::X => ((x0, x1), (z0, z1)),
+            WallAxis::Z => ((z0, z1), (x0, x1)),
+        };
+        along.1 > slab.length.0
+            && along.0 < slab.length.1
+            && across.1 >= slab.thickness.0 - LIGHT_FACE_PROBE_M
+            && across.0 <= slab.thickness.1 + LIGHT_FACE_PROBE_M
+    };
+    // These profiles can change strict height ownership along a face even
+    // inside one room. Keep their original sections instead of inferring it.
+    if level
+        .floor_regions
+        .iter()
+        .map(crate::engine::level::FloorRegionDef::bounds)
+        .chain(
+            level
+                .ramps
+                .iter()
+                .map(crate::engine::level::RampDef::bounds),
+        )
+        .chain(
+            level
+                .stairs
+                .iter()
+                .map(crate::engine::level::StairDef::bounds),
+        )
+        .any(overlaps)
+    {
+        return None;
+    }
+    let mut rooms = Vec::new();
+    for (index, room) in level.room_iter().enumerate() {
+        let (x0, x1, z0, z1) = room.bounds();
+        let (along, across) = match slab.axis {
+            WallAxis::X => ((x0, x1), (z0, z1)),
+            WallAxis::Z => ((z0, z1), (x0, x1)),
+        };
+        if along.1 <= slab.length.0
+            || along.0 >= slab.length.1
+            || across.1 < slab.thickness.0 - LIGHT_FACE_PROBE_M
+            || across.0 > slab.thickness.1 + LIGHT_FACE_PROBE_M
+        {
+            continue;
+        }
+        if along.0 > slab.length.0
+            || along.1 < slab.length.1
+            || matches!(
+                room.ceiling,
+                crate::engine::level::CeilingProfileDef::Gable {
+                    ridge: _,
+                    ridge_rise: _
+                }
+            )
+        {
+            return None;
+        }
+        rooms.push(index);
+    }
+    Some(rooms)
+}
+
 /// Groups coincident collinear wall slabs transitively (union-find over wall
 /// indices), in first-appearance order so the emitted range order stays
 /// deterministic and follows the authored wall order.
@@ -1116,7 +1243,10 @@ pub(in crate::engine::render) fn wall_layout<'a>(
 /// overlap rather than to be equal is what lets a wall continued into the next
 /// room (a different base or top) resolve into the same single surface as the
 /// wall it continues from.
-fn wall_groups(slabs: &[Option<WallSlab>]) -> Vec<Vec<usize>> {
+fn wall_groups(
+    slabs: &[Option<WallSlab>],
+    joins: Option<&[Option<WallJoinKey>]>,
+) -> Vec<Vec<usize>> {
     let mut parent: Vec<usize> = (0..slabs.len()).collect();
     for (i, slab) in slabs.iter().enumerate() {
         let Some(a) = *slab else { continue };
@@ -1150,6 +1280,10 @@ fn wall_groups(slabs: &[Option<WallSlab>]) -> Vec<Vec<usize>> {
         }
     }
 
+    if let Some(join_keys) = joins {
+        connect_wall_sections(slabs, join_keys, &mut parent);
+    }
+
     let mut group_of: Vec<Option<usize>> = vec![None; slabs.len()];
     let mut groups: Vec<Vec<usize>> = Vec::new();
     for (i, slab) in slabs.iter().enumerate() {
@@ -1170,6 +1304,60 @@ fn wall_groups(slabs: &[Option<WallSlab>]) -> Vec<Vec<usize>> {
         }
     }
     groups
+}
+
+/// Connect only isolated, matching-frame sections after the legacy overlap
+/// resolution. Never bridge a gap or reframe an existing overlay group.
+fn connect_wall_sections(
+    slabs: &[Option<WallSlab>],
+    joins: &[Option<WallJoinKey>],
+    parent: &mut [usize],
+) {
+    // Keep existing overlapping groups intact. An overlay with a different
+    // height/material must not transitively drag its neighbour into a new
+    // shade/UV frame merely because one member happens to match it.
+    let mut sizes = vec![0_usize; slabs.len()];
+    for index in 0..slabs.len() {
+        let root = find_root(parent, index);
+        if let Some(size) = sizes.get_mut(root) {
+            *size = size.saturating_add(1);
+        }
+    }
+    let isolated: Vec<_> = (0..slabs.len())
+        .map(|index| {
+            let root = find_root(parent, index);
+            sizes.get(root) == Some(&1)
+        })
+        .collect();
+    for (i, slab) in slabs.iter().enumerate() {
+        let Some(a) = slab else { continue };
+        let Some(Some(key)) = joins.get(i) else {
+            continue;
+        };
+        if isolated.get(i) != Some(&true) {
+            continue;
+        }
+        for (j, other) in slabs.iter().enumerate().skip(i.saturating_add(1)) {
+            let Some(b) = other else { continue };
+            let shared_start = a.length.0.max(b.length.0);
+            let shared_end = a.length.1.min(b.length.1);
+            if isolated.get(j) != Some(&true)
+                || joins.get(j).and_then(Option::as_ref) != Some(key)
+                || a.axis != b.axis
+                // Never bridge even a small positive authored gap.
+                || shared_end < shared_start
+                || shared_end - shared_start > WALL_COINCIDENCE_EPS
+            {
+                continue;
+            }
+            let (root_a, root_b) = (find_root(parent, i), find_root(parent, j));
+            if root_a != root_b
+                && let Some(slot) = parent.get_mut(root_b)
+            {
+                *slot = root_a;
+            }
+        }
+    }
 }
 
 /// Union length span of a group of coincident walls.
@@ -2722,6 +2910,8 @@ struct SkirtFace {
     low: f32,
     high: f32,
     key: SurfaceKey,
+    /// Resolve before coalescing so changing a span cannot change its owner.
+    room: Option<usize>,
 }
 
 /// Corner shades of a transition face: the low corners take the darker shade
@@ -2782,6 +2972,7 @@ fn emit_skirt_face(
         low,
         high,
         key,
+        room,
     } = face;
     if high - low <= HEIGHT_MERGE_EPS {
         return;
@@ -2793,11 +2984,6 @@ fn emit_skirt_face(
         (WallAxis::X, true) => WALL_FACE_EAST_MULT,
     };
     let base = skirt_corner_shades(materials.tint(key), mult);
-    let (hint_x, hint_z) = match axis {
-        WallAxis::X => (at, f32::midpoint(span.0, span.1)),
-        WallAxis::Z => (f32::midpoint(span.0, span.1), at),
-    };
-    let room = lighting.room_index_at_height(hint_x, f32::midpoint(low, high), hint_z);
     let lightmapped = lightmap.is_some_and(|wall_lightmap| wall_lightmap.is_on());
     let max_span_m = lightmap.map_or(f32::INFINITY, |wall_lightmap| wall_lightmap.max_span_m);
 
@@ -2814,8 +3000,17 @@ fn emit_skirt_face(
                 tile_low,
                 tile_high,
             );
-            let colors = if lightmapped {
+            let colors = if lightmapped && tile_low <= low && tile_high >= high {
                 base
+            } else if lightmapped {
+                points.map(|point| {
+                    let fraction = ((point[1] - low) / (high - low)).clamp(0.0, 1.0);
+                    std::array::from_fn(|channel| {
+                        let bottom = base[0].get(channel).copied().unwrap_or_default();
+                        let top = base[2].get(channel).copied().unwrap_or_default();
+                        (top - bottom).mul_add(fraction, bottom)
+                    })
+                })
             } else {
                 skirt_corner_colors(base, points, lighting)
             };
@@ -2905,22 +3100,40 @@ fn emit_floor_skirts(
     materials: &MaterialLookup<'_>,
     lightmap: Option<LightmapEmit<'_>>,
 ) {
+    let mut faces = floor_skirt_faces(room, grid, level, materials);
+    for face in &mut faces {
+        let (x, z) = match face.axis {
+            WallAxis::X => (face.at, f32::midpoint(face.span.0, face.span.1)),
+            WallAxis::Z => (f32::midpoint(face.span.0, face.span.1), face.at),
+        };
+        face.room = lighting.room_index_at_height(x, f32::midpoint(face.low, face.high), z);
+    }
+    if lightmap.is_some_and(|value| value.is_on()) {
+        faces = merge_skirt_faces(faces);
+    }
+    let mut scratch = Vec::new();
+    for face in faces {
+        emit_skirt_face(buckets, &mut scratch, materials, lighting, face, lightmap);
+    }
+}
+
+/// Collect the exact authored grid transitions before any atlas-only merging.
+fn floor_skirt_faces(
+    room: &RoomDef,
+    grid: &RoomFloorGrid,
+    level: &LevelDef,
+    materials: &MaterialLookup<'_>,
+) -> Vec<SkirtFace> {
     let (cells_x, cells_z) = (grid.cells_x(), grid.cells_z());
     if cells_x == 0 || cells_z == 0 {
-        return;
+        return Vec::new();
     }
     // A room has floor and ceiling materials but no wall material of its own, so
     // the documented fallback for a transition face is the level's wall material.
     // A region with its own `edge_material` overrides it.
     let default_edge = materials.key(MaterialSlot::Wall, level.defaults.wall_ref());
 
-    // Skirts are few and short-lived: one local scratch keeps the emitter
-    // signature within the module's argument budget.
-    let mut scratch: Vec<Vertex> = Vec::new();
-    let mut emit = |face: SkirtFace| {
-        emit_skirt_face(buckets, &mut scratch, materials, lighting, face, lightmap);
-    };
-
+    let mut faces = Vec::new();
     let region_owner = |ix: usize, iz: usize| region_at_cell(level, room, grid, ix, iz);
     let ramp_owner = |ix: usize, iz: usize| cell_has_ramp(level, grid, ix, iz);
 
@@ -2980,7 +3193,7 @@ fn emit_floor_skirts(
                 else {
                     continue;
                 };
-                emit(SkirtFace {
+                faces.push(SkirtFace {
                     axis: WallAxis::X,
                     // The face belongs to the lower side's volume, so its
                     // normal points toward it: a recess wall faces into the
@@ -2991,6 +3204,7 @@ fn emit_floor_skirts(
                     low: y.min(other),
                     high: y.max(other),
                     key,
+                    room: None,
                 });
             }
 
@@ -3018,7 +3232,7 @@ fn emit_floor_skirts(
                 else {
                     continue;
                 };
-                emit(SkirtFace {
+                faces.push(SkirtFace {
                     axis: WallAxis::Z,
                     positive: y > other,
                     at,
@@ -3026,10 +3240,47 @@ fn emit_floor_skirts(
                     low: y.min(other),
                     high: y.max(other),
                     key,
+                    room: None,
                 });
             }
         }
     }
+    faces
+}
+
+/// Coalesce only identical coplanar atlas receivers. Heights and room/material
+/// ownership are exact keys; a positive gap, step, corner or hole stays split.
+/// Static bypasses this pass to preserve its baked-vertex interpolation.
+fn merge_skirt_faces(mut faces: Vec<SkirtFace>) -> Vec<SkirtFace> {
+    faces.sort_by(|a, b| {
+        u8::from(a.axis == WallAxis::Z)
+            .cmp(&u8::from(b.axis == WallAxis::Z))
+            .then_with(|| a.positive.cmp(&b.positive))
+            .then_with(|| a.at.total_cmp(&b.at))
+            .then_with(|| a.low.total_cmp(&b.low))
+            .then_with(|| a.high.total_cmp(&b.high))
+            .then_with(|| a.key.cmp(&b.key))
+            .then_with(|| a.room.cmp(&b.room))
+            .then_with(|| a.span.0.total_cmp(&b.span.0))
+    });
+    let mut merged: Vec<SkirtFace> = Vec::with_capacity(faces.len());
+    for face in faces {
+        if let Some(last) = merged.last_mut()
+            && last.axis == face.axis
+            && last.positive == face.positive
+            && last.at.to_bits() == face.at.to_bits()
+            && last.low.to_bits() == face.low.to_bits()
+            && last.high.to_bits() == face.high.to_bits()
+            && last.key == face.key
+            && last.room == face.room
+            && last.span.1.total_cmp(&face.span.0).is_eq()
+        {
+            last.span.1 = face.span.1;
+        } else {
+            merged.push(face);
+        }
+    }
+    merged
 }
 
 /// Flushes the quads appended to `scratch` since `cursor` into `key`'s bucket.
@@ -3050,3 +3301,7 @@ fn flush_wall_run(
     buckets.add_quads(key, scratch.get(*cursor..).unwrap_or_default());
     *cursor = scratch.len();
 }
+
+#[cfg(test)]
+#[path = "../../tests/compiled_sections.rs"]
+mod compiled_sections_tests;

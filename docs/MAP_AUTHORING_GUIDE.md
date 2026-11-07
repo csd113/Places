@@ -1135,6 +1135,33 @@ licence to duplicate:
 
 ---
 
+### Compiled section preparation
+
+Full-lighting preparation can connect touching collinear wall sections when
+explicit height/base, thickness, resolved face/body materials, UV/shade frame
+and stable room ownership match. Real gaps, different material or height
+frames, pitched/partial room contacts, local floor-profile contacts and
+intersecting cap contacts remain separate. Existing overlapping-wall material
+resolution and cross-wall cap ownership are retained. Openings and glass
+keep their authored shapes; collision and navigation still use the original
+level, not the synthetic rendering slab.
+
+Contiguous recessed/raised-floor edge spans can similarly share one Full atlas
+receiver only when plane, outward direction, low/high, material and original
+room hint match. Tall edges split across charts interpolate their original
+whole-face material gradient, rather than restarting it at each chart.
+Static/vertex-lit geometry retains its original lighting interpolation.
+
+These are mesh-preparation operations, not JSON edits. Wall sections remain
+individually editable and package source recovery retains the authored sections,
+not the merged rendering slab.
+Separately authored doorway side/header sections with different height frames
+can still have different material gradients or texture V origins. They are not
+automatically reframed: use a wall with an opening when one continuous parent
+frame is intended. Stair side UVs and per-step shade frames are also retained.
+Geometry revision 8 invalidates older prepared geometry for explicit rebuilds;
+the runtime package record layouts are unchanged.
+
 ## 9. Openings
 
 An opening is a rectangular hole cut through a wall's thickness. All opening kinds
