@@ -299,6 +299,70 @@ controls while retaining the wall/door/light tools and 24-tile material browser.
 See the [supported routes and controls](docs/EDITOR.md#construction-generators-0131)
 and [phase acceptance](docs/reports/release-0.13.1.md).
 
+### Completed audit and repair coverage (4–5 November 2026)
+
+Reuse the linked fixes and regression evidence before repeating broad audits of
+unchanged code. This dated record covers the scopes below; later changes, new
+evidence and regressions still need targeted review.
+
+**Astra Extra High audits followed by Sol 6.1 Extra High repairs:**
+
+- **Map compiler:** Source/output publication safety, metadata-only stream reuse
+  and compact export. [Fixes](https://github.com/csd113/Places/commit/52f03b0a12c9eed2f4d58d950ce4169c8d6a50a6).
+- **AI code:** Actor avoidance/perception, shelter/path budgets, reservations,
+  authored waits and transported shelter ownership.
+  [Fixes](https://github.com/csd113/Places/commit/fc0852944620803fc6023e04f536d6115131d6cf).
+- **Runtime lighting:** Contact-shadow receivers/selection and elevator light
+  occlusion. [Fixes](https://github.com/csd113/Places/commit/90aaffa7ebd92fa6d2335ea16cff2764a1bb0de2).
+- **Full level editor:** Attachment transforms, room-owned coordinates,
+  focus/recovery, bake shutdown, memory admission and script publication.
+  [Fixes](https://github.com/csd113/Places/commit/68136b44f14f3abca83a0699e18f3e9032f9672f).
+- **Level transitions, saves and recovery:** Bundled menu, failed campaign writes,
+  NPC navigation pace and remaining light-release holds.
+  [Fixes](https://github.com/csd113/Places/commit/806944a477516405d0c0172cc834762f7fb8ada3).
+- **Scripts, triggers and progression:** Pool hint order, Beam travel retries,
+  interaction reset and timer repeat defaults.
+  [Fixes](https://github.com/csd113/Places/commit/2fb2691e7a4be4378db9241abff774d59a9d04c0).
+- **Player movement and collision:** Hull corner stepping, shared footstep hearing
+  and the separately requested crouch/walk sound bounds.
+  [Fixes](https://github.com/csd113/Places/commit/d9108749edbe4f53a77af35268e595ef0956cd98).
+- **Asset loading and resource lifetime:** Entity-handle reuse, bounded editor
+  child/output-reader cancellation and the corrected audio-lifetime assumption.
+  [Fixes](https://github.com/csd113/Places/commit/900a468766860ede5a060f0452e5a8abf78f2777).
+- **Audio and acoustics:** Floor/ceiling/elevator barriers, initial spatial
+  occlusion and storey/face reverb overlap.
+  [Fixes](https://github.com/csd113/Places/commit/81788355ec5e898a7188ed1d1857c09b431c5f23).
+- **Runtime map/package loading:** Concurrent import protection and
+  semantic/nested allocation admission.
+  [Fixes](https://github.com/csd113/Places/commit/9c05acf8d242e49274bb6a12412cefb3846980e7).
+
+**Completed original scopes with a later repair-model change:**
+
+Astra audited these scopes; Sol began the repairs and Astra Extra High completed
+them after an explicit model change.
+
+- **Rendering performance, culling telemetry and water:** Matching geometry
+  counters, hidden-water work and runtime visibility-ray preparation.
+  [Fixes](https://github.com/csd113/Places/commit/124f6c85003a74d6cfefbd123f3ffa3db0a6ab11).
+  This predates the later character self-lighting work.
+- **Physics props and interactions:** Control-rate-independent held pushes,
+  resting contacts, supported jams and the native contact fixture.
+  [Fixes](https://github.com/csd113/Places/commit/bd0044eb984a6150ee0b26b8c8562ac4dfbb2f4d).
+  The recorded stress/settling costs remain.
+
+### Completed wgpu reviews (6–7 November 2026)
+
+Astra Extra High performed both the migration/correctness and deeper foundational
+performance audits and their renderer repairs, including the final foundational
+follow-up. Coverage includes GPU-resource ownership/reuse, repeated view work,
+lighting/transparency/reflections, frame recovery, loading preparation, texture
+processing and glow footprints. See the
+[implementation through 2c47601b](https://github.com/csd113/Places/compare/7074be0c61601677e2d40eb38ddea54586b32118...2c47601b78e16938ec301d5cf584d1d0f4c9f8f2)
+and the player-facing visual, smoothness and measured-performance entries above.
+
+This record ends at `2c47601b`. Later Tall Guest/Feltling character self-lighting
+and mouth/floor lighting/visibility work is outside this completed-review record.
+
 ## 0.13.0 — 2026-10-28
 
 - Ship seven playable projects in the Windows portable distribution: **The
