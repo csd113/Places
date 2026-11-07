@@ -214,8 +214,12 @@ impl App {
                 keycode: Some(Keycode::Escape),
                 repeat: false,
                 ..
+            } => {
+                if !self.viewport.runtime_close_cinematic() {
+                    self.stop_runtime();
+                }
             }
-            | Event::Window {
+            Event::Window {
                 win_event: WindowEvent::FocusLost | WindowEvent::Hidden | WindowEvent::Minimized,
                 ..
             } => self.stop_runtime(),

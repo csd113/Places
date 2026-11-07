@@ -1,10 +1,9 @@
 //! Disposable first-person mode: production simulation owners, no document or profile writes.
 mod commands;
 mod physics;
+mod speech;
 
 pub(super) use physics::PreparedPhysics;
-
-use std::collections::VecDeque;
 
 use glam::Vec3;
 use sdl3::event::Event;
@@ -20,17 +19,6 @@ use crate::game::{AppState, Game};
 
 const LIMITATIONS: &str = "Quick test: approximate lighting. Cross-level travel, saved checkpoints, player forms, ragdolls, mannequin pin games, actor carry/use assemblies require a final package test.";
 
-// The authoring schema bounds each message's text. This additional session cap
-// bounds the backlog when one handler emits several messages in a single tick.
-const MAX_MESSAGES: usize = 16;
-
-struct Message {
-    title: String,
-    rows: Vec<String>,
-    page: usize,
-    completed: bool,
-}
-
 pub(super) struct MessageView<'a> {
     pub title: &'a str,
     pub rows: &'a [String],
@@ -44,7 +32,7 @@ pub(super) struct Session {
     settings: Settings,
     warning: String,
     status: String,
-    messages: VecDeque<Message>,
+    speech: speech::Speech,
     throw_requested: bool,
     flashlight: bool,
     interactions: u64,
@@ -96,7 +84,7 @@ impl Session {
             settings: Settings::default(),
             warning: prepared.warning,
             status: "Testing the current unsaved scene.".into(),
-            messages: VecDeque::new(),
+            speech: speech::Speech::default(),
             throw_requested: false,
             flashlight: false,
             interactions: 0,
@@ -120,6 +108,12 @@ impl Session {
             return;
         }
 
+        let cinematic = self.cinematic_controls_blocked();
+        if crate::game::input::pressed_key(event)
+            .is_some_and(|key| self.speech.navigate(key, cinematic))
+        {
+            return;
+        }
         if self.cinematic_controls_blocked() {
             self.input.clear_gameplay_inputs();
             self.throw_requested = false;
@@ -127,7 +121,7 @@ impl Session {
         }
 
         if crate::game::input::pressed_key(event) == Some(Keycode::F1) {
-            self.game.request_hint();
+            self.speech.subtitles.guidance_requested = Some(());
             return;
         }
         self.input
@@ -155,6 +149,10 @@ impl Session {
         audio: &mut AudioSystem,
     ) -> Result<(), String> {
         self.reconcile_cinematic_input();
+        if self.speech.subtitles.guidance_requested.is_some() {
+            self.game.request_hint();
+            self.apply_commands(renderer, audio)?;
+        }
         if self.pause_for_message(audio) {
             return Ok(());
         }
@@ -229,6 +227,7 @@ impl Session {
         if self.pause_for_message(audio) {
             return Ok(());
         }
+        self.speech.tick(seconds);
         self.publish_camera();
         self.advance_presentation(seconds, renderer);
         if let Some(step) = self.audio.footstep(&mut self.game, &self.physics.world) {
@@ -251,29 +250,36 @@ impl Session {
         Ok(())
     }
 
-    fn enqueue_message(
-        &mut self,
-        title: String,
-        lines: &[String],
-        completed: bool,
-    ) -> Result<(), String> {
-        if self.messages.len() >= MAX_MESSAGES {
-            return Err("Quick test message queue exceeded 16 messages; return to editing and reduce the script's message burst.".into());
+    fn enqueue_message(&mut self, title: String, lines: &[String], completed: bool) {
+        if self.speech.show(title, lines, completed) {
+            self.input.clear_gameplay_inputs();
+            self.throw_requested = false;
+            self.game.reset_timing();
         }
-        self.messages.push_back(Message {
-            title,
-            rows: crate::game::ui::wrap_guidance(lines),
-            page: 0,
-            completed,
-        });
-        self.input.clear_gameplay_inputs();
-        self.throw_requested = false;
-        self.game.reset_timing();
-        Ok(())
+    }
+
+    pub fn close_cinematic(&mut self) -> bool {
+        if !self.cinematic_controls_blocked() {
+            return false;
+        }
+        self.game.entities_mut().cancel_cinematic();
+        self.effective_camera = None;
+        self.speech.clear();
+        self.reconcile_cinematic_input();
+        self.publish_camera();
+        true
+    }
+
+    pub fn subtitles(&self) -> Option<(&str, &[String])> {
+        if self.speech.modal.is_empty() {
+            self.speech.subtitles.current()
+        } else {
+            None
+        }
     }
 
     fn message_event(&mut self, event: &Event) -> bool {
-        let Some(message) = self.messages.front_mut() else {
+        let Some(message) = self.speech.modal.front_mut() else {
             return false;
         };
         let mut dismiss = false;
@@ -289,7 +295,7 @@ impl Session {
             }
         }
         if dismiss {
-            drop(self.messages.pop_front());
+            self.speech.dismiss_hint();
         }
         self.input.clear_gameplay_inputs();
         self.throw_requested = false;
@@ -298,7 +304,7 @@ impl Session {
     }
 
     fn pause_for_message(&mut self, audio: &mut AudioSystem) -> bool {
-        if self.messages.is_empty() {
+        if self.speech.modal.is_empty() {
             return false;
         }
         self.input.clear_gameplay_inputs();
@@ -310,7 +316,7 @@ impl Session {
     }
 
     pub fn message_view(&self) -> Option<MessageView<'_>> {
-        self.messages.front().map(|message| MessageView {
+        self.speech.modal.front().map(|message| MessageView {
             title: &message.title,
             rows: &message.rows,
             page: message.page,
@@ -512,12 +518,13 @@ impl Session {
             "warning": self.warning,
             "limitations": LIMITATIONS,
             "status": self.status(),
-            "message": self.messages.front().map(|message| serde_json::json!({
+            "message": self.speech.modal.front().map(|message| serde_json::json!({
                 "title": message.title, "rows": message.rows, "page": message.page,
                 "page_count": message.rows.len().div_ceil(6).max(1),
                 "completed": message.completed,
             })),
-            "queued_messages": self.messages.len().saturating_sub(1),
+            "subtitles": self.speech.subtitles.snapshot(),
+            "queued_messages": self.speech.modal.len().saturating_sub(1),
             "temporary": true,
         })
     }
@@ -527,7 +534,7 @@ impl Session {
         self.effective_camera = None;
         self.input.clear_gameplay_inputs();
         self.throw_requested = false;
-        self.messages.clear();
+        self.speech.clear();
         audio.clear_world();
         self.audio = crate::game::audio::WorldAudio::default();
         self.audio_stats = audio.stats();

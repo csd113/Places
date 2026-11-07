@@ -84,7 +84,7 @@ that the editor performs Luau typechecking.
 | `api.ai_pause(id,key,paused)` | Suspends/resumes the named continuation and its clock |
 | `api.ai_senses(id,rules)` | Replaces at most sixteen typed hearing/sight rules with mapped responses |
 | `api.navigate(id,x,y,z)` | Queues ordinary AI navigation; finite coordinates within ±100000 m, AI body required; shared body classes, routing budgets, live doors and physical obstacles still apply |
-| `api.message(title,lines)` | Queued subtitles: printable speaker/title ≤80 bytes and a dense plain array of 1–6 printable lines ≤72 bytes each. Enter/PgDown advances, PgUp rereads, Backspace skips; explicit F1 help retains its dismissible guidance panel |
+| `api.message(title,lines)` | Queued subtitles: printable speaker/title ≤80 bytes and a dense plain array of 1–6 printable lines ≤72 bytes each. Enter/PgDown advances, cinematic Esc closes the cinematic; outside cinematics PgUp rereads and Backspace skips; explicit F1 help retains its dismissible guidance panel |
 | `api.finish(won,title,detail)` | Ends the run with printable title/detail ≤80/160 bytes; Enter restarts world/VM/player and authored grouped items, Escape returns to menu |
 | `api.exists(id: string): boolean` | Tests a currently live entity identity |
 | `api.door_status(id)` | Read-only invocation-start hinged-leaf snapshot: actual `phase`, `locked`, `obstructed` and signed `angle`; a pending close/lock request is not proof of closure |

@@ -23,8 +23,9 @@ second scripting runtime or timeline editor.
    Apply validates the sequence, its exact helper bindings and the declared
    transition together as one undoable edit. Save persists the source normally.
 6. **Test in editor** exercises the camera, triggers and NPC scripts without a
-   lighting bake. Escape/Stop discards temporary play and restores the editor
-   view. Embedded Test reports a reached cross-level transition rather than
+   lighting bake. Stop discards temporary play and restores the editor
+   view. Escape closes an active cinematic while retaining Test; a later Escape
+   returns to editing. Embedded Test reports a reached cross-level transition rather than
    loading another level. **Build+Play / complete project export** validates
    actual destination loading.
 
@@ -59,7 +60,11 @@ normal run reset rearms one-shot bindings.
 Camera paths are intentionally free, not physics bodies. They do not sweep
 around walls automatically. Keep them clear of geometry and inspect the native
 view. Existing user FOV is retained; roll, FOV keyframes and a Skip button are
-not part of this first version. Escape means Pause in the native player.
+not part of this first version. Enter/PgDown advances dialogue. Escape closes
+an active cinematic, clears its speech and restores player control without a
+successful completion or destination transition. Cinematics have no Back/reread
+or skip-message action and display no subtitle control hints. Outside a
+cinematic, Escape retains normal Pause/return behavior.
 
 ## Source contract
 

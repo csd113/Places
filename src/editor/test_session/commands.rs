@@ -136,10 +136,14 @@ impl Session {
         renderer: &mut Renderer,
         audio: &mut AudioSystem,
     ) -> Result<(), String> {
-        for command in self.game.entities_mut().take_commands() {
-            self.apply_command(command, renderer, audio)?;
-        }
-        Ok(())
+        let result = self
+            .game
+            .entities_mut()
+            .take_commands()
+            .into_iter()
+            .try_for_each(|command| self.apply_command(command, renderer, audio));
+        self.speech.finish_commands();
+        result
     }
 
     fn apply_command(
@@ -150,12 +154,12 @@ impl Session {
     ) -> Result<(), String> {
         match command {
             WorldCommand::ShowMessage { title, lines } => {
-                self.enqueue_message(title, &lines, false)?;
+                self.enqueue_message(title, &lines, false);
             }
             WorldCommand::EndRun { won, title, detail } => {
                 self.game.entities_mut().cancel_cinematic();
                 let outcome = if won { "Completed." } else { "Run ended." };
-                self.enqueue_message(title, &[outcome.into(), detail], true)?;
+                self.enqueue_message(title, &[outcome.into(), detail], true);
             }
             WorldCommand::SetWeatherAlternate { alternate } => { let _changed = renderer.set_weather_alternate(alternate); }
             WorldCommand::SetWeatherStrength { strength, transition_seconds } => { let _changed = renderer.set_weather_strength(strength, transition_seconds); }

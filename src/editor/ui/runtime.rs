@@ -19,7 +19,7 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -
         if app.runtime_preparing() {
             "Cancel test / Esc"
         } else {
-            "Stop test / Esc"
+            "Stop test"
         },
         if app.runtime_preparing() {
             Action::Cancel
@@ -50,9 +50,9 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -
     text(
         vertices,
         if app.viewport.runtime_cinematic() {
-            "Cinematic camera | Player controls suspended | Esc returns to editing"
+            "Cinematic camera | Player controls suspended | Stop test returns to editing"
         } else {
-            "WASD move | E use/pickup/drop | F light | F1 hint | Space jump | Ctrl crouch | Esc return"
+            "WASD move | E use/pickup/drop | F light | F1 hint | Space jump | Ctrl crouch | Stop test returns"
         },
         7.0,
         258.0,
@@ -71,8 +71,46 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -
     }
     if let Some(view) = message {
         message_card(vertices, &view);
+    } else if let Some((speaker, rows)) = app.viewport.runtime_subtitles() {
+        subtitle_card(vertices, speaker, rows);
     }
     modal_start
+}
+
+fn subtitle_card(vertices: &mut Vec<Vertex>, speaker: &str, rows: &[String]) {
+    // The queue/layout contract is shared; glyph UVs belong to the editor atlas.
+    let width = |value: &str| crate::game::ui::text_width(value, 0.5);
+    let content_width = rows
+        .iter()
+        .map(|row| width(row))
+        .fold(width(speaker), f32::max);
+    let panel_width = (content_width + 20.0).max(112.0);
+    let height = if rows.len() > 1 { 37.0 } else { 27.0 };
+    let top = 244.0 - height;
+    rect(
+        vertices,
+        [(480.0 - panel_width) * 0.5, top, panel_width, height],
+        [0.012, 0.018, 0.023, 0.72],
+    );
+    text(
+        vertices,
+        speaker,
+        (480.0 - width(speaker)) * 0.5,
+        top + 5.0,
+        [0.93, 0.83, 0.58, 1.0],
+        128,
+    );
+    for (index, row) in rows.iter().enumerate() {
+        let y = f32::from(u16::try_from(index).unwrap_or(0)).mul_add(10.0, top + 15.0);
+        text(
+            vertices,
+            row,
+            (480.0 - width(row)) * 0.5,
+            y,
+            [1.0, 0.97, 0.90, 1.0],
+            128,
+        );
+    }
 }
 
 fn crosshair(vertices: &mut Vec<Vertex>) {

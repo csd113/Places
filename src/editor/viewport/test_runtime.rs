@@ -69,6 +69,18 @@ impl Viewport {
             .as_ref()
             .and_then(|session| session.message_view())
     }
+    pub fn runtime_close_cinematic(&mut self) -> bool {
+        self.testing
+            .session
+            .as_mut()
+            .is_some_and(|session| session.close_cinematic())
+    }
+    pub fn runtime_subtitles(&self) -> Option<(&str, &[String])> {
+        self.testing
+            .session
+            .as_ref()
+            .and_then(|session| session.subtitles())
+    }
     pub fn runtime_warning(&self) -> Option<&str> {
         self.testing
             .session

@@ -59,6 +59,23 @@ impl Subtitles {
     pub fn skip(&mut self) {
         drop(self.queue.pop_front());
     }
+    /// Cinematics expose only forward dialogue; their shell owns closing.
+    pub fn navigate(&mut self, key: sdl3::keyboard::Keycode, cinematic: bool) -> bool {
+        use sdl3::keyboard::Keycode;
+        if !self.active() {
+            return false;
+        }
+        if key == Keycode::Return || key == Keycode::PageDown {
+            self.advance();
+        } else if !cinematic && key == Keycode::PageUp {
+            self.previous();
+        } else if !cinematic && key == Keycode::Backspace {
+            self.skip();
+        } else {
+            return false;
+        }
+        true
+    }
     pub fn active(&self) -> bool {
         !self.queue.is_empty()
     }
@@ -84,52 +101,59 @@ impl Subtitles {
     pub fn snapshot(&self) -> serde_json::Value {
         serde_json::json!({"pending":self.queue.len(),"current":self.queue.front().map(|s| serde_json::json!({"speaker":s.speaker,"rows":s.rows,"page":s.page,"elapsed":s.elapsed}))})
     }
+    /// Borrow the visible dialogue for a shell using its own font atlas.
+    pub fn current(&self) -> Option<(&str, &[String])> {
+        let speech = self.queue.front()?;
+        let remaining = speech
+            .rows
+            .get(speech.page.saturating_mul(2)..)
+            .unwrap_or_default();
+        let rows = remaining.get(..remaining.len().min(2)).unwrap_or_default();
+        Some((&speech.speaker, rows))
+    }
     pub fn append(&self, vertices: &mut Vec<Vertex>) {
         let Some(speech) = self.queue.front() else {
             return;
         };
+        let rows = speech
+            .rows
+            .iter()
+            .skip(speech.page.saturating_mul(2))
+            .take(2);
+        let speaker_scale = (378.0 / text_width(&speech.speaker, 1.0).max(1.0)).min(0.625);
+        let content_width = rows
+            .clone()
+            .map(|row| text_width(row, 0.875))
+            .fold(text_width(&speech.speaker, speaker_scale), f32::max);
+        let half_width = (content_width + 20.0).max(112.0) * 0.5;
+        let height = if rows.len() > 1 { 37.0 } else { 27.0 };
+        let top = 244.0 - height;
         add_rect_rgba(
             vertices,
-            40.0,
-            185.0,
-            440.0,
+            240.0 - half_width,
+            top,
+            240.0 + half_width,
             244.0,
             [0.012, 0.018, 0.023, 0.72],
         );
-        let speaker_scale = (378.0 / text_width(&speech.speaker, 1.0).max(1.0)).min(0.75);
         draw_text(
             vertices,
             &speech.speaker,
             (480.0 - text_width(&speech.speaker, speaker_scale)) * 0.5,
-            193.0,
+            top + 5.0,
             speaker_scale,
             [0.93, 0.83, 0.58],
         );
-        for (index, row) in speech
-            .rows
-            .iter()
-            .skip(speech.page.saturating_mul(2))
-            .take(2)
-            .enumerate()
-        {
+        for (index, row) in rows.enumerate() {
             draw_text(
                 vertices,
                 row,
                 (480.0 - text_width(row, 0.875)) * 0.5,
-                row_y(index, 12.0, 205.0),
+                row_y(index, 10.0, top + 15.0),
                 0.875,
                 [1.0, 0.97, 0.90],
             );
         }
-        let hint = "Enter: next   PgUp: back   Backspace: skip";
-        draw_text(
-            vertices,
-            hint,
-            (480.0 - text_width(hint, 0.625)) * 0.5,
-            233.0,
-            0.625,
-            [0.64, 0.68, 0.70],
-        );
     }
 }
 

@@ -2959,6 +2959,21 @@ impl FrameLoop<'_> {
     }
 
     fn handle_outcome_event(&mut self, event: &Event) -> bool {
+        if crate::game::input::pressed_key(event) == Some(Keycode::Escape)
+            && self.game.app_state() == AppState::Playing
+            && self.message.is_none()
+            && self.outcome.is_none()
+            && !self.console.is_open()
+            && self.cinematic_controls_blocked()
+        {
+            self.game.entities_mut().cancel_cinematic();
+            self.effective_camera = None;
+            self.subtitles.clear();
+            self.reconcile_cinematic_input();
+            self.publish_frame_camera();
+            self.trace_world("cinematic_closed");
+            return true;
+        }
         if crate::game::input::pressed_key(event) == Some(Keycode::F1)
             && self.game.app_state() == AppState::Playing
             && self.outcome.is_none()
@@ -2970,29 +2985,14 @@ impl FrameLoop<'_> {
             self.apply_world_commands();
             return true;
         }
+        let cinematic = self.cinematic_controls_blocked();
         if self.game.app_state() == AppState::Playing
             && self.message.is_none()
-            && self.subtitles.active()
-            && let Event::KeyDown {
-                keycode: Some(key),
-                repeat: false,
-                timestamp: _,
-                window_id: _,
-                scancode: _,
-                keymod: _,
-                which: _,
-                raw: _,
-            } = event
+            && self.outcome.is_none()
+            && !self.console.is_open()
+            && crate::game::input::pressed_key(event)
+                .is_some_and(|key| self.subtitles.navigate(key, cinematic))
         {
-            if *key == Keycode::Return || *key == Keycode::PageDown {
-                self.subtitles.advance();
-            } else if *key == Keycode::PageUp {
-                self.subtitles.previous();
-            } else if *key == Keycode::Backspace {
-                self.subtitles.skip();
-            } else {
-                return self.handle_guidance_event(event);
-            }
             return true;
         }
         if self.handle_guidance_event(event) {
