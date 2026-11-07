@@ -878,6 +878,17 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     if level.props.iter().any(|prop| prop.animated_door.is_some()) {
         required.push("animated-door-v1".into());
     }
+    if level.props.iter().any(|prop| {
+        prop.tall_guest
+            .as_ref()
+            .is_some_and(|guest| !guest.prey_targets.is_empty())
+            || prop
+                .feltling
+                .as_ref()
+                .is_some_and(|prey| prey.mode == crate::engine::feltling::Mode::Flee)
+    }) {
+        required.push("whole-prey-v1".into());
+    }
     if level.props.iter().any(|prop| prop.tall_guest.is_some()) {
         required.push("tall-guest-v1".into());
     }

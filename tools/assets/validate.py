@@ -39,6 +39,9 @@ can gate packaging and continuous checks. ``tests/test_package.py`` imports
 from __future__ import annotations
 
 import argparse
+import hashlib
+import struct
+from pathlib import Path
 import json
 import math
 import os
@@ -3505,7 +3508,7 @@ def validate_feltlings(level: dict, where: str, errors: List[str]) -> None:
             errors.append(f"{label}: look_at must be a finite bounded world point")
         mode = definition.get("mode", "guide")
         routes = definition.get("routes", [])
-        if mode not in ("guide", "wait", "talk", "cheer") or not isinstance(routes, list) or len(routes) > 8 or mode == "guide" and not routes:
+        if mode not in ("guide", "wait", "talk", "cheer", "flee") or not isinstance(routes, list) or len(routes) > 8 or mode == "guide" and not routes:
             errors.append(f"{label}: invalid mode or route count")
             continue
         ids = set()
@@ -3560,9 +3563,15 @@ def validate_tall_guests(level: dict, where: str, errors: List[str]) -> None:
                 or prop.get("shadow_only", False) or prop.get("material_overrides")
                 or prop.get("emission_overrides") or route or tags.intersection({"ai", "animation"})):
             errors.append(f"{context} requires upright scale-one exclusive motion/pose ownership")
-        if not isinstance(definition, dict) or set(definition) - {"patrol", "passages"}:
+        if not isinstance(definition, dict) or set(definition) - {"patrol", "passages", "prey_targets"}:
             errors.append(f"{context} requires only bounded patrol/passages fields")
             continue
+        prey_targets = definition.get("prey_targets", [])
+        if (not isinstance(prey_targets, list) or len(prey_targets) > 16
+                or len(set(str(x) for x in prey_targets)) != len(prey_targets)
+                or any(not isinstance(x, str) or not x or len(x.encode()) > 64
+                       or not any(p.get("id") == x and p.get("feltling") is not None for p in level.get("props", [])) for x in prey_targets)):
+            errors.append(f"{context}: prey_targets require unique native Feltling ids, at most16")
         patrol, passages = definition.get("patrol", []), definition.get("passages", [])
         if not isinstance(patrol, list) or len(patrol) > 32 or not all(point(x) for x in patrol):
             errors.append(f"{context} patrol requires at most32finite bounded3D points")
@@ -3746,6 +3755,35 @@ def validate_levels(catalog: dict, level_dirs: Tuple[str, ...] = LEVEL_DIRS) -> 
     return errors, warnings
 
 
+def validate_tall_guest_cavity(asset_root=ASSET_ROOT):
+    """Reject stale source mappings and fixed exterior shading after exports."""
+    try:
+        root = Path(asset_root)
+        folder = root / "entities/tall_guest/model"
+        source = (folder / "tall_guest.glb").read_bytes()
+        data = (folder / "cavity_visibility.bin").read_bytes()
+        meta = json.loads((folder / "cavity_visibility.json").read_text())
+        reviewed = json.loads((root / "completed-models.json").read_text())["entities/tall_guest/model/tall_guest.glb"]["sha256"]
+        source_sha = hashlib.sha256(source).hexdigest()
+        if meta["source_sha256"] != source_sha or reviewed != source_sha:
+            return ["Tall Guest cavity source identity differs; regenerate and review the mapping"]
+        if meta["data_sha256"] != hashlib.sha256(data).hexdigest() or meta["sha256"] != meta["data_sha256"]:
+            return ["Tall Guest cavity data digest differs from provenance"]
+        length = struct.unpack_from("<I", source, 12)[0]
+        gltf = json.loads(source[20:20 + length])
+        offset = 0
+        for primitive in gltf["meshes"][0]["primitives"]:
+            count = gltf["accessors"][primitive["attributes"]["POSITION"]]["count"]
+            if primitive["material"] != 1 and any(value != 255 for value in data[offset:offset + count]):
+                return ["Tall Guest fixed cavity shading reaches exterior vertices"]
+            offset += count
+        if len(data) != offset or meta["vertex_count"] != offset:
+            return ["Tall Guest cavity vertex mapping differs from source primitives"]
+    except (OSError, ValueError, KeyError, TypeError, struct.error) as error:
+        return [f"Tall Guest cavity contract invalid: {error}"]
+    return []
+
+
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--catalog", default=CATALOG_PATH, help="catalog path (defaults to assets/catalog.json)")
@@ -3760,7 +3798,7 @@ def main(argv: List[str] | None = None) -> int:
 
     catalog_errors, catalog_warnings = validate_catalog(catalog)
     level_errors, level_warnings = validate_levels(catalog)
-    errors = catalog_errors + validate_gameplay_file(catalog, args.catalog) + level_errors
+    errors = catalog_errors + validate_gameplay_file(catalog, args.catalog) + level_errors + validate_tall_guest_cavity()
     warnings = catalog_warnings + level_warnings
 
     if not args.quiet:

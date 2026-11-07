@@ -1,7 +1,7 @@
 {
   "library_file_id": "libfile_d908a1076348819198b001257034611f",
   "zip_sha256": "ab0f6d8abf4336d15cfc64486935b257aad14ba62379ac55017ccaa808013390",
-  "runtime_glb_sha256": "a2d5f54c79bc9842428b1948c04175101d69d60adb51111d5f389b51d266ad92",
+  "runtime_glb_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
   "runtime_audio_cues": [
     "tg_click_single_01",
     "tg_click_single_02",
@@ -20,6 +20,23 @@
     "tg_stomp_01"
   ],
   "other_audio": "Reference composites, gait loops, patterns and optional attack/release stay in the original pack; never layered with runtime stems.",
-  "decoded_catalog_bytes": 66221488,
-  "art_budget_review": "Exact-hash5970triangle/1024texture exception; see docs/reports/tall-guest-integration.md for final native visual/performance evidence and limitations."
+  "decoded_catalog_bytes": 66863584,
+  "art_budget_review": "Exact reviewed 5,970-triangle / 1024 texture export; 127 joints and 2,764 channels remain under existing caps. See docs/reports/tall-guest-swallow.md.",
+  "original_runtime_glb_sha256": "a2d5f54c79bc9842428b1948c04175101d69d60adb51111d5f389b51d266ad92",
+  "capture_swallow_extension": {
+    "revision": "v0.3",
+    "runtime_library_id": "libfile_fde3_f-1c476cd59a6c819192e475cf1be81508_2e37728cdad08191acacf8a0401feb09",
+    "contract_library_id": "libfile_fde3_f-9ae8df2c77548191991fb8b93dea0f44_2e37728cdad08191acacf8a0401feb09",
+    "source_qa_library_id": "libfile_fde3_f-b1008113cc948191b3b3c93f98dc2e66_2e37728cdad08191acacf8a0401feb09",
+    "contract_sha256": "4e70b1c3040d761e302b77e2ed13e9529f9df64b524f427e5a0f2cdee10f7eb1",
+    "source_qa_sha256": "3f07413c9817aa7123ec1d4fee99634d9c5c15aafc175772164fecae08d18e0c",
+    "triangles": 5970,
+    "skin_joints": 127,
+    "retained_nodes": 130,
+    "clips": 11,
+    "animation_channels": 2764,
+    "verified_prey_sha256": "f89602b39812c5112007e324ee358bdef523a8ba9bc697d2636824aea4ee1d7b",
+    "scope": "Unchanged full-size Feltling bind geometry only. Other prey require a new geometry certificate/profile. Original nine 90-channel animation sets and source attributes are preserved; additional compensation channels maintain the extension. Six ivory face-average opposed-normal exceptions and inherited/source-seam exclusions remain explicit in the supplied QA."
+  },
+  "new_audio": "None; existing bank cap and cues retained."
 }

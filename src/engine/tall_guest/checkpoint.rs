@@ -24,6 +24,9 @@ pub(super) fn sample_time(time: f32, now: f32) -> Result<(), String> {
 }
 fn observation(value: &super::Observation, record: &Record) -> Result<(), String> {
     point(value.position)?;
+    if let Some(heading) = value.heading {
+        between(heading, -100_000.0, 100_000.0)?;
+    }
     point(value.aim_point)?;
     point(value.velocity)?;
     sample_time(value.sampled, record.clock)?;

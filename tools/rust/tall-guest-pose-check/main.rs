@@ -10,7 +10,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 const MODEL: &str = "entities/tall_guest/model/tall_guest.glb";
-const FROZEN: &str = "a2d5f54c79bc9842428b1948c04175101d69d60adb51111d5f389b51d266ad92";
+const FROZEN: &str = "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1";
 const CLIPS: [(&str, f32); 9] = [
     ("idle_listen", 3.0),
     ("walk_slow", 1.8),

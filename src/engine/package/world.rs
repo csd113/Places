@@ -324,6 +324,18 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
     }
     for (required, capability) in [
         (
+            level.props.iter().any(|prop| {
+                prop.tall_guest
+                    .as_ref()
+                    .is_some_and(|guest| !guest.prey_targets.is_empty())
+                    || prop
+                        .feltling
+                        .as_ref()
+                        .is_some_and(|prey| prey.mode == crate::engine::feltling::Mode::Flee)
+            }),
+            "whole-prey-v1",
+        ),
+        (
             level.props.iter().any(|prop| prop.tall_guest.is_some()),
             "tall-guest-v1",
         ),

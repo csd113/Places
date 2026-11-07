@@ -9,6 +9,8 @@ use crate::engine::tall_guest::prop_track::{Reflection, Scene};
 use glam::Vec3;
 
 pub(super) struct PropScene<'a> {
+    pub prey_leaf_start: usize,
+    pub prey: &'a [crate::engine::tall_guest::prey::AcousticTarget],
     pub items: &'a std::collections::HashMap<EntityHandle, PhysicalObservation>,
     pub layout: &'a Layout,
     pub ambient: &'a [Ambient],
@@ -47,7 +49,20 @@ impl PropScene<'_> {
             return None;
         }
         let mut transmission = 1.0;
-        for leaf in self.leaves {
+        let prey_exclusion = target.and_then(|key| self.prey.iter().find(|prey| prey.key == key));
+        let excluded_leaf = if let Some(prey) = prey_exclusion {
+            let index = self.prey_leaf_start.checked_add(prey.leaf_offset)?;
+            if self.leaves.get(index) != Some(&prey.collider) {
+                return None;
+            }
+            Some(index)
+        } else {
+            None
+        };
+        for (index, leaf) in self.leaves.iter().enumerate() {
+            if excluded_leaf == Some(index) {
+                continue;
+            }
             if !crosses(from, to, leaf) {
                 continue;
             }
@@ -166,6 +181,48 @@ impl PropScene<'_> {
 }
 
 impl Scene for PropScene<'_> {
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Finite world-owned candidate minus validated ray origin."
+    )]
+    fn reflect_prey(
+        &self,
+        ids: &[String],
+        origin: Vec3,
+        axis: Vec3,
+    ) -> Option<crate::engine::tall_guest::prey::Echo> {
+        self.prey
+            .iter()
+            .filter(|prey| ids.contains(&prey.id))
+            .filter_map(|prey| {
+                let delta = prey.crown - origin;
+                let distance = delta.length();
+                if !(0.01..=14.0).contains(&distance)
+                    || axis.dot(delta.normalize_or_zero()) < 55.0_f32.to_radians().cos()
+                    || self
+                        .segment(origin, prey.crown, false, Some(prey.key))
+                        .is_none()
+                {
+                    return None;
+                }
+                Some((
+                    distance,
+                    crate::engine::tall_guest::prey::Echo {
+                        key: prey.key,
+                        position: prey.position,
+                        hit: prey.crown,
+                        heading: prey.heading,
+                    },
+                ))
+            })
+            .min_by(|(a, _), (b, _)| a.total_cmp(b))
+            .map(|(_, echo)| echo)
+    }
+    fn prey_return_clear(&self, key: u64, from: Vec3, to: Vec3) -> bool {
+        self.prey.iter().any(|prey| prey.key == key)
+            && self.segment(from, to, false, Some(key)).is_some()
+    }
+
     fn clear(&self, from: Vec3, to: Vec3) -> bool {
         self.segment(from, to, false, None).is_some()
     }

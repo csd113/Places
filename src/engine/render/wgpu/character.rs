@@ -210,6 +210,7 @@ struct CharacterGpu {
 /// to one character, so equal vertex counts in different models cannot alias it.
 struct CharacterVertexState {
     gpu: Option<GpuPose>,
+    triangle_normals: Option<crate::engine::render::common::posed_normals::PosedNormals>,
     revision: Option<u64>,
     albedo_revision: u64,
     bounds: Aabb,
@@ -221,6 +222,9 @@ impl CharacterVertexState {
     fn new(model: &crate::engine::gltf::PropModel) -> Self {
         Self {
             gpu: None,
+            triangle_normals: crate::engine::render::common::posed_normals::PosedNormals::new(
+                model,
+            ),
             revision: None,
             albedo_revision: 0,
             bounds: Aabb::EMPTY,
@@ -292,8 +296,13 @@ impl CharacterVertexState {
         }
         self.pending_upload = colour_changed || self.needs_pose(animator.revision(), present);
         if self.pending_upload {
-            self.bounds =
-                WgpuCharacters::fill_posed_vertices(model, animator, albedo, &mut self.vertices);
+            self.bounds = WgpuCharacters::fill_posed_vertices(
+                model,
+                animator,
+                albedo,
+                self.triangle_normals.as_mut(),
+                &mut self.vertices,
+            );
             self.revision = Some(animator.revision());
         }
         self.pending_upload
@@ -853,6 +862,9 @@ impl WgpuCharacters {
         model: &crate::engine::gltf::PropModel,
         animator: &CharacterAnimator,
         albedo: &[[f32; 4]],
+        mut triangle_normals: Option<
+            &mut crate::engine::render::common::posed_normals::PosedNormals,
+        >,
         out: &mut Vec<WorldVertex>,
     ) -> Aabb {
         if out.len() != model.vertices.len() {
@@ -862,6 +874,9 @@ impl WgpuCharacters {
             }));
         }
         let mut bounds = Aabb::EMPTY;
+        if let Some(scratch) = triangle_normals.as_mut() {
+            scratch.update(model, animator);
+        }
         let mut normals = SkinNormalCache::new(animator);
         for (index, (vertex, posed)) in model.vertices.iter().zip(out.iter_mut()).enumerate() {
             let joints = model.joints.get(index).copied().unwrap_or([0; 4]);
@@ -871,9 +886,14 @@ impl WgpuCharacters {
             let colour = albedo.get(index).copied().unwrap_or([1.0; 4]);
             posed.color = colour;
             posed.caustics_albedo = [colour[0], colour[1], colour[2]];
-            posed.normal = vertex.normal.map_or([0.0; 3], |normal| {
-                normals.skin_normal(joints, weights, normal)
-            });
+            posed.normal = triangle_normals
+                .as_ref()
+                .and_then(|scratch| scratch.normal(index))
+                .unwrap_or_else(|| {
+                    vertex.normal.map_or([0.0; 3], |normal| {
+                        normals.skin_normal(joints, weights, normal)
+                    })
+                });
         }
         bounds
     }

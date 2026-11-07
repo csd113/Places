@@ -32,6 +32,7 @@ fn model() -> PropModel {
             })
             .collect(),
         skin: Some(PropSkin {
+            source_vertices: Vec::new(),
             joints: vec![0],
             inverse_bind: vec![Mat4::IDENTITY],
             nodes,

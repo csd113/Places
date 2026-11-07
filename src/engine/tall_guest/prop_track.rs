@@ -13,6 +13,17 @@ pub struct Reflection {
 /// The trusted world owns physical transforms. The hunter can request only an
 /// already heard release, and receives a coordinate only after the beam fits.
 pub trait Scene {
+    fn reflect_prey(
+        &self,
+        _ids: &[String],
+        _origin: Vec3,
+        _axis: Vec3,
+    ) -> Option<super::prey::Echo> {
+        None
+    }
+    fn prey_return_clear(&self, _key: u64, from: Vec3, to: Vec3) -> bool {
+        self.clear(from, to)
+    }
     fn clear(&self, from: Vec3, to: Vec3) -> bool;
     fn hear(&self, request: &super::hearing::Request) -> Option<super::hearing::Heard>;
     fn echo_quality(&self, origin: Vec3, hit: Vec3) -> f32;

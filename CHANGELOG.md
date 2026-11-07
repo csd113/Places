@@ -13,6 +13,12 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Add opt-in Tall Guest acoustic pursuit and mouth capture of a full-size
+  Feltling, followed by an articulated lean-back swallow and recovery. Keep one
+  physical/render owner, exact-generation retirement and existing asset/audio
+  caps. Preserve legacy animation, reconstruct deforming mouth normals and
+  regenerate mouth-only cavity shading for the extended rig.
+
 - Simplify compatible touching wall sections and continuous recessed-floor edges
   in Full-lighting preparation without merging their editable sources. Preserve
   openings, material boundaries and Static lighting detail. Keep tall recessed

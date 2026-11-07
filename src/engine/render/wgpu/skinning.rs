@@ -32,6 +32,7 @@ impl SkinSource {
         let bytes = u64::from(count).checked_mul(64)?;
         let limits = device.limits();
         if cpu_control
+            || crate::engine::render::common::posed_normals::required(model)
             || count < 1_024
             || !model.morph_targets.is_empty()
             // UV anchors and translucent sorting retain exact CPU bounds.

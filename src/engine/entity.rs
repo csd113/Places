@@ -608,6 +608,8 @@ pub struct EntityFrame {
     /// [`RouteState::yaw`] and the renderer's `Character::set_pose`. The AI
     /// layer stores degrees and converts once at its frame handoff.
     pub transform: Option<(Vec3, f32)>,
+    /// Authoritative rigid root pose, overriding yaw without changing scale.
+    pub rigid_transform: Option<(Vec3, glam::Quat)>,
     /// An explicit pose override (interaction wins over the route). Absent
     /// follows the actor's own supplied locomotion or frame displacement.
     pub cue: Option<PoseCue>,

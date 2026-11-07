@@ -1,0 +1,528 @@
+{
+  "asset": {
+    "filename": "Tall_Guest_Capture_Swallow_v0_3.glb",
+    "sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+    "bytes": 5232580,
+    "version": "0.3.0"
+  },
+  "contract": {
+    "asset": "Tall_Guest_Capture_Swallow_v0_3.glb",
+    "asset_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+    "version": "0.3.0",
+    "status": "Native integration and acceptance required",
+    "units": "metres, seconds; right-handed +Y up, +Z forward; scale unchanged",
+    "clips": {
+      "capture_prey": {
+        "duration_seconds": 3.2,
+        "loop": false,
+        "contact_seconds": 1.25,
+        "contact_hold_end_seconds": 1.55
+      },
+      "swallow_prey": {
+        "duration_seconds": 5.9,
+        "loop": false,
+        "whole_prey_inside_seconds": 1.95,
+        "mouth_contraction_start_seconds": 1.95,
+        "mouth_contraction_end_seconds": 2.4,
+        "consumed_event_seconds": 2.55,
+        "recovery_start_seconds": 2.7,
+        "end_pose": "original neutral bind pose"
+      }
+    },
+    "socket": {
+      "name": "mouth_capture_socket",
+      "axes": {
+        "+X": "across mouth",
+        "+Y": "mouth-plane up",
+        "+Z": "outward"
+      },
+      "rigid_pose_required": true,
+      "pose_format": "Full translation and unit quaternion, not position/yaw only"
+    },
+    "prey_profiles": [
+      "feltling_reference_v1"
+    ],
+    "reusability": "Clip and socket names are generic. The included profile is specific to the full-size Feltling geometry and pose. Future prey require independent contact, pose, cavity, clearance, occlusion and swept validation. Do not rescale prey to fit.",
+    "required_engine_changes": [
+      "Apply the new control joints in the authoritative full pose, including legacy animations and every upper-body overlay/blend that affects the hood. Partial name filters that skip them are invalid.",
+      "Use all actual skin joints for physical geometry and collision clustering, bounded by the existing128-joint limit; do not silently skip dominant joint indices>=32.",
+      "Register canonical clip names/durations/non-looping metadata and checkpoint lifecycle states.",
+      "Use the same final posed vertices for physical geometry, rendering and corner-angle-weighted posed-triangle normals. Preserve authored normal splits, material primitives, UVs and vertex colors.",
+      "Suspend prey locomotion/animation once the verified capture setup owns the pose. Apply one full rigid prey transform to both physics and rendering. Remove the prey exactly once at the validated consumed event, after full entry and contraction.",
+      "Revalidate all legacy behavior, upper-body overlays, blends, door traversal, interruptions/reset and save/load in the native game."
+    ],
+    "budget": {
+      "triangles": 5970,
+      "skin_joints": 127,
+      "skinned_mesh_nodes": 1,
+      "materials": 2,
+      "animation_channels_total": 2764,
+      "morph_targets": 0,
+      "additional_audio": 0
+    },
+    "integration_baseline": {
+      "repository": "csd113/Places",
+      "commit": "d117080e31aa6d0db0bb42bbf5e94a26434caac9",
+      "version": "0.13.1-dev",
+      "scope": "Read-only engine inspection; this asset has not been accepted in the native game."
+    },
+    "lifecycle_notes": [
+      "Before capture begins, stop at the validated intercept and smoothly settle the prey into the verified stationary bind pose. Do not snap a running pose into the attachment.",
+      "At contact, hand sole prey pose ownership to the full rigid socket transform. Do not continue guide, locomotion or competing animation updates.",
+      "Preserve the full prey geometry and scale through the 2.55-second swallow event. Update rendering and physical geometry from the same final pose.",
+      "Interruptions, save/load and recovery require explicit native validation. Preserve exactly-once consumed identity after the event; any release/drop route before the event needs its own safe placement and geometry checks."
+    ],
+    "qa_entrypoint": "qa/geometry/README.md"
+  },
+  "prey_profiles": [
+    {
+      "id": "feltling_reference_v1",
+      "asset_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+      "reference_prey_geometry_sha256": "d13ccb3fa1c86e132914e9ee549c228e1ff9b055ded6b824bf2886197d4bbb0a",
+      "integrated_lossless_consolidation_sha256": "f89602b39812c5112007e324ee358bdef523a8ba9bc697d2636824aea4ee1d7b",
+      "reference_triangles": 2990,
+      "reference_vertices": 2204,
+      "prey_scale": [
+        1,
+        1,
+        1
+      ],
+      "prey_pose": "Unmodified bind pose; no compact pose variant. Preserve all five existing clips.",
+      "bounds_min_m": [
+        -0.1653217077255249,
+        0.0010000000474974513,
+        -0.108833447098732
+      ],
+      "bounds_max_m": [
+        0.16554144024848938,
+        0.6098197102546692,
+        0.21965087950229645
+      ],
+      "capture_start_precondition": "Guest feet planted; target stationary in its unchanged bind pose at the verified relative position, upright and facing +Z in guest-root coordinates. Chase/interception and a smooth transition from running into this setup are gameplay-owned. Do not snap the prey into the bind pose.",
+      "prey_initial_guest_local_transform_column_major": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        4.886165334028191e-05,
+        0.0,
+        1.7028537479064687,
+        1.0
+      ],
+      "attachment_socket_local_translation_m": [
+        0.0,
+        0.0040781364622299865,
+        0.5749852352330365
+      ],
+      "attachment_socket_local_quaternion_xyzw": [
+        -0.7096098981031581,
+        -0.0,
+        -0.0,
+        0.7045947718469289
+      ],
+      "attachment_socket_local_transform_column_major": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -0.007092414971948498,
+        -0.9999748485086338,
+        0.0,
+        0.0,
+        0.9999748485086336,
+        -0.00709241497194859,
+        0.0,
+        0.0,
+        0.0040781364622299865,
+        0.5749852352330365,
+        1.0
+      ],
+      "route": {
+        "base": "P = final_socket_world * attachment_socket_local",
+        "during_capture": "Use base pose after1.25s contact. Before contact, retain initial grounded pose.",
+        "during_swallow": "After base pose, subtract socket_world_positive_Z * inward_distance. Also subtract prey_rotation * [0,0,centering_distance]. Use the final pose for both rendering and physics.",
+        "smoothstep": "smooth(x)=clamp(x,0,1)^2 * (3-2*clamp(x,0,1))",
+        "inward_distance_m": "0.625 * smooth((swallow_time-0.25)/1.70)",
+        "centering_distance_m": "0.05035 * smooth(swallow_time/0.40)",
+        "retain_full_prey_through_seconds": 2.55
+      },
+      "contact_note": "Close crown hold, not an airtight seal. The original candidate measured~0.315mm nearest lip-to-skin gap; full final-asset proof accompanies the QA report.",
+      "contraction_note": "Final aperture is approximately4mm across, not mathematically airtight. Prey remains fully inside and rendered through2.55s; visually verify occlusion in the native camera."
+    }
+  ],
+  "asset_geometry_qa": {
+    "asset": {
+      "filename": "Tall_Guest_Capture_Swallow_v0_3.glb",
+      "sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+      "bytes": 5232580,
+      "triangles": 5970,
+      "joints": 127,
+      "source_unchanged_at_qa_completion": true
+    },
+    "status": {
+      "continuous_collision": "PASS_WITH_STATED_SOURCE_EXCLUSIONS",
+      "continuous_sole_planting": "PASS",
+      "front_knee_flip": "REMOVED",
+      "posed_normals": "EXPLICIT_SIX_FACE_IVORY_EXCEPTION; NO_NORMAL_THRESHOLD_OR_EXEMPTION_CHANGE",
+      "overall": "Geometry and planting pass. Ivory normal regression remains explicitly reported for visual review, not waived."
+    },
+    "fresh_geometry_coverage": {
+      "capture_prey": {
+        "affected_ivory_self": {
+          "interval_count": 564,
+          "from_seconds": 0.0,
+          "through_seconds": 3.200000047683716
+        },
+        "affected_ivory_lining": {
+          "interval_count": 385,
+          "from_seconds": 0.0,
+          "through_seconds": 3.200000047683716
+        },
+        "affected_ivory_prey": {
+          "interval_count": 385,
+          "from_seconds": 0.0,
+          "through_seconds": 3.200000047683716
+        }
+      },
+      "swallow_prey": {
+        "affected_ivory_self": {
+          "interval_count": 1039,
+          "from_seconds": 0.0,
+          "through_seconds": 5.900000095367432
+        },
+        "affected_ivory_lining": {
+          "interval_count": 709,
+          "from_seconds": 0.0,
+          "through_seconds": 5.900000095367432
+        },
+        "affected_ivory_prey": {
+          "interval_count": 306,
+          "from_seconds": 0.0,
+          "through_seconds": 2.55
+        }
+      }
+    },
+    "fresh_static_collision": {
+      "schedule_hz": 120,
+      "poses": 1094,
+      "collision_families": 5,
+      "proper_or_touching_hits": 0,
+      "exact_exported_endpoints_and_float32_tail_intervals_checked": true
+    },
+    "exact_proof_transfer": {
+      "baseline_sha256": "8251747ddc0eae9351a4ed3d5e5bffa8a5d0898a7dd67bc7f092a354bb89a22d",
+      "baseline_summary": "../sweep_qa/final_geometry_summary.json",
+      "verified_identical": "All node defaults/hierarchy, inverse binds, vertex attributes/indices, and 2,758 animation channels. Exactly six front upper/lower channels change. Nine legacy clips are exactly unchanged.",
+      "affected_vertices_ivory": 1247,
+      "affected_triangles_ivory": 1930,
+      "affected_pink_vertices": 0,
+      "transferred": "Every pair involving only unchanged ivory triangles; entire pink self, prey/pink, and continuous containment/lip-cap proof. Head-dependent rigid prey transform is identical. Transfer is based on exact influence/ancestor functions, not sampled proximity.",
+      "independently_retested": "Every pair with at least one of the 1,930 affected ivory triangles, against all ivory, all pink, and full active prey. Fresh affected proof adds no pair exemptions."
+    },
+    "clearances_mm": {
+      "scope": "Fresh measurements at 1,094 sampled poses. Source-shared seam pairs excluded. These minima are not asserted continuous global minima; the between-sample proof separately retains a 10 \u00b5m numerical guard.",
+      "all_nonshared_pink_ivory_minimum": 1.8627184937133217,
+      "all_nonshared_minimum_location": "Rolled-rim wall; pink875 versus ivory3364.",
+      "lumen_excluding_rolled_rim_minimum": 11.769770238291843,
+      "deep_lumen_minimum": {
+        "clip": "swallow_prey",
+        "time": 3.5,
+        "distance_m": 0.011769770238291842,
+        "closest_pairs": [
+          {
+            "pink_triangle": 1031,
+            "ivory_triangle": 2651,
+            "distance_m": 0.011769770238291842
+          },
+          {
+            "pink_triangle": 1031,
+            "ivory_triangle": 2706,
+            "distance_m": 0.011769770238291842
+          },
+          {
+            "pink_triangle": 1030,
+            "ivory_triangle": 2651,
+            "distance_m": 0.011769770238291842
+          },
+          {
+            "pink_triangle": 1030,
+            "ivory_triangle": 2706,
+            "distance_m": 0.011769770238291842
+          }
+        ]
+      },
+      "prey_lining_grip_minimum": 0.31483138837768193,
+      "fully_inside_prey_lining_minimum": 13.993052918312754,
+      "prey_ivory_sampled_lower_bound": 30.0
+    },
+    "containment": {
+      "continuous_from_swallow_seconds": 1.95,
+      "through_removal_seconds": 2.55,
+      "prey_vertices": 2204,
+      "prey_triangles": 2990,
+      "method": "Exact transfer of actual-lining and moving-analysis-cap separation plus inside winding. Not a visual-occlusion claim."
+    },
+    "knee_and_sole": {
+      "maximum_front_lower_key_angle_degrees": 1.5419168882982646,
+      "maximum_front_lower_angular_speed_bound_rad_s": 1.6147174926075594,
+      "previous_front_lower_key_angle_degrees_approx": 121,
+      "continuous_fixed_sole_support_vertices": 33,
+      "sampled_sole_point_motion_m": 0.0,
+      "proof": "Unit foot_front weights and exactly constant foot/ancestor channels establish continuous planting.",
+      "original_minimum_sole_y_m": -0.0001243358274222449,
+      "original_ground_offset_retained": true,
+      "capture_to_swallow_maximum_ivory_boundary_difference_m": 2.1748095249043917e-07
+    },
+    "normal_exception": {
+      "scope": "Fresh matched old/new 120 Hz plus all actual source-key times; sampled normals, not continuous rendering acceptance.",
+      "clips": {
+        "capture_prey": {
+          "poses": 565,
+          "ivory_max_opposed_faces_dot_below_minus_005": 6,
+          "baseline_same_schedule_max": 5,
+          "strict_dot_below_zero_max_both_versions": 6,
+          "worst_changed_face": 674,
+          "worst_changed_time_seconds": 1.1,
+          "worst_changed_angle_degrees": 127.3962998816655,
+          "pink_opposed_faces": 0,
+          "degenerate_triangles": 0,
+          "invalid_reconstructed_normals": 0
+        },
+        "swallow_prey": {
+          "poses": 1040,
+          "ivory_max_opposed_faces_dot_below_minus_005": 6,
+          "baseline_same_schedule_max": 5,
+          "strict_dot_below_zero_max_both_versions": 6,
+          "worst_changed_face": 674,
+          "worst_changed_time_seconds": 4.8,
+          "worst_changed_angle_degrees": 127.39630100182046,
+          "pink_opposed_faces": 0,
+          "degenerate_triangles": 0,
+          "invalid_reconstructed_normals": 0
+        }
+      },
+      "changed_opposed_faces": [
+        548,
+        674,
+        693
+      ],
+      "smoothing_neighbor_opposed_faces": [
+        2082,
+        2090
+      ],
+      "unrelated_existing_opposed_face": 607,
+      "normal_influence_faces_including_neighbors": 2207,
+      "worst_cases": [
+        {
+          "primitive": 0,
+          "face_id": 674,
+          "vertex_ids": [
+            3429,
+            19,
+            26
+          ],
+          "clip": "capture_prey",
+          "time_seconds": 1.1,
+          "region": "changed_geometry",
+          "dot": -0.6073245357582815,
+          "angle_degrees": 127.3962998816655,
+          "baseline_same_time_dot": 0.2247765510812515,
+          "world_centroid_m": [
+            -0.25508789154524497,
+            0.7367872580618178,
+            0.09758029531044965
+          ]
+        },
+        {
+          "primitive": 0,
+          "face_id": 693,
+          "vertex_ids": [
+            3149,
+            3231,
+            68
+          ],
+          "clip": "capture_prey",
+          "time_seconds": 1.25,
+          "region": "changed_geometry",
+          "dot": -0.37471932441677736,
+          "angle_degrees": 112.00696643843133,
+          "baseline_same_time_dot": 0.994152315567886,
+          "world_centroid_m": [
+            -0.14479347339988488,
+            0.7383696435955157,
+            0.32598303040688187
+          ]
+        },
+        {
+          "primitive": 0,
+          "face_id": 674,
+          "vertex_ids": [
+            3429,
+            19,
+            26
+          ],
+          "clip": "swallow_prey",
+          "time_seconds": 4.8,
+          "region": "changed_geometry",
+          "dot": -0.6073245512901655,
+          "angle_degrees": 127.39630100182046,
+          "baseline_same_time_dot": 0.22477800208011886,
+          "world_centroid_m": [
+            -0.25508789229846185,
+            0.7367872250988242,
+            0.09758029253350602
+          ]
+        },
+        {
+          "primitive": 0,
+          "face_id": 693,
+          "vertex_ids": [
+            3149,
+            3231,
+            68
+          ],
+          "clip": "swallow_prey",
+          "time_seconds": 4.349999904632568,
+          "region": "changed_geometry",
+          "dot": -0.37471927205029787,
+          "angle_degrees": 112.00696320226017,
+          "baseline_same_time_dot": 0.9941523183004018,
+          "world_centroid_m": [
+            -0.14479347327810457,
+            0.738369644414794,
+            0.32598303023647984
+          ]
+        }
+      ],
+      "interpretation": "Opposed angle-weighted face-average normals are shading-risk metrics, not alone evidence of triangle intersection. Strict dot<0 maxima remain six in both versions; at unchanged prior criterion dot<-0.05 maxima rise from five to six. No normal acceptance broadening or new exemptions."
+    },
+    "exclusions_and_limits": {
+      "shared_source_seam": "Triangle pairs sharing a source-rest vertex welded by coordinates rounded to 1e-6 m are filtered. This does not prove adjacent-face foldover freedom.",
+      "inherited_pairs": "Exactly 63 listed original ivory triangle pairs, derived from 88 original directional edge hits. No entire anatomical region is excluded.",
+      "numerical_clearance_guard_m": 1e-05,
+      "arithmetic": "Conservative double-precision geometric/motion bounds, not formal directed-rounding interval arithmetic.",
+      "not_covered": "Other asset hashes, changed prey transforms/timing, arbitrary runtime clip blending, shader displacement, or native-engine/render acceptance."
+    },
+    "detail_reports": [
+      "geometry_identity.json",
+      "affected_shell_prey.json",
+      "affected_self_capture.json",
+      "affected_self_swallow.json",
+      "exact_endpoints.json",
+      "sampled_clearances.json",
+      "sampled_deep_wall_clearances.json",
+      "motion_and_sole.json",
+      "normal_audit/normal_summary.json"
+    ]
+  },
+  "legacy_summary": {
+    "current_runtime_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+    "comparison_source_sha256": "a2d5f54c79bc9842428b1948c04175101d69d60adb51111d5f389b51d266ad92",
+    "samples": 2625,
+    "sample_rate_hz": 120,
+    "deep_lining_max_m": 0.0013594565695060094,
+    "lining_region_max_m_and_clip": {
+      "0": [
+        0.0,
+        "walk_slow"
+      ],
+      "1": [
+        0.0,
+        "walk_slow"
+      ],
+      "2": [
+        1.1389416104518226e-07,
+        "howl_echo"
+      ],
+      "3": [
+        1.0328207161578568e-07,
+        "lost_prey_agony"
+      ],
+      "4": [
+        1.0044299393873976e-07,
+        "lost_prey_agony"
+      ],
+      "5": [
+        9.737759324996214e-08,
+        "howl_echo"
+      ],
+      "6": [
+        1.1583358255273689e-07,
+        "idle_listen"
+      ],
+      "7": [
+        0.0013594565695060094,
+        "lost_prey_agony"
+      ],
+      "8": [
+        0.0005915480833603127,
+        "door_enter"
+      ],
+      "9": [
+        0.0004358285939054872,
+        "door_enter"
+      ],
+      "10": [
+        0.0003955868231418694,
+        "door_enter"
+      ]
+    },
+    "foot_region_max_m": 0.0,
+    "outer_hood_max_m": 0.014555464937723937,
+    "native_doorway_and_overlay_validation": "Required; these comparisons do not establish runtime behavior equivalence."
+  },
+  "source_rebuild": {
+    "reference_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+    "rebuilt_sha256": "e11546613c1f6c5941591bf16b5a4dad8a8b5d8cd91bc1c4acf2ed89803e4dd7",
+    "content_exact": true,
+    "differences": [],
+    "note": "Unused accessors and buffer layout may differ. Compared data directly controls runtime geometry, materials, nodes and animation."
+  },
+  "editable_source_check": {
+    "samples": 55,
+    "maximum_m": 1.3811133029955189e-06
+  },
+  "archive": {
+    "filename": "Tall_Guest_Capture_Swallow_v0_3_Source_QA.zip",
+    "sha256": "3f07413c9817aa7123ec1d4fee99634d9c5c15aafc175772164fecae08d18e0c",
+    "bytes": 30701899
+  },
+  "review": {
+    "runtime_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+    "review_sha256": "7ad334256f379d5093adb7ea0344f7117bb9076a9d4329d70b6a2ad25e4f443f",
+    "review_bytes": 3393887,
+    "probe": {
+      "programs": [],
+      "stream_groups": [],
+      "streams": [
+        {
+          "codec_name": "h264",
+          "width": 1280,
+          "height": 800,
+          "pix_fmt": "yuv420p",
+          "r_frame_rate": "24/1",
+          "nb_frames": "243",
+          "nb_read_frames": "243"
+        }
+      ],
+      "format": {
+        "duration": "10.125000",
+        "size": "3393887"
+      }
+    },
+    "geometry_sample_count": 111,
+    "geometry_sampling": "12 Hz with exact clip endpoints, time-aligned and duplicated to24fps; approximately one-second final review hold.",
+    "normal_method": "Corner-angle-weighted unit normals from actual final posed triangles, preserving original smoothing groups.",
+    "scope": "Blender asset-authoring review, not native-engine acceptance."
+  },
+  "native_acceptance": "Required. Do not mistake this asset-authoring review for the requested final Places gameplay video."
+}

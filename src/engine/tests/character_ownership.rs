@@ -64,6 +64,7 @@ fn tiny_rig() -> Arc<LoadedPropAsset> {
         model_path: "tiny-rig".into(),
         model: PropModel {
             skin: Some(PropSkin {
+                source_vertices: Vec::new(),
                 joints: vec![0],
                 inverse_bind: vec![Mat4::IDENTITY],
                 nodes: vec![PropNode {
@@ -204,6 +205,7 @@ fn actors_own_idle_movement_and_action_independently_of_the_player() -> Result<(
         "explicit player locomotion remains active"
     );
     let frame = EntityFrame {
+        rigid_transform: None,
         instance_id: "npc".into(),
         transform: Some((Vec3::new(0.1, 0.0, 0.0), 0.0)),
         cue: None,

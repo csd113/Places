@@ -75,6 +75,13 @@ impl EntityWorld {
     }
 
     fn checkpoint_ready(&self) -> Result<(), String> {
+        if self
+            .guests
+            .iter()
+            .any(crate::engine::tall_guest::Guest::has_prey_capability)
+        {
+            return Err("Whole-prey capture capability does not support checkpoints yet".into());
+        }
         if !self.events.is_empty()
             || !self.commands.is_empty()
             || !self.moves.is_empty()

@@ -1,11 +1,14 @@
 //! Opt-in, blind acoustic hunter. Sensing owns observations; motion and audio
 //! consume their sampled evidence, never a live hidden target transform.
 pub mod audio_fence;
+mod capture;
+pub(crate) use capture::Tick as CaptureTick;
 mod checkpoint;
 mod doorway;
 mod foot_contact;
 pub(crate) mod hearing;
 mod lifecycle;
+pub mod prey;
 pub(crate) mod prop_track;
 mod recovery;
 mod terrain;
@@ -36,7 +39,9 @@ const POSTURE_SECONDS: f32 = 1.2 / POSTURE_RATE;
 const TURN_RATE: f32 = 60.0;
 const BLEND: f32 = 0.18;
 const MARGIN: f32 = 0.05;
-const CLIPS: [(&str, f32); 9] = [
+const CLIPS: [(&str, f32); 11] = [
+    ("capture_prey", 3.2),
+    ("swallow_prey", 5.9),
     ("idle_listen", 3.0),
     ("walk_slow", 1.8),
     ("run_pursuit", 0.8),
@@ -111,6 +116,9 @@ impl Refuge {
 pub struct Definition {
     #[serde(default)]
     pub patrol: Vec<[f32; 3]>,
+    /// Opt-in authored living acoustic prey; no hidden live steering.
+    #[serde(default)]
+    pub prey_targets: Vec<String>,
     #[serde(default)]
     pub passages: Vec<Passage>,
 }
@@ -118,7 +126,18 @@ pub struct Definition {
 impl Definition {
     #[must_use]
     pub fn is_valid(&self) -> bool {
-        self.patrol.len() <= 32
+        self.prey_targets.len() <= 16
+            && self
+                .prey_targets
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                == self.prey_targets.len()
+            && self
+                .prey_targets
+                .iter()
+                .all(|id| !id.is_empty() && id.len() <= 64 && !id.chars().any(char::is_control))
+            && self.patrol.len() <= 32
             && self.passages.len() <= 16
             && self
                 .patrol
@@ -157,6 +176,8 @@ pub enum Intent {
 #[serde(deny_unknown_fields)]
 pub struct Observation {
     position: Vec3,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    heading: Option<f32>,
     aim_point: Vec3,
     velocity: Vec3,
     sampled: f32,
@@ -320,6 +341,8 @@ enum RefugeRoute {
 
 pub struct Guest {
     pub state: Record,
+    pub(crate) capture: Option<capture::Capture>,
+    capture_failure: Option<(u64, Vec3)>,
     audio_epoch: u64,
     definition: Definition,
     stages: Vec<doorway::Stage>,
@@ -399,10 +422,19 @@ pub fn load(level: &LevelDef) -> Result<Vec<Guest>, String> {
                 "{id}: Tall Guest requires one upright scale-one motion owner and valid bounded passages"
             ));
         }
+        validate_prey_targets(level, &definition, &id)?;
         let path = catalog
             .get(&prop.model)
             .model
             .ok_or("Tall Guest model is missing")?;
+        if !definition.prey_targets.is_empty()
+            && (path != "entities/tall_guest/model/tall_guest.glb"
+                || !crate::engine::props::reviewed_source_matches(&path, prey::HUNTER_SHA256))
+        {
+            return Err(format!(
+                "{id}: whole-prey capture requires the certified Tall Guest export"
+            ));
+        }
         let asset = assets.resolve(&path)?;
         let animator =
             CharacterAnimator::new(&asset.model).ok_or("Tall Guest requires a skinned rig")?;
@@ -416,6 +448,7 @@ pub fn load(level: &LevelDef) -> Result<Vec<Guest>, String> {
         }
         for name in [
             "acoustic_origin",
+            "mouth_capture_socket",
             "head",
             "foot_front",
             "foot_left",
@@ -449,6 +482,25 @@ pub fn load(level: &LevelDef) -> Result<Vec<Guest>, String> {
     Ok(result)
 }
 
+fn validate_prey_targets(
+    level: &LevelDef,
+    definition: &Definition,
+    id: &str,
+) -> Result<(), String> {
+    if definition.prey_targets.iter().any(|target| {
+        !level
+            .props
+            .iter()
+            .zip(level.prop_instance_ids())
+            .any(|(candidate, candidate_id)| {
+                candidate_id == *target && candidate.feltling.is_some()
+            })
+    }) {
+        return Err(format!("{id}: prey target requires a native Feltling"));
+    }
+    Ok(())
+}
+
 fn duration(name: &str) -> f32 {
     CLIPS
         .iter()
@@ -473,6 +525,8 @@ impl Guest {
         ceiling: crate::engine::level::WalkableCeiling,
     ) -> Self {
         let mut guest = Self {
+            capture: None,
+            capture_failure: None,
             state: Record {
                 id,
                 position,
@@ -978,16 +1032,21 @@ impl Guest {
             };
             let (head, _) = self.head();
             if now - received.observation.sampled > 0.35
-                || !scene.clear(head, received.hit)
-                || !sight_clear_with_solids(
-                    ctx.index,
-                    ctx.walls,
-                    leaves,
-                    solids,
-                    head,
-                    received.hit,
-                    false,
-                )
+                || if received.observation.track == 1 {
+                    !scene.clear(head, received.hit)
+                } else {
+                    !scene.prey_return_clear(received.observation.track, head, received.hit)
+                }
+                || (received.observation.track == 1
+                    && !sight_clear_with_solids(
+                        ctx.index,
+                        ctx.walls,
+                        leaves,
+                        solids,
+                        head,
+                        received.hit,
+                        false,
+                    ))
             {
                 continue;
             }
@@ -1091,6 +1150,39 @@ impl Guest {
         scheduled: f32,
     ) {
         let now = self.state.clock;
+        if let Some(echo) = scene.reflect_prey(&self.definition.prey_targets, origin, axis)
+            && !self
+                .definition
+                .passages
+                .iter()
+                .filter_map(|p| p.protected.as_ref())
+                .any(|refuge| segment_box(origin, echo.hit, refuge.bounds()))
+        {
+            let distance = origin.distance(echo.hit);
+            let quality = scene.echo_quality(origin, echo.hit);
+            if quality > 0.0 && self.state.pending.len() < 4 {
+                self.state.pending.push_back(Return {
+                    observation: Observation {
+                        position: echo.position,
+                        heading: Some(echo.heading),
+                        aim_point: echo.hit,
+                        velocity: Vec3::ZERO,
+                        sampled: now,
+                        pulse: self.state.pulse,
+                        quality: (0.95 - distance / 100.0) * quality,
+                        confidence: 0.0,
+                        uncertainty: (1.0 - quality).mul_add(2.5, 0.15),
+                        track: echo.key,
+                        confirmed: false,
+                    },
+                    origin,
+                    hit: echo.hit,
+                    deliver: now + (distance * 2.0 / 343.0).max(0.05),
+                });
+                self.state.next_pulse = self.state.next_pulse.min(cadence(scheduled, now, 0.6));
+                return;
+            }
+        }
         let samples = [
             ctx.eye,
             ctx.feet + Vec3::Y * (ctx.body_height * 0.55),
@@ -1130,6 +1222,7 @@ impl Guest {
             self.state.pending.push_back(Return {
                 observation: Observation {
                     position,
+                    heading: None,
                     aim_point: sample + (position - ctx.feet),
                     velocity: Vec3::ZERO,
                     sampled: now,
@@ -2053,6 +2146,37 @@ impl Guest {
                 .position
                 .distance(self.staging_goal(self.state.goal.unwrap_or(waypoint)))
         };
+        if let Some(observation) = self
+            .state
+            .observation
+            .as_ref()
+            .filter(|observation| observation.track != 1)
+            && remaining < 0.35
+            && self.fresh()
+        {
+            let heading = observation.heading.unwrap_or(self.state.yaw);
+            self.state.yaw = crate::engine::entity::turn_toward(
+                self.state.yaw,
+                heading,
+                TURN_RATE.to_radians() * sub,
+            );
+            if let Some(goal) = self.state.goal {
+                let acceleration = self.state.base_speed * 2.0;
+                let desired = (2.0 * acceleration * remaining).sqrt().min(0.35);
+                self.state.speed +=
+                    (desired - self.state.speed).clamp(-acceleration * sub, acceleration * sub);
+                let step = (goal - self.state.position).clamp_length_max(self.state.speed * sub);
+                self.state.position += step;
+                self.state.speed = step.length() / sub;
+                self.state.motion_rate = (self.state.speed / RUN_REFERENCE).clamp(0.0, 7.0);
+                self.set_clip(if self.state.speed > 0.02 {
+                    "run_pursuit"
+                } else {
+                    "idle_listen"
+                });
+            }
+            return;
+        }
         let acceleration = self.state.base_speed * 2.0;
         let desired = cap.min((2.0 * acceleration * remaining).sqrt());
         self.state.speed +=
@@ -2182,8 +2306,12 @@ impl Guest {
             Vec3::ZERO
         };
         let predicted = observed.aim_point + offset;
-        if scene.clear(observed.aim_point, predicted)
-            && sight_clear_with_solids(
+        if if observed.track == 1 {
+            scene.clear(observed.aim_point, predicted)
+        } else {
+            scene.prey_return_clear(observed.track, observed.aim_point, predicted)
+        } && (observed.track != 1
+            || sight_clear_with_solids(
                 ctx.index,
                 ctx.walls,
                 leaves,
@@ -2191,9 +2319,14 @@ impl Guest {
                 observed.aim_point,
                 predicted,
                 false,
-            )
+            ))
         {
-            self.state.goal = Some(observed.position + offset);
+            let standoff = if observed.track == 1 {
+                Vec3::ZERO
+            } else {
+                Quat::from_rotation_y(observed.heading.unwrap_or(self.state.yaw)) * prey::SETUP
+            };
+            self.state.goal = Some(observed.position + offset - standoff);
         }
     }
 
@@ -2351,7 +2484,13 @@ impl Guest {
         if !self.enabled() {
             return Vec::new();
         }
-        let mut bounds = vec![(Vec3::splat(f32::INFINITY), Vec3::splat(f32::NEG_INFINITY)); 32];
+        let count = self
+            .asset
+            .model
+            .skin
+            .as_ref()
+            .map_or(0, |skin| skin.joints.len());
+        let mut bounds = vec![(Vec3::splat(f32::INFINITY), Vec3::splat(f32::NEG_INFINITY)); count];
         for face in self.asset.model.indices.as_chunks::<3>().0 {
             let Some(first) = face.first().copied().map(usize::from) else {
                 continue;
@@ -2409,6 +2548,11 @@ impl Guest {
     ) {
         if self.state.attacked_episode == self.state.episode
             || self.state.intent != Intent::Chase
+            || self
+                .state
+                .observation
+                .as_ref()
+                .is_some_and(|o| o.track != 1)
             || !self.fresh()
             || self.state.transit.is_some()
         {
@@ -2610,6 +2754,7 @@ impl Guest {
     #[must_use]
     pub fn frame(&self) -> EntityFrame {
         EntityFrame {
+            rigid_transform: None,
             instance_id: self.state.id.clone(),
             transform: Some((self.state.position, self.state.yaw)),
             cue: Some(PoseCue::Articulated {
@@ -2628,7 +2773,7 @@ impl Guest {
     pub fn diagnostics(&self) -> serde_json::Value {
         let feet:Vec<_>=["foot_front","foot_left","foot_right"].into_iter().filter_map(|name|self.socket(name).map(|matrix|serde_json::json!({"name":name,"position":matrix.transform_point3(Vec3::ZERO)}))).collect();
         let surface=(std::env::var_os("PLACES_BENCH").is_some() && std::env::var_os("PLACES_TALL_GUEST_DUMP_POSE").is_some()).then(||serde_json::json!({"vertices":self.vertices,"indices":self.asset.model.indices,"globals":self.animator.named_globals().into_iter().map(|(name,matrix)|(name,self.transform().mul_mat4(&matrix))).collect::<Vec<_>>()}));
-        serde_json::json!({"state":self.state,"head":self.head(),"feet":feet,"events":self.diagnostics,"direct_head_overlay":false,"distributed_aim":self.distributed_aim,"passages":self.stages,"native_surface":surface})
+        serde_json::json!({"state":self.state,"capture":self.capture.as_ref().map(capture::Capture::diagnostics),"head":self.head(),"feet":feet,"events":self.diagnostics,"direct_head_overlay":false,"distributed_aim":self.distributed_aim,"passages":self.stages,"native_surface":surface})
     }
 
     pub fn take_sounds(&mut self) -> Vec<Sound> {

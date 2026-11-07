@@ -4,6 +4,39 @@ use super::{EntityHandle, EntityWorld, StateValue, WorldCommand};
 use crate::engine::feltling::{Feltling, Record};
 
 impl EntityWorld {
+    pub(super) fn release_orphaned_prey(&mut self, ctx: &super::WorldContext<'_>) {
+        let bodies: Vec<_> = self.feltlings.iter().map(Feltling::collider).collect();
+        let guests: Vec<_> = self
+            .guests
+            .iter()
+            .flat_map(crate::engine::tall_guest::Guest::body_colliders)
+            .collect();
+        for (index, prey) in self.feltlings.iter_mut().enumerate() {
+            if let Some(owner) = prey.reserved_by.as_deref()
+                && !self.guests.iter().any(|guest| {
+                    guest.state.id == owner
+                        && guest.capture_target() == Some(prey.state.id.as_str())
+                })
+                && let Some((position, yaw)) = prey.release_pose
+            {
+                let mut leaves = self
+                    .door_colliders
+                    .get(..self.guest_collider_start)
+                    .unwrap_or(&[])
+                    .to_vec();
+                leaves.extend_from_slice(&guests);
+                leaves.extend(
+                    bodies
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(other, body)| (other != index).then_some(*body).flatten()),
+                );
+                let _released =
+                    prey.release_at(position, yaw, ctx, &leaves, &self.navigation_obstacles);
+            }
+        }
+    }
+
     pub(super) fn tick_feltlings(&mut self, ctx: &super::WorldContext<'_>) {
         if self.feltlings.is_empty() {
             return;
@@ -91,8 +124,10 @@ impl EntityWorld {
                 .get(&feltling.state.id)
                 .and_then(|handle| self.components.interactables.get(handle))
                 .is_some_and(|entry| entry.enabled);
-            self.interactables
-                .set_controller_enabled(&feltling.state.id, requested && feltling.enabled());
+            self.interactables.set_controller_enabled(
+                &feltling.state.id,
+                requested && feltling.enabled() && feltling.attachment.is_none(),
+            );
         }
     }
 

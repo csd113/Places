@@ -74,6 +74,7 @@ impl WgpuCharacters {
                 &character.asset().model,
                 character.animator(),
                 character.albedo(),
+                None,
                 &mut expected,
             );
             if actual.len() != expected.len() {

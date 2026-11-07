@@ -31,6 +31,13 @@ pub struct LoadedPropAsset {
     pub model: PropModel,
 }
 
+/// Exact reviewed export identity, enforced on every source model load.
+/// A changed accepted export must not inherit an older geometry certificate.
+#[must_use]
+pub(crate) fn reviewed_source_matches(path: &str, sha256: &str) -> bool {
+    completed_model_review(path).is_some_and(|review| review.sha256 == sha256)
+}
+
 /// Stable prepared-batch identity. The suffix distinguishes material variants
 /// in transport, package texture restoration and GPU caches; it is never used
 /// as a filesystem path. Source resources retain their normal catalog paths.

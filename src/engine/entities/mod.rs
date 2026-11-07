@@ -826,6 +826,9 @@ impl EntityWorld {
     /// Re-seeds every runtime to its authored start state without replacing the
     /// world: the `reset_to_start` contract.
     pub fn reset_runtime(&mut self) {
+        for guest in &mut self.guests {
+            guest.cancel_capture();
+        }
         self.discard_scene_commands();
         self.queue_ragdoll_resets();
         self.scripts.reload();
@@ -4455,8 +4458,9 @@ impl EntityWorld {
                 return tick;
             }
             self.tick_ai(ctx, &mut tick);
-            self.tick_guests(ctx);
+            self.release_orphaned_prey(ctx);
             self.tick_feltlings(ctx);
+            self.tick_guests(ctx);
             let transforms: Vec<_> = self
                 .guests
                 .iter()
@@ -4608,17 +4612,7 @@ impl EntityWorld {
             .saturating_add(outcome.transitions.min(MAX_EVENTS_PER_TICK));
     }
 
-    fn tick_guests(&mut self, ctx: &WorldContext<'_>) {
-        let stimuli: Vec<_> = self.stimuli.iter().cloned().collect();
-        let mut bodies: Vec<_> = self
-            .guests
-            .iter()
-            .map(crate::engine::tall_guest::Guest::body_colliders)
-            .collect();
-        let base = self
-            .door_colliders
-            .get(..self.guest_collider_start)
-            .unwrap_or(&[]);
+    fn guest_ambient(&self) -> Vec<guest_acoustics::Ambient> {
         let creature_handles: Vec<_> = self
             .guests
             .iter()
@@ -4649,6 +4643,103 @@ impl EntityWorld {
                 })
             })
             .collect();
+        ambient
+    }
+
+    fn finish_prey_events(
+        &mut self,
+        prey_events: Vec<(
+            String,
+            String,
+            u64,
+            EntityHandle,
+            crate::engine::tall_guest::CaptureTick,
+        )>,
+    ) {
+        for (guest, id, key, handle, events) in prey_events {
+            if events.latched {
+                self.commands.push(WorldCommand::StopSound { entity: key });
+                if let Some(owner) = self.handle_of(&guest) {
+                    let _queued = self.emit_depth(EventKind::Caught, owner, &id, Some(handle), 0);
+                }
+            }
+            if events.consumed && self.store.contains(handle) && self.despawn_handle(handle) {
+                let _recorded = self.emit_state(
+                    &guest,
+                    "prey_consumed",
+                    StateValue::Text(format!("{id}:{key}")),
+                    None,
+                    0,
+                );
+            }
+        }
+        let transforms: Vec<_> = self
+            .feltlings
+            .iter()
+            .map(|prey| (prey.state.id.clone(), prey.state.position, prey.state.yaw))
+            .collect();
+        for (id, position, yaw) in transforms {
+            if let Some(handle) = self.handle_of(&id)
+                && let Some(transform) = self.components.transforms.get_mut(handle)
+            {
+                transform.position = position;
+                transform.yaw_degrees = yaw.to_degrees();
+            }
+        }
+        self.sync_feltling_interactables();
+    }
+
+    fn acoustic_prey(
+        &self,
+        prey_handles: &[(String, u64, EntityHandle)],
+    ) -> Vec<crate::engine::tall_guest::prey::AcousticTarget> {
+        let prey_targets: Vec<_> = self
+            .feltlings
+            .iter()
+            .filter_map(|prey| prey.collider().map(|collider| (prey, collider)))
+            .enumerate()
+            .filter(|(_, (prey, _))| prey.attachment.is_none() && prey.enabled())
+            .filter_map(|(leaf_offset, (prey, collider))| {
+                let key = prey_handles
+                    .iter()
+                    .find(|(id, _, _)| id == &prey.state.id)?
+                    .1;
+                Some(crate::engine::tall_guest::prey::AcousticTarget {
+                    id: prey.state.id.clone(),
+                    key,
+                    position: prey.state.position,
+                    crown: prey.acoustic_position(),
+                    heading: prey.state.yaw,
+                    collider,
+                    leaf_offset,
+                })
+            })
+            .collect();
+        prey_targets
+    }
+
+    fn tick_guests(&mut self, ctx: &WorldContext<'_>) {
+        let prey_handles: Vec<_> = self
+            .feltlings
+            .iter()
+            .filter_map(|prey| {
+                let handle = self.handle_of(&prey.state.id)?;
+                Some((prey.state.id.clone(), self.stable_key(handle)?, handle))
+            })
+            .collect();
+        let prey_targets = self.acoustic_prey(&prey_handles);
+        let mut prey_events = Vec::new();
+        let stimuli: Vec<_> = self.stimuli.iter().cloned().collect();
+        let mut bodies: Vec<_> = self
+            .guests
+            .iter()
+            .map(crate::engine::tall_guest::Guest::body_colliders)
+            .collect();
+        let base = self
+            .door_colliders
+            .get(..self.guest_collider_start)
+            .unwrap_or(&[]);
+        let ambient = self.guest_ambient();
         let mut catches = Vec::new();
         for (index, guest) in self.guests.iter_mut().enumerate() {
             let mut leaves = base.to_vec();
@@ -4663,6 +4754,8 @@ impl EntityWorld {
                 }
             }
             let scene = guest_sensing::PropScene {
+                prey_leaf_start: base.len(),
+                prey: &prey_targets,
                 items: &self.ai_physical,
                 layout: &self.guest_acoustics,
                 ambient: &ambient,
@@ -4670,7 +4763,48 @@ impl EntityWorld {
                 leaves: &leaves,
                 solids: &self.navigation_obstacles,
             };
-            guest.tick(ctx, &leaves, &self.navigation_obstacles, &stimuli, &scene);
+            let was_capturing = guest.capture.is_some();
+            if !was_capturing {
+                guest.tick(ctx, &leaves, &self.navigation_obstacles, &stimuli, &scene);
+                if let Some(key) = guest.prey_key()
+                    && let Some((id, _, _)) = prey_handles
+                        .iter()
+                        .find(|(_, identity, _)| *identity == key)
+                    && let Some(prey) = self.feltlings.iter_mut().find(|prey| prey.state.id == *id)
+                {
+                    let _started = guest.begin_capture(prey, key);
+                }
+            }
+            if let Some(key) = guest.prey_key()
+                && was_capturing
+            {
+                let identity = prey_handles
+                    .iter()
+                    .find(|(_, identity, _)| *identity == key);
+                let target_leaf = identity.and_then(|(id, _, _)| {
+                    self.feltlings
+                        .iter()
+                        .filter_map(|prey| prey.collider().map(|collider| (prey, collider)))
+                        .enumerate()
+                        .find(|(_, (prey, _))| prey.state.id == *id)
+                        .and_then(|(offset, (_, collider))| {
+                            base.len().checked_add(offset).map(|slot| (slot, collider))
+                        })
+                });
+                if guest.capture_owns_prey()
+                    && let Some((slot, collider)) = target_leaf
+                    && leaves.get(slot) == Some(&collider)
+                {
+                    let _removed = leaves.remove(slot);
+                }
+                let target = identity.and_then(|(id, _, _)| {
+                    self.feltlings.iter_mut().find(|prey| prey.state.id == *id)
+                });
+                let events = guest.tick_capture(ctx, &leaves, &self.navigation_obstacles, target);
+                if let Some((id, _, handle)) = identity {
+                    prey_events.push((guest.state.id.clone(), id.clone(), key, *handle, events));
+                }
+            }
             // Later actors must see earlier accepted motion from this same tick.
             if let Some(body) = bodies.get_mut(index) {
                 *body = guest.body_colliders();
@@ -4679,6 +4813,7 @@ impl EntityWorld {
                 catches.push(guest.state.id.clone());
             }
         }
+        self.finish_prey_events(prey_events);
         self.refresh_guest_colliders();
         for id in catches {
             if let Some(handle) = self.handle_of(&id) {
@@ -5268,6 +5403,36 @@ impl EntityWorld {
     /// carries the entity's fade opacity and attached glow at the current
     /// simulation time, and a placed entity that carries either component
     /// without a route/AI/override still gets a frame.
+    fn append_creature_frames(&mut self) {
+        for guest in &self.guests {
+            self.entity_frames
+                .retain(|frame| frame.instance_id != guest.state.id);
+            let mut frame = guest.frame();
+            let (opacity, glow) = self.frame_visuals(&guest.state.id);
+            frame.opacity *= opacity;
+            frame.glow = if guest.enabled() { glow } else { None };
+            frame.shadow_only = guest.enabled() && self.frame_shadow_only(&guest.state.id);
+            self.entity_frames.push(frame);
+        }
+        for feltling in &self.feltlings {
+            self.entity_frames
+                .retain(|frame| frame.instance_id != feltling.state.id);
+            let mut frame = feltling.frame();
+            let (opacity, glow) = self.frame_visuals(&feltling.state.id);
+            frame.opacity *= opacity;
+            frame.glow = if feltling.enabled() { glow } else { None };
+            self.entity_frames.push(frame);
+        }
+        self.retired_feltling_frames
+            .retain(|frame| self.names.get(&frame.instance_id).is_none());
+        self.entity_frames
+            .extend(self.retired_feltling_frames.iter().cloned());
+        self.retired_guest_frames
+            .retain(|frame| self.names.get(&frame.instance_id).is_none());
+        self.entity_frames
+            .extend(self.retired_guest_frames.iter().cloned());
+    }
+
     pub fn rebuild_entity_frames(&mut self) {
         self.entity_frames.clear();
         // AI agents own their locomotion: their frame carries the live
@@ -5281,6 +5446,7 @@ impl EntityWorld {
             let carrying_cue = self.ai_frame_cue(agent);
             let (opacity, glow) = self.frame_visuals(&agent.instance_id);
             self.entity_frames.push(EntityFrame {
+                rigid_transform: None,
                 instance_id: agent.instance_id.clone(),
                 // The frame contract is radians with 0 facing world +Z, the
                 // same unit as `RouteState::yaw` and `Character::set_pose`.
@@ -5316,6 +5482,7 @@ impl EntityWorld {
                 .unwrap_or_else(|| state.cue.clone());
             let (opacity, glow) = self.frame_visuals(&route.instance_id);
             self.entity_frames.push(EntityFrame {
+                rigid_transform: None,
                 instance_id: route.instance_id.clone(),
                 transform: Some((state.position, state.yaw)),
                 cue: Some(cue),
@@ -5342,6 +5509,7 @@ impl EntityWorld {
             // The renderer matches frames to the characters it claimed; a
             // frame for an instance it does not draw is ignored there.
             self.entity_frames.push(EntityFrame {
+                rigid_transform: None,
                 instance_id: instance_id.clone(),
                 transform: None,
                 cue: Some(cue.clone()),
@@ -5355,33 +5523,7 @@ impl EntityWorld {
         }
         self.append_visual_frames();
         self.append_animated_door_frames();
-        for guest in &self.guests {
-            self.entity_frames
-                .retain(|frame| frame.instance_id != guest.state.id);
-            let mut frame = guest.frame();
-            let (opacity, glow) = self.frame_visuals(&guest.state.id);
-            frame.opacity *= opacity;
-            frame.glow = if guest.enabled() { glow } else { None };
-            frame.shadow_only = guest.enabled() && self.frame_shadow_only(&guest.state.id);
-            self.entity_frames.push(frame);
-        }
-        for feltling in &self.feltlings {
-            self.entity_frames
-                .retain(|frame| frame.instance_id != feltling.state.id);
-            let mut frame = feltling.frame();
-            let (opacity, glow) = self.frame_visuals(&feltling.state.id);
-            frame.opacity *= opacity;
-            frame.glow = if feltling.enabled() { glow } else { None };
-            self.entity_frames.push(frame);
-        }
-        self.retired_feltling_frames
-            .retain(|frame| self.names.get(&frame.instance_id).is_none());
-        self.entity_frames
-            .extend(self.retired_feltling_frames.iter().cloned());
-        self.retired_guest_frames
-            .retain(|frame| self.names.get(&frame.instance_id).is_none());
-        self.entity_frames
-            .extend(self.retired_guest_frames.iter().cloned());
+        self.append_creature_frames();
     }
 
     fn append_animated_door_frames(&mut self) {
@@ -5389,6 +5531,7 @@ impl EntityWorld {
             self.entity_frames
                 .retain(|frame| frame.instance_id != door.id);
             self.entity_frames.push(EntityFrame {
+                rigid_transform: None,
                 instance_id: door.id.clone(),
                 transform: None,
                 cue: Some(door.cue()),
@@ -5440,6 +5583,7 @@ impl EntityWorld {
             let opacity = self.frame_opacity(handle);
             let glow = self.frame_glow(handle);
             self.entity_frames.push(EntityFrame {
+                rigid_transform: None,
                 shadow_only: self.frame_shadow_only(&instance_id),
                 instance_id,
                 transform: None,

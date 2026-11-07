@@ -9849,7 +9849,7 @@ NPC footsteps and all non-player sounds retain their existing age falloff.
 
 A `tall-guest` prop enables its blind controller with `tall_guest: {"patrol": [], "passages": []}`.
 Use `solid:false`, scale1 and upright yaw. The controller owns translation,
-32-node pose, full posed collision, footsteps and directional head audio.
+130-node pose (127 skin joints), full posed collision, footsteps and directional head audio.
 Do not attach an `animation` or `ai` component, rigid physics, float, span,
 route, shadow-only or material replacement. Up to eight Guests share the
 existing character/audio budgets; missing native rig/render ownership fails load.
@@ -9880,6 +9880,30 @@ following despawn. Keep final-world native validation separate from offline file
 Compiled levels declaring this capability require `tall-guest-v1`. Older players reject the package by capability name; the current reader also rejects a source declaring Tall Guest without that requirement. Existing levels without the creature retain their requirements.
 
 
+An optional `prey_targets:["runner"]` admits at most sixteen unique native
+Feltling instance IDs to sampled acoustic tracking and whole-prey capture. Two
+correlated, clear sampled echoes authorize approach; hidden current coordinates
+never steer the hunter. The registered profile requires the exact reviewed v0.3
+Tall Guest and unchanged full-size Feltling exports. Contact requires the actual
+lip/crown triangle surfaces. One owner then drives the full quaternion prey root,
+posed collision and rendering until every prey vertex is enclosed at the
+registered consumption time. Hands remain clasped; prey scale stays one.
+
+Use `feltling.mode:"flee"` with an authored route for escape without player-distance
+pauses. It retains physical path/door/floor checks and its faster movement cap.
+A visible obstacle can block that route; do not silently freeze, trap, shrink or
+teleport prey to manufacture capture. `caught` is emitted on mouth latch and the
+hunter publishes `object_state` key `prey_consumed` after retiring that exact prey
+generation; its text state records `id:key`.
+
+Either prey targeting or flee mode additionally requires `whole-prey-v1`.
+Whole-prey levels currently refuse checkpoints; use `saving:false` for explicit
+fixtures. This does not change existing guide or player-only Tall Guest saves.
+Clip/socket timings, geometry limits, interruption behavior and evidence are in
+[the capture report](reports/tall-guest-swallow.md). Other creature fits are not
+admitted by this Feltling certificate.
+
+
 ### Feltling capability
 
 An upright scale-one `feltling` model may declare
@@ -9908,7 +9932,7 @@ checkpoints retain that terrain correction alongside the animation continuation.
 
 Declare ordinary text states `feltling_mode`, `feltling_route` and
 `feltling_status` on an actor when scripts/actions address them. `set_state`
-selects modes `guide`, `wait`, `talk`, `cheer`, or a named route. Changing routes
+selects modes `guide`, `wait`, `talk`, `cheer`, `flee`, or a named route. Changing routes
 starts that route; temporary modes retain its waypoint. The controller publishes
 `object_state` for status changes (`greeting`, `pointing`, `leading`, `waiting`,
 `attention_jump`, `attention_wave`, `arrived`, `talking`, `cheering`, `blocked`).

@@ -107,3 +107,31 @@ fn guide_wait_resume_and_serialized_interruption_retain_continuation()
     );
     Ok(())
 }
+
+// Escape must never inherit guide greetings or player-distance waiting. This
+// protects the real chase from an invisible pause, using no assets or map bake.
+#[test]
+fn fleeing_route_never_waits_for_player_proximity() {
+    let mut policy = Policy::new(Mode::Flee);
+    for distance in [0.0_f32, 25.0, 400.0, 10_000.0] {
+        policy.advance(0.01, distance, false);
+        assert_eq!(
+            policy.stage,
+            Stage::Leading,
+            "escape remains live at every player distance"
+        );
+    }
+    policy.enter(Stage::Blocked);
+    policy.advance(0.01, 10_000.0, false);
+    assert_eq!(
+        policy.stage,
+        Stage::Leading,
+        "physical blockage retries without a player trigger"
+    );
+    policy.advance(0.01, 10_000.0, true);
+    assert_eq!(
+        policy.stage,
+        Stage::Arrived,
+        "only actual route completion stops escape"
+    );
+}

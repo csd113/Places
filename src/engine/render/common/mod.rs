@@ -33,6 +33,7 @@ pub mod materials;
 pub mod mesh;
 pub mod normal;
 pub mod occlusion;
+pub mod posed_normals;
 pub mod postprocess;
 pub mod preview_cache;
 pub mod probe_filter;

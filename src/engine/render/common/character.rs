@@ -1148,6 +1148,10 @@ pub(in crate::engine::render) fn baked_cavity(asset: &LoadedPropAsset) -> Option
     const DATA: &[u8] =
         include_bytes!("../../../../assets/entities/tall_guest/model/cavity_visibility.bin");
     (asset.model_path == "entities/tall_guest/model/tall_guest.glb"
+        && crate::engine::props::reviewed_source_matches(
+            &asset.model_path,
+            crate::engine::tall_guest::prey::HUNTER_SHA256,
+        )
         && asset.model.vertices.len() == DATA.len())
     .then_some(DATA)
 }
@@ -2713,6 +2717,15 @@ impl CharacterScene {
     }
 
     fn apply_frame_transform(character: &mut Character, frame: &EntityFrame) {
+        if let Some((position, rotation)) = frame.rigid_transform {
+            if position.is_finite()
+                && rotation.is_finite()
+                && (rotation.length_squared() - 1.0).abs() <= 0.001
+            {
+                character.set_oriented_pose(position, rotation);
+            }
+            return;
+        }
         if let Some((position, yaw)) = frame.transform
             && (matches!(
                 frame.cue,
@@ -3696,6 +3709,8 @@ impl CharacterAnimator {
         let _reference = self.sample_fraction(name, progress);
         for ((pose, original), node) in self.pose.iter_mut().zip(base).zip(&self.rig.nodes) {
             *pose = if node.name.starts_with("spine_")
+                || node.name.starts_with("swallow_")
+                || node.name == "mouth_capture_socket"
                 || matches!(node.name.as_str(), "neck" | "head")
             {
                 original.blend(*pose, weight)

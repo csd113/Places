@@ -191,9 +191,18 @@ impl PropNode {
     }
 }
 
+/// Unmodified source coordinates for topology/normal grouping. Rest skinning
+/// arithmetic can move seam duplicates across a micron quantization boundary.
+#[derive(Clone, Copy, Debug)]
+pub struct SourceVertex {
+    pub position: [f32; 3],
+    pub normal: Option<[f32; 3]>,
+}
+
 /// The retained skeleton of a skinned model.
 #[derive(Clone, Debug)]
 pub struct PropSkin {
+    pub source_vertices: Vec<SourceVertex>,
     /// Joint node indices, in skin order. A vertex's `JOINTS_0` values are
     /// slots into this list, not node indices.
     pub joints: Vec<u16>,
@@ -1308,6 +1317,18 @@ impl<'a> Doc<'a> {
                 GltfError::new(format!("mesh {} references no skin", request.mesh_index))
             })?;
             let skin_matrices = self.resolve_primitive_skin(skin_index, request.node_index)?;
+            if let Some(skin) = &mut self.skin {
+                for (index, position) in attributes.positions.iter().enumerate() {
+                    skin.source_vertices.push(SourceVertex {
+                        position: components(position)?,
+                        normal: attributes
+                            .normals
+                            .as_ref()
+                            .and_then(|normals| normals.get(index))
+                            .copied(),
+                    });
+                }
+            }
             append_skinned_vertices(
                 &mut self.vertices,
                 &mut self.joints,
@@ -1982,6 +2003,7 @@ fn parse_skin(
     let mesh_global_inverse = mesh_global.inverse();
     Ok(ResolvedSkin {
         skin: PropSkin {
+            source_vertices: Vec::new(),
             joints,
             inverse_bind,
             nodes: nodes.to_vec(),

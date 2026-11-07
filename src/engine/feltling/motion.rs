@@ -84,6 +84,24 @@ pub fn base_speed(player_walk_speed: f32) -> f32 {
 impl Feltling {
     #[must_use]
     pub fn collider(&self) -> Option<DoorCollider> {
+        if self.attachment.is_some() && self.enabled() {
+            let vertices = self.physical_vertices();
+            let lo = vertices
+                .iter()
+                .copied()
+                .fold(Vec3::splat(f32::INFINITY), Vec3::min);
+            let hi = vertices
+                .iter()
+                .copied()
+                .fold(Vec3::splat(f32::NEG_INFINITY), Vec3::max);
+            return Some(DoorCollider::from_pose(
+                [lo.x, lo.y, lo.z.midpoint(hi.z)],
+                [1.0, 0.0],
+                hi.x - lo.x,
+                hi.y - lo.y,
+                hi.z - lo.z,
+            ));
+        }
         self.enabled().then(|| {
             DoorCollider::from_pose(
                 [
@@ -146,6 +164,9 @@ impl Feltling {
         leaves: &[DoorCollider],
         solids: &[WallAabb],
     ) {
+        if self.attachment.is_some() {
+            return;
+        }
         if !ctx.delta_seconds.is_finite() || ctx.delta_seconds <= 0.0 {
             return;
         }
@@ -173,7 +194,7 @@ impl Feltling {
         self.blocked_by = None;
         if self.state.policy.stage == Stage::Leading && self.state.gesture.is_none() {
             self.move_route(ctx, doors, leaves, solids, dt);
-        } else {
+        } else if self.state.policy.mode != super::Mode::Flee {
             self.face_player(ctx, dt);
         }
         if !self.clear(ctx, leaves, solids) {
@@ -191,6 +212,9 @@ impl Feltling {
         self.sample_terrain(ctx);
         self.apply_terrain();
         self.choose_voice(changed);
+        if self.state.policy.mode == super::Mode::Flee {
+            self.settle_blocked_pose(dt);
+        }
     }
 
     fn route_goal(&mut self) -> Option<Vec3> {

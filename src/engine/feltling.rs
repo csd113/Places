@@ -1,4 +1,5 @@
 //! Opt-in benevolent guide. One controller owns its route, pose and finite voice.
+mod capture;
 mod motion;
 pub mod policy;
 mod pose;
@@ -47,7 +48,7 @@ impl Definition {
         self.look_at
             .is_none_or(|point| point.iter().all(|v| v.is_finite() && v.abs() <= 100_000.0))
             && self.routes.len() <= 8
-            && (self.mode != Mode::Guide || !self.routes.is_empty())
+            && (!matches!(self.mode, Mode::Guide | Mode::Flee) || !self.routes.is_empty())
             && self.routes.iter().all(|route| {
                 !route.id.is_empty()
                     && route.id.len() <= 64
@@ -102,6 +103,13 @@ pub struct Record {
 
 pub struct Feltling {
     pub state: Record,
+    pub(crate) asset: std::sync::Arc<crate::engine::props::LoadedPropAsset>,
+    bind_pose: Vec<crate::engine::entity::JointPose>,
+    settle_from: Vec<crate::engine::entity::JointPose>,
+    settle_seconds: f32,
+    pub(crate) attachment: Option<(Vec3, glam::Quat)>,
+    pub(crate) reserved_by: Option<String>,
+    pub(crate) release_pose: Option<(Vec3, f32)>,
     definition: Definition,
     animator: CharacterAnimator,
     sampler: CharacterAnimator,
@@ -168,7 +176,15 @@ pub fn load(level: &LevelDef) -> Result<Vec<Feltling>, String> {
         let seed = id
             .bytes()
             .fold(0_u16, |sum, value| sum.wrapping_add(u16::from(value)));
+        let bind_pose = bind_pose(&asset.model)?;
         result.push(Feltling {
+            asset: std::sync::Arc::clone(&asset),
+            bind_pose,
+            settle_from: Vec::new(),
+            settle_seconds: 0.0,
+            attachment: None,
+            reserved_by: None,
+            release_pose: None,
             state: Record {
                 id,
                 position,
@@ -212,6 +228,23 @@ pub fn load(level: &LevelDef) -> Result<Vec<Feltling>, String> {
         return Err("A level supports at most sixteen Feltlings".into());
     }
     Ok(result)
+}
+
+fn bind_pose(
+    model: &crate::engine::gltf::PropModel,
+) -> Result<Vec<crate::engine::entity::JointPose>, String> {
+    Ok(model
+        .skin
+        .as_ref()
+        .ok_or("Missing Feltling bind rig")?
+        .nodes
+        .iter()
+        .map(|node| crate::engine::entity::JointPose {
+            translation: Vec3::from_array(node.translation),
+            rotation: glam::Quat::from_array(node.rotation),
+            scale: Vec3::from_array(node.scale),
+        })
+        .collect())
 }
 
 fn validate_rig(
@@ -323,7 +356,7 @@ impl Feltling {
                 let Some(mode) = Mode::parse(value) else {
                     return false;
                 };
-                if mode == Mode::Guide && self.definition.routes.is_empty() {
+                if matches!(mode, Mode::Guide | Mode::Flee) && self.definition.routes.is_empty() {
                     return false;
                 }
                 self.state.policy.set_mode(mode);
@@ -378,6 +411,7 @@ impl Feltling {
     #[must_use]
     pub fn frame(&self) -> EntityFrame {
         EntityFrame {
+            rigid_transform: self.attachment,
             instance_id: self.state.id.clone(),
             transform: Some((self.state.position, self.state.yaw)),
             cue: Some(PoseCue::Articulated {
@@ -404,7 +438,8 @@ impl Feltling {
             .map_or(Vec3::new(0.0, 0.5, 0.0), |matrix| {
                 matrix.transform_point3(Vec3::ZERO)
             });
-        self.state.position + glam::Quat::from_rotation_y(self.state.yaw) * local
+        let (position, rotation) = self.root_pose();
+        position + rotation * local
     }
 
     pub const fn take_animation_event(&mut self) -> Option<String> {
@@ -499,6 +534,8 @@ impl Feltling {
             "mode":self.state.policy.mode,"stage":self.state.policy.stage,"route":self.state.route,
             "waypoint":self.state.waypoint,"clip":self.state.clip,"progress":self.state.progress,
             "speed_mps":self.speed,"enabled":self.enabled(),"blocked_by":self.blocked_by,
+            "capture_ready":self.capture_ready(),"attachment":self.attachment,"reserved_by":self.reserved_by,"settle_seconds":self.settle_seconds,
+            "physical_vertices":(std::env::var_os("PLACES_PREY_DUMP").is_some()).then(||self.physical_vertices()),
             "next_path_point":self.path.waypoints.get(self.path_cursor)})
     }
 }

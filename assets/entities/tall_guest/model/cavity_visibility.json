@@ -1,26 +1,26 @@
 {
-  "source_sha256": "a2d5f54c79bc9842428b1948c04175101d69d60adb51111d5f389b51d266ad92",
-  "visibility_source": "candidate4-capture-tall/game.log: posed-ambient values",
+  "source_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+  "visibility_source": "task-3/native/cavity-v05/game.log: current v0.3 held-idle native GPU posed-ambient",
   "samples": 64,
   "vertex_count": 5138,
   "scope": "Fixed inner-mouth accessibility only (primitive/material 1, 624 vertices); all 4,514 exterior/body vertices remain unity. Scalar attenuation follows the mesh, not moving directional occlusion.",
-  "sha256": "65e99c3a66f60086f64021a7be6052d950f03f9fb6f8e569280a13b930dbe92c",
-  "data_sha256": "65e99c3a66f60086f64021a7be6052d950f03f9fb6f8e569280a13b930dbe92c",
+  "sha256": "64ff904435eb53a17b2a3abef44d15dc17e17bed84d844cd8a3ce3bd440cae8b",
+  "data_sha256": "64ff904435eb53a17b2a3abef44d15dc17e17bed84d844cd8a3ce3bd440cae8b",
   "reproduce": "Run isolated Tall Guest held-idle reference with PLACES_BENCH=1 real_character_self_shadows=true in settings PLACES_POSED_AMBIENT_DUMP=1, then python3 tools/entities/bake_tall_guest_cavity.py --log <game.log> --model assets/entities/tall_guest/model/tall_guest.glb --output <new-directory>.",
   "reference": {
-    "player_sha256": "1b958c91da6b0b30be985ce6cbaa65724395da1f0893876fe95ccb128ed81070",
-    "fixture_sha256": "685e5211fe78b0a369136c83c906d14760e37bfe79f3e835aac3a52ae2768dae",
+    "player_sha256": "6d4db339e69766fd0b9ae974859ab595fd2850f2923be5c3776a837da0273bab",
+    "fixture_sha256": "1cfa93a5fab301bc3a5d57d5f9817cb914ff30e5b23bba5486af243f92d8acfd",
     "model_position": [
       0,
       0,
-      22
+      3
     ],
     "model_yaw": 0,
     "scale": 1,
     "camera": [
       0,
       2.9,
-      25
+      6
     ],
     "held": true,
     "initial_fixed_delta_seconds": 0.016666667,
@@ -28,6 +28,11 @@
     "primitive_vertices": [
       4514,
       624
-    ]
-  }
+    ],
+    "skin_joints": 127,
+    "source_geometry_grouping": "Unmodified GLB POSITION/NORMAL before bind arithmetic; corner-angle final-triangle normals."
+  },
+  "interior_attenuated": 562,
+  "interior_unity": 62,
+  "exterior_unity": 4514
 }

@@ -13,8 +13,10 @@ places-tall-guest-pose-check --impact-replay <fixture.json> <six-contacts.json> 
 
 Set `PLACES_ASSET_ROOT` to the canonical assets directory. Inputs must be regular
 files, each at most 64 KiB; outputs must not already exist. The pose bank writes
-5,609 actual skinned frames, all 32 joint transforms, bounds and clip/blend/aim
-metadata (about 330 MiB vertex data; about half a second here). A separate
+the nine-clip legacy bank (5,609 actual skinned frames), all 130 retained node
+transforms (127 skin joints), bounds and clip/blend/aim
+metadata (about 330 MiB vertex data). The original 30-joint generation took about half
+a second; that timing is historical. A separate
 read-only BVH review took 92 seconds. It includes 45 narrow isolated direct-aim
 candidates and a rejected wide positive control. Sampled crossing-free poses do
 not approve production direct head overlays; production remains disabled.
@@ -32,3 +34,9 @@ solver motion/contact, device PCM and performance require separately recorded
 native game runs. Human listening/comprehension and arbitrary-geometry fit are
 not established by these tools. See `docs/reports/tall-guest-integration.md` for
 the reviewed scope and limitations.
+
+The v0.3 export also supplies `capture_prey` and `swallow_prey`; the legacy bank
+above does not exercise the new action. See `docs/reports/tall-guest-swallow.md`
+for the exact profile, source-coordinate normal/topology contract and separate
+live-controller/native evidence. Do not infer whole-prey acceptance from the
+legacy pose bank or extend its old timing numbers to the new rig.

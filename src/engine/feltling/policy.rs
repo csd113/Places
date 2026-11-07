@@ -9,6 +9,7 @@ pub enum Mode {
     Wait,
     Talk,
     Cheer,
+    Flee,
 }
 
 impl Mode {
@@ -19,6 +20,7 @@ impl Mode {
             "wait" => Some(Self::Wait),
             "talk" => Some(Self::Talk),
             "cheer" => Some(Self::Cheer),
+            "flee" => Some(Self::Flee),
             _ => None,
         }
     }
@@ -142,6 +144,11 @@ impl Policy {
             Mode::Talk => self.enter(Stage::Talking),
             Mode::Cheer => self.enter(Stage::Cheering),
             Mode::Guide => self.guide(distance_squared, arrived),
+            Mode::Flee => self.enter(if arrived {
+                Stage::Arrived
+            } else {
+                Stage::Leading
+            }),
         }
     }
 
