@@ -950,7 +950,21 @@ impl DynamicObject {
             receiver,
             context.key(model, receiver),
             None,
-            self.lighting_probe.is_some(),
+            super::light_transport::EntitySamplingOptions {
+                allow_unmapped: self.lighting_probe.is_some(),
+                supports: self
+                    .lighting_probe
+                    .is_none()
+                    .then(|| {
+                        super::light_transport::receiver_surface_supports(
+                            lighting,
+                            self.lighting_receiver_bounds(),
+                            model,
+                            self.mesh.vertices.iter().map(|vertex| vertex.pos),
+                        )
+                    })
+                    .flatten(),
+            },
         )
     }
 
@@ -1069,13 +1083,28 @@ impl DynamicObject {
             let transform = self.transform();
             let spatial_key = spatial.key(transform, Some(self.id));
             if self.spatial_key != spatial_key || self.lighting_refresh_key.is_some() {
+                let supports = self
+                    .lighting_probe
+                    .is_none()
+                    .then(|| {
+                        super::light_transport::receiver_surface_supports(
+                            lighting,
+                            self.lighting_receiver_bounds(),
+                            transform,
+                            self.mesh.vertices.iter().map(|vertex| vertex.pos),
+                        )
+                    })
+                    .flatten();
                 self.spatial_lighting = spatial.sample(
                     self.lighting_receiver_bounds(),
                     transform,
                     Some(self.id),
                     spatial_key,
                     lighting_revision.map(|revision| (&mut self.static_rays, revision)),
-                    self.lighting_probe.is_some(),
+                    super::light_transport::EntitySamplingOptions {
+                        allow_unmapped: self.lighting_probe.is_some(),
+                        supports,
+                    },
                 );
                 self.spatial_key = spatial_key;
             }

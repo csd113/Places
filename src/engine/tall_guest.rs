@@ -624,12 +624,19 @@ impl Guest {
     fn sample_base(&mut self) {
         let a = self.state.clip_time / duration(&self.state.clip);
         let b = self.state.previous_time / duration(&self.state.previous);
+        let linear_fade = (self.state.blend_time / BLEND).min(1.0);
+        let fade =
+            if self.state.clip.starts_with("door_") || self.state.previous.starts_with("door_") {
+                smooth(linear_fade)
+            } else {
+                linear_fade
+            };
         let _changed = self.animator.sample_blended_fraction(
             &self.state.clip,
             a,
             &self.state.previous,
             b,
-            (self.state.blend_time / BLEND).min(1.0),
+            fade,
         );
         if self.state.base_posture > 0.0 {
             let _base = self
@@ -1567,8 +1574,13 @@ impl Guest {
                 yaw,
                 TURN_RATE.to_radians() * sub,
             );
-            self.set_clip("walk_slow");
-            self.state.motion_rate = TURN_RATE / 20.0;
+            if crate::engine::entity::angle_difference(self.state.yaw, yaw).abs() >= 0.3 {
+                self.set_clip("walk_slow");
+                self.state.motion_rate = TURN_RATE / 20.0;
+            } else {
+                // Small portal alignment retains the braking pursuit stance.
+                self.state.motion_rate = 0.0;
+            }
             return true;
         }
         if self.state.aim_weight > 0.001
@@ -1892,12 +1904,55 @@ impl Guest {
         false
     }
 
+    pub(super) fn retime_restored_posture(&mut self) {
+        let Some(transit) = self.state.transit.as_mut() else {
+            return;
+        };
+        if transit.phase == 1 || !matches!(self.state.clip.as_str(), "door_enter" | "door_exit") {
+            return;
+        }
+        let expected = posture_clip_time(&self.state.clip, &self.state.previous, transit.elapsed);
+        if (expected - self.state.clip_time).abs() <= 0.0001 {
+            return;
+        }
+        if self.state.clip_time <= posture_clip_time(&self.state.clip, &self.state.previous, 0.0) {
+            transit.elapsed = 0.0;
+            return;
+        }
+        // Retain old saved poses and markers while mapping only the action clock
+        // to their original phase. Evidence timestamps are unchanged.
+        let mut lower = 0.0_f32;
+        let mut upper = POSTURE_SECONDS;
+        for _ in 0_u8..20 {
+            let middle = lower.midpoint(upper);
+            if posture_clip_time(&self.state.clip, &self.state.previous, middle)
+                < self.state.clip_time
+            {
+                lower = middle;
+            } else {
+                upper = middle;
+            }
+        }
+        transit.elapsed = lower.midpoint(upper);
+    }
+
     fn advance_pose_clocks(&mut self, sub: f32) {
         self.state.support_lowering = (-1.2_f32)
             .mul_add(sub, self.state.support_lowering)
             .max(0.0);
         self.state.blend_time = (self.state.blend_time + sub).min(BLEND);
-        self.state.clip_time = sub.mul_add(self.state.motion_rate, self.state.clip_time);
+        if let Some(transit) = self.state.transit.as_ref()
+            && transit.phase != 1
+            && matches!(self.state.clip.as_str(), "door_enter" | "door_exit")
+        {
+            // Keep close staging and the 0.8s action. The authored curve already
+            // eases the bend; another phase ease amplified its middle velocity.
+            // Smooth crossfading and original contact phases are preserved.
+            self.state.clip_time =
+                posture_clip_time(&self.state.clip, &self.state.previous, transit.elapsed);
+        } else {
+            self.state.clip_time = sub.mul_add(self.state.motion_rate, self.state.clip_time);
+        }
         if looped(&self.state.clip) {
             self.state.clip_time = self.state.clip_time.rem_euclid(duration(&self.state.clip));
         } else {
@@ -2665,4 +2720,15 @@ fn smooth(value: f32) -> f32 {
 fn cadence(previous: f32, now: f32, interval: f32) -> f32 {
     let steps = ((now - previous) / interval).floor().max(0.0) + 1.0;
     steps.mul_add(interval, previous)
+}
+
+fn posture_clip_time(clip: &str, previous: &str, elapsed: f32) -> f32 {
+    // This short measured clip phase matches the pursuing head height. Smooth
+    // fading retains its live stance without inserting an upright walk pose.
+    let start = if clip == "door_enter" && previous == "run_pursuit" {
+        0.06
+    } else {
+        0.0
+    };
+    (duration(clip) - start).mul_add((elapsed / POSTURE_SECONDS).clamp(0.0, 1.0), start)
 }

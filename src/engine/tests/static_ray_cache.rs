@@ -188,3 +188,114 @@ fn source_only_switches_reuse_static_rays_with_exact_full_refresh_output() -> Re
     );
     Ok(())
 }
+
+fn receiver_corner_field() -> crate::engine::lighting::probes::ProbeField {
+    use crate::engine::lighting::probes::{ProbeDirectField, ProbeField, ProbeSample};
+    ProbeField {
+        min: [-1.0, 0.5, -1.0],
+        cell_m: 1.0,
+        dims: [2; 3],
+        probes: vec![
+            ProbeSample {
+                irradiance: [0.3; 3],
+                direction: [0.0; 3],
+                axis: [0.5; 2],
+                room: 0
+            };
+            8
+        ],
+        local_direct: Some(ProbeDirectField {
+            light_indices: Vec::new(),
+            probes: vec![crate::engine::lighting::lightmap::LightmapTexel::default(); 8],
+        }),
+        switchable_indirect: Vec::new(),
+    }
+}
+
+// Protects the doorway blackout: an empty box corner inside a jamb must not
+// erase light on the real receiver inside the opening. Eight surface points and
+// eight synthetic probes exercise shared rigid/skinned sampling in milliseconds;
+// no model assets, GPU or full transport solve are required.
+#[test]
+fn buried_virtual_corners_use_current_receiver_surface_without_moving_valid_sites()
+-> Result<(), String> {
+    use crate::engine::{level::LevelDef, lighting::LevelLighting};
+    let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"receiver_corner","name":"Receiver corner","spawn":{"x":0,"z":-1},"rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"height":3}],"walls":[{"x":-2,"z":0,"width":4,"depth":0.24,"height":3,"openings":[{"kind":"door","offset":1.4,"width":1.2,"height":2.15}]}]}"#).map_err(|error| error.to_string())?;
+    let lighting = LevelLighting::bake(&level);
+    let bounds = Aabb {
+        min: [-0.8, 0.3, -1.0],
+        max: [0.8, 1.8, 0.15],
+    };
+    let model = glam::Mat4::IDENTITY;
+    let points = [
+        [-0.8, 0.3, -0.9],
+        [0.8, 0.3, -0.9],
+        [-0.4, 1.6, 0.15],
+        [0.4, 1.6, 0.15],
+    ];
+    let original =
+        super::entity_anchor_positions(bounds, model).ok_or("missing anchor positions")?;
+    let supports = super::receiver_surface_supports(&lighting, bounds, model, points.into_iter())
+        .ok_or("unsupported jamb corners were not detected")?;
+    let mut recovered = 0_u32;
+    for (before, after) in original.world.into_iter().zip(supports) {
+        if lighting.probe_visible_from(before, before) {
+            assert_eq!(
+                before, after,
+                "valid sites must not move, including valid but occluded sites"
+            );
+        } else {
+            assert!(
+                points.contains(&after),
+                "recovery must be an actual receiver point"
+            );
+            assert!(
+                lighting.probe_visible_from(after, after),
+                "recovery must occupy valid air"
+            );
+            recovered = recovered.saturating_add(1);
+        }
+    }
+    assert_eq!(
+        recovered, 4,
+        "the four leading virtual corners occupy jamb stock"
+    );
+    let field = receiver_corner_field();
+    let context = super::EntitySpatialLightingContext::new(&lighting, Some(&field), None, None);
+    let sample = |sites| {
+        context.sample(
+            bounds,
+            model,
+            None,
+            context.key(model, None),
+            None,
+            super::EntitySamplingOptions {
+                allow_unmapped: false,
+                supports: sites,
+            },
+        )
+    };
+    let before = sample(None).ok_or("missing old sample")?;
+    let after = sample(Some(supports)).ok_or("missing supported sample")?;
+    for (old_anchor, new_anchor) in before.anchors.iter().zip(&after.anchors).skip(4) {
+        assert_eq!(
+            old_anchor.irradiance[0], 0.0,
+            "fixture must reproduce the blackout"
+        );
+        assert!(
+            new_anchor.irradiance[0] > 0.1,
+            "real supported receiver retains its baked energy"
+        );
+    }
+    let empty = super::receiver_surface_supports(&lighting, bounds, model, std::iter::empty())
+        .ok_or("missing unsupported result")?;
+    assert_eq!(
+        empty, original.world,
+        "absent geometry cannot invent support"
+    );
+    assert!(
+        !lighting.probe_visible_from([-0.8, 1.0, -0.2], [-0.8, 1.0, 0.4]),
+        "the actual wall must continue blocking probe visibility"
+    );
+    Ok(())
+}

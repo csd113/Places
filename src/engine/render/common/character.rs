@@ -1226,6 +1226,7 @@ pub struct Character {
     lighting_refresh_plan: super::dynamic::EntityLightingRefreshPlan,
     spatial_lighting: Option<Box<super::light_transport::EntitySpatialLighting>>,
     spatial_key: Option<super::light_transport::EntitySpatialKey>,
+    lighting_surface_revision: u64,
     static_rays: super::light_transport::EntityStaticRayCache,
     lighting_local_centre: Vec3,
     lighting_local_bounds: Aabb,
@@ -1280,6 +1281,49 @@ impl Character {
             vertex.pos,
         );
         Some(self.transform.transform_point3(Vec3::from_array(local)))
+    }
+
+    fn invalidate_changed_surface_support(&mut self) {
+        if self.lighting_surface_revision != self.animator.revision()
+            && self
+                .spatial_lighting
+                .as_ref()
+                .is_some_and(|sample| sample.uses_surface_support)
+        {
+            self.lighting_refresh_key = None;
+            self.spatial_key = None;
+            self.static_rays.invalidate_receiver_shape();
+        }
+    }
+
+    fn lighting_surface_supports(&self, lighting: &LevelLighting) -> Option<[[f32; 3]; 8]> {
+        super::light_transport::receiver_surface_supports(
+            lighting,
+            self.lighting_local_bounds,
+            self.transform(),
+            self.asset
+                .model
+                .vertices
+                .iter()
+                .enumerate()
+                .map(|(index, vertex)| {
+                    self.animator.skin_position(
+                        self.asset
+                            .model
+                            .joints
+                            .get(index)
+                            .copied()
+                            .unwrap_or([0; 4]),
+                        self.asset
+                            .model
+                            .weights
+                            .get(index)
+                            .copied()
+                            .unwrap_or([0.0; 4]),
+                        vertex.pos,
+                    )
+                }),
+        )
     }
 
     /// Original local receiver envelope for explicit full-recalculation checks.
@@ -1379,6 +1423,13 @@ impl Character {
     /// This deliberate gameplay query is independent of padded culling bounds.
     #[must_use]
     pub fn posed_bounds(&self) -> Aabb {
+        self.posed_bounds_pair().1
+    }
+
+    /// Collect both spaces in the existing skin walk so spatial light anchors
+    /// follow compressed articulated poses instead of an upright bind box.
+    fn posed_bounds_pair(&self) -> (Aabb, Aabb) {
+        let mut local_bounds = Aabb::EMPTY;
         let mut bounds = Aabb::EMPTY;
         for (index, vertex) in self.asset.model.vertices.iter().enumerate() {
             let joints = self
@@ -1396,13 +1447,14 @@ impl Character {
                 .copied()
                 .unwrap_or([0.0; 4]);
             let local = self.animator.skin_position(joints, weights, vertex.pos);
+            local_bounds.expand(local);
             bounds.expand(
                 self.transform
                     .transform_point3(Vec3::from_array(local))
                     .to_array(),
             );
         }
-        bounds
+        (local_bounds, bounds)
     }
 
     /// The pose evaluator.
@@ -1528,7 +1580,7 @@ impl Character {
         self.entity_lighting
     }
 
-    /// Stable bind-pose spatial samples, independent of animation phase.
+    /// Current spatial light samples, including articulated pose bounds.
     #[must_use]
     pub fn spatial_lighting(&self) -> Option<&super::light_transport::EntitySpatialLighting> {
         self.spatial_lighting.as_deref()
@@ -1938,6 +1990,7 @@ impl CharacterScene {
                 lighting_refresh_plan: super::dynamic::EntityLightingRefreshPlan::default(),
                 spatial_lighting: None,
                 spatial_key: None,
+                lighting_surface_revision: 0,
                 static_rays: super::light_transport::EntityStaticRayCache::default(),
                 lighting_local_centre,
                 lighting_local_bounds,
@@ -2077,6 +2130,7 @@ impl CharacterScene {
             lighting_refresh_plan: super::dynamic::EntityLightingRefreshPlan::default(),
             spatial_lighting: None,
             spatial_key: None,
+            lighting_surface_revision: 0,
             static_rays: super::light_transport::EntityStaticRayCache::default(),
             lighting_local_centre,
             lighting_local_bounds,
@@ -2394,6 +2448,7 @@ impl CharacterScene {
                 let spatial_key = spatial.key(transform, None);
                 if character.spatial_key != spatial_key || character.lighting_refresh_key.is_some()
                 {
+                    let supports = character.lighting_surface_supports(lighting);
                     character.spatial_lighting = (!character.lighting_local_bounds.is_empty())
                         .then(|| {
                             spatial.sample(
@@ -2403,11 +2458,15 @@ impl CharacterScene {
                                 spatial_key,
                                 lighting_revision
                                     .map(|revision| (&mut character.static_rays, revision)),
-                                false,
+                                super::light_transport::EntitySamplingOptions {
+                                    allow_unmapped: false,
+                                    supports,
+                                },
                             )
                         })
                         .flatten();
                     character.spatial_key = spatial_key;
+                    character.lighting_surface_revision = character.animator.revision();
                 }
             }
             #[cfg(feature = "visual-diagnostics")]
@@ -2423,6 +2482,7 @@ impl CharacterScene {
                 if !character.runtime_visible {
                     continue;
                 }
+                character.invalidate_changed_surface_support();
                 let key = refresh_context.key(
                     character.transform(),
                     character.lighting_local_bounds,
@@ -2576,7 +2636,7 @@ impl CharacterScene {
                         "bounds_max":character.lighting_local_bounds.max,
                         "hdr":character.entity_lighting.display,
                         "spatial":character.spatial_lighting.as_ref().map(|sample| serde_json::json!({
-                            "anchors":sample.anchors,"direct":sample.direct}))},
+                            "anchors":sample.anchors,"support_positions":sample.support_positions,"direct":sample.direct}))},
                     "mesh_visible":character.is_visible(), "shadow_only":character.shadow_only(),
                     "flashlight_caster":character.casts_flashlight_shadow(), "opacity":character.opacity(),
                     "automatic_clip":animator.clips.as_ref().and_then(|player| name_of(player.active)),
@@ -2677,7 +2737,13 @@ impl CharacterScene {
                         }
                     )
                 {
-                    character.world_bounds = character.posed_bounds();
+                    let (local_bounds, world_bounds) = character.posed_bounds_pair();
+                    character.world_bounds = world_bounds;
+                    if character.lighting_local_bounds != local_bounds {
+                        character.lighting_local_bounds = local_bounds;
+                        character.lighting_local_centre = Vec3::from_array(local_bounds.centre());
+                        character.spatial_key = None;
+                    }
                 }
                 return changed;
             }

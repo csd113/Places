@@ -47,26 +47,10 @@ var flashlight_depth: texture_depth_2d;
 @group(4) @binding(2)
 var flashlight_sampler: sampler_comparison;
 
-// The same immutable opaque world in all quality modes and material passes.
-struct VisibilityNode {
-    minimum: vec3<f32>, first: u32,
-    maximum: vec3<f32>, count: u32,
-    escape: u32, ready: u32, _pad0: u32, _pad1: u32,
-};
-struct VisibilityTriangle { a_solid: vec4<f32>, edge0: vec4<f32>, edge1: vec4<f32> };
 @group(4) @binding(3) var<storage, read> visibility_nodes: array<VisibilityNode>;
 @group(4) @binding(4) var<storage, read> visibility_triangles: array<VisibilityTriangle>;
-
-// One reciprocal per ray, reused by every visited node. Parallel axes use
-// explicit slab membership rather than infinities (0 * infinity yields NaN).
-fn visibility_box(node: VisibilityNode, origin: vec3<f32>, inverse: vec3<f32>, parallel: vec3<bool>) -> bool {
-    if (any(parallel & ((origin < node.minimum) | (origin > node.maximum)))) { return false; }
-    let a = (node.minimum - origin) * inverse;
-    let b = (node.maximum - origin) * inverse;
-    let near = select(min(a, b), vec3<f32>(0.0), parallel);
-    let far = select(max(a, b), vec3<f32>(1.0), parallel);
-    return max(max(near.x, near.y), max(near.z, 0.0)) <= min(min(far.x, far.y), min(far.z, 1.0));
-}
+@group(4) @binding(5) var<storage, read> posed_visibility_nodes: array<VisibilityNode>;
+@group(4) @binding(6) var<storage, read> posed_visibility_triangles: array<VisibilityTriangle>;
 
 fn visibility_triangle(triangle: VisibilityTriangle, origin: vec3<f32>, ray: vec3<f32>) -> bool {
     if (triangle.a_solid.w == 0.0) { return false; }

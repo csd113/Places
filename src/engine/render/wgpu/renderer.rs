@@ -1887,6 +1887,7 @@ impl WgpuRenderer {
         let key = (
             self.entity_lighting_revision,
             self.flashlight_shadow.is_some(),
+            self.static_visibility.posed.generation,
         );
         for pipeline in [
             &mut self.world_pipeline,
@@ -3123,6 +3124,9 @@ impl WgpuRenderer {
                     self.entity_lighting_revision,
                 );
         }
+        self.static_visibility
+            .posed
+            .update(&self.device, &self.queue, &self.characters);
         let generation = self.characters.runtime_generation();
         cpu_trace_finish("character_lighting", lighting_started);
         if generation != self.character_runtime_generation {
@@ -3146,6 +3150,7 @@ impl WgpuRenderer {
                             .then_some(&self.dynamic_visibility),
                     }
                 }),
+                &self.static_visibility.posed,
             );
         }
         cpu_trace_finish("character_skin_upload", upload_started);
@@ -5845,6 +5850,9 @@ impl WgpuRenderer {
             characters.encode_blend_poses(&mut encoder);
             let _submission = self.queue.submit([encoder.finish()]);
         }
+        let frame = prepare_world_frame(camera, self.drawable_size)
+            .with_occlusion(self.world.as_ref(), self.culling);
+        self.flush_posed_ambient(true);
         // Animated emissions are level data; advancing them is a handful of
         // uniform writes, and a still material writes nothing.
         if let Some(materials) = self.world_materials.as_mut() {
@@ -5853,8 +5861,6 @@ impl WgpuRenderer {
         if let Some(props) = self.world_props.as_mut() {
             props.update_animations(&self.queue, self.animation_seconds);
         }
-        let frame = prepare_world_frame(camera, self.drawable_size)
-            .with_occlusion(self.world.as_ref(), self.culling);
         // The planar target follows the render size; a recreate invalidates the
         // environment binding that references it.
         if self.reflections.planar_wanted()
@@ -6984,6 +6990,10 @@ impl WgpuRenderer {
                 if let Some(characters) = self.world_characters.as_mut() {
                     characters.encode_blend_poses(&mut encoder);
                 }
+                self.static_visibility
+                    .posed
+                    .ambient
+                    .encode(&mut encoder, &self.queue, None);
                 {
                     let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         label: Some("places-wgpu-probe-face"),
@@ -7419,6 +7429,7 @@ impl WgpuRenderer {
                     "native_marker_stride": field.probes.len().div_ceil(2048).max(1),
                 })),
                 "runtime_visibility_scene": self.dynamic_transport.is_some(),
+                "posed_self_visibility": {"nodes":self.static_visibility.posed.node_count,"triangles":self.static_visibility.posed.triangle_count,"generation":self.static_visibility.posed.generation,"ambient_vertices":self.static_visibility.posed.ambient.vertex_count(),"ambient_device_bytes":self.static_visibility.posed.ambient.device_bytes(),"error":self.static_visibility.posed.error},
                 "movable_visibility": self.dynamic_visibility.stats(),
                 "movable_visibility_error": self.dynamic_visibility_error,
                 "contact_subjects": self.contact_shadow_count,
@@ -7683,10 +7694,71 @@ impl WgpuRenderer {
     ///
     /// Returns a message when the drawable is empty, no frame has been
     /// rendered, or the world pipeline/depth target has not been built.
+    fn flush_posed_ambient(&mut self, timed: bool) {
+        if !self.static_visibility.posed.ambient.pending()
+            && !self.static_visibility.posed.depth.pending()
+        {
+            return;
+        }
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("places-posed-ambient"),
+            });
+        let writes = if timed && self.static_visibility.posed.ambient.pending() {
+            self.gpu_timer.compute_writes("posed-ambient")
+        } else {
+            None
+        };
+        self.static_visibility
+            .posed
+            .ambient
+            .encode(&mut encoder, &self.queue, writes);
+        let depth_writes = if timed && self.static_visibility.posed.depth.pending() {
+            self.gpu_timer.pass_writes("posed-practical-depth")
+        } else {
+            None
+        };
+        self.static_visibility
+            .posed
+            .depth
+            .encode(&mut encoder, depth_writes.as_ref());
+        let _submission = self.queue.submit([encoder.finish()]);
+    }
+
+    fn trace_posed_ambient(&self) {
+        if std::env::var("PLACES_BENCH").as_deref() != Ok("1")
+            || std::env::var_os("PLACES_POSED_AMBIENT_DUMP").is_none()
+        {
+            return;
+        }
+        match self
+            .static_visibility
+            .posed
+            .ambient
+            .diagnostic_values(&self.device, &self.queue)
+        {
+            Ok(values) => logging::info(format!(
+                "[posed-ambient] {}",
+                serde_json::json!({"values":values})
+            )),
+            Err(error) => logging::info(format!(
+                "[posed-ambient] {}",
+                serde_json::json!({"error":error})
+            )),
+        }
+    }
+
+    fn prepare_capture_ambient(&mut self) {
+        self.flush_posed_ambient(false);
+        self.trace_posed_ambient();
+    }
+
     pub fn capture_default_framebuffer(
         &mut self,
     ) -> Result<crate::engine::loader::RawImage, String> {
         self.validate_capture_device()?;
+        self.prepare_capture_ambient();
         if self.startup_pipelines.is_some() {
             return self.capture_startup_frame();
         }

@@ -101,7 +101,7 @@ fn visual_diagnostic_display(in: VsOut, base: vec3<f32>, normal: vec3<f32>, mode
             return visual_unavailable();
         }
         case 14u: {
-            if (environment.entity_bounds_min.w > 0.5) { return visual_hdr(spatial_entity_indirect(entity_anchor_weights(in.local_position), normal)); }
+            if (environment.entity_bounds_min.w > 0.5) { return visual_hdr(spatial_entity_indirect(in, entity_anchor_weights(in.local_position), normal)); }
             return visual_unavailable();
         }
         default: { return visual_unavailable(); }

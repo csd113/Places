@@ -522,11 +522,13 @@ pub(in crate::engine::render::wgpu) fn shader_source() -> Option<String> {
         super::super::diagnostics::world_shader_source(super::super::world::WORLD_SHADER_SRC);
     #[cfg(not(feature = "visual-diagnostics"))]
     let shared: std::borrow::Cow<'static, str> = super::super::world::WORLD_SHADER_SRC.into();
-    let base = shared.as_ref();
+    let ordinary = super::super::world::without_posed_shading(shared);
+    let compact = without_opaque_accessibility(ordinary.as_ref())?;
+    let base = compact.as_str();
     for marker in [
         "var<uniform> environment: Environment;",
         "    @location(12) @interpolate(flat) water_node_hint: u32,",
-        "fn vs_main(vertex: WorldVertex) -> VsOut { return world_vertex(vertex); }",
+        "fn vs_main(vertex: WorldVertex, @builtin(vertex_index) vertex_index: u32) -> VsOut { return world_vertex(vertex, vertex_index); }",
         "mix(material.emission_color, in.color.rgb, material.emission_vertex)",
         "fn fs_main(",
         "fn fs_main_raw(",
@@ -544,7 +546,7 @@ pub(in crate::engine::render::wgpu) fn shader_source() -> Option<String> {
     // shelter/spatial arrays into private fragment memory.
     source = source.replace("environment.", "blend_environments[blend_actor].");
     source = source.replace("    @location(12) @interpolate(flat) water_node_hint: u32,", "    @location(12) @interpolate(flat) water_node_hint: u32,\n    @location(13) @interpolate(flat) blend_actor: u32,\n    @location(14) blend_emission: vec3<f32>,");
-    source = source.replace("fn vs_main(vertex: WorldVertex) -> VsOut { return world_vertex(vertex); }", "fn vs_main(vertex: WorldVertex, @location(11) actor: u32, @location(12) emission: vec3<f32>) -> VsOut { blend_actor = actor; var out = world_vertex(vertex); out.blend_actor = actor; out.blend_emission = emission; return out; }");
+    source = source.replace("fn vs_main(vertex: WorldVertex, @builtin(vertex_index) vertex_index: u32) -> VsOut { return world_vertex(vertex, vertex_index); }", "fn vs_main(vertex: WorldVertex, @builtin(vertex_index) vertex_index: u32, @location(11) actor: u32, @location(12) emission: vec3<f32>) -> VsOut { blend_actor = actor; var out = world_vertex(vertex, vertex_index); out.blend_actor = actor; out.blend_emission = emission; return out; }");
     source = source.replace(
         "mix(material.emission_color, in.color.rgb, material.emission_vertex)",
         "mix(in.blend_emission, in.color.rgb, material.emission_vertex)",
@@ -572,4 +574,17 @@ pub(in crate::engine::render::wgpu) fn shader_source() -> Option<String> {
         }
     }
     Some(source)
+}
+
+fn without_opaque_accessibility(source: &str) -> Option<String> {
+    let start = source.find("    out.self_ambient = vec4<f32>(0.0);")?;
+    let end = source
+        .get(start..)?
+        .find("    out.uv = vertex.uv;")?
+        .checked_add(start)?;
+    let mut output = source.to_owned();
+    output.replace_range(start..end, "");
+    output = output.replace("    @location(15) self_ambient: vec4<f32>,\n", "");
+    output = output.replace("in.self_ambient", "vec4<f32>(0.0)");
+    Some(output)
 }

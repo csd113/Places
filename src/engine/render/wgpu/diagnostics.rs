@@ -244,6 +244,22 @@ const DIAGNOSTIC_HOOK: &str = "
 pub fn world_shader_source(production: &'static str) -> Cow<'static, str> {
     let replacement = format!("{SHADE_HOOK}{DIAGNOSTIC_HOOK}");
     let mut source = production.replacen(SHADE_HOOK, &replacement, 1);
+    let posed = super::posed_visibility::diagnostic_mode();
+    for (name, enabled) in [
+        ("DIRECT", !matches!(posed, "disabled" | "shader-disabled")),
+        (
+            "RESIDUAL",
+            !matches!(posed, "disabled" | "shader-disabled" | "direct-only"),
+        ),
+        ("FALLBACK", !posed.ends_with("cache-only")),
+    ] {
+        if !enabled {
+            source = source.replace(
+                &format!("const POSED_{name}_ENABLED:bool = true;"),
+                &format!("const POSED_{name}_ENABLED:bool = false;"),
+            );
+        }
+    }
     source.push_str(include_str!("diagnostics.wgsl"));
     Cow::Owned(source)
 }

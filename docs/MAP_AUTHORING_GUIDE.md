@@ -165,7 +165,7 @@ Authoritative paths:
 | Animation actions (`play_animation`, `toggle_animation`) | Implemented per instance; the target must carry an `animation` component. |
 | Audio actions (`play_sound`, `stop_sound`) | Implemented through the shared entity dispatcher and preloaded native audio backend; cue ids resolve through `assets/audio/catalog.json`. |
 | Water refraction | Medium/High use guarded opaque-scene colour/depth sampling; Low and reflection captures retain straight alpha |
-| Realtime shadow maps and runtime static transport solves | Not implemented; prepared transmission and bounded entity direct lights are implemented |
+| Global realtime shadow maps and runtime static transport solves | Not implemented. Opaque characters use current-pose self-visibility for their bounded practical direct lights and prepared residual field; world/rigid visibility and baked static transport remain separate. |
 | Animated entities: each placed skinned GLB follows its own action/movement/idle state; a rig with authored clips plays them, a no-clip rig uses the built-in procedural gait | Implemented (see [§16](#16-props-and-models)) |
 | Screen-space reflections; per-frame raytraced reflections; cubemap probes with realtime updates | Not implemented (static probes and one planar plane exist) |
 | GLB MASK/cutout and BLEND on static props, characters and dynamic props | Implemented; shared back-to-front ordering with posed triangle sorting for BLEND characters; other families retain spatial ranges |
@@ -2378,6 +2378,29 @@ shader gate, not a second art set.
 not a substitute for geometry: it cannot cast a shadow, it does not change the
 silhouette and it is lit only by the baked room light. Keep the low-poly
 vocabulary — bumps, grime, brushed streaks and panel seams, not sculpted detail.
+
+### Moving character self-visibility
+
+Opaque skinned character surfaces receive practical-light self-shadows from the
+current posed mesh. Each finite-emitter tap retains its existing world visibility,
+falloff and switch group; a fitted depth layer accelerates the posed query, with
+an exact mesh-ray fallback at ambiguous edges, unsupported projections or layer
+capacity. This is receiver self-occlusion, not a new global shadow system.
+
+The prepared residual field retains its energy/direction split. Its isotropic
+part uses cached, deterministic cosine-weighted surface accessibility; its
+directional part tests the reconstructed incoming direction against the current
+pose. This low-order approximation preserves accessible bounce and light through
+openings, but does not reconstruct exact incident radiance or internal multibounce.
+The opaque blocker snapshot excludes MASK and BLEND faces and does not make those
+materials opaque. Held poses reuse geometry and accessibility; pose, coverage and
+scale changes invalidate the relevant data. Reflections use the same current pose.
+
+Skinned and rigid receivers recover a virtual bounding-box lighting corner only
+when that corner lies outside valid static air, using an actual current receiver
+surface point. The normal static and movable visibility tests still apply there.
+Valid but occluded sample sites are not moved. This prevents an empty box corner
+inside a doorway jamb from blackening geometry that fits through the opening.
 
 ### Selective reflections: which surfaces reflect
 

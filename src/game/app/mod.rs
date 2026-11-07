@@ -1969,6 +1969,9 @@ impl FrameLoop<'_> {
                             *yaw,
                         )
                 }
+                bench::lighting_sequence::LightingAction::Presence { id, visible } => {
+                    self.renderer.set_character_visible(id, *visible)
+                }
                 bench::lighting_sequence::LightingAction::Despawn { key } => {
                     self.renderer.despawn_runtime_model(*key)
                         || self

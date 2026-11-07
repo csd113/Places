@@ -859,12 +859,13 @@ impl WgpuCharacters {
         scene: &CharacterScene,
         environment: &EnvironmentUniform,
         visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        posed: &super::posed_visibility::PosedVisibility,
     ) -> usize {
         // Static lighting's short GPU workload benefits from interleaved pose
         // uploads: batching preparation raised measured Retina frame-time tails.
         // Use the installed environment, so live lighting changes switch safely.
         if environment.lightmap_enabled <= 0.5 {
-            return self.sync_inline(queue, scene, environment, visibility);
+            return self.sync_inline(queue, scene, environment, visibility, posed);
         }
         let changed_vertices = self
             .characters
@@ -888,7 +889,7 @@ impl WgpuCharacters {
         if self.characters.len() < min_characters
             || crate::engine::runtime_work::global().workers() == 1
         {
-            return self.sync_inline(queue, scene, environment, visibility);
+            return self.sync_inline(queue, scene, environment, visibility, posed);
         }
         crate::engine::runtime_work::for_each_mut(&mut self.characters, min_characters, |gpu| {
             let Some(character) = gpu.key.resolve(scene) else {
@@ -911,6 +912,9 @@ impl WgpuCharacters {
                 .with_model(character.transform())
                 .with_entity_lighting(Some(character.entity_lighting()))
                 .with_spatial_lighting(character.spatial_lighting())
+                .with_posed_visibility_root(posed.root_for(character))
+                .with_posed_ambient_base(posed.ambient_for(character))
+                .with_posed_direct_base(posed.direct_for(character))
                 .with_opacity(character.opacity());
             gpu.pending_environment.uv_receiver = gpu.uv_receiver.sample(
                 visibility.filter(|_| gpu.uv_reactive),
@@ -963,6 +967,7 @@ impl WgpuCharacters {
         scene: &CharacterScene,
         environment: &EnvironmentUniform,
         visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        posed: &super::posed_visibility::PosedVisibility,
     ) -> usize {
         let mut uploaded = 0_usize;
         for gpu in &mut self.characters {
@@ -1001,6 +1006,9 @@ impl WgpuCharacters {
                 .with_model(character.transform())
                 .with_entity_lighting(Some(character.entity_lighting()))
                 .with_spatial_lighting(character.spatial_lighting())
+                .with_posed_visibility_root(posed.root_for(character))
+                .with_posed_ambient_base(posed.ambient_for(character))
+                .with_posed_direct_base(posed.direct_for(character))
                 .with_opacity(character.opacity());
             uniform.uv_receiver = gpu.uv_receiver.sample(
                 visibility.filter(|_| gpu.uv_reactive),
@@ -1128,6 +1136,14 @@ impl WgpuCharacters {
             entry.visible = visible;
             entry.casts_flashlight_shadow = casts_shadow;
         }
+    }
+
+    /// The uploaded environment decides receiver readiness, not model names or
+    /// fixed skeleton sizes. Negative roots retain the conservative error path.
+    pub fn has_posed_visibility(&self, character: usize) -> bool {
+        self.characters.get(character).is_some_and(|entry| {
+            entry.environment.uploaded_uniform().entity_bounds_extent[3].abs() > 0.0
+        })
     }
 
     /// One character's world bounds.

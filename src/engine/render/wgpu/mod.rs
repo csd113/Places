@@ -70,6 +70,10 @@ mod gpu_timing;
 mod lighting_visibility;
 pub mod lightmap;
 pub mod material;
+mod posed_ambient;
+mod posed_depth;
+mod posed_topology;
+mod posed_visibility;
 pub mod postprocess;
 #[cfg(feature = "visual-diagnostics")]
 mod probe_visualization;

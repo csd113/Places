@@ -1,4 +1,7 @@
 override display_target: bool = false;
+const POSED_DIRECT_ENABLED:bool = true;
+const POSED_RESIDUAL_ENABLED:bool = true;
+const POSED_FALLBACK_ENABLED:bool = true;
 
 // Shared material shader for static, movable and character meshes.
 // Base colour sampling returns linear RGB. Vertex colour is a linear factor,
@@ -114,7 +117,7 @@ struct Environment {
     // blending apply that straight coverage once.
     opacity: f32,
     // The three pad words that keep `fog_region_count` at offset 208, exactly
-    // where `EnvironmentUniform::tail_padding` sits. Never read.
+    // where `EnvironmentUniform::tail_padding` sits. _tail0 selects the posed accessibility base.
     _tail0: f32,
     _tail1: f32,
     _tail2: f32,
@@ -180,6 +183,12 @@ struct ContactShadow {
 
 const MATERIAL_FLAG_NORMAL_ENABLED: u32 = 1u;
 const MATERIAL_FLAG_RESPONSE_ENABLED: u32 = 2u;
+
+@group(4) @binding(7) var<storage,read> posed_ambient_values:array<vec4<f32>>;
+struct PosedDepthSample { projection:mat4x4<f32>, inverse:mat4x4<f32>, parameters:vec4<u32> };
+@group(4) @binding(8) var posed_depth:texture_depth_2d_array;
+@group(4) @binding(9) var<storage,read> posed_depth_samples:array<PosedDepthSample>;
+
 
 // Group 0 is the frame camera.
 @group(0) @binding(0)
@@ -280,12 +289,18 @@ struct VsOut {
     @location(10) caustics_albedo: vec3<f32>,
     @location(11) water_surface: f32,
     @location(12) @interpolate(flat) water_node_hint: u32,
+    @location(15) self_ambient: vec4<f32>,
 };
 
-fn world_vertex(vertex: WorldVertex) -> VsOut {
+fn world_vertex(vertex: WorldVertex, vertex_index: u32) -> VsOut {
     let world = environment.model * vec4<f32>(vertex.position, 1.0);
     var out: VsOut;
     out.clip = camera.view_projection * world;
+    out.self_ambient = vec4<f32>(0.0);
+    if (environment._tail0 > 0.0) {
+        let ambient_index = u32(environment._tail0 - 1.0) + vertex_index;
+        if (ambient_index < arrayLength(&posed_ambient_values)) { out.self_ambient = posed_ambient_values[ambient_index]; }
+    }
     out.uv = vertex.uv;
     out.color = vertex.color;
     out.uv_visibility = vertex.uv_visibility;
@@ -307,7 +322,7 @@ fn world_vertex(vertex: WorldVertex) -> VsOut {
 }
 
 @vertex
-fn vs_main(vertex: WorldVertex) -> VsOut { return world_vertex(vertex); }
+fn vs_main(vertex: WorldVertex, @builtin(vertex_index) vertex_index: u32) -> VsOut { return world_vertex(vertex, vertex_index); }
 
 // Decode authored fog/storm display colours before linear mixing.
 fn srgb_to_linear(c: vec3<f32>) -> vec3<f32> {
@@ -395,7 +410,88 @@ fn source_visibility(local_position: vec3<f32>, source: u32) -> vec4<f32> {
 // The same source-wide authored distance calibration and finite tap pattern as
 // TransportEmitter. Visibility is spatially interpolated at bounds anchors;
 // receiver cosines and falloff use the actual transformed fragment position.
+var<private> posed_fragment_normal: vec3<f32>;
+
+fn self_shadow_bias_normal(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
+    let face = cross(dpdx(in.world_position), dpdy(in.world_position));
+    let size = length(face);
+    if (size <= 1.0e-12) { return normal; }
+    let unit = face / size;
+    return select(unit, -unit, dot(unit, normal) < 0.0);
+}
+
+// A fitted depth layer stores the actual current opaque pose for this exact
+// finite-emitter tap. Compare against the receiving triangle's plane at each
+// texel centre, avoiding a large slope bias through thin folds. Disagreement
+// at a raster edge, unavailable projection, or grazing plane uses the exact ray.
+fn posed_direct_visible(point:vec3<f32>, normal:vec3<f32>, source:vec3<f32>, root:f32, scale:f32, tap:u32)->bool {
+    let base=environment._tail1;
+    if(base>0.0){
+        let index=u32(base-1.0)+tap;
+        if(index<arrayLength(&posed_depth_samples)){
+            let sample=posed_depth_samples[index];
+            if(sample.parameters.y!=0u){
+                let origin=point+normal*(0.0002*scale)-source;
+                let clip=sample.projection*vec4<f32>(origin,1.0);
+                let plane=transpose(sample.inverse)*vec4<f32>(normal,-dot(normal,origin));
+                if(clip.w>0.0 && abs(plane.z)>1.0e-6*length(plane.xyz)){
+                    let ndc=clip.xyz/clip.w;
+                    let size=vec2<f32>(f32(sample.parameters.z));
+                    let texel=(ndc.xy*vec2<f32>(0.5,-0.5)+vec2<f32>(0.5))*size-vec2<f32>(0.5);
+                    let first=vec2<i32>(floor(texel));
+                    if(ndc.z>=0.0 && ndc.z<=1.0 && all(first>=vec2<i32>(0)) && all(first+vec2<i32>(1)<vec2<i32>(i32(sample.parameters.z)))){
+                        var visible=0u;
+                        var valid=true;
+                        for(var j=0u;j<4u;j+=1u){
+                            let pixel=first+vec2<i32>(i32(j&1u),i32(j>>1u));
+                            let xy=((vec2<f32>(pixel)+vec2<f32>(0.5))/size-vec2<f32>(0.5))*vec2<f32>(2.0,-2.0);
+                            let receiver_depth=-(dot(plane.xy,xy)+plane.w)/plane.z;
+                            valid=valid && receiver_depth>=0.0 && receiver_depth<=1.0;
+                            let blocker_depth=textureLoad(posed_depth,pixel,i32(sample.parameters.x),0);
+                            if(receiver_depth<=blocker_depth+0.0000005){visible|=1u<<j;}
+                        }
+                        if(valid && visible==15u){return true;}
+                        if(valid && visible==0u){return false;}
+                    }
+                }
+            }
+        }
+    }
+    return posed_character_visible(point,normal,source,root,scale);
+}
+
+// Keep long visibility traversals out of the irradiance accumulator's live
+// values. The same 32 source/tap answers are consumed by the unchanged lighting
+// arithmetic below; zero-root receivers bypass the entire query phase.
+fn entity_posed_visibility_mask(in: VsOut, normal: vec3<f32>, weights: EntityAnchorWeights) -> u32 {
+    let root = environment.entity_bounds_extent.w;
+    if (!POSED_DIRECT_ENABLED || root == 0.0) { return 0xffffffffu; }
+    var mask = 0u;
+    for (var index=0u; index<8u; index+=1u) {
+        if (environment.entity_direct[index].color_strength.w <= 0.0) { continue; }
+        let position = environment.entity_direct[index].position_range;
+        let extent = environment.entity_direct[index].extent_falloff;
+        let delta = position.xyz - in.world_position;
+        let horizontal = max(abs(delta.xz)-extent.xy, vec2<f32>(0.0));
+        let distance = select(length(delta), length(horizontal), extent.w>0.5);
+        if (distance/max(position.w,1.0e-6)>=1.0) { continue; }
+        let world_visibility = source_visibility_with_weights(weights,index);
+        for (var tap=0u;tap<4u;tap+=1u) {
+            if (world_visibility[tap] == 0.0) { continue; }
+            let sample=environment.entity_direct[index].taps[tap];
+            if (sample.w<=0.0) {continue;}
+            let incoming=sample.xyz-in.world_position;
+            let distance_to_tap=length(incoming);
+            if (distance_to_tap>1.0e-6 && dot(normal,incoming/distance_to_tap)>0.0) {
+                if (posed_direct_visible(in.world_position,posed_fragment_normal,sample.xyz,root,max(length(environment.model[0u].xyz),1.0e-6),index*4u+tap)) { mask |= 1u << (index*4u+tap); }
+            }
+        }
+    }
+    return mask;
+}
+
 fn entity_direct_term_with_weights(in: VsOut, normal: vec3<f32>, weights: EntityAnchorWeights) -> vec3<f32> {
+    let visibility_mask = entity_posed_visibility_mask(in, normal, weights);
     var result = vec3<f32>(0.0);
     var attenuation = vec3<f32>(0.0);
     attenuation += environment.entity_anchors[0u].attenuation.rgb * weights.lower.x;
@@ -436,7 +532,10 @@ fn entity_direct_term_with_weights(in: VsOut, normal: vec3<f32>, weights: Entity
             let incoming = sample.xyz - in.world_position;
             let distance_to_tap = length(incoming);
             if (distance_to_tap > 1.0e-6) {
-                cosine += sample.w * visibility[tap] * max(dot(normal, incoming / distance_to_tap), 0.0);
+                let ndl = max(dot(normal, incoming / distance_to_tap), 0.0);
+                if (ndl > 0.0 && (visibility_mask & (1u << (index*4u+tap))) != 0u) {
+                    cosine += sample.w * visibility[tap] * ndl;
+                }
             }
         }
         result += color_strength.rgb * color_strength.w * falloff * cosine;
@@ -448,7 +547,8 @@ fn entity_direct_term(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
     return entity_direct_term_with_weights(in, normal, entity_anchor_weights(in.local_position));
 }
 
-fn spatial_entity_indirect(weights: EntityAnchorWeights, normal: vec3<f32>) -> vec3<f32> {
+fn spatial_entity_indirect(in: VsOut, weights: EntityAnchorWeights, normal: vec3<f32>) -> vec3<f32> {
+    let bias_normal = posed_fragment_normal;
     var energy = vec3<f32>(0.0);
     var moment = vec3<f32>(0.0);
     energy += environment.entity_anchors[0u].irradiance.rgb * weights.lower.x;
@@ -467,12 +567,39 @@ fn spatial_entity_indirect(weights: EntityAnchorWeights, normal: vec3<f32>) -> v
     moment += environment.entity_anchors[6u].moment.rgb * weights.upper.z;
     energy += environment.entity_anchors[7u].irradiance.rgb * weights.upper.w;
     moment += environment.entity_anchors[7u].moment.rgb * weights.upper.w;
-    return reconstruct_irradiance(energy, moment, normal);
+    let reconstructed = reconstruct_irradiance(energy, moment, normal);
+    let root = select(0.0,environment.entity_bounds_extent.w,POSED_RESIDUAL_ENABLED);
+    let k = energy.r + energy.g + energy.b;
+    if (root == 0.0 || k <= 1.0e-6) { return reconstructed; }
+    let scale = max(length(environment.model[0u].xyz), 1.0e-6);
+    let reach = max(length(environment.entity_bounds_extent.xyz) * scale * 1.01, 0.01 * scale);
+    // The existing L0/L1 reconstruction is an isotropic remainder plus a
+    // dominant cosine lobe. Occlude those separately, preserving its exact
+    // unoccluded result and the existing world/probe visibility.
+    let isotropic = energy * max(1.0 - length(moment) / k, 0.0);
+    let dominant = energy * (2.0 * max(dot(moment, normal), 0.0) / k);
+    var loss = vec3<f32>(0.0);
+    if (max(max(isotropic.r, isotropic.g), isotropic.b) > 1.0e-6) {
+        var ambient_visibility = select(in.self_ambient.x, in.self_ambient.y, dot(normal, in.world_normal) < 0.0);
+        let ready = select(in.self_ambient.z, in.self_ambient.w, dot(normal, in.world_normal) < 0.0);
+        if (ready < 0.999999 && POSED_FALLBACK_ENABLED) {
+            let basis = mat3x3<f32>(normalize(environment.model[0u].xyz),normalize(environment.model[1u].xyz),normalize(environment.model[2u].xyz));
+            ambient_visibility = posed_hemisphere_visibility_basis(in.world_position,normal,root,scale,reach,basis);
+        }
+        ambient_visibility = clamp(ambient_visibility, 0.0, 1.0);
+        loss += isotropic * (1.0 - ambient_visibility);
+    }
+    if (max(max(dominant.r, dominant.g), dominant.b) > 1.0e-6) {
+        if (!posed_character_visible(in.world_position, bias_normal, in.world_position + normalize(moment) * reach, root, scale)) {
+            loss += dominant;
+        }
+    }
+    return max(reconstructed - loss, vec3<f32>(0.0));
 }
 
 fn spatial_entity_light(in: VsOut, normal: vec3<f32>) -> vec3<f32> {
     let weights = entity_anchor_weights(in.local_position);
-    return spatial_entity_indirect(weights, normal) + entity_direct_term_with_weights(in, normal, weights);
+    return spatial_entity_indirect(in, weights, normal) + entity_direct_term_with_weights(in, normal, weights);
 }
 
 fn movable_contact_visibility(in: VsOut, normal: vec3<f32>) -> f32 {
@@ -937,6 +1064,7 @@ fn shade(in: VsOut, front_facing: bool, cutout: bool) -> Shaded {
         discard;
     }
     let normals = surface_normals(in, front_facing, selected_water);
+    posed_fragment_normal = self_shadow_bias_normal(in, normals.material);
     let normal = normals.material;
     // The baked light term plus the frame's attached lights. The dynamic term
     // is additive and never modifies `surface_light`, so every lightmap and

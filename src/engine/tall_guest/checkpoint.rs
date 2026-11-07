@@ -213,6 +213,7 @@ impl Guest {
         record.validate(self)?;
         self.audio_epoch = super::audio_fence::allocate_epoch()?;
         self.state = record.clone();
+        self.retime_restored_posture();
         self.path.clear();
         self.path_cursor = 1;
         self.next_plan = 0.0;

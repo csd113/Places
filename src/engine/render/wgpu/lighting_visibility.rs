@@ -5,6 +5,7 @@ pub struct StaticVisibility {
     pub nodes: wgpu::Buffer,
     pub triangles: wgpu::Buffer,
     pub fallback_depth: wgpu::TextureView,
+    pub posed: super::posed_visibility::PosedVisibility,
 }
 
 impl StaticVisibility {
@@ -38,6 +39,7 @@ impl StaticVisibility {
             })
         };
         Self {
+            posed: super::posed_visibility::PosedVisibility::new(device),
             nodes: upload("places-static-visibility-nodes", node_bytes),
             triangles: upload("places-static-visibility-triangles", triangle_bytes),
             fallback_depth: super::flashlight::depth_texture(device, 1)

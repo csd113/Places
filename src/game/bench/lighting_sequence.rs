@@ -23,6 +23,11 @@ pub enum LightingAction {
         position: [f32; 3],
         yaw: f32,
     },
+    /// Explicit presence control for isolating authored/runtime render receivers.
+    Presence {
+        id: String,
+        visible: bool,
+    },
     Despawn {
         key: u64,
     },
@@ -80,12 +85,12 @@ impl LightingAction {
                 yaw,
                 pitch,
             } => position.iter().all(|v| v.is_finite()) && yaw.is_finite() && pitch.is_finite(),
+            Self::Presence { id, visible: _ } | Self::Door { id, open: _ } => !id.is_empty(),
             Self::Despawn { key: _ }
             | Self::ToggleFixture {
                 fixture: _,
                 enabled: _,
             } => true,
-            Self::Door { id, open: _ } => !id.is_empty(),
         }
     }
 }

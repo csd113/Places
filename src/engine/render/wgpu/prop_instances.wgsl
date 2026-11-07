@@ -21,7 +21,7 @@ fn vs_prop_instance(vertex: WorldVertex, @builtin(vertex_index) vertex_index: u3
         rigid.tangent = (instance.model * vec4<f32>(vertex.tangent, 0.0)).xyz;
         let determinant = dot(cross(instance.model[0].xyz, instance.model[1].xyz), instance.model[2].xyz);
         rigid.handedness *= select(1.0, -1.0, determinant < 0.0);
-        var output = world_vertex(rigid);
+        var output = world_vertex(rigid, vertex_index);
         output.local_position = vertex.position;
         return output;
     }
@@ -37,5 +37,5 @@ fn vs_prop_instance(vertex: WorldVertex, @builtin(vertex_index) vertex_index: u3
     placed.color = prop_colors[address];
     placed.caustics_albedo = vertex.caustics_albedo * instance.tint.xyz;
     if (instance.lighting.z != 0u) { placed.uv_visibility = prop_uv_visibility[address]; }
-    return world_vertex(placed);
+    return world_vertex(placed, vertex_index);
 }

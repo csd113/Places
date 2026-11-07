@@ -38,6 +38,7 @@ fn actor(id: &str, asset: Arc<LoadedPropAsset>) -> Result<Character, String> {
             crate::engine::render::common::dynamic::EntityLightingRefreshPlan::default(),
         spatial_lighting: None,
         spatial_key: None,
+        lighting_surface_revision: 0,
         static_rays: crate::engine::render::common::light_transport::EntityStaticRayCache::default(
         ),
         lighting_local_centre: Vec3::ZERO,

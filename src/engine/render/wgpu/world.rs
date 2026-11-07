@@ -95,6 +95,7 @@ use crate::engine::spatial::{Aabb, Frustum};
 pub const WORLD_SHADER_SRC: &str = concat!(
     include_str!("storm.wgsl"),
     "\n",
+    include_str!("posed_queries.wgsl"),
     include_str!("attached_lights.wgsl"),
     "\n",
     include_str!("world.wgsl"),
@@ -105,17 +106,51 @@ pub const WORLD_SHADER_SRC: &str = concat!(
 
 // Group declarations are validated against device limits even if an entry point
 // is unused. Five-group devices must never receive the instance shader module.
-fn world_shader_source(instanced: bool) -> std::borrow::Cow<'static, str> {
+fn world_shader_source(instanced: bool, posed: bool) -> std::borrow::Cow<'static, str> {
     #[cfg(feature = "visual-diagnostics")]
     let mut source = super::diagnostics::world_shader_source(WORLD_SHADER_SRC);
     #[cfg(not(feature = "visual-diagnostics"))]
     let mut source: std::borrow::Cow<'static, str> = WORLD_SHADER_SRC.into();
+    source = source
+        .replace(
+            include_str!("posed_queries.wgsl"),
+            super::posed_visibility::query_source(),
+        )
+        .into();
+    if !posed {
+        source = without_posed_shading(source);
+    }
     if instanced {
         source
             .to_mut()
             .push_str(include_str!("prop_instances.wgsl"));
     }
     source
+}
+
+/// Ordinary architecture/props and all-BLEND batches cannot own an opaque posed
+/// range. Specialize their programs so inactive ray traversal does not consume
+/// fragment resources. The same material, world visibility and baked light stay.
+pub(super) fn without_posed_shading(
+    mut source: std::borrow::Cow<'static, str>,
+) -> std::borrow::Cow<'static, str> {
+    if super::posed_visibility::diagnostic_mode() != "shared-program" {
+        for name in ["DIRECT", "RESIDUAL", "FALLBACK"] {
+            source = source
+                .replace(
+                    &format!("const POSED_{name}_ENABLED:bool = true;"),
+                    &format!("const POSED_{name}_ENABLED:bool = false;"),
+                )
+                .into();
+        }
+    }
+    source
+}
+
+/// Shared modules; only the posed receiver program contains self-visibility.
+pub struct WorldShaders {
+    ordinary: wgpu::ShaderModule,
+    posed: wgpu::ShaderModule,
 }
 
 /// Name of the world vertex entry point.
@@ -745,6 +780,28 @@ impl EnvironmentUniform {
         self
     }
 
+    /// Selects this receiving character's current opaque posed geometry.
+    #[must_use]
+    pub const fn with_posed_visibility_root(mut self, root: f32) -> Self {
+        // The spare extent lane selects only this receiver's posed BVH range.
+        // Zero disables it; a negative root records unavailable geometry.
+        self.entity_bounds_extent[3] = root;
+        self
+    }
+
+    /// Vertex accessibility base plus one; zero preserves the fragment fallback.
+    #[must_use]
+    pub const fn with_posed_ambient_base(mut self, base: f32) -> Self {
+        self.tail_padding[0] = base;
+        self
+    }
+
+    #[must_use]
+    pub const fn with_posed_direct_base(mut self, base: f32) -> Self {
+        self.tail_padding[1] = base;
+        self
+    }
+
     /// Installs the frame's bounded opaque movable grounding subjects.
     #[must_use]
     pub fn with_contact_shadows(
@@ -1073,6 +1130,23 @@ fn world_camera_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayou
 /// samples the world shader; the bind group below is rebuilt with it because a
 /// buffer binding is tied to one device buffer.
 #[must_use]
+const fn readonly_storage_entry(
+    binding: u32,
+    visibility: wgpu::ShaderStages,
+    size: u64,
+) -> wgpu::BindGroupLayoutEntry {
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility,
+        ty: wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Storage { read_only: true },
+            has_dynamic_offset: false,
+            min_binding_size: wgpu::BufferSize::new(size),
+        },
+        count: None,
+    }
+}
+
 pub fn dynamic_lights_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("places-wgpu-world-lights-layout"),
@@ -1103,26 +1177,22 @@ pub fn dynamic_lights_bind_group_layout(device: &wgpu::Device) -> wgpu::BindGrou
                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Comparison),
                 count: None,
             },
+            readonly_storage_entry(3, wgpu::ShaderStages::FRAGMENT, 48),
+            readonly_storage_entry(4, wgpu::ShaderStages::FRAGMENT, 48),
+            readonly_storage_entry(5, wgpu::ShaderStages::FRAGMENT, 48),
+            readonly_storage_entry(6, wgpu::ShaderStages::FRAGMENT, 48),
             wgpu::BindGroupLayoutEntry {
-                binding: 3,
+                binding: 8,
                 visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(48),
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Depth,
+                    view_dimension: wgpu::TextureViewDimension::D2Array,
+                    multisampled: false,
                 },
                 count: None,
             },
-            wgpu::BindGroupLayoutEntry {
-                binding: 4,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Storage { read_only: true },
-                    has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(48),
-                },
-                count: None,
-            },
+            readonly_storage_entry(9, wgpu::ShaderStages::FRAGMENT, 144),
+            readonly_storage_entry(7, wgpu::ShaderStages::VERTEX, 16),
         ],
     })
 }
@@ -2929,6 +2999,55 @@ fn build_model_pipelines(
     }
 }
 
+/// Per-primitive opaque/cutout/translucent material contracts remain ordinary;
+/// only receivers with an actual opaque posed range use these fragment programs.
+struct PosedReceiverPipelines {
+    models: ModelPipelines,
+    cutout: wgpu::RenderPipeline,
+    translucent: wgpu::RenderPipeline,
+}
+impl PosedReceiverPipelines {
+    fn new(
+        device: &wgpu::Device,
+        layout: &wgpu::PipelineLayout,
+        shader: &wgpu::ShaderModule,
+        format: wgpu::TextureFormat,
+        state: (wgpu::FrontFace, bool),
+    ) -> Option<Self> {
+        if format == DEPTH_FORMAT {
+            return None;
+        }
+        let models = build_model_pipelines(device, layout, shader, format, state);
+        let [_, mut cutout, mut translucent, _, _, _] = world_pipeline_variants(false);
+        cutout.shader_kind = WorldShaderKind::Model;
+        translucent.shader_kind = WorldShaderKind::Model;
+        let build = |variant| {
+            build_world_pipeline(device, layout, shader, format, state.0, state.1, variant)
+        };
+        Some(Self {
+            models,
+            cutout: build(cutout),
+            translucent: build(translucent),
+        })
+    }
+    const fn select(
+        &self,
+        pass: BatchPass,
+        double_sided: bool,
+        reflected: Option<bool>,
+    ) -> &wgpu::RenderPipeline {
+        match entity_cull_mode(pass, double_sided, reflected) {
+            EntityCullMode::Regular => &self.models.opaque_culled,
+            EntityCullMode::Reflected => &self.models.opaque_culled_reflected,
+            EntityCullMode::TwoSided => match pass {
+                BatchPass::Opaque => &self.models.opaque,
+                BatchPass::Cutout => &self.cutout,
+                BatchPass::Translucent => &self.translucent,
+            },
+        }
+    }
+}
+
 /// Immutable device/layout snapshot for the existing character worker. It
 /// owns no map, surface, upload queue or SDL state.
 pub(super) struct CharacterBlendPreparation {
@@ -2981,6 +3100,7 @@ impl CharacterBlendPreparation {
 ///   into the raw bloom source.
 /// * **emission-blend** — straight coverage blending for transparent emission.
 pub struct WorldPipeline {
+    posed_receivers: Option<PosedReceiverPipelines>,
     character_blend: Option<[wgpu::RenderPipeline; 2]>,
     front_face: wgpu::FrontFace,
     raw_target: bool,
@@ -3005,7 +3125,7 @@ pub struct WorldPipeline {
     lights_bind_group: wgpu::BindGroup,
     lights_layout: wgpu::BindGroupLayout,
     lights_sampler: wgpu::Sampler,
-    lighting_visibility_bound: Option<(u64, bool)>,
+    lighting_visibility_bound: Option<(u64, bool, u64)>,
     /// The colour target format the pipelines were built for. A changed surface
     /// format (a recreated surface) rebuilds only this resource.
     format: wgpu::TextureFormat,
@@ -3020,13 +3140,24 @@ pub struct WorldPipeline {
 impl WorldPipeline {
     /// One validated shader module shared by all four target/raster sets.
     /// It is dropped after construction; no process/global shader cache is added.
-    pub(super) fn shader(device: &wgpu::Device) -> wgpu::ShaderModule {
-        device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("places-wgpu-world-shader"),
-            source: wgpu::ShaderSource::Wgsl(world_shader_source(
-                device.limits().max_bind_groups >= 6,
-            )),
-        })
+    pub(super) fn shader(device: &wgpu::Device) -> WorldShaders {
+        let module = |posed| {
+            device.create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some(if posed {
+                    "places-wgpu-posed-receiver-shader"
+                } else {
+                    "places-wgpu-world-shader"
+                }),
+                source: wgpu::ShaderSource::Wgsl(world_shader_source(
+                    device.limits().max_bind_groups >= 6,
+                    posed,
+                )),
+            })
+        };
+        WorldShaders {
+            ordinary: module(false),
+            posed: module(true),
+        }
     }
 
     /// Builds one world pipeline set with explicit raster state.
@@ -3044,7 +3175,7 @@ impl WorldPipeline {
     )] // one pipeline set's full raster state, all explicit
     pub fn with_state(
         device: &wgpu::Device,
-        shader: &wgpu::ShaderModule,
+        shaders: &WorldShaders,
         format: wgpu::TextureFormat,
         texture_layout: &wgpu::BindGroupLayout,
         material_layout: &wgpu::BindGroupLayout,
@@ -3053,6 +3184,7 @@ impl WorldPipeline {
         cull_opaque: bool,
         raw_target: bool,
     ) -> Self {
+        let shader = &shaders.ordinary;
         let bind_group_layout = world_camera_bind_group_layout(device);
         // Group 4 is the frame's attached-light array: created with the
         // pipeline set and shared by every variant, so binding it is one call
@@ -3089,6 +3221,13 @@ impl WorldPipeline {
             format,
             (front_face, raw_target),
         );
+        let posed_receivers = PosedReceiverPipelines::new(
+            device,
+            &pipeline_layout,
+            &shaders.posed,
+            format,
+            (front_face, raw_target),
+        );
         let model_layouts = [
             &bind_group_layout,
             texture_layout,
@@ -3118,6 +3257,7 @@ impl WorldPipeline {
             (format, front_face, raw_target, cull_opaque),
         );
         Self {
+            posed_receivers,
             character_blend: None,
             front_face,
             raw_target,
@@ -3293,7 +3433,7 @@ impl WorldPipeline {
         device: &wgpu::Device,
         view: &wgpu::TextureView,
         visibility: &super::lighting_visibility::StaticVisibility,
-        key: (u64, bool),
+        key: (u64, bool, u64),
     ) {
         if self.lighting_visibility_bound == Some(key) {
             return;
@@ -3517,6 +3657,26 @@ pub(super) fn dynamic_lights_binding(
             wgpu::BindGroupEntry {
                 binding: 4,
                 resource: visibility.triangles.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 5,
+                resource: visibility.posed.nodes.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 6,
+                resource: visibility.posed.triangles.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 8,
+                resource: wgpu::BindingResource::TextureView(&visibility.posed.depth.view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 9,
+                resource: visibility.posed.depth.samples.as_entire_binding(),
+            },
+            wgpu::BindGroupEntry {
+                binding: 7,
+                resource: visibility.posed.ambient.output.as_entire_binding(),
             },
         ],
     })
@@ -4027,6 +4187,25 @@ impl WorldPipeline {
         pass.set_bind_group(4, &self.lights_bind_group, &[]);
     }
 
+    fn character_pipeline_for(
+        &self,
+        characters: &super::character::WgpuCharacters,
+        part: (usize, usize),
+        state: (BatchPass, bool),
+    ) -> &wgpu::RenderPipeline {
+        let (character, submesh) = part;
+        let (wanted, emission) = state;
+        let sided = characters.submesh_double_sided(character, submesh);
+        let reflected = characters.culling_reflected(character);
+        if !emission
+            && characters.has_posed_visibility(character)
+            && let Some(pipelines) = &self.posed_receivers
+        {
+            return pipelines.select(wanted, sided, reflected);
+        }
+        self.entity_pipeline_for(wanted, emission, sided, reflected)
+    }
+
     /// Encodes one character's submeshes of one pass.
     ///
     /// Each primitive selects its material-sidedness pipeline; frame-level
@@ -4078,11 +4257,10 @@ impl WorldPipeline {
             {
                 continue;
             }
-            pass.set_pipeline(self.entity_pipeline_for(
-                wanted,
-                emission_only,
-                characters.submesh_double_sided(character, submesh),
-                characters.culling_reflected(character),
+            pass.set_pipeline(self.character_pipeline_for(
+                characters,
+                (character, submesh),
+                (wanted, emission_only),
             ));
             totals.emissive_visible |= characters.submesh_emissive(character, submesh);
             let Some(material_slot) = characters.material_slot(character, submesh) else {

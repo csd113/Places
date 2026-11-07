@@ -365,6 +365,9 @@ impl EntityLightingAnchor {
 /// centre sample remains available separately for diagnostics/legacy callers.
 #[derive(Debug, PartialEq)]
 pub struct EntitySpatialLighting {
+    /// Actual world query sites; virtual interpolation bounds remain unchanged.
+    pub support_positions: [[f32; 3]; ENTITY_LIGHTING_ANCHORS],
+    pub uses_surface_support: bool,
     pub bounds_min: [f32; 4],
     pub bounds_extent: [f32; 4],
     pub anchors: [EntityLightingAnchor; ENTITY_LIGHTING_ANCHORS],
@@ -375,22 +378,75 @@ impl EntitySpatialLighting {
     /// The eight world support positions represented by this sampled payload.
     /// `model` must be the transform retained by the payload's cache key.
     #[must_use]
-    pub fn diagnostic_world_anchors(
+    pub const fn diagnostic_world_anchors(
         &self,
         model: glam::Mat4,
     ) -> [[f32; 3]; ENTITY_LIGHTING_ANCHORS] {
-        let [x, y, z, _enabled] = self.bounds_min;
-        let [dx, dy, dz, _padding] = self.bounds_extent;
-        std::array::from_fn(|corner| {
-            model
-                .transform_point3(glam::Vec3::new(
-                    if corner & 1 == 0 { x } else { x + dx },
-                    if corner & 2 == 0 { y } else { y + dy },
-                    if corner & 4 == 0 { z } else { z + dz },
-                ))
-                .to_array()
-        })
+        let _ = model;
+        self.support_positions
     }
+}
+
+/// Sampling positions may recover an unsupported virtual box corner from the
+/// current receiver surface. Boundary assemblies retain their unmapped policy.
+#[derive(Clone, Copy, Default)]
+pub(super) struct EntitySamplingOptions {
+    pub allow_unmapped: bool,
+    pub supports: Option<[[f32; 3]; ENTITY_LIGHTING_ANCHORS]>,
+}
+
+/// A box corner can lie inside a wall while a concave/deformed receiver fits an
+/// opening. Such a virtual point is not a dark piece of the receiver. Recover
+/// only static-air-invalid corners from the closest actual current surface
+/// point in valid air; every probe and source still performs ordinary world and
+/// movable-occluder visibility at that point. Valid-but-occluded sites are never
+/// moved, and absent geometry/support retains the conservative original result.
+/// The iterator is lazy: ordinary valid boxes require no extra skinning.
+pub(super) fn receiver_surface_supports(
+    lighting: &LevelLighting,
+    bounds: crate::engine::spatial::Aabb,
+    model: glam::Mat4,
+    points: impl Iterator<Item = [f32; 3]>,
+) -> Option<[[f32; 3]; ENTITY_LIGHTING_ANCHORS]> {
+    let positions = entity_anchor_positions(bounds, model)?;
+    let missing = positions
+        .world
+        .map(|point| !lighting.probe_visible_from(point, point));
+    if !missing.iter().any(|value| *value) {
+        return None;
+    }
+    let mut supports = positions.world;
+    let mut distances = [f32::INFINITY; ENTITY_LIGHTING_ANCHORS];
+    for local in points {
+        let world = model.transform_point3(glam::Vec3::from_array(local));
+        if !world.is_finite() {
+            continue;
+        }
+        let candidate_distances = positions
+            .world
+            .map(|corner| world.distance_squared(glam::Vec3::from_array(corner)));
+        if !missing
+            .iter()
+            .zip(&distances)
+            .zip(&candidate_distances)
+            .any(|((unsupported, current), candidate)| *unsupported && candidate < current)
+            || !lighting.probe_visible_from(world.to_array(), world.to_array())
+        {
+            continue;
+        }
+        for (((unsupported, distance), candidate), support) in missing
+            .iter()
+            .zip(&mut distances)
+            .zip(candidate_distances)
+            .zip(&mut supports)
+        {
+            if *unsupported && candidate < *distance {
+                *distance = candidate;
+                *support = world.to_array();
+            }
+        }
+    }
+    Some(supports)
 }
 
 struct EntityAnchorPositions {
@@ -545,6 +601,13 @@ impl EntityStaticRayCache {
             self.complete = true;
             self.scope = Some(scope);
         }
+    }
+
+    /// Changed receiver support geometry invalidates its recorded ray coverage.
+    pub(super) fn invalidate_receiver_shape(&mut self) {
+        self.scope = None;
+        self.rays.clear();
+        self.complete = false;
     }
 
     /// Called only for source-energy changes while field and geometry remain
@@ -869,7 +932,14 @@ pub fn entity_spatial_lighting_cached(
 ) -> Option<Box<EntitySpatialLighting>> {
     let context = EntitySpatialLightingContext::new(lighting, field, scene, visibility.dynamic);
     let key = context.key(model, visibility.receiver);
-    context.sample(bounds, model, visibility.receiver, key, storage, false)
+    context.sample(
+        bounds,
+        model,
+        visibility.receiver,
+        key,
+        storage,
+        EntitySamplingOptions::default(),
+    )
 }
 
 impl EntitySpatialLightingContext<'_> {
@@ -880,7 +950,7 @@ impl EntitySpatialLightingContext<'_> {
         receiver: Option<super::dynamic::DynamicId>,
         context_key: Option<EntitySpatialKey>,
         storage: Option<(&mut EntityStaticRayCache, u64)>,
-        allow_unmapped: bool,
+        options: EntitySamplingOptions,
     ) -> Option<Box<EntitySpatialLighting>> {
         let lighting = self.lighting;
         let field = self.field;
@@ -896,7 +966,10 @@ impl EntitySpatialLightingContext<'_> {
         let cache = std::cell::RefCell::new(active_cache);
         let prepared = field?;
         let _selected_direct = prepared.local_direct.as_ref()?;
-        let positions = entity_anchor_positions(bounds, model)?;
+        let mut positions = entity_anchor_positions(bounds, model)?;
+        if let Some(supports) = options.supports {
+            positions.world = supports;
+        }
         let sample =
             |point| sample_receiver_irradiance(prepared, lighting, visibility, &cache, point);
         let samples = positions.world.map(|world| (world, sample(world)));
@@ -905,7 +978,7 @@ impl EntitySpatialLightingContext<'_> {
         // mapped air cell. Their unsupported bounce is zero, while the same
         // actual-geometry visibility still evaluates prepared direct sources.
         // They must not recover the roomless 0.1 ambient fallback.
-        if !allow_unmapped
+        if !options.allow_unmapped
             && centre_sample.is_none()
             && samples.iter().all(|(_, value)| value.is_none())
         {
@@ -970,6 +1043,8 @@ impl EntitySpatialLightingContext<'_> {
         let [x, y, z] = positions.minimum.to_array();
         let [dx, dy, dz] = positions.extent.to_array();
         Some(Box::new(EntitySpatialLighting {
+            support_positions: positions.world,
+            uses_surface_support: options.supports.is_some(),
             bounds_min: [x, y, z, 1.0],
             bounds_extent: [dx, dy, dz, 0.0],
             anchors,

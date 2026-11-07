@@ -55,6 +55,7 @@ use crate::engine::spatial::Aabb;
 pub const DECAL_SHADER_SRC: &str = concat!(
     include_str!("storm.wgsl"),
     "\n",
+    include_str!("posed_queries.wgsl"),
     include_str!("attached_lights.wgsl"),
     "\n",
     include_str!("decals.wgsl"),
@@ -245,7 +246,7 @@ pub struct DecalPipeline {
     lights_buffer: wgpu::Buffer,
     lights_bind_group: wgpu::BindGroup,
     lights_sampler: wgpu::Sampler,
-    lighting_visibility_bound: Option<(u64, bool)>,
+    lighting_visibility_bound: Option<(u64, bool, u64)>,
     /// The last uploaded camera state, so a still camera writes nothing.
     uploaded: Option<DecalCamera>,
     uploaded_lights: Option<Box<super::world::DynamicLightsUniform>>,
@@ -545,7 +546,7 @@ impl DecalPipeline {
         device: &wgpu::Device,
         view: &wgpu::TextureView,
         visibility: &super::lighting_visibility::StaticVisibility,
-        key: (u64, bool),
+        key: (u64, bool, u64),
     ) {
         if self.lighting_visibility_bound == Some(key) {
             return;
