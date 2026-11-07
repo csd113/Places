@@ -74,21 +74,9 @@ impl RawImage {
         }
     }
 
-    /// Box-filters this image so both edges fit in `max_edge` texels.
-    ///
-    /// Deterministic: the longest edge reaches the budget and the other edge
-    /// scales proportionally, rounded up. Each output texel averages its
-    /// integer-bounded source region, and channel values are integer-rounded.
-    /// Exact integer reductions keep their existing blocks (1024 to 256 is a
-    /// 4x4 average); fractional reductions can retain 192 of a native 256 edge
-    /// instead of unnecessarily dropping to 128.
-    ///
-    /// Returns `None` when the image already fits, so a caller can keep the
-    /// decoded buffer it has instead of copying it. Callers downscale once, at
-    /// load/upload time, and keep the result with the texture they uploaded;
-    /// nothing here is meant to run per frame.
+    /// Fitted dimensions without allocating or filtering the image.
     #[must_use]
-    pub fn downscaled_to(&self, max_edge: u32) -> Option<Self> {
+    pub fn downscaled_dimensions(&self, max_edge: u32) -> Option<(u32, u32)> {
         if max_edge == 0 || self.width == 0 || self.height == 0 {
             return None;
         }
@@ -106,6 +94,25 @@ impl RawImage {
         };
         let width = fitted_edge(self.width);
         let height = fitted_edge(self.height);
+        Some((width, height))
+    }
+
+    /// Box-filters this image so both edges fit in `max_edge` texels.
+    ///
+    /// Deterministic: the longest edge reaches the budget and the other edge
+    /// scales proportionally, rounded up. Each output texel averages its
+    /// integer-bounded source region, and channel values are integer-rounded.
+    /// Exact integer reductions keep their existing blocks (1024 to 256 is a
+    /// 4x4 average); fractional reductions can retain 192 of a native 256 edge
+    /// instead of unnecessarily dropping to 128.
+    ///
+    /// Returns `None` when the image already fits, so a caller can keep the
+    /// decoded buffer it has instead of copying it. Callers downscale once, at
+    /// load/upload time, and keep the result with the texture they uploaded;
+    /// nothing here is meant to run per frame.
+    #[must_use]
+    pub fn downscaled_to(&self, max_edge: u32) -> Option<Self> {
+        let (width, height) = self.downscaled_dimensions(max_edge)?;
         let buffer_len = rgba_byte_len(width, height)?;
         let mut rgba = vec![0u8; buffer_len];
         for out_y in 0..height {

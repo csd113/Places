@@ -339,6 +339,9 @@ struct PreparedInstall {
     texture_batch_end: usize,
     upload_error: Option<String>,
     auxiliary_sources: Option<std::collections::VecDeque<super::texture::TextureSource>>,
+    sky_plan: Option<super::sky::SkyPlan>,
+    sky_cursor: usize,
+    uploaded_sky: Option<WgpuSky>,
     item_sheets: Option<Vec<Arc<super::texture::GpuTexture>>>,
     item_image_ids: std::collections::HashSet<usize>,
     texture_outcome: super::texture::CacheOutcome,
@@ -447,6 +450,7 @@ impl UploadPhase {
 }
 
 struct UploadedLevel {
+    sky: Option<WgpuSky>,
     atlas: LightmapAtlas,
     fixture_sheets: Vec<Arc<super::texture::GpuTexture>>,
     world: WgpuWorldGeometry,
@@ -3831,6 +3835,14 @@ impl WgpuRenderer {
             texture_batch_end: 0,
             upload_error: None,
             auxiliary_sources: None,
+            sky_plan: super::sky::SkyPlan::new(
+                loaded.catalog.assets(),
+                crate::engine::assets::resolve_asset_root().as_deref(),
+                &loaded.level,
+                self.graphics_requested.quality,
+            ),
+            sky_cursor: 0,
+            uploaded_sky: None,
             item_sheets: None,
             item_image_ids: std::collections::HashSet::new(),
             texture_outcome: super::texture::CacheOutcome::Reused,
@@ -4419,6 +4431,19 @@ impl WgpuRenderer {
         );
     }
 
+    fn inherit_playback(
+        &mut self,
+        loaded: &LoadedLevel,
+        preserve: bool,
+        characters: &mut CharacterScene,
+    ) -> bool {
+        let inherit = preserve && self.level_id.as_deref() == Some(loaded.level.id.as_str());
+        if inherit {
+            characters.inherit_playback_from(&mut self.characters);
+        }
+        inherit
+    }
+
     fn commit_prepared_install(&mut self, pending: PreparedInstall) -> bool {
         let PreparedInstall {
             loaded,
@@ -4455,6 +4480,9 @@ impl WgpuRenderer {
             texture_batch_end: _,
             upload_error: _,
             auxiliary_sources: _,
+            sky_plan: _,
+            sky_cursor: _,
+            uploaded_sky,
             item_sheets,
             item_image_ids: _,
             texture_outcome: _,
@@ -4474,11 +4502,7 @@ impl WgpuRenderer {
             self.fatal = Some("Incomplete GPU level preparation".to_string());
             return false;
         };
-        let inherit_playback =
-            preserve_playback && self.level_id.as_deref() == Some(loaded.level.id.as_str());
-        if inherit_playback {
-            characters.inherit_playback_from(&mut self.characters);
-        }
+        let inherit_playback = self.inherit_playback(&loaded, preserve_playback, &mut characters);
         let animation_seconds = self.animation_seconds;
         self.charge_prepared_world(&loaded, &build, &assets, &prepared_world);
         self.prop_catalog = loaded.catalog.as_ref().clone();
@@ -4488,6 +4512,7 @@ impl WgpuRenderer {
         self.quality = graphics.quality;
         self.lighting_quality = graphics.lighting_quality;
         let uploaded = UploadedLevel {
+            sky: uploaded_sky,
             atlas: prepared_atlas,
             fixture_sheets,
             world: prepared_world,
@@ -4559,6 +4584,7 @@ impl WgpuRenderer {
 
         let preuploaded = uploaded.is_some();
         let mut uploaded_caustics = None;
+        let mut uploaded_sky = None;
         let mut uploaded_decals = None;
         let mut uploaded_static_bank = None;
         let (
@@ -4570,6 +4596,7 @@ impl WgpuRenderer {
             uploaded_props,
         ) = uploaded.map_or((None, None, None, None, None, None), |uploaded_level| {
             uploaded_caustics = uploaded_level.caustics;
+            uploaded_sky = uploaded_level.sky;
             uploaded_decals = uploaded_level.decals;
             uploaded_static_bank = uploaded_level.static_bank;
             (
@@ -4971,7 +4998,11 @@ impl WgpuRenderer {
             self.prepare_static_light_bank(&build, loaded);
         }
         mark("static-bank");
-        self.upload_sky(&loaded.level);
+        if preuploaded {
+            self.sky = uploaded_sky;
+        } else {
+            self.upload_sky(&loaded.level);
+        }
         // Reflection probes are already captured for a compiled world; a
         // developer-tool install (the offline compiler itself) bakes them here,
         // when the world, its textures, its materials and its decals are all
@@ -8911,6 +8942,34 @@ impl WgpuRenderer {
         sources
     }
 
+    /// False means every sky request has settled (including optional failures).
+    fn upload_sky_step(pending: &mut PreparedInstall) -> bool {
+        if let Some(plan) = pending.sky_plan.as_ref() {
+            while let Some(source) = plan.sources.get(pending.sky_cursor) {
+                if pending.textures.upload_is_cached(
+                    &source.key,
+                    crate::engine::materials::TextureOrigin::Catalog,
+                ) {
+                    pending.sky_cursor = pending.sky_cursor.saturating_add(1);
+                    continue;
+                }
+                match super::texture::TextureJob::start_sky(source.clone()) {
+                    Ok(Some(job)) => {
+                        pending.texture_job = Some(job);
+                        pending.sky_cursor = pending.sky_cursor.saturating_add(1);
+                    }
+                    Ok(None) => {}
+                    Err(error) => pending.upload_error = Some(error),
+                }
+                return true;
+            }
+        }
+        if let Some(plan) = pending.sky_plan.take() {
+            pending.uploaded_sky = plan.finish(&pending.textures);
+        }
+        false
+    }
+
     fn upload_auxiliary_step(&mut self, pending: &mut PreparedInstall) {
         if pending.auxiliary_sources.is_none() {
             // Reuse the existing immutable shader worker while fitted sheets
@@ -8947,6 +9006,9 @@ impl WgpuRenderer {
             }
         }
         if sources.is_empty() {
+            if Self::upload_sky_step(pending) {
+                return;
+            }
             let ready = if pending.characters.is_empty() {
                 Ok(true)
             } else {

@@ -144,6 +144,36 @@ impl TextureJob {
         })
     }
 
+    /// One bounded sky PNG shares the existing process-wide preparation slot.
+    pub(in crate::engine::render::wgpu) fn start_sky(
+        source: super::super::sky::SkySource,
+    ) -> Result<Option<Self>, String> {
+        Self::start_with(move |flag| {
+            if flag.load(Ordering::Acquire) {
+                return Vec::new();
+            }
+            let Some(image) = source.decode() else {
+                return Vec::new();
+            };
+            if flag.load(Ordering::Acquire) {
+                return Vec::new();
+            }
+            let pixels = PreparedTexture::prepare(
+                &image,
+                source.key.level,
+                source.key.class,
+                source.key.semantic,
+            );
+            vec![PreparedImage {
+                key: source.key,
+                origin: TextureOrigin::Catalog,
+                pixels,
+                diagnostic: false,
+                model_source: None,
+            }]
+        })
+    }
+
     fn start_with(
         prepare: impl FnOnce(&AtomicBool) -> Vec<PreparedImage> + Send + 'static,
     ) -> Result<Option<Self>, String> {

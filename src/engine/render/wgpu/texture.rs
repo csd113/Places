@@ -636,15 +636,19 @@ impl PreparedTexture {
         class: TextureClass,
         semantic: TextureSemantic,
     ) -> Self {
-        let fit = fit_image(image, level, class);
-        let fitted = if semantic == TextureSemantic::BaseColorDisplay
-            && (fit.width != image.width || fit.height != image.height)
-        {
-            std::borrow::Cow::Owned(crate::engine::materials::color::resize_color(
-                image, fit.width, fit.height,
-            ))
+        let fitted = if semantic == TextureSemantic::BaseColorDisplay {
+            image
+                .downscaled_dimensions(level.budget(class))
+                .map_or_else(
+                    || std::borrow::Cow::Borrowed(image),
+                    |(width, height)| {
+                        std::borrow::Cow::Owned(crate::engine::materials::color::resize_color(
+                            image, width, height,
+                        ))
+                    },
+                )
         } else {
-            fit
+            fit_image(image, level, class)
         };
         let width = fitted.width;
         let height = fitted.height;
@@ -1370,23 +1374,16 @@ fn level_bytes(width: u32, height: u32) -> u64 {
         .saturating_mul(u64::from(RGBA_BYTES))
 }
 
-/// Box-filters an image to half its size, rounding to the nearest channel
-/// value and clamping at the edges for odd dimensions.
-///
-/// Numeric-data box filter. Colour uses the separate linear-light filter.
-/// Every output texel
-/// is the average of its 2x2 source block (fewer texels at an odd edge), so a
-/// power-of-two source produces the exact successive averages the reference
-/// generates. Alpha is averaged the same way and never discarded.
-///
-/// This is the startup path's hot loop (a full CPU mip chain per uploaded
-/// sheet), so it works on whole source rows: one bounds check per row and
-/// per output texel instead of an `Option`-returning lookup per source texel.
-/// The arithmetic is the same `(sum + count / 2) / count` average as before,
-/// and a short or ragged buffer yields exactly the same zeros the per-texel
-/// lookup produced.
+/// Numeric-data filter to the floor-sized mip required by the GPU. Odd
+/// dimensions integrate the entire source footprint with exact integer area
+/// weights; even dimensions retain the faster, bit-identical 2x2 path.
 #[must_use]
 fn halve_image(source: &RawImage) -> RawImage {
+    if (source.width > 1 && !source.width.is_multiple_of(2))
+        || (source.height > 1 && !source.height.is_multiple_of(2))
+    {
+        return halve_odd_image(source);
+    }
     let width = (source.width / 2).max(1);
     let height = (source.height / 2).max(1);
     let Some(length) = buffer_len(width, height) else {
@@ -1464,6 +1461,81 @@ fn halve_image(source: &RawImage) -> RawImage {
     RawImage::new(width, height, rgba)
 }
 
+/// Coordinates use output-edge units, so fractional source coverage has
+/// exact integer weights. At most 3x3 source texels feed a half-sized mip.
+fn halve_odd_image(source: &RawImage) -> RawImage {
+    let width = (source.width / 2).max(1);
+    let height = (source.height / 2).max(1);
+    let Some(length) = buffer_len(width, height) else {
+        return RawImage::new(1, 1, vec![255; 4]);
+    };
+    let mut rgba = vec![0; length];
+    for y in 0..height {
+        let (y0, y1) = mip_footprint(y, source.height, height);
+        for x in 0..width {
+            let (x0, x1) = mip_footprint(x, source.width, width);
+            let mut sums = [0_u64; 4];
+            let mut area = 0_u64;
+            for sy in y0..y1 {
+                let wy = mip_weight(y, sy, source.height, height);
+                for sx in x0..x1 {
+                    let byte_offset = u64::from(sy)
+                        .saturating_mul(u64::from(source.width))
+                        .saturating_add(u64::from(sx))
+                        .saturating_mul(4);
+                    let offset = usize::try_from(byte_offset).unwrap_or(usize::MAX);
+                    let Some(pixel) = source.rgba.get(offset..offset.saturating_add(4)) else {
+                        continue;
+                    };
+                    let weight = wy.saturating_mul(mip_weight(x, sx, source.width, width));
+                    for (sum, channel) in sums.iter_mut().zip(pixel) {
+                        *sum = sum.saturating_add(u64::from(*channel).saturating_mul(weight));
+                    }
+                    area = area.saturating_add(weight);
+                }
+            }
+            let byte_offset = u64::from(y)
+                .saturating_mul(u64::from(width))
+                .saturating_add(u64::from(x))
+                .saturating_mul(4);
+            let offset = usize::try_from(byte_offset).unwrap_or(usize::MAX);
+            if let Some(pixel) = rgba.get_mut(offset..offset.saturating_add(4)) {
+                for (channel, sum) in pixel.iter_mut().zip(sums) {
+                    *channel =
+                        u8::try_from(sum.saturating_add(area / 2).checked_div(area).unwrap_or(0))
+                            .unwrap_or(u8::MAX);
+                }
+            }
+        }
+    }
+    RawImage::new(width, height, rgba)
+}
+
+fn mip_footprint(output: u32, source: u32, target: u32) -> (u32, u32) {
+    let first = u64::from(output).saturating_mul(u64::from(source));
+    let last = u64::from(output.saturating_add(1)).saturating_mul(u64::from(source));
+    (
+        u32::try_from(first.checked_div(u64::from(target)).unwrap_or(0)).unwrap_or(source),
+        u32::try_from(
+            last.saturating_add(u64::from(target).saturating_sub(1))
+                .checked_div(u64::from(target))
+                .unwrap_or(0),
+        )
+        .unwrap_or(source)
+        .min(source),
+    )
+}
+
+fn mip_weight(output: u32, pixel: u32, source: u32, target: u32) -> u64 {
+    let left = u64::from(output)
+        .saturating_mul(u64::from(source))
+        .max(u64::from(pixel).saturating_mul(u64::from(target)));
+    let right = u64::from(output.saturating_add(1))
+        .saturating_mul(u64::from(source))
+        .min(u64::from(pixel.saturating_add(1)).saturating_mul(u64::from(target)));
+    right.saturating_sub(left)
+}
+
 /// Byte length of an RGBA8 buffer, or `None` on overflow.
 fn buffer_len(width: u32, height: u32) -> Option<usize> {
     usize::try_from(width)
@@ -1529,3 +1601,7 @@ pub use worker::{PreparedImage, TextureJob, TextureSource};
 pub use worker::is_preparing;
 
 mod model_keys;
+
+#[cfg(test)]
+#[path = "../../tests/numeric_mips.rs"]
+mod numeric_mip_tests;

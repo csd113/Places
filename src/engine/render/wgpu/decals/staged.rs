@@ -35,6 +35,14 @@ impl DecalUpload {
         Self {
             packer,
             value: WgpuDecals {
+                cutout_order: draws
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, draw)| (!draw.blend).then_some(index))
+                    .collect(),
+                blend_order: std::cell::RefCell::new(Vec::with_capacity(
+                    draws.iter().filter(|draw| draw.blend).count(),
+                )),
                 chunks: Vec::new(),
                 draws,
                 sheets: Vec::new(),

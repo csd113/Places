@@ -716,6 +716,8 @@ pub struct DecalUploadInputs<'a> {
 pub struct WgpuDecals {
     chunks: Vec<DecalChunk>,
     draws: Vec<DecalDraw>,
+    cutout_order: Vec<usize>,
+    blend_order: std::cell::RefCell<Vec<usize>>,
     sheets: Vec<DecalSheet>,
     /// How many external sheets follow the generated atlas.
     external_sheets: usize,
@@ -776,7 +778,15 @@ impl WgpuDecals {
             diagnostic_sheets: uploaded.diagnostics,
             texture_bytes: uploaded.sheets.iter().map(DecalSheet::resident_bytes).sum(),
         };
+        let cutout_order = draws
+            .iter()
+            .enumerate()
+            .filter_map(|(index, draw)| (!draw.blend).then_some(index))
+            .collect();
+        let blend_capacity = draws.iter().filter(|draw| draw.blend).count();
         Self {
+            cutout_order,
+            blend_order: std::cell::RefCell::new(Vec::with_capacity(blend_capacity)),
             chunks,
             draws,
             sheets: uploaded.sheets,
@@ -824,37 +834,33 @@ impl WgpuDecals {
         // Cut-out ranges first (they write depth), then the blended ranges back
         // to front. The sort only runs when the level actually authors a
         // soft-edged sheet, so an ordinary level keeps its exact packed order.
-        let mut order: Vec<usize> = Vec::new();
-        let has_blend = self.draws.iter().any(|draw| draw.blend);
-        if has_blend {
-            order.extend(0..self.draws.len());
-            let eye = inputs.frame.eye;
-            let distance_squared = |index: usize| -> f32 {
-                self.draws.get(index).map_or(0.0, |draw| {
-                    let centre = draw.bounds.centre();
-                    let dx = centre[0] - eye.x;
-                    let dy = centre[1] - eye.y;
-                    let dz = centre[2] - eye.z;
-                    dx.mul_add(dx, dy.mul_add(dy, dz * dz))
-                })
-            };
-            order.sort_by(|a, b| {
-                let blend_a = self.draws.get(*a).is_some_and(|draw| draw.blend);
-                let blend_b = self.draws.get(*b).is_some_and(|draw| draw.blend);
-                blend_a.cmp(&blend_b).then_with(|| {
-                    if blend_a {
-                        distance_squared(*b).total_cmp(&distance_squared(*a))
-                    } else {
-                        a.cmp(b)
-                    }
-                })
-            });
-        }
+        let mut order = self.blend_order.borrow_mut();
+        order.clear();
+        order.extend(self.draws.iter().enumerate().filter_map(|(index, draw)| {
+            (draw.blend
+                && draw.index_count != 0
+                && (!inputs.cull || inputs.frame.visible(&draw.bounds)))
+            .then_some(index)
+        }));
+        let eye = inputs.frame.eye;
+        let distance_squared = |index: usize| -> f32 {
+            self.draws.get(index).map_or(0.0, |draw| {
+                let centre = draw.bounds.centre();
+                let dx = centre[0] - eye.x;
+                let dy = centre[1] - eye.y;
+                let dz = centre[2] - eye.z;
+                dx.mul_add(dx, dy.mul_add(dy, dz * dz))
+            })
+        };
+        order.sort_unstable_by(|a, b| {
+            distance_squared(*b)
+                .total_cmp(&distance_squared(*a))
+                .then_with(|| a.cmp(b))
+        });
         let mut bound_pipeline: Option<bool> = None;
         let mut bound_chunk: Option<usize> = None;
         let mut bound_sheet: Option<usize> = None;
-        for packed_index in 0..self.draws.len() {
-            let index = order.get(packed_index).copied().unwrap_or(packed_index);
+        for &index in self.cutout_order.iter().chain(order.iter()) {
             let Some(draw) = self.draws.get(index) else {
                 continue;
             };

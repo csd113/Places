@@ -1230,6 +1230,8 @@ pub struct Character {
     static_rays: super::light_transport::EntityStaticRayCache,
     lighting_local_centre: Vec3,
     lighting_local_bounds: Aabb,
+    /// Immutable mesh envelope; posed/balloon lighting bounds can change independently.
+    bind_bounds: Aabb,
     /// Applied latex tint; avoids repeating immutable albedo work each frame.
     balloon_color: Option<[f32; 3]>,
     world_bounds: Aabb,
@@ -1408,9 +1410,7 @@ impl Character {
         if self.balloon_color.is_some() {
             return transform_bounds(&self.lighting_local_bounds, &self.transform);
         }
-        self.asset.model.bounds().map_or(Aabb::EMPTY, |(min, max)| {
-            transform_bounds(&Aabb { min, max }, &self.transform)
-        })
+        transform_bounds(&self.bind_bounds, &self.transform)
     }
 
     /// The placed-instance id this character is keyed by, if any.
@@ -1484,7 +1484,7 @@ impl Character {
     fn set_oriented_pose(&mut self, position: Vec3, rotation: Quat) {
         self.transform =
             Mat4::from_scale_rotation_translation(Vec3::splat(self.scale), rotation, position);
-        self.world_bounds = character_bounds(&self.asset, &self.transform);
+        self.world_bounds = character_bounds(self.bind_bounds, &self.transform);
     }
 
     /// Applies one bounded balloon pose; reusable rig/albedo buffers allocate nothing.
@@ -1767,12 +1767,8 @@ impl CharacterScene {
         character.ragdoll_bounds = None;
         character.pose_history.clear();
         character.pose_delta = 0.0;
-        character.world_bounds = character_bounds(&character.asset, &character.transform);
-        character.lighting_local_bounds = character
-            .asset
-            .model
-            .bounds()
-            .map_or(Aabb::EMPTY, |(min, max)| Aabb { min, max });
+        character.world_bounds = character_bounds(character.bind_bounds, &character.transform);
+        character.lighting_local_bounds = character.bind_bounds;
         character.lighting_local_centre =
             Vec3::from_array(character.lighting_local_bounds.centre());
         character.spatial_key = None;
@@ -1969,13 +1965,14 @@ impl CharacterScene {
             });
             let entity_lighting = sample_character_light(&asset, &transform, lighting, irradiance);
             let lighting_local_centre = model_lighting_centre(&asset);
-            let world_bounds = character_bounds(&asset, &transform);
+            let bind_bounds = asset_bounds(&asset);
+            let world_bounds = character_bounds(bind_bounds, &transform);
             let instance_id = instance_ids
                 .get(prop_index)
                 .map(|id| id.trim())
                 .filter(|id| !id.is_empty())
                 .map(str::to_string);
-            let lighting_local_bounds = asset_bounds(&asset);
+            let lighting_local_bounds = bind_bounds;
             characters.push(Character {
                 blood_identity: next_blood_identity(),
                 asset,
@@ -1994,6 +1991,7 @@ impl CharacterScene {
                 static_rays: super::light_transport::EntityStaticRayCache::default(),
                 lighting_local_centre,
                 lighting_local_bounds,
+                bind_bounds,
                 balloon_color: None,
                 ragdoll_owned: false,
                 ragdoll_bounds: None,
@@ -2114,8 +2112,9 @@ impl CharacterScene {
         let albedo = tinted_albedo(&asset, catalog.tint(model).unwrap_or([1.0; 3]));
         let entity_lighting = sample_character_light(&asset, &transform, lighting, irradiance);
         let lighting_local_centre = model_lighting_centre(&asset);
-        let world_bounds = character_bounds(&asset, &transform);
-        let lighting_local_bounds = asset_bounds(&asset);
+        let bind_bounds = asset_bounds(&asset);
+        let world_bounds = character_bounds(bind_bounds, &transform);
+        let lighting_local_bounds = bind_bounds;
         let character = Character {
             blood_identity: next_blood_identity(),
             asset,
@@ -2134,6 +2133,7 @@ impl CharacterScene {
             static_rays: super::light_transport::EntityStaticRayCache::default(),
             lighting_local_centre,
             lighting_local_bounds,
+            bind_bounds,
             balloon_color: None,
             ragdoll_owned: false,
             ragdoll_bounds: None,
@@ -2937,14 +2937,10 @@ fn asset_bounds(asset: &LoadedPropAsset) -> Aabb {
 }
 
 /// Padded bind-pose envelope for a placed character's scene queries.
-fn character_bounds(asset: &LoadedPropAsset, transform: &Mat4) -> Aabb {
-    let Some((low, high)) = asset.model.bounds() else {
+fn character_bounds(mut local: Aabb, transform: &Mat4) -> Aabb {
+    if local.is_empty() {
         return Aabb::EMPTY;
-    };
-    let mut local = Aabb {
-        min: low,
-        max: high,
-    };
+    }
     for axis in 0..3 {
         let min = local.min.get(axis).copied().unwrap_or(0.0);
         let max = local.max.get(axis).copied().unwrap_or(0.0);

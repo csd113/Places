@@ -218,6 +218,7 @@ pub struct DynamicInstances {
     pub binding: wgpu::BindGroup,
     buffer: wgpu::Buffer,
     uploaded: Vec<Instance>,
+    pending: Vec<Instance>,
 }
 
 impl DynamicInstances {
@@ -259,6 +260,7 @@ impl DynamicInstances {
             binding,
             buffer,
             uploaded: Vec::new(),
+            pending: Vec::with_capacity(count),
         }
     }
 
@@ -267,22 +269,21 @@ impl DynamicInstances {
         queue: &wgpu::Queue,
         uniforms: impl Iterator<Item = super::world::EnvironmentUniform>,
     ) {
-        let records: Vec<Instance> = uniforms
-            .map(|uniform| {
-                let [x, y, z] = uniform.normal_model;
-                Instance {
-                    model: uniform.model,
-                    normal: [x, y, z, [0.0, 0.0, 0.0, 1.0]],
-                    tint: [1.0; 4],
-                    lighting: [0, 0, 0, 1],
-                }
-            })
-            .collect();
-        if bytemuck::cast_slice::<Instance, u8>(&records)
+        self.pending.clear();
+        self.pending.extend(uniforms.map(|uniform| {
+            let [x, y, z] = uniform.normal_model;
+            Instance {
+                model: uniform.model,
+                normal: [x, y, z, [0.0, 0.0, 0.0, 1.0]],
+                tint: [1.0; 4],
+                lighting: [0, 0, 0, 1],
+            }
+        }));
+        if bytemuck::cast_slice::<Instance, u8>(&self.pending)
             != bytemuck::cast_slice::<Instance, u8>(&self.uploaded)
         {
-            queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&records));
-            self.uploaded = records;
+            queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&self.pending));
+            std::mem::swap(&mut self.uploaded, &mut self.pending);
         }
     }
 }

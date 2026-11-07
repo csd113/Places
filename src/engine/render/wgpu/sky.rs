@@ -29,11 +29,13 @@ use std::sync::Arc;
 use glam::{Mat4, Vec3};
 
 use super::surface::DEPTH_FORMAT;
-use super::texture::{CacheOutcome, GpuTexture, TextureCache, TextureFiltering, TextureWrap};
+use super::texture::{GpuTexture, TextureCache, TextureFiltering};
 use crate::engine::assets::AssetCatalog;
 use crate::engine::level::LevelDef;
-use crate::engine::materials::TextureOrigin;
-use crate::engine::quality::{QualityLevel, TextureClass};
+use crate::engine::quality::QualityLevel;
+
+mod loading;
+pub(super) use loading::{SkyPlan, SkySource};
 
 /// The sky shader, from the file next to this module.
 pub const SKY_SHADER_SRC: &str = include_str!("sky.wgsl");
@@ -351,136 +353,7 @@ impl WgpuSky {
         level: &LevelDef,
         quality: QualityLevel,
     ) -> Option<Self> {
-        if level.sky.is_none()
-            && !level
-                .global_illuminators
-                .iter()
-                .any(|light| light.visual.is_some())
-        {
-            return None;
-        }
-        let id = level
-            .sky
-            .as_ref()
-            .map_or("core:tex_white_fallback_01", |sky| sky.texture.trim());
-        let Some(path) = catalog.texture_path(id).map(str::to_string) else {
-            crate::engine::logging::warn_once(
-                format!("sky:{id}"),
-                format!("[sky] `{id}` is not a catalogued file texture; drawing no sky"),
-            );
-            return None;
-        };
-        let Some(root) = asset_root else {
-            crate::engine::logging::warn_once(
-                format!("sky:{id}"),
-                format!("[sky] the asset root is missing; drawing no sky for `{id}`"),
-            );
-            return None;
-        };
-        let decoded = if level.sky.is_some() {
-            crate::engine::materials::load_sky_png_relative(root, &path)
-        } else {
-            crate::engine::materials::load_png_relative(root, &path)
-        };
-        let image = match decoded {
-            Ok(image) => image,
-            Err(error) => {
-                crate::engine::logging::warn_once(
-                    format!("sky:{id}"),
-                    format!("[sky] {error}; drawing no sky"),
-                );
-                return None;
-            }
-        };
-        let key = super::texture::TextureKey {
-            logical: format!("sky:{id}"),
-            semantic: super::texture::TextureSemantic::BaseColorDisplay,
-            class: TextureClass::Sky,
-            level: quality,
-            wrap: TextureWrap::RepeatClampV,
-        };
-        let (outcome, texture) =
-            cache.get_or_upload_with_key(device, queue, key, &image, TextureOrigin::Catalog);
-        let meta = texture.meta();
-        if matches!(outcome, CacheOutcome::Uploaded) {
-            crate::engine::logging::info(format!(
-                "[wgpu] sky `{id}`: {}x{} uploaded",
-                meta.width, meta.height
-            ));
-        }
-        let mut celestial = [CelestialUniform {
-            source: [0.0; 4],
-            right: [0.0; 4],
-            up: [0.0; 4],
-        }; 8];
-        let mut sun = Arc::clone(&texture);
-        let mut moon = Arc::clone(&texture);
-        let mut uploaded_sun = false;
-        let mut uploaded_moon = false;
-        for (slot, light) in celestial.iter_mut().zip(level.global_illuminators.iter()) {
-            let Some(visual) = &light.visual else {
-                continue;
-            };
-            if !light.enabled || !light.bake || light.intensity == 0.0 || visual.brightness == 0.0 {
-                continue;
-            }
-            let visual_id = light.visual_texture()?;
-            let is_moon = light.kind == crate::engine::level::GlobalIlluminatorKind::Moon;
-            if !(if is_moon { uploaded_moon } else { uploaded_sun }) {
-                let uploaded =
-                    Self::upload_disc(device, queue, cache, catalog, root, visual_id, quality)?;
-                if is_moon {
-                    moon = uploaded;
-                    uploaded_moon = true;
-                } else {
-                    sun = uploaded;
-                    uploaded_sun = true;
-                }
-            }
-            *slot = CelestialUniform::new(light, visual, is_moon);
-        }
-        let celestial_count = CelestialUniform::active_count(&celestial);
-        Some(Self {
-            texture,
-            sun,
-            moon,
-            celestial,
-            celestial_count,
-            panorama: level.sky.is_some(),
-            brightness: level.sky.as_ref().map_or(1.0, |sky| sky.brightness),
-        })
-    }
-
-    fn upload_disc(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        cache: &mut TextureCache,
-        catalog: &AssetCatalog,
-        root: &Path,
-        id: &str,
-        quality: QualityLevel,
-    ) -> Option<Arc<GpuTexture>> {
-        let path = catalog.texture_path(id)?;
-        let image = match crate::engine::materials::load_celestial_png_relative(root, path) {
-            Ok(image) => image,
-            Err(error) => {
-                crate::engine::logging::warn_once(
-                    format!("celestial:{id}"),
-                    format!("[sky] {error}"),
-                );
-                return None;
-            }
-        };
-        let key = super::texture::TextureKey {
-            logical: format!("celestial:{id}"),
-            semantic: super::texture::TextureSemantic::BaseColorDisplay,
-            class: TextureClass::DecalSheet,
-            level: quality,
-            wrap: TextureWrap::Clamp,
-        };
-        let (_, texture) =
-            cache.get_or_upload_with_key(device, queue, key, &image, TextureOrigin::Catalog);
-        Some(texture)
+        SkyPlan::new(catalog, asset_root, level, quality)?.upload(device, queue, cache)
     }
 
     /// The authored brightness multiplier.

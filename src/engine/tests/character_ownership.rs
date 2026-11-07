@@ -15,6 +15,7 @@ fn actor(id: &str, asset: Arc<LoadedPropAsset>) -> Result<Character, String> {
     let animator = CharacterAnimator::new_shared(&asset).ok_or("invalid tiny rig")?;
     Ok(Character {
         blood_identity: super::next_blood_identity(),
+        bind_bounds: super::asset_bounds(&asset),
         texture: None,
         ragdoll_owned: false,
         ragdoll_bounds: None,
