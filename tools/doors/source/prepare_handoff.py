@@ -82,4 +82,3 @@ write('artifact_identities.json',{'files':identities,'unique_runtime_texture_byt
  'two_embedded_copies_before_engine_dedup_bytes_decoded_rgba8':524288,
  'pack_128MiB_budget_not_remeasured_here':True})
 print(json.dumps([{'variant':p['variant'],'body_clear_width_m':p['full_open_conservative_body_path_width_m'],'boxes':p['collision_box_count']}for p in proposals],indent=2))
-

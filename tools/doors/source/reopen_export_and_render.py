@@ -57,4 +57,3 @@ for variant,W,n in [('single',1.0,1),('double',1.9,2)]:
  json.dump({'status':'PASS','models':records},open(R/'metadata/blender_reopen_import_gate.json','w'),indent=2)
  print('SOURCE_REEXPORT_AND_GLB_IMPORT_PASS',variant,flush=True)
 print('ALL_OFFLINE_REOPEN_RENDER_GATES_PASS',flush=True)
-

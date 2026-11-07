@@ -240,4 +240,3 @@ if __name__=='__main__':
  info=[build('single',1.0,1),build('double',1.9,2)]
  json.dump(info,open(R/'metadata/design_dimensions.json','w'),indent=2)
  print('EXIT_DOOR_BLENDER_AUTHORING_OK',flush=True)
- 

@@ -1,1 +1,3 @@
 Integration correction: actual host collision gate detected leaf sweep into the jamb. Moved physical butt-hinge barrels and axes to the pull/rear face (-30 mm from the frame plane), preserved closed panel/frame/hardware positions, and recomputed both closer links around the corrected real hinges. No collision-limit or cap relaxation. The original preparation ZIP is historical; these revised source/export identities supersede it for integration.
+
+Canonical authoring Python files have whitespace-only cleanup (AST equality checked); source identity metadata reflects those exact bytes. Corrected Blender/XCF/PNG/GLB bytes are unchanged.

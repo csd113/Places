@@ -73,4 +73,3 @@ json.dump({'application':'GIMP 3.0.4','source_size':[1024,1024],'runtime_size':[
  'rights':'Original asset artwork authored for Connor Dawkins / Places.'},
  open(R/'metadata/materials.json','w'),indent=2)
 im.delete();print('EXIT_DOOR_GIMP_AUTHORING_OK',flush=True)
-

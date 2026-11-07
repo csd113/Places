@@ -33,4 +33,4 @@ for name, folder, kind in [('behavior','native-behavior','actions'), ('culling',
  data = json.loads((recipes/(name+'.json')).read_text())
  if kind == 'script':data['output'] = str(run)
  write(run/(kind+'.json'), data)
- shutil.copyfile(recipes/'settings.json', run/'settings.json')
+ shutil.copyfile(recipes/'native-settings.json', run/'settings.json')

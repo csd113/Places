@@ -12,8 +12,8 @@
     },
     {
       "path": "source/build_exit_doors.py",
-      "bytes": 13928,
-      "sha256": "bfec5442be6a64b91e6fcad4727cbd0def0930878118e9078c2e018a5ded6755"
+      "bytes": 13926,
+      "sha256": "3b96534759cb1e0ee61c14b69372ca7f115b551b99c3dfa6c3b5aaf7e1673eec"
     },
     {
       "path": "source/exit_door_materials.xcf",
@@ -42,23 +42,23 @@
     },
     {
       "path": "source/paint_exit_door_gimp.py",
-      "bytes": 3939,
-      "sha256": "861b2ef1ab420f9f32e851ad6929ae7485faad41a5c70384828d7444f2e63e26"
+      "bytes": 3938,
+      "sha256": "8cdc22cf416a7f8437daab68df6daaf55988ad7a10eb7774cccf8a5f8be2809c"
     },
     {
       "path": "source/prepare_handoff.py",
-      "bytes": 6731,
-      "sha256": "219af09ea9adc1a078cda14366976273325b54d694a024feafa1339f89392629"
+      "bytes": 6730,
+      "sha256": "e58bce71658f4ce2dbe701e6d1dea8e6bd0a6adbb44faf3220ffae495b130fcf"
     },
     {
       "path": "source/reopen_export_and_render.py",
-      "bytes": 3824,
-      "sha256": "aac3e165967466c146ecca62b715b1c239135804d055dbbdabb36e2e13a5ac73"
+      "bytes": 3823,
+      "sha256": "ef886a0502d67c40845faad11af46d40dbe2b3c694b167c7adb4213a92de0840"
     },
     {
       "path": "source/validate_exit_doors.py",
-      "bytes": 11777,
-      "sha256": "0255f4fea729eec9faa9b23a7e6354c48658665bbf48d4b8f6989438f8b6c825"
+      "bytes": 11775,
+      "sha256": "aff1513dd593f6f3003dda026b6fca8025ddb9928cffd8ec25fa92e85544dbdd"
     },
     {
       "path": "textures/exit_door_materials.png",

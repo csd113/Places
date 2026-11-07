@@ -187,4 +187,3 @@ if __name__=='__main__':
  for variant in ('single','double'):reports.append(validate(R/'runtime'/('hollow_metal_exit_door_'+variant+'.glb'),variant))
  json.dump({'status':'PASS','baseline_commit':'624e4da8273200e7c5b843c106208a5afa7c1a68','models':reports},open(R/'metadata/asset_gate_report.json','w'),indent=2)
  print(json.dumps({'status':'PASS','models':[{'file':r['file'],'triangles':r['triangles'],'primitives':r['primitives'],'vertices':r['vertices'],'sha256':r['sha256']}for r in reports]},indent=2))
- 

@@ -1,0 +1,16 @@
+{
+  "quality": "high",
+  "lightmaps": "full",
+  "lighting_quality": "full",
+  "use_low_quality_lighting": false,
+  "reflections": "full",
+  "bloom": true,
+  "developer_console": true,
+  "vsync": true,
+  "window_width": 960,
+  "window_height": 544,
+  "window_mode": "windowed",
+  "master_volume": 0.2,
+  "muted": true,
+  "spatial_audio": "speakers"
+}
