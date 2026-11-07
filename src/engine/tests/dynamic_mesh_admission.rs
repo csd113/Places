@@ -276,9 +276,9 @@ fn ultraviolet_receiver_dependencies_preserve_full_refresh_visibility() -> Resul
     };
     let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"uv_dependency","name":"UV dependency",
         "spawn":{"x":0,"z":0},"rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"height":3}],
-        "ceiling_lights":[{"id":"uv","fixture":"core:pool_light_round","x":0,"z":0,"y":2.5,"ultraviolet":1}]}"#)
+        "ceiling_lights":[{"id":"uv","fixture":"core:pool_light_round","x":0,"z":0,"y":2.5,"brightness":0,"ultraviolet":1}]}"#)
         .map_err(|error| error.to_string())?;
-    let lighting = LevelLighting::bake(&level);
+    let mut lighting = LevelLighting::bake(&level);
     let sources = BlacklightSet::from_level(&level, &lighting);
     let scene = TransportScene::new(Vec::new(), Vec::new()).ok_or("empty transport refused")?;
     let bounds = Aabb {
@@ -335,6 +335,14 @@ fn ultraviolet_receiver_dependencies_preserve_full_refresh_visibility() -> Resul
             first = Some(sampled);
         }
     }
+    verify_disabled_uv_restore(
+        &mut cache,
+        &mut lighting,
+        &sources,
+        &scene,
+        (&mut dynamic, &mut visibility, caster),
+        bounds,
+    )?;
     assert!(dynamic.despawn(caster));
     assert!(visibility.sync(&dynamic)?);
     let context = BlacklightVisibility {
@@ -345,6 +353,93 @@ fn ultraviolet_receiver_dependencies_preserve_full_refresh_visibility() -> Resul
     assert_eq!(
         cache.sample(Some(context), bounds, glam::Mat4::IDENTITY, None),
         context.receiver(bounds, glam::Mat4::IDENTITY, None)
+    );
+    Ok(())
+}
+
+// Extend the existing triangle fixture with disabled-state movement and first enable.
+fn verify_disabled_uv_restore(
+    cache: &mut crate::engine::render::common::dynamic_visibility::BlacklightReceiverCache,
+    lighting: &mut crate::engine::lighting::LevelLighting,
+    sources: &crate::engine::render::common::blacklight::BlacklightSet,
+    scene: &crate::engine::lighting::transport::TransportScene,
+    moving: (
+        &mut DynamicScene,
+        &mut crate::engine::render::common::dynamic_visibility::DynamicVisibility,
+        super::DynamicId,
+    ),
+    bounds: crate::engine::spatial::Aabb,
+) -> Result<(), String> {
+    use crate::engine::render::common::blacklight::BlacklightVisibility;
+    let (dynamic, visibility, caster) = moving;
+    // Disabled UV may move both receiver and blocker without tracing. The
+    // same existing tiny fixture protects first-enable freshness after history loss.
+    let mut environment = crate::engine::render::wgpu::world::EnvironmentUniform::new(
+        [1.0; 3],
+        false,
+        crate::engine::render::common::atmosphere::FogState::SHIPPED,
+    );
+    assert!(lighting.set_light_enabled(0, false));
+    environment = environment.with_blacklights(sources, Some(lighting));
+    assert!(!environment.has_active_blacklights());
+    let samples = cache.samples();
+    for offset in [0.1, 0.2, 0.3] {
+        assert!(dynamic.set_transform(caster, [offset, 1.0, 0.0], 0.0, 1.0));
+        assert!(visibility.sync(dynamic)?);
+        let context = BlacklightVisibility {
+            sources,
+            scene,
+            dynamic: Some(visibility),
+        };
+        assert_eq!(
+            cache.sample(
+                environment.has_active_blacklights().then_some(context),
+                bounds,
+                glam::Mat4::from_translation(glam::Vec3::new(offset, 0.0, 0.0)),
+                None
+            ),
+            crate::engine::render::common::blacklight::BlacklightReceiver::ZERO
+        );
+    }
+    assert_eq!(
+        cache.samples(),
+        samples,
+        "disabled excitation executes no receiver rays"
+    );
+    assert!(lighting.set_light_enabled(0, true));
+    environment = environment.with_blacklights(sources, Some(lighting));
+    assert!(environment.has_active_blacklights());
+    let context = BlacklightVisibility {
+        sources,
+        scene,
+        dynamic: Some(visibility),
+    };
+    let transform = glam::Mat4::from_translation(glam::Vec3::new(0.3, 0.0, 0.0));
+    assert_eq!(
+        cache.sample(
+            environment.has_active_blacklights().then_some(context),
+            bounds,
+            transform,
+            None
+        ),
+        context.receiver(bounds, transform, None)
+    );
+    assert_eq!(
+        cache.samples(),
+        samples.saturating_add(1),
+        "first enabled frame samples the latest dependencies"
+    );
+    assert!(
+        !lighting
+            .lights()
+            .first()
+            .ok_or("missing UV light")?
+            .is_active(),
+        "zero visible energy is not active visible lighting"
+    );
+    assert!(
+        environment.has_active_blacklights(),
+        "enabled UV survives zero visible brightness"
     );
     Ok(())
 }

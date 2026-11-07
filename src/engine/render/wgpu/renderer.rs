@@ -5956,7 +5956,7 @@ impl WgpuRenderer {
         self.trace_gpu_resource_frame();
         self.gpu_timer.begin_frame(&self.queue);
         if let Some(characters) = self.world_characters.as_mut()
-            && (characters.deformation_pending() || characters.blend_poses_pending())
+            && characters.deformation_pending()
         {
             let mut encoder = self
                 .device
@@ -5967,7 +5967,6 @@ impl WgpuRenderer {
                 let _encoded = characters
                     .encode_deformation(&mut encoder, self.gpu_timer.compute_writes("deformation"));
             }
-            characters.encode_blend_poses(&mut encoder);
             let _submission = self.queue.submit([encoder.finish()]);
         }
         let frame = prepare_world_frame(camera, self.drawable_size)
@@ -6151,6 +6150,9 @@ impl WgpuRenderer {
                         .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                             label: Some("places-wgpu-frame"),
                         });
+                if let Some(characters) = self.world_characters.as_mut() {
+                    characters.encode_blend_poses(&mut encoder);
+                }
                 let totals =
                     self.encode_frame_into(&mut encoder, &view, &frame, Some(&self.gpu_timer));
                 let commands = encoder.finish();
@@ -7257,9 +7259,11 @@ impl WgpuRenderer {
             characters.prepare_transparency(
                 &self.queue,
                 &self.characters,
-                &capture
-                    .world_frame()
-                    .with_clipped_occlusion(None, false, capture.clip_plane),
+                &capture.world_frame().with_clipped_occlusion(
+                    self.world.as_ref(),
+                    self.culling,
+                    capture.clip_plane,
+                ),
                 self.culling,
             );
         }
@@ -7326,6 +7330,9 @@ impl WgpuRenderer {
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("places-wgpu-planar-capture"),
             });
+        if let Some(characters) = self.world_characters.as_mut() {
+            characters.encode_blend_poses(&mut encoder);
+        }
         let checkpoint = self.gpu_timer.pass_checkpoint();
         let pass_draws;
         {
@@ -8106,12 +8113,15 @@ impl WgpuRenderer {
     }
 
     /// Submits the capture's scene and then receipts the exact encoded totals.
-    fn submit_capture_scene(&self, view: &wgpu::TextureView, frame: &super::world::WorldFrame) {
+    fn submit_capture_scene(&mut self, view: &wgpu::TextureView, frame: &super::world::WorldFrame) {
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("places-wgpu-capture"),
             });
+        if let Some(characters) = self.world_characters.as_mut() {
+            characters.encode_blend_poses(&mut encoder);
+        }
         #[cfg(feature = "visual-diagnostics")]
         let capture_totals = self.encode_frame_into(&mut encoder, view, frame, None);
         #[cfg(not(feature = "visual-diagnostics"))]
@@ -8480,7 +8490,7 @@ impl WgpuRenderer {
             "atlas_upload": self.lightmaps.stats(),
             "prop_geometry": self.world_props.as_ref().map(|props| serde_json::json!({"vertex_bytes":props.stats().vertex_bytes,"index_bytes":props.stats().index_bytes,"independent_lighting_instance_bytes":props.stats().lighting_instance_bytes,"canonical_meshes":props.stats().canonical_meshes,"canonical_instances":props.stats().canonical_instances,"buffer_requested_bytes":props.geometry_buffer_bytes(),"layout":"canonical shape plus independent placement lighting; compatible automatic instances; individual fallback buffers"})),
             "transparency_sort_scratch_bytes": {"scene":self.scene_pipeline.as_ref().map_or(0, WorldPipeline::transparency_scratch_bytes), "emission":self.emissive_pipeline.as_ref().map_or(0, WorldPipeline::transparency_scratch_bytes), "capture":self.capture_pipeline.as_ref().map_or(0, WorldPipeline::transparency_scratch_bytes)},
-            "character_geometry": self.world_characters.as_ref().map(|characters|serde_json::json!({"vertex_bytes":characters.stats().vertex_bytes,"index_bytes":characters.stats().index_bytes,"characters":characters.stats().characters,"shared_models":characters.stats().meshes,"transparency_cpu_bytes":characters.transparency_cpu_bytes(),"blend_batch_cpu_bytes":characters.blend_batch_cpu_bytes(),"blend_batch_gpu_bytes":characters.blend_batch_gpu_bytes()})),
+            "dynamic_uv_receiver_samples": self.world_dynamic.as_ref().map(super::dynamic::WgpuDynamic::uv_receiver_samples), "character_geometry": self.world_characters.as_ref().map(|characters|serde_json::json!({"vertex_bytes":characters.stats().vertex_bytes,"index_bytes":characters.stats().index_bytes,"characters":characters.stats().characters,"shared_models":characters.stats().meshes,"transparency_cpu_bytes":characters.transparency_cpu_bytes(),"blend_batch_cpu_bytes":characters.blend_batch_cpu_bytes(),"blend_batch_gpu_bytes":characters.blend_batch_gpu_bytes(),"receiver_preparation":characters.receiver_preparation_diagnostics()})),
             "drawable": [self.drawable_size.width, self.drawable_size.height],
             "surface_present_mode": surface::present_mode_label(self.config.present_mode),
             "surface_desired_frame_latency": self.config.desired_maximum_frame_latency,

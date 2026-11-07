@@ -33,6 +33,8 @@ struct BlacklightReceiverKey {
 pub struct BlacklightReceiverCache {
     key: Option<BlacklightReceiverKey>,
     value: super::blacklight::BlacklightReceiver,
+    #[cfg(any(test, feature = "visual-diagnostics"))]
+    samples: usize,
 }
 
 impl Default for BlacklightReceiverCache {
@@ -40,11 +42,18 @@ impl Default for BlacklightReceiverCache {
         Self {
             key: None,
             value: super::blacklight::BlacklightReceiver::ZERO,
+            #[cfg(any(test, feature = "visual-diagnostics"))]
+            samples: 0,
         }
     }
 }
 
 impl BlacklightReceiverCache {
+    #[cfg(any(test, feature = "visual-diagnostics"))]
+    pub const fn samples(&self) -> usize {
+        self.samples
+    }
+
     pub fn sample(
         &mut self,
         visibility: Option<super::blacklight::BlacklightVisibility<'_>>,
@@ -83,6 +92,10 @@ impl BlacklightReceiverCache {
             previous.dynamic_revision = key.dynamic_revision;
         }
         if self.key.as_ref() != Some(&key) {
+            #[cfg(any(test, feature = "visual-diagnostics"))]
+            {
+                self.samples = self.samples.saturating_add(1);
+            }
             self.value = context.receiver(bounds, model, receiver);
             self.key = Some(key);
         }

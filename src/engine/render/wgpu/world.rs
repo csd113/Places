@@ -706,6 +706,14 @@ impl EnvironmentUniform {
         self
     }
 
+    /// UV excitation follows enabled UV strength, independently of visible light.
+    #[must_use]
+    pub fn has_active_blacklights(&self) -> bool {
+        self.blacklights
+            .iter()
+            .any(|source| source.color_strength[3] > 0.0)
+    }
+
     #[must_use]
     pub const fn new(
         light_scale: [f32; 3],

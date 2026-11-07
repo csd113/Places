@@ -385,6 +385,74 @@ fn suspended_character_defers_lighting_and_refreshes_immediately_on_restore() ->
         ),
         "restoration matches full lighting at the current pose and source state"
     );
+    verify_faded_receiver_restore(&mut scene, &mut lighting)
+}
+
+// Reuses the suspension fixture for a distinct zero-opacity boundary. No new bake.
+fn verify_faded_receiver_restore(
+    scene: &mut CharacterScene,
+    lighting: &mut crate::engine::lighting::LevelLighting,
+) -> Result<(), String> {
+    let before_fade = scene
+        .runtime
+        .first()
+        .ok_or("missing actor")?
+        .lighting_refresh_key;
+    let actor = scene.runtime.first_mut().ok_or("missing actor")?;
+    actor.set_opacity(0.0);
+    actor.runtime_glow = Some(super::GlowCue {
+        socket: None,
+        offset: [0.0, 0.5, 0.0],
+        color: [1.0; 3],
+        intensity: 1.0,
+        range: 4.0,
+        fade_with_opacity: false,
+    });
+    actor.set_pose(Vec3::new(0.6, 0.0, 0.2), 0.7);
+    actor.animator.revision = actor.animator.revision.wrapping_add(1);
+    assert!(lighting.set_light_enabled(0, true));
+    scene.refresh_lighting_with_visibility_and_revision(lighting, None, None, None, 3);
+    assert_eq!(
+        scene
+            .runtime
+            .first()
+            .ok_or("missing actor")?
+            .lighting_refresh_key,
+        before_fade,
+        "fully faded receiver keeps its unsampled dependencies stale"
+    );
+    scene.update_dynamic_lights(&[]);
+    assert_eq!(
+        scene.dynamic_lights.len(),
+        1,
+        "non-fading attached light remains active"
+    );
+    assert_eq!(
+        scene
+            .dynamic_lights
+            .lights()
+            .first()
+            .ok_or("missing light")?
+            .position,
+        Vec3::new(0.6, 0.5, 0.2)
+    );
+    let returning = scene.runtime.first_mut().ok_or("missing actor")?;
+    returning.set_opacity(0.25);
+    returning.shadow_only = true;
+    scene.refresh_lighting_with_visibility_and_revision(lighting, None, None, None, 3);
+    let restored = scene.runtime.first().ok_or("missing actor")?;
+    assert_ne!(
+        restored.lighting_refresh_key, before_fade,
+        "positive shadow-only partial fade refreshes immediately"
+    );
+    assert_eq!(
+        restored.entity_lighting,
+        crate::engine::render::common::light_transport::entity_lighting(
+            lighting,
+            None,
+            restored.lighting_sample_position()
+        )
+    );
     Ok(())
 }
 

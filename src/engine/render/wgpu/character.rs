@@ -1015,7 +1015,7 @@ impl WgpuCharacters {
                 .with_posed_direct_base(posed.direct_for(character))
                 .with_opacity(character.opacity());
             gpu.pending_environment.uv_receiver = gpu.uv_receiver.sample(
-                visibility.filter(|_| gpu.uv_reactive),
+                visibility.filter(|_| gpu.uv_reactive && environment.has_active_blacklights()),
                 gpu.pose.bounds,
                 character.transform(),
                 None,
@@ -1109,7 +1109,7 @@ impl WgpuCharacters {
                 .with_posed_direct_base(posed.direct_for(character))
                 .with_opacity(character.opacity());
             uniform.uv_receiver = gpu.uv_receiver.sample(
-                visibility.filter(|_| gpu.uv_reactive),
+                visibility.filter(|_| gpu.uv_reactive && environment.has_active_blacklights()),
                 gpu.pose.bounds,
                 character.transform(),
                 None,

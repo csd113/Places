@@ -2537,7 +2537,9 @@ impl CharacterScene {
             for character in &mut *receivers {
                 character.lighting_refresh_plan =
                     super::dynamic::EntityLightingRefreshPlan::default();
-                if !character.runtime_visible {
+                // A fully faded actor has no receiving-light consumer. Keep all
+                // dependency keys stale until fade-in; animation and sockets advance.
+                if !character.runtime_visible || character.opacity <= 0.0 {
                     continue;
                 }
                 character.invalidate_changed_surface_support();

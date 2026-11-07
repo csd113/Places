@@ -13,6 +13,11 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Avoid unused translucent-character batch copies and lighting uploads when no
+  main, mirror or probe view consumes them. Skip UV receiver sampling while all
+  UV sources are off, and defer fully faded actors' receiving-light refreshes
+  until they reappear. Preserve first-return lighting and attached lights.
+
 - Correct illumination from flashlights and other attached lights on dark,
   pre-lit surfaces. Keep surface marks and details behind transparent objects and
   blend them into fog properly. Show the sky and celestial objects in mirrors and

@@ -79,3 +79,32 @@ fn blend_batch_preserves_each_emission_and_refuses_incompatible_bindings() -> Re
     );
     Ok(())
 }
+
+// One stack-only lifecycle protects skipped-view freshness, including a changed
+// alias owner and tint. This is the actual copy predicate, not a simulated GPU.
+#[test]
+fn blend_copy_waits_for_a_consuming_view_and_catches_up_on_return() {
+    use super::pose_copy_needed;
+    let mut copied = Some((1, Some(4), 0));
+    for current in [(1, Some(5), 0), (1, Some(6), 1), (2, Some(6), 1)] {
+        assert!(
+            !pose_copy_needed(None, copied, current),
+            "no main/capture consumer"
+        );
+        assert_eq!(
+            copied,
+            Some((1, Some(4), 0)),
+            "skipping must retain stale copy identity"
+        );
+    }
+    let current = (2, Some(6), 1);
+    assert!(
+        pose_copy_needed(Some(9), copied, current),
+        "first main or capture view needs latest pose/tint"
+    );
+    copied = Some(current);
+    assert!(
+        !pose_copy_needed(Some(10), copied, current),
+        "another view only changes order, not copied geometry"
+    );
+}

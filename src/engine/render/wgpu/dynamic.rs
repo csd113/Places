@@ -733,7 +733,7 @@ impl WgpuDynamic {
                 .with_entity_lighting(live.entity_lighting())
                 .with_spatial_lighting(live.spatial_lighting());
             uniform.uv_receiver = object.uv_receiver.sample(
-                visibility.filter(|_| object.uv_reactive),
+                visibility.filter(|_| object.uv_reactive && environment.has_active_blacklights()),
                 live.mesh().bounds,
                 transform,
                 Some(live.id()),
@@ -791,6 +791,13 @@ impl WgpuDynamic {
             "lightmap_switchable": uniform.lightmap_switchable,
             "lightmap_enabled": uniform.lightmap_enabled,
         }))
+    }
+
+    #[cfg(feature = "visual-diagnostics")]
+    pub fn uv_receiver_samples(&self) -> usize {
+        self.objects.iter().fold(0usize, |sum, object| {
+            sum.saturating_add(object.uv_receiver.samples())
+        })
     }
 
     /// The upload and frame counters.

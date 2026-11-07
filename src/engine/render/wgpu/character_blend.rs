@@ -23,10 +23,24 @@ struct BatchTriangle {
     character: usize,
 }
 
+type CopiedPose = (usize, Option<u64>, u64);
+
+fn pose_copy_needed(
+    prepared: Option<u64>,
+    copied: Option<CopiedPose>,
+    current: CopiedPose,
+) -> bool {
+    prepared.is_some() && copied != Some(current)
+}
+
 pub(in crate::engine::render::wgpu) struct BlendBatch {
     members: Vec<usize>,
     births: Vec<u64>,
-    copied_poses: Vec<Option<(usize, Option<u64>, u64)>>,
+    copied_poses: Vec<Option<CopiedPose>>,
+    #[cfg(feature = "visual-diagnostics")]
+    copied_bytes: u64,
+    #[cfg(feature = "visual-diagnostics")]
+    environment_uploads: u64,
     prepared_orders: Vec<Option<u64>>,
     order_initialized: bool,
     pub vertices: wgpu::Buffer,
@@ -179,6 +193,10 @@ impl BlendBatch {
                 .collect(),
             members,
             copied_poses,
+            #[cfg(feature = "visual-diagnostics")]
+            copied_bytes: 0,
+            #[cfg(feature = "visual-diagnostics")]
+            environment_uploads: 0,
             prepared_orders,
             order_initialized: false,
             vertices: allocate(
@@ -232,7 +250,10 @@ impl BlendBatch {
                 order_changed |= *previous != key;
                 *previous = key;
             }
-            if let (Some(character), Some(uniform)) = (entry, self.uniforms.get_mut(actor)) {
+            if let (Some(character), Some(uniform)) = (
+                entry.filter(|_| key.is_some()),
+                self.uniforms.get_mut(actor),
+            ) {
                 let current = character.environment.uploaded_uniform();
                 if bytemuck::bytes_of(uniform) != bytemuck::bytes_of(current) {
                     *uniform = *current;
@@ -241,6 +262,10 @@ impl BlendBatch {
             }
         }
         if uniforms_changed {
+            #[cfg(feature = "visual-diagnostics")]
+            {
+                self.environment_uploads = self.environment_uploads.saturating_add(1);
+            }
             queue.write_buffer(&self.environments, 0, bytemuck::cast_slice(&self.uniforms));
         }
         if !order_changed {
@@ -310,17 +335,27 @@ impl BlendBatch {
             let Some(entry) = characters.get(*member) else {
                 continue;
             };
-            if !entry.visible {
+            // Only the view-prepared triangle stream consumes this batch slot.
+            // Keep its copied key stale while absent so the first return catches up.
+            if self.prepared_orders.get(slot).is_none_or(Option::is_none) {
                 continue;
             }
             let owner_index = entry.shared_pose.unwrap_or(*member);
             if let Some(owner) = characters.get(owner_index) {
                 let key = (owner_index, owner.pose.revision, owner.pose.albedo_revision);
-                if self.copied_poses.get(slot) == Some(&Some(key)) {
+                if !pose_copy_needed(
+                    self.prepared_orders.get(slot).copied().flatten(),
+                    self.copied_poses.get(slot).copied().flatten(),
+                    key,
+                ) {
                     continue;
                 }
                 if let Some(copied) = self.copied_poses.get_mut(slot) {
                     *copied = Some(key);
+                }
+                #[cfg(feature = "visual-diagnostics")]
+                {
+                    self.copied_bytes = self.copied_bytes.saturating_add(stride);
                 }
                 encoder.copy_buffer_to_buffer(
                     &owner.vertex_buffer,
@@ -488,25 +523,6 @@ impl WgpuCharacters {
         !self.blend_batches.is_empty()
     }
 
-    pub fn blend_poses_pending(&self) -> bool {
-        self.blend_batches.iter().any(|batch| {
-            batch.members.iter().enumerate().any(|(slot, member)| {
-                let Some(entry) = self.characters.get(*member).filter(|entry| entry.visible) else {
-                    return false;
-                };
-                let owner_index = entry.shared_pose.unwrap_or(*member);
-                self.characters.get(owner_index).is_some_and(|owner| {
-                    batch.copied_poses.get(slot)
-                        != Some(&Some((
-                            owner_index,
-                            owner.pose.revision,
-                            owner.pose.albedo_revision,
-                        )))
-                })
-            })
-        })
-    }
-
     pub(in crate::engine::render::wgpu) fn blend_batch(&self, slot: usize) -> Option<&BlendBatch> {
         self.blend_batches.get(slot)
     }
@@ -537,6 +553,15 @@ impl WgpuCharacters {
                         )
                     })
             })
+    }
+
+    #[cfg(feature = "visual-diagnostics")]
+    pub fn receiver_preparation_diagnostics(&self) -> serde_json::Value {
+        serde_json::json!({
+            "blend_copied_bytes": self.blend_batches.iter().fold(0u64, |sum, batch| sum.saturating_add(batch.copied_bytes)),
+            "blend_environment_uploads": self.blend_batches.iter().fold(0u64, |sum, batch| sum.saturating_add(batch.environment_uploads)),
+            "uv_receiver_samples": self.characters.iter().fold(0usize, |sum, actor| sum.saturating_add(actor.uv_receiver.samples())),
+        })
     }
 
     #[cfg(feature = "visual-diagnostics")]
