@@ -173,7 +173,49 @@ record the full authoring/compiler/bake/runtime/presentation boundary, defaults
 and remaining unsupported cases. Stage 5 authors stable presentation and sky colour; Stage 2
 retains its existing constants without screenshot-specific exposure changes.
 
-**The sky pass** is the one optional thing drawn between the clear and the world: a level that declares `sky` gets one fullscreen triangle (`sky.wgsl`) after the colour clear and before any world body draw, sampling an equirectangular 2:1 sheet by view direction (repeat in U, clamp at the poles). It writes no depth and tests depth `Always`, so the world body — a solid ceiling included — always covers it; it is not submitted at all when the level declares no sky, which is what keeps the historical clear as the background. The sky is a separate pipeline per target convention (`SCENE_FORMAT` raw, the surface format sRGB) and is deliberately absent from the reflection and planar captures. Its one contribution to baked lighting is the level's `sky.ambient`, resolved in the transport solve rather than in this pass.
+**The sky pass** is the one optional thing drawn between the clear and the world: a level that declares `sky` gets one fullscreen triangle (`sky.wgsl`) after the colour clear and before any world body draw, sampling an equirectangular 2:1 sheet by view direction (repeat in U, clamp at the poles). It writes no depth and tests depth `Always`, so the world body — a solid ceiling included — always covers it; it is not submitted at all when the level declares no sky, which is what keeps the historical clear as the background. The sky is a separate pipeline per target convention (`SCENE_FORMAT` raw, the surface format sRGB) and participates in probe and planar captures with the capture camera. Transient storm extinction is cleared consistently for sky, world and actors during those captures, then restored for the presented sightline. Its one contribution to baked lighting is the level's `sky.ambient`, resolved in the transport solve rather than in this pass.
+
+### Retained renderer resources and view preparation
+
+Runtime model membership reconciles stable object/actor identities instead of
+reuploading every survivor. Immutable meshes follow their retained asset identity;
+mutable model/environment/material state belongs to the live object. Fitted
+character appearance changes replace texture bindings while retaining geometry,
+pose, deformation and lighting resources. Bulk removal reconciles once. A level
+or binding-layout replacement still invalidates resources that depend on it.
+
+Identical HDR scene/emission owners share immutable pipeline programs and layouts;
+camera, light, water and sorting state remain per view. Flashlight pipeline
+compilation joins startup preparation, leaving only its bounded depth target for
+first use. Decal, sky, effects and post-process programs use that same single
+startup worker; the owner publishes bindings to its current textures/caustics.
+Surface-format restarts discard completed obsolete work before starting another
+job, while post-process targets retain their original binding layouts. A main view prepares one transparency order for scene and emission,
+including nonemitting coverage in a nonempty emission pass. Reflection order is
+independent. Compatible character batches retain unchanged indices and environment
+bytes. Mirrored AABBs wholly outside the retained half-space are rejected
+conservatively before reflection transparency preparation and drawing; crossing
+and touching geometry keeps fragment clipping.
+
+Sky/disc decode and semantic mip preparation use the existing bounded texture
+worker and staged uploads. Cache lookup precedes decode. Reduced-quality colour
+textures calculate fitting dimensions before their one linear-colour resize;
+numeric odd mip dimensions cover the entire source footprint. Immutable character
+bind bounds, decal ordering storage and rigid-instance scratch are retained.
+Contact shadows select the same nearest eight without a full candidate sort.
+
+Realtime attached/flashlight diffuse light multiplies the unlit material factor,
+not the baked vertex illumination. Entity lighting, geometric normals and posed
+visibility retain their independent contracts. Imported lightmap arrays validate
+actual deduplicated physical layers and page edges against device limits before
+allocation; an unsupported array is a descriptive load failure.
+
+Only active view families receive frame camera/light updates. A newly activated
+family receives the complete current state, including an empty light set. Capture
+weather uses a precise uniform-range write and restores actor state before main
+BLEND preparation. Other actor changes still use the 6,528-byte environment block;
+a broader layout split and lazy bloom/direct-depth residency remain separate
+measurement-led choices.
 
 ## 4. World geometry and coordinate conventions
 
@@ -1186,7 +1228,7 @@ frame keep following the player's locomotion snapshot, exactly as before.
 Decals are small local surface markings (signs, floor arrows, warning marks) placed on an existing surface. The pass draws the committed atlas PNG and external PNG sheets as quads over their supporting surface, with a fixed depth bias and a real geometric offset:
 
 - The fixed atlas is loaded from its committed PNG; external sheets (`"source": "file"`) are decoded through the asset cache and uploaded as their own fitted sheets.
-- The sheets are fitted (their UVs never leave the sheet) and sampled with mipmaps. The fixed atlas and ordinary external sheets use the 0.5 cutout threshold and write depth. A catalog sheet with `alpha_mode: "blend"` uses soft coverage, depth writes off and back-to-front ordering within the decal pass. Decals draw after the world body; effects follow them.
+- The sheets are fitted (their UVs never leave the sheet) and sampled with mipmaps. The fixed atlas and ordinary external sheets use the 0.5 cutout threshold and write depth. A catalog sheet with `alpha_mode: "blend"` uses soft coverage, depth writes off and back-to-front ordering within the decal pass. Decals draw after opaque/cutout geometry and before shared transparency in main, direct, probe and planar views; effects follow the completed world. They use the same ordinary global/regional fog integration and storm transmission as their supporting surfaces.
 - Cutout markings retain their vertex-lit appearance. In a prepared build, blended decal colours are relit from the prepared probe field so soft markings follow its surrounding illumination; an Off build retains the vertex-lit fallback.
 - `DECAL_SURFACE_OFFSET_M` displaces every decal 0.2 mm along its surface normal. That is a real geometric separation, sub-pixel at any practical viewing distance, so the base texture cannot win a pixel in the near and mid field no matter how the rasteriser fits its plane equations.
 - `DECAL_POLYGON_OFFSET` adds a slope-scaled depth bias in the decal pass, so the far field and grazing angles stay in front of the parent surface after the physical offset is below the depth buffer's resolution.
@@ -1200,13 +1242,17 @@ Both constants are defined once in `src/engine/render/common/decals.rs` and appl
 On top of the global term a level may author up to 16 **regional fog volumes** (`fog_regions`, `src/engine/render/common/atmosphere.rs`). The group-3 uniform carries a count word and a fixed `array<FogRegion, 16>` (64 bytes per entry: box minimum + horizontal falloff, box maximum + fade-to-zero height, mix colour + density, ground-layer base); the fragment loop is bounded by the count and evaluates each region from the **fragment's** world position, never from camera membership. A region contributes `density * horizontal_edge * vertical_layer`; the greatest contribution wins (ties keep the lowest authoring index), the global density is added to the winner and the winner's colour is mixed towards. Densities never sum. The count is a uniform value, so the quality preset (Low 2 / Medium 8 / High 16) changes only the uploaded prefix — switching presets recovers the dropped regions with no rebuild. A level with no regions packs a zero count and a zeroed array: the global path is bit-identical to the historical one.
 
 **Bloom and resolve.** Linear HDR scene/emission/blur targets remain `Rgba16Float`.
-A quarter-size two-pass five-tap blur extracts emission above a soft 0.5 HDR knee
-on its first pass only. Strength 0.22 adds the halo before fixed authored exposure,
+An area-weighted prefilter extracts emission above the authored soft 0.5 HDR knee
+before averaging each complete source footprint into a quarter-edge image. Thin
+rows, columns and odd trailing edges all contribute. Two five-tap blur passes
+then reuse the same two quarter-edge targets; horizontal steps retain the
+scene-pixel radius and vertical steps retain the quarter-image radius. The
+threshold runs once, before reduction. No third scratch texture is allocated. Strength 0.22 adds the halo before fixed authored exposure,
 a hue-preserving rational highlight shoulder, sRGB conversion and restrained
 display grading. Optional `environment.presentation` is independent of quality:
 Low/Medium/High retain the same transform for every draw family. Two 32-byte
-bloom-off/on uniforms update only when authored settings change. Bloom Off
-submits no emissive/blur passes; the resolve still supplies the authored curve.
+bloom-off/on uniforms update only when authored settings change. Bloom Off or a scene with no visible, effectively emitting material
+submits no emission/prefilter/blur passes; the resolve still supplies the authored curve.
 The HUD follows display composition. Diagnostic modes bypass presentation effects
 and world atmosphere, retaining one sRGB encoding of documented mapped values;
 `final` executes the normal composition. Transparent emission uses straight

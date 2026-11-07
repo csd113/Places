@@ -123,6 +123,19 @@ fn bloom_threshold(color: vec3<f32>) -> vec3<f32> {
 @fragment
 fn fs_prefilter(in: QuadOut) -> @location(0) vec4<f32> {
     let source_size = textureDimensions(source_texture);
+    // The usual exact 4x reduction has unit coverage for every source texel.
+    // Retain threshold-before-average and the same row-major sum, without
+    // per-sample fractional coverage arithmetic. Odd sizes use the general path.
+    if (all(source_size == vec2<u32>(blur.texel.xy) * 4u)) {
+        let first = vec2<i32>(in.clip.xy) * 4;
+        var sum = vec3<f32>(0.0);
+        for (var y = 0; y < 4; y += 1) {
+            for (var x = 0; x < 4; x += 1) {
+                sum += bloom_threshold(textureLoad(source_texture, first + vec2<i32>(x, y), 0).rgb);
+            }
+        }
+        return vec4<f32>(sum / 16.0, 1.0);
+    }
     let scale = vec2<f32>(source_size) / blur.texel.xy;
     let lower = floor(in.clip.xy) * scale;
     let upper = min(lower + scale, vec2<f32>(source_size));

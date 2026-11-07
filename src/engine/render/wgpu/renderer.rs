@@ -7223,7 +7223,9 @@ impl WgpuRenderer {
             characters.prepare_transparency(
                 &self.queue,
                 &self.characters,
-                &capture.world_frame(),
+                &capture
+                    .world_frame()
+                    .with_clipped_occlusion(None, false, capture.clip_plane),
                 self.culling,
             );
         }

@@ -272,7 +272,8 @@ fn target_sizes(
 }
 
 /// The three bind group layouts the post pipelines and targets use.
-struct PostLayouts {
+#[derive(Clone)]
+pub(super) struct PostLayouts {
     resolve: wgpu::BindGroupLayout,
     present: wgpu::BindGroupLayout,
     blur: wgpu::BindGroupLayout,
@@ -544,20 +545,69 @@ pub struct PostProcess {
     targets: Option<PostTargets>,
 }
 
+/// Prepared against the existing layouts so format changes preserve targets.
+pub(super) struct PostPrograms {
+    layouts: PostLayouts,
+    pipelines: PostPipelines,
+    surface_format: wgpu::TextureFormat,
+}
+
+impl PostPrograms {
+    pub(super) fn new(
+        device: &wgpu::Device,
+        surface_format: wgpu::TextureFormat,
+        previous_layouts: Option<PostLayouts>,
+    ) -> Self {
+        let layouts = previous_layouts.unwrap_or_else(|| PostLayouts::new(device));
+        let pipelines = PostPipelines::new(device, surface_format, &layouts);
+        Self {
+            layouts,
+            pipelines,
+            surface_format,
+        }
+    }
+
+    pub(super) fn install(
+        self,
+        device: &wgpu::Device,
+        previous: Option<PostProcess>,
+    ) -> PostProcess {
+        if let Some(mut post) = previous {
+            post.pipelines = self.pipelines;
+            post.surface_format = self.surface_format;
+            post
+        } else {
+            PostProcess::from_programs(device, self)
+        }
+    }
+}
+
 impl PostProcess {
-    /// Builds every pipeline and sampler for the surface format.
+    /// Builds every pipeline and sampler for an explicit native diagnostic.
     ///
     /// No size-dependent target is created here: [`Self::ensure`] owns those.
+    #[cfg(feature = "visual-diagnostics")]
     #[must_use]
     pub fn new(device: &wgpu::Device, surface_format: wgpu::TextureFormat) -> Self {
+        Self::from_programs(device, PostPrograms::new(device, surface_format, None))
+    }
+
+    pub(super) fn preparation_layouts(&self) -> PostLayouts {
+        self.layouts.clone()
+    }
+
+    fn from_programs(device: &wgpu::Device, programs: PostPrograms) -> Self {
+        let PostPrograms {
+            layouts,
+            pipelines,
+            surface_format,
+        } = programs;
         if !surface_format_is_srgb(surface_format) {
             logging::warn_once(
                 "wgpu-post-surface-format",
                 "[wgpu] the surface format is not sRGB; presentation copies encoded display values and direct 8-bit drawing uses software encoding",
             );
         }
-        let layouts = PostLayouts::new(device);
-        let pipelines = PostPipelines::new(device, surface_format, &layouts);
         let quad_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("places-wgpu-post-quad"),
             contents: bytemuck::cast_slice(&PRESENT_QUAD),
@@ -612,30 +662,6 @@ impl PostProcess {
                 *previous = value;
             }
         }
-    }
-
-    /// Rebuilds the resolve and present pipelines when the surface format
-    /// changed, exactly like the world pipeline's format check.
-    ///
-    /// The targets and their bind groups are format-independent and survive.
-    /// Returns true when anything was rebuilt.
-    pub fn set_surface_format(
-        &mut self,
-        device: &wgpu::Device,
-        surface_format: wgpu::TextureFormat,
-    ) -> bool {
-        if self.surface_format == surface_format {
-            return false;
-        }
-        if !surface_format_is_srgb(surface_format) {
-            logging::warn_once(
-                "wgpu-post-surface-format",
-                "[wgpu] the surface format is not sRGB; presentation copies encoded display values and direct 8-bit drawing uses software encoding",
-            );
-        }
-        self.surface_format = surface_format;
-        self.pipelines = PostPipelines::new(device, surface_format, &self.layouts);
-        true
     }
 
     /// Ensures the scene, emissive, blur and presented targets for

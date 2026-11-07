@@ -18,7 +18,7 @@
 //! * the [`DecalPipeline`]: the reference's decal program, `LessEqual` depth
 //!   with writes on, [`DECAL_DEPTH_BIAS`], no culling and no blending;
 //! * [`WgpuDecals::encode`], one draw per range surviving the frame's frustum
-//!   test, submitted after the translucent pass and never in the emissive body.
+//!   test, submitted between opaque geometry and transparency, never in emission.
 //!
 //! Authored colour uploads as sRGB [`DECAL_SHEET_FORMAT`], so sampling decodes
 //! it before linear shading. Quality reduction and the CPU mip chain both
@@ -482,15 +482,19 @@ fn caustics_binding(
     })
 }
 
-impl DecalPipeline {
-    /// Builds the decal pipeline for one colour target format.
-    #[must_use]
-    pub fn new(
-        device: &wgpu::Device,
-        format: wgpu::TextureFormat,
-        caustics: &super::caustics::Caustics,
-        cache: &TextureCache,
-    ) -> Self {
+/// Driver compilation is independent of the live caustics/cache bindings.
+pub(super) struct DecalPrograms {
+    pipeline: wgpu::RenderPipeline,
+    blend_pipeline: wgpu::RenderPipeline,
+    camera_layout: wgpu::BindGroupLayout,
+    sheet_layout: wgpu::BindGroupLayout,
+    empty_layout: wgpu::BindGroupLayout,
+    caustics_layout: wgpu::BindGroupLayout,
+    lights_layout: wgpu::BindGroupLayout,
+}
+
+impl DecalPrograms {
+    pub(super) fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("places-wgpu-decal-shader"),
             source: wgpu::ShaderSource::Wgsl(DECAL_SHADER_SRC.into()),
@@ -502,15 +506,7 @@ impl DecalPipeline {
             label: Some("places-decal-unused-world-groups"),
             entries: &[],
         });
-        let empty_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("places-decal-unused-world-groups"),
-            layout: &empty_layout,
-            entries: &[],
-        });
         let caustics_layout = caustics_layout(device);
-        let caustics_bind_group = caustics_binding(device, &caustics_layout, caustics, cache);
-        let (lights_buffer, lights_bind_group, lights_sampler) =
-            super::world::create_dynamic_lights_binding(device, &lights_layout);
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("places-wgpu-decal-pipeline-layout"),
             bind_group_layouts: &[
@@ -522,6 +518,44 @@ impl DecalPipeline {
             ],
             immediate_size: 0,
         });
+        let pipeline = build_decal_pipeline(device, format, &pipeline_layout, &shader, false);
+        let blend_pipeline = build_decal_pipeline(device, format, &pipeline_layout, &shader, true);
+        Self {
+            pipeline,
+            blend_pipeline,
+            camera_layout,
+            sheet_layout,
+            empty_layout,
+            caustics_layout,
+            lights_layout,
+        }
+    }
+}
+
+impl DecalPipeline {
+    pub(super) fn from_programs(
+        device: &wgpu::Device,
+        programs: DecalPrograms,
+        caustics: &super::caustics::Caustics,
+        cache: &TextureCache,
+    ) -> Self {
+        let DecalPrograms {
+            pipeline,
+            blend_pipeline,
+            camera_layout,
+            sheet_layout,
+            empty_layout,
+            caustics_layout,
+            lights_layout,
+        } = programs;
+        let empty_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("places-decal-unused-world-groups"),
+            layout: &empty_layout,
+            entries: &[],
+        });
+        let caustics_bind_group = caustics_binding(device, &caustics_layout, caustics, cache);
+        let (lights_buffer, lights_bind_group, lights_sampler) =
+            super::world::create_dynamic_lights_binding(device, &lights_layout);
         let camera_buffer = device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("places-wgpu-decal-camera"),
             size: DECAL_CAMERA_SIZE,
@@ -536,8 +570,6 @@ impl DecalPipeline {
                 resource: camera_buffer.as_entire_binding(),
             }],
         });
-        let pipeline = build_decal_pipeline(device, format, &pipeline_layout, &shader, false);
-        let blend_pipeline = build_decal_pipeline(device, format, &pipeline_layout, &shader, true);
         Self {
             pipeline,
             blend_pipeline,
@@ -802,8 +834,8 @@ impl WgpuDecals {
     /// Draws the decal pass into `pass`.
     ///
     /// The caller opens the pass on the same colour + depth targets the scene
-    /// body used; decals run last, with the depth test on, exactly like the
-    /// reference's `draw_decal_batches`. Cut-out decals keep the packed draw
+    /// body used; decals run after opaque geometry and before shared transparency.
+    /// Cut-out decals keep the packed draw
     /// order; soft-edged (`alpha_mode: "blend"`) sheets draw after them through
     /// the blended pipeline, sorted back to front, so overlapping feather
     /// strips composite in a stable order. Vertex/index buffers and sheets are

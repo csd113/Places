@@ -8121,8 +8121,10 @@ A level may declare one sky background:
   reproduce the prepared sky distribution. Background `brightness` and final
   exposure are independent of stored energy; optional moon/global illuminators
   retain their visibility/cosine paths.
-* The sky is never captured into reflection probes or the planar mirror, and it
-  is not fogged: it is an infinite background. It *is* a package dependency:
+* The sky is captured into reflection probes and the planar mirror using the
+  capture direction. Ordinary finite-distance fog does not apply to this infinite
+  background; transient storm extinction is applied only on the final sightline.
+  The sky is a package dependency:
   editing the sheet invalidates a compiled package like any surface texture.
 * To see the sky above an exterior, the ground room must author
   `"ceiling": { "kind": "open" }`. Through a window or an open doorway the sky

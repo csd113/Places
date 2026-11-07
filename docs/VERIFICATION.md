@@ -279,3 +279,14 @@ and verify that display pacing does not cap the result. Requested Immediate mode
 alone is insufficient: a run plateauing at refresh rate is inconclusive for
 throughput gains and must be labeled accordingly. Report the observed pacing
 limit; do not turn GPU stage timings or a requested setting into an FPS gain.
+
+### Complete bloom-footprint native control
+
+With an all-feature developer player, `PLACES_BENCH=1 PLACES_BENCH_BLOOM_PROBE=1` runs eleven tiny numeric attachment controls on the
+already-created native device before ordinary loading. It exercises every
+row/column phase of an 8×8 source, 7×5 and 13×9 trailing edges, constant energy
+and a 1×1 source. It uses the actual prefilter pipeline and checks GPU readback
+against independent area coverage with a one-byte output tolerance. It creates
+no artwork, map bake, extra adapter or ordinary frame-time workload. A validation
+or numerical failure returns an error; successful controls log `[bloom-probe]`.
+This diagnostic run must not be used for FPS acceptance.
